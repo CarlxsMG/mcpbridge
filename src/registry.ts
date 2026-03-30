@@ -1,4 +1,5 @@
 import type { RegisteredClient, RestToolDefinition, ResolvedTool } from "./types.js";
+import { sanitizeToolDescription } from "./sanitize.js";
 
 const VALID_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
@@ -10,8 +11,13 @@ class Registry {
     name: string,
     tools: RestToolDefinition[],
     healthUrl: string,
-    ip: string
+    ip: string,
+    baseUrl: string
   ): void {
+    if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(name)) {
+      throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
+    }
+
     if (!name || typeof name !== "string") {
       throw new Error("Client name is required and must be a non-empty string");
     }
@@ -55,6 +61,11 @@ class Registry {
       }
     }
 
+    // Sanitize tool descriptions
+    for (const tool of tools) {
+      tool.description = sanitizeToolDescription(tool.description);
+    }
+
     // Remove existing tool index entries for this client before rebuilding
     if (this.clients.has(name)) {
       const existing = this.clients.get(name)!;
@@ -68,6 +79,7 @@ class Registry {
       ip,
       tools,
       health_url: healthUrl,
+      base_url: baseUrl,
       status: "healthy",
     };
 

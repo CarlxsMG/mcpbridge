@@ -1,6 +1,7 @@
 export interface RegistrationPayload {
   name: string;
   health_url: string;
+  base_url?: string;
   // Manual mode
   tools?: RestToolDefinition[];
   // OpenAPI auto-discovery mode
@@ -22,6 +23,7 @@ export interface RegisteredClient {
   ip: string;
   tools: RestToolDefinition[];
   health_url: string;
+  base_url: string;
   status: "healthy" | "unreachable";
 }
 

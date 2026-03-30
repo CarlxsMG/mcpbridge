@@ -1,6 +1,7 @@
 import { dereference } from "@scalar/openapi-parser";
 import { parse as parseYaml } from "yaml";
 import type { RestToolDefinition } from "./types.js";
+import { config } from "./config.js";
 
 const VALID_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 
@@ -12,7 +13,7 @@ export async function discoverToolsFromOpenApi(options: {
   const { openapiUrl, includeTags, excludeOperations } = options;
 
   // 1. Fetch spec
-  const res = await fetch(openapiUrl, { signal: AbortSignal.timeout(10_000) });
+  const res = await fetch(openapiUrl, { signal: AbortSignal.timeout(config.openapiDiscoveryTimeoutMs) });
   if (!res.ok) throw new Error(`Failed to fetch OpenAPI spec from ${openapiUrl}: ${res.status}`);
   const text = await res.text();
 

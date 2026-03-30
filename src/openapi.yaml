@@ -49,6 +49,8 @@ paths:
         two modes are mutually exclusive.
       tags:
         - Registration
+      security:
+        - AdminAuth: []
       requestBody:
         required: true
         description: Full registration payload including client name, tool list, and health URL.
@@ -152,6 +154,37 @@ paths:
                     error:
                       code: DISCOVERY_ERROR
                       message: "Failed to fetch OpenAPI spec from http://127.0.0.1:4000/docs/openapi.json: 404"
+        '401':
+          description: Missing Authorization header.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Missing Authorization header
+        '403':
+          description: Invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: Invalid API key
+        '429':
+          description: Rate limit exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                error:
+                  code: RATE_LIMITED
+                  message: Too many requests
+                  retry_after: 45
 
   # ---------------------------------------------------------------------------
   # GET /clients
@@ -168,6 +201,8 @@ paths:
         removed from the registry.
       tags:
         - Introspection
+      security:
+        - AdminAuth: []
       responses:
         '200':
           description: Array of registered client summaries.
@@ -196,6 +231,26 @@ paths:
                     status: unreachable
                     tools_count: 1
                     health_url: http://192.168.1.42:5000/health
+        '401':
+          description: Missing Authorization header.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Missing Authorization header
+        '403':
+          description: Invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: Invalid API key
 
   # ---------------------------------------------------------------------------
   # GET /clients/:name/tools
@@ -210,6 +265,8 @@ paths:
         what the bridge will forward to the underlying REST service.
       tags:
         - Introspection
+      security:
+        - AdminAuth: []
       parameters:
         - name: name
           in: path
@@ -250,6 +307,26 @@ paths:
                           description: The unique customer identifier.
                       required:
                         - id
+        '401':
+          description: Missing Authorization header.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Missing Authorization header
+        '403':
+          description: Invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: Invalid API key
         '404':
           description: No client with the given name is currently registered.
           content:
@@ -325,6 +402,8 @@ paths:
         HTTP 404. The request body must be a JSON-RPC 2.0 message object.
       tags:
         - MCP Transport
+      security:
+        - McpAuth: []
       x-internal: true
       parameters:
         - $ref: '#/components/parameters/McpSessionId'
@@ -347,6 +426,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsonRpcMessage'
+        '403':
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
         '404':
           description: The supplied `mcp-session-id` does not match any active session.
           content:
@@ -358,6 +443,18 @@ paths:
                 error:
                   code: -32000
                   message: Session not found or expired
+                id: null
+        '503':
+          description: Server at capacity (maximum sessions reached).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
+              example:
+                jsonrpc: "2.0"
+                error:
+                  code: -32000
+                  message: Server at capacity, retry later
                 id: null
 
     # -------------------------------------------------------------------------
@@ -375,6 +472,8 @@ paths:
         deleted via DELETE /mcp.
       tags:
         - MCP Transport
+      security:
+        - McpAuth: []
       x-internal: true
       parameters:
         - $ref: '#/components/parameters/McpSessionId'
@@ -388,6 +487,12 @@ paths:
                 description: >
                   Newline-delimited Server-Sent Events. Each event carries a
                   JSON-RPC 2.0 notification as its `data` field.
+        '403':
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
         '404':
           description: The supplied `mcp-session-id` does not match any active session.
           content:
@@ -408,12 +513,20 @@ paths:
         Subsequent requests with the same `mcp-session-id` will receive a 404.
       tags:
         - MCP Transport
+      security:
+        - McpAuth: []
       x-internal: true
       parameters:
         - $ref: '#/components/parameters/McpSessionId'
       responses:
         '200':
           description: Session successfully closed.
+        '403':
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
         '404':
           description: The supplied `mcp-session-id` does not match any active session.
           content:
@@ -438,6 +551,8 @@ paths:
         the Streamable HTTP transport at /mcp.
       tags:
         - MCP Transport
+      security:
+        - McpAuth: []
       x-internal: true
       responses:
         '200':
@@ -449,6 +564,24 @@ paths:
                 description: >
                   Newline-delimited Server-Sent Events carrying JSON-RPC 2.0
                   messages from the MCP server.
+        '403':
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
+        '503':
+          description: Server at capacity (maximum sessions reached).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
+              example:
+                jsonrpc: "2.0"
+                error:
+                  code: -32000
+                  message: Server at capacity, retry later
+                id: null
 
   # ---------------------------------------------------------------------------
   # POST /messages — Legacy SSE message endpoint
@@ -466,6 +599,8 @@ paths:
         returns a JSON-RPC 2.0 error with HTTP 404.
       tags:
         - MCP Transport
+      security:
+        - McpAuth: []
       x-internal: true
       parameters:
         - name: sessionId
@@ -495,6 +630,12 @@ paths:
       responses:
         '200':
           description: Message accepted and forwarded to the MCP session.
+        '403':
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
         '404':
           description: The supplied `sessionId` does not correspond to an open SSE session.
           content:
@@ -507,6 +648,93 @@ paths:
                   code: -32000
                   message: Session not found
                 id: null
+
+  # ---------------------------------------------------------------------------
+  # GET /metrics
+  # ---------------------------------------------------------------------------
+  /metrics:
+    get:
+      operationId: getMetrics
+      summary: Get server metrics
+      description: >
+        Returns current operational metrics including uptime, active sessions,
+        client health, tool call statistics, and circuit breaker states.
+      tags:
+        - Introspection
+      responses:
+        '200':
+          description: Current server metrics.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uptime_seconds:
+                    type: integer
+                    example: 3600
+                  active_sessions:
+                    type: object
+                    properties:
+                      streamable:
+                        type: integer
+                        example: 5
+                      sse:
+                        type: integer
+                        example: 2
+                  registered_clients:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 3
+                      healthy:
+                        type: integer
+                        example: 2
+                      unreachable:
+                        type: integer
+                        example: 1
+                  tool_calls:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 1500
+                      errors:
+                        type: integer
+                        example: 23
+                      avg_latency_ms:
+                        type: integer
+                        example: 145
+                  circuit_breakers:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      enum:
+                        - closed
+                        - open
+                        - half_open
+
+  # ---------------------------------------------------------------------------
+  # GET /health
+  # ---------------------------------------------------------------------------
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Proxy health check
+      description: Returns 200 if the proxy is running. No authentication required.
+      tags:
+        - Introspection
+      responses:
+        '200':
+          description: Proxy is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
 
 # =============================================================================
 # Components
@@ -527,6 +755,20 @@ components:
         type: string
         format: uuid
         example: b2d9e4f1-0c3a-4e7b-8f5d-abcdef012345
+
+  securitySchemes:
+    AdminAuth:
+      type: http
+      scheme: bearer
+      description: >
+        API key for administrative endpoints (registration, introspection).
+        Set via ADMIN_API_KEYS env var. Disabled when AUTH_DISABLED=true.
+    McpAuth:
+      type: http
+      scheme: bearer
+      description: >
+        API key for MCP transport endpoints. Set via MCP_API_KEYS env var.
+        Disabled when AUTH_DISABLED=true or when no keys are configured.
 
   schemas:
 
@@ -568,6 +810,13 @@ components:
             "http://<registering-ip>" so a value like "/health" resolves to
             "http://127.0.0.1/health".
           example: /health
+        base_url:
+          type: string
+          description: >
+            Optional base URL for the service (e.g. "http://192.168.1.50:8080").
+            If omitted, derived from the health_url or the registering client's
+            IP address.
+          example: http://192.168.1.50:8080
         openapi_url:
           type: string
           description: >
@@ -756,6 +1005,7 @@ components:
         - status
         - tools_count
         - health_url
+        - base_url
       properties:
         name:
           type: string
@@ -789,12 +1039,19 @@ components:
             client (relative paths from the registration payload are expanded
             here).
           example: http://127.0.0.1:4000/health
+        base_url:
+          type: string
+          description: >
+            Resolved base URL used by the bridge to route proxied tool calls to
+            this client. Includes protocol, host, and port.
+          example: http://127.0.0.1:4000
       example:
         name: customer_service
         ip: 127.0.0.1
         status: healthy
         tools_count: 2
         health_url: http://127.0.0.1:4000/health
+        base_url: http://127.0.0.1:4000
 
     # -------------------------------------------------------------------------
     # ApiError
@@ -818,7 +1075,8 @@ components:
               type: string
               description: >
                 Machine-readable error code in SCREAMING_SNAKE_CASE.
-                Known values: VALIDATION_ERROR, CLIENT_NOT_FOUND.
+                Known values: VALIDATION_ERROR, CLIENT_NOT_FOUND, DISCOVERY_ERROR,
+                UNAUTHORIZED, FORBIDDEN, RATE_LIMITED.
               example: VALIDATION_ERROR
             message:
               type: string
