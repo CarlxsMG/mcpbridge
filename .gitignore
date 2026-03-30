@@ -1,4 +1,27 @@
+# Dependencies
+node_modules/
+
+# Lockfiles
+bun.lock
+
+# Build output
+dist/
+*.js.map
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temp / logs
+typecheck_out.txt
+*.log
+
 # AICO artifacts
 .aico/
-
 !.aico/docs/
