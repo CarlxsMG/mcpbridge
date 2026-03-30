@@ -1,0 +1,4 @@
+# AICO artifacts
+.aico/
+
+!.aico/docs/

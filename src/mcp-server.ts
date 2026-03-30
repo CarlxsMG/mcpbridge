@@ -1,0 +1,43 @@
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import {
+  ListToolsRequestSchema,
+  CallToolRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+import { registry } from "./registry.js";
+import { proxyToolCall } from "./proxy.js";
+
+const activeServers = new Set<Server>();
+
+export function createMcpServer(): Server {
+  const server = new Server(
+    { name: "mcp-rest-bridge", version: "1.0.0" },
+    { capabilities: { tools: { listChanged: true } } }
+  );
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    return { tools: registry.getAllMcpTools() };
+  });
+
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    return proxyToolCall(name, args ?? {});
+  });
+
+  activeServers.add(server);
+
+  server.onclose = () => {
+    activeServers.delete(server);
+  };
+
+  return server;
+}
+
+export function notifyToolsChanged(): void {
+  for (const server of activeServers) {
+    try {
+      server.sendNotification({ method: "notifications/tools/list_changed", params: {} });
+    } catch {
+      // ignore failures for individual servers
+    }
+  }
+}
