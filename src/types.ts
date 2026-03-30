@@ -1,7 +1,12 @@
 export interface RegistrationPayload {
   name: string;
-  tools: RestToolDefinition[];
   health_url: string;
+  // Manual mode
+  tools?: RestToolDefinition[];
+  // OpenAPI auto-discovery mode
+  openapi_url?: string;
+  include_tags?: string[];
+  exclude_operations?: string[];
 }
 
 export interface RestToolDefinition {

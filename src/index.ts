@@ -2,6 +2,7 @@ import express from "express";
 import { setupTransports } from "./transports.js";
 import { registerRoutes } from "./routes/register.js";
 import { introspectionRoutes } from "./routes/introspection.js";
+import { docsRoutes } from "./routes/docs.js";
 import { startHealthCheckLoop } from "./health.js";
 
 const app = express();
@@ -13,6 +14,7 @@ setupTransports(app);
 // REST endpoints
 registerRoutes(app);
 introspectionRoutes(app);
+docsRoutes(app);
 
 // Health check loop
 const stopHealthChecks = startHealthCheckLoop();
@@ -24,6 +26,7 @@ app.listen(PORT, () => {
   console.log(`  Legacy SSE:      GET /sse, POST /messages`);
   console.log(`  Registration:    POST /register`);
   console.log(`  Introspection:   GET /clients, GET /clients/:name/tools`);
+  console.log(`  API Docs:        GET /docs`);
 });
 
 // Graceful shutdown

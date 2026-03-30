@@ -15,10 +15,10 @@ export function introspectionRoutes(app: Express): void {
   });
 
   // List tools for a specific client
-  app.get("/clients/:name/tools", (req: Request, res: Response) => {
+  app.get("/clients/:name/tools", (req: Request<{ name: string }>, res: Response) => {
     const tools = registry.getClientTools(req.params.name);
     if (!tools) {
-      res.status(404).json({ error: "Client not found" });
+      res.status(404).json({ error: { code: "CLIENT_NOT_FOUND", message: "Client not found" } });
       return;
     }
     res.json({ tools });

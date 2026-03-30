@@ -1,6 +1,5 @@
 import type { RegisteredClient, RestToolDefinition, ResolvedTool } from "./types.js";
 
-const SNAKE_CASE_RE = /^[a-z][a-z0-9_]*$/;
 const VALID_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
 class Registry {
@@ -13,19 +12,15 @@ class Registry {
     healthUrl: string,
     ip: string
   ): void {
-    if (!SNAKE_CASE_RE.test(name)) {
-      throw new Error(
-        `Client name "${name}" is invalid. Must match ^[a-z][a-z0-9_]*$`
-      );
+    if (!name || typeof name !== "string") {
+      throw new Error("Client name is required and must be a non-empty string");
     }
 
     const seenToolNames = new Set<string>();
 
     for (const tool of tools) {
-      if (!SNAKE_CASE_RE.test(tool.name)) {
-        throw new Error(
-          `Tool name "${tool.name}" is invalid. Must match ^[a-z][a-z0-9_]*$`
-        );
+      if (!tool.name || typeof tool.name !== "string") {
+        throw new Error("Tool name is required and must be a non-empty string");
       }
 
       if (seenToolNames.has(tool.name)) {

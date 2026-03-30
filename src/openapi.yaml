@@ -1,0 +1,969 @@
+openapi: 3.1.0
+
+info:
+  title: MCP REST Bridge
+  version: 1.0.0
+  description: >
+    A micro-proxy that translates the Model Context Protocol (MCP) into plain
+    REST calls. REST-capable services register themselves along with a
+    description of their tools; the bridge then exposes those tools to any MCP
+    client (e.g. Claude Desktop, Cursor, or a custom agent) via the Streamable
+    HTTP and legacy SSE MCP transports.
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+tags:
+  - name: Registration
+    description: Endpoints used by REST services to register themselves and their tools with the bridge.
+  - name: Introspection
+    description: Endpoints for inspecting which clients and tools are currently registered.
+  - name: Schema
+    description: Endpoints that expose machine-readable schemas for bridge payloads.
+  - name: MCP Transport
+    description: >
+      Internal MCP transport endpoints — not intended for direct external
+      consumption. Used by MCP clients (e.g. Claude Desktop) to establish a
+      session and issue JSON-RPC 2.0 calls that are proxied to registered REST
+      services.
+
+paths:
+
+  # ---------------------------------------------------------------------------
+  # POST /register
+  # ---------------------------------------------------------------------------
+  /register:
+    post:
+      operationId: registerClient
+      summary: Register a REST service and its tools
+      description: >
+        Called by a REST service on startup. The service provides a client
+        identifier, a list of tool definitions (each mapping an MCP tool name
+        to an HTTP method + path), and a health-check URL. The bridge
+        immediately stores the registration and starts health-polling the
+        service. If a client with the same name was already registered its
+        entry is replaced. Supports two registration modes: **manual** (provide
+        a `tools` array) or **auto-discovery** (provide an `openapi_url` and
+        the bridge will fetch the spec and extract tools automatically). The
+        two modes are mutually exclusive.
+      tags:
+        - Registration
+      requestBody:
+        required: true
+        description: Full registration payload including client name, tool list, and health URL.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationPayload'
+            examples:
+              manual_registration:
+                summary: Manual tool registration
+                value:
+                  name: customer_service
+                  health_url: /health
+                  tools:
+                    - name: get_customer
+                      method: GET
+                      endpoint: /customers/:id
+                      description: Retrieve a single customer record by ID.
+                      inputSchema:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            description: The unique customer identifier.
+                        required:
+                          - id
+              openapi_discovery:
+                summary: Auto-discovery from OpenAPI spec
+                value:
+                  name: billing_service
+                  health_url: /health
+                  openapi_url: /docs/openapi.json
+                  include_tags:
+                    - public
+                  exclude_operations:
+                    - healthz
+      responses:
+        '200':
+          description: Client successfully registered.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Confirmation that the client was accepted by the bridge.
+                required:
+                  - status
+                  - name
+                  - tools_count
+                  - source
+                properties:
+                  status:
+                    type: string
+                    description: Always the literal string "registered" on success.
+                    example: registered
+                  name:
+                    type: string
+                    description: The client name that was registered, echoed back for confirmation.
+                    example: customer_service
+                  tools_count:
+                    type: integer
+                    description: Number of tools that were accepted and stored for this client.
+                    example: 2
+                  source:
+                    type: string
+                    description: How tools were registered — "manual" if provided directly, "openapi" if discovered from spec.
+                    enum:
+                      - manual
+                      - openapi
+                    example: manual
+              example:
+                status: registered
+                name: customer_service
+                tools_count: 2
+                source: manual
+        '400':
+          description: >
+            Validation failed. The request body is missing required fields or
+            contains values that fail schema checks (e.g. an unrecognised HTTP
+            method, a duplicate tool name within the same client).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                missing_fields:
+                  summary: Required top-level field missing
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "Missing required fields: name, health_url"
+                invalid_tool_field:
+                  summary: Invalid value on a specific tool field
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      message: "'CONNECT' is not a valid HTTP method."
+                      field: tools[0].method
+                openapi_fetch_failed:
+                  summary: OpenAPI spec could not be fetched or parsed
+                  value:
+                    error:
+                      code: DISCOVERY_ERROR
+                      message: "Failed to fetch OpenAPI spec from http://127.0.0.1:4000/docs/openapi.json: 404"
+
+  # ---------------------------------------------------------------------------
+  # GET /clients
+  # ---------------------------------------------------------------------------
+  /clients:
+    get:
+      operationId: listClients
+      summary: List all registered clients
+      description: >
+        Returns a summary of every client that has registered with the bridge,
+        including the client's last-known health status. The health status is
+        refreshed periodically by an internal polling loop; a client whose
+        health endpoint stops responding will be marked "unreachable" but not
+        removed from the registry.
+      tags:
+        - Introspection
+      responses:
+        '200':
+          description: Array of registered client summaries.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Wrapper object containing the list of registered clients.
+                required:
+                  - clients
+                properties:
+                  clients:
+                    type: array
+                    description: All clients currently known to the bridge.
+                    items:
+                      $ref: '#/components/schemas/RegisteredClient'
+              example:
+                clients:
+                  - name: customer_service
+                    ip: 127.0.0.1
+                    status: healthy
+                    tools_count: 2
+                    health_url: http://127.0.0.1:4000/health
+                  - name: billing_service
+                    ip: 192.168.1.42
+                    status: unreachable
+                    tools_count: 1
+                    health_url: http://192.168.1.42:5000/health
+
+  # ---------------------------------------------------------------------------
+  # GET /clients/:name/tools
+  # ---------------------------------------------------------------------------
+  /clients/{name}/tools:
+    get:
+      operationId: getClientTools
+      summary: List tools for a specific client
+      description: >
+        Returns the full tool definitions for a single registered client,
+        including the inputSchema for each tool. Useful for debugging exactly
+        what the bridge will forward to the underlying REST service.
+      tags:
+        - Introspection
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: >
+            The snake_case client identifier that was used in the original
+            POST /register call.
+          schema:
+            type: string
+            example: customer_service
+      responses:
+        '200':
+          description: Full tool definitions for the requested client.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Wrapper object containing the tool list for the client.
+                required:
+                  - tools
+                properties:
+                  tools:
+                    type: array
+                    description: All tool definitions registered by this client.
+                    items:
+                      $ref: '#/components/schemas/RestToolDefinition'
+              example:
+                tools:
+                  - name: get_customer
+                    method: GET
+                    endpoint: /customers/:id
+                    description: Retrieve a single customer record by ID.
+                    inputSchema:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: The unique customer identifier.
+                      required:
+                        - id
+        '404':
+          description: No client with the given name is currently registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                error:
+                  code: CLIENT_NOT_FOUND
+                  message: Client not found
+
+  # ---------------------------------------------------------------------------
+  # GET /register/schema
+  # ---------------------------------------------------------------------------
+  /register/schema:
+    get:
+      operationId: getRegistrationSchema
+      summary: Get JSON Schema for the registration payload
+      description: >
+        Returns the JSON Schema (as defined in this OpenAPI document's
+        components) that describes a valid POST /register body. Clients can
+        fetch this schema at runtime to perform local validation before
+        attempting registration.
+      tags:
+        - Schema
+      responses:
+        '200':
+          description: >
+            The JSON Schema object that describes a RegistrationPayload. The
+            response body IS the schema — it is not wrapped in an envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationPayload'
+              example:
+                type: object
+                required:
+                  - name
+                  - tools
+                  - health_url
+                properties:
+                  name:
+                    type: string
+                    description: Client identifier, snake_case recommended.
+                    example: customer_service
+                  tools:
+                    type: array
+                    description: One or more tool definitions exposed by this client.
+                    items:
+                      $ref: '#/components/schemas/RestToolDefinition'
+                  health_url:
+                    type: string
+                    description: >
+                      Full URL or relative path used to check this client's
+                      health. Relative paths are resolved against the
+                      registering client's IP address.
+                    example: /health
+
+  # ---------------------------------------------------------------------------
+  # MCP Transport — Streamable HTTP (POST /mcp)
+  # ---------------------------------------------------------------------------
+  /mcp:
+    post:
+      operationId: mcpStreamablePost
+      summary: Streamable HTTP transport — initiate or resume a session
+      description: >
+        Primary MCP transport endpoint (MCP Streamable HTTP specification).
+        Without an `mcp-session-id` header this request is treated as a new
+        session initialisation; the bridge creates a transport, connects a fresh
+        MCP server instance, and returns the assigned session ID. With a valid
+        `mcp-session-id` the request is dispatched to the existing session's
+        transport. An unrecognised session ID returns a JSON-RPC 2.0 error with
+        HTTP 404. The request body must be a JSON-RPC 2.0 message object.
+      tags:
+        - MCP Transport
+      x-internal: true
+      parameters:
+        - $ref: '#/components/parameters/McpSessionId'
+      requestBody:
+        required: true
+        description: A JSON-RPC 2.0 request, notification, or batch array.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonRpcMessage'
+            example:
+              jsonrpc: "2.0"
+              id: 1
+              method: tools/list
+              params: {}
+      responses:
+        '200':
+          description: JSON-RPC 2.0 response from the MCP server or proxied tool result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcMessage'
+        '404':
+          description: The supplied `mcp-session-id` does not match any active session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
+              example:
+                jsonrpc: "2.0"
+                error:
+                  code: -32000
+                  message: Session not found or expired
+                id: null
+
+    # -------------------------------------------------------------------------
+    # GET /mcp
+    # -------------------------------------------------------------------------
+    get:
+      operationId: mcpStreamableGet
+      summary: Streamable HTTP transport — open SSE stream for existing session
+      description: >
+        Opens a long-lived Server-Sent Events (SSE) stream on an existing
+        Streamable HTTP session. The client must supply the `mcp-session-id`
+        header obtained during the POST /mcp initialisation handshake. The
+        bridge streams MCP server-push notifications (e.g. `tools/list_changed`)
+        over this connection until the client disconnects or the session is
+        deleted via DELETE /mcp.
+      tags:
+        - MCP Transport
+      x-internal: true
+      parameters:
+        - $ref: '#/components/parameters/McpSessionId'
+      responses:
+        '200':
+          description: SSE stream — connection kept open; events arrive as `data:` lines.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: >
+                  Newline-delimited Server-Sent Events. Each event carries a
+                  JSON-RPC 2.0 notification as its `data` field.
+        '404':
+          description: The supplied `mcp-session-id` does not match any active session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
+
+    # -------------------------------------------------------------------------
+    # DELETE /mcp
+    # -------------------------------------------------------------------------
+    delete:
+      operationId: mcpStreamableDelete
+      summary: Streamable HTTP transport — close and delete a session
+      description: >
+        Terminates an active Streamable HTTP MCP session. The bridge forwards
+        the request to the transport (allowing the MCP server to perform
+        graceful shutdown) and then removes the session from the internal map.
+        Subsequent requests with the same `mcp-session-id` will receive a 404.
+      tags:
+        - MCP Transport
+      x-internal: true
+      parameters:
+        - $ref: '#/components/parameters/McpSessionId'
+      responses:
+        '200':
+          description: Session successfully closed.
+        '404':
+          description: The supplied `mcp-session-id` does not match any active session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
+
+  # ---------------------------------------------------------------------------
+  # GET /sse — Legacy SSE transport
+  # ---------------------------------------------------------------------------
+  /sse:
+    get:
+      operationId: mcpLegacySse
+      summary: Legacy SSE transport — open a new SSE session
+      description: >
+        Legacy MCP SSE transport endpoint for older MCP clients that do not
+        support Streamable HTTP. Opening this endpoint creates a new SSE
+        session and streams MCP messages as Server-Sent Events. The session ID
+        assigned by the transport must be passed as the `sessionId` query
+        parameter in all subsequent POST /messages calls. This transport is
+        provided for backwards compatibility; new integrations should prefer
+        the Streamable HTTP transport at /mcp.
+      tags:
+        - MCP Transport
+      x-internal: true
+      responses:
+        '200':
+          description: SSE stream — connection kept open for the lifetime of the MCP session.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: >
+                  Newline-delimited Server-Sent Events carrying JSON-RPC 2.0
+                  messages from the MCP server.
+
+  # ---------------------------------------------------------------------------
+  # POST /messages — Legacy SSE message endpoint
+  # ---------------------------------------------------------------------------
+  /messages:
+    post:
+      operationId: mcpLegacyMessages
+      summary: Legacy SSE transport — send a JSON-RPC message to an existing SSE session
+      description: >
+        Companion POST endpoint for the legacy GET /sse transport. The client
+        must supply the `sessionId` query parameter (assigned when the SSE
+        connection was opened). The bridge looks up the corresponding SSE
+        transport and forwards the JSON-RPC 2.0 body to the MCP server. If the
+        session is not found (e.g. the SSE connection was dropped) the bridge
+        returns a JSON-RPC 2.0 error with HTTP 404.
+      tags:
+        - MCP Transport
+      x-internal: true
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: >
+            The session identifier assigned by the SSE transport when the GET
+            /sse connection was established.
+          schema:
+            type: string
+            example: a3f7c12e-84b1-4d2a-9f3e-1234567890ab
+      requestBody:
+        required: true
+        description: A JSON-RPC 2.0 request or notification directed at the MCP server.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonRpcMessage'
+            example:
+              jsonrpc: "2.0"
+              id: 2
+              method: tools/call
+              params:
+                name: get_customer
+                arguments:
+                  id: "cust_001"
+      responses:
+        '200':
+          description: Message accepted and forwarded to the MCP session.
+        '404':
+          description: The supplied `sessionId` does not correspond to an open SSE session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonRpcError'
+              example:
+                jsonrpc: "2.0"
+                error:
+                  code: -32000
+                  message: Session not found
+                id: null
+
+# =============================================================================
+# Components
+# =============================================================================
+components:
+
+  parameters:
+    McpSessionId:
+      name: mcp-session-id
+      in: header
+      required: false
+      description: >
+        Opaque UUID that identifies an active Streamable HTTP MCP session.
+        Omit this header on the first request to create a new session. The
+        bridge will return the assigned ID in the response headers so the
+        client can include it in all subsequent requests.
+      schema:
+        type: string
+        format: uuid
+        example: b2d9e4f1-0c3a-4e7b-8f5d-abcdef012345
+
+  schemas:
+
+    # -------------------------------------------------------------------------
+    # RegistrationPayload
+    # -------------------------------------------------------------------------
+    RegistrationPayload:
+      type: object
+      description: >
+        The full payload sent by a REST service when it registers itself with
+        the MCP bridge. Supports two mutually exclusive modes: provide a
+        'tools' array (manual) or an 'openapi_url' (auto-discovery).
+      required:
+        - name
+        - health_url
+      properties:
+        name:
+          type: string
+          description: >
+            Unique client identifier for this service. Snake_case is recommended
+            and the name must be stable across restarts so the bridge can
+            correlate re-registrations with existing entries.
+          example: customer_service
+        tools:
+          type: array
+          description: >
+            One or more tool definitions that the bridge will expose to MCP
+            clients. Each item maps an MCP tool name to a concrete HTTP
+            method and path on this service.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/RestToolDefinition'
+        health_url:
+          type: string
+          description: >
+            URL or relative path used by the bridge to periodically check
+            whether this service is alive. If the value starts with "http" it
+            is used verbatim; otherwise the bridge prepends
+            "http://<registering-ip>" so a value like "/health" resolves to
+            "http://127.0.0.1/health".
+          example: /health
+        openapi_url:
+          type: string
+          description: >
+            URL or relative path to the client's OpenAPI specification (3.0 or
+            3.1, JSON or YAML). When provided, the bridge fetches and parses the
+            spec to automatically discover tools — the 'tools' field must be
+            omitted. Relative paths are resolved against the registering
+            client's IP address (e.g. "/docs/openapi.json" becomes
+            "http://127.0.0.1/docs/openapi.json").
+          example: /docs/openapi.json
+        include_tags:
+          type: array
+          description: >
+            Optional filter for OpenAPI auto-discovery mode. When set, only
+            operations tagged with at least one of these values are registered
+            as tools. Operations with 'x-internal: true' are always excluded
+            regardless of tags.
+          items:
+            type: string
+            description: An OpenAPI tag name to include.
+          example:
+            - public
+            - customers
+        exclude_operations:
+          type: array
+          description: >
+            Optional filter for OpenAPI auto-discovery mode. Operations whose
+            operationId matches any entry in this list are skipped during
+            discovery. Useful for excluding health-check or internal endpoints
+            that should not become MCP tools.
+          items:
+            type: string
+            description: An operationId to exclude.
+          example:
+            - healthz
+            - getMetrics
+      example:
+        name: customer_service
+        health_url: /health
+        tools:
+          - name: get_customer
+            method: GET
+            endpoint: /customers/:id
+            description: Retrieve a single customer record by ID.
+            inputSchema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: The unique customer identifier.
+              required:
+                - id
+
+    # -------------------------------------------------------------------------
+    # RestToolDefinition
+    # -------------------------------------------------------------------------
+    RestToolDefinition:
+      type: object
+      description: >
+        Describes a single tool that the bridge will advertise to MCP clients
+        and proxy to the underlying REST service. The bridge uses the `method`
+        and `endpoint` fields to construct the outbound HTTP request when an
+        MCP client invokes the tool.
+      required:
+        - name
+        - method
+        - endpoint
+        - description
+        - inputSchema
+      properties:
+        name:
+          type: string
+          description: >
+            Unique tool identifier within this client, used as the MCP tool
+            name. Snake_case is recommended (e.g. "get_customer"). Must be
+            unique across ALL registered clients in the bridge.
+          example: get_customer
+        method:
+          type: string
+          description: >
+            HTTP method the bridge will use when forwarding a tool invocation
+            to the REST service.
+          enum:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+          example: GET
+        endpoint:
+          type: string
+          description: >
+            REST path on the service. Supports Express-style colon placeholders
+            (e.g. "/customers/:id") which the bridge resolves against the
+            tool's input arguments at call time.
+          example: /customers/:id
+        description:
+          type: string
+          description: >
+            Human-readable description of what the tool does. This text is
+            forwarded verbatim to MCP clients so they (and the AI models behind
+            them) can understand when to invoke the tool.
+          example: Retrieve a single customer record by ID.
+        inputSchema:
+          $ref: '#/components/schemas/InputSchema'
+      example:
+        name: get_customer
+        method: GET
+        endpoint: /customers/:id
+        description: Retrieve a single customer record by ID.
+        inputSchema:
+          type: object
+          properties:
+            id:
+              type: string
+              description: The unique customer identifier.
+          required:
+            - id
+
+    # -------------------------------------------------------------------------
+    # InputSchema
+    # -------------------------------------------------------------------------
+    InputSchema:
+      type: object
+      description: >
+        JSON Schema (draft 2020-12) describing the tool's input parameters.
+        Must have `type: object` at the root level. The bridge passes this
+        schema to MCP clients so they know how to structure the `arguments`
+        map when calling the tool, and uses it to validate incoming tool calls
+        before forwarding them to the REST service.
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: >
+            Root-level JSON Schema type. Must be "object" for all MCP tool
+            input schemas.
+          enum:
+            - object
+          example: object
+        properties:
+          type: object
+          description: >
+            Map of parameter name to its JSON Schema definition. Each entry
+            describes one input field the tool accepts.
+          additionalProperties:
+            type: object
+            description: JSON Schema definition for a single input parameter.
+          example:
+            id:
+              type: string
+              description: The unique customer identifier.
+        required:
+          type: array
+          description: >
+            List of parameter names that must be present in the tool call's
+            `arguments` map. Omit or leave empty if all parameters are optional.
+          items:
+            type: string
+            description: Name of a required parameter.
+          example:
+            - id
+      example:
+        type: object
+        properties:
+          id:
+            type: string
+            description: The unique customer identifier.
+        required:
+          - id
+
+    # -------------------------------------------------------------------------
+    # RegisteredClient
+    # -------------------------------------------------------------------------
+    RegisteredClient:
+      type: object
+      description: >
+        A summary view of a client that has registered with the bridge,
+        as returned by GET /clients. This omits the full tool definitions
+        (use GET /clients/{name}/tools for those) and adds runtime fields such
+        as IP address and health status.
+      required:
+        - name
+        - ip
+        - status
+        - tools_count
+        - health_url
+      properties:
+        name:
+          type: string
+          description: The client identifier provided at registration time.
+          example: customer_service
+        ip:
+          type: string
+          description: >
+            IP address of the client as seen by the bridge at registration
+            time. Used to resolve relative health_url values and to route
+            proxied tool calls back to the correct host.
+          example: 127.0.0.1
+        status:
+          type: string
+          description: >
+            Last-known health status of the client, updated by the bridge's
+            internal polling loop. "healthy" means the health endpoint returned
+            a 2xx response; "unreachable" means it did not.
+          enum:
+            - healthy
+            - unreachable
+          example: healthy
+        tools_count:
+          type: integer
+          description: Number of tools registered by this client.
+          example: 2
+        health_url:
+          type: string
+          description: >
+            Resolved absolute URL used by the bridge to health-check this
+            client (relative paths from the registration payload are expanded
+            here).
+          example: http://127.0.0.1:4000/health
+      example:
+        name: customer_service
+        ip: 127.0.0.1
+        status: healthy
+        tools_count: 2
+        health_url: http://127.0.0.1:4000/health
+
+    # -------------------------------------------------------------------------
+    # ApiError
+    # -------------------------------------------------------------------------
+    ApiError:
+      type: object
+      description: >
+        Standard error envelope returned by the bridge's REST endpoints (not
+        MCP transport endpoints, which use JSON-RPC 2.0 error objects instead).
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          description: Container for the structured error detail.
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: >
+                Machine-readable error code in SCREAMING_SNAKE_CASE.
+                Known values: VALIDATION_ERROR, CLIENT_NOT_FOUND.
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              description: >
+                Human-readable description of what went wrong, suitable for
+                displaying in a developer console or log.
+              example: "Missing required fields: name, health_url"
+            field:
+              type: string
+              description: >
+                Optional dot/bracket-notation path to the specific field that
+                caused the error. Omitted when the error is not tied to a
+                single field.
+              example: "tools[0].name"
+      example:
+        error:
+          code: VALIDATION_ERROR
+          message: "Missing required fields: name, health_url"
+
+    # -------------------------------------------------------------------------
+    # JsonRpcMessage  (internal — MCP transport)
+    # -------------------------------------------------------------------------
+    JsonRpcMessage:
+      type: object
+      description: >
+        A JSON-RPC 2.0 message. Used as the request and response body for all
+        MCP transport endpoints (/mcp and /messages). May be a request (has
+        `method`), a response (has `result` or `error`), or a notification
+        (has `method` but no `id`).
+      required:
+        - jsonrpc
+      properties:
+        jsonrpc:
+          type: string
+          description: >
+            JSON-RPC protocol version. Must always be the literal string "2.0".
+          enum:
+            - "2.0"
+          example: "2.0"
+        id:
+          description: >
+            Request identifier. Present on requests and their corresponding
+            responses; absent on notifications. May be a string, integer, or
+            null.
+          oneOf:
+            - type: string
+            - type: integer
+            - type: "null"
+          example: 1
+        method:
+          type: string
+          description: >
+            MCP method name (e.g. "tools/list", "tools/call",
+            "initialize"). Present on requests and notifications; absent on
+            responses.
+          example: tools/list
+        params:
+          type: object
+          description: >
+            Method parameters. Structure depends on the method being called.
+            See the MCP specification for per-method parameter shapes.
+          additionalProperties: true
+          example: {}
+        result:
+          description: >
+            Successful response payload. Present only on response messages when
+            no error occurred. Structure depends on the method.
+          example:
+            tools:
+              - name: get_customer
+                description: Retrieve a single customer record by ID.
+                inputSchema:
+                  type: object
+        error:
+          type: object
+          description: >
+            Error detail. Present only on response messages when the method
+            call failed.
+          properties:
+            code:
+              type: integer
+              description: >
+                JSON-RPC error code. Standard codes: -32700 Parse error,
+                -32600 Invalid Request, -32601 Method not found, -32602
+                Invalid params, -32603 Internal error. The bridge uses -32000
+                for session-level errors.
+              example: -32000
+            message:
+              type: string
+              description: Short human-readable description of the error.
+              example: Session not found or expired
+            data:
+              description: Optional additional error context.
+      example:
+        jsonrpc: "2.0"
+        id: 1
+        method: tools/list
+        params: {}
+
+    # -------------------------------------------------------------------------
+    # JsonRpcError  (internal — MCP transport, error responses only)
+    # -------------------------------------------------------------------------
+    JsonRpcError:
+      type: object
+      description: >
+        A JSON-RPC 2.0 error response returned by MCP transport endpoints when
+        a session cannot be found or another transport-level failure occurs.
+      required:
+        - jsonrpc
+        - error
+        - id
+      properties:
+        jsonrpc:
+          type: string
+          description: JSON-RPC protocol version. Always "2.0".
+          enum:
+            - "2.0"
+          example: "2.0"
+        error:
+          type: object
+          description: Structured error detail following the JSON-RPC 2.0 error object shape.
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: integer
+              description: Numeric JSON-RPC error code. The bridge uses -32000 for session errors.
+              example: -32000
+            message:
+              type: string
+              description: Short human-readable description of the transport-level error.
+              example: Session not found or expired
+        id:
+          description: >
+            Echoes the `id` from the originating request, or null if the
+            request could not be parsed.
+          oneOf:
+            - type: string
+            - type: integer
+            - type: "null"
+          example: null
+      example:
+        jsonrpc: "2.0"
+        error:
+          code: -32000
+          message: Session not found or expired
+        id: null
