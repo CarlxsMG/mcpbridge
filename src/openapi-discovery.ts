@@ -15,7 +15,18 @@ export async function discoverToolsFromOpenApi(options: {
   // 1. Fetch spec
   const res = await fetch(openapiUrl, { signal: AbortSignal.timeout(config.openapiDiscoveryTimeoutMs) });
   if (!res.ok) throw new Error(`Failed to fetch OpenAPI spec from ${openapiUrl}: ${res.status}`);
+
+  // Limit spec size to 5MB to prevent DoS
+  const MAX_SPEC_SIZE = 5 * 1024 * 1024;
+  const contentLength = Number(res.headers.get("content-length") || 0);
+  if (contentLength > MAX_SPEC_SIZE) {
+    throw new Error(`OpenAPI spec too large: ${contentLength} bytes (max ${MAX_SPEC_SIZE})`);
+  }
+
   const text = await res.text();
+  if (text.length > MAX_SPEC_SIZE) {
+    throw new Error(`OpenAPI spec too large: ${text.length} bytes (max ${MAX_SPEC_SIZE})`);
+  }
 
   // 2. Parse (JSON or YAML)
   let parsed: any;

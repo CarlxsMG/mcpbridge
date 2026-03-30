@@ -4,6 +4,32 @@ import { log } from "./logger.js";
 import { getCircuitBreaker } from "./circuit-breaker.js";
 import { recordToolCall } from "./routes/metrics.js";
 
+// Track in-flight requests per client for cancellation
+const inflightControllers = new Map<string, Set<AbortController>>();
+
+function trackRequest(clientName: string): AbortController {
+  const controller = new AbortController();
+  if (!inflightControllers.has(clientName)) {
+    inflightControllers.set(clientName, new Set());
+  }
+  inflightControllers.get(clientName)!.add(controller);
+  return controller;
+}
+
+function untrackRequest(clientName: string, controller: AbortController): void {
+  inflightControllers.get(clientName)?.delete(controller);
+}
+
+export function abortClientRequests(clientName: string): void {
+  const controllers = inflightControllers.get(clientName);
+  if (controllers) {
+    for (const ctrl of controllers) {
+      ctrl.abort();
+    }
+    controllers.clear();
+  }
+}
+
 export async function proxyToolCall(
   mcpToolName: string,
   args: Record<string, unknown> = {}
@@ -97,6 +123,7 @@ export async function proxyToolCall(
   const method = tool.method.toUpperCase();
   let body: string | undefined;
   let fetchOptions: RequestInit;
+  const reqController = trackRequest(client.name);
 
   if (method === "GET" || method === "DELETE") {
     const params = new URLSearchParams();
@@ -111,7 +138,7 @@ export async function proxyToolCall(
       method,
       headers: { "Content-Type": "application/json" },
       redirect: "error" as RequestRedirect,
-      signal: AbortSignal.timeout(effectiveTimeout),
+      signal: AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]),
     };
   } else {
     body = JSON.stringify(remainingArgs);
@@ -120,7 +147,7 @@ export async function proxyToolCall(
       headers: { "Content-Type": "application/json" },
       body,
       redirect: "error" as RequestRedirect,
-      signal: AbortSignal.timeout(effectiveTimeout),
+      signal: AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]),
     };
   }
 
@@ -133,6 +160,7 @@ export async function proxyToolCall(
   let lastError: string | undefined;
   let lastStatus: number | undefined;
 
+  try {
   for (let attempt = 0; attempt <= (isIdempotent ? MAX_RETRIES : 0); attempt++) {
     if (attempt > 0) {
       // Don't retry if circuit is now open
@@ -148,8 +176,23 @@ export async function proxyToolCall(
         breaker.recordSuccess();
         log("info", "Tool call succeeded", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
         recordToolCall(Date.now() - startTime, false);
+
+        // Safely parse response body
+        let responseText: string;
+        const contentType = response.headers.get("content-type") ?? "";
+        if (contentType.includes("application/json")) {
+          try {
+            const json = await response.json();
+            responseText = JSON.stringify(json, null, 2);
+          } catch {
+            responseText = await response.text();
+          }
+        } else {
+          responseText = await response.text();
+        }
+
         return {
-          content: [{ type: "text", text: JSON.stringify(await response.json(), null, 2) }],
+          content: [{ type: "text", text: responseText }],
         };
       }
 
@@ -175,7 +218,7 @@ export async function proxyToolCall(
       log("warn", "Tool call returned error", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
       recordToolCall(Date.now() - startTime, true);
       return {
-        content: [{ type: "text", text: `REST API returned ${response.status}: ${await response.text()}` }],
+        content: [{ type: "text", text: `REST API returned ${response.status}: ${await response.text().catch(() => "unable to read response body")}` }],
         isError: true,
       };
     } catch (error) {
@@ -201,4 +244,7 @@ export async function proxyToolCall(
     content: [{ type: "text", text: `Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}` }],
     isError: true,
   };
+  } finally {
+    untrackRequest(client.name, reqController);
+  }
 }

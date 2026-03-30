@@ -12,6 +12,7 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { metricsRoutes } from "./routes/metrics.js";
 
 const app = express();
+app.set("trust proxy", process.env.TRUST_PROXY || false);
 app.use(express.json());
 app.use(requestIdMiddleware);
 app.use(corsMiddleware);
@@ -25,6 +26,15 @@ registerRoutes(app);
 introspectionRoutes(app);
 docsRoutes(app);
 metricsRoutes(app);
+
+// Self-health endpoint
+const startedAt = Date.now();
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
+  });
+});
 
 // Health check loop
 const stopHealthChecks = startHealthCheckLoop();

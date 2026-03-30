@@ -20,6 +20,12 @@ const MAX_DESCRIPTION_LENGTH = 500;
 
 export function sanitizeToolDescription(description: string): string {
   let sanitized = description;
+
+  // Normalize Unicode to catch homoglyph bypass attempts (e.g., ÏMPÖRTANT → IMPORTANT)
+  sanitized = sanitized.normalize("NFC").replace(/[\u00C0-\u00FF]/g, (char) => {
+    return char.normalize("NFD").replace(/[\u0300-\u036f]/g, "") || char;
+  });
+
   let wasSanitized = false;
 
   // Strip markdown code blocks

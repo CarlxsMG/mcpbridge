@@ -17,12 +17,14 @@ class CircuitBreaker {
   private failureCount = 0;
   private lastFailureTime = 0;
   private config: CircuitConfig;
+  private lastAccess = Date.now();
 
   constructor(_clientName: string, config?: Partial<CircuitConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
   canRequest(): { allowed: boolean; timeout?: number } {
+    this.lastAccess = Date.now();
     if (this.state === "closed") {
       return { allowed: true };
     }
@@ -51,6 +53,10 @@ class CircuitBreaker {
     if (this.state === "half_open" || this.failureCount >= this.config.failureThreshold) {
       this.state = "open";
     }
+  }
+
+  getLastAccess(): number {
+    return this.lastAccess;
   }
 
   getState(): CircuitState {
@@ -83,3 +89,18 @@ export function getAllCircuitStates(): Record<string, CircuitState> {
   }
   return result;
 }
+
+export function removeCircuitBreaker(clientName: string): void {
+  breakers.delete(clientName);
+}
+
+// Evict idle circuit breakers every 5 minutes
+const BREAKER_IDLE_TTL = 5 * 60_000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [name, breaker] of breakers) {
+    if (now - breaker.getLastAccess() > BREAKER_IDLE_TTL) {
+      breakers.delete(name);
+    }
+  }
+}, BREAKER_IDLE_TTL);

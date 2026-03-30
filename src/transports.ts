@@ -76,7 +76,7 @@ export function setupTransports(app: Express): () => void {
         res.status(503).json({
           jsonrpc: "2.0",
           error: { code: -32000, message: "Server at capacity, retry later" },
-          id: null,
+          id: req.body?.id ?? null,
         });
         return;
       }
@@ -112,7 +112,7 @@ export function setupTransports(app: Express): () => void {
       res.status(404).json({
         jsonrpc: "2.0",
         error: { code: -32000, message: "Session not found or expired" },
-        id: null,
+        id: req.body?.id ?? null,
       });
     }
   });
@@ -200,7 +200,7 @@ export function setupTransports(app: Express): () => void {
       res.status(404).json({
         jsonrpc: "2.0",
         error: { code: -32000, message: "Session not found" },
-        id: null,
+        id: req.body?.id ?? null,
       });
       return;
     }
