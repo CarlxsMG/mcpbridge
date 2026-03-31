@@ -153,7 +153,7 @@ export function setupTransports(app: Express): () => void {
   // Two endpoints: GET /sse + POST /messages
   // ============================================
 
-  app.get("/sse", mcpAuth, rateLimitMcp(config.rateLimitMcp), async (req, res) => {
+  app.get("/sse", originValidator, mcpAuth, rateLimitMcp(config.rateLimitMcp), async (req, res) => {
     const totalSessions = streamableSessions.size + sseSessions.size;
     if (totalSessions >= config.maxSessions) {
       res.status(503).json({
@@ -172,14 +172,20 @@ export function setupTransports(app: Express): () => void {
     sseSessions.set(transport.sessionId, transport);
     touchSession(transport.sessionId);
 
+    // Hoisted so heartbeat and close handlers can reference it
+    let server: ReturnType<typeof createMcpServer>;
+
     // SSE heartbeat every 15s
     const heartbeatInterval = setInterval(() => {
       try {
         res.write(":heartbeat\n\n");
+        touchSession(transport.sessionId);
       } catch {
         clearInterval(heartbeatInterval);
         sseSessions.delete(transport.sessionId);
         sessionActivity.delete(transport.sessionId);
+        try { server?.close(); } catch {}
+        try { transport.close(); } catch {}
       }
     }, 15_000);
 
@@ -187,13 +193,15 @@ export function setupTransports(app: Express): () => void {
       clearInterval(heartbeatInterval);
       sseSessions.delete(transport.sessionId);
       sessionActivity.delete(transport.sessionId);
+      try { server?.close(); } catch {}
+      try { transport.close(); } catch {}
     });
 
-    const server = createMcpServer();
+    server = createMcpServer();
     await server.connect(transport);
   });
 
-  app.post("/messages", mcpAuth, rateLimitMcp(config.rateLimitMcp), async (req, res) => {
+  app.post("/messages", originValidator, mcpAuth, rateLimitMcp(config.rateLimitMcp), async (req, res) => {
     const sessionId = req.query.sessionId as string;
     const transport = sseSessions.get(sessionId);
     if (!transport) {

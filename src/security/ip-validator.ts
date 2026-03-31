@@ -58,7 +58,7 @@ export async function validateBackendUrl(
   url: string,
   allowPrivateIps: boolean,
   allowedHosts: string[]
-): Promise<{ valid: boolean; reason?: string }> {
+): Promise<{ valid: boolean; reason?: string; resolvedIp?: string }> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -76,20 +76,36 @@ export async function validateBackendUrl(
     return { valid: false, reason: `Host not in allowedHosts: ${hostname}` };
   }
 
-  if (!allowPrivateIps) {
-    let results: { address: string }[];
-    try {
-      results = await Bun.dns.lookup(hostname, { family: 4 });
-    } catch {
-      return { valid: false, reason: `DNS resolution failed for: ${hostname}` };
-    }
+  // Always resolve DNS to pin the IP, unless it is already a raw IP address
+  const isRawIpv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
+  const isRawIpv6 = hostname.startsWith("[") || hostname.includes(":");
 
-    for (const record of results) {
-      if (isPrivateIp(record.address)) {
-        return { valid: false, reason: `Resolved IP is in a blocked private range: ${record.address}` };
-      }
+  if (isRawIpv4 || isRawIpv6) {
+    // Already an IP literal — use it directly as the pinned address
+    const rawIp = isRawIpv6 ? hostname.replace(/^\[|\]$/g, "") : hostname;
+    if (!allowPrivateIps && isPrivateIp(rawIp)) {
+      return { valid: false, reason: `IP is in a blocked private range: ${rawIp}` };
+    }
+    return { valid: true, resolvedIp: rawIp };
+  }
+
+  let results: { address: string }[];
+  try {
+    results = await Bun.dns.lookup(hostname, { family: 4 });
+  } catch {
+    return { valid: false, reason: `DNS resolution failed for: ${hostname}` };
+  }
+
+  if (results.length === 0) {
+    return { valid: false, reason: `DNS resolution returned no records for: ${hostname}` };
+  }
+
+  for (const record of results) {
+    if (!allowPrivateIps && isPrivateIp(record.address)) {
+      return { valid: false, reason: `Resolved IP is in a blocked private range: ${record.address}` };
     }
   }
 
-  return { valid: true };
+  // Pin to the first resolved address
+  return { valid: true, resolvedIp: results[0].address };
 }

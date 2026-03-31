@@ -118,7 +118,11 @@ export async function proxyToolCall(
     }
   }
 
-  let url = `${client.base_url}${resolvedPath}`;
+  // Build URL with pinned IP to prevent DNS rebinding
+  const parsedBase = new URL(`${client.base_url}${resolvedPath}`);
+  const originalHost = parsedBase.host;
+  parsedBase.hostname = client.resolved_ip;
+  let url = parsedBase.toString();
 
   const method = tool.method.toUpperCase();
   let body: string | undefined;
@@ -136,7 +140,7 @@ export async function proxyToolCall(
     }
     fetchOptions = {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Host": originalHost },
       redirect: "error" as RequestRedirect,
       signal: AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]),
     };
@@ -144,7 +148,7 @@ export async function proxyToolCall(
     body = JSON.stringify(remainingArgs);
     fetchOptions = {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Host": originalHost },
       body,
       redirect: "error" as RequestRedirect,
       signal: AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]),

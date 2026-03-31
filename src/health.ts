@@ -1,29 +1,71 @@
 import { registry } from "./registry.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
+import { notifyToolsChanged } from "./mcp-server.js";
 
 const MAX_CONCURRENT_CHECKS = 20;
+const FAILURE_THRESHOLD = 3;
 
 async function checkBatch(clients: ReturnType<typeof registry.getAllClients>): Promise<void> {
   for (let i = 0; i < clients.length; i += MAX_CONCURRENT_CHECKS) {
     const batch = clients.slice(i, i + MAX_CONCURRENT_CHECKS);
     await Promise.allSettled(
       batch.map(async (client) => {
+        const previousStatus = client.status;
         try {
-          const res = await fetch(client.health_url, {
+          // Use pinned IP to prevent DNS rebinding
+          const healthParsed = new URL(client.health_url);
+          const originalHealthHost = healthParsed.host;
+          healthParsed.hostname = client.resolved_ip;
+          const pinnedHealthUrl = healthParsed.toString();
+
+          const res = await fetch(pinnedHealthUrl, {
+            headers: { "Host": originalHealthHost },
             redirect: "error" as RequestRedirect,
             signal: AbortSignal.timeout(config.healthCheckTimeoutMs),
           });
-          registry.markStatus(client.name, res.ok ? "healthy" : "unreachable");
+          if (res.ok) {
+            client.consecutive_failures = 0;
+            registry.markStatus(client.name, "healthy");
+            if (previousStatus !== "healthy") {
+              notifyToolsChanged();
+            }
+          } else {
+            handleFailure(client.name, previousStatus);
+          }
         } catch (error) {
-          registry.markStatus(client.name, "unreachable");
           log("warn", "Health check failed", {
             client: client.name,
             error: error instanceof Error ? error.message : String(error),
           });
+          handleFailure(client.name, previousStatus);
         }
       })
     );
+  }
+}
+
+function handleFailure(name: string, previousStatus: "healthy" | "unreachable"): void {
+  const client = registry.clients.get(name);
+  if (!client) {
+    return;
+  }
+
+  client.consecutive_failures += 1;
+
+  if (client.consecutive_failures >= FAILURE_THRESHOLD) {
+    registry.markStatus(name, "unreachable");
+    if (previousStatus !== "unreachable") {
+      notifyToolsChanged();
+    }
+
+    if (client.consecutive_failures >= config.maxConsecutiveFailures) {
+      log("warn", `Auto-evicting client after ${client.consecutive_failures} consecutive health failures`, {
+        client: name,
+      });
+      registry.unregister(name);
+      notifyToolsChanged();
+    }
   }
 }
 

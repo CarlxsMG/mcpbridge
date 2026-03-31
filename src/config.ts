@@ -17,4 +17,6 @@ export const config = {
   rateLimitMcp: Number(process.env.RATE_LIMIT_MCP) || 100,
   rateLimitGlobal: Number(process.env.RATE_LIMIT_GLOBAL) || 1000,
   logFormat: (process.env.LOG_FORMAT as "json" | "text") || "json",
+  maxConsecutiveFailures: Number(process.env.MAX_CONSECUTIVE_FAILURES) || 10,
+  trustProxy: process.env.TRUST_PROXY === "true" ? true : (Number(process.env.TRUST_PROXY) || false),
 };

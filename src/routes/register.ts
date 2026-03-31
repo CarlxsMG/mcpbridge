@@ -11,6 +11,33 @@ import { adminAuth } from "../middleware/auth.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { log } from "../logger.js";
 
+// Cache the resolved schema once at module load time
+function resolveRefs(obj: any, visited: Set<object> = new Set()): any {
+  if (obj === null || typeof obj !== "object") return obj;
+  if (visited.has(obj)) return obj["$ref"] ?? obj;
+  visited.add(obj);
+  if (obj["$ref"]) {
+    const refName = obj["$ref"].split("/").pop();
+    const refClone = JSON.parse(JSON.stringify(_schemaComponents[refName]));
+    return resolveRefs(refClone, visited);
+  }
+  for (const key of Object.keys(obj)) {
+    obj[key] = resolveRefs(obj[key], visited);
+  }
+  return obj;
+}
+
+let _schemaComponents: any;
+let _resolvedSchema: any;
+try {
+  const specPath = resolve(import.meta.dirname, "../openapi.yaml");
+  const spec = parse(readFileSync(specPath, "utf-8"));
+  _schemaComponents = spec.components.schemas;
+  _resolvedSchema = resolveRefs(JSON.parse(JSON.stringify(_schemaComponents.RegistrationPayload)));
+} catch (err) {
+  log("warn", "Failed to pre-load /register/schema", { error: String(err) });
+}
+
 export function registerRoutes(app: Express): void {
   app.post("/register", adminAuth, rateLimitRegister(config.rateLimitRegister), async (req: Request, res: Response) => {
     const { name, tools, health_url, openapi_url, include_tags, exclude_operations } = req.body;
@@ -65,12 +92,13 @@ export function registerRoutes(app: Express): void {
       }
     }
 
-    // Validate base_url against SSRF
+    // Validate base_url against SSRF and capture pinned IP
     const baseUrlValidation = await validateBackendUrl(resolvedBaseUrl, config.allowPrivateIps, config.allowedHosts);
     if (!baseUrlValidation.valid) {
       res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `Invalid base_url: ${baseUrlValidation.reason}` } });
       return;
     }
+    const pinnedIp = baseUrlValidation.resolvedIp!;
 
     // Resolve tools — either from manual payload or OpenAPI discovery
     let resolvedTools;
@@ -104,7 +132,7 @@ export function registerRoutes(app: Express): void {
         resolvedTools = tools;
       }
 
-      registry.register(name, resolvedTools, resolvedHealthUrl, ip, resolvedBaseUrl);
+      registry.register(name, resolvedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       const code = openapi_url ? "DISCOVERY_ERROR" : "VALIDATION_ERROR";
@@ -124,28 +152,12 @@ export function registerRoutes(app: Express): void {
     });
   });
 
-  app.get("/register/schema", (_req: Request, res: Response) => {
-    const specPath = resolve(import.meta.dirname, "../openapi.yaml");
-    const spec = parse(readFileSync(specPath, "utf-8"));
-    const schemas = spec.components.schemas;
-
-    // Deep clone and resolve $ref pointers
-    const resolved = JSON.parse(JSON.stringify(schemas.RegistrationPayload));
-
-    function resolveRefs(obj: any): any {
-      if (obj === null || typeof obj !== "object") return obj;
-      if (obj["$ref"]) {
-        const refName = obj["$ref"].split("/").pop();
-        return resolveRefs(JSON.parse(JSON.stringify(schemas[refName])));
-      }
-      for (const key of Object.keys(obj)) {
-        obj[key] = resolveRefs(obj[key]);
-      }
-      return obj;
+  app.get("/register/schema", adminAuth, (_req: Request, res: Response) => {
+    if (!_resolvedSchema) {
+      res.status(503).json({ error: { code: "SCHEMA_UNAVAILABLE", message: "Schema could not be loaded" } });
+      return;
     }
-
-    resolveRefs(resolved);
     res.setHeader("Content-Type", "application/schema+json");
-    res.json(resolved);
+    res.json(_resolvedSchema);
   });
 }

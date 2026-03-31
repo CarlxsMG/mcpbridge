@@ -12,7 +12,10 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { metricsRoutes } from "./routes/metrics.js";
 
 const app = express();
-app.set("trust proxy", process.env.TRUST_PROXY || false);
+app.set("trust proxy", config.trustProxy);
+if (config.trustProxy) {
+  log("warn", "TRUST_PROXY is enabled — ensure this server is behind a trusted reverse proxy");
+}
 app.use(express.json());
 app.use(requestIdMiddleware);
 app.use(corsMiddleware);

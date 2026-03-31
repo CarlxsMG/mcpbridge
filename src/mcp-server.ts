@@ -35,7 +35,7 @@ export function createMcpServer(): Server {
 export function notifyToolsChanged(): void {
   for (const server of activeServers) {
     try {
-      server.sendNotification({ method: "notifications/tools/list_changed", params: {} });
+      server.notification({ method: "notifications/tools/list_changed" });
     } catch {
       // ignore failures for individual servers
     }

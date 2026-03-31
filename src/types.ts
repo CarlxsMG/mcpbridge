@@ -24,7 +24,9 @@ export interface RegisteredClient {
   tools: RestToolDefinition[];
   health_url: string;
   base_url: string;
+  resolved_ip: string;
   status: "healthy" | "unreachable";
+  consecutive_failures: number;
 }
 
 export interface ResolvedTool {

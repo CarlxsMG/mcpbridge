@@ -1,6 +1,7 @@
 import type { Request, Response, Express } from "express";
 import { registry } from "../registry.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
+import { adminAuth } from "../middleware/auth.js";
 
 // Counters
 let totalToolCalls = 0;
@@ -24,7 +25,7 @@ export function setSessionCountGetter(fn: () => { streamable: number; sse: numbe
 }
 
 export function metricsRoutes(app: Express): void {
-  app.get("/metrics", (_req: Request, res: Response) => {
+  app.get("/metrics", adminAuth, (_req: Request, res: Response) => {
     const clients = registry.getAllClients();
     const healthy = clients.filter(c => c.status === "healthy").length;
     const sessions = getSessionCounts();

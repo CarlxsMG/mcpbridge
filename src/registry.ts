@@ -12,14 +12,15 @@ class Registry {
     tools: RestToolDefinition[],
     healthUrl: string,
     ip: string,
-    baseUrl: string
+    baseUrl: string,
+    resolvedIp: string
   ): void {
-    if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(name)) {
-      throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
-    }
-
     if (!name || typeof name !== "string") {
       throw new Error("Client name is required and must be a non-empty string");
+    }
+
+    if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(name)) {
+      throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
     }
 
     const seenToolNames = new Set<string>();
@@ -27,6 +28,12 @@ class Registry {
     for (const tool of tools) {
       if (!tool.name || typeof tool.name !== "string") {
         throw new Error("Tool name is required and must be a non-empty string");
+      }
+
+      if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(tool.name)) {
+        throw new Error(
+          `Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`
+        );
       }
 
       if (seenToolNames.has(tool.name)) {
@@ -59,11 +66,26 @@ class Registry {
           `Tool "${tool.name}" inputSchema must have type: "object"`
         );
       }
+
+      if (JSON.stringify(tool.inputSchema).length > 10240) {
+        throw new Error(
+          `Tool '${tool.name}': inputSchema exceeds 10KB size limit`
+        );
+      }
     }
 
-    // Sanitize tool descriptions
+    // Sanitize tool descriptions and inputSchema property descriptions
     for (const tool of tools) {
       tool.description = sanitizeToolDescription(tool.description);
+
+      if (tool.inputSchema?.properties && typeof tool.inputSchema.properties === "object") {
+        for (const key of Object.keys(tool.inputSchema.properties as Record<string, unknown>)) {
+          const prop = (tool.inputSchema.properties as Record<string, Record<string, unknown>>)[key];
+          if (prop && typeof prop.description === "string") {
+            prop.description = sanitizeToolDescription(prop.description);
+          }
+        }
+      }
     }
 
     // Remove existing tool index entries for this client before rebuilding
@@ -80,7 +102,9 @@ class Registry {
       tools,
       health_url: healthUrl,
       base_url: baseUrl,
+      resolved_ip: resolvedIp,
       status: "healthy",
+      consecutive_failures: 0,
     };
 
     this.clients.set(name, client);
