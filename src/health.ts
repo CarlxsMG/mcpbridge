@@ -1,14 +1,12 @@
 import { registry } from "./registry.js";
+import type { ClientStatus } from "./types.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
 import { notifyToolsChanged } from "./mcp-server.js";
 
-const MAX_CONCURRENT_CHECKS = 20;
-const FAILURE_THRESHOLD = 3;
-
-async function checkBatch(clients: ReturnType<typeof registry.getAllClients>): Promise<void> {
-  for (let i = 0; i < clients.length; i += MAX_CONCURRENT_CHECKS) {
-    const batch = clients.slice(i, i + MAX_CONCURRENT_CHECKS);
+async function checkBatch(clients: ReturnType<typeof registry.listClients>): Promise<void> {
+  for (let i = 0; i < clients.length; i += config.healthCheckMaxConcurrent) {
+    const batch = clients.slice(i, i + config.healthCheckMaxConcurrent);
     await Promise.allSettled(
       batch.map(async (client) => {
         const previousStatus = client.status;
@@ -25,45 +23,51 @@ async function checkBatch(clients: ReturnType<typeof registry.getAllClients>): P
             signal: AbortSignal.timeout(config.healthCheckTimeoutMs),
           });
           if (res.ok) {
-            client.consecutive_failures = 0;
-            registry.markStatus(client.name, "healthy");
+            registry.resetConsecutiveFailures(client.name);
+            registry.markClientStatus(client.name, "healthy");
             if (previousStatus !== "healthy") {
               notifyToolsChanged();
             }
           } else {
-            handleFailure(client.name, previousStatus);
+            await handleFailure(client.name, previousStatus);
           }
         } catch (error) {
           log("warn", "Health check failed", {
             client: client.name,
             error: error instanceof Error ? error.message : String(error),
           });
-          handleFailure(client.name, previousStatus);
+          await handleFailure(client.name, previousStatus);
         }
       })
     );
   }
 }
 
-function handleFailure(name: string, previousStatus: "healthy" | "unreachable"): void {
-  const client = registry.clients.get(name);
-  if (!client) {
+async function handleFailure(name: string, previousStatus: ClientStatus): Promise<void> {
+  const failures = registry.incrementConsecutiveFailures(name);
+
+  // If incrementConsecutiveFailures returned 0 the client was already removed
+  if (failures === 0) {
     return;
   }
 
-  client.consecutive_failures += 1;
-
-  if (client.consecutive_failures >= FAILURE_THRESHOLD) {
-    registry.markStatus(name, "unreachable");
+  if (failures >= config.maxConsecutiveFailures) {
+    // First mark as unreachable so status is correct before eviction
+    registry.markClientStatus(name, "unreachable");
     if (previousStatus !== "unreachable") {
       notifyToolsChanged();
     }
 
-    if (client.consecutive_failures >= config.maxConsecutiveFailures) {
-      log("warn", `Auto-evicting client after ${client.consecutive_failures} consecutive health failures`, {
-        client: name,
-      });
-      registry.unregister(name);
+    log("warn", `Auto-evicting client after ${failures} consecutive health failures`, {
+      client: name,
+    });
+
+    // unregister() handles abort of in-flight requests, circuit-breaker cleanup,
+    // toolIndex cleanup, and notifyToolsChanged — no duplication needed here.
+    await registry.unregister(name);
+  } else {
+    registry.markClientStatus(name, "unreachable");
+    if (previousStatus !== "unreachable") {
       notifyToolsChanged();
     }
   }
@@ -71,7 +75,7 @@ function handleFailure(name: string, previousStatus: "healthy" | "unreachable"):
 
 export function startHealthCheckLoop(): () => void {
   const check = async () => {
-    const clients = registry.getAllClients();
+    const clients = registry.listClients();
     await checkBatch(clients);
   };
 
