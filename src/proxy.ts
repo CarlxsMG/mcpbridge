@@ -3,6 +3,11 @@ import { config } from "./config.js";
 import { log } from "./logger.js";
 import { getCircuitBreaker } from "./circuit-breaker.js";
 import { recordToolCall } from "./routes/metrics.js";
+import {
+  proxyBodyCapRejections,
+  proxyRetryAttempts,
+  proxyRequestDuration,
+} from "./observability/metrics.js";
 
 // Track in-flight requests per client for cancellation
 const inflightControllers = new Map<string, Set<AbortController>>();
@@ -55,6 +60,13 @@ function parseRetryAfter(headerValue: string | null): number | null {
   }
 
   return null;
+}
+
+function httpStatusClass(status: number): string {
+  if (status >= 200 && status < 300) return "2xx";
+  if (status >= 300 && status < 400) return "3xx";
+  if (status >= 400 && status < 500) return "4xx";
+  return "5xx";
 }
 
 /**
@@ -245,14 +257,21 @@ export async function proxyToolCall(
         // A2: read body with streaming cap
         const rawText = await readBodyWithCap(response);
         if (rawText === null) {
+          proxyBodyCapRejections.inc({ client: client.name });
           log("warn", "Upstream response exceeded size limit", { tool: mcpToolName, client: client.name, limit: config.maxResponseBytes });
           recordToolCall(Date.now() - startTime, true);
+          proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, (Date.now() - startTime) / 1000);
           return {
             isError: true,
             content: [{ type: "text", text: "Upstream response exceeded MAX_RESPONSE_BYTES limit" }],
           };
         }
 
+        const durationSuccess = (Date.now() - startTime) / 1000;
+        proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, durationSuccess);
+        if (attempt > 0) {
+          proxyRetryAttempts.inc({ client: client.name, method, outcome: "success" });
+        }
         log("info", "Tool call succeeded", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
         recordToolCall(Date.now() - startTime, false);
 
@@ -276,6 +295,7 @@ export async function proxyToolCall(
 
       // Check if retryable
       if (isIdempotent && RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
+        proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
         // A3: handle Retry-After header (integer seconds OR HTTP-date)
         if (response.status === 429) {
           const waitMs = parseRetryAfter(response.headers.get("retry-after"));
@@ -287,6 +307,7 @@ export async function proxyToolCall(
       }
 
       // Non-retryable error response
+      proxyRequestDuration.observe({ client: client.name, method, status_class: httpStatusClass(response.status) }, (Date.now() - startTime) / 1000);
       breaker.recordFailure();
       log("warn", "Tool call returned error", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
       recordToolCall(Date.now() - startTime, true);
@@ -297,6 +318,7 @@ export async function proxyToolCall(
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
       if (!isIdempotent || attempt >= MAX_RETRIES) {
+        proxyRequestDuration.observe({ client: client.name, method, status_class: "error" }, (Date.now() - startTime) / 1000);
         breaker.recordFailure();
         log("error", "Tool call failed", { tool: mcpToolName, client: client.name, error: lastError, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
         recordToolCall(Date.now() - startTime, true);
@@ -305,10 +327,13 @@ export async function proxyToolCall(
           isError: true,
         };
       }
+      proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
     }
   }
 
   // Exhausted retries
+  proxyRetryAttempts.inc({ client: client.name, method, outcome: "exhausted" });
+  proxyRequestDuration.observe({ client: client.name, method, status_class: lastError ? "error" : httpStatusClass(lastStatus ?? 0) }, (Date.now() - startTime) / 1000);
   breaker.recordFailure();
   const errorMsg = lastError || `REST API returned ${lastStatus}`;
   log("error", "Tool call failed after retries", { tool: mcpToolName, client: client.name, error: errorMsg, duration_ms: Date.now() - startTime, attempts: MAX_RETRIES + 1 });

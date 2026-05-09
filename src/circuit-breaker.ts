@@ -1,5 +1,9 @@
 import { config } from "./config.js";
 import { log } from "./logger.js";
+import {
+  breakerStateTransitions,
+  breakerProbeRejected,
+} from "./observability/metrics.js";
 
 type CircuitState = "closed" | "open" | "half_open";
 
@@ -48,6 +52,7 @@ class CircuitBreaker {
         this.state = "half_open";
         this.probeInFlight = false;
         this.lastStateChange = Date.now();
+        breakerStateTransitions.inc({ client: this.clientName, from_state: "open", to_state: "half_open" });
         // Fall through to half_open handling below.
       } else {
         return { allowed: false };
@@ -56,6 +61,7 @@ class CircuitBreaker {
 
     // half_open — admit exactly one probe atomically.
     if (this.probeInFlight) {
+      breakerProbeRejected.inc({ client: this.clientName });
       return { allowed: false, reason: "Probing" };
     }
     this.probeInFlight = true;
@@ -68,6 +74,7 @@ class CircuitBreaker {
       this.failureTimestamps = [];
       this.probeInFlight = false;
       this.state = "closed";
+      breakerStateTransitions.inc({ client: this.clientName, from_state: "half_open", to_state: "closed" });
       log("info", "Circuit breaker closed after successful probe", { client: this.clientName });
     }
     // In closed state, success does NOT wipe the window — failures already
@@ -83,6 +90,7 @@ class CircuitBreaker {
       this.probeInFlight = false;
       this.state = "open";
       this.lastStateChange = Date.now();
+      breakerStateTransitions.inc({ client: this.clientName, from_state: "half_open", to_state: "open" });
       log("warn", "Circuit breaker re-opened after failed probe", { client: this.clientName });
       return;
     }
@@ -95,6 +103,7 @@ class CircuitBreaker {
 
     if (this.failureTimestamps.length >= this.cfg.failureThreshold) {
       this.state = "open";
+      breakerStateTransitions.inc({ client: this.clientName, from_state: "closed", to_state: "open" });
       log("warn", "Circuit breaker opened", {
         client: this.clientName,
         failures: this.failureTimestamps.length,
@@ -144,6 +153,24 @@ export function getAllCircuitStates(): Record<string, CircuitState> {
   const result: Record<string, CircuitState> = {};
   for (const [name, breaker] of breakers) {
     result[name] = breaker.getState();
+  }
+  return result;
+}
+
+const STATE_GAUGE_VALUE: Record<CircuitState, number> = {
+  closed: 0,
+  half_open: 1,
+  open: 2,
+};
+
+/**
+ * Returns per-client gauge values for Prometheus scrape snapshots.
+ * 0 = closed, 1 = half_open, 2 = open.
+ */
+export function getAllBreakerStateGauges(): Array<{ client: string; value: number }> {
+  const result: Array<{ client: string; value: number }> = [];
+  for (const [name, breaker] of breakers) {
+    result.push({ client: name, value: STATE_GAUGE_VALUE[breaker.getState()] });
   }
   return result;
 }

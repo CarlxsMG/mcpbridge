@@ -148,6 +148,8 @@ export const config = {
   rateLimitMaxBucketsRegister: Number(process.env.RATE_LIMIT_MAX_BUCKETS_REGISTER) || 10_000,
   /** Milliseconds to wait before force-exiting during graceful shutdown. */
   shutdownForceExitMs: Number(process.env.SHUTDOWN_FORCE_EXIT_MS) || 10_000,
+  /** Whether the /metrics endpoint is enabled (env METRICS_ENABLED, default true). */
+  metricsEnabled: process.env.METRICS_ENABLED !== "false",
 
   // ─── CORS constants ────────────────────────────────────────────────────────
   /** HTTP methods advertised in Access-Control-Allow-Methods. */

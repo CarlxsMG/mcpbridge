@@ -1,9 +1,19 @@
 import type { Request, Response, Express } from "express";
 import { registry } from "../registry.js";
-import { getAllCircuitStates } from "../circuit-breaker.js";
+import { getAllCircuitStates, getAllBreakerStateGauges } from "../circuit-breaker.js";
 import { adminAuth } from "../middleware/auth.js";
+import { config } from "../config.js";
+import { getRateLimitBucketSizes } from "../middleware/rate-limiter.js";
+import {
+  metricsRegistry,
+  breakerCurrentState,
+  registryClients,
+  registryToolsTotal,
+  rateLimitBuckets,
+} from "../observability/metrics.js";
 
-// Counters
+// ── Legacy JSON metrics (kept for backwards compatibility) ───────────────────
+
 let totalToolCalls = 0;
 let errorToolCalls = 0;
 const latencies: number[] = [];
@@ -24,8 +34,50 @@ export function setSessionCountGetter(fn: () => { streamable: number; sse: numbe
   getSessionCounts = fn;
 }
 
+// ── Prometheus snapshot helpers ───────────────────────────────────────────────
+
+function snapshotGauges(): void {
+  // Circuit breaker current states
+  for (const { client, value } of getAllBreakerStateGauges()) {
+    breakerCurrentState.set({ client }, value);
+  }
+
+  // Registry client counts by status
+  const clients = registry.listClients();
+  const healthy = clients.filter(c => c.status === "healthy").length;
+  const degraded = clients.filter(c => c.status === "degraded").length;
+  const unreachable = clients.filter(c => c.status === "unreachable").length;
+  registryClients.set({ status: "healthy" }, healthy);
+  registryClients.set({ status: "degraded" }, degraded);
+  registryClients.set({ status: "unreachable" }, unreachable);
+
+  // Registry tool index size — read from introspect accessor
+  registryToolsTotal.set({}, clients.reduce((sum, c) => sum + (c.tools?.length ?? 0), 0));
+
+  // Rate limiter bucket sizes
+  const sizes = getRateLimitBucketSizes();
+  rateLimitBuckets.set({ tier: "global" }, sizes.global);
+  rateLimitBuckets.set({ tier: "mcp" }, sizes.mcp);
+  rateLimitBuckets.set({ tier: "register" }, sizes.register);
+}
+
+// ── Route ─────────────────────────────────────────────────────────────────────
+
 export function metricsRoutes(app: Express): void {
   app.get("/metrics", adminAuth, (_req: Request, res: Response) => {
+    if (!config.metricsEnabled) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Metrics endpoint is disabled" } });
+      return;
+    }
+
+    snapshotGauges();
+
+    res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    res.status(200).send(metricsRegistry.render());
+  });
+
+  // Legacy JSON endpoint kept for backwards compat (internal use / health dashboards)
+  app.get("/metrics/legacy", adminAuth, (_req: Request, res: Response) => {
     const clients = registry.listClients();
     const healthy = clients.filter(c => c.status === "healthy").length;
     const sessions = getSessionCounts();

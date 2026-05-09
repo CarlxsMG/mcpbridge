@@ -2,6 +2,10 @@ import { createHash } from "crypto";
 import type { Request, Response, NextFunction } from "express";
 import { config } from "../config.js";
 import { log } from "../logger.js";
+import {
+  rateLimitHits,
+  rateLimitEvictions,
+} from "../observability/metrics.js";
 
 interface Bucket {
   tokens: number[];
@@ -36,10 +40,11 @@ function lruGet(map: Map<string, Bucket>, key: string): Bucket | undefined {
  * Insert a new bucket, evicting the LRU entry when the map is at capacity.
  * Logs an eviction warning sampled at 1/100.
  */
-function lruSet(map: Map<string, Bucket>, key: string, bucket: Bucket, maxSize: number): void {
+function lruSet(map: Map<string, Bucket>, key: string, bucket: Bucket, maxSize: number, tier = "unknown"): void {
   if (map.size >= maxSize) {
     const evictKey = map.keys().next().value as string;
     map.delete(evictKey);
+    rateLimitEvictions.inc({ tier, cause: "lru" });
     if (Math.random() < 0.01) {
       log("warn", "Rate-limiter LRU eviction", { evicted_key_hash: hashKey(evictKey) });
     }
@@ -59,7 +64,7 @@ function checkLimit(
   let bucket = lruGet(map, key);
   if (!bucket) {
     bucket = { tokens: [] };
-    lruSet(map, key, bucket, maxSize);
+    lruSet(map, key, bucket, maxSize, tier);
   }
 
   // Prune expired tokens from the sliding window.
@@ -68,6 +73,7 @@ function checkLimit(
   if (bucket.tokens.length >= maxPerMinute) {
     const oldestInWindow = bucket.tokens[0];
     const retryAfter = Math.ceil((oldestInWindow + WINDOW_MS - now) / 1000);
+    rateLimitHits.inc({ tier });
     log("warn", "Rate limit triggered", {
       tier,
       key_hash: hashKey(key),
@@ -91,6 +97,17 @@ function checkLimit(
 // Only import from __tests__; never from production code.
 // ---------------------------------------------------------------------------
 
+/**
+ * Returns current bucket map sizes per tier for Prometheus gauge snapshots.
+ */
+export function getRateLimitBucketSizes(): Record<"global" | "mcp" | "register", number> {
+  return {
+    global: globalBuckets.size,
+    mcp: mcpBuckets.size,
+    register: registerBuckets.size,
+  };
+}
+
 /** @internal */
 export const _internalsForTesting = {
   /** Direct access to the per-endpoint bucket maps for LRU eviction assertions. */
@@ -103,11 +120,14 @@ export const _internalsForTesting = {
 };
 
 /** Evict empty buckets from a map to bound memory between LRU evictions. */
-function evictEmpty(map: Map<string, Bucket>): void {
+function evictEmpty(map: Map<string, Bucket>, tier: string): void {
   const now = Date.now();
   for (const [key, bucket] of map) {
     bucket.tokens = bucket.tokens.filter(t => now - t < WINDOW_MS);
-    if (bucket.tokens.length === 0) map.delete(key);
+    if (bucket.tokens.length === 0) {
+      map.delete(key);
+      rateLimitEvictions.inc({ tier, cause: "empty" });
+    }
   }
 }
 
@@ -117,9 +137,9 @@ function evictEmpty(map: Map<string, Bucket>): void {
  */
 export function startRateLimiterCleanup(): () => void {
   const handle = setInterval(() => {
-    evictEmpty(globalBuckets);
-    evictEmpty(mcpBuckets);
-    evictEmpty(registerBuckets);
+    evictEmpty(globalBuckets, "global");
+    evictEmpty(mcpBuckets, "mcp");
+    evictEmpty(registerBuckets, "register");
   }, config.rateLimitCleanupIntervalMs);
 
   return () => clearInterval(handle);

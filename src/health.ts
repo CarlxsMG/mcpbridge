@@ -3,6 +3,10 @@ import type { ClientStatus } from "./types.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
 import { notifyToolsChanged } from "./mcp-server.js";
+import {
+  healthCheckDuration,
+  healthCheckRunsTotal,
+} from "./observability/metrics.js";
 
 async function checkBatch(clients: ReturnType<typeof registry.listClients>): Promise<void> {
   for (let i = 0; i < clients.length; i += config.healthCheckMaxConcurrent) {
@@ -10,6 +14,7 @@ async function checkBatch(clients: ReturnType<typeof registry.listClients>): Pro
     await Promise.allSettled(
       batch.map(async (client) => {
         const previousStatus = client.status;
+        const hcStart = Date.now();
         try {
           // Use pinned IP to prevent DNS rebinding
           const healthParsed = new URL(client.health_url);
@@ -23,15 +28,21 @@ async function checkBatch(clients: ReturnType<typeof registry.listClients>): Pro
             signal: AbortSignal.timeout(config.healthCheckTimeoutMs),
           });
           if (res.ok) {
+            healthCheckDuration.observe({ client: client.name, outcome: "success" }, (Date.now() - hcStart) / 1000);
+            healthCheckRunsTotal.inc({ outcome: "success" });
             registry.resetConsecutiveFailures(client.name);
             registry.markClientStatus(client.name, "healthy");
             if (previousStatus !== "healthy") {
               notifyToolsChanged();
             }
           } else {
+            healthCheckDuration.observe({ client: client.name, outcome: "failure" }, (Date.now() - hcStart) / 1000);
+            healthCheckRunsTotal.inc({ outcome: "failure" });
             await handleFailure(client.name, previousStatus);
           }
         } catch (error) {
+          healthCheckDuration.observe({ client: client.name, outcome: "failure" }, (Date.now() - hcStart) / 1000);
+          healthCheckRunsTotal.inc({ outcome: "failure" });
           log("warn", "Health check failed", {
             client: client.name,
             error: error instanceof Error ? error.message : String(error),
