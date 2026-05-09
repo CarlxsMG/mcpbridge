@@ -176,4 +176,6 @@ export const config = {
    * Never sent in wildcard mode.
    */
   corsAllowCredentials: process.env.CORS_ALLOW_CREDENTIALS === "true",
+  /** Maximum JSON nesting depth accepted in request bodies. */
+  maxJsonDepth: Number(process.env.MAX_JSON_DEPTH) || 32,
 };
