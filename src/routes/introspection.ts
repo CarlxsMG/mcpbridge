@@ -1,15 +1,12 @@
 import type { Request, Response, Express } from "express";
 import { registry } from "../registry.js";
 import { adminAuth } from "../middleware/auth.js";
-import { notifyToolsChanged } from "../mcp-server.js";
-import { removeCircuitBreaker } from "../circuit-breaker.js";
-import { abortClientRequests } from "../proxy.js";
 import { log } from "../logger.js";
 
 export function introspectionRoutes(app: Express): void {
   // List all registered clients
   app.get("/clients", adminAuth, (_req: Request, res: Response) => {
-    const clients = registry.getAllClients().map((c) => ({
+    const clients = registry.listClients().map((c) => ({
       name: c.name,
       ip: c.ip,
       status: c.status,
@@ -29,16 +26,14 @@ export function introspectionRoutes(app: Express): void {
     res.json({ tools });
   });
 
-  // Unregister a client
-  app.delete("/clients/:name", adminAuth, (req: Request<{ name: string }>, res: Response) => {
-    const removed = registry.unregister(req.params.name);
+  // Unregister a client — registry.unregister() handles abort, circuit-breaker
+  // cleanup, toolIndex cleanup, and notifyToolsChanged internally.
+  app.delete("/clients/:name", adminAuth, async (req: Request<{ name: string }>, res: Response) => {
+    const removed = await registry.unregister(req.params.name);
     if (!removed) {
       res.status(404).json({ error: { code: "CLIENT_NOT_FOUND", message: "Client not found" } });
       return;
     }
-    abortClientRequests(req.params.name);
-    removeCircuitBreaker(req.params.name);
-    notifyToolsChanged();
     log("info", "Client unregistered", { name: req.params.name });
     res.json({ status: "unregistered", name: req.params.name });
   });

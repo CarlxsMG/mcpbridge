@@ -3,7 +3,6 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import { parse } from "yaml";
 import { registry } from "../registry.js";
-import { notifyToolsChanged } from "../mcp-server.js";
 import { discoverToolsFromOpenApi } from "../openapi-discovery.js";
 import { config } from "../config.js";
 import { validateBackendUrl } from "../security/ip-validator.js";
@@ -11,36 +10,43 @@ import { adminAuth } from "../middleware/auth.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { log } from "../logger.js";
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
+type SchemaObject = { [k: string]: JsonValue };
+
 // Cache the resolved schema once at module load time
-function resolveRefs(obj: any, visited: Set<object> = new Set()): any {
+function resolveRefs(obj: JsonValue, visited: WeakSet<object> = new WeakSet()): JsonValue {
   if (obj === null || typeof obj !== "object") return obj;
-  if (visited.has(obj)) return obj["$ref"] ?? obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => resolveRefs(item, visited));
+  }
+  if (visited.has(obj)) return ("$ref" in obj ? obj["$ref"] : obj) as JsonValue;
   visited.add(obj);
-  if (obj["$ref"]) {
-    const refName = obj["$ref"].split("/").pop();
-    const refClone = JSON.parse(JSON.stringify(_schemaComponents[refName]));
+  if ("$ref" in obj && typeof obj["$ref"] === "string") {
+    const refName = obj["$ref"].split("/").pop() as string;
+    const refClone = JSON.parse(JSON.stringify(_schemaComponents[refName])) as JsonValue;
     return resolveRefs(refClone, visited);
   }
+  const result: SchemaObject = {};
   for (const key of Object.keys(obj)) {
-    obj[key] = resolveRefs(obj[key], visited);
+    result[key] = resolveRefs((obj as SchemaObject)[key], visited);
   }
-  return obj;
+  return result;
 }
 
-let _schemaComponents: any;
-let _resolvedSchema: any;
+let _schemaComponents: Record<string, SchemaObject> | null = null;
+let _resolvedSchema: SchemaObject | null = null;
 try {
   const specPath = resolve(import.meta.dirname, "../openapi.yaml");
-  const spec = parse(readFileSync(specPath, "utf-8"));
+  const spec = parse(readFileSync(specPath, "utf-8")) as { components: { schemas: Record<string, SchemaObject> } };
   _schemaComponents = spec.components.schemas;
-  _resolvedSchema = resolveRefs(JSON.parse(JSON.stringify(_schemaComponents.RegistrationPayload)));
+  _resolvedSchema = resolveRefs(JSON.parse(JSON.stringify(_schemaComponents["RegistrationPayload"]))) as SchemaObject;
 } catch (err) {
   log("warn", "Failed to pre-load /register/schema", { error: String(err) });
 }
 
 export function registerRoutes(app: Express): void {
   app.post("/register", adminAuth, rateLimitRegister(config.rateLimitRegister), async (req: Request, res: Response) => {
-    const { name, tools, health_url, openapi_url, include_tags, exclude_operations } = req.body;
+    const { name, tools, health_url, openapi_url, include_tags, exclude_operations, retry_non_safe_methods } = req.body;
 
     // Validate required fields
     if (!name || !health_url) {
@@ -132,16 +138,13 @@ export function registerRoutes(app: Express): void {
         resolvedTools = tools;
       }
 
-      registry.register(name, resolvedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp);
+      await registry.register(name, resolvedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp, retry_non_safe_methods === true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       const code = openapi_url ? "DISCOVERY_ERROR" : "VALIDATION_ERROR";
       res.status(400).json({ error: { code, message } });
       return;
     }
-
-    // Notify all connected MCP clients that tools changed
-    notifyToolsChanged();
 
     log("info", "Client registered", { name, tools_count: resolvedTools.length, source: openapi_url ? "openapi" : "manual" });
     res.status(200).json({

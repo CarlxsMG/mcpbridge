@@ -26,7 +26,7 @@ export function setSessionCountGetter(fn: () => { streamable: number; sse: numbe
 
 export function metricsRoutes(app: Express): void {
   app.get("/metrics", adminAuth, (_req: Request, res: Response) => {
-    const clients = registry.getAllClients();
+    const clients = registry.listClients();
     const healthy = clients.filter(c => c.status === "healthy").length;
     const sessions = getSessionCounts();
     const avgLatency = latencies.length > 0

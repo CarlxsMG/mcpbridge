@@ -44,7 +44,7 @@ function reg(
 // Clear the singleton registry between every test so tests are isolated.
 // ---------------------------------------------------------------------------
 beforeEach(() => {
-  for (const client of registry.getAllClients()) {
+  for (const client of registry.listClients()) {
     registry.unregister(client.name);
   }
 });
@@ -56,8 +56,8 @@ beforeEach(() => {
 describe("Registry.register — valid data", () => {
   test("registers a client successfully", () => {
     reg("my-client");
-    expect(registry.getAllClients()).toHaveLength(1);
-    expect(registry.getAllClients()[0].name).toBe("my-client");
+    expect(registry.listClients()).toHaveLength(1);
+    expect(registry.listClients()[0].name).toBe("my-client");
   });
 
   test("stores the tool in the tool index", () => {
@@ -70,12 +70,12 @@ describe("Registry.register — valid data", () => {
 
   test("accepts names starting with a digit", () => {
     reg("1svc");
-    expect(registry.getAllClients()[0].name).toBe("1svc");
+    expect(registry.listClients()[0].name).toBe("1svc");
   });
 
   test("accepts names with hyphens and underscores", () => {
     reg("my-svc_v2");
-    expect(registry.getAllClients()[0].name).toBe("my-svc_v2");
+    expect(registry.listClients()[0].name).toBe("my-svc_v2");
   });
 });
 
@@ -199,7 +199,7 @@ describe("Registry.register — re-registration", () => {
     reg("svc", [makeTool({ name: "new-tool" })]);
 
     // Only one client
-    expect(registry.getAllClients()).toHaveLength(1);
+    expect(registry.listClients()).toHaveLength(1);
 
     // New tool is present
     expect(registry.resolveTool("svc__new-tool")).not.toBeUndefined();
@@ -222,7 +222,7 @@ describe("Registry.unregister", () => {
   test("removes the client", () => {
     reg("svc");
     registry.unregister("svc");
-    expect(registry.getAllClients()).toHaveLength(0);
+    expect(registry.listClients()).toHaveLength(0);
   });
 
   test("removes the client's tool index entries", () => {

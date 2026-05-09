@@ -1,3 +1,6 @@
+/** Canonical status values for a registered client. */
+export type ClientStatus = "healthy" | "degraded" | "unreachable";
+
 export interface RegistrationPayload {
   name: string;
   health_url: string;
@@ -25,8 +28,10 @@ export interface RegisteredClient {
   health_url: string;
   base_url: string;
   resolved_ip: string;
-  status: "healthy" | "unreachable";
+  status: ClientStatus;
   consecutive_failures: number;
+  /** When true, DELETE and PUT are retried on failure (same as GET/HEAD/OPTIONS). Default: false. */
+  retry_non_safe_methods?: boolean;
 }
 
 export interface ResolvedTool {

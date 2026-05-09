@@ -1,20 +1,99 @@
-import type { RegisteredClient, RestToolDefinition, ResolvedTool } from "./types.js";
+import type { RegisteredClient, RestToolDefinition, ResolvedTool, ClientStatus } from "./types.js";
 import { sanitizeToolDescription } from "./sanitize.js";
+import { abortClientRequests } from "./proxy.js";
+import { removeCircuitBreaker } from "./circuit-breaker.js";
+import { notifyToolsChanged } from "./mcp-server.js";
 
 const VALID_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
-class Registry {
-  clients: Map<string, RegisteredClient> = new Map();
-  toolIndex: Map<string, { clientName: string; toolName: string }> = new Map();
+/** Separator between client name and tool name in composite tool keys. */
+export const TOOL_KEY_SEPARATOR = "__";
 
-  register(
+class Registry {
+  private clients: Map<string, RegisteredClient> = new Map();
+  private toolIndex: Map<string, { clientName: string; toolName: string }> = new Map();
+
+  // -------------------------------------------------------------------------
+  // Async mutex — per-client name serialisation
+  // -------------------------------------------------------------------------
+
+  private locks = new Map<string, Promise<unknown>>();
+
+  private async withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.locks.get(name) ?? Promise.resolve();
+    let release!: () => void;
+    const next = new Promise<void>((r) => { release = r; });
+    const lockEntry = prev.then(() => next);
+    this.locks.set(name, lockEntry);
+    try {
+      await prev;
+      return await fn();
+    } finally {
+      release();
+      // Only delete when no later waiter has replaced the entry
+      if (this.locks.get(name) === lockEntry) {
+        this.locks.delete(name);
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Public accessors
+  // -------------------------------------------------------------------------
+
+  /** Returns the registered client for the given name, or undefined. */
+  getClient(name: string): RegisteredClient | undefined {
+    return this.clients.get(name);
+  }
+
+  /** Returns a defensive snapshot of all registered clients. */
+  listClients(): readonly RegisteredClient[] {
+    return Array.from(this.clients.values());
+  }
+
+  /**
+   * Updates the health status of a client by name.
+   * No-op when the client does not exist.
+   */
+  markClientStatus(name: string, status: ClientStatus): void {
+    const client = this.clients.get(name);
+    if (client) {
+      client.status = status;
+    }
+  }
+
+  /**
+   * Increments the consecutive_failures counter for a client and returns
+   * the new count. Returns 0 when the client does not exist.
+   */
+  incrementConsecutiveFailures(name: string): number {
+    const client = this.clients.get(name);
+    if (!client) return 0;
+    client.consecutive_failures += 1;
+    return client.consecutive_failures;
+  }
+
+  /** Resets the consecutive_failures counter to zero. No-op when client not found. */
+  resetConsecutiveFailures(name: string): void {
+    const client = this.clients.get(name);
+    if (client) {
+      client.consecutive_failures = 0;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Register / unregister
+  // -------------------------------------------------------------------------
+
+  async register(
     name: string,
     tools: RestToolDefinition[],
     healthUrl: string,
     ip: string,
     baseUrl: string,
-    resolvedIp: string
-  ): void {
+    resolvedIp: string,
+    retryNonSafeMethods: boolean = false
+  ): Promise<void> {
     if (!name || typeof name !== "string") {
       throw new Error("Client name is required and must be a non-empty string");
     }
@@ -88,47 +167,67 @@ class Registry {
       }
     }
 
-    // Remove existing tool index entries for this client before rebuilding
-    if (this.clients.has(name)) {
-      const existing = this.clients.get(name)!;
-      for (const tool of existing.tools) {
-        this.toolIndex.delete(`${name}__${tool.name}`);
+    await this.withLock(name, async () => {
+      // Remove existing tool index entries for this client before rebuilding
+      if (this.clients.has(name)) {
+        const existing = this.clients.get(name)!;
+        for (const tool of existing.tools) {
+          this.toolIndex.delete(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`);
+        }
       }
-    }
 
-    const client: RegisteredClient = {
-      name,
-      ip,
-      tools,
-      health_url: healthUrl,
-      base_url: baseUrl,
-      resolved_ip: resolvedIp,
-      status: "healthy",
-      consecutive_failures: 0,
-    };
+      const client: RegisteredClient = {
+        name,
+        ip,
+        tools,
+        health_url: healthUrl,
+        base_url: baseUrl,
+        resolved_ip: resolvedIp,
+        status: "healthy",
+        consecutive_failures: 0,
+        retry_non_safe_methods: retryNonSafeMethods,
+      };
 
-    this.clients.set(name, client);
+      this.clients.set(name, client);
 
-    for (const tool of tools) {
-      this.toolIndex.set(`${name}__${tool.name}`, {
-        clientName: name,
-        toolName: tool.name,
-      });
-    }
+      for (const tool of tools) {
+        this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`, {
+          clientName: name,
+          toolName: tool.name,
+        });
+      }
+
+      // Broadcast tool-list change to all connected MCP sessions.
+      notifyToolsChanged();
+    });
   }
 
-  unregister(name: string): boolean {
-    const client = this.clients.get(name);
-    if (!client) {
-      return false;
-    }
+  async unregister(name: string): Promise<boolean> {
+    return this.withLock(name, async () => {
+      const client = this.clients.get(name);
+      if (!client) {
+        return false;
+      }
 
-    for (const tool of client.tools) {
-      this.toolIndex.delete(`${name}__${tool.name}`);
-    }
+      // 1. Abort any in-flight requests so they don't land against a removed client
+      abortClientRequests(name);
 
-    this.clients.delete(name);
-    return true;
+      // 2. Clean up circuit-breaker state
+      removeCircuitBreaker(name);
+
+      // 3. Remove all toolIndex entries for this client
+      for (const tool of client.tools) {
+        this.toolIndex.delete(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`);
+      }
+
+      // 4. Remove the client record
+      this.clients.delete(name);
+
+      // 5. Broadcast tool-list change to all connected MCP sessions
+      notifyToolsChanged();
+
+      return true;
+    });
   }
 
   resolveTool(mcpToolName: string): ResolvedTool | undefined {
@@ -156,7 +255,7 @@ class Registry {
     for (const [clientName, client] of this.clients) {
       for (const tool of client.tools) {
         result.push({
-          name: `${clientName}__${tool.name}`,
+          name: `${clientName}${TOOL_KEY_SEPARATOR}${tool.name}`,
           description: tool.description,
           inputSchema: tool.inputSchema,
         });
@@ -166,20 +265,10 @@ class Registry {
     return result;
   }
 
-  getAllClients(): RegisteredClient[] {
-    return Array.from(this.clients.values());
-  }
-
   getClientTools(name: string): RestToolDefinition[] | undefined {
     return this.clients.get(name)?.tools;
   }
 
-  markStatus(name: string, status: "healthy" | "unreachable"): void {
-    const client = this.clients.get(name);
-    if (client) {
-      client.status = status;
-    }
-  }
 }
 
 export const registry = new Registry();
