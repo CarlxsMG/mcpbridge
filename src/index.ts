@@ -46,6 +46,14 @@ if (config.authDisabled && process.env.NODE_ENV !== "development") {
   log("warn", msg + " Continuing because ALLOW_UNSAFE_AUTH_DISABLED=true.");
 }
 
+if (config.trustProxy === true && process.env.NODE_ENV !== "development") {
+  log(
+    "error",
+    "FATAL: TRUST_PROXY=true (boolean) is unsafe outside development — set TRUST_PROXY to a CIDR list, named preset (e.g. 'loopback,linklocal,uniquelocal'), or numeric hop count",
+  );
+  process.exit(1);
+}
+
 // ─── Express app ─────────────────────────────────────────────────────────────
 
 const app = express();

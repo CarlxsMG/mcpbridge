@@ -1,5 +1,7 @@
 /** Centralised SSRF-defence IP validator. */
 
+import ipaddr from "ipaddr.js";
+
 // ---------------------------------------------------------------------------
 // IPv4 CIDR block list — all entries include a human-readable label.
 // ---------------------------------------------------------------------------
@@ -18,110 +20,96 @@ export const BLOCKED_IPV4_CIDRS: readonly [string, string][] = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// IPv6 address literals that are always blocked.
-// ---------------------------------------------------------------------------
-
-/** Blocked IPv6 address literals (normalised to lowercase). */
-const BLOCKED_IPV6_LITERALS = new Set<string>(["::1", "::", "0:0:0:0:0:0:0:0", "0:0:0:0:0:0:0:1"]);
-
-// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function ipv4ToUint32(ip: string): number | null {
-  const parts = ip.split(".");
-  if (parts.length !== 4) return null;
-  const octets = parts.map(Number);
-  if (octets.some(o => isNaN(o) || o < 0 || o > 255)) return null;
-  return (((octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3]) >>> 0);
-}
-
-interface Ipv4Range {
-  base: number;
-  mask: number;
-}
-
-/**
- * Build a pre-computed CIDR range object from a "a.b.c.d/n" string.
- * @param cidr - CIDR notation string, e.g. "10.0.0.0/8"
- */
-function buildIpv4Range(cidr: string): Ipv4Range {
-  const [addr, prefixStr] = cidr.split("/");
-  const prefixLen = parseInt(prefixStr, 10);
-  const base = ipv4ToUint32(addr) as number;
-  const mask = prefixLen === 0 ? 0 : (~0 << (32 - prefixLen)) >>> 0;
-  return { base: base & mask, mask };
-}
-
-/**
- * Check whether a numeric IPv4 address falls inside a pre-built CIDR range.
- * @param numeric - result of `ipv4ToUint32`
- * @param range   - pre-built range from `buildIpv4Range`
- */
-function isInCidr(numeric: number, range: Ipv4Range): boolean {
-  return (numeric & range.mask) === range.base;
-}
-
-const BLOCKED_IPV4_RANGES: readonly Ipv4Range[] = BLOCKED_IPV4_CIDRS.map(([cidr]) => buildIpv4Range(cidr));
+// Pre-parse CIDR ranges once at module load for IPv4 matching.
+const BLOCKED_IPV4_PARSED: Array<[ipaddr.IPv4, number]> = BLOCKED_IPV4_CIDRS.map(
+  ([cidr]) => ipaddr.IPv4.parseCIDR(cidr)
+);
 
 function isBlockedIpv4(ip: string): boolean {
-  const numeric = ipv4ToUint32(ip);
-  if (numeric === null) return false;
-  return BLOCKED_IPV4_RANGES.some(range => isInCidr(numeric, range));
+  let parsed: ipaddr.IPv4;
+  try {
+    parsed = ipaddr.IPv4.parse(ip);
+  } catch {
+    return false;
+  }
+  return BLOCKED_IPV4_PARSED.some(range => parsed.match(range));
 }
-
-// Matches the dotted-decimal form of an IPv4-mapped IPv6 address: ::ffff:1.2.3.4
-const IPV4_MAPPED_DOTTED_RE = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i;
-
-// Matches the hex-word form of an IPv4-mapped IPv6 address: ::ffff:7f00:1
-const IPV4_MAPPED_HEX_RE = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i;
 
 /**
- * Attempt to extract the embedded IPv4 address from an IPv4-mapped IPv6 address.
- * Returns null if `ip` is not an IPv4-mapped address.
+ * IPv6 SSRF-defence using ipaddr.js range classification.
+ *
+ * Blocked named ranges (via ipaddr.js built-in range table):
+ *   loopback      → ::1/128
+ *   unspecified   → ::/128
+ *   linkLocal     → fe80::/10
+ *   uniqueLocal   → fc00::/7
+ *   reserved      → includes documentation (2001:db8::/32), discard (100::/64)
+ *   ipv4Mapped    → ::ffff:0:0/96  — extract embedded v4 and re-validate
+ *   rfc6052       → 64:ff9b::/96 (NAT64) — extract embedded v4 and re-validate
+ *   6to4          → 2002::/16 — extract embedded v4 from bits 16-47 and re-validate
  */
-function extractMappedIpv4(ip: string): string | null {
-  const lower = ip.toLowerCase();
-
-  // Dotted-decimal form: ::ffff:127.0.0.1
-  const dottedMatch = IPV4_MAPPED_DOTTED_RE.exec(lower);
-  if (dottedMatch) {
-    return dottedMatch[1];
-  }
-
-  // Hex-word form: ::ffff:7f00:0001  →  127.0.0.1
-  const hexMatch = IPV4_MAPPED_HEX_RE.exec(lower);
-  if (hexMatch) {
-    const hi = parseInt(hexMatch[1], 16);
-    const lo = parseInt(hexMatch[2], 16);
-    return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
-  }
-
-  return null;
-}
-
 function isBlockedIpv6(ip: string): boolean {
-  const lower = ip.toLowerCase();
-
-  // Blocked literals (includes :: and ::1)
-  if (BLOCKED_IPV6_LITERALS.has(lower)) return true;
-
-  // IPv4-mapped IPv6 addresses — extract and test the embedded IPv4
-  const mapped = extractMappedIpv4(lower);
-  if (mapped !== null) {
-    return isBlockedIpv4(mapped);
+  let parsed: ipaddr.IPv6;
+  try {
+    parsed = ipaddr.IPv6.parse(ip);
+  } catch {
+    return false;
   }
 
-  // Unique local (fc00::/7)
-  if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
+  const range = parsed.range();
 
-  // Link-local (fe80::/10)
-  if (
-    lower.startsWith("fe8") ||
-    lower.startsWith("fe9") ||
-    lower.startsWith("fea") ||
-    lower.startsWith("feb")
-  ) return true;
+  // Ranges that are always blocked outright.
+  const blockedRanges: string[] = [
+    "loopback",
+    "unspecified",
+    "linkLocal",
+    "uniqueLocal",
+    "reserved",  // covers 2001:db8::/32 (documentation), 100::/64 (discard), and others
+    "multicast",
+  ];
+  if (blockedRanges.includes(range)) return true;
+
+  // IPv4-mapped (::ffff:0:0/96) — extract embedded IPv4 and re-validate.
+  if (range === "ipv4Mapped") {
+    try {
+      const embedded = parsed.toIPv4Address().toString();
+      return isBlockedIpv4(embedded);
+    } catch {
+      return true; // can't extract → block
+    }
+  }
+
+  // NAT64 (64:ff9b::/96, rfc6052) — last 32 bits are the embedded IPv4.
+  if (range === "rfc6052") {
+    try {
+      const parts = parsed.parts; // 8 x 16-bit groups
+      const hi = parts[6];
+      const lo = parts[7];
+      const embedded = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+      return isBlockedIpv4(embedded);
+    } catch {
+      return true;
+    }
+  }
+
+  // 6to4 (2002::/16) — bits 16-47 (groups 1 and 2, i.e. parts[1]) encode an IPv4.
+  // parts[1] = 16-bit group carrying the high 16 bits of embedded IPv4.
+  // parts[2] = 16-bit group carrying the low 16 bits of embedded IPv4.
+  // Wait: 6to4 is 2002:<v4hi16>:<v4lo16>::/48 — parts[1] = high word, parts[2] = low word.
+  if (range === "6to4") {
+    try {
+      const parts = parsed.parts;
+      const hi = parts[1]; // bits 16-31 of the address
+      const lo = parts[2]; // bits 32-47
+      const embedded = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+      return isBlockedIpv4(embedded);
+    } catch {
+      return true;
+    }
+  }
 
   return false;
 }
@@ -155,12 +143,12 @@ export async function validateBackendUrl(
     return { valid: false, reason: `Host not in allowedHosts: ${hostname}` };
   }
 
-  // Always resolve DNS to pin the IP, unless it is already a raw IP address
+  // Always resolve DNS to pin the IP, unless it is already a raw IP address.
   const isRawIpv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
   const isRawIpv6 = hostname.startsWith("[") || hostname.includes(":");
 
   if (isRawIpv4 || isRawIpv6) {
-    // Already an IP literal — use it directly as the pinned address
+    // Already an IP literal — use it directly as the pinned address.
     const rawIp = isRawIpv6 ? hostname.replace(/^\[|\]$/g, "") : hostname;
     if (!allowPrivateIps && isPrivateIp(rawIp)) {
       return { valid: false, reason: `IP is in a blocked private range: ${rawIp}` };
@@ -168,23 +156,31 @@ export async function validateBackendUrl(
     return { valid: true, resolvedIp: rawIp };
   }
 
-  let results: { address: string }[];
-  try {
-    results = await Bun.dns.lookup(hostname, { family: 4 });
-  } catch {
+  // Dual-stack DNS resolution — validate EVERY record from both A and AAAA.
+  // If ANY single record is blocked → reject the whole hostname (DNS rebinding defence).
+  const [v4Result, v6Result] = await Promise.allSettled([
+    Bun.dns.lookup(hostname, { family: 4 }),
+    Bun.dns.lookup(hostname, { family: 6 }),
+  ]);
+
+  const v4Records: { address: string }[] =
+    v4Result.status === "fulfilled" ? v4Result.value : [];
+  const v6Records: { address: string }[] =
+    v6Result.status === "fulfilled" ? v6Result.value : [];
+
+  const allRecords = [...v4Records, ...v6Records];
+
+  if (allRecords.length === 0) {
     return { valid: false, reason: `DNS resolution failed for: ${hostname}` };
   }
 
-  if (results.length === 0) {
-    return { valid: false, reason: `DNS resolution returned no records for: ${hostname}` };
-  }
-
-  for (const record of results) {
+  for (const record of allRecords) {
     if (!allowPrivateIps && isPrivateIp(record.address)) {
       return { valid: false, reason: `Resolved IP is in a blocked private range: ${record.address}` };
     }
   }
 
-  // Pin to the first resolved address
-  return { valid: true, resolvedIp: results[0].address };
+  // Prefer v4 for the pinned IP (matches existing caller expectations in proxy.ts).
+  const pinnedIp = v4Records.length > 0 ? v4Records[0].address : v6Records[0].address;
+  return { valid: true, resolvedIp: pinnedIp };
 }
