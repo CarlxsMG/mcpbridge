@@ -1,10 +1,15 @@
 import type { Request, Response, NextFunction } from "express";
-import { timingSafeEqual } from "crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { config } from "../config.js";
 
 function safeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  try {
+    const ha = createHash("sha256").update(a, "utf8").digest();
+    const hb = createHash("sha256").update(b, "utf8").digest();
+    return timingSafeEqual(ha, hb);
+  } catch {
+    return false;
+  }
 }
 
 function extractBearerToken(req: Request): string | null {

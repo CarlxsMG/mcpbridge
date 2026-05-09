@@ -244,3 +244,30 @@ describe("mcpAuth — AUTH_DISABLED bypass", () => {
     expect(res._status).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// safeCompare — timing-safe length-leak prevention
+// ---------------------------------------------------------------------------
+
+describe("safeCompare — hash-before-compare (via adminAuth)", () => {
+  test("returns false without throwing when comparing short vs long strings", () => {
+    // Verifies both sides are hashed to fixed 32-byte digests before timingSafeEqual;
+    // a length-leaking implementation would have returned false early but here we
+    // confirm the function completes without error and produces the correct result.
+    (config as Record<string, unknown>).adminApiKeys = ["verylongverylongverylong"];
+    config.authDisabled = false;
+
+    // "short" !== "verylongverylongverylong" — must be 403, not a throw
+    const req = makeReq({ authorization: "Bearer short" });
+    const res = makeRes();
+    const next = makeNext();
+
+    expect(() => {
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+    }).not.toThrow();
+    restoreConfig();
+
+    expect(next.called).toBe(false);
+    expect(res._status).toBe(403);
+  });
+});

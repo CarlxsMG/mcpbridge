@@ -132,6 +132,12 @@ class Registry {
         throw new Error(`Tool "${tool.name}" is missing a valid endpoint`);
       }
 
+      // TODO(P1): validate tool.endpoint template for path-traversal segments (".."/".").
+      // The proxy already rejects traversal post-substitution (see proxy.ts Fix 2), but
+      // rejecting at registration time gives earlier feedback. Split on "/" and check
+      // each literal segment (ignoring ":param" placeholders) for ".." or ".".
+      // See proxy.ts path traversal block for reference implementation.
+
       if (!tool.description || typeof tool.description !== "string") {
         throw new Error(`Tool "${tool.name}" is missing a valid description`);
       }

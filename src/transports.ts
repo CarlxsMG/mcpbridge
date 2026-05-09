@@ -14,6 +14,12 @@ import { log } from "./logger.js";
 const streamableSessions = new Map<string, StreamableHTTPServerTransport>();
 const sseSessions = new Map<string, SSEServerTransport>();
 
+// Atomic session counter — incremented as a reservation BEFORE map insert,
+// decremented on every cleanup path (onclose, TTL eviction, error rollback,
+// explicit DELETE, graceful shutdown). Because Node/Bun is single-threaded,
+// ++ and -- between awaits are atomic at the JS level; no lock is needed.
+let activeSessionCount = 0;
+
 // Session activity tracking for TTL cleanup
 const sessionActivity = new Map<string, number>();
 
@@ -33,11 +39,13 @@ function startSessionCleanup(): void {
         if (streamable) {
           try { streamable.close(); } catch {}
           streamableSessions.delete(id);
+          activeSessionCount = Math.max(0, activeSessionCount - 1);
         }
         const sse = sseSessions.get(id);
         if (sse) {
           try { sse.close(); } catch {}
           sseSessions.delete(id);
+          activeSessionCount = Math.max(0, activeSessionCount - 1);
         }
         sessionActivity.delete(id);
       }
@@ -74,9 +82,10 @@ export function setupTransports(app: Express): () => void {
         await existingTransport.handleRequest(req, res, req.body);
         touchSession(sessionId);
       } else if (!sessionId) {
-        // Max sessions cap
-        const totalSessions = streamableSessions.size + sseSessions.size;
-        if (totalSessions >= config.maxSessions) {
+        // Max sessions cap — check-and-reserve atomically (counter is the
+        // reservation; increment happens BEFORE the map insert so concurrent
+        // requests cannot both read the same under-cap count).
+        if (activeSessionCount >= config.maxSessions) {
           res.status(503).json({
             jsonrpc: "2.0",
             error: { code: -32000, message: "Server at capacity, retry later" },
@@ -84,17 +93,19 @@ export function setupTransports(app: Express): () => void {
           });
           return;
         }
+        activeSessionCount++;
 
         // New session — Initialize request
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
         });
 
-        // When the transport closes, remove it from the map
+        // When the transport closes, remove it from the map and release reservation
         transport.onclose = () => {
           for (const [id, t] of streamableSessions) {
             if (t === transport) {
               streamableSessions.delete(id);
+              activeSessionCount = Math.max(0, activeSessionCount - 1);
               break;
             }
           }
@@ -123,6 +134,8 @@ export function setupTransports(app: Express): () => void {
     } catch (err) {
       log("error", "POST /mcp failed", { sessionId, err });
       if (transport && !transportInserted) {
+        // Release the reservation taken before the failed insert
+        activeSessionCount = Math.max(0, activeSessionCount - 1);
         await transport.close().catch(() => {});
       }
       if (res.headersSent) return;
@@ -166,6 +179,7 @@ export function setupTransports(app: Express): () => void {
     }
     await transport.handleRequest(req, res);
     streamableSessions.delete(sessionId);
+    activeSessionCount = Math.max(0, activeSessionCount - 1);
   });
 
   // ============================================
@@ -174,8 +188,8 @@ export function setupTransports(app: Express): () => void {
   // ============================================
 
   app.get("/sse", originValidator, mcpAuth, rateLimitMcp(config.rateLimitMcp), async (req, res) => {
-    const totalSessions = streamableSessions.size + sseSessions.size;
-    if (totalSessions >= config.maxSessions) {
+    // Atomic check-and-reserve using the module-level counter
+    if (activeSessionCount >= config.maxSessions) {
       res.status(503).json({
         jsonrpc: "2.0",
         error: { code: -32000, message: "Server at capacity, retry later" },
@@ -183,6 +197,7 @@ export function setupTransports(app: Express): () => void {
       });
       return;
     }
+    activeSessionCount++;
 
     let transport: SSEServerTransport | undefined;
     let server: ReturnType<typeof createMcpServer> | undefined;
@@ -211,6 +226,7 @@ export function setupTransports(app: Express): () => void {
           clearInterval(heartbeatInterval);
           sseSessions.delete(transport!.sessionId);
           sessionActivity.delete(transport!.sessionId);
+          activeSessionCount = Math.max(0, activeSessionCount - 1);
           try { server?.close(); } catch {}
           try { transport!.close(); } catch {}
         }
@@ -220,6 +236,7 @@ export function setupTransports(app: Express): () => void {
         clearInterval(heartbeatInterval);
         sseSessions.delete(transport!.sessionId);
         sessionActivity.delete(transport!.sessionId);
+        activeSessionCount = Math.max(0, activeSessionCount - 1);
         try { server?.close(); } catch {}
         try { transport!.close(); } catch {}
       });
@@ -232,6 +249,10 @@ export function setupTransports(app: Express): () => void {
       if (sessionInserted && transport) {
         sseSessions.delete(transport.sessionId);
         sessionActivity.delete(transport.sessionId);
+        activeSessionCount = Math.max(0, activeSessionCount - 1);
+      } else {
+        // Reservation taken but session never inserted — release it
+        activeSessionCount = Math.max(0, activeSessionCount - 1);
       }
       await transport?.close().catch(() => {});
       await server?.close().catch(() => {});
@@ -266,10 +287,12 @@ export function setupTransports(app: Express): () => void {
     for (const [id, transport] of streamableSessions) {
       try { transport.close(); } catch {}
       streamableSessions.delete(id);
+      activeSessionCount = Math.max(0, activeSessionCount - 1);
     }
     for (const [id, transport] of sseSessions) {
       try { transport.close(); } catch {}
       sseSessions.delete(id);
+      activeSessionCount = Math.max(0, activeSessionCount - 1);
     }
   };
 }

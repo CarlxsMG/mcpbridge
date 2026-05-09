@@ -151,6 +151,32 @@ export async function proxyToolCall(
     return `:${paramName}`;
   });
 
+  // Fix 2 — Path traversal rejection post-substitution.
+  // Check the resolved path segments for ".." or "." after decoding.
+  // This catches endpoint templates that themselves contain traversal segments
+  // (e.g. "/users/:id/../admin") since encodeURIComponent never encodes "/".
+  // Note: encodeURIComponent applied to arg values cannot introduce "/" so a user
+  // supplying id="../admin" produces the safe literal segment "..%2Fadmin" —
+  // the real threat is the operator-supplied template containing ".." directly.
+  {
+    const pathToCheck = resolvedPath.split("?")[0]; // strip any inline query string
+    const segments = pathToCheck.split("/");
+    for (const seg of segments) {
+      let decoded: string;
+      try {
+        decoded = decodeURIComponent(seg);
+      } catch {
+        decoded = seg;
+      }
+      if (decoded === ".." || decoded === ".") {
+        return {
+          content: [{ type: "text", text: "Tool endpoint resolved to invalid path" }],
+          isError: true,
+        };
+      }
+    }
+  }
+
   // Validate args against inputSchema
   if (tool.inputSchema?.properties && typeof tool.inputSchema.properties === "object") {
     const schemaProps = tool.inputSchema.properties as Record<string, { type?: string }>;
@@ -275,7 +301,14 @@ export async function proxyToolCall(
         log("info", "Tool call succeeded", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
         recordToolCall(Date.now() - startTime, false);
 
-        // Pretty-print JSON when content-type says so
+        // Fix 1 — Response header allowlist (no-op confirmation).
+        // Only `content-type` is read internally to format the body; no upstream
+        // response headers (Set-Cookie, Authorization, WWW-Authenticate, etc.) are
+        // forwarded to the MCP caller. The return value carries only the body text,
+        // so sensitive headers cannot leak through this code path.
+        // Safe-to-forward allowlist (for future reference if headers are ever added):
+        //   content-type, content-length, content-encoding, content-language,
+        //   cache-control, etag, last-modified, retry-after
         const contentType = response.headers.get("content-type") ?? "";
         let responseText = rawText;
         if (contentType.includes("application/json")) {
@@ -311,8 +344,15 @@ export async function proxyToolCall(
       breaker.recordFailure();
       log("warn", "Tool call returned error", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
       recordToolCall(Date.now() - startTime, true);
+      // Fix 3 — cap error-response body via the same readBodyWithCap helper used for
+      // success responses, preventing a malicious upstream from OOM-ing the bridge with
+      // an oversized error body (e.g. a 400 with a 10 GB payload).
+      const errorBody = await readBodyWithCap(response);
+      const errorBodyText = errorBody === null
+        ? `[body truncated — exceeded ${config.maxResponseBytes} byte limit]`
+        : errorBody;
       return {
-        content: [{ type: "text", text: `REST API returned ${response.status}: ${await response.text().catch(() => "unable to read response body")}` }],
+        content: [{ type: "text", text: `REST API returned ${response.status}: ${errorBodyText}` }],
         isError: true,
       };
     } catch (error) {

@@ -1,0 +1,30 @@
+# Tests
+**/__tests__/
+**/*.test.ts
+**/*.spec.ts
+
+# Dev artifacts
+node_modules
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# Docs / build / tooling
+.aico/
+*.md
+!README.md
+Dockerfile
+.dockerignore
+docker-compose*.yml
+.editorconfig
+
+# Logs / coverage / dist
+*.log
+dist/
