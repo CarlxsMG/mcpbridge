@@ -2,7 +2,7 @@ import type { Request, Response, Express } from "express";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { parse } from "yaml";
-import { registry } from "../registry.js";
+import { registry, validateEndpointPath } from "../registry.js";
 import { discoverToolsFromOpenApi } from "../openapi-discovery.js";
 import { config } from "../config.js";
 import { validateBackendUrl } from "../security/ip-validator.js";
@@ -175,6 +175,25 @@ export function registerRoutes(app: Express): void {
           return;
         }
         resolvedTools = tools;
+      }
+
+      // Validate resolved tool endpoints for path-traversal segments before registering.
+      // This closes the registration-time gap identified in Sprint 2; proxy.ts still
+      // catches traversal at runtime as a backstop.
+      for (const tool of resolvedTools) {
+        if (typeof tool.endpoint === "string") {
+          const pathError = validateEndpointPath(tool.endpoint);
+          if (pathError) {
+            res.status(400).json({
+              error: {
+                code: "VALIDATION_ERROR",
+                message: `Tool "${tool.name}": ${pathError}`,
+                request_id: requestId,
+              },
+            });
+            return;
+          }
+        }
       }
 
       await registry.register(name, resolvedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp, retry_non_safe_methods === true);

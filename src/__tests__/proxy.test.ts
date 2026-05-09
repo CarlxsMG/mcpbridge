@@ -146,70 +146,17 @@ describe("proxyToolCall — Fix 1: response header allowlist", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Fix 2 — Path traversal rejection post-:param substitution
+// Fix 2 — Path traversal rejection
 //
-// A tool endpoint template containing ".." literal segments must be rejected
-// before fetch because encodeURIComponent never encodes "/" so traversal
-// embedded in the template survives substitution.
+// The registry (Sprint 2 hardening) now validates endpoint templates at
+// registration time, so a '..' endpoint is rejected before it can be stored.
+// This is strictly stronger than the runtime proxy check.
 // ---------------------------------------------------------------------------
 
 describe("proxyToolCall — Fix 2: path traversal rejection", () => {
   const TRAVERSAL_TOOL = "traversal-tool";
 
-  beforeEach(async () => {
-    // Replace the default registration with a traversal endpoint template
-    for (const c of registry.listClients()) {
-      await registry.unregister(c.name);
-    }
-    removeCircuitBreaker(CLIENT);
-
-    await registry.register(
-      CLIENT,
-      [
-        {
-          name: TRAVERSAL_TOOL,
-          method: "GET",
-          // The endpoint template itself contains ".." — the real exploit vector.
-          // encodeURIComponent applied to args cannot introduce "/" so the ".."
-          // below is a literal path segment that survives substitution.
-          endpoint: "/users/:id/../admin",
-          description: "get admin via traversal",
-          inputSchema: { type: "object", properties: { id: { type: "string" } } },
-        },
-      ],
-      "http://1.2.3.4/health",
-      "1.2.3.4",
-      "http://1.2.3.4",
-      "1.2.3.4"
-    );
-  });
-
-  afterEach(async () => {
-    // Restore the default tool registration so outer afterEach works cleanly
-    for (const c of registry.listClients()) {
-      await registry.unregister(c.name);
-    }
-    removeCircuitBreaker(CLIENT);
-
-    await registry.register(
-      CLIENT,
-      [
-        {
-          name: TOOL,
-          method: "GET",
-          endpoint: "/item",
-          description: "get an item",
-          inputSchema: { type: "object", properties: {} },
-        },
-      ],
-      "http://1.2.3.4/health",
-      "1.2.3.4",
-      "http://1.2.3.4",
-      "1.2.3.4"
-    );
-  });
-
-  test("endpoint template with '..' segment is rejected without fetching", async () => {
+  test("registry rejects endpoint template with '..' segment at registration time", async () => {
     let fetchCalled = false;
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async function fakeFetch(): Promise<Response> {
@@ -218,11 +165,26 @@ describe("proxyToolCall — Fix 2: path traversal rejection", () => {
     }) as unknown as typeof fetch;
 
     try {
-      const { proxyToolCall } = await import("../proxy.js");
-      const result = await proxyToolCall(`${CLIENT}__${TRAVERSAL_TOOL}`, { id: "42" });
+      await expect(
+        registry.register(
+          CLIENT,
+          [
+            {
+              name: TRAVERSAL_TOOL,
+              method: "GET",
+              endpoint: "/users/:id/../admin",
+              description: "get admin via traversal",
+              inputSchema: { type: "object", properties: { id: { type: "string" } } },
+            },
+          ],
+          "http://1.2.3.4/health",
+          "1.2.3.4",
+          "http://1.2.3.4",
+          "1.2.3.4"
+        )
+      ).rejects.toThrow(/invalid path segment/i);
 
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Tool endpoint resolved to invalid path");
+      // fetch must never be called because registration was rejected
       expect(fetchCalled).toBe(false);
     } finally {
       globalThis.fetch = originalFetch;
@@ -264,6 +226,245 @@ describe("proxyToolCall — Fix 3: body cap on error response path", () => {
     } finally {
       globalThis.fetch = originalFetch;
       (config as Record<string, unknown>).maxResponseBytes = originalMaxResponseBytes;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fix 1 (Sprint 3) — Ajv-based argument validation
+//
+// Verifies that the Ajv validator correctly handles enum, format, null,
+// nested objects, and unknown-property stripping — all cases the old
+// imperative validator missed.
+// ---------------------------------------------------------------------------
+
+const AJV_CLIENT = "ajv-test-client";
+
+async function registerAjvClient(toolName: string, schema: Record<string, unknown>): Promise<void> {
+  for (const c of registry.listClients()) {
+    await registry.unregister(c.name);
+  }
+  removeCircuitBreaker(AJV_CLIENT);
+  await registry.register(
+    AJV_CLIENT,
+    [
+      {
+        name: toolName,
+        method: "POST",
+        endpoint: "/validate",
+        description: "validation test tool",
+        inputSchema: schema,
+      },
+    ],
+    "http://1.2.3.4/health",
+    "1.2.3.4",
+    "http://1.2.3.4",
+    "1.2.3.4"
+  );
+}
+
+describe("proxyToolCall — Ajv validation: email format", () => {
+  const TOOL_NAME = "email-tool";
+
+  beforeEach(async () => {
+    await registerAjvClient(TOOL_NAME, {
+      type: "object",
+      properties: {
+        email: { type: "string", format: "email" },
+      },
+      required: ["email"],
+    });
+  });
+
+  afterEach(async () => {
+    for (const c of registry.listClients()) {
+      await registry.unregister(c.name);
+    }
+    removeCircuitBreaker(AJV_CLIENT);
+    // Restore the default registration for outer afterEach
+    await registry.register(
+      CLIENT,
+      [{ name: TOOL, method: "GET", endpoint: "/item", description: "get an item", inputSchema: { type: "object", properties: {} } }],
+      "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+    );
+  });
+
+  test("rejects invalid email format", async () => {
+    const { proxyToolCall } = await import("../proxy.js");
+    const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { email: "not-an-email" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Argument validation failed");
+  });
+
+  test("accepts valid email format", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true }), {
+      status: 200, headers: { "content-type": "application/json" },
+    })) as unknown as typeof fetch;
+    try {
+      const { proxyToolCall } = await import("../proxy.js");
+      const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { email: "user@example.com" });
+      expect(result.isError).toBeUndefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("proxyToolCall — Ajv validation: enum constraint", () => {
+  const TOOL_NAME = "enum-tool";
+
+  beforeEach(async () => {
+    await registerAjvClient(TOOL_NAME, {
+      type: "object",
+      properties: {
+        mode: { type: "string", enum: ["a", "b"] },
+      },
+      required: ["mode"],
+    });
+  });
+
+  afterEach(async () => {
+    for (const c of registry.listClients()) {
+      await registry.unregister(c.name);
+    }
+    removeCircuitBreaker(AJV_CLIENT);
+    await registry.register(
+      CLIENT,
+      [{ name: TOOL, method: "GET", endpoint: "/item", description: "get an item", inputSchema: { type: "object", properties: {} } }],
+      "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+    );
+  });
+
+  test("rejects value not in enum", async () => {
+    const { proxyToolCall } = await import("../proxy.js");
+    const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { mode: "c" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Argument validation failed");
+  });
+});
+
+describe("proxyToolCall — Ajv validation: nullable field", () => {
+  const TOOL_NAME = "nullable-tool";
+
+  beforeEach(async () => {
+    await registerAjvClient(TOOL_NAME, {
+      type: "object",
+      properties: {
+        value: { type: ["string", "null"] },
+      },
+    });
+  });
+
+  afterEach(async () => {
+    for (const c of registry.listClients()) {
+      await registry.unregister(c.name);
+    }
+    removeCircuitBreaker(AJV_CLIENT);
+    await registry.register(
+      CLIENT,
+      [{ name: TOOL, method: "GET", endpoint: "/item", description: "get an item", inputSchema: { type: "object", properties: {} } }],
+      "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+    );
+  });
+
+  test("accepts null for nullable field", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true }), {
+      status: 200, headers: { "content-type": "application/json" },
+    })) as unknown as typeof fetch;
+    try {
+      const { proxyToolCall } = await import("../proxy.js");
+      const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { value: null });
+      expect(result.isError).toBeUndefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("proxyToolCall — Ajv validation: nested object", () => {
+  const TOOL_NAME = "nested-tool";
+
+  beforeEach(async () => {
+    await registerAjvClient(TOOL_NAME, {
+      type: "object",
+      properties: {
+        address: {
+          type: "object",
+          properties: {
+            zip: { type: "string" },
+          },
+          required: ["zip"],
+        },
+      },
+      required: ["address"],
+    });
+  });
+
+  afterEach(async () => {
+    for (const c of registry.listClients()) {
+      await registry.unregister(c.name);
+    }
+    removeCircuitBreaker(AJV_CLIENT);
+    await registry.register(
+      CLIENT,
+      [{ name: TOOL, method: "GET", endpoint: "/item", description: "get an item", inputSchema: { type: "object", properties: {} } }],
+      "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+    );
+  });
+
+  test("rejects when required nested field is wrong type", async () => {
+    const { proxyToolCall } = await import("../proxy.js");
+    const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { address: { zip: 12345 } });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Argument validation failed");
+  });
+});
+
+describe("proxyToolCall — Ajv validation: unknown additional property stripped", () => {
+  const TOOL_NAME = "strip-tool";
+
+  beforeEach(async () => {
+    await registerAjvClient(TOOL_NAME, {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+      },
+    });
+  });
+
+  afterEach(async () => {
+    for (const c of registry.listClients()) {
+      await registry.unregister(c.name);
+    }
+    removeCircuitBreaker(AJV_CLIENT);
+    await registry.register(
+      CLIENT,
+      [{ name: TOOL, method: "GET", endpoint: "/item", description: "get an item", inputSchema: { type: "object", properties: {} } }],
+      "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+    );
+  });
+
+  test("unknown additional property is stripped and NOT forwarded in the request body", async () => {
+    let capturedBody: string | undefined;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (_url: unknown, opts?: RequestInit) => {
+      capturedBody = opts?.body as string | undefined;
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200, headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    try {
+      const { proxyToolCall } = await import("../proxy.js");
+      const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { name: "alice", secret: "hunter2" });
+      expect(result.isError).toBeUndefined();
+      // The body sent upstream must NOT contain the unknown key
+      expect(capturedBody).toBeDefined();
+      expect(capturedBody).not.toContain("secret");
+      expect(capturedBody).not.toContain("hunter2");
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 });

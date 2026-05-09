@@ -1,5 +1,6 @@
-import { describe, test, expect } from "bun:test";
-import { validateBackendUrl } from "../security/ip-validator.js";
+import { describe, test, expect, mock, spyOn } from "bun:test";
+import { validateBackendUrl, refreshPinIfStale, IP_PIN_TTL_MS } from "../security/ip-validator.js";
+import type { PinnedIp } from "../security/ip-validator.js";
 
 // ---------------------------------------------------------------------------
 // SSRF — IPv4-mapped IPv6 and other blocked ranges
@@ -97,5 +98,48 @@ describe("validateBackendUrl — IPv6 SSRF extended coverage", () => {
     const result = await validateBackendUrl("http://[2606:4700:4700::1111]/", false, []);
     expect(result.valid).toBe(true);
     expect(result.resolvedIp).toBe("2606:4700:4700::1111");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TTL re-resolution — refreshPinIfStale
+// ---------------------------------------------------------------------------
+
+describe("refreshPinIfStale — within TTL", () => {
+  test("returns the same pin object when called within TTL window", async () => {
+    const now = Date.now();
+    const current: PinnedIp = { ip: "1.2.3.4", resolvedAt: now - 1000 }; // 1 s ago
+    // now - resolvedAt = 1000 < IP_PIN_TTL_MS (300_000) → should return immediately
+    const result = await refreshPinIfStale("example.com", current, now);
+    expect(result).toBe(current); // strict identity — no re-resolve happened
+  });
+});
+
+describe("refreshPinIfStale — past TTL, public IP", () => {
+  test("returns a refreshed pin when the TTL has elapsed and IP is public", async () => {
+    // Use a raw IP URL so no real DNS lookup fires (validateBackendUrl fast-paths raw IPs).
+    const now = Date.now();
+    const staleAge = IP_PIN_TTL_MS + 1;
+    const current: PinnedIp = { ip: "93.184.216.34", resolvedAt: now - staleAge };
+
+    // Call with a raw IPv4 hostname so validateBackendUrl returns immediately without DNS.
+    const result = await refreshPinIfStale("93.184.216.34", current, now);
+
+    expect(result).not.toBe(current);               // new object
+    expect(result.ip).toBe("93.184.216.34");         // same IP (it's a raw literal)
+    expect(result.resolvedAt).toBe(now);             // timestamp updated
+  });
+});
+
+describe("refreshPinIfStale — past TTL, private IP → throws", () => {
+  test("throws when fresh resolution lands on a blocked private IP", async () => {
+    const now = Date.now();
+    const staleAge = IP_PIN_TTL_MS + 1;
+    // Hostname is a raw private IP — validateBackendUrl will reject it.
+    const current: PinnedIp = { ip: "10.0.0.1", resolvedAt: now - staleAge };
+
+    await expect(
+      refreshPinIfStale("10.0.0.1", current, now)
+    ).rejects.toThrow(/private IP|blocked/i);
   });
 });

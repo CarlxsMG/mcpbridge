@@ -184,3 +184,43 @@ export async function validateBackendUrl(
   const pinnedIp = v4Records.length > 0 ? v4Records[0].address : v6Records[0].address;
   return { valid: true, resolvedIp: pinnedIp };
 }
+
+// ---------------------------------------------------------------------------
+// TTL-based re-resolution — mitigates IP-pin TOCTOU / DNS-rebinding
+// ---------------------------------------------------------------------------
+
+/** 5-minute re-resolution TTL. Change via IP_PIN_TTL_MS export if needed. */
+export const IP_PIN_TTL_MS = 5 * 60 * 1000;
+
+/** A pinned IP address together with the timestamp at which it was resolved. */
+export interface PinnedIp {
+  ip: string;
+  resolvedAt: number; // Date.now() at last successful resolve
+}
+
+/**
+ * Re-resolves `hostname` through the existing dual-stack SSRF validator when
+ * the pin is older than `IP_PIN_TTL_MS`.  Returns the current pin unchanged
+ * when still within the TTL window.
+ *
+ * Throws when the freshly resolved IP lands in a blocked private range so the
+ * caller can reject the request.
+ */
+export async function refreshPinIfStale(
+  hostname: string,
+  current: PinnedIp,
+  now: number = Date.now()
+): Promise<PinnedIp> {
+  if (now - current.resolvedAt < IP_PIN_TTL_MS) return current;
+
+  // Re-resolve via the existing dual-stack validator (allowPrivateIps=false, no host filter).
+  const result = await validateBackendUrl(`http://${hostname}/`, false, []);
+
+  if (!result.valid || !result.resolvedIp) {
+    throw new Error(
+      `Backend hostname now resolves to private IP or failed DNS: ${result.reason ?? hostname}`
+    );
+  }
+
+  return { ip: result.resolvedIp, resolvedAt: now };
+}

@@ -6,7 +6,7 @@ import { describe, test, expect, beforeEach, it } from "bun:test";
 // the module and re-casting, or by testing the exported singleton after clearing it.
 // The simplest approach: import the singleton and clear it between tests.
 
-import { registry } from "../registry.js";
+import { registry, validateEndpointPath } from "../registry.js";
 import type { RestToolDefinition } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -326,23 +326,57 @@ describe("Registry.unregister — cleanup regression", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AUTH_DISABLED production guard — skeleton (not testable without refactor)
+// Registration — endpoint path-traversal validation (Sprint 3 Fix 2)
 // ---------------------------------------------------------------------------
 
-describe("AUTH_DISABLED — refuse-to-start guard", () => {
-  it.skip(
-    "TODO: extract the startup guard from index.ts into an exported function " +
-    "so it can be unit-tested without spawning a child process. " +
-    "Guard logic: config.authDisabled=true + NODE_ENV!=development + " +
-    "ALLOW_UNSAFE_AUTH_DISABLED unset → process.exit(1).",
-    () => {
-      // Skeleton — implement once the guard is extractable:
-      // const exitSpy = spyOn(process, "exit").mockImplementation(() => { throw new Error("exit"); });
-      // process.env.NODE_ENV = "production";
-      // process.env.AUTH_DISABLED = "true";
-      // delete process.env.ALLOW_UNSAFE_AUTH_DISABLED;
-      // expect(() => guardFn()).toThrow("exit");
-      // expect(exitSpy).toHaveBeenCalledWith(1);
-    }
-  );
+// validateEndpointPath unit tests — checks the exported validation helper directly.
+describe("validateEndpointPath — path-traversal segment detection", () => {
+  test("returns an error string for endpoint with '..' segment after param substitution", () => {
+    expect(validateEndpointPath("/users/:id/../admin")).not.toBeNull();
+  });
+
+  test("returns null for a clean parameterised endpoint", () => {
+    expect(validateEndpointPath("/users/:id")).toBeNull();
+  });
+
+  test("returns null for endpoint with a dot-prefixed segment that is not traversal", () => {
+    // '.config' is a valid resource name — not a traversal segment
+    expect(validateEndpointPath("/users/.config")).toBeNull();
+  });
+
+  test("returns an error string for endpoint with a single-dot '.' segment", () => {
+    expect(validateEndpointPath("/users/./profile")).not.toBeNull();
+  });
 });
+
+// Registration integration: registry.register() delegates to validateEndpointPath
+// and throws for invalid endpoint templates.
+describe("Registry.register — endpoint path-traversal validation (integration)", () => {
+  test("throws when endpoint contains '..' segment", async () => {
+    await expect(
+      reg("svc", [makeTool({ endpoint: "/users/:id/../admin" })])
+    ).rejects.toThrow(/invalid path segment/i);
+  });
+
+  test("succeeds for a clean parameterised endpoint", async () => {
+    await expect(
+      reg("svc", [makeTool({ endpoint: "/users/:id" })])
+    ).resolves.toBeUndefined();
+  });
+
+  test("succeeds for endpoint with a dot-prefixed segment that is not traversal", async () => {
+    await expect(
+      reg("svc", [makeTool({ endpoint: "/users/.config" })])
+    ).resolves.toBeUndefined();
+  });
+
+  test("throws when endpoint contains a single-dot '.' segment", async () => {
+    await expect(
+      reg("svc", [makeTool({ endpoint: "/users/./profile" })])
+    ).rejects.toThrow(/invalid path segment/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AUTH_DISABLED production guard — covered in src/__tests__/startup-guards.test.ts
+// ---------------------------------------------------------------------------

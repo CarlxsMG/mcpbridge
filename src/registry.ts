@@ -9,6 +9,24 @@ const VALID_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 /** Separator between client name and tool name in composite tool keys. */
 export const TOOL_KEY_SEPARATOR = "__";
 
+/**
+ * Validates an endpoint template for path-traversal segments.
+ *
+ * Substitutes :param placeholders with "x", splits on "/", and checks each
+ * literal segment. Returns an error message string if invalid, or null when valid.
+ *
+ * Used by the HTTP /register route to reject bad endpoints before they enter
+ * the registry. Also exported so it can be unit-tested independently.
+ */
+export function validateEndpointPath(endpoint: string): string | null {
+  const probe = endpoint.replace(/:[A-Za-z_][A-Za-z0-9_]*/g, "x");
+  const segments = probe.split("/").filter(Boolean);
+  if (segments.some((s) => s === ".." || s === "." || s.includes(".."))) {
+    return `Endpoint contains invalid path segment: ${endpoint}`;
+  }
+  return null;
+}
+
 class Registry {
   private clients: Map<string, RegisteredClient> = new Map();
   private toolIndex: Map<string, { clientName: string; toolName: string }> = new Map();
@@ -132,11 +150,12 @@ class Registry {
         throw new Error(`Tool "${tool.name}" is missing a valid endpoint`);
       }
 
-      // TODO(P1): validate tool.endpoint template for path-traversal segments (".."/".").
-      // The proxy already rejects traversal post-substitution (see proxy.ts Fix 2), but
-      // rejecting at registration time gives earlier feedback. Split on "/" and check
-      // each literal segment (ignoring ":param" placeholders) for ".." or ".".
-      // See proxy.ts path traversal block for reference implementation.
+      // Reject endpoint templates with path-traversal segments at registration time.
+      // Mirrors the runtime check in proxy.ts so bad endpoints never enter the registry.
+      const endpointError = validateEndpointPath(tool.endpoint);
+      if (endpointError) {
+        throw new Error(`Tool "${tool.name}" ${endpointError}`);
+      }
 
       if (!tool.description || typeof tool.description !== "string") {
         throw new Error(`Tool "${tool.name}" is missing a valid description`);

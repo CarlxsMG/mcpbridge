@@ -14,6 +14,10 @@ import { log } from "./logger.js";
 const streamableSessions = new Map<string, StreamableHTTPServerTransport>();
 const sseSessions = new Map<string, SSEServerTransport>();
 
+// O(1) reverse lookup: transport instance → sessionId (WeakMap; GC cleans up automatically)
+const streamableSessionIdByTransport = new WeakMap<StreamableHTTPServerTransport, string>();
+const sseSessionIdByTransport = new WeakMap<SSEServerTransport, string>();
+
 // Atomic session counter — incremented as a reservation BEFORE map insert,
 // decremented on every cleanup path (onclose, TTL eviction, error rollback,
 // explicit DELETE, graceful shutdown). Because Node/Bun is single-threaded,
@@ -102,12 +106,11 @@ export function setupTransports(app: Express): () => void {
 
         // When the transport closes, remove it from the map and release reservation
         transport.onclose = () => {
-          for (const [id, t] of streamableSessions) {
-            if (t === transport) {
-              streamableSessions.delete(id);
-              activeSessionCount = Math.max(0, activeSessionCount - 1);
-              break;
-            }
+          const sid = streamableSessionIdByTransport.get(transport!);
+          if (sid !== undefined) {
+            streamableSessions.delete(sid);
+            sessionActivity.delete(sid);
+            activeSessionCount = Math.max(0, activeSessionCount - 1);
           }
         };
 
@@ -120,6 +123,7 @@ export function setupTransports(app: Express): () => void {
         // Store session after handling (sessionId is now set)
         if (transport.sessionId) {
           streamableSessions.set(transport.sessionId, transport);
+          streamableSessionIdByTransport.set(transport, transport.sessionId);
           transportInserted = true;
           touchSession(transport.sessionId);
         }
@@ -214,6 +218,7 @@ export function setupTransports(app: Express): () => void {
       res.setHeader("X-Accel-Buffering", "no");
       res.flushHeaders();
       sseSessions.set(transport.sessionId, transport);
+      sseSessionIdByTransport.set(transport, transport.sessionId);
       sessionInserted = true;
       touchSession(transport.sessionId);
 

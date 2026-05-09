@@ -1,3 +1,5 @@
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
 import { registry } from "./registry.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
@@ -8,6 +10,42 @@ import {
   proxyRetryAttempts,
   proxyRequestDuration,
 } from "./observability/metrics.js";
+import { refreshPinIfStale } from "./security/ip-validator.js";
+import type { PinnedIp } from "./security/ip-validator.js";
+
+// ---------------------------------------------------------------------------
+// Ajv singleton — shared across all tool calls
+// ---------------------------------------------------------------------------
+const ajv = new Ajv({
+  allErrors: false,       // first error is enough for tool calls
+  strict: false,           // tolerate vendor extensions in JSON Schema
+  removeAdditional: "all", // strip unknown keys (replicates prior manual behaviour)
+  useDefaults: true,       // apply defaults if specified in schema
+  coerceTypes: false,      // do NOT auto-coerce — surface real type errors
+});
+addFormats(ajv);
+
+// Cache compiled validators per client+tool key (stable for the lifetime of a registration).
+const validatorCache = new Map<string, ReturnType<typeof ajv.compile>>();
+
+function getOrCompile(
+  clientName: string,
+  toolName: string,
+  schema: Record<string, unknown>
+): ReturnType<typeof ajv.compile> {
+  const key = `${clientName}::${toolName}`;
+  let validate = validatorCache.get(key);
+  if (!validate) {
+    validate = ajv.compile(schema);
+    validatorCache.set(key, validate);
+  }
+  return validate;
+}
+
+// ---------------------------------------------------------------------------
+// TTL-based pinned IP cache — module-level Map keyed on client name
+// ---------------------------------------------------------------------------
+const pinnedIpCache = new Map<string, PinnedIp>();
 
 // Track in-flight requests per client for cancellation
 const inflightControllers = new Map<string, Set<AbortController>>();
@@ -177,52 +215,52 @@ export async function proxyToolCall(
     }
   }
 
-  // Validate args against inputSchema
-  if (tool.inputSchema?.properties && typeof tool.inputSchema.properties === "object") {
-    const schemaProps = tool.inputSchema.properties as Record<string, { type?: string }>;
-    const validKeys = new Set(Object.keys(schemaProps));
-
-    // Strip unknown keys
-    for (const key of Object.keys(args)) {
-      if (!validKeys.has(key)) {
-        delete remainingArgs[key];
-      }
-    }
-
-    // Validate basic types
-    for (const [key, value] of Object.entries(remainingArgs)) {
-      const expectedType = schemaProps[key]?.type;
-      if (!expectedType) continue;
-
-      const actualType = typeof value;
-      let valid = true;
-
-      switch (expectedType) {
-        case "string":
-          valid = actualType === "string";
-          break;
-        case "number":
-        case "integer":
-          valid = actualType === "number";
-          break;
-        case "boolean":
-          valid = actualType === "boolean";
-          break;
-      }
-
-      if (!valid) {
-        return {
-          content: [{ type: "text", text: `Argument "${key}" expected type "${expectedType}" but got "${actualType}"` }],
-          isError: true,
-        };
-      }
+  // Validate args against inputSchema via Ajv (handles enum, format, null, nested objects, etc.)
+  // removeAdditional:"all" on the Ajv instance means unknown keys are stripped from remainingArgs.
+  {
+    const validate = getOrCompile(client.name, tool.name, tool.inputSchema);
+    const valid = validate(remainingArgs);
+    if (!valid) {
+      const firstError = validate.errors?.[0];
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
+        }],
+      };
     }
   }
 
-  // Build URL with pinned IP to prevent DNS rebinding
+  // Build URL with pinned IP to prevent DNS rebinding.
+  // Periodically re-resolve via TTL cache to mitigate IP-pin TOCTOU.
   const parsedBase = new URL(`${client.base_url}${resolvedPath}`);
   const originalHost = parsedBase.host;
-  parsedBase.hostname = client.resolved_ip;
+  const hostname = parsedBase.hostname;
+
+  // Seed the pin cache from the registry value on first access.
+  if (!pinnedIpCache.has(client.name)) {
+    pinnedIpCache.set(client.name, { ip: client.resolved_ip, resolvedAt: Date.now() });
+  }
+
+  let pin = pinnedIpCache.get(client.name)!;
+
+  // Only attempt re-resolution for hostnames (not raw IP literals).
+  const isRawIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
+  if (!isRawIp) {
+    try {
+      pin = await refreshPinIfStale(hostname, pin);
+      pinnedIpCache.set(client.name, pin);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Backend hostname now resolves to private IP: ${reason}` }],
+      };
+    }
+  }
+
+  parsedBase.hostname = pin.ip;
   let url = parsedBase.toString();
 
   const method = tool.method.toUpperCase();

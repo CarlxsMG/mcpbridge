@@ -11,6 +11,7 @@ import { log } from "./logger.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { metricsRoutes } from "./routes/metrics.js";
 import { startCircuitBreakerCleanup } from "./circuit-breaker.js";
+import { checkStartupGuards } from "./security/startup-guards.js";
 
 // ─── Startup safety checks ───────────────────────────────────────────────────
 
@@ -24,34 +25,27 @@ import { startCircuitBreakerCleanup } from "./circuit-breaker.js";
     origins: config.corsOrigins,
     credentials: config.corsAllowCredentials,
   });
-  if (isWildcard && process.env.NODE_ENV !== "development") {
-    log(
-      "warn",
-      "CORS wildcard '*' is active outside the development environment. " +
-        "All cross-origin requests will be permitted. " +
-        "Restrict CORS_ORIGINS to explicit origins before deploying to production.",
-    );
-  }
 }
 
-if (config.authDisabled && process.env.NODE_ENV !== "development") {
-  const allowUnsafe = process.env.ALLOW_UNSAFE_AUTH_DISABLED === "true";
-  const msg =
-    "AUTH_DISABLED is true outside development environment — all endpoints unauthenticated. " +
-    "Refusing to start unless ALLOW_UNSAFE_AUTH_DISABLED=true also set.";
-  if (!allowUnsafe) {
-    log("error", msg);
-    process.exit(1);
-  }
-  log("warn", msg + " Continuing because ALLOW_UNSAFE_AUTH_DISABLED=true.");
-}
-
-if (config.trustProxy === true && process.env.NODE_ENV !== "development") {
-  log(
-    "error",
-    "FATAL: TRUST_PROXY=true (boolean) is unsafe outside development — set TRUST_PROXY to a CIDR list, named preset (e.g. 'loopback,linklocal,uniquelocal'), or numeric hop count",
-  );
+const guard = checkStartupGuards({
+  authDisabled: config.authDisabled,
+  corsOrigins: config.corsOrigins,
+  trustProxy: config.trustProxy,
+  nodeEnv: process.env.NODE_ENV,
+});
+if (!guard.ok) {
+  log("error", `FATAL: ${guard.reason}`);
   process.exit(1);
+}
+
+// Warn when AUTH_DISABLED is allowed via escape hatch
+if (config.authDisabled && process.env.NODE_ENV !== "development" && process.env.ALLOW_UNSAFE_AUTH_DISABLED === "true") {
+  log(
+    "warn",
+    "AUTH_DISABLED is true outside development environment — all endpoints unauthenticated. " +
+      "Refusing to start unless ALLOW_UNSAFE_AUTH_DISABLED=true also set. " +
+      "Continuing because ALLOW_UNSAFE_AUTH_DISABLED=true.",
+  );
 }
 
 // ─── Express app ─────────────────────────────────────────────────────────────
@@ -64,6 +58,18 @@ if (config.trustProxy) {
 }
 app.use(express.json({ limit: "64kb", strict: true }));
 app.use(requestIdMiddleware);
+// ─── Baseline security headers ────────────────────────────────────────────────
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  // HSTS only if request was HTTPS (trust proxy aware)
+  if (req.secure || req.headers["x-forwarded-proto"] === "https") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
 app.use(corsMiddleware);
 app.use(rateLimitGlobal(config.rateLimitGlobal));
 
