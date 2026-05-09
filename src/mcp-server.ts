@@ -3,14 +3,18 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { createRequire } from "module";
 import { registry } from "./registry.js";
 import { proxyToolCall } from "./proxy.js";
+
+const _require = createRequire(import.meta.url);
+const pkg = _require("../package.json") as { version: string };
 
 const activeServers = new Set<Server>();
 
 export function createMcpServer(): Server {
   const server = new Server(
-    { name: "mcp-rest-bridge", version: "1.0.0" },
+    { name: "mcp-rest-bridge", version: pkg.version },
     { capabilities: { tools: { listChanged: true } } }
   );
 
