@@ -18,6 +18,86 @@ function parseTrustProxy(): boolean | number | string {
   return raw;
 }
 
+/**
+ * Normalises a single CORS origin string to `scheme://host` (with port if
+ * non-standard).  Returns `null` when the entry is invalid so callers can
+ * reject it cleanly.
+ *
+ * Rules:
+ *   - scheme must be `http` or `https`
+ *   - host must be non-empty
+ *   - no path, query, or fragment components are allowed
+ *   - the returned string never has a trailing slash
+ */
+function normaliseOrigin(raw: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  const scheme = url.protocol.replace(/:$/, "");
+  if (scheme !== "http" && scheme !== "https") return null;
+  if (!url.hostname) return null;
+  // Reject any path (beyond "/"), query, or fragment
+  if (url.pathname !== "/" && url.pathname !== "") return null;
+  if (url.search) return null;
+  if (url.hash) return null;
+  // Rebuild canonical form: scheme + "://" + lowercase-host + optional port
+  const host = url.hostname.toLowerCase();
+  const port = url.port; // empty string when it matches the default for the scheme
+  return port ? `${scheme}://${host}:${port}` : `${scheme}://${host}`;
+}
+
+/**
+ * Parses and validates the CORS_ORIGINS environment variable value.
+ *
+ * Accepts a comma-separated list of origins.  Each entry must be a valid
+ * `http` or `https` URL with no path/query/fragment.  The special value `"*"`
+ * is allowed only when auth is disabled OR when
+ * `ALLOW_UNSAFE_CORS_WILDCARD=true` is explicitly set.
+ *
+ * @param raw - Raw value of `process.env.CORS_ORIGINS`.
+ * @param authDisabled - Whether AUTH_DISABLED is currently true.
+ * @returns Normalised array of origin strings, or `["*"]` for wildcard mode.
+ * @throws {Error} When the input is invalid or wildcard is used unsafely.
+ */
+export function parseCorsOrigins(
+  raw: string | undefined,
+  authDisabled: boolean,
+): string[] {
+  if (!raw || raw.trim() === "") return [];
+
+  const entries = raw.split(",").map((e) => e.trim()).filter(Boolean);
+
+  if (entries.includes("*")) {
+    const allowUnsafe = process.env.ALLOW_UNSAFE_CORS_WILDCARD === "true";
+    if (!authDisabled && !allowUnsafe) {
+      throw new Error(
+        "CORS wildcard '*' is forbidden when auth is enabled. " +
+          "Set ALLOW_UNSAFE_CORS_WILDCARD=true to override (NOT recommended in production).",
+      );
+    }
+    return ["*"];
+  }
+
+  const normalised: string[] = [];
+  for (const entry of entries) {
+    const norm = normaliseOrigin(entry);
+    if (norm === null) {
+      throw new Error(
+        `Invalid CORS origin: "${entry}". ` +
+          "Each entry must be a valid http:// or https:// URL with no path, query, or fragment.",
+      );
+    }
+    normalised.push(norm);
+  }
+  return normalised;
+}
+
+const authDisabled = process.env.AUTH_DISABLED === "true";
+const corsOrigins = parseCorsOrigins(process.env.CORS_ORIGINS, authDisabled);
+
 export const config = {
   port: Number(process.env.PORT) || 3000,
   toolCallTimeoutMs: Number(process.env.TOOL_CALL_TIMEOUT_MS) || 30_000,
@@ -31,8 +111,8 @@ export const config = {
   allowPrivateIps: process.env.ALLOW_PRIVATE_IPS === "true",
   allowedHosts: process.env.ALLOWED_HOSTS?.split(",").map(h => h.trim()).filter(Boolean) ?? [],
   allowedOrigins: process.env.ALLOWED_ORIGINS?.split(",").map(o => o.trim()).filter(Boolean) ?? ["http://localhost:*"],
-  corsOrigins: process.env.CORS_ORIGINS?.split(",").map(o => o.trim()).filter(Boolean) ?? [],
-  authDisabled: process.env.AUTH_DISABLED === "true",
+  corsOrigins,
+  authDisabled,
   adminApiKeys: process.env.ADMIN_API_KEYS?.split(",").map(k => k.trim()).filter(Boolean) ?? [],
   mcpApiKeys: process.env.MCP_API_KEYS?.split(",").map(k => k.trim()).filter(Boolean) ?? [],
   rateLimitRegister: Number(process.env.RATE_LIMIT_REGISTER) || 10,
@@ -68,4 +148,28 @@ export const config = {
   rateLimitMaxBucketsRegister: Number(process.env.RATE_LIMIT_MAX_BUCKETS_REGISTER) || 10_000,
   /** Milliseconds to wait before force-exiting during graceful shutdown. */
   shutdownForceExitMs: Number(process.env.SHUTDOWN_FORCE_EXIT_MS) || 10_000,
+
+  // ─── CORS constants ────────────────────────────────────────────────────────
+  /** HTTP methods advertised in Access-Control-Allow-Methods. */
+  corsAllowedMethods: ["GET", "POST", "DELETE", "OPTIONS"] as readonly string[],
+  /**
+   * Headers advertised in Access-Control-Allow-Headers.
+   * Matches all headers the application reads from inbound requests.
+   */
+  corsAllowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Mcp-Session-Id",
+    "X-Request-Id",
+  ] as readonly string[],
+  /** Headers exposed to the browser via Access-Control-Expose-Headers. */
+  corsExposedHeaders: ["Mcp-Session-Id", "X-Request-Id"] as readonly string[],
+  /** Preflight cache duration in seconds (Access-Control-Max-Age). */
+  corsMaxAgeSeconds: Number(process.env.CORS_MAX_AGE_SECONDS) || 600,
+  /**
+   * Whether to send Access-Control-Allow-Credentials: true.
+   * Only honoured when the request origin is in the allowlist.
+   * Never sent in wildcard mode.
+   */
+  corsAllowCredentials: process.env.CORS_ALLOW_CREDENTIALS === "true",
 };

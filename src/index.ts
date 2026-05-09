@@ -14,6 +14,26 @@ import { startCircuitBreakerCleanup } from "./circuit-breaker.js";
 
 // ─── Startup safety checks ───────────────────────────────────────────────────
 
+// CORS mode log — emitted before any listener is bound so operators see it
+// even if a later check causes process.exit.
+{
+  const isWildcard = config.corsOrigins[0] === "*";
+  const corsMode = isWildcard ? "wildcard" : "allowlist";
+  log("info", "CORS configuration resolved", {
+    mode: corsMode,
+    origins: config.corsOrigins,
+    credentials: config.corsAllowCredentials,
+  });
+  if (isWildcard && process.env.NODE_ENV !== "development") {
+    log(
+      "warn",
+      "CORS wildcard '*' is active outside the development environment. " +
+        "All cross-origin requests will be permitted. " +
+        "Restrict CORS_ORIGINS to explicit origins before deploying to production.",
+    );
+  }
+}
+
 if (config.authDisabled && process.env.NODE_ENV !== "development") {
   const allowUnsafe = process.env.ALLOW_UNSAFE_AUTH_DISABLED === "true";
   const msg =
