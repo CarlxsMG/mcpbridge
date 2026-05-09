@@ -23,6 +23,9 @@ function resolveRefs(obj: JsonValue, visited: WeakSet<object> = new WeakSet()): 
   visited.add(obj);
   if ("$ref" in obj && typeof obj["$ref"] === "string") {
     const refName = obj["$ref"].split("/").pop() as string;
+    if (_schemaComponents == null) {
+      throw new Error(`Cannot resolve $ref "${refName}": no schema components available`);
+    }
     const refClone = JSON.parse(JSON.stringify(_schemaComponents[refName])) as JsonValue;
     return resolveRefs(refClone, visited);
   }
@@ -46,6 +49,30 @@ try {
 
 export function registerRoutes(app: Express): void {
   app.post("/register", adminAuth, rateLimitRegister(config.rateLimitRegister), async (req: Request, res: Response) => {
+    const requestId = (res.locals.requestId as string) ?? null;
+
+    // Change A — guard against non-object bodies ([], "string", null, etc.)
+    if (req.body === null || typeof req.body !== "object" || Array.isArray(req.body)) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Request body must be a JSON object",
+          request_id: requestId,
+        },
+      });
+    }
+
+    // Change B — cap tools[] length before any other processing
+    if (Array.isArray((req.body as Record<string, unknown>).tools) && ((req.body as Record<string, unknown>).tools as unknown[]).length > config.maxToolsPerClient) {
+      return res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `tools[] exceeds maximum of ${config.maxToolsPerClient}`,
+          request_id: requestId,
+        },
+      });
+    }
+
     const { name, tools, health_url, openapi_url, include_tags, exclude_operations, retry_non_safe_methods } = req.body;
 
     // Validate required fields
@@ -64,8 +91,20 @@ export function registerRoutes(app: Express): void {
       return;
     }
 
-    // Extract IP from request
-    const ip = req.ip || req.socket?.remoteAddress || "127.0.0.1";
+    // Change C — use the true peer address; req.ip follows X-Forwarded-For when
+    // TRUST_PROXY is set, which is attacker-controlled.
+    const peerAddress = req.socket?.remoteAddress;
+    if (!health_url.startsWith("http") && !peerAddress) {
+      res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Cannot determine peer IP for relative health_url",
+          request_id: requestId,
+        },
+      });
+      return;
+    }
+    const ip = peerAddress || "127.0.0.1";
 
     // Resolve health_url
     const resolvedHealthUrl = health_url.startsWith("http")

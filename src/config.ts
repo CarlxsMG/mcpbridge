@@ -138,6 +138,8 @@ export const config = {
   circuitBreakerResetTimeoutMs: Number(process.env.CIRCUIT_BREAKER_RESET_TIMEOUT_MS) || 30_000,
   /** Timeout applied to the single probe request sent in half-open state (ms). */
   circuitBreakerHalfOpenTimeoutMs: Number(process.env.CIRCUIT_BREAKER_HALF_OPEN_TIMEOUT_MS) || 5_000,
+  /** Maximum number of tools allowed in a single /register payload. */
+  maxToolsPerClient: Number(process.env.MAX_TOOLS_PER_CLIENT) || 100,
   /** Interval in milliseconds between rate-limiter bucket cleanup passes. */
   rateLimitCleanupIntervalMs: Number(process.env.RATE_LIMIT_CLEANUP_INTERVAL_MS) || 300_000,
   /** Maximum number of LRU buckets in the global rate-limiter map. */

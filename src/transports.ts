@@ -8,6 +8,7 @@ import { mcpAuth } from "./middleware/auth.js";
 import { rateLimitMcp } from "./middleware/rate-limiter.js";
 import { config } from "./config.js";
 import { setSessionCountGetter } from "./routes/metrics.js";
+import { log } from "./logger.js";
 
 // Session maps
 const streamableSessions = new Map<string, StreamableHTTPServerTransport>();
@@ -62,57 +63,76 @@ export function setupTransports(app: Express): () => void {
   app.use("/mcp", rateLimitMcp(config.rateLimitMcp));
 
   app.post("/mcp", async (req, res) => {
+    let transport: StreamableHTTPServerTransport | undefined;
+    let transportInserted = false;
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
-    if (sessionId && streamableSessions.has(sessionId)) {
-      // Existing session
-      const transport = streamableSessions.get(sessionId)!;
-      await transport.handleRequest(req, res, req.body);
-      touchSession(sessionId);
-    } else if (!sessionId) {
-      // Max sessions cap
-      const totalSessions = streamableSessions.size + sseSessions.size;
-      if (totalSessions >= config.maxSessions) {
-        res.status(503).json({
+    try {
+      if (sessionId && streamableSessions.has(sessionId)) {
+        // Existing session
+        const existingTransport = streamableSessions.get(sessionId)!;
+        await existingTransport.handleRequest(req, res, req.body);
+        touchSession(sessionId);
+      } else if (!sessionId) {
+        // Max sessions cap
+        const totalSessions = streamableSessions.size + sseSessions.size;
+        if (totalSessions >= config.maxSessions) {
+          res.status(503).json({
+            jsonrpc: "2.0",
+            error: { code: -32000, message: "Server at capacity, retry later" },
+            id: req.body?.id ?? null,
+          });
+          return;
+        }
+
+        // New session — Initialize request
+        transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+        });
+
+        // When the transport closes, remove it from the map
+        transport.onclose = () => {
+          for (const [id, t] of streamableSessions) {
+            if (t === transport) {
+              streamableSessions.delete(id);
+              break;
+            }
+          }
+        };
+
+        const server = createMcpServer();
+        await server.connect(transport);
+
+        // The session ID is set after handling the initialize request
+        await transport.handleRequest(req, res, req.body);
+
+        // Store session after handling (sessionId is now set)
+        if (transport.sessionId) {
+          streamableSessions.set(transport.sessionId, transport);
+          transportInserted = true;
+          touchSession(transport.sessionId);
+        }
+      } else {
+        // Session ID provided but not found — expired
+        res.status(404).json({
           jsonrpc: "2.0",
-          error: { code: -32000, message: "Server at capacity, retry later" },
+          error: { code: -32000, message: "Session not found or expired" },
           id: req.body?.id ?? null,
         });
-        return;
       }
-
-      // New session — Initialize request
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
-      });
-
-      // When the transport closes, remove it from the map
-      transport.onclose = () => {
-        for (const [id, t] of streamableSessions) {
-          if (t === transport) {
-            streamableSessions.delete(id);
-            break;
-          }
-        }
-      };
-
-      const server = createMcpServer();
-      await server.connect(transport);
-
-      // The session ID is set after handling the initialize request
-      await transport.handleRequest(req, res, req.body);
-
-      // Store session after handling (sessionId is now set)
-      if (transport.sessionId) {
-        streamableSessions.set(transport.sessionId, transport);
-        touchSession(transport.sessionId);
+    } catch (err) {
+      log("error", "POST /mcp failed", { sessionId, err });
+      if (transport && !transportInserted) {
+        await transport.close().catch(() => {});
       }
-    } else {
-      // Session ID provided but not found — expired
-      res.status(404).json({
+      if (res.headersSent) return;
+      const id = typeof req.body?.id === "string" || typeof req.body?.id === "number"
+        ? req.body.id
+        : null;
+      res.status(500).json({
         jsonrpc: "2.0",
-        error: { code: -32000, message: "Session not found or expired" },
-        id: req.body?.id ?? null,
+        error: { code: -32603, message: "Internal error" },
+        id,
       });
     }
   });
@@ -164,41 +184,65 @@ export function setupTransports(app: Express): () => void {
       return;
     }
 
-    const transport = new SSEServerTransport("/messages", res);
-    // Ensure proper SSE headers for proxy/CDN compatibility
-    res.setHeader("Cache-Control", "no-cache, no-transform");
-    res.setHeader("X-Accel-Buffering", "no");
-    res.flushHeaders();
-    sseSessions.set(transport.sessionId, transport);
-    touchSession(transport.sessionId);
+    let transport: SSEServerTransport | undefined;
+    let server: ReturnType<typeof createMcpServer> | undefined;
+    let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
+    let sessionInserted = false;
+    let sessionId: string | undefined;
 
-    // Hoisted so heartbeat and close handlers can reference it
-    let server: ReturnType<typeof createMcpServer>;
+    try {
+      transport = new SSEServerTransport("/messages", res);
+      sessionId = transport.sessionId;
 
-    // SSE heartbeat every 15s
-    const heartbeatInterval = setInterval(() => {
-      try {
-        res.write(":heartbeat\n\n");
-        touchSession(transport.sessionId);
-      } catch {
+      // Ensure proper SSE headers for proxy/CDN compatibility
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+      sseSessions.set(transport.sessionId, transport);
+      sessionInserted = true;
+      touchSession(transport.sessionId);
+
+      // SSE heartbeat every 15s
+      heartbeatInterval = setInterval(() => {
+        try {
+          res.write(":heartbeat\n\n");
+          touchSession(transport!.sessionId);
+        } catch {
+          clearInterval(heartbeatInterval);
+          sseSessions.delete(transport!.sessionId);
+          sessionActivity.delete(transport!.sessionId);
+          try { server?.close(); } catch {}
+          try { transport!.close(); } catch {}
+        }
+      }, 15_000);
+
+      req.on("close", () => {
         clearInterval(heartbeatInterval);
+        sseSessions.delete(transport!.sessionId);
+        sessionActivity.delete(transport!.sessionId);
+        try { server?.close(); } catch {}
+        try { transport!.close(); } catch {}
+      });
+
+      server = createMcpServer();
+      await server.connect(transport);
+    } catch (err) {
+      log("error", "GET /sse failed", { sessionId, err });
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      if (sessionInserted && transport) {
         sseSessions.delete(transport.sessionId);
         sessionActivity.delete(transport.sessionId);
-        try { server?.close(); } catch {}
-        try { transport.close(); } catch {}
       }
-    }, 15_000);
-
-    req.on("close", () => {
-      clearInterval(heartbeatInterval);
-      sseSessions.delete(transport.sessionId);
-      sessionActivity.delete(transport.sessionId);
-      try { server?.close(); } catch {}
-      try { transport.close(); } catch {}
-    });
-
-    server = createMcpServer();
-    await server.connect(transport);
+      await transport?.close().catch(() => {});
+      await server?.close().catch(() => {});
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: { code: "SSE_INIT_FAILED", message: "Failed to establish SSE stream" },
+        });
+      } else {
+        try { res.end(); } catch {}
+      }
+    }
   });
 
   app.post("/messages", originValidator, mcpAuth, rateLimitMcp(config.rateLimitMcp), async (req, res) => {
