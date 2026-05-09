@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect, beforeEach, it } from "bun:test";
 
 // Registry exports a singleton; import the class by instantiating via the module's
 // internal class. Because the class is not exported we exercise it through a fresh
@@ -29,7 +29,7 @@ const DEFAULT_BASE = "http://example.com";
 const DEFAULT_IP = "1.2.3.4";
 const DEFAULT_RESOLVED_IP = "1.2.3.4";
 
-function reg(
+async function reg(
   name: string,
   tools: RestToolDefinition[] = [makeTool()],
   healthUrl = DEFAULT_HEALTH,
@@ -37,15 +37,15 @@ function reg(
   baseUrl = DEFAULT_BASE,
   resolvedIp = DEFAULT_RESOLVED_IP
 ) {
-  registry.register(name, tools, healthUrl, ip, baseUrl, resolvedIp);
+  await registry.register(name, tools, healthUrl, ip, baseUrl, resolvedIp);
 }
 
 // ---------------------------------------------------------------------------
 // Clear the singleton registry between every test so tests are isolated.
 // ---------------------------------------------------------------------------
-beforeEach(() => {
+beforeEach(async () => {
   for (const client of registry.listClients()) {
-    registry.unregister(client.name);
+    await registry.unregister(client.name);
   }
 });
 
@@ -54,27 +54,27 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("Registry.register — valid data", () => {
-  test("registers a client successfully", () => {
-    reg("my-client");
+  test("registers a client successfully", async () => {
+    await reg("my-client");
     expect(registry.listClients()).toHaveLength(1);
     expect(registry.listClients()[0].name).toBe("my-client");
   });
 
-  test("stores the tool in the tool index", () => {
-    reg("svc", [makeTool({ name: "list-items" })]);
+  test("stores the tool in the tool index", async () => {
+    await reg("svc", [makeTool({ name: "list-items" })]);
     const resolved = registry.resolveTool("svc__list-items");
     expect(resolved).not.toBeUndefined();
     expect(resolved!.tool.name).toBe("list-items");
     expect(resolved!.client.name).toBe("svc");
   });
 
-  test("accepts names starting with a digit", () => {
-    reg("1svc");
+  test("accepts names starting with a digit", async () => {
+    await reg("1svc");
     expect(registry.listClients()[0].name).toBe("1svc");
   });
 
-  test("accepts names with hyphens and underscores", () => {
-    reg("my-svc_v2");
+  test("accepts names with hyphens and underscores", async () => {
+    await reg("my-svc_v2");
     expect(registry.listClients()[0].name).toBe("my-svc_v2");
   });
 });
@@ -84,25 +84,25 @@ describe("Registry.register — valid data", () => {
 // ---------------------------------------------------------------------------
 
 describe("Registry.register — invalid client name", () => {
-  test("throws when name is null/undefined-like (empty string)", () => {
-    expect(() => reg("")).toThrow("Client name is required");
+  test("throws when name is null/undefined-like (empty string)", async () => {
+    await expect(reg("")).rejects.toThrow("Client name is required");
   });
 
-  test("throws when name contains uppercase letters", () => {
-    expect(() => reg("MyClient")).toThrow(/must match/);
+  test("throws when name contains uppercase letters", async () => {
+    await expect(reg("MyClient")).rejects.toThrow(/must match/);
   });
 
-  test("throws when name contains special characters", () => {
-    expect(() => reg("my client!")).toThrow(/must match/);
+  test("throws when name contains special characters", async () => {
+    await expect(reg("my client!")).rejects.toThrow(/must match/);
   });
 
-  test("throws when name starts with a hyphen", () => {
-    expect(() => reg("-bad")).toThrow(/must match/);
+  test("throws when name starts with a hyphen", async () => {
+    await expect(reg("-bad")).rejects.toThrow(/must match/);
   });
 
-  test("throws when name is longer than 63 characters", () => {
+  test("throws when name is longer than 63 characters", async () => {
     const longName = "a".repeat(64);
-    expect(() => reg(longName)).toThrow(/must match/);
+    await expect(reg(longName)).rejects.toThrow(/must match/);
   });
 });
 
@@ -111,26 +111,26 @@ describe("Registry.register — invalid client name", () => {
 // ---------------------------------------------------------------------------
 
 describe("Registry.register — invalid tool names", () => {
-  test("throws when tool name contains uppercase letters", () => {
-    expect(() => reg("svc", [makeTool({ name: "GetUsers" })])).toThrow(
+  test("throws when tool name contains uppercase letters", async () => {
+    await expect(reg("svc", [makeTool({ name: "GetUsers" })])).rejects.toThrow(
       /name must be lowercase/
     );
   });
 
-  test("throws when tool name contains spaces", () => {
-    expect(() => reg("svc", [makeTool({ name: "get users" })])).toThrow(
+  test("throws when tool name contains spaces", async () => {
+    await expect(reg("svc", [makeTool({ name: "get users" })])).rejects.toThrow(
       /name must be lowercase/
     );
   });
 
-  test("throws when tool name starts with a hyphen", () => {
-    expect(() => reg("svc", [makeTool({ name: "-tool" })])).toThrow(
+  test("throws when tool name starts with a hyphen", async () => {
+    await expect(reg("svc", [makeTool({ name: "-tool" })])).rejects.toThrow(
       /name must be lowercase/
     );
   });
 
-  test("throws when tool name exceeds 63 characters", () => {
-    expect(() => reg("svc", [makeTool({ name: "t".repeat(64) })])).toThrow(
+  test("throws when tool name exceeds 63 characters", async () => {
+    await expect(reg("svc", [makeTool({ name: "t".repeat(64) })])).rejects.toThrow(
       /name must be lowercase/
     );
   });
@@ -141,23 +141,23 @@ describe("Registry.register — invalid tool names", () => {
 // ---------------------------------------------------------------------------
 
 describe("Registry.register — inputSchema size limit", () => {
-  test("throws when inputSchema exceeds 10 KB", () => {
+  test("throws when inputSchema exceeds 10 KB", async () => {
     const hugeSchema: Record<string, unknown> = {
       type: "object",
       description: "x".repeat(11_000),
     };
-    expect(() => reg("svc", [makeTool({ inputSchema: hugeSchema })])).toThrow(
+    await expect(reg("svc", [makeTool({ inputSchema: hugeSchema })])).rejects.toThrow(
       /exceeds 10KB/
     );
   });
 
-  test("accepts inputSchema exactly at the limit boundary (9 KB)", () => {
+  test("accepts inputSchema exactly at the limit boundary (9 KB)", async () => {
     const schema: Record<string, unknown> = {
       type: "object",
       description: "x".repeat(9_000),
     };
     // Should not throw — 9 KB is under the 10 KB limit
-    expect(() => reg("svc", [makeTool({ inputSchema: schema })])).not.toThrow();
+    await expect(reg("svc", [makeTool({ inputSchema: schema })])).resolves.toBeUndefined();
   });
 });
 
@@ -166,9 +166,9 @@ describe("Registry.register — inputSchema size limit", () => {
 // ---------------------------------------------------------------------------
 
 describe("Registry.register — duplicate tool names", () => {
-  test("throws when the same tool name appears twice in the tools array", () => {
+  test("throws when the same tool name appears twice in the tools array", async () => {
     const tools = [makeTool({ name: "do-thing" }), makeTool({ name: "do-thing" })];
-    expect(() => reg("svc", tools)).toThrow(/Duplicate tool name/);
+    await expect(reg("svc", tools)).rejects.toThrow(/Duplicate tool name/);
   });
 });
 
@@ -177,8 +177,8 @@ describe("Registry.register — duplicate tool names", () => {
 // ---------------------------------------------------------------------------
 
 describe("Registry.resolveTool — tool index key format", () => {
-  test("resolves via double-underscore composite key", () => {
-    reg("payments", [makeTool({ name: "charge-card" })]);
+  test("resolves via double-underscore composite key", async () => {
+    await reg("payments", [makeTool({ name: "charge-card" })]);
     const resolved = registry.resolveTool("payments__charge-card");
     expect(resolved?.client.name).toBe("payments");
     expect(resolved?.tool.name).toBe("charge-card");
@@ -194,9 +194,9 @@ describe("Registry.resolveTool — tool index key format", () => {
 // ---------------------------------------------------------------------------
 
 describe("Registry.register — re-registration", () => {
-  test("overwrites old client data on re-registration", () => {
-    reg("svc", [makeTool({ name: "old-tool" })]);
-    reg("svc", [makeTool({ name: "new-tool" })]);
+  test("overwrites old client data on re-registration", async () => {
+    await reg("svc", [makeTool({ name: "old-tool" })]);
+    await reg("svc", [makeTool({ name: "new-tool" })]);
 
     // Only one client
     expect(registry.listClients()).toHaveLength(1);
@@ -205,9 +205,9 @@ describe("Registry.register — re-registration", () => {
     expect(registry.resolveTool("svc__new-tool")).not.toBeUndefined();
   });
 
-  test("removes old tool index entries on re-registration", () => {
-    reg("svc", [makeTool({ name: "old-tool" })]);
-    reg("svc", [makeTool({ name: "new-tool" })]);
+  test("removes old tool index entries on re-registration", async () => {
+    await reg("svc", [makeTool({ name: "old-tool" })]);
+    await reg("svc", [makeTool({ name: "new-tool" })]);
 
     // Old tool index entry must be gone
     expect(registry.resolveTool("svc__old-tool")).toBeUndefined();
@@ -219,24 +219,130 @@ describe("Registry.register — re-registration", () => {
 // ---------------------------------------------------------------------------
 
 describe("Registry.unregister", () => {
-  test("removes the client", () => {
-    reg("svc");
-    registry.unregister("svc");
+  test("removes the client", async () => {
+    await reg("svc");
+    await registry.unregister("svc");
     expect(registry.listClients()).toHaveLength(0);
   });
 
-  test("removes the client's tool index entries", () => {
-    reg("svc", [makeTool({ name: "my-tool" })]);
-    registry.unregister("svc");
+  test("removes the client's tool index entries", async () => {
+    await reg("svc", [makeTool({ name: "my-tool" })]);
+    await registry.unregister("svc");
     expect(registry.resolveTool("svc__my-tool")).toBeUndefined();
   });
 
-  test("returns true when client existed", () => {
-    reg("svc");
-    expect(registry.unregister("svc")).toBe(true);
+  test("returns true when client existed", async () => {
+    await reg("svc");
+    expect(await registry.unregister("svc")).toBe(true);
   });
 
-  test("returns false when client did not exist", () => {
-    expect(registry.unregister("nonexistent")).toBe(false);
+  test("returns false when client did not exist", async () => {
+    expect(await registry.unregister("nonexistent")).toBe(false);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Mutex — concurrent register calls do not leave orphaned toolIndex entries
+// ---------------------------------------------------------------------------
+
+describe("Registry.register — mutex prevents interleaved concurrent registrations", () => {
+  test("two concurrent registers for the same name produce a consistent toolIndex", async () => {
+    const tools1 = [makeTool({ name: "tool-one" }), makeTool({ name: "tool-two" })];
+    const tools2 = [makeTool({ name: "tool-alpha" })];
+
+    // Fire both concurrently — the mutex must serialise them.
+    await Promise.all([
+      registry.register("svc", tools1, DEFAULT_HEALTH, DEFAULT_IP, DEFAULT_BASE, DEFAULT_RESOLVED_IP),
+      registry.register("svc", tools2, DEFAULT_HEALTH, DEFAULT_IP, DEFAULT_BASE, DEFAULT_RESOLVED_IP),
+    ]);
+
+    // Exactly one client registered
+    expect(registry.listClients()).toHaveLength(1);
+
+    const client = registry.getClient("svc");
+    expect(client).toBeDefined();
+
+    // toolIndex must exactly match what the winner registered — no phantom entries
+    const registeredToolNames = client!.tools.map(t => t.name);
+    for (const name of registeredToolNames) {
+      expect(registry.resolveTool(`svc__${name}`)).toBeDefined();
+    }
+
+    // The loser's tools must NOT appear in the index
+    const allKeys = ["tool-one", "tool-two", "tool-alpha"];
+    const presentKeys = allKeys.filter(k => registry.resolveTool(`svc__${k}`) !== undefined);
+    // Present keys must match the winner's registered tools exactly
+    expect(presentKeys.sort()).toEqual(registeredToolNames.sort());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unregister — cleanup ordering (abort → removeBreaker → clients.delete)
+// ---------------------------------------------------------------------------
+
+describe("Registry.unregister — cleanup regression", () => {
+  test("getClient returns undefined and toolIndex is clean after unregister", async () => {
+    await registry.register("bye-svc", [makeTool({ name: "bye-tool" })], DEFAULT_HEALTH, DEFAULT_IP, DEFAULT_BASE, DEFAULT_RESOLVED_IP);
+    await registry.unregister("bye-svc");
+
+    expect(registry.getClient("bye-svc")).toBeUndefined();
+    expect(registry.resolveTool("bye-svc__bye-tool")).toBeUndefined();
+  });
+
+  test("circuit breaker is removed after unregister (no stale open state)", async () => {
+    const { getCircuitBreaker, removeCircuitBreaker: removeCB } = await import("../circuit-breaker.js");
+
+    await registry.register("cb-svc", [makeTool()], DEFAULT_HEALTH, DEFAULT_IP, DEFAULT_BASE, DEFAULT_RESOLVED_IP);
+    // Trip the breaker before unregistering
+    const cb = getCircuitBreaker("cb-svc");
+    cb.recordFailure();
+    cb.recordFailure();
+    cb.recordFailure();
+    expect(cb.getState()).toBe("open");
+
+    await registry.unregister("cb-svc");
+
+    // After unregister, getting the breaker again must yield a fresh closed instance.
+    // If removeCircuitBreaker was NOT called, the old open breaker would still be in the map.
+    const fresh = getCircuitBreaker("cb-svc");
+    expect(fresh.getState()).toBe("closed");
+
+    // Clean up
+    removeCB("cb-svc");
+  });
+
+  test("multiple tools all removed from toolIndex after unregister", async () => {
+    await registry.register(
+      "multi-svc",
+      [makeTool({ name: "tool-a" }), makeTool({ name: "tool-b" }), makeTool({ name: "tool-c" })],
+      DEFAULT_HEALTH, DEFAULT_IP, DEFAULT_BASE, DEFAULT_RESOLVED_IP
+    );
+    await registry.unregister("multi-svc");
+
+    expect(registry.resolveTool("multi-svc__tool-a")).toBeUndefined();
+    expect(registry.resolveTool("multi-svc__tool-b")).toBeUndefined();
+    expect(registry.resolveTool("multi-svc__tool-c")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AUTH_DISABLED production guard — skeleton (not testable without refactor)
+// ---------------------------------------------------------------------------
+
+describe("AUTH_DISABLED — refuse-to-start guard", () => {
+  it.skip(
+    "TODO: extract the startup guard from index.ts into an exported function " +
+    "so it can be unit-tested without spawning a child process. " +
+    "Guard logic: config.authDisabled=true + NODE_ENV!=development + " +
+    "ALLOW_UNSAFE_AUTH_DISABLED unset → process.exit(1).",
+    () => {
+      // Skeleton — implement once the guard is extractable:
+      // const exitSpy = spyOn(process, "exit").mockImplementation(() => { throw new Error("exit"); });
+      // process.env.NODE_ENV = "production";
+      // process.env.AUTH_DISABLED = "true";
+      // delete process.env.ALLOW_UNSAFE_AUTH_DISABLED;
+      // expect(() => guardFn()).toThrow("exit");
+      // expect(exitSpy).toHaveBeenCalledWith(1);
+    }
+  );
 });

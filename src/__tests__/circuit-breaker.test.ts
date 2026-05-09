@@ -174,17 +174,112 @@ describe("CircuitBreaker — recovery", () => {
     }
   });
 
-  test("recordSuccess resets failure count", () => {
+  test("recordSuccess in closed state does NOT clear sliding window", () => {
+    // Sliding window: failures within windowMs remain relevant even after a
+    // closed-state success. Three failures total across a success must still open.
+    const cb = getCircuitBreaker(CLIENT);
+    cb.recordFailure(); // 1 in window
+    cb.recordFailure(); // 2 in window
+    cb.recordSuccess(); // closed-state success — must NOT wipe window
+    cb.recordFailure(); // 3 in window → threshold reached → open
+    expect(cb.getState()).toBe("open");
+  });
+
+  test("recordSuccess from half_open closes breaker", () => {
+    // success in half_open IS the recovery path — must close the breaker.
     const cb = getCircuitBreaker(CLIENT);
     cb.recordFailure();
     cb.recordFailure();
-    cb.recordSuccess(); // reset before threshold
+    cb.recordFailure();
+    expect(cb.getState()).toBe("open");
 
-    // Two more failures needed to open again (count reset to 0)
+    const realNow = Date.now;
+    try {
+      Date.now = () => realNow() + 31_000;
+      cb.canRequest(); // transitions to half_open and sets probeInFlight
+    } finally {
+      Date.now = realNow;
+    }
+
+    cb.recordSuccess(); // probe succeeded — must close
+    expect(cb.getState()).toBe("closed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Half-open admits exactly ONE probe — thundering-herd regression
+// ---------------------------------------------------------------------------
+
+describe("CircuitBreaker — half-open admits exactly one probe (thundering-herd)", () => {
+  test("only the first canRequest() returns allowed=true; subsequent calls return allowed=false", () => {
+    const cb = getCircuitBreaker(CLIENT);
+    // Trip the breaker
     cb.recordFailure();
     cb.recordFailure();
-    expect(cb.getState()).toBe("closed"); // only 2 of 3
     cb.recordFailure();
+    expect(cb.getState()).toBe("open");
+
+    const realNow = Date.now;
+    try {
+      // Simulate time elapsed past resetTimeoutMs (default 30 s)
+      Date.now = () => realNow() + 31_000;
+
+      const results = [
+        cb.canRequest(),
+        cb.canRequest(),
+        cb.canRequest(),
+        cb.canRequest(),
+        cb.canRequest(),
+      ];
+
+      const allowed = results.filter(r => r.allowed);
+      const denied  = results.filter(r => !r.allowed);
+
+      // Exactly one probe allowed
+      expect(allowed).toHaveLength(1);
+      // All others blocked
+      expect(denied).toHaveLength(4);
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  test("after recordSuccess in half-open, getState is closed and next canRequest is allowed", () => {
+    const cb = getCircuitBreaker(CLIENT);
+    cb.recordFailure();
+    cb.recordFailure();
+    cb.recordFailure();
+
+    const realNow = Date.now;
+    try {
+      Date.now = () => realNow() + 31_000;
+      cb.canRequest(); // consume the probe slot
+      cb.recordSuccess();
+    } finally {
+      Date.now = realNow;
+    }
+
+    expect(cb.getState()).toBe("closed");
+    expect(cb.canRequest().allowed).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sliding window — success does NOT mask accumulated failures
+// ---------------------------------------------------------------------------
+
+describe("CircuitBreaker — sliding window not masked by interleaved successes", () => {
+  test("breaker opens after N failures in window even when successes are interleaved", () => {
+    const cb = getCircuitBreaker(CLIENT);
+    // Default threshold = 3, window = 60 s — all calls are within the window here.
+
+    // Pattern: failure, failure, success, failure
+    // The success in closed state must NOT reset the failure window.
+    cb.recordFailure(); // 1 failure in window
+    cb.recordFailure(); // 2 failures in window
+    cb.recordSuccess(); // closed-state success — window must NOT clear
+    cb.recordFailure(); // 3 failures in window → should trip
+
     expect(cb.getState()).toBe("open");
   });
 });

@@ -86,6 +86,22 @@ function checkLimit(
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// Test-only internals — NOT part of the public API surface.
+// Only import from __tests__; never from production code.
+// ---------------------------------------------------------------------------
+
+/** @internal */
+export const _internalsForTesting = {
+  /** Direct access to the per-endpoint bucket maps for LRU eviction assertions. */
+  globalBuckets,
+  mcpBuckets,
+  registerBuckets,
+  lruGet,
+  lruSet,
+  checkLimit,
+};
+
 /** Evict empty buckets from a map to bound memory between LRU evictions. */
 function evictEmpty(map: Map<string, Bucket>): void {
   const now = Date.now();
