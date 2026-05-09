@@ -30,6 +30,69 @@ export function abortClientRequests(clientName: string): void {
   }
 }
 
+/**
+ * Parse a Retry-After header value into a wait duration in milliseconds.
+ * Handles both integer-seconds ("120") and HTTP-date ("Wed, 21 Oct 2025 07:28:00 GMT") forms.
+ * Returns null when the value cannot be parsed or exceeds `config.retryAfterMaxMs`.
+ */
+function parseRetryAfter(headerValue: string | null): number | null {
+  if (!headerValue) return null;
+
+  // 1) Integer seconds form
+  const seconds = parseInt(headerValue, 10);
+  if (Number.isFinite(seconds)) {
+    const ms = seconds * 1000;
+    if (ms >= 0 && ms <= config.retryAfterMaxMs) return ms;
+    return null;
+  }
+
+  // 2) HTTP-date form
+  const dateMs = Date.parse(headerValue);
+  if (!isNaN(dateMs)) {
+    const ms = dateMs - Date.now();
+    if (ms >= 0 && ms <= config.retryAfterMaxMs) return ms;
+    return null;
+  }
+
+  return null;
+}
+
+/**
+ * Read the response body as a stream, enforcing `config.maxResponseBytes`.
+ * Returns the raw text on success, or null when the limit is exceeded (after cancelling the reader).
+ */
+async function readBodyWithCap(response: Response): Promise<string | null> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    // Fallback for environments where body is not a ReadableStream
+    return response.text();
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      totalBytes += value.byteLength;
+      if (totalBytes > config.maxResponseBytes) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  }
+
+  const combined = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(combined);
+}
+
 export async function proxyToolCall(
   mcpToolName: string,
   args: Record<string, unknown> = {}
@@ -126,7 +189,6 @@ export async function proxyToolCall(
 
   const method = tool.method.toUpperCase();
   let body: string | undefined;
-  let fetchOptions: RequestInit;
   const reqController = trackRequest(client.name);
 
   if (method === "GET" || method === "DELETE") {
@@ -138,28 +200,21 @@ export async function proxyToolCall(
     if (queryString) {
       url = `${url}?${queryString}`;
     }
-    fetchOptions = {
-      method,
-      headers: { "Content-Type": "application/json", "Host": originalHost },
-      redirect: "error" as RequestRedirect,
-      signal: AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]),
-    };
   } else {
     body = JSON.stringify(remainingArgs);
-    fetchOptions = {
-      method,
-      headers: { "Content-Type": "application/json", "Host": originalHost },
-      body,
-      redirect: "error" as RequestRedirect,
-      signal: AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]),
-    };
   }
 
   const startTime = Date.now();
-  const isIdempotent = method === "GET" || method === "DELETE" || method === "HEAD";
+
+  // GET / HEAD / OPTIONS are always retried.
+  // DELETE / PUT are only retried when the client opts in via retry_non_safe_methods.
+  const alwaysSafe = method === "GET" || method === "HEAD" || method === "OPTIONS";
+  const optedIn = client.retry_non_safe_methods === true && (method === "DELETE" || method === "PUT");
+  const isIdempotent = alwaysSafe || optedIn;
+
   const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504]);
-  const MAX_RETRIES = 2;
-  const BASE_DELAY = 500;
+  const MAX_RETRIES = config.retryMaxAttempts;
+  const BASE_DELAY = config.retryBaseDelayMs;
 
   let lastError: string | undefined;
   let lastStatus: number | undefined;
@@ -173,26 +228,43 @@ export async function proxyToolCall(
       await new Promise(resolve => setTimeout(resolve, delay));
     }
 
+    // A1: build a fresh composed signal per attempt so the timeout is renewed each time.
+    // reqController.signal stays persistent (external client cancellation).
+    const attemptSignal = AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]);
+
+    const fetchOptions: RequestInit = body !== undefined
+      ? { method, headers: { "Content-Type": "application/json", "Host": originalHost }, body, redirect: "error" as RequestRedirect, signal: attemptSignal }
+      : { method, headers: { "Content-Type": "application/json", "Host": originalHost }, redirect: "error" as RequestRedirect, signal: attemptSignal };
+
     try {
       const response = await fetch(url, fetchOptions);
 
       if (response.ok) {
         breaker.recordSuccess();
+
+        // A2: read body with streaming cap
+        const rawText = await readBodyWithCap(response);
+        if (rawText === null) {
+          log("warn", "Upstream response exceeded size limit", { tool: mcpToolName, client: client.name, limit: config.maxResponseBytes });
+          recordToolCall(Date.now() - startTime, true);
+          return {
+            isError: true,
+            content: [{ type: "text", text: "Upstream response exceeded MAX_RESPONSE_BYTES limit" }],
+          };
+        }
+
         log("info", "Tool call succeeded", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
         recordToolCall(Date.now() - startTime, false);
 
-        // Safely parse response body
-        let responseText: string;
+        // Pretty-print JSON when content-type says so
         const contentType = response.headers.get("content-type") ?? "";
+        let responseText = rawText;
         if (contentType.includes("application/json")) {
           try {
-            const json = await response.json();
-            responseText = JSON.stringify(json, null, 2);
+            responseText = JSON.stringify(JSON.parse(rawText), null, 2);
           } catch {
-            responseText = await response.text();
+            // leave as raw text
           }
-        } else {
-          responseText = await response.text();
         }
 
         return {
@@ -204,14 +276,11 @@ export async function proxyToolCall(
 
       // Check if retryable
       if (isIdempotent && RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
-        // Handle Retry-After header for 429
+        // A3: handle Retry-After header (integer seconds OR HTTP-date)
         if (response.status === 429) {
-          const retryAfter = response.headers.get("retry-after");
-          if (retryAfter) {
-            const waitMs = parseInt(retryAfter, 10) * 1000;
-            if (!isNaN(waitMs) && waitMs > 0 && waitMs <= 30_000) {
-              await new Promise(resolve => setTimeout(resolve, waitMs));
-            }
+          const waitMs = parseRetryAfter(response.headers.get("retry-after"));
+          if (waitMs !== null && waitMs > 0) {
+            await new Promise(resolve => setTimeout(resolve, waitMs));
           }
         }
         continue;
