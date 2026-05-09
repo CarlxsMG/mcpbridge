@@ -6,6 +6,8 @@ import { notifyToolsChanged } from "./mcp-server.js";
 import {
   healthCheckDuration,
   healthCheckRunsTotal,
+  healthLoopErrorsTotal,
+  healthEvictionsTotal,
 } from "./observability/metrics.js";
 
 async function checkBatch(clients: ReturnType<typeof registry.listClients>): Promise<void> {
@@ -73,6 +75,8 @@ async function handleFailure(name: string, previousStatus: ClientStatus): Promis
       client: name,
     });
 
+    healthEvictionsTotal.inc({ client: name });
+
     // unregister() handles abort of in-flight requests, circuit-breaker cleanup,
     // toolIndex cleanup, and notifyToolsChanged — no duplication needed here.
     await registry.unregister(name);
@@ -86,8 +90,15 @@ async function handleFailure(name: string, previousStatus: ClientStatus): Promis
 
 export function startHealthCheckLoop(): () => void {
   const check = async () => {
-    const clients = registry.listClients();
-    await checkBatch(clients);
+    try {
+      const clients = registry.listClients();
+      await checkBatch(clients);
+    } catch (err) {
+      healthLoopErrorsTotal.inc({});
+      log("error", "Health check loop encountered an unhandled error", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   };
 
   // Run immediately on start, then at interval

@@ -265,3 +265,17 @@ export const healthCheckRunsTotal = metricsRegistry.register(
     "Total number of health check runs by outcome",
   ),
 );
+
+export const healthLoopErrorsTotal = metricsRegistry.register(
+  new Counter(
+    "mcp_health_loop_errors_total",
+    "Total number of unhandled errors in the health check outer loop",
+  ),
+);
+
+export const healthEvictionsTotal = metricsRegistry.register(
+  new Counter(
+    "mcp_health_evictions_total",
+    "Total number of clients auto-evicted after crossing the consecutive-failure threshold",
+  ),
+);
