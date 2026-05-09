@@ -23,5 +23,6 @@ typecheck_out.txt
 *.log
 
 # AICO artifacts
-.aico/
+.aico/*
 !.aico/docs/
+!.aico/data/
