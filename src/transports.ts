@@ -10,6 +10,13 @@ import { config } from "./config.js";
 import { setSessionCountGetter } from "./routes/metrics.js";
 import { log } from "./logger.js";
 
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Returns true only if `s` is a well-formed UUID v4 string. */
+function isValidSessionId(s: unknown): s is string {
+  return typeof s === "string" && UUID_V4_RE.test(s);
+}
+
 // Session maps
 const streamableSessions = new Map<string, StreamableHTTPServerTransport>();
 const sseSessions = new Map<string, SSEServerTransport>();
@@ -57,6 +64,11 @@ function startSessionCleanup(): void {
   }, 60_000);
 }
 
+/** Returns the current number of active MCP sessions (streamable + SSE). */
+export function getActiveSessionCount(): number {
+  return activeSessionCount;
+}
+
 export function setupTransports(app: Express): () => void {
   startSessionCleanup();
   setSessionCountGetter(() => ({
@@ -77,7 +89,17 @@ export function setupTransports(app: Express): () => void {
   app.post("/mcp", async (req, res) => {
     let transport: StreamableHTTPServerTransport | undefined;
     let transportInserted = false;
-    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+    const rawSessionId = req.headers["mcp-session-id"];
+    const sessionId = rawSessionId !== undefined
+      ? (isValidSessionId(rawSessionId) ? rawSessionId : null)
+      : undefined;
+
+    if (sessionId === null) {
+      res.status(400).json({
+        error: { code: "INVALID_SESSION_ID", message: "Session ID must be a UUID v4" },
+      });
+      return;
+    }
 
     try {
       if (sessionId && streamableSessions.has(sessionId)) {
@@ -155,7 +177,14 @@ export function setupTransports(app: Express): () => void {
   });
 
   app.get("/mcp", async (req, res) => {
-    const sessionId = req.headers["mcp-session-id"] as string;
+    const rawSessionId = req.headers["mcp-session-id"];
+    if (!isValidSessionId(rawSessionId)) {
+      res.status(400).json({
+        error: { code: "INVALID_SESSION_ID", message: "Session ID must be a UUID v4" },
+      });
+      return;
+    }
+    const sessionId = rawSessionId;
     const transport = streamableSessions.get(sessionId);
     if (!transport) {
       res.status(404).json({
@@ -171,7 +200,14 @@ export function setupTransports(app: Express): () => void {
   });
 
   app.delete("/mcp", async (req, res) => {
-    const sessionId = req.headers["mcp-session-id"] as string;
+    const rawSessionId = req.headers["mcp-session-id"];
+    if (!isValidSessionId(rawSessionId)) {
+      res.status(400).json({
+        error: { code: "INVALID_SESSION_ID", message: "Session ID must be a UUID v4" },
+      });
+      return;
+    }
+    const sessionId = rawSessionId;
     const transport = streamableSessions.get(sessionId);
     if (!transport) {
       res.status(404).json({
@@ -272,7 +308,14 @@ export function setupTransports(app: Express): () => void {
   });
 
   app.post("/messages", originValidator, mcpAuth, rateLimitMcp(config.rateLimitMcp), async (req, res) => {
-    const sessionId = req.query.sessionId as string;
+    const rawSessionId = req.query.sessionId;
+    if (!isValidSessionId(rawSessionId)) {
+      res.status(400).json({
+        error: { code: "INVALID_SESSION_ID", message: "Session ID must be a UUID v4" },
+      });
+      return;
+    }
+    const sessionId = rawSessionId;
     const transport = sseSessions.get(sessionId);
     if (!transport) {
       res.status(404).json({

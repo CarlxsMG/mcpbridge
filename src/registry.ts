@@ -6,6 +6,14 @@ import { notifyToolsChanged } from "./mcp-server.js";
 
 const VALID_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
+/** Tracks clients currently being unregistered to close the proxy race window. */
+const deletingClients = new Set<string>();
+
+/** Returns true when `name` is currently being unregistered. */
+export function isDeleting(name: string): boolean {
+  return deletingClients.has(name);
+}
+
 /** Separator between client name and tool name in composite tool keys. */
 export const TOOL_KEY_SEPARATOR = "__";
 
@@ -229,6 +237,8 @@ class Registry {
 
   async unregister(name: string): Promise<boolean> {
     return this.withLock(name, async () => {
+      deletingClients.add(name);
+      try {
       const client = this.clients.get(name);
       if (!client) {
         return false;
@@ -252,6 +262,9 @@ class Registry {
       notifyToolsChanged();
 
       return true;
+      } finally {
+        deletingClients.delete(name);
+      }
     });
   }
 

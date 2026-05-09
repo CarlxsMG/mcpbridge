@@ -50,7 +50,7 @@ export function originValidator(req: Request, res: Response, next: NextFunction)
   if (!origin) {
     // If Sec-Fetch-Site is present, this is a browser request — reject
     if (secFetchSite) {
-      res.status(403).json({ error: "Origin header required for browser requests" });
+      res.status(403).json({ error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin header required for browser requests" } });
       return;
     }
     // Server-to-server: allow
@@ -65,5 +65,5 @@ export function originValidator(req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  res.status(403).json({ error: "Origin not allowed" });
+  res.status(403).json({ error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin not allowed" } });
 }

@@ -11,6 +11,24 @@ interface Bucket {
   tokens: number[];
 }
 
+/**
+ * Normalise a raw IP string for consistent rate-limit bucket keying.
+ * - Returns 'unknown' for falsy input.
+ * - Strips IPv4-mapped IPv6 prefix (::ffff:) → bare IPv4.
+ * - Lowercases.
+ * - Strips zone IDs (everything after '%').
+ */
+function normalizeIp(raw: string | undefined): string {
+  if (!raw) return "unknown";
+  let ip = raw.toLowerCase();
+  // Strip zone ID (e.g. fe80::1%eth0 → fe80::1)
+  const zoneIdx = ip.indexOf("%");
+  if (zoneIdx !== -1) ip = ip.slice(0, zoneIdx);
+  // Strip IPv4-mapped IPv6 prefix
+  if (ip.startsWith("::ffff:")) ip = ip.slice(7);
+  return ip || "unknown";
+}
+
 /** LRU-bounded Map keyed by rate-limit key, value is the sliding-window bucket. */
 const globalBuckets = new Map<string, Bucket>();
 const mcpBuckets = new Map<string, Bucket>();
@@ -147,7 +165,7 @@ export function startRateLimiterCleanup(): () => void {
 
 export function rateLimitRegister(maxPerMinute: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const key = `register:${req.ip ?? req.socket?.remoteAddress ?? "unknown"}`;
+    const key = `register:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
     if (checkLimit(registerBuckets, config.rateLimitMaxBucketsRegister, key, maxPerMinute, "register", res)) {
       next();
     }
@@ -159,8 +177,7 @@ export function rateLimitMcp(maxPerMinute: number) {
     const sessionId =
       (req.headers["mcp-session-id"] as string) ||
       (req.query.sessionId as string) ||
-      req.ip ||
-      "unknown";
+      normalizeIp(req.ip ?? req.socket?.remoteAddress);
     const key = `mcp:${sessionId}`;
     if (checkLimit(mcpBuckets, config.rateLimitMaxBucketsMcp, key, maxPerMinute, "mcp", res)) {
       next();

@@ -159,8 +159,10 @@ export function registerRoutes(app: Express): void {
           return;
         }
 
+        const openapiHostname = new URL(resolvedOpenapiUrl).hostname;
         resolvedTools = await discoverToolsFromOpenApi({
           openapiUrl: resolvedOpenapiUrl,
+          ipPin: { resolvedIp: openapiValidation.resolvedIp!, hostname: openapiHostname },
           includeTags: include_tags,
           excludeOperations: exclude_operations,
         });

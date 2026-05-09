@@ -12,6 +12,7 @@ import {
 } from "./observability/metrics.js";
 import { refreshPinIfStale } from "./security/ip-validator.js";
 import type { PinnedIp } from "./security/ip-validator.js";
+import { isDeleting } from "./registry.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls
@@ -158,6 +159,13 @@ export async function proxyToolCall(
 
   const { client, tool } = resolved;
 
+  if (isDeleting(client.name)) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Client is being unregistered" }],
+    };
+  }
+
   if (client.status === "unreachable") {
     return {
       content: [{ type: "text", text: `Client '${client.name}' is unreachable` }],
@@ -265,6 +273,14 @@ export async function proxyToolCall(
 
   const method = tool.method.toUpperCase();
   let body: string | undefined;
+
+  if (isDeleting(client.name)) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Client is being unregistered" }],
+    };
+  }
+
   const reqController = trackRequest(client.name);
 
   if (method === "GET" || method === "DELETE") {

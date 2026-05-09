@@ -9,13 +9,26 @@ const VALID_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 
 export async function discoverToolsFromOpenApi(options: {
   openapiUrl: string;
+  ipPin?: { resolvedIp: string; hostname: string };
   includeTags?: string[];
   excludeOperations?: string[];
 }): Promise<RestToolDefinition[]> {
-  const { openapiUrl, includeTags, excludeOperations } = options;
+  const { openapiUrl, ipPin, includeTags, excludeOperations } = options;
 
-  // 1. Fetch spec
-  const res = await fetch(openapiUrl, { signal: AbortSignal.timeout(config.openapiDiscoveryTimeoutMs) });
+  // 1. Fetch spec — use DNS-pinned URL when ipPin is provided to prevent DNS rebinding
+  let fetchUrl = openapiUrl;
+  const fetchHeaders: Record<string, string> = {};
+  if (ipPin) {
+    const parsed = new URL(openapiUrl);
+    fetchHeaders["Host"] = ipPin.hostname;
+    parsed.hostname = ipPin.resolvedIp;
+    fetchUrl = parsed.toString();
+  }
+  const res = await fetch(fetchUrl, {
+    headers: fetchHeaders,
+    redirect: "error" as RequestRedirect,
+    signal: AbortSignal.timeout(config.openapiDiscoveryTimeoutMs),
+  });
   if (!res.ok) throw new Error(`Failed to fetch OpenAPI spec from ${openapiUrl}: ${res.status}`);
 
   // Limit spec size to 5MB to prevent DoS
@@ -37,6 +50,30 @@ export async function discoverToolsFromOpenApi(options: {
     parsed = JSON.parse(text);
   } catch {
     parsed = parseYaml(text);
+  }
+
+  // 2b. Depth cap — reject deeply nested specs before dereference to prevent ReDoS/OOM.
+  // Uses iterative BFS (not recursion) to avoid call-stack exhaustion.
+  {
+    const maxDepth = config.maxJsonDepth;
+    const seen = new Set<object>();
+    const queue: Array<{ node: object; depth: number }> = [{ node: parsed as object, depth: 0 }];
+    while (queue.length > 0) {
+      const { node, depth } = queue.shift()!;
+      if (seen.has(node)) continue;
+      seen.add(node);
+      if (depth > maxDepth) {
+        throw new Error("OPENAPI_TOO_DEEP: OpenAPI spec exceeds maximum nesting depth");
+      }
+      const values = Array.isArray(node)
+        ? (node as unknown[])
+        : Object.values(node as Record<string, unknown>);
+      for (const child of values) {
+        if (child !== null && typeof child === "object") {
+          queue.push({ node: child as object, depth: depth + 1 });
+        }
+      }
+    }
   }
 
   // 3. Dereference. The schema field is typed OpenAPI.Document by @scalar/openapi-parser.

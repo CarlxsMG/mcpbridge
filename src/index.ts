@@ -1,5 +1,5 @@
 import express, { type Request, type Response, type NextFunction } from "express";
-import { setupTransports } from "./transports.js";
+import { setupTransports, getActiveSessionCount } from "./transports.js";
 import { registerRoutes } from "./routes/register.js";
 import { introspectionRoutes } from "./routes/introspection.js";
 import { docsRoutes } from "./routes/docs.js";
@@ -12,6 +12,7 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { metricsRoutes } from "./routes/metrics.js";
 import { startCircuitBreakerCleanup } from "./circuit-breaker.js";
 import { checkStartupGuards } from "./security/startup-guards.js";
+import { enforceJsonDepth } from "./middleware/json-depth.js";
 
 // ─── Startup safety checks ───────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ if (config.trustProxy) {
   log("warn", "TRUST_PROXY is enabled — ensure this server is behind a trusted reverse proxy");
 }
 app.use(express.json({ limit: "64kb", strict: true }));
+app.use(enforceJsonDepth(config.maxJsonDepth));
 app.use(requestIdMiddleware);
 // ─── Baseline security headers ────────────────────────────────────────────────
 app.use((req, res, next) => {
@@ -144,7 +146,14 @@ async function gracefulShutdown(signal: string) {
   cleanupTransports();
   server.close(() => process.exit(0));
   // Fallback: force exit after configured timeout
-  setTimeout(() => process.exit(1), config.shutdownForceExitMs);
+  const forceTimer = setTimeout(() => {
+    log("warn", "Force exit triggered after transport cleanup timeout", {
+      activeSessions: getActiveSessionCount(),
+      inflightRequests: 0,
+    });
+    process.exit(1);
+  }, config.shutdownForceExitMs);
+  if (forceTimer.unref) forceTimer.unref();
 }
 
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
