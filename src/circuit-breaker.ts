@@ -1,57 +1,105 @@
+import { config } from "./config.js";
+import { log } from "./logger.js";
+
 type CircuitState = "closed" | "open" | "half_open";
 
 interface CircuitConfig {
   failureThreshold: number;
   resetTimeoutMs: number;
   halfOpenTimeoutMs: number;
+  windowMs: number;
 }
 
 const DEFAULT_CONFIG: CircuitConfig = {
-  failureThreshold: 3,
-  resetTimeoutMs: 30_000,
-  halfOpenTimeoutMs: 5_000,
+  failureThreshold: config.circuitBreakerFailureThreshold,
+  resetTimeoutMs: config.circuitBreakerResetTimeoutMs,
+  halfOpenTimeoutMs: config.circuitBreakerHalfOpenTimeoutMs,
+  windowMs: config.circuitBreakerWindowMs,
 };
 
 class CircuitBreaker {
   private state: CircuitState = "closed";
-  private failureCount = 0;
+  /** True while exactly one probe is in-flight during half_open. */
+  private probeInFlight = false;
+  /** Sliding window of failure timestamps within windowMs. */
+  private failureTimestamps: number[] = [];
   private lastFailureTime = 0;
-  private config: CircuitConfig;
+  private lastStateChange = 0;
+  private cfg: CircuitConfig;
   private lastAccess = Date.now();
+  readonly clientName: string;
 
-  constructor(_clientName: string, config?: Partial<CircuitConfig>) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+  constructor(clientName: string, cfg?: Partial<CircuitConfig>) {
+    this.clientName = clientName;
+    this.cfg = { ...DEFAULT_CONFIG, ...cfg };
   }
 
-  canRequest(): { allowed: boolean; timeout?: number } {
+  canRequest(): { allowed: boolean; timeout?: number; reason?: string } {
     this.lastAccess = Date.now();
+
     if (this.state === "closed") {
       return { allowed: true };
     }
 
     if (this.state === "open") {
       const elapsed = Date.now() - this.lastFailureTime;
-      if (elapsed >= this.config.resetTimeoutMs) {
+      if (elapsed >= this.cfg.resetTimeoutMs) {
+        // Transition open → half_open; always reset probeInFlight before evaluating probe.
         this.state = "half_open";
-        return { allowed: true, timeout: this.config.halfOpenTimeoutMs };
+        this.probeInFlight = false;
+        this.lastStateChange = Date.now();
+        // Fall through to half_open handling below.
+      } else {
+        return { allowed: false };
       }
-      return { allowed: false };
     }
 
-    // half_open — allow one probe
-    return { allowed: true, timeout: this.config.halfOpenTimeoutMs };
+    // half_open — admit exactly one probe atomically.
+    if (this.probeInFlight) {
+      return { allowed: false, reason: "Probing" };
+    }
+    this.probeInFlight = true;
+    return { allowed: true, timeout: this.cfg.halfOpenTimeoutMs };
   }
 
   recordSuccess(): void {
-    this.failureCount = 0;
-    this.state = "closed";
+    if (this.state === "half_open") {
+      // Probe succeeded — close the breaker and clear window.
+      this.failureTimestamps = [];
+      this.probeInFlight = false;
+      this.state = "closed";
+      log("info", "Circuit breaker closed after successful probe", { client: this.clientName });
+    }
+    // In closed state, success does NOT wipe the window — failures already
+    // inside the window remain relevant until they age out naturally.
   }
 
   recordFailure(): void {
-    this.failureCount++;
-    this.lastFailureTime = Date.now();
-    if (this.state === "half_open" || this.failureCount >= this.config.failureThreshold) {
+    const now = Date.now();
+    this.lastFailureTime = now;
+
+    if (this.state === "half_open") {
+      // Probe failed — go back to open immediately.
+      this.probeInFlight = false;
       this.state = "open";
+      this.lastStateChange = Date.now();
+      log("warn", "Circuit breaker re-opened after failed probe", { client: this.clientName });
+      return;
+    }
+
+    // Append to sliding window and prune stale entries.
+    this.failureTimestamps.push(now);
+    this.failureTimestamps = this.failureTimestamps.filter(
+      ts => now - ts < this.cfg.windowMs,
+    );
+
+    if (this.failureTimestamps.length >= this.cfg.failureThreshold) {
+      this.state = "open";
+      log("warn", "Circuit breaker opened", {
+        client: this.clientName,
+        failures: this.failureTimestamps.length,
+        windowMs: this.cfg.windowMs,
+      });
     }
   }
 
@@ -59,11 +107,15 @@ class CircuitBreaker {
     return this.lastAccess;
   }
 
+  /**
+   * Returns the logical circuit state for reporting purposes.
+   * Pure read — never mutates internal state. The actual open→half_open
+   * transition (with probeInFlight reset) only occurs inside canRequest().
+   */
   getState(): CircuitState {
-    // Re-evaluate in case timeout has elapsed
     if (this.state === "open") {
       const elapsed = Date.now() - this.lastFailureTime;
-      if (elapsed >= this.config.resetTimeoutMs) {
+      if (elapsed >= this.cfg.resetTimeoutMs) {
         return "half_open";
       }
     }
@@ -73,6 +125,12 @@ class CircuitBreaker {
 
 const breakers = new Map<string, CircuitBreaker>();
 
+const BREAKER_IDLE_TTL = 5 * 60_000;
+
+/**
+ * Returns a circuit breaker singleton for the given client name.
+ * Creates one on first access.
+ */
 export function getCircuitBreaker(clientName: string): CircuitBreaker {
   let breaker = breakers.get(clientName);
   if (!breaker) {
@@ -90,17 +148,26 @@ export function getAllCircuitStates(): Record<string, CircuitState> {
   return result;
 }
 
+/**
+ * Removes the circuit breaker for a client (called on client unregistration).
+ */
 export function removeCircuitBreaker(clientName: string): void {
   breakers.delete(clientName);
 }
 
-// Evict idle circuit breakers every 5 minutes
-const BREAKER_IDLE_TTL = 5 * 60_000;
-setInterval(() => {
-  const now = Date.now();
-  for (const [name, breaker] of breakers) {
-    if (now - breaker.getLastAccess() > BREAKER_IDLE_TTL) {
-      breakers.delete(name);
+/**
+ * Starts the background idle-eviction loop for circuit breakers.
+ * Returns a stop function; call it during graceful shutdown.
+ */
+export function startCircuitBreakerCleanup(): () => void {
+  const handle = setInterval(() => {
+    const now = Date.now();
+    for (const [name, breaker] of breakers) {
+      if (now - breaker.getLastAccess() > BREAKER_IDLE_TTL) {
+        breakers.delete(name);
+      }
     }
-  }
-}, BREAKER_IDLE_TTL);
+  }, BREAKER_IDLE_TTL);
+
+  return () => clearInterval(handle);
+}
