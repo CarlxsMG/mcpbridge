@@ -1297,6 +1297,11 @@ components:
         has no first-class way to express that pairing, so it's documented
         here in prose, mirroring how RegistrationPayload's tools/openapi_url
         mutual-exclusivity is documented rather than schema-encoded.
+        The `__Host-` prefix (and therefore this exact name) only applies
+        when SESSION_COOKIE_SECURE=true (the default) — it mandates the
+        Secure attribute, so the escape hatch for local plain-HTTP
+        development (SESSION_COOKIE_SECURE=false) uses the unprefixed
+        `mcp_admin_session` / `mcp_admin_csrf` names instead.
 
   schemas:
 

@@ -1,5 +1,26 @@
-export const SESSION_COOKIE_NAME = "__Host-mcp_admin_session";
-export const CSRF_COOKIE_NAME = "__Host-mcp_admin_csrf";
+import { config } from "../config.js";
+
+/**
+ * The `__Host-` prefix is a hard client-side requirement enforced by every
+ * spec-compliant HTTP client (browsers, curl): it mandates the `Secure`
+ * attribute (plus `Path=/` and no `Domain`). A cookie named with this prefix
+ * but missing `Secure` is a self-contradiction — clients silently refuse to
+ * store it, with no error surfaced anywhere. So the name itself must track
+ * whether the cookie will actually carry `Secure`, not just that attribute
+ * alone — otherwise SESSION_COOKIE_SECURE=false (the documented escape hatch
+ * in security/startup-guards.ts for local plain-HTTP development) produces a
+ * cookie no client can ever actually keep, and login silently doesn't stick.
+ */
+export function sessionCookieName(secure: boolean): string {
+  return secure ? "__Host-mcp_admin_session" : "mcp_admin_session";
+}
+
+export function csrfCookieName(secure: boolean): string {
+  return secure ? "__Host-mcp_admin_csrf" : "mcp_admin_csrf";
+}
+
+export const SESSION_COOKIE_NAME = sessionCookieName(config.sessionCookieSecure);
+export const CSRF_COOKIE_NAME = csrfCookieName(config.sessionCookieSecure);
 
 /**
  * Minimal Cookie-header parser — only handles the flat `name=value; name=value`
