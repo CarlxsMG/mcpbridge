@@ -1,6 +1,12 @@
 /** Canonical status values for a registered client. */
 export type ClientStatus = "healthy" | "degraded" | "unreachable";
 
+/** Upstream kind: a REST backend (bridged via HTTP) or a native MCP server proxied through this bridge. */
+export type UpstreamKind = "rest" | "mcp";
+
+/** Transport used to reach an MCP-kind upstream. */
+export type McpTransport = "streamable-http" | "sse";
+
 export interface RegistrationPayload {
   name: string;
   health_url: string;
@@ -64,6 +70,8 @@ export interface RegisteredTool extends RestToolDefinition {
   sensitive?: boolean | null;
   /** Response redaction dot-paths (populated on read). */
   redactPaths?: string[];
+  /** Raw upstream MCP tool name used for dispatch (only when the client is kind "mcp"). Absent for REST tools. */
+  upstreamName?: string;
 }
 
 export interface RegisteredClient {
@@ -80,6 +88,12 @@ export interface RegisteredClient {
   /** Admin-controlled kill switch — disabled clients are excluded from tools/list and rejected in proxyToolCall. */
   enabled: boolean;
   guards?: ClientGuardConfig;
+  /** Upstream kind: "rest" (default) or a native MCP server proxied through this bridge. */
+  kind: UpstreamKind;
+  /** MCP upstream endpoint URL (only when kind === "mcp"). */
+  mcpUrl?: string;
+  /** MCP upstream transport (only when kind === "mcp"). */
+  mcpTransport?: McpTransport;
 }
 
 export interface ResolvedTool {

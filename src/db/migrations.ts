@@ -329,6 +329,16 @@ export const migrations: Migration[] = [
       ALTER TABLE admin_users_new RENAME TO admin_users;
     `,
   },
+  {
+    id: 16,
+    name: "mcp_upstreams",
+    sql: `
+      ALTER TABLE clients ADD COLUMN kind TEXT NOT NULL DEFAULT 'rest';
+      ALTER TABLE clients ADD COLUMN mcp_url TEXT;
+      ALTER TABLE clients ADD COLUMN mcp_transport TEXT;
+      ALTER TABLE tools ADD COLUMN upstream_name TEXT;
+    `,
+  },
 ];
 
 /**

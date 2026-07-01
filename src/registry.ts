@@ -416,6 +416,7 @@ class Registry {
         retry_non_safe_methods: retryNonSafeMethods,
         enabled: persisted.enabled,
         guards: persisted.guards,
+        kind: "rest",
       };
 
       this.clients.set(name, client);
