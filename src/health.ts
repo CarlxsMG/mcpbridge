@@ -4,6 +4,8 @@ import { config } from "./config.js";
 import { log } from "./logger.js";
 import { notifyToolsChanged } from "./mcp-server.js";
 import { isLeader } from "./db/leader-lease.js";
+import { mcpUpstream } from "./mcp-upstream.js";
+import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
 import {
   healthCheckDuration,
   healthCheckRunsTotal,
@@ -19,18 +21,35 @@ async function checkBatch(clients: ReturnType<typeof registry.listClients>): Pro
         const previousStatus = client.status;
         const hcStart = Date.now();
         try {
-          // Use pinned IP to prevent DNS rebinding
-          const healthParsed = new URL(client.health_url);
-          const originalHealthHost = healthParsed.host;
-          healthParsed.hostname = client.resolved_ip;
-          const pinnedHealthUrl = healthParsed.toString();
+          let ok: boolean;
+          if (client.kind === "mcp") {
+            // MCP upstreams are probed with a JSON-RPC ping over the pooled
+            // connection instead of an HTTP GET against health_url.
+            ok = await mcpUpstream.ping(
+              {
+                name: client.name,
+                url: client.mcpUrl ?? client.base_url,
+                transport: client.mcpTransport ?? "streamable-http",
+                resolvedIp: client.resolved_ip,
+                authHeaders: getUpstreamAuthHeaders(client.name) ?? undefined,
+              },
+              config.healthCheckTimeoutMs
+            );
+          } else {
+            // Use pinned IP to prevent DNS rebinding
+            const healthParsed = new URL(client.health_url);
+            const originalHealthHost = healthParsed.host;
+            healthParsed.hostname = client.resolved_ip;
+            const pinnedHealthUrl = healthParsed.toString();
 
-          const res = await fetch(pinnedHealthUrl, {
-            headers: { "Host": originalHealthHost },
-            redirect: "error" as RequestRedirect,
-            signal: AbortSignal.timeout(config.healthCheckTimeoutMs),
-          });
-          if (res.ok) {
+            const res = await fetch(pinnedHealthUrl, {
+              headers: { "Host": originalHealthHost },
+              redirect: "error" as RequestRedirect,
+              signal: AbortSignal.timeout(config.healthCheckTimeoutMs),
+            });
+            ok = res.ok;
+          }
+          if (ok) {
             healthCheckDuration.observe({ client: client.name, outcome: "success" }, (Date.now() - hcStart) / 1000);
             healthCheckRunsTotal.inc({ outcome: "success" });
             registry.resetConsecutiveFailures(client.name);

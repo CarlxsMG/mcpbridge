@@ -9,6 +9,9 @@ import { validateBackendUrl } from "../security/ip-validator.js";
 import { adminAuth } from "../middleware/auth.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { log } from "../logger.js";
+import { discoverToolsFromMcpServer } from "../mcp-discovery.js";
+import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
+import type { McpTransport } from "../types.js";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
 type SchemaObject = { [k: string]: JsonValue };
@@ -71,6 +74,13 @@ export function registerRoutes(app: Express): void {
           request_id: requestId,
         },
       });
+    }
+
+    // MCP-upstream registration takes a distinct shape (mcp_url instead of
+    // health_url + tools/openapi_url); same adminAuth + SSRF posture as REST.
+    if ((req.body as Record<string, unknown>).kind === "mcp" || typeof (req.body as Record<string, unknown>).mcp_url === "string") {
+      await handleMcpRegister(req, res, requestId);
+      return;
     }
 
     const { name, tools, health_url, openapi_url, include_tags, exclude_operations, retry_non_safe_methods } = req.body;
@@ -223,4 +233,66 @@ export function registerRoutes(app: Express): void {
     res.setHeader("Content-Type", "application/schema+json");
     res.json(_resolvedSchema);
   });
+}
+
+/**
+ * Handles the MCP-kind branch of POST /register: validates mcp_url (SSRF + IP
+ * pin, same as REST base_url), connects to the upstream to discover its tools,
+ * and registers them. Auth (if the upstream requires it) is read from any
+ * previously-configured per-client upstream credential, so an operator can
+ * configure auth then re-register.
+ */
+async function handleMcpRegister(req: Request, res: Response, requestId: string | null): Promise<void> {
+  const body = req.body as Record<string, unknown>;
+  const name = body.name;
+  const mcpUrl = body.mcp_url;
+  const transportRaw = typeof body.mcp_transport === "string" ? body.mcp_transport : "streamable-http";
+
+  if (typeof name !== "string" || !name) {
+    res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } });
+    return;
+  }
+  if (typeof mcpUrl !== "string" || (!mcpUrl.startsWith("http://") && !mcpUrl.startsWith("https://"))) {
+    res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "mcp_url must start with http:// or https://", request_id: requestId } });
+    return;
+  }
+  if (transportRaw !== "streamable-http" && transportRaw !== "sse") {
+    res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "mcp_transport must be 'streamable-http' or 'sse'", request_id: requestId } });
+    return;
+  }
+  const transport: McpTransport = transportRaw;
+
+  // SSRF validation + IP pin on the MCP endpoint (same posture as REST base_url).
+  const validation = await validateBackendUrl(mcpUrl, config.allowPrivateIps, config.allowedHosts);
+  if (!validation.valid) {
+    res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `Invalid mcp_url: ${validation.reason}`, request_id: requestId } });
+    return;
+  }
+  const pinnedIp = validation.resolvedIp!;
+  const ip = req.socket?.remoteAddress || "127.0.0.1";
+
+  let toolsCount: number;
+  try {
+    const discovered = await discoverToolsFromMcpServer(
+      { name, url: mcpUrl, transport, resolvedIp: pinnedIp, authHeaders: getUpstreamAuthHeaders(name) ?? undefined },
+      { timeoutMs: config.toolCallTimeoutMs }
+    );
+    if (discovered.length === 0) {
+      res.status(400).json({ error: { code: "DISCOVERY_ERROR", message: "No tools discovered from MCP upstream", request_id: requestId } });
+      return;
+    }
+    if (discovered.length > config.maxToolsPerClient) {
+      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `MCP upstream exposes ${discovered.length} tools, exceeds maximum of ${config.maxToolsPerClient}`, request_id: requestId } });
+      return;
+    }
+    await registry.registerMcp(name, discovered, mcpUrl, transport, ip, pinnedIp);
+    toolsCount = discovered.length;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ error: { code: "DISCOVERY_ERROR", message, request_id: requestId } });
+    return;
+  }
+
+  log("info", "MCP upstream registered", { name, tools_count: toolsCount, source: "mcp" });
+  res.status(200).json({ status: "registered", name, tools_count: toolsCount, source: "mcp" });
 }
