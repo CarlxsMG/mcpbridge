@@ -25,6 +25,7 @@ const routes = [
   { path: "/overview", name: "overview", component: () => import("../pages/OverviewPage.vue") },
   { path: "/usage", name: "usage", component: () => import("../pages/UsagePage.vue") },
   { path: "/alerts", name: "alerts", component: () => import("../pages/AlertsPage.vue") },
+  { path: "/schedules", name: "schedules", component: () => import("../pages/SchedulesPage.vue") },
   { path: "/:pathMatch(.*)*", name: "not-found", component: () => import("../pages/NotFoundPage.vue"), meta: { public: true } },
 ];
 

@@ -420,6 +420,26 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_config_snapshots_created_at ON config_snapshots(created_at);
     `,
   },
+  {
+    id: 22,
+    name: "schedules",
+    sql: `
+      CREATE TABLE IF NOT EXISTS schedules (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        target_type     TEXT NOT NULL CHECK (target_type IN ('client','tool')),
+        client_name     TEXT NOT NULL REFERENCES clients(name) ON DELETE CASCADE,
+        tool_name       TEXT,
+        action          TEXT NOT NULL CHECK (action IN ('enable','disable')),
+        cron            TEXT NOT NULL,
+        enabled         INTEGER NOT NULL DEFAULT 1,
+        last_run_minute INTEGER,
+        created_at      INTEGER NOT NULL,
+        created_by      TEXT
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_schedules_client ON schedules(client_name);
+    `,
+  },
 ];
 
 /**

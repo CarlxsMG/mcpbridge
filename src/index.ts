@@ -31,6 +31,8 @@ import { policyRoutes } from "./routes/policies.js";
 import { tagRoutes } from "./routes/tags.js";
 import { consumerRoutes } from "./routes/consumers.js";
 import { compositeRoutes } from "./routes/composites.js";
+import { scheduleRoutes } from "./routes/schedules.js";
+import { startScheduleLoop } from "./schedules.js";
 import { initBundles } from "./bundles.js";
 import { initComposites } from "./composites.js";
 import { startLeaderElection } from "./db/leader-lease.js";
@@ -129,6 +131,7 @@ policyRoutes(app);
 tagRoutes(app);
 consumerRoutes(app);
 compositeRoutes(app);
+scheduleRoutes(app);
 
 // ─── Admin UI (Vue SPA) ─────────────────────────────────────────────────────
 // Sibling namespace to /admin-api, not nested under it — Express mount-path
@@ -174,6 +177,9 @@ const stopRateLimiterCleanup = startRateLimiterCleanup();
 
 // Alert evaluation loop (leader-only, gated inside the loop)
 const stopAlerts = startAlertLoop();
+
+// Maintenance-schedule evaluator (leader-only, gated inside the loop)
+const stopSchedules = startScheduleLoop();
 
 // ─── Global error handler ─────────────────────────────────────────────────────
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
@@ -222,6 +228,7 @@ async function gracefulShutdown(signal: string) {
   stopCircuitBreakerCleanup();
   stopRateLimiterCleanup();
   stopAlerts();
+  stopSchedules();
   cleanupTransports();
   server.close(() => process.exit(0));
   // Fallback: force exit after configured timeout

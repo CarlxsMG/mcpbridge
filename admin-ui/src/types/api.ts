@@ -126,6 +126,19 @@ export interface ConfigDiffResult {
   entries: ConfigDiffEntry[];
 }
 
+export interface Schedule {
+  id: number;
+  targetType: "client" | "tool";
+  clientName: string;
+  toolName: string | null;
+  action: "enable" | "disable";
+  cron: string;
+  enabled: boolean;
+  lastRunMinute: number | null;
+  createdAt: number;
+  createdBy: string | null;
+}
+
 export interface PaginatedResult<T> {
   items: T[];
   nextCursor?: string;
