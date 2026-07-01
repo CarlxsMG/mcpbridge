@@ -106,6 +106,26 @@ export interface CompositeDetail {
   updatedAt: number;
 }
 
+export interface ConfigSnapshotSummary {
+  id: number;
+  label: string;
+  createdAt: number;
+  createdBy: string | null;
+}
+
+export interface ConfigDiffEntry {
+  path: string;
+  kind: "added" | "removed" | "changed";
+  before: unknown;
+  after: unknown;
+}
+
+export interface ConfigDiffResult {
+  from: ConfigSnapshotSummary;
+  to: string;
+  entries: ConfigDiffEntry[];
+}
+
 export interface PaginatedResult<T> {
   items: T[];
   nextCursor?: string;

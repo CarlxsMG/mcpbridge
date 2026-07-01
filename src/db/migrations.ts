@@ -405,6 +405,21 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_tool_examples_tool ON tool_examples(client_name, tool_name);
     `,
   },
+  {
+    id: 21,
+    name: "config_snapshots",
+    sql: `
+      CREATE TABLE IF NOT EXISTS config_snapshots (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        label       TEXT NOT NULL,
+        config_json TEXT NOT NULL,
+        created_at  INTEGER NOT NULL,
+        created_by  TEXT
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_config_snapshots_created_at ON config_snapshots(created_at);
+    `,
+  },
 ];
 
 /**
