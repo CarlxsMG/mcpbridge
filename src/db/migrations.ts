@@ -362,6 +362,31 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 19,
+    name: "composite_tools",
+    sql: `
+      CREATE TABLE IF NOT EXISTS composite_tools (
+        name              TEXT PRIMARY KEY
+                            CHECK (name GLOB '[a-z0-9]*' AND length(name) BETWEEN 1 AND 63),
+        description       TEXT,
+        input_schema_json TEXT NOT NULL,
+        enabled           INTEGER NOT NULL DEFAULT 1,
+        created_at        INTEGER NOT NULL,
+        updated_at        INTEGER NOT NULL,
+        created_by        TEXT
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS composite_tool_steps (
+        composite_name     TEXT NOT NULL REFERENCES composite_tools(name) ON DELETE CASCADE,
+        step_order         INTEGER NOT NULL,
+        target_client      TEXT NOT NULL,
+        target_tool        TEXT NOT NULL,
+        args_template_json TEXT NOT NULL,
+        PRIMARY KEY (composite_name, step_order)
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

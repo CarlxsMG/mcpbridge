@@ -15,6 +15,7 @@ const routes = [
   { path: "/register-server", name: "register-server", component: () => import("../pages/RegisterServerPage.vue") },
   { path: "/bundles", name: "bundles", component: () => import("../pages/BundlesPage.vue") },
   { path: "/bundles/:name", name: "bundle-detail", component: () => import("../pages/BundleDetailPage.vue"), props: true },
+  { path: "/composites", name: "composites", component: () => import("../pages/CompositesPage.vue") },
   { path: "/keys", name: "keys", component: () => import("../pages/KeysPage.vue") },
   { path: "/policies", name: "policies", component: () => import("../pages/PoliciesPage.vue") },
   { path: "/consumers", name: "consumers", component: () => import("../pages/ConsumersPage.vue") },

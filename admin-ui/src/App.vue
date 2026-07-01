@@ -42,6 +42,7 @@ async function onLogout() {
         <li><RouterLink to="/servers">Servers</RouterLink></li>
         <li><RouterLink to="/register-server">Add server</RouterLink></li>
         <li><RouterLink to="/bundles">Bundles</RouterLink></li>
+        <li><RouterLink to="/composites">Composites</RouterLink></li>
         <li><RouterLink to="/keys">API keys</RouterLink></li>
         <li><RouterLink to="/policies">Policies</RouterLink></li>
         <li><RouterLink to="/consumers">Consumers</RouterLink></li>

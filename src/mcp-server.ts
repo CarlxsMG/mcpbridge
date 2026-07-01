@@ -9,6 +9,7 @@ import { proxyToolCall } from "./proxy.js";
 import { isBundleEnabled, getBundleToolKeys } from "./bundles.js";
 import { config } from "./config.js";
 import { SEARCH_TOOL_NAME, searchToolDefinition, runSearchTool, type AdvertisedTool } from "./tool-search.js";
+import { hasComposite, listAdvertisedComposites, runComposite } from "./composites.js";
 
 const _require = createRequire(import.meta.url);
 const pkg = _require("../package.json") as { version: string };
@@ -56,6 +57,8 @@ export function createMcpServer(scope?: McpServerScope): Server {
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const tools = scopedToolList(scope);
+    // Composite (macro) tools are aggregated-only in v1.
+    if (!scope) tools.push(...listAdvertisedComposites());
     // Advertise the discovery meta-tool alongside the real tools (only when
     // there is something to search).
     if (config.enableSearchTool && tools.length > 0) tools.push(searchToolDefinition());
@@ -96,6 +99,15 @@ export function createMcpServer(scope?: McpServerScope): Server {
     const callerToken = extractBearerFromHeader(
       (extra as { requestInfo?: { headers?: Record<string, unknown> } } | undefined)?.requestInfo?.headers?.authorization
     );
+
+    // Composite (macro) dispatch — aggregated scope only. A composite name never
+    // matches a sharded/bundle scope check above, so this is unreachable for
+    // scoped sessions. Each step runs through proxyToolCall under the caller's
+    // token, so the full guard stack applies per step (no privilege escalation).
+    if (!scope && hasComposite(name)) {
+      return runComposite(name, (args ?? {}) as Record<string, unknown>, callerToken);
+    }
+
     return proxyToolCall(name, args ?? {}, callerToken);
   });
 

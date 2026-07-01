@@ -30,7 +30,9 @@ import { configIoRoutes } from "./routes/config-io.js";
 import { policyRoutes } from "./routes/policies.js";
 import { tagRoutes } from "./routes/tags.js";
 import { consumerRoutes } from "./routes/consumers.js";
+import { compositeRoutes } from "./routes/composites.js";
 import { initBundles } from "./bundles.js";
+import { initComposites } from "./composites.js";
 import { startLeaderElection } from "./db/leader-lease.js";
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
@@ -41,6 +43,8 @@ await bootstrapAdminUser();
 // Bundles are purely admin-authored (no external "register" actor pushes
 // them live the way clients do), so they must be hydrated from SQLite here.
 initBundles();
+// Composite (macro) tools are likewise admin-authored — hydrate the cache.
+initComposites();
 
 // ─── Startup safety checks ───────────────────────────────────────────────────
 
@@ -124,6 +128,7 @@ configIoRoutes(app);
 policyRoutes(app);
 tagRoutes(app);
 consumerRoutes(app);
+compositeRoutes(app);
 
 // ─── Admin UI (Vue SPA) ─────────────────────────────────────────────────────
 // Sibling namespace to /admin-api, not nested under it — Express mount-path

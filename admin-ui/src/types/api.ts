@@ -83,6 +83,29 @@ export interface ClientDetail {
   tools: ToolDetail[];
 }
 
+export interface CompositeStep {
+  targetClient: string;
+  targetTool: string;
+  argsTemplate: Record<string, unknown>;
+}
+
+export interface CompositeSummary {
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  stepsCount: number;
+}
+
+export interface CompositeDetail {
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  inputSchema: Record<string, unknown>;
+  steps: CompositeStep[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface PaginatedResult<T> {
   items: T[];
   nextCursor?: string;
