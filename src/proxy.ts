@@ -14,6 +14,7 @@ import { refreshPinIfStale } from "./security/ip-validator.js";
 import type { PinnedIp } from "./security/ip-validator.js";
 import { isDeleting } from "./registry.js";
 import { checkToolRateLimit } from "./middleware/rate-limiter.js";
+import { checkSharedToolRateLimit } from "./db/rate-counters.js";
 import { isKeyAllowed } from "./security/key-hash.js";
 import { resolveMcpKeyByToken, isToolInKeyScope } from "./security/mcp-key-store.js";
 import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
@@ -282,7 +283,10 @@ async function dispatchToolCall(
   }
 
   if (tool.guards?.rateLimitPerMin !== undefined) {
-    const rl = checkToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin);
+    // Shared (cross-instance) counters when running HA; fast in-memory otherwise.
+    const rl = config.rateLimitShared
+      ? checkSharedToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin)
+      : checkToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin);
     if (!rl.allowed) {
       return {
         isError: true,

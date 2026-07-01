@@ -463,6 +463,18 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 25,
+    name: "rate_counters",
+    sql: `
+      CREATE TABLE IF NOT EXISTS rate_counters (
+        key          TEXT NOT NULL,
+        window_start INTEGER NOT NULL,
+        count        INTEGER NOT NULL,
+        PRIMARY KEY (key, window_start)
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

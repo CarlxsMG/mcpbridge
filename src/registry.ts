@@ -780,6 +780,113 @@ class Registry {
   }
 
   // -------------------------------------------------------------------------
+  // Cross-instance reconciliation (horizontal scaling)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Rebuilds a live RegisteredClient purely from SQLite (used when another
+   * instance registered a client this process hasn't seen). Preserves this
+   * instance's runtime-only fields (health status, consecutive failures) when
+   * the client is already live.
+   */
+  private buildClientFromDb(name: string): RegisteredClient | undefined {
+    const db = getDb();
+    const row = db
+      .query(`SELECT ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport FROM clients WHERE name = ?`)
+      .get(name) as
+      | { ip: string; health_url: string; base_url: string; resolved_ip: string; retry_non_safe_methods: number; enabled: number; kind: string; mcp_url: string | null; mcp_transport: string | null }
+      | null;
+    if (!row) return undefined;
+
+    const toolRows = db
+      .query(`SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`)
+      .all(name) as { name: string; method: string; endpoint: string; description: string; input_schema: string; enabled: number; upstream_name: string | null }[];
+    const tools: RegisteredTool[] = toolRows.map((t) => {
+      const tg = db.query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`).get(name, t.name) as ToolGuardRow | null;
+      const to = db.query(`SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`).get(name, t.name) as ToolOverrideRow | null;
+      return {
+        name: t.name,
+        method: t.method as RegisteredTool["method"],
+        endpoint: t.endpoint,
+        upstreamName: t.upstream_name ?? undefined,
+        description: t.description,
+        inputSchema: JSON.parse(t.input_schema) as Record<string, unknown>,
+        enabled: t.enabled === 1,
+        guards: rowToToolGuards(tg),
+        override: rowToToolOverride(to),
+      };
+    });
+
+    const guardRow = db.query(`SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`).get(name) as ClientGuardRow | null;
+    const existing = this.clients.get(name);
+    return {
+      name,
+      ip: row.ip,
+      tools,
+      health_url: row.health_url,
+      base_url: row.base_url,
+      resolved_ip: row.resolved_ip,
+      status: existing?.status ?? "healthy",
+      consecutive_failures: existing?.consecutive_failures ?? 0,
+      retry_non_safe_methods: row.retry_non_safe_methods === 1,
+      enabled: row.enabled === 1,
+      guards: rowToClientGuards(guardRow),
+      kind: row.kind as UpstreamKind,
+      mcpUrl: row.mcp_url ?? undefined,
+      mcpTransport: (row.mcp_transport as McpTransport | null) ?? undefined,
+    };
+  }
+
+  /**
+   * Reconciles the in-memory registry against SQLite so mutations made by other
+   * instances propagate: clients present in the DB but not live are added,
+   * live clients no longer in the DB are torn down, and for already-live
+   * clients the enable flags (client + per-tool) are refreshed. Tool-set
+   * changes for a live client propagate when its owning backend re-registers.
+   */
+  async reconcileFromDb(): Promise<{ added: number; removed: number; updated: number }> {
+    const db = getDb();
+    const dbNames = new Set((db.query(`SELECT name FROM clients`).all() as { name: string }[]).map((r) => r.name));
+    let added = 0;
+    let removed = 0;
+    let updated = 0;
+
+    // Remove live clients no longer present in SQLite.
+    for (const name of Array.from(this.clients.keys())) {
+      if (!dbNames.has(name)) {
+        await this.withLock(name, async () => { if (this.teardownLiveClient(name)) removed++; });
+      }
+    }
+
+    for (const name of dbNames) {
+      if (!this.clients.has(name)) {
+        // A registration this instance hasn't seen — hydrate it live.
+        await this.withLock(name, async () => {
+          const client = this.buildClientFromDb(name);
+          if (!client) return;
+          this.clients.set(name, client);
+          for (const t of client.tools) this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${t.name}`, { clientName: name, toolName: t.name });
+          this.rebuildAliasesForClient(name, client.tools);
+          added++;
+        });
+        continue;
+      }
+      // Already live — refresh enable flags (the common cross-instance admin action).
+      const live = this.clients.get(name)!;
+      const crow = db.query(`SELECT enabled FROM clients WHERE name = ?`).get(name) as { enabled: number };
+      if ((crow.enabled === 1) !== live.enabled) { live.enabled = crow.enabled === 1; updated++; }
+      const toolEnabled = new Map((db.query(`SELECT name, enabled FROM tools WHERE client_name = ?`).all(name) as { name: string; enabled: number }[]).map((t) => [t.name, t.enabled === 1]));
+      for (const t of live.tools) {
+        const e = toolEnabled.get(t.name);
+        if (e !== undefined && e !== t.enabled) { t.enabled = e; updated++; }
+      }
+    }
+
+    if (added > 0 || removed > 0 || updated > 0) notifyToolsChanged();
+    return { added, removed, updated };
+  }
+
+  // -------------------------------------------------------------------------
   // Admin mutations — enable/disable
   // -------------------------------------------------------------------------
 

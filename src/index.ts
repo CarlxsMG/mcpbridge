@@ -37,6 +37,7 @@ import { initBundles } from "./bundles.js";
 import { initComposites } from "./composites.js";
 import { startLeaderElection } from "./db/leader-lease.js";
 import { flush as flushTraces } from "./observability/tracing.js";
+import { registry } from "./registry.js";
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 // Opens the SQLite handle and applies any pending migrations before anything
@@ -182,6 +183,18 @@ const stopAlerts = startAlertLoop();
 // Maintenance-schedule evaluator (leader-only, gated inside the loop)
 const stopSchedules = startScheduleLoop();
 
+// Cross-instance registry reconciliation (opt-in for HA; every instance syncs
+// its own view from SQLite so registrations/removals on peers propagate).
+let stopRegistrySync: () => void = () => {};
+if (config.registrySyncEnabled) {
+  const t = setInterval(() => {
+    registry.reconcileFromDb().catch((err) => log("warn", "Registry reconciliation failed", { error: err instanceof Error ? err.message : String(err) }));
+  }, config.registrySyncIntervalMs);
+  if (t.unref) t.unref();
+  stopRegistrySync = () => clearInterval(t);
+  log("info", "Registry cross-instance sync enabled", { intervalMs: config.registrySyncIntervalMs });
+}
+
 // ─── Global error handler ─────────────────────────────────────────────────────
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   if (res.headersSent) {
@@ -230,6 +243,7 @@ async function gracefulShutdown(signal: string) {
   stopRateLimiterCleanup();
   stopAlerts();
   stopSchedules();
+  stopRegistrySync();
   void flushTraces();
   cleanupTransports();
   server.close(() => process.exit(0));

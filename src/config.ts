@@ -260,4 +260,10 @@ export const config = {
   leaderLeaseDurationMs: Number(process.env.LEADER_LEASE_DURATION_MS) || 15_000,
   /** Stable identity for this process in leader-election bookkeeping. */
   instanceId: process.env.INSTANCE_ID || crypto.randomUUID(),
+  /** Use SQLite-backed shared rate-limit counters (global across instances) for per-tool limits. */
+  rateLimitShared: process.env.RATE_LIMIT_SHARED === "true",
+  /** Periodically reconcile the in-memory registry from SQLite so registrations/removals on other instances propagate. */
+  registrySyncEnabled: process.env.REGISTRY_SYNC === "true",
+  /** Interval between registry reconciliation passes (ms). */
+  registrySyncIntervalMs: Number(process.env.REGISTRY_SYNC_INTERVAL_MS) || 15_000,
 };
