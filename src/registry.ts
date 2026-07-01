@@ -6,6 +6,7 @@ import type {
   ClientStatus,
   ClientGuardConfig,
   ToolGuardConfig,
+  ToolOverride,
 } from "./types.js";
 import { sanitizeToolDescription } from "./sanitize.js";
 import { abortClientRequests } from "./proxy.js";
@@ -56,6 +57,11 @@ interface ToolGuardRow {
   extra_json: string | null;
 }
 
+interface ToolOverrideRow {
+  description: string | null;
+  param_overrides_json: string | null;
+}
+
 function rowToClientGuards(row: ClientGuardRow | null): ClientGuardConfig | undefined {
   if (!row) return undefined;
   const cb: Record<string, number> = {};
@@ -77,6 +83,13 @@ function rowToToolGuards(row: ToolGuardRow | null): ToolGuardConfig | undefined 
     allowedKeyHashes: row.allowed_key_hashes ? (JSON.parse(row.allowed_key_hashes) as string[]) : undefined,
     extra: row.extra_json ? (JSON.parse(row.extra_json) as Record<string, unknown>) : undefined,
   };
+}
+
+function rowToToolOverride(row: ToolOverrideRow | null): ToolOverride | undefined {
+  if (!row) return undefined;
+  const params = row.param_overrides_json ? (JSON.parse(row.param_overrides_json) as ToolOverride["params"]) : undefined;
+  if (!row.description && (!params || Object.keys(params).length === 0)) return undefined;
+  return { description: row.description ?? undefined, params };
 }
 
 /** Tracks clients currently being unregistered to close the proxy race window. */
@@ -266,10 +279,15 @@ class Registry {
           .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
           .get(name, tool.name) as ToolGuardRow | null;
 
+        const toolOverrideRow = db
+          .query(`SELECT description, param_overrides_json FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
+          .get(name, tool.name) as ToolOverrideRow | null;
+
         registeredTools.push({
           ...tool,
           enabled: toolRow.enabled === 1,
           guards: rowToToolGuards(toolGuardRow),
+          override: rowToToolOverride(toolOverrideRow),
         });
       }
 
@@ -614,6 +632,53 @@ class Registry {
     });
   }
 
+  /**
+   * Persists and (if live) applies a tool presentation override. Pass null to
+   * clear. Admin-provided text is sanitized the same way registration
+   * descriptions are, then a tools/list change is broadcast (overrides alter
+   * what's advertised).
+   */
+  async setToolOverride(clientName: string, toolName: string, override: ToolOverride | null): Promise<boolean> {
+    return this.withLock(clientName, async () => {
+      const db = getDb();
+      const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
+      if (!exists) return false;
+
+      let normalized: ToolOverride | null = null;
+      if (override) {
+        const description = override.description ? sanitizeToolDescription(override.description) : undefined;
+        let params: ToolOverride["params"] | undefined;
+        if (override.params) {
+          params = {};
+          for (const [p, o] of Object.entries(override.params)) {
+            if (o?.description) params[p] = { description: sanitizeToolDescription(o.description) };
+          }
+          if (Object.keys(params).length === 0) params = undefined;
+        }
+        if (description || params) normalized = { description, params };
+      }
+
+      if (!normalized) {
+        db.query(`DELETE FROM tool_overrides WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+      } else {
+        db.query(
+          `INSERT INTO tool_overrides (client_name, tool_name, description, param_overrides_json, updated_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(client_name, tool_name) DO UPDATE SET
+             description = excluded.description,
+             param_overrides_json = excluded.param_overrides_json,
+             updated_at = excluded.updated_at`
+        ).run(clientName, toolName, normalized.description ?? null, normalized.params ? JSON.stringify(normalized.params) : null, Date.now());
+      }
+
+      const client = this.clients.get(clientName);
+      const tool = client?.tools.find((t) => t.name === toolName);
+      if (tool) tool.override = normalized ?? undefined;
+      notifyToolsChanged();
+      return true;
+    });
+  }
+
   // -------------------------------------------------------------------------
   // Resolution / listing
   // -------------------------------------------------------------------------
@@ -637,6 +702,33 @@ class Registry {
     return { client, tool };
   }
 
+  /**
+   * Advertised (tools/list) shape for a tool, applying any admin presentation
+   * override (description + per-param descriptions) without mutating the stored
+   * definition. Only clones the schema when param overrides are present.
+   */
+  private effectiveAdvertised(
+    clientName: string,
+    tool: RegisteredTool
+  ): { name: string; description: string; inputSchema: Record<string, unknown> } {
+    const name = `${clientName}${TOOL_KEY_SEPARATOR}${tool.name}`;
+    const ov = tool.override;
+    if (!ov) return { name, description: tool.description, inputSchema: tool.inputSchema };
+    const description = ov.description ?? tool.description;
+    let inputSchema = tool.inputSchema;
+    if (ov.params && Object.keys(ov.params).length > 0 && inputSchema && typeof inputSchema === "object") {
+      const clone = JSON.parse(JSON.stringify(inputSchema)) as Record<string, unknown>;
+      const props = clone.properties as Record<string, Record<string, unknown>> | undefined;
+      if (props) {
+        for (const [p, o] of Object.entries(ov.params)) {
+          if (props[p] && o.description !== undefined) props[p].description = o.description;
+        }
+      }
+      inputSchema = clone;
+    }
+    return { name, description, inputSchema };
+  }
+
   /** All servable (enabled) tools across every enabled client, for the aggregated MCP endpoint. */
   getAllMcpTools(): { name: string; description: string; inputSchema: Record<string, unknown> }[] {
     const result: { name: string; description: string; inputSchema: Record<string, unknown> }[] = [];
@@ -644,11 +736,7 @@ class Registry {
     for (const [clientName, client] of this.clients) {
       for (const tool of client.tools) {
         if (!this.isServable(client, tool)) continue;
-        result.push({
-          name: `${clientName}${TOOL_KEY_SEPARATOR}${tool.name}`,
-          description: tool.description,
-          inputSchema: tool.inputSchema,
-        });
+        result.push(this.effectiveAdvertised(clientName, tool));
       }
     }
 
@@ -663,11 +751,7 @@ class Registry {
     const result: { name: string; description: string; inputSchema: Record<string, unknown> }[] = [];
     for (const tool of client.tools) {
       if (!this.isServable(client, tool)) continue;
-      result.push({
-        name: `${clientName}${TOOL_KEY_SEPARATOR}${tool.name}`,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-      });
+      result.push(this.effectiveAdvertised(clientName, tool));
     }
     return result;
   }
@@ -690,7 +774,7 @@ class Registry {
       for (const tool of client.tools) {
         const key = `${clientName}${TOOL_KEY_SEPARATOR}${tool.name}`;
         if (!keys.has(key) || !this.isServable(client, tool)) continue;
-        result.push({ name: key, description: tool.description, inputSchema: tool.inputSchema });
+        result.push(this.effectiveAdvertised(clientName, tool));
       }
     }
 
@@ -826,6 +910,9 @@ class Registry {
         const tg = db
           .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
           .get(name, t.name) as ToolGuardRow | null;
+        const to = db
+          .query(`SELECT description, param_overrides_json FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
+          .get(name, t.name) as ToolOverrideRow | null;
         return {
           name: t.name,
           method: t.method as RegisteredTool["method"],
@@ -834,6 +921,7 @@ class Registry {
           inputSchema: JSON.parse(t.input_schema) as Record<string, unknown>,
           enabled: t.enabled === 1,
           guards: rowToToolGuards(tg),
+          override: rowToToolOverride(to),
         };
       });
     }

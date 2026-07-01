@@ -229,6 +229,21 @@ async function saveGuards(payload: { rateLimitPerMin?: number; timeoutMs?: numbe
   }
 }
 
+async function saveOverride(payload: { description?: string; params?: Record<string, { description?: string }> } | null) {
+  if (!activeTool.value) return;
+  savingGuards.value = true;
+  try {
+    await api.patch(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}`, {
+      overrides: payload,
+    });
+    await load();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save description override.";
+  } finally {
+    savingGuards.value = false;
+  }
+}
+
 async function testTool(tool: ToolDetail) {
   testingTool.value = tool.name;
   testResult.value = null;
@@ -436,7 +451,7 @@ async function resetBreaker() {
         <h2>Guards — {{ activeTool.name }}</h2>
         <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">Close</button>
       </div>
-      <GuardEditor :guards="activeTool.guards" :saving="savingGuards" @save="saveGuards" />
+      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" />
     </div>
     <p v-else-if="tool && detail && !activeTool" class="error">Tool "{{ tool }}" not found on this client.</p>
 

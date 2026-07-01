@@ -193,6 +193,21 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_tool_call_log_client_tool ON tool_call_log(client_name, tool_name);
     `,
   },
+  {
+    id: 8,
+    name: "tool_overrides",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_overrides (
+        client_name           TEXT NOT NULL,
+        tool_name             TEXT NOT NULL,
+        description           TEXT,
+        param_overrides_json  TEXT,
+        updated_at            INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

@@ -31,6 +31,11 @@ export interface ClientGuardConfig {
   };
 }
 
+export interface ToolOverride {
+  description?: string;
+  params?: Record<string, { description?: string }>;
+}
+
 export interface ToolDetail {
   name: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -39,6 +44,7 @@ export interface ToolDetail {
   inputSchema: Record<string, unknown>;
   enabled: boolean;
   guards?: ToolGuardConfig;
+  override?: ToolOverride;
 }
 
 export interface ClientDetail {

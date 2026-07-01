@@ -14,7 +14,7 @@ import {
   countActiveAdmins,
 } from "../security/user-store.js";
 import { revokeAllSessionsForUser } from "../security/session-store.js";
-import type { ClientGuardConfig, ToolGuardConfig, ClientStatus } from "../types.js";
+import type { ClientGuardConfig, ToolGuardConfig, ClientStatus, ToolOverride } from "../types.js";
 import type { AdminRole } from "../security/user-store.js";
 
 function requestId(res: Response): string | null {
@@ -57,6 +57,43 @@ function validateToolGuardInput(input: unknown): { ok: true; value: ToolGuardCon
     // Raw keys are hashed here, at the boundary — they are never persisted or echoed back.
     value.allowedKeyHashes = (g.allowedApiKeys as string[]).map((k) => hashApiKey(k));
   }
+  return { ok: true, value };
+}
+
+function validateToolOverrideInput(input: unknown): { ok: true; value: ToolOverride | null } | { ok: false; message: string } {
+  if (input === null) return { ok: true, value: null };
+  if (typeof input !== "object" || Array.isArray(input)) {
+    return { ok: false, message: "overrides must be an object or null" };
+  }
+  const o = input as Record<string, unknown>;
+  const value: ToolOverride = {};
+
+  if (o.description !== undefined && o.description !== null) {
+    if (typeof o.description !== "string" || o.description.length > 4096) {
+      return { ok: false, message: "overrides.description must be a string (<= 4096 chars) or null" };
+    }
+    if (o.description.length > 0) value.description = o.description;
+  }
+
+  if (o.params !== undefined && o.params !== null) {
+    if (typeof o.params !== "object" || Array.isArray(o.params)) {
+      return { ok: false, message: "overrides.params must be an object" };
+    }
+    const params: NonNullable<ToolOverride["params"]> = {};
+    for (const [p, raw] of Object.entries(o.params as Record<string, unknown>)) {
+      if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+        return { ok: false, message: `overrides.params.${p} must be an object` };
+      }
+      const desc = (raw as Record<string, unknown>).description;
+      if (desc !== undefined && (typeof desc !== "string" || desc.length > 2048)) {
+        return { ok: false, message: `overrides.params.${p}.description must be a string (<= 2048 chars)` };
+      }
+      if (typeof desc === "string" && desc.length > 0) params[p] = { description: desc };
+    }
+    if (Object.keys(params).length > 0) value.params = params;
+  }
+
+  if (value.description === undefined && value.params === undefined) return { ok: true, value: null };
   return { ok: true, value };
 }
 
@@ -196,6 +233,20 @@ export function adminRoutes(app: Express): void {
           return;
         }
         recordAudit(actor, "tool.guards.update", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+      }
+
+      if (body.overrides !== undefined) {
+        const parsed = validateToolOverrideInput(body.overrides);
+        if (!parsed.ok) {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+          return;
+        }
+        const ok = await registry.setToolOverride(name, tool, parsed.value);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, "tool.override.update", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
       }
 
       res.status(200).json({ status: "updated", name, tool });

@@ -41,10 +41,23 @@ export interface ClientGuardConfig {
   extra?: Record<string, unknown>;
 }
 
+/**
+ * Admin-authored presentation overrides applied to what tools/list advertises,
+ * without mutating the upstream-registered definition. Improves LLM tool
+ * selection (better descriptions) without a re-registration.
+ */
+export interface ToolOverride {
+  /** Replacement tool description. Absent = use the registered description. */
+  description?: string;
+  /** Per-parameter description overrides, keyed by property name. */
+  params?: Record<string, { description?: string }>;
+}
+
 /** A tool as tracked internally by the registry — adds admin state on top of the wire shape. */
 export interface RegisteredTool extends RestToolDefinition {
   enabled: boolean;
   guards?: ToolGuardConfig;
+  override?: ToolOverride;
 }
 
 export interface RegisteredClient {

@@ -5,12 +5,16 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 
 const props = defineProps<{
   guards?: ToolGuardConfig;
+  override?: { description?: string; params?: Record<string, { description?: string }> };
   saving?: boolean;
 }>();
 
 const emit = defineEmits<{
   save: [payload: { rateLimitPerMin?: number; timeoutMs?: number; allowedApiKeys?: string[] } | null];
+  saveOverride: [payload: { description?: string; params?: Record<string, { description?: string }> } | null];
 }>();
+
+const descriptionInput = ref(props.override?.description ?? "");
 
 const rateLimitInput = ref(props.guards?.rateLimitPerMin?.toString() ?? "");
 const timeoutInput = ref(props.guards?.timeoutMs?.toString() ?? "");
@@ -33,6 +37,13 @@ watch(
     hasAllowedKeysGuard.value = Boolean(g?.allowedKeyHashes?.length);
     existingKeyCount.value = g?.allowedKeyHashes?.length ?? 0;
     replacementKeys.value = [];
+  }
+);
+
+watch(
+  () => props.override,
+  (o) => {
+    descriptionInput.value = o?.description ?? "";
   }
 );
 
@@ -97,6 +108,17 @@ function confirmClear() {
   pendingClear.value = false;
   emit("save", null);
 }
+
+function saveOverrideFn() {
+  const desc = descriptionInput.value.trim();
+  const params = props.override?.params;
+  if (!desc && (!params || Object.keys(params).length === 0)) {
+    emit("saveOverride", null);
+    return;
+  }
+  // Preserve any param-level overrides set via the API; the UI only edits the description.
+  emit("saveOverride", { description: desc || undefined, params });
+}
 </script>
 
 <template>
@@ -158,6 +180,13 @@ function confirmClear() {
       </p>
     </div>
 
+    <div class="field">
+      <label for="tool-desc">Advertised description override</label>
+      <p class="hint">Replaces what MCP clients see for this tool in tools/list. Leave blank to use the registered description.</p>
+      <textarea id="tool-desc" v-model="descriptionInput" rows="3" placeholder="Registered description is used when blank"></textarea>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveOverrideFn">Save description</button>
+    </div>
+
     <details class="preview">
       <summary>Preview</summary>
       <pre>{{ previewJson }}</pre>
@@ -196,12 +225,21 @@ function confirmClear() {
   font-size: 0.9rem;
 }
 .field input[type="text"],
-.field input.api-key-input {
+.field input.api-key-input,
+.field textarea {
   width: 100%;
   padding: 0.45rem 0.6rem;
   border: 1px solid #cfd4da;
   border-radius: 6px;
   font-size: 0.9rem;
+  box-sizing: border-box;
+}
+.field textarea {
+  font-family: inherit;
+  resize: vertical;
+}
+.desc-save {
+  margin-top: 0.5rem;
 }
 .field-error {
   color: #a11212;
