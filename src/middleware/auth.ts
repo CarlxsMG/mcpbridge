@@ -4,6 +4,7 @@ import { safeCompare } from "../security/compare.js";
 import { validateSession } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME, parseCookies } from "../security/cookies.js";
 import type { AdminRole } from "../security/user-store.js";
+import { resolveMcpKeyByToken, touchMcpKeyLastUsed, hasAnyMcpKeys } from "../security/mcp-key-store.js";
 
 export interface AuthContext {
   method: "bearer" | "session";
@@ -17,6 +18,8 @@ declare global {
   namespace Express {
     interface Request {
       authContext?: AuthContext;
+      /** Set by mcpAuth when the caller authenticated with a DB-managed MCP key. */
+      mcpKeyId?: number;
     }
   }
 }
@@ -77,18 +80,39 @@ export function adminAuth(req: Request, res: Response, next: NextFunction): void
   next();
 }
 
+/**
+ * MCP auth accepts EITHER a legacy env `MCP_API_KEYS` entry (unchanged,
+ * constant-time compared) OR a DB-managed key minted via the admin API
+ * (enabled, not revoked, not expired). Backward-compat "open mode" is
+ * preserved only when NO auth material exists at all — neither env keys nor
+ * any managed keys — so simply minting a managed key transparently locks
+ * down the MCP surface.
+ */
 export function mcpAuth(req: Request, res: Response, next: NextFunction): void {
   if (config.authDisabled) { next(); return; }
-  // If no MCP API keys configured, allow all (backward compat)
-  if (config.mcpApiKeys.length === 0) { next(); return; }
+
+  const envConfigured = config.mcpApiKeys.length > 0;
   const token = extractBearerToken(req);
+
+  if (token) {
+    if (envConfigured && config.mcpApiKeys.some(key => safeCompare(key, token))) { next(); return; }
+    const managed = resolveMcpKeyByToken(token);
+    if (managed) {
+      req.mcpKeyId = managed.id;
+      touchMcpKeyLastUsed(managed.id);
+      next();
+      return;
+    }
+  }
+
+  // No valid token presented. Preserve the historical "no keys configured =>
+  // allow all" behaviour, but only when there is genuinely nothing to check
+  // against (env unset AND no managed keys exist).
+  if (!envConfigured && !hasAnyMcpKeys()) { next(); return; }
+
   if (!token) {
     res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Missing Authorization header" } });
     return;
   }
-  if (!config.mcpApiKeys.some(key => safeCompare(key, token))) {
-    res.status(403).json({ error: { code: "FORBIDDEN", message: "Invalid API key" } });
-    return;
-  }
-  next();
+  res.status(403).json({ error: { code: "FORBIDDEN", message: "Invalid API key" } });
 }

@@ -125,3 +125,28 @@ export interface ToolListItem {
 export interface ApiErrorBody {
   error: { code: string; message: string; request_id?: string | null };
 }
+
+export interface McpKeyScopes {
+  clients?: string[];
+  tools?: string[];
+}
+
+/** GET /admin-api/mcp-keys item — never carries the raw secret. */
+export interface McpApiKey {
+  id: number;
+  label: string;
+  keyPrefix: string;
+  scopes: McpKeyScopes | null;
+  enabled: boolean;
+  expiresAt: number | null;
+  revokedAt: number | null;
+  lastUsedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+  createdBy: string | null;
+}
+
+/** POST /admin-api/mcp-keys response — the raw `key` is returned exactly once. */
+export interface McpApiKeyWithSecret extends McpApiKey {
+  key: string;
+}

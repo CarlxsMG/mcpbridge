@@ -15,6 +15,7 @@ import type { PinnedIp } from "./security/ip-validator.js";
 import { isDeleting } from "./registry.js";
 import { checkToolRateLimit } from "./middleware/rate-limiter.js";
 import { isKeyAllowed } from "./security/key-hash.js";
+import { resolveMcpKeyByToken, isToolInKeyScope } from "./security/mcp-key-store.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls
@@ -196,6 +197,20 @@ export async function proxyToolCall(
       return {
         isError: true,
         content: [{ type: "text", text: `Not authorized to call tool '${mcpToolName}'` }],
+      };
+    }
+  }
+
+  // Key-centric scope enforcement — when the caller authenticated with a
+  // DB-managed MCP key that carries scopes, the target tool must fall within
+  // them. Legacy env keys and admin test-calls (no callerToken, or a token
+  // that doesn't resolve to a managed key) are unaffected.
+  if (callerToken) {
+    const keyRec = resolveMcpKeyByToken(callerToken);
+    if (keyRec && !isToolInKeyScope(keyRec.scopes, client.name, mcpToolName)) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `API key is not authorized to call tool '${mcpToolName}'` }],
       };
     }
   }

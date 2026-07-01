@@ -141,6 +141,26 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_mcp_bundle_tools_client_tool ON mcp_bundle_tools(client_name, tool_name);
     `,
   },
+  {
+    id: 5,
+    name: "mcp_api_keys",
+    sql: `
+      CREATE TABLE IF NOT EXISTS mcp_api_keys (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        label         TEXT NOT NULL,
+        key_hash      TEXT NOT NULL UNIQUE,
+        key_prefix    TEXT NOT NULL,
+        scopes_json   TEXT,
+        enabled       INTEGER NOT NULL DEFAULT 1,
+        expires_at    INTEGER,
+        revoked_at    INTEGER,
+        last_used_at  INTEGER,
+        created_at    INTEGER NOT NULL,
+        updated_at    INTEGER NOT NULL,
+        created_by    TEXT
+      ) STRICT;
+    `,
+  },
 ];
 
 /**
