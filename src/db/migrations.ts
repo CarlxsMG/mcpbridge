@@ -387,6 +387,24 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 20,
+    name: "tool_examples",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_examples (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_name TEXT NOT NULL,
+        tool_name   TEXT NOT NULL,
+        label       TEXT NOT NULL,
+        args_json   TEXT NOT NULL,
+        created_at  INTEGER NOT NULL,
+        created_by  TEXT,
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_tool_examples_tool ON tool_examples(client_name, tool_name);
+    `,
+  },
 ];
 
 /**

@@ -6,6 +6,7 @@ import { hashApiKey } from "../security/key-hash.js";
 import { setToolSensitive } from "../tool-sensitivity.js";
 import { setRedactionPaths } from "../redaction.js";
 import { setGuardrails, MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../guardrails.js";
+import { listExamples, createExample, deleteExample } from "../tool-examples.js";
 import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog } from "../admin/audit.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
 import {
@@ -402,6 +403,58 @@ export function adminRoutes(app: Express): void {
       const result = await proxyToolCall(mcpToolName, args);
       recordAudit(actorFromRequest(req), "tool.test", mcpToolName);
       res.status(200).json(result);
+    }
+  );
+
+  // ── Saved examples (playground) ───────────────────────────────────────────
+
+  app.get(
+    "/admin-api/clients/:name/tools/:tool/examples",
+    adminAuth,
+    (req: Request<{ name: string; tool: string }>, res: Response) => {
+      res.status(200).json({ items: listExamples(req.params.name, req.params.tool) });
+    }
+  );
+
+  app.post(
+    "/admin-api/clients/:name/tools/:tool/examples",
+    adminAuth,
+    requireOperator,
+    (req: Request<{ name: string; tool: string }>, res: Response) => {
+      const { name, tool } = req.params;
+      const body = (req.body as Record<string, unknown>) ?? {};
+      const label = typeof body.label === "string" ? body.label.trim() : "";
+      if (!label || label.length > 100) {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "label is required (<= 100 chars)", request_id: requestId(res) } });
+        return;
+      }
+      const result = createExample(name, tool, label, body.args ?? {}, actorFromRequest(req));
+      if (result === "TOOL_NOT_FOUND") {
+        res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+        return;
+      }
+      if (result === "INVALID_ARGS") {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "args must be an object (<= 16KB)", request_id: requestId(res) } });
+        return;
+      }
+      recordAudit(actorFromRequest(req), "tool.example.create", `${name}${TOOL_KEY_SEPARATOR}${tool}`, { label });
+      res.status(201).json(result);
+    }
+  );
+
+  app.delete(
+    "/admin-api/clients/:name/tools/:tool/examples/:id",
+    adminAuth,
+    requireOperator,
+    (req: Request<{ name: string; tool: string; id: string }>, res: Response) => {
+      const { name, tool, id } = req.params;
+      const ok = deleteExample(name, tool, Number(id));
+      if (!ok) {
+        res.status(404).json({ error: { code: "EXAMPLE_NOT_FOUND", message: "Example not found", request_id: requestId(res) } });
+        return;
+      }
+      recordAudit(actorFromRequest(req), "tool.example.delete", `${name}${TOOL_KEY_SEPARATOR}${tool}`, { id: Number(id) });
+      res.status(200).json({ status: "deleted", id: Number(id) });
     }
   );
 

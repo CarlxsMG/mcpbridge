@@ -6,6 +6,9 @@ import type { ClientDetail, ToolDetail, UpstreamAuthInfo, DiscoveredTool, Discov
 import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import GuardEditor from "../components/GuardEditor.vue";
+import SchemaForm from "../components/SchemaForm.vue";
+
+interface ToolExample { id: number; label: string; args: Record<string, unknown>; createdAt: number; createdBy: string | null; }
 
 const props = defineProps<{ name: string; tool?: string }>();
 const router = useRouter();
@@ -20,6 +23,14 @@ const testingTool = ref<string | null>(null);
 const testResult = ref<{ tool: string; text: string; isError: boolean } | null>(null);
 const resettingBreaker = ref(false);
 const drawerCloseBtn = ref<HTMLButtonElement | null>(null);
+
+// Playground (schema-driven test form + saved examples) for the active tool.
+const playgroundArgs = ref<Record<string, unknown>>({});
+const examples = ref<ToolExample[]>([]);
+const newExampleLabel = ref("");
+const savingExample = ref(false);
+const playgroundResult = ref<{ text: string; isError: boolean } | null>(null);
+const playgroundRunning = ref(false);
 
 // Upstream auth (per-client injected credentials)
 const upstreamAuth = ref<UpstreamAuthInfo | null>(null);
@@ -337,6 +348,79 @@ async function testTool(tool: ToolDetail) {
   }
 }
 
+// ── Playground ──────────────────────────────────────────────────────────────
+
+watch(
+  () => activeTool.value?.name,
+  (name) => {
+    playgroundArgs.value = {};
+    playgroundResult.value = null;
+    examples.value = [];
+    newExampleLabel.value = "";
+    if (name) void loadExamples(name);
+  },
+  { immediate: true }
+);
+
+async function loadExamples(toolName: string) {
+  try {
+    const res = await api.get<{ items: ToolExample[] }>(
+      `/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(toolName)}/examples`
+    );
+    examples.value = res.items;
+  } catch {
+    examples.value = [];
+  }
+}
+
+function loadExampleIntoForm(ex: ToolExample) {
+  playgroundArgs.value = { ...ex.args };
+}
+
+async function runPlayground() {
+  if (!activeTool.value) return;
+  playgroundRunning.value = true;
+  playgroundResult.value = null;
+  try {
+    const result = await api.post<{ content: { type: string; text: string }[]; isError?: boolean }>(
+      `/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}/test`,
+      playgroundArgs.value
+    );
+    playgroundResult.value = { text: result.content.map((c) => c.text).join("\n"), isError: Boolean(result.isError) };
+  } catch (err) {
+    playgroundResult.value = { text: err instanceof ApiError ? err.message : "Test call failed.", isError: true };
+  } finally {
+    playgroundRunning.value = false;
+  }
+}
+
+async function saveExample() {
+  if (!activeTool.value || !newExampleLabel.value.trim()) return;
+  savingExample.value = true;
+  try {
+    await api.post(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}/examples`, {
+      label: newExampleLabel.value.trim(),
+      args: playgroundArgs.value,
+    });
+    newExampleLabel.value = "";
+    await loadExamples(activeTool.value.name);
+  } catch (err) {
+    playgroundResult.value = { text: err instanceof ApiError ? err.message : "Failed to save example.", isError: true };
+  } finally {
+    savingExample.value = false;
+  }
+}
+
+async function deleteExampleFn(ex: ToolExample) {
+  if (!activeTool.value) return;
+  try {
+    await api.delete(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}/examples/${ex.id}`);
+    await loadExamples(activeTool.value.name);
+  } catch {
+    /* ignore */
+  }
+}
+
 async function resetBreaker() {
   resettingBreaker.value = true;
   try {
@@ -548,6 +632,35 @@ async function resetBreaker() {
         <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">Close</button>
       </div>
       <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :guardrails="activeTool.guardrails" :client-name="props.name" :tool-name="activeTool.name" :tags="activeTool.tags" :redact-paths="activeTool.redactPaths" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" @save-tags="saveTags" @save-redaction="saveRedaction" @save-guardrails="saveGuardrails" />
+
+      <section class="playground">
+        <h3>Playground</h3>
+        <p class="hint">Fill arguments from the tool's schema and run a real test call through the full guard stack.</p>
+
+        <div v-if="examples.length" class="examples">
+          <span class="ex-label">Saved examples:</span>
+          <span v-for="ex in examples" :key="ex.id" class="ex-chip">
+            <button type="button" class="link-btn" @click="loadExampleIntoForm(ex)">{{ ex.label }}</button>
+            <button type="button" class="link-btn del" @click="deleteExampleFn(ex)" title="Delete example">×</button>
+          </span>
+        </div>
+
+        <SchemaForm :schema="activeTool.inputSchema" v-model="playgroundArgs" />
+
+        <div class="pg-actions">
+          <button type="button" class="btn-primary" :disabled="playgroundRunning" @click="runPlayground">
+            {{ playgroundRunning ? "Running…" : "Run test" }}
+          </button>
+          <span class="save-ex">
+            <input v-model="newExampleLabel" type="text" placeholder="Save as… (label)" />
+            <button type="button" class="btn-secondary" :disabled="savingExample || !newExampleLabel.trim()" @click="saveExample">Save</button>
+          </span>
+        </div>
+
+        <div v-if="playgroundResult" class="test-result" :class="playgroundResult.isError ? 'test-error' : 'test-ok'">
+          <pre>{{ playgroundResult.text }}</pre>
+        </div>
+      </section>
     </div>
     <p v-else-if="tool && detail && !activeTool" class="error">Tool "{{ tool }}" not found on this client.</p>
 
@@ -699,6 +812,55 @@ async function resetBreaker() {
   word-break: break-word;
   margin: 0.4rem 0 0;
   font-size: 0.82rem;
+}
+.playground {
+  margin-top: 1.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e6e8eb;
+}
+.playground h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+}
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.7rem;
+  font-size: 0.85rem;
+}
+.ex-label {
+  color: #63676e;
+}
+.ex-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: #eef1f4;
+  border-radius: 12px;
+  padding: 0.1rem 0.5rem;
+}
+.ex-chip .del {
+  color: #a11212;
+}
+.pg-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+  flex-wrap: wrap;
+}
+.save-ex {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+.save-ex input {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #cfd4da;
+  border-radius: 6px;
+  font-size: 0.85rem;
 }
 .drawer-overlay {
   position: fixed;
