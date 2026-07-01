@@ -17,6 +17,7 @@ const routes = [
   { path: "/bundles/:name", name: "bundle-detail", component: () => import("../pages/BundleDetailPage.vue"), props: true },
   { path: "/keys", name: "keys", component: () => import("../pages/KeysPage.vue") },
   { path: "/users", name: "users", component: () => import("../pages/UsersPage.vue") },
+  { path: "/config", name: "config", component: () => import("../pages/ConfigPage.vue") },
   { path: "/audit-log", name: "audit-log", component: () => import("../pages/AuditLogPage.vue") },
   { path: "/overview", name: "overview", component: () => import("../pages/OverviewPage.vue") },
   { path: "/usage", name: "usage", component: () => import("../pages/UsagePage.vue") },

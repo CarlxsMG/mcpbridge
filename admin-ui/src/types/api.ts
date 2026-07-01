@@ -206,6 +206,12 @@ export interface UsageByKeyRow {
   errors: number;
 }
 
+export interface ConfigImportResult {
+  dryRun: boolean;
+  applied: { bundles: number; alertRules: number; clientsConfigured: number; toolsConfigured: number };
+  skipped: { type: string; id: string; reason: string }[];
+}
+
 export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate";
 
 export interface AlertRule {
