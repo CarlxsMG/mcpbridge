@@ -4,6 +4,7 @@ import { proxyToolCall } from "../proxy.js";
 import { adminAuth } from "../middleware/auth.js";
 import { hashApiKey } from "../security/key-hash.js";
 import { setToolSensitive } from "../tool-sensitivity.js";
+import { setRedactionPaths } from "../redaction.js";
 import { recordAudit, actorFromRequest, listAuditLog } from "../admin/audit.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
 import {
@@ -261,6 +262,19 @@ export function adminRoutes(app: Express): void {
           return;
         }
         recordAudit(actor, "tool.sensitive.set", `${name}${TOOL_KEY_SEPARATOR}${tool}`, { sensitive: body.sensitive });
+      }
+
+      if (body.redactPaths !== undefined) {
+        if (!Array.isArray(body.redactPaths) || !body.redactPaths.every((p) => typeof p === "string")) {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "redactPaths must be an array of strings", request_id: requestId(res) } });
+          return;
+        }
+        const ok = setRedactionPaths(name, tool, body.redactPaths as string[]);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, "tool.redaction.set", `${name}${TOOL_KEY_SEPARATOR}${tool}`, { count: (body.redactPaths as string[]).length });
       }
 
       res.status(200).json({ status: "updated", name, tool });

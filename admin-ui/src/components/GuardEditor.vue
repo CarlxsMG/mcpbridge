@@ -7,6 +7,7 @@ const props = defineProps<{
   guards?: ToolGuardConfig;
   override?: { description?: string; params?: Record<string, { description?: string }> };
   tags?: string[];
+  redactPaths?: string[];
   saving?: boolean;
 }>();
 
@@ -14,10 +15,12 @@ const emit = defineEmits<{
   save: [payload: { rateLimitPerMin?: number; timeoutMs?: number; allowedApiKeys?: string[] } | null];
   saveOverride: [payload: { description?: string; params?: Record<string, { description?: string }> } | null];
   saveTags: [tags: string[]];
+  saveRedaction: [paths: string[]];
 }>();
 
 const descriptionInput = ref(props.override?.description ?? "");
 const tagsInput = ref((props.tags ?? []).join(", "));
+const redactInput = ref((props.redactPaths ?? []).join("\n"));
 
 const rateLimitInput = ref(props.guards?.rateLimitPerMin?.toString() ?? "");
 const timeoutInput = ref(props.guards?.timeoutMs?.toString() ?? "");
@@ -54,6 +57,13 @@ watch(
   () => props.tags,
   (t) => {
     tagsInput.value = (t ?? []).join(", ");
+  }
+);
+
+watch(
+  () => props.redactPaths,
+  (p) => {
+    redactInput.value = (p ?? []).join("\n");
   }
 );
 
@@ -134,6 +144,11 @@ function saveTagsFn() {
   const tags = tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean);
   emit("saveTags", tags);
 }
+
+function saveRedactionFn() {
+  const paths = redactInput.value.split(/[\n,]/).map((p) => p.trim()).filter(Boolean);
+  emit("saveRedaction", paths);
+}
 </script>
 
 <template>
@@ -207,6 +222,13 @@ function saveTagsFn() {
       <p class="hint">Comma-separated (lowercase letters, digits, - and _). Used to organize and filter tools.</p>
       <input id="tool-tags" v-model="tagsInput" type="text" placeholder="billing, read-only" />
       <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveTagsFn">Save tags</button>
+    </div>
+
+    <div class="field">
+      <label for="tool-redact">Response redaction paths</label>
+      <p class="hint">One dot-path per line (e.g. user.ssn, items.*.secret). Matching JSON values are replaced with [REDACTED] before returning to the caller.</p>
+      <textarea id="tool-redact" v-model="redactInput" rows="3" placeholder="user.password&#10;items.*.token"></textarea>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveRedactionFn">Save redaction</button>
     </div>
 
     <details class="preview">

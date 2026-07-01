@@ -62,6 +62,8 @@ export interface RegisteredTool extends RestToolDefinition {
   tags?: string[];
   /** Explicit destructive-gating flag (populated on read): true/false when set by an admin, null = use the auto-gate default. */
   sensitive?: boolean | null;
+  /** Response redaction dot-paths (populated on read). */
+  redactPaths?: string[];
 }
 
 export interface RegisteredClient {

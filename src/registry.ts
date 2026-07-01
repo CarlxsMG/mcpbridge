@@ -15,6 +15,7 @@ import { notifyToolsChanged } from "./mcp-server.js";
 import { getDb } from "./db/connection.js";
 import { getTagsForClient, getAllToolTags } from "./tool-tags.js";
 import { getSensitivityForClient } from "./tool-sensitivity.js";
+import { getRedactionForClient } from "./redaction.js";
 
 export interface ClientSummary {
   name: string;
@@ -928,9 +929,10 @@ class Registry {
 
     const tagMap = getTagsForClient(name);
     const sensMap = getSensitivityForClient(name);
+    const redactMap = getRedactionForClient(name);
     let tools: RegisteredTool[];
     if (live) {
-      tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [], sensitive: sensMap[t.name] ?? null }));
+      tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [], sensitive: sensMap[t.name] ?? null, redactPaths: redactMap[t.name] ?? [] }));
     } else {
       const toolRows = db
         .query(`SELECT name, method, endpoint, description, input_schema, enabled FROM tools WHERE client_name = ?`)
@@ -953,6 +955,7 @@ class Registry {
           override: rowToToolOverride(to),
           tags: tagMap[t.name] ?? [],
           sensitive: sensMap[t.name] ?? null,
+          redactPaths: redactMap[t.name] ?? [],
         };
       });
     }

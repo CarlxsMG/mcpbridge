@@ -257,6 +257,19 @@ async function saveTags(tags: string[]) {
   }
 }
 
+async function saveRedaction(paths: string[]) {
+  if (!activeTool.value) return;
+  savingGuards.value = true;
+  try {
+    await api.patch(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}`, { redactPaths: paths });
+    await load();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save redaction paths.";
+  } finally {
+    savingGuards.value = false;
+  }
+}
+
 async function toggleSensitive(tool: ToolDetail) {
   const next = tool.sensitive === true ? false : true;
   delete rowError.value[tool.name];
@@ -484,7 +497,7 @@ async function resetBreaker() {
         <h2>Guards — {{ activeTool.name }}</h2>
         <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">Close</button>
       </div>
-      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :tags="activeTool.tags" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" @save-tags="saveTags" />
+      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :tags="activeTool.tags" :redact-paths="activeTool.redactPaths" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" @save-tags="saveTags" @save-redaction="saveRedaction" />
     </div>
     <p v-else-if="tool && detail && !activeTool" class="error">Tool "{{ tool }}" not found on this client.</p>
 

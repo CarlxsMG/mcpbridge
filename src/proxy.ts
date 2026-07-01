@@ -20,6 +20,7 @@ import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
 import { recordUsage } from "./observability/usage.js";
 import { checkConsumerQuota } from "./consumers.js";
 import { isToolSensitive } from "./tool-sensitivity.js";
+import { getRedactionPaths, applyRedaction } from "./redaction.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls
@@ -377,6 +378,9 @@ export async function proxyToolCall(
   // first so the pinned Host and Content-Type set below always take precedence.
   const upstreamAuthHeaders = getUpstreamAuthHeaders(client.name) ?? {};
 
+  // Response redaction paths for this tool (applied to JSON responses below).
+  const redactionPaths = getRedactionPaths(client.name, tool.name);
+
   const startTime = Date.now();
 
   // GET / HEAD / OPTIONS are always retried.
@@ -449,11 +453,10 @@ export async function proxyToolCall(
         const contentType = response.headers.get("content-type") ?? "";
         let responseText = rawText;
         if (contentType.includes("application/json")) {
-          try {
-            responseText = JSON.stringify(JSON.parse(rawText), null, 2);
-          } catch {
-            // leave as raw text
-          }
+          // applyRedaction parses, redacts configured paths, and pretty-prints;
+          // returns null on non-JSON so we fall back to the raw text.
+          const processed = applyRedaction(redactionPaths, rawText);
+          if (processed !== null) responseText = processed;
         }
 
         return {

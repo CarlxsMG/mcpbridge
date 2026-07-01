@@ -47,6 +47,7 @@ export interface ToolDetail {
   override?: ToolOverride;
   tags?: string[];
   sensitive?: boolean | null;
+  redactPaths?: string[];
 }
 
 export interface ClientDetail {

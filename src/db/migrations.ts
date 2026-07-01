@@ -292,6 +292,20 @@ export const migrations: Migration[] = [
       ALTER TABLE mcp_api_keys ADD COLUMN elevated INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    id: 14,
+    name: "tool_redactions",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_redactions (
+        client_name TEXT NOT NULL,
+        tool_name   TEXT NOT NULL,
+        paths_json  TEXT NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
 ];
 
 /**
