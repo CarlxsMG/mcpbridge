@@ -161,6 +161,25 @@ async function applyResync() {
   }
 }
 
+async function rediscoverMcp() {
+  if (!detail.value?.mcpUrl) return;
+  applyingResync.value = true;
+  resyncError.value = "";
+  try {
+    await api.post("/register", {
+      kind: "mcp",
+      name: detail.value.name,
+      mcp_url: detail.value.mcpUrl,
+      mcp_transport: detail.value.mcpTransport ?? "streamable-http",
+    });
+    await load();
+  } catch (err) {
+    resyncError.value = err instanceof ApiError ? err.message : "Re-discovery failed.";
+  } finally {
+    applyingResync.value = false;
+  }
+}
+
 watch(() => props.name, load);
 onMounted(load);
 
@@ -330,6 +349,7 @@ async function resetBreaker() {
         <div>
           <h1>{{ detail.name }}</h1>
           <div class="badges">
+            <span v-if="detail.kind === 'mcp'" class="kind-mcp">MCP</span>
             <StatusBadge :status="detail.status" />
             <StatusBadge v-if="detail.circuitBreakerState" :status="detail.circuitBreakerState" />
             <span v-if="!detail.live" class="badge badge-neutral">Not currently connected</span>
@@ -360,8 +380,14 @@ async function resetBreaker() {
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
       <dl class="meta">
-        <div><dt>Health URL</dt><dd>{{ detail.healthUrl }}</dd></div>
-        <div><dt>Base URL</dt><dd>{{ detail.baseUrl }}</dd></div>
+        <template v-if="detail.kind === 'mcp'">
+          <div><dt>MCP URL</dt><dd>{{ detail.mcpUrl }}</dd></div>
+          <div><dt>Transport</dt><dd>{{ detail.mcpTransport }}</dd></div>
+        </template>
+        <template v-else>
+          <div><dt>Health URL</dt><dd>{{ detail.healthUrl }}</dd></div>
+          <div><dt>Base URL</dt><dd>{{ detail.baseUrl }}</dd></div>
+        </template>
         <div v-if="detail.consecutiveFailures !== null"><dt>Consecutive failures</dt><dd>{{ detail.consecutiveFailures }}</dd></div>
       </dl>
 
@@ -403,7 +429,18 @@ async function resetBreaker() {
         </form>
       </div>
 
-      <div class="upstream-auth">
+      <div v-if="detail.kind === 'mcp'" class="upstream-auth">
+        <div class="ua-head">
+          <h2>Re-discover tools</h2>
+          <button type="button" class="btn-secondary" :disabled="applyingResync" @click="rediscoverMcp">
+            {{ applyingResync ? "Discovering…" : "Re-discover from MCP server" }}
+          </button>
+        </div>
+        <p class="ua-status">Re-connects to <code>{{ detail.mcpUrl }}</code> and refreshes this server's tool list.</p>
+        <p v-if="resyncError" class="error">{{ resyncError }}</p>
+      </div>
+
+      <div v-else class="upstream-auth">
         <div class="ua-head">
           <h2>Re-sync from OpenAPI</h2>
           <button type="button" class="btn-secondary" @click="resyncOpen = !resyncOpen">{{ resyncOpen ? "Cancel" : "Re-sync" }}</button>
@@ -449,8 +486,8 @@ async function resetBreaker() {
               {{ tool.name }}
               <span v-for="tag in tool.tags" :key="tag" class="tag-chip">{{ tag }}</span>
             </td>
-            <td><code>{{ tool.method }}</code></td>
-            <td class="url-cell">{{ tool.endpoint }}</td>
+            <td><code>{{ detail.kind === 'mcp' ? 'MCP' : tool.method }}</code></td>
+            <td class="url-cell">{{ detail.kind === 'mcp' ? tool.upstreamName : tool.endpoint }}</td>
             <td>
               <button type="button" class="link-btn" @click="openGuardEditor(tool)">
                 {{ tool.guards ? "Edit guards" : "Add guards" }}
@@ -545,6 +582,17 @@ async function resetBreaker() {
   font-weight: 600;
   background: #eceef1;
   color: #52565c;
+}
+.kind-mcp {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: #ece9fb;
+  color: #5a3aa8;
 }
 .meta {
   display: grid;

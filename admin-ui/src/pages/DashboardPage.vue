@@ -180,8 +180,8 @@ onMounted(load);
       <div class="empty-state">
         <p v-if="q || enabledFilter">No clients match your filters. <button type="button" class="link-btn" @click="q = ''; enabledFilter = ''; applyFilters();">Clear filters</button></p>
         <p v-else>
-          No clients registered yet. Backends register themselves via <code>POST /register</code> — see
-          <a href="/docs" target="_blank" rel="noopener">the API docs</a> for the payload shape.
+          No clients registered yet. REST backends register themselves via <code>POST /register</code>;
+          you can also <RouterLink to="/register-server">add a REST or MCP server</RouterLink> manually.
         </p>
       </div>
     </template>
@@ -217,6 +217,7 @@ onMounted(load);
           </td>
           <td>
             <RouterLink :to="`/servers/${encodeURIComponent(client.name)}`">{{ client.name }}</RouterLink>
+            <span v-if="client.kind === 'mcp'" class="kind-chip">MCP</span>
           </td>
           <td><StatusBadge :status="client.status" /></td>
           <td>{{ client.toolsCount }}</td>
@@ -360,6 +361,18 @@ onMounted(load);
   color: #a11212;
   font-size: 0.75rem;
   margin: 0.25rem 0 0;
+}
+.kind-chip {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  background: #ece9fb;
+  color: #5a3aa8;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
 }
 .pagination {
   display: flex;

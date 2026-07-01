@@ -5,6 +5,8 @@
 export type ClientStatus = "healthy" | "degraded" | "unreachable";
 export type AdminRole = "admin" | "operator" | "auditor" | "viewer";
 export type CircuitBreakerState = "closed" | "open" | "half_open";
+export type UpstreamKind = "rest" | "mcp";
+export type McpTransport = "streamable-http" | "sse";
 
 export interface ClientSummary {
   name: string;
@@ -14,6 +16,7 @@ export interface ClientSummary {
   toolsCount: number;
   healthUrl: string;
   baseUrl: string;
+  kind: UpstreamKind;
 }
 
 export interface ToolGuardConfig {
@@ -40,6 +43,8 @@ export interface ToolDetail {
   name: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   endpoint: string;
+  /** Raw upstream tool name for MCP-kind clients (the dispatch target). */
+  upstreamName?: string;
   description: string;
   inputSchema: Record<string, unknown>;
   enabled: boolean;
@@ -63,6 +68,9 @@ export interface ClientDetail {
   consecutiveFailures: number | null;
   guards?: ClientGuardConfig;
   circuitBreakerState: CircuitBreakerState | null;
+  kind: UpstreamKind;
+  mcpUrl: string | null;
+  mcpTransport: string | null;
   tools: ToolDetail[];
 }
 

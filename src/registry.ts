@@ -8,6 +8,7 @@ import type {
   ToolGuardConfig,
   ToolOverride,
   McpTransport,
+  UpstreamKind,
 } from "./types.js";
 import { sanitizeToolDescription } from "./sanitize.js";
 import { abortClientRequests } from "./proxy.js";
@@ -28,6 +29,7 @@ export interface ClientSummary {
   toolsCount: number;
   healthUrl: string;
   baseUrl: string;
+  kind: UpstreamKind;
 }
 
 export interface ClientDetail {
@@ -43,6 +45,9 @@ export interface ClientDetail {
   consecutiveFailures: number | null;
   guards?: ClientGuardConfig;
   circuitBreakerState: string | null;
+  kind: UpstreamKind;
+  mcpUrl: string | null;
+  mcpTransport: string | null;
   tools: RegisteredTool[];
 }
 
@@ -1051,14 +1056,14 @@ class Registry {
 
     const rows = db
       .query(
-        `SELECT c.name, c.enabled, c.health_url, c.base_url, COUNT(t.name) as tools_count
+        `SELECT c.name, c.enabled, c.kind, c.health_url, c.base_url, COUNT(t.name) as tools_count
          FROM clients c LEFT JOIN tools t ON t.client_name = c.name
          ${whereClause}
          GROUP BY c.name
          ORDER BY c.name
          LIMIT ?`
       )
-      .all(...params, limit + 1) as { name: string; enabled: number; health_url: string; base_url: string; tools_count: number }[];
+      .all(...params, limit + 1) as { name: string; enabled: number; kind: string; health_url: string; base_url: string; tools_count: number }[];
 
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
@@ -1073,6 +1078,7 @@ class Registry {
         toolsCount: r.tools_count,
         healthUrl: r.health_url,
         baseUrl: r.base_url,
+        kind: r.kind as UpstreamKind,
       };
     });
 
@@ -1116,9 +1122,9 @@ class Registry {
   getClientDetail(name: string): ClientDetail | undefined {
     const db = getDb();
     const row = db
-      .query(`SELECT ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled FROM clients WHERE name = ?`)
+      .query(`SELECT ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport FROM clients WHERE name = ?`)
       .get(name) as
-      | { ip: string; health_url: string; base_url: string; resolved_ip: string; retry_non_safe_methods: number; enabled: number }
+      | { ip: string; health_url: string; base_url: string; resolved_ip: string; retry_non_safe_methods: number; enabled: number; kind: string; mcp_url: string | null; mcp_transport: string | null }
       | null;
     if (!row) return undefined;
 
@@ -1135,8 +1141,8 @@ class Registry {
       tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [], sensitive: sensMap[t.name] ?? null, redactPaths: redactMap[t.name] ?? [] }));
     } else {
       const toolRows = db
-        .query(`SELECT name, method, endpoint, description, input_schema, enabled FROM tools WHERE client_name = ?`)
-        .all(name) as { name: string; method: string; endpoint: string; description: string; input_schema: string; enabled: number }[];
+        .query(`SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`)
+        .all(name) as { name: string; method: string; endpoint: string; description: string; input_schema: string; enabled: number; upstream_name: string | null }[];
       tools = toolRows.map((t) => {
         const tg = db
           .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
@@ -1148,6 +1154,7 @@ class Registry {
           name: t.name,
           method: t.method as RegisteredTool["method"],
           endpoint: t.endpoint,
+          upstreamName: t.upstream_name ?? undefined,
           description: t.description,
           inputSchema: JSON.parse(t.input_schema) as Record<string, unknown>,
           enabled: t.enabled === 1,
@@ -1168,6 +1175,9 @@ class Registry {
       ip: live?.ip ?? row.ip,
       healthUrl: row.health_url,
       baseUrl: row.base_url,
+      kind: row.kind as UpstreamKind,
+      mcpUrl: row.mcp_url,
+      mcpTransport: row.mcp_transport,
       resolvedIp: row.resolved_ip,
       retryNonSafeMethods: row.retry_non_safe_methods === 1,
       consecutiveFailures: live?.consecutive_failures ?? null,

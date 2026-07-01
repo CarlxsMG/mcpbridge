@@ -2,11 +2,14 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
-import type { DiscoveryPreview, DiscoveredTool } from "../types/api";
+import type { DiscoveryPreview, DiscoveredTool, UpstreamKind, McpTransport } from "../types/api";
 
 const router = useRouter();
 
+const kind = ref<UpstreamKind>("rest");
 const name = ref("");
+
+// REST fields
 const healthUrl = ref("");
 const baseUrl = ref("");
 const mode = ref<"openapi" | "manual">("openapi");
@@ -14,6 +17,10 @@ const openapiUrl = ref("");
 const includeTags = ref("");
 const excludeOps = ref("");
 const manualTools = ref("");
+
+// MCP upstream fields
+const mcpUrl = ref("");
+const mcpTransport = ref<McpTransport>("streamable-http");
 
 const previewTools = ref<DiscoveredTool[] | null>(null);
 const previewing = ref(false);
@@ -49,12 +56,27 @@ async function preview() {
 
 async function register() {
   error.value = "";
-  if (!name.value.trim() || !healthUrl.value.trim()) {
-    error.value = "Name and health URL are required.";
-    return;
-  }
   registering.value = true;
   try {
+    if (kind.value === "mcp") {
+      if (!name.value.trim() || !mcpUrl.value.trim()) {
+        error.value = "Name and MCP server URL are required.";
+        return;
+      }
+      await api.post("/register", {
+        kind: "mcp",
+        name: name.value.trim(),
+        mcp_url: mcpUrl.value.trim(),
+        mcp_transport: mcpTransport.value,
+      });
+      await router.push(`/servers/${encodeURIComponent(name.value.trim())}`);
+      return;
+    }
+
+    if (!name.value.trim() || !healthUrl.value.trim()) {
+      error.value = "Name and health URL are required.";
+      return;
+    }
     const payload: Record<string, unknown> = { name: name.value.trim(), health_url: healthUrl.value.trim() };
     if (baseUrl.value.trim()) payload.base_url = baseUrl.value.trim();
     if (mode.value === "openapi") {
@@ -83,62 +105,89 @@ async function register() {
     <h1>Register a server</h1>
 
     <form class="reg-form" @submit.prevent="register">
+      <div class="mode-toggle">
+        <label><input v-model="kind" type="radio" value="rest" /> REST API</label>
+        <label><input v-model="kind" type="radio" value="mcp" /> MCP server</label>
+      </div>
+
       <div class="field">
         <label for="r-name">Name</label>
         <input id="r-name" v-model="name" type="text" required placeholder="payments-svc" />
       </div>
-      <div class="field">
-        <label for="r-health">Health URL</label>
-        <input id="r-health" v-model="healthUrl" type="url" required placeholder="https://api.example.com/health" />
-      </div>
-      <div class="field">
-        <label for="r-base">Base URL (optional — defaults to the health URL's origin)</label>
-        <input id="r-base" v-model="baseUrl" type="url" placeholder="https://api.example.com" />
-      </div>
 
-      <div class="mode-toggle">
-        <label><input v-model="mode" type="radio" value="openapi" /> From OpenAPI</label>
-        <label><input v-model="mode" type="radio" value="manual" /> Manual tools</label>
-      </div>
+      <template v-if="kind === 'rest'">
+        <div class="field">
+          <label for="r-health">Health URL</label>
+          <input id="r-health" v-model="healthUrl" type="url" placeholder="https://api.example.com/health" />
+        </div>
+        <div class="field">
+          <label for="r-base">Base URL (optional — defaults to the health URL's origin)</label>
+          <input id="r-base" v-model="baseUrl" type="url" placeholder="https://api.example.com" />
+        </div>
 
-      <template v-if="mode === 'openapi'">
-        <div class="field">
-          <label for="r-openapi">OpenAPI URL</label>
-          <input id="r-openapi" v-model="openapiUrl" type="url" placeholder="https://api.example.com/openapi.json" />
+        <div class="mode-toggle">
+          <label><input v-model="mode" type="radio" value="openapi" /> From OpenAPI</label>
+          <label><input v-model="mode" type="radio" value="manual" /> Manual tools</label>
         </div>
-        <div class="field">
-          <label for="r-tags">Include tags (comma-separated, optional)</label>
-          <input id="r-tags" v-model="includeTags" type="text" placeholder="public, v2" />
-        </div>
-        <div class="field">
-          <label for="r-exclude">Exclude operationIds (comma-separated, optional)</label>
-          <input id="r-exclude" v-model="excludeOps" type="text" placeholder="deleteEverything" />
-        </div>
-        <div class="preview-row">
-          <button type="button" class="btn-secondary" :disabled="previewing" @click="preview">
-            {{ previewing ? "Discovering…" : "Preview tools" }}
-          </button>
-          <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
-        </div>
-        <p v-if="previewError" class="error">{{ previewError }}</p>
-        <div v-if="previewTools && previewTools.length" class="table-scroll preview-table">
-          <table>
-            <thead><tr><th>Name</th><th>Method</th><th>Endpoint</th></tr></thead>
-            <tbody>
-              <tr v-for="t in previewTools" :key="t.name">
-                <td>{{ t.name }}</td>
-                <td><code>{{ t.method }}</code></td>
-                <td class="ep">{{ t.endpoint }}</td>
-              </tr>
-            </tbody>
-          </table>
+
+        <template v-if="mode === 'openapi'">
+          <div class="field">
+            <label for="r-openapi">OpenAPI URL</label>
+            <input id="r-openapi" v-model="openapiUrl" type="url" placeholder="https://api.example.com/openapi.json" />
+          </div>
+          <div class="field">
+            <label for="r-tags">Include tags (comma-separated, optional)</label>
+            <input id="r-tags" v-model="includeTags" type="text" placeholder="public, v2" />
+          </div>
+          <div class="field">
+            <label for="r-exclude">Exclude operationIds (comma-separated, optional)</label>
+            <input id="r-exclude" v-model="excludeOps" type="text" placeholder="deleteEverything" />
+          </div>
+          <div class="preview-row">
+            <button type="button" class="btn-secondary" :disabled="previewing" @click="preview">
+              {{ previewing ? "Discovering…" : "Preview tools" }}
+            </button>
+            <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
+          </div>
+          <p v-if="previewError" class="error">{{ previewError }}</p>
+          <div v-if="previewTools && previewTools.length" class="table-scroll preview-table">
+            <table>
+              <thead><tr><th>Name</th><th>Method</th><th>Endpoint</th></tr></thead>
+              <tbody>
+                <tr v-for="t in previewTools" :key="t.name">
+                  <td>{{ t.name }}</td>
+                  <td><code>{{ t.method }}</code></td>
+                  <td class="ep">{{ t.endpoint }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
+
+        <div v-else class="field">
+          <label for="r-manual">Tools (JSON array of {name, method, endpoint, description, inputSchema})</label>
+          <textarea id="r-manual" v-model="manualTools" rows="10" spellcheck="false"></textarea>
         </div>
       </template>
 
-      <div v-else class="field">
-        <label for="r-manual">Tools (JSON array of {name, method, endpoint, description, inputSchema})</label>
-        <textarea id="r-manual" v-model="manualTools" rows="10" spellcheck="false"></textarea>
-      </div>
+      <template v-else>
+        <div class="field">
+          <label for="r-mcp-url">MCP server URL</label>
+          <input id="r-mcp-url" v-model="mcpUrl" type="url" required placeholder="https://mcp.example.com/mcp" />
+        </div>
+        <div class="field">
+          <label for="r-mcp-transport">Transport</label>
+          <select id="r-mcp-transport" v-model="mcpTransport">
+            <option value="streamable-http">Streamable HTTP</option>
+            <option value="sse">SSE (legacy)</option>
+          </select>
+        </div>
+        <p class="hint">
+          The bridge connects to the MCP server and discovers its tools on registration. If the server
+          requires authentication, register it first, set upstream credentials on its detail page, then
+          re-discover.
+        </p>
+      </template>
 
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <button type="submit" class="btn-primary" :disabled="registering">{{ registering ? "Registering…" : "Register server" }}</button>
@@ -165,7 +214,8 @@ async function register() {
   margin-bottom: 0.25rem;
 }
 .field input,
-.field textarea {
+.field textarea,
+.field select {
   width: 100%;
   padding: 0.45rem 0.6rem;
   border: 1px solid #cfd4da;
@@ -185,6 +235,11 @@ async function register() {
 }
 .mode-toggle label {
   font-weight: 500;
+}
+.hint {
+  font-size: 0.82rem;
+  color: #63676e;
+  margin: 0;
 }
 .preview-row {
   display: flex;

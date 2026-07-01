@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
 import { registry } from "../registry.js";
+import type { DiscoveredMcpTool } from "../mcp-discovery.js";
 
 // Registry tests must reset the shared module-level DB in beforeEach — unregister()
 // deliberately does not purge SQLite, so state would otherwise leak across files.
@@ -36,5 +37,23 @@ describe("migration #16 — mcp upstream columns", () => {
     expect(registry.getClient("svc")?.kind).toBe("rest");
 
     await registry.unregister("svc");
+  });
+
+  test("an MCP registration surfaces kind/mcpUrl/upstreamName in the read models", async () => {
+    const tools: DiscoveredMcpTool[] = [
+      { name: "echo", upstreamName: "echo", description: "Echoes", inputSchema: { type: "object" } },
+    ];
+    await registry.registerMcp("mcpsvc", tools, "http://mcp.test/mcp", "streamable-http", "127.0.0.1", "127.0.0.1");
+
+    const detail = registry.getClientDetail("mcpsvc");
+    expect(detail?.kind).toBe("mcp");
+    expect(detail?.mcpUrl).toBe("http://mcp.test/mcp");
+    expect(detail?.mcpTransport).toBe("streamable-http");
+    expect(detail?.tools[0]?.upstreamName).toBe("echo");
+
+    const summary = registry.listClientsSummary({ q: "mcpsvc" });
+    expect(summary.items[0]?.kind).toBe("mcp");
+
+    await registry.unregister("mcpsvc");
   });
 });
