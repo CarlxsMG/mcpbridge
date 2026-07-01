@@ -1,4 +1,6 @@
 import express, { type Request, type Response, type NextFunction } from "express";
+import { existsSync } from "fs";
+import { resolve } from "path";
 import { setupTransports, getActiveSessionCount } from "./transports.js";
 import { registerRoutes } from "./routes/register.js";
 import { introspectionRoutes } from "./routes/introspection.js";
@@ -13,6 +15,17 @@ import { metricsRoutes } from "./routes/metrics.js";
 import { startCircuitBreakerCleanup } from "./circuit-breaker.js";
 import { checkStartupGuards } from "./security/startup-guards.js";
 import { enforceJsonDepth } from "./middleware/json-depth.js";
+import { getDb } from "./db/connection.js";
+import { bootstrapAdminUser } from "./security/bootstrap-admin.js";
+import { authRoutes } from "./routes/auth.js";
+import { adminRoutes } from "./routes/admin.js";
+import { startLeaderElection } from "./db/leader-lease.js";
+
+// ─── Persistence ──────────────────────────────────────────────────────────────
+// Opens the SQLite handle and applies any pending migrations before anything
+// else (including the Registry) can touch it.
+getDb();
+await bootstrapAdminUser();
 
 // ─── Startup safety checks ───────────────────────────────────────────────────
 
@@ -33,6 +46,7 @@ const guard = checkStartupGuards({
   corsOrigins: config.corsOrigins,
   trustProxy: config.trustProxy,
   nodeEnv: process.env.NODE_ENV,
+  sessionCookieSecure: config.sessionCookieSecure,
 });
 if (!guard.ok) {
   log("error", `FATAL: ${guard.reason}`);
@@ -83,6 +97,31 @@ registerRoutes(app);
 introspectionRoutes(app);
 docsRoutes(app);
 metricsRoutes(app);
+authRoutes(app);
+adminRoutes(app);
+
+// ─── Admin UI (Vue SPA) ─────────────────────────────────────────────────────
+// Sibling namespace to /admin-api, not nested under it — Express mount-path
+// matching respects segment boundaries ("/admin" never matches "/admin-api"),
+// so there's no registration-order ambiguity between the two.
+{
+  const adminUiDist = resolve(import.meta.dirname, "../admin-ui/dist");
+  if (existsSync(adminUiDist)) {
+    app.use("/admin", express.static(adminUiDist));
+    // SPA fallback for client-side routes (e.g. /admin/clients/foo on a hard
+    // refresh) — explicit middleware rather than a wildcard route pattern,
+    // sidestepping Express 5 / path-to-regexp v8 wildcard syntax entirely.
+    app.use("/admin", (req: Request, res: Response, next: NextFunction) => {
+      if (req.method === "GET") {
+        res.sendFile(resolve(adminUiDist, "index.html"));
+        return;
+      }
+      next();
+    });
+  } else {
+    log("warn", "admin-ui/dist not found — the admin UI is not being served. Run `bun run build` in admin-ui/ first.");
+  }
+}
 
 // Self-health endpoint
 const startedAt = Date.now();
@@ -92,6 +131,9 @@ app.get("/health", (_req, res) => {
     uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
   });
 });
+
+// Leader election (must start before the health-check loop, which consults isLeader())
+const stopLeaderElection = startLeaderElection();
 
 // Health check loop
 const stopHealthChecks = startHealthCheckLoop();
@@ -130,6 +172,8 @@ for (const key of Object.keys(redactedConfig)) {
   if (/apiKeys$/i.test(key)) {
     const arr = redactedConfig[key] as unknown[];
     redactedConfig[key] = `<redacted: ${arr.length} keys>`;
+  } else if (/password/i.test(key) && redactedConfig[key]) {
+    redactedConfig[key] = "<redacted>";
   }
 }
 log("info", "Active configuration", redactedConfig);
@@ -141,6 +185,7 @@ const server = app.listen(config.port, () => {
 async function gracefulShutdown(signal: string) {
   log("info", "Graceful shutdown initiated", { signal });
   stopHealthChecks();
+  stopLeaderElection();
   stopCircuitBreakerCleanup();
   stopRateLimiterCleanup();
   cleanupTransports();

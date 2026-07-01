@@ -13,6 +13,8 @@ import {
 import { refreshPinIfStale } from "./security/ip-validator.js";
 import type { PinnedIp } from "./security/ip-validator.js";
 import { isDeleting } from "./registry.js";
+import { checkToolRateLimit } from "./middleware/rate-limiter.js";
+import { isKeyAllowed } from "./security/key-hash.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls
@@ -146,7 +148,8 @@ async function readBodyWithCap(response: Response): Promise<string | null> {
 
 export async function proxyToolCall(
   mcpToolName: string,
-  args: Record<string, unknown> = {}
+  args: Record<string, unknown> = {},
+  callerToken?: string
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const resolved = registry.resolveTool(mcpToolName);
 
@@ -158,6 +161,16 @@ export async function proxyToolCall(
   }
 
   const { client, tool } = resolved;
+
+  // Admin enable/disable backstop — the tool should already be excluded from
+  // whatever tools/list a caller saw, but a stale client-side cache could
+  // still attempt to call it directly.
+  if (!client.enabled || !tool.enabled) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: `Tool '${mcpToolName}' is disabled` }],
+    };
+  }
 
   if (isDeleting(client.name)) {
     return {
@@ -173,8 +186,32 @@ export async function proxyToolCall(
     };
   }
 
+  // Admin guards — run before the circuit breaker check below, since a
+  // half-open breaker's canRequest() consumes the single probe slot as a
+  // side effect; a guard-rejected call must not burn that probe.
+  if (tool.guards?.allowedKeyHashes?.length) {
+    // Fail closed: an explicit restriction must hold even when global MCP
+    // auth is disabled or unconfigured — it shouldn't become a silent no-op.
+    if (!isKeyAllowed(callerToken, tool.guards.allowedKeyHashes)) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Not authorized to call tool '${mcpToolName}'` }],
+      };
+    }
+  }
+
+  if (tool.guards?.rateLimitPerMin !== undefined) {
+    const rl = checkToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin);
+    if (!rl.allowed) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Tool rate limit exceeded — retry after ${rl.retryAfterSeconds}s` }],
+      };
+    }
+  }
+
   // Circuit breaker check
-  const breaker = getCircuitBreaker(client.name);
+  const breaker = getCircuitBreaker(client.name, client.guards?.circuitBreaker);
   const circuitCheck = breaker.canRequest();
   if (!circuitCheck.allowed) {
     return {
@@ -183,8 +220,8 @@ export async function proxyToolCall(
     };
   }
 
-  // Use shorter timeout if half-open probe
-  const effectiveTimeout = circuitCheck.timeout ?? config.toolCallTimeoutMs;
+  // Use shorter timeout if half-open probe, else the tool's guard override, else the global default.
+  const effectiveTimeout = circuitCheck.timeout ?? tool.guards?.timeoutMs ?? config.toolCallTimeoutMs;
 
   // Build URL with path param substitution
   const remainingArgs = { ...args };

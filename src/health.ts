@@ -3,6 +3,7 @@ import type { ClientStatus } from "./types.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
 import { notifyToolsChanged } from "./mcp-server.js";
+import { isLeader } from "./db/leader-lease.js";
 import {
   healthCheckDuration,
   healthCheckRunsTotal,
@@ -91,6 +92,12 @@ async function handleFailure(name: string, previousStatus: ClientStatus): Promis
 export function startHealthCheckLoop(): () => void {
   const check = async () => {
     try {
+      // Only the elected leader actually probes backends — running this
+      // loop on every horizontally-scaled instance would multiply real
+      // network load against the same backends N-fold. Circuit-breaker and
+      // rate-limiter cleanup loops are NOT gated this way since they only
+      // ever touch this process's own local, uncoordinated in-memory state.
+      if (!isLeader()) return;
       const clients = registry.listClients();
       await checkBatch(clients);
     } catch (err) {

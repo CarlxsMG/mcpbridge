@@ -7,7 +7,7 @@ import {
 
 type CircuitState = "closed" | "open" | "half_open";
 
-interface CircuitConfig {
+export interface CircuitConfig {
   failureThreshold: number;
   resetTimeoutMs: number;
   halfOpenTimeoutMs: number;
@@ -117,6 +117,15 @@ class CircuitBreaker {
   }
 
   /**
+   * Applies admin guard overrides to an already-created breaker without
+   * resetting its current state (open/half_open/failure window are
+   * untouched — only the thresholds change, prospectively).
+   */
+  updateConfig(overrides: Partial<CircuitConfig>): void {
+    this.cfg = { ...this.cfg, ...overrides };
+  }
+
+  /**
    * Returns the logical circuit state for reporting purposes.
    * Pure read — never mutates internal state. The actual open→half_open
    * transition (with probeInFlight reset) only occurs inside canRequest().
@@ -138,15 +147,26 @@ const BREAKER_IDLE_TTL = 5 * 60_000;
 
 /**
  * Returns a circuit breaker singleton for the given client name.
- * Creates one on first access.
+ * Creates one on first access. `overrideCfg` (an admin-configured guard, if
+ * any) is only applied at creation time — for an already-live breaker, use
+ * `updateCircuitBreakerConfig` to apply an edited guard immediately.
  */
-export function getCircuitBreaker(clientName: string): CircuitBreaker {
+export function getCircuitBreaker(clientName: string, overrideCfg?: Partial<CircuitConfig>): CircuitBreaker {
   let breaker = breakers.get(clientName);
   if (!breaker) {
-    breaker = new CircuitBreaker(clientName);
+    breaker = new CircuitBreaker(clientName, overrideCfg);
     breakers.set(clientName, breaker);
   }
   return breaker;
+}
+
+/**
+ * Propagates an admin guard edit into an already-created breaker without
+ * resetting its current state. No-op if the breaker doesn't exist yet — the
+ * next `getCircuitBreaker(name, overrideCfg)` call will seed it correctly.
+ */
+export function updateCircuitBreakerConfig(clientName: string, overrides: Partial<CircuitConfig>): void {
+  breakers.get(clientName)?.updateConfig(overrides);
 }
 
 export function getAllCircuitStates(): Record<string, CircuitState> {

@@ -12,21 +12,30 @@ function safeEnv(overrides: Partial<StartupGuardEnv> = {}): StartupGuardEnv {
     corsOrigins: ["https://example.com"],
     trustProxy: false,
     nodeEnv: "production",
+    sessionCookieSecure: true,
     ...overrides,
   };
 }
 
-// Ensure ALLOW_UNSAFE_AUTH_DISABLED does not leak between tests
+// Ensure ALLOW_UNSAFE_* does not leak between tests
 let savedAllowUnsafe: string | undefined;
+let savedAllowUnsafeCookie: string | undefined;
 beforeEach(() => {
   savedAllowUnsafe = process.env.ALLOW_UNSAFE_AUTH_DISABLED;
   delete process.env.ALLOW_UNSAFE_AUTH_DISABLED;
+  savedAllowUnsafeCookie = process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE;
+  delete process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE;
 });
 afterEach(() => {
   if (savedAllowUnsafe === undefined) {
     delete process.env.ALLOW_UNSAFE_AUTH_DISABLED;
   } else {
     process.env.ALLOW_UNSAFE_AUTH_DISABLED = savedAllowUnsafe;
+  }
+  if (savedAllowUnsafeCookie === undefined) {
+    delete process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE;
+  } else {
+    process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE = savedAllowUnsafeCookie;
   }
 });
 
@@ -114,6 +123,36 @@ describe("checkStartupGuards — TRUST_PROXY", () => {
 
   test("TRUST_PROXY=false + NODE_ENV=production → ok", () => {
     const result = checkStartupGuards(safeEnv({ trustProxy: false, nodeEnv: "production" }));
+    expect(result.ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Insecure session cookie guard
+// ---------------------------------------------------------------------------
+
+describe("checkStartupGuards — SESSION_COOKIE_SECURE", () => {
+  test("sessionCookieSecure=false + NODE_ENV=production → fail with SESSION_COOKIE in reason", () => {
+    const result = checkStartupGuards(safeEnv({ sessionCookieSecure: false, nodeEnv: "production" }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain("SESSION_COOKIE");
+    }
+  });
+
+  test("sessionCookieSecure=false + NODE_ENV=development → ok (allowed in dev)", () => {
+    const result = checkStartupGuards(safeEnv({ sessionCookieSecure: false, nodeEnv: "development" }));
+    expect(result.ok).toBe(true);
+  });
+
+  test("sessionCookieSecure=false + ALLOW_UNSAFE_INSECURE_SESSION_COOKIE=true + NODE_ENV=production → ok (escape hatch)", () => {
+    process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE = "true";
+    const result = checkStartupGuards(safeEnv({ sessionCookieSecure: false, nodeEnv: "production" }));
+    expect(result.ok).toBe(true);
+  });
+
+  test("sessionCookieSecure=true + NODE_ENV=production → ok", () => {
+    const result = checkStartupGuards(safeEnv({ sessionCookieSecure: true, nodeEnv: "production" }));
     expect(result.ok).toBe(true);
   });
 });

@@ -7,6 +7,7 @@ import { describe, test, expect, beforeEach, it } from "bun:test";
 // The simplest approach: import the singleton and clear it between tests.
 
 import { registry, validateEndpointPath } from "../registry.js";
+import { __resetDbForTesting } from "../db/connection.js";
 import type { RestToolDefinition } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -47,6 +48,10 @@ beforeEach(async () => {
   for (const client of registry.listClients()) {
     await registry.unregister(client.name);
   }
+  // Fresh in-memory SQLite per test — unregister() deliberately doesn't purge
+  // persisted enabled/guards state, so a shared DB would leak it across tests
+  // that reuse generic client names like "svc".
+  __resetDbForTesting();
 });
 
 // ---------------------------------------------------------------------------

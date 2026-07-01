@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { registry } from "../registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
 import { config } from "../config.js";
+import { __resetDbForTesting } from "../db/connection.js";
 
 // ---------------------------------------------------------------------------
 // Proxy retry — signal isolation
@@ -25,6 +26,7 @@ beforeEach(async () => {
   for (const c of registry.listClients()) {
     await registry.unregister(c.name);
   }
+  __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
 
   await registry.register(
@@ -51,6 +53,7 @@ afterEach(async () => {
   for (const c of registry.listClients()) {
     await registry.unregister(c.name);
   }
+  __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
 });
 

@@ -7,6 +7,7 @@ bun.lock
 # Build output
 dist/
 *.js.map
+*.tsbuildinfo
 
 # IDE / editor
 .vscode/
@@ -21,6 +22,21 @@ Thumbs.db
 # Temp / logs
 typecheck_out.txt
 *.log
+
+# SQLite (admin config store)
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Local secrets — Bun auto-loads these, never commit them
+.env
+.env.*
+!.env.example
+
+# Playwright MCP manual-testing artifacts
+.playwright-mcp/
 
 # AICO artifacts
 .aico/*

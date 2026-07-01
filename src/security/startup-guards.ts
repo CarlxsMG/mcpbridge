@@ -5,6 +5,7 @@ export interface StartupGuardEnv {
   corsOrigins: string[] | string;
   trustProxy: unknown;
   nodeEnv: string | undefined;
+  sessionCookieSecure: boolean;
 }
 
 export type GuardResult = { ok: true } | { ok: false; reason: string };
@@ -21,6 +22,7 @@ export type GuardResult = { ok: true } | { ok: false; reason: string };
  *  1. AUTH_DISABLED=true outside development (unless ALLOW_UNSAFE_AUTH_DISABLED=true)
  *  2. CORS wildcard '*' outside development
  *  3. TRUST_PROXY=true (boolean) outside development
+ *  4. SESSION_COOKIE_SECURE=false outside development (unless ALLOW_UNSAFE_INSECURE_SESSION_COOKIE=true)
  */
 export function checkStartupGuards(env: StartupGuardEnv): GuardResult {
   const isDev = env.nodeEnv === "development";
@@ -58,6 +60,19 @@ export function checkStartupGuards(env: StartupGuardEnv): GuardResult {
         "TRUST_PROXY=true (boolean) is unsafe outside development — set TRUST_PROXY to a CIDR list, " +
         "named preset (e.g. 'loopback,linklocal,uniquelocal'), or numeric hop count",
     };
+  }
+
+  // ── 4. Insecure session cookie guard ──────────────────────────────────────
+  if (!env.sessionCookieSecure && !isDev) {
+    const allowUnsafe = process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE === "true";
+    if (!allowUnsafe) {
+      return {
+        ok: false,
+        reason:
+          "SESSION_COOKIE_SECURE=false outside development — admin session cookies would be sent over " +
+          "plain HTTP. Refusing to start unless ALLOW_UNSAFE_INSECURE_SESSION_COOKIE=true also set.",
+      };
+    }
   }
 
   return { ok: true };

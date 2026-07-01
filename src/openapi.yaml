@@ -27,6 +27,14 @@ tags:
       consumption. Used by MCP clients (e.g. Claude Desktop) to establish a
       session and issue JSON-RPC 2.0 calls that are proxied to registered REST
       services.
+  - name: Auth
+    description: Session-based authentication for the admin UI (login, logout, current-session introspection, password change, active-session management).
+  - name: Admin
+    description: >
+      Management API behind the admin UI — enable/disable clients and tools,
+      configure per-tool/per-client guards, manage admin users, and inspect
+      the audit log. Every endpoint accepts either a Bearer admin API key or
+      an authenticated admin-UI session (see AdminAuth/SessionAuth).
 
 paths:
 
@@ -736,6 +744,514 @@ paths:
                     type: string
                     example: ok
 
+  # ---------------------------------------------------------------------------
+  # Auth — admin UI session lifecycle
+  # ---------------------------------------------------------------------------
+  /admin-api/auth/login:
+    post:
+      operationId: adminLogin
+      summary: Sign in to the admin UI
+      description: >
+        Verifies username/password against the admin_users table and, on
+        success, issues a session cookie plus a CSRF cookie. Rate-limited
+        per source IP. Returns the same 401 INVALID_CREDENTIALS for both an
+        unknown username and a wrong password (no user-enumeration signal).
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, example: admin }
+                password: { type: string, format: password, example: correct-horse-battery-staple }
+      responses:
+        '200':
+          description: Signed in. Sets Set-Cookie for both the session and CSRF cookies.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      username: { type: string, example: admin }
+                      role: { type: string, enum: [admin, viewer], example: admin }
+                  csrf_token:
+                    type: string
+                    description: Same value as the (non-httpOnly) CSRF cookie, for convenience.
+        '400':
+          description: Missing username/password.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '401':
+          description: Invalid credentials.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '429':
+          description: Too many login attempts from this IP.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  /admin-api/auth/logout:
+    post:
+      operationId: adminLogout
+      summary: Sign out of the admin UI
+      description: Revokes the current session and clears both cookies. Idempotent.
+      tags: [Auth]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        '200':
+          description: Signed out.
+          content: { application/json: { schema: { type: object, properties: { status: { type: string, example: logged_out } } } } }
+
+  /admin-api/auth/me:
+    get:
+      operationId: getCurrentAdmin
+      summary: Current authentication status
+      description: Reports whether the caller is authenticated via Bearer key or session, and as whom.
+      tags: [Auth]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        '200':
+          description: Authentication status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authenticated: { type: boolean, example: true }
+                  auth_method: { type: string, enum: [bearer, session], example: session }
+                  user:
+                    type: object
+                    properties:
+                      username: { type: string }
+                      role: { type: string, enum: [admin, viewer] }
+        '401':
+          description: Not authenticated.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  /admin-api/auth/me/password:
+    patch:
+      operationId: changeOwnPassword
+      summary: Change the current session user's password
+      description: >
+        Session-only (Bearer callers can't use this — there's no "current
+        user" to change a password for). Revokes every other session for
+        this user and issues a fresh session for the caller.
+      tags: [Auth]
+      security: [{ SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string, format: password }
+                new_password: { type: string, format: password, minLength: 12 }
+      responses:
+        '200':
+          description: Password changed.
+          content: { application/json: { schema: { type: object, properties: { status: { type: string }, csrf_token: { type: string } } } } }
+        '401':
+          description: Current password incorrect.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  /admin-api/auth/sessions:
+    get:
+      operationId: listOwnSessions
+      summary: List the current user's active sessions
+      tags: [Auth]
+      security: [{ SessionAuth: [] }]
+      responses:
+        '200':
+          description: Active sessions for the caller.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        createdAt: { type: integer, description: Unix ms epoch }
+                        lastSeenAt: { type: integer, description: Unix ms epoch }
+                        expiresAt: { type: integer, description: Unix ms epoch }
+                        ipAddress: { type: [string, "null"] }
+                        userAgent: { type: [string, "null"] }
+
+  /admin-api/auth/sessions/{id}:
+    delete:
+      operationId: revokeOwnSession
+      summary: Revoke one of the current user's sessions (e.g. remote sign-out)
+      tags: [Auth]
+      security: [{ SessionAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Session revoked.
+          content: { application/json: { schema: { type: object, properties: { status: { type: string, example: revoked } } } } }
+        '404':
+          description: No such session for this user.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  # ---------------------------------------------------------------------------
+  # Admin — client/tool management
+  # ---------------------------------------------------------------------------
+  /admin-api/clients:
+    get:
+      operationId: listAdminClients
+      summary: Paginated, searchable client list
+      description: >
+        SQL-backed (unlike GET /clients, which is in-memory/live-only) — this
+        includes clients that have registered before but are not currently
+        connected. Keyset-paginated by client name.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: Substring search on client name. }
+        - { name: status, in: query, schema: { type: string, enum: [healthy, degraded, unreachable] } }
+        - { name: enabled, in: query, schema: { type: boolean } }
+        - { name: cursor, in: query, schema: { type: string }, description: Opaque cursor from a previous page's nextCursor. }
+        - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 200 } }
+      responses:
+        '200':
+          description: A page of client summaries.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ClientSummary' }
+                  nextCursor: { type: string }
+    patch:
+      operationId: bulkSetClientsEnabled
+      summary: Enable/disable multiple clients in one call
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [names, enabled]
+              properties:
+                names: { type: array, items: { type: string } }
+                enabled: { type: boolean }
+      responses:
+        '200':
+          description: Per-name outcome (false = unknown client name, skipped).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results: { type: object, additionalProperties: { type: boolean } }
+
+  /admin-api/clients/{name}:
+    get:
+      operationId: getAdminClientDetail
+      summary: Full detail for one client — tools, guards, health, breaker state
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Full client detail.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ClientDetail' } } }
+        '404':
+          description: No such client has ever registered.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    patch:
+      operationId: updateAdminClient
+      summary: Enable/disable a client and/or set its circuit-breaker guard
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+                guards:
+                  oneOf:
+                    - $ref: '#/components/schemas/ClientGuardConfig'
+                    - type: "null"
+      responses:
+        '200':
+          description: Updated.
+          content: { application/json: { schema: { type: object, properties: { status: { type: string }, name: { type: string } } } } }
+        '404':
+          description: No such client.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  /admin-api/clients/{name}/tools/{tool}:
+    patch:
+      operationId: updateAdminTool
+      summary: Enable/disable a tool and/or set its rate-limit/timeout/allowed-keys guards
+      description: >
+        `guards.allowedApiKeys`, if present, takes raw MCP API keys and
+        REPLACES the tool's entire allow-list — keys are SHA-256 hashed at
+        this boundary and never persisted or echoed back in cleartext.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: tool, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+                guards:
+                  oneOf:
+                    - type: object
+                      properties:
+                        rateLimitPerMin: { type: number, minimum: 1 }
+                        timeoutMs: { type: number, minimum: 1 }
+                        allowedApiKeys: { type: array, items: { type: string } }
+                    - type: "null"
+      responses:
+        '200':
+          description: Updated.
+          content: { application/json: { schema: { type: object } } }
+        '400':
+          description: Invalid guard shape.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '404':
+          description: No such client/tool.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  /admin-api/clients/{name}/tools:
+    patch:
+      operationId: bulkSetToolsEnabled
+      summary: Enable/disable multiple tools on one client in one call
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tool_names, enabled]
+              properties:
+                tool_names: { type: array, items: { type: string } }
+                enabled: { type: boolean }
+      responses:
+        '200':
+          description: Per-tool outcome.
+          content: { application/json: { schema: { type: object, properties: { results: { type: object, additionalProperties: { type: boolean } } } } } }
+
+  /admin-api/clients/{name}/tools/{tool}/test:
+    post:
+      operationId: testTool
+      summary: Invoke a tool directly, the same way an MCP tool-call would
+      description: Reuses the exact proxyToolCall() code path — including guards, retries, and the circuit breaker. A real call reaches the backend.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: tool, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, description: Tool arguments, matching the tool's inputSchema. }
+      responses:
+        '200':
+          description: Tool-call result (may itself carry isError:true — that's the tool failing, not this endpoint).
+          content: { application/json: { schema: { type: object } } }
+        '404':
+          description: No such client/tool.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  /admin-api/clients/{name}/circuit-breaker/reset:
+    post:
+      operationId: resetCircuitBreaker
+      summary: Force a live client's circuit breaker back to closed
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Reset.
+          content: { application/json: { schema: { type: object } } }
+        '404':
+          description: Client is not currently live (nothing to reset).
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  # ---------------------------------------------------------------------------
+  # Admin — user management (requires the admin role, not viewer)
+  # ---------------------------------------------------------------------------
+  /admin-api/users:
+    get:
+      operationId: listAdminUsers
+      summary: List admin UI users
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        '200':
+          description: All admin users (password hashes never included).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users: { type: array, items: { $ref: '#/components/schemas/AdminUserSummary' } }
+    post:
+      operationId: createAdminUser
+      summary: Create a new admin UI user
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password, minLength: 12 }
+                role: { type: string, enum: [admin, viewer], default: admin }
+      responses:
+        '201':
+          description: Created.
+          content: { application/json: { schema: { type: object, properties: { username: { type: string }, role: { type: string } } } } }
+        '409':
+          description: Username already taken.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  /admin-api/users/{username}:
+    patch:
+      operationId: updateAdminUser
+      summary: Change a user's role or active state
+      description: Rejected with 409 LAST_ADMIN_PROTECTED if it would demote/deactivate the last active admin.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: username, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { type: string, enum: [admin, viewer] }
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: Updated.
+          content: { application/json: { schema: { type: object } } }
+        '404':
+          description: No such user.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '409':
+          description: Would remove the last active admin.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    delete:
+      operationId: deleteAdminUser
+      summary: Delete an admin UI user
+      description: Cascades to revoke all of that user's sessions. Rejected with 409 LAST_ADMIN_PROTECTED for the last active admin.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: username, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Deleted.
+          content: { application/json: { schema: { type: object } } }
+        '404':
+          description: No such user.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '409':
+          description: Would remove the last active admin.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  # ---------------------------------------------------------------------------
+  # Admin — audit log & overview
+  # ---------------------------------------------------------------------------
+  /admin-api/audit-log:
+    get:
+      operationId: listAuditLog
+      summary: Paginated audit trail of admin mutations
+      description: Every enable/disable, guard edit, user CRUD, and tool test is recorded here with actor, action, target, and timestamp.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: actor, in: query, schema: { type: string } }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: integer }, description: Unix ms epoch, inclusive. }
+        - { name: to, in: query, schema: { type: integer }, description: Unix ms epoch, inclusive. }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 200 } }
+      responses:
+        '200':
+          description: A page of audit entries, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AuditLogEntry' } }
+                  nextCursor: { type: string }
+
+  /admin-api/overview:
+    get:
+      operationId: getOverview
+      summary: Aggregate live counts for the admin UI's overview page
+      description: Client/tool/breaker counts are computed from in-memory (live) state, same scope as GET /clients — a client only registered via REST but never connected via MCP won't be counted here.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        '200':
+          description: Aggregate stats.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clients:
+                    type: object
+                    properties:
+                      live: { type: integer }
+                      disabled: { type: integer }
+                      healthy: { type: integer }
+                      degraded: { type: integer }
+                      unreachable: { type: integer }
+                  tools:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      disabled: { type: integer }
+                  circuit_breakers:
+                    type: object
+                    properties:
+                      open: { type: integer }
+                      half_open: { type: integer }
+                  admin_users: { type: integer }
+
 # =============================================================================
 # Components
 # =============================================================================
@@ -769,6 +1285,18 @@ components:
       description: >
         API key for MCP transport endpoints. Set via MCP_API_KEYS env var.
         Disabled when AUTH_DISABLED=true or when no keys are configured.
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-mcp_admin_session
+      description: >
+        Admin-UI session cookie, issued by POST /admin-api/auth/login.
+        Accepted anywhere AdminAuth is accepted. On mutating requests
+        (anything but GET/HEAD/OPTIONS) an `X-CSRF-Token` header matching the
+        `__Host-mcp_admin_csrf` cookie value is also required — OpenAPI 3.1
+        has no first-class way to express that pairing, so it's documented
+        here in prose, mirroring how RegistrationPayload's tools/openapi_url
+        mutual-exclusivity is documented rather than schema-encoded.
 
   schemas:
 
@@ -1052,6 +1580,87 @@ components:
         tools_count: 2
         health_url: http://127.0.0.1:4000/health
         base_url: http://127.0.0.1:4000
+
+    # -------------------------------------------------------------------------
+    # Admin — guards, client/tool views, users, audit log
+    # -------------------------------------------------------------------------
+    ToolGuardConfig:
+      type: object
+      description: Persisted per-tool admin overrides, as returned by GET endpoints (allowedKeyHashes are hashes, never raw keys).
+      properties:
+        rateLimitPerMin: { type: number }
+        timeoutMs: { type: number }
+        allowedKeyHashes: { type: array, items: { type: string }, description: SHA-256 hex digests. }
+
+    ClientGuardConfig:
+      type: object
+      description: Persisted per-client admin overrides.
+      properties:
+        circuitBreaker:
+          type: object
+          properties:
+            failureThreshold: { type: number }
+            resetTimeoutMs: { type: number }
+            halfOpenTimeoutMs: { type: number }
+            windowMs: { type: number }
+
+    ClientSummary:
+      type: object
+      description: Lightweight row shape for the paginated admin client list — never embeds the full tool array.
+      properties:
+        name: { type: string }
+        enabled: { type: boolean }
+        live: { type: boolean, description: Whether this client currently has an active in-memory registration. }
+        status: { type: [string, "null"], enum: [healthy, degraded, unreachable, null] }
+        toolsCount: { type: integer }
+        healthUrl: { type: string }
+        baseUrl: { type: string }
+
+    ClientDetail:
+      type: object
+      description: Full admin view of one client, including all tools with their enabled/guard state.
+      properties:
+        name: { type: string }
+        enabled: { type: boolean }
+        live: { type: boolean }
+        status: { type: [string, "null"], enum: [healthy, degraded, unreachable, null] }
+        ip: { type: [string, "null"] }
+        healthUrl: { type: string }
+        baseUrl: { type: string }
+        resolvedIp: { type: [string, "null"] }
+        retryNonSafeMethods: { type: boolean }
+        consecutiveFailures: { type: [integer, "null"] }
+        guards: { $ref: '#/components/schemas/ClientGuardConfig' }
+        circuitBreakerState: { type: [string, "null"], enum: [closed, open, half_open, null] }
+        tools:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/RestToolDefinition'
+              - type: object
+                properties:
+                  enabled: { type: boolean }
+                  guards: { $ref: '#/components/schemas/ToolGuardConfig' }
+
+    AdminUserSummary:
+      type: object
+      description: Admin user row — password_hash is never included in API responses.
+      properties:
+        username: { type: string }
+        role: { type: string, enum: [admin, viewer] }
+        is_active: { type: boolean }
+        created_at: { type: integer, description: Unix ms epoch }
+        last_login_at: { type: [integer, "null"], description: Unix ms epoch }
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id: { type: integer }
+        actor: { type: string, description: "Username, or \"bearer:admin-api-key\" for API-key-driven changes." }
+        action: { type: string, example: tool.guards.update }
+        target: { type: string, example: "billing_service__charge_card" }
+        detail: { type: [object, "null"], additionalProperties: true }
+        createdAt: { type: integer, description: Unix ms epoch }
 
     # -------------------------------------------------------------------------
     # ApiError

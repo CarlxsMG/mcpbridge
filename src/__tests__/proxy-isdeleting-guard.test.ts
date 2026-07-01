@@ -14,6 +14,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { registry, isDeleting } from "../registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
+import { __resetDbForTesting } from "../db/connection.js";
 import type { RestToolDefinition } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,7 @@ beforeEach(async () => {
   for (const c of registry.listClients()) {
     await registry.unregister(c.name);
   }
+  __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
   globalThis.fetch = originalFetch;
 });
@@ -47,6 +49,7 @@ afterEach(async () => {
   for (const c of registry.listClients()) {
     await registry.unregister(c.name);
   }
+  __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
   globalThis.fetch = originalFetch;
 });

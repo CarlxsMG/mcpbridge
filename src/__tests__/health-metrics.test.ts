@@ -8,6 +8,8 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { registry } from "../registry.js";
 import { config } from "../config.js";
+import { __resetDbForTesting } from "../db/connection.js";
+import { refreshLeaderStatus } from "../db/leader-lease.js";
 import type { RestToolDefinition } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -51,6 +53,8 @@ beforeEach(async () => {
   for (const c of registry.listClients()) {
     await registry.unregister(c.name);
   }
+  __resetDbForTesting();
+  refreshLeaderStatus(); // health.ts's loop only probes backends when isLeader() is true
   globalThis.fetch = originalFetch;
 });
 
@@ -58,6 +62,7 @@ afterEach(async () => {
   for (const c of registry.listClients()) {
     await registry.unregister(c.name);
   }
+  __resetDbForTesting();
   globalThis.fetch = originalFetch;
 });
 

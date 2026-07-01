@@ -28,3 +28,10 @@ docker-compose*.yml
 # Logs / coverage / dist
 *.log
 dist/
+
+# SQLite (admin config store) — never bake local dev DB into the image
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

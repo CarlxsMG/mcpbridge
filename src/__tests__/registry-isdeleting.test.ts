@@ -11,6 +11,7 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { registry, isDeleting } from "../registry.js";
+import { __resetDbForTesting } from "../db/connection.js";
 import type { RestToolDefinition } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -42,12 +43,14 @@ beforeEach(async () => {
   for (const c of registry.listClients()) {
     await registry.unregister(c.name);
   }
+  __resetDbForTesting();
 });
 
 afterEach(async () => {
   for (const c of registry.listClients()) {
     await registry.unregister(c.name);
   }
+  __resetDbForTesting();
 });
 
 // ---------------------------------------------------------------------------

@@ -33,6 +33,9 @@ function normalizeIp(raw: string | undefined): string {
 const globalBuckets = new Map<string, Bucket>();
 const mcpBuckets = new Map<string, Bucket>();
 const registerBuckets = new Map<string, Bucket>();
+/** Per-tool admin guard rate limits — only populated for tools that have one configured. */
+const toolBuckets = new Map<string, Bucket>();
+const loginBuckets = new Map<string, Bucket>();
 
 const WINDOW_MS = 60_000;
 
@@ -70,14 +73,25 @@ function lruSet(map: Map<string, Bucket>, key: string, bucket: Bucket, maxSize: 
   map.set(key, bucket);
 }
 
-function checkLimit(
+export interface RateLimitResult {
+  allowed: boolean;
+  retryAfterSeconds?: number;
+  currentCount: number;
+}
+
+/**
+ * Pure sliding-window check — no Express `Request`/`Response` dependency, so
+ * it's usable both from HTTP middleware and from non-HTTP call sites like
+ * `proxyToolCall` (which only has a tool name and args, not a `res` to write
+ * a 429 onto directly).
+ */
+export function checkRateLimit(
   map: Map<string, Bucket>,
   maxSize: number,
   key: string,
   maxPerMinute: number,
   tier: string,
-  res: Response,
-): boolean {
+): RateLimitResult {
   const now = Date.now();
   let bucket = lruGet(map, key);
   if (!bucket) {
@@ -99,14 +113,30 @@ function checkLimit(
       limit: maxPerMinute,
       retry_after: retryAfter,
     });
-    res.setHeader("Retry-After", String(retryAfter));
-    res.status(429).json({
-      error: { code: "RATE_LIMITED", message: "Too many requests", retry_after: retryAfter },
-    });
-    return false;
+    return { allowed: false, retryAfterSeconds: retryAfter, currentCount: bucket.tokens.length };
   }
 
   bucket.tokens.push(now);
+  return { allowed: true, currentCount: bucket.tokens.length };
+}
+
+/** Express-facing wrapper — writes the 429 response itself, same behaviour as before the checkRateLimit extraction. */
+function checkLimit(
+  map: Map<string, Bucket>,
+  maxSize: number,
+  key: string,
+  maxPerMinute: number,
+  tier: string,
+  res: Response,
+): boolean {
+  const result = checkRateLimit(map, maxSize, key, maxPerMinute, tier);
+  if (!result.allowed) {
+    res.setHeader("Retry-After", String(result.retryAfterSeconds));
+    res.status(429).json({
+      error: { code: "RATE_LIMITED", message: "Too many requests", retry_after: result.retryAfterSeconds },
+    });
+    return false;
+  }
   return true;
 }
 
@@ -118,11 +148,13 @@ function checkLimit(
 /**
  * Returns current bucket map sizes per tier for Prometheus gauge snapshots.
  */
-export function getRateLimitBucketSizes(): Record<"global" | "mcp" | "register", number> {
+export function getRateLimitBucketSizes(): Record<"global" | "mcp" | "register" | "tool" | "login", number> {
   return {
     global: globalBuckets.size,
     mcp: mcpBuckets.size,
     register: registerBuckets.size,
+    tool: toolBuckets.size,
+    login: loginBuckets.size,
   };
 }
 
@@ -132,6 +164,8 @@ export const _internalsForTesting = {
   globalBuckets,
   mcpBuckets,
   registerBuckets,
+  toolBuckets,
+  loginBuckets,
   lruGet,
   lruSet,
   checkLimit,
@@ -158,6 +192,8 @@ export function startRateLimiterCleanup(): () => void {
     evictEmpty(globalBuckets, "global");
     evictEmpty(mcpBuckets, "mcp");
     evictEmpty(registerBuckets, "register");
+    evictEmpty(toolBuckets, "tool");
+    evictEmpty(loginBuckets, "login");
   }, config.rateLimitCleanupIntervalMs);
 
   return () => clearInterval(handle);
@@ -167,6 +203,16 @@ export function rateLimitRegister(maxPerMinute: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const key = `register:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
     if (checkLimit(registerBuckets, config.rateLimitMaxBucketsRegister, key, maxPerMinute, "register", res)) {
+      next();
+    }
+  };
+}
+
+/** Aggressive per-IP rate limit for POST /admin-api/auth/login, to resist credential stuffing. */
+export function rateLimitLogin(maxPerMinute: number) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const key = `login:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
+    if (checkLimit(loginBuckets, config.rateLimitMaxBucketsLogin, key, maxPerMinute, "login", res)) {
       next();
     }
   };
@@ -192,4 +238,14 @@ export function rateLimitGlobal(maxPerMinute: number) {
       next();
     }
   };
+}
+
+/**
+ * Per-tool admin guard rate limit — called directly from `proxyToolCall`
+ * (not mounted as Express middleware, since a single `/mcp` route can't see
+ * which tool a JSON-RPC call targets until after the body is parsed).
+ * `toolKey` is the composite `clientName__toolName` key.
+ */
+export function checkToolRateLimit(toolKey: string, maxPerMinute: number): RateLimitResult {
+  return checkRateLimit(toolBuckets, config.rateLimitMaxBucketsTool, toolKey, maxPerMinute, "tool");
 }

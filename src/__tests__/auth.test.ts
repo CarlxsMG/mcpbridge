@@ -14,13 +14,17 @@ import type { Request, Response, NextFunction } from "express";
 
 import { config } from "../config.js";
 import { adminAuth, mcpAuth } from "../middleware/auth.js";
+import { __resetDbForTesting } from "../db/connection.js";
+import { createUser } from "../security/user-store.js";
+import { createSession } from "../security/session-store.js";
+import { SESSION_COOKIE_NAME } from "../security/cookies.js";
 
 // ---------------------------------------------------------------------------
 // Mock helpers
 // ---------------------------------------------------------------------------
 
-function makeReq(headers: Record<string, string> = {}): Request {
-  return { headers } as unknown as Request;
+function makeReq(headers: Record<string, string> = {}, method = "GET"): Request {
+  return { headers, method } as unknown as Request;
 }
 
 type MockRes = {
@@ -242,6 +246,146 @@ describe("mcpAuth — AUTH_DISABLED bypass", () => {
 
     expect(next.called).toBe(true);
     expect(res._status).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// adminAuth — session cookie authentication (unified auth, Phase 4)
+// ---------------------------------------------------------------------------
+
+describe("adminAuth — session cookie authentication", () => {
+  beforeEach(() => {
+    __resetDbForTesting();
+  });
+
+  function setupUserAndSession() {
+    const user = createUser("alice", "irrelevant-hash", "admin", null);
+    const session = createSession(user.id, "127.0.0.1", "test-agent");
+    return { user, session };
+  }
+
+  test("valid session cookie on a GET request calls next() without requiring CSRF", () => {
+    config.authDisabled = false;
+    const { session } = setupUserAndSession();
+
+    const req = makeReq({ cookie: `${SESSION_COOKIE_NAME}=${session.token}` }, "GET");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(true);
+    expect(res._status).toBeUndefined();
+    expect(req.authContext?.method).toBe("session");
+  });
+
+  test("missing session cookie and no Bearer header responds 401", () => {
+    config.authDisabled = false;
+    const req = makeReq({}, "GET");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(false);
+    expect(res._status).toBe(401);
+  });
+
+  test("invalid/unknown session token responds 401", () => {
+    config.authDisabled = false;
+    const req = makeReq({ cookie: `${SESSION_COOKIE_NAME}=totally-bogus-token` }, "GET");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(false);
+    expect(res._status).toBe(401);
+  });
+
+  test("a mutating request with a valid session but missing CSRF header responds 403", () => {
+    config.authDisabled = false;
+    const { session } = setupUserAndSession();
+
+    const req = makeReq({ cookie: `${SESSION_COOKIE_NAME}=${session.token}` }, "POST");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(false);
+    expect(res._status).toBe(403);
+    expect((res._body as Record<string, Record<string, string>>).error.code).toBe("CSRF_VALIDATION_FAILED");
+  });
+
+  test("a mutating request with a valid session and matching CSRF header calls next()", () => {
+    config.authDisabled = false;
+    const { session } = setupUserAndSession();
+
+    const req = makeReq(
+      { cookie: `${SESSION_COOKIE_NAME}=${session.token}`, "x-csrf-token": session.csrfToken },
+      "POST"
+    );
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(true);
+  });
+
+  test("a mutating request with a wrong CSRF token responds 403", () => {
+    config.authDisabled = false;
+    const { session } = setupUserAndSession();
+
+    const req = makeReq(
+      { cookie: `${SESSION_COOKIE_NAME}=${session.token}`, "x-csrf-token": "wrong-token" },
+      "POST"
+    );
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(false);
+    expect(res._status).toBe(403);
+  });
+
+  test("Bearer header takes precedence over a present session cookie, even on a mutating method with no CSRF header", () => {
+    (config as Record<string, unknown>).adminApiKeys = ["bearer-key"];
+    config.authDisabled = false;
+    const { session } = setupUserAndSession();
+
+    const req = makeReq(
+      { authorization: "Bearer bearer-key", cookie: `${SESSION_COOKIE_NAME}=${session.token}` },
+      "POST"
+    );
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(true);
+    expect(req.authContext?.method).toBe("bearer");
+  });
+
+  test("authDisabled still bypasses everything even with a session cookie present", () => {
+    config.authDisabled = true;
+    const req = makeReq({ cookie: `${SESSION_COOKIE_NAME}=nonsense` }, "POST");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(true);
   });
 });
 

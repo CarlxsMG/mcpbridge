@@ -165,6 +165,7 @@ export const config = {
     "Authorization",
     "Mcp-Session-Id",
     "X-Request-Id",
+    "X-CSRF-Token",
   ] as readonly string[],
   /** Headers exposed to the browser via Access-Control-Expose-Headers. */
   corsExposedHeaders: ["Mcp-Session-Id", "X-Request-Id"] as readonly string[],
@@ -178,4 +179,37 @@ export const config = {
   corsAllowCredentials: process.env.CORS_ALLOW_CREDENTIALS === "true",
   /** Maximum JSON nesting depth accepted in request bodies. */
   maxJsonDepth: Number(process.env.MAX_JSON_DEPTH) || 32,
+
+  // ─── Persistence (SQLite) ──────────────────────────────────────────────────
+  /** Path to the SQLite database file. Use ":memory:" for ephemeral/test runs. */
+  dbPath: process.env.DB_PATH || "./data/mcp-bridge.db",
+
+  // ─── Per-tool rate-limit guard tier ────────────────────────────────────────
+  /** Maximum number of LRU buckets for the per-tool guard rate limiter. */
+  rateLimitMaxBucketsTool: Number(process.env.RATE_LIMIT_MAX_BUCKETS_TOOL) || 20_000,
+
+  // ─── MCP sharding ───────────────────────────────────────────────────────────
+  /** Whether the legacy aggregated /mcp, /sse, /messages endpoints stay mounted. Disable at scale. */
+  enableAggregatedMcp: process.env.ENABLE_AGGREGATED_MCP !== "false",
+
+  // ─── Admin session auth ─────────────────────────────────────────────────────
+  /** Sliding idle-timeout for an admin session (ms). */
+  sessionIdleTimeoutMs: Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60_000,
+  /** Absolute hard cap on an admin session's lifetime (ms), regardless of activity. */
+  sessionAbsoluteTtlMs: Number(process.env.SESSION_ABSOLUTE_TTL_MS) || 12 * 60 * 60_000,
+  /** Whether admin session cookies require the Secure attribute. Only disable via the escape hatch below. */
+  sessionCookieSecure: process.env.SESSION_COOKIE_SECURE !== "false",
+  allowUnsafeInsecureSessionCookie: process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE === "true",
+  /** Rate limit for POST /admin-api/auth/login, per source IP. */
+  rateLimitLogin: Number(process.env.RATE_LIMIT_LOGIN) || 10,
+  rateLimitMaxBucketsLogin: Number(process.env.RATE_LIMIT_MAX_BUCKETS_LOGIN) || 5_000,
+  /** Optional bootstrap credentials — only consumed once, when admin_users is empty. */
+  bootstrapAdminUsername: process.env.BOOTSTRAP_ADMIN_USERNAME || undefined,
+  bootstrapAdminPassword: process.env.BOOTSTRAP_ADMIN_PASSWORD || undefined,
+
+  // ─── Horizontal-scaling scaffolding ─────────────────────────────────────────
+  /** Duration of the leader-election lease (ms) — only the leader runs the health-check loop. */
+  leaderLeaseDurationMs: Number(process.env.LEADER_LEASE_DURATION_MS) || 15_000,
+  /** Stable identity for this process in leader-election bookkeeping. */
+  instanceId: process.env.INSTANCE_ID || crypto.randomUUID(),
 };
