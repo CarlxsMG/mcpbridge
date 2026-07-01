@@ -13,6 +13,7 @@ import { abortClientRequests } from "./proxy.js";
 import { removeCircuitBreaker, updateCircuitBreakerConfig, getAllCircuitStates } from "./circuit-breaker.js";
 import { notifyToolsChanged } from "./mcp-server.js";
 import { getDb } from "./db/connection.js";
+import { getTagsForClient, getAllToolTags } from "./tool-tags.js";
 
 export interface ClientSummary {
   name: string;
@@ -888,7 +889,7 @@ class Registry {
    * validating membership) should let an admin pick a tool belonging to a
    * temporarily-down client.
    */
-  listAllTools(): { client: string; tool: string; description: string; enabled: boolean; clientEnabled: boolean }[] {
+  listAllTools(): { client: string; tool: string; description: string; enabled: boolean; clientEnabled: boolean; tags: string[] }[] {
     const db = getDb();
     const rows = db
       .query(
@@ -898,12 +899,14 @@ class Registry {
       )
       .all() as { client_name: string; client_enabled: number; tool_name: string; description: string; enabled: number }[];
 
+    const allTags = getAllToolTags();
     return rows.map((r) => ({
       client: r.client_name,
       tool: r.tool_name,
       description: r.description,
       enabled: r.enabled === 1,
       clientEnabled: r.client_enabled === 1,
+      tags: allTags[`${r.client_name}__${r.tool_name}`] ?? [],
     }));
   }
 
@@ -922,9 +925,10 @@ class Registry {
       .query(`SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`)
       .get(name) as ClientGuardRow | null;
 
+    const tagMap = getTagsForClient(name);
     let tools: RegisteredTool[];
     if (live) {
-      tools = live.tools;
+      tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [] }));
     } else {
       const toolRows = db
         .query(`SELECT name, method, endpoint, description, input_schema, enabled FROM tools WHERE client_name = ?`)
@@ -945,6 +949,7 @@ class Registry {
           enabled: t.enabled === 1,
           guards: rowToToolGuards(tg),
           override: rowToToolOverride(to),
+          tags: tagMap[t.name] ?? [],
         };
       });
     }

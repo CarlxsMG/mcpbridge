@@ -45,6 +45,7 @@ export interface ToolDetail {
   enabled: boolean;
   guards?: ToolGuardConfig;
   override?: ToolOverride;
+  tags?: string[];
 }
 
 export interface ClientDetail {
@@ -126,6 +127,7 @@ export interface ToolListItem {
   description: string;
   enabled: boolean;
   clientEnabled: boolean;
+  tags: string[];
 }
 
 export interface ApiErrorBody {

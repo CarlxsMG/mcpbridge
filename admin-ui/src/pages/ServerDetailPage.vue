@@ -244,6 +244,19 @@ async function saveOverride(payload: { description?: string; params?: Record<str
   }
 }
 
+async function saveTags(tags: string[]) {
+  if (!activeTool.value) return;
+  savingGuards.value = true;
+  try {
+    await api.put(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}/tags`, { tags });
+    await load();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save tags.";
+  } finally {
+    savingGuards.value = false;
+  }
+}
+
 async function testTool(tool: ToolDetail) {
   testingTool.value = tool.name;
   testResult.value = null;
@@ -407,7 +420,10 @@ async function resetBreaker() {
         </thead>
         <tbody>
           <tr v-for="tool in detail.tools" :key="tool.name">
-            <td>{{ tool.name }}</td>
+            <td>
+              {{ tool.name }}
+              <span v-for="tag in tool.tags" :key="tag" class="tag-chip">{{ tag }}</span>
+            </td>
             <td><code>{{ tool.method }}</code></td>
             <td class="url-cell">{{ tool.endpoint }}</td>
             <td>
@@ -451,7 +467,7 @@ async function resetBreaker() {
         <h2>Guards — {{ activeTool.name }}</h2>
         <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">Close</button>
       </div>
-      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" />
+      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :tags="activeTool.tags" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" @save-tags="saveTags" />
     </div>
     <p v-else-if="tool && detail && !activeTool" class="error">Tool "{{ tool }}" not found on this client.</p>
 
@@ -711,5 +727,15 @@ async function resetBreaker() {
 .diff-rem {
   color: #a11212;
   margin: 0.2rem 0;
+}
+.tag-chip {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.45rem;
+  background: #eef2f7;
+  color: #3a5a8a;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  vertical-align: middle;
 }
 </style>

@@ -58,6 +58,8 @@ export interface RegisteredTool extends RestToolDefinition {
   enabled: boolean;
   guards?: ToolGuardConfig;
   override?: ToolOverride;
+  /** Admin-assigned organizational tags (populated on read, not stored on the tool row). */
+  tags?: string[];
 }
 
 export interface RegisteredClient {

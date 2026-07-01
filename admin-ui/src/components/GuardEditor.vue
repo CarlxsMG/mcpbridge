@@ -6,15 +6,18 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 const props = defineProps<{
   guards?: ToolGuardConfig;
   override?: { description?: string; params?: Record<string, { description?: string }> };
+  tags?: string[];
   saving?: boolean;
 }>();
 
 const emit = defineEmits<{
   save: [payload: { rateLimitPerMin?: number; timeoutMs?: number; allowedApiKeys?: string[] } | null];
   saveOverride: [payload: { description?: string; params?: Record<string, { description?: string }> } | null];
+  saveTags: [tags: string[]];
 }>();
 
 const descriptionInput = ref(props.override?.description ?? "");
+const tagsInput = ref((props.tags ?? []).join(", "));
 
 const rateLimitInput = ref(props.guards?.rateLimitPerMin?.toString() ?? "");
 const timeoutInput = ref(props.guards?.timeoutMs?.toString() ?? "");
@@ -44,6 +47,13 @@ watch(
   () => props.override,
   (o) => {
     descriptionInput.value = o?.description ?? "";
+  }
+);
+
+watch(
+  () => props.tags,
+  (t) => {
+    tagsInput.value = (t ?? []).join(", ");
   }
 );
 
@@ -119,6 +129,11 @@ function saveOverrideFn() {
   // Preserve any param-level overrides set via the API; the UI only edits the description.
   emit("saveOverride", { description: desc || undefined, params });
 }
+
+function saveTagsFn() {
+  const tags = tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean);
+  emit("saveTags", tags);
+}
 </script>
 
 <template>
@@ -185,6 +200,13 @@ function saveOverrideFn() {
       <p class="hint">Replaces what MCP clients see for this tool in tools/list. Leave blank to use the registered description.</p>
       <textarea id="tool-desc" v-model="descriptionInput" rows="3" placeholder="Registered description is used when blank"></textarea>
       <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveOverrideFn">Save description</button>
+    </div>
+
+    <div class="field">
+      <label for="tool-tags">Tags</label>
+      <p class="hint">Comma-separated (lowercase letters, digits, - and _). Used to organize and filter tools.</p>
+      <input id="tool-tags" v-model="tagsInput" type="text" placeholder="billing, read-only" />
+      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveTagsFn">Save tags</button>
     </div>
 
     <details class="preview">
