@@ -44,6 +44,7 @@ async function onLogout() {
         <li><RouterLink to="/bundles">Bundles</RouterLink></li>
         <li><RouterLink to="/keys">API keys</RouterLink></li>
         <li><RouterLink to="/policies">Policies</RouterLink></li>
+        <li><RouterLink to="/consumers">Consumers</RouterLink></li>
         <li><RouterLink to="/overview">Overview</RouterLink></li>
         <li><RouterLink to="/usage">Usage</RouterLink></li>
         <li><RouterLink to="/alerts">Alerts</RouterLink></li>

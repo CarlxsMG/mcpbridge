@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
-import type { McpApiKey, McpApiKeyWithSecret } from "../types/api";
+import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const keys = ref<McpApiKey[]>([]);
@@ -13,6 +13,8 @@ const newLabel = ref("");
 const newClients = ref("");
 const newTools = ref("");
 const newExpires = ref("");
+const newConsumerId = ref<number | "">("");
+const consumers = ref<Consumer[]>([]);
 const createError = ref("");
 const creating = ref(false);
 
@@ -45,13 +47,22 @@ async function load() {
   loading.value = true;
   errorMessage.value = "";
   try {
-    const res = await api.get<{ items: McpApiKey[] }>("/admin-api/mcp-keys");
-    keys.value = res.items;
+    const [k, c] = await Promise.all([
+      api.get<{ items: McpApiKey[] }>("/admin-api/mcp-keys"),
+      api.get<{ items: Consumer[] }>("/admin-api/consumers"),
+    ]);
+    keys.value = k.items;
+    consumers.value = c.items;
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to load API keys.";
   } finally {
     loading.value = false;
   }
+}
+
+function consumerName(id: number | null): string {
+  if (id === null) return "—";
+  return consumers.value.find((c) => c.id === id)?.name ?? `#${id}`;
 }
 
 onMounted(load);
@@ -73,6 +84,7 @@ async function createKey() {
       label: newLabel.value.trim(),
       scopes,
       expiresAt,
+      consumerId: newConsumerId.value === "" ? null : newConsumerId.value,
     });
     mintedKey.value = created;
     copied.value = false;
@@ -80,6 +92,7 @@ async function createKey() {
     newClients.value = "";
     newTools.value = "";
     newExpires.value = "";
+    newConsumerId.value = "";
     showCreateForm.value = false;
     await load();
   } catch (err) {
@@ -171,6 +184,13 @@ async function confirmDelete() {
         <label for="k-expires">Expires (optional)</label>
         <input id="k-expires" v-model="newExpires" type="datetime-local" />
       </div>
+      <div class="field">
+        <label for="k-consumer">Consumer (optional)</label>
+        <select id="k-consumer" v-model="newConsumerId">
+          <option value="">None</option>
+          <option v-for="c in consumers" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </div>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Minting…" : "Mint key" }}</button>
     </form>
@@ -187,6 +207,7 @@ async function confirmDelete() {
             <th>Label</th>
             <th>Prefix</th>
             <th>Scope</th>
+            <th>Consumer</th>
             <th>Status</th>
             <th>Last used</th>
             <th>Expires</th>
@@ -198,6 +219,7 @@ async function confirmDelete() {
             <td>{{ key.label }}</td>
             <td><code>{{ key.keyPrefix }}…</code></td>
             <td>{{ scopeSummary(key) }}</td>
+            <td>{{ consumerName(key.consumerId) }}</td>
             <td>
               <span class="status" :class="statusOf(key).toLowerCase()">{{ statusOf(key) }}</span>
             </td>
@@ -296,7 +318,8 @@ async function confirmDelete() {
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
-.field input {
+.field input,
+.field select {
   width: 100%;
   padding: 0.45rem 0.6rem;
   border: 1px solid #cfd4da;

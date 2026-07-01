@@ -18,6 +18,7 @@ import { isKeyAllowed } from "./security/key-hash.js";
 import { resolveMcpKeyByToken, isToolInKeyScope } from "./security/mcp-key-store.js";
 import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
 import { recordUsage } from "./observability/usage.js";
+import { checkConsumerQuota } from "./consumers.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls
@@ -212,6 +213,17 @@ export async function proxyToolCall(
       isError: true,
       content: [{ type: "text", text: `API key is not authorized to call tool '${mcpToolName}'` }],
     };
+  }
+
+  // Multi-tenant monthly quota — reject once the key's consumer is at/over its cap.
+  if (callerKey?.consumerId != null) {
+    const quota = checkConsumerQuota(callerKey.consumerId);
+    if (quota.exceeded) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})` }],
+      };
+    }
   }
 
   if (tool.guards?.rateLimitPerMin !== undefined) {

@@ -11,9 +11,17 @@ import {
   deleteMcpKey,
   type McpKeyScopes,
 } from "../security/mcp-key-store.js";
+import { getConsumer } from "../consumers.js";
 
 function requestId(res: Response): string | null {
   return (res.locals.requestId as string) ?? null;
+}
+
+function validateConsumerId(v: unknown): { ok: true; value: number | null } | { ok: false; message: string } {
+  if (v === undefined || v === null) return { ok: true, value: null };
+  if (typeof v !== "number" || !Number.isInteger(v)) return { ok: false, message: "consumerId must be an integer or null" };
+  if (!getConsumer(v)) return { ok: false, message: "consumerId does not reference an existing consumer" };
+  return { ok: true, value: v };
 }
 
 function validateScopes(input: unknown): { ok: true; value: McpKeyScopes | null } | { ok: false; message: string } {
@@ -72,9 +80,15 @@ export function mcpKeyRoutes(app: Express): void {
       return;
     }
 
+    const consumer = validateConsumerId(body.consumerId);
+    if (!consumer.ok) {
+      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: consumer.message, request_id: requestId(res) } });
+      return;
+    }
+
     const actor = actorFromRequest(req);
-    const { record, rawKey } = createMcpKey(label.value, scopes.value, exp.value, actor);
-    recordAudit(actor, "mcp_key.create", String(record.id), { label: label.value, scopes: scopes.value ?? undefined });
+    const { record, rawKey } = createMcpKey(label.value, scopes.value, exp.value, actor, consumer.value);
+    recordAudit(actor, "mcp_key.create", String(record.id), { label: label.value, scopes: scopes.value ?? undefined, consumerId: consumer.value ?? undefined });
     // The raw key is returned exactly once, here — it is never persisted or retrievable again.
     res.status(201).json({ ...record, key: rawKey });
   });
@@ -96,7 +110,7 @@ export function mcpKeyRoutes(app: Express): void {
       return;
     }
     const body = (req.body as Record<string, unknown>) ?? {};
-    const updates: { label?: string; enabled?: boolean; expiresAt?: number | null; scopes?: McpKeyScopes | null } = {};
+    const updates: { label?: string; enabled?: boolean; expiresAt?: number | null; scopes?: McpKeyScopes | null; consumerId?: number | null } = {};
 
     if (body.label !== undefined) {
       const label = validateLabel(body.label);
@@ -128,6 +142,14 @@ export function mcpKeyRoutes(app: Express): void {
         return;
       }
       updates.scopes = scopes.value;
+    }
+    if (body.consumerId !== undefined) {
+      const consumer = validateConsumerId(body.consumerId);
+      if (!consumer.ok) {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: consumer.message, request_id: requestId(res) } });
+        return;
+      }
+      updates.consumerId = consumer.value;
     }
 
     const rec = updateMcpKey(id, updates);

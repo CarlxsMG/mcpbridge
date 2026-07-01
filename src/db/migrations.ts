@@ -258,6 +258,24 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_tool_tags_tag ON tool_tags(tag);
     `,
   },
+  {
+    id: 12,
+    name: "consumers",
+    sql: `
+      CREATE TABLE IF NOT EXISTS consumers (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        name          TEXT NOT NULL UNIQUE,
+        monthly_quota INTEGER,
+        created_at    INTEGER NOT NULL,
+        updated_at    INTEGER NOT NULL,
+        created_by    TEXT
+      ) STRICT;
+
+      ALTER TABLE mcp_api_keys ADD COLUMN consumer_id INTEGER REFERENCES consumers(id) ON DELETE SET NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_tool_call_log_key ON tool_call_log(key_id, created_at);
+    `,
+  },
 ];
 
 /**

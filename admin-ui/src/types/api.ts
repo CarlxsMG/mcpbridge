@@ -139,11 +139,25 @@ export interface McpKeyScopes {
   tools?: string[];
 }
 
+export interface Consumer {
+  id: number;
+  name: string;
+  monthlyQuota: number | null;
+  createdAt: number;
+  updatedAt: number;
+  createdBy: string | null;
+}
+
+export interface ConsumerWithUsage extends Consumer {
+  usedThisMonth: number;
+}
+
 /** GET /admin-api/mcp-keys item — never carries the raw secret. */
 export interface McpApiKey {
   id: number;
   label: string;
   keyPrefix: string;
+  consumerId: number | null;
   scopes: McpKeyScopes | null;
   enabled: boolean;
   expiresAt: number | null;
