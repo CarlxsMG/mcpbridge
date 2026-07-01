@@ -475,6 +475,21 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 26,
+    name: "teams",
+    sql: `
+      CREATE TABLE IF NOT EXISTS teams (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL UNIQUE,
+        created_at INTEGER NOT NULL,
+        created_by TEXT
+      ) STRICT;
+
+      ALTER TABLE clients ADD COLUMN team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL;
+      ALTER TABLE admin_users ADD COLUMN team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL;
+    `,
+  },
 ];
 
 /**

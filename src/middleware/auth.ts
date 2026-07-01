@@ -4,6 +4,7 @@ import { safeCompare } from "../security/compare.js";
 import { validateSession } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME, parseCookies } from "../security/cookies.js";
 import type { AdminRole } from "../security/user-store.js";
+import { findUserById } from "../security/user-store.js";
 import { resolveMcpKeyByToken, touchMcpKeyLastUsed, hasAnyMcpKeys } from "../security/mcp-key-store.js";
 
 export interface AuthContext {
@@ -11,6 +12,8 @@ export interface AuthContext {
   userId?: number;
   username?: string;
   role?: AdminRole;
+  /** Session user's team id (null = super-admin). Undefined for bearer callers (always super-admin). */
+  teamId?: number | null;
 }
 
 declare global {
@@ -76,7 +79,9 @@ export function adminAuth(req: Request, res: Response, next: NextFunction): void
     }
   }
 
-  req.authContext = { method: "session", userId: session.userId, username: session.username, role: session.role };
+  // Resolve the caller's team for tenancy scoping (null = super-admin).
+  const teamId = findUserById(session.userId)?.teamId ?? null;
+  req.authContext = { method: "session", userId: session.userId, username: session.username, role: session.role, teamId };
   next();
 }
 

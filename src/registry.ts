@@ -31,6 +31,7 @@ export interface ClientSummary {
   healthUrl: string;
   baseUrl: string;
   kind: UpstreamKind;
+  teamId: number | null;
 }
 
 export interface ClientDetail {
@@ -49,6 +50,7 @@ export interface ClientDetail {
   kind: UpstreamKind;
   mcpUrl: string | null;
   mcpTransport: string | null;
+  teamId: number | null;
   tools: RegisteredTool[];
 }
 
@@ -1243,7 +1245,7 @@ class Registry {
    * may return fewer than `limit` items — acceptable for an admin list view.
    */
   listClientsSummary(
-    opts: { q?: string; enabled?: boolean; status?: ClientStatus; cursor?: string; limit?: number } = {}
+    opts: { q?: string; enabled?: boolean; status?: ClientStatus; cursor?: string; limit?: number; teamId?: number | null } = {}
   ): { items: ClientSummary[]; nextCursor?: string } {
     const db = getDb();
     const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
@@ -1263,18 +1265,23 @@ class Registry {
       conditions.push("c.enabled = ?");
       params.push(opts.enabled ? 1 : 0);
     }
+    // Tenancy scoping: a team-scoped caller only sees its own team's clients.
+    if (typeof opts.teamId === "number") {
+      conditions.push("c.team_id = ?");
+      params.push(opts.teamId);
+    }
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const rows = db
       .query(
-        `SELECT c.name, c.enabled, c.kind, c.health_url, c.base_url, COUNT(t.name) as tools_count
+        `SELECT c.name, c.enabled, c.kind, c.health_url, c.base_url, c.team_id, COUNT(t.name) as tools_count
          FROM clients c LEFT JOIN tools t ON t.client_name = c.name
          ${whereClause}
          GROUP BY c.name
          ORDER BY c.name
          LIMIT ?`
       )
-      .all(...params, limit + 1) as { name: string; enabled: number; kind: string; health_url: string; base_url: string; tools_count: number }[];
+      .all(...params, limit + 1) as { name: string; enabled: number; kind: string; health_url: string; base_url: string; team_id: number | null; tools_count: number }[];
 
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
@@ -1290,6 +1297,7 @@ class Registry {
         healthUrl: r.health_url,
         baseUrl: r.base_url,
         kind: r.kind as UpstreamKind,
+        teamId: r.team_id ?? null,
       };
     });
 
@@ -1333,9 +1341,9 @@ class Registry {
   getClientDetail(name: string): ClientDetail | undefined {
     const db = getDb();
     const row = db
-      .query(`SELECT ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport FROM clients WHERE name = ?`)
+      .query(`SELECT ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport, team_id FROM clients WHERE name = ?`)
       .get(name) as
-      | { ip: string; health_url: string; base_url: string; resolved_ip: string; retry_non_safe_methods: number; enabled: number; kind: string; mcp_url: string | null; mcp_transport: string | null }
+      | { ip: string; health_url: string; base_url: string; resolved_ip: string; retry_non_safe_methods: number; enabled: number; kind: string; mcp_url: string | null; mcp_transport: string | null; team_id: number | null }
       | null;
     if (!row) return undefined;
 
@@ -1391,6 +1399,7 @@ class Registry {
       kind: row.kind as UpstreamKind,
       mcpUrl: row.mcp_url,
       mcpTransport: row.mcp_transport,
+      teamId: row.team_id ?? null,
       resolvedIp: row.resolved_ip,
       retryNonSafeMethods: row.retry_non_safe_methods === 1,
       consecutiveFailures: live?.consecutive_failures ?? null,

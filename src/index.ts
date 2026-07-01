@@ -32,6 +32,7 @@ import { tagRoutes } from "./routes/tags.js";
 import { consumerRoutes } from "./routes/consumers.js";
 import { compositeRoutes } from "./routes/composites.js";
 import { scheduleRoutes } from "./routes/schedules.js";
+import { teamRoutes } from "./routes/teams.js";
 import { startScheduleLoop } from "./schedules.js";
 import { initBundles } from "./bundles.js";
 import { initComposites } from "./composites.js";
@@ -134,6 +135,7 @@ tagRoutes(app);
 consumerRoutes(app);
 compositeRoutes(app);
 scheduleRoutes(app);
+teamRoutes(app);
 
 // ─── Admin UI (Vue SPA) ─────────────────────────────────────────────────────
 // Sibling namespace to /admin-api, not nested under it — Express mount-path

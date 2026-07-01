@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
-import type { ClientDetail, ToolDetail, UpstreamAuthInfo, DiscoveredTool, DiscoveryPreview, CanaryConfig } from "../types/api";
+import type { ClientDetail, ToolDetail, UpstreamAuthInfo, DiscoveredTool, DiscoveryPreview, CanaryConfig, Team } from "../types/api";
 import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import GuardEditor from "../components/GuardEditor.vue";
@@ -34,6 +34,26 @@ const playgroundRunning = ref(false);
 
 // Upstream auth (per-client injected credentials)
 const upstreamAuth = ref<UpstreamAuthInfo | null>(null);
+
+// Teams (ownership)
+const teams = ref<Team[]>([]);
+const teamError = ref("");
+async function loadTeams() {
+  try {
+    teams.value = (await api.get<{ items: Team[] }>("/admin-api/teams")).items;
+  } catch {
+    teams.value = [];
+  }
+}
+async function assignTeam(teamId: number | null) {
+  teamError.value = "";
+  try {
+    await api.put(`/admin-api/clients/${encodeURIComponent(props.name)}/team`, { teamId });
+    await load();
+  } catch (err) {
+    teamError.value = err instanceof ApiError ? err.message : "Failed to assign team (super-admin only).";
+  }
+}
 
 // Canary / failover (secondary upstream)
 const canary = ref<CanaryConfig | null>(null);
@@ -121,6 +141,7 @@ async function load() {
   try {
     detail.value = await api.get<ClientDetail>(`/admin-api/clients/${encodeURIComponent(props.name)}`);
     await loadUpstreamAuth();
+    await loadTeams();
     if (detail.value.kind !== "mcp") await loadCanary();
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to load client.";
@@ -616,6 +637,24 @@ async function resetBreaker() {
           <button type="submit" class="btn-secondary">Save</button>
         </form>
         <p v-if="canaryError" class="error">{{ canaryError }}</p>
+      </div>
+
+      <div class="upstream-auth">
+        <div class="ua-head">
+          <h2>Team ownership</h2>
+        </div>
+        <p class="ua-status">
+          Owning team:
+          <strong>{{ detail.teamId ? (teams.find((t) => t.id === detail?.teamId)?.name ?? `#${detail.teamId}`) : "unowned" }}</strong>.
+          Only super-admins can change this.
+        </p>
+        <div class="field-inline">
+          <select :value="detail.teamId ?? ''" @change="assignTeam(($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null)">
+            <option value="">— unowned —</option>
+            <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
+          </select>
+        </div>
+        <p v-if="teamError" class="error">{{ teamError }}</p>
       </div>
 
       <h2>Tools ({{ detail.tools.length }})</h2>

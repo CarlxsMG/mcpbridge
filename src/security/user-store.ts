@@ -18,6 +18,8 @@ export interface AdminUser {
   updatedAt: number;
   lastLoginAt: number | null;
   createdBy: string | null;
+  /** Owning team id, or null for a super-admin (tenancy-wide) user. */
+  teamId: number | null;
 }
 
 interface UserRow {
@@ -30,6 +32,7 @@ interface UserRow {
   updated_at: number;
   last_login_at: number | null;
   created_by: string | null;
+  team_id: number | null;
 }
 
 function rowToUser(row: UserRow): AdminUser {
@@ -43,6 +46,7 @@ function rowToUser(row: UserRow): AdminUser {
     updatedAt: row.updated_at,
     lastLoginAt: row.last_login_at,
     createdBy: row.created_by,
+    teamId: row.team_id ?? null,
   };
 }
 

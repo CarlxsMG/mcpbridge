@@ -20,6 +20,7 @@ const routes = [
   { path: "/policies", name: "policies", component: () => import("../pages/PoliciesPage.vue") },
   { path: "/consumers", name: "consumers", component: () => import("../pages/ConsumersPage.vue") },
   { path: "/users", name: "users", component: () => import("../pages/UsersPage.vue") },
+  { path: "/teams", name: "teams", component: () => import("../pages/TeamsPage.vue") },
   { path: "/config", name: "config", component: () => import("../pages/ConfigPage.vue") },
   { path: "/audit-log", name: "audit-log", component: () => import("../pages/AuditLogPage.vue") },
   { path: "/overview", name: "overview", component: () => import("../pages/OverviewPage.vue") },

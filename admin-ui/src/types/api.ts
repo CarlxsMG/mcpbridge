@@ -17,6 +17,7 @@ export interface ClientSummary {
   healthUrl: string;
   baseUrl: string;
   kind: UpstreamKind;
+  teamId: number | null;
 }
 
 export interface ToolGuardConfig {
@@ -80,6 +81,7 @@ export interface ClientDetail {
   kind: UpstreamKind;
   mcpUrl: string | null;
   mcpTransport: string | null;
+  teamId: number | null;
   tools: ToolDetail[];
 }
 
@@ -124,6 +126,13 @@ export interface ConfigDiffResult {
   from: ConfigSnapshotSummary;
   to: string;
   entries: ConfigDiffEntry[];
+}
+
+export interface Team {
+  id: number;
+  name: string;
+  createdAt: number;
+  createdBy: string | null;
 }
 
 export interface CanaryConfig {

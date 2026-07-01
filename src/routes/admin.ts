@@ -8,6 +8,7 @@ import { setRedactionPaths } from "../redaction.js";
 import { setGuardrails, MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../guardrails.js";
 import { listExamples, createExample, deleteExample } from "../tool-examples.js";
 import { getCanary, setCanary } from "../canary.js";
+import { getClientTeam, canAccessClient } from "../teams.js";
 import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog, verifyAuditChain } from "../admin/audit.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
 import {
@@ -27,10 +28,38 @@ function requestId(res: Response): string | null {
   return (res.locals.requestId as string) ?? null;
 }
 
+/** The caller's tenancy scope: a team id, null for a super-admin session, or undefined for a bearer caller (super-admin). */
+export function callerTeamId(req: Request): number | null | undefined {
+  return req.authContext?.method === "session" ? (req.authContext.teamId ?? null) : undefined;
+}
+
+/**
+ * Tenancy guard for a single-client route. Returns true when the caller may act
+ * on the client (or the client doesn't exist — the route's own 404 handles
+ * that). When it returns false it has already written a 404 with the same shape
+ * as "client not found", so a scoped caller can't even distinguish existence.
+ */
+function ensureClientAccess(req: Request, res: Response, clientName: string): boolean {
+  const clientTeam = getClientTeam(clientName);
+  if (clientTeam === undefined) return true; // unknown client — let the handler 404 normally
+  if (canAccessClient(callerTeamId(req), clientTeam)) return true;
+  res.status(404).json({ error: { code: "CLIENT_NOT_FOUND", message: "Client not found", request_id: requestId(res) } });
+  return false;
+}
+
 /** Admin-only for session callers (viewer/operator/auditor are rejected). Bearer callers always pass. */
 export function requireAdminRole(req: Request, res: Response, next: NextFunction): void {
   if (req.authContext?.method === "session" && req.authContext.role !== "admin") {
     res.status(403).json({ error: { code: "FORBIDDEN", message: "This action requires the admin role", request_id: requestId(res) } });
+    return;
+  }
+  next();
+}
+
+/** Tenancy administration: only a super-admin session (admin role + no team) passes. Bearer callers always pass. */
+export function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
+  if (req.authContext?.method === "session" && (req.authContext.role !== "admin" || (req.authContext.teamId ?? null) !== null)) {
+    res.status(403).json({ error: { code: "FORBIDDEN", message: "This action requires a super-admin (admin role, no team)", request_id: requestId(res) } });
     return;
   }
   next();
@@ -190,17 +219,21 @@ export function adminRoutes(app: Express): void {
 
   app.get("/admin-api/clients", adminAuth, (req: Request, res: Response) => {
     const { q, status, enabled, cursor, limit } = req.query;
+    const teamId = callerTeamId(req);
     const result = registry.listClientsSummary({
       q: typeof q === "string" ? q : undefined,
       status: typeof status === "string" ? (status as ClientStatus) : undefined,
       enabled: enabled === "true" ? true : enabled === "false" ? false : undefined,
       cursor: typeof cursor === "string" ? cursor : undefined,
       limit: typeof limit === "string" ? Number(limit) : undefined,
+      // Scope the listing for team users; super-admins (null/undefined) see all.
+      teamId: typeof teamId === "number" ? teamId : undefined,
     });
     res.status(200).json(result);
   });
 
   app.get("/admin-api/clients/:name", adminAuth, (req: Request<{ name: string }>, res: Response) => {
+    if (!ensureClientAccess(req, res, req.params.name)) return;
     const detail = registry.getClientDetail(req.params.name);
     if (!detail) {
       res.status(404).json({ error: { code: "CLIENT_NOT_FOUND", message: "Client not found", request_id: requestId(res) } });
@@ -211,6 +244,7 @@ export function adminRoutes(app: Express): void {
 
   app.patch("/admin-api/clients/:name", adminAuth, requireOperator, async (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
+    if (!ensureClientAccess(req, res, name)) return;
     const body = (req.body as Record<string, unknown>) ?? {};
     const actor = actorFromRequest(req);
 
@@ -269,6 +303,7 @@ export function adminRoutes(app: Express): void {
     requireOperator,
     async (req: Request<{ name: string; tool: string }>, res: Response) => {
       const { name, tool } = req.params;
+      if (!ensureClientAccess(req, res, name)) return;
       const body = (req.body as Record<string, unknown>) ?? {};
       const actor = actorFromRequest(req);
 
@@ -395,6 +430,7 @@ export function adminRoutes(app: Express): void {
     requireOperator,
     async (req: Request<{ name: string; tool: string }>, res: Response) => {
       const { name, tool } = req.params;
+      if (!ensureClientAccess(req, res, name)) return;
       const mcpToolName = `${name}${TOOL_KEY_SEPARATOR}${tool}`;
       if (!registry.resolveTool(mcpToolName)) {
         res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
@@ -413,6 +449,7 @@ export function adminRoutes(app: Express): void {
     "/admin-api/clients/:name/tools/:tool/examples",
     adminAuth,
     (req: Request<{ name: string; tool: string }>, res: Response) => {
+      if (!ensureClientAccess(req, res, req.params.name)) return;
       res.status(200).json({ items: listExamples(req.params.name, req.params.tool) });
     }
   );
@@ -423,6 +460,7 @@ export function adminRoutes(app: Express): void {
     requireOperator,
     (req: Request<{ name: string; tool: string }>, res: Response) => {
       const { name, tool } = req.params;
+      if (!ensureClientAccess(req, res, name)) return;
       const body = (req.body as Record<string, unknown>) ?? {};
       const label = typeof body.label === "string" ? body.label.trim() : "";
       if (!label || label.length > 100) {
@@ -449,6 +487,7 @@ export function adminRoutes(app: Express): void {
     requireOperator,
     (req: Request<{ name: string; tool: string; id: string }>, res: Response) => {
       const { name, tool, id } = req.params;
+      if (!ensureClientAccess(req, res, name)) return;
       const ok = deleteExample(name, tool, Number(id));
       if (!ok) {
         res.status(404).json({ error: { code: "EXAMPLE_NOT_FOUND", message: "Example not found", request_id: requestId(res) } });
@@ -464,6 +503,7 @@ export function adminRoutes(app: Express): void {
     adminAuth,
     requireOperator,
     (req: Request<{ name: string }>, res: Response) => {
+      if (!ensureClientAccess(req, res, req.params.name)) return;
       const ok = registry.resetCircuitBreaker(req.params.name);
       if (!ok) {
         res.status(404).json({ error: { code: "CLIENT_NOT_FOUND", message: "Client is not currently live", request_id: requestId(res) } });
@@ -477,11 +517,13 @@ export function adminRoutes(app: Express): void {
   // ── Canary / failover (secondary upstream) ────────────────────────────────
 
   app.get("/admin-api/clients/:name/canary", adminAuth, (req: Request<{ name: string }>, res: Response) => {
+    if (!ensureClientAccess(req, res, req.params.name)) return;
     res.status(200).json({ canary: getCanary(req.params.name) });
   });
 
   app.put("/admin-api/clients/:name/canary", adminAuth, requireOperator, async (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
+    if (!ensureClientAccess(req, res, name)) return;
     const body = (req.body as Record<string, unknown>) ?? {};
     let input: { secondaryBaseUrl: string; mode: "canary" | "failover"; weight: number; enabled: boolean } | null;
     if (body.canary === null) {
@@ -517,6 +559,7 @@ export function adminRoutes(app: Express): void {
       is_active: u.isActive,
       created_at: u.createdAt,
       last_login_at: u.lastLoginAt,
+      team_id: u.teamId,
     }));
     res.status(200).json({ users });
   });
