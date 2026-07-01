@@ -4,7 +4,8 @@
  * Verifies that:
  *   1. A spec whose nesting exceeds config.maxJsonDepth is rejected with OPENAPI_TOO_DEEP.
  *   2. A spec at exactly the limit succeeds.
- *   3. A cyclic reference in the parsed doc causes BFS to terminate (no hang).
+ *   3. A spec containing a genuine circular reference is rejected immediately with
+ *      OPENAPI_CYCLIC_REFERENCE, before ever reaching the (cycle-unsafe) dereference() call.
  */
 import { describe, test, expect, afterEach } from "bun:test";
 import { config } from "../config.js";
@@ -125,20 +126,11 @@ describe("discoverToolsFromOpenApi — depth cap: exactly at maxJsonDepth", () =
 // ---------------------------------------------------------------------------
 
 describe("discoverToolsFromOpenApi — depth cap: cyclic reference terminates", () => {
-  test("a spec object with a cycle is processed without hanging (terminates within 2s)", async () => {
-    // We build a cyclic object and intercept JSON.parse to return it directly
-    // by providing a body that, after parsing, is replaced by our cyclic structure.
-    // Since we can't inject post-parse, we instead mock fetch to return a very
-    // shallow spec so JSON.parse succeeds, then monkey-patch the module's copy
-    // via a global shim on JSON.parse.
-    //
-    // Simpler approach: set a very low maxJsonDepth so even a non-cyclic but
-    // large spec is caught quickly, and confirm the BFS exits via the seen-set.
-    // The production code has `const seen = new Set<object>()` to skip visited nodes.
-    //
-    // We build an object that references itself, patch JSON.parse to return it,
-    // and verify discoverToolsFromOpenApi completes within 2 seconds.
-
+  test("a spec object with a cycle is rejected immediately with OPENAPI_CYCLIC_REFERENCE", async () => {
+    // We build a cyclic object and intercept JSON.parse to return it directly,
+    // simulating what parseYaml() can legitimately produce from a YAML doc with
+    // self-referential anchors/aliases (plain JSON text can never itself encode
+    // a cycle, so this is the only way to construct one for the JSON.parse path).
     const cyclic: Record<string, unknown> = {
       openapi: "3.1.0",
       info: { title: "Cyclic", version: "1.0.0" },
@@ -161,21 +153,14 @@ describe("discoverToolsFromOpenApi — depth cap: cyclic reference terminates", 
     // Provide any valid body string — it will be intercepted by our JSON.parse patch
     mockFetchWithBody('{"openapi":"3.1.0"}');
 
-    const watchdog = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("BFS timed out — possible infinite loop")), 2000)
-    );
-
     try {
       const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
-      // Race the actual call against the watchdog
+      // No watchdog/race needed: the fix rejects synchronously (via JSON.stringify's
+      // native cycle detection) before ever reaching the cycle-unsafe dereference()
+      // call, so this resolves well within bun:test's default per-test timeout.
       await expect(
-        Promise.race([
-          discoverToolsFromOpenApi({
-            openapiUrl: "https://example.com/openapi.json",
-          }).catch(() => "terminated"), // any error = BFS terminated
-          watchdog,
-        ])
-      ).resolves.toBe("terminated"); // resolves, not rejects = no hang
+        discoverToolsFromOpenApi({ openapiUrl: "https://example.com/openapi.json" })
+      ).rejects.toThrow(/OPENAPI_CYCLIC_REFERENCE/i);
     } finally {
       JSON.parse = originalJSONParse;
     }

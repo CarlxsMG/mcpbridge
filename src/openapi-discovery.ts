@@ -52,7 +52,31 @@ export async function discoverToolsFromOpenApi(options: {
     parsed = parseYaml(text);
   }
 
-  // 2b. Depth cap — reject deeply nested specs before dereference to prevent ReDoS/OOM.
+  // 2b. Reject genuine circular references before dereference(): a plain JSON.parse
+  // result can never be cyclic (JSON text has no way to express object identity), but
+  // the parseYaml fallback above can produce one from a YAML doc using self-referential
+  // anchors/aliases. @scalar/openapi-parser's dereference() (step 3 below) does not
+  // itself detect cycles — walking one can block the event loop for many seconds,
+  // which no JS-level timeout can preempt since it's synchronous CPU-bound work.
+  // JSON.stringify's native circular-reference detection is the cheapest reliable way
+  // to catch this without hand-rolling ancestor-path tracking; legitimate shared/aliased
+  // (but acyclic) sub-structures still stringify fine, so this only rejects true cycles.
+  // Matching on `instanceof TypeError` rather than the error message text: engines phrase
+  // it differently (Bun/JSC: "cannot serialize cyclic structures", V8: "Converting circular
+  // structure to JSON") and message text isn't a stable contract. A TypeError from
+  // JSON.stringify on parsed JSON/YAML data has no other realistic cause here — the only
+  // other documented case (a BigInt value) can't occur since neither JSON.parse nor the
+  // yaml parser ever produce one.
+  try {
+    JSON.stringify(parsed);
+  } catch (err) {
+    if (err instanceof TypeError) {
+      throw new Error("OPENAPI_CYCLIC_REFERENCE: OpenAPI spec contains a circular reference");
+    }
+    throw err;
+  }
+
+  // 2c. Depth cap — reject deeply nested specs before dereference to prevent ReDoS/OOM.
   // Uses iterative BFS (not recursion) to avoid call-stack exhaustion.
   {
     const maxDepth = config.maxJsonDepth;
