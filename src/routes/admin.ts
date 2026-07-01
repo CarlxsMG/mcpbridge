@@ -5,6 +5,7 @@ import { adminAuth } from "../middleware/auth.js";
 import { hashApiKey } from "../security/key-hash.js";
 import { setToolSensitive } from "../tool-sensitivity.js";
 import { setRedactionPaths } from "../redaction.js";
+import { setGuardrails, MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../guardrails.js";
 import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog } from "../admin/audit.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
 import {
@@ -17,7 +18,7 @@ import {
   isAdminRole,
 } from "../security/user-store.js";
 import { revokeAllSessionsForUser } from "../security/session-store.js";
-import type { ClientGuardConfig, ToolGuardConfig, ClientStatus, ToolOverride } from "../types.js";
+import type { ClientGuardConfig, ToolGuardConfig, ClientStatus, ToolOverride, ToolGuardrails } from "../types.js";
 import type { AdminRole } from "../security/user-store.js";
 
 function requestId(res: Response): string | null {
@@ -115,6 +116,46 @@ function validateToolOverrideInput(input: unknown): { ok: true; value: ToolOverr
   if (value.description === undefined && value.params === undefined && value.displayName === undefined) {
     return { ok: true, value: null };
   }
+  return { ok: true, value };
+}
+
+function validateGuardrailsInput(input: unknown): { ok: true; value: ToolGuardrails | null } | { ok: false; message: string } {
+  if (input === null) return { ok: true, value: null };
+  if (typeof input !== "object" || Array.isArray(input)) {
+    return { ok: false, message: "guardrails must be an object or null" };
+  }
+  const g = input as Record<string, unknown>;
+  const value: ToolGuardrails = { denyPatterns: [], blockSecrets: false, scanResponses: false };
+
+  if (g.denyPatterns !== undefined) {
+    if (!Array.isArray(g.denyPatterns) || !g.denyPatterns.every((p) => typeof p === "string")) {
+      return { ok: false, message: "guardrails.denyPatterns must be an array of strings" };
+    }
+    if (g.denyPatterns.length > MAX_DENY_PATTERNS) {
+      return { ok: false, message: `guardrails.denyPatterns allows at most ${MAX_DENY_PATTERNS} entries` };
+    }
+    for (const p of g.denyPatterns as string[]) {
+      if (p.length > MAX_DENY_PATTERN_LENGTH) {
+        return { ok: false, message: `guardrails.denyPatterns entries must be <= ${MAX_DENY_PATTERN_LENGTH} chars` };
+      }
+      try {
+        new RegExp(p);
+      } catch {
+        return { ok: false, message: `guardrails.denyPatterns contains an invalid regex: ${p.slice(0, 40)}` };
+      }
+    }
+    value.denyPatterns = (g.denyPatterns as string[]).map((p) => p.trim()).filter(Boolean);
+  }
+  if (g.blockSecrets !== undefined) {
+    if (typeof g.blockSecrets !== "boolean") return { ok: false, message: "guardrails.blockSecrets must be a boolean" };
+    value.blockSecrets = g.blockSecrets;
+  }
+  if (g.scanResponses !== undefined) {
+    if (typeof g.scanResponses !== "boolean") return { ok: false, message: "guardrails.scanResponses must be a boolean" };
+    value.scanResponses = g.scanResponses;
+  }
+
+  if (value.denyPatterns.length === 0 && !value.blockSecrets && !value.scanResponses) return { ok: true, value: null };
   return { ok: true, value };
 }
 
@@ -304,6 +345,24 @@ export function adminRoutes(app: Express): void {
           return;
         }
         recordAudit(actor, "tool.redaction.set", `${name}${TOOL_KEY_SEPARATOR}${tool}`, { count: (body.redactPaths as string[]).length });
+      }
+
+      if (body.guardrails !== undefined) {
+        const parsed = validateGuardrailsInput(body.guardrails);
+        if (!parsed.ok) {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+          return;
+        }
+        const ok = setGuardrails(name, tool, parsed.value);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, "tool.guardrails.set", `${name}${TOOL_KEY_SEPARATOR}${tool}`, {
+          denyPatterns: parsed.value?.denyPatterns.length ?? 0,
+          blockSecrets: parsed.value?.blockSecrets ?? false,
+          scanResponses: parsed.value?.scanResponses ?? false,
+        });
       }
 
       res.status(200).json({ status: "updated", name, tool });

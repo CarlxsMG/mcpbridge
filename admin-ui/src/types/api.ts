@@ -41,6 +41,12 @@ export interface ToolOverride {
   displayName?: string;
 }
 
+export interface ToolGuardrails {
+  denyPatterns: string[];
+  blockSecrets: boolean;
+  scanResponses: boolean;
+}
+
 export interface ToolDetail {
   name: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -55,6 +61,7 @@ export interface ToolDetail {
   tags?: string[];
   sensitive?: boolean | null;
   redactPaths?: string[];
+  guardrails?: ToolGuardrails;
 }
 
 export interface ClientDetail {

@@ -6,6 +6,7 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 const props = defineProps<{
   guards?: ToolGuardConfig;
   override?: { description?: string; params?: Record<string, { description?: string }>; displayName?: string };
+  guardrails?: { denyPatterns: string[]; blockSecrets: boolean; scanResponses: boolean };
   clientName?: string;
   toolName?: string;
   tags?: string[];
@@ -18,10 +19,14 @@ const emit = defineEmits<{
   saveOverride: [payload: { description?: string; params?: Record<string, { description?: string }>; displayName?: string } | null];
   saveTags: [tags: string[]];
   saveRedaction: [paths: string[]];
+  saveGuardrails: [payload: { denyPatterns: string[]; blockSecrets: boolean; scanResponses: boolean } | null];
 }>();
 
 const descriptionInput = ref(props.override?.description ?? "");
 const displayNameInput = ref(props.override?.displayName ?? "");
+const denyPatternsInput = ref((props.guardrails?.denyPatterns ?? []).join("\n"));
+const blockSecretsInput = ref(props.guardrails?.blockSecrets ?? false);
+const scanResponsesInput = ref(props.guardrails?.scanResponses ?? false);
 const tagsInput = ref((props.tags ?? []).join(", "));
 const redactInput = ref((props.redactPaths ?? []).join("\n"));
 
@@ -81,6 +86,24 @@ watch(
     redactInput.value = (p ?? []).join("\n");
   }
 );
+
+watch(
+  () => props.guardrails,
+  (g) => {
+    denyPatternsInput.value = (g?.denyPatterns ?? []).join("\n");
+    blockSecretsInput.value = g?.blockSecrets ?? false;
+    scanResponsesInput.value = g?.scanResponses ?? false;
+  }
+);
+
+function saveGuardrailsFn() {
+  const denyPatterns = denyPatternsInput.value.split("\n").map((p) => p.trim()).filter(Boolean);
+  if (denyPatterns.length === 0 && !blockSecretsInput.value && !scanResponsesInput.value) {
+    emit("saveGuardrails", null);
+    return;
+  }
+  emit("saveGuardrails", { denyPatterns, blockSecrets: blockSecretsInput.value, scanResponses: scanResponsesInput.value });
+}
 
 const rateLimitError = computed(() => {
   if (!rateLimitInput.value) return null;
@@ -259,6 +282,15 @@ function saveRedactionFn() {
       <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveRedactionFn">Save redaction</button>
     </div>
 
+    <div class="field">
+      <label for="tool-deny">Content guardrails</label>
+      <p class="hint">Input deny patterns (one regex per line). A call whose arguments match any pattern is rejected before dispatch.</p>
+      <textarea id="tool-deny" v-model="denyPatternsInput" rows="2" placeholder="\bDROP\s+TABLE\b&#10;rm\s+-rf"></textarea>
+      <label class="checkline"><input type="checkbox" v-model="blockSecretsInput" /> Block arguments that look like secrets (AWS keys, private keys, tokens…)</label>
+      <label class="checkline"><input type="checkbox" v-model="scanResponsesInput" /> Scan responses for prompt-injection and wrap flagged output</label>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveGuardrailsFn">Save guardrails</button>
+    </div>
+
     <details class="preview">
       <summary>Preview</summary>
       <pre>{{ previewJson }}</pre>
@@ -312,6 +344,17 @@ function saveRedactionFn() {
 }
 .desc-save {
   margin-top: 0.5rem;
+}
+.checkline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 400;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+.checkline input {
+  width: auto;
 }
 .field-error {
   color: #a11212;

@@ -69,6 +69,16 @@ export interface ToolOverride {
   displayName?: string;
 }
 
+/** Per-tool content guardrails (input deny/secret gate + response injection scan). */
+export interface ToolGuardrails {
+  /** Admin regex deny-list. A call whose JSON-serialized args match any pattern is rejected. */
+  denyPatterns: string[];
+  /** When true, reject a call whose args appear to contain a high-signal secret. */
+  blockSecrets: boolean;
+  /** When true, scan the tool's response for prompt-injection and wrap flagged output. */
+  scanResponses: boolean;
+}
+
 /** A tool as tracked internally by the registry — adds admin state on top of the wire shape. */
 export interface RegisteredTool extends RestToolDefinition {
   enabled: boolean;
@@ -80,6 +90,8 @@ export interface RegisteredTool extends RestToolDefinition {
   sensitive?: boolean | null;
   /** Response redaction dot-paths (populated on read). */
   redactPaths?: string[];
+  /** Content guardrails (populated on read): input deny/secret gate + response scan. */
+  guardrails?: ToolGuardrails;
   /** Raw upstream MCP tool name used for dispatch (only when the client is kind "mcp"). Absent for REST tools. */
   upstreamName?: string;
 }

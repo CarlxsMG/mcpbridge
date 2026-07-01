@@ -21,6 +21,7 @@ import { recordUsage } from "./observability/usage.js";
 import { checkConsumerQuota } from "./consumers.js";
 import { isToolSensitive } from "./tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "./redaction.js";
+import { getGuardrails, checkInputGuardrails, applyResponseScan } from "./guardrails.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { McpConnParams } from "./mcp-upstream.js";
 import type { RegisteredClient, RegisteredTool } from "./types.js";
@@ -244,6 +245,22 @@ export async function proxyToolCall(
     }
   }
 
+  // Content guardrails — input gate runs here (before the breaker, like every
+  // other guard) so a rejected call never burns a half-open probe. The same
+  // config's scan-responses flag is reused on the output path below (REST) and
+  // threaded into the MCP dispatch.
+  const guardrails = getGuardrails(client.name, tool.name);
+  if (guardrails) {
+    const inputCheck = checkInputGuardrails(guardrails, args);
+    if (inputCheck.blocked) {
+      log("warn", "Tool call rejected by input guardrail", { tool: mcpToolName, client: client.name, reason: inputCheck.reason });
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Input rejected by guardrail: ${inputCheck.reason}` }],
+      };
+    }
+  }
+
   if (tool.guards?.rateLimitPerMin !== undefined) {
     const rl = checkToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin);
     if (!rl.allowed) {
@@ -272,7 +289,7 @@ export async function proxyToolCall(
   // sensitivity/rate-limit/circuit-breaker) has already applied; only the
   // REST URL/path/IP/fetch machinery below is skipped.
   if (client.kind === "mcp") {
-    return dispatchMcpToolCall(client, tool, args, mcpToolName, effectiveTimeout, breaker, callerKey);
+    return dispatchMcpToolCall(client, tool, args, mcpToolName, effectiveTimeout, breaker, callerKey, guardrails?.scanResponses ?? false);
   }
 
   // Build URL with path param substitution
@@ -470,6 +487,16 @@ export async function proxyToolCall(
           if (processed !== null) responseText = processed;
         }
 
+        // Response guardrail scan (spotlighting) — runs after redaction so the
+        // envelope wraps the already-redacted text, not raw secrets.
+        if (guardrails?.scanResponses) {
+          const scan = applyResponseScan(responseText);
+          if (scan.flagged) {
+            log("warn", "Tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
+            responseText = scan.text;
+          }
+        }
+
         return {
           content: [{ type: "text", text: responseText }],
         };
@@ -555,7 +582,8 @@ async function dispatchMcpToolCall(
   mcpToolName: string,
   effectiveTimeout: number,
   breaker: ReturnType<typeof getCircuitBreaker>,
-  callerKey: { id: number } | null
+  callerKey: { id: number } | null,
+  scanResponses: boolean
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const startTime = Date.now();
 
@@ -608,6 +636,15 @@ async function dispatchMcpToolCall(
       result.content = result.content.map((item) =>
         item.type === "text" ? { ...item, text: applyRedaction(paths, item.text) ?? item.text } : item
       );
+    }
+    // Response guardrail scan parity — wrap flagged text parts (after redaction).
+    if (scanResponses) {
+      result.content = result.content.map((item) => {
+        if (item.type !== "text") return item;
+        const scan = applyResponseScan(item.text);
+        if (scan.flagged) log("warn", "MCP tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
+        return scan.flagged ? { ...item, text: scan.text } : item;
+      });
     }
   }
 

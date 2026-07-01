@@ -18,6 +18,7 @@ import { getDb } from "./db/connection.js";
 import { getTagsForClient, getAllToolTags } from "./tool-tags.js";
 import { getSensitivityForClient } from "./tool-sensitivity.js";
 import { getRedactionForClient } from "./redaction.js";
+import { getGuardrailsForClient } from "./guardrails.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";
 
@@ -1239,9 +1240,10 @@ class Registry {
     const tagMap = getTagsForClient(name);
     const sensMap = getSensitivityForClient(name);
     const redactMap = getRedactionForClient(name);
+    const guardrailMap = getGuardrailsForClient(name);
     let tools: RegisteredTool[];
     if (live) {
-      tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [], sensitive: sensMap[t.name] ?? null, redactPaths: redactMap[t.name] ?? [] }));
+      tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [], sensitive: sensMap[t.name] ?? null, redactPaths: redactMap[t.name] ?? [], guardrails: guardrailMap[t.name] }));
     } else {
       const toolRows = db
         .query(`SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`)
@@ -1266,6 +1268,7 @@ class Registry {
           tags: tagMap[t.name] ?? [],
           sensitive: sensMap[t.name] ?? null,
           redactPaths: redactMap[t.name] ?? [],
+          guardrails: guardrailMap[t.name],
         };
       });
     }

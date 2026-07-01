@@ -346,6 +346,22 @@ export const migrations: Migration[] = [
       ALTER TABLE tool_overrides ADD COLUMN display_name TEXT;
     `,
   },
+  {
+    id: 18,
+    name: "tool_guardrails",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_guardrails (
+        client_name        TEXT NOT NULL,
+        tool_name          TEXT NOT NULL,
+        deny_patterns_json TEXT,
+        block_secrets      INTEGER NOT NULL DEFAULT 0,
+        scan_responses     INTEGER NOT NULL DEFAULT 0,
+        updated_at         INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
 ];
 
 /**
