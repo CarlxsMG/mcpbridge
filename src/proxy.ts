@@ -21,6 +21,9 @@ import { recordUsage } from "./observability/usage.js";
 import { checkConsumerQuota } from "./consumers.js";
 import { isToolSensitive } from "./tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "./redaction.js";
+import { mcpUpstream } from "./mcp-upstream.js";
+import type { McpConnParams } from "./mcp-upstream.js";
+import type { RegisteredClient, RegisteredTool } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls
@@ -263,6 +266,14 @@ export async function proxyToolCall(
 
   // Use shorter timeout if half-open probe, else the tool's guard override, else the global default.
   const effectiveTimeout = circuitCheck.timeout ?? tool.guards?.timeoutMs ?? config.toolCallTimeoutMs;
+
+  // MCP-kind upstream: forward to the outbound MCP client pool. Every
+  // transport-agnostic gate above (enable/deleting/status/key-scope/quota/
+  // sensitivity/rate-limit/circuit-breaker) has already applied; only the
+  // REST URL/path/IP/fetch machinery below is skipped.
+  if (client.kind === "mcp") {
+    return dispatchMcpToolCall(client, tool, args, mcpToolName, effectiveTimeout, breaker, callerKey);
+  }
 
   // Build URL with path param substitution
   const remainingArgs = { ...args };
@@ -528,4 +539,77 @@ export async function proxyToolCall(
   } finally {
     untrackRequest(client.name, reqController);
   }
+}
+
+/**
+ * Dispatches a tool call to an MCP-kind upstream via the outbound client pool.
+ * The transport-agnostic gates in proxyToolCall have already run; this only
+ * validates args and forwards. No method-based retry — MCP calls carry no
+ * idempotency guarantee, so the pool reconnects on the NEXT call rather than
+ * replaying this one.
+ */
+async function dispatchMcpToolCall(
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  rawArgs: Record<string, unknown>,
+  mcpToolName: string,
+  effectiveTimeout: number,
+  breaker: ReturnType<typeof getCircuitBreaker>,
+  callerKey: { id: number } | null
+): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+  const startTime = Date.now();
+
+  // Same Ajv instance/behaviour as the REST path — removeAdditional strips
+  // unknown keys (including the sensitivity __confirm flag) before dispatch.
+  const argsToSend = { ...rawArgs };
+  const validate = getOrCompile(client.name, tool.name, tool.inputSchema);
+  if (!validate(argsToSend)) {
+    const firstError = validate.errors?.[0];
+    return {
+      isError: true,
+      content: [{
+        type: "text",
+        text: `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
+      }],
+    };
+  }
+
+  const params: McpConnParams = {
+    name: client.name,
+    url: client.mcpUrl ?? client.base_url,
+    transport: client.mcpTransport ?? "streamable-http",
+    resolvedIp: client.resolved_ip,
+    authHeaders: getUpstreamAuthHeaders(client.name) ?? undefined,
+  };
+
+  const result = await mcpUpstream.call(params, tool.upstreamName ?? tool.name, argsToSend, {
+    timeoutMs: effectiveTimeout,
+    maxBytes: config.maxResponseBytes,
+  });
+
+  const durationMs = Date.now() - startTime;
+  const statusClass = result.isError ? "error" : "2xx";
+  if (result.isError) breaker.recordFailure();
+  else breaker.recordSuccess();
+
+  recordToolCall(durationMs, result.isError === true);
+  recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass, isError: result.isError === true, durationMs });
+  proxyRequestDuration.observe({ client: client.name, method: "MCP", status_class: statusClass }, durationMs / 1000);
+  log(result.isError ? "warn" : "info", result.isError ? "MCP tool call returned error" : "MCP tool call succeeded", {
+    tool: mcpToolName,
+    client: client.name,
+    duration_ms: durationMs,
+  });
+
+  // Response redaction parity with the REST path — applies to JSON text parts.
+  if (!result.isError) {
+    const paths = getRedactionPaths(client.name, tool.name);
+    if (paths.length > 0) {
+      result.content = result.content.map((item) =>
+        item.type === "text" ? { ...item, text: applyRedaction(paths, item.text) ?? item.text } : item
+      );
+    }
+  }
+
+  return result;
 }

@@ -7,6 +7,7 @@ import type {
   ClientGuardConfig,
   ToolGuardConfig,
   ToolOverride,
+  McpTransport,
 } from "./types.js";
 import { sanitizeToolDescription } from "./sanitize.js";
 import { abortClientRequests } from "./proxy.js";
@@ -16,6 +17,8 @@ import { getDb } from "./db/connection.js";
 import { getTagsForClient, getAllToolTags } from "./tool-tags.js";
 import { getSensitivityForClient } from "./tool-sensitivity.js";
 import { getRedactionForClient } from "./redaction.js";
+import { mcpUpstream } from "./mcp-upstream.js";
+import type { DiscoveredMcpTool } from "./mcp-discovery.js";
 
 export interface ClientSummary {
   name: string;
@@ -300,6 +303,101 @@ class Registry {
     return txn();
   }
 
+  /**
+   * MCP-upstream counterpart of persistRegistration. Writes kind='mcp' + the
+   * connection columns on `clients`, and tool rows carrying the raw
+   * `upstream_name` for dispatch plus inert method/endpoint sentinels (never
+   * read on the MCP path). Same enabled/guards/override read-back and the same
+   * "omit enabled from ON CONFLICT" rule (re-discovery must not re-enable).
+   */
+  private persistMcpRegistration(
+    name: string,
+    tools: DiscoveredMcpTool[],
+    mcpUrl: string,
+    transport: McpTransport,
+    ip: string,
+    resolvedIp: string
+  ): { enabled: boolean; guards?: ClientGuardConfig; tools: RegisteredTool[] } {
+    const db = getDb();
+    const now = Date.now();
+
+    const txn = db.transaction(() => {
+      const clientRow = db
+        .query(
+          `INSERT INTO clients (name, ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 0, 1, 'mcp', ?, ?, ?, ?)
+           ON CONFLICT(name) DO UPDATE SET
+             ip = excluded.ip,
+             health_url = excluded.health_url,
+             base_url = excluded.base_url,
+             resolved_ip = excluded.resolved_ip,
+             kind = excluded.kind,
+             mcp_url = excluded.mcp_url,
+             mcp_transport = excluded.mcp_transport,
+             updated_at = excluded.updated_at
+           RETURNING enabled`
+        )
+        .get(name, ip, mcpUrl, mcpUrl, resolvedIp, mcpUrl, transport, now, now) as { enabled: number };
+
+      const existingToolNames = new Set(
+        (db.query(`SELECT name FROM tools WHERE client_name = ?`).all(name) as { name: string }[]).map((r) => r.name)
+      );
+      const newToolNames = new Set(tools.map((t) => t.name));
+      for (const staleName of existingToolNames) {
+        if (!newToolNames.has(staleName)) {
+          db.query(`DELETE FROM tools WHERE client_name = ? AND name = ?`).run(name, staleName);
+        }
+      }
+
+      const registeredTools: RegisteredTool[] = [];
+      for (const tool of tools) {
+        const toolRow = db
+          .query(
+            `INSERT INTO tools (client_name, name, method, endpoint, description, input_schema, upstream_name, enabled, created_at, updated_at)
+             VALUES (?, ?, 'POST', '', ?, ?, ?, 1, ?, ?)
+             ON CONFLICT(client_name, name) DO UPDATE SET
+               method = excluded.method,
+               endpoint = excluded.endpoint,
+               description = excluded.description,
+               input_schema = excluded.input_schema,
+               upstream_name = excluded.upstream_name,
+               updated_at = excluded.updated_at
+             RETURNING enabled`
+          )
+          .get(name, tool.name, tool.description, JSON.stringify(tool.inputSchema), tool.upstreamName, now, now) as {
+          enabled: number;
+        };
+
+        const toolGuardRow = db
+          .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
+          .get(name, tool.name) as ToolGuardRow | null;
+        const toolOverrideRow = db
+          .query(`SELECT description, param_overrides_json FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
+          .get(name, tool.name) as ToolOverrideRow | null;
+
+        registeredTools.push({
+          name: tool.name,
+          method: "POST",
+          endpoint: "",
+          upstreamName: tool.upstreamName,
+          description: tool.description,
+          inputSchema: tool.inputSchema,
+          enabled: toolRow.enabled === 1,
+          guards: rowToToolGuards(toolGuardRow),
+          override: rowToToolOverride(toolOverrideRow),
+        });
+      }
+
+      const clientGuardRow = db
+        .query(`SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`)
+        .get(name) as ClientGuardRow | null;
+
+      return { enabled: clientRow.enabled === 1, guards: rowToClientGuards(clientGuardRow), tools: registeredTools };
+    });
+
+    return txn();
+  }
+
   // -------------------------------------------------------------------------
   // Register / unregister
   // -------------------------------------------------------------------------
@@ -434,6 +532,104 @@ class Registry {
   }
 
   /**
+   * Registers (or re-discovers) an MCP-kind upstream: validates + sanitizes the
+   * discovered tools, persists them, and folds durable enabled/guards state into
+   * the live registry. Mirrors register() but skips REST-only checks
+   * (method/endpoint) and requires each tool's raw upstreamName for dispatch.
+   */
+  async registerMcp(
+    name: string,
+    tools: DiscoveredMcpTool[],
+    mcpUrl: string,
+    transport: McpTransport,
+    ip: string,
+    resolvedIp: string
+  ): Promise<void> {
+    if (!name || typeof name !== "string") {
+      throw new Error("Client name is required and must be a non-empty string");
+    }
+    if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(name)) {
+      throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
+    }
+
+    const seenToolNames = new Set<string>();
+    for (const tool of tools) {
+      if (!tool.name || typeof tool.name !== "string") {
+        throw new Error("Tool name is required and must be a non-empty string");
+      }
+      if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(tool.name)) {
+        throw new Error(`Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`);
+      }
+      if (seenToolNames.has(tool.name)) {
+        throw new Error(`Duplicate tool name "${tool.name}" found for client "${name}"`);
+      }
+      seenToolNames.add(tool.name);
+      if (!tool.upstreamName || typeof tool.upstreamName !== "string") {
+        throw new Error(`Tool "${tool.name}" is missing a valid upstreamName`);
+      }
+      if (!tool.description || typeof tool.description !== "string") {
+        throw new Error(`Tool "${tool.name}" is missing a valid description`);
+      }
+      if (!tool.inputSchema || typeof tool.inputSchema !== "object") {
+        throw new Error(`Tool "${tool.name}" is missing a valid inputSchema`);
+      }
+      if ((tool.inputSchema as Record<string, unknown>)["type"] !== "object") {
+        throw new Error(`Tool "${tool.name}" inputSchema must have type: "object"`);
+      }
+      if (JSON.stringify(tool.inputSchema).length > 10240) {
+        throw new Error(`Tool '${tool.name}': inputSchema exceeds 10KB size limit`);
+      }
+    }
+
+    // Sanitize descriptions + inputSchema property descriptions (same as REST).
+    const sanitizedTools: DiscoveredMcpTool[] = tools.map((t) => {
+      if (t.inputSchema.properties && typeof t.inputSchema.properties === "object") {
+        for (const key of Object.keys(t.inputSchema.properties as Record<string, unknown>)) {
+          const prop = (t.inputSchema.properties as Record<string, Record<string, unknown>>)[key];
+          if (prop && typeof prop.description === "string") {
+            prop.description = sanitizeToolDescription(prop.description);
+          }
+        }
+      }
+      return { ...t, description: sanitizeToolDescription(t.description) };
+    });
+
+    await this.withLock(name, async () => {
+      if (this.clients.has(name)) {
+        const existing = this.clients.get(name)!;
+        for (const tool of existing.tools) {
+          this.toolIndex.delete(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`);
+        }
+      }
+
+      const persisted = this.persistMcpRegistration(name, sanitizedTools, mcpUrl, transport, ip, resolvedIp);
+
+      const client: RegisteredClient = {
+        name,
+        ip,
+        tools: persisted.tools,
+        health_url: mcpUrl,
+        base_url: mcpUrl,
+        resolved_ip: resolvedIp,
+        status: "healthy",
+        consecutive_failures: 0,
+        enabled: persisted.enabled,
+        guards: persisted.guards,
+        kind: "mcp",
+        mcpUrl,
+        mcpTransport: transport,
+      };
+
+      this.clients.set(name, client);
+      for (const tool of persisted.tools) {
+        this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`, { clientName: name, toolName: tool.name });
+      }
+
+      notifyToolsChanged();
+    });
+  }
+
+  /**
    * Tears down a client's in-memory (live) state only — no SQLite writes.
    * Shared by `unregister()` (explicit removal + automatic health-eviction,
    * neither of which should touch durable admin config) and `forgetClient()`
@@ -450,6 +646,9 @@ class Registry {
 
       // 1. Abort any in-flight requests so they don't land against a removed client
       abortClientRequests(name);
+
+      // 1b. Close any outbound MCP upstream connection (no-op for REST clients).
+      void mcpUpstream.disconnect(name);
 
       // 2. Clean up circuit-breaker state
       removeCircuitBreaker(name);

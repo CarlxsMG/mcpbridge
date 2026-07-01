@@ -127,7 +127,7 @@ export interface McpUpstreamPoolOptions {
 export class McpUpstreamPool {
   private conns = new Map<string, Client>();
   private connecting = new Map<string, Promise<Client>>();
-  private readonly transportFactory: (p: McpConnParams) => Transport;
+  private transportFactory: (p: McpConnParams) => Transport;
   private readonly connectTimeoutMs: number;
 
   constructor(opts: McpUpstreamPoolOptions = {}) {
@@ -218,6 +218,13 @@ export class McpUpstreamPool {
   /** True when a live connection is currently cached (for diagnostics/tests). */
   isConnected(name: string): boolean {
     return this.conns.has(name);
+  }
+
+  /** Test-only: swap the transport factory and drop any pooled connections. */
+  __setTransportFactoryForTesting(factory: (p: McpConnParams) => Transport): void {
+    this.transportFactory = factory;
+    this.conns.clear();
+    this.connecting.clear();
   }
 }
 
