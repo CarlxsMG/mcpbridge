@@ -216,6 +216,10 @@ export const config = {
   /** Whether the legacy aggregated /mcp, /sse, /messages endpoints stay mounted. Disable at scale. */
   enableAggregatedMcp: process.env.ENABLE_AGGREGATED_MCP !== "false",
 
+  // ─── Tool discovery ─────────────────────────────────────────────────────────
+  /** Whether to advertise the synthetic `search_tools` meta-tool that helps clients find tools by query. */
+  enableSearchTool: process.env.ENABLE_SEARCH_TOOL !== "false",
+
   // ─── Admin session auth ─────────────────────────────────────────────────────
   /** Sliding idle-timeout for an admin session (ms). */
   sessionIdleTimeoutMs: Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60_000,

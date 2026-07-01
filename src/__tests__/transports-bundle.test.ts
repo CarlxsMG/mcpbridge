@@ -175,7 +175,7 @@ describe("POST /mcp-custom/:bundleName — new session", () => {
     const list = await toolsList("/mcp-custom/mix", sessionId!);
     expect(list.status).toBe(200);
     // Only the two bundled tools — "other-a" (same client, not in the bundle) is excluded.
-    expect(list.body?.tools.map((t) => t.name).sort()).toEqual(["client-a__tool-a", "client-b__tool-b"]);
+    expect(list.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools").sort()).toEqual(["client-a__tool-a", "client-b__tool-b"]);
   });
 
   test("a disabled member tool is excluded from the bundle's tools/list", async () => {
@@ -194,7 +194,7 @@ describe("POST /mcp-custom/:bundleName — new session", () => {
 
     const sessionId = await initSession("/mcp-custom/b");
     const list = await toolsList("/mcp-custom/b", sessionId!);
-    expect(list.body?.tools.map((t) => t.name)).toEqual(["client-a__tool-b"]);
+    expect(list.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual(["client-a__tool-b"]);
   });
 
   test("a disabled bundle serves an empty tools/list", async () => {
@@ -310,14 +310,14 @@ describe("side-by-side with /mcp/:clientName and aggregated /mcp", () => {
 
     const bundleSession = await initSession("/mcp-custom/mix");
     const bundleList = await toolsList("/mcp-custom/mix", bundleSession!);
-    expect(bundleList.body?.tools.map((t) => t.name)).toEqual(["client-b__tool-b"]);
+    expect(bundleList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual(["client-b__tool-b"]);
 
     const shardedSession = await initSession("/mcp/client-a");
     const shardedList = await toolsList("/mcp/client-a", shardedSession!);
-    expect(shardedList.body?.tools.map((t) => t.name)).toEqual(["client-a__tool-a"]);
+    expect(shardedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual(["client-a__tool-a"]);
 
     const aggregatedSession = await initSession("/mcp");
     const aggregatedList = await toolsList("/mcp", aggregatedSession!);
-    expect(aggregatedList.body?.tools.map((t) => t.name).sort()).toEqual(["client-a__tool-a", "client-b__tool-b"]);
+    expect(aggregatedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools").sort()).toEqual(["client-a__tool-a", "client-b__tool-b"]);
   });
 });

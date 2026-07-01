@@ -143,7 +143,7 @@ describe("POST /mcp/:clientName — new session", () => {
 
     const list = await toolsList("/mcp/client-a", sessionId!);
     expect(list.status).toBe(200);
-    expect(list.body?.tools.map((t) => t.name)).toEqual(["client-a__tool-a"]);
+    expect(list.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual(["client-a__tool-a"]);
   });
 
   test("a disabled tool is excluded from the sharded tools/list, same as the aggregated one", async () => {
@@ -153,7 +153,7 @@ describe("POST /mcp/:clientName — new session", () => {
 
     const sessionId = await initSession("/mcp/client-a");
     const list = await toolsList("/mcp/client-a", sessionId!);
-    expect(list.body?.tools.map((t) => t.name)).toEqual(["client-a__tool-b"]);
+    expect(list.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual(["client-a__tool-b"]);
   });
 });
 
@@ -233,10 +233,10 @@ describe("ENABLE_AGGREGATED_MCP toggle", () => {
     expect(aggregatedSession).not.toBeNull();
     const aggregatedList = await toolsList("/mcp", aggregatedSession!);
     // Aggregated session sees BOTH clients' tools.
-    expect(aggregatedList.body?.tools.map((t) => t.name).sort()).toEqual(["client-a__tool-a", "client-b__tool-b"]);
+    expect(aggregatedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools").sort()).toEqual(["client-a__tool-a", "client-b__tool-b"]);
 
     const shardedSession = await initSession("/mcp/client-a");
     const shardedList = await toolsList("/mcp/client-a", shardedSession!);
-    expect(shardedList.body?.tools.map((t) => t.name)).toEqual(["client-a__tool-a"]);
+    expect(shardedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual(["client-a__tool-a"]);
   });
 });

@@ -7,6 +7,8 @@ import { createRequire } from "module";
 import { registry } from "./registry.js";
 import { proxyToolCall } from "./proxy.js";
 import { isBundleEnabled, getBundleToolKeys } from "./bundles.js";
+import { config } from "./config.js";
+import { SEARCH_TOOL_NAME, searchToolDefinition, runSearchTool, type AdvertisedTool } from "./tool-search.js";
 
 const _require = createRequire(import.meta.url);
 const pkg = _require("../package.json") as { version: string };
@@ -19,6 +21,17 @@ const activeServers = new Set<Server>();
  * tools flattened together — the legacy behaviour.
  */
 export type McpServerScope = { kind: "client"; name: string } | { kind: "bundle"; name: string };
+
+/** The tools a session can see for its scope — the single source shared by tools/list and search_tools. */
+function scopedToolList(scope?: McpServerScope): AdvertisedTool[] {
+  if (scope?.kind === "client") return registry.getMcpToolsForClient(scope.name);
+  if (scope?.kind === "bundle") {
+    if (!isBundleEnabled(scope.name)) return [];
+    const keys = getBundleToolKeys(scope.name);
+    return keys ? registry.getMcpToolsForKeys(keys) : [];
+  }
+  return registry.getAllMcpTools();
+}
 
 /** Extracts a bearer token from a raw (possibly multi-value) Authorization header value. */
 function extractBearerFromHeader(value: unknown): string | undefined {
@@ -42,15 +55,11 @@ export function createMcpServer(scope?: McpServerScope): Server {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    if (scope?.kind === "client") {
-      return { tools: registry.getMcpToolsForClient(scope.name) };
-    }
-    if (scope?.kind === "bundle") {
-      if (!isBundleEnabled(scope.name)) return { tools: [] };
-      const keys = getBundleToolKeys(scope.name);
-      return { tools: keys ? registry.getMcpToolsForKeys(keys) : [] };
-    }
-    return { tools: registry.getAllMcpTools() };
+    const tools = scopedToolList(scope);
+    // Advertise the discovery meta-tool alongside the real tools (only when
+    // there is something to search).
+    if (config.enableSearchTool && tools.length > 0) tools.push(searchToolDefinition());
+    return { tools };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
@@ -60,6 +69,12 @@ export function createMcpServer(scope?: McpServerScope): Server {
     // proxyToolCall) operates on the canonical identity. A non-alias name is
     // returned unchanged.
     const name = registry.resolveAdvertisedName(advertisedName);
+
+    // The discovery meta-tool is handled directly (never enters proxyToolCall)
+    // and ranks only over the caller's current scope.
+    if (config.enableSearchTool && name === SEARCH_TOOL_NAME) {
+      return runSearchTool((args ?? {}) as Record<string, unknown>, scopedToolList(scope));
+    }
 
     if (scope?.kind === "client" && !name.startsWith(`${scope.name}__`)) {
       return {
