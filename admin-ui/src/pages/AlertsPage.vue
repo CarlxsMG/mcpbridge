@@ -8,7 +8,11 @@ const EVENT_LABELS: Record<AlertEventType, string> = {
   circuit_breaker_open: "Circuit breaker open",
   client_unreachable: "Client unreachable",
   error_rate: "Error-rate spike",
+  usage_spike: "Usage spike (anomaly)",
 };
+
+/** Event types that use the threshold + minCalls numeric inputs. */
+const NUMERIC_EVENTS = new Set<AlertEventType>(["error_rate", "usage_spike"]);
 
 const rules = ref<AlertRule[]>([]);
 const loading = ref(false);
@@ -46,7 +50,7 @@ async function createRule() {
   creating.value = true;
   try {
     const body: Record<string, unknown> = { name: newName.value.trim(), eventType: newEvent.value, webhookUrl: newUrl.value.trim() };
-    if (newEvent.value === "error_rate") {
+    if (NUMERIC_EVENTS.has(newEvent.value)) {
       body.threshold = Number(newThreshold.value);
       body.minCalls = Number(newMinCalls.value);
     }
@@ -111,9 +115,12 @@ async function confirmDelete() {
         </select>
       </div>
       <div class="field"><label>Webhook URL</label><input v-model="newUrl" type="url" placeholder="https://hooks.example.com/x" /></div>
-      <template v-if="newEvent === 'error_rate'">
-        <div class="field"><label>Threshold (0–1)</label><input v-model="newThreshold" type="text" inputmode="decimal" /></div>
-        <div class="field"><label>Min calls</label><input v-model="newMinCalls" type="text" inputmode="numeric" /></div>
+      <template v-if="NUMERIC_EVENTS.has(newEvent)">
+        <div class="field">
+          <label>{{ newEvent === 'usage_spike' ? 'Spike factor (× baseline)' : 'Threshold (0–1)' }}</label>
+          <input v-model="newThreshold" type="text" inputmode="decimal" :placeholder="newEvent === 'usage_spike' ? '3' : '0.5'" />
+        </div>
+        <div class="field"><label>Min calls</label><input v-model="newMinCalls" type="text" inputmode="numeric" :placeholder="newEvent === 'usage_spike' ? '20' : '10'" /></div>
       </template>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Creating…" : "Create rule" }}</button>

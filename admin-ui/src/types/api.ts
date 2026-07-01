@@ -323,7 +323,7 @@ export interface ConfigImportResult {
   skipped: { type: string; id: string; reason: string }[];
 }
 
-export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate";
+export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike";
 
 export interface AlertRule {
   id: number;

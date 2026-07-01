@@ -223,6 +223,10 @@ export const config = {
   alertWebhookTimeoutMs: Number(process.env.ALERT_WEBHOOK_TIMEOUT_MS) || 5_000,
   /** Sliding window for error-rate alert evaluation (ms). */
   alertErrorRateWindowMs: Number(process.env.ALERT_ERROR_RATE_WINDOW_MS) || 5 * 60_000,
+  /** Recent window for usage-spike anomaly detection (ms). */
+  anomalyRecentWindowMs: Number(process.env.ANOMALY_RECENT_WINDOW_MS) || 5 * 60_000,
+  /** Baseline window (immediately preceding the recent window) for usage-spike detection (ms). */
+  anomalyBaselineWindowMs: Number(process.env.ANOMALY_BASELINE_WINDOW_MS) || 60 * 60_000,
 
   // ─── Per-tool rate-limit guard tier ────────────────────────────────────────
   /** Maximum number of LRU buckets for the per-tool guard rate limiter. */

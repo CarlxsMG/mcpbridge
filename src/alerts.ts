@@ -4,12 +4,13 @@ import { log } from "./logger.js";
 import { registry } from "./registry.js";
 import { getAllCircuitStates } from "./circuit-breaker.js";
 import { getUsageSummary } from "./observability/usage.js";
+import { detectUsageSpike } from "./observability/anomaly.js";
 import { validateBackendUrl } from "./security/ip-validator.js";
 import { isLeader } from "./db/leader-lease.js";
 
-export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate";
+export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike";
 
-export const ALERT_EVENT_TYPES: AlertEventType[] = ["circuit_breaker_open", "client_unreachable", "error_rate"];
+export const ALERT_EVENT_TYPES: AlertEventType[] = ["circuit_breaker_open", "client_unreachable", "error_rate", "usage_spike"];
 
 export interface AlertRule {
   id: number;
@@ -133,6 +134,17 @@ function evaluateCondition(rule: AlertRule): ConditionResult {
       const minCalls = rule.minCalls ?? 10;
       const active = summary.calls >= minCalls && summary.errorRate >= threshold;
       return { active, detail: { errorRate: summary.errorRate, calls: summary.calls, threshold, minCalls } };
+    }
+    case "usage_spike": {
+      // threshold = spike factor (recent rate >= factor x baseline rate);
+      // minCalls = minimum recent calls before a spike can fire.
+      const factor = rule.threshold ?? 3;
+      const minCalls = rule.minCalls ?? 20;
+      const r = detectUsageSpike({ factor, minCalls });
+      return {
+        active: r.spike,
+        detail: { recentCalls: r.recentCalls, recentRatePerMin: Math.round(r.recentRate * 100) / 100, baselineRatePerMin: Math.round(r.baselineRate * 100) / 100, factor, minCalls },
+      };
     }
     default:
       return { active: false, detail: {} };
