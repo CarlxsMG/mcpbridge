@@ -36,6 +36,7 @@ import { startScheduleLoop } from "./schedules.js";
 import { initBundles } from "./bundles.js";
 import { initComposites } from "./composites.js";
 import { startLeaderElection } from "./db/leader-lease.js";
+import { flush as flushTraces } from "./observability/tracing.js";
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 // Opens the SQLite handle and applies any pending migrations before anything
@@ -229,6 +230,7 @@ async function gracefulShutdown(signal: string) {
   stopRateLimiterCleanup();
   stopAlerts();
   stopSchedules();
+  void flushTraces();
   cleanupTransports();
   server.close(() => process.exit(0));
   // Fallback: force exit after configured timeout

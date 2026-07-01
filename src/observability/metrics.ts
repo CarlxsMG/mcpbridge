@@ -213,6 +213,13 @@ export const rateLimitBuckets = metricsRegistry.register(
 );
 
 // Proxy
+export const toolCallsTotal = metricsRegistry.register(
+  new Counter(
+    "mcp_tool_calls_total",
+    "Total number of proxied tool calls by outcome (success|error)",
+  ),
+);
+
 export const proxyBodyCapRejections = metricsRegistry.register(
   new Counter(
     "mcp_proxy_body_cap_rejections_total",

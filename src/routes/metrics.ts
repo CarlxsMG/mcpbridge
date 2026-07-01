@@ -10,6 +10,7 @@ import {
   registryClients,
   registryToolsTotal,
   rateLimitBuckets,
+  toolCallsTotal,
 } from "../observability/metrics.js";
 
 // ── Legacy JSON metrics (kept for backwards compatibility) ───────────────────
@@ -25,6 +26,7 @@ export function recordToolCall(durationMs: number, isError: boolean): void {
   if (isError) errorToolCalls++;
   latencies.push(durationMs);
   if (latencies.length > MAX_LATENCY_WINDOW) latencies.shift();
+  toolCallsTotal.inc({ outcome: isError ? "error" : "success" });
 }
 
 // Session count getter — will be set externally

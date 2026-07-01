@@ -153,6 +153,16 @@ export const config = {
   /** Whether the /metrics endpoint is enabled (env METRICS_ENABLED, default true). */
   metricsEnabled: process.env.METRICS_ENABLED !== "false",
 
+  // ─── Distributed tracing (OpenTelemetry, dependency-free OTLP/HTTP) ─────────
+  /** OTLP/HTTP traces endpoint (e.g. http://collector:4318/v1/traces). Unset = tracing disabled. */
+  otelEndpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || undefined,
+  /** service.name resource attribute for exported spans. */
+  otelServiceName: process.env.OTEL_SERVICE_NAME || "mcp-rest-bridge",
+  /** Max spans buffered before a flush is forced. */
+  otelMaxBatch: Number(process.env.OTEL_MAX_BATCH) || 128,
+  /** Timeout for an OTLP export POST (ms). */
+  otelExportTimeoutMs: Number(process.env.OTEL_EXPORT_TIMEOUT_MS) || 5_000,
+
   // ─── CORS constants ────────────────────────────────────────────────────────
   /** HTTP methods advertised in Access-Control-Allow-Methods. */
   corsAllowedMethods: ["GET", "POST", "DELETE", "OPTIONS"] as readonly string[],

@@ -23,6 +23,7 @@ import { isToolSensitive } from "./tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "./redaction.js";
 import { getGuardrails, checkInputGuardrails, applyResponseScan } from "./guardrails.js";
 import { getCanary, decideSecondary } from "./canary.js";
+import { tracingEnabled, startSpan, endSpan } from "./observability/tracing.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { McpConnParams } from "./mcp-upstream.js";
 import type { RegisteredClient, RegisteredTool } from "./types.js";
@@ -157,7 +158,25 @@ async function readBodyWithCap(response: Response): Promise<string | null> {
   return new TextDecoder().decode(combined);
 }
 
+/**
+ * Public entry point. When OTLP tracing is enabled, wraps the dispatch in a
+ * CLIENT span (bridge -> backend) with the tool name and error outcome; a no-op
+ * passthrough otherwise. Kept as a thin wrapper so every caller
+ * (mcp-server/composites/admin test route) is traced without change.
+ */
 export async function proxyToolCall(
+  mcpToolName: string,
+  args: Record<string, unknown> = {},
+  callerToken?: string
+): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+  if (!tracingEnabled()) return dispatchToolCall(mcpToolName, args, callerToken);
+  const span = startSpan(`tool_call ${mcpToolName}`, { "mcp.tool": mcpToolName });
+  const result = await dispatchToolCall(mcpToolName, args, callerToken);
+  endSpan(span, { "mcp.tool.is_error": result.isError === true }, result.isError ? 2 : 1);
+  return result;
+}
+
+async function dispatchToolCall(
   mcpToolName: string,
   args: Record<string, unknown> = {},
   callerToken?: string
