@@ -184,6 +184,14 @@ export const config = {
   /** Path to the SQLite database file. Use ":memory:" for ephemeral/test runs. */
   dbPath: process.env.DB_PATH || "./data/mcp-bridge.db",
 
+  // ─── Secret encryption (upstream credentials at rest) ──────────────────────
+  /**
+   * Key for AES-256-GCM encryption of stored secrets (e.g. per-client upstream
+   * credentials). Base64-encoded 32 bytes is used directly; any other value is
+   * hashed to 32 bytes via SHA-256. Unset means secret storage is disabled.
+   */
+  secretEncryptionKey: process.env.SECRET_ENCRYPTION_KEY || undefined,
+
   // ─── Per-tool rate-limit guard tier ────────────────────────────────────────
   /** Maximum number of LRU buckets for the per-tool guard rate limiter. */
   rateLimitMaxBucketsTool: Number(process.env.RATE_LIMIT_MAX_BUCKETS_TOOL) || 20_000,

@@ -161,6 +161,19 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 6,
+    name: "client_upstream_auth",
+    sql: `
+      CREATE TABLE IF NOT EXISTS client_upstream_auth (
+        client_name  TEXT PRIMARY KEY REFERENCES clients(name) ON DELETE CASCADE,
+        auth_type    TEXT NOT NULL,
+        header_name  TEXT,
+        secret_enc   TEXT NOT NULL,
+        updated_at   INTEGER NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

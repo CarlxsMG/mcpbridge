@@ -16,6 +16,7 @@ import { isDeleting } from "./registry.js";
 import { checkToolRateLimit } from "./middleware/rate-limiter.js";
 import { isKeyAllowed } from "./security/key-hash.js";
 import { resolveMcpKeyByToken, isToolInKeyScope } from "./security/mcp-key-store.js";
+import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls
@@ -348,6 +349,10 @@ export async function proxyToolCall(
     body = JSON.stringify(remainingArgs);
   }
 
+  // Inject per-client upstream credentials (decrypted at call time). Spread
+  // first so the pinned Host and Content-Type set below always take precedence.
+  const upstreamAuthHeaders = getUpstreamAuthHeaders(client.name) ?? {};
+
   const startTime = Date.now();
 
   // GET / HEAD / OPTIONS are always retried.
@@ -377,8 +382,8 @@ export async function proxyToolCall(
     const attemptSignal = AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]);
 
     const fetchOptions: RequestInit = body !== undefined
-      ? { method, headers: { "Content-Type": "application/json", "Host": originalHost }, body, redirect: "error" as RequestRedirect, signal: attemptSignal }
-      : { method, headers: { "Content-Type": "application/json", "Host": originalHost }, redirect: "error" as RequestRedirect, signal: attemptSignal };
+      ? { method, headers: { ...upstreamAuthHeaders, "Content-Type": "application/json", "Host": originalHost }, body, redirect: "error" as RequestRedirect, signal: attemptSignal }
+      : { method, headers: { ...upstreamAuthHeaders, "Content-Type": "application/json", "Host": originalHost }, redirect: "error" as RequestRedirect, signal: attemptSignal };
 
     try {
       const response = await fetch(url, fetchOptions);

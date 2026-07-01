@@ -150,3 +150,11 @@ export interface McpApiKey {
 export interface McpApiKeyWithSecret extends McpApiKey {
   key: string;
 }
+
+/** GET /admin-api/clients/:name/upstream-auth — non-secret view of the upstream credential. */
+export interface UpstreamAuthInfo {
+  configured: boolean;
+  type?: "bearer" | "basic" | "header";
+  headerName?: string | null;
+  updatedAt?: number;
+}
