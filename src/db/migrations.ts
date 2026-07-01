@@ -227,6 +227,21 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 10,
+    name: "guard_policies",
+    sql: `
+      CREATE TABLE IF NOT EXISTS guard_policies (
+        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+        name               TEXT NOT NULL UNIQUE,
+        rate_limit_per_min INTEGER,
+        timeout_ms         INTEGER,
+        created_at         INTEGER NOT NULL,
+        updated_at         INTEGER NOT NULL,
+        created_by         TEXT
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

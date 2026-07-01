@@ -27,6 +27,7 @@ import { usageRoutes } from "./routes/usage.js";
 import { alertRoutes } from "./routes/alerts.js";
 import { startAlertLoop } from "./alerts.js";
 import { configIoRoutes } from "./routes/config-io.js";
+import { policyRoutes } from "./routes/policies.js";
 import { initBundles } from "./bundles.js";
 import { startLeaderElection } from "./db/leader-lease.js";
 
@@ -118,6 +119,7 @@ discoveryRoutes(app);
 usageRoutes(app);
 alertRoutes(app);
 configIoRoutes(app);
+policyRoutes(app);
 
 // ─── Admin UI (Vue SPA) ─────────────────────────────────────────────────────
 // Sibling namespace to /admin-api, not nested under it — Express mount-path

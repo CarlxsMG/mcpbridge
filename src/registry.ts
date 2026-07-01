@@ -679,6 +679,29 @@ class Registry {
     });
   }
 
+  /**
+   * Merges a rate-limit / timeout patch into a tool's existing guards
+   * (preserving its API-key allow-list) and persists. Used to apply named
+   * guard policies in bulk. A null patch field clears that guard. Returns
+   * false for an unknown client/tool.
+   */
+  async applyGuardPolicy(
+    clientName: string,
+    toolName: string,
+    patch: { rateLimitPerMin?: number | null; timeoutMs?: number | null }
+  ): Promise<boolean> {
+    const db = getDb();
+    if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return false;
+    const row = db
+      .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
+      .get(clientName, toolName) as ToolGuardRow | null;
+    const merged: ToolGuardConfig = { ...(rowToToolGuards(row) ?? {}) };
+    if (patch.rateLimitPerMin !== undefined) merged.rateLimitPerMin = patch.rateLimitPerMin ?? undefined;
+    if (patch.timeoutMs !== undefined) merged.timeoutMs = patch.timeoutMs ?? undefined;
+    // setToolGuards takes the per-name lock itself — do not wrap this in withLock.
+    return this.setToolGuards(clientName, toolName, merged);
+  }
+
   // -------------------------------------------------------------------------
   // Resolution / listing
   // -------------------------------------------------------------------------

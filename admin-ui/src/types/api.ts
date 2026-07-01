@@ -206,6 +206,16 @@ export interface UsageByKeyRow {
   errors: number;
 }
 
+export interface GuardPolicy {
+  id: number;
+  name: string;
+  rateLimitPerMin: number | null;
+  timeoutMs: number | null;
+  createdAt: number;
+  updatedAt: number;
+  createdBy: string | null;
+}
+
 export interface ConfigImportResult {
   dryRun: boolean;
   applied: { bundles: number; alertRules: number; clientsConfigured: number; toolsConfigured: number };
