@@ -54,7 +54,12 @@ export function createMcpServer(scope?: McpServerScope): Server {
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
-    const { name, arguments: args } = request.params;
+    const { name: advertisedName, arguments: args } = request.params;
+    // Translate a display-name alias to its canonical clientName__toolName up
+    // front, so every downstream check (scope prefix, bundle membership,
+    // proxyToolCall) operates on the canonical identity. A non-alias name is
+    // returned unchanged.
+    const name = registry.resolveAdvertisedName(advertisedName);
 
     if (scope?.kind === "client" && !name.startsWith(`${scope.name}__`)) {
       return {

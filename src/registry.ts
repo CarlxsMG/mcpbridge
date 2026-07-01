@@ -71,6 +71,7 @@ interface ToolGuardRow {
 interface ToolOverrideRow {
   description: string | null;
   param_overrides_json: string | null;
+  display_name: string | null;
 }
 
 function rowToClientGuards(row: ClientGuardRow | null): ClientGuardConfig | undefined {
@@ -99,8 +100,17 @@ function rowToToolGuards(row: ToolGuardRow | null): ToolGuardConfig | undefined 
 function rowToToolOverride(row: ToolOverrideRow | null): ToolOverride | undefined {
   if (!row) return undefined;
   const params = row.param_overrides_json ? (JSON.parse(row.param_overrides_json) as ToolOverride["params"]) : undefined;
-  if (!row.description && (!params || Object.keys(params).length === 0)) return undefined;
-  return { description: row.description ?? undefined, params };
+  const displayName = row.display_name ?? undefined;
+  if (!row.description && !displayName && (!params || Object.keys(params).length === 0)) return undefined;
+  return { description: row.description ?? undefined, params, displayName };
+}
+
+/** Thrown by setToolOverride when a displayName alias is malformed or collides with another tool. */
+export class ToolOverrideError extends Error {
+  constructor(public code: "TOOL_ALIAS_INVALID" | "TOOL_ALIAS_CONFLICT", message: string) {
+    super(message);
+    this.name = "ToolOverrideError";
+  }
 }
 
 /** Tracks clients currently being unregistered to close the proxy race window. */
@@ -135,6 +145,13 @@ export function validateEndpointPath(endpoint: string): string | null {
 class Registry {
   private clients: Map<string, RegisteredClient> = new Map();
   private toolIndex: Map<string, { clientName: string; toolName: string }> = new Map();
+  /**
+   * Maps an advertised alias key (`clientName__displayName`) to its canonical
+   * key (`clientName__toolName`). Only populated for tools that carry a
+   * `displayName` override. Kept in lockstep with the tool list on
+   * register/unregister/setToolOverride, exactly like toolIndex.
+   */
+  private aliasIndex: Map<string, string> = new Map();
 
   // -------------------------------------------------------------------------
   // Async mutex — per-client name serialisation
@@ -210,6 +227,69 @@ class Registry {
 
   private isServable(client: RegisteredClient, tool: RegisteredTool): boolean {
     return client.enabled && tool.enabled;
+  }
+
+  // -------------------------------------------------------------------------
+  // Display-name alias index (clientName__displayName -> clientName__toolName)
+  // -------------------------------------------------------------------------
+
+  /** Drops every alias entry belonging to a client (advertised keys carry the `clientName__` prefix). */
+  private clearAliasesForClient(clientName: string): void {
+    const prefix = `${clientName}${TOOL_KEY_SEPARATOR}`;
+    for (const alias of this.aliasIndex.keys()) {
+      if (alias.startsWith(prefix)) this.aliasIndex.delete(alias);
+    }
+  }
+
+  /** Removes any existing alias for one tool, then (re)adds it when a displayName is set. */
+  private setAlias(clientName: string, toolName: string, displayName: string | undefined): void {
+    const canonical = `${clientName}${TOOL_KEY_SEPARATOR}${toolName}`;
+    for (const [alias, target] of this.aliasIndex) {
+      if (target === canonical) this.aliasIndex.delete(alias);
+    }
+    if (displayName && displayName !== toolName) {
+      this.aliasIndex.set(`${clientName}${TOOL_KEY_SEPARATOR}${displayName}`, canonical);
+    }
+  }
+
+  /** Rebuilds all alias entries for a client from its freshly-registered tool list. */
+  private rebuildAliasesForClient(clientName: string, tools: RegisteredTool[]): void {
+    this.clearAliasesForClient(clientName);
+    for (const tool of tools) {
+      if (tool.override?.displayName) this.setAlias(clientName, tool.name, tool.override.displayName);
+    }
+  }
+
+  /**
+   * Translates an advertised tool name (possibly an alias) to its canonical
+   * `clientName__toolName`. A non-alias name is returned unchanged, so callers
+   * can pass either form. Used at the single MCP call entry point so every
+   * downstream check (scope, bundle membership, proxyToolCall) sees the
+   * canonical identity.
+   */
+  resolveAdvertisedName(name: string): string {
+    return this.aliasIndex.get(name) ?? name;
+  }
+
+  /**
+   * True when `displayName` is free to use as an alias for (clientName, toolName)
+   * — i.e. no *other* tool of the same client already exposes that segment as
+   * its real name or its own displayName. The `clientName__` prefix guarantees
+   * cross-client aliases can never collide, so the check is client-scoped.
+   */
+  isAliasAvailable(clientName: string, toolName: string, displayName: string): boolean {
+    if (displayName === toolName) return true; // aliasing a tool to its own name is a no-op, always fine
+    const rows = getDb()
+      .query(
+        `SELECT t.name AS name, o.display_name AS display_name
+         FROM tools t LEFT JOIN tool_overrides o ON o.client_name = t.client_name AND o.tool_name = t.name
+         WHERE t.client_name = ? AND t.name != ?`
+      )
+      .all(clientName, toolName) as { name: string; display_name: string | null }[];
+    for (const r of rows) {
+      if (r.name === displayName || r.display_name === displayName) return false;
+    }
+    return true;
   }
 
   // -------------------------------------------------------------------------
@@ -291,7 +371,7 @@ class Registry {
           .get(name, tool.name) as ToolGuardRow | null;
 
         const toolOverrideRow = db
-          .query(`SELECT description, param_overrides_json FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
+          .query(`SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
           .get(name, tool.name) as ToolOverrideRow | null;
 
         registeredTools.push({
@@ -377,7 +457,7 @@ class Registry {
           .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
           .get(name, tool.name) as ToolGuardRow | null;
         const toolOverrideRow = db
-          .query(`SELECT description, param_overrides_json FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
+          .query(`SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
           .get(name, tool.name) as ToolOverrideRow | null;
 
         registeredTools.push({
@@ -530,6 +610,7 @@ class Registry {
           toolName: tool.name,
         });
       }
+      this.rebuildAliasesForClient(name, persisted.tools);
 
       // Broadcast tool-list change to all connected MCP sessions.
       notifyToolsChanged();
@@ -629,6 +710,7 @@ class Registry {
       for (const tool of persisted.tools) {
         this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`, { clientName: name, toolName: tool.name });
       }
+      this.rebuildAliasesForClient(name, persisted.tools);
 
       notifyToolsChanged();
     });
@@ -658,10 +740,11 @@ class Registry {
       // 2. Clean up circuit-breaker state
       removeCircuitBreaker(name);
 
-      // 3. Remove all toolIndex entries for this client
+      // 3. Remove all toolIndex + alias entries for this client
       for (const tool of client.tools) {
         this.toolIndex.delete(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`);
       }
+      this.clearAliasesForClient(name);
 
       // 4. Remove the client record
       this.clients.delete(name);
@@ -863,25 +946,42 @@ class Registry {
           }
           if (Object.keys(params).length === 0) params = undefined;
         }
-        if (description || params) normalized = { description, params };
+        let displayName: string | undefined;
+        if (override.displayName) {
+          // A display-name alias becomes part of the composite MCP key, so it
+          // must satisfy the same charset as a tool name (keeps the `__`
+          // separator unambiguous — see TOOL_KEY_SEPARATOR invariant).
+          if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(override.displayName)) {
+            throw new ToolOverrideError("TOOL_ALIAS_INVALID", "displayName must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
+          }
+          if (!this.isAliasAvailable(clientName, toolName, override.displayName)) {
+            throw new ToolOverrideError("TOOL_ALIAS_CONFLICT", `displayName '${override.displayName}' collides with another tool of client '${clientName}'`);
+          }
+          if (override.displayName !== toolName) displayName = override.displayName;
+        }
+        if (description || params || displayName) normalized = { description, params, displayName };
       }
 
       if (!normalized) {
         db.query(`DELETE FROM tool_overrides WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
       } else {
         db.query(
-          `INSERT INTO tool_overrides (client_name, tool_name, description, param_overrides_json, updated_at)
-           VALUES (?, ?, ?, ?, ?)
+          `INSERT INTO tool_overrides (client_name, tool_name, description, param_overrides_json, display_name, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(client_name, tool_name) DO UPDATE SET
              description = excluded.description,
              param_overrides_json = excluded.param_overrides_json,
+             display_name = excluded.display_name,
              updated_at = excluded.updated_at`
-        ).run(clientName, toolName, normalized.description ?? null, normalized.params ? JSON.stringify(normalized.params) : null, Date.now());
+        ).run(clientName, toolName, normalized.description ?? null, normalized.params ? JSON.stringify(normalized.params) : null, normalized.displayName ?? null, Date.now());
       }
 
       const client = this.clients.get(clientName);
       const tool = client?.tools.find((t) => t.name === toolName);
       if (tool) tool.override = normalized ?? undefined;
+      // Keep the alias index in lockstep — resolveAdvertisedName/resolveTool
+      // depend on it. Safe for a non-live client too (rebuilt on next register).
+      this.setAlias(clientName, toolName, normalized?.displayName);
       notifyToolsChanged();
       return true;
     });
@@ -915,7 +1015,9 @@ class Registry {
   // -------------------------------------------------------------------------
 
   resolveTool(mcpToolName: string): ResolvedTool | undefined {
-    const entry = this.toolIndex.get(mcpToolName);
+    // Accept either the canonical key or a display-name alias.
+    const canonical = this.aliasIndex.get(mcpToolName) ?? mcpToolName;
+    const entry = this.toolIndex.get(canonical);
     if (!entry) {
       return undefined;
     }
@@ -942,7 +1044,8 @@ class Registry {
     clientName: string,
     tool: RegisteredTool
   ): { name: string; description: string; inputSchema: Record<string, unknown> } {
-    const name = `${clientName}${TOOL_KEY_SEPARATOR}${tool.name}`;
+    const segment = tool.override?.displayName ?? tool.name;
+    const name = `${clientName}${TOOL_KEY_SEPARATOR}${segment}`;
     const ov = tool.override;
     if (!ov) return { name, description: tool.description, inputSchema: tool.inputSchema };
     const description = ov.description ?? tool.description;
@@ -1148,7 +1251,7 @@ class Registry {
           .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
           .get(name, t.name) as ToolGuardRow | null;
         const to = db
-          .query(`SELECT description, param_overrides_json FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
+          .query(`SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
           .get(name, t.name) as ToolOverrideRow | null;
         return {
           name: t.name,

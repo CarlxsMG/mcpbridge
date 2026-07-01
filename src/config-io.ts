@@ -1,5 +1,5 @@
 import { getDb } from "./db/connection.js";
-import { registry } from "./registry.js";
+import { registry, ToolOverrideError } from "./registry.js";
 import { listBundles, getBundleDetail, createBundle, updateBundle, type BundleToolRef } from "./bundles.js";
 import { listAlertRules, createAlertRule, type AlertEventType } from "./alerts.js";
 import type { ClientGuardConfig, ToolGuardConfig, ToolOverride } from "./types.js";
@@ -170,7 +170,17 @@ export async function importConfig(
       if (!dryRun) {
         await registry.setToolEnabled(c.name, t.name, t.enabled);
         await registry.setToolGuards(c.name, t.name, t.guards ?? null);
-        await registry.setToolOverride(c.name, t.name, t.override ?? null);
+        try {
+          await registry.setToolOverride(c.name, t.name, t.override ?? null);
+        } catch (err) {
+          if (err instanceof ToolOverrideError) {
+            // A hand-edited config can carry a colliding/invalid displayName alias;
+            // apply the rest of the tool config and report the override as skipped.
+            skipped.push({ type: "tool", id: `${c.name}__${t.name}`, reason: `override: ${err.message}` });
+          } else {
+            throw err;
+          }
+        }
       }
       applied.toolsConfigured++;
     }

@@ -37,6 +37,8 @@ export interface ClientGuardConfig {
 export interface ToolOverride {
   description?: string;
   params?: Record<string, { description?: string }>;
+  /** Renames the advertised tool to clientName__displayName. Must match /^[a-z0-9][a-z0-9_-]{0,62}$/. */
+  displayName?: string;
 }
 
 export interface ToolDetail {

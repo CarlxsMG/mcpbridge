@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction, Express } from "express";
-import { registry, TOOL_KEY_SEPARATOR } from "../registry.js";
+import { registry, TOOL_KEY_SEPARATOR, ToolOverrideError } from "../registry.js";
 import { proxyToolCall } from "../proxy.js";
 import { adminAuth } from "../middleware/auth.js";
 import { hashApiKey } from "../security/key-hash.js";
@@ -105,7 +105,16 @@ function validateToolOverrideInput(input: unknown): { ok: true; value: ToolOverr
     if (Object.keys(params).length > 0) value.params = params;
   }
 
-  if (value.description === undefined && value.params === undefined) return { ok: true, value: null };
+  if (o.displayName !== undefined && o.displayName !== null) {
+    if (typeof o.displayName !== "string" || !/^[a-z0-9][a-z0-9_-]{0,62}$/.test(o.displayName)) {
+      return { ok: false, message: "overrides.displayName must be lowercase alphanumeric with hyphens/underscores, 1-63 chars" };
+    }
+    value.displayName = o.displayName;
+  }
+
+  if (value.description === undefined && value.params === undefined && value.displayName === undefined) {
+    return { ok: true, value: null };
+  }
   return { ok: true, value };
 }
 
@@ -253,7 +262,17 @@ export function adminRoutes(app: Express): void {
           res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
           return;
         }
-        const ok = await registry.setToolOverride(name, tool, parsed.value);
+        let ok: boolean;
+        try {
+          ok = await registry.setToolOverride(name, tool, parsed.value);
+        } catch (err) {
+          if (err instanceof ToolOverrideError) {
+            const status = err.code === "TOOL_ALIAS_CONFLICT" ? 409 : 400;
+            res.status(status).json({ error: { code: err.code, message: err.message, request_id: requestId(res) } });
+            return;
+          }
+          throw err;
+        }
         if (!ok) {
           res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
           return;

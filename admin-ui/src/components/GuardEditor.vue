@@ -5,7 +5,9 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 
 const props = defineProps<{
   guards?: ToolGuardConfig;
-  override?: { description?: string; params?: Record<string, { description?: string }> };
+  override?: { description?: string; params?: Record<string, { description?: string }>; displayName?: string };
+  clientName?: string;
+  toolName?: string;
   tags?: string[];
   redactPaths?: string[];
   saving?: boolean;
@@ -13,12 +15,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   save: [payload: { rateLimitPerMin?: number; timeoutMs?: number; allowedApiKeys?: string[] } | null];
-  saveOverride: [payload: { description?: string; params?: Record<string, { description?: string }> } | null];
+  saveOverride: [payload: { description?: string; params?: Record<string, { description?: string }>; displayName?: string } | null];
   saveTags: [tags: string[]];
   saveRedaction: [paths: string[]];
 }>();
 
 const descriptionInput = ref(props.override?.description ?? "");
+const displayNameInput = ref(props.override?.displayName ?? "");
 const tagsInput = ref((props.tags ?? []).join(", "));
 const redactInput = ref((props.redactPaths ?? []).join("\n"));
 
@@ -50,8 +53,20 @@ watch(
   () => props.override,
   (o) => {
     descriptionInput.value = o?.description ?? "";
+    displayNameInput.value = o?.displayName ?? "";
   }
 );
+
+const displayNameError = computed(() => {
+  const v = displayNameInput.value.trim();
+  if (!v) return null;
+  return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(v) ? null : "Lowercase letters, digits, - and _; 1-63 chars";
+});
+
+const advertisedName = computed(() => {
+  const seg = displayNameInput.value.trim() || props.toolName || "tool";
+  return `${props.clientName ?? "client"}__${seg}`;
+});
 
 watch(
   () => props.tags,
@@ -130,14 +145,17 @@ function confirmClear() {
 }
 
 function saveOverrideFn() {
+  if (displayNameError.value) return;
   const desc = descriptionInput.value.trim();
+  const displayName = displayNameInput.value.trim();
   const params = props.override?.params;
-  if (!desc && (!params || Object.keys(params).length === 0)) {
+  if (!desc && !displayName && (!params || Object.keys(params).length === 0)) {
     emit("saveOverride", null);
     return;
   }
-  // Preserve any param-level overrides set via the API; the UI only edits the description.
-  emit("saveOverride", { description: desc || undefined, params });
+  // Preserve any param-level overrides set via the API; the UI edits the
+  // description and the display-name alias.
+  emit("saveOverride", { description: desc || undefined, displayName: displayName || undefined, params });
 }
 
 function saveTagsFn() {
@@ -211,10 +229,20 @@ function saveRedactionFn() {
     </div>
 
     <div class="field">
+      <label for="tool-display-name">Display name (alias)</label>
+      <p class="hint">
+        Renames the tool for MCP clients. The <code>{{ clientName ?? "client" }}__</code> prefix is always kept.
+        Leave blank to use the registered name. Advertised as: <code>{{ advertisedName }}</code>
+      </p>
+      <input id="tool-display-name" v-model="displayNameInput" type="text" placeholder="e.g. issues" />
+      <p v-if="displayNameError" class="field-error">{{ displayNameError }}</p>
+    </div>
+
+    <div class="field">
       <label for="tool-desc">Advertised description override</label>
       <p class="hint">Replaces what MCP clients see for this tool in tools/list. Leave blank to use the registered description.</p>
       <textarea id="tool-desc" v-model="descriptionInput" rows="3" placeholder="Registered description is used when blank"></textarea>
-      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveOverrideFn">Save description</button>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving || Boolean(displayNameError)" @click="saveOverrideFn">Save presentation</button>
     </div>
 
     <div class="field">

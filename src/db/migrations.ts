@@ -339,6 +339,13 @@ export const migrations: Migration[] = [
       ALTER TABLE tools ADD COLUMN upstream_name TEXT;
     `,
   },
+  {
+    id: 17,
+    name: "tool_override_display_name",
+    sql: `
+      ALTER TABLE tool_overrides ADD COLUMN display_name TEXT;
+    `,
+  },
 ];
 
 /**

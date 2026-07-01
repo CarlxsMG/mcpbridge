@@ -248,7 +248,7 @@ async function saveGuards(payload: { rateLimitPerMin?: number; timeoutMs?: numbe
   }
 }
 
-async function saveOverride(payload: { description?: string; params?: Record<string, { description?: string }> } | null) {
+async function saveOverride(payload: { description?: string; params?: Record<string, { description?: string }>; displayName?: string } | null) {
   if (!activeTool.value) return;
   savingGuards.value = true;
   try {
@@ -257,7 +257,7 @@ async function saveOverride(payload: { description?: string; params?: Record<str
     });
     await load();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save description override.";
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save the presentation override.";
   } finally {
     savingGuards.value = false;
   }
@@ -534,7 +534,7 @@ async function resetBreaker() {
         <h2>Guards — {{ activeTool.name }}</h2>
         <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">Close</button>
       </div>
-      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :tags="activeTool.tags" :redact-paths="activeTool.redactPaths" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" @save-tags="saveTags" @save-redaction="saveRedaction" />
+      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :client-name="props.name" :tool-name="activeTool.name" :tags="activeTool.tags" :redact-paths="activeTool.redactPaths" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" @save-tags="saveTags" @save-redaction="saveRedaction" />
     </div>
     <p v-else-if="tool && detail && !activeTool" class="error">Tool "{{ tool }}" not found on this client.</p>
 

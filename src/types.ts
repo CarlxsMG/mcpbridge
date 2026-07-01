@@ -57,6 +57,16 @@ export interface ToolOverride {
   description?: string;
   /** Per-parameter description overrides, keyed by property name. */
   params?: Record<string, { description?: string }>;
+  /**
+   * Replacement for the *tool segment* of the advertised MCP name, so the tool
+   * is exposed as `clientName__displayName` instead of `clientName__toolName`.
+   * The `clientName__` prefix is always preserved (keeps the sharded-scope and
+   * bundle-membership invariants intact and prevents cross-client collisions),
+   * so this cleans up ugly upstream tool names without changing which client a
+   * tool belongs to. Must match /^[a-z0-9][a-z0-9_-]{0,62}$/. The original
+   * canonical name stays callable as a backstop for stale client caches.
+   */
+  displayName?: string;
 }
 
 /** A tool as tracked internally by the registry — adds admin state on top of the wire shape. */
