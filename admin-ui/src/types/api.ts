@@ -159,6 +159,7 @@ export interface AuditLogEntry {
   target: string;
   detail: Record<string, unknown> | null;
   createdAt: number;
+  hash?: string | null;
 }
 
 export interface OverviewStats {

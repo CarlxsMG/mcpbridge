@@ -7,7 +7,7 @@ import { setToolSensitive } from "../tool-sensitivity.js";
 import { setRedactionPaths } from "../redaction.js";
 import { setGuardrails, MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../guardrails.js";
 import { listExamples, createExample, deleteExample } from "../tool-examples.js";
-import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog } from "../admin/audit.js";
+import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog, verifyAuditChain } from "../admin/audit.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
 import {
   listUsers,
@@ -568,6 +568,10 @@ export function adminRoutes(app: Express): void {
       limit: typeof limit === "string" ? Number(limit) : undefined,
     });
     res.status(200).json(result);
+  });
+
+  app.get("/admin-api/audit-log/verify", adminAuth, (_req: Request, res: Response) => {
+    res.status(200).json(verifyAuditChain());
   });
 
   app.get("/admin-api/audit-log/export", adminAuth, (req: Request, res: Response) => {

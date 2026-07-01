@@ -48,6 +48,21 @@ async function exportLog() {
   }
 }
 
+const integrity = ref<{ ok: boolean; checked: number; brokenAtId?: number } | null>(null);
+const verifying = ref(false);
+async function verifyIntegrity() {
+  verifying.value = true;
+  integrity.value = null;
+  errorMessage.value = "";
+  try {
+    integrity.value = await api.get<{ ok: boolean; checked: number; brokenAtId?: number }>("/admin-api/audit-log/verify");
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Verification failed.";
+  } finally {
+    verifying.value = false;
+  }
+}
+
 onMounted(() => load());
 </script>
 
@@ -62,7 +77,13 @@ onMounted(() => load());
       <input v-model="actorFilter" type="text" placeholder="Filter by actor…" />
       <button type="submit" class="btn-secondary">Apply</button>
       <button type="button" class="btn-secondary" @click="exportLog">Export</button>
+      <button type="button" class="btn-secondary" :disabled="verifying" @click="verifyIntegrity">{{ verifying ? "Verifying…" : "Verify integrity" }}</button>
     </form>
+
+    <p v-if="integrity" class="integrity" :class="integrity.ok ? 'ok' : 'broken'">
+      <template v-if="integrity.ok">✓ Chain intact — {{ integrity.checked }} entries verified.</template>
+      <template v-else>✗ Tampering detected — chain breaks at entry #{{ integrity.brokenAtId }} (after {{ integrity.checked }} valid).</template>
+    </p>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
@@ -165,5 +186,20 @@ onMounted(() => load());
 }
 .error {
   color: #a11212;
+}
+.integrity {
+  padding: 0.5rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.integrity.ok {
+  background: #eef7ee;
+  color: #256029;
+  border: 1px solid #b7dcb7;
+}
+.integrity.broken {
+  background: #fbeeee;
+  color: #8a1c1c;
+  border: 1px solid #e0b4b4;
 }
 </style>

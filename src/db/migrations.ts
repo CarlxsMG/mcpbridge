@@ -440,6 +440,14 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_schedules_client ON schedules(client_name);
     `,
   },
+  {
+    id: 23,
+    name: "audit_hash_chain",
+    sql: `
+      ALTER TABLE admin_audit_log ADD COLUMN prev_hash TEXT;
+      ALTER TABLE admin_audit_log ADD COLUMN hash TEXT;
+    `,
+  },
 ];
 
 /**

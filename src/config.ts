@@ -200,6 +200,12 @@ export const config = {
   /** When true, DELETE/PUT tools are treated as sensitive by default (per-tool overrides still win). */
   autoGateWriteMethods: process.env.AUTO_GATE_WRITE_METHODS === "true",
 
+  // ─── Audit streaming (SIEM) ────────────────────────────────────────────────
+  /** Optional webhook URL that every audit event is POSTed to (fire-and-forget). Operator-trusted env config. */
+  auditSinkUrl: process.env.AUDIT_SINK_URL || undefined,
+  /** Timeout for an outbound audit-sink delivery (ms). */
+  auditSinkTimeoutMs: Number(process.env.AUDIT_SINK_TIMEOUT_MS) || 3_000,
+
   // ─── Alerts / webhooks ─────────────────────────────────────────────────────
   /** How often the leader evaluates alert rules (ms). */
   alertIntervalMs: Number(process.env.ALERT_INTERVAL_MS) || 30_000,
