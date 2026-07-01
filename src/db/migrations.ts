@@ -448,6 +448,21 @@ export const migrations: Migration[] = [
       ALTER TABLE admin_audit_log ADD COLUMN hash TEXT;
     `,
   },
+  {
+    id: 24,
+    name: "client_canary",
+    sql: `
+      CREATE TABLE IF NOT EXISTS client_canary (
+        client_name           TEXT PRIMARY KEY REFERENCES clients(name) ON DELETE CASCADE,
+        secondary_base_url    TEXT NOT NULL,
+        secondary_resolved_ip TEXT NOT NULL,
+        mode                  TEXT NOT NULL CHECK (mode IN ('canary','failover')),
+        weight                INTEGER NOT NULL,
+        enabled               INTEGER NOT NULL DEFAULT 1,
+        updated_at            INTEGER NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

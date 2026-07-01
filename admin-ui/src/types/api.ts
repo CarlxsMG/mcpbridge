@@ -126,6 +126,14 @@ export interface ConfigDiffResult {
   entries: ConfigDiffEntry[];
 }
 
+export interface CanaryConfig {
+  secondaryBaseUrl: string;
+  secondaryResolvedIp: string;
+  mode: "canary" | "failover";
+  weight: number;
+  enabled: boolean;
+}
+
 export interface Schedule {
   id: number;
   targetType: "client" | "tool";

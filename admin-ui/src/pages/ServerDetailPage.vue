@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
-import type { ClientDetail, ToolDetail, UpstreamAuthInfo, DiscoveredTool, DiscoveryPreview } from "../types/api";
+import type { ClientDetail, ToolDetail, UpstreamAuthInfo, DiscoveredTool, DiscoveryPreview, CanaryConfig } from "../types/api";
 import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import GuardEditor from "../components/GuardEditor.vue";
@@ -34,6 +34,38 @@ const playgroundRunning = ref(false);
 
 // Upstream auth (per-client injected credentials)
 const upstreamAuth = ref<UpstreamAuthInfo | null>(null);
+
+// Canary / failover (secondary upstream)
+const canary = ref<CanaryConfig | null>(null);
+const canaryForm = ref({ secondaryBaseUrl: "", mode: "canary" as "canary" | "failover", weight: 10, enabled: true });
+const canaryError = ref("");
+async function loadCanary() {
+  try {
+    const res = await api.get<{ canary: CanaryConfig | null }>(`/admin-api/clients/${encodeURIComponent(props.name)}/canary`);
+    canary.value = res.canary;
+    if (res.canary) canaryForm.value = { secondaryBaseUrl: res.canary.secondaryBaseUrl, mode: res.canary.mode, weight: res.canary.weight, enabled: res.canary.enabled };
+  } catch {
+    canary.value = null;
+  }
+}
+async function saveCanary() {
+  canaryError.value = "";
+  try {
+    await api.put(`/admin-api/clients/${encodeURIComponent(props.name)}/canary`, { ...canaryForm.value });
+    await loadCanary();
+  } catch (err) {
+    canaryError.value = err instanceof ApiError ? err.message : "Failed to save.";
+  }
+}
+async function clearCanary() {
+  canaryError.value = "";
+  try {
+    await api.put(`/admin-api/clients/${encodeURIComponent(props.name)}/canary`, { canary: null });
+    canary.value = null;
+  } catch (err) {
+    canaryError.value = err instanceof ApiError ? err.message : "Failed to clear.";
+  }
+}
 const uaEditing = ref(false);
 const uaType = ref<"bearer" | "basic" | "header">("bearer");
 const uaToken = ref("");
@@ -89,6 +121,7 @@ async function load() {
   try {
     detail.value = await api.get<ClientDetail>(`/admin-api/clients/${encodeURIComponent(props.name)}`);
     await loadUpstreamAuth();
+    if (detail.value.kind !== "mcp") await loadCanary();
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to load client.";
   } finally {
@@ -561,6 +594,28 @@ async function resetBreaker() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div v-if="detail.kind !== 'mcp'" class="upstream-auth">
+        <div class="ua-head">
+          <h2>Canary / failover</h2>
+          <button v-if="canary" type="button" class="link-btn danger" @click="clearCanary">Clear</button>
+        </div>
+        <p class="ua-status">
+          Route to a secondary backend. <strong>canary</strong>: send a % of calls there; <strong>failover</strong>: route there only while the primary breaker is open.
+          <template v-if="canary"> Currently: <code>{{ canary.mode }}</code> → <code>{{ canary.secondaryBaseUrl }}</code> ({{ canary.weight }}%, {{ canary.enabled ? "enabled" : "disabled" }}).</template>
+        </p>
+        <form class="ua-form" @submit.prevent="saveCanary">
+          <input v-model="canaryForm.secondaryBaseUrl" type="url" placeholder="https://v2.api.example.com" />
+          <select v-model="canaryForm.mode">
+            <option value="canary">canary</option>
+            <option value="failover">failover</option>
+          </select>
+          <input v-model.number="canaryForm.weight" type="number" min="1" max="100" style="max-width: 90px" />
+          <label class="inline-check"><input type="checkbox" v-model="canaryForm.enabled" /> enabled</label>
+          <button type="submit" class="btn-secondary">Save</button>
+        </form>
+        <p v-if="canaryError" class="error">{{ canaryError }}</p>
       </div>
 
       <h2>Tools ({{ detail.tools.length }})</h2>

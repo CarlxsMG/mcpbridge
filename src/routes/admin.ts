@@ -7,6 +7,7 @@ import { setToolSensitive } from "../tool-sensitivity.js";
 import { setRedactionPaths } from "../redaction.js";
 import { setGuardrails, MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../guardrails.js";
 import { listExamples, createExample, deleteExample } from "../tool-examples.js";
+import { getCanary, setCanary } from "../canary.js";
 import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog, verifyAuditChain } from "../admin/audit.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
 import {
@@ -472,6 +473,40 @@ export function adminRoutes(app: Express): void {
       res.status(200).json({ status: "reset", name: req.params.name });
     }
   );
+
+  // ── Canary / failover (secondary upstream) ────────────────────────────────
+
+  app.get("/admin-api/clients/:name/canary", adminAuth, (req: Request<{ name: string }>, res: Response) => {
+    res.status(200).json({ canary: getCanary(req.params.name) });
+  });
+
+  app.put("/admin-api/clients/:name/canary", adminAuth, requireOperator, async (req: Request<{ name: string }>, res: Response) => {
+    const { name } = req.params;
+    const body = (req.body as Record<string, unknown>) ?? {};
+    let input: { secondaryBaseUrl: string; mode: "canary" | "failover"; weight: number; enabled: boolean } | null;
+    if (body.canary === null) {
+      input = null;
+    } else {
+      const secondaryBaseUrl = typeof body.secondaryBaseUrl === "string" ? body.secondaryBaseUrl : "";
+      const mode = body.mode === "failover" ? "failover" : "canary";
+      const weight = typeof body.weight === "number" ? body.weight : 0;
+      const enabled = body.enabled !== false;
+      if (!secondaryBaseUrl) {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "secondaryBaseUrl is required (or send { canary: null } to clear)", request_id: requestId(res) } });
+        return;
+      }
+      input = { secondaryBaseUrl, mode, weight, enabled };
+    }
+
+    const result = await setCanary(name, input);
+    if (!result.ok) {
+      const status = result.error === "CLIENT_NOT_FOUND" ? 404 : 400;
+      res.status(status).json({ error: { code: result.error, message: result.reason ?? result.error, request_id: requestId(res) } });
+      return;
+    }
+    recordAudit(actorFromRequest(req), input ? "client.canary.set" : "client.canary.clear", name, input ? { mode: input.mode, weight: input.weight, enabled: input.enabled } : undefined);
+    res.status(200).json({ status: "updated", name });
+  });
 
   // ── Users ───────────────────────────────────────────────────────────────
 

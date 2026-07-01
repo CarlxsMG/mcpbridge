@@ -22,6 +22,7 @@ import { checkConsumerQuota } from "./consumers.js";
 import { isToolSensitive } from "./tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "./redaction.js";
 import { getGuardrails, checkInputGuardrails, applyResponseScan } from "./guardrails.js";
+import { getCanary, decideSecondary } from "./canary.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { McpConnParams } from "./mcp-upstream.js";
 import type { RegisteredClient, RegisteredTool } from "./types.js";
@@ -274,7 +275,14 @@ export async function proxyToolCall(
   // Circuit breaker check
   const breaker = getCircuitBreaker(client.name, client.guards?.circuitBreaker);
   const circuitCheck = breaker.canRequest();
-  if (!circuitCheck.allowed) {
+
+  // Secondary-upstream routing (canary / failover) — REST clients only. When
+  // the breaker is open and a failover secondary is configured, route there
+  // instead of failing fast (bypassing the primary breaker for this call).
+  const canary = client.kind === "rest" ? getCanary(client.name) : null;
+  const route = decideSecondary(canary, !circuitCheck.allowed);
+
+  if (!circuitCheck.allowed && !route.useSecondary) {
     return {
       content: [{ type: "text", text: `Circuit breaker OPEN for client '${client.name}' — failing fast` }],
       isError: true,
@@ -291,6 +299,13 @@ export async function proxyToolCall(
   if (client.kind === "mcp") {
     return dispatchMcpToolCall(client, tool, args, mcpToolName, effectiveTimeout, breaker, callerKey, guardrails?.scanResponses ?? false);
   }
+
+  // When bypassing the primary breaker (failover call to the secondary), the
+  // breaker must not record this call's outcome — a secondary success must not
+  // prematurely close the breaker and send the next call back to the down
+  // primary. Canary calls (breaker was allowed) record normally.
+  const recordBreakerSuccess = () => { if (!route.bypassBreaker) breaker.recordSuccess(); };
+  const recordBreakerFailure = () => { if (!route.bypassBreaker) breaker.recordFailure(); };
 
   // Build URL with path param substitution
   const remainingArgs = { ...args };
@@ -348,33 +363,42 @@ export async function proxyToolCall(
 
   // Build URL with pinned IP to prevent DNS rebinding.
   // Periodically re-resolve via TTL cache to mitigate IP-pin TOCTOU.
-  const parsedBase = new URL(`${client.base_url}${resolvedPath}`);
+  // When routing to the secondary, use its config-time-validated base URL and
+  // its pinned IP directly (no TTL re-resolution; it was pinned at setCanary).
+  const targetBaseUrl = route.useSecondary ? canary!.secondaryBaseUrl : client.base_url;
+  const parsedBase = new URL(`${targetBaseUrl}${resolvedPath}`);
   const originalHost = parsedBase.host;
   const hostname = parsedBase.hostname;
 
-  // Seed the pin cache from the registry value on first access.
-  if (!pinnedIpCache.has(client.name)) {
-    pinnedIpCache.set(client.name, { ip: client.resolved_ip, resolvedAt: Date.now() });
-  }
-
-  let pin = pinnedIpCache.get(client.name)!;
-
-  // Only attempt re-resolution for hostnames (not raw IP literals).
-  const isRawIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
-  if (!isRawIp) {
-    try {
-      pin = await refreshPinIfStale(hostname, pin);
-      pinnedIpCache.set(client.name, pin);
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      return {
-        isError: true,
-        content: [{ type: "text", text: `Backend hostname now resolves to private IP: ${reason}` }],
-      };
+  let pinIp: string;
+  if (route.useSecondary) {
+    pinIp = canary!.secondaryResolvedIp;
+  } else {
+    // Seed the pin cache from the registry value on first access.
+    if (!pinnedIpCache.has(client.name)) {
+      pinnedIpCache.set(client.name, { ip: client.resolved_ip, resolvedAt: Date.now() });
     }
+
+    let pin = pinnedIpCache.get(client.name)!;
+
+    // Only attempt re-resolution for hostnames (not raw IP literals).
+    const isRawIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
+    if (!isRawIp) {
+      try {
+        pin = await refreshPinIfStale(hostname, pin);
+        pinnedIpCache.set(client.name, pin);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Backend hostname now resolves to private IP: ${reason}` }],
+        };
+      }
+    }
+    pinIp = pin.ip;
   }
 
-  parsedBase.hostname = pin.ip;
+  parsedBase.hostname = pinIp;
   let url = parsedBase.toString();
 
   const method = tool.method.toUpperCase();
@@ -445,7 +469,7 @@ export async function proxyToolCall(
       const response = await fetch(url, fetchOptions);
 
       if (response.ok) {
-        breaker.recordSuccess();
+        recordBreakerSuccess();
 
         // A2: read body with streaming cap
         const rawText = await readBodyWithCap(response);
@@ -519,7 +543,7 @@ export async function proxyToolCall(
 
       // Non-retryable error response
       proxyRequestDuration.observe({ client: client.name, method, status_class: httpStatusClass(response.status) }, (Date.now() - startTime) / 1000);
-      breaker.recordFailure();
+      recordBreakerFailure();
       log("warn", "Tool call returned error", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
       recordToolCall(Date.now() - startTime, true);
       recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: httpStatusClass(response.status), isError: true, durationMs: Date.now() - startTime });
@@ -538,7 +562,7 @@ export async function proxyToolCall(
       lastError = error instanceof Error ? error.message : String(error);
       if (!isIdempotent || attempt >= MAX_RETRIES) {
         proxyRequestDuration.observe({ client: client.name, method, status_class: "error" }, (Date.now() - startTime) / 1000);
-        breaker.recordFailure();
+        recordBreakerFailure();
         log("error", "Tool call failed", { tool: mcpToolName, client: client.name, error: lastError, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
         recordToolCall(Date.now() - startTime, true);
         recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "error", isError: true, durationMs: Date.now() - startTime });
@@ -554,7 +578,7 @@ export async function proxyToolCall(
   // Exhausted retries
   proxyRetryAttempts.inc({ client: client.name, method, outcome: "exhausted" });
   proxyRequestDuration.observe({ client: client.name, method, status_class: lastError ? "error" : httpStatusClass(lastStatus ?? 0) }, (Date.now() - startTime) / 1000);
-  breaker.recordFailure();
+  recordBreakerFailure();
   const errorMsg = lastError || `REST API returned ${lastStatus}`;
   log("error", "Tool call failed after retries", { tool: mcpToolName, client: client.name, error: errorMsg, duration_ms: Date.now() - startTime, attempts: MAX_RETRIES + 1 });
   recordToolCall(Date.now() - startTime, true);
