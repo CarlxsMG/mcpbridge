@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useAuth } from "../composables/useAuth";
 import type { AdminUserSummary, AdminRole } from "../types/api";
@@ -11,6 +11,14 @@ const users = ref<AdminUserSummary[]>([]);
 const loading = ref(false);
 const errorMessage = ref("");
 const pendingDelete = ref<AdminUserSummary | null>(null);
+
+const activeAdminCount = computed(() => users.value.filter((u) => u.role === "admin" && u.is_active).length);
+
+// Mirrors the backend's LAST_ADMIN_PROTECTED guard so the control is disabled
+// up front instead of letting the operator hit a guaranteed-to-fail request.
+function isLastActiveAdmin(user: AdminUserSummary): boolean {
+  return user.role === "admin" && user.is_active && activeAdminCount.value <= 1;
+}
 
 const showCreateForm = ref(false);
 const newUsername = ref("");
@@ -114,7 +122,8 @@ async function confirmDelete() {
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <div v-if="loading" class="loading">Loading…</div>
 
-    <table v-else class="users-table">
+    <div v-else class="table-scroll">
+    <table class="users-table">
       <thead>
         <tr>
           <th>Username</th>
@@ -128,18 +137,33 @@ async function confirmDelete() {
         <tr v-for="user in users" :key="user.username">
           <td>{{ user.username }} <span v-if="user.username === authState.user?.username" class="you-tag">(you)</span></td>
           <td>
-            <button type="button" class="link-btn" @click="toggleRole(user)">
+            <button
+              type="button"
+              class="link-btn"
+              :disabled="isLastActiveAdmin(user)"
+              :title="isLastActiveAdmin(user) ? 'Cannot demote the last active admin — promote another user first.' : ''"
+              @click="toggleRole(user)"
+            >
               {{ user.role }} <span class="switch-hint">(switch to {{ user.role === "admin" ? "viewer" : "admin" }})</span>
             </button>
           </td>
           <td>{{ user.is_active ? "Yes" : "No" }}</td>
           <td>{{ user.last_login_at ? new Date(user.last_login_at).toLocaleString() : "Never" }}</td>
           <td>
-            <button type="button" class="link-btn danger" @click="requestDelete(user)">Delete</button>
+            <button
+              type="button"
+              class="link-btn danger"
+              :disabled="isLastActiveAdmin(user)"
+              :title="isLastActiveAdmin(user) ? 'Cannot delete the last active admin — promote another user first.' : ''"
+              @click="requestDelete(user)"
+            >
+              Delete
+            </button>
           </td>
         </tr>
       </tbody>
     </table>
+    </div>
 
     <ConfirmDialog
       :open="pendingDelete !== null"

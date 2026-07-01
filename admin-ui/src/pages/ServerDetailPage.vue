@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import type { ClientDetail, ToolDetail } from "../types/api";
@@ -19,8 +19,28 @@ const savingGuards = ref(false);
 const testingTool = ref<string | null>(null);
 const testResult = ref<{ tool: string; text: string; isError: boolean } | null>(null);
 const resettingBreaker = ref(false);
+const drawerCloseBtn = ref<HTMLButtonElement | null>(null);
 
 const activeTool = computed(() => detail.value?.tools.find((t) => t.name === props.tool) ?? null);
+
+// Drawer is route-driven (props.tool + activeTool, not a local boolean) and
+// activeTool only resolves once the async load() finishes — watch it rather
+// than props.tool alone, or focus() would fire before the drawer exists.
+watch(
+  () => activeTool.value,
+  async (tool) => {
+    if (!tool) return;
+    await nextTick();
+    drawerCloseBtn.value?.focus();
+  },
+  { immediate: true }
+);
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape" && props.tool) closeGuardEditor();
+}
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 async function load() {
   loading.value = true;
@@ -79,11 +99,11 @@ async function confirmToolDisable() {
 }
 
 function openGuardEditor(tool: ToolDetail) {
-  router.push(`/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(tool.name)}`);
+  router.push(`/servers/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(tool.name)}`);
 }
 
 function closeGuardEditor() {
-  router.push(`/clients/${encodeURIComponent(props.name)}`);
+  router.push(`/servers/${encodeURIComponent(props.name)}`);
 }
 
 async function saveGuards(payload: { rateLimitPerMin?: number; timeoutMs?: number; allowedApiKeys?: string[] } | null) {
@@ -112,7 +132,15 @@ async function testTool(tool: ToolDetail) {
     );
     testResult.value = { tool: tool.name, text: result.content.map((c) => c.text).join("\n"), isError: Boolean(result.isError) };
   } catch (err) {
-    testResult.value = { tool: tool.name, text: err instanceof ApiError ? err.message : "Test call failed.", isError: true };
+    // A backend that isn't currently live produces a generic "not found"-style
+    // error from the API — surface the real, actionable cause instead.
+    const text =
+      detail.value && !detail.value.live
+        ? "Can't reach this backend right now — its health check isn't currently passing. Check the health URL, then try again."
+        : err instanceof ApiError
+          ? err.message
+          : "Test call failed.";
+    testResult.value = { tool: tool.name, text, isError: true };
   } finally {
     testingTool.value = null;
   }
@@ -133,7 +161,7 @@ async function resetBreaker() {
 
 <template>
   <section>
-    <p class="breadcrumb"><RouterLink to="/clients">Servers</RouterLink> / {{ name }}</p>
+    <p class="breadcrumb"><RouterLink to="/servers">Servers</RouterLink> / {{ name }}</p>
 
     <div v-if="loading && !detail" class="loading">Loading…</div>
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
@@ -179,7 +207,8 @@ async function resetBreaker() {
       </dl>
 
       <h2>Tools ({{ detail.tools.length }})</h2>
-      <table v-if="detail.tools.length" class="tools-table">
+      <div v-if="detail.tools.length" class="table-scroll">
+      <table class="tools-table">
         <thead>
           <tr>
             <th>Name</th>
@@ -220,6 +249,7 @@ async function resetBreaker() {
           </tr>
         </tbody>
       </table>
+      </div>
       <p v-else class="empty-state">This client has no tools registered.</p>
 
       <div v-if="testResult" class="test-result" :class="testResult.isError ? 'test-error' : 'test-ok'">
@@ -229,10 +259,11 @@ async function resetBreaker() {
     </template>
 
     <!-- Guard editor drawer -->
-    <div v-if="tool && activeTool" class="drawer">
+    <div v-if="tool && activeTool" class="drawer-overlay" @click="closeGuardEditor"></div>
+    <div v-if="tool && activeTool" class="drawer" role="dialog" aria-modal="true" :aria-label="`Guards — ${activeTool.name}`">
       <div class="drawer-header">
         <h2>Guards — {{ activeTool.name }}</h2>
-        <button type="button" class="link-btn" @click="closeGuardEditor">Close</button>
+        <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">Close</button>
       </div>
       <GuardEditor :guards="activeTool.guards" :saving="savingGuards" @save="saveGuards" />
     </div>
@@ -329,19 +360,29 @@ async function resetBreaker() {
   white-space: nowrap;
 }
 .toggle {
-  border: 1px solid transparent;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  border-radius: 6px;
   padding: 0.25rem 0.75rem;
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
+  background: #fff;
+}
+.toggle::before {
+  content: "";
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: currentColor;
 }
 .toggle-on {
-  background: #e6f6ec;
+  border: 1px solid #146c2e;
   color: #146c2e;
 }
 .toggle-off {
-  background: #f1f2f4;
+  border: 1px solid #9aa0a8;
   color: #52565c;
 }
 .row-error {
@@ -365,6 +406,12 @@ async function resetBreaker() {
   word-break: break-word;
   margin: 0.4rem 0 0;
   font-size: 0.82rem;
+}
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 18, 22, 0.45);
+  z-index: 49;
 }
 .drawer {
   position: fixed;

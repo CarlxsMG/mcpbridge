@@ -2,12 +2,12 @@ import { createRouter, createWebHistory } from "vue-router";
 import { useAuth } from "../composables/useAuth";
 
 const routes = [
-  { path: "/", redirect: "/clients" },
+  { path: "/", redirect: "/servers" },
   { path: "/login", name: "login", component: () => import("../pages/LoginPage.vue"), meta: { public: true } },
-  { path: "/clients", name: "clients", component: () => import("../pages/DashboardPage.vue") },
-  { path: "/clients/:name", name: "client-detail", component: () => import("../pages/ServerDetailPage.vue"), props: true },
+  { path: "/servers", name: "servers", component: () => import("../pages/DashboardPage.vue") },
+  { path: "/servers/:name", name: "server-detail", component: () => import("../pages/ServerDetailPage.vue"), props: true },
   {
-    path: "/clients/:name/tools/:tool",
+    path: "/servers/:name/tools/:tool",
     name: "tool-guard",
     component: () => import("../pages/ServerDetailPage.vue"),
     props: true,
@@ -24,12 +24,20 @@ export const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
-  if (to.meta.public) return true;
-
   const { state, checkSession } = useAuth();
   if (!state.checked) {
     await checkSession();
   }
+
+  // Already signed in? Don't show the login form again — send the user
+  // where they were headed (or the default landing page).
+  if (to.name === "login") {
+    if (!state.user) return true;
+    return typeof to.query.redirect === "string" ? to.query.redirect : "/servers";
+  }
+
+  if (to.meta.public) return true;
+
   if (!state.user) {
     return { name: "login", query: { redirect: to.fullPath } };
   }

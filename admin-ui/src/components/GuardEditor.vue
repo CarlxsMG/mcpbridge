@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import type { ToolGuardConfig } from "../types/api";
+import ConfirmDialog from "./ConfirmDialog.vue";
 
 const props = defineProps<{
   guards?: ToolGuardConfig;
@@ -13,16 +14,22 @@ const emit = defineEmits<{
 
 const rateLimitInput = ref(props.guards?.rateLimitPerMin?.toString() ?? "");
 const timeoutInput = ref(props.guards?.timeoutMs?.toString() ?? "");
+const rateLimitTouched = ref(false);
+const timeoutTouched = ref(false);
 const newApiKey = ref("");
+const showApiKey = ref(false);
 const hasAllowedKeysGuard = ref(Boolean(props.guards?.allowedKeyHashes?.length));
 const existingKeyCount = ref(props.guards?.allowedKeyHashes?.length ?? 0);
 const replacementKeys = ref<string[]>([]);
+const pendingClear = ref(false);
 
 watch(
   () => props.guards,
   (g) => {
     rateLimitInput.value = g?.rateLimitPerMin?.toString() ?? "";
     timeoutInput.value = g?.timeoutMs?.toString() ?? "";
+    rateLimitTouched.value = false;
+    timeoutTouched.value = false;
     hasAllowedKeysGuard.value = Boolean(g?.allowedKeyHashes?.length);
     existingKeyCount.value = g?.allowedKeyHashes?.length ?? 0;
     replacementKeys.value = [];
@@ -42,6 +49,8 @@ const timeoutError = computed(() => {
 });
 
 const isValid = computed(() => !rateLimitError.value && !timeoutError.value);
+
+const hasAnyGuard = computed(() => existingKeyCount.value > 0 || Boolean(props.guards?.rateLimitPerMin) || Boolean(props.guards?.timeoutMs));
 
 const previewJson = computed(() => {
   const preview: Record<string, unknown> = {};
@@ -76,7 +85,16 @@ function submit() {
   emit("save", payload);
 }
 
-function clearAll() {
+function requestClear() {
+  if (!hasAnyGuard.value) {
+    emit("save", null);
+    return;
+  }
+  pendingClear.value = true;
+}
+
+function confirmClear() {
+  pendingClear.value = false;
   emit("save", null);
 }
 </script>
@@ -85,14 +103,28 @@ function clearAll() {
   <form class="guard-editor" @submit.prevent="submit">
     <div class="field">
       <label for="rate-limit">Rate limit (calls / minute)</label>
-      <input id="rate-limit" v-model="rateLimitInput" type="text" inputmode="numeric" placeholder="No limit" />
-      <p v-if="rateLimitError" class="field-error">{{ rateLimitError }}</p>
+      <input
+        id="rate-limit"
+        v-model="rateLimitInput"
+        type="text"
+        inputmode="numeric"
+        placeholder="No limit"
+        @blur="rateLimitTouched = true"
+      />
+      <p v-if="rateLimitTouched && rateLimitError" class="field-error">{{ rateLimitError }}</p>
     </div>
 
     <div class="field">
       <label for="timeout">Timeout override (ms)</label>
-      <input id="timeout" v-model="timeoutInput" type="text" inputmode="numeric" placeholder="Use server default" />
-      <p v-if="timeoutError" class="field-error">{{ timeoutError }}</p>
+      <input
+        id="timeout"
+        v-model="timeoutInput"
+        type="text"
+        inputmode="numeric"
+        placeholder="Use server default"
+        @blur="timeoutTouched = true"
+      />
+      <p v-if="timeoutTouched && timeoutError" class="field-error">{{ timeoutError }}</p>
     </div>
 
     <div class="field">
@@ -102,7 +134,17 @@ function clearAll() {
         Keys are hashed on save; existing keys cannot be displayed again.
       </p>
       <div class="key-input">
-        <input v-model="newApiKey" type="text" placeholder="Paste a raw API key to add" @keydown.enter.prevent="addKey" />
+        <input
+          v-model="newApiKey"
+          class="api-key-input"
+          :type="showApiKey ? 'text' : 'password'"
+          placeholder="Paste a raw API key to add"
+          autocomplete="off"
+          @keydown.enter.prevent="addKey"
+        />
+        <button type="button" class="btn-secondary" :aria-pressed="showApiKey" @click="showApiKey = !showApiKey">
+          {{ showApiKey ? "Hide" : "Show" }}
+        </button>
         <button type="button" class="btn-secondary" @click="addKey">Add</button>
       </div>
       <ul v-if="replacementKeys.length" class="key-list">
@@ -122,12 +164,22 @@ function clearAll() {
     </details>
 
     <div class="actions">
-      <button type="button" class="btn-secondary" @click="clearAll" :disabled="saving">Clear guards</button>
+      <button type="button" class="btn-secondary" @click="requestClear" :disabled="saving">Clear guards</button>
       <button type="submit" class="btn-primary" :disabled="!isValid || saving">
         {{ saving ? "Saving…" : "Save guards" }}
       </button>
     </div>
   </form>
+
+  <ConfirmDialog
+    :open="pendingClear"
+    title="Clear all guards for this tool?"
+    message="This removes the rate limit, timeout override, and API key allow-list. Existing keys are hashed and cannot be restored — you'd need the original raw keys to set the same allow-list again."
+    confirm-label="Clear guards"
+    danger
+    @confirm="confirmClear"
+    @cancel="pendingClear = false"
+  />
 </template>
 
 <style scoped>
@@ -143,7 +195,8 @@ function clearAll() {
   margin-bottom: 0.3rem;
   font-size: 0.9rem;
 }
-.field input[type="text"] {
+.field input[type="text"],
+.field input.api-key-input {
   width: 100%;
   padding: 0.45rem 0.6rem;
   border: 1px solid #cfd4da;

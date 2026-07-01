@@ -47,13 +47,15 @@ onMounted(() => load());
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-    <table v-if="entries.length" class="audit-table">
+    <div v-if="entries.length" class="table-scroll">
+    <table class="audit-table">
       <thead>
         <tr>
           <th>When</th>
           <th>Actor</th>
           <th>Action</th>
           <th>Target</th>
+          <th>Detail</th>
         </tr>
       </thead>
       <tbody>
@@ -62,9 +64,17 @@ onMounted(() => load());
           <td>{{ entry.actor }}</td>
           <td><code>{{ entry.action }}</code></td>
           <td>{{ entry.target }}</td>
+          <td>
+            <details v-if="entry.detail" class="detail-disclosure">
+              <summary>View</summary>
+              <pre>{{ JSON.stringify(entry.detail, null, 2) }}</pre>
+            </details>
+            <span v-else class="detail-none">—</span>
+          </td>
         </tr>
       </tbody>
     </table>
+    </div>
     <p v-else-if="!loading" class="empty-state">No audit entries yet.</p>
 
     <button v-if="nextCursor" type="button" class="btn-secondary" :disabled="loading" @click="load(nextCursor)">
@@ -109,6 +119,23 @@ onMounted(() => load());
 .audit-table td {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid #eef0f2;
+}
+.detail-disclosure summary {
+  cursor: pointer;
+  color: #1a56db;
+  font-size: 0.85rem;
+}
+.detail-disclosure pre {
+  margin: 0.5rem 0 0;
+  padding: 0.6rem;
+  background: #f4f5f7;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  max-width: 360px;
+  overflow-x: auto;
+}
+.detail-none {
+  color: #63676e;
 }
 .empty-state {
   padding: 1.5rem;

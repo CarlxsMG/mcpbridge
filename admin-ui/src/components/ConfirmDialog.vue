@@ -1,5 +1,7 @@
 <script setup lang="ts">
-defineProps<{
+import { ref, watch, nextTick } from "vue";
+
+const props = defineProps<{
   open: boolean;
   title: string;
   message: string;
@@ -8,15 +10,35 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
+
+const cancelBtn = ref<HTMLButtonElement | null>(null);
+let previouslyFocused: HTMLElement | null = null;
+
+// Escape only reaches the handler below once focus is inside the dialog —
+// move it there on open, and give it back to whatever triggered the dialog
+// on close so keyboard position isn't lost.
+watch(
+  () => props.open,
+  async (isOpen) => {
+    if (isOpen) {
+      previouslyFocused = document.activeElement as HTMLElement | null;
+      await nextTick();
+      cancelBtn.value?.focus();
+    } else {
+      previouslyFocused?.focus();
+      previouslyFocused = null;
+    }
+  }
+);
 </script>
 
 <template>
-  <div v-if="open" class="overlay" @keydown.esc="emit('cancel')">
-    <div class="dialog" role="alertdialog" aria-modal="true">
+  <div v-if="open" class="overlay" @keydown.esc.stop="emit('cancel')">
+    <div class="dialog" role="alertdialog" aria-modal="true" :aria-label="title">
       <h2>{{ title }}</h2>
       <p>{{ message }}</p>
       <div class="actions">
-        <button type="button" class="btn-secondary" @click="emit('cancel')">Cancel</button>
+        <button ref="cancelBtn" type="button" class="btn-secondary" @click="emit('cancel')">Cancel</button>
         <button type="button" :class="danger ? 'btn-danger' : 'btn-primary'" @click="emit('confirm')">
           {{ confirmLabel }}
         </button>

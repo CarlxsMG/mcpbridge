@@ -186,7 +186,8 @@ onMounted(load);
       </div>
     </template>
 
-    <table v-else class="clients-table">
+    <div v-else class="table-scroll">
+    <table class="clients-table">
       <thead>
         <tr>
           <th class="checkbox-col">
@@ -215,7 +216,7 @@ onMounted(load);
             />
           </td>
           <td>
-            <RouterLink :to="`/clients/${encodeURIComponent(client.name)}`">{{ client.name }}</RouterLink>
+            <RouterLink :to="`/servers/${encodeURIComponent(client.name)}`">{{ client.name }}</RouterLink>
           </td>
           <td><StatusBadge :status="client.status" /></td>
           <td>{{ client.toolsCount }}</td>
@@ -235,6 +236,7 @@ onMounted(load);
         </tr>
       </tbody>
     </table>
+    </div>
 
     <div class="pagination">
       <button type="button" class="btn-secondary" :disabled="cursorStack.length === 0" @click="prevPage">Previous</button>
@@ -329,19 +331,29 @@ onMounted(load);
   color: #63676e;
 }
 .toggle {
-  border: 1px solid transparent;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  border-radius: 6px;
   padding: 0.25rem 0.75rem;
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
+  background: #fff;
+}
+.toggle::before {
+  content: "";
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: currentColor;
 }
 .toggle-on {
-  background: #e6f6ec;
+  border: 1px solid #146c2e;
   color: #146c2e;
 }
 .toggle-off {
-  background: #f1f2f4;
+  border: 1px solid #9aa0a8;
   color: #52565c;
 }
 .row-error {

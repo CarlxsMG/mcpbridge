@@ -18,7 +18,7 @@ async function onSubmit() {
   submitting.value = true;
   try {
     await login(username.value.trim(), password.value);
-    const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "/clients";
+    const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "/servers";
     await router.push(redirect);
   } catch (err) {
     // Never state which field was wrong — avoids helping a credential-stuffing attempt.

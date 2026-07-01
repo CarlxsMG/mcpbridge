@@ -80,7 +80,16 @@ button {
   font-size: inherit;
   text-decoration: underline;
 }
+.link-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
+}
 
 .error {
   color: #a11212;
+}
+
+.table-scroll {
+  overflow-x: auto;
 }
