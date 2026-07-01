@@ -208,6 +208,25 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 9,
+    name: "alert_rules",
+    sql: `
+      CREATE TABLE IF NOT EXISTS alert_rules (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        name          TEXT NOT NULL,
+        event_type    TEXT NOT NULL,
+        enabled       INTEGER NOT NULL DEFAULT 1,
+        webhook_url   TEXT NOT NULL,
+        threshold     REAL,
+        min_calls     INTEGER,
+        last_fired_at INTEGER,
+        created_at    INTEGER NOT NULL,
+        updated_at    INTEGER NOT NULL,
+        created_by    TEXT
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

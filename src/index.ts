@@ -24,6 +24,8 @@ import { mcpKeyRoutes } from "./routes/mcp-keys.js";
 import { upstreamAuthRoutes } from "./routes/upstream-auth.js";
 import { discoveryRoutes } from "./routes/discovery.js";
 import { usageRoutes } from "./routes/usage.js";
+import { alertRoutes } from "./routes/alerts.js";
+import { startAlertLoop } from "./alerts.js";
 import { initBundles } from "./bundles.js";
 import { startLeaderElection } from "./db/leader-lease.js";
 
@@ -113,6 +115,7 @@ mcpKeyRoutes(app);
 upstreamAuthRoutes(app);
 discoveryRoutes(app);
 usageRoutes(app);
+alertRoutes(app);
 
 // ─── Admin UI (Vue SPA) ─────────────────────────────────────────────────────
 // Sibling namespace to /admin-api, not nested under it — Express mount-path
@@ -155,6 +158,9 @@ const stopHealthChecks = startHealthCheckLoop();
 // Background cleanup loops
 const stopCircuitBreakerCleanup = startCircuitBreakerCleanup();
 const stopRateLimiterCleanup = startRateLimiterCleanup();
+
+// Alert evaluation loop (leader-only, gated inside the loop)
+const stopAlerts = startAlertLoop();
 
 // ─── Global error handler ─────────────────────────────────────────────────────
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
@@ -202,6 +208,7 @@ async function gracefulShutdown(signal: string) {
   stopLeaderElection();
   stopCircuitBreakerCleanup();
   stopRateLimiterCleanup();
+  stopAlerts();
   cleanupTransports();
   server.close(() => process.exit(0));
   // Fallback: force exit after configured timeout

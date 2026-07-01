@@ -196,6 +196,14 @@ export const config = {
   /** How long to retain per-call usage rows before opportunistic pruning (ms). Default 30 days. */
   usageRetentionMs: Number(process.env.USAGE_RETENTION_MS) || 30 * 24 * 60 * 60_000,
 
+  // ─── Alerts / webhooks ─────────────────────────────────────────────────────
+  /** How often the leader evaluates alert rules (ms). */
+  alertIntervalMs: Number(process.env.ALERT_INTERVAL_MS) || 30_000,
+  /** Timeout for an outbound alert webhook delivery (ms). */
+  alertWebhookTimeoutMs: Number(process.env.ALERT_WEBHOOK_TIMEOUT_MS) || 5_000,
+  /** Sliding window for error-rate alert evaluation (ms). */
+  alertErrorRateWindowMs: Number(process.env.ALERT_ERROR_RATE_WINDOW_MS) || 5 * 60_000,
+
   // ─── Per-tool rate-limit guard tier ────────────────────────────────────────
   /** Maximum number of LRU buckets for the per-tool guard rate limiter. */
   rateLimitMaxBucketsTool: Number(process.env.RATE_LIMIT_MAX_BUCKETS_TOOL) || 20_000,

@@ -45,6 +45,7 @@ async function onLogout() {
         <li><RouterLink to="/keys">API keys</RouterLink></li>
         <li><RouterLink to="/overview">Overview</RouterLink></li>
         <li><RouterLink to="/usage">Usage</RouterLink></li>
+        <li><RouterLink to="/alerts">Alerts</RouterLink></li>
         <li v-if="state.user?.role === 'admin'"><RouterLink to="/users">Users</RouterLink></li>
         <li><RouterLink to="/audit-log">Audit log</RouterLink></li>
       </ul>

@@ -205,3 +205,19 @@ export interface UsageByKeyRow {
   calls: number;
   errors: number;
 }
+
+export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate";
+
+export interface AlertRule {
+  id: number;
+  name: string;
+  eventType: AlertEventType;
+  enabled: boolean;
+  webhookUrl: string;
+  threshold: number | null;
+  minCalls: number | null;
+  lastFiredAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+  createdBy: string | null;
+}

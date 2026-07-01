@@ -20,6 +20,7 @@ const routes = [
   { path: "/audit-log", name: "audit-log", component: () => import("../pages/AuditLogPage.vue") },
   { path: "/overview", name: "overview", component: () => import("../pages/OverviewPage.vue") },
   { path: "/usage", name: "usage", component: () => import("../pages/UsagePage.vue") },
+  { path: "/alerts", name: "alerts", component: () => import("../pages/AlertsPage.vue") },
   { path: "/:pathMatch(.*)*", name: "not-found", component: () => import("../pages/NotFoundPage.vue"), meta: { public: true } },
 ];
 
