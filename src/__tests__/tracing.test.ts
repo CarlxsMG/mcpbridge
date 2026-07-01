@@ -67,7 +67,7 @@ describe("tracing — OTLP export", () => {
     await flush();
 
     expect(captured).not.toBeNull();
-    const rs = (captured as { resourceSpans: unknown[] }).resourceSpans[0] as Record<string, unknown>;
+    const rs = (captured as unknown as { resourceSpans: unknown[] }).resourceSpans[0] as Record<string, unknown>;
     const scopeSpans = (rs.scopeSpans as Record<string, unknown>[])[0];
     const span = (scopeSpans.spans as Record<string, unknown>[])[0];
     expect(span.name).toBe("tool_call svc__x");
@@ -97,7 +97,7 @@ describe("tracing — proxy integration", () => {
     expect(_internalsForTesting.bufferLength()).toBe(1);
 
     await flush();
-    const span = ((((captured as { resourceSpans: Record<string, unknown>[] }).resourceSpans[0].scopeSpans as Record<string, unknown>[])[0].spans as Record<string, unknown>[])[0]);
+    const span = ((((captured as unknown as { resourceSpans: Record<string, unknown>[] }).resourceSpans[0].scopeSpans as Record<string, unknown>[])[0].spans as Record<string, unknown>[])[0]);
     expect(span.name).toBe("tool_call svc__get-x");
   });
 });
