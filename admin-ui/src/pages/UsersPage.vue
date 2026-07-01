@@ -63,13 +63,13 @@ async function createUser() {
   }
 }
 
-async function toggleRole(user: AdminUserSummary) {
-  const nextRole: AdminRole = user.role === "admin" ? "viewer" : "admin";
+async function changeRole(user: AdminUserSummary, nextRole: string) {
   try {
     await api.patch(`/admin-api/users/${encodeURIComponent(user.username)}`, { role: nextRole });
     await load();
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to update role.";
+    await load(); // reset the select back to the persisted value
   }
 }
 
@@ -112,6 +112,8 @@ async function confirmDelete() {
         <label for="new-role">Role</label>
         <select id="new-role" v-model="newRole">
           <option value="admin">Admin</option>
+          <option value="operator">Operator</option>
+          <option value="auditor">Auditor</option>
           <option value="viewer">Viewer</option>
         </select>
       </div>
@@ -137,15 +139,18 @@ async function confirmDelete() {
         <tr v-for="user in users" :key="user.username">
           <td>{{ user.username }} <span v-if="user.username === authState.user?.username" class="you-tag">(you)</span></td>
           <td>
-            <button
-              type="button"
-              class="link-btn"
+            <select
+              class="role-select"
+              :value="user.role"
               :disabled="isLastActiveAdmin(user)"
-              :title="isLastActiveAdmin(user) ? 'Cannot demote the last active admin — promote another user first.' : ''"
-              @click="toggleRole(user)"
+              :title="isLastActiveAdmin(user) ? 'Cannot change the last active admin — promote another user first.' : ''"
+              @change="changeRole(user, ($event.target as HTMLSelectElement).value)"
             >
-              {{ user.role }} <span class="switch-hint">(switch to {{ user.role === "admin" ? "viewer" : "admin" }})</span>
-            </button>
+              <option value="admin">admin</option>
+              <option value="operator">operator</option>
+              <option value="auditor">auditor</option>
+              <option value="viewer">viewer</option>
+            </select>
           </td>
           <td>{{ user.is_active ? "Yes" : "No" }}</td>
           <td>{{ user.last_login_at ? new Date(user.last_login_at).toLocaleString() : "Never" }}</td>

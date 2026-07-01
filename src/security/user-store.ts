@@ -1,6 +1,12 @@
 import { getDb } from "../db/connection.js";
 
-export type AdminRole = "admin" | "viewer";
+export type AdminRole = "admin" | "operator" | "auditor" | "viewer";
+
+export const ADMIN_ROLES: AdminRole[] = ["admin", "operator", "auditor", "viewer"];
+
+export function isAdminRole(v: unknown): v is AdminRole {
+  return typeof v === "string" && (ADMIN_ROLES as string[]).includes(v);
+}
 
 export interface AdminUser {
   id: number;

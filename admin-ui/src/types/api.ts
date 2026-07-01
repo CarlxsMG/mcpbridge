@@ -3,7 +3,7 @@
 // (ToolGuardConfig/ClientGuardConfig), and src/admin/audit.ts (AuditLogEntry).
 
 export type ClientStatus = "healthy" | "degraded" | "unreachable";
-export type AdminRole = "admin" | "viewer";
+export type AdminRole = "admin" | "operator" | "auditor" | "viewer";
 export type CircuitBreakerState = "closed" | "open" | "half_open";
 
 export interface ClientSummary {

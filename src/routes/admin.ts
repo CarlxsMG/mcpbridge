@@ -5,7 +5,7 @@ import { adminAuth } from "../middleware/auth.js";
 import { hashApiKey } from "../security/key-hash.js";
 import { setToolSensitive } from "../tool-sensitivity.js";
 import { setRedactionPaths } from "../redaction.js";
-import { recordAudit, actorFromRequest, listAuditLog } from "../admin/audit.js";
+import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog } from "../admin/audit.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
 import {
   listUsers,
@@ -14,6 +14,7 @@ import {
   updateUser,
   deleteUser,
   countActiveAdmins,
+  isAdminRole,
 } from "../security/user-store.js";
 import { revokeAllSessionsForUser } from "../security/session-store.js";
 import type { ClientGuardConfig, ToolGuardConfig, ClientStatus, ToolOverride } from "../types.js";
@@ -23,10 +24,19 @@ function requestId(res: Response): string | null {
   return (res.locals.requestId as string) ?? null;
 }
 
-/** Session-authenticated viewers can read but not mutate; Bearer callers and session admins can do both. */
+/** Admin-only for session callers (viewer/operator/auditor are rejected). Bearer callers always pass. */
 export function requireAdminRole(req: Request, res: Response, next: NextFunction): void {
-  if (req.authContext?.method === "session" && req.authContext.role === "viewer") {
+  if (req.authContext?.method === "session" && req.authContext.role !== "admin") {
     res.status(403).json({ error: { code: "FORBIDDEN", message: "This action requires the admin role", request_id: requestId(res) } });
+    return;
+  }
+  next();
+}
+
+/** Operational mutations: admin + operator sessions pass; auditor/viewer are rejected. Bearer callers always pass. */
+export function requireOperator(req: Request, res: Response, next: NextFunction): void {
+  if (req.authContext?.method === "session" && req.authContext.role !== "admin" && req.authContext.role !== "operator") {
+    res.status(403).json({ error: { code: "FORBIDDEN", message: "This action requires the admin or operator role", request_id: requestId(res) } });
     return;
   }
   next();
@@ -147,7 +157,7 @@ export function adminRoutes(app: Express): void {
     res.status(200).json(detail);
   });
 
-  app.patch("/admin-api/clients/:name", adminAuth, requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
+  app.patch("/admin-api/clients/:name", adminAuth, requireOperator, async (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
     const body = (req.body as Record<string, unknown>) ?? {};
     const actor = actorFromRequest(req);
@@ -182,7 +192,7 @@ export function adminRoutes(app: Express): void {
     res.status(200).json({ status: "updated", name });
   });
 
-  app.patch("/admin-api/clients", adminAuth, requireAdminRole, async (req: Request, res: Response) => {
+  app.patch("/admin-api/clients", adminAuth, requireOperator, async (req: Request, res: Response) => {
     const body = (req.body as Record<string, unknown>) ?? {};
     const names = body.names;
     const enabled = body.enabled;
@@ -204,7 +214,7 @@ export function adminRoutes(app: Express): void {
   app.patch(
     "/admin-api/clients/:name/tools/:tool",
     adminAuth,
-    requireAdminRole,
+    requireOperator,
     async (req: Request<{ name: string; tool: string }>, res: Response) => {
       const { name, tool } = req.params;
       const body = (req.body as Record<string, unknown>) ?? {};
@@ -281,7 +291,7 @@ export function adminRoutes(app: Express): void {
     }
   );
 
-  app.patch("/admin-api/clients/:name/tools", adminAuth, requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
+  app.patch("/admin-api/clients/:name/tools", adminAuth, requireOperator, async (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
     const body = (req.body as Record<string, unknown>) ?? {};
     const toolNames = body.tool_names;
@@ -302,7 +312,7 @@ export function adminRoutes(app: Express): void {
   app.post(
     "/admin-api/clients/:name/tools/:tool/test",
     adminAuth,
-    requireAdminRole,
+    requireOperator,
     async (req: Request<{ name: string; tool: string }>, res: Response) => {
       const { name, tool } = req.params;
       const mcpToolName = `${name}${TOOL_KEY_SEPARATOR}${tool}`;
@@ -320,7 +330,7 @@ export function adminRoutes(app: Express): void {
   app.post(
     "/admin-api/clients/:name/circuit-breaker/reset",
     adminAuth,
-    requireAdminRole,
+    requireOperator,
     (req: Request<{ name: string }>, res: Response) => {
       const ok = registry.resetCircuitBreaker(req.params.name);
       if (!ok) {
@@ -349,7 +359,7 @@ export function adminRoutes(app: Express): void {
     const body = (req.body as Record<string, unknown>) ?? {};
     const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
     const password = typeof body.password === "string" ? body.password : "";
-    const role: AdminRole = body.role === "viewer" ? "viewer" : "admin";
+    const role: AdminRole = isAdminRole(body.role) ? body.role : "admin";
 
     if (!username || password.length < 12) {
       res.status(400).json({
@@ -378,11 +388,11 @@ export function adminRoutes(app: Express): void {
       return;
     }
 
-    const nextRole: AdminRole | undefined = body.role === "admin" || body.role === "viewer" ? body.role : undefined;
+    const nextRole: AdminRole | undefined = isAdminRole(body.role) ? body.role : undefined;
     const nextActive: boolean | undefined = typeof body.is_active === "boolean" ? body.is_active : undefined;
 
     const wouldLoseAdminStatus =
-      existing.role === "admin" && existing.isActive && ((nextRole === "viewer") || (nextActive === false));
+      existing.role === "admin" && existing.isActive && ((nextRole !== undefined && nextRole !== "admin") || (nextActive === false));
     if (wouldLoseAdminStatus && countActiveAdmins() <= 1) {
       res.status(409).json({
         error: { code: "LAST_ADMIN_PROTECTED", message: "Cannot demote or deactivate the last active admin", request_id: requestId(res) },
@@ -427,6 +437,17 @@ export function adminRoutes(app: Express): void {
       limit: typeof limit === "string" ? Number(limit) : undefined,
     });
     res.status(200).json(result);
+  });
+
+  app.get("/admin-api/audit-log/export", adminAuth, (req: Request, res: Response) => {
+    const { actor, action, from, to } = req.query;
+    const items = exportAuditLog({
+      actor: typeof actor === "string" ? actor : undefined,
+      action: typeof action === "string" ? action : undefined,
+      from: typeof from === "string" ? Number(from) : undefined,
+      to: typeof to === "string" ? Number(to) : undefined,
+    });
+    res.status(200).json({ items, count: items.length });
   });
 
   app.get("/admin-api/overview", adminAuth, (_req: Request, res: Response) => {

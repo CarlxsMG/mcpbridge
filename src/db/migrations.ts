@@ -306,6 +306,29 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 15,
+    name: "expand_admin_roles",
+    sql: `
+      CREATE TABLE admin_users_new (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        username       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        password_hash  TEXT NOT NULL,
+        role           TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin','operator','auditor','viewer')),
+        is_active      INTEGER NOT NULL DEFAULT 1,
+        created_at     INTEGER NOT NULL,
+        updated_at     INTEGER NOT NULL,
+        last_login_at  INTEGER,
+        created_by     TEXT
+      ) STRICT;
+
+      INSERT INTO admin_users_new (id, username, password_hash, role, is_active, created_at, updated_at, last_login_at, created_by)
+        SELECT id, username, password_hash, role, is_active, created_at, updated_at, last_login_at, created_by FROM admin_users;
+
+      DROP TABLE admin_users;
+      ALTER TABLE admin_users_new RENAME TO admin_users;
+    `,
+  },
 ];
 
 /**

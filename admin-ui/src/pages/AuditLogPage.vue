@@ -30,6 +30,24 @@ function applyFilter() {
   load();
 }
 
+async function exportLog() {
+  errorMessage.value = "";
+  try {
+    const params = new URLSearchParams();
+    if (actorFilter.value) params.set("actor", actorFilter.value);
+    const result = await api.get<{ items: AuditLogEntry[] }>(`/admin-api/audit-log/export?${params.toString()}`);
+    const blob = new Blob([JSON.stringify(result.items, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "audit-log.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Export failed.";
+  }
+}
+
 onMounted(() => load());
 </script>
 
@@ -43,6 +61,7 @@ onMounted(() => load());
     <form class="filters" @submit.prevent="applyFilter">
       <input v-model="actorFilter" type="text" placeholder="Filter by actor…" />
       <button type="submit" class="btn-secondary">Apply</button>
+      <button type="button" class="btn-secondary" @click="exportLog">Export</button>
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>

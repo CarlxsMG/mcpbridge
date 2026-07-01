@@ -84,3 +84,29 @@ export function listAuditLog(opts: { actor?: string; action?: string; from?: num
 
   return { items, nextCursor: hasMore ? String(page[page.length - 1].id) : undefined };
 }
+
+/** Bulk export of audit entries (up to `maxRows`) for download — same filters as listAuditLog, no pagination. */
+export function exportAuditLog(
+  opts: { actor?: string; action?: string; from?: number; to?: number } = {},
+  maxRows = 10000
+): AuditLogEntry[] {
+  const db = getDb();
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
+  if (opts.actor) { conditions.push("actor = ?"); params.push(opts.actor); }
+  if (opts.action) { conditions.push("action = ?"); params.push(opts.action); }
+  if (opts.from !== undefined) { conditions.push("created_at >= ?"); params.push(opts.from); }
+  if (opts.to !== undefined) { conditions.push("created_at <= ?"); params.push(opts.to); }
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = db
+    .query(`SELECT id, actor, action, target, detail_json, created_at FROM admin_audit_log ${whereClause} ORDER BY id DESC LIMIT ?`)
+    .all(...params, Math.min(Math.max(maxRows, 1), 100000)) as { id: number; actor: string; action: string; target: string; detail_json: string | null; created_at: number }[];
+  return rows.map((r) => ({
+    id: r.id,
+    actor: r.actor,
+    action: r.action,
+    target: r.target,
+    detail: r.detail_json ? (JSON.parse(r.detail_json) as Record<string, unknown>) : null,
+    createdAt: r.created_at,
+  }));
+}
