@@ -21,6 +21,7 @@ export interface McpApiKeyRecord {
   label: string;
   keyPrefix: string;
   consumerId: number | null;
+  elevated: boolean;
   scopes: McpKeyScopes | null;
   enabled: boolean;
   expiresAt: number | null;
@@ -36,6 +37,7 @@ interface KeyRow {
   label: string;
   key_prefix: string;
   consumer_id: number | null;
+  elevated: number;
   scopes_json: string | null;
   enabled: number;
   expires_at: number | null;
@@ -47,7 +49,7 @@ interface KeyRow {
 }
 
 const SELECT_COLS =
-  "id, label, key_prefix, consumer_id, scopes_json, enabled, expires_at, revoked_at, last_used_at, created_at, updated_at, created_by";
+  "id, label, key_prefix, consumer_id, elevated, scopes_json, enabled, expires_at, revoked_at, last_used_at, created_at, updated_at, created_by";
 
 function rowToRecord(row: KeyRow): McpApiKeyRecord {
   return {
@@ -55,6 +57,7 @@ function rowToRecord(row: KeyRow): McpApiKeyRecord {
     label: row.label,
     keyPrefix: row.key_prefix,
     consumerId: row.consumer_id,
+    elevated: row.elevated === 1,
     scopes: row.scopes_json ? (JSON.parse(row.scopes_json) as McpKeyScopes) : null,
     enabled: row.enabled === 1,
     expiresAt: row.expires_at,
@@ -85,7 +88,8 @@ export function createMcpKey(
   scopes: McpKeyScopes | null,
   expiresAt: number | null,
   actor: string | null,
-  consumerId: number | null = null
+  consumerId: number | null = null,
+  elevated = false
 ): { record: McpApiKeyRecord; rawKey: string } {
   const rawKey = generateRawKey();
   const keyHash = hashApiKey(rawKey);
@@ -94,11 +98,11 @@ export function createMcpKey(
   const norm = normalizeScopes(scopes);
   const row = getDb()
     .query(
-      `INSERT INTO mcp_api_keys (label, key_hash, key_prefix, consumer_id, scopes_json, enabled, expires_at, revoked_at, last_used_at, created_at, updated_at, created_by)
-       VALUES (?, ?, ?, ?, ?, 1, ?, NULL, NULL, ?, ?, ?)
+      `INSERT INTO mcp_api_keys (label, key_hash, key_prefix, consumer_id, elevated, scopes_json, enabled, expires_at, revoked_at, last_used_at, created_at, updated_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?, NULL, NULL, ?, ?, ?)
        RETURNING ${SELECT_COLS}`
     )
-    .get(label, keyHash, keyPrefix, consumerId, norm ? JSON.stringify(norm) : null, expiresAt, now, now, actor) as KeyRow;
+    .get(label, keyHash, keyPrefix, consumerId, elevated ? 1 : 0, norm ? JSON.stringify(norm) : null, expiresAt, now, now, actor) as KeyRow;
   return { record: rowToRecord(row), rawKey };
 }
 
@@ -115,7 +119,7 @@ export function getMcpKey(id: number): McpApiKeyRecord | null {
 
 export function updateMcpKey(
   id: number,
-  updates: { label?: string; enabled?: boolean; expiresAt?: number | null; scopes?: McpKeyScopes | null; consumerId?: number | null }
+  updates: { label?: string; enabled?: boolean; expiresAt?: number | null; scopes?: McpKeyScopes | null; consumerId?: number | null; elevated?: boolean }
 ): McpApiKeyRecord | null {
   const existing = getMcpKey(id);
   if (!existing) return null;
@@ -124,9 +128,10 @@ export function updateMcpKey(
   const expiresAt = updates.expiresAt !== undefined ? updates.expiresAt : existing.expiresAt;
   const scopes = updates.scopes !== undefined ? normalizeScopes(updates.scopes) : existing.scopes;
   const consumerId = updates.consumerId !== undefined ? updates.consumerId : existing.consumerId;
+  const elevated = updates.elevated ?? existing.elevated;
   getDb()
-    .query(`UPDATE mcp_api_keys SET label = ?, enabled = ?, expires_at = ?, scopes_json = ?, consumer_id = ?, updated_at = ? WHERE id = ?`)
-    .run(label, enabled ? 1 : 0, expiresAt, scopes ? JSON.stringify(scopes) : null, consumerId, Date.now(), id);
+    .query(`UPDATE mcp_api_keys SET label = ?, enabled = ?, expires_at = ?, scopes_json = ?, consumer_id = ?, elevated = ?, updated_at = ? WHERE id = ?`)
+    .run(label, enabled ? 1 : 0, expiresAt, scopes ? JSON.stringify(scopes) : null, consumerId, elevated ? 1 : 0, Date.now(), id);
   return getMcpKey(id);
 }
 

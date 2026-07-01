@@ -196,6 +196,10 @@ export const config = {
   /** How long to retain per-call usage rows before opportunistic pruning (ms). Default 30 days. */
   usageRetentionMs: Number(process.env.USAGE_RETENTION_MS) || 30 * 24 * 60 * 60_000,
 
+  // ─── Destructive-tool gating ───────────────────────────────────────────────
+  /** When true, DELETE/PUT tools are treated as sensitive by default (per-tool overrides still win). */
+  autoGateWriteMethods: process.env.AUTO_GATE_WRITE_METHODS === "true",
+
   // ─── Alerts / webhooks ─────────────────────────────────────────────────────
   /** How often the leader evaluates alert rules (ms). */
   alertIntervalMs: Number(process.env.ALERT_INTERVAL_MS) || 30_000,

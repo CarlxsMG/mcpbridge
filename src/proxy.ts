@@ -19,6 +19,7 @@ import { resolveMcpKeyByToken, isToolInKeyScope } from "./security/mcp-key-store
 import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
 import { recordUsage } from "./observability/usage.js";
 import { checkConsumerQuota } from "./consumers.js";
+import { isToolSensitive } from "./tool-sensitivity.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls
@@ -222,6 +223,19 @@ export async function proxyToolCall(
       return {
         isError: true,
         content: [{ type: "text", text: `Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})` }],
+      };
+    }
+  }
+
+  // Destructive-action gating — a sensitive tool requires an explicit
+  // `__confirm: true` argument or an elevated key. The __confirm arg is not part
+  // of any inputSchema, so Ajv's removeAdditional strips it before the upstream call.
+  if (isToolSensitive(client.name, tool.name, tool.method)) {
+    const confirmed = (args as Record<string, unknown>).__confirm === true;
+    if (!confirmed && callerKey?.elevated !== true) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Tool '${mcpToolName}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.` }],
       };
     }
   }

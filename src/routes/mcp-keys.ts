@@ -87,7 +87,8 @@ export function mcpKeyRoutes(app: Express): void {
     }
 
     const actor = actorFromRequest(req);
-    const { record, rawKey } = createMcpKey(label.value, scopes.value, exp.value, actor, consumer.value);
+    const elevated = body.elevated === true;
+    const { record, rawKey } = createMcpKey(label.value, scopes.value, exp.value, actor, consumer.value, elevated);
     recordAudit(actor, "mcp_key.create", String(record.id), { label: label.value, scopes: scopes.value ?? undefined, consumerId: consumer.value ?? undefined });
     // The raw key is returned exactly once, here — it is never persisted or retrievable again.
     res.status(201).json({ ...record, key: rawKey });
@@ -110,7 +111,7 @@ export function mcpKeyRoutes(app: Express): void {
       return;
     }
     const body = (req.body as Record<string, unknown>) ?? {};
-    const updates: { label?: string; enabled?: boolean; expiresAt?: number | null; scopes?: McpKeyScopes | null; consumerId?: number | null } = {};
+    const updates: { label?: string; enabled?: boolean; expiresAt?: number | null; scopes?: McpKeyScopes | null; consumerId?: number | null; elevated?: boolean } = {};
 
     if (body.label !== undefined) {
       const label = validateLabel(body.label);
@@ -150,6 +151,13 @@ export function mcpKeyRoutes(app: Express): void {
         return;
       }
       updates.consumerId = consumer.value;
+    }
+    if (body.elevated !== undefined) {
+      if (typeof body.elevated !== "boolean") {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "elevated must be a boolean", request_id: requestId(res) } });
+        return;
+      }
+      updates.elevated = body.elevated;
     }
 
     const rec = updateMcpKey(id, updates);

@@ -14,6 +14,7 @@ const newClients = ref("");
 const newTools = ref("");
 const newExpires = ref("");
 const newConsumerId = ref<number | "">("");
+const newElevated = ref(false);
 const consumers = ref<Consumer[]>([]);
 const createError = ref("");
 const creating = ref(false);
@@ -85,6 +86,7 @@ async function createKey() {
       scopes,
       expiresAt,
       consumerId: newConsumerId.value === "" ? null : newConsumerId.value,
+      elevated: newElevated.value,
     });
     mintedKey.value = created;
     copied.value = false;
@@ -93,6 +95,7 @@ async function createKey() {
     newTools.value = "";
     newExpires.value = "";
     newConsumerId.value = "";
+    newElevated.value = false;
     showCreateForm.value = false;
     await load();
   } catch (err) {
@@ -191,6 +194,7 @@ async function confirmDelete() {
           <option v-for="c in consumers" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </div>
+      <label class="checkbox-field"><input v-model="newElevated" type="checkbox" /> Elevated (bypasses sensitive-tool confirmation)</label>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Minting…" : "Mint key" }}</button>
     </form>
@@ -216,7 +220,7 @@ async function confirmDelete() {
         </thead>
         <tbody>
           <tr v-for="key in keys" :key="key.id">
-            <td>{{ key.label }}</td>
+            <td>{{ key.label }} <span v-if="key.elevated" class="elev-chip">elevated</span></td>
             <td><code>{{ key.keyPrefix }}…</code></td>
             <td>{{ scopeSummary(key) }}</td>
             <td>{{ consumerName(key.consumerId) }}</td>
@@ -368,6 +372,24 @@ async function confirmDelete() {
 }
 .link-btn.danger {
   color: #a11212;
+}
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.checkbox-field input {
+  width: auto;
+}
+.elev-chip {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  background: #fdf0e3;
+  color: #8a5a00;
+  border-radius: 999px;
+  font-size: 0.7rem;
 }
 .error {
   color: #a11212;

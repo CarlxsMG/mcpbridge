@@ -46,6 +46,7 @@ export interface ToolDetail {
   guards?: ToolGuardConfig;
   override?: ToolOverride;
   tags?: string[];
+  sensitive?: boolean | null;
 }
 
 export interface ClientDetail {
@@ -158,6 +159,7 @@ export interface McpApiKey {
   label: string;
   keyPrefix: string;
   consumerId: number | null;
+  elevated: boolean;
   scopes: McpKeyScopes | null;
   enabled: boolean;
   expiresAt: number | null;

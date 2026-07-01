@@ -257,6 +257,17 @@ async function saveTags(tags: string[]) {
   }
 }
 
+async function toggleSensitive(tool: ToolDetail) {
+  const next = tool.sensitive === true ? false : true;
+  delete rowError.value[tool.name];
+  try {
+    await api.patch(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(tool.name)}`, { sensitive: next });
+    await load();
+  } catch (err) {
+    rowError.value[tool.name] = err instanceof ApiError ? err.message : "Failed to update sensitivity.";
+  }
+}
+
 async function testTool(tool: ToolDetail) {
   testingTool.value = tool.name;
   testResult.value = null;
@@ -414,6 +425,7 @@ async function resetBreaker() {
             <th>Method</th>
             <th>Endpoint</th>
             <th>Guards</th>
+            <th>Sensitive</th>
             <th>Enabled</th>
             <th></th>
           </tr>
@@ -429,6 +441,11 @@ async function resetBreaker() {
             <td>
               <button type="button" class="link-btn" @click="openGuardEditor(tool)">
                 {{ tool.guards ? "Edit guards" : "Add guards" }}
+              </button>
+            </td>
+            <td>
+              <button type="button" class="link-btn" @click="toggleSensitive(tool)">
+                {{ tool.sensitive === true ? "🔒 Sensitive" : "Mark sensitive" }}
               </button>
             </td>
             <td>

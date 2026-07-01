@@ -276,6 +276,22 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_tool_call_log_key ON tool_call_log(key_id, created_at);
     `,
   },
+  {
+    id: 13,
+    name: "tool_sensitivity",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_sensitivity (
+        client_name TEXT NOT NULL,
+        tool_name   TEXT NOT NULL,
+        sensitive   INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+
+      ALTER TABLE mcp_api_keys ADD COLUMN elevated INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];
 
 /**

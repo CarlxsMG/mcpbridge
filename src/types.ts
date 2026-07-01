@@ -60,6 +60,8 @@ export interface RegisteredTool extends RestToolDefinition {
   override?: ToolOverride;
   /** Admin-assigned organizational tags (populated on read, not stored on the tool row). */
   tags?: string[];
+  /** Explicit destructive-gating flag (populated on read): true/false when set by an admin, null = use the auto-gate default. */
+  sensitive?: boolean | null;
 }
 
 export interface RegisteredClient {
