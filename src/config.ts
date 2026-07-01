@@ -192,6 +192,10 @@ export const config = {
    */
   secretEncryptionKey: process.env.SECRET_ENCRYPTION_KEY || undefined,
 
+  // ─── Usage analytics ───────────────────────────────────────────────────────
+  /** How long to retain per-call usage rows before opportunistic pruning (ms). Default 30 days. */
+  usageRetentionMs: Number(process.env.USAGE_RETENTION_MS) || 30 * 24 * 60 * 60_000,
+
   // ─── Per-tool rate-limit guard tier ────────────────────────────────────────
   /** Maximum number of LRU buckets for the per-tool guard rate limiter. */
   rateLimitMaxBucketsTool: Number(process.env.RATE_LIMIT_MAX_BUCKETS_TOOL) || 20_000,

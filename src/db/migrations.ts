@@ -174,6 +174,25 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 7,
+    name: "tool_call_log",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_call_log (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_name  TEXT NOT NULL,
+        tool_name    TEXT NOT NULL,
+        key_id       INTEGER,
+        status_class TEXT NOT NULL,
+        is_error     INTEGER NOT NULL,
+        duration_ms  INTEGER NOT NULL,
+        created_at   INTEGER NOT NULL
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_tool_call_log_created_at ON tool_call_log(created_at);
+      CREATE INDEX IF NOT EXISTS idx_tool_call_log_client_tool ON tool_call_log(client_name, tool_name);
+    `,
+  },
 ];
 
 /**

@@ -23,6 +23,7 @@ import { bundleRoutes } from "./routes/bundles.js";
 import { mcpKeyRoutes } from "./routes/mcp-keys.js";
 import { upstreamAuthRoutes } from "./routes/upstream-auth.js";
 import { discoveryRoutes } from "./routes/discovery.js";
+import { usageRoutes } from "./routes/usage.js";
 import { initBundles } from "./bundles.js";
 import { startLeaderElection } from "./db/leader-lease.js";
 
@@ -111,6 +112,7 @@ bundleRoutes(app);
 mcpKeyRoutes(app);
 upstreamAuthRoutes(app);
 discoveryRoutes(app);
+usageRoutes(app);
 
 // ─── Admin UI (Vue SPA) ─────────────────────────────────────────────────────
 // Sibling namespace to /admin-api, not nested under it — Express mount-path

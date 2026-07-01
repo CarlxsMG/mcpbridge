@@ -171,3 +171,31 @@ export interface DiscoveryPreview {
   count: number;
   tools: DiscoveredTool[];
 }
+
+export interface UsageSummary {
+  from: number;
+  calls: number;
+  errors: number;
+  errorRate: number;
+  avgMs: number;
+  maxMs: number;
+  tools: number;
+  keys: number;
+}
+
+export interface TopToolRow {
+  client: string;
+  tool: string;
+  calls: number;
+  errors: number;
+  errorRate: number;
+  avgMs: number;
+  maxMs: number;
+}
+
+export interface UsageByKeyRow {
+  keyId: number | null;
+  label: string;
+  calls: number;
+  errors: number;
+}

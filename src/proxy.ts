@@ -17,6 +17,7 @@ import { checkToolRateLimit } from "./middleware/rate-limiter.js";
 import { isKeyAllowed } from "./security/key-hash.js";
 import { resolveMcpKeyByToken, isToolInKeyScope } from "./security/mcp-key-store.js";
 import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
+import { recordUsage } from "./observability/usage.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls
@@ -202,18 +203,15 @@ export async function proxyToolCall(
     }
   }
 
-  // Key-centric scope enforcement — when the caller authenticated with a
-  // DB-managed MCP key that carries scopes, the target tool must fall within
-  // them. Legacy env keys and admin test-calls (no callerToken, or a token
-  // that doesn't resolve to a managed key) are unaffected.
-  if (callerToken) {
-    const keyRec = resolveMcpKeyByToken(callerToken);
-    if (keyRec && !isToolInKeyScope(keyRec.scopes, client.name, mcpToolName)) {
-      return {
-        isError: true,
-        content: [{ type: "text", text: `API key is not authorized to call tool '${mcpToolName}'` }],
-      };
-    }
+  // Resolve the managed key once — used for scope enforcement here and for
+  // usage attribution at every terminal outcome below. Legacy env keys and
+  // admin test-calls resolve to null (no scope restriction, unattributed).
+  const callerKey = callerToken ? resolveMcpKeyByToken(callerToken) : null;
+  if (callerKey && !isToolInKeyScope(callerKey.scopes, client.name, mcpToolName)) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: `API key is not authorized to call tool '${mcpToolName}'` }],
+    };
   }
 
   if (tool.guards?.rateLimitPerMin !== undefined) {
@@ -397,6 +395,7 @@ export async function proxyToolCall(
           proxyBodyCapRejections.inc({ client: client.name });
           log("warn", "Upstream response exceeded size limit", { tool: mcpToolName, client: client.name, limit: config.maxResponseBytes });
           recordToolCall(Date.now() - startTime, true);
+          recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "2xx", isError: true, durationMs: Date.now() - startTime });
           proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, (Date.now() - startTime) / 1000);
           return {
             isError: true,
@@ -411,6 +410,7 @@ export async function proxyToolCall(
         }
         log("info", "Tool call succeeded", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
         recordToolCall(Date.now() - startTime, false);
+        recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "2xx", isError: false, durationMs: Date.now() - startTime });
 
         // Fix 1 — Response header allowlist (no-op confirmation).
         // Only `content-type` is read internally to format the body; no upstream
@@ -455,6 +455,7 @@ export async function proxyToolCall(
       breaker.recordFailure();
       log("warn", "Tool call returned error", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
       recordToolCall(Date.now() - startTime, true);
+      recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: httpStatusClass(response.status), isError: true, durationMs: Date.now() - startTime });
       // Fix 3 — cap error-response body via the same readBodyWithCap helper used for
       // success responses, preventing a malicious upstream from OOM-ing the bridge with
       // an oversized error body (e.g. a 400 with a 10 GB payload).
@@ -473,6 +474,7 @@ export async function proxyToolCall(
         breaker.recordFailure();
         log("error", "Tool call failed", { tool: mcpToolName, client: client.name, error: lastError, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
         recordToolCall(Date.now() - startTime, true);
+        recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "error", isError: true, durationMs: Date.now() - startTime });
         return {
           content: [{ type: "text", text: `Failed to reach ${client.name}: ${lastError}` }],
           isError: true,
@@ -489,6 +491,7 @@ export async function proxyToolCall(
   const errorMsg = lastError || `REST API returned ${lastStatus}`;
   log("error", "Tool call failed after retries", { tool: mcpToolName, client: client.name, error: errorMsg, duration_ms: Date.now() - startTime, attempts: MAX_RETRIES + 1 });
   recordToolCall(Date.now() - startTime, true);
+  recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: lastError ? "error" : httpStatusClass(lastStatus ?? 0), isError: true, durationMs: Date.now() - startTime });
   return {
     content: [{ type: "text", text: `Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}` }],
     isError: true,
