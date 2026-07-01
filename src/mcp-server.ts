@@ -6,11 +6,19 @@ import {
 import { createRequire } from "module";
 import { registry } from "./registry.js";
 import { proxyToolCall } from "./proxy.js";
+import { isBundleEnabled, getBundleToolKeys } from "./bundles.js";
 
 const _require = createRequire(import.meta.url);
 const pkg = _require("../package.json") as { version: string };
 
 const activeServers = new Set<Server>();
+
+/**
+ * Which subset of the registry a server instance's session can see and call.
+ * Undefined (the aggregated /mcp endpoint) means every enabled client's
+ * tools flattened together — the legacy behaviour.
+ */
+export type McpServerScope = { kind: "client"; name: string } | { kind: "bundle"; name: string };
 
 /** Extracts a bearer token from a raw (possibly multi-value) Authorization header value. */
 function extractBearerFromHeader(value: unknown): string | undefined {
@@ -20,28 +28,49 @@ function extractBearerFromHeader(value: unknown): string | undefined {
 }
 
 /**
- * Creates an MCP server instance. When `clientScope` is set, the server is
- * bound to a single registered client — used by the sharded /mcp/:clientName
- * endpoint so a session only ever sees (and can call) that one client's tools.
+ * Creates an MCP server instance. When `scope` is set, the server is bound
+ * to a single registered client (sharded /mcp/:clientName) or a single
+ * admin-curated bundle (/mcp-custom/:bundleName) — a session only ever sees
+ * (and can call) that scope's tools. Bundle-scope resolution is a pure
+ * narrowing filter in front of the unchanged proxyToolCall() authorization
+ * chain (guards, circuit breaker, SSRF-safe fetch) — never a bypass.
  */
-export function createMcpServer(clientScope?: string): Server {
+export function createMcpServer(scope?: McpServerScope): Server {
   const server = new Server(
     { name: "mcp-rest-bridge", version: pkg.version },
     { capabilities: { tools: { listChanged: true } } }
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return { tools: clientScope ? registry.getMcpToolsForClient(clientScope) : registry.getAllMcpTools() };
+    if (scope?.kind === "client") {
+      return { tools: registry.getMcpToolsForClient(scope.name) };
+    }
+    if (scope?.kind === "bundle") {
+      if (!isBundleEnabled(scope.name)) return { tools: [] };
+      const keys = getBundleToolKeys(scope.name);
+      return { tools: keys ? registry.getMcpToolsForKeys(keys) : [] };
+    }
+    return { tools: registry.getAllMcpTools() };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name, arguments: args } = request.params;
 
-    if (clientScope && !name.startsWith(`${clientScope}__`)) {
+    if (scope?.kind === "client" && !name.startsWith(`${scope.name}__`)) {
       return {
         isError: true,
         content: [{ type: "text", text: `Unknown tool: ${name}` }],
       };
+    }
+
+    if (scope?.kind === "bundle") {
+      const keys = getBundleToolKeys(scope.name);
+      if (!isBundleEnabled(scope.name) || !keys?.has(name)) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Unknown tool: ${name}` }],
+        };
+      }
     }
 
     const callerToken = extractBearerFromHeader(

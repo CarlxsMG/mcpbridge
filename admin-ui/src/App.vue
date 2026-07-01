@@ -40,6 +40,7 @@ async function onLogout() {
       <div class="brand">MCP REST Bridge</div>
       <ul>
         <li><RouterLink to="/servers">Servers</RouterLink></li>
+        <li><RouterLink to="/bundles">Bundles</RouterLink></li>
         <li><RouterLink to="/overview">Overview</RouterLink></li>
         <li v-if="state.user?.role === 'admin'"><RouterLink to="/users">Users</RouterLink></li>
         <li><RouterLink to="/audit-log">Audit log</RouterLink></li>

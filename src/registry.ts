@@ -676,6 +676,27 @@ class Registry {
     return this.clients.get(name)?.tools;
   }
 
+  /**
+   * Servable (enabled) tools whose composite `clientName__toolName` key is
+   * in `keys`, for the bundle-scoped /mcp-custom/:bundleName endpoint. Same
+   * isServable filtering as getAllMcpTools/getMcpToolsForClient, so a bundle
+   * automatically reflects live enabled/disabled state of its member tools
+   * without the caller needing to duplicate that logic.
+   */
+  getMcpToolsForKeys(keys: Set<string>): { name: string; description: string; inputSchema: Record<string, unknown> }[] {
+    const result: { name: string; description: string; inputSchema: Record<string, unknown> }[] = [];
+
+    for (const [clientName, client] of this.clients) {
+      for (const tool of client.tools) {
+        const key = `${clientName}${TOOL_KEY_SEPARATOR}${tool.name}`;
+        if (!keys.has(key) || !this.isServable(client, tool)) continue;
+        result.push({ name: key, description: tool.description, inputSchema: tool.inputSchema });
+      }
+    }
+
+    return result;
+  }
+
   // -------------------------------------------------------------------------
   // Admin read models — SQL-backed so they include clients that have
   // registered before but aren't currently live (e.g. temporarily down),
@@ -750,6 +771,33 @@ class Registry {
     }
 
     return { items, nextCursor: hasMore ? page[page.length - 1].name : undefined };
+  }
+
+  /**
+   * Flat listing of every (client, tool) pair across every registered client,
+   * read from SQLite so it includes clients that aren't currently live —
+   * purpose-built for the bundle admin UI's tool picker, which (consistent
+   * with bundles.ts checking existence rather than "currently enabled" when
+   * validating membership) should let an admin pick a tool belonging to a
+   * temporarily-down client.
+   */
+  listAllTools(): { client: string; tool: string; description: string; enabled: boolean; clientEnabled: boolean }[] {
+    const db = getDb();
+    const rows = db
+      .query(
+        `SELECT c.name as client_name, c.enabled as client_enabled, t.name as tool_name, t.description, t.enabled
+         FROM tools t JOIN clients c ON c.name = t.client_name
+         ORDER BY c.name, t.name`
+      )
+      .all() as { client_name: string; client_enabled: number; tool_name: string; description: string; enabled: number }[];
+
+    return rows.map((r) => ({
+      client: r.client_name,
+      tool: r.tool_name,
+      description: r.description,
+      enabled: r.enabled === 1,
+      clientEnabled: r.client_enabled === 1,
+    }));
   }
 
   /** Full detail for one client — tools with guards, health, circuit-breaker state. Undefined if never registered. */

@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { registry } from "../registry.js";
-import { __resetDbForTesting } from "../db/connection.js";
+import { __resetDbForTesting, getDb } from "../db/connection.js";
+import { createBundle, getBundleDetail } from "../bundles.js";
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
@@ -72,5 +73,21 @@ describe("Registry.forgetClient", () => {
     // returned false for the not-live case).
     await reg("svc");
     expect(registry.getClient("svc")?.enabled).toBe(true);
+  });
+
+  test("purges bundle membership rows referencing a forgotten client's tools (same FK-cascade shape as tool_guards)", async () => {
+    await reg("svc", [makeTool({ name: "get-users" })]);
+    const created = await createBundle("mixed", undefined, [{ client: "svc", tool: "get-users" }], "test");
+    expect(created.ok).toBe(true);
+
+    await registry.forgetClient("svc");
+
+    // The bundle itself survives — only the stale membership row is gone.
+    const detail = getBundleDetail("mixed");
+    expect(detail).toBeDefined();
+    expect(detail?.tools).toEqual([]);
+
+    const row = getDb().query(`SELECT 1 FROM mcp_bundle_tools WHERE client_name = ? AND tool_name = ?`).get("svc", "get-users");
+    expect(row).toBeNull();
   });
 });

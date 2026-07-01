@@ -22,7 +22,7 @@ function requestId(res: Response): string | null {
 }
 
 /** Session-authenticated viewers can read but not mutate; Bearer callers and session admins can do both. */
-function requireAdminRole(req: Request, res: Response, next: NextFunction): void {
+export function requireAdminRole(req: Request, res: Response, next: NextFunction): void {
   if (req.authContext?.method === "session" && req.authContext.role === "viewer") {
     res.status(403).json({ error: { code: "FORBIDDEN", message: "This action requires the admin role", request_id: requestId(res) } });
     return;

@@ -2,12 +2,13 @@ import type { Express, Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { createMcpServer } from "./mcp-server.js";
+import { createMcpServer, type McpServerScope } from "./mcp-server.js";
 import { originValidator } from "./middleware/origin-validator.js";
 import { mcpAuth } from "./middleware/auth.js";
 import { rateLimitMcp } from "./middleware/rate-limiter.js";
 import { config } from "./config.js";
 import { registry } from "./registry.js";
+import { getBundleToolKeys } from "./bundles.js";
 import { setSessionCountGetter } from "./routes/metrics.js";
 import { log } from "./logger.js";
 
@@ -27,14 +28,22 @@ const streamableSessionIdByTransport = new WeakMap<StreamableHTTPServerTransport
 const sseSessionIdByTransport = new WeakMap<SSEServerTransport, string>();
 
 /**
- * Which client a *sharded* (/mcp/:clientName) streamable session is bound
- * to. Aggregated (/mcp) sessions never get an entry here. Used only to
- * reject a session on a *different* client's sharded URL (confused-deputy
+ * Which scope a *sharded* (/mcp/:clientName) or *bundle* (/mcp-custom/:bundleName)
+ * streamable session is bound to, namespaced as `client:<name>` / `bundle:<name>`
+ * so a client and a bundle that happen to share a literal name can never be
+ * confused (they live in separate SQL tables with independent uniqueness).
+ * Aggregated (/mcp) sessions never get an entry here. Used only to reject a
+ * session replayed against a *different* scope's URL (confused-deputy
  * defense) — the aggregated endpoint doesn't consult this map at all, since
  * a session's actual tool scope is bound into its `Server` instance at
  * creation time regardless of which URL later reaches its transport.
  */
-const sessionClientScope = new Map<string, string>();
+const sessionScope = new Map<string, string>();
+
+/** Namespaces a scope into the `sessionScope` map's key format. */
+function scopeKey(scope: McpServerScope): string {
+  return `${scope.kind}:${scope.name}`;
+}
 
 // Atomic session counter — incremented as a reservation BEFORE map insert,
 // decremented on every cleanup path (onclose, TTL eviction, error rollback,
@@ -61,7 +70,7 @@ function startSessionCleanup(): void {
         if (streamable) {
           try { streamable.close(); } catch {}
           streamableSessions.delete(id);
-          sessionClientScope.delete(id);
+          sessionScope.delete(id);
           activeSessionCount = Math.max(0, activeSessionCount - 1);
         }
         const sse = sseSessions.get(id);
@@ -82,12 +91,18 @@ export function getActiveSessionCount(): number {
 }
 
 // ============================================
-// Streamable HTTP handlers — shared between the aggregated /mcp endpoint
-// and the sharded /mcp/:clientName endpoint. `clientScope` is undefined for
-// the aggregated path.
+// Streamable HTTP handlers — shared between the aggregated /mcp endpoint,
+// the sharded /mcp/:clientName endpoint, and the bundle /mcp-custom/:bundleName
+// endpoint. `scope` is undefined for the aggregated path.
 // ============================================
 
-async function handleStreamablePost(req: Request, res: Response, clientScope: string | undefined): Promise<void> {
+/** True when `scope` names a client or bundle that doesn't currently exist. */
+function scopeNotFound(scope: McpServerScope): boolean {
+  if (scope.kind === "client") return !registry.getClient(scope.name);
+  return getBundleToolKeys(scope.name) === undefined;
+}
+
+async function handleStreamablePost(req: Request, res: Response, scope: McpServerScope | undefined): Promise<void> {
   let transport: StreamableHTTPServerTransport | undefined;
   let transportInserted = false;
   const rawSessionId = req.headers["mcp-session-id"];
@@ -104,9 +119,9 @@ async function handleStreamablePost(req: Request, res: Response, clientScope: st
 
   try {
     if (sessionId && streamableSessions.has(sessionId)) {
-      if (clientScope && sessionClientScope.get(sessionId) !== clientScope) {
+      if (scope && sessionScope.get(sessionId) !== scopeKey(scope)) {
         // Same 404 shape as "unknown session" — don't leak whether the ID
-        // exists but belongs to a different shard.
+        // exists but belongs to a different shard/bundle.
         res.status(404).json({
           jsonrpc: "2.0",
           error: { code: -32000, message: "Session not found or expired" },
@@ -119,8 +134,11 @@ async function handleStreamablePost(req: Request, res: Response, clientScope: st
       await existingTransport.handleRequest(req, res, req.body);
       touchSession(sessionId);
     } else if (!sessionId) {
-      if (clientScope && !registry.getClient(clientScope)) {
-        res.status(404).json({ error: { code: "CLIENT_NOT_FOUND", message: "Client not found" } });
+      if (scope && scopeNotFound(scope)) {
+        const notFound = scope.kind === "client"
+          ? { code: "CLIENT_NOT_FOUND", message: "Client not found" }
+          : { code: "BUNDLE_NOT_FOUND", message: "Bundle not found" };
+        res.status(404).json({ error: notFound });
         return;
       }
 
@@ -148,12 +166,12 @@ async function handleStreamablePost(req: Request, res: Response, clientScope: st
         if (sid !== undefined) {
           streamableSessions.delete(sid);
           sessionActivity.delete(sid);
-          sessionClientScope.delete(sid);
+          sessionScope.delete(sid);
           activeSessionCount = Math.max(0, activeSessionCount - 1);
         }
       };
 
-      const server = createMcpServer(clientScope);
+      const server = createMcpServer(scope);
       await server.connect(transport);
 
       // The session ID is set after handling the initialize request
@@ -163,7 +181,7 @@ async function handleStreamablePost(req: Request, res: Response, clientScope: st
       if (transport.sessionId) {
         streamableSessions.set(transport.sessionId, transport);
         streamableSessionIdByTransport.set(transport, transport.sessionId);
-        if (clientScope) sessionClientScope.set(transport.sessionId, clientScope);
+        if (scope) sessionScope.set(transport.sessionId, scopeKey(scope));
         transportInserted = true;
         touchSession(transport.sessionId);
       }
@@ -176,7 +194,7 @@ async function handleStreamablePost(req: Request, res: Response, clientScope: st
       });
     }
   } catch (err) {
-    log("error", clientScope ? `POST /mcp/${clientScope} failed` : "POST /mcp failed", { sessionId, err });
+    log("error", scope ? `POST /mcp handler failed (scope=${scopeKey(scope)})` : "POST /mcp failed", { sessionId, err });
     if (transport && !transportInserted) {
       // Release the reservation taken before the failed insert
       activeSessionCount = Math.max(0, activeSessionCount - 1);
@@ -194,7 +212,7 @@ async function handleStreamablePost(req: Request, res: Response, clientScope: st
   }
 }
 
-async function handleStreamableGet(req: Request, res: Response, clientScope: string | undefined): Promise<void> {
+async function handleStreamableGet(req: Request, res: Response, scope: McpServerScope | undefined): Promise<void> {
   const rawSessionId = req.headers["mcp-session-id"];
   if (!isValidSessionId(rawSessionId)) {
     res.status(400).json({
@@ -203,7 +221,7 @@ async function handleStreamableGet(req: Request, res: Response, clientScope: str
     return;
   }
   const sessionId = rawSessionId;
-  if (clientScope && sessionClientScope.get(sessionId) !== clientScope) {
+  if (scope && sessionScope.get(sessionId) !== scopeKey(scope)) {
     res.status(404).json({ jsonrpc: "2.0", error: { code: -32000, message: "Session not found" }, id: null });
     return;
   }
@@ -221,7 +239,7 @@ async function handleStreamableGet(req: Request, res: Response, clientScope: str
   await transport.handleRequest(req, res);
 }
 
-async function handleStreamableDelete(req: Request, res: Response, clientScope: string | undefined): Promise<void> {
+async function handleStreamableDelete(req: Request, res: Response, scope: McpServerScope | undefined): Promise<void> {
   const rawSessionId = req.headers["mcp-session-id"];
   if (!isValidSessionId(rawSessionId)) {
     res.status(400).json({
@@ -230,7 +248,7 @@ async function handleStreamableDelete(req: Request, res: Response, clientScope: 
     return;
   }
   const sessionId = rawSessionId;
-  if (clientScope && sessionClientScope.get(sessionId) !== clientScope) {
+  if (scope && sessionScope.get(sessionId) !== scopeKey(scope)) {
     res.status(404).json({ jsonrpc: "2.0", error: { code: -32000, message: "Session not found" }, id: null });
     return;
   }
@@ -245,7 +263,7 @@ async function handleStreamableDelete(req: Request, res: Response, clientScope: 
   }
   await transport.handleRequest(req, res);
   streamableSessions.delete(sessionId);
-  sessionClientScope.delete(sessionId);
+  sessionScope.delete(sessionId);
   activeSessionCount = Math.max(0, activeSessionCount - 1);
 }
 
@@ -268,13 +286,40 @@ export function setupTransports(app: Express): () => void {
   app.use("/mcp/:clientName", rateLimitMcp(config.rateLimitMcp));
 
   app.post("/mcp/:clientName", async (req, res) => {
-    await handleStreamablePost(req, res, req.params.clientName);
+    await handleStreamablePost(req, res, { kind: "client", name: req.params.clientName });
   });
   app.get("/mcp/:clientName", async (req, res) => {
-    await handleStreamableGet(req, res, req.params.clientName);
+    await handleStreamableGet(req, res, { kind: "client", name: req.params.clientName });
   });
   app.delete("/mcp/:clientName", async (req, res) => {
-    await handleStreamableDelete(req, res, req.params.clientName);
+    await handleStreamableDelete(req, res, { kind: "client", name: req.params.clientName });
+  });
+
+  // ============================================
+  // Bundle Streamable HTTP transport — one endpoint per admin-curated bundle
+  // (a named cross-client tool selection, see src/bundles.ts). Deliberately a
+  // sibling top-level path ("/mcp-custom", not "/mcp/custom") rather than
+  // nested under /mcp: Express's app.use() prefix-matches on path segments,
+  // so a nested path would still traverse the /mcp/:clientName and /mcp
+  // middleware chains above (double/triple-running origin/auth/rate-limit
+  // checks — confirmed empirically to under-deliver the rate limit budget).
+  // A distinct first segment has zero prefix overlap with either, regardless
+  // of registration order — the same reasoning /admin vs /admin-api already
+  // relies on below. Always mounted (not gated by ENABLE_AGGREGATED_MCP).
+  // ============================================
+
+  app.use("/mcp-custom/:bundleName", originValidator);
+  app.use("/mcp-custom/:bundleName", mcpAuth);
+  app.use("/mcp-custom/:bundleName", rateLimitMcp(config.rateLimitMcp));
+
+  app.post("/mcp-custom/:bundleName", async (req, res) => {
+    await handleStreamablePost(req, res, { kind: "bundle", name: req.params.bundleName });
+  });
+  app.get("/mcp-custom/:bundleName", async (req, res) => {
+    await handleStreamableGet(req, res, { kind: "bundle", name: req.params.bundleName });
+  });
+  app.delete("/mcp-custom/:bundleName", async (req, res) => {
+    await handleStreamableDelete(req, res, { kind: "bundle", name: req.params.bundleName });
   });
 
   // ============================================
@@ -413,7 +458,7 @@ export function setupTransports(app: Express): () => void {
     for (const [id, transport] of streamableSessions) {
       try { transport.close(); } catch {}
       streamableSessions.delete(id);
-      sessionClientScope.delete(id);
+      sessionScope.delete(id);
       activeSessionCount = Math.max(0, activeSessionCount - 1);
     }
     for (const [id, transport] of sseSessions) {

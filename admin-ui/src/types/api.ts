@@ -92,6 +92,36 @@ export interface CurrentUser {
   user?: { username: string; role: AdminRole };
 }
 
+export interface BundleToolRef {
+  client: string;
+  tool: string;
+}
+
+export interface BundleSummary {
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  toolsCount: number;
+}
+
+export interface BundleDetail {
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+  tools: BundleToolRef[];
+}
+
+/** One row of GET /admin-api/tools — the flat cross-client listing that powers the bundle tool picker. */
+export interface ToolListItem {
+  client: string;
+  tool: string;
+  description: string;
+  enabled: boolean;
+  clientEnabled: boolean;
+}
+
 export interface ApiErrorBody {
   error: { code: string; message: string; request_id?: string | null };
 }

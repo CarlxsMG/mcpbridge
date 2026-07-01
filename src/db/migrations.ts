@@ -115,6 +115,32 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_admin_audit_log_created_at ON admin_audit_log(created_at);
     `,
   },
+  {
+    id: 4,
+    name: "mcp_bundles",
+    sql: `
+      CREATE TABLE IF NOT EXISTS mcp_bundles (
+        name         TEXT PRIMARY KEY
+                       CHECK (name GLOB '[a-z0-9]*' AND length(name) BETWEEN 1 AND 63),
+        description  TEXT,
+        enabled      INTEGER NOT NULL DEFAULT 1,
+        created_at   INTEGER NOT NULL,
+        updated_at   INTEGER NOT NULL,
+        created_by   TEXT
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS mcp_bundle_tools (
+        bundle_name  TEXT NOT NULL REFERENCES mcp_bundles(name) ON DELETE CASCADE,
+        client_name  TEXT NOT NULL,
+        tool_name    TEXT NOT NULL,
+        created_at   INTEGER NOT NULL,
+        PRIMARY KEY (bundle_name, client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_mcp_bundle_tools_client_tool ON mcp_bundle_tools(client_name, tool_name);
+    `,
+  },
 ];
 
 /**
