@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
-import type { ClientDetail, ToolDetail, UpstreamAuthInfo } from "../types/api";
+import type { ClientDetail, ToolDetail, UpstreamAuthInfo, DiscoveredTool, DiscoveryPreview } from "../types/api";
 import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import GuardEditor from "../components/GuardEditor.vue";
@@ -32,6 +32,24 @@ const uaHeader = ref("");
 const uaValue = ref("");
 const uaSaving = ref(false);
 const uaError = ref("");
+
+// Re-sync tools from an OpenAPI spec
+const resyncOpen = ref(false);
+const resyncUrl = ref("");
+const resyncPreview = ref<DiscoveredTool[] | null>(null);
+const resyncing = ref(false);
+const applyingResync = ref(false);
+const resyncError = ref("");
+const resyncDiff = computed(() => {
+  if (!resyncPreview.value || !detail.value) return null;
+  const current = new Set(detail.value.tools.map((t) => t.name));
+  const next = new Set(resyncPreview.value.map((t) => t.name));
+  return {
+    added: [...next].filter((n) => !current.has(n)),
+    removed: [...current].filter((n) => !next.has(n)),
+    kept: [...next].filter((n) => current.has(n)),
+  };
+});
 
 const activeTool = computed(() => detail.value?.tools.find((t) => t.name === props.tool) ?? null);
 
@@ -100,6 +118,46 @@ async function clearUpstreamAuthCreds() {
     await loadUpstreamAuth();
   } catch (err) {
     uaError.value = err instanceof ApiError ? err.message : "Failed to clear credentials.";
+  }
+}
+
+async function previewResync() {
+  resyncError.value = "";
+  resyncPreview.value = null;
+  if (!resyncUrl.value.trim()) {
+    resyncError.value = "Enter the OpenAPI URL.";
+    return;
+  }
+  resyncing.value = true;
+  try {
+    const res = await api.post<DiscoveryPreview>("/admin-api/discovery/preview", { openapi_url: resyncUrl.value.trim() });
+    resyncPreview.value = res.tools;
+  } catch (err) {
+    resyncError.value = err instanceof ApiError ? err.message : "Preview failed.";
+  } finally {
+    resyncing.value = false;
+  }
+}
+
+async function applyResync() {
+  if (!detail.value) return;
+  applyingResync.value = true;
+  resyncError.value = "";
+  try {
+    await api.post("/register", {
+      name: detail.value.name,
+      health_url: detail.value.healthUrl,
+      base_url: detail.value.baseUrl,
+      openapi_url: resyncUrl.value.trim(),
+    });
+    resyncOpen.value = false;
+    resyncPreview.value = null;
+    resyncUrl.value = "";
+    await load();
+  } catch (err) {
+    resyncError.value = err instanceof ApiError ? err.message : "Re-sync failed.";
+  } finally {
+    applyingResync.value = false;
   }
 }
 
@@ -291,6 +349,32 @@ async function resetBreaker() {
           <p v-if="uaError" class="error">{{ uaError }}</p>
           <button type="submit" class="btn-primary" :disabled="uaSaving">{{ uaSaving ? "Saving…" : "Save" }}</button>
         </form>
+      </div>
+
+      <div class="upstream-auth">
+        <div class="ua-head">
+          <h2>Re-sync from OpenAPI</h2>
+          <button type="button" class="btn-secondary" @click="resyncOpen = !resyncOpen">{{ resyncOpen ? "Cancel" : "Re-sync" }}</button>
+        </div>
+        <div v-if="resyncOpen" class="resync-body">
+          <div class="field-inline">
+            <input v-model="resyncUrl" type="url" placeholder="https://api.example.com/openapi.json" />
+            <button type="button" class="btn-secondary" :disabled="resyncing" @click="previewResync">{{ resyncing ? "Discovering…" : "Preview diff" }}</button>
+          </div>
+          <p v-if="resyncError" class="error">{{ resyncError }}</p>
+          <div v-if="resyncDiff" class="diff">
+            <p class="diff-summary">
+              <strong>{{ resyncDiff.added.length }}</strong> added ·
+              <strong>{{ resyncDiff.removed.length }}</strong> removed ·
+              <strong>{{ resyncDiff.kept.length }}</strong> unchanged
+            </p>
+            <p v-if="resyncDiff.added.length" class="diff-add">+ {{ resyncDiff.added.join(", ") }}</p>
+            <p v-if="resyncDiff.removed.length" class="diff-rem">− {{ resyncDiff.removed.join(", ") }}</p>
+            <button type="button" class="btn-primary" :disabled="applyingResync" @click="applyResync">
+              {{ applyingResync ? "Applying…" : "Apply re-sync" }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <h2>Tools ({{ detail.tools.length }})</h2>
@@ -583,5 +667,34 @@ async function resetBreaker() {
 }
 .link-btn.danger {
   color: #a11212;
+}
+.resync-body {
+  margin-top: 0.9rem;
+}
+.field-inline {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+.field-inline input {
+  flex: 1;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #cfd4da;
+  border-radius: 6px;
+}
+.diff {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+.diff-summary {
+  margin: 0 0 0.4rem;
+}
+.diff-add {
+  color: #146c2e;
+  margin: 0.2rem 0;
+}
+.diff-rem {
+  color: #a11212;
+  margin: 0.2rem 0;
 }
 </style>

@@ -40,6 +40,7 @@ async function onLogout() {
       <div class="brand">MCP REST Bridge</div>
       <ul>
         <li><RouterLink to="/servers">Servers</RouterLink></li>
+        <li><RouterLink to="/register-server">Add server</RouterLink></li>
         <li><RouterLink to="/bundles">Bundles</RouterLink></li>
         <li><RouterLink to="/keys">API keys</RouterLink></li>
         <li><RouterLink to="/overview">Overview</RouterLink></li>

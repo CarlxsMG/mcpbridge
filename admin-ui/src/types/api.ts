@@ -158,3 +158,16 @@ export interface UpstreamAuthInfo {
   headerName?: string | null;
   updatedAt?: number;
 }
+
+export interface DiscoveredTool {
+  name: string;
+  method: string;
+  endpoint: string;
+  description: string;
+}
+
+/** POST /admin-api/discovery/preview response. */
+export interface DiscoveryPreview {
+  count: number;
+  tools: DiscoveredTool[];
+}
