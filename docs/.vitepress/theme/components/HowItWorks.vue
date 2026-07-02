@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// "How it works" — the request journey: a tool call comes in over MCP, crosses
-// the ink bridge along a single teal artery through the guard pipeline, and fans
-// out to REST + MCP backends. Every connector leaves its chip horizontally and
-// meets the straight trunk horizontally (tangent-continuous) so nothing kinks.
-// Theme-adaptive; the traveling teal "signal" is the page's signature motif.
+// "How it works" — the request journey: tool calls come in over MCP, cross the
+// ink bridge along a single teal artery through the guard pipeline, and fan out
+// to REST + MCP backends. Connectors leave chips horizontal and meet the straight
+// trunk horizontal (tangent-continuous) so nothing kinks. Several teal "signals"
+// flow at once, from different clients to different backends, passing *behind* the
+// gate stations — the page's signature motif.
 </script>
 
 <template>
@@ -31,10 +32,19 @@
         <path class="hiw-wire" d="M544 176 C596 176 596 132 648 132" fill="none" />
         <path class="hiw-wire" d="M544 176 C596 176 596 220 648 220" fill="none" />
 
-        <!-- 3 · the teal artery / pipeline trunk (straight, on top of the card) -->
+        <!-- 3 · the teal artery / pipeline trunk (straight) -->
         <path class="hiw-spine" d="M256 176 H544" fill="none" />
 
-        <!-- 4 · gate stations on the trunk -->
+        <!-- 4 · traveling signals — drawn BEFORE the gates so they pass behind them.
+             Three at once, from different clients to different backends, staggered. -->
+        <circle class="hiw-pulse-halo hiw-a" r="8" />
+        <circle class="hiw-pulse hiw-a" r="4.4" />
+        <circle class="hiw-pulse-halo hiw-b" r="8" />
+        <circle class="hiw-pulse hiw-b" r="4.4" />
+        <circle class="hiw-pulse-halo hiw-c" r="8" />
+        <circle class="hiw-pulse hiw-c" r="4.4" />
+
+        <!-- 5 · gate stations on the trunk (on top of the signals) -->
         <g class="hiw-gates">
           <circle class="hiw-gate" cx="288" cy="176" r="12" />
           <circle class="hiw-gate-core" cx="288" cy="176" r="3.2" />
@@ -55,7 +65,7 @@
           <text class="hiw-gate-label" x="512" y="202">Audit</text>
         </g>
 
-        <!-- 5 · bridge header -->
+        <!-- 6 · bridge header -->
         <g class="hiw-glyph" transform="translate(276,60)">
           <line x1="4" y1="1" x2="4" y2="12" />
           <circle cx="14" cy="4" r="2.4" />
@@ -67,7 +77,7 @@
         <line class="hiw-divider" x1="276" y1="108" x2="524" y2="108" />
         <text class="hiw-pipe-label" x="276" y="132">GUARD PIPELINE</text>
 
-        <!-- 6 · chips (cover the connector ends) -->
+        <!-- 7 · chips (cover the connector ends) -->
         <g class="hiw-chip-g">
           <rect class="hiw-chip" x="16" y="48" width="172" height="44" rx="11" />
           <circle class="hiw-node" cx="40" cy="70" r="4" />
@@ -94,18 +104,14 @@
           <text class="hiw-label" x="690" y="225">MCP upstreams</text>
         </g>
 
-        <!-- 7 · segment labels -->
+        <!-- 8 · segment labels -->
         <text class="hiw-seg" x="240" y="168" text-anchor="middle">MCP</text>
         <text class="hiw-seg" x="600" y="118" text-anchor="middle">REST</text>
         <text class="hiw-seg" x="600" y="222" text-anchor="middle">MCP</text>
-
-        <!-- 8 · traveling signal (mid client → trunk → a backend) -->
-        <circle class="hiw-dot-halo" r="9" />
-        <circle class="hiw-dot" r="4.5" />
       </svg>
     </div>
     <figcaption class="hiw-cap">
-      One tool call in over MCP — dispatched out to your REST APIs or MCP servers, through the
+      Tool calls in over MCP — dispatched out to your REST APIs or MCP servers, through the
       full guard stack on every hop.
     </figcaption>
   </figure>
@@ -173,10 +179,6 @@
   stroke-width: 1;
   filter: drop-shadow(0 14px 30px rgba(14, 17, 22, 0.22));
 }
-:global(.dark) .hiw-bridge {
-  fill: #171b24;
-  stroke: #313848;
-}
 .hiw-glyph {
   fill: none;
   stroke: #00a99a;
@@ -191,7 +193,7 @@
   font-weight: 600;
 }
 .hiw-bridge-sub {
-  fill: #8d94a3;
+  fill: #9aa1ae;
   font-family: var(--vp-font-family-mono);
   font-size: 10.5px;
 }
@@ -211,49 +213,87 @@
   stroke: #00a99a;
   stroke-width: 1.5;
 }
-:global(.dark) .hiw-gate {
-  fill: #0e1116;
-}
 .hiw-gate-core {
   fill: #00a99a;
 }
 .hiw-gate-label {
-  fill: #c3c8d0;
+  fill: #b9c0ca;
   font-family: var(--vp-font-family-mono);
   font-size: 10px;
   text-anchor: middle;
 }
 
-/* Traveling signal — the signature motif. */
-.hiw-dot {
+/* ── Dark mode: lift the card off the ink page, and brighten every label so text
+      never reads as dim grey on the dark card/background. ── */
+:global(.dark) .hiw-bridge {
+  fill: #171b24;
+  stroke: #313848;
+}
+:global(.dark) .hiw-gate {
+  fill: #0e1116;
+}
+:global(.dark) .hiw-label {
+  fill: #eaedf1;
+}
+:global(.dark) .hiw-eyebrow {
+  fill: #8b93a2;
+}
+:global(.dark) .hiw-seg {
+  fill: #b7bec9;
+}
+:global(.dark) .hiw-gate-label {
+  fill: #dae0e7;
+}
+:global(.dark) .hiw-bridge-sub {
+  fill: #9aa1ae;
+}
+
+/* ── Traveling signals ── */
+.hiw-pulse {
   fill: #2fd4c4;
-}
-.hiw-dot-halo {
-  fill: #00a99a;
-  opacity: 0.25;
-}
-.hiw-dot,
-.hiw-dot-halo {
-  offset-path: path('M188 138 C222 138 222 176 256 176 H544 C596 176 596 132 648 132');
+  opacity: 0;
   offset-distance: 0%;
 }
+.hiw-pulse-halo {
+  fill: #00a99a;
+  opacity: 0;
+  offset-distance: 0%;
+}
+.hiw-a {
+  offset-path: path('M188 70 C222 70 222 176 256 176 H544 C596 176 596 132 648 132');
+}
+.hiw-b {
+  offset-path: path('M188 206 C222 206 222 176 256 176 H544 C596 176 596 220 648 220');
+}
+.hiw-c {
+  offset-path: path('M188 138 C222 138 222 176 256 176 H544 C596 176 596 132 648 132');
+}
 @media (prefers-reduced-motion: no-preference) {
-  .hiw-dot {
-    animation: hiw-travel 4.6s cubic-bezier(0.55, 0, 0.45, 1) infinite;
+  .hiw-pulse {
+    animation: hiw-flow 5s linear infinite;
   }
-  .hiw-dot-halo {
-    animation: hiw-travel-halo 4.6s cubic-bezier(0.55, 0, 0.45, 1) infinite;
+  .hiw-pulse-halo {
+    animation: hiw-flow-halo 5s linear infinite;
+  }
+  .hiw-a {
+    animation-delay: -0.2s;
+  }
+  .hiw-b {
+    animation-delay: -1.9s;
+  }
+  .hiw-c {
+    animation-delay: -3.6s;
   }
 }
-@keyframes hiw-travel {
+@keyframes hiw-flow {
   0% {
     offset-distance: 0%;
     opacity: 0;
   }
-  12% {
+  8% {
     opacity: 1;
   }
-  86% {
+  88% {
     opacity: 1;
   }
   100% {
@@ -261,16 +301,16 @@
     opacity: 0;
   }
 }
-@keyframes hiw-travel-halo {
+@keyframes hiw-flow-halo {
   0% {
     offset-distance: 0%;
     opacity: 0;
   }
-  12% {
-    opacity: 0.25;
+  8% {
+    opacity: 0.22;
   }
-  86% {
-    opacity: 0.25;
+  88% {
+    opacity: 0.22;
   }
   100% {
     offset-distance: 100%;
