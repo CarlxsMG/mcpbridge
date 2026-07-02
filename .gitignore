@@ -42,6 +42,7 @@ data/
 .env
 .env.*
 !.env.example
+!.env.test
 
 # Playwright MCP manual-testing artifacts
 .playwright-mcp/
