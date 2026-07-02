@@ -3,7 +3,7 @@
 // instances → one shared SQLite that coordinates them (config, shared rate
 // counters, registry sync, leader lease). Same visual system as HowItWorks.
 const instances = [1, 2, 3]
-const cx = [168, 360, 552] // centre x of each instance
+const cx = [170, 360, 550] // centre x of each instance
 const ix = (i: number) => cx[i] - 84 // left x (width 168)
 </script>
 
@@ -11,7 +11,7 @@ const ix = (i: number) => cx[i] - 84 // left x (width 168)
   <figure class="so">
     <div class="so-card">
       <div class="so-scroll">
-        <svg viewBox="0 0 720 400" role="img" aria-labelledby="so-title so-desc" class="so-svg">
+        <svg viewBox="0 0 720 424" role="img" aria-labelledby="so-title so-desc" class="so-svg">
           <title id="so-title">Scaling MCP REST Bridge horizontally</title>
           <desc id="so-desc">
             MCP clients reach a load balancer, which spreads traffic across several identical
@@ -25,52 +25,51 @@ const ix = (i: number) => cx[i] - 84 // left x (width 168)
             </marker>
           </defs>
 
-          <!-- Every arrow ends with a short STRAIGHT run (longer than the arrowhead) so the
-               stroke is hidden under the head and the line reads as ending at its base — even
-               on the lateral curves. -->
+          <!-- Arrows leave the LB diagonally (a natural fan) and arrive vertically; each ends
+               with a short straight run so the stroke tucks under the arrowhead. -->
           <!-- clients → LB -->
-          <path class="so-flow" d="M360 58 V88" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 58 V90" marker-end="url(#so-arrow)" fill="none" />
           <!-- LB → each instance -->
-          <path class="so-flow" d="M360 138 C360 158 168 158 168 166 V178" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M360 138 V178" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M360 138 C360 158 552 158 552 166 V178" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 140 C336 176 170 172 170 200 V212" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 140 V212" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 140 C384 176 550 172 550 200 V212" marker-end="url(#so-arrow)" fill="none" />
           <!-- each instance ↕ shared SQLite (spread out along the SQLite top) -->
-          <path class="so-flow" d="M168 254 V266 C168 294 280 300 280 304 V316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M360 254 V316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M552 254 V266 C552 294 440 300 440 304 V316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M170 288 V300 C170 336 280 340 280 356 V368" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 288 V368" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M550 288 V300 C550 336 440 340 440 356 V368" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
 
           <!-- clients -->
           <g class="so-chip-g">
-            <rect class="so-chip" x="280" y="16" width="160" height="42" rx="11" />
-            <circle class="so-cnode" cx="306" cy="37" r="4" />
-            <text class="so-label" x="322" y="42">MCP clients</text>
+            <rect class="so-chip" x="280" y="18" width="160" height="42" rx="11" />
+            <circle class="so-cnode" cx="306" cy="39" r="4" />
+            <text class="so-label" x="322" y="44">MCP clients</text>
           </g>
 
           <!-- load balancer -->
           <g class="so-chip-g">
-            <rect class="so-chip" x="205" y="88" width="310" height="50" rx="12" />
-            <text class="so-label so-mid" x="360" y="109">Load balancer</text>
-            <text class="so-sub so-mid" x="360" y="126">health-check /health · sticky MCP sessions</text>
+            <rect class="so-chip" x="205" y="90" width="310" height="50" rx="12" />
+            <text class="so-label so-mid" x="360" y="111">Load balancer</text>
+            <text class="so-sub so-mid" x="360" y="128">health-check /health · sticky MCP sessions</text>
           </g>
 
           <!-- bridge instances (ink) -->
           <g v-for="(n, i) in instances" :key="n" class="so-inst-g">
-            <rect class="so-inst" :x="ix(i)" y="178" width="168" height="76" rx="14" />
-            <g class="so-glyph" :transform="`translate(${ix(i) + 18},${194})`">
+            <rect class="so-inst" :x="ix(i)" y="212" width="168" height="76" rx="14" />
+            <g class="so-glyph" :transform="`translate(${ix(i) + 18},${228})`">
               <line x1="4" y1="1" x2="4" y2="12" />
               <circle cx="14" cy="4" r="2.4" />
               <circle cx="4" cy="15" r="2.4" />
               <path d="M14 6.4a7 7 0 0 1-7 7" />
             </g>
-            <text class="so-inst-title" :x="ix(i) + 42" y="203">MCP REST Bridge</text>
-            <text class="so-inst-sub" :x="ix(i) + 18" y="232">instance {{ n }}</text>
+            <text class="so-inst-title" :x="ix(i) + 42" y="237">MCP REST Bridge</text>
+            <text class="so-inst-sub" :x="ix(i) + 18" y="266">instance {{ n }}</text>
           </g>
 
           <!-- shared SQLite -->
           <g class="so-chip-g">
-            <rect class="so-db" x="200" y="316" width="320" height="54" rx="12" />
-            <text class="so-db-title so-mid" x="360" y="339">Shared SQLite</text>
-            <text class="so-db-sub so-mid" x="360" y="356">config · rate counters · registry sync · leader lease</text>
+            <rect class="so-db" x="200" y="368" width="320" height="54" rx="12" />
+            <text class="so-db-title so-mid" x="360" y="391">Shared SQLite</text>
+            <text class="so-db-sub so-mid" x="360" y="408">config · rate counters · registry sync · leader lease</text>
           </g>
         </svg>
       </div>
@@ -99,7 +98,7 @@ const ix = (i: number) => cx[i] - 84 // left x (width 168)
 }
 .so-svg {
   width: 100%;
-  min-width: 580px;
+  min-width: 560px;
   height: auto;
   display: block;
   text-rendering: geometricPrecision;
