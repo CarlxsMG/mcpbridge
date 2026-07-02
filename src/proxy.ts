@@ -9,7 +9,19 @@ import {
   proxyBodyCapRejections,
   proxyRetryAttempts,
   proxyRequestDuration,
+  cacheEvents,
+  lbRequests,
 } from "./observability/metrics.js";
+import { getToolCacheConfig, cacheKey, cacheGet, cacheSet } from "./response-cache.js";
+import { getLb, selectTarget, markTargetUp, markTargetDown, incInflight, decInflight, type LbChoice } from "./load-balancer.js";
+import { getPaginationConfig, extractItems, nextCursorValue, parseNextLink, withItems, type PaginationConfig } from "./pagination.js";
+import { getStreamingConfig, parseStream } from "./streaming.js";
+import { getToolTransform, applyOps } from "./transform.js";
+import { getToolMock } from "./mock.js";
+import { requiresApproval, approvalArgsHash, createApproval, consumeApproval, notifyApproval } from "./approvals.js";
+import { recordTraffic } from "./traffic.js";
+import { getToolGraphql, getToolWs, wsRequest } from "./backends.js";
+import { getOAuthBearer } from "./oauth.js";
 import { refreshPinIfStale } from "./security/ip-validator.js";
 import type { PinnedIp } from "./security/ip-validator.js";
 import { isDeleting } from "./registry.js";
@@ -159,6 +171,124 @@ async function readBodyWithCap(response: Response): Promise<string | null> {
   return new TextDecoder().decode(combined);
 }
 
+interface PageCtx {
+  targetBaseUrl: string;
+  resolvedPath: string;
+  baseQuery: URLSearchParams;
+  pinIp: string;
+  originalHost: string;
+  headers: Record<string, string>;
+  timeoutMs: number;
+  externalSignal: AbortSignal;
+  maxBytes: number;
+  firstBytes: number;
+  firstLink: string | null;
+}
+
+/** Builds a same-host page URL with the pinned IP substituted for the hostname. */
+function buildPinnedUrl(baseUrl: string, path: string, query: URLSearchParams, pinIp: string): string {
+  const u = new URL(`${baseUrl}${path}`);
+  u.hostname = pinIp;
+  u.search = query.toString();
+  return u.toString();
+}
+
+/**
+ * Follows pagination from a first JSON page, aggregating the array at
+ * `cfg.itemsPath` across pages. Returns the merged body as pretty JSON, or null
+ * when the first body isn't paginable (not JSON / itemsPath not an array / empty).
+ * Every follow-up reuses the pinned IP + Host of the primary request; a `link`
+ * next URL to a different host is not followed (SSRF-safe). Bounded by
+ * cfg.maxPages and the aggregate byte cap.
+ */
+async function fetchAllPages(firstBodyText: string, cfg: PaginationConfig, ctx: PageCtx): Promise<string | null> {
+  let firstBody: unknown;
+  try {
+    firstBody = JSON.parse(firstBodyText);
+  } catch {
+    return null;
+  }
+  const firstItems = extractItems(firstBody, cfg.itemsPath);
+  if (!firstItems || firstItems.length === 0) return null;
+
+  const all: unknown[] = [...firstItems];
+  let totalBytes = ctx.firstBytes;
+  let cursor: string | null = cfg.strategy === "cursor" ? nextCursorValue(firstBody, cfg.cursorResponsePath ?? "") : null;
+  let link: string | null = cfg.strategy === "link" ? parseNextLink(ctx.firstLink) : null;
+  let pageNum = 2;
+
+  const fetchPage = async (urlStr: string): Promise<{ ok: boolean; text: string | null; link: string | null }> => {
+    const signal = AbortSignal.any([ctx.externalSignal, AbortSignal.timeout(ctx.timeoutMs)]);
+    const resp = await fetch(urlStr, {
+      method: "GET",
+      headers: { ...ctx.headers, "Content-Type": "application/json", "Host": ctx.originalHost },
+      redirect: "error" as RequestRedirect,
+      signal,
+    });
+    const text = resp.ok ? await readBodyWithCap(resp) : null;
+    return { ok: resp.ok, text, link: resp.headers.get("link") };
+  };
+
+  const limit = Math.min(cfg.maxPages, 100);
+  for (let page = 1; page < limit; page++) {
+    let urlStr: string;
+    if (cfg.strategy === "cursor") {
+      if (!cursor) break;
+      const q = new URLSearchParams(ctx.baseQuery);
+      q.set(cfg.cursorParam ?? "cursor", cursor);
+      urlStr = buildPinnedUrl(ctx.targetBaseUrl, ctx.resolvedPath, q, ctx.pinIp);
+    } else if (cfg.strategy === "page") {
+      const q = new URLSearchParams(ctx.baseQuery);
+      q.set(cfg.pageParam ?? "page", String(pageNum));
+      urlStr = buildPinnedUrl(ctx.targetBaseUrl, ctx.resolvedPath, q, ctx.pinIp);
+    } else {
+      if (!link) break;
+      let linkUrl: URL;
+      try {
+        linkUrl = new URL(link);
+      } catch {
+        break;
+      }
+      if (linkUrl.host !== ctx.originalHost) break; // cross-host next: stop (SSRF-safe)
+      linkUrl.hostname = ctx.pinIp;
+      urlStr = linkUrl.toString();
+    }
+
+    let res: { ok: boolean; text: string | null; link: string | null };
+    try {
+      res = await fetchPage(urlStr);
+    } catch {
+      break;
+    }
+    if (!res.ok || res.text === null) break;
+
+    let body: unknown;
+    try {
+      body = JSON.parse(res.text);
+    } catch {
+      break;
+    }
+    const items = extractItems(body, cfg.itemsPath);
+    if (!items || items.length === 0) break;
+
+    all.push(...items);
+    totalBytes += new TextEncoder().encode(res.text).length;
+    if (totalBytes > ctx.maxBytes) break;
+
+    if (cfg.strategy === "cursor") {
+      cursor = nextCursorValue(body, cfg.cursorResponsePath ?? "");
+      if (!cursor) break;
+    } else if (cfg.strategy === "link") {
+      link = parseNextLink(res.link);
+      if (!link) break;
+    } else {
+      pageNum++;
+    }
+  }
+
+  return JSON.stringify(withItems(firstBody, cfg.itemsPath, all), null, 2);
+}
+
 /**
  * Public entry point. When OTLP tracing is enabled, wraps the dispatch in a
  * CLIENT span (bridge -> backend) with the tool name and error outcome; a no-op
@@ -170,10 +300,31 @@ export async function proxyToolCall(
   args: Record<string, unknown> = {},
   callerToken?: string
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
-  if (!tracingEnabled()) return dispatchToolCall(mcpToolName, args, callerToken);
-  const span = startSpan(`tool_call ${mcpToolName}`, { "mcp.tool": mcpToolName });
-  const result = await dispatchToolCall(mcpToolName, args, callerToken);
-  endSpan(span, { "mcp.tool.is_error": result.isError === true }, result.isError ? 2 : 1);
+  const capture = config.trafficCaptureEnabled;
+  const started = capture ? Date.now() : 0;
+
+  let result: { content: Array<{ type: string; text: string }>; isError?: boolean };
+  if (!tracingEnabled()) {
+    result = await dispatchToolCall(mcpToolName, args, callerToken);
+  } else {
+    const span = startSpan(`tool_call ${mcpToolName}`, { "mcp.tool": mcpToolName });
+    result = await dispatchToolCall(mcpToolName, args, callerToken);
+    endSpan(span, { "mcp.tool.is_error": result.isError === true }, result.isError ? 2 : 1);
+  }
+
+  // Traffic capture — a single point covering every dispatch outcome. Opt-in.
+  if (capture) {
+    const resolved = registry.resolveTool(mcpToolName);
+    recordTraffic({
+      mcpToolName,
+      clientName: resolved?.client.name ?? null,
+      toolName: resolved?.tool.name ?? null,
+      keyId: callerToken ? resolveMcpKeyByToken(callerToken)?.id ?? null : null,
+      args,
+      result,
+      durationMs: Date.now() - started,
+    });
+  }
   return result;
 }
 
@@ -266,6 +417,29 @@ async function dispatchToolCall(
     }
   }
 
+  // Human-in-the-loop approval (ticket model). No __approval_id -> file a pending
+  // ticket bound to these exact args and return its id. With an id -> validate and
+  // consume it (single-use, args-bound) before proceeding. __approval_id is not in
+  // any inputSchema, so Ajv's removeAdditional strips it before the upstream call.
+  if (requiresApproval(client.name, tool.name)) {
+    const rawApprovalId = (args as Record<string, unknown>).__approval_id;
+    const approvalId = typeof rawApprovalId === "number" ? rawApprovalId : null;
+    const argsHash = approvalArgsHash(args as Record<string, unknown>);
+    if (approvalId === null) {
+      const id = createApproval(client.name, tool.name, argsHash, JSON.stringify(args), callerKey?.id ?? null);
+      notifyApproval(id, client.name, tool.name);
+      log("info", "Tool call queued for approval", { tool: mcpToolName, client: client.name, approval_id: id });
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Tool '${mcpToolName}' requires human approval. Queued as approval #${id}. Once approved, re-call with {"__approval_id": ${id}}.` }],
+      };
+    }
+    const decision = consumeApproval(approvalId, client.name, tool.name, argsHash);
+    if (!decision.ok) {
+      return { isError: true, content: [{ type: "text", text: decision.message }] };
+    }
+  }
+
   // Content guardrails — input gate runs here (before the breaker, like every
   // other guard) so a rejected call never burns a half-open probe. The same
   // config's scan-responses flag is reused on the output path below (REST) and
@@ -295,17 +469,65 @@ async function dispatchToolCall(
     }
   }
 
+  // Mock / virtualization. An "always" mock short-circuits the upstream (after
+  // guards, before the breaker — like the cache). A "fallback" mock is returned
+  // only when the backend is unavailable (checked at the failure returns below).
+  const mockCfg = client.kind === "rest" ? getToolMock(client.name, tool.name) : null;
+  if (mockCfg?.enabled && mockCfg.mode === "always") {
+    recordToolCall(0, false);
+    recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "2xx", isError: false, durationMs: 0 });
+    log("info", "Tool call served from mock", { tool: mcpToolName, client: client.name });
+    return { content: [{ type: "text", text: mockCfg.response }] };
+  }
+
+  // ── Response cache (lookup) ────────────────────────────────────────────────
+  // Idempotent GET responses may be served from an in-memory TTL cache, skipping
+  // the upstream entirely. Runs AFTER every auth/guard/rate-limit gate (a hit
+  // still counts against them) but BEFORE the circuit breaker, so a hit never
+  // consumes a half-open probe slot (rule 4, above). REST GET only; the cached
+  // value is the already-redacted/guardrail-scanned text, so every authorised
+  // caller gets identical output and no raw secret is ever stored.
+  const cacheCfg =
+    client.kind === "rest" && tool.method.toUpperCase() === "GET"
+      ? getToolCacheConfig(client.name, tool.name)
+      : null;
+  const responseCacheEnabled = cacheCfg?.enabled === true;
+  const responseCacheKey = responseCacheEnabled
+    ? cacheKey(client.name, tool.name, client.base_url, args)
+    : "";
+  if (responseCacheEnabled) {
+    const hit = cacheGet(responseCacheKey);
+    if (hit) {
+      cacheEvents.inc({ client: client.name, outcome: "hit" });
+      recordToolCall(0, false);
+      recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "2xx", isError: false, durationMs: 0 });
+      log("info", "Tool call served from cache", { tool: mcpToolName, client: client.name });
+      return { content: hit.content };
+    }
+    cacheEvents.inc({ client: client.name, outcome: "miss" });
+  }
+
   // Circuit breaker check
   const breaker = getCircuitBreaker(client.name, client.guards?.circuitBreaker);
   const circuitCheck = breaker.canRequest();
 
-  // Secondary-upstream routing (canary / failover) — REST clients only. When
-  // the breaker is open and a failover secondary is configured, route there
-  // instead of failing fast (bypassing the primary breaker for this call).
-  const canary = client.kind === "rest" ? getCanary(client.name) : null;
+  // N-way load balancing (REST only) takes precedence over canary: when a pool
+  // is active it owns target selection, so canary routing is skipped. The
+  // client-level circuit breaker above stays unchanged — LB spreads load across
+  // members and tracks per-target health via its own cooldown, not the breaker.
+  const lb = client.kind === "rest" ? getLb(client.name) : null;
+  const lbActive = !!lb && lb.enabled && lb.targets.some((t) => t.enabled);
+  const lbChoice: LbChoice | null = lbActive ? selectTarget(client, lb!) : null;
+  if (lbChoice) lbRequests.inc({ client: client.name, member: lbChoice.isPrimary ? "primary" : "pool" });
+
+  // Secondary-upstream routing (canary / failover) — REST clients only, and only
+  // when LB is not active. When the breaker is open and a failover secondary is
+  // configured, route there instead of failing fast (bypassing the breaker).
+  const canary = client.kind === "rest" && !lbActive ? getCanary(client.name) : null;
   const route = decideSecondary(canary, !circuitCheck.allowed);
 
   if (!circuitCheck.allowed && !route.useSecondary) {
+    if (mockCfg?.enabled && mockCfg.mode === "fallback") return { content: [{ type: "text", text: mockCfg.response }] };
     return {
       content: [{ type: "text", text: `Circuit breaker OPEN for client '${client.name}' — failing fast` }],
       isError: true,
@@ -323,15 +545,26 @@ async function dispatchToolCall(
     return dispatchMcpToolCall(client, tool, args, mcpToolName, effectiveTimeout, breaker, callerKey, guardrails?.scanResponses ?? false);
   }
 
+  // WebSocket-backed tool — ephemeral request/response over WS. All the
+  // transport-agnostic gates above have already applied; only the HTTP fetch
+  // machinery below is replaced by a single WS round-trip.
+  const wsCfg = getToolWs(client.name, tool.name);
+  if (wsCfg?.enabled) {
+    return dispatchWsToolCall(client, tool, args, wsCfg, effectiveTimeout, breaker, callerKey);
+  }
+
   // When bypassing the primary breaker (failover call to the secondary), the
   // breaker must not record this call's outcome — a secondary success must not
   // prematurely close the breaker and send the next call back to the down
   // primary. Canary calls (breaker was allowed) record normally.
-  const recordBreakerSuccess = () => { if (!route.bypassBreaker) breaker.recordSuccess(); };
-  const recordBreakerFailure = () => { if (!route.bypassBreaker) breaker.recordFailure(); };
+  // When an LB target served the call, mark it healthy/unhealthy for future
+  // selection (independent of the client-level breaker).
+  const lbKey = lbChoice?.key;
+  const recordBreakerSuccess = () => { if (!route.bypassBreaker) breaker.recordSuccess(); if (lbKey) markTargetUp(lbKey); };
+  const recordBreakerFailure = () => { if (!route.bypassBreaker) breaker.recordFailure(); if (lbKey) markTargetDown(lbKey); };
 
   // Build URL with path param substitution
-  const remainingArgs = { ...args };
+  let remainingArgs = { ...args };
   const resolvedPath = tool.endpoint.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (_, paramName) => {
     const value = remainingArgs[paramName];
     if (value !== undefined) {
@@ -384,17 +617,32 @@ async function dispatchToolCall(
     }
   }
 
+  // Declarative request transform — runs AFTER Ajv strip so an injected field
+  // the MCP inputSchema doesn't declare still reaches the backend.
+  const transformCfg = getToolTransform(client.name, tool.name);
+  if (transformCfg?.enabled && transformCfg.request.length > 0) {
+    remainingArgs = applyOps(remainingArgs, transformCfg.request) as Record<string, unknown>;
+  }
+
+  // GraphQL-backed tool — the request body becomes a { query, variables } envelope
+  // (built in the body step below) with the args as variables.
+  const graphqlCfg = getToolGraphql(client.name, tool.name);
+
   // Build URL with pinned IP to prevent DNS rebinding.
   // Periodically re-resolve via TTL cache to mitigate IP-pin TOCTOU.
   // When routing to the secondary, use its config-time-validated base URL and
   // its pinned IP directly (no TTL re-resolution; it was pinned at setCanary).
-  const targetBaseUrl = route.useSecondary ? canary!.secondaryBaseUrl : client.base_url;
+  const targetBaseUrl = lbChoice ? lbChoice.baseUrl : route.useSecondary ? canary!.secondaryBaseUrl : client.base_url;
   const parsedBase = new URL(`${targetBaseUrl}${resolvedPath}`);
   const originalHost = parsedBase.host;
   const hostname = parsedBase.hostname;
 
   let pinIp: string;
-  if (route.useSecondary) {
+  if (lbChoice) {
+    // LB members carry a config-time-pinned IP (pool targets) or the client's
+    // pinned IP (primary) — used directly, like the canary secondary.
+    pinIp = lbChoice.resolvedIp;
+  } else if (route.useSecondary) {
     pinIp = canary!.secondaryResolvedIp;
   } else {
     // Seed the pin cache from the registry value on first access.
@@ -435,6 +683,7 @@ async function dispatchToolCall(
   }
 
   const reqController = trackRequest(client.name);
+  if (lbKey) incInflight(lbKey);
 
   if (method === "GET" || method === "DELETE") {
     const params = new URLSearchParams();
@@ -445,13 +694,19 @@ async function dispatchToolCall(
     if (queryString) {
       url = `${url}?${queryString}`;
     }
+  } else if (graphqlCfg?.enabled) {
+    body = JSON.stringify({ query: graphqlCfg.query, variables: remainingArgs });
   } else {
     body = JSON.stringify(remainingArgs);
   }
 
   // Inject per-client upstream credentials (decrypted at call time). Spread
   // first so the pinned Host and Content-Type set below always take precedence.
-  const upstreamAuthHeaders = getUpstreamAuthHeaders(client.name) ?? {};
+  const upstreamAuthHeaders: Record<string, string> = { ...(getUpstreamAuthHeaders(client.name) ?? {}) };
+  // Outbound OAuth2 client-credentials — mint/reuse a short-lived token and inject
+  // it as a Bearer (the MCP caller never sees the real client secret).
+  const oauthBearer = await getOAuthBearer(client.name);
+  if (oauthBearer) upstreamAuthHeaders.Authorization = `Bearer ${oauthBearer}`;
 
   // Response redaction paths for this tool (applied to JSON responses below).
   const redactionPaths = getRedactionPaths(client.name, tool.name);
@@ -526,11 +781,51 @@ async function dispatchToolCall(
         //   content-type, content-length, content-encoding, content-language,
         //   cache-control, etag, last-modified, retry-after
         const contentType = response.headers.get("content-type") ?? "";
-        let responseText = rawText;
+
+        // Response pagination — follow cursor/page/link and aggregate the items
+        // array across pages BEFORE redaction/guardrail/cache. JSON GET only; the
+        // follow-ups reuse the pinned IP + Host of this request.
+        let bodyText = rawText;
+        const streamingCfg = getStreamingConfig(client.name, tool.name);
+        if (streamingCfg?.enabled) {
+          // Normalize a streaming-format body (NDJSON / SSE) into one aggregated
+          // JSON result — MCP returns a single tool result, so the upstream stream
+          // must complete (bounded by the response byte cap).
+          bodyText = JSON.stringify({ events: parseStream(rawText, streamingCfg.format, streamingCfg.maxEvents) }, null, 2);
+        } else if (method === "GET" && contentType.includes("application/json")) {
+          const paginationCfg = getPaginationConfig(client.name, tool.name);
+          if (paginationCfg?.enabled) {
+            const aggregated = await fetchAllPages(rawText, paginationCfg, {
+              targetBaseUrl,
+              resolvedPath,
+              baseQuery: new URLSearchParams(Object.entries(remainingArgs).map(([k, v]) => [k, String(v)] as [string, string])),
+              pinIp,
+              originalHost,
+              headers: upstreamAuthHeaders,
+              timeoutMs: effectiveTimeout,
+              externalSignal: reqController.signal,
+              maxBytes: config.maxResponseBytes,
+              firstBytes: new TextEncoder().encode(rawText).length,
+              firstLink: response.headers.get("link"),
+            });
+            if (aggregated !== null) bodyText = aggregated;
+          }
+        }
+
+        // Declarative response transform on the parsed JSON body (pre-redaction).
+        if (transformCfg?.enabled && transformCfg.response.length > 0) {
+          try {
+            bodyText = JSON.stringify(applyOps(JSON.parse(bodyText), transformCfg.response), null, 2);
+          } catch {
+            /* non-JSON body: leave unchanged */
+          }
+        }
+
+        let responseText = bodyText;
         if (contentType.includes("application/json")) {
           // applyRedaction parses, redacts configured paths, and pretty-prints;
           // returns null on non-JSON so we fall back to the raw text.
-          const processed = applyRedaction(redactionPaths, rawText);
+          const processed = applyRedaction(redactionPaths, bodyText);
           if (processed !== null) responseText = processed;
         }
 
@@ -544,6 +839,10 @@ async function dispatchToolCall(
           }
         }
 
+        if (responseCacheEnabled && cacheCfg && !route.useSecondary) {
+          cacheSet(responseCacheKey, { content: [{ type: "text", text: responseText }] }, cacheCfg.ttlSeconds);
+          cacheEvents.inc({ client: client.name, outcome: "store" });
+        }
         return {
           content: [{ type: "text", text: responseText }],
         };
@@ -577,6 +876,9 @@ async function dispatchToolCall(
       const errorBodyText = errorBody === null
         ? `[body truncated — exceeded ${config.maxResponseBytes} byte limit]`
         : errorBody;
+      if (mockCfg?.enabled && mockCfg.mode === "fallback" && response.status >= 500) {
+        return { content: [{ type: "text", text: mockCfg.response }] };
+      }
       return {
         content: [{ type: "text", text: `REST API returned ${response.status}: ${errorBodyText}` }],
         isError: true,
@@ -589,6 +891,9 @@ async function dispatchToolCall(
         log("error", "Tool call failed", { tool: mcpToolName, client: client.name, error: lastError, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
         recordToolCall(Date.now() - startTime, true);
         recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "error", isError: true, durationMs: Date.now() - startTime });
+        if (mockCfg?.enabled && mockCfg.mode === "fallback") {
+          return { content: [{ type: "text", text: mockCfg.response }] };
+        }
         return {
           content: [{ type: "text", text: `Failed to reach ${client.name}: ${lastError}` }],
           isError: true,
@@ -606,12 +911,52 @@ async function dispatchToolCall(
   log("error", "Tool call failed after retries", { tool: mcpToolName, client: client.name, error: errorMsg, duration_ms: Date.now() - startTime, attempts: MAX_RETRIES + 1 });
   recordToolCall(Date.now() - startTime, true);
   recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: lastError ? "error" : httpStatusClass(lastStatus ?? 0), isError: true, durationMs: Date.now() - startTime });
+  if (mockCfg?.enabled && mockCfg.mode === "fallback") {
+    return { content: [{ type: "text", text: mockCfg.response }] };
+  }
   return {
     content: [{ type: "text", text: `Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}` }],
     isError: true,
   };
   } finally {
     untrackRequest(client.name, reqController);
+    if (lbKey) decInflight(lbKey);
+  }
+}
+
+/**
+ * Dispatches a tool call over a WebSocket (per-tool `tool_ws` config). Opens an
+ * ephemeral connection, sends the args as JSON, and returns the first message —
+ * recording success/failure on the client breaker like the REST/MCP paths.
+ */
+async function dispatchWsToolCall(
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  rawArgs: Record<string, unknown>,
+  wsCfg: { wsUrl: string; resolvedIp: string; enabled: boolean },
+  timeoutMs: number,
+  breaker: ReturnType<typeof getCircuitBreaker>,
+  callerKey: { id: number } | null,
+): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+  const startTime = Date.now();
+  const cleanArgs = { ...rawArgs };
+  delete cleanArgs.__confirm;
+  delete cleanArgs.__approval_id;
+  try {
+    const text = await wsRequest(wsCfg.wsUrl, JSON.stringify(cleanArgs), timeoutMs, config.maxResponseBytes);
+    breaker.recordSuccess();
+    const durationMs = Date.now() - startTime;
+    recordToolCall(durationMs, false);
+    recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "2xx", isError: false, durationMs });
+    proxyRequestDuration.observe({ client: client.name, method: "WS", status_class: "2xx" }, durationMs / 1000);
+    return { content: [{ type: "text", text }] };
+  } catch (err) {
+    breaker.recordFailure();
+    const durationMs = Date.now() - startTime;
+    recordToolCall(durationMs, true);
+    recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "error", isError: true, durationMs });
+    proxyRequestDuration.observe({ client: client.name, method: "WS", status_class: "error" }, durationMs / 1000);
+    return { isError: true, content: [{ type: "text", text: `WebSocket call failed for '${client.name}': ${err instanceof Error ? err.message : String(err)}` }] };
   }
 }
 

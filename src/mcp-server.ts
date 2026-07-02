@@ -2,10 +2,20 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
+  type ListResourcesResult,
+  type ReadResourceResult,
+  type ListPromptsResult,
+  type GetPromptResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { createRequire } from "module";
 import { registry } from "./registry.js";
 import { proxyToolCall } from "./proxy.js";
+import { mcpUpstream, type McpConnParams } from "./mcp-upstream.js";
+import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
 import { isBundleEnabled, getBundleToolKeys } from "./bundles.js";
 import { config } from "./config.js";
 import { SEARCH_TOOL_NAME, searchToolDefinition, runSearchTool, type AdvertisedTool } from "./tool-search.js";
@@ -42,6 +52,25 @@ function extractBearerFromHeader(value: unknown): string | undefined {
 }
 
 /**
+ * McpConnParams for a client-scoped MCP upstream, or null when the scope isn't a
+ * single live MCP-kind client. Resources/prompts are passthrough only for a
+ * sharded /mcp/:clientName session pointed at an MCP upstream — aggregated/bundle
+ * scopes stay tools-only (cross-client resource-URI namespacing is a later design).
+ */
+function mcpParamsForScope(scope?: McpServerScope): McpConnParams | null {
+  if (scope?.kind !== "client") return null;
+  const client = registry.listClients().find((c) => c.name === scope.name);
+  if (!client || client.kind !== "mcp" || !client.enabled) return null;
+  return {
+    name: client.name,
+    url: client.mcpUrl ?? client.base_url,
+    transport: client.mcpTransport ?? "streamable-http",
+    resolvedIp: client.resolved_ip,
+    authHeaders: getUpstreamAuthHeaders(client.name) ?? undefined,
+  };
+}
+
+/**
  * Creates an MCP server instance. When `scope` is set, the server is bound
  * to a single registered client (sharded /mcp/:clientName) or a single
  * admin-curated bundle (/mcp-custom/:bundleName) — a session only ever sees
@@ -52,7 +81,7 @@ function extractBearerFromHeader(value: unknown): string | undefined {
 export function createMcpServer(scope?: McpServerScope): Server {
   const server = new Server(
     { name: "mcp-rest-bridge", version: pkg.version },
-    { capabilities: { tools: { listChanged: true } } }
+    { capabilities: { tools: { listChanged: true }, resources: {}, prompts: {} } }
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -109,6 +138,32 @@ export function createMcpServer(scope?: McpServerScope): Server {
     }
 
     return proxyToolCall(name, args ?? {}, callerToken);
+  });
+
+  // Resources & prompts — passthrough for a client-scoped MCP upstream; empty /
+  // not-found otherwise. The upstream's own capabilities decide what's returned
+  // (listResources/listPrompts degrade to [] when the upstream lacks them).
+  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+    const p = mcpParamsForScope(scope);
+    return { resources: p ? await mcpUpstream.listResources(p, config.toolCallTimeoutMs) : [] } as ListResourcesResult;
+  });
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    const p = mcpParamsForScope(scope);
+    if (!p) throw new Error(`Resource not available: ${request.params.uri}`);
+    return (await mcpUpstream.readResource(p, request.params.uri, config.toolCallTimeoutMs)) as ReadResourceResult;
+  });
+
+  server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    const p = mcpParamsForScope(scope);
+    return { prompts: p ? await mcpUpstream.listPrompts(p, config.toolCallTimeoutMs) : [] } as ListPromptsResult;
+  });
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const p = mcpParamsForScope(scope);
+    if (!p) throw new Error(`Prompt not available: ${request.params.name}`);
+    const args = (request.params.arguments ?? {}) as Record<string, string>;
+    return (await mcpUpstream.getPrompt(p, request.params.name, args, config.toolCallTimeoutMs)) as GetPromptResult;
   });
 
   activeServers.add(server);

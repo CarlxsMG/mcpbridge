@@ -490,6 +490,229 @@ export const migrations: Migration[] = [
       ALTER TABLE admin_users ADD COLUMN team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL;
     `,
   },
+  {
+    id: 27,
+    name: "tool_cache",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_cache (
+        client_name TEXT NOT NULL,
+        tool_name   TEXT NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        ttl_seconds INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
+  {
+    id: 28,
+    name: "client_load_balancing",
+    sql: `
+      CREATE TABLE IF NOT EXISTS client_lb (
+        client_name    TEXT PRIMARY KEY REFERENCES clients(name) ON DELETE CASCADE,
+        strategy       TEXT NOT NULL CHECK (strategy IN ('round-robin','weighted','least-conn')),
+        primary_weight INTEGER NOT NULL DEFAULT 1,
+        enabled        INTEGER NOT NULL DEFAULT 1,
+        updated_at     INTEGER NOT NULL
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS client_upstreams (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_name TEXT NOT NULL REFERENCES clients(name) ON DELETE CASCADE,
+        base_url    TEXT NOT NULL,
+        resolved_ip TEXT NOT NULL,
+        weight      INTEGER NOT NULL DEFAULT 1,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_client_upstreams_client ON client_upstreams(client_name);
+    `,
+  },
+  {
+    id: 29,
+    name: "tool_pagination",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_pagination (
+        client_name          TEXT NOT NULL,
+        tool_name            TEXT NOT NULL,
+        strategy             TEXT NOT NULL CHECK (strategy IN ('cursor','page','link')),
+        items_path           TEXT NOT NULL DEFAULT '',
+        cursor_response_path TEXT,
+        cursor_param         TEXT,
+        page_param           TEXT,
+        max_pages            INTEGER NOT NULL DEFAULT 10,
+        enabled              INTEGER NOT NULL DEFAULT 1,
+        updated_at           INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
+  {
+    id: 30,
+    name: "tool_streaming",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_streaming (
+        client_name TEXT NOT NULL,
+        tool_name   TEXT NOT NULL,
+        format      TEXT NOT NULL CHECK (format IN ('ndjson','sse')),
+        max_events  INTEGER NOT NULL DEFAULT 1000,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
+  {
+    id: 31,
+    name: "tool_transforms",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_transforms (
+        client_name   TEXT NOT NULL,
+        tool_name     TEXT NOT NULL,
+        request_json  TEXT NOT NULL DEFAULT '[]',
+        response_json TEXT NOT NULL DEFAULT '[]',
+        enabled       INTEGER NOT NULL DEFAULT 1,
+        updated_at    INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
+  {
+    id: 32,
+    name: "tool_mock",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_mock (
+        client_name TEXT NOT NULL,
+        tool_name   TEXT NOT NULL,
+        mode        TEXT NOT NULL CHECK (mode IN ('always','fallback')),
+        response    TEXT NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
+  {
+    id: 33,
+    name: "tool_approval",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_approval (
+        client_name TEXT NOT NULL,
+        tool_name   TEXT NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS approvals (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_name  TEXT NOT NULL,
+        tool_name    TEXT NOT NULL,
+        args_hash    TEXT NOT NULL,
+        args_json    TEXT NOT NULL,
+        status       TEXT NOT NULL CHECK (status IN ('pending','approved','rejected')),
+        created_at   INTEGER NOT NULL,
+        decided_at   INTEGER,
+        decided_by   TEXT,
+        note         TEXT,
+        consumed_at  INTEGER,
+        requested_by INTEGER
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status, id);
+    `,
+  },
+  {
+    id: 34,
+    name: "tool_traffic",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_traffic (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        mcp_tool_name TEXT NOT NULL,
+        client_name   TEXT,
+        tool_name     TEXT,
+        key_id        INTEGER,
+        args_json     TEXT NOT NULL,
+        preview       TEXT NOT NULL,
+        is_error      INTEGER NOT NULL,
+        duration_ms   INTEGER NOT NULL,
+        created_at    INTEGER NOT NULL
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_tool_traffic_created ON tool_traffic(created_at);
+      CREATE INDEX IF NOT EXISTS idx_tool_traffic_client_tool ON tool_traffic(client_name, tool_name);
+    `,
+  },
+  {
+    id: 35,
+    name: "tool_monitor",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_monitor (
+        client_name          TEXT NOT NULL,
+        tool_name            TEXT NOT NULL,
+        example_id           INTEGER NOT NULL,
+        interval_minutes     INTEGER NOT NULL DEFAULT 15,
+        enabled              INTEGER NOT NULL DEFAULT 1,
+        baseline_schema_hash TEXT NOT NULL,
+        last_run_minute      INTEGER,
+        last_status          TEXT,
+        last_error           TEXT,
+        last_checked_at      INTEGER,
+        drift_detected       INTEGER NOT NULL DEFAULT 0,
+        updated_at           INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
+  {
+    id: 36,
+    name: "tool_backends",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_graphql (
+        client_name TEXT NOT NULL,
+        tool_name   TEXT NOT NULL,
+        query       TEXT NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS tool_ws (
+        client_name TEXT NOT NULL,
+        tool_name   TEXT NOT NULL,
+        ws_url      TEXT NOT NULL,
+        resolved_ip TEXT NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
+  {
+    id: 37,
+    name: "client_oauth",
+    sql: `
+      CREATE TABLE IF NOT EXISTS client_oauth (
+        client_name       TEXT PRIMARY KEY REFERENCES clients(name) ON DELETE CASCADE,
+        token_url         TEXT NOT NULL,
+        client_id         TEXT NOT NULL,
+        client_secret_enc TEXT NOT NULL,
+        scope             TEXT,
+        updated_at        INTEGER NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

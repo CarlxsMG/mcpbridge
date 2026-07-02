@@ -190,6 +190,50 @@ export class McpUpstreamPool {
     }
   }
 
+  /** Lists the upstream's resources. Returns [] on error or when unsupported. */
+  async listResources(p: McpConnParams, timeoutMs: number): Promise<unknown[]> {
+    try {
+      const client = await this.getClient(p);
+      const r = (await client.listResources(undefined, { timeout: timeoutMs })) as { resources?: unknown[] };
+      return r.resources ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Reads one upstream resource by URI. Throws + drops the connection on error. */
+  async readResource(p: McpConnParams, uri: string, timeoutMs: number): Promise<unknown> {
+    const client = await this.getClient(p);
+    try {
+      return await client.readResource({ uri }, { timeout: timeoutMs });
+    } catch (err) {
+      await this.disconnect(p.name);
+      throw err;
+    }
+  }
+
+  /** Lists the upstream's prompts. Returns [] on error or when unsupported. */
+  async listPrompts(p: McpConnParams, timeoutMs: number): Promise<unknown[]> {
+    try {
+      const client = await this.getClient(p);
+      const r = (await client.listPrompts(undefined, { timeout: timeoutMs })) as { prompts?: unknown[] };
+      return r.prompts ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Gets one upstream prompt by name. Throws + drops the connection on error. */
+  async getPrompt(p: McpConnParams, name: string, args: Record<string, string>, timeoutMs: number): Promise<unknown> {
+    const client = await this.getClient(p);
+    try {
+      return await client.getPrompt({ name, arguments: args }, { timeout: timeoutMs });
+    } catch (err) {
+      await this.disconnect(p.name);
+      throw err;
+    }
+  }
+
   /** Liveness probe used by the health loop for MCP upstreams. */
   async ping(p: McpConnParams, timeoutMs: number): Promise<boolean> {
     try {

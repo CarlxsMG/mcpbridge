@@ -242,6 +242,20 @@ export const proxyRequestDuration = metricsRegistry.register(
   ),
 );
 
+export const cacheEvents = metricsRegistry.register(
+  new Counter(
+    "mcp_response_cache_events_total",
+    "Total response-cache events by client and outcome (hit|miss|store)",
+  ),
+);
+
+export const lbRequests = metricsRegistry.register(
+  new Counter(
+    "mcp_lb_requests_total",
+    "Total load-balanced requests by client and selected member (primary|pool)",
+  ),
+);
+
 // Registry
 export const registryClients = metricsRegistry.register(
   new Gauge(

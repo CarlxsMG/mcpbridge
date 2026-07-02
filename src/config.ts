@@ -130,6 +130,38 @@ export const config = {
   retryMaxAttempts: Number(process.env.RETRY_MAX_ATTEMPTS) || 2,
   /** Base delay in milliseconds for exponential backoff between retries. */
   retryBaseDelayMs: Number(process.env.RETRY_BASE_DELAY_MS) || 500,
+  /** Maximum number of cached tool responses held in memory (LRU-evicted). Per-tool opt-in via admin. */
+  cacheMaxEntries: Number(process.env.CACHE_MAX_ENTRIES) || 10_000,
+  /** Cooldown (ms) a load-balanced upstream target is skipped after a failed call. */
+  lbTargetCooldownMs: Number(process.env.LB_TARGET_COOLDOWN_MS) || 30_000,
+  /** Optional webhook notified (fire-and-forget) when a tool call is queued for human approval. Operator-trusted. */
+  approvalWebhookUrl: process.env.APPROVAL_WEBHOOK_URL || undefined,
+  /** Timeout for an approval-notification webhook delivery (ms). */
+  approvalWebhookTimeoutMs: Number(process.env.APPROVAL_WEBHOOK_TIMEOUT_MS) || 5_000,
+  /** Capture per-call traffic (args + result preview) for the admin explorer. Off by default (privacy/volume). */
+  trafficCaptureEnabled: process.env.TRAFFIC_CAPTURE === "true",
+  /** Max characters stored for a captured result preview. */
+  trafficMaxBodyBytes: Number(process.env.TRAFFIC_MAX_BODY_BYTES) || 8_192,
+  /** How long to retain captured traffic rows before pruning (ms). Default 7 days. */
+  trafficRetentionMs: Number(process.env.TRAFFIC_RETENTION_MS) || 7 * 24 * 60 * 60_000,
+  /** Optional webhook notified (fire-and-forget) when a synthetic monitor fails or detects schema drift. */
+  monitorWebhookUrl: process.env.MONITOR_WEBHOOK_URL || undefined,
+  /** Timeout for a monitor-notification webhook delivery (ms). */
+  monitorWebhookTimeoutMs: Number(process.env.MONITOR_WEBHOOK_TIMEOUT_MS) || 5_000,
+
+  // ─── Inbound JWT auth (optional, WebCrypto + JWKS, no dependency) ────────────
+  /** JWKS endpoint URL. When set, `mcpAuth` also accepts a valid RS256/ES256 JWT bearer. */
+  jwtJwksUrl: process.env.JWT_JWKS_URL || undefined,
+  /** Required `iss` claim (optional; when set, tokens with a different issuer are rejected). */
+  jwtIssuer: process.env.JWT_ISSUER || undefined,
+  /** Required `aud` claim (optional; when set, tokens must list this audience). */
+  jwtAudience: process.env.JWT_AUDIENCE || undefined,
+  /** How long a fetched JWKS is cached (ms). */
+  jwtJwksCacheMs: Number(process.env.JWT_JWKS_CACHE_MS) || 600_000,
+  /** Timeout for a JWKS fetch (ms). */
+  jwtJwksTimeoutMs: Number(process.env.JWT_JWKS_TIMEOUT_MS) || 5_000,
+  /** Timeout for an outbound OAuth2 client-credentials token request (ms). */
+  oauthTokenTimeoutMs: Number(process.env.OAUTH_TOKEN_TIMEOUT_MS) || 10_000,
   /** Sliding-window duration for circuit-breaker failure counting (ms). */
   circuitBreakerWindowMs: Number(process.env.CIRCUIT_BREAKER_WINDOW_MS) || 60_000,
   /** Number of failures within circuitBreakerWindowMs that trips the breaker. */

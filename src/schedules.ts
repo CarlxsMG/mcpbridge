@@ -3,6 +3,7 @@ import { registry } from "./registry.js";
 import { recordAudit } from "./admin/audit.js";
 import { isLeader } from "./db/leader-lease.js";
 import { log } from "./logger.js";
+import { runSyntheticChecks } from "./monitor.js";
 
 /**
  * Maintenance schedules: cron-driven enable/disable of a client or a single
@@ -213,6 +214,7 @@ export function startScheduleLoop(): () => void {
   const timer = setInterval(() => {
     if (!isLeader()) return;
     void runDueSchedules(new Date());
+    void runSyntheticChecks(new Date());
   }, 60_000);
   if (timer.unref) timer.unref();
   return () => clearInterval(timer);

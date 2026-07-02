@@ -8,6 +8,17 @@ import { setRedactionPaths } from "../redaction.js";
 import { setGuardrails, MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../guardrails.js";
 import { listExamples, createExample, deleteExample } from "../tool-examples.js";
 import { getCanary, setCanary } from "../canary.js";
+import { setToolCacheConfig, purgeToolCache, MAX_CACHE_TTL_SECONDS } from "../response-cache.js";
+import { getLb, setLb, addUpstream, updateUpstream, removeUpstream, type LbStrategy } from "../load-balancer.js";
+import { setPaginationConfig, MAX_PAGINATION_PAGES, type PaginationStrategy } from "../pagination.js";
+import { setStreamingConfig, MAX_STREAM_EVENTS, type StreamFormat } from "../streaming.js";
+import { setToolTransform, MAX_TRANSFORM_OPS, type TransformOp } from "../transform.js";
+import { setToolMock, type MockMode } from "../mock.js";
+import { setApprovalRequired, listApprovals, getApproval, decideApproval, type ApprovalStatus } from "../approvals.js";
+import { listTraffic, getTraffic } from "../traffic.js";
+import { setMonitor, deleteMonitor, listMonitors } from "../monitor.js";
+import { setToolGraphql, setToolWs } from "../backends.js";
+import { getClientOAuth, setClientOAuth } from "../oauth.js";
 import { getClientTeam, canAccessClient } from "../teams.js";
 import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog, verifyAuditChain } from "../admin/audit.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
@@ -54,6 +65,141 @@ export function requireAdminRole(req: Request, res: Response, next: NextFunction
     return;
   }
   next();
+}
+
+/**
+ * Validates a per-tool response-cache config payload. `null` or `false` clears
+ * the config; an object opts the tool in (defaulting enabled:true) with a
+ * bounded integer TTL in seconds.
+ */
+function validateCacheInput(
+  raw: unknown,
+): { ok: true; value: { enabled: boolean; ttlSeconds: number } | null } | { ok: false; message: string } {
+  if (raw === null || raw === false) return { ok: true, value: null };
+  if (typeof raw !== "object") return { ok: false, message: "cache must be an object, null, or false" };
+  const obj = raw as Record<string, unknown>;
+  const enabled = obj.enabled !== false;
+  const ttlSeconds = typeof obj.ttlSeconds === "number" ? obj.ttlSeconds : NaN;
+  if (!Number.isInteger(ttlSeconds) || ttlSeconds < 1 || ttlSeconds > MAX_CACHE_TTL_SECONDS) {
+    return { ok: false, message: `cache.ttlSeconds must be an integer between 1 and ${MAX_CACHE_TTL_SECONDS}` };
+  }
+  return { ok: true, value: { enabled, ttlSeconds } };
+}
+
+interface PaginationInput {
+  enabled: boolean;
+  strategy: PaginationStrategy;
+  itemsPath: string;
+  cursorResponsePath?: string;
+  cursorParam?: string;
+  pageParam?: string;
+  maxPages: number;
+}
+
+/**
+ * Validates a per-tool pagination config payload. `null`/`false` clears it. Each
+ * strategy has its own required fields (cursor: response-path + query param;
+ * page: page param; link: none).
+ */
+function validatePaginationInput(
+  raw: unknown,
+): { ok: true; value: PaginationInput | null } | { ok: false; message: string } {
+  if (raw === null || raw === false) return { ok: true, value: null };
+  if (typeof raw !== "object") return { ok: false, message: "pagination must be an object, null, or false" };
+  const obj = raw as Record<string, unknown>;
+  const strategy = obj.strategy;
+  if (strategy !== "cursor" && strategy !== "page" && strategy !== "link") {
+    return { ok: false, message: "pagination.strategy must be 'cursor', 'page', or 'link'" };
+  }
+  const maxPages = typeof obj.maxPages === "number" ? obj.maxPages : NaN;
+  if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > MAX_PAGINATION_PAGES) {
+    return { ok: false, message: `pagination.maxPages must be an integer between 1 and ${MAX_PAGINATION_PAGES}` };
+  }
+  const value: PaginationInput = {
+    enabled: obj.enabled !== false,
+    strategy,
+    itemsPath: typeof obj.itemsPath === "string" ? obj.itemsPath : "",
+    maxPages,
+  };
+  if (strategy === "cursor") {
+    const crp = typeof obj.cursorResponsePath === "string" ? obj.cursorResponsePath : "";
+    const cp = typeof obj.cursorParam === "string" ? obj.cursorParam : "";
+    if (!crp || !cp) return { ok: false, message: "cursor strategy requires cursorResponsePath and cursorParam" };
+    value.cursorResponsePath = crp;
+    value.cursorParam = cp;
+  } else if (strategy === "page") {
+    const pp = typeof obj.pageParam === "string" ? obj.pageParam : "";
+    if (!pp) return { ok: false, message: "page strategy requires pageParam" };
+    value.pageParam = pp;
+  }
+  return { ok: true, value };
+}
+
+/** Validates a per-tool streaming-normalization payload. `null`/`false` clears it. */
+function validateStreamingInput(
+  raw: unknown,
+): { ok: true; value: { enabled: boolean; format: StreamFormat; maxEvents: number } | null } | { ok: false; message: string } {
+  if (raw === null || raw === false) return { ok: true, value: null };
+  if (typeof raw !== "object") return { ok: false, message: "streaming must be an object, null, or false" };
+  const obj = raw as Record<string, unknown>;
+  if (obj.format !== "ndjson" && obj.format !== "sse") return { ok: false, message: "streaming.format must be 'ndjson' or 'sse'" };
+  const maxEvents = typeof obj.maxEvents === "number" ? obj.maxEvents : NaN;
+  if (!Number.isInteger(maxEvents) || maxEvents < 1 || maxEvents > MAX_STREAM_EVENTS) {
+    return { ok: false, message: `streaming.maxEvents must be an integer between 1 and ${MAX_STREAM_EVENTS}` };
+  }
+  return { ok: true, value: { enabled: obj.enabled !== false, format: obj.format, maxEvents } };
+}
+
+/** Validates an ordered transform op list (set/remove/rename/copy). */
+function validateOps(raw: unknown, label: string): { ok: true; value: TransformOp[] } | { ok: false; message: string } {
+  if (raw === undefined) return { ok: true, value: [] };
+  if (!Array.isArray(raw)) return { ok: false, message: `${label} must be an array of ops` };
+  if (raw.length > MAX_TRANSFORM_OPS) return { ok: false, message: `${label} exceeds ${MAX_TRANSFORM_OPS} ops` };
+  const ops: TransformOp[] = [];
+  for (const entry of raw) {
+    if (entry === null || typeof entry !== "object") return { ok: false, message: `${label}: each op must be an object` };
+    const o = entry as Record<string, unknown>;
+    if (o.op === "set") {
+      if (typeof o.path !== "string" || !("value" in o)) return { ok: false, message: `${label}: set requires path + value` };
+      ops.push({ op: "set", path: o.path, value: o.value });
+    } else if (o.op === "remove") {
+      if (typeof o.path !== "string") return { ok: false, message: `${label}: remove requires path` };
+      ops.push({ op: "remove", path: o.path });
+    } else if (o.op === "rename" || o.op === "copy") {
+      if (typeof o.from !== "string" || typeof o.to !== "string") return { ok: false, message: `${label}: ${o.op} requires from + to` };
+      ops.push({ op: o.op, from: o.from, to: o.to });
+    } else {
+      return { ok: false, message: `${label}: unknown op '${String(o.op)}'` };
+    }
+  }
+  return { ok: true, value: ops };
+}
+
+/** Validates a per-tool transform payload. `null`/`false` clears it. */
+function validateTransformInput(
+  raw: unknown,
+): { ok: true; value: { enabled: boolean; request: TransformOp[]; response: TransformOp[] } | null } | { ok: false; message: string } {
+  if (raw === null || raw === false) return { ok: true, value: null };
+  if (typeof raw !== "object") return { ok: false, message: "transform must be an object, null, or false" };
+  const obj = raw as Record<string, unknown>;
+  const req = validateOps(obj.request, "transform.request");
+  if (!req.ok) return req;
+  const resp = validateOps(obj.response, "transform.response");
+  if (!resp.ok) return resp;
+  return { ok: true, value: { enabled: obj.enabled !== false, request: req.value, response: resp.value } };
+}
+
+/** Validates a per-tool mock payload. `null`/`false` clears it. */
+function validateMockInput(
+  raw: unknown,
+): { ok: true; value: { enabled: boolean; mode: MockMode; response: string } | null } | { ok: false; message: string } {
+  if (raw === null || raw === false) return { ok: true, value: null };
+  if (typeof raw !== "object") return { ok: false, message: "mock must be an object, null, or false" };
+  const obj = raw as Record<string, unknown>;
+  if (obj.mode !== "always" && obj.mode !== "fallback") return { ok: false, message: "mock.mode must be 'always' or 'fallback'" };
+  if (typeof obj.response !== "string") return { ok: false, message: "mock.response must be a string" };
+  if (obj.response.length > 1_000_000) return { ok: false, message: "mock.response too large (max 1MB)" };
+  return { ok: true, value: { enabled: obj.enabled !== false, mode: obj.mode, response: obj.response } };
 }
 
 /** Tenancy administration: only a super-admin session (admin role + no team) passes. Bearer callers always pass. */
@@ -402,6 +548,155 @@ export function adminRoutes(app: Express): void {
         });
       }
 
+      if (body.cache !== undefined) {
+        const parsed = validateCacheInput(body.cache);
+        if (!parsed.ok) {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+          return;
+        }
+        const ok = setToolCacheConfig(name, tool, parsed.value);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, parsed.value ? "tool.cache.set" : "tool.cache.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`, parsed.value ? { ttlSeconds: parsed.value.ttlSeconds, enabled: parsed.value.enabled } : undefined);
+      }
+
+      if (body.pagination !== undefined) {
+        const parsed = validatePaginationInput(body.pagination);
+        if (!parsed.ok) {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+          return;
+        }
+        const ok = setPaginationConfig(name, tool, parsed.value);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, parsed.value ? "tool.pagination.set" : "tool.pagination.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`, parsed.value ? { strategy: parsed.value.strategy, maxPages: parsed.value.maxPages } : undefined);
+      }
+
+      if (body.streaming !== undefined) {
+        const parsed = validateStreamingInput(body.streaming);
+        if (!parsed.ok) {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+          return;
+        }
+        const ok = setStreamingConfig(name, tool, parsed.value);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, parsed.value ? "tool.streaming.set" : "tool.streaming.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`, parsed.value ? { format: parsed.value.format } : undefined);
+      }
+
+      if (body.transform !== undefined) {
+        const parsed = validateTransformInput(body.transform);
+        if (!parsed.ok) {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+          return;
+        }
+        const ok = setToolTransform(name, tool, parsed.value);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, parsed.value ? "tool.transform.set" : "tool.transform.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`, parsed.value ? { request: parsed.value.request.length, response: parsed.value.response.length } : undefined);
+      }
+
+      if (body.mock !== undefined) {
+        const parsed = validateMockInput(body.mock);
+        if (!parsed.ok) {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+          return;
+        }
+        const ok = setToolMock(name, tool, parsed.value);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, parsed.value ? "tool.mock.set" : "tool.mock.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`, parsed.value ? { mode: parsed.value.mode } : undefined);
+      }
+
+      if (body.requiresApproval !== undefined) {
+        if (typeof body.requiresApproval !== "boolean") {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "requiresApproval must be a boolean", request_id: requestId(res) } });
+          return;
+        }
+        const ok = setApprovalRequired(name, tool, body.requiresApproval);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, body.requiresApproval ? "tool.approval.enable" : "tool.approval.disable", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+      }
+
+      if (body.monitor !== undefined) {
+        if (body.monitor === null || body.monitor === false) {
+          deleteMonitor(name, tool);
+          recordAudit(actor, "tool.monitor.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+        } else if (typeof body.monitor === "object") {
+          const mo = body.monitor as Record<string, unknown>;
+          const exampleId = typeof mo.exampleId === "number" ? mo.exampleId : NaN;
+          if (!Number.isInteger(exampleId)) {
+            res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "monitor.exampleId (number) is required", request_id: requestId(res) } });
+            return;
+          }
+          const result = setMonitor(name, tool, {
+            exampleId,
+            intervalMinutes: typeof mo.intervalMinutes === "number" ? mo.intervalMinutes : 15,
+            enabled: mo.enabled !== false,
+          });
+          if (!result.ok) {
+            res.status(result.error === "TOOL_NOT_LIVE" ? 404 : 400).json({ error: { code: result.error, message: result.error, request_id: requestId(res) } });
+            return;
+          }
+          recordAudit(actor, "tool.monitor.set", `${name}${TOOL_KEY_SEPARATOR}${tool}`, { exampleId });
+        } else {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "monitor must be an object, null, or false", request_id: requestId(res) } });
+          return;
+        }
+      }
+
+      if (body.graphql !== undefined) {
+        if (body.graphql === null || body.graphql === false) {
+          setToolGraphql(name, tool, null);
+          recordAudit(actor, "tool.graphql.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+        } else {
+          const g = body.graphql as Record<string, unknown>;
+          const query = typeof g?.query === "string" ? g.query.trim() : "";
+          if (!query) {
+            res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "graphql.query (non-empty string) is required", request_id: requestId(res) } });
+            return;
+          }
+          if (!setToolGraphql(name, tool, { enabled: g.enabled !== false, query })) {
+            res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+            return;
+          }
+          recordAudit(actor, "tool.graphql.set", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+        }
+      }
+
+      if (body.ws !== undefined) {
+        if (body.ws === null || body.ws === false) {
+          await setToolWs(name, tool, null);
+          recordAudit(actor, "tool.ws.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+        } else {
+          const w = body.ws as Record<string, unknown>;
+          const wsUrl = typeof w?.wsUrl === "string" ? w.wsUrl : "";
+          if (!wsUrl) {
+            res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "ws.wsUrl (ws:// or wss://) is required", request_id: requestId(res) } });
+            return;
+          }
+          const result = await setToolWs(name, tool, { enabled: w.enabled !== false, wsUrl });
+          if (!result.ok) {
+            res.status(result.error === "TOOL_NOT_FOUND" ? 404 : 400).json({ error: { code: result.error, message: result.reason ?? result.error, request_id: requestId(res) } });
+            return;
+          }
+          recordAudit(actor, "tool.ws.set", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+        }
+      }
+
       res.status(200).json({ status: "updated", name, tool });
     }
   );
@@ -514,6 +809,25 @@ export function adminRoutes(app: Express): void {
     }
   );
 
+  // ── Response cache ─────────────────────────────────────────────────────────
+
+  app.post(
+    "/admin-api/clients/:name/tools/:tool/cache/purge",
+    adminAuth,
+    requireOperator,
+    (req: Request<{ name: string; tool: string }>, res: Response) => {
+      const { name, tool } = req.params;
+      if (!ensureClientAccess(req, res, name)) return;
+      if (!registry.resolveTool(`${name}${TOOL_KEY_SEPARATOR}${tool}`)) {
+        res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+        return;
+      }
+      purgeToolCache(name, tool);
+      recordAudit(actorFromRequest(req), "tool.cache.purge", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+      res.status(200).json({ status: "purged", name, tool });
+    }
+  );
+
   // ── Canary / failover (secondary upstream) ────────────────────────────────
 
   app.get("/admin-api/clients/:name/canary", adminAuth, (req: Request<{ name: string }>, res: Response) => {
@@ -548,6 +862,213 @@ export function adminRoutes(app: Express): void {
     }
     recordAudit(actorFromRequest(req), input ? "client.canary.set" : "client.canary.clear", name, input ? { mode: input.mode, weight: input.weight, enabled: input.enabled } : undefined);
     res.status(200).json({ status: "updated", name });
+  });
+
+  // ── Load balancing (N-way upstream pool) ───────────────────────────────────
+
+  app.get("/admin-api/clients/:name/lb", adminAuth, (req: Request<{ name: string }>, res: Response) => {
+    if (!ensureClientAccess(req, res, req.params.name)) return;
+    res.status(200).json({ lb: getLb(req.params.name) });
+  });
+
+  app.put("/admin-api/clients/:name/lb", adminAuth, requireOperator, (req: Request<{ name: string }>, res: Response) => {
+    const { name } = req.params;
+    if (!ensureClientAccess(req, res, name)) return;
+    const body = (req.body as Record<string, unknown>) ?? {};
+    let input: { strategy: LbStrategy; primaryWeight: number; enabled: boolean } | null;
+    if (body.lb === null) {
+      input = null;
+    } else {
+      const strategy = body.strategy as LbStrategy;
+      const primaryWeight = typeof body.primaryWeight === "number" ? body.primaryWeight : 1;
+      const enabled = body.enabled !== false;
+      input = { strategy, primaryWeight, enabled };
+    }
+    const result = setLb(name, input);
+    if (!result.ok) {
+      const status = result.error === "CLIENT_NOT_FOUND" ? 404 : 400;
+      res.status(status).json({ error: { code: result.error, message: result.error, request_id: requestId(res) } });
+      return;
+    }
+    recordAudit(actorFromRequest(req), input ? "client.lb.set" : "client.lb.clear", name, input ? { strategy: input.strategy, primaryWeight: input.primaryWeight, enabled: input.enabled } : undefined);
+    res.status(200).json({ status: "updated", name });
+  });
+
+  app.post("/admin-api/clients/:name/lb/upstreams", adminAuth, requireOperator, async (req: Request<{ name: string }>, res: Response) => {
+    const { name } = req.params;
+    if (!ensureClientAccess(req, res, name)) return;
+    const body = (req.body as Record<string, unknown>) ?? {};
+    const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl : "";
+    const weight = typeof body.weight === "number" ? body.weight : 1;
+    if (!baseUrl) {
+      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "baseUrl is required", request_id: requestId(res) } });
+      return;
+    }
+    const result = await addUpstream(name, baseUrl, weight);
+    if (!result.ok) {
+      const status = result.error === "CLIENT_NOT_FOUND" ? 404 : 400;
+      res.status(status).json({ error: { code: result.error, message: result.reason ?? result.error, request_id: requestId(res) } });
+      return;
+    }
+    recordAudit(actorFromRequest(req), "client.lb.upstream.add", name, { id: result.id, baseUrl, weight });
+    res.status(201).json({ status: "added", id: result.id });
+  });
+
+  app.patch("/admin-api/clients/:name/lb/upstreams/:id", adminAuth, requireOperator, (req: Request<{ name: string; id: string }>, res: Response) => {
+    const { name, id } = req.params;
+    if (!ensureClientAccess(req, res, name)) return;
+    const body = (req.body as Record<string, unknown>) ?? {};
+    const patch: { enabled?: boolean; weight?: number } = {};
+    if (body.enabled !== undefined) {
+      if (typeof body.enabled !== "boolean") {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "enabled must be a boolean", request_id: requestId(res) } });
+        return;
+      }
+      patch.enabled = body.enabled;
+    }
+    if (body.weight !== undefined) {
+      if (typeof body.weight !== "number") {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "weight must be a number", request_id: requestId(res) } });
+        return;
+      }
+      patch.weight = body.weight;
+    }
+    const result = updateUpstream(name, Number(id), patch);
+    if (!result.ok) {
+      const status = result.error === "TARGET_NOT_FOUND" ? 404 : 400;
+      res.status(status).json({ error: { code: result.error, message: result.error, request_id: requestId(res) } });
+      return;
+    }
+    recordAudit(actorFromRequest(req), "client.lb.upstream.update", name, { id: Number(id), ...patch });
+    res.status(200).json({ status: "updated", id: Number(id) });
+  });
+
+  app.delete("/admin-api/clients/:name/lb/upstreams/:id", adminAuth, requireOperator, (req: Request<{ name: string; id: string }>, res: Response) => {
+    const { name, id } = req.params;
+    if (!ensureClientAccess(req, res, name)) return;
+    const result = removeUpstream(name, Number(id));
+    if (!result.ok) {
+      res.status(404).json({ error: { code: result.error, message: result.error, request_id: requestId(res) } });
+      return;
+    }
+    recordAudit(actorFromRequest(req), "client.lb.upstream.remove", name, { id: Number(id) });
+    res.status(200).json({ status: "removed", id: Number(id) });
+  });
+
+  // ── Approvals (human-in-the-loop queue) ────────────────────────────────────
+
+  app.get("/admin-api/approvals", adminAuth, (req: Request, res: Response) => {
+    const q = req.query.status;
+    const status: ApprovalStatus | undefined = q === "pending" || q === "approved" || q === "rejected" ? q : undefined;
+    res.status(200).json({ items: listApprovals(status) });
+  });
+
+  app.post("/admin-api/approvals/:id/approve", adminAuth, requireOperator, (req: Request<{ id: string }>, res: Response) => {
+    const rec = getApproval(Number(req.params.id));
+    if (!rec) {
+      res.status(404).json({ error: { code: "APPROVAL_NOT_FOUND", message: "Approval not found", request_id: requestId(res) } });
+      return;
+    }
+    if (!ensureClientAccess(req, res, rec.clientName)) return;
+    const note = typeof (req.body as Record<string, unknown>)?.note === "string" ? ((req.body as Record<string, unknown>).note as string) : null;
+    if (!decideApproval(rec.id, "approved", actorFromRequest(req), note)) {
+      res.status(409).json({ error: { code: "NOT_PENDING", message: "Approval is not pending", request_id: requestId(res) } });
+      return;
+    }
+    recordAudit(actorFromRequest(req), "approval.approve", `${rec.clientName}${TOOL_KEY_SEPARATOR}${rec.toolName}`, { id: rec.id });
+    res.status(200).json({ status: "approved", id: rec.id });
+  });
+
+  app.post("/admin-api/approvals/:id/reject", adminAuth, requireOperator, (req: Request<{ id: string }>, res: Response) => {
+    const rec = getApproval(Number(req.params.id));
+    if (!rec) {
+      res.status(404).json({ error: { code: "APPROVAL_NOT_FOUND", message: "Approval not found", request_id: requestId(res) } });
+      return;
+    }
+    if (!ensureClientAccess(req, res, rec.clientName)) return;
+    const note = typeof (req.body as Record<string, unknown>)?.note === "string" ? ((req.body as Record<string, unknown>).note as string) : null;
+    if (!decideApproval(rec.id, "rejected", actorFromRequest(req), note)) {
+      res.status(409).json({ error: { code: "NOT_PENDING", message: "Approval is not pending", request_id: requestId(res) } });
+      return;
+    }
+    recordAudit(actorFromRequest(req), "approval.reject", `${rec.clientName}${TOOL_KEY_SEPARATOR}${rec.toolName}`, { id: rec.id });
+    res.status(200).json({ status: "rejected", id: rec.id });
+  });
+
+  // ── Outbound OAuth2 client-credentials ─────────────────────────────────────
+
+  app.get("/admin-api/clients/:name/oauth", adminAuth, (req: Request<{ name: string }>, res: Response) => {
+    if (!ensureClientAccess(req, res, req.params.name)) return;
+    res.status(200).json({ oauth: getClientOAuth(req.params.name) });
+  });
+
+  app.put("/admin-api/clients/:name/oauth", adminAuth, requireOperator, async (req: Request<{ name: string }>, res: Response) => {
+    const { name } = req.params;
+    if (!ensureClientAccess(req, res, name)) return;
+    const body = (req.body as Record<string, unknown>) ?? {};
+    let input: { tokenUrl: string; clientId: string; clientSecret: string; scope?: string } | null;
+    if (body.oauth === null) {
+      input = null;
+    } else {
+      const tokenUrl = typeof body.tokenUrl === "string" ? body.tokenUrl : "";
+      const clientId = typeof body.clientId === "string" ? body.clientId : "";
+      const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret : "";
+      if (!tokenUrl || !clientId || !clientSecret) {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "tokenUrl, clientId, and clientSecret are required (or send { oauth: null } to clear)", request_id: requestId(res) } });
+        return;
+      }
+      input = { tokenUrl, clientId, clientSecret, scope: typeof body.scope === "string" ? body.scope : undefined };
+    }
+    const result = await setClientOAuth(name, input);
+    if (!result.ok) {
+      res.status(result.error === "CLIENT_NOT_FOUND" ? 404 : 400).json({ error: { code: result.error, message: result.reason ?? result.error, request_id: requestId(res) } });
+      return;
+    }
+    recordAudit(actorFromRequest(req), input ? "client.oauth.set" : "client.oauth.clear", name);
+    res.status(200).json({ status: "updated", name });
+  });
+
+  // ── Synthetic monitors ─────────────────────────────────────────────────────
+
+  app.get("/admin-api/monitors", adminAuth, (_req: Request, res: Response) => {
+    res.status(200).json({ items: listMonitors() });
+  });
+
+  // ── Traffic explorer + replay ──────────────────────────────────────────────
+
+  app.get("/admin-api/traffic", adminAuth, (req: Request, res: Response) => {
+    const clientName = typeof req.query.client === "string" ? req.query.client : undefined;
+    const toolName = typeof req.query.tool === "string" ? req.query.tool : undefined;
+    const errorsOnly = req.query.errors === "true";
+    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+    res.status(200).json({ items: listTraffic({ clientName, toolName, errorsOnly, limit }) });
+  });
+
+  app.get("/admin-api/traffic/:id", adminAuth, (req: Request<{ id: string }>, res: Response) => {
+    const rec = getTraffic(Number(req.params.id));
+    if (!rec) {
+      res.status(404).json({ error: { code: "TRAFFIC_NOT_FOUND", message: "Traffic record not found", request_id: requestId(res) } });
+      return;
+    }
+    res.status(200).json(rec);
+  });
+
+  app.post("/admin-api/traffic/:id/replay", adminAuth, requireOperator, async (req: Request<{ id: string }>, res: Response) => {
+    const rec = getTraffic(Number(req.params.id));
+    if (!rec) {
+      res.status(404).json({ error: { code: "TRAFFIC_NOT_FOUND", message: "Traffic record not found", request_id: requestId(res) } });
+      return;
+    }
+    if (rec.clientName && !ensureClientAccess(req, res, rec.clientName)) return;
+    let args: Record<string, unknown>;
+    try {
+      args = JSON.parse(rec.argsJson) as Record<string, unknown>;
+    } catch {
+      args = {};
+    }
+    const result = await proxyToolCall(rec.mcpToolName, args);
+    recordAudit(actorFromRequest(req), "traffic.replay", rec.mcpToolName, { id: rec.id });
+    res.status(200).json(result);
   });
 
   // ── Users ───────────────────────────────────────────────────────────────

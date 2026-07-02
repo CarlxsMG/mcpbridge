@@ -6,6 +6,7 @@ import { SESSION_COOKIE_NAME, parseCookies } from "../security/cookies.js";
 import type { AdminRole } from "../security/user-store.js";
 import { findUserById } from "../security/user-store.js";
 import { resolveMcpKeyByToken, touchMcpKeyLastUsed, hasAnyMcpKeys } from "../security/mcp-key-store.js";
+import { verifyJwt, isJwtConfigured } from "../security/jwt.js";
 
 export interface AuthContext {
   method: "bearer" | "session";
@@ -23,6 +24,8 @@ declare global {
       authContext?: AuthContext;
       /** Set by mcpAuth when the caller authenticated with a DB-managed MCP key. */
       mcpKeyId?: number;
+      /** Set by mcpAuth when the caller authenticated with a verified inbound JWT (its `sub`). */
+      jwtSubject?: string;
     }
   }
 }
@@ -93,7 +96,7 @@ export function adminAuth(req: Request, res: Response, next: NextFunction): void
  * any managed keys — so simply minting a managed key transparently locks
  * down the MCP surface.
  */
-export function mcpAuth(req: Request, res: Response, next: NextFunction): void {
+export async function mcpAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   if (config.authDisabled) { next(); return; }
 
   const envConfigured = config.mcpApiKeys.length > 0;
@@ -108,12 +111,22 @@ export function mcpAuth(req: Request, res: Response, next: NextFunction): void {
       next();
       return;
     }
+    // Optional inbound JWT (OAuth2/OIDC access token) — accepted when configured
+    // and its signature + claims verify. An ADDITIONAL credential, never a bypass.
+    if (isJwtConfigured()) {
+      const verdict = await verifyJwt(token);
+      if (verdict.valid) {
+        req.jwtSubject = typeof verdict.claims.sub === "string" ? verdict.claims.sub : undefined;
+        next();
+        return;
+      }
+    }
   }
 
-  // No valid token presented. Preserve the historical "no keys configured =>
-  // allow all" behaviour, but only when there is genuinely nothing to check
-  // against (env unset AND no managed keys exist).
-  if (!envConfigured && !hasAnyMcpKeys()) { next(); return; }
+  // Preserve the historical "no auth material => allow all" behaviour, but only
+  // when there is genuinely nothing to check against — configuring JWT (like
+  // minting a managed key) locks the surface down too.
+  if (!envConfigured && !hasAnyMcpKeys() && !isJwtConfigured()) { next(); return; }
 
   if (!token) {
     res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Missing Authorization header" } });
