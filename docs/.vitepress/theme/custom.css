@@ -49,6 +49,11 @@
   --vp-c-brand-1: #2fd4c4; /* lift teal for contrast on ink */
   --vp-c-brand-2: #00a99a;
   --vp-c-brand-3: #00a99a;
+  /* Must be re-set for dark: the :root (light) values would otherwise leak in
+     (same specificity, defined later) and give custom blocks — e.g. ::: tip — a
+     light background with light text. Translucent teal reads as a dark tint on ink. */
+  --vp-c-brand-soft: rgba(0, 169, 154, 0.16);
+  --vp-c-brand-softer: rgba(0, 169, 154, 0.1);
   --vp-home-hero-name-background: linear-gradient(120deg, #2fd4c4 28%, #00a99a);
 }
 
