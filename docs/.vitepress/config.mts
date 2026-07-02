@@ -89,16 +89,30 @@ export default defineConfig({
           ],
         },
         {
-          text: 'Guides',
+          text: 'Connect',
+          items: [
+            { text: 'Connecting MCP clients', link: '/guide/connecting-clients' },
+            { text: 'Registering backends', link: '/guide/registering-backends' },
+          ],
+        },
+        {
+          text: 'Operate',
           items: [
             { text: 'Security', link: '/guide/security' },
+            { text: 'Access control', link: '/guide/access-control' },
+            { text: 'Guardrails & resilience', link: '/guide/guardrails-resilience' },
+            { text: 'Observability', link: '/guide/observability' },
+            { text: 'Scaling & HA', link: '/guide/scaling' },
             { text: 'Deployment', link: '/guide/deployment' },
-            { text: 'Configuration', link: '/guide/configuration' },
           ],
         },
         {
           text: 'Reference',
-          items: [{ text: 'Features', link: '/guide/features' }],
+          items: [
+            { text: 'Configuration', link: '/guide/configuration' },
+            { text: 'Features', link: '/guide/features' },
+            { text: 'Troubleshooting', link: '/guide/troubleshooting' },
+          ],
         },
       ],
     },

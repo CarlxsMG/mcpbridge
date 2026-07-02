@@ -2,6 +2,7 @@ import DefaultTheme from 'vitepress/theme'
 import type { Theme } from 'vitepress'
 import HowItWorks from './components/HowItWorks.vue'
 import RequestPath from './components/RequestPath.vue'
+import ScaleOut from './components/ScaleOut.vue'
 import DemoReel from './components/DemoReel.vue'
 import './custom.css'
 
@@ -12,6 +13,7 @@ export default {
   enhanceApp({ app }) {
     app.component('HowItWorks', HowItWorks)
     app.component('RequestPath', RequestPath)
+    app.component('ScaleOut', ScaleOut)
     app.component('DemoReel', DemoReel)
   },
 } satisfies Theme
