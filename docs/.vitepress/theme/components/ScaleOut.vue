@@ -20,21 +20,24 @@ const ix = (i: number) => cx[i] - 84 // left x (width 168)
           </desc>
 
           <defs>
-            <marker id="so-arrow" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto-start-reverse">
-              <path d="M0 0 L8 5 L0 10 z" fill="#00a99a" />
+            <marker id="so-arrow" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto-start-reverse">
+              <path d="M0 0 L9 4.5 L0 9 z" fill="#00a99a" />
             </marker>
           </defs>
 
+          <!-- Every arrow ends with a short STRAIGHT run (longer than the arrowhead) so the
+               stroke is hidden under the head and the line reads as ending at its base — even
+               on the lateral curves. -->
           <!-- clients → LB -->
           <path class="so-flow" d="M360 58 V88" marker-end="url(#so-arrow)" fill="none" />
           <!-- LB → each instance -->
-          <path class="so-flow" d="M360 138 C360 160 168 160 168 178" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 138 C360 158 168 158 168 166 V178" marker-end="url(#so-arrow)" fill="none" />
           <path class="so-flow" d="M360 138 V178" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M360 138 C360 160 552 160 552 178" marker-end="url(#so-arrow)" fill="none" />
-          <!-- each instance ↕ shared SQLite -->
-          <path class="so-flow" d="M168 254 C168 296 360 300 360 316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 138 C360 158 552 158 552 166 V178" marker-end="url(#so-arrow)" fill="none" />
+          <!-- each instance ↕ shared SQLite (spread out along the SQLite top) -->
+          <path class="so-flow" d="M168 254 V266 C168 294 280 300 280 304 V316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
           <path class="so-flow" d="M360 254 V316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M552 254 C552 296 360 300 360 316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M552 254 V266 C552 294 440 300 440 304 V316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
 
           <!-- clients -->
           <g class="so-chip-g">
