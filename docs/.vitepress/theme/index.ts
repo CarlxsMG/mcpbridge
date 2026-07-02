@@ -1,6 +1,7 @@
 import DefaultTheme from 'vitepress/theme'
 import type { Theme } from 'vitepress'
 import HowItWorks from './components/HowItWorks.vue'
+import RequestPath from './components/RequestPath.vue'
 import DemoReel from './components/DemoReel.vue'
 import './custom.css'
 
@@ -10,6 +11,7 @@ export default {
   extends: DefaultTheme,
   enhanceApp({ app }) {
     app.component('HowItWorks', HowItWorks)
+    app.component('RequestPath', RequestPath)
     app.component('DemoReel', DemoReel)
   },
 } satisfies Theme

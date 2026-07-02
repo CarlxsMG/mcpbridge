@@ -6,19 +6,7 @@ call to the right backend through a single, uniform guard pipeline.
 
 ## The request path
 
-```
-   MCP client                    MCP REST Bridge                      Backend
- ─────────────      ┌───────────────────────────────────────┐    ─────────────
-  tools/list  ─────▶│  registry (clients + tools)            │
-  tools/call  ─────▶│    ├─ scope filter (mode-dependent)    │
-                    │    ├─ guardrails (deny / secrets)      │
-                    │    ├─ per-tool policy (rate/timeout/…) │───▶  REST call
-                    │    ├─ circuit breaker                  │      or MCP call
-                    │    ├─ dispatch (REST or MCP upstream)  │◀───  response
-                    │    ├─ response sanitizing + redaction  │
-                    │    └─ audit + metrics + tracing        │
-                    └───────────────────────────────────────┘
-```
+<RequestPath />
 
 Every policy is enforced at the **dispatch point** (`proxyToolCall`), never as HTTP
 middleware — MCP multiplexes many tools over one `POST /mcp` route, so the bridge must know
