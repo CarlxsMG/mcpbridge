@@ -1,0 +1,66 @@
+# Deployment
+
+MCP REST Bridge is a single Bun process with a SQLite file. There's no external database and
+no Kubernetes requirement — though it runs fine in a container orchestrator if you want one.
+
+## Docker (recommended)
+
+```bash
+docker build -t mcpbridge .
+
+docker run -d --name mcpbridge -p 3000:3000 \
+  -e SESSION_COOKIE_SECURE=true \
+  -e BOOTSTRAP_ADMIN_USERNAME=admin \
+  -e BOOTSTRAP_ADMIN_PASSWORD='<a strong 12+ char password>' \
+  -e MCP_API_KEYS='<key1,key2>' \
+  -v mcpbridge-data:/app/data \
+  mcpbridge
+```
+
+- The image runs on port **3000** and stores its SQLite database at **`/app/data`** — mount
+  a volume there so config survives restarts.
+- A `HEALTHCHECK` hits `/health`; the process shuts down gracefully on `SIGTERM`.
+
+## Behind a reverse proxy (HTTPS)
+
+Terminate TLS at your proxy (nginx, Caddy, Traefik, a cloud LB) and forward to the bridge.
+In production:
+
+- Keep **`SESSION_COOKIE_SECURE=true`** so the admin session cookie is `__Host-`/Secure.
+- Set **`TRUST_PROXY=true`** *only* when the bridge is genuinely behind a trusted proxy, so
+  it reads the real client IP from `X-Forwarded-For` correctly.
+- Forward the `X-Forwarded-Proto` header so HSTS and secure-cookie logic behave.
+
+## Bun (bare metal / VM)
+
+```bash
+bun install
+cd admin-ui && bun install && bun run build && cd ..   # build the admin UI once
+bun run start                                          # or: bun src/index.ts
+```
+
+The backend serves the built admin UI from `admin-ui/dist` at `/admin` when present.
+
+## Persistence & backups
+
+All durable state lives in the SQLite database (`DB_PATH`, default `/app/data/mcp-bridge.db`
+in Docker). Back it up like any SQLite file; use `:memory:` only for throwaway runs. You can
+also **export/import** the full configuration as JSON from the admin UI or `/admin-api/config`.
+
+## High availability (opt-in)
+
+For multiple instances behind a load balancer:
+
+- **`RATE_LIMIT_SHARED=true`** — SQLite-backed shared rate counters so limits are consistent
+  across instances.
+- **`REGISTRY_SYNC=true`** — each instance reconciles its registry from SQLite, so
+  registrations/removals on one peer propagate to the others.
+- Leader-only background loops (alerts, schedules) elect a single leader automatically.
+
+## Observability
+
+- **Prometheus** metrics at `/metrics` (includes `mcp_tool_calls_total{outcome}`).
+- **OpenTelemetry** traces per tool call when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+- **Alerts** (circuit-breaker-open, client-unreachable, error-rate, usage-spike) via webhooks.
+
+See **[Configuration →](/guide/configuration)** for the full environment reference.

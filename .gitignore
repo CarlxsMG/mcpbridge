@@ -9,6 +9,14 @@ dist/
 *.js.map
 *.tsbuildinfo
 
+# VitePress docs site (built output + cache)
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Live demo build artifacts (regenerated in CI, copied into the site)
+admin-ui/dist-demo/
+docs/public/demo/
+
 # IDE / editor
 .vscode/
 .idea/

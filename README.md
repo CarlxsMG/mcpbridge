@@ -1,0 +1,227 @@
+<!--
+  Repo slug used across links/badges below is `aico-dot-team-code/mcpbridge`.
+  If your GitHub repo is named differently, find-and-replace that slug once.
+-->
+<div align="center">
+
+<img src="docs/public/favicon.svg" width="72" height="72" alt="MCP REST Bridge logo" />
+
+# MCP REST Bridge
+
+### Turn any REST API or MCP server into secure, governed AI tools.
+
+**The self-hosted MCP gateway with a real admin UI** — OpenAPI-to-MCP auto-discovery,
+per-tool guardrails, RBAC, circuit breaking. One binary. No Kubernetes.
+
+[![Bun](https://img.shields.io/badge/runtime-Bun-black?logo=bun)](https://bun.sh)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-compatible-00a99a)](https://modelcontextprotocol.io)
+[![License: MIT](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-00a99a)](#contributing)
+[![Star on GitHub](https://img.shields.io/github/stars/aico-dot-team-code/mcpbridge?style=social)](https://github.com/aico-dot-team-code/mcpbridge)
+
+[**🎮 Live demo**](https://aico-dot-team-code.github.io/mcpbridge/demo/) ·
+[**Website & Docs**](https://aico-dot-team-code.github.io/mcpbridge/) ·
+[Quickstart](#-60-second-quickstart) ·
+[Features](#-features) ·
+[Why this vs. the alternatives](#-mcp-rest-bridge-vs-the-alternatives)
+
+</div>
+
+---
+
+**MCP REST Bridge** is an open-source **MCP gateway / proxy / aggregator** for the
+[Model Context Protocol](https://modelcontextprotocol.io). Point it at an OpenAPI/Swagger
+spec and it turns your REST API into MCP tools automatically. Register an existing MCP
+server and it re-exposes it through the same governed pipeline. Every call runs through
+SSRF protection, prompt-injection sanitizing, per-tool rate limits, circuit breakers,
+RBAC and a tamper-evident audit log — and you manage all of it from a **built-in admin UI**,
+not a pile of YAML.
+
+<div align="center">
+
+![MCP REST Bridge admin UI — registered servers, tools and health](docs/public/screenshots/servers.png)
+
+**▶ [Try the live demo](https://aico-dot-team-code.github.io/mcpbridge/demo/)** — the full admin UI running on mock data, no install.
+
+</div>
+
+## ✨ Why MCP REST Bridge
+
+- **A real admin UI, not config files.** A full Vue 3 dashboard to register servers,
+  curate tool bundles, set guardrails, rotate keys, watch usage and read the audit log.
+- **Bidirectional in one binary.** REST/OpenAPI → MCP **and** MCP → MCP gateway.
+  Aggregate many backends behind a single endpoint.
+- **Secure by default.** SSRF + DNS-rebinding protection with IP pinning, prompt-injection
+  sanitizing, secret detection, and fail-closed per-tool key restrictions — built in, not a plugin.
+- **Enterprise features without the enterprise weight.** RBAC, teams, audit hash-chain + SIEM,
+  canary/failover, OpenTelemetry tracing, config versioning — with **no Kubernetes and no external database.**
+- **Runs anywhere.** Bun single process + `bun:sqlite`. One Docker image, or `bun src/index.ts`.
+
+## 🚀 60-second quickstart
+
+### Docker
+
+```bash
+docker build -t mcpbridge .
+
+docker run -p 3000:3000 \
+  -e NODE_ENV=development \
+  -e SESSION_COOKIE_SECURE=false \
+  -e BOOTSTRAP_ADMIN_USERNAME=admin \
+  -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
+  -v "$PWD/data:/app/data" \
+  mcpbridge
+```
+
+Open the admin UI at **http://localhost:3000/admin** and log in with the bootstrap
+credentials. (`NODE_ENV=development` + `SESSION_COOKIE_SECURE=false` are only for local
+HTTP — in production run behind HTTPS and drop both.)
+
+### Bun (local dev, with hot reload)
+
+```bash
+bun install
+cp .env.example .env                 # then set BOOTSTRAP_ADMIN_PASSWORD (min 12 chars)
+cd admin-ui && bun install && cd ..
+
+bun run dev:all                      # backend :8790 + admin UI :8791
+# → open http://localhost:8791/admin/
+```
+
+### Register your first REST API (auto-discovered from OpenAPI)
+
+From the UI: **Add server → REST**, paste an OpenAPI URL, done. Or via the API:
+
+```bash
+curl -X POST http://localhost:3000/register \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "petstore",
+    "health_url": "https://petstore3.swagger.io/",
+    "openapi_url": "https://petstore3.swagger.io/api/v3/openapi.json"
+  }'
+```
+
+### Register an existing MCP server as an upstream
+
+```bash
+curl -X POST http://localhost:3000/register \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "github",
+    "kind": "mcp",
+    "mcp_url": "https://your-mcp-server.example.com/mcp",
+    "mcp_transport": "streamable-http"
+  }'
+```
+
+### Point an MCP client at the bridge
+
+```json
+{
+  "mcpServers": {
+    "bridge": { "url": "http://localhost:3000/mcp" }
+  }
+}
+```
+
+Serve tools four ways: aggregated `/mcp`, per-client `/mcp/:name`, curated bundles
+`/mcp-custom/:bundle`, or legacy SSE `/sse`.
+
+## 🧩 Features
+
+**Connect anything**
+- OpenAPI / Swagger → MCP **auto-discovery** — point at a spec, get tools instantly
+- MCP → MCP **gateway / aggregator** (Streamable HTTP + SSE upstreams)
+- Manual tool definitions when there's no spec
+- Four serving modes: aggregated, per-client shard, curated bundles, legacy SSE
+
+**Govern & secure**
+- SSRF + DNS-rebinding protection, per-upstream **IP pinning**
+- **Guardrails**: prompt-injection sanitizing, secret detection, input deny-rules
+- Per-tool **rate limits, timeouts, circuit breakers, allowed-key** restrictions
+- **RBAC** (admin / operator / auditor / viewer) + **team multi-tenancy**
+- **Tamper-evident audit log** (hash-chained) + SIEM streaming
+
+**Operate with confidence**
+- **Admin UI** (Vue 3): dashboard, servers, bundles, keys, usage, alerts, schedules, audit
+- Health monitoring + auto-eviction; **canary / failover** secondaries
+- **Config versioning + rollback**, import / export
+- Prometheus `/metrics` + **OpenTelemetry (OTLP)** tracing per tool call
+- **Usage-anomaly / spike** alerts via webhooks
+- Composite / macro tools, a `search_tools` meta-tool, and a request playground
+
+**Runs anywhere**
+- Bun single process, `bun:sqlite` storage — **no external DB, no Kubernetes**
+- One Docker image, or `bun src/index.ts`
+
+## 🔀 How it works
+
+```mermaid
+flowchart LR
+  A["AI client<br/>(Claude · Cursor · IDEs)"] -- MCP --> B(("MCP REST Bridge"))
+  B -- REST / OpenAPI --> C["Your REST APIs"]
+  B -- MCP --> D["Upstream MCP servers"]
+  B -. "guardrails · RBAC · rate limits · audit" .-> B
+```
+
+The bridge advertises a unified tool list to any MCP client, then proxies each call to the
+right backend through the full guard stack (SSRF check → guardrails → per-tool policy →
+circuit breaker → dispatch → response sanitizing → audit).
+
+## ⚖️ MCP REST Bridge vs. the alternatives
+
+| | OpenAPI→MCP CLIs | Heavy gateways (k8s) | **MCP REST Bridge** |
+|---|:---:|:---:|:---:|
+| REST / OpenAPI → MCP | ✅ | partial | ✅ |
+| MCP → MCP gateway | ❌ | ✅ | ✅ |
+| Admin UI | ❌ | some | ✅ Vue SPA |
+| Built-in security (SSRF, injection, secrets) | ❌ | some | ✅ |
+| RBAC + audit + teams | ❌ | ✅ | ✅ |
+| Runs without Kubernetes | ✅ | ❌ | ✅ |
+| No external database | ✅ | ❌ | ✅ (Bun + SQLite) |
+
+*Capabilities vary by project; this is a general positioning, not a scorecard of any single tool.*
+
+## 📚 Documentation
+
+Full docs live on the **[project website](https://aico-dot-team-code.github.io/mcpbridge/)**:
+[Getting started](https://aico-dot-team-code.github.io/mcpbridge/guide/getting-started) ·
+[Features](https://aico-dot-team-code.github.io/mcpbridge/guide/features) ·
+[Why MCP REST Bridge](https://aico-dot-team-code.github.io/mcpbridge/guide/why-mcp-rest-bridge)
+
+## 🛠️ Tech stack
+
+[Bun](https://bun.sh) · TypeScript (strict) · Express 5 · [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol) ·
+`bun:sqlite` · Vue 3 + Vite (admin UI). No ORM, minimal dependencies.
+
+## 🤝 Contributing
+
+Contributions welcome! After any change:
+
+```bash
+tsc --noEmit                            # backend type-check
+bun test                                # backend tests (should be 100% green)
+cd admin-ui && bun run typecheck        # admin UI type-check
+cd admin-ui && bun run build            # admin UI production build
+```
+
+Open an issue to discuss larger changes first. Good first issues are labelled in the tracker.
+
+## 📄 License
+
+MIT — see [`LICENSE`](LICENSE).
+
+---
+
+<div align="center">
+
+**Keywords:** MCP gateway · MCP proxy · MCP aggregator · Model Context Protocol ·
+OpenAPI to MCP · REST to MCP · self-hosted MCP · MCP admin UI · MCP RBAC · AI tool gateway
+
+If this project helps you, please ⭐ **[star it on GitHub](https://github.com/aico-dot-team-code/mcpbridge)** — it's the single biggest signal that helps others discover it.
+
+</div>

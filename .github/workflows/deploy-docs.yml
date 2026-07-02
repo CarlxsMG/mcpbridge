@@ -1,0 +1,76 @@
+# Builds the VitePress site in docs/ (plus the interactive admin-UI demo) and
+# publishes it to GitHub Pages.
+#
+# One-time setup: GitHub repo → Settings → Pages → "Build and deployment" →
+# Source = "GitHub Actions". Then push to main.
+name: Deploy docs to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'admin-ui/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; don't cancel an in-progress production deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/configure-pages@v5
+
+      # 1. Build the public "try it" demo: the real admin UI wired to an
+      #    in-browser mock backend. The base path is derived from the repo name
+      #    so it resolves under https://<owner>.github.io/<repo>/demo/.
+      - name: Build interactive demo
+        working-directory: admin-ui
+        env:
+          VITE_DEMO: 'true'
+          DEMO_BASE: /${{ github.event.repository.name }}/demo/
+        run: |
+          bun install
+          bun run build
+      - name: Stage demo into the site
+        run: |
+          rm -rf docs/public/demo
+          mkdir -p docs/public/demo
+          cp -r admin-ui/dist-demo/. docs/public/demo/
+
+      # 2. Build the docs/landing site. DOCS_BASE self-corrects to the repo name.
+      - name: Install docs dependencies
+        working-directory: docs
+        run: bun install
+      - name: Build site
+        working-directory: docs
+        env:
+          DOCS_BASE: /${{ github.event.repository.name }}/
+        run: bun run docs:build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
