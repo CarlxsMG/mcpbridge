@@ -4,6 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useAuth } from "../composables/useAuth";
 import type { AdminUserSummary, AdminRole } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import { UserCog } from "lucide-vue-next";
 
 const { state: authState } = useAuth();
 
@@ -11,6 +12,7 @@ const users = ref<AdminUserSummary[]>([]);
 const loading = ref(false);
 const errorMessage = ref("");
 const pendingDelete = ref<AdminUserSummary | null>(null);
+const pendingRoleChange = ref<{ user: AdminUserSummary; nextRole: string } | null>(null);
 
 const activeAdminCount = computed(() => users.value.filter((u) => u.role === "admin" && u.is_active).length);
 
@@ -23,7 +25,7 @@ function isLastActiveAdmin(user: AdminUserSummary): boolean {
 const showCreateForm = ref(false);
 const newUsername = ref("");
 const newPassword = ref("");
-const newRole = ref<AdminRole>("admin");
+const newRole = ref<AdminRole>("viewer");
 const createError = ref("");
 const creating = ref(false);
 
@@ -53,7 +55,7 @@ async function createUser() {
     await api.post("/admin-api/users", { username: newUsername.value.trim(), password: newPassword.value, role: newRole.value });
     newUsername.value = "";
     newPassword.value = "";
-    newRole.value = "admin";
+    newRole.value = "viewer";
     showCreateForm.value = false;
     await load();
   } catch (err) {
@@ -71,6 +73,25 @@ async function changeRole(user: AdminUserSummary, nextRole: string) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to update role.";
     await load(); // reset the select back to the persisted value
   }
+}
+
+function requestRoleChange(user: AdminUserSummary, nextRole: string) {
+  if (nextRole === user.role) return;
+  pendingRoleChange.value = { user, nextRole };
+}
+
+function roleChangeMessage(user: AdminUserSummary, nextRole: string): string {
+  if (user.username === authState.user?.username) {
+    return `You are changing your own role from '${user.role}' to '${nextRole}'. This may immediately restrict what you can do in this admin panel.`;
+  }
+  return `Change '${user.username}''s role from '${user.role}' to '${nextRole}'?`;
+}
+
+async function confirmRoleChange() {
+  if (!pendingRoleChange.value) return;
+  const { user, nextRole } = pendingRoleChange.value;
+  pendingRoleChange.value = null;
+  await changeRole(user, nextRole);
 }
 
 function requestDelete(user: AdminUserSummary) {
@@ -94,7 +115,7 @@ async function confirmDelete() {
   <section>
     <header class="page-header">
       <h1>Users</h1>
-      <button type="button" class="btn-primary" @click="showCreateForm = !showCreateForm">
+      <button type="button" :class="showCreateForm ? 'btn-secondary' : 'btn-primary'" @click="showCreateForm = !showCreateForm">
         {{ showCreateForm ? "Cancel" : "Add user" }}
       </button>
     </header>
@@ -124,7 +145,12 @@ async function confirmDelete() {
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <div v-if="loading" class="loading">Loading…</div>
 
-    <div v-else class="table-scroll">
+    <div v-else-if="users.length === 0" class="empty-state">
+      <UserCog :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
+      <p>No admin users yet.</p>
+    </div>
+
+    <div v-else class="table-card table-scroll">
     <table class="users-table">
       <thead>
         <tr>
@@ -144,13 +170,14 @@ async function confirmDelete() {
               :value="user.role"
               :disabled="isLastActiveAdmin(user)"
               :title="isLastActiveAdmin(user) ? 'Cannot change the last active admin — promote another user first.' : ''"
-              @change="changeRole(user, ($event.target as HTMLSelectElement).value)"
+              @change="requestRoleChange(user, ($event.target as HTMLSelectElement).value)"
             >
               <option value="admin">admin</option>
               <option value="operator">operator</option>
               <option value="auditor">auditor</option>
               <option value="viewer">viewer</option>
             </select>
+            <span v-if="isLastActiveAdmin(user)" class="switch-hint">Cannot change the last active admin — promote another user first.</span>
           </td>
           <td>{{ user.is_active ? "Yes" : "No" }}</td>
           <td>{{ user.last_login_at ? new Date(user.last_login_at).toLocaleString() : "Never" }}</td>
@@ -164,6 +191,7 @@ async function confirmDelete() {
             >
               Delete
             </button>
+            <span v-if="isLastActiveAdmin(user)" class="switch-hint">Cannot delete the last active admin — promote another user first.</span>
           </td>
         </tr>
       </tbody>
@@ -179,6 +207,15 @@ async function confirmDelete() {
       @confirm="confirmDelete"
       @cancel="pendingDelete = null"
     />
+
+    <ConfirmDialog
+      :open="pendingRoleChange !== null"
+      title="Change this user's role?"
+      :message="pendingRoleChange ? roleChangeMessage(pendingRoleChange.user, pendingRoleChange.nextRole) : ''"
+      :confirm-label="pendingRoleChange ? `Change to ${pendingRoleChange.nextRole}` : 'Change role'"
+      @confirm="confirmRoleChange"
+      @cancel="pendingRoleChange = null"
+    />
   </section>
 </template>
 
@@ -186,13 +223,16 @@ async function confirmDelete() {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1.25rem;
 }
+.page-header h1 {
+  margin: 0 0 0.2rem;
+}
 .create-form {
-  background: #fafbfc;
+  background: var(--surface-sunken);
   padding: 1.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
   max-width: 380px;
   display: flex;
@@ -203,15 +243,23 @@ async function confirmDelete() {
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
 }
 .field input,
 .field select {
   width: 100%;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-family: var(--font-body);
   box-sizing: border-box;
+}
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
 }
 .users-table {
   width: 100%;
@@ -220,32 +268,53 @@ async function confirmDelete() {
 }
 .users-table th {
   text-align: left;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 2px solid #e5e7eb;
-  color: #52565c;
-  font-size: 0.78rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .users-table td {
-  padding: 0.55rem 0.75rem;
-  border-bottom: 1px solid #eef0f2;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.users-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.users-table tbody tr:hover {
+  background: var(--surface-sunken);
 }
 .you-tag {
-  color: #63676e;
+  color: var(--text-muted);
   font-size: 0.8rem;
 }
 .switch-hint {
-  color: #63676e;
+  color: var(--text-muted);
   font-weight: 400;
   font-size: 0.78rem;
 }
 .link-btn.danger {
-  color: #a11212;
+  color: var(--breach);
+}
+.empty-state {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.empty-icon {
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
 }
 .error {
-  color: #a11212;
+  color: var(--breach);
 }
 .loading {
-  color: #63676e;
+  color: var(--text-muted);
 }
 </style>

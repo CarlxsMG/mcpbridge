@@ -12,6 +12,7 @@ const props = defineProps<{
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
 
 const cancelBtn = ref<HTMLButtonElement | null>(null);
+const confirmBtn = ref<HTMLButtonElement | null>(null);
 let previouslyFocused: HTMLElement | null = null;
 
 // Escape only reaches the handler below once focus is inside the dialog —
@@ -30,16 +31,31 @@ watch(
     }
   }
 );
+
+// Cancel/Confirm are the only two focusable elements — cycle Tab/Shift+Tab
+// between them so focus can't escape to the page behind the overlay.
+function trapFocus(e: KeyboardEvent) {
+  if (e.key !== "Tab") return;
+  if (e.shiftKey) {
+    if (document.activeElement === cancelBtn.value) {
+      e.preventDefault();
+      confirmBtn.value?.focus();
+    }
+  } else if (document.activeElement === confirmBtn.value) {
+    e.preventDefault();
+    cancelBtn.value?.focus();
+  }
+}
 </script>
 
 <template>
-  <div v-if="open" class="overlay" @keydown.esc.stop="emit('cancel')">
+  <div v-if="open" class="overlay" @keydown.esc.stop="emit('cancel')" @keydown="trapFocus">
     <div class="dialog" role="alertdialog" aria-modal="true" :aria-label="title">
       <h2>{{ title }}</h2>
       <p>{{ message }}</p>
       <div class="actions">
         <button ref="cancelBtn" type="button" class="btn-secondary" @click="emit('cancel')">Cancel</button>
-        <button type="button" :class="danger ? 'btn-danger' : 'btn-primary'" @click="emit('confirm')">
+        <button ref="confirmBtn" type="button" :class="danger ? 'btn-danger' : 'btn-primary'" @click="emit('confirm')">
           {{ confirmLabel }}
         </button>
       </div>
@@ -51,32 +67,33 @@ watch(
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 18, 22, 0.45);
+  background: rgba(14, 17, 22, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: var(--z-overlay);
 }
 .dialog {
-  background: #fff;
-  border-radius: 10px;
-  padding: 1.5rem;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
   max-width: 420px;
   width: 90%;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-lg);
 }
 .dialog h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1.1rem;
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
 }
 .dialog p {
-  margin: 0 0 1.25rem;
-  color: #4a4f57;
+  margin: 0 0 var(--space-5);
+  color: var(--text-secondary);
   line-height: 1.4;
+  font-family: var(--font-body);
 }
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.6rem;
+  gap: var(--space-2);
 }
 </style>

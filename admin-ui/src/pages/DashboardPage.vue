@@ -5,6 +5,7 @@ import { api, ApiError } from "../composables/useApi";
 import type { ClientSummary, PaginatedResult } from "../types/api";
 import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import { Search, Server } from "lucide-vue-next";
 
 const router = useRouter();
 const route = useRoute();
@@ -18,6 +19,7 @@ const rowError = ref<Record<string, string>>({});
 
 const q = ref(typeof route.query.q === "string" ? route.query.q : "");
 const enabledFilter = ref(typeof route.query.enabled === "string" ? route.query.enabled : "");
+const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
 
 const pendingDisable = ref<ClientSummary | null>(null);
 const selected = ref<Set<string>>(new Set());
@@ -95,13 +97,16 @@ function applyFilters() {
 function nextPage() {
   if (!nextCursor.value) return;
   cursorStack.value.push(undefined); // placeholder for "page before current" bookkeeping
+  router.replace({ query: { q: q.value || undefined, enabled: enabledFilter.value || undefined, cursor: nextCursor.value } });
   load(nextCursor.value);
 }
 
 function prevPage() {
   if (cursorStack.value.length === 0) return;
   cursorStack.value.pop();
-  load(cursorStack.value[cursorStack.value.length - 1]);
+  const cursor = cursorStack.value[cursorStack.value.length - 1];
+  router.replace({ query: { q: q.value || undefined, enabled: enabledFilter.value || undefined, cursor: cursor || undefined } });
+  load(cursor);
 }
 
 async function toggleEnabled(client: ClientSummary) {
@@ -144,23 +149,35 @@ watch([q, enabledFilter], () => {
   // debounce-free: filters apply on explicit submit via applyFilters(), not on every keystroke
 });
 
-onMounted(load);
+onMounted(() => load(initialCursor));
 </script>
 
 <template>
   <section>
     <header class="page-header">
-      <h1>Servers</h1>
-      <p class="subtitle">Registered backend clients and their tools.</p>
+      <div>
+        <h1>Servers</h1>
+        <p class="subtitle">Registered backend clients and their tools.</p>
+      </div>
+      <RouterLink to="/register-server" class="btn-primary">Add server</RouterLink>
     </header>
 
     <form class="filters" @submit.prevent="applyFilters">
-      <input v-model="q" type="search" placeholder="Search by name…" aria-label="Search clients" />
-      <select v-model="enabledFilter" aria-label="Filter by enabled state">
-        <option value="">All states</option>
-        <option value="true">Enabled only</option>
-        <option value="false">Disabled only</option>
-      </select>
+      <div class="field">
+        <label for="d-search">Search</label>
+        <div class="search-input">
+          <Search :size="15" stroke-width="2" aria-hidden="true" />
+          <input id="d-search" v-model="q" type="search" placeholder="Search by name…" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="d-state">State</label>
+        <select id="d-state" v-model="enabledFilter">
+          <option value="">All states</option>
+          <option value="true">Enabled only</option>
+          <option value="false">Disabled only</option>
+        </select>
+      </div>
       <button type="submit" class="btn-secondary">Apply</button>
     </form>
 
@@ -169,7 +186,7 @@ onMounted(load);
     <div v-if="selected.size > 0" class="bulk-bar">
       <span>{{ selected.size }} selected</span>
       <button type="button" class="btn-secondary" :disabled="bulkPending" @click="runBulk(true)">Enable selected</button>
-      <button type="button" class="btn-secondary" :disabled="bulkPending" @click="requestBulkDisable">Disable selected</button>
+      <button type="button" class="btn-danger" :disabled="bulkPending" @click="requestBulkDisable">Disable selected</button>
       <button type="button" class="link-btn" @click="selected = new Set()">Clear selection</button>
       <span v-if="bulkError" class="error">{{ bulkError }}</span>
     </div>
@@ -178,6 +195,7 @@ onMounted(load);
 
     <template v-else-if="items.length === 0">
       <div class="empty-state">
+        <Server :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
         <p v-if="q || enabledFilter">No clients match your filters. <button type="button" class="link-btn" @click="q = ''; enabledFilter = ''; applyFilters();">Clear filters</button></p>
         <p v-else>
           No clients registered yet. REST backends register themselves via <code>POST /register</code>;
@@ -186,7 +204,7 @@ onMounted(load);
       </div>
     </template>
 
-    <div v-else class="table-scroll">
+    <div v-else class="table-card table-scroll">
     <table class="clients-table">
       <thead>
         <tr>
@@ -221,7 +239,7 @@ onMounted(load);
           </td>
           <td><StatusBadge :status="client.status" /></td>
           <td>{{ client.toolsCount }}</td>
-          <td class="url-cell">{{ client.healthUrl }}</td>
+          <td class="url-cell" :title="client.healthUrl">{{ client.healthUrl }}</td>
           <td>
             <button
               type="button"
@@ -242,6 +260,7 @@ onMounted(load);
     <div class="pagination">
       <button type="button" class="btn-secondary" :disabled="cursorStack.length === 0" @click="prevPage">Previous</button>
       <button type="button" class="btn-secondary" :disabled="!nextCursor" @click="nextPage">Next</button>
+      <p class="subtitle">{{ items.length }} server(s) on this page</p>
     </div>
 
     <ConfirmDialog
@@ -267,43 +286,83 @@ onMounted(load);
 </template>
 
 <style scoped>
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
 .page-header h1 {
   margin: 0 0 0.2rem;
 }
 .subtitle {
-  color: #63676e;
-  margin: 0 0 1.25rem;
+  color: var(--text-secondary);
+  margin: 0;
 }
 .filters {
   display: flex;
+  align-items: flex-end;
   gap: 0.6rem;
   margin-bottom: 1.25rem;
 }
-.filters input[type="search"] {
+.filters .field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.filters .field:first-of-type {
   flex: 1;
   max-width: 320px;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+}
+.search-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 0.6rem;
+  background: var(--surface);
+}
+.search-input svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.search-input input[type="search"] {
+  flex: 1;
+  width: 100%;
+  padding: 0.45rem 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
 }
 .filters select {
   padding: 0.45rem 0.6rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
 }
 .bulk-bar {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: #eef4ff;
-  border: 1px solid #c9dcfb;
-  border-radius: 8px;
+  background: var(--signal-soft);
+  border: 1px solid #b6e3dd;
+  border-radius: var(--radius-md);
   padding: 0.6rem 1rem;
   margin-bottom: 1rem;
   font-size: 0.88rem;
 }
 .checkbox-col {
   width: 2rem;
+}
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
 }
 .clients-table {
   width: 100%;
@@ -312,53 +371,70 @@ onMounted(load);
 }
 .clients-table th {
   text-align: left;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 2px solid #e5e7eb;
-  color: #52565c;
-  font-size: 0.8rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
 }
 .clients-table td {
-  padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid #eef0f2;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
+}
+.clients-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.clients-table tbody tr:hover {
+  background: var(--surface-sunken);
 }
 .url-cell {
   max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #63676e;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.83rem;
 }
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.4em;
-  border-radius: 6px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.8rem;
+  gap: 0.45em;
+  border-radius: var(--radius-pill);
+  padding: 0.28rem 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  background: #fff;
+  background: var(--surface);
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 .toggle::before {
   content: "";
-  width: 0.6em;
-  height: 0.6em;
+  width: 0.55em;
+  height: 0.55em;
   border-radius: 50%;
   background: currentColor;
+  flex-shrink: 0;
 }
 .toggle-on {
-  border: 1px solid #146c2e;
-  color: #146c2e;
+  border: 1px solid var(--ok);
+  color: var(--ok);
 }
 .toggle-off {
-  border: 1px solid #9aa0a8;
-  color: #52565c;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+.toggle-on:hover {
+  background: var(--ok-soft);
+}
+.toggle-off:hover {
+  background: var(--surface-sunken);
 }
 .row-error {
-  color: #a11212;
+  color: var(--breach);
   font-size: 0.75rem;
   margin: 0.25rem 0 0;
 }
@@ -368,7 +444,7 @@ onMounted(load);
   padding: 0.05rem 0.4rem;
   background: #ece9fb;
   color: #5a3aa8;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -376,21 +452,30 @@ onMounted(load);
 }
 .pagination {
   display: flex;
+  align-items: center;
   gap: 0.6rem;
   margin-top: 1.25rem;
 }
+.pagination .subtitle {
+  margin-left: 0.4rem;
+}
 .empty-state {
-  padding: 2rem;
+  padding: 3rem 2rem;
   text-align: center;
-  color: #63676e;
-  background: #fafbfc;
-  border-radius: 8px;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.empty-icon {
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
 }
 .loading {
-  color: #63676e;
+  color: var(--text-muted);
   padding: 1rem 0;
 }
 .error {
-  color: #a11212;
+  color: var(--breach);
 }
 </style>

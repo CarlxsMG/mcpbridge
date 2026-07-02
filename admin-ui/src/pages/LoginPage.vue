@@ -102,6 +102,9 @@ async function onSubmit() {
   font-size: 0.95rem;
   box-sizing: border-box;
 }
+.btn-primary {
+  width: 100%;
+}
 .error {
   color: #a11212;
   font-size: 0.85rem;

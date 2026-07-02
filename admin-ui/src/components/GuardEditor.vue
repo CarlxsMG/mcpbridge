@@ -2,6 +2,7 @@
 import { ref, computed, watch } from "vue";
 import type { ToolGuardConfig } from "../types/api";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import { KeyRound, ShieldCheck } from "lucide-vue-next";
 
 const props = defineProps<{
   guards?: ToolGuardConfig;
@@ -34,12 +35,51 @@ const rateLimitInput = ref(props.guards?.rateLimitPerMin?.toString() ?? "");
 const timeoutInput = ref(props.guards?.timeoutMs?.toString() ?? "");
 const rateLimitTouched = ref(false);
 const timeoutTouched = ref(false);
+const displayNameTouched = ref(false);
 const newApiKey = ref("");
 const showApiKey = ref(false);
 const hasAllowedKeysGuard = ref(Boolean(props.guards?.allowedKeyHashes?.length));
 const existingKeyCount = ref(props.guards?.allowedKeyHashes?.length ?? 0);
 const replacementKeys = ref<string[]>([]);
 const pendingClear = ref(false);
+
+const savingMain = ref(false);
+const savedMain = ref(false);
+const clearingGuards = ref(false);
+const savedClear = ref(false);
+const savingPresentation = ref(false);
+const savedPresentation = ref(false);
+const savingTags = ref(false);
+const savedTags = ref(false);
+const savingRedaction = ref(false);
+const savedRedaction = ref(false);
+const savingGuardrails = ref(false);
+const savedGuardrails = ref(false);
+
+function flashSaved(flag: { value: boolean }) {
+  flag.value = true;
+  setTimeout(() => {
+    flag.value = false;
+  }, 2000);
+}
+
+// The parent's `saving` flag is shared across every guard/override/tag/
+// redaction/guardrail save, so it flipping back to false is the only signal
+// available when an action fails (the per-field prop watches below only fire
+// on success, once the parent reloads the client). Use it as a catch-all
+// reset so a failed save doesn't leave a button stuck on "Saving…".
+watch(
+  () => props.saving,
+  (s) => {
+    if (s) return;
+    savingMain.value = false;
+    clearingGuards.value = false;
+    savingPresentation.value = false;
+    savingTags.value = false;
+    savingRedaction.value = false;
+    savingGuardrails.value = false;
+  }
+);
 
 watch(
   () => props.guards,
@@ -51,6 +91,14 @@ watch(
     hasAllowedKeysGuard.value = Boolean(g?.allowedKeyHashes?.length);
     existingKeyCount.value = g?.allowedKeyHashes?.length ?? 0;
     replacementKeys.value = [];
+    if (savingMain.value) {
+      savingMain.value = false;
+      flashSaved(savedMain);
+    }
+    if (clearingGuards.value) {
+      clearingGuards.value = false;
+      flashSaved(savedClear);
+    }
   }
 );
 
@@ -59,6 +107,11 @@ watch(
   (o) => {
     descriptionInput.value = o?.description ?? "";
     displayNameInput.value = o?.displayName ?? "";
+    displayNameTouched.value = false;
+    if (savingPresentation.value) {
+      savingPresentation.value = false;
+      flashSaved(savedPresentation);
+    }
   }
 );
 
@@ -77,6 +130,10 @@ watch(
   () => props.tags,
   (t) => {
     tagsInput.value = (t ?? []).join(", ");
+    if (savingTags.value) {
+      savingTags.value = false;
+      flashSaved(savedTags);
+    }
   }
 );
 
@@ -84,6 +141,10 @@ watch(
   () => props.redactPaths,
   (p) => {
     redactInput.value = (p ?? []).join("\n");
+    if (savingRedaction.value) {
+      savingRedaction.value = false;
+      flashSaved(savedRedaction);
+    }
   }
 );
 
@@ -93,11 +154,16 @@ watch(
     denyPatternsInput.value = (g?.denyPatterns ?? []).join("\n");
     blockSecretsInput.value = g?.blockSecrets ?? false;
     scanResponsesInput.value = g?.scanResponses ?? false;
+    if (savingGuardrails.value) {
+      savingGuardrails.value = false;
+      flashSaved(savedGuardrails);
+    }
   }
 );
 
 function saveGuardrailsFn() {
   const denyPatterns = denyPatternsInput.value.split("\n").map((p) => p.trim()).filter(Boolean);
+  savingGuardrails.value = true;
   if (denyPatterns.length === 0 && !blockSecretsInput.value && !scanResponsesInput.value) {
     emit("saveGuardrails", null);
     return;
@@ -151,11 +217,13 @@ function submit() {
   // Only send allowedApiKeys when the operator actually typed replacement
   // keys — otherwise leave the existing (hashed, unrecoverable) set alone.
   if (replacementKeys.value.length > 0) payload.allowedApiKeys = replacementKeys.value;
+  savingMain.value = true;
   emit("save", payload);
 }
 
 function requestClear() {
   if (!hasAnyGuard.value) {
+    clearingGuards.value = true;
     emit("save", null);
     return;
   }
@@ -164,6 +232,7 @@ function requestClear() {
 
 function confirmClear() {
   pendingClear.value = false;
+  clearingGuards.value = true;
   emit("save", null);
 }
 
@@ -172,6 +241,7 @@ function saveOverrideFn() {
   const desc = descriptionInput.value.trim();
   const displayName = displayNameInput.value.trim();
   const params = props.override?.params;
+  savingPresentation.value = true;
   if (!desc && !displayName && (!params || Object.keys(params).length === 0)) {
     emit("saveOverride", null);
     return;
@@ -183,17 +253,20 @@ function saveOverrideFn() {
 
 function saveTagsFn() {
   const tags = tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean);
+  savingTags.value = true;
   emit("saveTags", tags);
 }
 
 function saveRedactionFn() {
   const paths = redactInput.value.split(/[\n,]/).map((p) => p.trim()).filter(Boolean);
+  savingRedaction.value = true;
   emit("saveRedaction", paths);
 }
 </script>
 
 <template>
   <form class="guard-editor" @submit.prevent="submit">
+    <h3><KeyRound :size="15" stroke-width="2" aria-hidden="true" /> Rate limit & keys</h3>
     <div class="field">
       <label for="rate-limit">Rate limit (calls / minute)</label>
       <input
@@ -243,7 +316,7 @@ function saveRedactionFn() {
       <ul v-if="replacementKeys.length" class="key-list">
         <li v-for="(_, i) in replacementKeys" :key="i">
           New key #{{ i + 1 }}
-          <button type="button" class="link-btn" @click="removeReplacementKey(i)">remove</button>
+          <button type="button" class="link-btn danger" @click="removeReplacementKey(i)">remove</button>
         </li>
       </ul>
       <p v-if="replacementKeys.length" class="hint warn">
@@ -251,44 +324,67 @@ function saveRedactionFn() {
       </p>
     </div>
 
+    <h3>Presentation</h3>
     <div class="field">
       <label for="tool-display-name">Display name (alias)</label>
       <p class="hint">
         Renames the tool for MCP clients. The <code>{{ clientName ?? "client" }}__</code> prefix is always kept.
         Leave blank to use the registered name. Advertised as: <code>{{ advertisedName }}</code>
       </p>
-      <input id="tool-display-name" v-model="displayNameInput" type="text" placeholder="e.g. issues" />
-      <p v-if="displayNameError" class="field-error">{{ displayNameError }}</p>
+      <input
+        id="tool-display-name"
+        v-model="displayNameInput"
+        type="text"
+        placeholder="e.g. issues"
+        @keydown.enter.prevent
+        @blur="displayNameTouched = true"
+      />
+      <p v-if="displayNameTouched && displayNameError" class="field-error">{{ displayNameError }}</p>
     </div>
 
     <div class="field">
       <label for="tool-desc">Advertised description override</label>
       <p class="hint">Replaces what MCP clients see for this tool in tools/list. Leave blank to use the registered description.</p>
       <textarea id="tool-desc" v-model="descriptionInput" rows="3" placeholder="Registered description is used when blank"></textarea>
-      <button type="button" class="btn-secondary desc-save" :disabled="saving || Boolean(displayNameError)" @click="saveOverrideFn">Save presentation</button>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving || Boolean(displayNameError)" @click="saveOverrideFn">
+        {{ savingPresentation ? "Saving…" : "Save presentation" }}
+      </button>
+      <span v-if="savedPresentation" class="save-ok">Saved</span>
     </div>
 
+    <h3>Tags</h3>
     <div class="field">
       <label for="tool-tags">Tags</label>
       <p class="hint">Comma-separated (lowercase letters, digits, - and _). Used to organize and filter tools.</p>
-      <input id="tool-tags" v-model="tagsInput" type="text" placeholder="billing, read-only" />
-      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveTagsFn">Save tags</button>
+      <input id="tool-tags" v-model="tagsInput" type="text" placeholder="billing, read-only" @keydown.enter.prevent />
+      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveTagsFn">
+        {{ savingTags ? "Saving…" : "Save tags" }}
+      </button>
+      <span v-if="savedTags" class="save-ok">Saved</span>
     </div>
 
+    <h3>Redaction</h3>
     <div class="field">
       <label for="tool-redact">Response redaction paths</label>
       <p class="hint">One dot-path per line (e.g. user.ssn, items.*.secret). Matching JSON values are replaced with [REDACTED] before returning to the caller.</p>
       <textarea id="tool-redact" v-model="redactInput" rows="3" placeholder="user.password&#10;items.*.token"></textarea>
-      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveRedactionFn">Save redaction</button>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveRedactionFn">
+        {{ savingRedaction ? "Saving…" : "Save redaction" }}
+      </button>
+      <span v-if="savedRedaction" class="save-ok">Saved</span>
     </div>
 
+    <h3><ShieldCheck :size="15" stroke-width="2" aria-hidden="true" /> Guardrails</h3>
     <div class="field">
       <label for="tool-deny">Content guardrails</label>
       <p class="hint">Input deny patterns (one regex per line). A call whose arguments match any pattern is rejected before dispatch.</p>
       <textarea id="tool-deny" v-model="denyPatternsInput" rows="2" placeholder="\bDROP\s+TABLE\b&#10;rm\s+-rf"></textarea>
       <label class="checkline"><input type="checkbox" v-model="blockSecretsInput" /> Block arguments that look like secrets (AWS keys, private keys, tokens…)</label>
       <label class="checkline"><input type="checkbox" v-model="scanResponsesInput" /> Scan responses for prompt-injection and wrap flagged output</label>
-      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveGuardrailsFn">Save guardrails</button>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveGuardrailsFn">
+        {{ savingGuardrails ? "Saving…" : "Save guardrails" }}
+      </button>
+      <span v-if="savedGuardrails" class="save-ok">Saved</span>
     </div>
 
     <details class="preview">
@@ -297,10 +393,18 @@ function saveRedactionFn() {
     </details>
 
     <div class="actions">
-      <button type="button" class="btn-secondary" @click="requestClear" :disabled="saving">Clear guards</button>
-      <button type="submit" class="btn-primary" :disabled="!isValid || saving">
-        {{ saving ? "Saving…" : "Save guards" }}
-      </button>
+      <span class="action-group">
+        <button type="button" class="btn-secondary" @click="requestClear" :disabled="saving">
+          {{ clearingGuards ? "Clearing…" : "Clear guards" }}
+        </button>
+        <span v-if="savedClear" class="save-ok">Cleared</span>
+      </span>
+      <span class="action-group">
+        <button type="submit" class="btn-primary" :disabled="!isValid || saving">
+          {{ savingMain ? "Saving…" : "Save guards" }}
+        </button>
+        <span v-if="savedMain" class="save-ok">Saved</span>
+      </span>
     </div>
   </form>
 
@@ -322,6 +426,16 @@ function saveRedactionFn() {
   gap: 1.1rem;
   max-width: 420px;
 }
+.guard-editor h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.2rem;
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
 .field label {
   display: block;
   font-weight: 600;
@@ -333,13 +447,13 @@ function saveRedactionFn() {
 .field textarea {
   width: 100%;
   padding: 0.45rem 0.6rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
+  font-family: var(--font-body);
   box-sizing: border-box;
 }
 .field textarea {
-  font-family: inherit;
   resize: vertical;
 }
 .desc-save {
@@ -357,17 +471,17 @@ function saveRedactionFn() {
   width: auto;
 }
 .field-error {
-  color: #a11212;
+  color: var(--breach);
   font-size: 0.8rem;
   margin: 0.25rem 0 0;
 }
 .hint {
   font-size: 0.8rem;
-  color: #63676e;
+  color: var(--text-secondary);
   margin: 0 0 0.5rem;
 }
 .hint.warn {
-  color: #8a5a00;
+  color: var(--canary);
 }
 .key-input {
   display: flex;
@@ -382,7 +496,6 @@ function saveRedactionFn() {
 .link-btn {
   background: none;
   border: none;
-  color: #a11212;
   cursor: pointer;
   font-size: 0.8rem;
   padding: 0 0 0 0.5rem;
@@ -391,14 +504,24 @@ function saveRedactionFn() {
   font-size: 0.8rem;
 }
 .preview pre {
-  background: #f4f5f7;
+  background: var(--surface-sunken);
   padding: 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow-x: auto;
 }
 .actions {
   display: flex;
   justify-content: space-between;
   gap: 0.6rem;
+}
+.action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.save-ok {
+  color: var(--ok);
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 </style>

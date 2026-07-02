@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import type { DiscoveryPreview, DiscoveredTool, UpstreamKind, McpTransport } from "../types/api";
@@ -54,6 +54,10 @@ async function preview() {
   }
 }
 
+watch([openapiUrl, includeTags, excludeOps], () => {
+  previewTools.value = null;
+});
+
 async function register() {
   error.value = "";
   registering.value = true;
@@ -102,12 +106,14 @@ async function register() {
 <template>
   <section>
     <p class="breadcrumb"><RouterLink to="/servers">Servers</RouterLink> / Add server</p>
-    <h1>Register a server</h1>
+    <header class="page-header">
+      <h1>Register a server</h1>
+    </header>
 
     <form class="reg-form" @submit.prevent="register">
-      <div class="mode-toggle">
-        <label><input v-model="kind" type="radio" value="rest" /> REST API</label>
-        <label><input v-model="kind" type="radio" value="mcp" /> MCP server</label>
+      <div class="segmented" role="radiogroup" aria-label="Server kind">
+        <label><input v-model="kind" type="radio" name="kind" value="rest" /> REST API</label>
+        <label><input v-model="kind" type="radio" name="kind" value="mcp" /> MCP server</label>
       </div>
 
       <div class="field">
@@ -125,9 +131,9 @@ async function register() {
           <input id="r-base" v-model="baseUrl" type="url" placeholder="https://api.example.com" />
         </div>
 
-        <div class="mode-toggle">
-          <label><input v-model="mode" type="radio" value="openapi" /> From OpenAPI</label>
-          <label><input v-model="mode" type="radio" value="manual" /> Manual tools</label>
+        <div class="segmented" role="radiogroup" aria-label="Tool discovery mode">
+          <label><input v-model="mode" type="radio" name="mode" value="openapi" /> From OpenAPI</label>
+          <label><input v-model="mode" type="radio" name="mode" value="manual" /> Manual tools</label>
         </div>
 
         <template v-if="mode === 'openapi'">
@@ -150,8 +156,8 @@ async function register() {
             <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
           </div>
           <p v-if="previewError" class="error">{{ previewError }}</p>
-          <div v-if="previewTools && previewTools.length" class="table-scroll preview-table">
-            <table>
+          <div v-if="previewTools && previewTools.length" class="table-card table-scroll">
+            <table class="preview-table">
               <thead><tr><th>Name</th><th>Method</th><th>Endpoint</th></tr></thead>
               <tbody>
                 <tr v-for="t in previewTools" :key="t.name">
@@ -166,7 +172,13 @@ async function register() {
 
         <div v-else class="field">
           <label for="r-manual">Tools (JSON array of {name, method, endpoint, description, inputSchema})</label>
-          <textarea id="r-manual" v-model="manualTools" rows="10" spellcheck="false"></textarea>
+          <textarea
+            id="r-manual"
+            v-model="manualTools"
+            rows="10"
+            spellcheck="false"
+            placeholder='[{"name":"get_user","method":"GET","endpoint":"/users/{id}","description":"Fetch a user by id","inputSchema":{"type":"object","properties":{"id":{"type":"string"}}}}]'
+          ></textarea>
         </div>
       </template>
 
@@ -190,7 +202,11 @@ async function register() {
       </template>
 
       <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <button type="submit" class="btn-primary" :disabled="registering">{{ registering ? "Registering…" : "Register server" }}</button>
+      <button
+        type="submit"
+        class="btn-primary"
+        :disabled="registering || (kind === 'rest' && mode === 'openapi' && !previewTools)"
+      >{{ registering ? "Registering…" : "Register server" }}</button>
     </form>
   </section>
 </template>
@@ -198,7 +214,16 @@ async function register() {
 <style scoped>
 .breadcrumb {
   font-size: 0.85rem;
-  color: #63676e;
+  color: var(--text-secondary);
+}
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+.page-header h1 {
+  margin: 0 0 0.2rem;
 }
 .reg-form {
   display: flex;
@@ -207,38 +232,33 @@ async function register() {
   max-width: 560px;
   margin-top: 1rem;
 }
+.field {
+  margin-bottom: 1rem;
+}
 .field label {
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
 }
 .field input,
-.field textarea,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-family: var(--font-body);
   box-sizing: border-box;
-  font-family: inherit;
 }
 .field textarea {
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
-}
-.mode-toggle {
-  display: flex;
-  gap: 1.25rem;
-  padding: 0.5rem 0;
-  font-size: 0.9rem;
-}
-.mode-toggle label {
-  font-weight: 500;
 }
 .hint {
   font-size: 0.82rem;
-  color: #63676e;
+  color: var(--text-secondary);
   margin: 0;
 }
 .preview-row {
@@ -248,29 +268,44 @@ async function register() {
 }
 .preview-count {
   font-size: 0.85rem;
-  color: #146c2e;
+  color: var(--ok);
 }
-.preview-table table {
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+.preview-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 .preview-table th {
   text-align: left;
-  padding: 0.4rem 0.6rem;
-  border-bottom: 2px solid #e5e7eb;
-  font-size: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
   text-transform: uppercase;
-  color: #52565c;
+  letter-spacing: 0.04em;
 }
 .preview-table td {
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid #eef0f2;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.preview-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.preview-table tbody tr:hover {
+  background: var(--surface-sunken);
 }
 .preview-table .ep {
-  color: #63676e;
+  color: var(--text-secondary);
 }
 .error {
-  color: #a11212;
+  color: var(--breach);
 }
 </style>

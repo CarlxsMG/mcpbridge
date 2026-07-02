@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { UsageSummary, TopToolRow, UsageByKeyRow } from "../types/api";
+import StatCard from "../components/StatCard.vue";
+import MiniBarChart from "../components/MiniBarChart.vue";
+import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench } from "lucide-vue-next";
 
 const WINDOWS = [
   { label: "24 hours", ms: 24 * 60 * 60_000 },
@@ -40,6 +43,23 @@ async function load() {
   }
 }
 
+const topToolsChart = computed(() =>
+  topTools.value.slice(0, 8).map((t) => ({
+    label: `${t.client}/${t.tool}`,
+    value: t.calls,
+    hint: t.errors ? `${t.errors} err` : undefined,
+    danger: t.errorRate > 0.1,
+  }))
+);
+
+const byKeyChart = computed(() =>
+  byKey.value.slice(0, 8).map((k) => ({
+    label: k.label,
+    value: k.calls,
+    danger: false,
+  }))
+);
+
 onMounted(load);
 </script>
 
@@ -47,26 +67,39 @@ onMounted(load);
   <section>
     <header class="page-header">
       <h1>Usage</h1>
-      <select v-model.number="windowMs" @change="load">
-        <option v-for="w in WINDOWS" :key="w.ms" :value="w.ms">Last {{ w.label }}</option>
-      </select>
+      <div class="window-control">
+        <select v-model.number="windowMs" aria-label="Time window" @change="load">
+          <option v-for="w in WINDOWS" :key="w.ms" :value="w.ms">Last {{ w.label }}</option>
+        </select>
+        <span v-if="loading" class="loading-note">Loading…</span>
+      </div>
     </header>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading" class="loading">Loading…</div>
 
-    <template v-else-if="summary">
+    <template v-if="summary">
       <div class="cards">
-        <div class="card"><div class="card-value">{{ summary.calls }}</div><div class="card-label">Calls</div></div>
-        <div class="card"><div class="card-value">{{ summary.errors }}</div><div class="card-label">Errors</div></div>
-        <div class="card"><div class="card-value">{{ pct(summary.errorRate) }}</div><div class="card-label">Error rate</div></div>
-        <div class="card"><div class="card-value">{{ summary.avgMs }}ms</div><div class="card-label">Avg latency</div></div>
-        <div class="card"><div class="card-value">{{ summary.maxMs }}ms</div><div class="card-label">Max latency</div></div>
-        <div class="card"><div class="card-value">{{ summary.tools }}</div><div class="card-label">Active tools</div></div>
+        <StatCard :icon="Activity" label="Calls" :value="summary.calls" />
+        <StatCard :icon="AlertTriangle" label="Errors" :value="summary.errors" :tone="summary.errors > 0 ? 'warning' : 'default'" />
+        <StatCard :icon="Percent" label="Error rate" :value="pct(summary.errorRate)" :tone="summary.errorRate > 0.1 ? 'danger' : 'default'" />
+        <StatCard :icon="Timer" label="Avg latency" :value="`${summary.avgMs}ms`" />
+        <StatCard :icon="Gauge" label="Max latency" :value="`${summary.maxMs}ms`" />
+        <StatCard :icon="Wrench" label="Active tools" :value="summary.tools" />
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <h2>Top tools by calls</h2>
+          <MiniBarChart :rows="topToolsChart" />
+        </div>
+        <div class="chart-card">
+          <h2>Calls by API key</h2>
+          <MiniBarChart :rows="byKeyChart" />
+        </div>
       </div>
 
       <h2>Top tools</h2>
-      <div v-if="topTools.length" class="table-scroll">
+      <div v-if="topTools.length" class="table-card table-scroll">
         <table class="usage-table">
           <thead><tr><th>Client</th><th>Tool</th><th>Calls</th><th>Errors</th><th>Error rate</th><th>Avg</th><th>Max</th></tr></thead>
           <tbody>
@@ -85,7 +118,7 @@ onMounted(load);
       <p v-else class="empty">No calls recorded in this window.</p>
 
       <h2>By API key</h2>
-      <div v-if="byKey.length" class="table-scroll">
+      <div v-if="byKey.length" class="table-card table-scroll">
         <table class="usage-table">
           <thead><tr><th>Key</th><th>Calls</th><th>Errors</th></tr></thead>
           <tbody>
@@ -99,6 +132,7 @@ onMounted(load);
       </div>
       <p v-else class="empty">No attributed calls in this window.</p>
     </template>
+    <div v-else-if="loading" class="loading">Loading…</div>
   </section>
 </template>
 
@@ -111,57 +145,90 @@ onMounted(load);
 }
 .page-header select {
   padding: 0.4rem 0.6rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+}
+.window-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.loading-note {
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.5rem;
 }
-.card {
-  background: #fafbfc;
-  border-radius: 8px;
-  padding: 1rem;
+.charts-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
 }
-.card-value {
-  font-size: 1.5rem;
-  font-weight: 700;
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  padding: 1.1rem 1.25rem;
 }
-.card-label {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  color: #63676e;
-  margin-top: 0.2rem;
+.chart-card h2 {
+  font-size: 0.85rem;
+  margin: 0 0 0.9rem;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  margin-bottom: 1.5rem;
 }
 .usage-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
-  margin-bottom: 1.5rem;
 }
 .usage-table th {
   text-align: left;
-  padding: 0.5rem 0.6rem;
-  border-bottom: 2px solid #e5e7eb;
-  color: #52565c;
-  font-size: 0.78rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .usage-table td {
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid #eef0f2;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+.usage-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.usage-table tbody tr:hover {
+  background: var(--surface-sunken);
 }
 .usage-table td.hot {
-  color: #a11212;
+  color: var(--breach);
   font-weight: 600;
 }
 .error {
-  color: #a11212;
+  color: var(--breach);
 }
 .loading,
 .empty {
-  color: #63676e;
+  color: var(--text-muted);
 }
 </style>

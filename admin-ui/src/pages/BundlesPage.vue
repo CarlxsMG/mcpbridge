@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { BundleSummary, BundleDetail, BundleToolRef } from "../types/api";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
+import { Boxes } from "lucide-vue-next";
 
 const items = ref<BundleSummary[]>([]);
 const loading = ref(false);
@@ -76,7 +77,7 @@ async function toggleEnabled(bundle: BundleSummary) {
         <h1>Bundles</h1>
         <p class="subtitle">Cross-client tool selections, each served at its own <code>/mcp-custom/&lt;name&gt;</code> endpoint.</p>
       </div>
-      <button type="button" class="btn-primary" @click="showCreateForm = !showCreateForm">
+      <button type="button" :class="showCreateForm ? 'btn-secondary' : 'btn-primary'" @click="showCreateForm = !showCreateForm">
         {{ showCreateForm ? "Cancel" : "Create bundle" }}
       </button>
     </header>
@@ -86,6 +87,7 @@ async function toggleEnabled(bundle: BundleSummary) {
         <label for="new-bundle-name">Name</label>
         <input id="new-bundle-name" v-model="newName" type="text" placeholder="e.g. assistant-a" required />
       </div>
+      <p v-if="createError" class="error">{{ createError }}</p>
       <div class="field">
         <label for="new-bundle-description">Description (optional)</label>
         <input id="new-bundle-description" v-model="newDescription" type="text" placeholder="What this bundle is for" />
@@ -94,7 +96,6 @@ async function toggleEnabled(bundle: BundleSummary) {
         <label>Tools</label>
         <BundleToolPicker v-model="newTools" />
       </div>
-      <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Creating…" : "Create bundle" }}</button>
     </form>
 
@@ -103,11 +104,12 @@ async function toggleEnabled(bundle: BundleSummary) {
 
     <template v-else-if="items.length === 0">
       <div class="empty-state">
+        <Boxes :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
         <p>No bundles yet. A bundle lets you hand an MCP client a curated, cross-client tool selection instead of one client's full tool list.</p>
       </div>
     </template>
 
-    <div v-else class="table-scroll">
+    <div v-else class="table-card table-scroll">
       <table class="bundles-table">
         <thead>
           <tr>
@@ -122,7 +124,7 @@ async function toggleEnabled(bundle: BundleSummary) {
             <td>
               <RouterLink :to="`/bundles/${encodeURIComponent(bundle.name)}`">{{ bundle.name }}</RouterLink>
             </td>
-            <td class="desc-cell">{{ bundle.description || "—" }}</td>
+            <td class="desc-cell" :title="bundle.description || undefined">{{ bundle.description || "—" }}</td>
             <td>{{ bundle.toolsCount }}</td>
             <td>
               <button
@@ -132,7 +134,7 @@ async function toggleEnabled(bundle: BundleSummary) {
                 :aria-pressed="bundle.enabled"
                 @click="toggleEnabled(bundle)"
               >
-                {{ bundle.enabled ? "Enabled" : "Disabled" }}
+                {{ bundle.enabled ? "Disable bundle" : "Enable bundle" }}
               </button>
               <p v-if="rowError[bundle.name]" class="row-error">{{ rowError[bundle.name] }}</p>
             </td>
@@ -154,14 +156,14 @@ async function toggleEnabled(bundle: BundleSummary) {
   margin: 0 0 0.2rem;
 }
 .subtitle {
-  color: #63676e;
+  color: var(--text-secondary);
   margin: 0;
   max-width: 520px;
 }
 .create-form {
-  background: #fafbfc;
+  background: var(--surface-sunken);
   padding: 1.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
   max-width: 480px;
   display: flex;
@@ -172,14 +174,22 @@ async function toggleEnabled(bundle: BundleSummary) {
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
 }
 .field input {
   width: 100%;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-family: var(--font-body);
   box-sizing: border-box;
+}
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
 }
 .bundles-table {
   width: 100%;
@@ -188,20 +198,27 @@ async function toggleEnabled(bundle: BundleSummary) {
 }
 .bundles-table th {
   text-align: left;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 2px solid #e5e7eb;
-  color: #52565c;
-  font-size: 0.8rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
 }
 .bundles-table td {
-  padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid #eef0f2;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+.bundles-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.bundles-table tbody tr:hover {
+  background: var(--surface-sunken);
+}
 .desc-cell {
-  color: #63676e;
+  color: var(--text-secondary);
   max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -210,46 +227,59 @@ async function toggleEnabled(bundle: BundleSummary) {
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.4em;
-  border-radius: 6px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.8rem;
+  gap: 0.45em;
+  border-radius: var(--radius-pill);
+  padding: 0.28rem 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  background: #fff;
+  background: var(--surface);
+  transition: background-color 0.12s ease;
 }
 .toggle::before {
   content: "";
-  width: 0.6em;
-  height: 0.6em;
+  width: 0.55em;
+  height: 0.55em;
   border-radius: 50%;
   background: currentColor;
+  flex-shrink: 0;
 }
 .toggle-on {
-  border: 1px solid #146c2e;
-  color: #146c2e;
+  border: 1px solid var(--ok);
+  color: var(--ok);
 }
 .toggle-off {
-  border: 1px solid #9aa0a8;
-  color: #52565c;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+.toggle-on:hover {
+  background: var(--ok-soft);
+}
+.toggle-off:hover {
+  background: var(--surface-sunken);
 }
 .row-error {
-  color: #a11212;
+  color: var(--breach);
   font-size: 0.75rem;
   margin: 0.25rem 0 0;
 }
 .empty-state {
-  padding: 2rem;
+  padding: 3rem 2rem;
   text-align: center;
-  color: #63676e;
-  background: #fafbfc;
-  border-radius: 8px;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.empty-icon {
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
 }
 .loading {
-  color: #63676e;
+  color: var(--text-muted);
   padding: 1rem 0;
 }
 .error {
-  color: #a11212;
+  color: var(--breach);
 }
 </style>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, onBeforeRouteLeave } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import type { BundleDetail, BundleToolRef } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -12,6 +12,9 @@ const router = useRouter();
 const detail = ref<BundleDetail | null>(null);
 const loading = ref(false);
 const errorMessage = ref("");
+const descriptionError = ref("");
+const toolsError = ref("");
+const deleteError = ref("");
 
 const descriptionInput = ref("");
 const savingDescription = ref(false);
@@ -47,24 +50,26 @@ const descriptionDirty = computed(() => descriptionInput.value !== (detail.value
 
 async function saveDescription() {
   if (!detail.value) return;
+  descriptionError.value = "";
   savingDescription.value = true;
   try {
     await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { description: descriptionInput.value || null });
     await load();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save description.";
+    descriptionError.value = err instanceof ApiError ? err.message : "Failed to save description.";
   } finally {
     savingDescription.value = false;
   }
 }
 
 async function saveTools() {
+  toolsError.value = "";
   savingTools.value = true;
   try {
     await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { tools: toolsDraft.value });
     await load();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save tools.";
+    toolsError.value = err instanceof ApiError ? err.message : "Failed to save tools.";
   } finally {
     savingTools.value = false;
   }
@@ -87,16 +92,44 @@ function requestDelete() {
   pendingDelete.value = true;
 }
 
+const deleted = ref(false);
+
 async function confirmDelete() {
   pendingDelete.value = false;
+  deleteError.value = "";
   deleting.value = true;
   try {
     await api.delete(`/admin-api/bundles/${encodeURIComponent(props.name)}`);
+    deleted.value = true;
     router.push("/bundles");
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete bundle.";
+    deleteError.value = err instanceof ApiError ? err.message : "Failed to delete bundle.";
     deleting.value = false;
   }
+}
+
+const pendingLeave = ref(false);
+let leaveNext: ((valid?: boolean) => void) | null = null;
+
+onBeforeRouteLeave((_to, _from, next) => {
+  if (!deleted.value && (descriptionDirty.value || toolsDirty.value)) {
+    leaveNext = next;
+    pendingLeave.value = true;
+  } else {
+    next();
+  }
+});
+
+function confirmLeave() {
+  pendingLeave.value = false;
+  leaveNext?.(true);
+  leaveNext = null;
+}
+
+function cancelLeave() {
+  pendingLeave.value = false;
+  leaveNext?.(false);
+  leaveNext = null;
 }
 </script>
 
@@ -123,7 +156,7 @@ async function confirmDelete() {
             :aria-pressed="detail.enabled"
             @click="toggleEnabled"
           >
-            {{ detail.enabled ? "Enabled" : "Disabled" }}
+            {{ detail.enabled ? "Disable bundle" : "Enable bundle" }}
           </button>
           <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
             {{ deleting ? "Deleting…" : "Delete bundle" }}
@@ -132,6 +165,7 @@ async function confirmDelete() {
       </header>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+      <p v-if="deleteError" class="row-error">{{ deleteError }}</p>
 
       <div class="field description-field">
         <label for="bundle-description">Description</label>
@@ -141,6 +175,7 @@ async function confirmDelete() {
             {{ savingDescription ? "Saving…" : "Save" }}
           </button>
         </div>
+        <p v-if="descriptionError" class="row-error">{{ descriptionError }}</p>
       </div>
 
       <h2>Tools ({{ toolsDraft.length }})</h2>
@@ -151,6 +186,7 @@ async function confirmDelete() {
         </button>
         <span v-if="toolsDirty" class="hint">Unsaved changes to the tool selection.</span>
       </div>
+      <p v-if="toolsError" class="row-error">{{ toolsError }}</p>
     </template>
 
     <ConfirmDialog
@@ -162,13 +198,23 @@ async function confirmDelete() {
       @confirm="confirmDelete"
       @cancel="pendingDelete = false"
     />
+
+    <ConfirmDialog
+      :open="pendingLeave"
+      title="Discard unsaved changes?"
+      message="You have unsaved changes to the description or tool selection for this bundle. Leaving now will discard them."
+      confirm-label="Discard changes"
+      danger
+      @confirm="confirmLeave"
+      @cancel="cancelLeave"
+    />
   </section>
 </template>
 
 <style scoped>
 .breadcrumb {
   font-size: 0.85rem;
-  color: #63676e;
+  color: var(--text-secondary);
 }
 .page-header {
   display: flex;
@@ -181,19 +227,23 @@ async function confirmDelete() {
 }
 .endpoint {
   margin: 0;
-  color: #63676e;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 .header-actions {
   display: flex;
   gap: 0.6rem;
   align-items: center;
+  flex: 1;
+}
+.header-actions .btn-danger {
+  margin-left: auto;
 }
 .field label {
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
 }
 .description-field {
   margin: 1rem 0 1.5rem;
@@ -205,9 +255,12 @@ async function confirmDelete() {
 }
 .description-row input {
   flex: 1;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+  box-sizing: border-box;
 }
 .tools-actions {
   display: flex;
@@ -217,38 +270,51 @@ async function confirmDelete() {
 }
 .hint {
   font-size: 0.8rem;
-  color: #8a5a00;
+  color: var(--canary);
 }
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.4em;
-  border-radius: 6px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.8rem;
+  gap: 0.45em;
+  border-radius: var(--radius-pill);
+  padding: 0.28rem 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  background: #fff;
+  background: var(--surface);
+  transition: background-color 0.12s ease;
 }
 .toggle::before {
   content: "";
-  width: 0.6em;
-  height: 0.6em;
+  width: 0.55em;
+  height: 0.55em;
   border-radius: 50%;
   background: currentColor;
+  flex-shrink: 0;
 }
 .toggle-on {
-  border: 1px solid #146c2e;
-  color: #146c2e;
+  border: 1px solid var(--ok);
+  color: var(--ok);
 }
 .toggle-off {
-  border: 1px solid #9aa0a8;
-  color: #52565c;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+.toggle-on:hover {
+  background: var(--ok-soft);
+}
+.toggle-off:hover {
+  background: var(--surface-sunken);
+}
+.row-error {
+  color: var(--breach);
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0;
 }
 .loading {
-  color: #63676e;
+  color: var(--text-muted);
 }
 .error {
-  color: #a11212;
+  color: var(--breach);
 }
 </style>

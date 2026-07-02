@@ -2,18 +2,23 @@
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { ConfigImportResult, ConfigSnapshotSummary, ConfigDiffResult } from "../types/api";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const exporting = ref(false);
 const importText = ref("");
 const result = ref<ConfigImportResult | null>(null);
+const resultKind = ref<"import" | "rollback">("import");
 const busy = ref(false);
 const errorMessage = ref("");
+const pendingImportConfirm = ref(false);
 
 // Version history
 const snapshots = ref<ConfigSnapshotSummary[]>([]);
 const newSnapshotLabel = ref("");
 const snapshotBusy = ref(false);
 const diff = ref<ConfigDiffResult | null>(null);
+const pendingRollback = ref<ConfigSnapshotSummary | null>(null);
+const pendingDeleteSnapshot = ref<ConfigSnapshotSummary | null>(null);
 
 async function loadSnapshots() {
   try {
@@ -50,11 +55,18 @@ async function showDiff(s: ConfigSnapshotSummary) {
   }
 }
 
-async function rollback(s: ConfigSnapshotSummary) {
-  if (!confirm(`Roll back config to snapshot "${s.label}"? This re-applies it to existing servers.`)) return;
+function requestRollback(s: ConfigSnapshotSummary) {
+  pendingRollback.value = s;
+}
+
+async function confirmRollback() {
+  if (!pendingRollback.value) return;
+  const s = pendingRollback.value;
+  pendingRollback.value = null;
   snapshotBusy.value = true;
   errorMessage.value = "";
   try {
+    resultKind.value = "rollback";
     result.value = await api.post<ConfigImportResult>(`/admin-api/config/snapshots/${s.id}/rollback`, {});
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Rollback failed.";
@@ -63,8 +75,14 @@ async function rollback(s: ConfigSnapshotSummary) {
   }
 }
 
-async function deleteSnapshot(s: ConfigSnapshotSummary) {
-  if (!confirm(`Delete snapshot "${s.label}"?`)) return;
+function requestDeleteSnapshot(s: ConfigSnapshotSummary) {
+  pendingDeleteSnapshot.value = s;
+}
+
+async function confirmDeleteSnapshot() {
+  if (!pendingDeleteSnapshot.value) return;
+  const s = pendingDeleteSnapshot.value;
+  pendingDeleteSnapshot.value = null;
   try {
     await api.delete(`/admin-api/config/snapshots/${s.id}`);
     if (diff.value?.from.id === s.id) diff.value = null;
@@ -110,6 +128,7 @@ async function runImport(dryRun: boolean) {
   }
   busy.value = true;
   try {
+    resultKind.value = "import";
     result.value = await api.post<ConfigImportResult>("/admin-api/config/import", { dryRun, data });
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Import failed.";
@@ -117,12 +136,25 @@ async function runImport(dryRun: boolean) {
     busy.value = false;
   }
 }
+
+function requestImport() {
+  pendingImportConfirm.value = true;
+}
+
+async function confirmImport() {
+  pendingImportConfirm.value = false;
+  await runImport(false);
+}
 </script>
 
 <template>
   <section>
-    <h1>Configuration</h1>
-    <p class="hint">Export a portable snapshot of admin-authored config (bundles, alerts, per-client guards & overrides), or import one into this instance.</p>
+    <header class="page-header">
+      <div>
+        <h1>Configuration</h1>
+        <p class="subtitle">Export a portable snapshot of admin-authored config (bundles, alerts, per-client guards & overrides), or import one into this instance.</p>
+      </div>
+    </header>
 
     <div class="block">
       <h2>Export</h2>
@@ -134,10 +166,11 @@ async function runImport(dryRun: boolean) {
     <div class="block">
       <h2>Import</h2>
       <p class="hint">Paste an exported document. Dry-run first to preview what would change — client/tool config only applies to already-registered servers.</p>
-      <textarea v-model="importText" rows="10" spellcheck="false" placeholder='{ "version": 1, ... }'></textarea>
+      <label for="import-text">Import document (JSON)</label>
+      <textarea id="import-text" v-model="importText" rows="10" spellcheck="false" placeholder='{ "version": 1, ... }'></textarea>
       <div class="actions">
         <button type="button" class="btn-secondary" :disabled="busy" @click="runImport(true)">Dry run</button>
-        <button type="button" class="btn-primary" :disabled="busy" @click="runImport(false)">Apply import</button>
+        <button type="button" class="btn-primary" :disabled="busy" @click="requestImport">Apply import</button>
       </div>
     </div>
 
@@ -145,48 +178,53 @@ async function runImport(dryRun: boolean) {
       <h2>Version history</h2>
       <p class="hint">Snapshot the current config, diff a snapshot against the live config, or roll back to it.</p>
       <div class="actions">
-        <input v-model="newSnapshotLabel" type="text" placeholder="Snapshot label (e.g. before-migration)" class="label-input" />
+        <label for="snapshot-label">Snapshot label</label>
+        <input id="snapshot-label" v-model="newSnapshotLabel" type="text" placeholder="Snapshot label (e.g. before-migration)" class="label-input" />
         <button type="button" class="btn-primary" :disabled="snapshotBusy || !newSnapshotLabel.trim()" @click="createSnapshotFn">Snapshot now</button>
       </div>
-      <table v-if="snapshots.length" class="snap-table">
-        <thead><tr><th>#</th><th>Label</th><th>Created</th><th>By</th><th></th></tr></thead>
-        <tbody>
-          <tr v-for="s in snapshots" :key="s.id">
-            <td>{{ s.id }}</td>
-            <td>{{ s.label }}</td>
-            <td>{{ new Date(s.createdAt).toLocaleString() }}</td>
-            <td>{{ s.createdBy }}</td>
-            <td class="row-actions">
-              <button type="button" class="link-btn" @click="showDiff(s)">diff vs current</button>
-              <button type="button" class="link-btn" @click="rollback(s)">rollback</button>
-              <button type="button" class="link-btn del" @click="deleteSnapshot(s)">delete</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-if="snapshots.length" class="table-scroll">
+        <table class="snap-table">
+          <thead><tr><th>#</th><th>Label</th><th>Created</th><th>By</th><th></th></tr></thead>
+          <tbody>
+            <tr v-for="s in snapshots" :key="s.id">
+              <td>{{ s.id }}</td>
+              <td>{{ s.label }}</td>
+              <td>{{ new Date(s.createdAt).toLocaleString() }}</td>
+              <td>{{ s.createdBy }}</td>
+              <td class="row-actions">
+                <button type="button" class="link-btn" @click="showDiff(s)">diff vs current</button>
+                <button type="button" class="link-btn" @click="requestRollback(s)">rollback</button>
+                <button type="button" class="link-btn del" @click="requestDeleteSnapshot(s)">delete</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p v-else class="hint">No snapshots yet.</p>
 
       <div v-if="diff" class="diff">
         <h3>Diff: #{{ diff.from.id }} “{{ diff.from.label }}” → {{ diff.to }}</h3>
         <p v-if="diff.entries.length === 0" class="hint">No differences.</p>
-        <table v-else class="diff-table">
-          <thead><tr><th>Path</th><th>Change</th><th>Before</th><th>After</th></tr></thead>
-          <tbody>
-            <tr v-for="(e, i) in diff.entries" :key="i" :class="e.kind">
-              <td><code>{{ e.path }}</code></td>
-              <td>{{ e.kind }}</td>
-              <td><code>{{ fmt(e.before) }}</code></td>
-              <td><code>{{ fmt(e.after) }}</code></td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-else class="table-scroll">
+          <table class="diff-table">
+            <thead><tr><th>Path</th><th>Change</th><th>Before</th><th>After</th></tr></thead>
+            <tbody>
+              <tr v-for="(e, i) in diff.entries" :key="i" :class="e.kind">
+                <td><code>{{ e.path }}</code></td>
+                <td>{{ e.kind }}</td>
+                <td><code>{{ fmt(e.before) }}</code></td>
+                <td><code>{{ fmt(e.after) }}</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
     <div v-if="result" class="result" :class="{ dry: result.dryRun }">
-      <h3>{{ result.dryRun ? "Dry run — nothing was changed" : "Import applied" }}</h3>
+      <h3>{{ result.dryRun ? "Dry run — nothing was changed" : resultKind === "rollback" ? "Rollback applied" : "Import applied" }}</h3>
       <ul>
         <li>Bundles: {{ result.applied.bundles }}</li>
         <li>Alert rules: {{ result.applied.alertRules }}</li>
@@ -200,18 +238,64 @@ async function runImport(dryRun: boolean) {
         </ul>
       </div>
     </div>
+
+    <ConfirmDialog
+      :open="pendingImportConfirm"
+      title="Apply this import?"
+      message="This overwrites bundles, alert rules, and per-client/tool configuration on already-registered servers with the contents of the pasted document. This cannot be undone from here."
+      confirm-label="Apply import"
+      danger
+      @confirm="confirmImport"
+      @cancel="pendingImportConfirm = false"
+    />
+
+    <ConfirmDialog
+      :open="pendingRollback !== null"
+      title="Roll back this config?"
+      :message='pendingRollback ? `Roll back config to snapshot "${pendingRollback.label}"? This re-applies it to existing servers.` : ""'
+      confirm-label="Roll back"
+      danger
+      @confirm="confirmRollback"
+      @cancel="pendingRollback = null"
+    />
+
+    <ConfirmDialog
+      :open="pendingDeleteSnapshot !== null"
+      title="Delete this snapshot?"
+      :message='pendingDeleteSnapshot ? `Delete snapshot "${pendingDeleteSnapshot.label}"?` : ""'
+      :confirm-label="pendingDeleteSnapshot ? `Delete ${pendingDeleteSnapshot.label}` : 'Delete'"
+      danger
+      @confirm="confirmDeleteSnapshot"
+      @cancel="pendingDeleteSnapshot = null"
+    />
   </section>
 </template>
 
 <style scoped>
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+.page-header h1 {
+  margin: 0 0 0.2rem;
+}
+.subtitle {
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 640px;
+}
 .hint {
-  color: #63676e;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   max-width: 640px;
 }
 .block {
-  background: #fafbfc;
-  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
   padding: 1.25rem;
   margin: 1.25rem 0;
 }
@@ -219,29 +303,40 @@ async function runImport(dryRun: boolean) {
   margin-top: 0;
   font-size: 1.05rem;
 }
+.block > label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.35rem;
+}
 textarea {
   width: 100%;
   box-sizing: border-box;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   padding: 0.6rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
 }
 .actions {
   display: flex;
   gap: 0.75rem;
   margin-top: 0.75rem;
+  align-items: center;
+}
+.actions label {
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 .result {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 1rem 1.25rem;
-  background: #eef7ee;
-  border: 1px solid #b7dcb7;
+  background: var(--ok-soft);
+  border: 1px solid var(--ok);
 }
 .result.dry {
-  background: #eef2f7;
-  border-color: #b7c6dc;
+  background: var(--signal-soft);
+  border-color: var(--signal);
 }
 .result h3 {
   margin-top: 0;
@@ -251,13 +346,14 @@ textarea {
   font-size: 0.85rem;
 }
 .error {
-  color: #a11212;
+  color: var(--breach);
 }
 .label-input {
   padding: 0.45rem 0.6rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
+  font-family: var(--font-body);
   min-width: 260px;
 }
 .snap-table, .diff-table {
@@ -266,17 +362,27 @@ textarea {
   margin-top: 0.8rem;
   font-size: 0.85rem;
 }
-.snap-table th, .snap-table td, .diff-table th, .diff-table td {
+.snap-table th, .diff-table th {
   text-align: left;
   padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid #e6e8eb;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: top;
+}
+.snap-table td, .diff-table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 .row-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-.link-btn { background: none; border: none; color: #2a5db0; cursor: pointer; padding: 0; font-size: 0.85rem; }
-.link-btn.del { color: #a11212; }
+.link-btn.del { color: var(--breach); }
 .diff { margin-top: 1rem; }
-.diff-table tr.added td { background: #eef7ee; }
-.diff-table tr.removed td { background: #fbeeee; }
-.diff-table tr.changed td { background: #fdf6e3; }
+.diff-table tr.added td { background: var(--ok-soft); }
+.diff-table tr.removed td { background: var(--breach-soft); }
+.diff-table tr.changed td { background: var(--canary-soft); }
 </style>

@@ -7,6 +7,7 @@ import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import GuardEditor from "../components/GuardEditor.vue";
 import SchemaForm from "../components/SchemaForm.vue";
+import { Wrench, Settings2, RotateCcw } from "lucide-vue-next";
 
 interface ToolExample { id: number; label: string; args: Record<string, unknown>; createdAt: number; createdBy: string | null; }
 
@@ -18,7 +19,9 @@ const loading = ref(false);
 const errorMessage = ref("");
 const rowError = ref<Record<string, string>>({});
 const pendingToolDisable = ref<ToolDetail | null>(null);
+const pendingClientDisable = ref(false);
 const savingGuards = ref(false);
+const activeTab = ref<"tools" | "settings">("tools");
 const testingTool = ref<string | null>(null);
 const testResult = ref<{ tool: string; text: string; isError: boolean } | null>(null);
 const resettingBreaker = ref(false);
@@ -85,6 +88,14 @@ async function clearCanary() {
   } catch (err) {
     canaryError.value = err instanceof ApiError ? err.message : "Failed to clear.";
   }
+}
+const pendingClearCanary = ref(false);
+function requestClearCanary() {
+  pendingClearCanary.value = true;
+}
+async function confirmClearCanary() {
+  pendingClearCanary.value = false;
+  await clearCanary();
 }
 const uaEditing = ref(false);
 const uaType = ref<"bearer" | "basic" | "header">("bearer");
@@ -185,6 +196,14 @@ async function clearUpstreamAuthCreds() {
     uaError.value = err instanceof ApiError ? err.message : "Failed to clear credentials.";
   }
 }
+const pendingClearUpstreamAuth = ref(false);
+function requestClearUpstreamAuth() {
+  pendingClearUpstreamAuth.value = true;
+}
+async function confirmClearUpstreamAuth() {
+  pendingClearUpstreamAuth.value = false;
+  await clearUpstreamAuthCreds();
+}
 
 async function previewResync() {
   resyncError.value = "";
@@ -259,6 +278,20 @@ async function toggleClientEnabled() {
     detail.value.enabled = previous;
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to update.";
   }
+}
+
+function onClientToggleClick() {
+  if (!detail.value) return;
+  if (detail.value.enabled) {
+    pendingClientDisable.value = true;
+  } else {
+    toggleClientEnabled();
+  }
+}
+
+async function confirmClientDisable() {
+  pendingClientDisable.value = false;
+  await toggleClientEnabled();
 }
 
 async function toggleToolEnabled(tool: ToolDetail) {
@@ -512,7 +545,7 @@ async function resetBreaker() {
             class="toggle"
             :class="detail.enabled ? 'toggle-on' : 'toggle-off'"
             :aria-pressed="detail.enabled"
-            @click="toggleClientEnabled"
+            @click="onClientToggleClick"
           >
             {{ detail.enabled ? "Enabled" : "Disabled" }}
           </button>
@@ -523,6 +556,7 @@ async function resetBreaker() {
             :disabled="resettingBreaker"
             @click="resetBreaker"
           >
+            <RotateCcw :size="14" stroke-width="2" aria-hidden="true" />
             {{ resettingBreaker ? "Resetting…" : "Reset circuit breaker" }}
           </button>
         </div>
@@ -542,6 +576,16 @@ async function resetBreaker() {
         <div v-if="detail.consecutiveFailures !== null"><dt>Consecutive failures</dt><dd>{{ detail.consecutiveFailures }}</dd></div>
       </dl>
 
+      <div class="tab-strip" role="tablist">
+        <button type="button" role="tab" :aria-selected="activeTab === 'tools'" class="tab-btn" :class="{ 'tab-active': activeTab === 'tools' }" @click="activeTab = 'tools'">
+          <Wrench :size="15" stroke-width="2" aria-hidden="true" /> Tools
+        </button>
+        <button type="button" role="tab" :aria-selected="activeTab === 'settings'" class="tab-btn" :class="{ 'tab-active': activeTab === 'settings' }" @click="activeTab = 'settings'">
+          <Settings2 :size="15" stroke-width="2" aria-hidden="true" /> Settings
+        </button>
+      </div>
+
+      <template v-if="activeTab === 'settings'">
       <div class="upstream-auth">
         <div class="ua-head">
           <h2>Upstream authentication</h2>
@@ -549,7 +593,7 @@ async function resetBreaker() {
             <button type="button" class="btn-secondary" @click="uaEditing = !uaEditing">
               {{ uaEditing ? "Cancel" : upstreamAuth?.configured ? "Change" : "Set credentials" }}
             </button>
-            <button v-if="upstreamAuth?.configured" type="button" class="link-btn danger" @click="clearUpstreamAuthCreds">Clear</button>
+            <button v-if="upstreamAuth?.configured" type="button" class="link-btn danger" @click="requestClearUpstreamAuth">Clear</button>
           </div>
         </div>
         <p class="ua-status">
@@ -576,7 +620,7 @@ async function resetBreaker() {
             <label>Value <input v-model="uaValue" type="password" autocomplete="off" /></label>
           </template>
           <p v-if="uaError" class="error">{{ uaError }}</p>
-          <button type="submit" class="btn-primary" :disabled="uaSaving">{{ uaSaving ? "Saving…" : "Save" }}</button>
+          <button type="submit" class="btn-primary" :disabled="uaSaving">{{ uaSaving ? "Saving…" : "Save credentials" }}</button>
         </form>
       </div>
 
@@ -620,7 +664,7 @@ async function resetBreaker() {
       <div v-if="detail.kind !== 'mcp'" class="upstream-auth">
         <div class="ua-head">
           <h2>Canary / failover</h2>
-          <button v-if="canary" type="button" class="link-btn danger" @click="clearCanary">Clear</button>
+          <button v-if="canary" type="button" class="link-btn danger" @click="requestClearCanary">Clear</button>
         </div>
         <p class="ua-status">
           Route to a secondary backend. <strong>canary</strong>: send a % of calls there; <strong>failover</strong>: route there only while the primary breaker is open.
@@ -634,7 +678,7 @@ async function resetBreaker() {
           </select>
           <input v-model.number="canaryForm.weight" type="number" min="1" max="100" style="max-width: 90px" />
           <label class="inline-check"><input type="checkbox" v-model="canaryForm.enabled" /> enabled</label>
-          <button type="submit" class="btn-secondary">Save</button>
+          <button type="submit" class="btn-secondary">Save canary config</button>
         </form>
         <p v-if="canaryError" class="error">{{ canaryError }}</p>
       </div>
@@ -656,9 +700,11 @@ async function resetBreaker() {
         </div>
         <p v-if="teamError" class="error">{{ teamError }}</p>
       </div>
+      </template>
 
+      <template v-if="activeTab === 'tools'">
       <h2>Tools ({{ detail.tools.length }})</h2>
-      <div v-if="detail.tools.length" class="table-scroll">
+      <div v-if="detail.tools.length" class="table-card table-scroll">
       <table class="tools-table">
         <thead>
           <tr>
@@ -716,6 +762,7 @@ async function resetBreaker() {
         <strong>{{ testResult.tool }}</strong>
         <pre>{{ testResult.text }}</pre>
       </div>
+      </template>
     </template>
 
     <!-- Guard editor drawer -->
@@ -735,7 +782,7 @@ async function resetBreaker() {
           <span class="ex-label">Saved examples:</span>
           <span v-for="ex in examples" :key="ex.id" class="ex-chip">
             <button type="button" class="link-btn" @click="loadExampleIntoForm(ex)">{{ ex.label }}</button>
-            <button type="button" class="link-btn del" @click="deleteExampleFn(ex)" title="Delete example">×</button>
+            <button type="button" class="link-btn del" @click="deleteExampleFn(ex)" title="Delete example" :aria-label="`Delete ${ex.label}`">×</button>
           </span>
         </div>
 
@@ -767,13 +814,43 @@ async function resetBreaker() {
       @confirm="confirmToolDisable"
       @cancel="pendingToolDisable = null"
     />
+
+    <ConfirmDialog
+      :open="pendingClientDisable"
+      title="Disable this client?"
+      :message="detail ? `'${detail.name}' and all of its tools will stop working for connected MCP agents until re-enabled.` : ''"
+      :confirm-label="detail ? `Disable ${detail.name}` : 'Disable'"
+      danger
+      @confirm="confirmClientDisable"
+      @cancel="pendingClientDisable = false"
+    />
+
+    <ConfirmDialog
+      :open="pendingClearUpstreamAuth"
+      title="Clear upstream credentials?"
+      message="This removes the stored credentials for this backend. This can't be undone — requests will be sent without credentials until you set new ones."
+      confirm-label="Clear credentials"
+      danger
+      @confirm="confirmClearUpstreamAuth"
+      @cancel="pendingClearUpstreamAuth = false"
+    />
+
+    <ConfirmDialog
+      :open="pendingClearCanary"
+      title="Clear canary / failover config?"
+      message="This removes the secondary backend routing configuration. This can't be undone — you'll need to reconfigure it to restore this setup."
+      confirm-label="Clear canary config"
+      danger
+      @confirm="confirmClearCanary"
+      @cancel="pendingClearCanary = false"
+    />
   </section>
 </template>
 
 <style scoped>
 .breadcrumb {
   font-size: 0.85rem;
-  color: #63676e;
+  color: var(--text-secondary);
 }
 .page-header {
   display: flex;
@@ -793,21 +870,26 @@ async function resetBreaker() {
   gap: 0.6rem;
   align-items: center;
 }
+.header-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
 .badge-neutral {
   display: inline-flex;
   align-items: center;
   padding: 0.15em 0.6em;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.8rem;
   font-weight: 600;
-  background: #eceef1;
-  color: #52565c;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
 }
 .kind-mcp {
   display: inline-flex;
   align-items: center;
   padding: 0.15em 0.6em;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -819,20 +901,58 @@ async function resetBreaker() {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0.75rem;
   margin: 1rem 0 1.5rem;
-  padding: 1rem;
-  background: #fafbfc;
-  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 .meta dt {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
   text-transform: uppercase;
-  color: #63676e;
-  margin-bottom: 0.15rem;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
 }
 .meta dd {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-family: var(--font-mono);
   word-break: break-all;
+}
+.tab-strip {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.55rem 0.35rem;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+.tab-btn.tab-active {
+  color: var(--signal-strong);
+  border-bottom-color: var(--signal);
+}
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
 }
 .tools-table {
   width: 100%;
@@ -841,19 +961,29 @@ async function resetBreaker() {
 }
 .tools-table th {
   text-align: left;
-  padding: 0.5rem 0.6rem;
-  border-bottom: 2px solid #e5e7eb;
-  color: #52565c;
-  font-size: 0.78rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .tools-table td {
-  padding: 0.55rem 0.6rem;
-  border-bottom: 1px solid #eef0f2;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+.tools-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.tools-table tbody tr:hover {
+  background: var(--surface-sunken);
+}
 .url-cell {
-  color: #63676e;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.83rem;
   max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -862,31 +992,39 @@ async function resetBreaker() {
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.4em;
-  border-radius: 6px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.8rem;
+  gap: 0.45em;
+  border-radius: var(--radius-pill);
+  padding: 0.28rem 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  background: #fff;
+  background: var(--surface);
+  transition: background-color 0.12s ease;
 }
 .toggle::before {
   content: "";
-  width: 0.6em;
-  height: 0.6em;
+  width: 0.55em;
+  height: 0.55em;
   border-radius: 50%;
   background: currentColor;
+  flex-shrink: 0;
 }
 .toggle-on {
-  border: 1px solid #146c2e;
-  color: #146c2e;
+  border: 1px solid var(--ok);
+  color: var(--ok);
 }
 .toggle-off {
-  border: 1px solid #9aa0a8;
-  color: #52565c;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+.toggle-on:hover {
+  background: var(--ok-soft);
+}
+.toggle-off:hover {
+  background: var(--surface-sunken);
 }
 .row-error {
-  color: #a11212;
+  color: var(--breach);
   font-size: 0.75rem;
   margin: 0.25rem 0 0;
 }
@@ -960,7 +1098,7 @@ async function resetBreaker() {
   position: fixed;
   inset: 0;
   background: rgba(15, 18, 22, 0.45);
-  z-index: 49;
+  z-index: var(--z-drawer);
 }
 .drawer {
   position: fixed;
@@ -972,7 +1110,7 @@ async function resetBreaker() {
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
   padding: 1.5rem;
   overflow-y: auto;
-  z-index: 50;
+  z-index: var(--z-drawer-top);
 }
 .drawer-header {
   display: flex;

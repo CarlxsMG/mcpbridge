@@ -1,8 +1,8 @@
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHashHistory, createWebHistory } from "vue-router";
 import { useAuth } from "../composables/useAuth";
 
 const routes = [
-  { path: "/", redirect: "/servers" },
+  { path: "/", redirect: "/overview" },
   { path: "/login", name: "login", component: () => import("../pages/LoginPage.vue"), meta: { public: true } },
   { path: "/servers", name: "servers", component: () => import("../pages/DashboardPage.vue") },
   { path: "/servers/:name", name: "server-detail", component: () => import("../pages/ServerDetailPage.vue"), props: true },
@@ -16,12 +16,13 @@ const routes = [
   { path: "/bundles", name: "bundles", component: () => import("../pages/BundlesPage.vue") },
   { path: "/bundles/:name", name: "bundle-detail", component: () => import("../pages/BundleDetailPage.vue"), props: true },
   { path: "/composites", name: "composites", component: () => import("../pages/CompositesPage.vue") },
+  { path: "/composites/:name", name: "composite-detail", component: () => import("../pages/CompositeDetailPage.vue"), props: true },
   { path: "/keys", name: "keys", component: () => import("../pages/KeysPage.vue") },
   { path: "/policies", name: "policies", component: () => import("../pages/PoliciesPage.vue") },
   { path: "/consumers", name: "consumers", component: () => import("../pages/ConsumersPage.vue") },
-  { path: "/users", name: "users", component: () => import("../pages/UsersPage.vue") },
-  { path: "/teams", name: "teams", component: () => import("../pages/TeamsPage.vue") },
-  { path: "/config", name: "config", component: () => import("../pages/ConfigPage.vue") },
+  { path: "/users", name: "users", component: () => import("../pages/UsersPage.vue"), meta: { role: "admin" } },
+  { path: "/teams", name: "teams", component: () => import("../pages/TeamsPage.vue"), meta: { role: "admin" } },
+  { path: "/config", name: "config", component: () => import("../pages/ConfigPage.vue"), meta: { role: "admin" } },
   { path: "/audit-log", name: "audit-log", component: () => import("../pages/AuditLogPage.vue") },
   { path: "/overview", name: "overview", component: () => import("../pages/OverviewPage.vue") },
   { path: "/usage", name: "usage", component: () => import("../pages/UsagePage.vue") },
@@ -30,8 +31,13 @@ const routes = [
   { path: "/:pathMatch(.*)*", name: "not-found", component: () => import("../pages/NotFoundPage.vue"), meta: { public: true } },
 ];
 
+// The base comes from Vite (`import.meta.env.BASE_URL`) so history stays in lockstep
+// with the build's base path: "/admin/" for the product, "/<repo>/demo/" for the
+// public demo. The demo is a static SPA on GitHub Pages, so it uses hash history to
+// avoid needing server-side rewrites for deep links / refreshes.
+const isDemo = import.meta.env.VITE_DEMO === "true";
 export const router = createRouter({
-  history: createWebHistory("/admin/"),
+  history: isDemo ? createWebHashHistory(import.meta.env.BASE_URL) : createWebHistory(import.meta.env.BASE_URL),
   routes,
 });
 
@@ -52,6 +58,10 @@ router.beforeEach(async (to) => {
 
   if (!state.user) {
     return { name: "login", query: { redirect: to.fullPath } };
+  }
+
+  if (to.meta.role === "admin" && state.user.role !== "admin") {
+    return { name: "servers" };
   }
   return true;
 });

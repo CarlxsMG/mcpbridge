@@ -18,6 +18,14 @@ function onLoginPage(): boolean {
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  // Public demo build: serve everything from the in-browser mock. The dynamic
+  // import sits in a statically-false branch in the real product build, so the
+  // demo code (and its fixtures) is tree-shaken out entirely.
+  if (import.meta.env.VITE_DEMO === "true") {
+    const { demoFetch } = await import("./demo");
+    return demoFetch<T>(path, init);
+  }
+
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
   if (!headers.has("Content-Type") && init.body !== undefined) {
@@ -32,7 +40,15 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
   if (res.status === 401) {
     if (!onLoginPage()) {
-      window.location.href = "/admin/login";
+      // router.push() on the login page treats `redirect` as base-relative (the
+      // router is mounted with createWebHistory("/admin/")), so the "/admin"
+      // prefix must be stripped here or the post-login push doubles it up
+      // (e.g. /admin/keys -> /admin/admin/keys).
+      const pathname = window.location.pathname.startsWith("/admin")
+        ? window.location.pathname.slice("/admin".length) || "/"
+        : window.location.pathname;
+      const redirect = encodeURIComponent(pathname + window.location.search);
+      window.location.href = `/admin/login?redirect=${redirect}`;
     }
     throw new ApiError(401, "UNAUTHORIZED", "Not authenticated");
   }

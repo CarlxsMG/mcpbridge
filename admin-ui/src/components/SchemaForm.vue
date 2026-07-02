@@ -44,6 +44,7 @@ const fields = computed<Field[]>(() => {
 
 // Per-field string/boolean values; coerced to the schema type on emit.
 const values = ref<Record<string, string | boolean>>({});
+const jsonInvalid = ref<Record<string, boolean>>({});
 let suppress = false;
 
 function hydrate(source: Record<string, unknown>) {
@@ -54,6 +55,7 @@ function hydrate(source: Record<string, unknown>) {
     next[f.name] = f.kind === "boolean" ? Boolean(v) : typeof v === "object" ? JSON.stringify(v) : String(v);
   }
   values.value = next;
+  jsonInvalid.value = {};
 }
 hydrate(props.modelValue ?? {});
 
@@ -69,9 +71,12 @@ function emitArgs() {
     const raw = values.value[f.name];
     if (f.kind === "boolean") { out[f.name] = Boolean(raw); continue; }
     const str = String(raw ?? "");
-    if (str === "") continue;
+    if (str === "") { if (f.kind === "json") jsonInvalid.value[f.name] = false; continue; }
     if (f.kind === "number") { const n = Number(str); if (Number.isFinite(n)) out[f.name] = n; }
-    else if (f.kind === "json") { try { out[f.name] = JSON.parse(str); } catch { out[f.name] = str; } }
+    else if (f.kind === "json") {
+      try { out[f.name] = JSON.parse(str); jsonInvalid.value[f.name] = false; }
+      catch { out[f.name] = str; jsonInvalid.value[f.name] = true; }
+    }
     else out[f.name] = str;
   }
   suppress = true;
@@ -97,6 +102,7 @@ function emitArgs() {
       <textarea v-else-if="f.kind === 'json'" :id="`sf-${f.name}`" v-model="values[f.name] as string" rows="2" spellcheck="false" @input="emitArgs" placeholder='{"key": "value"}'></textarea>
       <input v-else-if="f.kind === 'number'" :id="`sf-${f.name}`" type="number" v-model="values[f.name] as string" @input="emitArgs" />
       <input v-else :id="`sf-${f.name}`" type="text" v-model="values[f.name] as string" @input="emitArgs" />
+      <p v-if="f.kind === 'json' && jsonInvalid[f.name]" class="field-error">Invalid JSON — sent as a raw string instead.</p>
     </div>
   </div>
 </template>
@@ -104,10 +110,11 @@ function emitArgs() {
 <style scoped>
 .schema-form { display: flex; flex-direction: column; gap: 0.7rem; }
 .sf-field label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.2rem; }
-.req { color: #a11212; margin-left: 0.15rem; }
+.req { color: var(--breach); margin-left: 0.15rem; }
 .sf-field input[type="text"], .sf-field input[type="number"], .sf-field select, .sf-field textarea {
-  width: 100%; padding: 0.4rem 0.55rem; border: 1px solid #cfd4da; border-radius: 6px; box-sizing: border-box; font-size: 0.9rem;
+  width: 100%; padding: 0.4rem 0.55rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-sizing: border-box; font-size: 0.9rem; font-family: var(--font-body);
 }
-.sf-field textarea { font-family: ui-monospace, monospace; }
-.hint { font-size: 0.78rem; color: #63676e; margin: 0 0 0.3rem; }
+.sf-field textarea { font-family: var(--font-mono); }
+.hint { font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 0.3rem; }
+.field-error { color: var(--breach); font-size: 0.8rem; margin: 0.25rem 0 0; }
 </style>

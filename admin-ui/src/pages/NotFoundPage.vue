@@ -3,7 +3,7 @@
 <template>
   <section class="not-found">
     <h1>Page not found</h1>
-    <p><RouterLink to="/servers">Back to Servers</RouterLink></p>
+    <p><RouterLink to="/servers" class="btn-secondary">Back to Servers</RouterLink></p>
   </section>
 </template>
 
