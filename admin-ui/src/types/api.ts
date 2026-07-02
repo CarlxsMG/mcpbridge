@@ -182,7 +182,7 @@ export interface AuditLogEntry {
 export interface OverviewStats {
   clients: { live: number; disabled: number; healthy: number; degraded: number; unreachable: number };
   tools: { total: number; disabled: number };
-  circuit_breakers: { open: number; half_open: number };
+  circuit_breakers: { open: number; half_open: number; closed: number };
   admin_users: number;
 }
 
@@ -314,6 +314,64 @@ export interface UsageByKeyRow {
   label: string;
   calls: number;
   errors: number;
+}
+
+export interface UsageTimeseriesPoint {
+  t: number;
+  calls: number;
+  errors: number;
+  avgMs: number;
+}
+
+export interface UsageTimeseries {
+  bucketMs: number;
+  points: UsageTimeseriesPoint[];
+}
+
+/** GET /admin-api/traffic item — only populated when TRAFFIC_CAPTURE=true is set on the server. */
+export interface TrafficRecord {
+  id: number;
+  mcpToolName: string;
+  clientName: string | null;
+  toolName: string | null;
+  keyId: number | null;
+  argsJson: string;
+  preview: string;
+  isError: boolean;
+  durationMs: number;
+  createdAt: number;
+}
+
+export type MonitorStatus = "ok" | "fail";
+
+/** GET /admin-api/monitors item — status and drift are independent axes, not a combined tri-state. */
+export interface MonitorRecord {
+  clientName: string;
+  toolName: string;
+  exampleId: number;
+  intervalMinutes: number;
+  enabled: boolean;
+  driftDetected: boolean;
+  lastStatus: MonitorStatus | null;
+  lastError: string | null;
+  lastCheckedAt: number | null;
+}
+
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+
+export interface ApprovalRecord {
+  id: number;
+  clientName: string;
+  toolName: string;
+  argsHash: string;
+  argsJson: string;
+  status: ApprovalStatus;
+  createdAt: number;
+  decidedAt: number | null;
+  decidedBy: string | null;
+  note: string | null;
+  consumedAt: number | null;
+  requestedBy: number | null;
 }
 
 export interface GuardPolicy {

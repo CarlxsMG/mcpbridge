@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { api, ApiError } from "../composables/useApi";
-import type { UsageSummary, TopToolRow, UsageByKeyRow } from "../types/api";
+import type { UsageSummary, TopToolRow, UsageByKeyRow, UsageTimeseries } from "../types/api";
 import StatCard from "../components/StatCard.vue";
 import MiniBarChart from "../components/MiniBarChart.vue";
+import TimeSeriesChart from "../components/TimeSeriesChart.vue";
 import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench } from "lucide-vue-next";
 
 const WINDOWS = [
@@ -16,6 +17,7 @@ const windowMs = ref(WINDOWS[1].ms);
 const summary = ref<UsageSummary | null>(null);
 const topTools = ref<TopToolRow[]>([]);
 const byKey = ref<UsageByKeyRow[]>([]);
+const timeseries = ref<UsageTimeseries | null>(null);
 const loading = ref(false);
 const errorMessage = ref("");
 
@@ -28,20 +30,31 @@ async function load() {
   errorMessage.value = "";
   const from = Date.now() - windowMs.value;
   try {
-    const [s, t, k] = await Promise.all([
+    const [s, t, k, ts] = await Promise.all([
       api.get<UsageSummary>(`/admin-api/usage/summary?from=${from}`),
       api.get<{ items: TopToolRow[] }>(`/admin-api/usage/top-tools?from=${from}&limit=20`),
       api.get<{ items: UsageByKeyRow[] }>(`/admin-api/usage/by-key?from=${from}&limit=20`),
+      api.get<UsageTimeseries>(`/admin-api/usage/timeseries?from=${from}`),
     ]);
     summary.value = s;
     topTools.value = t.items;
     byKey.value = k.items;
+    timeseries.value = ts;
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to load usage.";
   } finally {
     loading.value = false;
   }
 }
+
+const callsSeries = computed(() => timeseries.value?.points.map((p) => ({ t: p.t, v: p.calls })) ?? []);
+const errorsSeries = computed(() => timeseries.value?.points.map((p) => ({ t: p.t, v: p.errors })) ?? []);
+const tsFormatTime = computed(() => {
+  const bucketMs = timeseries.value?.bucketMs ?? 0;
+  const opts: Intl.DateTimeFormatOptions =
+    bucketMs >= 24 * 60 * 60_000 ? { month: "short", day: "numeric" } : { hour: "numeric", minute: "2-digit" };
+  return (t: number) => new Date(t).toLocaleString([], opts);
+});
 
 const topToolsChart = computed(() =>
   topTools.value.slice(0, 8).map((t) => ({
@@ -85,6 +98,17 @@ onMounted(load);
         <StatCard :icon="Timer" label="Avg latency" :value="`${summary.avgMs}ms`" />
         <StatCard :icon="Gauge" label="Max latency" :value="`${summary.maxMs}ms`" />
         <StatCard :icon="Wrench" label="Active tools" :value="summary.tools" />
+      </div>
+
+      <div class="chart-card ts-card">
+        <h2>Calls &amp; errors over time</h2>
+        <TimeSeriesChart
+          :points="callsSeries"
+          :secondary-points="errorsSeries"
+          primary-label="Calls"
+          secondary-label="Errors"
+          :format-time="tsFormatTime"
+        />
       </div>
 
       <div class="charts-row">
@@ -183,6 +207,9 @@ onMounted(load);
   color: var(--text-secondary);
   font-family: var(--font-body);
   font-weight: 600;
+}
+.ts-card {
+  margin-bottom: var(--space-6);
 }
 h2 {
   font-size: 1.05rem;

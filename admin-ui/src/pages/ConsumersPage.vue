@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { ConsumerWithUsage } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import QuotaBar from "../components/QuotaBar.vue";
 import { Users2 } from "lucide-vue-next";
 
 const consumers = ref<ConsumerWithUsage[]>([]);
@@ -151,7 +152,12 @@ async function confirmDelete() {
           <tr v-for="c in consumers" :key="c.id">
             <td>{{ c.name }}</td>
             <td>{{ c.monthlyQuota ?? "Unlimited" }}</td>
-            <td :class="{ hot: c.monthlyQuota !== null && c.usedThisMonth >= c.monthlyQuota }">{{ c.usedThisMonth }}</td>
+            <td :class="{ hot: c.monthlyQuota !== null && c.usedThisMonth >= c.monthlyQuota }">
+              <div class="usage-cell">
+                <span>{{ c.usedThisMonth }}</span>
+                <div class="usage-bar-wrap"><QuotaBar :used="c.usedThisMonth" :quota="c.monthlyQuota" /></div>
+              </div>
+            </td>
             <td class="actions">
               <button type="button" class="link-btn" @click="openEdit(c)">Edit</button>
               <button type="button" class="link-btn danger" @click="pendingDelete = c">Delete</button>
@@ -250,6 +256,14 @@ async function confirmDelete() {
 .cons-table td.hot {
   color: var(--breach);
   font-weight: 600;
+}
+.usage-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.usage-bar-wrap {
+  width: 90px;
 }
 .actions {
   display: flex;

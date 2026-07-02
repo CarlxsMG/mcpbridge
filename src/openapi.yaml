@@ -1250,6 +1250,7 @@ paths:
                     properties:
                       open: { type: integer }
                       half_open: { type: integer }
+                      closed: { type: integer }
                   admin_users: { type: integer }
 
 # =============================================================================

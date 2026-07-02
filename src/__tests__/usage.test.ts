@@ -5,7 +5,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../registry.js";
 import { proxyToolCall } from "../proxy.js";
-import { recordUsage, getUsageSummary, getTopTools, getUsageByKey } from "../observability/usage.js";
+import { recordUsage, getUsageSummary, getUsageTimeseries, getTopTools, getUsageByKey } from "../observability/usage.js";
 import { createMcpKey } from "../security/mcp-key-store.js";
 import type { RestToolDefinition } from "../types.js";
 
@@ -59,6 +59,31 @@ describe("usage store aggregations", () => {
   test("window filter excludes rows before `from`", () => {
     recordUsage({ clientName: "svc", toolName: "a", keyId: null, statusClass: "2xx", isError: false, durationMs: 5 });
     expect(getUsageSummary({ from: Date.now() + 60_000 }).calls).toBe(0);
+  });
+});
+
+describe("usage timeseries", () => {
+  test("buckets calls/errors and zero-fills across the window", () => {
+    recordUsage({ clientName: "svc", toolName: "a", keyId: null, statusClass: "2xx", isError: false, durationMs: 10 });
+    recordUsage({ clientName: "svc", toolName: "a", keyId: null, statusClass: "5xx", isError: true, durationMs: 20 });
+    const ts = getUsageTimeseries({ from: Date.now() - 60_000, bucketMs: 60_000 });
+    expect(ts.bucketMs).toBe(60_000);
+    expect(ts.points.reduce((sum, p) => sum + p.calls, 0)).toBe(2);
+    expect(ts.points.reduce((sum, p) => sum + p.errors, 0)).toBe(1);
+  });
+
+  test("points are ascending and evenly spaced by bucketMs", () => {
+    const ts = getUsageTimeseries({ from: Date.now() - 3 * 60_000, bucketMs: 60_000 });
+    expect(ts.points.length).toBeGreaterThanOrEqual(3);
+    for (let i = 1; i < ts.points.length; i++) {
+      expect(ts.points[i].t - ts.points[i - 1].t).toBe(60_000);
+    }
+  });
+
+  test("an empty window still zero-fills every bucket instead of returning gaps", () => {
+    const ts = getUsageTimeseries({ from: Date.now() - 2 * 60_000, bucketMs: 60_000 });
+    expect(ts.points.length).toBeGreaterThanOrEqual(2);
+    expect(ts.points.every((p) => p.calls === 0 && p.errors === 0)).toBe(true);
   });
 });
 

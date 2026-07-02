@@ -1201,11 +1201,12 @@ export function adminRoutes(app: Express): void {
     const breakerStates = Object.values(getAllCircuitStates());
     const openBreakers = breakerStates.filter((s) => s === "open").length;
     const halfOpenBreakers = breakerStates.filter((s) => s === "half_open").length;
+    const closedBreakers = breakerStates.length - openBreakers - halfOpenBreakers;
 
     res.status(200).json({
       clients: { live: liveClients.length, disabled: disabledClients, ...statusCounts },
       tools: { total: totalTools, disabled: disabledTools },
-      circuit_breakers: { open: openBreakers, half_open: halfOpenBreakers },
+      circuit_breakers: { open: openBreakers, half_open: halfOpenBreakers, closed: closedBreakers },
       admin_users: listUsers().length,
     });
   });

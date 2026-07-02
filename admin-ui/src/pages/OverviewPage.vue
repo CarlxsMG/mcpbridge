@@ -4,6 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import type { OverviewStats } from "../types/api";
 import StatCard from "../components/StatCard.vue";
 import SegmentedBar from "../components/SegmentedBar.vue";
+import DonutChart from "../components/DonutChart.vue";
 import { Server, Wrench, GitBranch, ShieldCheck, RefreshCw } from "lucide-vue-next";
 
 const stats = ref<OverviewStats | null>(null);
@@ -29,6 +30,16 @@ const clientSegments = computed(() => {
     { label: "Healthy", value: c.healthy, color: "var(--ok)" },
     { label: "Degraded", value: c.degraded, color: "var(--canary)" },
     { label: "Unreachable", value: c.unreachable, color: "var(--breach)" },
+  ].filter((s) => s.value > 0);
+});
+
+const breakerSegments = computed(() => {
+  if (!stats.value) return [];
+  const b = stats.value.circuit_breakers;
+  return [
+    { label: "Closed", value: b.closed, color: "var(--ok)" },
+    { label: "Half-open", value: b.half_open, color: "var(--canary)" },
+    { label: "Open", value: b.open, color: "var(--breach)" },
   ].filter((s) => s.value > 0);
 });
 
@@ -63,7 +74,9 @@ onMounted(load);
         :detail="`${stats.circuit_breakers.half_open} half-open`"
         :tone="stats.circuit_breakers.open > 0 ? 'danger' : 'ok'"
         :pulse="stats.circuit_breakers.open > 0"
-      />
+      >
+        <DonutChart v-if="breakerSegments.length" :segments="breakerSegments" :size="72" />
+      </StatCard>
       <StatCard :icon="ShieldCheck" label="Admin users" :value="stats.admin_users" />
     </div>
   </section>

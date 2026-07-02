@@ -1,0 +1,315 @@
+<script setup lang="ts">
+import { ref, onMounted, computed, reactive } from "vue";
+import { api, ApiError } from "../composables/useApi";
+import type { ApprovalRecord, ApprovalStatus } from "../types/api";
+import DonutChart from "../components/DonutChart.vue";
+import { ClipboardCheck, Check, X } from "lucide-vue-next";
+
+type TabKey = ApprovalStatus | "all";
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "pending", label: "Pending" },
+  { key: "approved", label: "Approved" },
+  { key: "rejected", label: "Rejected" },
+  { key: "all", label: "All" },
+];
+const activeTab = ref<TabKey>("pending");
+
+const summary = ref<ApprovalRecord[]>([]);
+const tableItems = ref<ApprovalRecord[]>([]);
+const loading = ref(false);
+const errorMessage = ref("");
+const decidingId = ref<number | null>(null);
+const noteDraft = reactive<Record<number, string>>({});
+
+async function loadTable() {
+  loading.value = true;
+  errorMessage.value = "";
+  try {
+    const summaryReq = api.get<{ items: ApprovalRecord[] }>("/admin-api/approvals").then((r) => r.items);
+    if (activeTab.value === "all") {
+      summary.value = await summaryReq;
+      tableItems.value = summary.value;
+    } else {
+      const [items, all] = await Promise.all([
+        api.get<{ items: ApprovalRecord[] }>(`/admin-api/approvals?status=${activeTab.value}`).then((r) => r.items),
+        summaryReq,
+      ]);
+      tableItems.value = items;
+      summary.value = all;
+    }
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load approvals.";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(loadTable);
+
+function switchTab(key: TabKey) {
+  activeTab.value = key;
+  loadTable();
+}
+
+const segments = computed(() => {
+  const counts: Record<ApprovalStatus, number> = { pending: 0, approved: 0, rejected: 0 };
+  for (const a of summary.value) counts[a.status]++;
+  return [
+    { label: "Pending", value: counts.pending, color: "var(--canary)" },
+    { label: "Approved", value: counts.approved, color: "var(--ok)" },
+    { label: "Rejected", value: counts.rejected, color: "var(--breach)" },
+  ].filter((s) => s.value > 0);
+});
+
+function prettyArgs(json: string): string {
+  try {
+    return JSON.stringify(JSON.parse(json));
+  } catch {
+    return json;
+  }
+}
+
+async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
+  decidingId.value = a.id;
+  errorMessage.value = "";
+  try {
+    const note = noteDraft[a.id]?.trim();
+    await api.post(`/admin-api/approvals/${a.id}/${status === "approved" ? "approve" : "reject"}`, note ? { note } : undefined);
+    delete noteDraft[a.id];
+    await loadTable();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : `Failed to ${status} approval #${a.id}.`;
+  } finally {
+    decidingId.value = null;
+  }
+}
+</script>
+
+<template>
+  <section>
+    <header class="page-header">
+      <div>
+        <h1>Approvals</h1>
+        <p class="subtitle">Human-in-the-loop queue for tools configured to require approval before their upstream call runs.</p>
+      </div>
+    </header>
+
+    <div class="chart-card">
+      <h2>Status breakdown</h2>
+      <DonutChart :segments="segments" :size="88" />
+    </div>
+
+    <div class="tab-strip">
+      <button
+        v-for="t in TABS"
+        :key="t.key"
+        type="button"
+        class="tab-btn"
+        :class="{ 'tab-active': activeTab === t.key }"
+        @click="switchTab(t.key)"
+      >
+        {{ t.label }}
+      </button>
+    </div>
+
+    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+    <div v-if="loading && !tableItems.length" class="loading">Loading…</div>
+    <div v-else-if="tableItems.length === 0" class="empty-state">
+      <ClipboardCheck :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
+      <p>No {{ activeTab === "all" ? "" : activeTab }} approvals.</p>
+    </div>
+
+    <div v-else class="table-card table-scroll">
+      <table class="appr-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Client / Tool</th>
+            <th>Args</th>
+            <th>Requested</th>
+            <th>Decision</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="a in tableItems" :key="a.id">
+            <td class="mono">{{ a.id }}</td>
+            <td class="mono">{{ a.clientName }}/{{ a.toolName }}</td>
+            <td class="args" :title="prettyArgs(a.argsJson)"><code>{{ prettyArgs(a.argsJson) }}</code></td>
+            <td>{{ new Date(a.createdAt).toLocaleString() }}</td>
+            <td>
+              <span v-if="a.status === 'pending'" class="status-pending">Pending</span>
+              <span v-else :class="a.status === 'approved' ? 'status-approved' : 'status-rejected'">
+                {{ a.status === "approved" ? "Approved" : "Rejected" }} by {{ a.decidedBy }}
+                <span v-if="a.note" class="note">— {{ a.note }}</span>
+              </span>
+            </td>
+            <td class="actions">
+              <template v-if="a.status === 'pending'">
+                <input v-model="noteDraft[a.id]" type="text" placeholder="note (optional)" class="note-input" :disabled="decidingId === a.id" />
+                <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
+                  <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
+                </button>
+                <button type="button" class="link-btn danger" :disabled="decidingId === a.id" @click="decide(a, 'rejected')">
+                  <X :size="13" stroke-width="2" aria-hidden="true" /> Reject
+                </button>
+              </template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+.page-header h1 {
+  margin: 0 0 0.2rem;
+}
+.subtitle {
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 640px;
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: var(--space-6);
+}
+.chart-card h2 {
+  font-size: 0.85rem;
+  margin: 0 0 0.9rem;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+.tab-strip {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.55rem 0.35rem;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+.tab-btn.tab-active {
+  color: var(--signal-strong);
+  border-bottom-color: var(--signal);
+}
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+.appr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.appr-table th {
+  text-align: left;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.appr-table td {
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.appr-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.appr-table tbody tr:hover {
+  background: var(--surface-sunken);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.args {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status-pending {
+  color: var(--canary);
+  font-weight: 600;
+}
+.status-approved {
+  color: var(--ok);
+}
+.status-rejected {
+  color: var(--breach);
+}
+.note {
+  color: var(--text-muted);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+.note-input {
+  width: 96px;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+}
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+.error {
+  color: var(--breach);
+}
+.loading,
+.empty-state p {
+  color: var(--text-muted);
+}
+.empty-state {
+  padding: 3rem 2rem;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.empty-icon {
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+</style>

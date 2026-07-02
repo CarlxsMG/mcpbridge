@@ -78,6 +78,54 @@ export function getUsageSummary(opts: { from?: number; to?: number; clientName?:
   };
 }
 
+function defaultBucketMs(windowMs: number): number {
+  return windowMs <= 26 * 60 * 60_000 ? 60 * 60_000 : 24 * 60 * 60_000;
+}
+
+export interface UsageTimeseriesPoint {
+  t: number;
+  calls: number;
+  errors: number;
+  avgMs: number;
+}
+
+export interface UsageTimeseries {
+  bucketMs: number;
+  points: UsageTimeseriesPoint[];
+}
+
+const MAX_TIMESERIES_POINTS = 1000;
+
+/** Bucketed calls/errors/avgMs over the window, zero-filled so charts never see gaps. */
+export function getUsageTimeseries(opts: { from?: number; to?: number; bucketMs?: number; clientName?: string } = {}): UsageTimeseries {
+  const db = getDb();
+  const from = windowFrom(opts.from);
+  const to = opts.to ?? Date.now();
+  const bucketMs = Math.max(opts.bucketMs ?? defaultBucketMs(to - from), 60_000);
+  const conditions = ["created_at >= ?", "created_at <= ?"];
+  const params: (string | number)[] = [from, to];
+  if (opts.clientName) { conditions.push("client_name = ?"); params.push(opts.clientName); }
+  const where = `WHERE ${conditions.join(" AND ")}`;
+  const rows = db
+    .query(
+      `SELECT (created_at / ?) as bucket, COUNT(*) as calls, COALESCE(SUM(is_error), 0) as errors,
+              COALESCE(AVG(duration_ms), 0) as avg_ms
+       FROM tool_call_log ${where}
+       GROUP BY bucket ORDER BY bucket ASC`
+    )
+    .all(bucketMs, ...params) as { bucket: number; calls: number; errors: number; avg_ms: number }[];
+
+  const byBucket = new Map(rows.map((r) => [r.bucket * bucketMs, r]));
+  const firstBucket = Math.floor(from / bucketMs) * bucketMs;
+  const lastBucket = Math.floor(to / bucketMs) * bucketMs;
+  const points: UsageTimeseriesPoint[] = [];
+  for (let t = firstBucket; t <= lastBucket && points.length < MAX_TIMESERIES_POINTS; t += bucketMs) {
+    const r = byBucket.get(t);
+    points.push({ t, calls: r?.calls ?? 0, errors: r?.errors ?? 0, avgMs: r ? Math.round(r.avg_ms) : 0 });
+  }
+  return { bucketMs, points };
+}
+
 export interface TopToolRow {
   client: string;
   tool: string;

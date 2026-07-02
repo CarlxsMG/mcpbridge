@@ -8,6 +8,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type {
   AlertRule,
+  ApprovalRecord,
+  ApprovalStatus,
   AuditLogEntry,
   BundleDetail,
   BundleSummary,
@@ -21,14 +23,18 @@ import type {
   GuardPolicy,
   McpApiKey,
   McpApiKeyWithSecret,
+  MonitorRecord,
   OverviewStats,
   Schedule,
   Team,
   ToolDetail,
   ToolListItem,
   TopToolRow,
+  TrafficRecord,
   UsageByKeyRow,
   UsageSummary,
+  UsageTimeseries,
+  UsageTimeseriesPoint,
   AdminUserSummary,
 } from "../types/api";
 
@@ -223,9 +229,53 @@ const usageSummary: UsageSummary = { from: days(7), calls: 18423, errors: 137, e
 const overview: OverviewStats = {
   clients: { live: 5, disabled: 1, healthy: 4, degraded: 1, unreachable: 1 },
   tools: { total: 42, disabled: 3 },
-  circuit_breakers: { open: 0, half_open: 1 },
+  circuit_breakers: { open: 0, half_open: 1, closed: 4 },
   admin_users: 3,
 };
+
+function timeseriesPoints(bucketMs: number, count: number): UsageTimeseriesPoint[] {
+  const end = Math.floor(NOW / bucketMs) * bucketMs;
+  const points: UsageTimeseriesPoint[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const wave = Math.sin((count - i) / 3) * 0.5 + 0.5;
+    const calls = Math.round(80 + wave * 220 + ((i * 37) % 23));
+    const errors = Math.round(calls * (0.005 + ((i * 13) % 7) / 400));
+    points.push({ t: end - i * bucketMs, calls, errors, avgMs: 90 + ((i * 17) % 60) });
+  }
+  return points;
+}
+
+const usageTimeseries: UsageTimeseries = { bucketMs: 60 * 60_000, points: timeseriesPoints(60 * 60_000, 24) };
+
+const trafficRecords: TrafficRecord[] = [
+  { id: 14, mcpToolName: "github__search_issues", clientName: "github", toolName: "search_issues", keyId: 1, argsJson: '{"query":"is:open label:bug"}', preview: '{"total_count":6,"items":[{"number":412,"title":"Timeout on large repos"}]}', isError: false, durationMs: 118, createdAt: hours(0.1) },
+  { id: 13, mcpToolName: "stripe__get_customer", clientName: "stripe", toolName: "get_customer", keyId: 2, argsJson: '{"id":"cus_8Fk2"}', preview: '{"id":"cus_8Fk2","email":"finance@example.com"}', isError: false, durationMs: 96, createdAt: hours(0.4) },
+  { id: 12, mcpToolName: "slack__post_message", clientName: "slack", toolName: "post_message", keyId: 1, argsJson: '{"channel":"#support","text":"Refund issued"}', preview: '{"ok":true,"ts":"1719900000.000200"}', isError: false, durationMs: 142, createdAt: hours(0.8) },
+  { id: 11, mcpToolName: "internal-crm__find_account", clientName: "internal-crm", toolName: "find_account", keyId: 3, argsJson: '{"query":"acme"}', preview: "upstream timeout after 8000ms", isError: true, durationMs: 8003, createdAt: hours(1.2) },
+  { id: 10, mcpToolName: "weather__forecast", clientName: "weather", toolName: "forecast", keyId: null, argsJson: '{"location":"Berlin"}', preview: '{"days":[{"high":21,"low":13}]}', isError: false, durationMs: 61, createdAt: hours(1.6) },
+  { id: 9, mcpToolName: "github__create_issue", clientName: "github", toolName: "create_issue", keyId: 3, argsJson: '{"title":"Docs typo"}', preview: '{"number":413,"html_url":"https://github.com/acme/repo/issues/413"}', isError: false, durationMs: 205, createdAt: hours(2.3) },
+  { id: 8, mcpToolName: "stripe__create_refund", clientName: "stripe", toolName: "create_refund", keyId: 2, argsJson: '{"chargeId":"ch_22aa","amount":2000}', preview: '{"id":"re_11bb","status":"succeeded"}', isError: false, durationMs: 188, createdAt: hours(3) },
+  { id: 7, mcpToolName: "slack__list_channels", clientName: "slack", toolName: "list_channels", keyId: 1, argsJson: "{}", preview: '{"channels":[{"id":"C01","name":"support"}]}', isError: false, durationMs: 74, createdAt: hours(3.9) },
+  { id: 6, mcpToolName: "internal-crm__update_deal", clientName: "internal-crm", toolName: "update_deal", keyId: 3, argsJson: '{"id":"deal_88","stage":"closed_won"}', preview: '{"id":"deal_88","stage":"closed_won"}', isError: false, durationMs: 133, createdAt: hours(4.5) },
+  { id: 5, mcpToolName: "github__list_pull_requests", clientName: "github", toolName: "list_pull_requests", keyId: 1, argsJson: '{"repo":"acme/repo"}', preview: '{"total_count":3}', isError: false, durationMs: 101, createdAt: hours(5.2) },
+  { id: 4, mcpToolName: "stripe__list_invoices", clientName: "stripe", toolName: "list_invoices", keyId: 2, argsJson: "{}", preview: "rate limited by upstream", isError: true, durationMs: 340, createdAt: hours(5.8) },
+  { id: 3, mcpToolName: "weather__current", clientName: "weather", toolName: "current", keyId: null, argsJson: '{"location":"Lisbon"}', preview: '{"tempC":24,"condition":"clear"}', isError: false, durationMs: 58, createdAt: hours(6.4) },
+];
+
+const monitors: MonitorRecord[] = [
+  { clientName: "github", toolName: "search_issues", exampleId: 1, intervalMinutes: 15, enabled: true, driftDetected: false, lastStatus: "ok", lastError: null, lastCheckedAt: hours(0.2) },
+  { clientName: "stripe", toolName: "get_customer", exampleId: 2, intervalMinutes: 15, enabled: true, driftDetected: true, lastStatus: "ok", lastError: null, lastCheckedAt: hours(0.3) },
+  { clientName: "internal-crm", toolName: "find_account", exampleId: 3, intervalMinutes: 30, enabled: true, driftDetected: false, lastStatus: "fail", lastError: "Timeout after 8000ms", lastCheckedAt: hours(1) },
+  { clientName: "slack", toolName: "post_message", exampleId: 4, intervalMinutes: 60, enabled: true, driftDetected: false, lastStatus: null, lastError: null, lastCheckedAt: null },
+  { clientName: "weather", toolName: "forecast", exampleId: 5, intervalMinutes: 30, enabled: false, driftDetected: false, lastStatus: "ok", lastError: null, lastCheckedAt: days(3) },
+];
+
+const approvals: ApprovalRecord[] = [
+  { id: 4, clientName: "stripe", toolName: "create_refund", argsHash: hex(4), argsJson: '{"chargeId":"ch_501","amount":4200}', status: "pending", createdAt: hours(1), decidedAt: null, decidedBy: null, note: null, consumedAt: null, requestedBy: 1 },
+  { id: 3, clientName: "internal-crm", toolName: "update_deal", argsHash: hex(3), argsJson: '{"id":"deal_41","stage":"closed_lost"}', status: "pending", createdAt: hours(3), decidedAt: null, decidedBy: null, note: null, consumedAt: null, requestedBy: 3 },
+  { id: 2, clientName: "stripe", toolName: "create_refund", argsHash: hex(2), argsJson: '{"chargeId":"ch_099","amount":500}', status: "approved", createdAt: days(1), decidedAt: hours(20), decidedBy: "demo", note: "Confirmed with customer", consumedAt: hours(20), requestedBy: 2 },
+  { id: 1, clientName: "internal-crm", toolName: "update_deal", argsHash: hex(1), argsJson: '{"id":"deal_12","stage":"closed_won"}', status: "rejected", createdAt: days(2), decidedAt: days(1), decidedBy: "demo", note: "Needs manager sign-off first", consumedAt: null, requestedBy: null },
+];
 
 const DEMO_USER: NonNullable<CurrentUser["user"]> = { username: "demo", role: "admin" };
 
@@ -246,7 +296,7 @@ function ok<T>(v: T): T {
   return v;
 }
 
-function route(pathname: string, method: string, body: Record<string, unknown> | undefined): unknown {
+function route(pathname: string, method: string, body: Record<string, unknown> | undefined, params: URLSearchParams): unknown {
   const p = pathname.replace(/\/+$/, "") || "/";
 
   // Auth — always "logged in" as the demo admin.
@@ -307,11 +357,57 @@ function route(pathname: string, method: string, body: Record<string, unknown> |
   if (p === "/admin-api/usage/summary") return ok(usageSummary);
   if (p === "/admin-api/usage/top-tools") return ok({ items: topTools });
   if (p === "/admin-api/usage/by-key") return ok({ items: byKey });
+  if (p === "/admin-api/usage/timeseries") return ok(usageTimeseries);
   if (p === "/admin-api/alerts" && method === "GET") return ok({ items: alerts });
   if (/^\/admin-api\/alerts/.test(p)) return ok({ id: 99 });
   if (p === "/admin-api/audit-log") return ok({ items: auditLog });
   if (p === "/admin-api/audit-log/export") return ok({ items: auditLog });
   if (p === "/admin-api/audit-log/verify") return ok({ ok: true, checked: auditLog.length });
+
+  // Traffic explorer
+  if (p === "/admin-api/traffic" && method === "GET") {
+    let items = trafficRecords.slice();
+    const client = params.get("client");
+    const tool = params.get("tool");
+    if (client) items = items.filter((r) => r.clientName === client);
+    if (tool) items = items.filter((r) => r.toolName === tool);
+    if (params.get("errors") === "true") items = items.filter((r) => r.isError);
+    return ok({ items });
+  }
+  const trafficDetailMatch = p.match(/^\/admin-api\/traffic\/(\d+)$/);
+  if (trafficDetailMatch && method === "GET") {
+    const rec = trafficRecords.find((r) => r.id === Number(trafficDetailMatch[1]));
+    return rec ? ok(rec) : undefined;
+  }
+  if (/^\/admin-api\/traffic\/\d+\/replay$/.test(p) && method === "POST") {
+    return ok({ content: [{ type: "text", text: "Replayed successfully (demo — no real upstream was called)." }], isError: false });
+  }
+
+  // Synthetic monitors
+  if (p === "/admin-api/monitors") return ok({ items: monitors });
+
+  // Approvals
+  if (p === "/admin-api/approvals" && method === "GET") {
+    const status = params.get("status") as ApprovalStatus | null;
+    // Always return a fresh array (never the live `approvals` reference) — Vue's ref
+    // setter no-ops on an unchanged object identity, so reusing the same reference
+    // across reloads would silently stop the status-breakdown donut from updating.
+    const items = status ? approvals.filter((a) => a.status === status) : approvals.slice();
+    return ok({ items });
+  }
+  const approvalDecideMatch = p.match(/^\/admin-api\/approvals\/(\d+)\/(approve|reject)$/);
+  if (approvalDecideMatch && method === "POST") {
+    const id = Number(approvalDecideMatch[1]);
+    const decision: ApprovalStatus = approvalDecideMatch[2] === "approve" ? "approved" : "rejected";
+    const a = approvals.find((x) => x.id === id);
+    if (a && a.status === "pending") {
+      a.status = decision;
+      a.decidedAt = NOW;
+      a.decidedBy = "demo";
+      a.note = typeof body?.note === "string" ? body.note : null;
+    }
+    return ok({ status: decision, id });
+  }
 
   // Administration
   if (p === "/admin-api/users" && method === "GET") return ok({ users });
@@ -347,8 +443,9 @@ export async function demoFetch<T>(path: string, init: RequestInit = {}): Promis
       body = undefined;
     }
   }
-  const pathname = path.split("?")[0];
+  const [pathname, search] = path.split("?");
+  const params = new URLSearchParams(search ?? "");
   // A touch of latency so spinners/skeletons behave like the real thing.
   await new Promise((r) => setTimeout(r, 90 + Math.floor(Math.random() * 120)));
-  return route(pathname, method, body) as T;
+  return route(pathname, method, body, params) as T;
 }

@@ -60,6 +60,17 @@ describe("usage routes", () => {
     expect((top as { items: { tool: string }[] }).items[0].tool).toBe("a");
   });
 
+  test("timeseries endpoint returns bucketed, zero-filled points", async () => {
+    await startApp();
+    recordUsage({ clientName: "svc", toolName: "a", keyId: null, statusClass: "2xx", isError: false, durationMs: 5 });
+
+    const res = await fetch(`${baseUrl}/admin-api/usage/timeseries?bucketMs=3600000`, { headers: bearer() });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { bucketMs: number; points: { t: number; calls: number }[] };
+    expect(body.bucketMs).toBe(3_600_000);
+    expect(body.points.reduce((sum, p) => sum + p.calls, 0)).toBe(1);
+  });
+
   test("by-key endpoint returns grouped rows", async () => {
     await startApp();
     recordUsage({ clientName: "svc", toolName: "a", keyId: null, statusClass: "2xx", isError: false, durationMs: 5 });

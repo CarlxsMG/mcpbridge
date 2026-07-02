@@ -1,6 +1,6 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { getUsageSummary, getTopTools, getUsageByKey } from "../observability/usage.js";
+import { getUsageSummary, getUsageTimeseries, getTopTools, getUsageByKey } from "../observability/usage.js";
 
 function num(v: unknown): number | undefined {
   if (typeof v !== "string") return undefined;
@@ -15,6 +15,17 @@ export function usageRoutes(app: Express): void {
       getUsageSummary({
         from: num(req.query.from),
         to: num(req.query.to),
+        clientName: typeof req.query.client === "string" ? req.query.client : undefined,
+      })
+    );
+  });
+
+  app.get("/admin-api/usage/timeseries", adminAuth, (req: Request, res: Response) => {
+    res.status(200).json(
+      getUsageTimeseries({
+        from: num(req.query.from),
+        to: num(req.query.to),
+        bucketMs: num(req.query.bucketMs),
         clientName: typeof req.query.client === "string" ? req.query.client : undefined,
       })
     );
