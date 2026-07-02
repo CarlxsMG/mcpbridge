@@ -117,6 +117,27 @@ describe("config export/import", () => {
     expect(listConsumers()[0].monthlyQuota).toBe(2000);
   });
 
+  test("rejects an invalid consumer quota/end-user-limit instead of silently persisting it", async () => {
+    await reg("svc");
+    const doc = {
+      version: 1,
+      exportedAt: Date.now(),
+      bundles: [],
+      alertRules: [],
+      clients: [],
+      guardrails: [],
+      consumers: [
+        { name: "zero-quota", monthlyQuota: 0, endUserRateLimitPerMin: null },
+        { name: "negative-limit", monthlyQuota: null, endUserRateLimitPerMin: -1 },
+        { name: "valid", monthlyQuota: 100, endUserRateLimitPerMin: 10 },
+      ],
+    };
+    const result = await importConfig(doc, { dryRun: false }, "t");
+    expect(result.applied.consumers).toBe(1);
+    expect(result.skipped.filter((s) => s.type === "consumer")).toHaveLength(2);
+    expect(listConsumers().map((c) => c.name)).toEqual(["valid"]);
+  });
+
   test("a v1 document without guardrails/consumers still imports cleanly (back-compat)", async () => {
     await reg("svc");
     const doc = {

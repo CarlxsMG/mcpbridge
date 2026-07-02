@@ -4,6 +4,7 @@ import { parse as parseYaml } from "yaml";
 import type { OpenAPIV3 } from "openapi-types";
 import type { RestToolDefinition } from "./types.js";
 import { config } from "./config.js";
+import { sanitizeToolName, uniqueToolName } from "./tool-naming.js";
 
 const VALID_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 
@@ -173,30 +174,6 @@ function generateToolName(method: string, path: string): string {
   return `${method}_${segments.join("_")}`.toLowerCase();
 }
 
-const TOOL_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
-
-/** Normalizes an author-supplied operationId (often camelCase) into the registry's tool-name rule: lowercase alphanumeric + hyphen/underscore, starting with a letter or digit. */
-function sanitizeToolName(raw: string): string {
-  const snake = raw
-    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^[^a-z0-9]+/, "");
-  const truncated = snake.slice(0, 63);
-  return TOOL_NAME_RE.test(truncated) && truncated.length > 0 ? truncated : "op";
-}
-
-/** Disambiguates a name that collides with one already used in this discovery run (e.g. two operationIds that normalize to the same string). */
-function uniqueToolName(name: string, used: Set<string>): string {
-  let candidate = name;
-  let suffix = 2;
-  while (used.has(candidate)) {
-    candidate = `${name}_${suffix++}`.slice(0, 63);
-  }
-  used.add(candidate);
-  return candidate;
-}
 
 function buildInputSchema(
   operation: OpenAPIV3.OperationObject,

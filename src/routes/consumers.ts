@@ -10,6 +10,7 @@ import {
   updateConsumer,
   deleteConsumer,
   getConsumerUsageThisMonth,
+  isValidQuotaValue,
 } from "../consumers.js";
 
 function requestId(res: Response): string | null {
@@ -17,9 +18,8 @@ function requestId(res: Response): string | null {
 }
 
 function optPositiveIntOrNull(v: unknown): { ok: true; value: number | null } | { ok: false } {
-  if (v === undefined || v === null) return { ok: true, value: null };
-  if (typeof v === "number" && Number.isInteger(v) && v > 0) return { ok: true, value: v };
-  return { ok: false };
+  if (!isValidQuotaValue(v)) return { ok: false };
+  return { ok: true, value: v ?? null };
 }
 
 export function consumerRoutes(app: Express): void {

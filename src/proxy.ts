@@ -33,7 +33,7 @@ import { isKeyAllowed } from "./security/key-hash.js";
 import { resolveMcpKeyByToken, isToolInKeyScope } from "./security/mcp-key-store.js";
 import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
 import { recordUsage } from "./observability/usage.js";
-import { checkConsumerQuota, checkEndUserRateLimit } from "./consumers.js";
+import { checkConsumerQuota, checkEndUserRateLimit, getConsumer } from "./consumers.js";
 import { isToolSensitive } from "./tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "./redaction.js";
 import { getGuardrails, checkInputGuardrails, applyResponseScan } from "./guardrails.js";
@@ -314,6 +314,18 @@ export interface ToolCallOpts {
  * it's set by the wrapping application's own request-construction code, not
  * influenced by anything an LLM emits as tool-call arguments (which could be
  * steered by prompt injection). Blank/non-string values are treated as absent.
+ *
+ * SECURITY NOTE: when the header is absent (the common case for a bare/raw
+ * MCP client, or any deployment that doesn't thread X-End-User-Id through),
+ * the __end_user *argument* is the only identity signal — and it comes
+ * straight from the model's tool-call arguments. A prompt-injected or
+ * malicious caller can therefore not only evade its own per-end-user limit
+ * (self-harm, the originally-scoped risk) but also assert a SPECIFIC OTHER
+ * end-user's id to burn that victim's bucket and deny their legitimate calls.
+ * This is inherent to accepting any unauthenticated identity signal from tool
+ * arguments; only deploy per-end-user rate limiting for a consumer where the
+ * wrapping application reliably sets the header, or treat the arg-only path
+ * as a fairness convenience with no adversarial guarantee at all.
  */
 function resolveEndUserId(headerValue: string | undefined, args: Record<string, unknown>): string | null {
   const fromHeader = typeof headerValue === "string" ? headerValue.trim() : "";
@@ -465,7 +477,10 @@ async function dispatchToolCall(
 
   // Multi-tenant monthly quota — reject once the key's consumer is at/over its cap.
   if (callerKey?.consumerId != null) {
-    const quota = checkConsumerQuota(callerKey.consumerId);
+    // Fetched once and passed to both checks below — each independently
+    // calling getConsumer() would be a second identical SQLite read per call.
+    const consumer = getConsumer(callerKey.consumerId);
+    const quota = checkConsumerQuota(callerKey.consumerId, consumer);
     if (quota.exceeded) {
       return {
         isError: true,
@@ -481,7 +496,7 @@ async function dispatchToolCall(
     // the consumer opted in (see resolveEndUserId/checkEndUserRateLimit).
     const assertedEndUserId = resolveEndUserId(opts?.endUserId, args);
     if (assertedEndUserId !== null) {
-      const endUserRl = checkEndUserRateLimit(callerKey.consumerId, assertedEndUserId);
+      const endUserRl = checkEndUserRateLimit(callerKey.consumerId, assertedEndUserId, consumer);
       if (endUserRl.limited) {
         return {
           isError: true,

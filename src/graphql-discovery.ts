@@ -1,4 +1,5 @@
 import { config } from "./config.js";
+import { sanitizeToolName, uniqueToolName } from "./tool-naming.js";
 
 /**
  * GraphQL analog of openapi-discovery.ts: point at an endpoint with
@@ -178,19 +179,6 @@ function buildSelectionSet(t: GqlTypeRef, typeMap: Map<string, GqlFullType>, dep
   return `{ ${picks.length ? picks.join(" ") : "__typename"} }`;
 }
 
-const TOOL_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
-
-function camelToSnake(name: string): string {
-  const snake = name
-    .replace(/([A-Z])/g, "_$1")
-    .toLowerCase()
-    .replace(/_+/g, "_")
-    .replace(/^_/, "");
-  if (TOOL_NAME_RE.test(snake) && snake.length > 0) return snake;
-  const sanitized = snake.replace(/[^a-z0-9_-]/g, "_").replace(/^[^a-z0-9]+/, "");
-  return sanitized || "field";
-}
-
 function synthesizeQuery(opKind: "query" | "mutation", field: GqlField, typeMap: Map<string, GqlFullType>, toolName: string): string {
   const varDecls = field.args.map((a) => `$${a.name}: ${printTypeRef(a.type)}`).join(", ");
   const callArgs = field.args.map((a) => `${a.name}: $${a.name}`).join(", ");
@@ -199,15 +187,14 @@ function synthesizeQuery(opKind: "query" | "mutation", field: GqlField, typeMap:
 }
 
 function fieldToTool(opKind: "query" | "mutation", field: GqlField, typeMap: Map<string, GqlFullType>, usedNames: Set<string>): GraphqlDiscoveredTool {
-  let name = camelToSnake(field.name);
-  if (usedNames.has(name)) {
-    name = camelToSnake(`${opKind}_${field.name}`);
-    let suffix = 2;
-    while (usedNames.has(name)) {
-      name = `${camelToSnake(`${opKind}_${field.name}`)}_${suffix++}`;
-    }
-  }
-  usedNames.add(name);
+  // Prefer the bare field name; fall back to an opKind-prefixed variant on
+  // collision (e.g. a query and mutation both named "pet") before falling
+  // further back to uniqueToolName's numeric-suffix disambiguation — shared
+  // with openapi-discovery.ts so both sources get the same length-safe,
+  // termination-guaranteed collision handling (see src/tool-naming.ts).
+  const base = sanitizeToolName(field.name);
+  const candidate = usedNames.has(base) ? sanitizeToolName(`${opKind}_${field.name}`) : base;
+  const name = uniqueToolName(candidate, usedNames);
 
   const properties: Record<string, unknown> = {};
   const required: string[] = [];

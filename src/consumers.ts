@@ -1,6 +1,11 @@
 import { getDb } from "./db/connection.js";
 import { checkSharedEndUserRateLimit } from "./db/rate-counters.js";
 
+/** Shared validity check for monthlyQuota/endUserRateLimitPerMin — both must be a positive integer or null (unlimited/disabled). Used by both the admin-api route and config-io's import path so a hand-edited gateway.yaml can't sneak in a value (e.g. 0 or -1) that the normal API would reject. */
+export function isValidQuotaValue(v: unknown): v is number | null {
+  return v === null || v === undefined || (typeof v === "number" && Number.isInteger(v) && v > 0);
+}
+
 export interface Consumer {
   id: number;
   name: string;
@@ -104,9 +109,14 @@ export interface QuotaStatus {
   quota: number | null;
 }
 
-/** Whether a consumer is at/over its monthly quota. Unknown or unlimited consumers never exceed. */
-export function checkConsumerQuota(consumerId: number): QuotaStatus {
-  const c = getConsumer(consumerId);
+/**
+ * Whether a consumer is at/over its monthly quota. Unknown or unlimited
+ * consumers never exceed. Accepts an already-fetched `consumer` (e.g. from a
+ * caller that also needs it for checkEndUserRateLimit) to avoid a second
+ * `getConsumer` round-trip on this hot path — pass nothing to fetch it here.
+ */
+export function checkConsumerQuota(consumerId: number, consumer?: Consumer | null): QuotaStatus {
+  const c = consumer !== undefined ? consumer : getConsumer(consumerId);
   if (!c || c.monthlyQuota === null) return { exceeded: false, used: 0, quota: c?.monthlyQuota ?? null };
   const used = getConsumerUsageThisMonth(consumerId);
   return { exceeded: used >= c.monthlyQuota, used, quota: c.monthlyQuota };
@@ -125,8 +135,8 @@ export interface EndUserRateLimitStatus {
  * proxy.ts). A consumer that hasn't opted in, or an unknown/deleted consumer,
  * never limits (fail-open, symmetric with checkConsumerQuota above).
  */
-export function checkEndUserRateLimit(consumerId: number, rawEndUserId: string): EndUserRateLimitStatus {
-  const c = getConsumer(consumerId);
+export function checkEndUserRateLimit(consumerId: number, rawEndUserId: string, consumer?: Consumer | null): EndUserRateLimitStatus {
+  const c = consumer !== undefined ? consumer : getConsumer(consumerId);
   if (!c || c.endUserRateLimitPerMin === null) return { limited: false, retryAfterSeconds: 0 };
   const endUserId = rawEndUserId.slice(0, 256);
   const r = checkSharedEndUserRateLimit(consumerId, endUserId, c.endUserRateLimitPerMin);

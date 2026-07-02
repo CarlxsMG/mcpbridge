@@ -13,6 +13,7 @@ import { __resetDbForTesting } from "../db/connection.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 import { _internalsForTesting } from "../middleware/rate-limiter.js";
 import { registry } from "../registry.js";
+import { upsertWsProxyTarget, __resetWsProxyForTesting } from "../ws-proxy.js";
 
 const ADMIN_KEY = "test-admin-key";
 const originalAllowPrivate = config.allowPrivateIps;
@@ -79,6 +80,7 @@ afterAll(() => {
 
 async function startApp(): Promise<void> {
   __resetDbForTesting();
+  __resetWsProxyForTesting();
   for (const c of registry.listClients()) await registry.unregister(c.name);
   _internalsForTesting.registerBuckets.clear();
   (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
@@ -304,6 +306,32 @@ describe("POST /register — GraphQL branch", () => {
     expect(body.warnings?.length).toBeGreaterThan(0);
   });
 
+  test("400 when an explicit health_url fails SSRF validation (not just graphql_url)", async () => {
+    await startApp();
+    // Restrict to the mock upstream's own host so graphql_url still passes,
+    // but a health_url pointing anywhere else — private/link-local or not —
+    // is rejected on its own, proving health_url gets its own independent
+    // validateBackendUrl call rather than riding on graphql_url's pass.
+    const originalAllowedHosts = config.allowedHosts;
+    (config as Record<string, unknown>).allowedHosts = ["127.0.0.1"];
+    try {
+      const res = await fetch(`${adminBase}/register`, {
+        method: "POST",
+        headers: bearer(),
+        body: JSON.stringify({
+          name: "graphql-svc-bad-health",
+          graphql_url: `http://127.0.0.1:${upstreamPort}/graphql`,
+          health_url: "http://169.254.169.254/latest/meta-data/",
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("VALIDATION_ERROR");
+    } finally {
+      (config as Record<string, unknown>).allowedHosts = originalAllowedHosts;
+    }
+  });
+
   test("400 when graphql_url is missing an http(s) scheme", async () => {
     await startApp();
     const res = await fetch(`${adminBase}/register`, {
@@ -339,5 +367,47 @@ describe("POST /register — GraphQL branch", () => {
     const detail = registry.getClientDetail("graphql-svc5");
     expect(detail?.tools.map((t) => t.name)).toEqual(["ping"]);
     expect(detail?.tools[0].graphql).toBeUndefined();
+  });
+});
+
+describe("POST /register — rejects a name already used by a WS proxy target", () => {
+  test("REST branch", async () => {
+    await startApp();
+    await upsertWsProxyTarget("shared-name", { backendWsUrl: "ws://127.0.0.1:9" });
+    const res = await fetch(`${adminBase}/register`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "shared-name", health_url: `http://127.0.0.1:${upstreamPort}/health`, tools: [] }),
+    });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("NAME_COLLISION");
+    expect(registry.getClient("shared-name")).toBeUndefined();
+  });
+
+  test("MCP branch", async () => {
+    await startApp();
+    await upsertWsProxyTarget("shared-name-mcp", { backendWsUrl: "ws://127.0.0.1:9" });
+    const res = await fetch(`${adminBase}/register`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ kind: "mcp", name: "shared-name-mcp", mcp_url: `http://127.0.0.1:${upstreamPort}` }),
+    });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("NAME_COLLISION");
+  });
+
+  test("GraphQL branch", async () => {
+    await startApp();
+    await upsertWsProxyTarget("shared-name-gql", { backendWsUrl: "ws://127.0.0.1:9" });
+    const res = await fetch(`${adminBase}/register`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "shared-name-gql", graphql_url: `http://127.0.0.1:${upstreamPort}/graphql` }),
+    });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("NAME_COLLISION");
   });
 });

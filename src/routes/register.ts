@@ -13,7 +13,30 @@ import { discoverToolsFromMcpServer } from "../mcp-discovery.js";
 import { discoverToolsFromGraphQl } from "../graphql-discovery.js";
 import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
 import { setToolGraphql } from "../backends.js";
+import { getWsProxyTargetDetail } from "../ws-proxy.js";
 import type { McpTransport } from "../types.js";
+
+/**
+ * ws-proxy.ts's upsertWsProxyTarget() rejects a new ws-proxy target whose
+ * name collides with an existing client (via registry.getClient), but that
+ * check only runs on the ws-proxy side — registry.register()/registerMcp()
+ * have no reciprocal check (registry.ts can't import ws-proxy.ts, which
+ * already imports registry.ts). Enforce the other direction here instead,
+ * in the one place both namespaces are already visible. Without this, a
+ * client name colliding with an existing ws-proxy target would silently
+ * share that target's circuit breaker (getCircuitBreaker is keyed by name
+ * alone) and its key-scope grants (isClientInKeyScope treats the `clients`
+ * scope list as covering both namespaces) — cross-feature availability and
+ * authorization bleed between two otherwise-unrelated resources.
+ */
+function wsProxyNameCollision(name: string, requestId: string | null): RegisterOutcome | null {
+  if (!getWsProxyTargetDetail(name)) return null;
+  return {
+    ok: false,
+    status: 409,
+    body: { error: { code: "NAME_COLLISION", message: `"${name}" is already registered as a WS proxy target`, request_id: requestId } },
+  };
+}
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
 type SchemaObject = { [k: string]: JsonValue };
@@ -132,6 +155,8 @@ export async function performRestRegistration(body: any, peerIp: string | undefi
   if (!name || !health_url) {
     return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Missing required fields: name, health_url" } } };
   }
+  const wsCollision = wsProxyNameCollision(name, requestId);
+  if (wsCollision) return wsCollision;
 
   // Must provide either tools or openapi_url, not both
   if (!tools && !openapi_url) {
@@ -265,6 +290,8 @@ export async function performMcpRegistration(body: any, peerIp: string | undefin
   if (typeof name !== "string" || !name) {
     return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } } };
   }
+  const mcpWsCollision = wsProxyNameCollision(name, requestId);
+  if (mcpWsCollision) return mcpWsCollision;
   if (typeof mcpUrl !== "string" || (!mcpUrl.startsWith("http://") && !mcpUrl.startsWith("https://"))) {
     return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "mcp_url must start with http:// or https://", request_id: requestId } } };
   }
@@ -325,6 +352,8 @@ export async function performGraphqlRegistration(body: any, peerIp: string | und
   if (typeof name !== "string" || !name) {
     return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } } };
   }
+  const gqlWsCollision = wsProxyNameCollision(name, requestId);
+  if (gqlWsCollision) return gqlWsCollision;
   if (typeof graphqlUrl !== "string" || (!graphqlUrl.startsWith("http://") && !graphqlUrl.startsWith("https://"))) {
     return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "graphql_url must start with http:// or https://", request_id: requestId } } };
   }
@@ -340,10 +369,21 @@ export async function performGraphqlRegistration(body: any, peerIp: string | und
   // reject a bare GET on the operation endpoint (CSRF-prevention plugins,
   // etc.), so this is a real risk of false-positive health failures leading
   // to auto-eviction. Surfaced as a warning rather than silently accepted.
+  //
+  // A caller-supplied health_url is an independent SSRF surface (the periodic
+  // health-check loop will fetch it forever) and must be validated exactly
+  // like graphql_url — never trusted just because graphql_url already passed.
   const warnings: string[] = [];
   let resolvedHealthUrl: string;
   if (typeof body.health_url === "string" && body.health_url) {
-    resolvedHealthUrl = body.health_url;
+    const rawHealthUrl: string = body.health_url;
+    resolvedHealthUrl = rawHealthUrl.startsWith("http")
+      ? rawHealthUrl
+      : `http://${ip}${rawHealthUrl.startsWith("/") ? "" : "/"}${rawHealthUrl}`;
+    const healthValidation = await validateBackendUrl(resolvedHealthUrl, config.allowPrivateIps, config.allowedHosts);
+    if (!healthValidation.valid) {
+      return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid health_url: ${healthValidation.reason}`, request_id: requestId } } };
+    }
   } else {
     resolvedHealthUrl = graphqlUrl;
     warnings.push(
@@ -352,20 +392,16 @@ export async function performGraphqlRegistration(body: any, peerIp: string | und
     );
   }
 
-  let resolvedBaseUrl: string;
-  try {
-    const parsed = new URL(graphqlUrl);
-    resolvedBaseUrl = `${parsed.protocol}//${parsed.host}`;
-  } catch {
-    resolvedBaseUrl = graphqlUrl;
-  }
+  // graphql_url already passed validateBackendUrl above, so this can't throw
+  // — parsed once and reused below instead of re-parsing the same URL three times.
+  const parsedGraphqlUrl = new URL(graphqlUrl);
+  const resolvedBaseUrl = `${parsedGraphqlUrl.protocol}//${parsedGraphqlUrl.host}`;
 
   let toolsCount: number;
   try {
-    const graphqlHostname = new URL(graphqlUrl).hostname;
     const discovered = await discoverToolsFromGraphQl({
       graphqlUrl,
-      ipPin: { resolvedIp: pinnedIp, hostname: graphqlHostname },
+      ipPin: { resolvedIp: pinnedIp, hostname: parsedGraphqlUrl.hostname },
       authHeaders: getUpstreamAuthHeaders(name) ?? undefined,
       includeMutations: body.include_mutations !== false,
     });
@@ -380,7 +416,7 @@ export async function performGraphqlRegistration(body: any, peerIp: string | und
       };
     }
 
-    const endpointPath = new URL(graphqlUrl).pathname || "/graphql";
+    const endpointPath = parsedGraphqlUrl.pathname || "/graphql";
     const mappedTools = discovered.map((d) => ({
       name: d.name,
       method: "POST" as const,

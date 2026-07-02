@@ -80,7 +80,18 @@ interface ProxiedConn {
 }
 
 const connsByTarget = new Map<string, Set<ProxiedConn>>();
-let globalActive = 0;
+
+/** Total live connections across every target — derived on demand rather than tracked as separate mutable state, so it can never drift from the Sets that are the actual source of truth (there are ~8 call sites that add/remove a connection; a hand-maintained counter would need every one of them to stay in sync). */
+function totalActiveConnections(): number {
+  let total = 0;
+  for (const set of connsByTarget.values()) total += set.size;
+  return total;
+}
+
+/** Whether hostname is already an IP literal (vs. a DNS name) — an IP-literal backend has no hostname to re-pin via the `lookup` override, and its trust was already established once at registration time. */
+function isRawIpLiteral(hostname: string): boolean {
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
+}
 
 /** Loads every ws-proxy target from SQLite into the hot-path map. Call once at boot, after migrations have run. */
 export function loadWsProxyTargets(): void {
@@ -172,22 +183,22 @@ export function deleteWsProxyTarget(name: string): boolean {
   const result = getDb().query(`DELETE FROM ws_proxy_targets WHERE name = ?`).run(name);
   if (result.changes === 0) return false;
   targets.delete(name);
-  closeAllConnectionsForTarget(name, 1012, "target removed");
+  closeAllConnectionsForTarget(name);
   return true;
 }
 
 /** Force-closes every live connection for a target — the admin "disconnect all" escape hatch, and used internally on delete/disable. */
 export function disconnectAllForTarget(name: string): number {
-  return closeAllConnectionsForTarget(name, 1012, "disconnected by admin");
+  return closeAllConnectionsForTarget(name);
 }
 
-function closeAllConnectionsForTarget(name: string, code: number, reason: string): number {
+function closeAllConnectionsForTarget(name: string): number {
   const set = connsByTarget.get(name);
   if (!set) return 0;
   const count = set.size;
   for (const conn of [...set]) {
-    safeClose(conn.clientWs, code, reason);
-    safeClose(conn.backendWs, code, reason);
+    safeClose(conn.clientWs);
+    safeClose(conn.backendWs);
     removeConn(conn);
   }
   return count;
@@ -200,14 +211,12 @@ function addConn(conn: ProxiedConn): void {
     connsByTarget.set(conn.targetName, set);
   }
   set.add(conn);
-  globalActive++;
   wsProxyActiveConnections.set({ target: conn.targetName }, set.size);
 }
 
 function removeConn(conn: ProxiedConn): void {
   const set = connsByTarget.get(conn.targetName);
   if (set?.delete(conn)) {
-    globalActive--;
     wsProxyActiveConnections.set({ target: conn.targetName }, set.size);
   }
 }
@@ -225,9 +234,11 @@ function rawDataByteLength(data: RawData): number {
  * frame back before the underlying TCP socket actually releases, which is
  * the wrong trade-off here — every caller of this (admin disconnect, idle
  * sweep, revalidation, error paths) wants resources freed immediately, not a
- * best-effort RFC 6455 handshake with an uncooperative or slow peer.
+ * best-effort RFC 6455 handshake with an uncooperative or slow peer. Takes
+ * no code/reason — terminate() can't transmit either, so a parameter that
+ * looked like it did would be misleading.
  */
-function safeClose(ws: WsClient, _code: number, _reason: string): void {
+function safeClose(ws: WsClient): void {
   try {
     if (ws.readyState === WsClient.OPEN || ws.readyState === WsClient.CONNECTING) {
       ws.terminate();
@@ -292,7 +303,7 @@ export async function handleWsProxyUpgrade(req: IncomingMessage, socket: Duplex,
     return;
   }
 
-  if (globalActive >= config.wsProxyMaxGlobalConnections) {
+  if (totalActiveConnections() >= config.wsProxyMaxGlobalConnections) {
     rejectUpgrade(socket, 503, "At capacity");
     return;
   }
@@ -320,7 +331,7 @@ const MAX_PENDING_MESSAGES = 256;
 
 function dialBackendAndPipe(clientWs: WsClient, target: WsProxyTarget, breaker: ReturnType<typeof getCircuitBreaker>): void {
   const hostname = new URL(target.backendWsUrl.replace(/^ws/, "http")).hostname;
-  const isRawIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
+  const isRawIp = isRawIpLiteral(hostname);
 
   const backendWs = new WsClient(target.backendWsUrl, {
     maxPayload: target.maxMessageBytes,
@@ -364,12 +375,12 @@ function dialBackendAndPipe(clientWs: WsClient, target: WsProxyTarget, breaker: 
   backendWs.on("error", (err) => {
     breaker.recordFailure();
     log("warn", "WS proxy backend error", { target: target.name, error: err.message });
-    safeClose(clientWs, 1011, "backend error");
+    safeClose(clientWs);
     removeConn(conn);
   });
 
-  backendWs.on("close", (code, reasonBuf) => {
-    safeClose(clientWs, code || 1000, reasonBuf.toString());
+  backendWs.on("close", () => {
+    safeClose(clientWs);
     removeConn(conn);
   });
 
@@ -388,13 +399,13 @@ function dialBackendAndPipe(clientWs: WsClient, target: WsProxyTarget, breaker: 
     conn.lastActivity = Date.now();
     const bytes = rawDataByteLength(data);
     if (bytes > target.maxMessageBytes) {
-      safeClose(clientWs, 1009, "message too large");
+      safeClose(clientWs);
       return;
     }
     wsProxyBytesTotal.inc({ target: target.name, direction: "up" }, bytes);
     if (backendWs.readyState === WsClient.CONNECTING) {
       if (pendingFromClient.length >= MAX_PENDING_MESSAGES) {
-        safeClose(clientWs, 1013, "backend dial not keeping up");
+        safeClose(clientWs);
         return;
       }
       pendingFromClient.push({ data, isBinary });
@@ -408,11 +419,11 @@ function dialBackendAndPipe(clientWs: WsClient, target: WsProxyTarget, breaker: 
   });
 
   clientWs.on("close", () => {
-    safeClose(backendWs, 1000, "caller closed");
+    safeClose(backendWs);
     removeConn(conn);
   });
   clientWs.on("error", () => {
-    safeClose(backendWs, 1011, "caller error");
+    safeClose(backendWs);
     removeConn(conn);
   });
 }
@@ -430,30 +441,43 @@ export function startWsProxyRevalidationLoop(): () => void {
     const now = Date.now();
     for (const [targetName, set] of connsByTarget) {
       const target = targets.get(targetName);
-      for (const conn of [...set]) {
-        if (!target || !target.enabled) {
-          safeClose(conn.clientWs, 1012, "target removed");
-          safeClose(conn.backendWs, 1012, "target removed");
+
+      // Target removed/disabled since these connections opened -> drop them all.
+      if (!target || !target.enabled) {
+        for (const conn of [...set]) {
+          safeClose(conn.clientWs);
+          safeClose(conn.backendWs);
           removeConn(conn);
-          continue;
         }
-        if (now - conn.lastActivity > target.idleTimeoutMs) {
-          safeClose(conn.clientWs, 1000, "idle timeout");
-          safeClose(conn.backendWs, 1000, "idle timeout");
-          removeConn(conn);
-          continue;
-        }
-        const isRawIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(conn.hostname) || conn.hostname.startsWith("[") || conn.hostname.includes(":");
-        if (isRawIp) continue;
-        void validateBackendUrl(`http://${conn.hostname}`, config.allowPrivateIps, config.allowedHosts).then((check) => {
-          if (!check.valid) {
-            log("warn", "WS proxy connection distrusted after revalidation", { target: targetName, hostname: conn.hostname, reason: check.reason });
-            safeClose(conn.clientWs, 1012, "backend host no longer trusted");
-            safeClose(conn.backendWs, 1012, "backend host no longer trusted");
-            removeConn(conn);
-          }
-        });
+        continue;
       }
+
+      // Idle sweep.
+      for (const conn of [...set]) {
+        if (now - conn.lastActivity > target.idleTimeoutMs) {
+          safeClose(conn.clientWs);
+          safeClose(conn.backendWs);
+          removeConn(conn);
+        }
+      }
+
+      // DNS revalidation — every remaining connection for this target shares
+      // the same backend hostname, so validate it once per target per tick
+      // instead of once per connection (a popular target with many open
+      // connections would otherwise issue one redundant DNS lookup per
+      // connection, every tick).
+      const remaining = [...set].filter((conn) => !isRawIpLiteral(conn.hostname));
+      const hostname = remaining[0]?.hostname;
+      if (!hostname) continue;
+      void validateBackendUrl(`http://${hostname}`, config.allowPrivateIps, config.allowedHosts).then((check) => {
+        if (check.valid) return;
+        log("warn", "WS proxy connections distrusted after revalidation", { target: targetName, hostname, reason: check.reason, count: remaining.length });
+        for (const conn of remaining) {
+          safeClose(conn.clientWs);
+          safeClose(conn.backendWs);
+          removeConn(conn);
+        }
+      });
     }
   }, config.wsProxyRevalidateIntervalMs);
   return () => clearInterval(handle);
@@ -461,15 +485,14 @@ export function startWsProxyRevalidationLoop(): () => void {
 
 /** Closes every live proxy connection on both legs — called from gracefulShutdown. */
 export function closeAllWsProxyConnections(): void {
-  for (const name of connsByTarget.keys()) closeAllConnectionsForTarget(name, 1001, "server shutting down");
+  for (const name of connsByTarget.keys()) closeAllConnectionsForTarget(name);
 }
 
 export function wsProxyActiveConnectionCount(): number {
-  return globalActive;
+  return totalActiveConnections();
 }
 
 export function __resetWsProxyForTesting(): void {
   targets.clear();
   connsByTarget.clear();
-  globalActive = 0;
 }

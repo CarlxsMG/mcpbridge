@@ -3,7 +3,7 @@ import { registry, ToolOverrideError } from "./registry.js";
 import { listBundles, getBundleDetail, createBundle, updateBundle, type BundleToolRef } from "./bundles.js";
 import { listAlertRules, createAlertRule, type AlertEventType } from "./alerts.js";
 import { getGuardrailsForClient, setGuardrails } from "./guardrails.js";
-import { listConsumers, getConsumerByName, createConsumer, updateConsumer } from "./consumers.js";
+import { listConsumers, getConsumerByName, createConsumer, updateConsumer, isValidQuotaValue } from "./consumers.js";
 import type { ClientGuardConfig, ToolGuardConfig, ToolOverride, ToolGuardrails } from "./types.js";
 
 export const CONFIG_EXPORT_VERSION = 1;
@@ -220,7 +220,16 @@ export async function importConfig(
   }
 
   // Consumers — created if unknown by name, otherwise their quota is updated.
+  // A hand-edited gateway.yaml (or any importConfig caller) could otherwise
+  // sneak in a value the admin-api route would reject outright — e.g. a
+  // monthlyQuota/endUserRateLimitPerMin of 0 or -1, which checkConsumerQuota
+  // /checkEndUserRateLimit would then treat as "always exceeded", silently
+  // locking every one of that consumer's keys out with no error at import time.
   for (const c of asArray<ExportedConsumer>(doc.consumers)) {
+    if (!isValidQuotaValue(c.monthlyQuota) || !isValidQuotaValue(c.endUserRateLimitPerMin)) {
+      skipped.push({ type: "consumer", id: c.name, reason: "monthlyQuota/endUserRateLimitPerMin must be a positive integer or null" });
+      continue;
+    }
     if (!dryRun) {
       const existing = getConsumerByName(c.name);
       if (existing) {
