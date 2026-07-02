@@ -1,10 +1,9 @@
 <script setup lang="ts">
 // "How it works" — the request journey: tool calls come in over MCP, cross the
-// ink bridge along a single teal artery through the guard pipeline, and fan out
-// to REST + MCP backends. Connectors leave chips horizontal and meet the straight
-// trunk horizontal (tangent-continuous) so nothing kinks. Several teal "signals"
-// flow at once, from different clients to different backends, passing *behind* the
-// gate stations — the page's signature motif.
+// ink bridge along one continuous teal artery through the guard pipeline, and fan
+// out to REST + MCP backends. Connectors are the same teal + weight as the trunk,
+// so client -> bridge -> backend reads as a single line. Several signals flow at
+// once, from different clients to different backends, passing BEHIND the gates.
 </script>
 
 <template>
@@ -20,17 +19,17 @@
 
         <!-- eyebrows -->
         <text class="hiw-eyebrow" x="16" y="22">AI CLIENTS</text>
-        <text class="hiw-eyebrow" x="804" y="22" text-anchor="end">YOUR BACKENDS</text>
+        <text class="hiw-eyebrow" x="808" y="22" text-anchor="end">YOUR BACKENDS</text>
 
         <!-- 1 · bridge card (ink; drawn first so the trunk sits on top of it) -->
         <rect class="hiw-bridge" x="256" y="44" width="288" height="192" rx="18" />
 
-        <!-- 2 · connectors: leave chips horizontal, meet the trunk horizontal -->
+        <!-- 2 · connectors — same teal + weight as the trunk, so they read as one line -->
         <path class="hiw-wire" d="M188 70 C222 70 222 176 256 176" fill="none" />
         <path class="hiw-wire" d="M188 138 C222 138 222 176 256 176" fill="none" />
         <path class="hiw-wire" d="M188 206 C222 206 222 176 256 176" fill="none" />
-        <path class="hiw-wire" d="M544 176 C596 176 596 132 648 132" fill="none" />
-        <path class="hiw-wire" d="M544 176 C596 176 596 220 648 220" fill="none" />
+        <path class="hiw-wire" d="M544 176 C596 176 596 132 624 132" fill="none" />
+        <path class="hiw-wire" d="M544 176 C596 176 596 220 624 220" fill="none" />
 
         <!-- 3 · the teal artery / pipeline trunk (straight) -->
         <path class="hiw-spine" d="M256 176 H544" fill="none" />
@@ -94,20 +93,20 @@
           <text class="hiw-label" x="58" y="211">Agents &amp; IDEs</text>
         </g>
         <g class="hiw-chip-g">
-          <rect class="hiw-chip" x="648" y="110" width="156" height="44" rx="11" />
-          <circle class="hiw-node" cx="672" cy="132" r="4" />
-          <text class="hiw-label" x="690" y="137">REST / OpenAPI</text>
+          <rect class="hiw-chip" x="624" y="110" width="184" height="44" rx="11" />
+          <circle class="hiw-node" cx="648" cy="132" r="4" />
+          <text class="hiw-label" x="666" y="137">REST / OpenAPI</text>
         </g>
         <g class="hiw-chip-g">
-          <rect class="hiw-chip" x="648" y="198" width="156" height="44" rx="11" />
-          <circle class="hiw-node" cx="672" cy="220" r="4" />
-          <text class="hiw-label" x="690" y="225">MCP upstreams</text>
+          <rect class="hiw-chip" x="624" y="198" width="184" height="44" rx="11" />
+          <circle class="hiw-node" cx="648" cy="220" r="4" />
+          <text class="hiw-label" x="666" y="225">MCP upstreams</text>
         </g>
 
         <!-- 8 · segment labels -->
         <text class="hiw-seg" x="240" y="168" text-anchor="middle">MCP</text>
-        <text class="hiw-seg" x="600" y="118" text-anchor="middle">REST</text>
-        <text class="hiw-seg" x="600" y="222" text-anchor="middle">MCP</text>
+        <text class="hiw-seg" x="586" y="118" text-anchor="middle">REST</text>
+        <text class="hiw-seg" x="586" y="222" text-anchor="middle">MCP</text>
       </svg>
     </div>
     <figcaption class="hiw-cap">
@@ -130,6 +129,13 @@
   min-width: 600px;
   height: auto;
   display: block;
+  /* Promote to its own layer so text renders with grayscale AA instead of
+     subpixel/ClearType AA — the latter fringes light-on-dark glyphs and reads as
+     a blurry outline on Windows. Plus the usual crisp-text hints. */
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
 }
 
 .hiw-chip {
@@ -144,7 +150,7 @@
   fill: var(--vp-c-text-1);
   font-family: 'Space Grotesk', var(--vp-font-family-base);
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
 }
 .hiw-node {
   fill: #00a99a;
@@ -162,12 +168,11 @@
   font-size: 11px;
 }
 
+/* One continuous teal line: connectors match the trunk's colour + weight. */
 .hiw-wire {
   stroke: #00a99a;
-  stroke-width: 1.75;
+  stroke-width: 2.25;
   stroke-linecap: round;
-  stroke-dasharray: 5 5;
-  opacity: 0.7;
 }
 .hiw-spine {
   stroke: #00a99a;
@@ -226,7 +231,7 @@
 }
 
 /* ── Dark mode: lift the card off the ink page, and brighten every label so text
-      never reads as dim grey on the dark card/background. ── */
+      never reads as dim grey on the ink card/background. ── */
 :global(.dark) .hiw-bridge {
   fill: #171b24;
   stroke: #313848;
@@ -235,7 +240,7 @@
   fill: #0e1116;
 }
 :global(.dark) .hiw-label {
-  fill: #f0f2f5;
+  fill: #f2f4f6;
 }
 :global(.dark) .hiw-eyebrow {
   fill: #aeb6c3;
@@ -244,7 +249,7 @@
   fill: #cbd1da;
 }
 :global(.dark) .hiw-gate-label {
-  fill: #e2e7ec;
+  fill: #e4e8ed;
 }
 :global(.dark) .hiw-bridge-sub {
   fill: #b4bbc7;
@@ -262,13 +267,13 @@
   offset-distance: 0%;
 }
 .hiw-a {
-  offset-path: path('M188 70 C222 70 222 176 256 176 H544 C596 176 596 132 648 132');
+  offset-path: path('M188 70 C222 70 222 176 256 176 H544 C596 176 596 132 624 132');
 }
 .hiw-b {
-  offset-path: path('M188 206 C222 206 222 176 256 176 H544 C596 176 596 220 648 220');
+  offset-path: path('M188 206 C222 206 222 176 256 176 H544 C596 176 596 220 624 220');
 }
 .hiw-c {
-  offset-path: path('M188 138 C222 138 222 176 256 176 H544 C596 176 596 132 648 132');
+  offset-path: path('M188 138 C222 138 222 176 256 176 H544 C596 176 596 132 624 132');
 }
 @media (prefers-reduced-motion: no-preference) {
   .hiw-pulse {
