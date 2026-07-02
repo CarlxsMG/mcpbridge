@@ -62,11 +62,7 @@ features:
 The whole bridge is managed from a built-in dashboard — register backends, curate what
 each client sees, and watch health, usage and audit trails live.
 
-<div class="product-shot">
-
-![MCP REST Bridge admin UI — usage analytics with per-tool and per-key breakdowns](/screenshots/demo-usage.png)
-
-</div>
+<DemoReel />
 
 > 🎮 **[Try the live demo →](https://aico-dot-team-code.github.io/mcpbridge/demo/)** — the real
 > admin UI running on mock data, right in your browser. No install, no signup.

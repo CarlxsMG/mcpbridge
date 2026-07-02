@@ -160,13 +160,16 @@ Serve tools four ways: aggregated `/mcp`, per-client `/mcp/:name`, curated bundl
 
 ## 🔀 How it works
 
-```mermaid
-flowchart LR
-  A["AI client<br/>(Claude · Cursor · IDEs)"] -- MCP --> B(("MCP REST Bridge"))
-  B -- REST / OpenAPI --> C["Your REST APIs"]
-  B -- MCP --> D["Upstream MCP servers"]
-  B -. "guardrails · RBAC · rate limits · audit" .-> B
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/screenshots/how-it-works-dark.png" />
+    <img
+      alt="AI clients send tool calls over MCP; the bridge runs each through SSRF, guardrails, breaker, dispatch and audit, then dispatches to your REST or MCP backends"
+      src="docs/public/screenshots/how-it-works-light.png"
+      width="820"
+    />
+  </picture>
+</p>
 
 The bridge advertises a unified tool list to any MCP client, then proxies each call to the
 right backend through the full guard stack (SSRF check → guardrails → per-tool policy →
