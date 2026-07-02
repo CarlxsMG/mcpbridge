@@ -64,7 +64,7 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },
       { text: 'Features', link: '/guide/features' },
-      { text: 'Live demo ↗', link: DEMO_URL },
+      { text: 'Live demo', link: DEMO_URL },
       { text: 'Why', link: '/guide/why-mcp-rest-bridge' },
       {
         text: 'v1',
