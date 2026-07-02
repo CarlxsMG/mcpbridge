@@ -86,6 +86,7 @@ export default defineConfig({
             { text: 'Getting started', link: '/guide/getting-started' },
             { text: 'Why MCP REST Bridge', link: '/guide/why-mcp-rest-bridge' },
             { text: 'Architecture', link: '/guide/architecture' },
+            { text: 'Concepts & glossary', link: '/guide/concepts' },
           ],
         },
         {
@@ -110,6 +111,7 @@ export default defineConfig({
           text: 'Reference',
           items: [
             { text: 'Configuration', link: '/guide/configuration' },
+            { text: 'API reference', link: '/guide/api-reference' },
             { text: 'Features', link: '/guide/features' },
             { text: 'Troubleshooting', link: '/guide/troubleshooting' },
           ],

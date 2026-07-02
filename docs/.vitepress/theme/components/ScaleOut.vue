@@ -3,14 +3,15 @@
 // instances → one shared SQLite that coordinates them (config, shared rate
 // counters, registry sync, leader lease). Same visual system as HowItWorks.
 const instances = [1, 2, 3]
-const ix = (i: number) => 65 + i * 200 // left x of instance i
+const cx = [168, 360, 552] // centre x of each instance
+const ix = (i: number) => cx[i] - 84 // left x (width 168)
 </script>
 
 <template>
   <figure class="so">
     <div class="so-card">
       <div class="so-scroll">
-        <svg viewBox="0 0 700 400" role="img" aria-labelledby="so-title so-desc" class="so-svg">
+        <svg viewBox="0 0 720 400" role="img" aria-labelledby="so-title so-desc" class="so-svg">
           <title id="so-title">Scaling MCP REST Bridge horizontally</title>
           <desc id="so-desc">
             MCP clients reach a load balancer, which spreads traffic across several identical
@@ -19,40 +20,40 @@ const ix = (i: number) => 65 + i * 200 // left x of instance i
           </desc>
 
           <defs>
-            <marker id="so-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M0 0 L10 5 L0 10 z" fill="#00a99a" />
+            <marker id="so-arrow" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto-start-reverse">
+              <path d="M0 0 L8 5 L0 10 z" fill="#00a99a" />
             </marker>
           </defs>
 
           <!-- clients → LB -->
-          <path class="so-flow" d="M350 58 V84" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 58 V88" marker-end="url(#so-arrow)" fill="none" />
           <!-- LB → each instance -->
-          <path class="so-flow" d="M350 134 C350 158 150 158 150 174" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M350 134 V174" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M350 134 C350 158 550 158 550 174" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 138 C360 160 168 160 168 178" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 138 V178" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 138 C360 160 552 160 552 178" marker-end="url(#so-arrow)" fill="none" />
           <!-- each instance ↕ shared SQLite -->
-          <path class="so-flow" d="M150 252 C150 292 350 300 350 316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M350 252 V316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M550 252 C550 292 350 300 350 316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M168 254 C168 296 360 300 360 316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M360 254 V316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
+          <path class="so-flow" d="M552 254 C552 296 360 300 360 316" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
 
           <!-- clients -->
           <g class="so-chip-g">
-            <rect class="so-chip" x="288" y="16" width="124" height="42" rx="11" />
-            <circle class="so-cnode" cx="310" cy="37" r="4" />
-            <text class="so-label" x="326" y="42">MCP clients</text>
+            <rect class="so-chip" x="280" y="16" width="160" height="42" rx="11" />
+            <circle class="so-cnode" cx="306" cy="37" r="4" />
+            <text class="so-label" x="322" y="42">MCP clients</text>
           </g>
 
           <!-- load balancer -->
           <g class="so-chip-g">
-            <rect class="so-chip" x="206" y="84" width="288" height="50" rx="12" />
-            <text class="so-label so-mid" x="350" y="105">Load balancer</text>
-            <text class="so-sub so-mid" x="350" y="122">health-check /health · sticky MCP sessions</text>
+            <rect class="so-chip" x="205" y="88" width="310" height="50" rx="12" />
+            <text class="so-label so-mid" x="360" y="109">Load balancer</text>
+            <text class="so-sub so-mid" x="360" y="126">health-check /health · sticky MCP sessions</text>
           </g>
 
           <!-- bridge instances (ink) -->
           <g v-for="(n, i) in instances" :key="n" class="so-inst-g">
-            <rect class="so-inst" :x="ix(i)" y="174" width="170" height="78" rx="14" />
-            <g class="so-glyph" :transform="`translate(${ix(i) + 18},${190})`">
+            <rect class="so-inst" :x="ix(i)" y="178" width="168" height="76" rx="14" />
+            <g class="so-glyph" :transform="`translate(${ix(i) + 18},${194})`">
               <line x1="4" y1="1" x2="4" y2="12" />
               <circle cx="14" cy="4" r="2.4" />
               <circle cx="4" cy="15" r="2.4" />
@@ -64,10 +65,9 @@ const ix = (i: number) => 65 + i * 200 // left x of instance i
 
           <!-- shared SQLite -->
           <g class="so-chip-g">
-            <rect class="so-db" x="232" y="316" width="236" height="54" rx="12" />
-            <circle class="so-cnode" cx="256" cy="343" r="4" />
-            <text class="so-db-title" x="272" y="339">Shared SQLite</text>
-            <text class="so-db-sub" x="272" y="356">config · rate counters · registry · leader lease</text>
+            <rect class="so-db" x="200" y="316" width="320" height="54" rx="12" />
+            <text class="so-db-title so-mid" x="360" y="339">Shared SQLite</text>
+            <text class="so-db-sub so-mid" x="360" y="356">config · rate counters · registry sync · leader lease</text>
           </g>
         </svg>
       </div>
@@ -96,7 +96,7 @@ const ix = (i: number) => 65 + i * 200 // left x of instance i
 }
 .so-svg {
   width: 100%;
-  min-width: 560px;
+  min-width: 580px;
   height: auto;
   display: block;
   text-rendering: geometricPrecision;
@@ -129,7 +129,6 @@ const ix = (i: number) => 65 + i * 200 // left x of instance i
 .so-flow {
   stroke: #00a99a;
   stroke-width: 2;
-  stroke-linecap: round;
   fill: none;
 }
 
