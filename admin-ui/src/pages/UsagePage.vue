@@ -199,11 +199,11 @@ onMounted(load);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
-  padding: 1.1rem 1.25rem;
+  padding: var(--space-4) var(--space-5);
 }
 .chart-card h2 {
-  font-size: 0.85rem;
-  margin: 0 0 0.9rem;
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-3);
   color: var(--text-secondary);
   font-family: var(--font-body);
   font-weight: 600;

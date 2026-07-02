@@ -28,7 +28,16 @@ const ariaLabel = computed(() =>
 <template>
   <svg class="quota-bar" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" :aria-label="ariaLabel">
     <rect x="0" y="0" width="100" height="8" rx="4" class="track" />
-    <rect x="0" y="0" :width="pct * 100" height="8" rx="4" class="fill" :class="tone" />
+    <rect
+      v-if="tone === 'unlimited'"
+      x="0.5"
+      y="0.5"
+      width="99"
+      height="7"
+      rx="3.5"
+      class="fill unlimited"
+    />
+    <rect v-else x="0" y="0" :width="pct * 100" height="8" rx="4" class="fill" :class="tone" />
   </svg>
 </template>
 
@@ -55,7 +64,10 @@ const ariaLabel = computed(() =>
   fill: var(--breach);
 }
 .fill.unlimited {
-  fill: var(--border-strong);
-  opacity: 0.6;
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+  opacity: 0.7;
 }
 </style>

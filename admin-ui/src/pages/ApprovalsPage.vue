@@ -3,7 +3,7 @@ import { ref, onMounted, computed, reactive } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { ApprovalRecord, ApprovalStatus } from "../types/api";
 import DonutChart from "../components/DonutChart.vue";
-import { ClipboardCheck, Check, X } from "lucide-vue-next";
+import { ClipboardCheck, Check, X, RefreshCw } from "lucide-vue-next";
 
 type TabKey = ApprovalStatus | "all";
 const TABS: { key: TabKey; label: string }[] = [
@@ -22,23 +22,29 @@ const decidingId = ref<number | null>(null);
 const noteDraft = reactive<Record<number, string>>({});
 
 async function loadTable() {
+  const tab = activeTab.value;
   loading.value = true;
   errorMessage.value = "";
   try {
     const summaryReq = api.get<{ items: ApprovalRecord[] }>("/admin-api/approvals").then((r) => r.items);
-    if (activeTab.value === "all") {
-      summary.value = await summaryReq;
-      tableItems.value = summary.value;
+    if (tab === "all") {
+      const all = await summaryReq;
+      if (tab === activeTab.value) {
+        summary.value = all;
+        tableItems.value = all;
+      }
     } else {
       const [items, all] = await Promise.all([
-        api.get<{ items: ApprovalRecord[] }>(`/admin-api/approvals?status=${activeTab.value}`).then((r) => r.items),
+        api.get<{ items: ApprovalRecord[] }>(`/admin-api/approvals?status=${tab}`).then((r) => r.items),
         summaryReq,
       ]);
-      tableItems.value = items;
-      summary.value = all;
+      if (tab === activeTab.value) {
+        tableItems.value = items;
+        summary.value = all;
+      }
     }
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load approvals.";
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load approvals. Check your connection and try again.";
   } finally {
     loading.value = false;
   }
@@ -73,15 +79,16 @@ function prettyArgs(json: string): string {
 }
 
 async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
+  const action = status === "approved" ? "approve" : "reject";
   decidingId.value = a.id;
   errorMessage.value = "";
   try {
     const note = noteDraft[a.id]?.trim();
-    await api.post(`/admin-api/approvals/${a.id}/${status === "approved" ? "approve" : "reject"}`, note ? { note } : undefined);
+    await api.post(`/admin-api/approvals/${a.id}/${action}`, note ? { note } : undefined);
     delete noteDraft[a.id];
     await loadTable();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : `Failed to ${status} approval #${a.id}.`;
+    errorMessage.value = err instanceof ApiError ? err.message : `Failed to ${action} approval #${a.id}.`;
   } finally {
     decidingId.value = null;
   }
@@ -95,6 +102,10 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
         <h1>Approvals</h1>
         <p class="subtitle">Human-in-the-loop queue for tools configured to require approval before their upstream call runs.</p>
       </div>
+      <button type="button" class="btn-secondary" :disabled="loading" @click="loadTable">
+        <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
+        {{ loading ? "Refreshing…" : "Refresh" }}
+      </button>
     </header>
 
     <div class="chart-card">
@@ -102,11 +113,13 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
       <DonutChart :segments="segments" :size="88" />
     </div>
 
-    <div class="tab-strip">
+    <div class="tab-strip" role="tablist">
       <button
         v-for="t in TABS"
         :key="t.key"
         type="button"
+        role="tab"
+        :aria-selected="activeTab === t.key"
         class="tab-btn"
         :class="{ 'tab-active': activeTab === t.key }"
         @click="switchTab(t.key)"
@@ -119,7 +132,8 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
     <div v-if="loading && !tableItems.length" class="loading">Loading…</div>
     <div v-else-if="tableItems.length === 0" class="empty-state">
       <ClipboardCheck :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No {{ activeTab === "all" ? "" : activeTab }} approvals.</p>
+      <p v-if="activeTab === 'pending'">Nothing waiting for review right now.</p>
+      <p v-else>No {{ activeTab === "all" ? "" : activeTab + " " }}approvals yet. Requests show up here once a tool is configured to require approval before its upstream call runs.</p>
     </div>
 
     <div v-else class="table-card table-scroll">
@@ -159,7 +173,14 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
             </td>
             <td class="actions">
               <template v-if="a.status === 'pending'">
-                <input v-model="noteDraft[a.id]" type="text" placeholder="note (optional)" class="note-input" :disabled="decidingId === a.id" />
+                <input
+                  v-model="noteDraft[a.id]"
+                  type="text"
+                  placeholder="Note…"
+                  class="note-input"
+                  :aria-label="`Note for approval #${a.id}`"
+                  :disabled="decidingId === a.id"
+                />
                 <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
                   <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
                 </button>
@@ -190,17 +211,31 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
   margin: 0;
   max-width: 640px;
 }
+.page-header .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .chart-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
-  padding: 1.1rem 1.25rem;
+  padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-6);
 }
 .chart-card h2 {
-  font-size: 0.85rem;
-  margin: 0 0 0.9rem;
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-3);
   color: var(--text-secondary);
   font-family: var(--font-body);
   font-weight: 600;
@@ -267,7 +302,7 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
 }
 .mono {
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 .args {
@@ -310,11 +345,11 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
   white-space: nowrap;
 }
 .note-input {
-  width: 96px;
+  width: 110px;
   padding: 0.3rem 0.5rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-family: var(--font-body);
 }
 .link-btn {

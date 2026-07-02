@@ -90,17 +90,29 @@ const secondaryPath = computed(() => {
 
 const yTicks = computed(() => {
   const steps = 3;
-  return Array.from({ length: steps + 1 }, (_, i) => {
+  const seenRounded = new Set<number>();
+  const ticks: { y: number; value: number }[] = [];
+  // Walk top-to-bottom (frac descending) so that when two raw values round to the
+  // same integer, the higher-valued (first-seen) tick wins and the lower duplicate
+  // is dropped instead of rendering a repeated label.
+  for (let i = steps; i >= 0; i--) {
     const frac = i / steps;
-    return { y: PAD.top + plotHeight.value * (1 - frac), value: primaryMax.value * frac };
-  });
+    const value = primaryMax.value * frac;
+    const rounded = Math.round(value);
+    if (seenRounded.has(rounded)) continue;
+    seenRounded.add(rounded);
+    ticks.push({ y: PAD.top + plotHeight.value * (1 - frac), value });
+  }
+  return ticks;
 });
 
 const xTicks = computed(() => {
   const n = props.points.length;
   if (n === 0) return [];
   if (n === 1) return [{ x: xAt(0, n), t: props.points[0].t, anchor: "middle" as const }];
-  const idxs = [...new Set([0, Math.floor((n - 1) / 2), n - 1])];
+  // Below this width, "Jul 2, 2:30 PM"-length labels for start/mid/end collide with
+  // no separating space — drop the middle tick and keep just start + end.
+  const idxs = plotWidth.value < 280 ? [...new Set([0, n - 1])] : [...new Set([0, Math.floor((n - 1) / 2), n - 1])];
   return idxs.map((i) => ({
     x: xAt(i, n),
     t: props.points[i].t,
@@ -243,7 +255,7 @@ const tooltipStyle = computed(() => {
 }
 .axis-label {
   fill: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-family: var(--font-mono);
 }
 .crosshair {

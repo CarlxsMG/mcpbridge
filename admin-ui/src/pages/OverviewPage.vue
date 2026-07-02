@@ -75,7 +75,7 @@ onMounted(load);
         :tone="stats.circuit_breakers.open > 0 ? 'danger' : 'ok'"
         :pulse="stats.circuit_breakers.open > 0"
       >
-        <DonutChart v-if="breakerSegments.length" :segments="breakerSegments" :size="72" />
+        <DonutChart v-if="breakerSegments.length" :segments="breakerSegments" :size="72" :center-label="null" />
       </StatCard>
       <StatCard :icon="ShieldCheck" label="Admin users" :value="stats.admin_users" />
     </div>

@@ -216,6 +216,41 @@ actions (e.g. servers table: "Enabled"/"Disabled").
 .tab-btn:hover { color: var(--text-primary); }
 .tab-btn.tab-active { color: var(--signal-strong); border-bottom-color: var(--signal); }
 ```
+Use with proper tab semantics — wrap in `role="tablist"` and mark each button `role="tab"` with
+`:aria-selected`:
+```html
+<div class="tab-strip" role="tablist">
+  <button type="button" role="tab" :aria-selected="activeTab === 'x'" class="tab-btn" :class="{ 'tab-active': activeTab === 'x' }" @click="...">
+    Label
+  </button>
+</div>
+```
+
+**Chart card** (any chart — donut, time-series, mini-bar — wrapped in its own card, with a small
+heading above it):
+```html
+<div class="chart-card">
+  <h2>Chart title</h2>
+  <SomeChartComponent ... />
+</div>
+```
+```css
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-6);
+}
+.chart-card h2 {
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-3);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+```
 
 **Search/filter input with leading icon**:
 ```html
@@ -312,7 +347,8 @@ radios instead.
 `UsagePage.vue`, `LoginPage.vue`, `NotFoundPage.vue`, `BundlesPage.vue`, `BundleDetailPage.vue`,
 `BundleToolPicker.vue`, `CompositesPage.vue`, `CompositeDetailPage.vue`, `KeysPage.vue`,
 `PoliciesPage.vue`, `ConsumersPage.vue`, `UsersPage.vue`, `TeamsPage.vue`, `ConfigPage.vue`,
-`AlertsPage.vue`, `AuditLogPage.vue`, `SchedulesPage.vue`.
+`AlertsPage.vue`, `AuditLogPage.vue`, `SchedulesPage.vue`, `DonutChart.vue`, `QuotaBar.vue`,
+`TimeSeriesChart.vue`, `TrafficPage.vue`, `MonitorsPage.vue`, `ApprovalsPage.vue`.
 
 `bun run typecheck` is clean. If you add a new page or component, follow the recipes above rather
 than starting from scratch — every visual pattern this app needs already has a home here.

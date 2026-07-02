@@ -85,6 +85,7 @@ async function onLogout() {
           <li><RouterLink to="/keys"><KeyRound :size="15" stroke-width="2" aria-hidden="true" /> API keys</RouterLink></li>
           <li><RouterLink to="/policies"><ShieldCheck :size="15" stroke-width="2" aria-hidden="true" /> Policies</RouterLink></li>
           <li><RouterLink to="/consumers"><Users2 :size="15" stroke-width="2" aria-hidden="true" /> Consumers</RouterLink></li>
+          <li><RouterLink to="/approvals"><ClipboardCheck :size="15" stroke-width="2" aria-hidden="true" /> Approvals</RouterLink></li>
         </ul>
         <div class="nav-label">Observability</div>
         <ul>
@@ -93,7 +94,6 @@ async function onLogout() {
           <li><RouterLink to="/traffic"><ArrowLeftRight :size="15" stroke-width="2" aria-hidden="true" /> Traffic</RouterLink></li>
           <li><RouterLink to="/traces"><Waypoints :size="15" stroke-width="2" aria-hidden="true" /> Traces</RouterLink></li>
           <li><RouterLink to="/monitors"><Radar :size="15" stroke-width="2" aria-hidden="true" /> Monitors</RouterLink></li>
-          <li><RouterLink to="/approvals"><ClipboardCheck :size="15" stroke-width="2" aria-hidden="true" /> Approvals</RouterLink></li>
           <li><RouterLink to="/alerts"><BellRing :size="15" stroke-width="2" aria-hidden="true" /> Alerts</RouterLink></li>
           <li><RouterLink to="/schedules"><Clock :size="15" stroke-width="2" aria-hidden="true" /> Schedules</RouterLink></li>
           <li><RouterLink to="/audit-log"><ScrollText :size="15" stroke-width="2" aria-hidden="true" /> Audit log</RouterLink></li>
@@ -316,7 +316,7 @@ async function onLogout() {
     display: none;
   }
   .content {
-    padding: var(--space-5) var(--space-4);
+    padding: var(--space-5) var(--space-4) 4.5rem;
     max-width: 100%;
   }
 }

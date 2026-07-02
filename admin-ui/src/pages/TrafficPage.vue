@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { TrafficRecord } from "../types/api";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
-import { ArrowLeftRight, RotateCcw, Search } from "lucide-vue-next";
+import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 
 const records = ref<TrafficRecord[]>([]);
 const loading = ref(false);
@@ -26,7 +26,7 @@ async function load() {
   try {
     records.value = (await api.get<{ items: TrafficRecord[] }>(`/admin-api/traffic?${params}`)).items;
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load traffic.";
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load traffic. Check your connection and try again.";
   } finally {
     loading.value = false;
   }
@@ -93,23 +93,29 @@ async function replay(r: TrafficRecord) {
     </header>
 
     <form class="filter-row" @submit.prevent="load">
-      <input v-model="clientFilter" type="text" placeholder="Client name" aria-label="Filter by client" />
-      <input v-model="toolFilter" type="text" placeholder="Tool name" aria-label="Filter by tool" />
+      <div class="filter-field">
+        <span class="filter-label">Client name</span>
+        <input v-model="clientFilter" type="text" placeholder="Client name" aria-label="Filter by client" />
+      </div>
+      <div class="filter-field">
+        <span class="filter-label">Tool name</span>
+        <input v-model="toolFilter" type="text" placeholder="Tool name" aria-label="Filter by tool" />
+      </div>
       <label class="errors-only"><input v-model="errorsOnly" type="checkbox" /> Errors only</label>
-      <button type="submit" class="btn-secondary">
-        <Search :size="14" stroke-width="2" aria-hidden="true" /> Filter
+      <button type="submit" class="btn-secondary" :disabled="loading">
+        <Filter :size="14" stroke-width="2" aria-hidden="true" /> {{ loading ? "Filtering…" : "Filter" }}
       </button>
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <p v-if="replayNote" :class="replayNote.ok ? 'success' : 'error'" role="status">
-      Replay #{{ replayNote.id }} {{ replayNote.ok ? "succeeded" : "failed" }} — {{ replayNote.text }}
+      Replayed call #{{ replayNote.id }} against the upstream tool — {{ replayNote.ok ? "succeeded" : "failed" }}: {{ replayNote.text }}
     </p>
 
     <div v-if="loading && !records.length" class="loading">Loading…</div>
     <div v-else-if="records.length === 0" class="empty-state">
       <ArrowLeftRight :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No traffic recorded yet.</p>
+      <p>No traffic recorded yet. If <code>TRAFFIC_CAPTURE</code> isn't set on the server, calls aren't being recorded — enable it, then check back after your next request.</p>
     </div>
 
     <template v-else>
@@ -138,8 +144,14 @@ async function replay(r: TrafficRecord) {
               <td :class="{ hot: r.isError }">{{ r.isError ? "Error" : "OK" }}</td>
               <td class="preview" :title="r.preview">{{ r.preview }}</td>
               <td class="actions">
-                <button type="button" class="link-btn" :disabled="replayingId === r.id" @click="replay(r)">
-                  <RotateCcw :size="13" stroke-width="2" aria-hidden="true" /> {{ replayingId === r.id ? "Replaying…" : "Replay" }}
+                <button
+                  type="button"
+                  class="link-btn"
+                  :disabled="replayingId === r.id"
+                  title="Sends this call to the upstream tool again, right now."
+                  @click="replay(r)"
+                >
+                  <Repeat :size="13" stroke-width="2" aria-hidden="true" /> {{ replayingId === r.id ? "Replaying…" : "Replay" }}
                 </button>
               </td>
             </tr>
@@ -168,9 +180,21 @@ async function replay(r: TrafficRecord) {
 .filter-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-3);
   margin-bottom: var(--space-5);
+}
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.filter-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .filter-row input[type="text"] {
   padding: 0.5rem 0.7rem;
@@ -197,12 +221,12 @@ async function replay(r: TrafficRecord) {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
-  padding: 1.1rem 1.25rem;
+  padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-6);
 }
 .chart-card h2 {
-  font-size: 0.85rem;
-  margin: 0 0 0.9rem;
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-3);
   color: var(--text-secondary);
   font-family: var(--font-body);
   font-weight: 600;
@@ -242,7 +266,7 @@ async function replay(r: TrafficRecord) {
 }
 .mono {
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 .preview {

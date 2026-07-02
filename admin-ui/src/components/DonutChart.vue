@@ -5,7 +5,7 @@ const props = withDefaults(
   defineProps<{
     segments: { label: string; value: number; color: string }[];
     size?: number;
-    centerLabel?: string;
+    centerLabel?: string | null;
   }>(),
   { size: 120 }
 );
@@ -28,7 +28,10 @@ const arcs = computed(() => {
     });
 });
 
-const centerText = computed(() => props.centerLabel ?? String(total.value));
+const centerText = computed(() => {
+  if (props.centerLabel === null) return null;
+  return props.centerLabel ?? String(total.value);
+});
 </script>
 
 <template>
@@ -56,7 +59,7 @@ const centerText = computed(() => props.centerLabel ?? String(total.value));
           :transform="`rotate(-90 ${size / 2} ${size / 2})`"
           class="donut-arc"
         />
-        <text :x="size / 2" :y="size / 2" text-anchor="middle" dominant-baseline="central" class="donut-total">{{ centerText }}</text>
+        <text v-if="centerText !== null" :x="size / 2" :y="size / 2" text-anchor="middle" dominant-baseline="central" class="donut-total">{{ centerText }}</text>
       </svg>
       <ul class="donut-legend">
         <li v-for="s in segments" :key="s.label">

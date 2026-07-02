@@ -15,7 +15,7 @@ async function load() {
   try {
     monitors.value = (await api.get<{ items: MonitorRecord[] }>("/admin-api/monitors")).items;
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load monitors.";
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load monitors. Check your connection and try again.";
   } finally {
     loading.value = false;
   }
@@ -151,12 +151,12 @@ function formatChecked(t: number | null): string {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
-  padding: 1.1rem 1.25rem;
+  padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-6);
 }
 .chart-card h2 {
-  font-size: 0.85rem;
-  margin: 0 0 0.9rem;
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-3);
   color: var(--text-secondary);
   font-family: var(--font-body);
   font-weight: 600;
@@ -195,7 +195,8 @@ function formatChecked(t: number | null): string {
 }
 .mono {
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
+  white-space: nowrap;
 }
 .state-dot {
   display: inline-block;
