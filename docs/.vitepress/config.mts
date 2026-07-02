@@ -62,10 +62,13 @@ export default defineConfig({
     siteTitle: 'MCP REST Bridge',
 
     nav: [
-      { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },
-      { text: 'Features', link: '/guide/features' },
+      // `activeMatch` is a regex string. "Features" and "Why" are also under
+      // /guide/, so match every guide page EXCEPT those two (they own their own
+      // nav item) — otherwise "Guide" stays highlighted on Features/Why too.
+      { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/(?!features|why-mcp-rest-bridge)' },
+      { text: 'Features', link: '/guide/features', activeMatch: '/guide/features' },
       { text: 'Live demo', link: DEMO_URL },
-      { text: 'Why', link: '/guide/why-mcp-rest-bridge' },
+      { text: 'Why', link: '/guide/why-mcp-rest-bridge', activeMatch: '/guide/why-mcp-rest-bridge' },
       {
         text: 'v1',
         items: [
