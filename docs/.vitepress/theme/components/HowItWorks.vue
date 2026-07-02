@@ -136,8 +136,8 @@
   fill: var(--vp-c-bg);
   stroke: var(--vp-c-border);
   stroke-width: 1;
-}
-.hiw-chip-g {
+  /* Shadow on the RECT, never on the group: a filter on the <g> would rasterize
+     the label text inside it and blur it when the SVG scales. */
   filter: drop-shadow(0 2px 5px rgba(14, 17, 22, 0.06));
 }
 .hiw-label {
@@ -163,9 +163,11 @@
 }
 
 .hiw-wire {
-  stroke: var(--vp-c-divider);
-  stroke-width: 1.5;
+  stroke: #00a99a;
+  stroke-width: 1.75;
   stroke-linecap: round;
+  stroke-dasharray: 5 5;
+  opacity: 0.7;
 }
 .hiw-spine {
   stroke: #00a99a;
@@ -233,19 +235,19 @@
   fill: #0e1116;
 }
 :global(.dark) .hiw-label {
-  fill: #eaedf1;
+  fill: #f0f2f5;
 }
 :global(.dark) .hiw-eyebrow {
-  fill: #8b93a2;
+  fill: #aeb6c3;
 }
 :global(.dark) .hiw-seg {
-  fill: #b7bec9;
+  fill: #cbd1da;
 }
 :global(.dark) .hiw-gate-label {
-  fill: #dae0e7;
+  fill: #e2e7ec;
 }
 :global(.dark) .hiw-bridge-sub {
-  fill: #9aa1ae;
+  fill: #b4bbc7;
 }
 
 /* ── Traveling signals ── */
