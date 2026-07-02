@@ -21,6 +21,8 @@ import {
   UsersRound,
   Settings2,
   CornerDownLeft,
+  LayoutGrid,
+  Cable,
 } from "lucide-vue-next";
 import { api } from "../composables/useApi";
 import type { ClientSummary, BundleSummary, McpApiKey, PaginatedResult } from "../types/api";
@@ -37,8 +39,10 @@ interface Entry {
 const PAGES: Entry[] = [
   { id: "p-servers", label: "Servers", hint: "List and manage upstream servers", group: "Pages", icon: Server, to: "/servers" },
   { id: "p-register", label: "Add server", hint: "Register a new upstream", group: "Pages", icon: Server, to: "/register-server" },
+  { id: "p-catalog", label: "Catalog", hint: "Browse & one-click install servers", group: "Pages", icon: LayoutGrid, to: "/catalog" },
   { id: "p-bundles", label: "Bundles", hint: "Cross-client tool selections", group: "Pages", icon: Boxes, to: "/bundles" },
   { id: "p-composites", label: "Composites", hint: "Chained tool calls", group: "Pages", icon: Combine, to: "/composites" },
+  { id: "p-ws-proxies", label: "WS proxies", hint: "Live WebSocket passthrough targets", group: "Pages", icon: Cable, to: "/ws-proxies" },
   { id: "p-keys", label: "API keys", hint: "MCP client credentials", group: "Pages", icon: KeyRound, to: "/keys" },
   { id: "p-policies", label: "Policies", hint: "Reusable rate-limit/timeout presets", group: "Pages", icon: ShieldCheck, to: "/policies" },
   { id: "p-consumers", label: "Consumers", hint: "Quota-tracked key owners", group: "Pages", icon: Users2, to: "/consumers" },

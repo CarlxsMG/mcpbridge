@@ -51,6 +51,12 @@ function extractBearerFromHeader(value: unknown): string | undefined {
   return header.slice(7).trim();
 }
 
+/** Extracts a raw (possibly multi-value) X-End-User-Id header value as a plain string. */
+function extractEndUserId(value: unknown): string | undefined {
+  const header = Array.isArray(value) ? value[0] : value;
+  return typeof header === "string" ? header : undefined;
+}
+
 /**
  * McpConnParams for a client-scoped MCP upstream, or null when the scope isn't a
  * single live MCP-kind client. Resources/prompts are passthrough only for a
@@ -125,9 +131,9 @@ export function createMcpServer(scope?: McpServerScope): Server {
       }
     }
 
-    const callerToken = extractBearerFromHeader(
-      (extra as { requestInfo?: { headers?: Record<string, unknown> } } | undefined)?.requestInfo?.headers?.authorization
-    );
+    const requestHeaders = (extra as { requestInfo?: { headers?: Record<string, unknown> } } | undefined)?.requestInfo?.headers;
+    const callerToken = extractBearerFromHeader(requestHeaders?.authorization);
+    const endUserId = extractEndUserId(requestHeaders?.["x-end-user-id"]);
 
     // Composite (macro) dispatch — aggregated scope only. A composite name never
     // matches a sharded/bundle scope check above, so this is unreachable for
@@ -150,7 +156,7 @@ export function createMcpServer(scope?: McpServerScope): Server {
           }
         : undefined;
 
-    return proxyToolCall(name, args ?? {}, callerToken, { signal: extra.signal, onProgress });
+    return proxyToolCall(name, args ?? {}, callerToken, { signal: extra.signal, onProgress, endUserId });
   });
 
   // Resources & prompts — passthrough for a client-scoped MCP upstream; empty /

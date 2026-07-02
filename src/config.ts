@@ -106,6 +106,19 @@ export const config = {
   /** Maximum number of concurrent health checks per batch. */
   healthCheckMaxConcurrent: Number(process.env.HEALTH_CHECK_MAX_CONCURRENT) || 20,
   openapiDiscoveryTimeoutMs: Number(process.env.OPENAPI_DISCOVERY_TIMEOUT_MS) || 10_000,
+  graphqlDiscoveryTimeoutMs: Number(process.env.GRAPHQL_DISCOVERY_TIMEOUT_MS) || 10_000,
+  /** Width cap on __schema.types during GraphQL introspection — bounds discovery cost on a huge schema. */
+  graphqlMaxTypes: Number(process.env.GRAPHQL_MAX_TYPES) || 2000,
+  /** Depth cap for auto-synthesized selection sets on object/interface return types. */
+  graphqlSelectionMaxDepth: Number(process.env.GRAPHQL_SELECTION_MAX_DEPTH) || 2,
+  /** Depth cap for mapping nested GraphQL INPUT_OBJECT types to JSON Schema. */
+  graphqlInputMaxDepth: Number(process.env.GRAPHQL_INPUT_MAX_DEPTH) || 3,
+  wsProxyMaxGlobalConnections: Number(process.env.WS_PROXY_MAX_GLOBAL_CONNECTIONS) || 500,
+  wsProxyDefaultMaxConnectionsPerTarget: Number(process.env.WS_PROXY_DEFAULT_MAX_CONNECTIONS) || 10,
+  wsProxyDefaultMaxMessageBytes: Number(process.env.WS_PROXY_DEFAULT_MAX_MESSAGE_BYTES) || 1_048_576,
+  wsProxyDefaultIdleTimeoutMs: Number(process.env.WS_PROXY_DEFAULT_IDLE_TIMEOUT_MS) || 300_000,
+  wsProxyDialTimeoutMs: Number(process.env.WS_PROXY_DIAL_TIMEOUT_MS) || 10_000,
+  wsProxyRevalidateIntervalMs: Number(process.env.WS_PROXY_REVALIDATE_INTERVAL_MS) || 60_000,
   sessionTtlMs: Number(process.env.SESSION_TTL_MS) || 1_800_000,
   maxSessions: Number(process.env.MAX_SESSIONS) || 100,
   allowPrivateIps: process.env.ALLOW_PRIVATE_IPS === "true",

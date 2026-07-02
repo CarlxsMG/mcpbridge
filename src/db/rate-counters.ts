@@ -53,6 +53,17 @@ export function checkSharedToolRateLimit(toolKey: string, perMinute: number, now
   return { allowed: r.allowed, retryAfterSeconds: r.retryAfterSeconds };
 }
 
+/**
+ * Shared-counter equivalent for a caller-asserted end-user identity, namespaced
+ * per consumer so the same raw id under two different consumers never shares a
+ * bucket. Only ever called when a consumer has opted in (endUserRateLimitPerMin
+ * set) and a call actually asserts an identity — see resolveEndUserId in proxy.ts.
+ */
+export function checkSharedEndUserRateLimit(consumerId: number, endUserId: string, perMinute: number, now?: number): { allowed: boolean; retryAfterSeconds: number } {
+  const r = checkSharedRateLimit(`enduser:${consumerId}:${endUserId}`, perMinute, 60_000, now);
+  return { allowed: r.allowed, retryAfterSeconds: r.retryAfterSeconds };
+}
+
 /** Test-only: wipe all shared counters. */
 export function __clearRateCountersForTesting(): void {
   try {

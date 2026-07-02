@@ -105,6 +105,8 @@ export interface RegisteredTool extends RestToolDefinition {
   };
   /** Per-tool WebSocket backend config (populated on read), when configured. */
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
+  /** Per-tool GraphQL backend config (populated on read), when configured — auto-discovered or manually set. */
+  graphql?: { enabled: boolean; query: string };
 }
 
 export interface RegisteredClient {

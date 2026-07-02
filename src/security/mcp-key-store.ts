@@ -195,3 +195,13 @@ export function isToolInKeyScope(
   if (scopes.tools?.includes(compositeToolKey)) return true;
   return false;
 }
+
+/**
+ * Scope check for a WS-proxy target (no tools, so only the `clients` scope
+ * list applies — a ws-proxy target shares the same name namespace as MCP
+ * clients, so a key already scoped to it via `clients` works unchanged).
+ */
+export function isClientInKeyScope(scopes: McpKeyScopes | null, clientName: string): boolean {
+  if (!scopes) return true;
+  return scopes.clients?.includes(clientName) ?? false;
+}

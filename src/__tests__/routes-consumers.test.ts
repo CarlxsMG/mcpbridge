@@ -69,6 +69,25 @@ describe("consumer routes", () => {
     expect(res.status).toBe(400);
   });
 
+  test("endUserRateLimitPerMin: accepts a positive integer, rejects non-integer/negative, defaults to null", async () => {
+    await startApp();
+    const create = await fetch(`${baseUrl}/admin-api/consumers`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "team-b", endUserRateLimitPerMin: 15 }) });
+    expect(create.status).toBe(201);
+    const created = (await create.json()) as { id: number; endUserRateLimitPerMin: number | null };
+    expect(created.endUserRateLimitPerMin).toBe(15);
+
+    const badCreate = await fetch(`${baseUrl}/admin-api/consumers`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "team-c", endUserRateLimitPerMin: -1 }) });
+    expect(badCreate.status).toBe(400);
+
+    const patch = await fetch(`${baseUrl}/admin-api/consumers/${created.id}`, { method: "PATCH", headers: bearer(), body: JSON.stringify({ endUserRateLimitPerMin: null }) });
+    expect(patch.status).toBe(200);
+    const patched = (await patch.json()) as { endUserRateLimitPerMin: number | null };
+    expect(patched.endUserRateLimitPerMin).toBeNull();
+
+    const badPatch = await fetch(`${baseUrl}/admin-api/consumers/${created.id}`, { method: "PATCH", headers: bearer(), body: JSON.stringify({ endUserRateLimitPerMin: 1.5 }) });
+    expect(badPatch.status).toBe(400);
+  });
+
   test("requires auth", async () => {
     await startApp();
     const res = await fetch(`${baseUrl}/admin-api/consumers`);

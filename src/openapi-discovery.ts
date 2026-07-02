@@ -116,6 +116,7 @@ export async function discoverToolsFromOpenApi(options: {
   // 5. Map operations
   const tools: RestToolDefinition[] = [];
   const excludeSet = new Set(excludeOperations ?? []);
+  const usedNames = new Set<string>();
 
   for (const [path, pathItem] of Object.entries(doc.paths as Record<string, OpenAPIV3.PathItemObject>)) {
     if (!pathItem) continue;
@@ -124,6 +125,9 @@ export async function discoverToolsFromOpenApi(options: {
       if (typeof operation !== "object" || operation === null) continue;
       if ((operation as Record<string, unknown>)["x-internal"]) continue;
 
+      // exclude_operations matches the spec's own raw operationId, before any
+      // sanitization below — an operator filtering by "deleteEverything"
+      // shouldn't have to guess at a normalized form.
       const opId = operation.operationId;
       if (opId && excludeSet.has(opId)) continue;
 
@@ -132,8 +136,12 @@ export async function discoverToolsFromOpenApi(options: {
         if (!opTags.some((t: string) => includeTags.includes(t))) continue;
       }
 
-      // Build name
-      const name = opId ?? generateToolName(method, path);
+      // Build name — operationId is author-supplied and commonly camelCase
+      // (e.g. "updatePet"), which the registry's tool-name rule rejects
+      // outright (lowercase alphanumeric + hyphen/underscore only). Normalize
+      // it the same way a missing operationId already gets normalized by
+      // generateToolName, and disambiguate any resulting collision.
+      const name = uniqueToolName(sanitizeToolName(opId ?? generateToolName(method, path)), usedNames);
 
       // Build endpoint (convert {param} to :param)
       const endpoint = basePath + path.replace(/\{([^}]+)\}/g, ":$1");
@@ -163,6 +171,31 @@ function generateToolName(method: string, path: string): string {
     .split("/")
     .filter(Boolean);
   return `${method}_${segments.join("_")}`.toLowerCase();
+}
+
+const TOOL_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
+
+/** Normalizes an author-supplied operationId (often camelCase) into the registry's tool-name rule: lowercase alphanumeric + hyphen/underscore, starting with a letter or digit. */
+function sanitizeToolName(raw: string): string {
+  const snake = raw
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^[^a-z0-9]+/, "");
+  const truncated = snake.slice(0, 63);
+  return TOOL_NAME_RE.test(truncated) && truncated.length > 0 ? truncated : "op";
+}
+
+/** Disambiguates a name that collides with one already used in this discovery run (e.g. two operationIds that normalize to the same string). */
+function uniqueToolName(name: string, used: Set<string>): string {
+  let candidate = name;
+  let suffix = 2;
+  while (used.has(candidate)) {
+    candidate = `${name}_${suffix++}`.slice(0, 63);
+  }
+  used.add(candidate);
+  return candidate;
 }
 
 function buildInputSchema(

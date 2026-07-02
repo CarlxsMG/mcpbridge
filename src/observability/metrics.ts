@@ -307,3 +307,18 @@ export const healthEvictionsTotal = metricsRegistry.register(
     "Total number of clients auto-evicted after crossing the consecutive-failure threshold",
   ),
 );
+
+// WS proxy
+export const wsProxyActiveConnections = metricsRegistry.register(
+  new Gauge(
+    "mcp_ws_proxy_active_connections",
+    "Number of live WebSocket passthrough connections by target",
+  ),
+);
+
+export const wsProxyBytesTotal = metricsRegistry.register(
+  new Counter(
+    "mcp_ws_proxy_bytes_total",
+    "Total bytes relayed by the WebSocket passthrough proxy, by target and direction (up|down)",
+  ),
+);

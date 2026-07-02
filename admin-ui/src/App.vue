@@ -23,6 +23,8 @@ import {
   Settings2,
   GitBranch,
   Waypoints,
+  LayoutGrid,
+  Cable,
 } from "lucide-vue-next";
 
 const route = useRoute();
@@ -77,8 +79,10 @@ async function onLogout() {
         <ul>
           <li><RouterLink to="/servers"><Server :size="15" stroke-width="2" aria-hidden="true" /> Servers</RouterLink></li>
           <li><RouterLink to="/register-server"><Server :size="15" stroke-width="2" aria-hidden="true" /> Add server</RouterLink></li>
+          <li><RouterLink to="/catalog"><LayoutGrid :size="15" stroke-width="2" aria-hidden="true" /> Catalog</RouterLink></li>
           <li><RouterLink to="/bundles"><Boxes :size="15" stroke-width="2" aria-hidden="true" /> Bundles</RouterLink></li>
           <li><RouterLink to="/composites"><Combine :size="15" stroke-width="2" aria-hidden="true" /> Composites</RouterLink></li>
+          <li><RouterLink to="/ws-proxies"><Cable :size="15" stroke-width="2" aria-hidden="true" /> WS proxies</RouterLink></li>
         </ul>
         <div class="nav-label">Access</div>
         <ul>

@@ -25,6 +25,16 @@ export function getToolGraphql(clientName: string, toolName: string): GraphqlCon
   return row ? { enabled: row.enabled === 1, query: row.query } : null;
 }
 
+/** GraphQL config for every tool of a client, keyed by tool name (batched for detail views, mirrors getWsForClient). */
+export function getGraphqlForClient(clientName: string): Record<string, GraphqlConfig> {
+  const rows = getDb()
+    .query(`SELECT tool_name, query, enabled FROM tool_graphql WHERE client_name = ?`)
+    .all(clientName) as { tool_name: string; query: string; enabled: number }[];
+  const out: Record<string, GraphqlConfig> = {};
+  for (const r of rows) out[r.tool_name] = { enabled: r.enabled === 1, query: r.query };
+  return out;
+}
+
 export function setToolGraphql(clientName: string, toolName: string, input: { enabled: boolean; query: string } | null): boolean {
   const db = getDb();
   if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return false;

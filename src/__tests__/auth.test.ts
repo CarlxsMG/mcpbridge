@@ -167,7 +167,7 @@ describe("adminAuth — AUTH_DISABLED bypass", () => {
 // ---------------------------------------------------------------------------
 
 describe("mcpAuth — valid Bearer token", () => {
-  test("calls next() when token matches an MCP key", () => {
+  test("calls next() when token matches an MCP key", async () => {
     (config as Record<string, unknown>).mcpApiKeys = ["mcp-key"];
     config.authDisabled = false;
 
@@ -175,7 +175,7 @@ describe("mcpAuth — valid Bearer token", () => {
     const res = makeRes();
     const next = makeNext();
 
-    mcpAuth(req as Request, res as unknown as Response, next.fn);
+    await mcpAuth(req as Request, res as unknown as Response, next.fn);
     restoreConfig();
 
     expect(next.called).toBe(true);
@@ -183,7 +183,7 @@ describe("mcpAuth — valid Bearer token", () => {
 });
 
 describe("mcpAuth — no MCP keys configured (backward compat)", () => {
-  test("calls next() when mcpApiKeys is empty regardless of token", () => {
+  test("calls next() when mcpApiKeys is empty regardless of token", async () => {
     (config as Record<string, unknown>).mcpApiKeys = [];
     config.authDisabled = false;
 
@@ -191,7 +191,7 @@ describe("mcpAuth — no MCP keys configured (backward compat)", () => {
     const res = makeRes();
     const next = makeNext();
 
-    mcpAuth(req as Request, res as unknown as Response, next.fn);
+    await mcpAuth(req as Request, res as unknown as Response, next.fn);
     restoreConfig();
 
     expect(next.called).toBe(true);
@@ -199,7 +199,7 @@ describe("mcpAuth — no MCP keys configured (backward compat)", () => {
 });
 
 describe("mcpAuth — missing Authorization header", () => {
-  test("responds 401 when header is absent and MCP keys are configured", () => {
+  test("responds 401 when header is absent and MCP keys are configured", async () => {
     (config as Record<string, unknown>).mcpApiKeys = ["mcp-key"];
     config.authDisabled = false;
 
@@ -207,7 +207,7 @@ describe("mcpAuth — missing Authorization header", () => {
     const res = makeRes();
     const next = makeNext();
 
-    mcpAuth(req as Request, res as unknown as Response, next.fn);
+    await mcpAuth(req as Request, res as unknown as Response, next.fn);
     restoreConfig();
 
     expect(next.called).toBe(false);
@@ -216,7 +216,7 @@ describe("mcpAuth — missing Authorization header", () => {
 });
 
 describe("mcpAuth — invalid token", () => {
-  test("responds 403 when token does not match any MCP key", () => {
+  test("responds 403 when token does not match any MCP key", async () => {
     (config as Record<string, unknown>).mcpApiKeys = ["real-mcp-key"];
     config.authDisabled = false;
 
@@ -224,7 +224,7 @@ describe("mcpAuth — invalid token", () => {
     const res = makeRes();
     const next = makeNext();
 
-    mcpAuth(req as Request, res as unknown as Response, next.fn);
+    await mcpAuth(req as Request, res as unknown as Response, next.fn);
     restoreConfig();
 
     expect(next.called).toBe(false);
@@ -233,7 +233,7 @@ describe("mcpAuth — invalid token", () => {
 });
 
 describe("mcpAuth — AUTH_DISABLED bypass", () => {
-  test("calls next() without checking token when authDisabled is true", () => {
+  test("calls next() without checking token when authDisabled is true", async () => {
     config.authDisabled = true;
     (config as Record<string, unknown>).mcpApiKeys = ["mcp-key"];
 
@@ -241,7 +241,7 @@ describe("mcpAuth — AUTH_DISABLED bypass", () => {
     const res = makeRes();
     const next = makeNext();
 
-    mcpAuth(req as Request, res as unknown as Response, next.fn);
+    await mcpAuth(req as Request, res as unknown as Response, next.fn);
     restoreConfig();
 
     expect(next.called).toBe(true);

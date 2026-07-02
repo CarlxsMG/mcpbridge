@@ -10,7 +10,9 @@ import { adminAuth } from "../middleware/auth.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { log } from "../logger.js";
 import { discoverToolsFromMcpServer } from "../mcp-discovery.js";
+import { discoverToolsFromGraphQl } from "../graphql-discovery.js";
 import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
+import { setToolGraphql } from "../backends.js";
 import type { McpTransport } from "../types.js";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
@@ -50,6 +52,18 @@ try {
   log("warn", "Failed to pre-load /register/schema", { error: String(err) });
 }
 
+/**
+ * Result of a registration attempt, expressed as the exact HTTP status/body
+ * pair the /register route would have sent — this is a pure, non-Express
+ * extraction of the route handler bodies (see performRestRegistration /
+ * performMcpRegistration below), so callers that aren't HTTP requests (the
+ * catalog "install" route) get byte-identical outcomes/error shapes without
+ * duplicating any SSRF/validation logic.
+ */
+export type RegisterOutcome =
+  | { ok: true; status: number; body: { status: string; name: string; tools_count: number; source: "openapi" | "manual" | "mcp" | "graphql"; warnings?: string[] } }
+  | { ok: false; status: number; body: { error: { code: string; message: string; request_id?: string | null } } };
+
 export function registerRoutes(app: Express): void {
   app.post("/register", adminAuth, rateLimitRegister(config.rateLimitRegister), async (req: Request, res: Response) => {
     const requestId = (res.locals.requestId as string) ?? null;
@@ -76,153 +90,21 @@ export function registerRoutes(app: Express): void {
       });
     }
 
-    // MCP-upstream registration takes a distinct shape (mcp_url instead of
-    // health_url + tools/openapi_url); same adminAuth + SSRF posture as REST.
-    if ((req.body as Record<string, unknown>).kind === "mcp" || typeof (req.body as Record<string, unknown>).mcp_url === "string") {
-      await handleMcpRegister(req, res, requestId);
-      return;
-    }
+    const peerIp = req.socket?.remoteAddress;
+    const b = req.body as Record<string, unknown>;
 
-    const { name, tools, health_url, openapi_url, include_tags, exclude_operations, retry_non_safe_methods } = req.body;
-
-    // Validate required fields
-    if (!name || !health_url) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Missing required fields: name, health_url" } });
-      return;
-    }
-
-    // Must provide either tools or openapi_url, not both
-    if (!tools && !openapi_url) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Must provide either 'tools' or 'openapi_url'" } });
-      return;
-    }
-    if (tools && openapi_url) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Provide 'tools' or 'openapi_url', not both" } });
-      return;
-    }
-
-    // Change C — use the true peer address; req.ip follows X-Forwarded-For when
-    // TRUST_PROXY is set, which is attacker-controlled.
-    const peerAddress = req.socket?.remoteAddress;
-    if (!health_url.startsWith("http") && !peerAddress) {
-      res.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Cannot determine peer IP for relative health_url",
-          request_id: requestId,
-        },
-      });
-      return;
-    }
-    const ip = peerAddress || "127.0.0.1";
-
-    // Resolve health_url
-    const resolvedHealthUrl = health_url.startsWith("http")
-      ? health_url
-      : `http://${ip}${health_url.startsWith("/") ? "" : "/"}${health_url}`;
-
-    // Validate health_url against SSRF
-    const healthValidation = await validateBackendUrl(resolvedHealthUrl, config.allowPrivateIps, config.allowedHosts);
-    if (!healthValidation.valid) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `Invalid health_url: ${healthValidation.reason}` } });
-      return;
-    }
-
-    // Resolve base_url
-    const { base_url } = req.body;
-    let resolvedBaseUrl: string;
-    if (base_url) {
-      if (!base_url.startsWith("http://") && !base_url.startsWith("https://")) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "base_url must start with http:// or https://" } });
-        return;
-      }
-      resolvedBaseUrl = base_url;
+    // MCP-upstream and GraphQL registration each take a distinct shape from
+    // plain REST/OpenAPI; same adminAuth + SSRF posture as REST in all cases.
+    let outcome: RegisterOutcome;
+    if (b.kind === "mcp" || typeof b.mcp_url === "string") {
+      outcome = await performMcpRegistration(req.body, peerIp, requestId);
+    } else if (b.kind === "graphql" || typeof b.graphql_url === "string") {
+      outcome = await performGraphqlRegistration(req.body, peerIp, requestId);
     } else {
-      // Extract base from health_url
-      try {
-        const healthParsed = new URL(resolvedHealthUrl);
-        resolvedBaseUrl = `${healthParsed.protocol}//${healthParsed.host}`;
-      } catch {
-        resolvedBaseUrl = `http://${ip}`;
-      }
+      outcome = await performRestRegistration(req.body, peerIp, requestId);
     }
 
-    // Validate base_url against SSRF and capture pinned IP
-    const baseUrlValidation = await validateBackendUrl(resolvedBaseUrl, config.allowPrivateIps, config.allowedHosts);
-    if (!baseUrlValidation.valid) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `Invalid base_url: ${baseUrlValidation.reason}` } });
-      return;
-    }
-    const pinnedIp = baseUrlValidation.resolvedIp!;
-
-    // Resolve tools — either from manual payload or OpenAPI discovery
-    let resolvedTools;
-    try {
-      if (openapi_url) {
-        const resolvedOpenapiUrl = openapi_url.startsWith("http")
-          ? openapi_url
-          : `http://${ip}${openapi_url.startsWith("/") ? "" : "/"}${openapi_url}`;
-
-        const openapiValidation = await validateBackendUrl(resolvedOpenapiUrl, config.allowPrivateIps, config.allowedHosts);
-        if (!openapiValidation.valid) {
-          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `Invalid openapi_url: ${openapiValidation.reason}` } });
-          return;
-        }
-
-        const openapiHostname = new URL(resolvedOpenapiUrl).hostname;
-        resolvedTools = await discoverToolsFromOpenApi({
-          openapiUrl: resolvedOpenapiUrl,
-          ipPin: { resolvedIp: openapiValidation.resolvedIp!, hostname: openapiHostname },
-          includeTags: include_tags,
-          excludeOperations: exclude_operations,
-        });
-
-        if (resolvedTools.length === 0) {
-          res.status(400).json({ error: { code: "DISCOVERY_ERROR", message: "No tools discovered from OpenAPI spec. Check include_tags/exclude_operations filters." } });
-          return;
-        }
-      } else {
-        if (!Array.isArray(tools)) {
-          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "'tools' must be an array" } });
-          return;
-        }
-        resolvedTools = tools;
-      }
-
-      // Validate resolved tool endpoints for path-traversal segments before registering.
-      // This closes the registration-time gap identified in Sprint 2; proxy.ts still
-      // catches traversal at runtime as a backstop.
-      for (const tool of resolvedTools) {
-        if (typeof tool.endpoint === "string") {
-          const pathError = validateEndpointPath(tool.endpoint);
-          if (pathError) {
-            res.status(400).json({
-              error: {
-                code: "VALIDATION_ERROR",
-                message: `Tool "${tool.name}": ${pathError}`,
-                request_id: requestId,
-              },
-            });
-            return;
-          }
-        }
-      }
-
-      await registry.register(name, resolvedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp, retry_non_safe_methods === true);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      const code = openapi_url ? "DISCOVERY_ERROR" : "VALIDATION_ERROR";
-      res.status(400).json({ error: { code, message } });
-      return;
-    }
-
-    log("info", "Client registered", { name, tools_count: resolvedTools.length, source: openapi_url ? "openapi" : "manual" });
-    res.status(200).json({
-      status: "registered",
-      name,
-      tools_count: resolvedTools.length,
-      source: openapi_url ? "openapi" : "manual",
-    });
+    res.status(outcome.status).json(outcome.body);
   });
 
   app.get("/register/schema", adminAuth, (_req: Request, res: Response) => {
@@ -236,40 +118,168 @@ export function registerRoutes(app: Express): void {
 }
 
 /**
- * Handles the MCP-kind branch of POST /register: validates mcp_url (SSRF + IP
- * pin, same as REST base_url), connects to the upstream to discover its tools,
- * and registers them. Auth (if the upstream requires it) is read from any
- * previously-configured per-client upstream credential, so an operator can
- * configure auth then re-register.
+ * Pure (non-Express) core of the REST/OpenAPI registration branch — the exact
+ * logic that used to live inline in the POST /register handler, unchanged
+ * except that every `res.status(x).json(y); return;` became `return {ok:false,
+ * status:x, body:y}`. `body` mirrors the loosely-typed shape Express's
+ * `req.body` always had here (no schema validation upstream), so this keeps
+ * the same permissive field access the route relied on.
  */
-async function handleMcpRegister(req: Request, res: Response, requestId: string | null): Promise<void> {
-  const body = req.body as Record<string, unknown>;
+export async function performRestRegistration(body: any, peerIp: string | undefined, requestId: string | null): Promise<RegisterOutcome> {
+  const { name, tools, health_url, openapi_url, include_tags, exclude_operations, retry_non_safe_methods } = body;
+
+  // Validate required fields
+  if (!name || !health_url) {
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Missing required fields: name, health_url" } } };
+  }
+
+  // Must provide either tools or openapi_url, not both
+  if (!tools && !openapi_url) {
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Must provide either 'tools' or 'openapi_url'" } } };
+  }
+  if (tools && openapi_url) {
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Provide 'tools' or 'openapi_url', not both" } } };
+  }
+
+  // Change C — use the true peer address; req.ip follows X-Forwarded-For when
+  // TRUST_PROXY is set, which is attacker-controlled.
+  if (!health_url.startsWith("http") && !peerIp) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: "Cannot determine peer IP for relative health_url", request_id: requestId } },
+    };
+  }
+  const ip = peerIp || "127.0.0.1";
+
+  // Resolve health_url
+  const resolvedHealthUrl = health_url.startsWith("http")
+    ? health_url
+    : `http://${ip}${health_url.startsWith("/") ? "" : "/"}${health_url}`;
+
+  // Validate health_url against SSRF
+  const healthValidation = await validateBackendUrl(resolvedHealthUrl, config.allowPrivateIps, config.allowedHosts);
+  if (!healthValidation.valid) {
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid health_url: ${healthValidation.reason}` } } };
+  }
+
+  // Resolve base_url
+  const { base_url } = body;
+  let resolvedBaseUrl: string;
+  if (base_url) {
+    if (!base_url.startsWith("http://") && !base_url.startsWith("https://")) {
+      return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "base_url must start with http:// or https://" } } };
+    }
+    resolvedBaseUrl = base_url;
+  } else {
+    // Extract base from health_url
+    try {
+      const healthParsed = new URL(resolvedHealthUrl);
+      resolvedBaseUrl = `${healthParsed.protocol}//${healthParsed.host}`;
+    } catch {
+      resolvedBaseUrl = `http://${ip}`;
+    }
+  }
+
+  // Validate base_url against SSRF and capture pinned IP
+  const baseUrlValidation = await validateBackendUrl(resolvedBaseUrl, config.allowPrivateIps, config.allowedHosts);
+  if (!baseUrlValidation.valid) {
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid base_url: ${baseUrlValidation.reason}` } } };
+  }
+  const pinnedIp = baseUrlValidation.resolvedIp!;
+
+  // Resolve tools — either from manual payload or OpenAPI discovery
+  let resolvedTools;
+  try {
+    if (openapi_url) {
+      const resolvedOpenapiUrl = openapi_url.startsWith("http")
+        ? openapi_url
+        : `http://${ip}${openapi_url.startsWith("/") ? "" : "/"}${openapi_url}`;
+
+      const openapiValidation = await validateBackendUrl(resolvedOpenapiUrl, config.allowPrivateIps, config.allowedHosts);
+      if (!openapiValidation.valid) {
+        return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid openapi_url: ${openapiValidation.reason}` } } };
+      }
+
+      const openapiHostname = new URL(resolvedOpenapiUrl).hostname;
+      resolvedTools = await discoverToolsFromOpenApi({
+        openapiUrl: resolvedOpenapiUrl,
+        ipPin: { resolvedIp: openapiValidation.resolvedIp!, hostname: openapiHostname },
+        includeTags: include_tags,
+        excludeOperations: exclude_operations,
+      });
+
+      if (resolvedTools.length === 0) {
+        return {
+          ok: false,
+          status: 400,
+          body: { error: { code: "DISCOVERY_ERROR", message: "No tools discovered from OpenAPI spec. Check include_tags/exclude_operations filters." } },
+        };
+      }
+    } else {
+      if (!Array.isArray(tools)) {
+        return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "'tools' must be an array" } } };
+      }
+      resolvedTools = tools;
+    }
+
+    // Validate resolved tool endpoints for path-traversal segments before registering.
+    // This closes the registration-time gap identified in Sprint 2; proxy.ts still
+    // catches traversal at runtime as a backstop.
+    for (const tool of resolvedTools) {
+      if (typeof tool.endpoint === "string") {
+        const pathError = validateEndpointPath(tool.endpoint);
+        if (pathError) {
+          return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Tool "${tool.name}": ${pathError}`, request_id: requestId } } };
+        }
+      }
+    }
+
+    await registry.register(name, resolvedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp, retry_non_safe_methods === true);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    const code = openapi_url ? "DISCOVERY_ERROR" : "VALIDATION_ERROR";
+    return { ok: false, status: 400, body: { error: { code, message } } };
+  }
+
+  log("info", "Client registered", { name, tools_count: resolvedTools.length, source: openapi_url ? "openapi" : "manual" });
+  return {
+    ok: true,
+    status: 200,
+    body: { status: "registered", name, tools_count: resolvedTools.length, source: openapi_url ? "openapi" : "manual" },
+  };
+}
+
+/**
+ * Pure (non-Express) core of the MCP-upstream registration branch: validates
+ * mcp_url (SSRF + IP pin, same as REST base_url), connects to the upstream to
+ * discover its tools, and registers them. Auth (if the upstream requires it)
+ * is read from any previously-configured per-client upstream credential, so
+ * an operator can configure auth then re-register.
+ */
+export async function performMcpRegistration(body: any, peerIp: string | undefined, requestId: string | null): Promise<RegisterOutcome> {
   const name = body.name;
   const mcpUrl = body.mcp_url;
   const transportRaw = typeof body.mcp_transport === "string" ? body.mcp_transport : "streamable-http";
 
   if (typeof name !== "string" || !name) {
-    res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } });
-    return;
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } } };
   }
   if (typeof mcpUrl !== "string" || (!mcpUrl.startsWith("http://") && !mcpUrl.startsWith("https://"))) {
-    res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "mcp_url must start with http:// or https://", request_id: requestId } });
-    return;
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "mcp_url must start with http:// or https://", request_id: requestId } } };
   }
   if (transportRaw !== "streamable-http" && transportRaw !== "sse") {
-    res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "mcp_transport must be 'streamable-http' or 'sse'", request_id: requestId } });
-    return;
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "mcp_transport must be 'streamable-http' or 'sse'", request_id: requestId } } };
   }
   const transport: McpTransport = transportRaw;
 
   // SSRF validation + IP pin on the MCP endpoint (same posture as REST base_url).
   const validation = await validateBackendUrl(mcpUrl, config.allowPrivateIps, config.allowedHosts);
   if (!validation.valid) {
-    res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `Invalid mcp_url: ${validation.reason}`, request_id: requestId } });
-    return;
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid mcp_url: ${validation.reason}`, request_id: requestId } } };
   }
   const pinnedIp = validation.resolvedIp!;
-  const ip = req.socket?.remoteAddress || "127.0.0.1";
+  const ip = peerIp || "127.0.0.1";
 
   let toolsCount: number;
   try {
@@ -278,21 +288,121 @@ async function handleMcpRegister(req: Request, res: Response, requestId: string 
       { timeoutMs: config.toolCallTimeoutMs }
     );
     if (discovered.length === 0) {
-      res.status(400).json({ error: { code: "DISCOVERY_ERROR", message: "No tools discovered from MCP upstream", request_id: requestId } });
-      return;
+      return { ok: false, status: 400, body: { error: { code: "DISCOVERY_ERROR", message: "No tools discovered from MCP upstream", request_id: requestId } } };
     }
     if (discovered.length > config.maxToolsPerClient) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `MCP upstream exposes ${discovered.length} tools, exceeds maximum of ${config.maxToolsPerClient}`, request_id: requestId } });
-      return;
+      return {
+        ok: false,
+        status: 400,
+        body: { error: { code: "VALIDATION_ERROR", message: `MCP upstream exposes ${discovered.length} tools, exceeds maximum of ${config.maxToolsPerClient}`, request_id: requestId } },
+      };
     }
     await registry.registerMcp(name, discovered, mcpUrl, transport, ip, pinnedIp);
     toolsCount = discovered.length;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    res.status(400).json({ error: { code: "DISCOVERY_ERROR", message, request_id: requestId } });
-    return;
+    return { ok: false, status: 400, body: { error: { code: "DISCOVERY_ERROR", message, request_id: requestId } } };
   }
 
   log("info", "MCP upstream registered", { name, tools_count: toolsCount, source: "mcp" });
-  res.status(200).json({ status: "registered", name, tools_count: toolsCount, source: "mcp" });
+  return { ok: true, status: 200, body: { status: "registered", name, tools_count: toolsCount, source: "mcp" } };
+}
+
+/**
+ * Pure (non-Express) core of the GraphQL registration branch: validates
+ * graphql_url (SSRF + IP pin, same posture as REST/MCP), runs introspection to
+ * discover one tool per query/mutation field, registers them as ordinary REST
+ * tools (method "POST", a synthesized query persisted via setToolGraphql), and
+ * re-registration naturally drops stale tool_graphql rows because
+ * registry.register()'s full-replace semantics delete tool rows no longer
+ * present, which cascades (tool_graphql's FK is ON DELETE CASCADE) — no manual
+ * cleanup step needed.
+ */
+export async function performGraphqlRegistration(body: any, peerIp: string | undefined, requestId: string | null): Promise<RegisterOutcome> {
+  const name = body.name;
+  const graphqlUrl = body.graphql_url;
+
+  if (typeof name !== "string" || !name) {
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } } };
+  }
+  if (typeof graphqlUrl !== "string" || (!graphqlUrl.startsWith("http://") && !graphqlUrl.startsWith("https://"))) {
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "graphql_url must start with http:// or https://", request_id: requestId } } };
+  }
+
+  const validation = await validateBackendUrl(graphqlUrl, config.allowPrivateIps, config.allowedHosts);
+  if (!validation.valid) {
+    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid graphql_url: ${validation.reason}`, request_id: requestId } } };
+  }
+  const pinnedIp = validation.resolvedIp!;
+  const ip = peerIp || "127.0.0.1";
+
+  // health_url defaults to graphql_url when omitted — many GraphQL servers
+  // reject a bare GET on the operation endpoint (CSRF-prevention plugins,
+  // etc.), so this is a real risk of false-positive health failures leading
+  // to auto-eviction. Surfaced as a warning rather than silently accepted.
+  const warnings: string[] = [];
+  let resolvedHealthUrl: string;
+  if (typeof body.health_url === "string" && body.health_url) {
+    resolvedHealthUrl = body.health_url;
+  } else {
+    resolvedHealthUrl = graphqlUrl;
+    warnings.push(
+      "No health_url provided — defaulting to graphql_url. Many GraphQL servers reject a bare GET on the operation " +
+        "endpoint, which can cause false health-check failures and auto-eviction. Supply a dedicated liveness endpoint if available."
+    );
+  }
+
+  let resolvedBaseUrl: string;
+  try {
+    const parsed = new URL(graphqlUrl);
+    resolvedBaseUrl = `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    resolvedBaseUrl = graphqlUrl;
+  }
+
+  let toolsCount: number;
+  try {
+    const graphqlHostname = new URL(graphqlUrl).hostname;
+    const discovered = await discoverToolsFromGraphQl({
+      graphqlUrl,
+      ipPin: { resolvedIp: pinnedIp, hostname: graphqlHostname },
+      authHeaders: getUpstreamAuthHeaders(name) ?? undefined,
+      includeMutations: body.include_mutations !== false,
+    });
+    if (discovered.length === 0) {
+      return { ok: false, status: 400, body: { error: { code: "DISCOVERY_ERROR", message: "No tools discovered from GraphQL endpoint", request_id: requestId } } };
+    }
+    if (discovered.length > config.maxToolsPerClient) {
+      return {
+        ok: false,
+        status: 400,
+        body: { error: { code: "VALIDATION_ERROR", message: `GraphQL schema exposes ${discovered.length} tools, exceeds maximum of ${config.maxToolsPerClient}`, request_id: requestId } },
+      };
+    }
+
+    const endpointPath = new URL(graphqlUrl).pathname || "/graphql";
+    const mappedTools = discovered.map((d) => ({
+      name: d.name,
+      method: "POST" as const,
+      endpoint: endpointPath,
+      description: d.description,
+      inputSchema: d.inputSchema,
+    }));
+
+    await registry.register(name, mappedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp, false);
+    for (const d of discovered) {
+      setToolGraphql(name, d.name, { enabled: true, query: d.query });
+    }
+    toolsCount = discovered.length;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, status: 400, body: { error: { code: "DISCOVERY_ERROR", message, request_id: requestId } } };
+  }
+
+  log("info", "GraphQL endpoint registered", { name, tools_count: toolsCount, source: "graphql" });
+  return {
+    ok: true,
+    status: 200,
+    body: { status: "registered", name, tools_count: toolsCount, source: "graphql", ...(warnings.length ? { warnings } : {}) },
+  };
 }

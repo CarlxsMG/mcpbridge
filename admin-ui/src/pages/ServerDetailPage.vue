@@ -472,6 +472,21 @@ async function saveWs(payload: { enabled: boolean; wsUrl: string; persistent: bo
   }
 }
 
+async function saveGraphql(payload: { enabled: boolean; query: string } | null) {
+  if (!activeTool.value) return;
+  savingGuards.value = true;
+  try {
+    await api.patch(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}`, {
+      graphql: payload,
+    });
+    await load();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save GraphQL settings.";
+  } finally {
+    savingGuards.value = false;
+  }
+}
+
 async function toggleSensitive(tool: ToolDetail) {
   const next = tool.sensitive === true ? false : true;
   delete rowError.value[tool.name];
@@ -844,7 +859,7 @@ async function resetBreaker() {
         <h2>Guards — {{ activeTool.name }}</h2>
         <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">Close</button>
       </div>
-      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :guardrails="activeTool.guardrails" :coalesce="activeTool.coalesce" :approval="activeTool.approval" :quarantine="activeTool.quarantine" :ws="activeTool.ws" :client-name="props.name" :tool-name="activeTool.name" :tags="activeTool.tags" :redact-paths="activeTool.redactPaths" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" @save-tags="saveTags" @save-redaction="saveRedaction" @save-guardrails="saveGuardrails" @save-coalesce="saveCoalesce" @save-approval="saveApproval" @save-quarantine-policy="saveQuarantinePolicy" @clear-quarantine="clearQuarantineFn" @save-ws="saveWs" />
+      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :guardrails="activeTool.guardrails" :coalesce="activeTool.coalesce" :approval="activeTool.approval" :quarantine="activeTool.quarantine" :ws="activeTool.ws" :graphql="activeTool.graphql" :client-name="props.name" :tool-name="activeTool.name" :tags="activeTool.tags" :redact-paths="activeTool.redactPaths" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" @save-tags="saveTags" @save-redaction="saveRedaction" @save-guardrails="saveGuardrails" @save-coalesce="saveCoalesce" @save-approval="saveApproval" @save-quarantine-policy="saveQuarantinePolicy" @clear-quarantine="clearQuarantineFn" @save-ws="saveWs" @save-graphql="saveGraphql" />
 
       <section class="playground">
         <h3>Playground</h3>

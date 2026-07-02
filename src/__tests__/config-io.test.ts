@@ -97,7 +97,7 @@ describe("config export/import", () => {
 
     const doc = exportConfig();
     expect(doc.guardrails).toEqual([{ client: "svc", tool: "get-users", guardrails: { denyPatterns: ["DROP TABLE"], blockSecrets: true, scanResponses: false } }]);
-    expect(doc.consumers).toEqual([{ name: "acme", monthlyQuota: 1000 }]);
+    expect(doc.consumers).toEqual([{ name: "acme", monthlyQuota: 1000, endUserRateLimitPerMin: null }]);
 
     // Fresh environment: guardrails/consumers must be recreated by import.
     __resetDbForTesting();

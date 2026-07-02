@@ -2,11 +2,14 @@
 import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
-import type { DiscoveryPreview, DiscoveredTool, UpstreamKind, McpTransport } from "../types/api";
+import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "../types/api";
 
 const router = useRouter();
 
-const kind = ref<UpstreamKind>("rest");
+// Wizard-only kind — a "graphql" registration still persists as an ordinary
+// kind:"rest" client (see performGraphqlRegistration in routes/register.ts);
+// this local union is broader than the API's UpstreamKind on purpose.
+const kind = ref<"rest" | "mcp" | "graphql">("rest");
 const name = ref("");
 
 // REST fields
@@ -21,6 +24,11 @@ const manualTools = ref("");
 // MCP upstream fields
 const mcpUrl = ref("");
 const mcpTransport = ref<McpTransport>("streamable-http");
+
+// GraphQL fields
+const graphqlUrl = ref("");
+const includeMutations = ref(true);
+const graphqlHealthUrl = ref("");
 
 const previewTools = ref<DiscoveredTool[] | null>(null);
 const previewing = ref(false);
@@ -58,6 +66,31 @@ watch([openapiUrl, includeTags, excludeOps], () => {
   previewTools.value = null;
 });
 
+async function previewGraphql() {
+  previewError.value = "";
+  previewTools.value = null;
+  if (!graphqlUrl.value.trim()) {
+    previewError.value = "Enter a GraphQL URL first.";
+    return;
+  }
+  previewing.value = true;
+  try {
+    const res = await api.post<DiscoveryPreview>("/admin-api/discovery/preview-graphql", {
+      graphql_url: graphqlUrl.value.trim(),
+      include_mutations: includeMutations.value,
+    });
+    previewTools.value = res.tools;
+  } catch (err) {
+    previewError.value = err instanceof ApiError ? err.message : "Preview failed.";
+  } finally {
+    previewing.value = false;
+  }
+}
+
+watch([graphqlUrl, includeMutations], () => {
+  previewTools.value = null;
+});
+
 async function register() {
   error.value = "";
   registering.value = true;
@@ -72,6 +105,22 @@ async function register() {
         name: name.value.trim(),
         mcp_url: mcpUrl.value.trim(),
         mcp_transport: mcpTransport.value,
+      });
+      await router.push(`/servers/${encodeURIComponent(name.value.trim())}`);
+      return;
+    }
+
+    if (kind.value === "graphql") {
+      if (!name.value.trim() || !graphqlUrl.value.trim()) {
+        error.value = "Name and GraphQL URL are required.";
+        return;
+      }
+      await api.post("/register", {
+        kind: "graphql",
+        name: name.value.trim(),
+        graphql_url: graphqlUrl.value.trim(),
+        health_url: graphqlHealthUrl.value.trim() || undefined,
+        include_mutations: includeMutations.value,
       });
       await router.push(`/servers/${encodeURIComponent(name.value.trim())}`);
       return;
@@ -113,6 +162,7 @@ async function register() {
     <form class="reg-form" @submit.prevent="register">
       <div class="segmented" role="radiogroup" aria-label="Server kind">
         <label><input v-model="kind" type="radio" name="kind" value="rest" /> REST API</label>
+        <label><input v-model="kind" type="radio" name="kind" value="graphql" /> GraphQL</label>
         <label><input v-model="kind" type="radio" name="kind" value="mcp" /> MCP server</label>
       </div>
 
@@ -179,6 +229,38 @@ async function register() {
             spellcheck="false"
             placeholder='[{"name":"get_user","method":"GET","endpoint":"/users/{id}","description":"Fetch a user by id","inputSchema":{"type":"object","properties":{"id":{"type":"string"}}}}]'
           ></textarea>
+        </div>
+      </template>
+
+      <template v-else-if="kind === 'graphql'">
+        <div class="field">
+          <label for="r-graphql-url">GraphQL URL</label>
+          <input id="r-graphql-url" v-model="graphqlUrl" type="url" placeholder="https://api.example.com/graphql" />
+        </div>
+        <div class="field">
+          <label for="r-graphql-health">Health URL (optional — defaults to the GraphQL URL)</label>
+          <input id="r-graphql-health" v-model="graphqlHealthUrl" type="url" placeholder="https://api.example.com/health" />
+          <p class="hint">Many GraphQL servers reject a bare GET on the operation endpoint. If you have a dedicated liveness endpoint, use it here to avoid false health-check failures.</p>
+        </div>
+        <label class="checkline"><input v-model="includeMutations" type="checkbox" /> Include mutations</label>
+        <div class="preview-row">
+          <button type="button" class="btn-secondary" :disabled="previewing" @click="previewGraphql">
+            {{ previewing ? "Discovering…" : "Preview tools" }}
+          </button>
+          <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
+        </div>
+        <p v-if="previewError" class="error">{{ previewError }}</p>
+        <div v-if="previewTools && previewTools.length" class="table-card table-scroll">
+          <table class="preview-table">
+            <thead><tr><th>Name</th><th>Method</th><th>Endpoint</th></tr></thead>
+            <tbody>
+              <tr v-for="t in previewTools" :key="t.name">
+                <td>{{ t.name }}</td>
+                <td><code>{{ t.method }}</code></td>
+                <td class="ep">{{ t.endpoint }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </template>
 

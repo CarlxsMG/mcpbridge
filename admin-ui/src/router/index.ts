@@ -13,6 +13,8 @@ const routes = [
     props: true,
   },
   { path: "/register-server", name: "register-server", component: () => import("../pages/RegisterServerPage.vue") },
+  { path: "/catalog", name: "catalog", component: () => import("../pages/CatalogPage.vue") },
+  { path: "/ws-proxies", name: "ws-proxies", component: () => import("../pages/WsProxyTargetsPage.vue") },
   { path: "/bundles", name: "bundles", component: () => import("../pages/BundlesPage.vue") },
   { path: "/bundles/:name", name: "bundle-detail", component: () => import("../pages/BundleDetailPage.vue"), props: true },
   { path: "/composites", name: "composites", component: () => import("../pages/CompositesPage.vue") },

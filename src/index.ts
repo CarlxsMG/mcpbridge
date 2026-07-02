@@ -23,6 +23,9 @@ import { bundleRoutes } from "./routes/bundles.js";
 import { mcpKeyRoutes } from "./routes/mcp-keys.js";
 import { upstreamAuthRoutes } from "./routes/upstream-auth.js";
 import { discoveryRoutes } from "./routes/discovery.js";
+import { catalogRoutes } from "./routes/catalog.js";
+import { wsProxyAdminRoutes } from "./routes/ws-proxy-admin.js";
+import { loadWsProxyTargets, handleWsProxyUpgrade, startWsProxyRevalidationLoop, closeAllWsProxyConnections } from "./ws-proxy.js";
 import { usageRoutes } from "./routes/usage.js";
 import { alertRoutes } from "./routes/alerts.js";
 import { startAlertLoop } from "./alerts.js";
@@ -51,6 +54,8 @@ await bootstrapAdminUser();
 initBundles();
 // Composite (macro) tools are likewise admin-authored — hydrate the cache.
 initComposites();
+// WS proxy targets are likewise admin-authored — hydrate the cache.
+loadWsProxyTargets();
 
 // ─── Startup safety checks ───────────────────────────────────────────────────
 
@@ -128,6 +133,8 @@ bundleRoutes(app);
 mcpKeyRoutes(app);
 upstreamAuthRoutes(app);
 discoveryRoutes(app);
+catalogRoutes(app);
+wsProxyAdminRoutes(app);
 usageRoutes(app);
 alertRoutes(app);
 configIoRoutes(app);
@@ -238,6 +245,17 @@ const server = app.listen(config.port, () => {
   log("info", "MCP REST Bridge started", { port: config.port });
 });
 
+// WS proxy: the only Upgrade path in this codebase (MCP SSE uses plain GET,
+// not Upgrade), so any other upgrade request is rejected outright.
+const stopWsProxyRevalidation = startWsProxyRevalidationLoop();
+server.on("upgrade", (req, socket, head) => {
+  if (req.url?.startsWith("/ws-proxy/")) {
+    handleWsProxyUpgrade(req, socket, head).catch(() => socket.destroy());
+    return;
+  }
+  socket.destroy();
+});
+
 // Graceful shutdown
 async function gracefulShutdown(signal: string) {
   log("info", "Graceful shutdown initiated", { signal });
@@ -248,6 +266,8 @@ async function gracefulShutdown(signal: string) {
   stopAlerts();
   stopSchedules();
   stopRegistrySync();
+  stopWsProxyRevalidation();
+  closeAllWsProxyConnections();
   void flushTraces();
   cleanupTransports();
   server.close(() => process.exit(0));

@@ -42,6 +42,7 @@ interface ExportedGuardrail {
 interface ExportedConsumer {
   name: string;
   monthlyQuota: number | null;
+  endUserRateLimitPerMin?: number | null;
 }
 
 export interface ConfigExport {
@@ -105,7 +106,7 @@ export function exportConfig(): ConfigExport {
     }
   }
 
-  const consumers: ExportedConsumer[] = listConsumers().map((c) => ({ name: c.name, monthlyQuota: c.monthlyQuota }));
+  const consumers: ExportedConsumer[] = listConsumers().map((c) => ({ name: c.name, monthlyQuota: c.monthlyQuota, endUserRateLimitPerMin: c.endUserRateLimitPerMin }));
 
   return { version: CONFIG_EXPORT_VERSION, exportedAt: Date.now(), bundles, alertRules, clients, guardrails, consumers };
 }
@@ -223,9 +224,9 @@ export async function importConfig(
     if (!dryRun) {
       const existing = getConsumerByName(c.name);
       if (existing) {
-        updateConsumer(existing.id, { monthlyQuota: c.monthlyQuota ?? null });
+        updateConsumer(existing.id, { monthlyQuota: c.monthlyQuota ?? null, endUserRateLimitPerMin: c.endUserRateLimitPerMin ?? null });
       } else {
-        createConsumer({ name: c.name, monthlyQuota: c.monthlyQuota ?? null, actor });
+        createConsumer({ name: c.name, monthlyQuota: c.monthlyQuota ?? null, endUserRateLimitPerMin: c.endUserRateLimitPerMin ?? null, actor });
       }
     }
     applied.consumers++;

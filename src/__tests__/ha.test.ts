@@ -5,7 +5,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
 import { registry } from "../registry.js";
-import { checkSharedRateLimit, checkSharedToolRateLimit, __clearRateCountersForTesting } from "../db/rate-counters.js";
+import { checkSharedRateLimit, checkSharedToolRateLimit, checkSharedEndUserRateLimit, __clearRateCountersForTesting } from "../db/rate-counters.js";
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(name = "get-x"): RestToolDefinition {
@@ -60,6 +60,16 @@ describe("shared rate counters", () => {
     expect(checkSharedToolRateLimit("svc__a", 1, now).allowed).toBe(false);
     // A different tool has an independent counter.
     expect(checkSharedToolRateLimit("svc__b", 1, now).allowed).toBe(true);
+  });
+
+  test("checkSharedEndUserRateLimit keys per consumer+end-user, independent of each other", () => {
+    const now = 3_000_000;
+    expect(checkSharedEndUserRateLimit(1, "alice", 1, now).allowed).toBe(true);
+    expect(checkSharedEndUserRateLimit(1, "alice", 1, now).allowed).toBe(false);
+    // Same raw end-user id under a different consumer does not share a bucket.
+    expect(checkSharedEndUserRateLimit(2, "alice", 1, now).allowed).toBe(true);
+    // A different end-user under the same consumer has an independent counter.
+    expect(checkSharedEndUserRateLimit(1, "bob", 1, now).allowed).toBe(true);
   });
 });
 

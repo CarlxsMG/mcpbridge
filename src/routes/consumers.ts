@@ -16,7 +16,7 @@ function requestId(res: Response): string | null {
   return (res.locals.requestId as string) ?? null;
 }
 
-function optQuota(v: unknown): { ok: true; value: number | null } | { ok: false } {
+function optPositiveIntOrNull(v: unknown): { ok: true; value: number | null } | { ok: false } {
   if (v === undefined || v === null) return { ok: true, value: null };
   if (typeof v === "number" && Number.isInteger(v) && v > 0) return { ok: true, value: v };
   return { ok: false };
@@ -39,13 +39,18 @@ export function consumerRoutes(app: Express): void {
       res.status(409).json({ error: { code: "CONSUMER_EXISTS", message: "A consumer with that name already exists", request_id: requestId(res) } });
       return;
     }
-    const quota = optQuota(body.monthlyQuota);
+    const quota = optPositiveIntOrNull(body.monthlyQuota);
     if (!quota.ok) {
       res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "monthlyQuota must be a positive integer or null", request_id: requestId(res) } });
       return;
     }
+    const endUserRateLimit = optPositiveIntOrNull(body.endUserRateLimitPerMin);
+    if (!endUserRateLimit.ok) {
+      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "endUserRateLimitPerMin must be a positive integer or null", request_id: requestId(res) } });
+      return;
+    }
     const actor = actorFromRequest(req);
-    const consumer = createConsumer({ name, monthlyQuota: quota.value, actor });
+    const consumer = createConsumer({ name, monthlyQuota: quota.value, endUserRateLimitPerMin: endUserRateLimit.value, actor });
     recordAudit(actor, "consumer.create", String(consumer.id), { name });
     res.status(201).json(consumer);
   });
@@ -58,7 +63,7 @@ export function consumerRoutes(app: Express): void {
       return;
     }
     const body = (req.body as Record<string, unknown>) ?? {};
-    const updates: { name?: string; monthlyQuota?: number | null } = {};
+    const updates: { name?: string; monthlyQuota?: number | null; endUserRateLimitPerMin?: number | null } = {};
     if (body.name !== undefined) {
       if (typeof body.name !== "string" || !body.name.trim()) {
         res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "name must be a non-empty string", request_id: requestId(res) } });
@@ -71,9 +76,14 @@ export function consumerRoutes(app: Express): void {
       updates.name = body.name.trim();
     }
     if (body.monthlyQuota !== undefined) {
-      const q = optQuota(body.monthlyQuota);
+      const q = optPositiveIntOrNull(body.monthlyQuota);
       if (!q.ok) { res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "monthlyQuota must be a positive integer or null", request_id: requestId(res) } }); return; }
       updates.monthlyQuota = q.value;
+    }
+    if (body.endUserRateLimitPerMin !== undefined) {
+      const l = optPositiveIntOrNull(body.endUserRateLimitPerMin);
+      if (!l.ok) { res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "endUserRateLimitPerMin must be a positive integer or null", request_id: requestId(res) } }); return; }
+      updates.endUserRateLimitPerMin = l.value;
     }
     const consumer = updateConsumer(id, updates);
     recordAudit(actorFromRequest(req), "consumer.update", String(id), { fields: Object.keys(updates) });

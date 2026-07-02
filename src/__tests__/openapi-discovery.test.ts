@@ -238,3 +238,60 @@ describe("discoverToolsFromOpenApi — x-internal skip", () => {
     expect(names).not.toContain("internal-op");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tool-name sanitization — real-world specs routinely use camelCase
+// operationIds, which registry.register() would otherwise always reject.
+// ---------------------------------------------------------------------------
+
+describe("discoverToolsFromOpenApi — tool name sanitization", () => {
+  test("normalizes a camelCase operationId to the registry's tool-name rule", async () => {
+    const spec = JSON.stringify({
+      openapi: "3.0.0",
+      info: { title: "demo", version: "1.0.0" },
+      paths: {
+        "/pets/{petId}": {
+          put: { operationId: "updatePet", summary: "Update a pet", responses: { "200": { description: "ok" } } },
+        },
+      },
+    });
+    mockFetch(spec);
+    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
+    expect(tools.map((t) => t.name)).toEqual(["update_pet"]);
+    expect(tools[0].name).toMatch(/^[a-z0-9][a-z0-9_-]{0,62}$/);
+  });
+
+  test("disambiguates two operationIds that normalize to the same name", async () => {
+    const spec = JSON.stringify({
+      openapi: "3.0.0",
+      info: { title: "demo", version: "1.0.0" },
+      paths: {
+        "/a": { get: { operationId: "get_thing", summary: "a", responses: { "200": { description: "ok" } } } },
+        "/b": { get: { operationId: "getThing", summary: "b", responses: { "200": { description: "ok" } } } },
+      },
+    });
+    mockFetch(spec);
+    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
+    const names = tools.map((t) => t.name);
+    expect(new Set(names).size).toBe(2);
+    expect(names).toContain("get_thing");
+    expect(names.some((n) => n === "get_thing_2")).toBe(true);
+  });
+
+  test("exclude_operations still matches the raw, pre-sanitization operationId", async () => {
+    const spec = JSON.stringify({
+      openapi: "3.0.0",
+      info: { title: "demo", version: "1.0.0" },
+      paths: {
+        "/keep": { get: { operationId: "keepThis", summary: "keep", responses: { "200": { description: "ok" } } } },
+        "/drop": { get: { operationId: "dropThis", summary: "drop", responses: { "200": { description: "ok" } } } },
+      },
+    });
+    mockFetch(spec);
+    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json", excludeOperations: ["dropThis"] });
+    expect(tools.map((t) => t.name)).toEqual(["keep_this"]);
+  });
+});

@@ -42,28 +42,29 @@ function matchOrigin(origin: string, pattern: string): boolean {
   );
 }
 
+/**
+ * Pure predicate behind originValidator — usable from a raw upgrade request
+ * (WS-proxy) that has no Express `Response` to write a 403 onto directly.
+ * WS handshakes bypass browser CORS/preflight, so Origin must be checked
+ * manually there too, against this same allowlist.
+ */
+export function isOriginAllowed(origin: string | undefined, secFetchSite: string | undefined): boolean {
+  if (!origin) return !secFetchSite; // server-to-server (no Origin) allowed unless it's clearly a browser request
+  return config.allowedOrigins.some(pattern => matchOrigin(origin, pattern));
+}
+
 export function originValidator(req: Request, res: Response, next: NextFunction): void {
   const origin = req.headers.origin as string | undefined;
   const secFetchSite = req.headers["sec-fetch-site"] as string | undefined;
 
-  // No Origin header
+  if (isOriginAllowed(origin, secFetchSite)) {
+    next();
+    return;
+  }
+
   if (!origin) {
-    // If Sec-Fetch-Site is present, this is a browser request — reject
-    if (secFetchSite) {
-      res.status(403).json({ error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin header required for browser requests" } });
-      return;
-    }
-    // Server-to-server: allow
-    next();
+    res.status(403).json({ error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin header required for browser requests" } });
     return;
   }
-
-  // Check against allowed origins
-  const allowed = config.allowedOrigins;
-  if (allowed.some(pattern => matchOrigin(origin, pattern))) {
-    next();
-    return;
-  }
-
   res.status(403).json({ error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin not allowed" } });
 }

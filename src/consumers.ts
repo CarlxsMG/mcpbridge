@@ -1,9 +1,11 @@
 import { getDb } from "./db/connection.js";
+import { checkSharedEndUserRateLimit } from "./db/rate-counters.js";
 
 export interface Consumer {
   id: number;
   name: string;
   monthlyQuota: number | null;
+  endUserRateLimitPerMin: number | null;
   createdAt: number;
   updatedAt: number;
   createdBy: string | null;
@@ -13,18 +15,20 @@ interface ConsumerRow {
   id: number;
   name: string;
   monthly_quota: number | null;
+  end_user_rate_limit_per_min: number | null;
   created_at: number;
   updated_at: number;
   created_by: string | null;
 }
 
-const COLS = "id, name, monthly_quota, created_at, updated_at, created_by";
+const COLS = "id, name, monthly_quota, end_user_rate_limit_per_min, created_at, updated_at, created_by";
 
 function rowToConsumer(row: ConsumerRow): Consumer {
   return {
     id: row.id,
     name: row.name,
     monthlyQuota: row.monthly_quota,
+    endUserRateLimitPerMin: row.end_user_rate_limit_per_min,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     createdBy: row.created_by,
@@ -56,20 +60,25 @@ export function getConsumerByName(name: string): Consumer | null {
   return row ? rowToConsumer(row) : null;
 }
 
-export function createConsumer(input: { name: string; monthlyQuota: number | null; actor: string | null }): Consumer {
+export function createConsumer(input: { name: string; monthlyQuota: number | null; endUserRateLimitPerMin?: number | null; actor: string | null }): Consumer {
   const now = Date.now();
   const row = getDb()
-    .query(`INSERT INTO consumers (name, monthly_quota, created_at, updated_at, created_by) VALUES (?, ?, ?, ?, ?) RETURNING ${COLS}`)
-    .get(input.name, input.monthlyQuota, now, now, input.actor) as ConsumerRow;
+    .query(
+      `INSERT INTO consumers (name, monthly_quota, end_user_rate_limit_per_min, created_at, updated_at, created_by) VALUES (?, ?, ?, ?, ?, ?) RETURNING ${COLS}`
+    )
+    .get(input.name, input.monthlyQuota, input.endUserRateLimitPerMin ?? null, now, now, input.actor) as ConsumerRow;
   return rowToConsumer(row);
 }
 
-export function updateConsumer(id: number, updates: { name?: string; monthlyQuota?: number | null }): Consumer | null {
+export function updateConsumer(id: number, updates: { name?: string; monthlyQuota?: number | null; endUserRateLimitPerMin?: number | null }): Consumer | null {
   const existing = getConsumer(id);
   if (!existing) return null;
   const name = updates.name ?? existing.name;
   const quota = updates.monthlyQuota !== undefined ? updates.monthlyQuota : existing.monthlyQuota;
-  getDb().query(`UPDATE consumers SET name = ?, monthly_quota = ?, updated_at = ? WHERE id = ?`).run(name, quota, Date.now(), id);
+  const endUserRateLimitPerMin = updates.endUserRateLimitPerMin !== undefined ? updates.endUserRateLimitPerMin : existing.endUserRateLimitPerMin;
+  getDb()
+    .query(`UPDATE consumers SET name = ?, monthly_quota = ?, end_user_rate_limit_per_min = ?, updated_at = ? WHERE id = ?`)
+    .run(name, quota, endUserRateLimitPerMin, Date.now(), id);
   return getConsumer(id);
 }
 
@@ -101,4 +110,25 @@ export function checkConsumerQuota(consumerId: number): QuotaStatus {
   if (!c || c.monthlyQuota === null) return { exceeded: false, used: 0, quota: c?.monthlyQuota ?? null };
   const used = getConsumerUsageThisMonth(consumerId);
   return { exceeded: used >= c.monthlyQuota, used, quota: c.monthlyQuota };
+}
+
+export interface EndUserRateLimitStatus {
+  limited: boolean;
+  retryAfterSeconds: number;
+}
+
+/**
+ * Whether a caller-asserted end-user identity is over its per-minute rate
+ * limit, for consumers that have opted in via endUserRateLimitPerMin. This is
+ * a cooperative fairness dimension, not an authorization boundary — the
+ * identity is caller-asserted and unauthenticated (see resolveEndUserId in
+ * proxy.ts). A consumer that hasn't opted in, or an unknown/deleted consumer,
+ * never limits (fail-open, symmetric with checkConsumerQuota above).
+ */
+export function checkEndUserRateLimit(consumerId: number, rawEndUserId: string): EndUserRateLimitStatus {
+  const c = getConsumer(consumerId);
+  if (!c || c.endUserRateLimitPerMin === null) return { limited: false, retryAfterSeconds: 0 };
+  const endUserId = rawEndUserId.slice(0, 256);
+  const r = checkSharedEndUserRateLimit(consumerId, endUserId, c.endUserRateLimitPerMin);
+  return { limited: !r.allowed, retryAfterSeconds: r.retryAfterSeconds };
 }

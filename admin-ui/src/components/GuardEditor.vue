@@ -15,6 +15,7 @@ const props = defineProps<{
     state: { quarantined: boolean; consecutiveHits: number; quarantinedAt: number | null; reason: string | null; cooldownUntil: number | null };
   };
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
+  graphql?: { enabled: boolean; query: string };
   clientName?: string;
   toolName?: string;
   tags?: string[];
@@ -33,6 +34,7 @@ const emit = defineEmits<{
   saveQuarantinePolicy: [payload: { consecutiveThreshold: number; action: "block" | "force_approval" | "observe"; recoveryMode: "auto" | "manual"; cooldownMs: number | null } | null];
   clearQuarantine: [];
   saveWs: [payload: { enabled: boolean; wsUrl: string; persistent: boolean } | null];
+  saveGraphql: [payload: { enabled: boolean; query: string } | null];
 }>();
 
 const descriptionInput = ref(props.override?.description ?? "");
@@ -53,6 +55,8 @@ const quarantineCooldownInput = ref(props.quarantine?.policy.cooldownMs ? (props
 const wsEnabledInput = ref(Boolean(props.ws?.enabled));
 const wsUrlInput = ref(props.ws?.wsUrl ?? "");
 const wsPersistentInput = ref(props.ws?.persistent ?? false);
+const graphqlEnabledInput = ref(Boolean(props.graphql?.enabled));
+const graphqlQueryInput = ref(props.graphql?.query ?? "");
 const tagsInput = ref((props.tags ?? []).join(", "));
 const redactInput = ref((props.redactPaths ?? []).join("\n"));
 
@@ -89,6 +93,8 @@ const savedQuarantine = ref(false);
 const clearingQuarantine = ref(false);
 const savingWs = ref(false);
 const savedWs = ref(false);
+const savingGraphql = ref(false);
+const savedGraphql = ref(false);
 
 function flashSaved(flag: { value: boolean }) {
   flag.value = true;
@@ -327,6 +333,29 @@ function saveWsFn() {
   if (wsUrlError.value) return;
   savingWs.value = true;
   emit("saveWs", { enabled: true, wsUrl: wsUrlInput.value.trim(), persistent: wsPersistentInput.value });
+}
+
+watch(
+  () => props.graphql,
+  (g) => {
+    graphqlEnabledInput.value = Boolean(g?.enabled);
+    graphqlQueryInput.value = g?.query ?? "";
+    if (savingGraphql.value) {
+      savingGraphql.value = false;
+      flashSaved(savedGraphql);
+    }
+  }
+);
+
+function saveGraphqlFn() {
+  if (!graphqlEnabledInput.value) {
+    savingGraphql.value = true;
+    emit("saveGraphql", null);
+    return;
+  }
+  if (!graphqlQueryInput.value.trim()) return;
+  savingGraphql.value = true;
+  emit("saveGraphql", { enabled: true, query: graphqlQueryInput.value.trim() });
 }
 
 const rateLimitError = computed(() => {
@@ -622,6 +651,20 @@ function saveRedactionFn() {
         {{ savingWs ? "Saving…" : "Save WebSocket settings" }}
       </button>
       <span v-if="savedWs" class="save-ok">Saved</span>
+    </div>
+
+    <h3>GraphQL backend</h3>
+    <div class="field">
+      <label class="checkline"><input type="checkbox" v-model="graphqlEnabledInput" /> Dispatch this tool as a GraphQL query/mutation instead of a plain REST body</label>
+      <template v-if="graphqlEnabledInput">
+        <label for="graphql-query">GraphQL query/mutation</label>
+        <textarea id="graphql-query" v-model="graphqlQueryInput" rows="6" spellcheck="false" placeholder="query my_tool($id: ID!) { pet(id: $id) { id name } }"></textarea>
+        <p class="hint">Tool-call arguments are sent as GraphQL variables — declare a <code>$var: Type</code> for each argument this tool's input schema accepts. Auto-discovered tools start with a synthesized query you can extend here (e.g. deeper selection sets).</p>
+      </template>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving || (graphqlEnabledInput && !graphqlQueryInput.trim())" @click="saveGraphqlFn">
+        {{ savingGraphql ? "Saving…" : "Save GraphQL settings" }}
+      </button>
+      <span v-if="savedGraphql" class="save-ok">Saved</span>
     </div>
 
     <h3>Request coalescing</h3>

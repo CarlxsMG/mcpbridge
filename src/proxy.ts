@@ -33,7 +33,7 @@ import { isKeyAllowed } from "./security/key-hash.js";
 import { resolveMcpKeyByToken, isToolInKeyScope } from "./security/mcp-key-store.js";
 import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
 import { recordUsage } from "./observability/usage.js";
-import { checkConsumerQuota } from "./consumers.js";
+import { checkConsumerQuota, checkEndUserRateLimit } from "./consumers.js";
 import { isToolSensitive } from "./tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "./redaction.js";
 import { getGuardrails, checkInputGuardrails, applyResponseScan } from "./guardrails.js";
@@ -303,6 +303,24 @@ async function fetchAllPages(firstBodyText: string, cfg: PaginationConfig, ctx: 
 export interface ToolCallOpts {
   signal?: AbortSignal;
   onProgress?: (progress: number, total?: number, message?: string) => void;
+  /** Caller-asserted end-user identity (X-End-User-Id header), for optional
+   * per-end-user rate limiting. Unauthenticated — see resolveEndUserId. */
+  endUserId?: string;
+}
+
+/**
+ * Resolves the caller-asserted end-user identity for this call, if any. The
+ * header (threaded via ToolCallOpts.endUserId) wins when both are present:
+ * it's set by the wrapping application's own request-construction code, not
+ * influenced by anything an LLM emits as tool-call arguments (which could be
+ * steered by prompt injection). Blank/non-string values are treated as absent.
+ */
+function resolveEndUserId(headerValue: string | undefined, args: Record<string, unknown>): string | null {
+  const fromHeader = typeof headerValue === "string" ? headerValue.trim() : "";
+  if (fromHeader) return fromHeader;
+  const rawArg = (args as Record<string, unknown>).__end_user;
+  const fromArg = typeof rawArg === "string" ? rawArg.trim() : "";
+  return fromArg || null;
 }
 
 /**
@@ -453,6 +471,23 @@ async function dispatchToolCall(
         isError: true,
         content: [{ type: "text", text: `Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})` }],
       };
+    }
+
+    // Per-end-user rate limit (optional, opt-in fairness dimension) — lets the
+    // calling application assert an end-user identity per call so one noisy
+    // end user can't exhaust the whole shared key's quota for everyone else.
+    // Caller-asserted, UNAUTHENTICATED: a fairness knob, not an authorization
+    // boundary. Zero overhead unless BOTH (a) the caller asserts an id AND (b)
+    // the consumer opted in (see resolveEndUserId/checkEndUserRateLimit).
+    const assertedEndUserId = resolveEndUserId(opts?.endUserId, args);
+    if (assertedEndUserId !== null) {
+      const endUserRl = checkEndUserRateLimit(callerKey.consumerId, assertedEndUserId);
+      if (endUserRl.limited) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `End-user rate limit exceeded — retry after ${endUserRl.retryAfterSeconds}s` }],
+        };
+      }
     }
   }
 

@@ -802,6 +802,61 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_tool_spans_created ON tool_spans(created_at);
     `,
   },
+  {
+    id: 43,
+    name: "consumer_end_user_rate_limit",
+    sql: `
+      ALTER TABLE consumers ADD COLUMN end_user_rate_limit_per_min INTEGER;
+    `,
+  },
+  {
+    id: 44,
+    name: "catalog_entries",
+    sql: `
+      CREATE TABLE IF NOT EXISTS catalog_entries (
+        id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+        slug                    TEXT NOT NULL UNIQUE
+                                  CHECK (slug GLOB '[a-z0-9]*' AND length(slug) BETWEEN 1 AND 63),
+        name                    TEXT NOT NULL,
+        description             TEXT,
+        kind                    TEXT NOT NULL CHECK (kind IN ('rest', 'mcp')),
+        category                TEXT,
+        tags_json               TEXT NOT NULL DEFAULT '[]',
+        icon                    TEXT,
+        openapi_url             TEXT,
+        health_url              TEXT,
+        base_url                TEXT,
+        include_tags_json       TEXT,
+        exclude_operations_json TEXT,
+        mcp_url                 TEXT,
+        mcp_transport           TEXT CHECK (mcp_transport IN ('streamable-http', 'sse')),
+        featured                INTEGER NOT NULL DEFAULT 0,
+        created_at              INTEGER NOT NULL,
+        updated_at              INTEGER NOT NULL,
+        created_by              TEXT
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_catalog_entries_category ON catalog_entries(category);
+    `,
+  },
+  {
+    id: 45,
+    name: "ws_proxy_targets",
+    sql: `
+      CREATE TABLE IF NOT EXISTS ws_proxy_targets (
+        name                TEXT PRIMARY KEY
+                              CHECK (name GLOB '[a-z0-9]*' AND length(name) BETWEEN 1 AND 63),
+        backend_ws_url      TEXT NOT NULL,
+        resolved_ip         TEXT NOT NULL,
+        max_connections     INTEGER NOT NULL DEFAULT 10,
+        max_message_bytes   INTEGER NOT NULL DEFAULT 1048576,
+        idle_timeout_ms     INTEGER NOT NULL DEFAULT 300000,
+        enabled             INTEGER NOT NULL DEFAULT 1,
+        created_at          INTEGER NOT NULL,
+        updated_at          INTEGER NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

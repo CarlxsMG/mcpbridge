@@ -70,6 +70,7 @@ export interface ToolDetail {
     state: { quarantined: boolean; consecutiveHits: number; quarantinedAt: number | null; reason: string | null; cooldownUntil: number | null };
   };
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
+  graphql?: { enabled: boolean; query: string };
 }
 
 export interface TraceSummary {
@@ -256,6 +257,41 @@ export interface ApiErrorBody {
   error: { code: string; message: string; request_id?: string | null };
 }
 
+/** GET /admin-api/ws-proxy-targets item — a live WebSocket passthrough target (see src/ws-proxy.ts). */
+export interface WsProxyTarget {
+  name: string;
+  backendWsUrl: string;
+  resolvedIp: string;
+  maxConnections: number;
+  maxMessageBytes: number;
+  idleTimeoutMs: number;
+  enabled: boolean;
+  activeConnections: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** GET /admin-api/catalog item — merges the static builtin gallery with admin-authored custom entries. */
+export interface CatalogEntry {
+  id: string; // "builtin:<slug>" or "custom:<row id>"
+  source: "builtin" | "custom";
+  slug: string;
+  name: string;
+  description: string | null;
+  kind: "rest" | "mcp";
+  category: string | null;
+  tags: string[];
+  icon: string | null;
+  openapiUrl?: string | null;
+  healthUrl?: string | null;
+  baseUrl?: string | null;
+  includeTags?: string[] | null;
+  excludeOperations?: string[] | null;
+  mcpUrl?: string | null;
+  mcpTransport?: "streamable-http" | "sse" | null;
+  featured: boolean;
+}
+
 export interface McpKeyScopes {
   clients?: string[];
   tools?: string[];
@@ -265,6 +301,7 @@ export interface Consumer {
   id: number;
   name: string;
   monthlyQuota: number | null;
+  endUserRateLimitPerMin: number | null;
   createdAt: number;
   updatedAt: number;
   createdBy: string | null;

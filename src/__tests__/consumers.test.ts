@@ -5,7 +5,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../registry.js";
 import { proxyToolCall } from "../proxy.js";
-import { createConsumer, updateConsumer, deleteConsumer, listConsumers, checkConsumerQuota } from "../consumers.js";
+import { createConsumer, updateConsumer, deleteConsumer, listConsumers, checkConsumerQuota, checkEndUserRateLimit } from "../consumers.js";
 import { createMcpKey, getMcpKey } from "../security/mcp-key-store.js";
 import type { RestToolDefinition } from "../types.js";
 
@@ -54,6 +54,33 @@ describe("consumers", () => {
     const unlimited = createConsumer({ name: "team-b", monthlyQuota: null, actor: null });
     expect(checkConsumerQuota(unlimited.id).exceeded).toBe(false);
   });
+
+  test("endUserRateLimitPerMin round-trips through create/update", () => {
+    const c = createConsumer({ name: "team-a", monthlyQuota: null, endUserRateLimitPerMin: 10, actor: null });
+    expect(c.endUserRateLimitPerMin).toBe(10);
+    expect(updateConsumer(c.id, { endUserRateLimitPerMin: 20 })?.endUserRateLimitPerMin).toBe(20);
+    expect(updateConsumer(c.id, { endUserRateLimitPerMin: null })?.endUserRateLimitPerMin).toBeNull();
+  });
+
+  test("checkEndUserRateLimit: unset consumer never limits", () => {
+    const c = createConsumer({ name: "team-a", monthlyQuota: null, actor: null });
+    for (let i = 0; i < 20; i++) {
+      expect(checkEndUserRateLimit(c.id, "alice").limited).toBe(false);
+    }
+  });
+
+  test("checkEndUserRateLimit: limits per end-user once opted in, independently per id", () => {
+    const c = createConsumer({ name: "team-a", monthlyQuota: null, endUserRateLimitPerMin: 2, actor: null });
+    expect(checkEndUserRateLimit(c.id, "alice").limited).toBe(false);
+    expect(checkEndUserRateLimit(c.id, "alice").limited).toBe(false);
+    expect(checkEndUserRateLimit(c.id, "alice").limited).toBe(true);
+    // A different end-user under the same consumer is unaffected.
+    expect(checkEndUserRateLimit(c.id, "bob").limited).toBe(false);
+  });
+
+  test("checkEndUserRateLimit: unknown consumer fails open", () => {
+    expect(checkEndUserRateLimit(999999, "alice").limited).toBe(false);
+  });
 });
 
 describe("proxy quota enforcement", () => {
@@ -86,6 +113,85 @@ describe("proxy quota enforcement", () => {
     mockOkFetch();
     for (let i = 0; i < 3; i++) {
       expect((await proxyToolCall("svc__get-users", {}, rawKey)).isError).toBeUndefined();
+    }
+  });
+});
+
+describe("proxy end-user rate limit enforcement", () => {
+  test("blocks the caller-asserted end-user id that exceeds the per-minute cap, others unaffected", async () => {
+    await reg("svc");
+    const c = createConsumer({ name: "team", monthlyQuota: null, endUserRateLimitPerMin: 2, actor: null });
+    const { rawKey } = createMcpKey("k", null, null, null, c.id);
+    mockOkFetch();
+
+    expect((await proxyToolCall("svc__get-users", {}, rawKey, { endUserId: "alice" })).isError).toBeUndefined();
+    expect((await proxyToolCall("svc__get-users", {}, rawKey, { endUserId: "alice" })).isError).toBeUndefined();
+    const third = await proxyToolCall("svc__get-users", {}, rawKey, { endUserId: "alice" });
+    expect(third.isError).toBe(true);
+    expect(third.content[0].text.toLowerCase()).toContain("end-user rate limit");
+
+    // A different end-user under the same key/consumer is unaffected.
+    expect((await proxyToolCall("svc__get-users", {}, rawKey, { endUserId: "bob" })).isError).toBeUndefined();
+  });
+
+  test("a consumer that hasn't opted in is never blocked regardless of asserted identity", async () => {
+    await reg("svc");
+    const c = createConsumer({ name: "team", monthlyQuota: null, actor: null });
+    const { rawKey } = createMcpKey("k", null, null, null, c.id);
+    mockOkFetch();
+    for (let i = 0; i < 5; i++) {
+      expect((await proxyToolCall("svc__get-users", {}, rawKey, { endUserId: "alice" })).isError).toBeUndefined();
+    }
+  });
+
+  test("a call asserting no identity bypasses the check entirely", async () => {
+    await reg("svc");
+    const c = createConsumer({ name: "team", monthlyQuota: null, endUserRateLimitPerMin: 1, actor: null });
+    const { rawKey } = createMcpKey("k", null, null, null, c.id);
+    mockOkFetch();
+    for (let i = 0; i < 3; i++) {
+      expect((await proxyToolCall("svc__get-users", {}, rawKey)).isError).toBeUndefined();
+    }
+  });
+
+  test("header wins over __end_user arg when both are present and disagree", async () => {
+    await reg("svc");
+    const c = createConsumer({ name: "team", monthlyQuota: null, endUserRateLimitPerMin: 1, actor: null });
+    const { rawKey } = createMcpKey("k", null, null, null, c.id);
+    mockOkFetch();
+
+    // Exhaust "alice" via the header.
+    expect((await proxyToolCall("svc__get-users", {}, rawKey, { endUserId: "alice" })).isError).toBeUndefined();
+    // header="alice" (exhausted) + arg="bob" (fresh) -> header wins, still blocked.
+    const blocked = await proxyToolCall("svc__get-users", { __end_user: "bob" }, rawKey, { endUserId: "alice" });
+    expect(blocked.isError).toBe(true);
+
+    // Only the arg present (no header) is limited independently.
+    expect((await proxyToolCall("svc__get-users", { __end_user: "carol" }, rawKey)).isError).toBeUndefined();
+    const blockedArgOnly = await proxyToolCall("svc__get-users", { __end_user: "carol" }, rawKey);
+    expect(blockedArgOnly.isError).toBe(true);
+  });
+
+  test("__end_user is stripped and never sent upstream", async () => {
+    await reg("svc");
+    const c = createConsumer({ name: "team", monthlyQuota: null, endUserRateLimitPerMin: 5, actor: null });
+    const { rawKey } = createMcpKey("k", null, null, null, c.id);
+    let capturedUrl = "";
+    globalThis.fetch = (async (url: string) => {
+      capturedUrl = String(url);
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+
+    await proxyToolCall("svc__get-users", { __end_user: "alice" }, rawKey);
+    expect(capturedUrl).not.toContain("__end_user");
+  });
+
+  test("a key with no consumer is unaffected by end-user limiting even if it asserts an identity", async () => {
+    await reg("svc");
+    const { rawKey } = createMcpKey("k", null, null, null);
+    mockOkFetch();
+    for (let i = 0; i < 3; i++) {
+      expect((await proxyToolCall("svc__get-users", {}, rawKey, { endUserId: "alice" })).isError).toBeUndefined();
     }
   });
 });

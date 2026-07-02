@@ -5,6 +5,7 @@ import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { config } from "../config.js";
 import { validateBackendUrl } from "../security/ip-validator.js";
 import { discoverToolsFromOpenApi } from "../openapi-discovery.js";
+import { discoverToolsFromGraphQl } from "../graphql-discovery.js";
 import { recordAudit, actorFromRequest } from "../admin/audit.js";
 
 function requestId(res: Response): string | null {
@@ -59,6 +60,49 @@ export function discoveryRoutes(app: Express): void {
         res.status(200).json({
           count: tools.length,
           tools: tools.map((t) => ({ name: t.name, method: t.method, endpoint: t.endpoint, description: t.description })),
+        });
+      } catch (err) {
+        res.status(400).json({ error: { code: "DISCOVERY_ERROR", message: err instanceof Error ? err.message : String(err), request_id: requestId(res) } });
+      }
+    }
+  );
+
+  /**
+   * GraphQL counterpart of the OpenAPI preview above: runs introspection and
+   * returns the discovered tools WITHOUT persisting. Introspection alone
+   * cannot mutate server state, so preview is safe to run repeatedly.
+   */
+  app.post(
+    "/admin-api/discovery/preview-graphql",
+    adminAuth,
+    requireAdminRole,
+    rateLimitRegister(config.rateLimitRegister),
+    async (req: Request, res: Response) => {
+      const body = (req.body as Record<string, unknown>) ?? {};
+      const graphqlUrl = typeof body.graphql_url === "string" ? body.graphql_url : "";
+
+      if (!graphqlUrl.startsWith("http://") && !graphqlUrl.startsWith("https://")) {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "graphql_url must be an absolute http(s) URL", request_id: requestId(res) } });
+        return;
+      }
+
+      const validation = await validateBackendUrl(graphqlUrl, config.allowPrivateIps, config.allowedHosts);
+      if (!validation.valid) {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `Invalid graphql_url: ${validation.reason}`, request_id: requestId(res) } });
+        return;
+      }
+
+      try {
+        const hostname = new URL(graphqlUrl).hostname;
+        const tools = await discoverToolsFromGraphQl({
+          graphqlUrl,
+          ipPin: { resolvedIp: validation.resolvedIp!, hostname },
+          includeMutations: body.include_mutations !== false,
+        });
+        recordAudit(actorFromRequest(req), "discovery.preview_graphql", graphqlUrl, { count: tools.length });
+        res.status(200).json({
+          count: tools.length,
+          tools: tools.map((t) => ({ name: t.name, method: "POST", endpoint: new URL(graphqlUrl).pathname || "/graphql", description: t.description })),
         });
       } catch (err) {
         res.status(400).json({ error: { code: "DISCOVERY_ERROR", message: err instanceof Error ? err.message : String(err), request_id: requestId(res) } });

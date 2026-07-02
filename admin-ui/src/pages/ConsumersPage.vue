@@ -14,9 +14,11 @@ const pendingDelete = ref<ConsumerWithUsage | null>(null);
 const showCreate = ref(false);
 const newName = ref("");
 const newQuota = ref("");
+const newEndUserLimit = ref("");
 const createError = ref("");
 const nameError = ref("");
 const quotaError = ref("");
+const endUserLimitError = ref("");
 const creating = ref(false);
 const editingConsumer = ref<ConsumerWithUsage | null>(null);
 
@@ -37,9 +39,11 @@ function openCreate() {
   editingConsumer.value = null;
   newName.value = "";
   newQuota.value = "";
+  newEndUserLimit.value = "";
   createError.value = "";
   nameError.value = "";
   quotaError.value = "";
+  endUserLimitError.value = "";
   showCreate.value = true;
 }
 
@@ -47,9 +51,11 @@ function openEdit(consumer: ConsumerWithUsage) {
   editingConsumer.value = consumer;
   newName.value = consumer.name;
   newQuota.value = consumer.monthlyQuota !== null ? String(consumer.monthlyQuota) : "";
+  newEndUserLimit.value = consumer.endUserRateLimitPerMin !== null ? String(consumer.endUserRateLimitPerMin) : "";
   createError.value = "";
   nameError.value = "";
   quotaError.value = "";
+  endUserLimitError.value = "";
   showCreate.value = true;
 }
 
@@ -58,15 +64,18 @@ function closeForm() {
   editingConsumer.value = null;
   newName.value = "";
   newQuota.value = "";
+  newEndUserLimit.value = "";
   createError.value = "";
   nameError.value = "";
   quotaError.value = "";
+  endUserLimitError.value = "";
 }
 
 async function submitConsumer() {
   createError.value = "";
   nameError.value = "";
   quotaError.value = "";
+  endUserLimitError.value = "";
   if (!newName.value.trim()) {
     nameError.value = "Name is required.";
   }
@@ -79,15 +88,24 @@ async function submitConsumer() {
       quota = n;
     }
   }
-  if (nameError.value || quotaError.value) {
+  let endUserRateLimitPerMin: number | null = null;
+  if (newEndUserLimit.value.trim()) {
+    const n = Number(newEndUserLimit.value.trim());
+    if (!Number.isFinite(n)) {
+      endUserLimitError.value = "Per-end-user rate limit must be a plain number, or blank.";
+    } else {
+      endUserRateLimitPerMin = n;
+    }
+  }
+  if (nameError.value || quotaError.value || endUserLimitError.value) {
     return;
   }
   creating.value = true;
   try {
     if (editingConsumer.value) {
-      await api.patch(`/admin-api/consumers/${editingConsumer.value.id}`, { name: newName.value.trim(), monthlyQuota: quota });
+      await api.patch(`/admin-api/consumers/${editingConsumer.value.id}`, { name: newName.value.trim(), monthlyQuota: quota, endUserRateLimitPerMin });
     } else {
-      await api.post("/admin-api/consumers", { name: newName.value.trim(), monthlyQuota: quota });
+      await api.post("/admin-api/consumers", { name: newName.value.trim(), monthlyQuota: quota, endUserRateLimitPerMin });
     }
     closeForm();
     await load();
@@ -116,7 +134,7 @@ async function confirmDelete() {
     <header class="page-header">
       <div>
         <h1>Consumers</h1>
-        <p class="subtitle">Consumers (teams / apps) own API keys and can carry a monthly call quota enforced across all their keys.</p>
+        <p class="subtitle">Consumers (teams / apps) own API keys and can carry a monthly call quota and an optional per-end-user rate limit enforced across all their keys.</p>
       </div>
       <button type="button" :class="showCreate ? 'btn-secondary' : 'btn-primary'" @click="showCreate ? closeForm() : openCreate()">{{ showCreate ? "Cancel" : "New consumer" }}</button>
     </header>
@@ -131,6 +149,11 @@ async function confirmDelete() {
         <label for="c-quota">Monthly quota (blank = unlimited)</label>
         <input id="c-quota" v-model="newQuota" type="text" inputmode="numeric" />
         <p v-if="quotaError" class="error">{{ quotaError }}</p>
+      </div>
+      <div class="field">
+        <label for="c-end-user-limit">Per-end-user rate limit (calls/min, blank = disabled)</label>
+        <input id="c-end-user-limit" v-model="newEndUserLimit" type="text" inputmode="numeric" />
+        <p v-if="endUserLimitError" class="error">{{ endUserLimitError }}</p>
       </div>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">
@@ -147,11 +170,12 @@ async function confirmDelete() {
 
     <div v-else class="table-card table-scroll">
       <table class="cons-table">
-        <thead><tr><th>Name</th><th>Quota</th><th>Used this month</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Quota</th><th>Per-end-user limit</th><th>Used this month</th><th></th></tr></thead>
         <tbody>
           <tr v-for="c in consumers" :key="c.id">
             <td>{{ c.name }}</td>
             <td>{{ c.monthlyQuota ?? "Unlimited" }}</td>
+            <td>{{ c.endUserRateLimitPerMin !== null ? `${c.endUserRateLimitPerMin}/min per user` : "—" }}</td>
             <td :class="{ hot: c.monthlyQuota !== null && c.usedThisMonth >= c.monthlyQuota }">
               <div class="usage-cell">
                 <span>{{ c.usedThisMonth }}</span>

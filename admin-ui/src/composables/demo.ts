@@ -13,6 +13,7 @@ import type {
   AuditLogEntry,
   BundleDetail,
   BundleSummary,
+  CatalogEntry,
   ClientDetail,
   ClientSummary,
   CompositeSummary,
@@ -38,6 +39,7 @@ import type {
   UsageTimeseries,
   UsageTimeseriesPoint,
   AdminUserSummary,
+  WsProxyTarget,
 } from "../types/api";
 
 const NOW = Date.now();
@@ -61,6 +63,64 @@ const bundles: BundleSummary[] = [
   { name: "support-agent", description: "Read-only GitHub + Slack tools for the support copilot", enabled: true, toolsCount: 5 },
   { name: "billing-ops", description: "Stripe refunds & invoice lookups for finance", enabled: true, toolsCount: 4 },
   { name: "readonly-explorer", description: "Safe, read-only slice across every backend", enabled: false, toolsCount: 7 },
+];
+
+const catalogEntries: CatalogEntry[] = [
+  {
+    id: "builtin:petstore",
+    source: "builtin",
+    slug: "petstore",
+    name: "Swagger Petstore",
+    description: "The canonical OpenAPI sample API — pets, orders, and inventory.",
+    kind: "rest",
+    category: "Examples",
+    tags: ["demo", "no-auth", "openapi-sample"],
+    icon: "paw-print",
+    healthUrl: "https://petstore3.swagger.io/",
+    openapiUrl: "https://petstore3.swagger.io/api/v3/openapi.json",
+    featured: true,
+  },
+  {
+    id: "custom:1",
+    source: "custom",
+    slug: "internal-crm-staging",
+    name: "Internal CRM (staging)",
+    description: "Reusable template for spinning up a staging CRM registration.",
+    kind: "rest",
+    category: "Internal",
+    tags: ["internal", "staging"],
+    icon: null,
+    healthUrl: "https://crm.staging.internal/health",
+    openapiUrl: "https://crm.staging.internal/openapi.json",
+    featured: false,
+  },
+];
+
+const wsProxyTargets: WsProxyTarget[] = [
+  {
+    name: "iot-gateway",
+    backendWsUrl: "wss://iot.internal/socket",
+    resolvedIp: "203.0.113.20",
+    maxConnections: 10,
+    maxMessageBytes: 1_048_576,
+    idleTimeoutMs: 300_000,
+    enabled: true,
+    activeConnections: 3,
+    createdAt: days(30),
+    updatedAt: days(2),
+  },
+  {
+    name: "legacy-feed",
+    backendWsUrl: "wss://feed.legacy.internal/stream",
+    resolvedIp: "203.0.113.21",
+    maxConnections: 5,
+    maxMessageBytes: 262_144,
+    idleTimeoutMs: 120_000,
+    enabled: false,
+    activeConnections: 0,
+    createdAt: days(60),
+    updatedAt: days(10),
+  },
 ];
 
 // ─── Tool catalogs per client (drive the flat list + client detail) ──────────
@@ -154,9 +214,9 @@ const mcpKeys: McpApiKey[] = [
 ];
 
 const consumers: ConsumerWithUsage[] = [
-  { id: 1, name: "Support team", monthlyQuota: 50000, usedThisMonth: 18423, createdAt: days(90), updatedAt: days(2), createdBy: "demo" },
-  { id: 2, name: "Finance", monthlyQuota: 10000, usedThisMonth: 2140, createdAt: days(75), updatedAt: days(5), createdBy: "demo" },
-  { id: 3, name: "Internal agents", monthlyQuota: null, usedThisMonth: 60127, createdAt: days(120), updatedAt: days(1), createdBy: "demo" },
+  { id: 1, name: "Support team", monthlyQuota: 50000, endUserRateLimitPerMin: 20, usedThisMonth: 18423, createdAt: days(90), updatedAt: days(2), createdBy: "demo" },
+  { id: 2, name: "Finance", monthlyQuota: 10000, endUserRateLimitPerMin: null, usedThisMonth: 2140, createdAt: days(75), updatedAt: days(5), createdBy: "demo" },
+  { id: 3, name: "Internal agents", monthlyQuota: null, endUserRateLimitPerMin: null, usedThisMonth: 60127, createdAt: days(120), updatedAt: days(1), createdBy: "demo" },
 ];
 
 const alerts: AlertRule[] = [
@@ -366,6 +426,88 @@ function route(pathname: string, method: string, body: Record<string, unknown> |
 
   if (p === "/admin-api/tools") return ok({ items: flatTools });
 
+  // Catalog
+  if (p === "/admin-api/catalog" && method === "GET") return ok({ items: catalogEntries });
+  if (p === "/admin-api/catalog" && method === "POST") {
+    const entry: CatalogEntry = {
+      id: `custom:${catalogEntries.length + 1}`,
+      source: "custom",
+      slug: String(body?.slug ?? "new-entry"),
+      name: String(body?.name ?? "New entry"),
+      description: (body?.description as string) ?? null,
+      kind: (body?.kind as "rest" | "mcp") ?? "rest",
+      category: (body?.category as string) ?? null,
+      tags: [],
+      icon: null,
+      healthUrl: (body?.healthUrl as string) ?? null,
+      openapiUrl: (body?.openapiUrl as string) ?? null,
+      mcpUrl: (body?.mcpUrl as string) ?? null,
+      featured: false,
+    };
+    catalogEntries.push(entry);
+    return ok(entry);
+  }
+  const catalogInstallMatch = p.match(/^\/admin-api\/catalog\/([^/]+)\/install$/);
+  if (catalogInstallMatch) {
+    const entry = catalogEntries.find((e) => e.id === decodeURIComponent(catalogInstallMatch[1]));
+    const name = String(body?.name ?? entry?.slug ?? "new-server");
+    return ok({ status: "registered", name, tools_count: 3, source: entry?.kind === "mcp" ? "mcp" : "openapi" });
+  }
+  const catalogEntryMatch = p.match(/^\/admin-api\/catalog\/([^/]+)$/);
+  if (catalogEntryMatch) {
+    const id = decodeURIComponent(catalogEntryMatch[1]);
+    if (method === "DELETE") {
+      const idx = catalogEntries.findIndex((e) => e.id === id);
+      if (idx !== -1) catalogEntries.splice(idx, 1);
+      return ok({ status: "deleted", id });
+    }
+    if (method === "PATCH") {
+      const e = catalogEntries.find((x) => x.id === id);
+      if (e && body) Object.assign(e, body);
+      return ok(e ?? {});
+    }
+  }
+
+  // WS proxy targets
+  if (p === "/admin-api/ws-proxy-targets" && method === "GET") return ok({ items: wsProxyTargets });
+  if (p === "/admin-api/ws-proxy-targets" && method === "POST") {
+    const target: WsProxyTarget = {
+      name: String(body?.name ?? "new-target"),
+      backendWsUrl: String(body?.backendWsUrl ?? ""),
+      resolvedIp: "203.0.113.99",
+      maxConnections: Number(body?.maxConnections ?? 10),
+      maxMessageBytes: Number(body?.maxMessageBytes ?? 1_048_576),
+      idleTimeoutMs: Number(body?.idleTimeoutMs ?? 300_000),
+      enabled: true,
+      activeConnections: 0,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    wsProxyTargets.push(target);
+    return ok(target);
+  }
+  const wsProxyDisconnectMatch = p.match(/^\/admin-api\/ws-proxy-targets\/([^/]+)\/disconnect-all$/);
+  if (wsProxyDisconnectMatch) {
+    const t = wsProxyTargets.find((x) => x.name === decodeURIComponent(wsProxyDisconnectMatch[1]));
+    const closed = t?.activeConnections ?? 0;
+    if (t) t.activeConnections = 0;
+    return ok({ status: "disconnected", closed });
+  }
+  const wsProxyTargetMatch = p.match(/^\/admin-api\/ws-proxy-targets\/([^/]+)$/);
+  if (wsProxyTargetMatch) {
+    const name = decodeURIComponent(wsProxyTargetMatch[1]);
+    if (method === "DELETE") {
+      const idx = wsProxyTargets.findIndex((x) => x.name === name);
+      if (idx !== -1) wsProxyTargets.splice(idx, 1);
+      return ok({ status: "deleted", name });
+    }
+    if (method === "PATCH") {
+      const t = wsProxyTargets.find((x) => x.name === name);
+      if (t && body) Object.assign(t, body);
+      return ok(t ?? {});
+    }
+  }
+
   // Keys & consumers
   if (p === "/admin-api/mcp-keys" && method === "GET") return ok({ items: mcpKeys });
   if (p === "/admin-api/mcp-keys" && method === "POST") {
@@ -468,7 +610,7 @@ function route(pathname: string, method: string, body: Record<string, unknown> |
   if (/^\/admin-api\/config\/(snapshots|import)/.test(p)) return ok({ dryRun: true, applied: { bundles: 3, alertRules: 3, clientsConfigured: 6, toolsConfigured: 42 }, skipped: [] });
 
   // Discovery preview (Add server / re-sync)
-  if (p === "/admin-api/discovery/preview" || p === "/register") return ok(discoveryPreview);
+  if (p === "/admin-api/discovery/preview" || p === "/admin-api/discovery/preview-graphql" || p === "/register") return ok(discoveryPreview);
 
   // Graceful default: never 404 the demo.
   if (method === "GET") return ok({ items: [] });

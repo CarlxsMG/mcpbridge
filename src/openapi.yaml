@@ -1387,6 +1387,19 @@ components:
           example:
             - healthz
             - getMetrics
+        graphql_url:
+          type: string
+          description: >
+            URL or relative path to a GraphQL endpoint with introspection
+            enabled. When provided (or kind is "graphql"), the bridge runs
+            introspection and registers one tool per query/mutation field —
+            mutually exclusive with 'tools' and 'openapi_url'.
+          example: /graphql
+        include_mutations:
+          type: boolean
+          description: >
+            Optional filter for GraphQL auto-discovery mode. When false, only
+            query fields are registered as tools. Defaults to true.
       example:
         name: customer_service
         health_url: /health

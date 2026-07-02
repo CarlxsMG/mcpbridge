@@ -22,7 +22,7 @@ import { getGuardrailsForClient } from "./guardrails.js";
 import { getCoalesceForClient } from "./coalesce.js";
 import { getApprovalConfigForClient } from "./approvals.js";
 import { getQuarantineForClient } from "./quarantine.js";
-import { getWsForClient } from "./backends.js";
+import { getWsForClient, getGraphqlForClient } from "./backends.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";
 
@@ -1364,9 +1364,10 @@ class Registry {
     const approvalMap = getApprovalConfigForClient(name);
     const quarantineMap = getQuarantineForClient(name);
     const wsMap = getWsForClient(name);
+    const graphqlMap = getGraphqlForClient(name);
     let tools: RegisteredTool[];
     if (live) {
-      tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [], sensitive: sensMap[t.name] ?? null, redactPaths: redactMap[t.name] ?? [], guardrails: guardrailMap[t.name], coalesce: coalesceMap[t.name], approval: approvalMap[t.name], quarantine: quarantineMap[t.name], ws: wsMap[t.name] }));
+      tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [], sensitive: sensMap[t.name] ?? null, redactPaths: redactMap[t.name] ?? [], guardrails: guardrailMap[t.name], coalesce: coalesceMap[t.name], approval: approvalMap[t.name], quarantine: quarantineMap[t.name], ws: wsMap[t.name], graphql: graphqlMap[t.name] }));
     } else {
       const toolRows = db
         .query(`SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`)
@@ -1396,6 +1397,7 @@ class Registry {
           approval: approvalMap[t.name],
           quarantine: quarantineMap[t.name],
           ws: wsMap[t.name],
+          graphql: graphqlMap[t.name],
         };
       });
     }
