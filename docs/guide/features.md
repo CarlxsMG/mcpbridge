@@ -14,6 +14,11 @@ Everything MCP REST Bridge does, grouped by what you're trying to accomplish.
 - **Tool aliases & display names** to present clean, client-friendly tool names.
 - **Composite / macro tools** that run several steps as one call, each step through the full
   guard stack.
+- **GraphQL & WebSocket backends** (per-tool) — wrap a call's arguments as a GraphQL
+  `{ query, variables }` request, or do an ephemeral request/response over a WebSocket, reusing the
+  same guard stack as REST.
+- **Upstream resources & prompts** — a per-client `/mcp/:name` endpoint pointed at an MCP server now
+  passes through its resources and prompts, not only its tools.
 
 ## Govern & secure
 
@@ -27,6 +32,14 @@ Everything MCP REST Bridge does, grouped by what you're trying to accomplish.
 - **Team multi-tenancy** — scope clients to teams so tenants only see their own.
 - **Session-based admin login** (argon2id via `Bun.password`) plus a static Bearer key path
   for CI/automation, with CSRF protection on cookie-authenticated mutations.
+- **Inbound OAuth2 / JWT** (optional) — accept OAuth2/OIDC access tokens (RS256/ES256) verified
+  against a JWKS endpoint, alongside static and DB-managed keys. No extra dependency (WebCrypto).
+- **Outbound OAuth2 client-credentials** — the bridge mints and auto-refreshes a token from the
+  backend's token endpoint and injects it, so the MCP caller never sees the real client secret.
+- **Human-in-the-loop approval** — high-risk tools can require an out-of-band admin approval; the
+  call files a ticket bound to its exact arguments and is single-use once approved.
+- **Declarative request/response transforms** — reshape a tool's args or JSON response
+  (set / remove / rename / copy) without code and with no expression eval to exploit.
 
 ## Operate with confidence
 
@@ -38,6 +51,15 @@ Everything MCP REST Bridge does, grouped by what you're trying to accomplish.
   without falsely closing the primary breaker.
 - **Config versioning + rollback**, plus import/export of the whole configuration.
 - **Maintenance schedules** via a built-in cron matcher (leader-gated, de-duplicated).
+- **Response caching** — per-tool TTL + LRU cache for idempotent `GET` responses, served after all
+  guards but before the circuit breaker (a cache hit never burns a half-open probe).
+- **N-way load balancing** — spread calls across a pool of upstreams (round-robin / weighted /
+  least-connections) with a per-target health cooldown, on top of the primary circuit breaker.
+- **Auto-pagination** — follow cursor / page / RFC-5988 `Link` pagination and aggregate the pages
+  into one response (same-host only, SSRF-safe).
+- **Streaming normalization** — turn an NDJSON or SSE response into a single aggregated JSON result.
+- **Mock / virtualization** — serve a canned response (always, for contract-first development) or
+  only as a fallback when the backend is unavailable.
 
 ## Observe
 
@@ -46,6 +68,10 @@ Everything MCP REST Bridge does, grouped by what you're trying to accomplish.
 - **Usage analytics** and **usage-anomaly / spike detection** that fires alerts via webhooks.
 - **Tamper-evident audit log** — every admin action is hash-chained (`hash = SHA256(prev | …)`)
   and can be verified; optionally streamed to a SIEM.
+- **Traffic explorer + replay** — opt-in per-call capture (arguments + a result preview) you can
+  inspect and re-run from the admin API.
+- **Synthetic monitoring + schema-drift** — periodically replay a saved example through a tool and
+  flag failures, and detect when an upstream's input schema drifts from a captured baseline.
 
 ## Scale (opt-in)
 
