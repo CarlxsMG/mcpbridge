@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/index.ts",
+    "dev:ui": "cd admin-ui && bun run dev",
+    "dev:all": "bun scripts/dev-all.ts",
     "start": "bun src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
