@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // "The request path" — a vertical view of how one tool call flows through the
-// bridge: in over MCP, down the guard pipeline (proxyToolCall), out to the backend
-// at Dispatch, and back to the caller. Same visual system as HowItWorks: fixed
-// light card, one ink bridge, teal artery, crisp dark-on-light chips.
+// bridge: in over MCP from the client, down the guard pipeline (proxyToolCall),
+// out to the backend at Dispatch, then back to the same client as the result.
+// Same visual system as HowItWorks: fixed light card, one ink bridge, teal
+// artery, crisp dark-on-light chips.
 
 const stages = [
   'Scope filter',
@@ -13,17 +14,17 @@ const stages = [
   'Sanitize · redact',
   'Audit · trace',
 ]
-const TOP = 176
-const GAP = 40
+const TOP = 196
+const GAP = 36
 const y = (i: number) => TOP + i * GAP
-const DISPATCH = 4 // index of the Dispatch stage
+const DISPATCH = 4 // index of the Dispatch stage → y = 196 + 4*36 = 340
 </script>
 
 <template>
   <figure class="rp">
     <div class="rp-card">
       <div class="rp-scroll">
-        <svg viewBox="0 0 680 500" role="img" aria-labelledby="rp-title rp-desc" class="rp-svg">
+        <svg viewBox="0 0 680 540" role="img" aria-labelledby="rp-title rp-desc" class="rp-svg">
           <title id="rp-title">The request path through MCP REST Bridge</title>
           <desc id="rp-desc">
             A tool call arrives over MCP, descends the guard pipeline — scope filter, guardrails,
@@ -37,63 +38,68 @@ const DISPATCH = 4 // index of the Dispatch stage
             </marker>
           </defs>
 
-          <!-- request in / result out arrows -->
-          <path class="rp-flow" d="M340 66 V88" marker-end="url(#rp-arrow)" fill="none" />
-          <path class="rp-flow" d="M340 462 V486" marker-end="url(#rp-arrow)" fill="none" />
-
           <!-- 1 · bridge card (ink) -->
-          <rect class="rp-bridge" x="206" y="90" width="268" height="372" rx="18" />
+          <rect class="rp-bridge" x="206" y="104" width="268" height="344" rx="18" />
 
-          <!-- 2 · dispatch <-> backend connector (bidirectional) -->
-          <path class="rp-flow" d="M474 336 H556" marker-start="url(#rp-arrow)" marker-end="url(#rp-arrow)" fill="none" />
+          <!-- 2 · request-in / result-out arrows (client <-> bridge) -->
+          <path class="rp-flow" d="M340 64 V100" marker-end="url(#rp-arrow)" fill="none" />
+          <path class="rp-flow" d="M340 448 V484" marker-end="url(#rp-arrow)" fill="none" />
 
-          <!-- 3 · the teal artery / pipeline spine -->
-          <path class="rp-spine" d="M248 168 V424" fill="none" />
+          <!-- 3 · Dispatch <-> Backend — starts INSIDE the bridge so it reads as linked -->
+          <path class="rp-flow" d="M344 340 H548" marker-start="url(#rp-arrow)" marker-end="url(#rp-arrow)" fill="none" />
 
-          <!-- 4 · travelling signals (before nodes → pass behind them) -->
+          <!-- 4 · the teal artery / pipeline spine -->
+          <path class="rp-spine" d="M248 188 V420" fill="none" />
+
+          <!-- 5 · travelling signals (before nodes → pass behind them) -->
           <circle class="rp-pulse-halo rp-a" r="8" />
           <circle class="rp-pulse rp-a" r="4.2" />
           <circle class="rp-pulse-halo rp-b" r="8" />
           <circle class="rp-pulse rp-b" r="4.2" />
 
-          <!-- 5 · stage stations -->
+          <!-- 6 · stage stations -->
           <g class="rp-stations">
             <template v-for="(s, i) in stages" :key="s">
               <circle class="rp-node" :cx="248" :cy="y(i)" r="7" />
               <circle class="rp-node-core" :cx="248" :cy="y(i)" r="2.6" />
-              <text class="rp-stage" :class="{ 'is-dispatch': i === DISPATCH }" x="270" :y="y(i) + 4">{{ s }}</text>
+              <text class="rp-stage" :class="{ 'is-dispatch': i === DISPATCH }" x="268" :y="y(i) + 4">{{ s }}</text>
             </template>
           </g>
 
-          <!-- 6 · bridge header -->
-          <g class="rp-glyph" transform="translate(230,110)">
+          <!-- 7 · bridge header -->
+          <g class="rp-glyph" transform="translate(230,124)">
             <line x1="4" y1="1" x2="4" y2="12" />
             <circle cx="14" cy="4" r="2.4" />
             <circle cx="4" cy="15" r="2.4" />
             <path d="M14 6.4a7 7 0 0 1-7 7" />
           </g>
-          <text class="rp-bridge-title" x="256" y="122">MCP REST Bridge</text>
-          <text class="rp-bridge-sub" x="230" y="142">proxyToolCall — one guarded path</text>
-          <line class="rp-divider" x1="230" y1="154" x2="450" y2="154" />
+          <text class="rp-bridge-title" x="256" y="137">MCP REST Bridge</text>
+          <text class="rp-bridge-sub" x="230" y="157">proxyToolCall — one guarded path</text>
+          <line class="rp-divider" x1="230" y1="169" x2="450" y2="169" />
 
-          <!-- 7 · caller + backend chips -->
+          <!-- 8 · client (top: request, bottom: result) + backend chips -->
           <g class="rp-chip-g">
-            <rect class="rp-chip" x="254" y="20" width="172" height="46" rx="11" />
-            <circle class="rp-cnode" cx="278" cy="43" r="4" />
-            <text class="rp-label" x="296" y="48">MCP client</text>
+            <rect class="rp-chip" x="254" y="14" width="172" height="46" rx="11" />
+            <circle class="rp-cnode" cx="278" cy="37" r="4" />
+            <text class="rp-label" x="296" y="42">MCP client</text>
           </g>
           <g class="rp-chip-g">
-            <rect class="rp-chip" x="556" y="312" width="120" height="48" rx="11" />
-            <circle class="rp-cnode" cx="578" cy="336" r="4" />
-            <text class="rp-label rp-label-sm" x="594" y="332">Backend</text>
-            <text class="rp-backend-sub" x="594" y="348">REST or MCP</text>
+            <rect class="rp-chip" x="254" y="486" width="172" height="46" rx="11" />
+            <circle class="rp-cnode" cx="278" cy="509" r="4" />
+            <text class="rp-label" x="296" y="514">MCP client</text>
+          </g>
+          <g class="rp-chip-g">
+            <rect class="rp-chip" x="556" y="316" width="120" height="48" rx="11" />
+            <circle class="rp-cnode" cx="578" cy="340" r="4" />
+            <text class="rp-label rp-label-sm" x="594" y="336">Backend</text>
+            <text class="rp-backend-sub" x="594" y="352">REST or MCP</text>
           </g>
 
-          <!-- 8 · flow labels -->
-          <text class="rp-seg" x="352" y="82">tools/call · POST /mcp</text>
-          <text class="rp-seg" x="515" y="330" text-anchor="middle">call</text>
-          <text class="rp-seg" x="515" y="351" text-anchor="middle">result</text>
-          <text class="rp-seg" x="352" y="480">result to caller</text>
+          <!-- 9 · flow labels -->
+          <text class="rp-seg" x="352" y="86">tools/call · POST /mcp</text>
+          <text class="rp-seg" x="512" y="332" text-anchor="middle">call</text>
+          <text class="rp-seg" x="512" y="357" text-anchor="middle">result</text>
+          <text class="rp-seg" x="352" y="470">result</text>
         </svg>
       </div>
     </div>
@@ -121,7 +127,7 @@ const DISPATCH = 4 // index of the Dispatch stage
 }
 .rp-svg {
   width: 100%;
-  max-width: 560px;
+  max-width: 540px;
   height: auto;
   display: block;
   margin-inline: auto;
@@ -231,7 +237,7 @@ const DISPATCH = 4 // index of the Dispatch stage
 }
 .rp-a,
 .rp-b {
-  offset-path: path('M248 168 V424');
+  offset-path: path('M248 188 V420');
 }
 @media (prefers-reduced-motion: no-preference) {
   .rp-pulse {
