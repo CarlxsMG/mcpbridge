@@ -3,7 +3,7 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
-import { __resetDbForTesting } from "../db/connection.js";
+import { __resetDbForTesting, getDb } from "../db/connection.js";
 import { registry } from "../registry.js";
 import {
   createAlertRule,
@@ -91,5 +91,31 @@ describe("alert evaluation", () => {
     mockFetch();
     await evaluateAlerts();
     expect(fetchCalls).toBe(0);
+  });
+
+  test("fires a webhook on schema drift, edge-triggered, and stops once cleared", async () => {
+    await reg("svc");
+    getDb()
+      .query(
+        `INSERT INTO tool_monitor (client_name, tool_name, example_id, baseline_schema_hash, drift_detected, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .run("svc", "get-users", 1, "deadbeef", 1, Date.now());
+    createAlertRule({ name: "drift", eventType: "schema_drift", webhookUrl: "http://127.0.0.1:9/hook", threshold: null, minCalls: null, actor: null });
+    mockFetch();
+
+    await evaluateAlerts();
+    expect(fetchCalls).toBe(1);
+
+    // Still drifted — must NOT fire again (edge-triggered).
+    await evaluateAlerts();
+    expect(fetchCalls).toBe(1);
+
+    // Cleared, then drifts again — fires once more.
+    getDb().query(`UPDATE tool_monitor SET drift_detected = 0 WHERE client_name = ? AND tool_name = ?`).run("svc", "get-users");
+    await evaluateAlerts();
+    getDb().query(`UPDATE tool_monitor SET drift_detected = 1 WHERE client_name = ? AND tool_name = ?`).run("svc", "get-users");
+    await evaluateAlerts();
+    expect(fetchCalls).toBe(2);
   });
 });

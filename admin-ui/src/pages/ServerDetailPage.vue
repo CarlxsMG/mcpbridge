@@ -400,6 +400,78 @@ async function saveGuardrails(payload: { denyPatterns: string[]; blockSecrets: b
   }
 }
 
+async function saveCoalesce(payload: { enabled: boolean } | null) {
+  if (!activeTool.value) return;
+  savingGuards.value = true;
+  try {
+    await api.patch(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}`, { coalesce: payload });
+    await load();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save coalescing.";
+  } finally {
+    savingGuards.value = false;
+  }
+}
+
+async function saveApproval(payload: { required: boolean; requiredLevels: number }) {
+  if (!activeTool.value) return;
+  savingGuards.value = true;
+  try {
+    await api.patch(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}`, {
+      requiresApproval: payload.required,
+      approvalLevels: payload.requiredLevels,
+    });
+    await load();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save approval settings.";
+  } finally {
+    savingGuards.value = false;
+  }
+}
+
+async function saveQuarantinePolicy(payload: { consecutiveThreshold: number; action: "block" | "force_approval" | "observe"; recoveryMode: "auto" | "manual"; cooldownMs: number | null } | null) {
+  if (!activeTool.value) return;
+  savingGuards.value = true;
+  try {
+    await api.patch(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}`, {
+      quarantinePolicy: payload,
+    });
+    await load();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save quarantine settings.";
+  } finally {
+    savingGuards.value = false;
+  }
+}
+
+async function clearQuarantineFn() {
+  if (!activeTool.value) return;
+  savingGuards.value = true;
+  try {
+    await api.post(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}/quarantine/clear`);
+    await load();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to clear quarantine.";
+  } finally {
+    savingGuards.value = false;
+  }
+}
+
+async function saveWs(payload: { enabled: boolean; wsUrl: string; persistent: boolean } | null) {
+  if (!activeTool.value) return;
+  savingGuards.value = true;
+  try {
+    await api.patch(`/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}`, {
+      ws: payload,
+    });
+    await load();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save WebSocket settings.";
+  } finally {
+    savingGuards.value = false;
+  }
+}
+
 async function toggleSensitive(tool: ToolDetail) {
   const next = tool.sensitive === true ? false : true;
   delete rowError.value[tool.name];
@@ -772,7 +844,7 @@ async function resetBreaker() {
         <h2>Guards — {{ activeTool.name }}</h2>
         <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">Close</button>
       </div>
-      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :guardrails="activeTool.guardrails" :client-name="props.name" :tool-name="activeTool.name" :tags="activeTool.tags" :redact-paths="activeTool.redactPaths" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" @save-tags="saveTags" @save-redaction="saveRedaction" @save-guardrails="saveGuardrails" />
+      <GuardEditor :guards="activeTool.guards" :override="activeTool.override" :guardrails="activeTool.guardrails" :coalesce="activeTool.coalesce" :approval="activeTool.approval" :quarantine="activeTool.quarantine" :ws="activeTool.ws" :client-name="props.name" :tool-name="activeTool.name" :tags="activeTool.tags" :redact-paths="activeTool.redactPaths" :saving="savingGuards" @save="saveGuards" @save-override="saveOverride" @save-tags="saveTags" @save-redaction="saveRedaction" @save-guardrails="saveGuardrails" @save-coalesce="saveCoalesce" @save-approval="saveApproval" @save-quarantine-policy="saveQuarantinePolicy" @clear-quarantine="clearQuarantineFn" @save-ws="saveWs" />
 
       <section class="playground">
         <h3>Playground</h3>

@@ -31,6 +31,8 @@ const routes = [
   { path: "/approvals", name: "approvals", component: () => import("../pages/ApprovalsPage.vue") },
   { path: "/alerts", name: "alerts", component: () => import("../pages/AlertsPage.vue") },
   { path: "/schedules", name: "schedules", component: () => import("../pages/SchedulesPage.vue") },
+  { path: "/traces", name: "traces", component: () => import("../pages/TracesPage.vue") },
+  { path: "/traces/:traceId", name: "trace-detail", component: () => import("../pages/TracesPage.vue"), props: true },
   { path: "/:pathMatch(.*)*", name: "not-found", component: () => import("../pages/NotFoundPage.vue"), meta: { public: true } },
 ];
 

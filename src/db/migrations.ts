@@ -713,6 +713,95 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 38,
+    name: "tool_coalesce",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_coalesce (
+        client_name TEXT NOT NULL,
+        tool_name   TEXT NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
+  {
+    id: 39,
+    name: "approval_levels",
+    sql: `
+      ALTER TABLE tool_approval ADD COLUMN required_levels INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE approvals ADD COLUMN required_levels INTEGER NOT NULL DEFAULT 1;
+
+      CREATE TABLE IF NOT EXISTS approval_decisions (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        approval_id INTEGER NOT NULL REFERENCES approvals(id) ON DELETE CASCADE,
+        decided_by  TEXT NOT NULL,
+        decision    TEXT NOT NULL CHECK (decision IN ('approved', 'rejected')),
+        note        TEXT,
+        decided_at  INTEGER NOT NULL,
+        UNIQUE (approval_id, decided_by)
+      ) STRICT;
+    `,
+  },
+  {
+    id: 40,
+    name: "tool_quarantine",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_quarantine_policy (
+        client_name           TEXT NOT NULL,
+        tool_name              TEXT NOT NULL,
+        consecutive_threshold  INTEGER NOT NULL DEFAULT 3,
+        action                 TEXT NOT NULL CHECK (action IN ('block', 'force_approval', 'observe')),
+        recovery_mode          TEXT NOT NULL CHECK (recovery_mode IN ('auto', 'manual')),
+        cooldown_ms            INTEGER,
+        updated_at             INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS tool_quarantine_state (
+        client_name      TEXT NOT NULL,
+        tool_name        TEXT NOT NULL,
+        quarantined      INTEGER NOT NULL DEFAULT 0,
+        consecutive_hits INTEGER NOT NULL DEFAULT 0,
+        quarantined_at   INTEGER,
+        reason           TEXT,
+        cooldown_until   INTEGER,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
+  {
+    id: 41,
+    name: "tool_ws_persistent",
+    sql: `
+      ALTER TABLE tool_ws ADD COLUMN persistent INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
+  {
+    id: 42,
+    name: "tool_spans",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_spans (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        trace_id        TEXT NOT NULL,
+        span_id         TEXT NOT NULL,
+        name            TEXT NOT NULL,
+        mcp_tool_name   TEXT,
+        start_ms        INTEGER NOT NULL,
+        end_ms          INTEGER NOT NULL,
+        status_code     INTEGER NOT NULL,
+        attributes_json TEXT NOT NULL,
+        created_at      INTEGER NOT NULL
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_tool_spans_trace ON tool_spans(trace_id);
+      CREATE INDEX IF NOT EXISTS idx_tool_spans_created ON tool_spans(created_at);
+    `,
+  },
 ];
 
 /**

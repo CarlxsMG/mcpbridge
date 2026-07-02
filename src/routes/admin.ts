@@ -9,12 +9,14 @@ import { setGuardrails, MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../gu
 import { listExamples, createExample, deleteExample } from "../tool-examples.js";
 import { getCanary, setCanary } from "../canary.js";
 import { setToolCacheConfig, purgeToolCache, MAX_CACHE_TTL_SECONDS } from "../response-cache.js";
+import { setToolCoalesce } from "../coalesce.js";
+import { setQuarantinePolicy, clearQuarantine, type QuarantineAction, type QuarantineRecoveryMode } from "../quarantine.js";
 import { getLb, setLb, addUpstream, updateUpstream, removeUpstream, type LbStrategy } from "../load-balancer.js";
 import { setPaginationConfig, MAX_PAGINATION_PAGES, type PaginationStrategy } from "../pagination.js";
 import { setStreamingConfig, MAX_STREAM_EVENTS, type StreamFormat } from "../streaming.js";
 import { setToolTransform, MAX_TRANSFORM_OPS, type TransformOp } from "../transform.js";
 import { setToolMock, type MockMode } from "../mock.js";
-import { setApprovalRequired, listApprovals, getApproval, decideApproval, type ApprovalStatus } from "../approvals.js";
+import { setApprovalRequired, listApprovals, getApproval, decideApproval, MAX_APPROVAL_LEVELS, type ApprovalStatus } from "../approvals.js";
 import { listTraffic, getTraffic } from "../traffic.js";
 import { setMonitor, deleteMonitor, listMonitors } from "../monitor.js";
 import { setToolGraphql, setToolWs } from "../backends.js";
@@ -84,6 +86,51 @@ function validateCacheInput(
     return { ok: false, message: `cache.ttlSeconds must be an integer between 1 and ${MAX_CACHE_TTL_SECONDS}` };
   }
   return { ok: true, value: { enabled, ttlSeconds } };
+}
+
+/** `null`/`false` clears; an object opts the tool in (defaulting enabled:true). */
+function validateCoalesceInput(
+  raw: unknown,
+): { ok: true; value: { enabled: boolean } | null } | { ok: false; message: string } {
+  if (raw === null || raw === false) return { ok: true, value: null };
+  if (typeof raw !== "object") return { ok: false, message: "coalesce must be an object, null, or false" };
+  const obj = raw as Record<string, unknown>;
+  const enabled = obj.enabled !== false;
+  return { ok: true, value: { enabled } };
+}
+
+const QUARANTINE_ACTIONS: QuarantineAction[] = ["block", "force_approval", "observe"];
+const QUARANTINE_RECOVERY_MODES: QuarantineRecoveryMode[] = ["auto", "manual"];
+
+/** `null`/`false` clears the policy (and any accumulated state). */
+function validateQuarantinePolicyInput(
+  raw: unknown,
+): { ok: true; value: { consecutiveThreshold: number; action: QuarantineAction; recoveryMode: QuarantineRecoveryMode; cooldownMs: number | null } | null } | { ok: false; message: string } {
+  if (raw === null || raw === false) return { ok: true, value: null };
+  if (typeof raw !== "object") return { ok: false, message: "quarantinePolicy must be an object, null, or false" };
+  const obj = raw as Record<string, unknown>;
+
+  const consecutiveThreshold = typeof obj.consecutiveThreshold === "number" ? obj.consecutiveThreshold : NaN;
+  if (!Number.isInteger(consecutiveThreshold) || consecutiveThreshold < 1 || consecutiveThreshold > 100) {
+    return { ok: false, message: "quarantinePolicy.consecutiveThreshold must be an integer between 1 and 100" };
+  }
+  if (typeof obj.action !== "string" || !QUARANTINE_ACTIONS.includes(obj.action as QuarantineAction)) {
+    return { ok: false, message: `quarantinePolicy.action must be one of ${QUARANTINE_ACTIONS.join(", ")}` };
+  }
+  if (typeof obj.recoveryMode !== "string" || !QUARANTINE_RECOVERY_MODES.includes(obj.recoveryMode as QuarantineRecoveryMode)) {
+    return { ok: false, message: `quarantinePolicy.recoveryMode must be one of ${QUARANTINE_RECOVERY_MODES.join(", ")}` };
+  }
+  let cooldownMs: number | null = null;
+  if (obj.cooldownMs !== undefined && obj.cooldownMs !== null) {
+    if (typeof obj.cooldownMs !== "number" || !Number.isInteger(obj.cooldownMs) || obj.cooldownMs < 1000) {
+      return { ok: false, message: "quarantinePolicy.cooldownMs must be an integer >= 1000 (or omitted)" };
+    }
+    cooldownMs = obj.cooldownMs;
+  }
+  return {
+    ok: true,
+    value: { consecutiveThreshold, action: obj.action as QuarantineAction, recoveryMode: obj.recoveryMode as QuarantineRecoveryMode, cooldownMs },
+  };
 }
 
 interface PaginationInput {
@@ -562,6 +609,34 @@ export function adminRoutes(app: Express): void {
         recordAudit(actor, parsed.value ? "tool.cache.set" : "tool.cache.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`, parsed.value ? { ttlSeconds: parsed.value.ttlSeconds, enabled: parsed.value.enabled } : undefined);
       }
 
+      if (body.coalesce !== undefined) {
+        const parsed = validateCoalesceInput(body.coalesce);
+        if (!parsed.ok) {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+          return;
+        }
+        const ok = setToolCoalesce(name, tool, parsed.value);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, parsed.value ? "tool.coalesce.set" : "tool.coalesce.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`, parsed.value ? { enabled: parsed.value.enabled } : undefined);
+      }
+
+      if (body.quarantinePolicy !== undefined) {
+        const parsed = validateQuarantinePolicyInput(body.quarantinePolicy);
+        if (!parsed.ok) {
+          res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+          return;
+        }
+        const ok = setQuarantinePolicy(name, tool, parsed.value);
+        if (!ok) {
+          res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+          return;
+        }
+        recordAudit(actor, parsed.value ? "tool.quarantine.policy.set" : "tool.quarantine.policy.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`, parsed.value ?? undefined);
+      }
+
       if (body.pagination !== undefined) {
         const parsed = validatePaginationInput(body.pagination);
         if (!parsed.ok) {
@@ -623,12 +698,20 @@ export function adminRoutes(app: Express): void {
           res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "requiresApproval must be a boolean", request_id: requestId(res) } });
           return;
         }
-        const ok = setApprovalRequired(name, tool, body.requiresApproval);
+        let approvalLevels: number | undefined;
+        if (body.approvalLevels !== undefined) {
+          if (typeof body.approvalLevels !== "number" || !Number.isInteger(body.approvalLevels) || body.approvalLevels < 1 || body.approvalLevels > MAX_APPROVAL_LEVELS) {
+            res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `approvalLevels must be an integer between 1 and ${MAX_APPROVAL_LEVELS}`, request_id: requestId(res) } });
+            return;
+          }
+          approvalLevels = body.approvalLevels;
+        }
+        const ok = setApprovalRequired(name, tool, body.requiresApproval, approvalLevels);
         if (!ok) {
           res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
           return;
         }
-        recordAudit(actor, body.requiresApproval ? "tool.approval.enable" : "tool.approval.disable", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+        recordAudit(actor, body.requiresApproval ? "tool.approval.enable" : "tool.approval.disable", `${name}${TOOL_KEY_SEPARATOR}${tool}`, approvalLevels !== undefined ? { approvalLevels } : undefined);
       }
 
       if (body.monitor !== undefined) {
@@ -688,12 +771,12 @@ export function adminRoutes(app: Express): void {
             res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "ws.wsUrl (ws:// or wss://) is required", request_id: requestId(res) } });
             return;
           }
-          const result = await setToolWs(name, tool, { enabled: w.enabled !== false, wsUrl });
+          const result = await setToolWs(name, tool, { enabled: w.enabled !== false, wsUrl, persistent: w.persistent === true });
           if (!result.ok) {
             res.status(result.error === "TOOL_NOT_FOUND" ? 404 : 400).json({ error: { code: result.error, message: result.reason ?? result.error, request_id: requestId(res) } });
             return;
           }
-          recordAudit(actor, "tool.ws.set", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+          recordAudit(actor, "tool.ws.set", `${name}${TOOL_KEY_SEPARATOR}${tool}`, { persistent: w.persistent === true });
         }
       }
 
@@ -825,6 +908,25 @@ export function adminRoutes(app: Express): void {
       purgeToolCache(name, tool);
       recordAudit(actorFromRequest(req), "tool.cache.purge", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
       res.status(200).json({ status: "purged", name, tool });
+    }
+  );
+
+  // ── Auto-quarantine ─────────────────────────────────────────────────────────
+
+  app.post(
+    "/admin-api/clients/:name/tools/:tool/quarantine/clear",
+    adminAuth,
+    requireOperator,
+    (req: Request<{ name: string; tool: string }>, res: Response) => {
+      const { name, tool } = req.params;
+      if (!ensureClientAccess(req, res, name)) return;
+      const ok = clearQuarantine(name, tool);
+      if (!ok) {
+        res.status(404).json({ error: { code: "TOOL_NOT_FOUND", message: "Client or tool not found", request_id: requestId(res) } });
+        return;
+      }
+      recordAudit(actorFromRequest(req), "tool.quarantine.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
+      res.status(200).json({ status: "cleared", name, tool });
     }
   );
 
@@ -971,12 +1073,13 @@ export function adminRoutes(app: Express): void {
     }
     if (!ensureClientAccess(req, res, rec.clientName)) return;
     const note = typeof (req.body as Record<string, unknown>)?.note === "string" ? ((req.body as Record<string, unknown>).note as string) : null;
-    if (!decideApproval(rec.id, "approved", actorFromRequest(req), note)) {
-      res.status(409).json({ error: { code: "NOT_PENDING", message: "Approval is not pending", request_id: requestId(res) } });
+    const result = decideApproval(rec.id, "approved", actorFromRequest(req), note);
+    if (!result.ok) {
+      res.status(409).json({ error: { code: "NOT_PENDING", message: result.message, request_id: requestId(res) } });
       return;
     }
-    recordAudit(actorFromRequest(req), "approval.approve", `${rec.clientName}${TOOL_KEY_SEPARATOR}${rec.toolName}`, { id: rec.id });
-    res.status(200).json({ status: "approved", id: rec.id });
+    recordAudit(actorFromRequest(req), "approval.approve", `${rec.clientName}${TOOL_KEY_SEPARATOR}${rec.toolName}`, { id: rec.id, finalStatus: result.finalStatus, approvalsReceived: result.approvalsReceived, requiredLevels: result.requiredLevels });
+    res.status(200).json({ status: result.finalStatus, id: rec.id, approvalsReceived: result.approvalsReceived, requiredLevels: result.requiredLevels });
   });
 
   app.post("/admin-api/approvals/:id/reject", adminAuth, requireOperator, (req: Request<{ id: string }>, res: Response) => {
@@ -987,12 +1090,13 @@ export function adminRoutes(app: Express): void {
     }
     if (!ensureClientAccess(req, res, rec.clientName)) return;
     const note = typeof (req.body as Record<string, unknown>)?.note === "string" ? ((req.body as Record<string, unknown>).note as string) : null;
-    if (!decideApproval(rec.id, "rejected", actorFromRequest(req), note)) {
-      res.status(409).json({ error: { code: "NOT_PENDING", message: "Approval is not pending", request_id: requestId(res) } });
+    const result = decideApproval(rec.id, "rejected", actorFromRequest(req), note);
+    if (!result.ok) {
+      res.status(409).json({ error: { code: "NOT_PENDING", message: result.message, request_id: requestId(res) } });
       return;
     }
     recordAudit(actorFromRequest(req), "approval.reject", `${rec.clientName}${TOOL_KEY_SEPARATOR}${rec.toolName}`, { id: rec.id });
-    res.status(200).json({ status: "rejected", id: rec.id });
+    res.status(200).json({ status: result.finalStatus, id: rec.id });
   });
 
   // ── Outbound OAuth2 client-credentials ─────────────────────────────────────

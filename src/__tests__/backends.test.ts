@@ -8,7 +8,7 @@ import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
 import { proxyToolCall } from "../proxy.js";
-import { getToolGraphql, setToolGraphql, getToolWs, setToolWs } from "../backends.js";
+import { getToolGraphql, setToolGraphql, getToolWs, setToolWs, wsRequest, wsRequestPersistent } from "../backends.js";
 import type { RestToolDefinition } from "../types.js";
 
 const CLIENT = "svc";
@@ -92,5 +92,86 @@ describe("WebSocket", () => {
     } finally {
       server.stop(true);
     }
+  });
+
+  describe("persistent mode", () => {
+    /** A server that answers with 3 messages per call, then closes. */
+    function multiMessageServer() {
+      return Bun.serve({
+        port: 0,
+        fetch(req, srv) {
+          return srv.upgrade(req) ? undefined : new Response("no");
+        },
+        websocket: {
+          message(ws, msg) {
+            ws.send(`first:${msg}`);
+            setTimeout(() => ws.send(`second:${msg}`), 10);
+            setTimeout(() => {
+              ws.send(`third:${msg}`);
+              ws.close();
+            }, 20);
+          },
+        },
+      });
+    }
+
+    test("wsRequest (non-persistent) still closes after the first message even when the server sends more", async () => {
+      const server = multiMessageServer();
+      try {
+        const result = await wsRequest(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000);
+        expect(result).toBe("first:hi");
+      } finally {
+        server.stop(true);
+      }
+    });
+
+    test("wsRequestPersistent forwards every message via onMessage and resolves with the last one", async () => {
+      const server = multiMessageServer();
+      try {
+        const received: string[] = [];
+        const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000, (data) => received.push(data));
+        expect(received).toEqual(["first:hi", "second:hi", "third:hi"]);
+        expect(result).toBe("third:hi");
+      } finally {
+        server.stop(true);
+      }
+    });
+
+    test("proxy dispatch in persistent mode returns the last message", async () => {
+      await reg();
+      (config as Record<string, unknown>).allowPrivateIps = true;
+      const server = multiMessageServer();
+      try {
+        const setRes = await setToolWs(CLIENT, "wst", { enabled: true, wsUrl: `ws://localhost:${server.port}`, persistent: true });
+        expect(setRes.ok).toBe(true);
+        expect(getToolWs(CLIENT, "wst")?.persistent).toBe(true);
+        const r = await proxyToolCall(`${CLIENT}__wst`, { msg: "hi" });
+        expect(r.isError).toBeUndefined();
+        expect(r.content[0].text).toBe('third:{"msg":"hi"}');
+      } finally {
+        server.stop(true);
+      }
+    });
+
+    test("wsRequestPersistent resolves with the last message on timeout if the server never closes", async () => {
+      const server = Bun.serve({
+        port: 0,
+        fetch(req, srv) {
+          return srv.upgrade(req) ? undefined : new Response("no");
+        },
+        websocket: {
+          message(ws, msg) {
+            ws.send(`only:${msg}`);
+            // Deliberately never closes — resolution must come from the timeout.
+          },
+        },
+      });
+      try {
+        const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 100, 1_000_000);
+        expect(result).toBe("only:hi");
+      } finally {
+        server.stop(true);
+      }
+    });
   });
 });

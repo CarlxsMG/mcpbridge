@@ -45,11 +45,23 @@ export interface WsConfig {
   enabled: boolean;
   wsUrl: string;
   resolvedIp: string;
+  /** When true, the connection stays open across multiple messages instead of closing after the first (see wsRequestPersistent). */
+  persistent: boolean;
 }
 
 export function getToolWs(clientName: string, toolName: string): WsConfig | null {
-  const row = getDb().query(`SELECT ws_url, resolved_ip, enabled FROM tool_ws WHERE client_name = ? AND tool_name = ?`).get(clientName, toolName) as { ws_url: string; resolved_ip: string; enabled: number } | null;
-  return row ? { enabled: row.enabled === 1, wsUrl: row.ws_url, resolvedIp: row.resolved_ip } : null;
+  const row = getDb().query(`SELECT ws_url, resolved_ip, enabled, persistent FROM tool_ws WHERE client_name = ? AND tool_name = ?`).get(clientName, toolName) as { ws_url: string; resolved_ip: string; enabled: number; persistent: number } | null;
+  return row ? { enabled: row.enabled === 1, wsUrl: row.ws_url, resolvedIp: row.resolved_ip, persistent: row.persistent === 1 } : null;
+}
+
+/** WS config for every tool of a client, keyed by tool name (batched for detail views). */
+export function getWsForClient(clientName: string): Record<string, WsConfig> {
+  const rows = getDb()
+    .query(`SELECT tool_name, ws_url, resolved_ip, enabled, persistent FROM tool_ws WHERE client_name = ?`)
+    .all(clientName) as { tool_name: string; ws_url: string; resolved_ip: string; enabled: number; persistent: number }[];
+  const out: Record<string, WsConfig> = {};
+  for (const r of rows) out[r.tool_name] = { enabled: r.enabled === 1, wsUrl: r.ws_url, resolvedIp: r.resolved_ip, persistent: r.persistent === 1 };
+  return out;
 }
 
 export type WsError = "TOOL_NOT_FOUND" | "INVALID_URL";
@@ -57,7 +69,7 @@ export type WsError = "TOOL_NOT_FOUND" | "INVALID_URL";
 export async function setToolWs(
   clientName: string,
   toolName: string,
-  input: { enabled: boolean; wsUrl: string } | null,
+  input: { enabled: boolean; wsUrl: string; persistent?: boolean } | null,
 ): Promise<{ ok: true } | { ok: false; error: WsError; reason?: string }> {
   const db = getDb();
   if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return { ok: false, error: "TOOL_NOT_FOUND" };
@@ -71,9 +83,9 @@ export async function setToolWs(
   const check = await validateBackendUrl(httpEquivalent, config.allowPrivateIps, config.allowedHosts);
   if (!check.valid || !check.resolvedIp) return { ok: false, error: "INVALID_URL", reason: check.reason };
   db.query(
-    `INSERT INTO tool_ws (client_name, tool_name, ws_url, resolved_ip, enabled, updated_at) VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET ws_url = excluded.ws_url, resolved_ip = excluded.resolved_ip, enabled = excluded.enabled, updated_at = excluded.updated_at`,
-  ).run(clientName, toolName, input.wsUrl, check.resolvedIp, input.enabled ? 1 : 0, Date.now());
+    `INSERT INTO tool_ws (client_name, tool_name, ws_url, resolved_ip, enabled, persistent, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(client_name, tool_name) DO UPDATE SET ws_url = excluded.ws_url, resolved_ip = excluded.resolved_ip, enabled = excluded.enabled, persistent = excluded.persistent, updated_at = excluded.updated_at`,
+  ).run(clientName, toolName, input.wsUrl, check.resolvedIp, input.enabled ? 1 : 0, input.persistent ? 1 : 0, Date.now());
   return { ok: true };
 }
 
@@ -117,5 +129,63 @@ export function wsRequest(url: string, payload: string, timeoutMs: number, maxBy
     });
     ws.addEventListener("error", () => finish(() => reject(new Error("WebSocket error"))));
     ws.addEventListener("close", () => finish(() => reject(new Error("WebSocket closed before a response"))));
+  });
+}
+
+/**
+ * Persistent variant of wsRequest: the connection stays open across multiple
+ * messages instead of closing after the first. Every message invokes
+ * `onMessage` (forwarded as MCP progress by the caller) and becomes the new
+ * candidate result; the call finally resolves with the LAST message received,
+ * on close or once `timeoutMs` elapses — still a single hard deadline, never
+ * an unbounded connection. `wsRequest` itself is untouched; `dispatchWsToolCall`
+ * picks between the two based on the tool's `persistent` config.
+ */
+export function wsRequestPersistent(
+  url: string,
+  payload: string,
+  timeoutMs: number,
+  maxBytes: number,
+  onMessage?: (data: string) => void,
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    let settled = false;
+    let lastData: string | null = null;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        ws.close();
+      } catch {
+        /* already closing */
+      }
+      fn();
+    };
+    const ws = new WebSocket(url);
+    const timer = setTimeout(
+      () => finish(() => (lastData !== null ? resolve(lastData) : reject(new Error("timeout")))),
+      timeoutMs,
+    );
+
+    ws.addEventListener("open", () => {
+      try {
+        ws.send(payload);
+      } catch (e) {
+        finish(() => reject(e instanceof Error ? e : new Error(String(e))));
+      }
+    });
+    ws.addEventListener("message", (ev: MessageEvent) => {
+      const data = typeof ev.data === "string" ? ev.data : "";
+      if (data.length > maxBytes) {
+        finish(() => reject(new Error("WS response exceeded MAX_RESPONSE_BYTES limit")));
+        return;
+      }
+      lastData = data;
+      onMessage?.(data);
+      // Deliberately does not `finish()` here — stays open for further messages.
+    });
+    ws.addEventListener("error", () => finish(() => reject(new Error("WebSocket error"))));
+    ws.addEventListener("close", () => finish(() => (lastData !== null ? resolve(lastData) : reject(new Error("WebSocket closed before a response")))));
   });
 }

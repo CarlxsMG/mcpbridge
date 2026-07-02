@@ -60,6 +60,10 @@ const segments = computed(() => {
   ].filter((s) => s.value > 0);
 });
 
+function approvedCount(a: ApprovalRecord): number {
+  return a.decisions.filter((d) => d.decision === "approved").length;
+}
+
 function prettyArgs(json: string): string {
   try {
     return JSON.stringify(JSON.parse(json));
@@ -137,11 +141,21 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
             <td class="args" :title="prettyArgs(a.argsJson)"><code>{{ prettyArgs(a.argsJson) }}</code></td>
             <td>{{ new Date(a.createdAt).toLocaleString() }}</td>
             <td>
-              <span v-if="a.status === 'pending'" class="status-pending">Pending</span>
+              <span v-if="a.status === 'pending'" class="status-pending">
+                Pending
+                <span v-if="a.requiredLevels > 1" class="levels-badge">{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span>
+              </span>
               <span v-else :class="a.status === 'approved' ? 'status-approved' : 'status-rejected'">
-                {{ a.status === "approved" ? "Approved" : "Rejected" }} by {{ a.decidedBy }}
+                {{ a.status === "approved" ? "Approved" : "Rejected" }}
+                <template v-if="a.requiredLevels > 1 && a.status === 'approved'">({{ approvedCount(a) }}/{{ a.requiredLevels }})</template>
+                by {{ a.decidedBy }}
                 <span v-if="a.note" class="note">— {{ a.note }}</span>
               </span>
+              <ul v-if="a.decisions.length" class="decisions">
+                <li v-for="d in a.decisions" :key="d.id">
+                  {{ d.decidedBy }}: {{ d.decision }}<span v-if="d.note"> — {{ d.note }}</span>
+                </li>
+              </ul>
             </td>
             <td class="actions">
               <template v-if="a.status === 'pending'">
@@ -273,6 +287,20 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
   color: var(--breach);
 }
 .note {
+  color: var(--text-muted);
+}
+.levels-badge {
+  display: inline-block;
+  margin-left: 0.4em;
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.decisions {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  font-size: 0.78rem;
   color: var(--text-muted);
 }
 .actions {

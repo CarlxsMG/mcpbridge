@@ -8,6 +8,13 @@ const props = defineProps<{
   guards?: ToolGuardConfig;
   override?: { description?: string; params?: Record<string, { description?: string }>; displayName?: string };
   guardrails?: { denyPatterns: string[]; blockSecrets: boolean; scanResponses: boolean };
+  coalesce?: { enabled: boolean };
+  approval?: { required: boolean; requiredLevels: number };
+  quarantine?: {
+    policy: { consecutiveThreshold: number; action: "block" | "force_approval" | "observe"; recoveryMode: "auto" | "manual"; cooldownMs: number | null };
+    state: { quarantined: boolean; consecutiveHits: number; quarantinedAt: number | null; reason: string | null; cooldownUntil: number | null };
+  };
+  ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
   clientName?: string;
   toolName?: string;
   tags?: string[];
@@ -21,6 +28,11 @@ const emit = defineEmits<{
   saveTags: [tags: string[]];
   saveRedaction: [paths: string[]];
   saveGuardrails: [payload: { denyPatterns: string[]; blockSecrets: boolean; scanResponses: boolean } | null];
+  saveCoalesce: [payload: { enabled: boolean } | null];
+  saveApproval: [payload: { required: boolean; requiredLevels: number }];
+  saveQuarantinePolicy: [payload: { consecutiveThreshold: number; action: "block" | "force_approval" | "observe"; recoveryMode: "auto" | "manual"; cooldownMs: number | null } | null];
+  clearQuarantine: [];
+  saveWs: [payload: { enabled: boolean; wsUrl: string; persistent: boolean } | null];
 }>();
 
 const descriptionInput = ref(props.override?.description ?? "");
@@ -28,6 +40,19 @@ const displayNameInput = ref(props.override?.displayName ?? "");
 const denyPatternsInput = ref((props.guardrails?.denyPatterns ?? []).join("\n"));
 const blockSecretsInput = ref(props.guardrails?.blockSecrets ?? false);
 const scanResponsesInput = ref(props.guardrails?.scanResponses ?? false);
+const coalesceInput = ref(props.coalesce?.enabled ?? false);
+const approvalRequiredInput = ref(props.approval?.required ?? false);
+const approvalLevelsInput = ref((props.approval?.requiredLevels ?? 1).toString());
+
+const quarantineEnabledInput = ref(Boolean(props.quarantine));
+const quarantineThresholdInput = ref((props.quarantine?.policy.consecutiveThreshold ?? 3).toString());
+const quarantineActionInput = ref<"block" | "force_approval" | "observe">(props.quarantine?.policy.action ?? "block");
+const quarantineRecoveryInput = ref<"auto" | "manual">(props.quarantine?.policy.recoveryMode ?? "manual");
+const quarantineCooldownInput = ref(props.quarantine?.policy.cooldownMs ? (props.quarantine.policy.cooldownMs / 60_000).toString() : "");
+
+const wsEnabledInput = ref(Boolean(props.ws?.enabled));
+const wsUrlInput = ref(props.ws?.wsUrl ?? "");
+const wsPersistentInput = ref(props.ws?.persistent ?? false);
 const tagsInput = ref((props.tags ?? []).join(", "));
 const redactInput = ref((props.redactPaths ?? []).join("\n"));
 
@@ -55,6 +80,15 @@ const savingRedaction = ref(false);
 const savedRedaction = ref(false);
 const savingGuardrails = ref(false);
 const savedGuardrails = ref(false);
+const savingCoalesce = ref(false);
+const savedCoalesce = ref(false);
+const savingApproval = ref(false);
+const savedApproval = ref(false);
+const savingQuarantine = ref(false);
+const savedQuarantine = ref(false);
+const clearingQuarantine = ref(false);
+const savingWs = ref(false);
+const savedWs = ref(false);
 
 function flashSaved(flag: { value: boolean }) {
   flag.value = true;
@@ -78,6 +112,11 @@ watch(
     savingTags.value = false;
     savingRedaction.value = false;
     savingGuardrails.value = false;
+    savingCoalesce.value = false;
+    savingApproval.value = false;
+    savingQuarantine.value = false;
+    clearingQuarantine.value = false;
+    savingWs.value = false;
   }
 );
 
@@ -169,6 +208,125 @@ function saveGuardrailsFn() {
     return;
   }
   emit("saveGuardrails", { denyPatterns, blockSecrets: blockSecretsInput.value, scanResponses: scanResponsesInput.value });
+}
+
+watch(
+  () => props.coalesce,
+  (c) => {
+    coalesceInput.value = c?.enabled ?? false;
+    if (savingCoalesce.value) {
+      savingCoalesce.value = false;
+      flashSaved(savedCoalesce);
+    }
+  }
+);
+
+function saveCoalesceFn() {
+  savingCoalesce.value = true;
+  emit("saveCoalesce", coalesceInput.value ? { enabled: true } : null);
+}
+
+watch(
+  () => props.approval,
+  (a) => {
+    approvalRequiredInput.value = a?.required ?? false;
+    approvalLevelsInput.value = (a?.requiredLevels ?? 1).toString();
+    if (savingApproval.value) {
+      savingApproval.value = false;
+      flashSaved(savedApproval);
+    }
+  }
+);
+
+const approvalLevelsError = computed(() => {
+  const n = Number(approvalLevelsInput.value);
+  return Number.isInteger(n) && n >= 1 && n <= 10 ? null : "Must be a whole number between 1 and 10";
+});
+
+function saveApprovalFn() {
+  if (approvalLevelsError.value) return;
+  savingApproval.value = true;
+  emit("saveApproval", { required: approvalRequiredInput.value, requiredLevels: Number(approvalLevelsInput.value) });
+}
+
+watch(
+  () => props.quarantine,
+  (q) => {
+    quarantineEnabledInput.value = Boolean(q);
+    quarantineThresholdInput.value = (q?.policy.consecutiveThreshold ?? 3).toString();
+    quarantineActionInput.value = q?.policy.action ?? "block";
+    quarantineRecoveryInput.value = q?.policy.recoveryMode ?? "manual";
+    quarantineCooldownInput.value = q?.policy.cooldownMs ? (q.policy.cooldownMs / 60_000).toString() : "";
+    if (savingQuarantine.value) {
+      savingQuarantine.value = false;
+      flashSaved(savedQuarantine);
+    }
+    if (clearingQuarantine.value) {
+      clearingQuarantine.value = false;
+    }
+  }
+);
+
+const quarantineThresholdError = computed(() => {
+  const n = Number(quarantineThresholdInput.value);
+  return Number.isInteger(n) && n >= 1 && n <= 100 ? null : "Must be a whole number between 1 and 100";
+});
+
+const quarantineCooldownError = computed(() => {
+  if (quarantineRecoveryInput.value !== "auto") return null;
+  if (!quarantineCooldownInput.value.trim()) return "Required when recovery is automatic";
+  const n = Number(quarantineCooldownInput.value);
+  return Number.isFinite(n) && n > 0 ? null : "Must be a positive number of minutes";
+});
+
+function saveQuarantineFn() {
+  if (!quarantineEnabledInput.value) {
+    savingQuarantine.value = true;
+    emit("saveQuarantinePolicy", null);
+    return;
+  }
+  if (quarantineThresholdError.value || quarantineCooldownError.value) return;
+  savingQuarantine.value = true;
+  emit("saveQuarantinePolicy", {
+    consecutiveThreshold: Number(quarantineThresholdInput.value),
+    action: quarantineActionInput.value,
+    recoveryMode: quarantineRecoveryInput.value,
+    cooldownMs: quarantineRecoveryInput.value === "auto" ? Math.round(Number(quarantineCooldownInput.value) * 60_000) : null,
+  });
+}
+
+function clearQuarantineFn() {
+  clearingQuarantine.value = true;
+  emit("clearQuarantine");
+}
+
+watch(
+  () => props.ws,
+  (w) => {
+    wsEnabledInput.value = Boolean(w?.enabled);
+    wsUrlInput.value = w?.wsUrl ?? "";
+    wsPersistentInput.value = w?.persistent ?? false;
+    if (savingWs.value) {
+      savingWs.value = false;
+      flashSaved(savedWs);
+    }
+  }
+);
+
+const wsUrlError = computed(() => {
+  if (!wsEnabledInput.value) return null;
+  return /^wss?:\/\//.test(wsUrlInput.value.trim()) ? null : "Must start with ws:// or wss://";
+});
+
+function saveWsFn() {
+  if (!wsEnabledInput.value) {
+    savingWs.value = true;
+    emit("saveWs", null);
+    return;
+  }
+  if (wsUrlError.value) return;
+  savingWs.value = true;
+  emit("saveWs", { enabled: true, wsUrl: wsUrlInput.value.trim(), persistent: wsPersistentInput.value });
 }
 
 const rateLimitError = computed(() => {
@@ -387,6 +545,95 @@ function saveRedactionFn() {
       <span v-if="savedGuardrails" class="save-ok">Saved</span>
     </div>
 
+    <h3>Human-in-the-loop approval</h3>
+    <div class="field">
+      <label class="checkline"><input type="checkbox" v-model="approvalRequiredInput" /> Require human approval before this tool runs</label>
+      <label for="approval-levels">Distinct approvers required</label>
+      <p class="hint">A call is only allowed once this many DIFFERENT admins/operators have approved it (1 = today's single-approval behavior). Any single rejection blocks the call immediately, regardless of prior approvals.</p>
+      <input
+        id="approval-levels"
+        v-model="approvalLevelsInput"
+        type="text"
+        inputmode="numeric"
+        :disabled="!approvalRequiredInput"
+      />
+      <p v-if="approvalRequiredInput && approvalLevelsError" class="field-error">{{ approvalLevelsError }}</p>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving || (approvalRequiredInput && Boolean(approvalLevelsError))" @click="saveApprovalFn">
+        {{ savingApproval ? "Saving…" : "Save approval settings" }}
+      </button>
+      <span v-if="savedApproval" class="save-ok">Saved</span>
+    </div>
+
+    <h3>Auto-quarantine</h3>
+    <div class="field">
+      <div v-if="quarantine?.state.quarantined" class="quarantine-banner">
+        Currently quarantined{{ quarantine.state.reason ? `: ${quarantine.state.reason}` : "" }}
+        <button type="button" class="link-btn" :disabled="saving" @click="clearQuarantineFn">
+          {{ clearingQuarantine ? "Clearing…" : "Clear now" }}
+        </button>
+      </div>
+      <label class="checkline"><input type="checkbox" v-model="quarantineEnabledInput" /> Auto-quarantine after repeated guardrail violations</label>
+      <template v-if="quarantineEnabledInput">
+        <label for="q-threshold">Consecutive violations before quarantine</label>
+        <input id="q-threshold" v-model="quarantineThresholdInput" type="text" inputmode="numeric" />
+        <p v-if="quarantineThresholdError" class="field-error">{{ quarantineThresholdError }}</p>
+
+        <label for="q-action">Action when quarantined</label>
+        <select id="q-action" v-model="quarantineActionInput">
+          <option value="block">Block calls (same as disabling the tool)</option>
+          <option value="force_approval">Force every call through human approval</option>
+          <option value="observe">Observe only — log and let calls through</option>
+        </select>
+
+        <label for="q-recovery">Recovery</label>
+        <select id="q-recovery" v-model="quarantineRecoveryInput">
+          <option value="manual">Manual only — an admin must clear it</option>
+          <option value="auto">Automatic — clears itself after a cooldown</option>
+        </select>
+
+        <template v-if="quarantineRecoveryInput === 'auto'">
+          <label for="q-cooldown">Cooldown (minutes)</label>
+          <input id="q-cooldown" v-model="quarantineCooldownInput" type="text" inputmode="decimal" placeholder="e.g. 15" />
+          <p v-if="quarantineCooldownError" class="field-error">{{ quarantineCooldownError }}</p>
+        </template>
+      </template>
+      <button
+        type="button"
+        class="btn-secondary desc-save"
+        :disabled="saving || (quarantineEnabledInput && Boolean(quarantineThresholdError || quarantineCooldownError))"
+        @click="saveQuarantineFn"
+      >
+        {{ savingQuarantine ? "Saving…" : "Save quarantine settings" }}
+      </button>
+      <span v-if="savedQuarantine" class="save-ok">Saved</span>
+    </div>
+
+    <h3>WebSocket backend</h3>
+    <div class="field">
+      <label class="checkline"><input type="checkbox" v-model="wsEnabledInput" /> Dispatch this tool over a WebSocket instead of REST</label>
+      <template v-if="wsEnabledInput">
+        <label for="ws-url">WebSocket URL</label>
+        <input id="ws-url" v-model="wsUrlInput" type="text" placeholder="wss://example.com/socket" />
+        <p v-if="wsUrlError" class="field-error">{{ wsUrlError }}</p>
+        <label class="checkline"><input type="checkbox" v-model="wsPersistentInput" /> Persistent connection — forward every message as progress instead of closing after the first</label>
+        <p class="hint">Non-persistent (default) opens a fresh connection per call and returns the first message. Persistent stays open and resolves with the last message once the connection closes or the timeout elapses — intermediate messages are forwarded as MCP progress notifications to callers that requested them.</p>
+      </template>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving || (wsEnabledInput && Boolean(wsUrlError))" @click="saveWsFn">
+        {{ savingWs ? "Saving…" : "Save WebSocket settings" }}
+      </button>
+      <span v-if="savedWs" class="save-ok">Saved</span>
+    </div>
+
+    <h3>Request coalescing</h3>
+    <div class="field">
+      <label class="checkline"><input type="checkbox" v-model="coalesceInput" /> Share one upstream fetch across concurrent identical calls (GET tools only)</label>
+      <p class="hint">Distinct from the response cache's TTL — only dedupes calls that are in flight at the same moment, so it's safe even without caching enabled.</p>
+      <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveCoalesceFn">
+        {{ savingCoalesce ? "Saving…" : "Save coalescing" }}
+      </button>
+      <span v-if="savedCoalesce" class="save-ok">Saved</span>
+    </div>
+
     <details class="preview">
       <summary>Preview</summary>
       <pre>{{ previewJson }}</pre>
@@ -482,6 +729,30 @@ function saveRedactionFn() {
 }
 .hint.warn {
   color: var(--canary);
+}
+.quarantine-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--breach-soft);
+  color: var(--breach);
+  border: 1px solid var(--breach);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+.field select {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+  box-sizing: border-box;
+  margin-bottom: 0.5rem;
 }
 .key-input {
   display: flex;

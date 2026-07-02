@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { config } from "../config.js";
 import { log } from "../logger.js";
+import { persistSpan } from "./trace-store.js";
 
 /**
  * Dependency-free OpenTelemetry span export over OTLP/HTTP (JSON). When
@@ -20,13 +21,14 @@ export interface Span {
   attributes: Record<string, AttrValue>;
 }
 
-interface FinishedSpan extends Span {
+export interface FinishedSpan extends Span {
   endMs: number;
   statusCode: 0 | 1 | 2; // UNSET / OK / ERROR
 }
 
+/** True when a span should be built at all — either OTLP export or the built-in trace-viewer storage (or both) is configured. */
 export function tracingEnabled(): boolean {
-  return Boolean(config.otelEndpoint);
+  return Boolean(config.otelEndpoint) || config.traceStorageEnabled;
 }
 
 function genId(bytes: number): string {
@@ -41,10 +43,21 @@ export function startSpan(name: string, attributes: Record<string, AttrValue> = 
 const buffer: FinishedSpan[] = [];
 let flushScheduled = false;
 
-/** Ends a span and queues it for export (no-op when tracing is disabled). */
+/**
+ * Ends a span. No-op when neither OTLP export nor trace storage is enabled.
+ * Independently: persists to SQLite for the built-in trace viewer
+ * (opt-in, `TRACE_STORAGE`) and/or queues for OTLP export (opt-in,
+ * `OTEL_EXPORTER_OTLP_ENDPOINT`) — a deployment can have either, both, or
+ * neither without one implying the other.
+ */
 export function endSpan(span: Span, extraAttributes: Record<string, AttrValue> = {}, statusCode: 0 | 1 | 2 = 0): void {
   if (!tracingEnabled()) return;
-  buffer.push({ ...span, attributes: { ...span.attributes, ...extraAttributes }, endMs: Date.now(), statusCode });
+  const finished: FinishedSpan = { ...span, attributes: { ...span.attributes, ...extraAttributes }, endMs: Date.now(), statusCode };
+
+  if (config.traceStorageEnabled) persistSpan(finished);
+  if (!config.otelEndpoint) return;
+
+  buffer.push(finished);
   if (buffer.length >= config.otelMaxBatch) {
     void flush();
   } else if (!flushScheduled) {

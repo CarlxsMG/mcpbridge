@@ -137,7 +137,20 @@ export function createMcpServer(scope?: McpServerScope): Server {
       return runComposite(name, (args ?? {}) as Record<string, unknown>, callerToken);
     }
 
-    return proxyToolCall(name, args ?? {}, callerToken);
+    // Progress/cancellation bridging (MCP-to-MCP upstreams only — a no-op for
+    // REST/WS-backed tools, which never read `onProgress`). `signal` is
+    // auto-aborted by the SDK when this caller sends notifications/cancelled;
+    // `onProgress` is only wired up when the caller itself asked for progress
+    // (a _meta.progressToken on its own call) — never invented on its behalf.
+    const progressToken = extra._meta?.progressToken;
+    const onProgress =
+      progressToken !== undefined
+        ? (progress: number, total?: number, message?: string) => {
+            void extra.sendNotification({ method: "notifications/progress", params: { progressToken, progress, total, message } });
+          }
+        : undefined;
+
+    return proxyToolCall(name, args ?? {}, callerToken, { signal: extra.signal, onProgress });
   });
 
   // Resources & prompts — passthrough for a client-scoped MCP upstream; empty /

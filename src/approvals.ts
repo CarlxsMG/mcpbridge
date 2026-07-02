@@ -18,6 +18,15 @@ import { config } from "./config.js";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
+export interface ApprovalDecision {
+  id: number;
+  approvalId: number;
+  decidedBy: string;
+  decision: "approved" | "rejected";
+  note: string | null;
+  decidedAt: number;
+}
+
 export interface ApprovalRecord {
   id: number;
   clientName: string;
@@ -31,6 +40,10 @@ export interface ApprovalRecord {
   note: string | null;
   consumedAt: number | null;
   requestedBy: number | null;
+  /** N-of-M threshold snapshotted from the tool's config at ticket-creation time. */
+  requiredLevels: number;
+  /** Individual approve/reject decisions recorded so far (a reject is always terminal, alone). */
+  decisions: ApprovalDecision[];
 }
 
 interface ApprovalRow {
@@ -46,6 +59,33 @@ interface ApprovalRow {
   note: string | null;
   consumed_at: number | null;
   requested_by: number | null;
+  required_levels: number;
+}
+
+interface DecisionRow {
+  id: number;
+  approval_id: number;
+  decided_by: string;
+  decision: string;
+  note: string | null;
+  decided_at: number;
+}
+
+function rowToDecision(row: DecisionRow): ApprovalDecision {
+  return {
+    id: row.id,
+    approvalId: row.approval_id,
+    decidedBy: row.decided_by,
+    decision: row.decision as "approved" | "rejected",
+    note: row.note,
+    decidedAt: row.decided_at,
+  };
+}
+
+function listDecisions(approvalId: number): ApprovalDecision[] {
+  return (
+    getDb().query(`SELECT * FROM approval_decisions WHERE approval_id = ? ORDER BY id ASC`).all(approvalId) as DecisionRow[]
+  ).map(rowToDecision);
 }
 
 function rowTo(row: ApprovalRow): ApprovalRecord {
@@ -62,10 +102,14 @@ function rowTo(row: ApprovalRow): ApprovalRecord {
     note: row.note,
     consumedAt: row.consumed_at,
     requestedBy: row.requested_by,
+    requiredLevels: row.required_levels,
+    decisions: listDecisions(row.id),
   };
 }
 
 // ── Per-tool "requires approval" flag ───────────────────────────────────────
+
+export const MAX_APPROVAL_LEVELS = 10;
 
 export function requiresApproval(clientName: string, toolName: string): boolean {
   const row = getDb()
@@ -74,8 +118,20 @@ export function requiresApproval(clientName: string, toolName: string): boolean 
   return row?.enabled === 1;
 }
 
-/** Enables/disables the approval requirement for a tool. False when the tool is unknown. */
-export function setApprovalRequired(clientName: string, toolName: string, enabled: boolean): boolean {
+/** N-of-M distinct-approver threshold configured for a tool. Defaults to 1 (today's single-approval behavior). */
+export function getRequiredLevels(clientName: string, toolName: string): number {
+  const row = getDb()
+    .query(`SELECT required_levels FROM tool_approval WHERE client_name = ? AND tool_name = ?`)
+    .get(clientName, toolName) as { required_levels: number } | null;
+  return row?.required_levels ?? 1;
+}
+
+/**
+ * Enables/disables the approval requirement for a tool, and its N-of-M
+ * distinct-approver threshold (defaults to 1, clamped to [1, MAX_APPROVAL_LEVELS]).
+ * False when the tool is unknown.
+ */
+export function setApprovalRequired(clientName: string, toolName: string, enabled: boolean, requiredLevels?: number): boolean {
   const db = getDb();
   const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
   if (!exists) return false;
@@ -83,11 +139,25 @@ export function setApprovalRequired(clientName: string, toolName: string, enable
     db.query(`DELETE FROM tool_approval WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
     return true;
   }
+  const levels =
+    requiredLevels !== undefined && Number.isInteger(requiredLevels) && requiredLevels >= 1 && requiredLevels <= MAX_APPROVAL_LEVELS
+      ? requiredLevels
+      : (getRequiredLevels(clientName, toolName) ?? 1);
   db.query(
-    `INSERT INTO tool_approval (client_name, tool_name, enabled, updated_at) VALUES (?, ?, 1, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET enabled = 1, updated_at = excluded.updated_at`,
-  ).run(clientName, toolName, Date.now());
+    `INSERT INTO tool_approval (client_name, tool_name, enabled, required_levels, updated_at) VALUES (?, ?, 1, ?, ?)
+     ON CONFLICT(client_name, tool_name) DO UPDATE SET enabled = 1, required_levels = excluded.required_levels, updated_at = excluded.updated_at`,
+  ).run(clientName, toolName, levels, Date.now());
   return true;
+}
+
+/** Approval config for every tool of a client, keyed by tool name (batched for detail views). */
+export function getApprovalConfigForClient(clientName: string): Record<string, { required: boolean; requiredLevels: number }> {
+  const rows = getDb()
+    .query(`SELECT tool_name, enabled, required_levels FROM tool_approval WHERE client_name = ?`)
+    .all(clientName) as { tool_name: string; enabled: number; required_levels: number }[];
+  const out: Record<string, { required: boolean; requiredLevels: number }> = {};
+  for (const r of rows) out[r.tool_name] = { required: r.enabled === 1, requiredLevels: r.required_levels };
+  return out;
 }
 
 // ── Ticket lifecycle ────────────────────────────────────────────────────────
@@ -106,13 +176,14 @@ export function createApproval(
   argsHash: string,
   argsJson: string,
   requestedBy: number | null,
+  requiredLevels = 1,
 ): number {
   const r = getDb()
     .query(
-      `INSERT INTO approvals (client_name, tool_name, args_hash, args_json, status, created_at, requested_by)
-       VALUES (?, ?, ?, ?, 'pending', ?, ?) RETURNING id`,
+      `INSERT INTO approvals (client_name, tool_name, args_hash, args_json, status, created_at, requested_by, required_levels)
+       VALUES (?, ?, ?, ?, 'pending', ?, ?, ?) RETURNING id`,
     )
-    .get(clientName, toolName, argsHash, argsJson, Date.now(), requestedBy) as { id: number };
+    .get(clientName, toolName, argsHash, argsJson, Date.now(), requestedBy, requiredLevels) as { id: number };
   return r.id;
 }
 
@@ -128,12 +199,46 @@ export function listApprovals(status?: ApprovalStatus): ApprovalRecord[] {
   return rows.map(rowTo);
 }
 
-/** Records an admin decision. False if the ticket doesn't exist or isn't pending. */
-export function decideApproval(id: number, status: "approved" | "rejected", decidedBy: string, note: string | null): boolean {
-  const r = getDb()
-    .query(`UPDATE approvals SET status = ?, decided_at = ?, decided_by = ?, note = ? WHERE id = ? AND status = 'pending'`)
-    .run(status, Date.now(), decidedBy, note, id);
-  return r.changes > 0;
+export type DecideApprovalResult =
+  | { ok: true; finalStatus: ApprovalStatus; approvalsReceived: number; requiredLevels: number }
+  | { ok: false; message: string };
+
+/**
+ * Records an admin decision. A reject is an immediate terminal veto — one
+ * rejection fails the whole ticket regardless of any prior approvals. An
+ * approve is recorded as one of possibly several required distinct approvers
+ * (enforced by `approval_decisions`'s UNIQUE(approval_id, decided_by)); the
+ * ticket only flips to 'approved' once the count reaches the required N-of-M
+ * threshold that was snapshotted on the ticket at creation time.
+ */
+export function decideApproval(id: number, status: "approved" | "rejected", decidedBy: string, note: string | null): DecideApprovalResult {
+  const rec = getApproval(id);
+  if (!rec) return { ok: false, message: `Approval #${id} not found` };
+  if (rec.status !== "pending") return { ok: false, message: `Approval #${id} is no longer pending` };
+
+  const db = getDb();
+  const now = Date.now();
+
+  if (status === "rejected") {
+    const r = db.query(`UPDATE approvals SET status = 'rejected', decided_at = ?, decided_by = ?, note = ? WHERE id = ? AND status = 'pending'`).run(now, decidedBy, note, id);
+    if (r.changes === 0) return { ok: false, message: `Approval #${id} is no longer pending` };
+    db.query(`INSERT INTO approval_decisions (approval_id, decided_by, decision, note, decided_at) VALUES (?, ?, 'rejected', ?, ?)`).run(id, decidedBy, note, now);
+    return { ok: true, finalStatus: "rejected", approvalsReceived: 0, requiredLevels: rec.requiredLevels };
+  }
+
+  try {
+    db.query(`INSERT INTO approval_decisions (approval_id, decided_by, decision, note, decided_at) VALUES (?, ?, 'approved', ?, ?)`).run(id, decidedBy, note, now);
+  } catch {
+    // UNIQUE(approval_id, decided_by) violation — this actor already recorded a decision.
+    return { ok: false, message: `You already recorded a decision for approval #${id}` };
+  }
+
+  const approvedCount = (db.query(`SELECT COUNT(*) as c FROM approval_decisions WHERE approval_id = ? AND decision = 'approved'`).get(id) as { c: number }).c;
+  if (approvedCount >= rec.requiredLevels) {
+    db.query(`UPDATE approvals SET status = 'approved', decided_at = ?, decided_by = ?, note = ? WHERE id = ? AND status = 'pending'`).run(now, decidedBy, note, id);
+    return { ok: true, finalStatus: "approved", approvalsReceived: approvedCount, requiredLevels: rec.requiredLevels };
+  }
+  return { ok: true, finalStatus: "pending", approvalsReceived: approvedCount, requiredLevels: rec.requiredLevels };
 }
 
 /**

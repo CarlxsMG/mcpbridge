@@ -256,6 +256,13 @@ export const lbRequests = metricsRegistry.register(
   ),
 );
 
+export const coalesceHits = metricsRegistry.register(
+  new Counter(
+    "mcp_coalesce_hits_total",
+    "Total tool calls served by piggybacking on an already in-flight identical call, by client",
+  ),
+);
+
 // Registry
 export const registryClients = metricsRegistry.register(
   new Gauge(

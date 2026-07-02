@@ -51,6 +51,11 @@ export function consumerNameExists(name: string): boolean {
   return getDb().query(`SELECT 1 FROM consumers WHERE name = ?`).get(name) != null;
 }
 
+export function getConsumerByName(name: string): Consumer | null {
+  const row = getDb().query(`SELECT ${COLS} FROM consumers WHERE name = ?`).get(name) as ConsumerRow | null;
+  return row ? rowToConsumer(row) : null;
+}
+
 export function createConsumer(input: { name: string; monthlyQuota: number | null; actor: string | null }): Consumer {
   const now = Date.now();
   const row = getDb()

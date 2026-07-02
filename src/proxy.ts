@@ -11,16 +11,18 @@ import {
   proxyRequestDuration,
   cacheEvents,
   lbRequests,
+  coalesceHits,
 } from "./observability/metrics.js";
 import { getToolCacheConfig, cacheKey, cacheGet, cacheSet } from "./response-cache.js";
+import { getToolCoalesce, runCoalesced } from "./coalesce.js";
 import { getLb, selectTarget, markTargetUp, markTargetDown, incInflight, decInflight, type LbChoice } from "./load-balancer.js";
 import { getPaginationConfig, extractItems, nextCursorValue, parseNextLink, withItems, type PaginationConfig } from "./pagination.js";
 import { getStreamingConfig, parseStream } from "./streaming.js";
 import { getToolTransform, applyOps } from "./transform.js";
 import { getToolMock } from "./mock.js";
-import { requiresApproval, approvalArgsHash, createApproval, consumeApproval, notifyApproval } from "./approvals.js";
+import { requiresApproval, approvalArgsHash, createApproval, consumeApproval, notifyApproval, getRequiredLevels } from "./approvals.js";
 import { recordTraffic } from "./traffic.js";
-import { getToolGraphql, getToolWs, wsRequest } from "./backends.js";
+import { getToolGraphql, getToolWs, wsRequest, wsRequestPersistent } from "./backends.js";
 import { getOAuthBearer } from "./oauth.js";
 import { refreshPinIfStale } from "./security/ip-validator.js";
 import type { PinnedIp } from "./security/ip-validator.js";
@@ -35,6 +37,7 @@ import { checkConsumerQuota } from "./consumers.js";
 import { isToolSensitive } from "./tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "./redaction.js";
 import { getGuardrails, checkInputGuardrails, applyResponseScan } from "./guardrails.js";
+import { checkQuarantine, recordGuardrailHit } from "./quarantine.js";
 import { getCanary, decideSecondary } from "./canary.js";
 import { tracingEnabled, startSpan, endSpan } from "./observability/tracing.js";
 import { mcpUpstream } from "./mcp-upstream.js";
@@ -290,6 +293,19 @@ async function fetchAllPages(firstBodyText: string, cfg: PaginationConfig, ctx: 
 }
 
 /**
+ * Optional per-call bridging for MCP-to-MCP progress/cancellation forwarding
+ * (kind:"mcp" upstreams only — see dispatchMcpToolCall). `signal` is the
+ * downstream caller's own cancellation (auto-aborted by the SDK on
+ * notifications/cancelled); `onProgress` is only ever set when the downstream
+ * caller itself requested progress (a `_meta.progressToken` on its call), so
+ * an upstream that doesn't support progress is simply never asked for it.
+ */
+export interface ToolCallOpts {
+  signal?: AbortSignal;
+  onProgress?: (progress: number, total?: number, message?: string) => void;
+}
+
+/**
  * Public entry point. When OTLP tracing is enabled, wraps the dispatch in a
  * CLIENT span (bridge -> backend) with the tool name and error outcome; a no-op
  * passthrough otherwise. Kept as a thin wrapper so every caller
@@ -298,17 +314,18 @@ async function fetchAllPages(firstBodyText: string, cfg: PaginationConfig, ctx: 
 export async function proxyToolCall(
   mcpToolName: string,
   args: Record<string, unknown> = {},
-  callerToken?: string
+  callerToken?: string,
+  opts?: ToolCallOpts
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const capture = config.trafficCaptureEnabled;
   const started = capture ? Date.now() : 0;
 
   let result: { content: Array<{ type: string; text: string }>; isError?: boolean };
   if (!tracingEnabled()) {
-    result = await dispatchToolCall(mcpToolName, args, callerToken);
+    result = await dispatchToolCall(mcpToolName, args, callerToken, opts);
   } else {
     const span = startSpan(`tool_call ${mcpToolName}`, { "mcp.tool": mcpToolName });
-    result = await dispatchToolCall(mcpToolName, args, callerToken);
+    result = await dispatchToolCall(mcpToolName, args, callerToken, opts);
     endSpan(span, { "mcp.tool.is_error": result.isError === true }, result.isError ? 2 : 1);
   }
 
@@ -328,10 +345,45 @@ export async function proxyToolCall(
   return result;
 }
 
+/**
+ * Runs the human-in-the-loop approval ticket gate for one call: files a new
+ * pending ticket (no __approval_id) or validates+consumes an existing one.
+ * Returns a terminal result when the call must stop here, or null when it may
+ * proceed. Shared by the natural per-tool `requiresApproval` check and by
+ * quarantine's "force_approval" action, so ticket-creation logic never
+ * duplicates between the two call sites.
+ */
+function runApprovalGate(
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  args: Record<string, unknown>,
+  mcpToolName: string,
+  callerKey: { id: number } | null,
+): { content: Array<{ type: string; text: string }>; isError?: boolean } | null {
+  const rawApprovalId = (args as Record<string, unknown>).__approval_id;
+  const approvalId = typeof rawApprovalId === "number" ? rawApprovalId : null;
+  const argsHash = approvalArgsHash(args as Record<string, unknown>);
+  if (approvalId === null) {
+    const id = createApproval(client.name, tool.name, argsHash, JSON.stringify(args), callerKey?.id ?? null, getRequiredLevels(client.name, tool.name));
+    notifyApproval(id, client.name, tool.name);
+    log("info", "Tool call queued for approval", { tool: mcpToolName, client: client.name, approval_id: id });
+    return {
+      isError: true,
+      content: [{ type: "text", text: `Tool '${mcpToolName}' requires human approval. Queued as approval #${id}. Once approved, re-call with {"__approval_id": ${id}}.` }],
+    };
+  }
+  const decision = consumeApproval(approvalId, client.name, tool.name, argsHash);
+  if (!decision.ok) {
+    return { isError: true, content: [{ type: "text", text: decision.message }] };
+  }
+  return null;
+}
+
 async function dispatchToolCall(
   mcpToolName: string,
   args: Record<string, unknown> = {},
-  callerToken?: string
+  callerToken?: string,
+  opts?: ToolCallOpts
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const resolved = registry.resolveTool(mcpToolName);
 
@@ -417,27 +469,36 @@ async function dispatchToolCall(
     }
   }
 
+  // Auto-quarantine — escalates after N consecutive guardrail violations (see
+  // quarantine.ts). Runs before the breaker, like every other guard, and
+  // before the natural approval gate so its "force_approval" action can reuse
+  // that same gate below without duplicating ticket-creation logic.
+  let approvalGateHandled = false;
+  const quarantine = checkQuarantine(client.name, tool.name);
+  if (quarantine.active) {
+    if (quarantine.action === "block") {
+      log("warn", "Tool call blocked by quarantine", { tool: mcpToolName, client: client.name, reason: quarantine.reason });
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Tool '${mcpToolName}' is quarantined: ${quarantine.reason ?? "too many guardrail violations"}` }],
+      };
+    }
+    if (quarantine.action === "force_approval") {
+      const gated = runApprovalGate(client, tool, args, mcpToolName, callerKey);
+      approvalGateHandled = true;
+      if (gated) return gated;
+    } else if (quarantine.action === "observe") {
+      log("warn", "Quarantined tool call allowed through (observe mode)", { tool: mcpToolName, client: client.name, reason: quarantine.reason });
+    }
+  }
+
   // Human-in-the-loop approval (ticket model). No __approval_id -> file a pending
   // ticket bound to these exact args and return its id. With an id -> validate and
   // consume it (single-use, args-bound) before proceeding. __approval_id is not in
   // any inputSchema, so Ajv's removeAdditional strips it before the upstream call.
-  if (requiresApproval(client.name, tool.name)) {
-    const rawApprovalId = (args as Record<string, unknown>).__approval_id;
-    const approvalId = typeof rawApprovalId === "number" ? rawApprovalId : null;
-    const argsHash = approvalArgsHash(args as Record<string, unknown>);
-    if (approvalId === null) {
-      const id = createApproval(client.name, tool.name, argsHash, JSON.stringify(args), callerKey?.id ?? null);
-      notifyApproval(id, client.name, tool.name);
-      log("info", "Tool call queued for approval", { tool: mcpToolName, client: client.name, approval_id: id });
-      return {
-        isError: true,
-        content: [{ type: "text", text: `Tool '${mcpToolName}' requires human approval. Queued as approval #${id}. Once approved, re-call with {"__approval_id": ${id}}.` }],
-      };
-    }
-    const decision = consumeApproval(approvalId, client.name, tool.name, argsHash);
-    if (!decision.ok) {
-      return { isError: true, content: [{ type: "text", text: decision.message }] };
-    }
+  if (!approvalGateHandled && requiresApproval(client.name, tool.name)) {
+    const gated = runApprovalGate(client, tool, args, mcpToolName, callerKey);
+    if (gated) return gated;
   }
 
   // Content guardrails — input gate runs here (before the breaker, like every
@@ -448,12 +509,14 @@ async function dispatchToolCall(
   if (guardrails) {
     const inputCheck = checkInputGuardrails(guardrails, args);
     if (inputCheck.blocked) {
+      recordGuardrailHit(client.name, tool.name, true);
       log("warn", "Tool call rejected by input guardrail", { tool: mcpToolName, client: client.name, reason: inputCheck.reason });
       return {
         isError: true,
         content: [{ type: "text", text: `Input rejected by guardrail: ${inputCheck.reason}` }],
       };
     }
+    recordGuardrailHit(client.name, tool.name, false);
   }
 
   if (tool.guards?.rateLimitPerMin !== undefined) {
@@ -507,6 +570,24 @@ async function dispatchToolCall(
     cacheEvents.inc({ client: client.name, outcome: "miss" });
   }
 
+  // Request coalescing — concurrent identical in-flight REST GET calls share a
+  // single upstream fetch. Every gate above (scope/quota/sensitivity/approval/
+  // guardrails) already ran for THIS caller, so piggybacking on another
+  // caller's in-flight request never bypasses per-caller authorization; only
+  // the network fetch and its breaker/LB bookkeeping are shared (rule 4 also
+  // means this decision must wrap the breaker check below, not just the
+  // fetch — calling canRequest() once per piggybacker would spuriously burn
+  // extra half-open probe slots).
+  const coalesceCfg =
+    client.kind === "rest" && tool.method.toUpperCase() === "GET"
+      ? getToolCoalesce(client.name, tool.name)
+      : null;
+  const coalesceKey = coalesceCfg?.enabled
+    ? responseCacheKey || cacheKey(client.name, tool.name, client.base_url, args)
+    : "";
+
+  const runRest = async (): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> => {
+
   // Circuit breaker check
   const breaker = getCircuitBreaker(client.name, client.guards?.circuitBreaker);
   const circuitCheck = breaker.canRequest();
@@ -542,7 +623,7 @@ async function dispatchToolCall(
   // sensitivity/rate-limit/circuit-breaker) has already applied; only the
   // REST URL/path/IP/fetch machinery below is skipped.
   if (client.kind === "mcp") {
-    return dispatchMcpToolCall(client, tool, args, mcpToolName, effectiveTimeout, breaker, callerKey, guardrails?.scanResponses ?? false);
+    return dispatchMcpToolCall(client, tool, args, mcpToolName, effectiveTimeout, breaker, callerKey, guardrails?.scanResponses ?? false, opts);
   }
 
   // WebSocket-backed tool — ephemeral request/response over WS. All the
@@ -550,7 +631,7 @@ async function dispatchToolCall(
   // machinery below is replaced by a single WS round-trip.
   const wsCfg = getToolWs(client.name, tool.name);
   if (wsCfg?.enabled) {
-    return dispatchWsToolCall(client, tool, args, wsCfg, effectiveTimeout, breaker, callerKey);
+    return dispatchWsToolCall(client, tool, args, wsCfg, effectiveTimeout, breaker, callerKey, opts);
   }
 
   // When bypassing the primary breaker (failover call to the secondary), the
@@ -833,6 +914,7 @@ async function dispatchToolCall(
         // envelope wraps the already-redacted text, not raw secrets.
         if (guardrails?.scanResponses) {
           const scan = applyResponseScan(responseText);
+          recordGuardrailHit(client.name, tool.name, scan.flagged);
           if (scan.flagged) {
             log("warn", "Tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
             responseText = scan.text;
@@ -922,28 +1004,49 @@ async function dispatchToolCall(
     untrackRequest(client.name, reqController);
     if (lbKey) decInflight(lbKey);
   }
+  };
+
+  if (coalesceCfg?.enabled) {
+    const { result, piggybacked } = await runCoalesced(coalesceKey, runRest);
+    if (piggybacked) coalesceHits.inc({ client: client.name });
+    return result;
+  }
+  return runRest();
 }
 
 /**
- * Dispatches a tool call over a WebSocket (per-tool `tool_ws` config). Opens an
- * ephemeral connection, sends the args as JSON, and returns the first message —
- * recording success/failure on the client breaker like the REST/MCP paths.
+ * Dispatches a tool call over a WebSocket (per-tool `tool_ws` config).
+ * Non-persistent (default): opens an ephemeral connection, sends the args as
+ * JSON, and returns the first message. Persistent (`wsCfg.persistent`): stays
+ * open across multiple messages, forwarding each as MCP progress (when the
+ * caller requested it) and resolving with the last one — see
+ * wsRequestPersistent in backends.ts. Either way, records success/failure on
+ * the client breaker like the REST/MCP paths.
  */
 async function dispatchWsToolCall(
   client: RegisteredClient,
   tool: RegisteredTool,
   rawArgs: Record<string, unknown>,
-  wsCfg: { wsUrl: string; resolvedIp: string; enabled: boolean },
+  wsCfg: { wsUrl: string; resolvedIp: string; enabled: boolean; persistent?: boolean },
   timeoutMs: number,
   breaker: ReturnType<typeof getCircuitBreaker>,
   callerKey: { id: number } | null,
+  opts?: ToolCallOpts,
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const startTime = Date.now();
   const cleanArgs = { ...rawArgs };
   delete cleanArgs.__confirm;
   delete cleanArgs.__approval_id;
   try {
-    const text = await wsRequest(wsCfg.wsUrl, JSON.stringify(cleanArgs), timeoutMs, config.maxResponseBytes);
+    const text = wsCfg.persistent
+      ? await wsRequestPersistent(
+          wsCfg.wsUrl,
+          JSON.stringify(cleanArgs),
+          timeoutMs,
+          config.maxResponseBytes,
+          opts?.onProgress ? (data) => opts.onProgress!(0, undefined, data) : undefined,
+        )
+      : await wsRequest(wsCfg.wsUrl, JSON.stringify(cleanArgs), timeoutMs, config.maxResponseBytes);
     breaker.recordSuccess();
     const durationMs = Date.now() - startTime;
     recordToolCall(durationMs, false);
@@ -975,7 +1078,8 @@ async function dispatchMcpToolCall(
   effectiveTimeout: number,
   breaker: ReturnType<typeof getCircuitBreaker>,
   callerKey: { id: number } | null,
-  scanResponses: boolean
+  scanResponses: boolean,
+  opts?: ToolCallOpts
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const startTime = Date.now();
 
@@ -1005,21 +1109,31 @@ async function dispatchMcpToolCall(
   const result = await mcpUpstream.call(params, tool.upstreamName ?? tool.name, argsToSend, {
     timeoutMs: effectiveTimeout,
     maxBytes: config.maxResponseBytes,
+    signal: opts?.signal,
+    // Only ask the upstream for progress when the bridge itself has a
+    // downstream sink to forward it to (the caller opted in via its own
+    // _meta.progressToken) — never invent progress interest on its behalf.
+    onprogress: opts?.onProgress ? (p) => opts.onProgress!(p.progress, p.total, p.message) : undefined,
   });
 
   const durationMs = Date.now() - startTime;
-  const statusClass = result.isError ? "error" : "2xx";
-  if (result.isError) breaker.recordFailure();
-  else breaker.recordSuccess();
+  // A caller-initiated cancellation is not an upstream health signal — it must
+  // not be recorded against the breaker (mirrors how the REST path already
+  // treats its own external cancellation distinctly from a real failure).
+  const statusClass = result.cancelled ? "cancelled" : result.isError ? "error" : "2xx";
+  if (!result.cancelled) {
+    if (result.isError) breaker.recordFailure();
+    else breaker.recordSuccess();
+  }
 
   recordToolCall(durationMs, result.isError === true);
   recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass, isError: result.isError === true, durationMs });
   proxyRequestDuration.observe({ client: client.name, method: "MCP", status_class: statusClass }, durationMs / 1000);
-  log(result.isError ? "warn" : "info", result.isError ? "MCP tool call returned error" : "MCP tool call succeeded", {
-    tool: mcpToolName,
-    client: client.name,
-    duration_ms: durationMs,
-  });
+  log(
+    result.cancelled ? "info" : result.isError ? "warn" : "info",
+    result.cancelled ? "MCP tool call cancelled by caller" : result.isError ? "MCP tool call returned error" : "MCP tool call succeeded",
+    { tool: mcpToolName, client: client.name, duration_ms: durationMs },
+  );
 
   // Response redaction parity with the REST path — applies to JSON text parts.
   if (!result.isError) {
@@ -1031,12 +1145,17 @@ async function dispatchMcpToolCall(
     }
     // Response guardrail scan parity — wrap flagged text parts (after redaction).
     if (scanResponses) {
+      let anyFlagged = false;
       result.content = result.content.map((item) => {
         if (item.type !== "text") return item;
         const scan = applyResponseScan(item.text);
-        if (scan.flagged) log("warn", "MCP tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
+        if (scan.flagged) {
+          anyFlagged = true;
+          log("warn", "MCP tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
+        }
         return scan.flagged ? { ...item, text: scan.text } : item;
       });
+      recordGuardrailHit(client.name, tool.name, anyFlagged);
     }
   }
 

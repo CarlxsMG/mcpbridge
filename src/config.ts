@@ -195,6 +195,12 @@ export const config = {
   /** Timeout for an OTLP export POST (ms). */
   otelExportTimeoutMs: Number(process.env.OTEL_EXPORT_TIMEOUT_MS) || 5_000,
 
+  // ─── Built-in trace viewer (SQLite-persisted spans, independent of OTLP) ────
+  /** Persist spans to SQLite for the admin-UI trace viewer. Off by default (volume — one row per tool call). */
+  traceStorageEnabled: process.env.TRACE_STORAGE === "true",
+  /** Max age (ms) a persisted span is kept before pruning. */
+  traceRetentionMs: Number(process.env.TRACE_RETENTION_MS) || 24 * 60 * 60 * 1000,
+
   // ─── CORS constants ────────────────────────────────────────────────────────
   /** HTTP methods advertised in Access-Control-Allow-Methods. */
   corsAllowedMethods: ["GET", "POST", "DELETE", "OPTIONS"] as readonly string[],

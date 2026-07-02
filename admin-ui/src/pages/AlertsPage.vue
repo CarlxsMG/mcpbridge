@@ -10,6 +10,7 @@ const EVENT_LABELS: Record<AlertEventType, string> = {
   client_unreachable: "Client unreachable",
   error_rate: "Error-rate spike",
   usage_spike: "Usage spike (anomaly)",
+  schema_drift: "Tool schema drift",
 };
 
 /** Event types that use the threshold + minCalls numeric inputs. */

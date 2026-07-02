@@ -19,6 +19,10 @@ import { getTagsForClient, getAllToolTags } from "./tool-tags.js";
 import { getSensitivityForClient } from "./tool-sensitivity.js";
 import { getRedactionForClient } from "./redaction.js";
 import { getGuardrailsForClient } from "./guardrails.js";
+import { getCoalesceForClient } from "./coalesce.js";
+import { getApprovalConfigForClient } from "./approvals.js";
+import { getQuarantineForClient } from "./quarantine.js";
+import { getWsForClient } from "./backends.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";
 
@@ -1356,9 +1360,13 @@ class Registry {
     const sensMap = getSensitivityForClient(name);
     const redactMap = getRedactionForClient(name);
     const guardrailMap = getGuardrailsForClient(name);
+    const coalesceMap = getCoalesceForClient(name);
+    const approvalMap = getApprovalConfigForClient(name);
+    const quarantineMap = getQuarantineForClient(name);
+    const wsMap = getWsForClient(name);
     let tools: RegisteredTool[];
     if (live) {
-      tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [], sensitive: sensMap[t.name] ?? null, redactPaths: redactMap[t.name] ?? [], guardrails: guardrailMap[t.name] }));
+      tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [], sensitive: sensMap[t.name] ?? null, redactPaths: redactMap[t.name] ?? [], guardrails: guardrailMap[t.name], coalesce: coalesceMap[t.name], approval: approvalMap[t.name], quarantine: quarantineMap[t.name], ws: wsMap[t.name] }));
     } else {
       const toolRows = db
         .query(`SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`)
@@ -1384,6 +1392,10 @@ class Registry {
           sensitive: sensMap[t.name] ?? null,
           redactPaths: redactMap[t.name] ?? [],
           guardrails: guardrailMap[t.name],
+          coalesce: coalesceMap[t.name],
+          approval: approvalMap[t.name],
+          quarantine: quarantineMap[t.name],
+          ws: wsMap[t.name],
         };
       });
     }

@@ -17,15 +17,7 @@ function onLoginPage(): boolean {
   return window.location.pathname.replace(/\/+$/, "").endsWith("/login");
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  // Public demo build: serve everything from the in-browser mock. The dynamic
-  // import sits in a statically-false branch in the real product build, so the
-  // demo code (and its fixtures) is tree-shaken out entirely.
-  if (import.meta.env.VITE_DEMO === "true") {
-    const { demoFetch } = await import("./demo");
-    return demoFetch<T>(path, init);
-  }
-
+async function rawFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
   if (!headers.has("Content-Type") && init.body !== undefined) {
@@ -57,7 +49,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     let code = "UNKNOWN_ERROR";
     let message = `Request failed with status ${res.status}`;
     try {
-      const body = (await res.json()) as { error?: { code?: string; message?: string } };
+      const body = (await res.clone().json()) as { error?: { code?: string; message?: string } };
       if (body.error?.code) code = body.error.code;
       if (body.error?.message) message = body.error.message;
     } catch {
@@ -66,12 +58,36 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     throw new ApiError(res.status, code, message);
   }
 
+  return res;
+}
+
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  // Public demo build: serve everything from the in-browser mock. The dynamic
+  // import sits in a statically-false branch in the real product build, so the
+  // demo code (and its fixtures) is tree-shaken out entirely.
+  if (import.meta.env.VITE_DEMO === "true") {
+    const { demoFetch } = await import("./demo");
+    return demoFetch<T>(path, init);
+  }
+  const res = await rawFetch(path, init);
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
+/** Like apiFetch, but returns the raw response body as text (e.g. a YAML export) instead of parsing JSON. */
+export async function apiFetchRaw(path: string, init: RequestInit = {}): Promise<string> {
+  if (import.meta.env.VITE_DEMO === "true") {
+    const { demoFetch } = await import("./demo");
+    const data = await demoFetch<unknown>(path, init);
+    return JSON.stringify(data, null, 2);
+  }
+  const res = await rawFetch(path, init);
+  return res.text();
+}
+
 export const api = {
   get: <T>(path: string): Promise<T> => apiFetch<T>(path),
+  getRaw: (path: string): Promise<string> => apiFetchRaw(path),
   post: <T>(path: string, body?: unknown): Promise<T> =>
     apiFetch<T>(path, { method: "POST", body: body !== undefined ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown): Promise<T> =>

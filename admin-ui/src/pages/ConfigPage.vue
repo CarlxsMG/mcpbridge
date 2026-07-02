@@ -6,6 +6,9 @@ import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const exporting = ref(false);
 const importText = ref("");
+const exportFormat = ref<"json" | "yaml">("json");
+const importFormat = ref<"json" | "yaml">("json");
+const jsonPlaceholder = '{ "version": 1, ... }';
 const result = ref<ConfigImportResult | null>(null);
 const resultKind = ref<"import" | "rollback">("import");
 const busy = ref(false);
@@ -101,12 +104,16 @@ async function doExport() {
   exporting.value = true;
   errorMessage.value = "";
   try {
-    const doc = await api.get<unknown>("/admin-api/config/export");
-    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
+    // Formatting/parsing happens server-side — the admin UI never needs its
+    // own YAML dependency, it just relays the raw text the backend produced.
+    const suffix = exportFormat.value === "yaml" ? "?format=yaml" : "";
+    const raw = await api.getRaw(`/admin-api/config/export${suffix}`);
+    const mime = exportFormat.value === "yaml" ? "application/yaml" : "application/json";
+    const blob = new Blob([raw], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "mcp-bridge-config.json";
+    a.download = exportFormat.value === "yaml" ? "mcp-bridge-config.yaml" : "mcp-bridge-config.json";
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
@@ -119,19 +126,16 @@ async function doExport() {
 async function runImport(dryRun: boolean) {
   errorMessage.value = "";
   result.value = null;
-  let data: unknown;
-  try {
-    data = JSON.parse(importText.value);
-  } catch {
-    errorMessage.value = "Invalid JSON.";
-    return;
-  }
   busy.value = true;
   try {
     resultKind.value = "import";
-    result.value = await api.post<ConfigImportResult>("/admin-api/config/import", { dryRun, data });
+    const body =
+      importFormat.value === "yaml"
+        ? { dryRun, format: "yaml", raw: importText.value }
+        : { dryRun, data: JSON.parse(importText.value) };
+    result.value = await api.post<ConfigImportResult>("/admin-api/config/import", body);
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Import failed.";
+    errorMessage.value = importFormat.value === "json" && err instanceof SyntaxError ? "Invalid JSON." : err instanceof ApiError ? err.message : "Import failed.";
   } finally {
     busy.value = false;
   }
@@ -158,16 +162,30 @@ async function confirmImport() {
 
     <div class="block">
       <h2>Export</h2>
-      <button type="button" class="btn-primary" :disabled="exporting" @click="doExport">
-        {{ exporting ? "Exporting…" : "Download config JSON" }}
-      </button>
+      <div class="actions">
+        <label for="export-format">Format</label>
+        <select id="export-format" v-model="exportFormat">
+          <option value="json">JSON</option>
+          <option value="yaml">YAML</option>
+        </select>
+        <button type="button" class="btn-primary" :disabled="exporting" @click="doExport">
+          {{ exporting ? "Exporting…" : `Download config .${exportFormat}` }}
+        </button>
+      </div>
     </div>
 
     <div class="block">
       <h2>Import</h2>
-      <p class="hint">Paste an exported document. Dry-run first to preview what would change — client/tool config only applies to already-registered servers.</p>
-      <label for="import-text">Import document (JSON)</label>
-      <textarea id="import-text" v-model="importText" rows="10" spellcheck="false" placeholder='{ "version": 1, ... }'></textarea>
+      <p class="hint">Paste an exported document (policy-as-code — includes guardrails and consumer quotas). Dry-run first to preview what would change — client/tool config only applies to already-registered servers.</p>
+      <div class="actions">
+        <label for="import-format">Format</label>
+        <select id="import-format" v-model="importFormat">
+          <option value="json">JSON</option>
+          <option value="yaml">YAML</option>
+        </select>
+      </div>
+      <label for="import-text">Import document</label>
+      <textarea id="import-text" v-model="importText" rows="10" spellcheck="false" :placeholder="importFormat === 'yaml' ? 'version: 1' : jsonPlaceholder"></textarea>
       <div class="actions">
         <button type="button" class="btn-secondary" :disabled="busy" @click="runImport(true)">Dry run</button>
         <button type="button" class="btn-primary" :disabled="busy" @click="requestImport">Apply import</button>
@@ -230,6 +248,8 @@ async function confirmImport() {
         <li>Alert rules: {{ result.applied.alertRules }}</li>
         <li>Clients configured: {{ result.applied.clientsConfigured }}</li>
         <li>Tools configured: {{ result.applied.toolsConfigured }}</li>
+        <li>Guardrails: {{ result.applied.guardrails }}</li>
+        <li>Consumers: {{ result.applied.consumers }}</li>
       </ul>
       <div v-if="result.skipped.length" class="skipped">
         <strong>Skipped ({{ result.skipped.length }}):</strong>

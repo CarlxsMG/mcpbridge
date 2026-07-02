@@ -8,9 +8,9 @@ import { detectUsageSpike } from "./observability/anomaly.js";
 import { validateBackendUrl } from "./security/ip-validator.js";
 import { isLeader } from "./db/leader-lease.js";
 
-export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike";
+export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike" | "schema_drift";
 
-export const ALERT_EVENT_TYPES: AlertEventType[] = ["circuit_breaker_open", "client_unreachable", "error_rate", "usage_spike"];
+export const ALERT_EVENT_TYPES: AlertEventType[] = ["circuit_breaker_open", "client_unreachable", "error_rate", "usage_spike", "schema_drift"];
 
 export interface AlertRule {
   id: number;
@@ -145,6 +145,14 @@ function evaluateCondition(rule: AlertRule): ConditionResult {
         active: r.spike,
         detail: { recentCalls: r.recentCalls, recentRatePerMin: Math.round(r.recentRate * 100) / 100, baselineRatePerMin: Math.round(r.baselineRate * 100) / 100, factor, minCalls },
       };
+    }
+    case "schema_drift": {
+      // Queried directly (not via monitor.ts) to avoid a circular import: monitor.ts -> proxy.ts.
+      const rows = getDb()
+        .query(`SELECT client_name, tool_name FROM tool_monitor WHERE drift_detected = 1`)
+        .all() as { client_name: string; tool_name: string }[];
+      const tools = rows.map((r) => `${r.client_name}__${r.tool_name}`);
+      return { active: tools.length > 0, detail: { tools } };
     }
     default:
       return { active: false, detail: {} };

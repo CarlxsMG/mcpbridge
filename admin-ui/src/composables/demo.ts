@@ -26,10 +26,12 @@ import type {
   MonitorRecord,
   OverviewStats,
   Schedule,
+  StoredSpan,
   Team,
   ToolDetail,
   ToolListItem,
   TopToolRow,
+  TraceSummary,
   TrafficRecord,
   UsageByKeyRow,
   UsageSummary,
@@ -262,6 +264,27 @@ const trafficRecords: TrafficRecord[] = [
   { id: 3, mcpToolName: "weather__current", clientName: "weather", toolName: "current", keyId: null, argsJson: '{"location":"Lisbon"}', preview: '{"tempC":24,"condition":"clear"}', isError: false, durationMs: 58, createdAt: hours(6.4) },
 ];
 
+const spansByTrace: Record<string, StoredSpan[]> = {
+  "trace-a1": [
+    { id: 1, traceId: "trace-a1", spanId: "span-a1", name: "tool_call github__search_issues", mcpToolName: "github__search_issues", startMs: hours(0.1), endMs: hours(0.1) + 118, statusCode: 1, attributes: { "mcp.tool": "github__search_issues", "mcp.tool.is_error": false }, createdAt: hours(0.1) },
+  ],
+  "trace-b2": [
+    { id: 2, traceId: "trace-b2", spanId: "span-b2", name: "tool_call internal-crm__find_account", mcpToolName: "internal-crm__find_account", startMs: hours(1.2), endMs: hours(1.2) + 8003, statusCode: 2, attributes: { "mcp.tool": "internal-crm__find_account", "mcp.tool.is_error": true }, createdAt: hours(1.2) },
+  ],
+  "trace-c3": [
+    { id: 3, traceId: "trace-c3", spanId: "span-c3", name: "tool_call stripe__create_refund", mcpToolName: "stripe__create_refund", startMs: hours(3), endMs: hours(3) + 188, statusCode: 1, attributes: { "mcp.tool": "stripe__create_refund", "mcp.tool.is_error": false }, createdAt: hours(3) },
+  ],
+};
+
+const traces: TraceSummary[] = Object.entries(spansByTrace).map(([traceId, spans]) => ({
+  traceId,
+  spanCount: spans.length,
+  startMs: Math.min(...spans.map((s) => s.startMs)),
+  endMs: Math.max(...spans.map((s) => s.endMs)),
+  mcpToolName: spans[0]?.mcpToolName ?? null,
+  hasError: spans.some((s) => s.statusCode === 2),
+}));
+
 const monitors: MonitorRecord[] = [
   { clientName: "github", toolName: "search_issues", exampleId: 1, intervalMinutes: 15, enabled: true, driftDetected: false, lastStatus: "ok", lastError: null, lastCheckedAt: hours(0.2) },
   { clientName: "stripe", toolName: "get_customer", exampleId: 2, intervalMinutes: 15, enabled: true, driftDetected: true, lastStatus: "ok", lastError: null, lastCheckedAt: hours(0.3) },
@@ -271,10 +294,10 @@ const monitors: MonitorRecord[] = [
 ];
 
 const approvals: ApprovalRecord[] = [
-  { id: 4, clientName: "stripe", toolName: "create_refund", argsHash: hex(4), argsJson: '{"chargeId":"ch_501","amount":4200}', status: "pending", createdAt: hours(1), decidedAt: null, decidedBy: null, note: null, consumedAt: null, requestedBy: 1 },
-  { id: 3, clientName: "internal-crm", toolName: "update_deal", argsHash: hex(3), argsJson: '{"id":"deal_41","stage":"closed_lost"}', status: "pending", createdAt: hours(3), decidedAt: null, decidedBy: null, note: null, consumedAt: null, requestedBy: 3 },
-  { id: 2, clientName: "stripe", toolName: "create_refund", argsHash: hex(2), argsJson: '{"chargeId":"ch_099","amount":500}', status: "approved", createdAt: days(1), decidedAt: hours(20), decidedBy: "demo", note: "Confirmed with customer", consumedAt: hours(20), requestedBy: 2 },
-  { id: 1, clientName: "internal-crm", toolName: "update_deal", argsHash: hex(1), argsJson: '{"id":"deal_12","stage":"closed_won"}', status: "rejected", createdAt: days(2), decidedAt: days(1), decidedBy: "demo", note: "Needs manager sign-off first", consumedAt: null, requestedBy: null },
+  { id: 4, clientName: "stripe", toolName: "create_refund", argsHash: hex(4), argsJson: '{"chargeId":"ch_501","amount":4200}', status: "pending", createdAt: hours(1), decidedAt: null, decidedBy: null, note: null, consumedAt: null, requestedBy: 1, requiredLevels: 2, decisions: [{ id: 1, approvalId: 4, decidedBy: "alice", decision: "approved", note: null, decidedAt: hours(0.5) }] },
+  { id: 3, clientName: "internal-crm", toolName: "update_deal", argsHash: hex(3), argsJson: '{"id":"deal_41","stage":"closed_lost"}', status: "pending", createdAt: hours(3), decidedAt: null, decidedBy: null, note: null, consumedAt: null, requestedBy: 3, requiredLevels: 1, decisions: [] },
+  { id: 2, clientName: "stripe", toolName: "create_refund", argsHash: hex(2), argsJson: '{"chargeId":"ch_099","amount":500}', status: "approved", createdAt: days(1), decidedAt: hours(20), decidedBy: "demo", note: "Confirmed with customer", consumedAt: hours(20), requestedBy: 2, requiredLevels: 1, decisions: [{ id: 2, approvalId: 2, decidedBy: "demo", decision: "approved", note: "Confirmed with customer", decidedAt: hours(20) }] },
+  { id: 1, clientName: "internal-crm", toolName: "update_deal", argsHash: hex(1), argsJson: '{"id":"deal_12","stage":"closed_won"}', status: "rejected", createdAt: days(2), decidedAt: days(1), decidedBy: "demo", note: "Needs manager sign-off first", consumedAt: null, requestedBy: null, requiredLevels: 1, decisions: [{ id: 3, approvalId: 1, decidedBy: "demo", decision: "rejected", note: "Needs manager sign-off first", decidedAt: days(1) }] },
 ];
 
 const DEMO_USER: NonNullable<CurrentUser["user"]> = { username: "demo", role: "admin" };
@@ -383,6 +406,21 @@ function route(pathname: string, method: string, body: Record<string, unknown> |
     return ok({ content: [{ type: "text", text: "Replayed successfully (demo — no real upstream was called)." }], isError: false });
   }
 
+  // Trace viewer
+  if (p === "/admin-api/traces" && method === "GET") {
+    const tool = params.get("tool");
+    const items = tool ? traces.filter((t) => t.mcpToolName === tool) : traces;
+    return ok({ items });
+  }
+  if (p === "/admin-api/traces" && method === "DELETE") {
+    return ok({ status: "purged", removed: traces.length });
+  }
+  const traceDetailMatch = p.match(/^\/admin-api\/traces\/([^/]+)$/);
+  if (traceDetailMatch && method === "GET") {
+    const spans = spansByTrace[traceDetailMatch[1]];
+    return spans ? ok({ traceId: traceDetailMatch[1], spans }) : undefined;
+  }
+
   // Synthetic monitors
   if (p === "/admin-api/monitors") return ok({ items: monitors });
 
@@ -401,12 +439,17 @@ function route(pathname: string, method: string, body: Record<string, unknown> |
     const decision: ApprovalStatus = approvalDecideMatch[2] === "approve" ? "approved" : "rejected";
     const a = approvals.find((x) => x.id === id);
     if (a && a.status === "pending") {
-      a.status = decision;
-      a.decidedAt = NOW;
-      a.decidedBy = "demo";
-      a.note = typeof body?.note === "string" ? body.note : null;
+      const note = typeof body?.note === "string" ? body.note : null;
+      a.decisions.push({ id: a.decisions.length + 1, approvalId: a.id, decidedBy: "demo", decision, note, decidedAt: NOW });
+      const approvedCount = a.decisions.filter((d) => d.decision === "approved").length;
+      if (decision === "rejected" || approvedCount >= a.requiredLevels) {
+        a.status = decision === "rejected" ? "rejected" : "approved";
+        a.decidedAt = NOW;
+        a.decidedBy = "demo";
+        a.note = note;
+      }
     }
-    return ok({ status: decision, id });
+    return ok({ status: a?.status ?? decision, id });
   }
 
   // Administration

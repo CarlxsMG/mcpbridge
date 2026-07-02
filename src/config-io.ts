@@ -2,7 +2,9 @@ import { getDb } from "./db/connection.js";
 import { registry, ToolOverrideError } from "./registry.js";
 import { listBundles, getBundleDetail, createBundle, updateBundle, type BundleToolRef } from "./bundles.js";
 import { listAlertRules, createAlertRule, type AlertEventType } from "./alerts.js";
-import type { ClientGuardConfig, ToolGuardConfig, ToolOverride } from "./types.js";
+import { getGuardrailsForClient, setGuardrails } from "./guardrails.js";
+import { listConsumers, getConsumerByName, createConsumer, updateConsumer } from "./consumers.js";
+import type { ClientGuardConfig, ToolGuardConfig, ToolOverride, ToolGuardrails } from "./types.js";
 
 export const CONFIG_EXPORT_VERSION = 1;
 
@@ -32,6 +34,15 @@ interface ExportedAlert {
   threshold: number | null;
   minCalls: number | null;
 }
+interface ExportedGuardrail {
+  client: string;
+  tool: string;
+  guardrails: ToolGuardrails;
+}
+interface ExportedConsumer {
+  name: string;
+  monthlyQuota: number | null;
+}
 
 export interface ConfigExport {
   version: number;
@@ -39,16 +50,18 @@ export interface ConfigExport {
   bundles: ExportedBundle[];
   alertRules: ExportedAlert[];
   clients: ExportedClient[];
+  guardrails: ExportedGuardrail[];
+  consumers: ExportedConsumer[];
 }
 
 export interface ImportSkip {
-  type: "bundle" | "alert" | "client" | "tool";
+  type: "bundle" | "alert" | "client" | "tool" | "guardrail" | "consumer";
   id: string;
   reason: string;
 }
 export interface ImportResult {
   dryRun: boolean;
-  applied: { bundles: number; alertRules: number; clientsConfigured: number; toolsConfigured: number };
+  applied: { bundles: number; alertRules: number; clientsConfigured: number; toolsConfigured: number; guardrails: number; consumers: number };
   skipped: ImportSkip[];
 }
 
@@ -76,6 +89,7 @@ export function exportConfig(): ConfigExport {
 
   const clientNames = (db.query(`SELECT name FROM clients ORDER BY name`).all() as { name: string }[]).map((r) => r.name);
   const clients: ExportedClient[] = [];
+  const guardrails: ExportedGuardrail[] = [];
   for (const name of clientNames) {
     const d = registry.getClientDetail(name);
     if (!d) continue;
@@ -85,9 +99,15 @@ export function exportConfig(): ConfigExport {
       guards: d.guards ?? null,
       tools: d.tools.map((t) => ({ name: t.name, enabled: t.enabled, guards: t.guards ?? null, override: t.override ?? null })),
     });
+    const clientGuardrails = getGuardrailsForClient(name);
+    for (const [toolName, cfg] of Object.entries(clientGuardrails)) {
+      guardrails.push({ client: name, tool: toolName, guardrails: cfg });
+    }
   }
 
-  return { version: CONFIG_EXPORT_VERSION, exportedAt: Date.now(), bundles, alertRules, clients };
+  const consumers: ExportedConsumer[] = listConsumers().map((c) => ({ name: c.name, monthlyQuota: c.monthlyQuota }));
+
+  return { version: CONFIG_EXPORT_VERSION, exportedAt: Date.now(), bundles, alertRules, clients, guardrails, consumers };
 }
 
 function asArray<T>(v: unknown): T[] {
@@ -116,7 +136,7 @@ export async function importConfig(
   const db = getDb();
   const dryRun = opts.dryRun;
   const skipped: ImportSkip[] = [];
-  const applied = { bundles: 0, alertRules: 0, clientsConfigured: 0, toolsConfigured: 0 };
+  const applied = { bundles: 0, alertRules: 0, clientsConfigured: 0, toolsConfigured: 0, guardrails: 0, consumers: 0 };
 
   const toolExists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`);
   const clientExists = db.query(`SELECT 1 FROM clients WHERE name = ?`);
@@ -184,6 +204,31 @@ export async function importConfig(
       }
       applied.toolsConfigured++;
     }
+  }
+
+  // Guardrails — applied only to already-registered tools.
+  for (const g of asArray<ExportedGuardrail>(doc.guardrails)) {
+    if (!toolExists.get(g.client, g.tool)) {
+      skipped.push({ type: "guardrail", id: `${g.client}__${g.tool}`, reason: "tool not found" });
+      continue;
+    }
+    if (!dryRun) {
+      setGuardrails(g.client, g.tool, g.guardrails ?? null);
+    }
+    applied.guardrails++;
+  }
+
+  // Consumers — created if unknown by name, otherwise their quota is updated.
+  for (const c of asArray<ExportedConsumer>(doc.consumers)) {
+    if (!dryRun) {
+      const existing = getConsumerByName(c.name);
+      if (existing) {
+        updateConsumer(existing.id, { monthlyQuota: c.monthlyQuota ?? null });
+      } else {
+        createConsumer({ name: c.name, monthlyQuota: c.monthlyQuota ?? null, actor });
+      }
+    }
+    applied.consumers++;
   }
 
   return { dryRun, applied, skipped };

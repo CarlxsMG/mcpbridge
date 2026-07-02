@@ -7,6 +7,8 @@ import { registry } from "../registry.js";
 import { createBundle, getBundleDetail } from "../bundles.js";
 import { createAlertRule, listAlertRules } from "../alerts.js";
 import { exportConfig, importConfig } from "../config-io.js";
+import { getGuardrails, setGuardrails } from "../guardrails.js";
+import { listConsumers, createConsumer } from "../consumers.js";
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(name = "get-users"): RestToolDefinition {
@@ -86,5 +88,62 @@ describe("config export/import", () => {
 
   test("rejects an unsupported version", async () => {
     await expect(importConfig({ version: 999 }, { dryRun: false }, "t")).rejects.toThrow();
+  });
+
+  test("round-trips guardrails and consumer quotas", async () => {
+    await reg("svc");
+    setGuardrails("svc", "get-users", { denyPatterns: ["DROP TABLE"], blockSecrets: true, scanResponses: false });
+    createConsumer({ name: "acme", monthlyQuota: 1000, actor: "t" });
+
+    const doc = exportConfig();
+    expect(doc.guardrails).toEqual([{ client: "svc", tool: "get-users", guardrails: { denyPatterns: ["DROP TABLE"], blockSecrets: true, scanResponses: false } }]);
+    expect(doc.consumers).toEqual([{ name: "acme", monthlyQuota: 1000 }]);
+
+    // Fresh environment: guardrails/consumers must be recreated by import.
+    __resetDbForTesting();
+    for (const c of registry.listClients()) await registry.unregister(c.name);
+    await reg("svc");
+
+    const result = await importConfig(doc, { dryRun: false }, "t");
+    expect(result.applied.guardrails).toBe(1);
+    expect(result.applied.consumers).toBe(1);
+    expect(getGuardrails("svc", "get-users")).toEqual({ denyPatterns: ["DROP TABLE"], blockSecrets: true, scanResponses: false });
+    expect(listConsumers().map((c) => ({ name: c.name, monthlyQuota: c.monthlyQuota }))).toEqual([{ name: "acme", monthlyQuota: 1000 }]);
+
+    // Re-importing updates the existing consumer's quota by name instead of duplicating it.
+    doc.consumers[0].monthlyQuota = 2000;
+    await importConfig(doc, { dryRun: false }, "t");
+    expect(listConsumers()).toHaveLength(1);
+    expect(listConsumers()[0].monthlyQuota).toBe(2000);
+  });
+
+  test("a v1 document without guardrails/consumers still imports cleanly (back-compat)", async () => {
+    await reg("svc");
+    const doc = {
+      version: 1,
+      exportedAt: Date.now(),
+      bundles: [],
+      alertRules: [],
+      clients: [],
+    };
+    const result = await importConfig(doc, { dryRun: false }, "t");
+    expect(result.applied.guardrails).toBe(0);
+    expect(result.applied.consumers).toBe(0);
+    expect(result.skipped).toHaveLength(0);
+  });
+
+  test("skips guardrails for a tool that doesn't exist", async () => {
+    const doc = {
+      version: 1,
+      exportedAt: Date.now(),
+      bundles: [],
+      alertRules: [],
+      clients: [],
+      guardrails: [{ client: "ghost", tool: "t", guardrails: { denyPatterns: [], blockSecrets: true, scanResponses: false } }],
+      consumers: [],
+    };
+    const result = await importConfig(doc, { dryRun: false }, "t");
+    expect(result.skipped.some((s) => s.type === "guardrail" && s.id === "ghost__t")).toBe(true);
+    expect(result.applied.guardrails).toBe(0);
   });
 });

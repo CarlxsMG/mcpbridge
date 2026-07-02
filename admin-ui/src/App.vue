@@ -22,6 +22,7 @@ import {
   UsersRound,
   Settings2,
   GitBranch,
+  Waypoints,
 } from "lucide-vue-next";
 
 const route = useRoute();
@@ -90,6 +91,7 @@ async function onLogout() {
           <li><RouterLink to="/overview"><LayoutDashboard :size="15" stroke-width="2" aria-hidden="true" /> Overview</RouterLink></li>
           <li><RouterLink to="/usage"><Activity :size="15" stroke-width="2" aria-hidden="true" /> Usage</RouterLink></li>
           <li><RouterLink to="/traffic"><ArrowLeftRight :size="15" stroke-width="2" aria-hidden="true" /> Traffic</RouterLink></li>
+          <li><RouterLink to="/traces"><Waypoints :size="15" stroke-width="2" aria-hidden="true" /> Traces</RouterLink></li>
           <li><RouterLink to="/monitors"><Radar :size="15" stroke-width="2" aria-hidden="true" /> Monitors</RouterLink></li>
           <li><RouterLink to="/approvals"><ClipboardCheck :size="15" stroke-width="2" aria-hidden="true" /> Approvals</RouterLink></li>
           <li><RouterLink to="/alerts"><BellRing :size="15" stroke-width="2" aria-hidden="true" /> Alerts</RouterLink></li>

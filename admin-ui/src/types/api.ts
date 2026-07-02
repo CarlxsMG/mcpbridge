@@ -63,6 +63,35 @@ export interface ToolDetail {
   sensitive?: boolean | null;
   redactPaths?: string[];
   guardrails?: ToolGuardrails;
+  coalesce?: { enabled: boolean };
+  approval?: { required: boolean; requiredLevels: number };
+  quarantine?: {
+    policy: { consecutiveThreshold: number; action: "block" | "force_approval" | "observe"; recoveryMode: "auto" | "manual"; cooldownMs: number | null };
+    state: { quarantined: boolean; consecutiveHits: number; quarantinedAt: number | null; reason: string | null; cooldownUntil: number | null };
+  };
+  ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
+}
+
+export interface TraceSummary {
+  traceId: string;
+  spanCount: number;
+  startMs: number;
+  endMs: number;
+  mcpToolName: string | null;
+  hasError: boolean;
+}
+
+export interface StoredSpan {
+  id: number;
+  traceId: string;
+  spanId: string;
+  name: string;
+  mcpToolName: string | null;
+  startMs: number;
+  endMs: number;
+  statusCode: number;
+  attributes: Record<string, unknown>;
+  createdAt: number;
 }
 
 export interface ClientDetail {
@@ -359,6 +388,15 @@ export interface MonitorRecord {
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
+export interface ApprovalDecision {
+  id: number;
+  approvalId: number;
+  decidedBy: string;
+  decision: "approved" | "rejected";
+  note: string | null;
+  decidedAt: number;
+}
+
 export interface ApprovalRecord {
   id: number;
   clientName: string;
@@ -372,6 +410,8 @@ export interface ApprovalRecord {
   note: string | null;
   consumedAt: number | null;
   requestedBy: number | null;
+  requiredLevels: number;
+  decisions: ApprovalDecision[];
 }
 
 export interface GuardPolicy {
@@ -386,11 +426,11 @@ export interface GuardPolicy {
 
 export interface ConfigImportResult {
   dryRun: boolean;
-  applied: { bundles: number; alertRules: number; clientsConfigured: number; toolsConfigured: number };
+  applied: { bundles: number; alertRules: number; clientsConfigured: number; toolsConfigured: number; guardrails: number; consumers: number };
   skipped: { type: string; id: string; reason: string }[];
 }
 
-export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike";
+export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike" | "schema_drift";
 
 export interface AlertRule {
   id: number;

@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import type { ProgressCallback } from "@modelcontextprotocol/sdk/shared/protocol.js";
 
 // ---------------------------------------------------------------------------
 // Outbound MCP upstream connection pool + dispatcher.
@@ -36,6 +37,8 @@ export interface McpConnParams {
 export interface ProxyToolResult {
   content: Array<{ type: string; text: string }>;
   isError?: boolean;
+  /** True when this result came from a caller-initiated cancellation, not an upstream failure — the caller must not penalize the circuit breaker for it. */
+  cancelled?: boolean;
 }
 
 const CLIENT_NAME = "mcp-rest-bridge";
@@ -163,12 +166,18 @@ export class McpUpstreamPool {
    * MCP tools carry no idempotency guarantee (unlike REST's method-based retry),
    * so a retry could double-execute. A failed call drops the (possibly dead)
    * connection so the NEXT call reconnects.
+   *
+   * `signal`/`onprogress` bridge the downstream MCP caller's own cancellation
+   * and progress-request straight through to this SDK Client call — opt-in on
+   * both legs (see proxy.ts/mcp-server.ts): `onprogress` is only ever set when
+   * the bridge itself has a downstream sink to forward to, which is exactly
+   * how the SDK decides whether to ask the upstream for progress at all.
    */
   async call(
     p: McpConnParams,
     upstreamToolName: string,
     args: Record<string, unknown>,
-    opts: { timeoutMs: number; maxBytes: number }
+    opts: { timeoutMs: number; maxBytes: number; signal?: AbortSignal; onprogress?: ProgressCallback }
   ): Promise<ProxyToolResult> {
     let client: Client;
     try {
@@ -181,10 +190,16 @@ export class McpUpstreamPool {
       const result = await client.callTool(
         { name: upstreamToolName, arguments: args },
         undefined,
-        { timeout: opts.timeoutMs }
+        { timeout: opts.timeoutMs, signal: opts.signal, onprogress: opts.onprogress }
       );
       return mcpResultToProxyResult(result, opts.maxBytes);
     } catch (err) {
+      if (opts.signal?.aborted) {
+        // Caller-initiated cancellation — the SDK already forwarded
+        // notifications/cancelled to the upstream on our behalf. Not a
+        // connection failure, so the pooled connection is left live.
+        return { isError: true, cancelled: true, content: [{ type: "text", text: "Tool call cancelled by caller" }] };
+      }
       await this.disconnect(p.name);
       return errorResult(`MCP tool call failed for '${p.name}': ${messageOf(err)}`);
     }

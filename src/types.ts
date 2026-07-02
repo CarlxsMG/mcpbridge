@@ -94,6 +94,17 @@ export interface RegisteredTool extends RestToolDefinition {
   guardrails?: ToolGuardrails;
   /** Raw upstream MCP tool name used for dispatch (only when the client is kind "mcp"). Absent for REST tools. */
   upstreamName?: string;
+  /** Request-coalescing config (populated on read): dedupe concurrent identical in-flight REST GET calls. */
+  coalesce?: { enabled: boolean };
+  /** Human-in-the-loop approval config (populated on read): whether required, and the N-of-M distinct-approver threshold. */
+  approval?: { required: boolean; requiredLevels: number };
+  /** Auto-quarantine policy + runtime state (populated on read), when a policy is configured. */
+  quarantine?: {
+    policy: { consecutiveThreshold: number; action: "block" | "force_approval" | "observe"; recoveryMode: "auto" | "manual"; cooldownMs: number | null };
+    state: { quarantined: boolean; consecutiveHits: number; quarantinedAt: number | null; reason: string | null; cooldownUntil: number | null };
+  };
+  /** Per-tool WebSocket backend config (populated on read), when configured. */
+  ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
 }
 
 export interface RegisteredClient {

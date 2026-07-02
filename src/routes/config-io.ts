@@ -1,4 +1,5 @@
 import type { Request, Response, Express } from "express";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
 import { recordAudit, actorFromRequest } from "../admin/audit.js";
@@ -12,14 +13,31 @@ function requestId(res: Response): string | null {
 export function configIoRoutes(app: Express): void {
   app.get("/admin-api/config/export", adminAuth, requireAdminRole, (req: Request, res: Response) => {
     recordAudit(actorFromRequest(req), "config.export", "config");
-    res.status(200).json(exportConfig());
+    const doc = exportConfig();
+    if (req.query.format === "yaml") {
+      res.status(200).type("application/yaml").send(stringifyYaml(doc));
+      return;
+    }
+    res.status(200).json(doc);
   });
 
   app.post("/admin-api/config/import", adminAuth, requireAdminRole, async (req: Request, res: Response) => {
     const body = (req.body as Record<string, unknown>) ?? {};
     const dryRun = body.dryRun === true;
-    // Accept either { dryRun, data } or a bare export document.
-    const data = body.data !== undefined ? body.data : body;
+    // Accept { dryRun, data }, a bare export document, or { format:"yaml", raw }
+    // (YAML text travels inside the normal JSON body — no separate content-type
+    // parser needed for a policy document this size).
+    let data: unknown;
+    if (body.format === "yaml" && typeof body.raw === "string") {
+      try {
+        data = parseYaml(body.raw);
+      } catch (err) {
+        res.status(400).json({ error: { code: "IMPORT_ERROR", message: `invalid YAML: ${err instanceof Error ? err.message : String(err)}`, request_id: requestId(res) } });
+        return;
+      }
+    } else {
+      data = body.data !== undefined ? body.data : body;
+    }
     try {
       const result = await importConfig(data, { dryRun }, actorFromRequest(req));
       if (!dryRun) {
