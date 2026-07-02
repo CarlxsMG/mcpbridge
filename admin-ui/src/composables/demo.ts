@@ -1,0 +1,354 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// DEMO MODE — in-browser mock of the /admin-api/* + /register backend.
+//
+// Loaded ONLY when built with VITE_DEMO=true (see useApi.ts — dynamic import in a
+// statically-false branch, so this file is tree-shaken out of the real product
+// build). Powers the public "try it" demo on GitHub Pages with realistic, mutable
+// fixture data — no server, no persistence beyond the current tab.
+// ─────────────────────────────────────────────────────────────────────────────
+import type {
+  AlertRule,
+  AuditLogEntry,
+  BundleDetail,
+  BundleSummary,
+  ClientDetail,
+  ClientSummary,
+  CompositeSummary,
+  ConfigSnapshotSummary,
+  ConsumerWithUsage,
+  CurrentUser,
+  DiscoveryPreview,
+  GuardPolicy,
+  McpApiKey,
+  McpApiKeyWithSecret,
+  OverviewStats,
+  Schedule,
+  Team,
+  ToolDetail,
+  ToolListItem,
+  TopToolRow,
+  UsageByKeyRow,
+  UsageSummary,
+  AdminUserSummary,
+} from "../types/api";
+
+const NOW = Date.now();
+const days = (n: number): number => NOW - n * 86_400_000;
+const hours = (n: number): number => NOW - n * 3_600_000;
+const hex = (seed: number): string =>
+  Array.from({ length: 16 }, (_, i) => (((seed * 2654435761 + i * 40503) >>> 0) % 16).toString(16)).join("");
+
+// ─── Mutable session state (toggles persist within the tab) ──────────────────
+
+const clients: ClientSummary[] = [
+  { name: "github", enabled: true, live: true, status: "healthy", toolsCount: 8, healthUrl: "https://api.github.com", baseUrl: "https://api.github.com", kind: "mcp", teamId: 1 },
+  { name: "stripe", enabled: true, live: true, status: "healthy", toolsCount: 12, healthUrl: "https://api.stripe.com/healthz", baseUrl: "https://api.stripe.com", kind: "rest", teamId: 1 },
+  { name: "slack", enabled: true, live: true, status: "healthy", toolsCount: 6, healthUrl: "https://slack.com/api/api.test", baseUrl: "https://slack.com/api", kind: "rest", teamId: 2 },
+  { name: "internal-crm", enabled: true, live: true, status: "degraded", toolsCount: 9, healthUrl: "https://crm.internal/health", baseUrl: "https://crm.internal", kind: "rest", teamId: 2 },
+  { name: "weather", enabled: true, live: true, status: "healthy", toolsCount: 4, healthUrl: "https://api.weather.example/health", baseUrl: "https://api.weather.example", kind: "rest", teamId: null },
+  { name: "legacy-billing", enabled: false, live: false, status: "unreachable", toolsCount: 3, healthUrl: "https://legacy.internal/ping", baseUrl: "https://legacy.internal", kind: "rest", teamId: null },
+];
+
+const bundles: BundleSummary[] = [
+  { name: "support-agent", description: "Read-only GitHub + Slack tools for the support copilot", enabled: true, toolsCount: 5 },
+  { name: "billing-ops", description: "Stripe refunds & invoice lookups for finance", enabled: true, toolsCount: 4 },
+  { name: "readonly-explorer", description: "Safe, read-only slice across every backend", enabled: false, toolsCount: 7 },
+];
+
+// ─── Tool catalogs per client (drive the flat list + client detail) ──────────
+
+const TOOLS: Record<string, Array<{ name: string; method: ToolDetail["method"]; endpoint: string; description: string; upstream?: string; tags?: string[]; sensitive?: boolean }>> = {
+  github: [
+    { name: "search_issues", method: "GET", endpoint: "", description: "Search issues and pull requests", upstream: "search_issues", tags: ["read"] },
+    { name: "create_issue", method: "POST", endpoint: "", description: "Open a new issue in a repository", upstream: "create_issue", tags: ["write"] },
+    { name: "get_repo", method: "GET", endpoint: "", description: "Fetch repository metadata", upstream: "get_repo", tags: ["read"] },
+    { name: "list_pull_requests", method: "GET", endpoint: "", description: "List pull requests for a repo", upstream: "list_pull_requests", tags: ["read"] },
+  ],
+  stripe: [
+    { name: "create_refund", method: "POST", endpoint: "/v1/refunds", description: "Refund a charge", tags: ["write"], sensitive: true },
+    { name: "get_customer", method: "GET", endpoint: "/v1/customers/{id}", description: "Retrieve a customer", tags: ["read"], sensitive: true },
+    { name: "list_invoices", method: "GET", endpoint: "/v1/invoices", description: "List invoices", tags: ["read"] },
+    { name: "create_payment_intent", method: "POST", endpoint: "/v1/payment_intents", description: "Start a payment", tags: ["write"], sensitive: true },
+  ],
+  slack: [
+    { name: "post_message", method: "POST", endpoint: "/chat.postMessage", description: "Send a channel message", tags: ["write"] },
+    { name: "list_channels", method: "GET", endpoint: "/conversations.list", description: "List channels", tags: ["read"] },
+    { name: "get_user", method: "GET", endpoint: "/users.info", description: "Look up a user", tags: ["read"] },
+  ],
+  "internal-crm": [
+    { name: "find_account", method: "GET", endpoint: "/accounts/search", description: "Search CRM accounts", tags: ["read"], sensitive: true },
+    { name: "update_deal", method: "PATCH", endpoint: "/deals/{id}", description: "Update a deal stage", tags: ["write"] },
+  ],
+  weather: [
+    { name: "current", method: "GET", endpoint: "/v1/current", description: "Current conditions for a location" },
+    { name: "forecast", method: "GET", endpoint: "/v1/forecast", description: "7-day forecast" },
+  ],
+  "legacy-billing": [
+    { name: "get_balance", method: "GET", endpoint: "/balance", description: "Legacy balance lookup" },
+  ],
+};
+
+function toolDetail(client: ClientSummary, t: (typeof TOOLS)[string][number]): ToolDetail {
+  return {
+    name: t.name,
+    method: t.method,
+    endpoint: t.endpoint,
+    upstreamName: client.kind === "mcp" ? t.upstream ?? t.name : undefined,
+    description: t.description,
+    inputSchema: { type: "object", properties: {}, additionalProperties: true },
+    enabled: true,
+    guards: t.name === "create_refund" ? { rateLimitPerMin: 10, timeoutMs: 8000 } : undefined,
+    tags: t.tags ?? [],
+    sensitive: t.sensitive ?? false,
+    guardrails: t.sensitive ? { denyPatterns: [], blockSecrets: true, scanResponses: true } : undefined,
+  };
+}
+
+function clientDetail(name: string): ClientDetail {
+  const c = clients.find((x) => x.name === name) ?? clients[0];
+  const catalog = TOOLS[c.name] ?? [{ name: "example_tool", method: "GET" as const, endpoint: "/example", description: "Example tool" }];
+  return {
+    name: c.name,
+    enabled: c.enabled,
+    live: c.live,
+    status: c.status,
+    ip: "203.0.113.10",
+    healthUrl: c.healthUrl,
+    baseUrl: c.baseUrl,
+    resolvedIp: "203.0.113.10",
+    retryNonSafeMethods: false,
+    consecutiveFailures: c.status === "degraded" ? 2 : 0,
+    circuitBreakerState: c.status === "degraded" ? "half_open" : "closed",
+    kind: c.kind,
+    mcpUrl: c.kind === "mcp" ? "https://api.githubcopilot.com/mcp/" : null,
+    mcpTransport: c.kind === "mcp" ? "streamable-http" : null,
+    teamId: c.teamId,
+    tools: catalog.map((t) => toolDetail(c, t)),
+  };
+}
+
+const flatTools: ToolListItem[] = clients.flatMap((c) =>
+  (TOOLS[c.name] ?? []).map((t) => ({
+    client: c.name,
+    tool: t.name,
+    description: t.description,
+    enabled: true,
+    clientEnabled: c.enabled,
+    tags: t.tags ?? [],
+  })),
+);
+
+const mcpKeys: McpApiKey[] = [
+  { id: 1, label: "Claude Desktop", keyPrefix: "mcp_live_a1b2", consumerId: 1, elevated: false, scopes: { clients: ["github", "slack"] }, enabled: true, expiresAt: null, revokedAt: null, lastUsedAt: hours(3), createdAt: days(41), updatedAt: days(2), createdBy: "demo" },
+  { id: 2, label: "Cursor IDE", keyPrefix: "mcp_live_c3d4", consumerId: 2, elevated: false, scopes: { clients: ["stripe"] }, enabled: true, expiresAt: days(-60), revokedAt: null, lastUsedAt: hours(27), createdAt: days(30), updatedAt: days(4), createdBy: "demo" },
+  { id: 3, label: "CI pipeline (elevated)", keyPrefix: "mcp_live_e5f6", consumerId: null, elevated: true, scopes: null, enabled: true, expiresAt: null, revokedAt: null, lastUsedAt: hours(9), createdAt: days(18), updatedAt: days(1), createdBy: "demo" },
+  { id: 4, label: "Old prototype key", keyPrefix: "mcp_live_9z8y", consumerId: null, elevated: false, scopes: null, enabled: false, expiresAt: null, revokedAt: days(6), lastUsedAt: days(22), createdAt: days(60), updatedAt: days(6), createdBy: "demo" },
+];
+
+const consumers: ConsumerWithUsage[] = [
+  { id: 1, name: "Support team", monthlyQuota: 50000, usedThisMonth: 18423, createdAt: days(90), updatedAt: days(2), createdBy: "demo" },
+  { id: 2, name: "Finance", monthlyQuota: 10000, usedThisMonth: 2140, createdAt: days(75), updatedAt: days(5), createdBy: "demo" },
+  { id: 3, name: "Internal agents", monthlyQuota: null, usedThisMonth: 60127, createdAt: days(120), updatedAt: days(1), createdBy: "demo" },
+];
+
+const alerts: AlertRule[] = [
+  { id: 1, name: "CRM circuit breaker open", eventType: "circuit_breaker_open", enabled: true, webhookUrl: "https://hooks.slack.com/services/T000/B000/xxx", threshold: null, minCalls: null, lastFiredAt: hours(20), createdAt: days(30), updatedAt: hours(20), createdBy: "demo" },
+  { id: 2, name: "High error rate", eventType: "error_rate", enabled: true, webhookUrl: "https://hooks.slack.com/services/T000/B001/yyy", threshold: 0.1, minCalls: 50, lastFiredAt: null, createdAt: days(21), updatedAt: days(21), createdBy: "demo" },
+  { id: 3, name: "Usage spike detector", eventType: "usage_spike", enabled: false, webhookUrl: "https://hooks.slack.com/services/T000/B002/zzz", threshold: 3, minCalls: 100, lastFiredAt: days(5), createdAt: days(14), updatedAt: days(3), createdBy: "demo" },
+];
+
+const auditLog: AuditLogEntry[] = [
+  { id: 128, actor: "demo", action: "mcpkey.create", target: "key:3", detail: { label: "CI pipeline (elevated)", elevated: true }, createdAt: hours(2), hash: hex(128) },
+  { id: 127, actor: "demo", action: "tool.guard.update", target: "stripe__create_refund", detail: { rateLimitPerMin: 10, timeoutMs: 8000 }, createdAt: hours(6), hash: hex(127) },
+  { id: 126, actor: "demo", action: "bundle.create", target: "bundle:billing-ops", detail: { tools: 4 }, createdAt: hours(9), hash: hex(126) },
+  { id: 125, actor: "demo", action: "client.disable", target: "legacy-billing", detail: null, createdAt: days(1), hash: hex(125) },
+  { id: 124, actor: "demo", action: "alert.fire", target: "internal-crm", detail: { eventType: "circuit_breaker_open" }, createdAt: days(1), hash: hex(124) },
+  { id: 123, actor: "demo", action: "client.register", target: "github", detail: { kind: "mcp", tools: 8 }, createdAt: days(2), hash: hex(123) },
+  { id: 122, actor: "demo", action: "config.snapshot", target: "snapshot:12", detail: { label: "before rollout" }, createdAt: days(2), hash: hex(122) },
+  { id: 121, actor: "demo", action: "user.login", target: "demo", detail: { method: "session" }, createdAt: days(3), hash: hex(121) },
+  { id: 120, actor: "demo", action: "team.create", target: "team:2", detail: { name: "Support" }, createdAt: days(4), hash: hex(120) },
+  { id: 119, actor: "demo", action: "client.register", target: "stripe", detail: { kind: "rest", tools: 12 }, createdAt: days(5), hash: hex(119) },
+];
+
+const users: AdminUserSummary[] = [
+  { username: "demo", role: "admin", is_active: true, created_at: days(120), last_login_at: hours(2) },
+  { username: "ops-oncall", role: "operator", is_active: true, created_at: days(60), last_login_at: days(1) },
+  { username: "auditor", role: "auditor", is_active: true, created_at: days(45), last_login_at: days(7) },
+];
+
+const teams: Team[] = [
+  { id: 1, name: "Platform", createdAt: days(120), createdBy: "demo" },
+  { id: 2, name: "Support", createdAt: days(90), createdBy: "demo" },
+];
+
+const policies: GuardPolicy[] = [
+  { id: 1, name: "Standard read", rateLimitPerMin: 120, timeoutMs: 10000, createdAt: days(50), updatedAt: days(10), createdBy: "demo" },
+  { id: 2, name: "Sensitive write", rateLimitPerMin: 10, timeoutMs: 8000, createdAt: days(40), updatedAt: days(4), createdBy: "demo" },
+];
+
+const composites: CompositeSummary[] = [
+  { name: "triage_issue", description: "Search GitHub, then post a Slack summary", enabled: true, stepsCount: 2 },
+  { name: "refund_and_notify", description: "Create a Stripe refund and DM the customer owner", enabled: true, stepsCount: 3 },
+];
+
+const schedules: Schedule[] = [
+  { id: 1, targetType: "client", clientName: "legacy-billing", toolName: null, action: "disable", cron: "0 2 * * *", enabled: true, lastRunMinute: null, createdAt: days(20), createdBy: "demo" },
+  { id: 2, targetType: "tool", clientName: "stripe", toolName: "create_refund", action: "enable", cron: "0 8 * * 1-5", enabled: true, lastRunMinute: null, createdAt: days(15), createdBy: "demo" },
+];
+
+const snapshots: ConfigSnapshotSummary[] = [
+  { id: 12, label: "before rollout", createdAt: days(2), createdBy: "demo" },
+  { id: 11, label: "add billing-ops bundle", createdAt: days(9), createdBy: "demo" },
+  { id: 10, label: "initial", createdAt: days(30), createdBy: "demo" },
+];
+
+const topTools: TopToolRow[] = [
+  { client: "github", tool: "search_issues", calls: 4210, errors: 12, errorRate: 0.0028, avgMs: 118, maxMs: 940 },
+  { client: "stripe", tool: "get_customer", calls: 3320, errors: 8, errorRate: 0.0024, avgMs: 96, maxMs: 610 },
+  { client: "slack", tool: "post_message", calls: 2870, errors: 31, errorRate: 0.0108, avgMs: 142, maxMs: 1200 },
+  { client: "internal-crm", tool: "find_account", calls: 1980, errors: 54, errorRate: 0.0273, avgMs: 260, maxMs: 2210 },
+  { client: "stripe", tool: "create_refund", calls: 640, errors: 3, errorRate: 0.0047, avgMs: 180, maxMs: 880 },
+  { client: "weather", tool: "forecast", calls: 5203, errors: 2, errorRate: 0.0004, avgMs: 72, maxMs: 410 },
+];
+
+const byKey: UsageByKeyRow[] = [
+  { keyId: 1, label: "Claude Desktop", calls: 8120, errors: 44 },
+  { keyId: 3, label: "CI pipeline (elevated)", calls: 6010, errors: 61 },
+  { keyId: 2, label: "Cursor IDE", calls: 3140, errors: 22 },
+  { keyId: null, label: "(no key)", calls: 1153, errors: 10 },
+];
+
+const usageSummary: UsageSummary = { from: days(7), calls: 18423, errors: 137, errorRate: 0.0074, avgMs: 142, maxMs: 2210, tools: 39, keys: 6 };
+
+const overview: OverviewStats = {
+  clients: { live: 5, disabled: 1, healthy: 4, degraded: 1, unreachable: 1 },
+  tools: { total: 42, disabled: 3 },
+  circuit_breakers: { open: 0, half_open: 1 },
+  admin_users: 3,
+};
+
+const DEMO_USER: NonNullable<CurrentUser["user"]> = { username: "demo", role: "admin" };
+
+const discoveryPreview: DiscoveryPreview = {
+  count: 5,
+  tools: [
+    { name: "list_pets", method: "GET", endpoint: "/pet/findByStatus", description: "Finds pets by status" },
+    { name: "get_pet", method: "GET", endpoint: "/pet/{petId}", description: "Find pet by ID" },
+    { name: "add_pet", method: "POST", endpoint: "/pet", description: "Add a new pet to the store" },
+    { name: "update_pet", method: "PUT", endpoint: "/pet", description: "Update an existing pet" },
+    { name: "delete_pet", method: "DELETE", endpoint: "/pet/{petId}", description: "Deletes a pet" },
+  ],
+};
+
+// ─── Router ──────────────────────────────────────────────────────────────────
+
+function ok<T>(v: T): T {
+  return v;
+}
+
+function route(pathname: string, method: string, body: Record<string, unknown> | undefined): unknown {
+  const p = pathname.replace(/\/+$/, "") || "/";
+
+  // Auth — always "logged in" as the demo admin.
+  if (p === "/admin-api/auth/me") return ok<CurrentUser>({ authenticated: true, auth_method: "session", user: DEMO_USER });
+  if (p === "/admin-api/auth/login") return ok({ user: DEMO_USER, csrf_token: "demo-csrf-token" });
+  if (p === "/admin-api/auth/logout") return ok({});
+
+  if (p === "/admin-api/overview") return ok(overview);
+
+  // Clients (servers)
+  if (p === "/admin-api/clients" && method === "GET") return ok({ items: clients });
+  const clientDetailMatch = p.match(/^\/admin-api\/clients\/([^/]+)$/);
+  if (clientDetailMatch) {
+    const name = decodeURIComponent(clientDetailMatch[1]);
+    if (method === "GET") return ok(clientDetail(name));
+    if (method === "PATCH") {
+      const c = clients.find((x) => x.name === name);
+      if (c && body && typeof body.enabled === "boolean") c.enabled = body.enabled;
+      return ok(clientDetail(name));
+    }
+    if (method === "DELETE") return undefined;
+  }
+  if (/^\/admin-api\/clients\/[^/]+\/canary$/.test(p)) return ok({ canary: null });
+  if (/^\/admin-api\/clients\/[^/]+\/upstream-auth$/.test(p)) return ok({ configured: false });
+  if (/^\/admin-api\/clients\//.test(p)) return ok({}); // any other per-client mutation
+
+  // Bundles
+  if (p === "/admin-api/bundles" && method === "GET") return ok({ items: bundles });
+  if (p === "/admin-api/bundles" && method === "POST") {
+    const name = String(body?.name ?? "new-bundle");
+    return ok<BundleDetail>({ name, description: (body?.description as string) ?? null, enabled: true, createdAt: NOW, updatedAt: NOW, tools: [] });
+  }
+  const bundleDetailMatch = p.match(/^\/admin-api\/bundles\/([^/]+)$/);
+  if (bundleDetailMatch) {
+    const name = decodeURIComponent(bundleDetailMatch[1]);
+    if (method === "DELETE") return undefined;
+    if (method === "PATCH") {
+      const b = bundles.find((x) => x.name === name);
+      if (b && body && typeof body.enabled === "boolean") b.enabled = body.enabled;
+    }
+    const b = bundles.find((x) => x.name === name);
+    return ok<BundleDetail>({ name, description: b?.description ?? null, enabled: b?.enabled ?? true, createdAt: days(9), updatedAt: NOW, tools: (TOOLS[clients[0].name] ?? []).slice(0, 2).map((t) => ({ client: clients[0].name, tool: t.name })) });
+  }
+
+  if (p === "/admin-api/tools") return ok({ items: flatTools });
+
+  // Keys & consumers
+  if (p === "/admin-api/mcp-keys" && method === "GET") return ok({ items: mcpKeys });
+  if (p === "/admin-api/mcp-keys" && method === "POST") {
+    return ok<McpApiKeyWithSecret>({ id: 99, label: String(body?.label ?? "New key"), keyPrefix: "mcp_live_new0", consumerId: null, elevated: Boolean(body?.elevated), scopes: null, enabled: true, expiresAt: null, revokedAt: null, lastUsedAt: null, createdAt: NOW, updatedAt: NOW, createdBy: "demo", key: "mcp_live_new0DEMOxxxxxxxxxxxxxxxxxxxxxxxx" });
+  }
+  if (/^\/admin-api\/mcp-keys\/\d+\/revoke$/.test(p)) return ok({});
+  if (/^\/admin-api\/mcp-keys\//.test(p)) return undefined;
+  if (p === "/admin-api/consumers" && method === "GET") return ok({ items: consumers });
+  if (/^\/admin-api\/consumers/.test(p)) return ok({ id: 99, name: String(body?.name ?? "New") });
+
+  // Observability
+  if (p === "/admin-api/usage/summary") return ok(usageSummary);
+  if (p === "/admin-api/usage/top-tools") return ok({ items: topTools });
+  if (p === "/admin-api/usage/by-key") return ok({ items: byKey });
+  if (p === "/admin-api/alerts" && method === "GET") return ok({ items: alerts });
+  if (/^\/admin-api\/alerts/.test(p)) return ok({ id: 99 });
+  if (p === "/admin-api/audit-log") return ok({ items: auditLog });
+  if (p === "/admin-api/audit-log/export") return ok({ items: auditLog });
+  if (p === "/admin-api/audit-log/verify") return ok({ ok: true, checked: auditLog.length });
+
+  // Administration
+  if (p === "/admin-api/users" && method === "GET") return ok({ users });
+  if (/^\/admin-api\/users/.test(p)) return ok({ ok: true });
+  if (p === "/admin-api/teams" && method === "GET") return ok({ items: teams });
+  if (/^\/admin-api\/teams/.test(p)) return ok({ id: 99 });
+  if (p === "/admin-api/policies") return ok({ items: policies });
+  if (/^\/admin-api\/policies/.test(p)) return ok({ applied: 3, skipped: [] });
+  if (p === "/admin-api/composites") return ok({ items: composites });
+  if (/^\/admin-api\/composites/.test(p)) return ok({});
+  if (p === "/admin-api/schedules") return ok({ items: schedules });
+  if (/^\/admin-api\/schedules/.test(p)) return ok({ id: 99 });
+  if (p === "/admin-api/config/snapshots") return ok({ items: snapshots });
+  if (p === "/admin-api/config/export") return ok({ version: 1, clients: clients.length, bundles: bundles.length });
+  if (/^\/admin-api\/config\/(snapshots|import)/.test(p)) return ok({ dryRun: true, applied: { bundles: 3, alertRules: 3, clientsConfigured: 6, toolsConfigured: 42 }, skipped: [] });
+
+  // Discovery preview (Add server / re-sync)
+  if (p === "/admin-api/discovery/preview" || p === "/register") return ok(discoveryPreview);
+
+  // Graceful default: never 404 the demo.
+  if (method === "GET") return ok({ items: [] });
+  return ok({ ok: true });
+}
+
+/** Drop-in replacement for the real fetch path, used only in demo builds. */
+export async function demoFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const method = (init.method ?? "GET").toUpperCase();
+  let body: Record<string, unknown> | undefined;
+  if (typeof init.body === "string") {
+    try {
+      body = JSON.parse(init.body) as Record<string, unknown>;
+    } catch {
+      body = undefined;
+    }
+  }
+  const pathname = path.split("?")[0];
+  // A touch of latency so spinners/skeletons behave like the real thing.
+  await new Promise((r) => setTimeout(r, 90 + Math.floor(Math.random() * 120)));
+  return route(pathname, method, body) as T;
+}
