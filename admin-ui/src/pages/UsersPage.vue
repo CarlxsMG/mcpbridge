@@ -272,6 +272,7 @@ async function confirmDelete() {
                 <option value="auditor">auditor</option>
                 <option value="viewer">viewer</option>
               </select>
+              <br />
               <span v-if="isLastActiveAdmin(user)" class="switch-hint"
                 >Cannot change the last active admin — promote another user first.</span
               >
@@ -300,11 +301,11 @@ async function confirmDelete() {
                 "
                 @click="requestDelete(user)"
               >
-                Delete
-              </button>
-              <span v-if="isLastActiveAdmin(user)" class="switch-hint"
-                >Cannot delete the last active admin — promote another user first.</span
-              >
+                Delete</button
+              ><br />
+              <span v-if="isLastActiveAdmin(user)" class="switch-hint">
+                Cannot delete the last active admin — promote another user first.
+              </span>
             </td>
           </tr>
         </tbody>
