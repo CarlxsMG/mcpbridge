@@ -21,13 +21,22 @@ docker run -d --name mcpbridge -p 3000:3000 \
   a volume there so config survives restarts.
 - A `HEALTHCHECK` hits `/health`; the process shuts down gracefully on `SIGTERM`.
 
+Tagged releases (`vX.Y.Z`) are also published to GHCR at `ghcr.io/aico-dot-team-code/mcpbridge`
+(adjust the owner/repo if you forked this project — see the note atop the README), so you can
+skip the local build entirely:
+
+```bash
+docker pull ghcr.io/aico-dot-team-code/mcpbridge:latest
+docker run -d --name mcpbridge -p 3000:3000 -v mcpbridge-data:/app/data ghcr.io/aico-dot-team-code/mcpbridge:latest
+```
+
 ## Behind a reverse proxy (HTTPS)
 
 Terminate TLS at your proxy (nginx, Caddy, Traefik, a cloud LB) and forward to the bridge.
 In production:
 
 - Keep **`SESSION_COOKIE_SECURE=true`** so the admin session cookie is `__Host-`/Secure.
-- Set **`TRUST_PROXY=true`** *only* when the bridge is genuinely behind a trusted proxy, so
+- Set **`TRUST_PROXY=true`** _only_ when the bridge is genuinely behind a trusted proxy, so
   it reads the real client IP from `X-Forwarded-For` correctly.
 - Forward the `X-Forwarded-Proto` header so HSTS and secure-cookie logic behave.
 
@@ -46,6 +55,28 @@ The backend serves the built admin UI from `admin-ui/dist` at `/admin` when pres
 All durable state lives in the SQLite database (`DB_PATH`, default `/app/data/mcp-bridge.db`
 in Docker). Back it up like any SQLite file; use `:memory:` only for throwaway runs. You can
 also **export/import** the full configuration as JSON from the admin UI or `/admin-api/config`.
+
+### Upgrading
+
+Schema changes ship as an ordered, append-only list of SQL migrations
+(`src/db/migrations.ts`) that run **automatically on every startup**, before the server
+starts accepting requests. There is **no downgrade path** — migrations are forward-only
+and irreversible.
+
+Because of that:
+
+- **Back up `data/mcp-bridge.db` (or your `DB_PATH`) before upgrading** to a new version,
+  the same way you'd snapshot any production database before a schema change. If a new
+  version's migration does something unexpected, restoring the pre-upgrade file is the
+  only way back — there's no automated rollback.
+- Migrations run inside a transaction each, so a mid-migration failure can't leave the
+  schema half-applied — but it _can_ leave the process refusing to start until the
+  underlying issue (e.g. disk full, permissions) is fixed.
+- You can check which migrations have already been applied with the SQLite CLI:
+
+  ```bash
+  sqlite3 data/mcp-bridge.db "SELECT id, name, applied_at FROM _migrations ORDER BY id;"
+  ```
 
 ## High availability (opt-in)
 

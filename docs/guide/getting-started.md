@@ -42,6 +42,13 @@ cd admin-ui && bun install && cd ..
 bun run dev:all                      # backend :8790 + admin UI :8791
 ```
 
+::: tip Why different ports than the Docker example above?
+Dev mode deliberately uses high, uncommon ports (8790/8791) instead of the Docker/production
+default of 3000, so a local dev server doesn't clash with 3000 — or with a real gateway
+instance you might also be running locally. Both are configurable (`PORT`, `UI_PORT` in
+`.env`) — see [Configuration →](/guide/configuration).
+:::
+
 Open **http://localhost:8791/admin/** and log in.
 
 The bootstrap admin is created **only once**, while the users table is empty. After that
@@ -89,7 +96,9 @@ are supported.
 
 ## Connect an MCP client
 
-Point any MCP client (Claude Desktop, Cursor, your own agent) at the aggregated endpoint:
+Point any MCP client (Claude Desktop, Cursor, your own agent) at the aggregated endpoint.
+The bridge implements **MCP protocol version `2025-06-18`** — see
+[Connecting MCP clients →](/guide/connecting-clients) for details on version negotiation.
 
 ```json
 {
@@ -101,12 +110,12 @@ Point any MCP client (Claude Desktop, Cursor, your own agent) at the aggregated 
 
 Four serving modes are available:
 
-| Mode | Endpoint | Use it for |
-|---|---|---|
-| Aggregated | `/mcp` | Everything registered, one endpoint |
-| Per-client shard | `/mcp/:clientName` | Only one backend's tools |
-| Curated bundle | `/mcp-custom/:bundleName` | A hand-picked cross-backend subset |
-| Legacy SSE | `/sse` + `/messages` | Older MCP clients |
+| Mode             | Endpoint                  | Use it for                          |
+| ---------------- | ------------------------- | ----------------------------------- |
+| Aggregated       | `/mcp`                    | Everything registered, one endpoint |
+| Per-client shard | `/mcp/:clientName`        | Only one backend's tools            |
+| Curated bundle   | `/mcp-custom/:bundleName` | A hand-picked cross-backend subset  |
+| Legacy SSE       | `/sse` + `/messages`      | Older MCP clients                   |
 
 ## Next steps
 

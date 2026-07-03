@@ -31,12 +31,13 @@ per-tool guardrails, RBAC, circuit breaking. One binary. No Kubernetes.
 ---
 
 **MCP REST Bridge** is an open-source **MCP gateway / proxy / aggregator** for the
-[Model Context Protocol](https://modelcontextprotocol.io). Point it at an OpenAPI/Swagger
-spec and it turns your REST API into MCP tools automatically. Register an existing MCP
-server and it re-exposes it through the same governed pipeline. Every call runs through
-SSRF protection, prompt-injection sanitizing, per-tool rate limits, circuit breakers,
-RBAC and a tamper-evident audit log — and you manage all of it from a **built-in admin UI**,
-not a pile of YAML.
+[Model Context Protocol](https://modelcontextprotocol.io) (implements **spec version
+`2025-06-18`**). Point it at an OpenAPI/Swagger spec and it turns your REST API into MCP
+tools automatically. Register an existing MCP server and it re-exposes it through the same
+governed pipeline. Every call runs through SSRF protection, prompt-injection sanitizing,
+per-tool rate limits, circuit breakers, RBAC and a tamper-evident audit log — and you
+manage all of it from a **built-in admin UI**, not a pile of YAML. Tested against
+**Claude Desktop**, **Cursor**, and custom MCP agents.
 
 <div align="center">
 
@@ -89,6 +90,10 @@ bun run dev:all                      # backend :8790 + admin UI :8791
 # → open http://localhost:8791/admin/
 ```
 
+> **Note:** dev mode intentionally uses different ports (8790/8791) than the Docker/production
+> default of 3000 — high, uncommon ports so a local dev server doesn't clash with 3000 (or a
+> real gateway instance) you might also have running. See [Configuration](https://aico-dot-team-code.github.io/mcpbridge/guide/configuration) for the full port reference.
+
 ### Register your first REST API (auto-discovered from OpenAPI)
 
 From the UI: **Add server → REST**, paste an OpenAPI URL, done. Or via the API:
@@ -131,15 +136,32 @@ curl -X POST http://localhost:3000/register \
 Serve tools four ways: aggregated `/mcp`, per-client `/mcp/:name`, curated bundles
 `/mcp-custom/:bundle`, or legacy SSE `/sse`.
 
+### CLI (config-as-code)
+
+Prefer managing config as a reviewable YAML file instead of clicking through the UI? A
+`gateway` CLI ships in-repo — no separate install, just `bun run cli -- <command>`:
+
+```bash
+bun run cli -- login --url http://localhost:3000 --token $ADMIN_API_KEY
+bun run cli -- pull    # write the live config to gateway.yaml
+bun run cli -- plan    # show drift vs. gateway.yaml, non-zero exit if any (CI-friendly)
+bun run cli -- apply   # register servers + apply config from gateway.yaml
+```
+
+See **[CLI docs →](https://aico-dot-team-code.github.io/mcpbridge/guide/cli)** for the full
+command reference and `gateway.yaml` format.
+
 ## 🧩 Features
 
 **Connect anything**
+
 - OpenAPI / Swagger → MCP **auto-discovery** — point at a spec, get tools instantly
 - MCP → MCP **gateway / aggregator** (Streamable HTTP + SSE upstreams)
 - Manual tool definitions when there's no spec
 - Four serving modes: aggregated, per-client shard, curated bundles, legacy SSE
 
 **Govern & secure**
+
 - SSRF + DNS-rebinding protection, per-upstream **IP pinning**
 - **Guardrails**: prompt-injection sanitizing, secret detection, input deny-rules
 - Per-tool **rate limits, timeouts, circuit breakers, allowed-key** restrictions
@@ -147,7 +169,9 @@ Serve tools four ways: aggregated `/mcp`, per-client `/mcp/:name`, curated bundl
 - **Tamper-evident audit log** (hash-chained) + SIEM streaming
 
 **Operate with confidence**
+
 - **Admin UI** (Vue 3): dashboard, servers, bundles, keys, usage, alerts, schedules, audit
+- **CLI** (`bun run cli`) for config-as-code: `login` / `pull` / `plan` / `apply` against a `gateway.yaml` — see [CLI docs](https://aico-dot-team-code.github.io/mcpbridge/guide/cli)
 - Health monitoring + auto-eviction; **canary / failover** secondaries
 - **Config versioning + rollback**, import / export
 - Prometheus `/metrics` + **OpenTelemetry (OTLP)** tracing per tool call
@@ -155,6 +179,7 @@ Serve tools four ways: aggregated `/mcp`, per-client `/mcp/:name`, curated bundl
 - Composite / macro tools, a `search_tools` meta-tool, and a request playground
 
 **Runs anywhere**
+
 - Bun single process, `bun:sqlite` storage — **no external DB, no Kubernetes**
 - One Docker image, or `bun src/index.ts`
 
@@ -174,17 +199,17 @@ circuit breaker → dispatch → response sanitizing → audit).
 
 ## ⚖️ MCP REST Bridge vs. the alternatives
 
-| | OpenAPI→MCP CLIs | Heavy gateways (k8s) | **MCP REST Bridge** |
-|---|:---:|:---:|:---:|
-| REST / OpenAPI → MCP | ✅ | partial | ✅ |
-| MCP → MCP gateway | ❌ | ✅ | ✅ |
-| Admin UI | ❌ | some | ✅ Vue SPA |
-| Built-in security (SSRF, injection, secrets) | ❌ | some | ✅ |
-| RBAC + audit + teams | ❌ | ✅ | ✅ |
-| Runs without Kubernetes | ✅ | ❌ | ✅ |
-| No external database | ✅ | ❌ | ✅ (Bun + SQLite) |
+|                                              | OpenAPI→MCP CLIs | Heavy gateways (k8s) | **MCP REST Bridge** |
+| -------------------------------------------- | :--------------: | :------------------: | :-----------------: |
+| REST / OpenAPI → MCP                         |        ✅        |       partial        |         ✅          |
+| MCP → MCP gateway                            |        ❌        |          ✅          |         ✅          |
+| Admin UI                                     |        ❌        |         some         |     ✅ Vue SPA      |
+| Built-in security (SSRF, injection, secrets) |        ❌        |         some         |         ✅          |
+| RBAC + audit + teams                         |        ❌        |          ✅          |         ✅          |
+| Runs without Kubernetes                      |        ✅        |          ❌          |         ✅          |
+| No external database                         |        ✅        |          ❌          |  ✅ (Bun + SQLite)  |
 
-*Capabilities vary by project; this is a general positioning, not a scorecard of any single tool.*
+_Capabilities vary by project; this is a general positioning, not a scorecard of any single tool._
 
 ## 📚 Documentation
 
