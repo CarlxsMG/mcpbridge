@@ -31,7 +31,10 @@ export function searchToolDefinition(): AdvertisedTool {
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Keywords describing the capability you need (e.g. 'create github issue')." },
+        query: {
+          type: "string",
+          description: "Keywords describing the capability you need (e.g. 'create github issue').",
+        },
         limit: { type: "number", description: `Max results to return (default ${DEFAULT_LIMIT}, max ${MAX_LIMIT}).` },
       },
       required: ["query"],
@@ -83,7 +86,7 @@ export function rankTools(query: string, tools: AdvertisedTool[], limit: number)
     }
   }
 
-  scored.sort((a, b) => (b.score - a.score) || a.name.localeCompare(b.name));
+  scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   return scored.slice(0, Math.max(1, Math.min(limit, MAX_LIMIT)));
 }
 
@@ -94,7 +97,7 @@ export function rankTools(query: string, tools: AdvertisedTool[], limit: number)
  */
 export function runSearchTool(
   args: Record<string, unknown>,
-  scopedTools: AdvertisedTool[]
+  scopedTools: AdvertisedTool[],
 ): { content: Array<{ type: "text"; text: string }>; isError?: boolean } {
   const query = typeof args.query === "string" ? args.query : "";
   if (!query.trim()) {

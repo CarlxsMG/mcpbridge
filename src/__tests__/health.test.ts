@@ -21,14 +21,7 @@ function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefiniti
 }
 
 async function registerClient(name: string, healthUrl = "http://example.com/health") {
-  await registry.register(
-    name,
-    [makeTool()],
-    healthUrl,
-    "1.2.3.4",
-    "http://example.com",
-    "1.2.3.4"
-  );
+  await registry.register(name, [makeTool()], healthUrl, "1.2.3.4", "http://example.com", "1.2.3.4");
 }
 
 // ---------------------------------------------------------------------------
@@ -67,14 +60,12 @@ describe("health checkBatch — happy path: 2xx response", () => {
     expect(registry.getClient("healthy-svc")!.consecutive_failures).toBe(1);
 
     // Mock fetch to return 200
-    globalThis.fetch = (async () =>
-      new Response("ok", { status: 200 })
-    ) as unknown as typeof fetch;
+    globalThis.fetch = (async () => new Response("ok", { status: 200 })) as unknown as typeof fetch;
 
     const { startHealthCheckLoop } = await import("../health.js");
     const stop = startHealthCheckLoop();
     // Give the immediate check time to complete
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     stop();
 
     const client = registry.getClient("healthy-svc");
@@ -96,13 +87,11 @@ describe("health checkBatch — 5xx response", () => {
     const origThreshold = config.maxConsecutiveFailures;
     (config as Record<string, unknown>).maxConsecutiveFailures = 999;
 
-    globalThis.fetch = (async () =>
-      new Response("error", { status: 500 })
-    ) as unknown as typeof fetch;
+    globalThis.fetch = (async () => new Response("error", { status: 500 })) as unknown as typeof fetch;
 
     const { startHealthCheckLoop } = await import("../health.js");
     const stop = startHealthCheckLoop();
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     stop();
 
     (config as Record<string, unknown>).maxConsecutiveFailures = origThreshold;
@@ -125,13 +114,11 @@ describe("health checkBatch — eviction on threshold", () => {
 
     await registerClient("evict-svc");
 
-    globalThis.fetch = (async () =>
-      new Response("error", { status: 500 })
-    ) as unknown as typeof fetch;
+    globalThis.fetch = (async () => new Response("error", { status: 500 })) as unknown as typeof fetch;
 
     const { startHealthCheckLoop } = await import("../health.js");
     const stop = startHealthCheckLoop();
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     stop();
 
     (config as Record<string, unknown>).maxConsecutiveFailures = origThreshold;
@@ -154,13 +141,11 @@ describe("health checkBatch — recovery from unreachable", () => {
     expect(registry.getClient("recover-svc")!.status).toBe("unreachable");
 
     // Now fetch succeeds
-    globalThis.fetch = (async () =>
-      new Response("ok", { status: 200 })
-    ) as unknown as typeof fetch;
+    globalThis.fetch = (async () => new Response("ok", { status: 200 })) as unknown as typeof fetch;
 
     const { startHealthCheckLoop } = await import("../health.js");
     const stop = startHealthCheckLoop();
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     stop();
 
     const client = registry.getClient("recover-svc");
@@ -191,7 +176,7 @@ describe("health checkBatch — fetch throws network error", () => {
     let errorEscaped = false;
     try {
       const stop = startHealthCheckLoop();
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       stop();
     } catch {
       errorEscaped = true;
@@ -218,13 +203,11 @@ describe("health checkBatch — metrics increment", () => {
     const matchesBefore = [...renderBefore.matchAll(/mcp_health_check_runs_total\S*\s+(\d+)/g)];
     const countBefore = matchesBefore.reduce((sum, m) => sum + Number(m[1]), 0);
 
-    globalThis.fetch = (async () =>
-      new Response("ok", { status: 200 })
-    ) as unknown as typeof fetch;
+    globalThis.fetch = (async () => new Response("ok", { status: 200 })) as unknown as typeof fetch;
 
     const { startHealthCheckLoop } = await import("../health.js");
     const stop = startHealthCheckLoop();
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     stop();
 
     const renderAfter = healthCheckRunsTotal.render();

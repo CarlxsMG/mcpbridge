@@ -24,8 +24,12 @@ function richFactory(): (p: McpConnParams) => Transport {
     const [clientT, serverT] = InMemoryTransport.createLinkedPair();
     const server = new Server({ name: "up", version: "1.0.0" }, { capabilities: { resources: {}, prompts: {} } });
     server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [{ uri: "mem://a", name: "A" }] }));
-    server.setRequestHandler(ReadResourceRequestSchema, async (req) => ({ contents: [{ uri: req.params.uri, text: `content:${req.params.uri}` }] }));
-    server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [{ name: "greet", description: "greet" }] }));
+    server.setRequestHandler(ReadResourceRequestSchema, async (req) => ({
+      contents: [{ uri: req.params.uri, text: `content:${req.params.uri}` }],
+    }));
+    server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+      prompts: [{ name: "greet", description: "greet" }],
+    }));
     server.setRequestHandler(GetPromptRequestSchema, async (req) => ({
       messages: [{ role: "user", content: { type: "text", text: `hi ${req.params.arguments?.who ?? ""}` } }],
     }));
@@ -55,7 +59,9 @@ describe("resources/prompts passthrough", () => {
 
     expect(await pool.listPrompts(PARAMS, 2000)).toEqual([{ name: "greet", description: "greet" }]);
 
-    const g = (await pool.getPrompt(PARAMS, "greet", { who: "bob" }, 2000)) as { messages: Array<{ content: { text: string } }> };
+    const g = (await pool.getPrompt(PARAMS, "greet", { who: "bob" }, 2000)) as {
+      messages: Array<{ content: { text: string } }>;
+    };
     expect(g.messages[0].content.text).toBe("hi bob");
 
     await pool.disconnect("up1");

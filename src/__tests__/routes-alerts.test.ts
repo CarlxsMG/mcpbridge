@@ -43,7 +43,11 @@ function bearer(): Record<string, string> {
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {
-    if (activeServer) activeServer.close(() => { activeServer = null; resolve(); });
+    if (activeServer)
+      activeServer.close(() => {
+        activeServer = null;
+        resolve();
+      });
     else resolve();
   });
   globalThis.fetch = originalFetch;
@@ -57,14 +61,24 @@ async function create(body: Record<string, unknown>): Promise<Response> {
 describe("alert routes", () => {
   test("create, list, patch, delete", async () => {
     await startApp();
-    const createRes = await create({ name: "cb", eventType: "circuit_breaker_open", webhookUrl: "http://127.0.0.1:9/x" });
+    const createRes = await create({
+      name: "cb",
+      eventType: "circuit_breaker_open",
+      webhookUrl: "http://127.0.0.1:9/x",
+    });
     expect(createRes.status).toBe(201);
     const { id } = (await createRes.json()) as { id: number };
 
-    const list = (await (await fetch(`${baseUrl}/admin-api/alerts`, { headers: bearer() })).json()) as { items: unknown[] };
+    const list = (await (await fetch(`${baseUrl}/admin-api/alerts`, { headers: bearer() })).json()) as {
+      items: unknown[];
+    };
     expect(list.items).toHaveLength(1);
 
-    const patch = await fetch(`${baseUrl}/admin-api/alerts/${id}`, { method: "PATCH", headers: bearer(), body: JSON.stringify({ enabled: false }) });
+    const patch = await fetch(`${baseUrl}/admin-api/alerts/${id}`, {
+      method: "PATCH",
+      headers: bearer(),
+      body: JSON.stringify({ enabled: false }),
+    });
     expect(patch.status).toBe(200);
 
     const del = await fetch(`${baseUrl}/admin-api/alerts/${id}`, { method: "DELETE", headers: bearer() });
@@ -89,13 +103,20 @@ describe("alert routes", () => {
     // server-side webhook dispatch share the same globalThis.fetch.
     let delivered = 0;
     const recv = express();
-    recv.post("/hook", (_req, res) => { delivered++; res.json({ ok: true }); });
+    recv.post("/hook", (_req, res) => {
+      delivered++;
+      res.json({ ok: true });
+    });
     const recvServer = await new Promise<Server>((resolve) => {
       const s = recv.listen(0, "127.0.0.1", () => resolve(s));
     });
     const port = (recvServer.address() as AddressInfo).port;
     try {
-      const createRes = await create({ name: "cb", eventType: "circuit_breaker_open", webhookUrl: `http://127.0.0.1:${port}/hook` });
+      const createRes = await create({
+        name: "cb",
+        eventType: "circuit_breaker_open",
+        webhookUrl: `http://127.0.0.1:${port}/hook`,
+      });
       const { id } = (await createRes.json()) as { id: number };
       const testRes = await fetch(`${baseUrl}/admin-api/alerts/${id}/test`, { method: "POST", headers: bearer() });
       expect(testRes.status).toBe(200);

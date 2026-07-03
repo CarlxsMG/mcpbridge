@@ -72,7 +72,7 @@ export async function discoverToolsFromOpenApi(options: {
     JSON.stringify(parsed);
   } catch (err) {
     if (err instanceof TypeError) {
-      throw new Error("OPENAPI_CYCLIC_REFERENCE: OpenAPI spec contains a circular reference");
+      throw new Error("OPENAPI_CYCLIC_REFERENCE: OpenAPI spec contains a circular reference", { cause: err });
     }
     throw err;
   }
@@ -90,9 +90,7 @@ export async function discoverToolsFromOpenApi(options: {
       if (depth > maxDepth) {
         throw new Error("OPENAPI_TOO_DEEP: OpenAPI spec exceeds maximum nesting depth");
       }
-      const values = Array.isArray(node)
-        ? (node as unknown[])
-        : Object.values(node as Record<string, unknown>);
+      const values = Array.isArray(node) ? (node as unknown[]) : Object.values(node as Record<string, unknown>);
       for (const child of values) {
         if (child !== null && typeof child === "object") {
           queue.push({ node: child as object, depth: depth + 1 });
@@ -174,10 +172,9 @@ function generateToolName(method: string, path: string): string {
   return `${method}_${segments.join("_")}`.toLowerCase();
 }
 
-
 function buildInputSchema(
   operation: OpenAPIV3.OperationObject,
-  pathItem: OpenAPIV3.PathItemObject
+  pathItem: OpenAPIV3.PathItemObject,
 ): Record<string, unknown> {
   const properties: Record<string, Record<string, unknown>> = {};
   const required: string[] = [];

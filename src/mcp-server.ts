@@ -87,7 +87,7 @@ function mcpParamsForScope(scope?: McpServerScope): McpConnParams | null {
 export function createMcpServer(scope?: McpServerScope): Server {
   const server = new Server(
     { name: "mcp-rest-bridge", version: pkg.version },
-    { capabilities: { tools: { listChanged: true }, resources: {}, prompts: {} } }
+    { capabilities: { tools: { listChanged: true }, resources: {}, prompts: {} } },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -131,7 +131,8 @@ export function createMcpServer(scope?: McpServerScope): Server {
       }
     }
 
-    const requestHeaders = (extra as { requestInfo?: { headers?: Record<string, unknown> } } | undefined)?.requestInfo?.headers;
+    const requestHeaders = (extra as { requestInfo?: { headers?: Record<string, unknown> } } | undefined)?.requestInfo
+      ?.headers;
     const callerToken = extractBearerFromHeader(requestHeaders?.authorization);
     const endUserId = extractEndUserId(requestHeaders?.["x-end-user-id"]);
 
@@ -152,7 +153,10 @@ export function createMcpServer(scope?: McpServerScope): Server {
     const onProgress =
       progressToken !== undefined
         ? (progress: number, total?: number, message?: string) => {
-            void extra.sendNotification({ method: "notifications/progress", params: { progressToken, progress, total, message } });
+            void extra.sendNotification({
+              method: "notifications/progress",
+              params: { progressToken, progress, total, message },
+            });
           }
         : undefined;
 

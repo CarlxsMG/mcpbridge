@@ -36,7 +36,8 @@ export const BUILTIN_CATALOG: BuiltinCatalogEntry[] = [
   {
     slug: "petstore",
     name: "Swagger Petstore",
-    description: "The canonical OpenAPI sample API — pets, orders, and inventory. Good for a first end-to-end test of REST discovery.",
+    description:
+      "The canonical OpenAPI sample API — pets, orders, and inventory. Good for a first end-to-end test of REST discovery.",
     kind: "rest",
     category: "Examples",
     tags: ["demo", "no-auth", "openapi-sample"],

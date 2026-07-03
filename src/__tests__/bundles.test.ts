@@ -48,7 +48,7 @@ describe("createBundle", () => {
         { client: "github", tool: "list-issues" },
         { client: "slack", tool: "post-message" },
       ],
-      "test-actor"
+      "test-actor",
     );
 
     expect(result.ok).toBe(true);
@@ -86,7 +86,7 @@ describe("createBundle", () => {
         { client: "github", tool: "list-issues" },
         { client: "github", tool: "list-issues" },
       ],
-      "test-actor"
+      "test-actor",
     );
     expect(result.ok).toBe(true);
     expect(getBundleDetail("dedup")?.tools).toEqual([{ client: "github", tool: "list-issues" }]);
@@ -168,7 +168,7 @@ describe("listBundles / getBundleDetail", () => {
         { client: "github", tool: "list-issues" },
         { client: "github", tool: "create-issue" },
       ],
-      "test-actor"
+      "test-actor",
     );
 
     const summary = listBundles().find((b) => b.name === "b");
@@ -186,7 +186,7 @@ describe("cascade on tool removal", () => {
         { client: "github", tool: "list-issues" },
         { client: "github", tool: "create-issue" },
       ],
-      "test-actor"
+      "test-actor",
     );
 
     // Full-replace registration without "create-issue" — registry.ts deletes the stale tool row,

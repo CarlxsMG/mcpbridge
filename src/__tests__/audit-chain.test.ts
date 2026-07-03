@@ -30,7 +30,10 @@ describe("audit hash chain", () => {
     expect(v.checked).toBe(3);
 
     // Each row links to the previous row's hash; the first is genesis (prev "").
-    const rows = getDb().query(`SELECT prev_hash, hash FROM admin_audit_log ORDER BY id ASC`).all() as { prev_hash: string; hash: string }[];
+    const rows = getDb().query(`SELECT prev_hash, hash FROM admin_audit_log ORDER BY id ASC`).all() as {
+      prev_hash: string;
+      hash: string;
+    }[];
     expect(rows[0].prev_hash).toBe("");
     expect(rows[1].prev_hash).toBe(rows[0].hash);
     expect(rows[2].prev_hash).toBe(rows[1].hash);
@@ -53,7 +56,9 @@ describe("audit hash chain", () => {
     recordAudit("a", "x", "t1");
     recordAudit("b", "y", "t2");
     recordAudit("c", "z", "t3");
-    const second = (getDb().query(`SELECT id FROM admin_audit_log ORDER BY id ASC LIMIT 1 OFFSET 1`).get() as { id: number }).id;
+    const second = (
+      getDb().query(`SELECT id FROM admin_audit_log ORDER BY id ASC LIMIT 1 OFFSET 1`).get() as { id: number }
+    ).id;
     getDb().query(`DELETE FROM admin_audit_log WHERE id = ?`).run(second);
     expect(verifyAuditChain().ok).toBe(false);
   });
@@ -71,21 +76,35 @@ describe("audit hash chain", () => {
 describe("audit SIEM streaming", () => {
   let server: Server | null = null;
   afterEach(async () => {
-    await new Promise<void>((resolve) => { if (server) server.close(() => { server = null; resolve(); }); else resolve(); });
+    await new Promise<void>((resolve) => {
+      if (server)
+        server.close(() => {
+          server = null;
+          resolve();
+        });
+      else resolve();
+    });
   });
 
   test("posts each event to the configured sink", async () => {
     let received: Record<string, unknown> | null = null;
     let resolveGot!: () => void;
-    const got = new Promise<void>((r) => { resolveGot = r; });
+    const got = new Promise<void>((r) => {
+      resolveGot = r;
+    });
 
     const app = express();
     app.use(express.json());
     app.use(requestIdMiddleware);
-    app.post("/sink", (req, res) => { received = req.body as Record<string, unknown>; res.status(200).end(); resolveGot(); });
+    app.post("/sink", (req, res) => {
+      received = req.body as Record<string, unknown>;
+      res.status(200).end();
+      resolveGot();
+    });
     await new Promise<void>((resolve) => {
       const srv = app.listen(0, "127.0.0.1", () => {
-        (config as Record<string, unknown>).auditSinkUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}/sink`;
+        (config as Record<string, unknown>).auditSinkUrl =
+          `http://127.0.0.1:${(srv.address() as AddressInfo).port}/sink`;
         server = srv;
         resolve();
       });

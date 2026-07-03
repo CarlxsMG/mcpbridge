@@ -23,7 +23,13 @@ import {
 import type { RestToolDefinition } from "../types.js";
 
 const CLIENT = "svc";
-const doTool: RestToolDefinition = { name: "do-x", method: "POST", endpoint: "/do", description: "do", inputSchema: { type: "object", properties: { a: { type: "string" } } } };
+const doTool: RestToolDefinition = {
+  name: "do-x",
+  method: "POST",
+  endpoint: "/do",
+  description: "do",
+  inputSchema: { type: "object", properties: { a: { type: "string" } } },
+};
 async function reg(): Promise<void> {
   await registry.register(CLIENT, [doTool], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 }
@@ -58,7 +64,12 @@ describe("ticket lifecycle", () => {
 
     expect(consumeApproval(id, CLIENT, "do-x", hash)).toMatchObject({ ok: false }); // pending
     expect(consumeApproval(id, CLIENT, "other", hash)).toMatchObject({ ok: false }); // wrong tool
-    expect(decideApproval(id, "approved", "admin", null)).toEqual({ ok: true, finalStatus: "approved", approvalsReceived: 1, requiredLevels: 1 });
+    expect(decideApproval(id, "approved", "admin", null)).toEqual({
+      ok: true,
+      finalStatus: "approved",
+      approvalsReceived: 1,
+      requiredLevels: 1,
+    });
     expect(decideApproval(id, "approved", "admin", null)).toMatchObject({ ok: false }); // no longer pending
     expect(consumeApproval(id, CLIENT, "do-x", "deadbeef")).toMatchObject({ ok: false }); // args mismatch
     expect(consumeApproval(id, CLIENT, "do-x", hash)).toEqual({ ok: true }); // first use
@@ -85,7 +96,12 @@ describe("proxy flow", () => {
     expect(r2.content[0].text).toContain("still pending");
     expect(fetched).toBe(0);
 
-    expect(decideApproval(id, "approved", "admin", null)).toEqual({ ok: true, finalStatus: "approved", approvalsReceived: 1, requiredLevels: 1 });
+    expect(decideApproval(id, "approved", "admin", null)).toEqual({
+      ok: true,
+      finalStatus: "approved",
+      approvalsReceived: 1,
+      requiredLevels: 1,
+    });
 
     const r3 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1", __approval_id: id });
     expect(r3.isError).toBeUndefined();
@@ -100,7 +116,8 @@ describe("proxy flow", () => {
   test("a rejected ticket blocks the call", async () => {
     await reg();
     setApprovalRequired(CLIENT, "do-x", true);
-    globalThis.fetch = (async () => new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
     const r1 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1" });
     const id = Number(r1.content[0].text.match(/#(\d+)/)![1]);
     decideApproval(id, "rejected", "admin", "not allowed");
@@ -165,7 +182,12 @@ describe("multi-level (N-of-M) approvals", () => {
     const id = createApproval(CLIENT, "do-x", hash, JSON.stringify({ a: "1" }), null, 3);
 
     expect(decideApproval(id, "approved", "alice", null)).toMatchObject({ ok: true, finalStatus: "pending" });
-    expect(decideApproval(id, "rejected", "bob", "no")).toEqual({ ok: true, finalStatus: "rejected", approvalsReceived: 0, requiredLevels: 3 });
+    expect(decideApproval(id, "rejected", "bob", "no")).toEqual({
+      ok: true,
+      finalStatus: "rejected",
+      approvalsReceived: 0,
+      requiredLevels: 3,
+    });
     expect(getApproval(id)?.status).toBe("rejected");
 
     // Terminal — a further decision (even approval) is refused.

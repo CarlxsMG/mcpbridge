@@ -46,15 +46,18 @@ function snapshotGauges(): void {
 
   // Registry client counts by status
   const clients = registry.listClients();
-  const healthy = clients.filter(c => c.status === "healthy").length;
-  const degraded = clients.filter(c => c.status === "degraded").length;
-  const unreachable = clients.filter(c => c.status === "unreachable").length;
+  const healthy = clients.filter((c) => c.status === "healthy").length;
+  const degraded = clients.filter((c) => c.status === "degraded").length;
+  const unreachable = clients.filter((c) => c.status === "unreachable").length;
   registryClients.set({ status: "healthy" }, healthy);
   registryClients.set({ status: "degraded" }, degraded);
   registryClients.set({ status: "unreachable" }, unreachable);
 
   // Registry tool index size — read from introspect accessor
-  registryToolsTotal.set({}, clients.reduce((sum, c) => sum + (c.tools?.length ?? 0), 0));
+  registryToolsTotal.set(
+    {},
+    clients.reduce((sum, c) => sum + (c.tools?.length ?? 0), 0),
+  );
 
   // Rate limiter bucket sizes
   const sizes = getRateLimitBucketSizes();
@@ -81,11 +84,9 @@ export function metricsRoutes(app: Express): void {
   // Legacy JSON endpoint kept for backwards compat (internal use / health dashboards)
   app.get("/metrics/legacy", adminAuth, (_req: Request, res: Response) => {
     const clients = registry.listClients();
-    const healthy = clients.filter(c => c.status === "healthy").length;
+    const healthy = clients.filter((c) => c.status === "healthy").length;
     const sessions = getSessionCounts();
-    const avgLatency = latencies.length > 0
-      ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
-      : 0;
+    const avgLatency = latencies.length > 0 ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
 
     res.json({
       uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),

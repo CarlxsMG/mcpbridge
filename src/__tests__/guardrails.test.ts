@@ -56,9 +56,17 @@ afterEach(async () => {
 describe("guardrails — module", () => {
   test("setGuardrails round-trips; all-empty clears the row", async () => {
     await reg();
-    expect(setGuardrails(CLIENT, "do-thing", { denyPatterns: ["\\bDROP\\b"], blockSecrets: true, scanResponses: false })).toBe(true);
-    expect(getGuardrails(CLIENT, "do-thing")).toEqual({ denyPatterns: ["\\bDROP\\b"], blockSecrets: true, scanResponses: false });
-    expect(setGuardrails(CLIENT, "do-thing", { denyPatterns: [], blockSecrets: false, scanResponses: false })).toBe(true);
+    expect(
+      setGuardrails(CLIENT, "do-thing", { denyPatterns: ["\\bDROP\\b"], blockSecrets: true, scanResponses: false }),
+    ).toBe(true);
+    expect(getGuardrails(CLIENT, "do-thing")).toEqual({
+      denyPatterns: ["\\bDROP\\b"],
+      blockSecrets: true,
+      scanResponses: false,
+    });
+    expect(setGuardrails(CLIENT, "do-thing", { denyPatterns: [], blockSecrets: false, scanResponses: false })).toBe(
+      true,
+    );
     expect(getGuardrails(CLIENT, "do-thing")).toBeNull();
   });
 
@@ -104,7 +112,10 @@ describe("guardrails — proxyToolCall enforcement", () => {
     await reg();
     setGuardrails(CLIENT, "do-thing", { denyPatterns: ["\\bDROP\\b"], blockSecrets: false, scanResponses: false });
     let hits = 0;
-    globalThis.fetch = (async () => { hits++; return new Response("{}", { status: 200 }); }) as unknown as typeof fetch;
+    globalThis.fetch = (async () => {
+      hits++;
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__do-thing`, { note: "please DROP everything" });
     expect(r.isError).toBe(true);
     expect(r.content[0].text).toMatch(/guardrail/i);
@@ -115,7 +126,10 @@ describe("guardrails — proxyToolCall enforcement", () => {
     await reg();
     setGuardrails(CLIENT, "do-thing", { denyPatterns: [], blockSecrets: true, scanResponses: false });
     let hits = 0;
-    globalThis.fetch = (async () => { hits++; return new Response("{}", { status: 200 }); }) as unknown as typeof fetch;
+    globalThis.fetch = (async () => {
+      hits++;
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__do-thing`, { note: "token AKIA1234567890ABCDEF" });
     expect(r.isError).toBe(true);
     expect(hits).toBe(0);
@@ -124,7 +138,11 @@ describe("guardrails — proxyToolCall enforcement", () => {
   test("clean args with a guardrail configured still pass through", async () => {
     await reg();
     setGuardrails(CLIENT, "do-thing", { denyPatterns: ["\\bDROP\\b"], blockSecrets: true, scanResponses: false });
-    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__do-thing`, { note: "hello world" });
     expect(r.isError).toBeUndefined();
   });
@@ -146,7 +164,10 @@ describe("guardrails — proxyToolCall enforcement", () => {
     await reg();
     setGuardrails(CLIENT, "do-thing", { denyPatterns: [], blockSecrets: false, scanResponses: true });
     globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ msg: "all good here" }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+      new Response(JSON.stringify({ msg: "all good here" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__do-thing`, { note: "hi" });
     expect(r.content[0].text).not.toContain("UNTRUSTED");
   });
@@ -175,7 +196,11 @@ describe("guardrails — admin route", () => {
   }
   afterEach(async () => {
     await new Promise<void>((resolve) => {
-      if (server) server.close(() => { server = null; resolve(); });
+      if (server)
+        server.close(() => {
+          server = null;
+          resolve();
+        });
       else resolve();
     });
   });
@@ -192,7 +217,11 @@ describe("guardrails — admin route", () => {
       body: JSON.stringify({ guardrails: { denyPatterns: ["\\bDROP\\b"], blockSecrets: true, scanResponses: true } }),
     });
     expect(res.status).toBe(200);
-    expect(getGuardrails(CLIENT, "do-thing")).toEqual({ denyPatterns: ["\\bDROP\\b"], blockSecrets: true, scanResponses: true });
+    expect(getGuardrails(CLIENT, "do-thing")).toEqual({
+      denyPatterns: ["\\bDROP\\b"],
+      blockSecrets: true,
+      scanResponses: true,
+    });
   });
 
   test("400 on an invalid deny regex", async () => {

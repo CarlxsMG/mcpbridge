@@ -44,7 +44,9 @@ function rowTo(row: CanaryRow | null): CanaryConfig | null {
 /** Full config for a client (enabled or not). Null when none is set. */
 export function getCanary(clientName: string): CanaryConfig | null {
   const row = getDb()
-    .query(`SELECT secondary_base_url, secondary_resolved_ip, mode, weight, enabled FROM client_canary WHERE client_name = ?`)
+    .query(
+      `SELECT secondary_base_url, secondary_resolved_ip, mode, weight, enabled FROM client_canary WHERE client_name = ?`,
+    )
     .get(clientName) as CanaryRow | null;
   return rowTo(row);
 }
@@ -58,7 +60,7 @@ export type CanaryError = "CLIENT_NOT_FOUND" | "NOT_REST" | "INVALID_MODE" | "IN
  */
 export async function setCanary(
   clientName: string,
-  input: { secondaryBaseUrl: string; mode: CanaryMode; weight: number; enabled: boolean } | null
+  input: { secondaryBaseUrl: string; mode: CanaryMode; weight: number; enabled: boolean } | null,
 ): Promise<{ ok: true } | { ok: false; error: CanaryError; reason?: string }> {
   const db = getDb();
   const client = db.query(`SELECT kind FROM clients WHERE name = ?`).get(clientName) as { kind: string } | null;
@@ -71,7 +73,8 @@ export async function setCanary(
 
   if (client.kind !== "rest") return { ok: false, error: "NOT_REST" };
   if (input.mode !== "canary" && input.mode !== "failover") return { ok: false, error: "INVALID_MODE" };
-  if (!Number.isInteger(input.weight) || input.weight < 1 || input.weight > 100) return { ok: false, error: "INVALID_WEIGHT" };
+  if (!Number.isInteger(input.weight) || input.weight < 1 || input.weight > 100)
+    return { ok: false, error: "INVALID_WEIGHT" };
 
   const check = await validateBackendUrl(input.secondaryBaseUrl, config.allowPrivateIps, config.allowedHosts);
   if (!check.valid || !check.resolvedIp) return { ok: false, error: "INVALID_URL", reason: check.reason };
@@ -85,8 +88,16 @@ export async function setCanary(
        mode = excluded.mode,
        weight = excluded.weight,
        enabled = excluded.enabled,
-       updated_at = excluded.updated_at`
-  ).run(clientName, input.secondaryBaseUrl, check.resolvedIp, input.mode, input.weight, input.enabled ? 1 : 0, Date.now());
+       updated_at = excluded.updated_at`,
+  ).run(
+    clientName,
+    input.secondaryBaseUrl,
+    check.resolvedIp,
+    input.mode,
+    input.weight,
+    input.enabled ? 1 : 0,
+    Date.now(),
+  );
   return { ok: true };
 }
 
@@ -100,11 +111,13 @@ export async function setCanary(
 export function decideSecondary(
   cfg: CanaryConfig | null,
   breakerOpen: boolean,
-  rand: () => number = Math.random
+  rand: () => number = Math.random,
 ): { useSecondary: boolean; bypassBreaker: boolean } {
   if (!cfg || !cfg.enabled) return { useSecondary: false, bypassBreaker: false };
   if (breakerOpen) {
-    return cfg.mode === "failover" ? { useSecondary: true, bypassBreaker: true } : { useSecondary: false, bypassBreaker: false };
+    return cfg.mode === "failover"
+      ? { useSecondary: true, bypassBreaker: true }
+      : { useSecondary: false, bypassBreaker: false };
   }
   if (cfg.mode === "canary" && rand() * 100 < cfg.weight) return { useSecondary: true, bypassBreaker: false };
   return { useSecondary: false, bypassBreaker: false };

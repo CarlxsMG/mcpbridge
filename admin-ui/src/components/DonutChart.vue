@@ -7,7 +7,7 @@ const props = withDefaults(
     size?: number;
     centerLabel?: string | null;
   }>(),
-  { size: 120 }
+  { size: 120 },
 );
 
 const total = computed(() => props.segments.reduce((sum, s) => sum + s.value, 0));
@@ -44,7 +44,14 @@ const centerText = computed(() => {
         role="img"
         :aria-label="segments.map((s) => `${s.label}: ${s.value}`).join(', ')"
       >
-        <circle :cx="size / 2" :cy="size / 2" :r="radius" fill="none" stroke="var(--surface-sunken)" :stroke-width="strokeWidth" />
+        <circle
+          :cx="size / 2"
+          :cy="size / 2"
+          :r="radius"
+          fill="none"
+          stroke="var(--surface-sunken)"
+          :stroke-width="strokeWidth"
+        />
         <circle
           v-for="arc in arcs"
           :key="arc.label"
@@ -59,7 +66,16 @@ const centerText = computed(() => {
           :transform="`rotate(-90 ${size / 2} ${size / 2})`"
           class="donut-arc"
         />
-        <text v-if="centerText !== null" :x="size / 2" :y="size / 2" text-anchor="middle" dominant-baseline="central" class="donut-total">{{ centerText }}</text>
+        <text
+          v-if="centerText !== null"
+          :x="size / 2"
+          :y="size / 2"
+          text-anchor="middle"
+          dominant-baseline="central"
+          class="donut-total"
+        >
+          {{ centerText }}
+        </text>
       </svg>
       <ul class="donut-legend">
         <li v-for="s in segments" :key="s.label">

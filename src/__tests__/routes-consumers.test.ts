@@ -38,7 +38,11 @@ function bearer(): Record<string, string> {
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {
-    if (server) server.close(() => { server = null; resolve(); });
+    if (server)
+      server.close(() => {
+        server = null;
+        resolve();
+      });
     else resolve();
   });
 });
@@ -46,17 +50,29 @@ afterEach(async () => {
 describe("consumer routes", () => {
   test("create / list / duplicate / usage / delete", async () => {
     await startApp();
-    const create = await fetch(`${baseUrl}/admin-api/consumers`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "team-a", monthlyQuota: 100 }) });
+    const create = await fetch(`${baseUrl}/admin-api/consumers`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "team-a", monthlyQuota: 100 }),
+    });
     expect(create.status).toBe(201);
     const { id } = (await create.json()) as { id: number };
 
-    const dup = await fetch(`${baseUrl}/admin-api/consumers`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "team-a" }) });
+    const dup = await fetch(`${baseUrl}/admin-api/consumers`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "team-a" }),
+    });
     expect(dup.status).toBe(409);
 
-    const list = (await (await fetch(`${baseUrl}/admin-api/consumers`, { headers: bearer() })).json()) as { items: { usedThisMonth: number }[] };
+    const list = (await (await fetch(`${baseUrl}/admin-api/consumers`, { headers: bearer() })).json()) as {
+      items: { usedThisMonth: number }[];
+    };
     expect(list.items[0].usedThisMonth).toBe(0);
 
-    const usage = (await (await fetch(`${baseUrl}/admin-api/consumers/${id}/usage`, { headers: bearer() })).json()) as { quota: number };
+    const usage = (await (await fetch(`${baseUrl}/admin-api/consumers/${id}/usage`, { headers: bearer() })).json()) as {
+      quota: number;
+    };
     expect(usage.quota).toBe(100);
 
     const del = await fetch(`${baseUrl}/admin-api/consumers/${id}`, { method: "DELETE", headers: bearer() });
@@ -65,26 +81,46 @@ describe("consumer routes", () => {
 
   test("400 for a non-integer quota", async () => {
     await startApp();
-    const res = await fetch(`${baseUrl}/admin-api/consumers`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "x", monthlyQuota: 1.5 }) });
+    const res = await fetch(`${baseUrl}/admin-api/consumers`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "x", monthlyQuota: 1.5 }),
+    });
     expect(res.status).toBe(400);
   });
 
   test("endUserRateLimitPerMin: accepts a positive integer, rejects non-integer/negative, defaults to null", async () => {
     await startApp();
-    const create = await fetch(`${baseUrl}/admin-api/consumers`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "team-b", endUserRateLimitPerMin: 15 }) });
+    const create = await fetch(`${baseUrl}/admin-api/consumers`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "team-b", endUserRateLimitPerMin: 15 }),
+    });
     expect(create.status).toBe(201);
     const created = (await create.json()) as { id: number; endUserRateLimitPerMin: number | null };
     expect(created.endUserRateLimitPerMin).toBe(15);
 
-    const badCreate = await fetch(`${baseUrl}/admin-api/consumers`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "team-c", endUserRateLimitPerMin: -1 }) });
+    const badCreate = await fetch(`${baseUrl}/admin-api/consumers`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "team-c", endUserRateLimitPerMin: -1 }),
+    });
     expect(badCreate.status).toBe(400);
 
-    const patch = await fetch(`${baseUrl}/admin-api/consumers/${created.id}`, { method: "PATCH", headers: bearer(), body: JSON.stringify({ endUserRateLimitPerMin: null }) });
+    const patch = await fetch(`${baseUrl}/admin-api/consumers/${created.id}`, {
+      method: "PATCH",
+      headers: bearer(),
+      body: JSON.stringify({ endUserRateLimitPerMin: null }),
+    });
     expect(patch.status).toBe(200);
     const patched = (await patch.json()) as { endUserRateLimitPerMin: number | null };
     expect(patched.endUserRateLimitPerMin).toBeNull();
 
-    const badPatch = await fetch(`${baseUrl}/admin-api/consumers/${created.id}`, { method: "PATCH", headers: bearer(), body: JSON.stringify({ endUserRateLimitPerMin: 1.5 }) });
+    const badPatch = await fetch(`${baseUrl}/admin-api/consumers/${created.id}`, {
+      method: "PATCH",
+      headers: bearer(),
+      body: JSON.stringify({ endUserRateLimitPerMin: 1.5 }),
+    });
     expect(badPatch.status).toBe(400);
   });
 

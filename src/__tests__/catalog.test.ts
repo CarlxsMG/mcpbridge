@@ -34,8 +34,14 @@ describe("listCatalog / getCatalogEntry", () => {
 describe("custom catalog entries", () => {
   test("create / list / get / update / delete round-trip", () => {
     const created = createCustomEntry(
-      { slug: "internal-crm-staging", name: "Internal CRM (staging)", kind: "rest", healthUrl: "https://crm.staging.internal/health", openapiUrl: "https://crm.staging.internal/openapi.json" },
-      "admin"
+      {
+        slug: "internal-crm-staging",
+        name: "Internal CRM (staging)",
+        kind: "rest",
+        healthUrl: "https://crm.staging.internal/health",
+        openapiUrl: "https://crm.staging.internal/openapi.json",
+      },
+      "admin",
     );
     expect(created.ok).toBe(true);
     if (!created.ok) return;

@@ -11,19 +11,28 @@ import { setMonitor, listMonitors, runSyntheticChecks, schemaHash } from "../mon
 import type { RestToolDefinition } from "../types.js";
 
 const CLIENT = "svc";
-const getTool: RestToolDefinition = { name: "get-x", method: "GET", endpoint: "/x", description: "x", inputSchema: { type: "object", properties: { q: { type: "string" } } } };
+const getTool: RestToolDefinition = {
+  name: "get-x",
+  method: "GET",
+  endpoint: "/x",
+  description: "x",
+  inputSchema: { type: "object", properties: { q: { type: "string" } } },
+};
 async function reg(): Promise<void> {
   await registry.register(CLIENT, [getTool], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 }
 function addExample(args: Record<string, unknown>): number {
   return (
     getDb()
-      .query(`INSERT INTO tool_examples (client_name, tool_name, label, args_json, created_at) VALUES (?, ?, 'ex', ?, ?) RETURNING id`)
+      .query(
+        `INSERT INTO tool_examples (client_name, tool_name, label, args_json, created_at) VALUES (?, ?, 'ex', ?, ?) RETURNING id`,
+      )
       .get(CLIENT, "get-x", JSON.stringify(args), Date.now()) as { id: number }
   ).id;
 }
 function ok200(): void {
-  globalThis.fetch = (async () => new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+  globalThis.fetch = (async () =>
+    new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
 }
 
 const originalFetch = globalThis.fetch;
@@ -55,8 +64,14 @@ describe("setMonitor validation", () => {
   test("interval bounds + tool must be live", async () => {
     await reg();
     const ex = addExample({ q: "1" });
-    expect(setMonitor(CLIENT, "get-x", { exampleId: ex, intervalMinutes: 0, enabled: true })).toMatchObject({ ok: false, error: "INVALID_INTERVAL" });
-    expect(setMonitor(CLIENT, "ghost", { exampleId: ex, intervalMinutes: 15, enabled: true })).toMatchObject({ ok: false, error: "TOOL_NOT_LIVE" });
+    expect(setMonitor(CLIENT, "get-x", { exampleId: ex, intervalMinutes: 0, enabled: true })).toMatchObject({
+      ok: false,
+      error: "INVALID_INTERVAL",
+    });
+    expect(setMonitor(CLIENT, "ghost", { exampleId: ex, intervalMinutes: 15, enabled: true })).toMatchObject({
+      ok: false,
+      error: "TOOL_NOT_LIVE",
+    });
     expect(setMonitor(CLIENT, "get-x", { exampleId: ex, intervalMinutes: 15, enabled: true })).toEqual({ ok: true });
   });
 });
@@ -81,7 +96,9 @@ describe("runSyntheticChecks", () => {
     expect(listMonitors()[0].lastStatus).toBe("fail");
 
     // drift: corrupt the baseline so the live schema no longer matches
-    getDb().query(`UPDATE tool_monitor SET baseline_schema_hash = 'stale' WHERE client_name = ? AND tool_name = ?`).run(CLIENT, "get-x");
+    getDb()
+      .query(`UPDATE tool_monitor SET baseline_schema_hash = 'stale' WHERE client_name = ? AND tool_name = ?`)
+      .run(CLIENT, "get-x");
     ok200();
     expect(await runSyntheticChecks(min(1_000_040))).toBe(1);
     const m = listMonitors()[0];

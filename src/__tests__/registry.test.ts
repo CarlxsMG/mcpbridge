@@ -36,7 +36,7 @@ async function reg(
   healthUrl = DEFAULT_HEALTH,
   ip = DEFAULT_IP,
   baseUrl = DEFAULT_BASE,
-  resolvedIp = DEFAULT_RESOLVED_IP
+  resolvedIp = DEFAULT_RESOLVED_IP,
 ) {
   await registry.register(name, tools, healthUrl, ip, baseUrl, resolvedIp);
 }
@@ -117,27 +117,19 @@ describe("Registry.register — invalid client name", () => {
 
 describe("Registry.register — invalid tool names", () => {
   test("throws when tool name contains uppercase letters", async () => {
-    await expect(reg("svc", [makeTool({ name: "GetUsers" })])).rejects.toThrow(
-      /name must be lowercase/
-    );
+    await expect(reg("svc", [makeTool({ name: "GetUsers" })])).rejects.toThrow(/name must be lowercase/);
   });
 
   test("throws when tool name contains spaces", async () => {
-    await expect(reg("svc", [makeTool({ name: "get users" })])).rejects.toThrow(
-      /name must be lowercase/
-    );
+    await expect(reg("svc", [makeTool({ name: "get users" })])).rejects.toThrow(/name must be lowercase/);
   });
 
   test("throws when tool name starts with a hyphen", async () => {
-    await expect(reg("svc", [makeTool({ name: "-tool" })])).rejects.toThrow(
-      /name must be lowercase/
-    );
+    await expect(reg("svc", [makeTool({ name: "-tool" })])).rejects.toThrow(/name must be lowercase/);
   });
 
   test("throws when tool name exceeds 63 characters", async () => {
-    await expect(reg("svc", [makeTool({ name: "t".repeat(64) })])).rejects.toThrow(
-      /name must be lowercase/
-    );
+    await expect(reg("svc", [makeTool({ name: "t".repeat(64) })])).rejects.toThrow(/name must be lowercase/);
   });
 });
 
@@ -151,9 +143,7 @@ describe("Registry.register — inputSchema size limit", () => {
       type: "object",
       description: "x".repeat(11_000),
     };
-    await expect(reg("svc", [makeTool({ inputSchema: hugeSchema })])).rejects.toThrow(
-      /exceeds 10KB/
-    );
+    await expect(reg("svc", [makeTool({ inputSchema: hugeSchema })])).rejects.toThrow(/exceeds 10KB/);
   });
 
   test("accepts inputSchema exactly at the limit boundary (9 KB)", async () => {
@@ -268,14 +258,14 @@ describe("Registry.register — mutex prevents interleaved concurrent registrati
     expect(client).toBeDefined();
 
     // toolIndex must exactly match what the winner registered — no phantom entries
-    const registeredToolNames = client!.tools.map(t => t.name);
+    const registeredToolNames = client!.tools.map((t) => t.name);
     for (const name of registeredToolNames) {
       expect(registry.resolveTool(`svc__${name}`)).toBeDefined();
     }
 
     // The loser's tools must NOT appear in the index
     const allKeys = ["tool-one", "tool-two", "tool-alpha"];
-    const presentKeys = allKeys.filter(k => registry.resolveTool(`svc__${k}`) !== undefined);
+    const presentKeys = allKeys.filter((k) => registry.resolveTool(`svc__${k}`) !== undefined);
     // Present keys must match the winner's registered tools exactly
     expect(presentKeys.sort()).toEqual(registeredToolNames.sort());
   });
@@ -287,7 +277,14 @@ describe("Registry.register — mutex prevents interleaved concurrent registrati
 
 describe("Registry.unregister — cleanup regression", () => {
   test("getClient returns undefined and toolIndex is clean after unregister", async () => {
-    await registry.register("bye-svc", [makeTool({ name: "bye-tool" })], DEFAULT_HEALTH, DEFAULT_IP, DEFAULT_BASE, DEFAULT_RESOLVED_IP);
+    await registry.register(
+      "bye-svc",
+      [makeTool({ name: "bye-tool" })],
+      DEFAULT_HEALTH,
+      DEFAULT_IP,
+      DEFAULT_BASE,
+      DEFAULT_RESOLVED_IP,
+    );
     await registry.unregister("bye-svc");
 
     expect(registry.getClient("bye-svc")).toBeUndefined();
@@ -320,7 +317,10 @@ describe("Registry.unregister — cleanup regression", () => {
     await registry.register(
       "multi-svc",
       [makeTool({ name: "tool-a" }), makeTool({ name: "tool-b" }), makeTool({ name: "tool-c" })],
-      DEFAULT_HEALTH, DEFAULT_IP, DEFAULT_BASE, DEFAULT_RESOLVED_IP
+      DEFAULT_HEALTH,
+      DEFAULT_IP,
+      DEFAULT_BASE,
+      DEFAULT_RESOLVED_IP,
     );
     await registry.unregister("multi-svc");
 
@@ -358,27 +358,19 @@ describe("validateEndpointPath — path-traversal segment detection", () => {
 // and throws for invalid endpoint templates.
 describe("Registry.register — endpoint path-traversal validation (integration)", () => {
   test("throws when endpoint contains '..' segment", async () => {
-    await expect(
-      reg("svc", [makeTool({ endpoint: "/users/:id/../admin" })])
-    ).rejects.toThrow(/invalid path segment/i);
+    await expect(reg("svc", [makeTool({ endpoint: "/users/:id/../admin" })])).rejects.toThrow(/invalid path segment/i);
   });
 
   test("succeeds for a clean parameterised endpoint", async () => {
-    await expect(
-      reg("svc", [makeTool({ endpoint: "/users/:id" })])
-    ).resolves.toBeUndefined();
+    await expect(reg("svc", [makeTool({ endpoint: "/users/:id" })])).resolves.toBeUndefined();
   });
 
   test("succeeds for endpoint with a dot-prefixed segment that is not traversal", async () => {
-    await expect(
-      reg("svc", [makeTool({ endpoint: "/users/.config" })])
-    ).resolves.toBeUndefined();
+    await expect(reg("svc", [makeTool({ endpoint: "/users/.config" })])).resolves.toBeUndefined();
   });
 
   test("throws when endpoint contains a single-dot '.' segment", async () => {
-    await expect(
-      reg("svc", [makeTool({ endpoint: "/users/./profile" })])
-    ).rejects.toThrow(/invalid path segment/i);
+    await expect(reg("svc", [makeTool({ endpoint: "/users/./profile" })])).rejects.toThrow(/invalid path segment/i);
   });
 });
 

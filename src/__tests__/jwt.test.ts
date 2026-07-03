@@ -16,17 +16,24 @@ function b64urlJson(o: unknown): string {
   return b64url(new TextEncoder().encode(JSON.stringify(o)));
 }
 
-async function makeToken(claims: Record<string, unknown>, kid = "k1"): Promise<{ token: string; jwk: Record<string, unknown> }> {
+async function makeToken(
+  claims: Record<string, unknown>,
+  kid = "k1",
+): Promise<{ token: string; jwk: Record<string, unknown> }> {
   const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
   const jwk = (await crypto.subtle.exportKey("jwk", kp.publicKey)) as Record<string, unknown>;
   jwk.kid = kid;
   jwk.alg = "ES256";
   const signingInput = `${b64urlJson({ alg: "ES256", kid, typ: "JWT" })}.${b64urlJson(claims)}`;
-  const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, kp.privateKey, new TextEncoder().encode(signingInput)));
+  const sig = new Uint8Array(
+    await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, kp.privateKey, new TextEncoder().encode(signingInput)),
+  );
   return { token: `${signingInput}.${b64url(sig)}`, jwk };
 }
 function serveJwks(jwk: Record<string, unknown>): void {
-  __setJwtDepsForTesting({ fetch: (async () => new Response(JSON.stringify({ keys: [jwk] }), { status: 200 })) as unknown as typeof fetch });
+  __setJwtDepsForTesting({
+    fetch: (async () => new Response(JSON.stringify({ keys: [jwk] }), { status: 200 })) as unknown as typeof fetch,
+  });
 }
 const future = () => Math.floor(Date.now() / 1000) + 3600;
 

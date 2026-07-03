@@ -97,7 +97,10 @@ export function setMonitor(
 }
 
 export function deleteMonitor(clientName: string, toolName: string): boolean {
-  return getDb().query(`DELETE FROM tool_monitor WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName).changes > 0;
+  return (
+    getDb().query(`DELETE FROM tool_monitor WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName)
+      .changes > 0
+  );
 }
 
 export function listMonitors(): MonitorRecord[] {
@@ -113,7 +116,9 @@ export async function runSyntheticChecks(now: Date): Promise<number> {
   const minute = Math.floor(now.getTime() / 60_000);
   const db = getDb();
   const due = db
-    .query(`SELECT * FROM tool_monitor WHERE enabled = 1 AND (last_run_minute IS NULL OR ? - last_run_minute >= interval_minutes)`)
+    .query(
+      `SELECT * FROM tool_monitor WHERE enabled = 1 AND (last_run_minute IS NULL OR ? - last_run_minute >= interval_minutes)`,
+    )
     .all(minute) as MonitorRow[];
 
   let ran = 0;
@@ -151,7 +156,9 @@ export async function runSyntheticChecks(now: Date): Promise<number> {
 }
 
 function exampleArgs(exampleId: number): Record<string, unknown> | null {
-  const row = getDb().query(`SELECT args_json FROM tool_examples WHERE id = ?`).get(exampleId) as { args_json: string } | null;
+  const row = getDb().query(`SELECT args_json FROM tool_examples WHERE id = ?`).get(exampleId) as {
+    args_json: string;
+  } | null;
   if (!row) return null;
   try {
     return JSON.parse(row.args_json) as Record<string, unknown>;
@@ -175,5 +182,8 @@ function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   const obj = value as Record<string, unknown>;
-  return `{${Object.keys(obj).sort().map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(",")}}`;
+  return `{${Object.keys(obj)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`)
+    .join(",")}}`;
 }

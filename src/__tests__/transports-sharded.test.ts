@@ -87,16 +87,28 @@ async function initSession(path: string, extraHeaders: Record<string, string> = 
 
   await fetch(`${baseUrl}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-session-id": sessionId, ...extraHeaders },
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "mcp-session-id": sessionId,
+      ...extraHeaders,
+    },
     body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
   });
   return sessionId;
 }
 
-async function toolsList(path: string, sessionId: string): Promise<{ status: number; body?: { tools: { name: string }[] } }> {
+async function toolsList(
+  path: string,
+  sessionId: string,
+): Promise<{ status: number; body?: { tools: { name: string }[] } }> {
   const res = await fetch(`${baseUrl}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-session-id": sessionId },
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "mcp-session-id": sessionId,
+    },
     body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 2 }),
   });
   if (res.status !== 200) return { status: res.status };
@@ -200,7 +212,11 @@ describe("Confused-deputy defense — a session bound to one client is rejected 
 
     const res = await fetch(`${baseUrl}/mcp/client-b`, {
       method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-session-id": sessionId! },
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-session-id": sessionId!,
+      },
       body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 3 }),
     });
     expect(res.status).toBe(404);
@@ -233,10 +249,17 @@ describe("ENABLE_AGGREGATED_MCP toggle", () => {
     expect(aggregatedSession).not.toBeNull();
     const aggregatedList = await toolsList("/mcp", aggregatedSession!);
     // Aggregated session sees BOTH clients' tools.
-    expect(aggregatedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools").sort()).toEqual(["client-a__tool-a", "client-b__tool-b"]);
+    expect(
+      aggregatedList.body?.tools
+        .map((t) => t.name)
+        .filter((n) => n !== "search_tools")
+        .sort(),
+    ).toEqual(["client-a__tool-a", "client-b__tool-b"]);
 
     const shardedSession = await initSession("/mcp/client-a");
     const shardedList = await toolsList("/mcp/client-a", shardedSession!);
-    expect(shardedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual(["client-a__tool-a"]);
+    expect(shardedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual([
+      "client-a__tool-a",
+    ]);
   });
 });

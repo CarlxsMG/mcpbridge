@@ -9,9 +9,8 @@ export function docsRoutes(app: Express): void {
   const specPath = resolve(import.meta.dirname, "../openapi.yaml");
   const spec = parse(readFileSync(specPath, "utf-8"));
 
-  const docsGuard = process.env.NODE_ENV === "development"
-    ? (_req: Request, _res: Response, next: NextFunction) => next()
-    : adminAuth;
+  const docsGuard =
+    process.env.NODE_ENV === "development" ? (_req: Request, _res: Response, next: NextFunction) => next() : adminAuth;
 
   app.use("/docs", docsGuard, swaggerUi.serve, swaggerUi.setup(spec));
 }

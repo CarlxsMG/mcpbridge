@@ -15,9 +15,7 @@ function exceedsDepth(root: unknown, maxDepth: number): boolean {
     const { node, depth } = queue.shift()!;
     if (depth > maxDepth) return true;
 
-    const values = Array.isArray(node)
-      ? (node as unknown[])
-      : Object.values(node as Record<string, unknown>);
+    const values = Array.isArray(node) ? (node as unknown[]) : Object.values(node as Record<string, unknown>);
 
     for (const child of values) {
       if (child !== null && typeof child === "object") {

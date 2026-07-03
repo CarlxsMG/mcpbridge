@@ -27,9 +27,10 @@ const props = withDefaults(
     secondaryLabel: "Secondary",
     formatValue: (n: number) => String(n),
     formatSecondary: (n: number) => String(n),
-    formatTime: (t: number) => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+    formatTime: (t: number) =>
+      new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
     height: 200,
-  }
+  },
 );
 
 const gradientId = `tsc-grad-${useId()}`;
@@ -70,7 +71,9 @@ const secondaryMax = computed(() => Math.max(...props.secondaryPoints.map((p) =>
 const primaryPath = computed(() => {
   const n = props.points.length;
   if (n === 0) return "";
-  return props.points.map((p, i) => `${i === 0 ? "M" : "L"} ${xAt(i, n).toFixed(1)} ${yAt(p.v, primaryMax.value).toFixed(1)}`).join(" ");
+  return props.points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${xAt(i, n).toFixed(1)} ${yAt(p.v, primaryMax.value).toFixed(1)}`)
+    .join(" ");
 });
 
 const areaPath = computed(() => {
@@ -135,9 +138,9 @@ function onLeave(): void {
   hoverIndex.value = null;
 }
 
-const hoverPoint = computed(() => (hoverIndex.value === null ? null : props.points[hoverIndex.value] ?? null));
+const hoverPoint = computed(() => (hoverIndex.value === null ? null : (props.points[hoverIndex.value] ?? null)));
 const hoverSecondary = computed(() =>
-  hoverIndex.value === null || !hasSecondary.value ? null : props.secondaryPoints[hoverIndex.value] ?? null
+  hoverIndex.value === null || !hasSecondary.value ? null : (props.secondaryPoints[hoverIndex.value] ?? null),
 );
 const hoverX = computed(() => (hoverIndex.value === null ? 0 : xAt(hoverIndex.value, props.points.length)));
 const tooltipStyle = computed(() => {
@@ -151,7 +154,9 @@ const tooltipStyle = computed(() => {
 <template>
   <div class="ts-chart">
     <div class="ts-legend">
-      <span class="legend-item"><span class="dot" :style="{ background: color }" aria-hidden="true" />{{ primaryLabel }}</span>
+      <span class="legend-item"
+        ><span class="dot" :style="{ background: color }" aria-hidden="true" />{{ primaryLabel }}</span
+      >
       <span v-if="hasSecondary" class="legend-item"
         ><span class="dot dash" :style="{ background: secondaryColor }" aria-hidden="true" />{{ secondaryLabel }}</span
       >
@@ -159,7 +164,14 @@ const tooltipStyle = computed(() => {
 
     <p v-if="!hasData" class="ts-empty">No data in this window.</p>
 
-    <div v-else ref="containerEl" class="ts-plot" :style="{ height: `${height}px` }" @mousemove="onMove" @mouseleave="onLeave">
+    <div
+      v-else
+      ref="containerEl"
+      class="ts-plot"
+      :style="{ height: `${height}px` }"
+      @mousemove="onMove"
+      @mouseleave="onLeave"
+    >
       <svg :viewBox="`0 0 ${width} ${height}`" class="ts-svg" role="img" :aria-label="`${primaryLabel} over time`">
         <defs>
           <linearGradient :id="gradientId" x1="0" y1="0" x2="0" y2="1">
@@ -168,10 +180,25 @@ const tooltipStyle = computed(() => {
           </linearGradient>
         </defs>
 
-        <line v-for="tick in yTicks" :key="`grid-${tick.y}`" :x1="PAD.left" :x2="width - PAD.right" :y1="tick.y" :y2="tick.y" class="grid-line" />
+        <line
+          v-for="tick in yTicks"
+          :key="`grid-${tick.y}`"
+          :x1="PAD.left"
+          :x2="width - PAD.right"
+          :y1="tick.y"
+          :y2="tick.y"
+          class="grid-line"
+        />
 
         <path :d="areaPath" :fill="`url(#${gradientId})`" stroke="none" />
-        <path :d="primaryPath" fill="none" :stroke="color" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+        <path
+          :d="primaryPath"
+          fill="none"
+          :stroke="color"
+          stroke-width="2"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+        />
         <path
           v-if="hasSecondary"
           :d="secondaryPath"
@@ -183,25 +210,50 @@ const tooltipStyle = computed(() => {
           stroke-linecap="round"
         />
 
-        <text v-for="tick in yTicks" :key="`ly-${tick.y}`" :x="PAD.left - 8" :y="tick.y + 3" class="axis-label y-label" text-anchor="end">
+        <text
+          v-for="tick in yTicks"
+          :key="`ly-${tick.y}`"
+          :x="PAD.left - 8"
+          :y="tick.y + 3"
+          class="axis-label y-label"
+          text-anchor="end"
+        >
           {{ formatValue(Math.round(tick.value)) }}
         </text>
-        <text v-for="tick in xTicks" :key="`lx-${tick.x}`" :x="tick.x" :y="height - 6" class="axis-label x-label" :text-anchor="tick.anchor">
+        <text
+          v-for="tick in xTicks"
+          :key="`lx-${tick.x}`"
+          :x="tick.x"
+          :y="height - 6"
+          class="axis-label x-label"
+          :text-anchor="tick.anchor"
+        >
           {{ formatTime(tick.t) }}
         </text>
 
         <template v-if="hoverPoint">
           <line :x1="hoverX" :x2="hoverX" :y1="PAD.top" :y2="PAD.top + plotHeight" class="crosshair" />
           <circle :cx="hoverX" :cy="yAt(hoverPoint.v, primaryMax)" r="3.5" :fill="color" class="hover-dot" />
-          <circle v-if="hoverSecondary" :cx="hoverX" :cy="yAt(hoverSecondary.v, secondaryMax)" r="3" :fill="secondaryColor" class="hover-dot" />
+          <circle
+            v-if="hoverSecondary"
+            :cx="hoverX"
+            :cy="yAt(hoverSecondary.v, secondaryMax)"
+            r="3"
+            :fill="secondaryColor"
+            class="hover-dot"
+          />
         </template>
       </svg>
 
       <div v-if="hoverPoint" class="ts-tooltip" :style="tooltipStyle">
         <div class="tt-time">{{ formatTime(hoverPoint.t) }}</div>
-        <div class="tt-row"><span class="tt-dot" :style="{ background: color }" aria-hidden="true" />{{ primaryLabel }} <strong>{{ formatValue(hoverPoint.v) }}</strong></div>
+        <div class="tt-row">
+          <span class="tt-dot" :style="{ background: color }" aria-hidden="true" />{{ primaryLabel }}
+          <strong>{{ formatValue(hoverPoint.v) }}</strong>
+        </div>
         <div v-if="hoverSecondary" class="tt-row">
-          <span class="tt-dot" :style="{ background: secondaryColor }" aria-hidden="true" />{{ secondaryLabel }} <strong>{{ formatSecondary(hoverSecondary.v) }}</strong>
+          <span class="tt-dot" :style="{ background: secondaryColor }" aria-hidden="true" />{{ secondaryLabel }}
+          <strong>{{ formatSecondary(hoverSecondary.v) }}</strong>
         </div>
       </div>
     </div>

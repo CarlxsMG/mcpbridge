@@ -2,10 +2,7 @@ import { createHash } from "crypto";
 import type { Request, Response, NextFunction } from "express";
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import {
-  rateLimitHits,
-  rateLimitEvictions,
-} from "../observability/metrics.js";
+import { rateLimitHits, rateLimitEvictions } from "../observability/metrics.js";
 
 interface Bucket {
   tokens: number[];
@@ -100,7 +97,7 @@ export function checkRateLimit(
   }
 
   // Prune expired tokens from the sliding window.
-  bucket.tokens = bucket.tokens.filter(t => now - t < WINDOW_MS);
+  bucket.tokens = bucket.tokens.filter((t) => now - t < WINDOW_MS);
 
   if (bucket.tokens.length >= maxPerMinute) {
     const oldestInWindow = bucket.tokens[0];
@@ -175,7 +172,7 @@ export const _internalsForTesting = {
 function evictEmpty(map: Map<string, Bucket>, tier: string): void {
   const now = Date.now();
   for (const [key, bucket] of map) {
-    bucket.tokens = bucket.tokens.filter(t => now - t < WINDOW_MS);
+    bucket.tokens = bucket.tokens.filter((t) => now - t < WINDOW_MS);
     if (bucket.tokens.length === 0) {
       map.delete(key);
       rateLimitEvictions.inc({ tier, cause: "empty" });

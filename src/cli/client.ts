@@ -68,7 +68,8 @@ export async function makeClient(): Promise<CliClient> {
 
   return {
     get: <T>(path: string) => doFetch(path) as Promise<T>,
-    post: <T>(path: string, body: unknown) => doFetch(path, { method: "POST", body: JSON.stringify(body) }) as Promise<T>,
+    post: <T>(path: string, body: unknown) =>
+      doFetch(path, { method: "POST", body: JSON.stringify(body) }) as Promise<T>,
   };
 }
 

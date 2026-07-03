@@ -6,18 +6,18 @@
 // artery, crisp dark-on-light chips.
 
 const stages = [
-  'Scope filter',
-  'Guardrails',
-  'Per-tool policy',
-  'Circuit breaker',
-  'Dispatch',
-  'Sanitize · redact',
-  'Audit · trace',
-]
-const TOP = 196
-const GAP = 36
-const y = (i: number) => TOP + i * GAP
-const DISPATCH = 4 // index of the Dispatch stage → y = 196 + 4*36 = 340
+  "Scope filter",
+  "Guardrails",
+  "Per-tool policy",
+  "Circuit breaker",
+  "Dispatch",
+  "Sanitize · redact",
+  "Audit · trace",
+];
+const TOP = 196;
+const GAP = 36;
+const y = (i: number) => TOP + i * GAP;
+const DISPATCH = 4; // index of the Dispatch stage → y = 196 + 4*36 = 340
 </script>
 
 <template>
@@ -27,13 +27,21 @@ const DISPATCH = 4 // index of the Dispatch stage → y = 196 + 4*36 = 340
         <svg viewBox="0 0 680 540" role="img" aria-labelledby="rp-title rp-desc" class="rp-svg">
           <title id="rp-title">The request path through MCP REST Bridge</title>
           <desc id="rp-desc">
-            A tool call arrives over MCP, descends the guard pipeline — scope filter, guardrails,
-            per-tool policy, circuit breaker, dispatch, response sanitizing, audit — is dispatched
-            to a REST or MCP backend at the Dispatch stage, and the result returns to the caller.
+            A tool call arrives over MCP, descends the guard pipeline — scope filter, guardrails, per-tool policy,
+            circuit breaker, dispatch, response sanitizing, audit — is dispatched to a REST or MCP backend at the
+            Dispatch stage, and the result returns to the caller.
           </desc>
 
           <defs>
-            <marker id="rp-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <marker
+              id="rp-arrow"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="6.5"
+              markerHeight="6.5"
+              orient="auto-start-reverse"
+            >
               <path d="M0 0 L10 5 L0 10 z" fill="#00a99a" />
             </marker>
           </defs>
@@ -46,7 +54,13 @@ const DISPATCH = 4 // index of the Dispatch stage → y = 196 + 4*36 = 340
           <path class="rp-flow" d="M340 448 V484" marker-end="url(#rp-arrow)" fill="none" />
 
           <!-- 3 · Dispatch <-> Backend — starts INSIDE the bridge so it reads as linked -->
-          <path class="rp-flow" d="M344 340 H548" marker-start="url(#rp-arrow)" marker-end="url(#rp-arrow)" fill="none" />
+          <path
+            class="rp-flow"
+            d="M344 340 H548"
+            marker-start="url(#rp-arrow)"
+            marker-end="url(#rp-arrow)"
+            fill="none"
+          />
 
           <!-- 4 · the teal artery / pipeline spine -->
           <path class="rp-spine" d="M248 188 V420" fill="none" />
@@ -104,8 +118,8 @@ const DISPATCH = 4 // index of the Dispatch stage → y = 196 + 4*36 = 340
       </div>
     </div>
     <figcaption class="rp-cap">
-      Every policy runs at the dispatch point inside <code>proxyToolCall</code> — after the call is
-      demultiplexed to a specific tool, before it reaches your backend.
+      Every policy runs at the dispatch point inside <code>proxyToolCall</code> — after the call is demultiplexed to a
+      specific tool, before it reaches your backend.
     </figcaption>
   </figure>
 </template>
@@ -143,7 +157,7 @@ const DISPATCH = 4 // index of the Dispatch stage → y = 196 + 4*36 = 340
 }
 .rp-label {
   fill: #14171c;
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 15px;
   font-weight: 600;
 }
@@ -192,7 +206,7 @@ const DISPATCH = 4 // index of the Dispatch stage → y = 196 + 4*36 = 340
 }
 .rp-bridge-title {
   fill: #ffffff;
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 15px;
   font-weight: 600;
 }
@@ -215,7 +229,7 @@ const DISPATCH = 4 // index of the Dispatch stage → y = 196 + 4*36 = 340
 }
 .rp-stage {
   fill: #e7eaef;
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 13px;
   font-weight: 500;
 }
@@ -237,7 +251,7 @@ const DISPATCH = 4 // index of the Dispatch stage → y = 196 + 4*36 = 340
 }
 .rp-a,
 .rp-b {
-  offset-path: path('M248 188 V420');
+  offset-path: path("M248 188 V420");
 }
 @media (prefers-reduced-motion: no-preference) {
   .rp-pulse {

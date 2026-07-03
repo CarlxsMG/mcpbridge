@@ -19,7 +19,13 @@ import type { RestToolDefinition } from "../types.js";
 // same name but a different schema.
 const CLIENT = "coalesce-test-client";
 function makeTool(name = "get-x", method: RestToolDefinition["method"] = "GET"): RestToolDefinition {
-  return { name, method, endpoint: `/${name}`, description: "x", inputSchema: { type: "object", properties: { id: { type: "string" } } } };
+  return {
+    name,
+    method,
+    endpoint: `/${name}`,
+    description: "x",
+    inputSchema: { type: "object", properties: { id: { type: "string" } } },
+  };
 }
 async function reg(tools: RestToolDefinition[] = [makeTool()]): Promise<void> {
   await registry.register(CLIENT, tools, "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
@@ -79,7 +85,10 @@ describe("coalesce config CRUD", () => {
 describe("runCoalesced", () => {
   test("piggybacking callers share the leader's promise and result", async () => {
     let calls = 0;
-    const factory = async () => { calls++; return "value"; };
+    const factory = async () => {
+      calls++;
+      return "value";
+    };
     const [a, b, c] = await Promise.all([
       runCoalesced("k", factory),
       runCoalesced("k", factory),
@@ -93,7 +102,10 @@ describe("runCoalesced", () => {
 
   test("a later call with the same key after the first settles runs its own factory", async () => {
     let calls = 0;
-    const factory = async () => { calls++; return calls; };
+    const factory = async () => {
+      calls++;
+      return calls;
+    };
     const first = await runCoalesced("k", factory);
     const second = await runCoalesced("k", factory);
     expect(first).toEqual({ result: 1, piggybacked: false });
@@ -125,7 +137,10 @@ describe("coalescing integration via proxyToolCall", () => {
     setToolCoalesce(CLIENT, "get-x", { enabled: true });
     const { getCalls } = mockFetch();
 
-    await Promise.all([proxyToolCall("coalesce-test-client__get-x", { id: "1" }), proxyToolCall("coalesce-test-client__get-x", { id: "2" })]);
+    await Promise.all([
+      proxyToolCall("coalesce-test-client__get-x", { id: "1" }),
+      proxyToolCall("coalesce-test-client__get-x", { id: "2" }),
+    ]);
 
     expect(getCalls()).toBe(2);
   });
@@ -135,7 +150,10 @@ describe("coalescing integration via proxyToolCall", () => {
     // No setToolCoalesce call — coalescing stays off for this tool.
     const { getCalls } = mockFetch();
 
-    await Promise.all([proxyToolCall("coalesce-test-client__get-x", { id: "1" }), proxyToolCall("coalesce-test-client__get-x", { id: "1" })]);
+    await Promise.all([
+      proxyToolCall("coalesce-test-client__get-x", { id: "1" }),
+      proxyToolCall("coalesce-test-client__get-x", { id: "1" }),
+    ]);
 
     expect(getCalls()).toBe(2);
   });
@@ -145,7 +163,10 @@ describe("coalescing integration via proxyToolCall", () => {
     setToolCoalesce(CLIENT, "post-x", { enabled: true });
     const { getCalls } = mockFetch();
 
-    await Promise.all([proxyToolCall("coalesce-test-client__post-x", { id: "1" }), proxyToolCall("coalesce-test-client__post-x", { id: "1" })]);
+    await Promise.all([
+      proxyToolCall("coalesce-test-client__post-x", { id: "1" }),
+      proxyToolCall("coalesce-test-client__post-x", { id: "1" }),
+    ]);
 
     expect(getCalls()).toBe(2);
   });

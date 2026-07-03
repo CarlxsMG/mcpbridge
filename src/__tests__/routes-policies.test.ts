@@ -16,7 +16,13 @@ let server: Server | null = null;
 const ADMIN_KEY = "test-admin-key";
 
 function makeTool(name: string): RestToolDefinition {
-  return { name, method: "GET", endpoint: `/${name}`, description: "d", inputSchema: { type: "object", properties: {} } };
+  return {
+    name,
+    method: "GET",
+    endpoint: `/${name}`,
+    description: "d",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 
 async function startApp(): Promise<void> {
@@ -45,7 +51,11 @@ function bearer(): Record<string, string> {
 afterEach(async () => {
   for (const c of registry.listClients()) await registry.unregister(c.name);
   await new Promise<void>((resolve) => {
-    if (server) server.close(() => { server = null; resolve(); });
+    if (server)
+      server.close(() => {
+        server = null;
+        resolve();
+      });
     else resolve();
   });
 });
@@ -53,14 +63,24 @@ afterEach(async () => {
 describe("policy routes", () => {
   test("create / list / duplicate / delete", async () => {
     await startApp();
-    const create = await fetch(`${baseUrl}/admin-api/policies`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "strict", rateLimitPerMin: 10 }) });
+    const create = await fetch(`${baseUrl}/admin-api/policies`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "strict", rateLimitPerMin: 10 }),
+    });
     expect(create.status).toBe(201);
     const { id } = (await create.json()) as { id: number };
 
-    const dup = await fetch(`${baseUrl}/admin-api/policies`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "strict" }) });
+    const dup = await fetch(`${baseUrl}/admin-api/policies`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "strict" }),
+    });
     expect(dup.status).toBe(409);
 
-    const list = (await (await fetch(`${baseUrl}/admin-api/policies`, { headers: bearer() })).json()) as { items: unknown[] };
+    const list = (await (await fetch(`${baseUrl}/admin-api/policies`, { headers: bearer() })).json()) as {
+      items: unknown[];
+    };
     expect(list.items).toHaveLength(1);
 
     const del = await fetch(`${baseUrl}/admin-api/policies/${id}`, { method: "DELETE", headers: bearer() });
@@ -69,11 +89,26 @@ describe("policy routes", () => {
 
   test("apply a policy to tools", async () => {
     await startApp();
-    await registry.register("svc", [makeTool("t")], "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
-    const create = await fetch(`${baseUrl}/admin-api/policies`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "p", rateLimitPerMin: 5 }) });
+    await registry.register(
+      "svc",
+      [makeTool("t")],
+      "http://example.com/health",
+      "1.2.3.4",
+      "http://example.com",
+      "1.2.3.4",
+    );
+    const create = await fetch(`${baseUrl}/admin-api/policies`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "p", rateLimitPerMin: 5 }),
+    });
     const { id } = (await create.json()) as { id: number };
 
-    const apply = await fetch(`${baseUrl}/admin-api/policies/${id}/apply`, { method: "POST", headers: bearer(), body: JSON.stringify({ tools: [{ client: "svc", tool: "t" }] }) });
+    const apply = await fetch(`${baseUrl}/admin-api/policies/${id}/apply`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ tools: [{ client: "svc", tool: "t" }] }),
+    });
     expect(apply.status).toBe(200);
     const result = (await apply.json()) as { applied: number };
     expect(result.applied).toBe(1);
@@ -82,9 +117,17 @@ describe("policy routes", () => {
 
   test("apply requires bundle or tools", async () => {
     await startApp();
-    const create = await fetch(`${baseUrl}/admin-api/policies`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "p" }) });
+    const create = await fetch(`${baseUrl}/admin-api/policies`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "p" }),
+    });
     const { id } = (await create.json()) as { id: number };
-    const apply = await fetch(`${baseUrl}/admin-api/policies/${id}/apply`, { method: "POST", headers: bearer(), body: JSON.stringify({}) });
+    const apply = await fetch(`${baseUrl}/admin-api/policies/${id}/apply`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({}),
+    });
     expect(apply.status).toBe(400);
   });
 

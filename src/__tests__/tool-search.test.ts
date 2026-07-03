@@ -69,7 +69,11 @@ describe("rankTools", () => {
   });
 
   test("limit truncates results", () => {
-    const many = Array.from({ length: 30 }, (_, i) => ({ name: `svc__tool_${i}`, description: "search me", inputSchema: {} }));
+    const many = Array.from({ length: 30 }, (_, i) => ({
+      name: `svc__tool_${i}`,
+      description: "search me",
+      inputSchema: {},
+    }));
     expect(rankTools("search", many, 5).length).toBe(5);
   });
 });
@@ -141,6 +145,6 @@ describe("search_tools — MCP server integration", () => {
   test("search tool definition has a required query param", () => {
     const def = searchToolDefinition();
     expect(def.name).toBe(SEARCH_TOOL_NAME);
-    expect((def.inputSchema.required as string[])).toContain("query");
+    expect(def.inputSchema.required as string[]).toContain("query");
   });
 });

@@ -10,7 +10,7 @@ withDefaults(
     tone?: "default" | "danger" | "warning" | "ok";
     pulse?: boolean;
   }>(),
-  { tone: "default", pulse: false }
+  { tone: "default", pulse: false },
 );
 </script>
 
@@ -37,7 +37,9 @@ withDefaults(
   border-radius: var(--radius-md);
   padding: var(--space-4) var(--space-5);
   box-shadow: var(--shadow-xs);
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 .stat-card:hover {
   box-shadow: var(--shadow-sm);

@@ -83,7 +83,16 @@ function makeFakeRes(): { res: Response; headers: Record<string, string>; status
       return res;
     },
   } as unknown as Response;
-  return { res, headers: state.headers, get statusCode() { return state.statusCode; }, get body() { return state.body; } };
+  return {
+    res,
+    headers: state.headers,
+    get statusCode() {
+      return state.statusCode;
+    },
+    get body() {
+      return state.body;
+    },
+  };
 }
 
 describe("checkLimit — Express wrapper regression (post-refactor)", () => {

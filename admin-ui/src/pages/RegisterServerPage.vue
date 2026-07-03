@@ -37,7 +37,10 @@ const registering = ref(false);
 const error = ref("");
 
 function parseList(raw: string): string[] {
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 async function preview() {
@@ -208,11 +211,19 @@ async function register() {
           <p v-if="previewError" class="error">{{ previewError }}</p>
           <div v-if="previewTools && previewTools.length" class="table-card table-scroll">
             <table class="preview-table">
-              <thead><tr><th>Name</th><th>Method</th><th>Endpoint</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Method</th>
+                  <th>Endpoint</th>
+                </tr>
+              </thead>
               <tbody>
                 <tr v-for="t in previewTools" :key="t.name">
                   <td>{{ t.name }}</td>
-                  <td><code>{{ t.method }}</code></td>
+                  <td>
+                    <code>{{ t.method }}</code>
+                  </td>
                   <td class="ep">{{ t.endpoint }}</td>
                 </tr>
               </tbody>
@@ -239,8 +250,16 @@ async function register() {
         </div>
         <div class="field">
           <label for="r-graphql-health">Health URL (optional — defaults to the GraphQL URL)</label>
-          <input id="r-graphql-health" v-model="graphqlHealthUrl" type="url" placeholder="https://api.example.com/health" />
-          <p class="hint">Many GraphQL servers reject a bare GET on the operation endpoint. If you have a dedicated liveness endpoint, use it here to avoid false health-check failures.</p>
+          <input
+            id="r-graphql-health"
+            v-model="graphqlHealthUrl"
+            type="url"
+            placeholder="https://api.example.com/health"
+          />
+          <p class="hint">
+            Many GraphQL servers reject a bare GET on the operation endpoint. If you have a dedicated liveness endpoint,
+            use it here to avoid false health-check failures.
+          </p>
         </div>
         <label class="checkline"><input v-model="includeMutations" type="checkbox" /> Include mutations</label>
         <div class="preview-row">
@@ -252,11 +271,19 @@ async function register() {
         <p v-if="previewError" class="error">{{ previewError }}</p>
         <div v-if="previewTools && previewTools.length" class="table-card table-scroll">
           <table class="preview-table">
-            <thead><tr><th>Name</th><th>Method</th><th>Endpoint</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Method</th>
+                <th>Endpoint</th>
+              </tr>
+            </thead>
             <tbody>
               <tr v-for="t in previewTools" :key="t.name">
                 <td>{{ t.name }}</td>
-                <td><code>{{ t.method }}</code></td>
+                <td>
+                  <code>{{ t.method }}</code>
+                </td>
                 <td class="ep">{{ t.endpoint }}</td>
               </tr>
             </tbody>
@@ -277,9 +304,8 @@ async function register() {
           </select>
         </div>
         <p class="hint">
-          The bridge connects to the MCP server and discovers its tools on registration. If the server
-          requires authentication, register it first, set upstream credentials on its detail page, then
-          re-discover.
+          The bridge connects to the MCP server and discovers its tools on registration. If the server requires
+          authentication, register it first, set upstream credentials on its detail page, then re-discover.
         </p>
       </template>
 
@@ -288,7 +314,9 @@ async function register() {
         type="submit"
         class="btn-primary"
         :disabled="registering || (kind === 'rest' && mode === 'openapi' && !previewTools)"
-      >{{ registering ? "Registering…" : "Register server" }}</button>
+      >
+        {{ registering ? "Registering…" : "Register server" }}
+      </button>
     </form>
   </section>
 </template>

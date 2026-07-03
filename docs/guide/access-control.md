@@ -7,12 +7,12 @@ The bridge separates **who administers it** (admin users, roles) from **who call
 
 Admin users sign in to the Vue admin UI; every mutating action is role-gated and audited.
 
-| Role | Can do |
-|---|---|
-| `admin` | Everything, including managing users, teams and global config |
+| Role       | Can do                                                                     |
+| ---------- | -------------------------------------------------------------------------- |
+| `admin`    | Everything, including managing users, teams and global config              |
 | `operator` | Register/configure backends, guards, bundles, keys — day-to-day operations |
-| `auditor` | Read-only plus the audit log and its integrity check |
-| `viewer` | Read-only dashboards |
+| `auditor`  | Read-only plus the audit log and its integrity check                       |
+| `viewer`   | Read-only dashboards                                                       |
 
 Programmatic/CI callers can use a static `ADMIN_API_KEYS` Bearer token instead of a session;
 Bearer calls are exempt from CSRF (they aren't cookie-based).

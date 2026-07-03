@@ -10,7 +10,12 @@ import type { Server as HttpServer } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
-import { upsertWsProxyTarget, handleWsProxyUpgrade, __resetWsProxyForTesting, disconnectAllForTarget } from "../ws-proxy.js";
+import {
+  upsertWsProxyTarget,
+  handleWsProxyUpgrade,
+  __resetWsProxyForTesting,
+  disconnectAllForTarget,
+} from "../ws-proxy.js";
 
 const originalAllowPrivate = config.allowPrivateIps;
 const originalMcpApiKeys = config.mcpApiKeys;
@@ -69,7 +74,10 @@ afterEach(async () => {
   backend?.stop(true);
   removeCircuitBreaker("echo-target");
   await new Promise<void>((resolve) => {
-    if (!appServer) { resolve(); return; }
+    if (!appServer) {
+      resolve();
+      return;
+    }
     const srv = appServer;
     appServer = null;
     // Bun's http.Server.close() callback does not reliably fire once a
@@ -85,7 +93,7 @@ afterEach(async () => {
 });
 
 function connect(name: string, headers?: Record<string, string>): WebSocket {
-  return new WebSocket(`ws://127.0.0.1:${appPort}/ws-proxy/${name}`, headers ? { headers } as never : undefined);
+  return new WebSocket(`ws://127.0.0.1:${appPort}/ws-proxy/${name}`, headers ? ({ headers } as never) : undefined);
 }
 
 describe("WS proxy passthrough", () => {

@@ -291,7 +291,11 @@ describe("POST /admin-api/clients/:name/tools/:tool/test", () => {
   test("proxies a real call through proxyToolCall and returns the result", async () => {
     await startApp();
     await reg("svc", [makeTool({ name: "get-users" })]);
-    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch;
 
     const res = await fetch(`${baseUrl}/admin-api/clients/svc/tools/get-users/test`, {
       method: "POST",
@@ -307,14 +311,20 @@ describe("POST /admin-api/clients/:name/tools/:tool/test", () => {
 describe("POST /admin-api/clients/:name/circuit-breaker/reset", () => {
   test("404 when the client isn't live", async () => {
     await startApp();
-    const res = await fetch(`${baseUrl}/admin-api/clients/nobody/circuit-breaker/reset`, { method: "POST", headers: bearer() });
+    const res = await fetch(`${baseUrl}/admin-api/clients/nobody/circuit-breaker/reset`, {
+      method: "POST",
+      headers: bearer(),
+    });
     expect(res.status).toBe(404);
   });
 
   test("200 for a live client", async () => {
     await startApp();
     await reg("svc");
-    const res = await fetch(`${baseUrl}/admin-api/clients/svc/circuit-breaker/reset`, { method: "POST", headers: bearer() });
+    const res = await fetch(`${baseUrl}/admin-api/clients/svc/circuit-breaker/reset`, {
+      method: "POST",
+      headers: bearer(),
+    });
     expect(res.status).toBe(200);
   });
 });

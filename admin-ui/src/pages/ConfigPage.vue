@@ -135,7 +135,12 @@ async function runImport(dryRun: boolean) {
         : { dryRun, data: JSON.parse(importText.value) };
     result.value = await api.post<ConfigImportResult>("/admin-api/config/import", body);
   } catch (err) {
-    errorMessage.value = importFormat.value === "json" && err instanceof SyntaxError ? "Invalid JSON." : err instanceof ApiError ? err.message : "Import failed.";
+    errorMessage.value =
+      importFormat.value === "json" && err instanceof SyntaxError
+        ? "Invalid JSON."
+        : err instanceof ApiError
+          ? err.message
+          : "Import failed.";
   } finally {
     busy.value = false;
   }
@@ -156,7 +161,10 @@ async function confirmImport() {
     <header class="page-header">
       <div>
         <h1>Configuration</h1>
-        <p class="subtitle">Export a portable snapshot of admin-authored config (bundles, alerts, per-client guards & overrides), or import one into this instance.</p>
+        <p class="subtitle">
+          Export a portable snapshot of admin-authored config (bundles, alerts, per-client guards & overrides), or
+          import one into this instance.
+        </p>
       </div>
     </header>
 
@@ -176,7 +184,10 @@ async function confirmImport() {
 
     <div class="block">
       <h2>Import</h2>
-      <p class="hint">Paste an exported document (policy-as-code — includes guardrails and consumer quotas). Dry-run first to preview what would change — client/tool config only applies to already-registered servers.</p>
+      <p class="hint">
+        Paste an exported document (policy-as-code — includes guardrails and consumer quotas). Dry-run first to preview
+        what would change — client/tool config only applies to already-registered servers.
+      </p>
       <div class="actions">
         <label for="import-format">Format</label>
         <select id="import-format" v-model="importFormat">
@@ -185,7 +196,13 @@ async function confirmImport() {
         </select>
       </div>
       <label for="import-text">Import document</label>
-      <textarea id="import-text" v-model="importText" rows="10" spellcheck="false" :placeholder="importFormat === 'yaml' ? 'version: 1' : jsonPlaceholder"></textarea>
+      <textarea
+        id="import-text"
+        v-model="importText"
+        rows="10"
+        spellcheck="false"
+        :placeholder="importFormat === 'yaml' ? 'version: 1' : jsonPlaceholder"
+      ></textarea>
       <div class="actions">
         <button type="button" class="btn-secondary" :disabled="busy" @click="runImport(true)">Dry run</button>
         <button type="button" class="btn-primary" :disabled="busy" @click="requestImport">Apply import</button>
@@ -197,12 +214,33 @@ async function confirmImport() {
       <p class="hint">Snapshot the current config, diff a snapshot against the live config, or roll back to it.</p>
       <div class="actions">
         <label for="snapshot-label">Snapshot label</label>
-        <input id="snapshot-label" v-model="newSnapshotLabel" type="text" placeholder="Snapshot label (e.g. before-migration)" class="label-input" />
-        <button type="button" class="btn-primary" :disabled="snapshotBusy || !newSnapshotLabel.trim()" @click="createSnapshotFn">Snapshot now</button>
+        <input
+          id="snapshot-label"
+          v-model="newSnapshotLabel"
+          type="text"
+          placeholder="Snapshot label (e.g. before-migration)"
+          class="label-input"
+        />
+        <button
+          type="button"
+          class="btn-primary"
+          :disabled="snapshotBusy || !newSnapshotLabel.trim()"
+          @click="createSnapshotFn"
+        >
+          Snapshot now
+        </button>
       </div>
       <div v-if="snapshots.length" class="table-scroll">
         <table class="snap-table">
-          <thead><tr><th>#</th><th>Label</th><th>Created</th><th>By</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Label</th>
+              <th>Created</th>
+              <th>By</th>
+              <th></th>
+            </tr>
+          </thead>
           <tbody>
             <tr v-for="s in snapshots" :key="s.id">
               <td>{{ s.id }}</td>
@@ -225,13 +263,26 @@ async function confirmImport() {
         <p v-if="diff.entries.length === 0" class="hint">No differences.</p>
         <div v-else class="table-scroll">
           <table class="diff-table">
-            <thead><tr><th>Path</th><th>Change</th><th>Before</th><th>After</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Path</th>
+                <th>Change</th>
+                <th>Before</th>
+                <th>After</th>
+              </tr>
+            </thead>
             <tbody>
               <tr v-for="(e, i) in diff.entries" :key="i" :class="e.kind">
-                <td><code>{{ e.path }}</code></td>
+                <td>
+                  <code>{{ e.path }}</code>
+                </td>
                 <td>{{ e.kind }}</td>
-                <td><code>{{ fmt(e.before) }}</code></td>
-                <td><code>{{ fmt(e.after) }}</code></td>
+                <td>
+                  <code>{{ fmt(e.before) }}</code>
+                </td>
+                <td>
+                  <code>{{ fmt(e.after) }}</code>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -242,7 +293,15 @@ async function confirmImport() {
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
     <div v-if="result" class="result" :class="{ dry: result.dryRun }">
-      <h3>{{ result.dryRun ? "Dry run — nothing was changed" : resultKind === "rollback" ? "Rollback applied" : "Import applied" }}</h3>
+      <h3>
+        {{
+          result.dryRun
+            ? "Dry run — nothing was changed"
+            : resultKind === "rollback"
+              ? "Rollback applied"
+              : "Import applied"
+        }}
+      </h3>
       <ul>
         <li>Bundles: {{ result.applied.bundles }}</li>
         <li>Alert rules: {{ result.applied.alertRules }}</li>
@@ -254,7 +313,9 @@ async function confirmImport() {
       <div v-if="result.skipped.length" class="skipped">
         <strong>Skipped ({{ result.skipped.length }}):</strong>
         <ul>
-          <li v-for="(s, i) in result.skipped" :key="i">{{ s.type }} <code>{{ s.id }}</code> — {{ s.reason }}</li>
+          <li v-for="(s, i) in result.skipped" :key="i">
+            {{ s.type }} <code>{{ s.id }}</code> — {{ s.reason }}
+          </li>
         </ul>
       </div>
     </div>
@@ -272,7 +333,11 @@ async function confirmImport() {
     <ConfirmDialog
       :open="pendingRollback !== null"
       title="Roll back this config?"
-      :message='pendingRollback ? `Roll back config to snapshot "${pendingRollback.label}"? This re-applies it to existing servers.` : ""'
+      :message="
+        pendingRollback
+          ? `Roll back config to snapshot &quot;${pendingRollback.label}&quot;? This re-applies it to existing servers.`
+          : ''
+      "
       confirm-label="Roll back"
       danger
       @confirm="confirmRollback"
@@ -282,7 +347,7 @@ async function confirmImport() {
     <ConfirmDialog
       :open="pendingDeleteSnapshot !== null"
       title="Delete this snapshot?"
-      :message='pendingDeleteSnapshot ? `Delete snapshot "${pendingDeleteSnapshot.label}"?` : ""'
+      :message="pendingDeleteSnapshot ? `Delete snapshot &quot;${pendingDeleteSnapshot.label}&quot;?` : ''"
       :confirm-label="pendingDeleteSnapshot ? `Delete ${pendingDeleteSnapshot.label}` : 'Delete'"
       danger
       @confirm="confirmDeleteSnapshot"
@@ -376,13 +441,15 @@ textarea {
   font-family: var(--font-body);
   min-width: 260px;
 }
-.snap-table, .diff-table {
+.snap-table,
+.diff-table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 0.8rem;
   font-size: 0.85rem;
 }
-.snap-table th, .diff-table th {
+.snap-table th,
+.diff-table th {
   text-align: left;
   padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--border);
@@ -393,16 +460,31 @@ textarea {
   letter-spacing: 0.04em;
   vertical-align: top;
 }
-.snap-table td, .diff-table td {
+.snap-table td,
+.diff-table td {
   text-align: left;
   padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
-.row-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-.link-btn.del { color: var(--breach); }
-.diff { margin-top: 1rem; }
-.diff-table tr.added td { background: var(--ok-soft); }
-.diff-table tr.removed td { background: var(--breach-soft); }
-.diff-table tr.changed td { background: var(--canary-soft); }
+.row-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.link-btn.del {
+  color: var(--breach);
+}
+.diff {
+  margin-top: 1rem;
+}
+.diff-table tr.added td {
+  background: var(--ok-soft);
+}
+.diff-table tr.removed td {
+  background: var(--breach-soft);
+}
+.diff-table tr.changed td {
+  background: var(--canary-soft);
+}
 </style>

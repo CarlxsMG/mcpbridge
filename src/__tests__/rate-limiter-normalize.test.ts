@@ -38,16 +38,26 @@ interface MockRes {
 
 function makeRes(): MockRes {
   const r: MockRes = {
-    status(code) { this._status = code; return this; },
-    json(body) { this._body = body; return this; },
-    setHeader() { return this; },
+    status(code) {
+      this._status = code;
+      return this;
+    },
+    json(body) {
+      this._body = body;
+      return this;
+    },
+    setHeader() {
+      return this;
+    },
   };
   return r;
 }
 
 function nextFn(): { called: boolean; fn: NextFunction } {
   const state = { called: false, fn: null as unknown as NextFunction };
-  state.fn = () => { state.called = true; };
+  state.fn = () => {
+    state.called = true;
+  };
   return state;
 }
 

@@ -13,8 +13,20 @@ import { getToolTransform, setToolTransform, applyOps } from "../transform.js";
 import type { RestToolDefinition } from "../types.js";
 
 const CLIENT = "svc";
-const getTool: RestToolDefinition = { name: "get-x", method: "GET", endpoint: "/x", description: "x", inputSchema: { type: "object", properties: {} } };
-const postTool: RestToolDefinition = { name: "post-x", method: "POST", endpoint: "/x", description: "x", inputSchema: { type: "object", properties: { a: { type: "string" } } } };
+const getTool: RestToolDefinition = {
+  name: "get-x",
+  method: "GET",
+  endpoint: "/x",
+  description: "x",
+  inputSchema: { type: "object", properties: {} },
+};
+const postTool: RestToolDefinition = {
+  name: "post-x",
+  method: "POST",
+  endpoint: "/x",
+  description: "x",
+  inputSchema: { type: "object", properties: { a: { type: "string" } } },
+};
 async function reg(): Promise<void> {
   await registry.register(CLIENT, [getTool, postTool], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 }
@@ -69,7 +81,11 @@ describe("config persistence", () => {
 describe("proxy integration", () => {
   test("request op injects a field that survives Ajv and reaches the backend", async () => {
     await reg();
-    setToolTransform(CLIENT, "post-x", { enabled: true, request: [{ op: "set", path: "injected", value: "yes" }], response: [] });
+    setToolTransform(CLIENT, "post-x", {
+      enabled: true,
+      request: [{ op: "set", path: "injected", value: "yes" }],
+      response: [],
+    });
     let sentBody: unknown;
     globalThis.fetch = (async (_url: string, opts: RequestInit) => {
       sentBody = JSON.parse(String(opts.body));
@@ -81,9 +97,19 @@ describe("proxy integration", () => {
 
   test("response ops reshape the body before it returns", async () => {
     await reg();
-    setToolTransform(CLIENT, "get-x", { enabled: true, request: [], response: [{ op: "remove", path: "secret" }, { op: "rename", from: "keep", to: "kept" }] });
+    setToolTransform(CLIENT, "get-x", {
+      enabled: true,
+      request: [],
+      response: [
+        { op: "remove", path: "secret" },
+        { op: "rename", from: "keep", to: "kept" },
+      ],
+    });
     globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ secret: "x", keep: 1 }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+      new Response(JSON.stringify({ secret: "x", keep: 1 }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-x`, {});
     expect(JSON.parse(r.content[0].text)).toEqual({ kept: 1 });
   });

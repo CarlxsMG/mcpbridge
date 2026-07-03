@@ -33,7 +33,9 @@ function rowTo(r: TeamRow): Team {
 }
 
 export function listTeams(): Team[] {
-  return (getDb().query(`SELECT id, name, created_at, created_by FROM teams ORDER BY name`).all() as TeamRow[]).map(rowTo);
+  return (getDb().query(`SELECT id, name, created_at, created_by FROM teams ORDER BY name`).all() as TeamRow[]).map(
+    rowTo,
+  );
 }
 
 export function getTeam(id: number): Team | null {
@@ -48,7 +50,11 @@ export function createTeam(name: string, actor: string | null): Team | TeamError
   const db = getDb();
   if (db.query(`SELECT 1 FROM teams WHERE name = ?`).get(name)) return "ALREADY_EXISTS";
   const now = Date.now();
-  const r = db.query(`INSERT INTO teams (name, created_at, created_by) VALUES (?, ?, ?) RETURNING id, name, created_at, created_by`).get(name, now, actor) as TeamRow;
+  const r = db
+    .query(
+      `INSERT INTO teams (name, created_at, created_by) VALUES (?, ?, ?) RETURNING id, name, created_at, created_by`,
+    )
+    .get(name, now, actor) as TeamRow;
   return rowTo(r);
 }
 
@@ -63,7 +69,9 @@ export function deleteTeam(id: number): boolean {
 
 /** The team id owning a client (null = unowned). Undefined when the client doesn't exist. */
 export function getClientTeam(clientName: string): number | null | undefined {
-  const r = getDb().query(`SELECT team_id FROM clients WHERE name = ?`).get(clientName) as { team_id: number | null } | null;
+  const r = getDb().query(`SELECT team_id FROM clients WHERE name = ?`).get(clientName) as {
+    team_id: number | null;
+  } | null;
   return r ? r.team_id : undefined;
 }
 
@@ -72,7 +80,10 @@ export function setClientTeam(clientName: string, teamId: number | null): boolea
   const db = getDb();
   if (!db.query(`SELECT 1 FROM clients WHERE name = ?`).get(clientName)) return false;
   if (teamId !== null && !db.query(`SELECT 1 FROM teams WHERE id = ?`).get(teamId)) return false;
-  return db.query(`UPDATE clients SET team_id = ?, updated_at = ? WHERE name = ?`).run(teamId, Date.now(), clientName).changes > 0;
+  return (
+    db.query(`UPDATE clients SET team_id = ?, updated_at = ? WHERE name = ?`).run(teamId, Date.now(), clientName)
+      .changes > 0
+  );
 }
 
 /** Assigns (or clears) a user's team membership. Returns false for an unknown user/team. */
@@ -80,7 +91,10 @@ export function setUserTeam(username: string, teamId: number | null): boolean {
   const db = getDb();
   if (!db.query(`SELECT 1 FROM admin_users WHERE username = ?`).get(username)) return false;
   if (teamId !== null && !db.query(`SELECT 1 FROM teams WHERE id = ?`).get(teamId)) return false;
-  return db.query(`UPDATE admin_users SET team_id = ?, updated_at = ? WHERE username = ?`).run(teamId, Date.now(), username).changes > 0;
+  return (
+    db.query(`UPDATE admin_users SET team_id = ?, updated_at = ? WHERE username = ?`).run(teamId, Date.now(), username)
+      .changes > 0
+  );
 }
 
 // ---------------------------------------------------------------------------

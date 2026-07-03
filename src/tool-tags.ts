@@ -32,9 +32,10 @@ export function setToolTags(clientName: string, toolName: string, tags: string[]
 
 /** All distinct tags with the number of tools carrying each. */
 export function listAllTags(): { tag: string; count: number }[] {
-  return getDb()
-    .query(`SELECT tag, COUNT(*) as count FROM tool_tags GROUP BY tag ORDER BY count DESC, tag`)
-    .all() as { tag: string; count: number }[];
+  return getDb().query(`SELECT tag, COUNT(*) as count FROM tool_tags GROUP BY tag ORDER BY count DESC, tag`).all() as {
+    tag: string;
+    count: number;
+  }[];
 }
 
 /** Every (client, tool) carrying a given tag. */
@@ -58,9 +59,11 @@ export function getTagsForClient(clientName: string): Record<string, string[]> {
 
 /** Tags for every tool across all clients, keyed by `client__tool`. */
 export function getAllToolTags(): Record<string, string[]> {
-  const rows = getDb()
-    .query(`SELECT client_name, tool_name, tag FROM tool_tags ORDER BY tag`)
-    .all() as { client_name: string; tool_name: string; tag: string }[];
+  const rows = getDb().query(`SELECT client_name, tool_name, tag FROM tool_tags ORDER BY tag`).all() as {
+    client_name: string;
+    tool_name: string;
+    tag: string;
+  }[];
   const out: Record<string, string[]> = {};
   for (const r of rows) (out[`${r.client_name}__${r.tool_name}`] ??= []).push(r.tag);
   return out;

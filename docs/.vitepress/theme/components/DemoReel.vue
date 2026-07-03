@@ -1,32 +1,32 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from "vue";
 
 // An auto-crossfading reel of real screenshots from the live demo, framed as an
 // app window. Crisper than a GIF, tiny, and it pauses for reduced-motion users.
-const base = import.meta.env.BASE_URL
-const demoUrl = 'https://aico-dot-team-code.github.io/mcpbridge/demo/'
+const base = import.meta.env.BASE_URL;
+const demoUrl = "https://aico-dot-team-code.github.io/mcpbridge/demo/";
 
 const frames = [
-  { src: 'reel-overview.png', label: 'Overview' },
-  { src: 'reel-servers.png', label: 'Servers' },
-  { src: 'reel-usage.png', label: 'Usage' },
-]
+  { src: "reel-overview.png", label: "Overview" },
+  { src: "reel-servers.png", label: "Servers" },
+  { src: "reel-usage.png", label: "Usage" },
+];
 
-const active = ref(0)
-let timer: ReturnType<typeof setInterval> | undefined
+const active = ref(0);
+let timer: ReturnType<typeof setInterval> | undefined;
 
 function go(i: number) {
-  active.value = (i + frames.length) % frames.length
+  active.value = (i + frames.length) % frames.length;
 }
 
 onMounted(() => {
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reduce) return
-  timer = setInterval(() => go(active.value + 1), 3000)
-})
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) return;
+  timer = setInterval(() => go(active.value + 1), 3000);
+});
 onBeforeUnmount(() => {
-  if (timer) clearInterval(timer)
-})
+  if (timer) clearInterval(timer);
+});
 </script>
 
 <template>
@@ -150,7 +150,9 @@ onBeforeUnmount(() => {
   font-weight: 600;
   text-decoration: none;
   box-shadow: 0 6px 18px rgba(0, 135, 123, 0.4);
-  transition: transform 0.12s ease, background-color 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    background-color 0.12s ease;
 }
 .reel-cta:hover {
   background: #00877b;
@@ -171,7 +173,10 @@ onBeforeUnmount(() => {
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background-color 0.12s ease;
 }
 .reel-tab:hover {
   color: var(--vp-c-text-1);

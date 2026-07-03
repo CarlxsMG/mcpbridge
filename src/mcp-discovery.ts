@@ -50,7 +50,7 @@ export function normalizeToolName(raw: string): string {
  * both normalize to "get_item" become "get_item" and "get_item_2").
  */
 export function discoverMapTools(
-  mcpTools: Array<{ name: string; description?: string; inputSchema: Record<string, unknown> }>
+  mcpTools: Array<{ name: string; description?: string; inputSchema: Record<string, unknown> }>,
 ): DiscoveredMcpTool[] {
   const used = new Set<string>();
   const out: DiscoveredMcpTool[] = [];
@@ -65,9 +65,7 @@ export function discoverMapTools(
     used.add(name);
 
     const description =
-      t.description && t.description.trim().length > 0
-        ? t.description
-        : `Tool "${t.name}" from upstream MCP server`;
+      t.description && t.description.trim().length > 0 ? t.description : `Tool "${t.name}" from upstream MCP server`;
 
     out.push({ name, upstreamName: t.name, description, inputSchema: t.inputSchema });
   }
@@ -89,7 +87,7 @@ export interface DiscoverOptions {
  */
 export async function discoverToolsFromMcpServer(
   params: McpConnParams,
-  opts: DiscoverOptions = {}
+  opts: DiscoverOptions = {},
 ): Promise<DiscoveredMcpTool[]> {
   const factory = opts.transportFactory ?? buildTransport;
   const timeout = opts.timeoutMs ?? 10_000;

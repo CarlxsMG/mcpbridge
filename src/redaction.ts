@@ -69,7 +69,7 @@ export function setRedactionPaths(clientName: string, toolName: string, paths: s
     db.query(
       `INSERT INTO tool_redactions (client_name, tool_name, paths_json, updated_at)
        VALUES (?, ?, ?, ?)
-       ON CONFLICT(client_name, tool_name) DO UPDATE SET paths_json = excluded.paths_json, updated_at = excluded.updated_at`
+       ON CONFLICT(client_name, tool_name) DO UPDATE SET paths_json = excluded.paths_json, updated_at = excluded.updated_at`,
     ).run(clientName, toolName, JSON.stringify(clean), Date.now());
   }
   return true;

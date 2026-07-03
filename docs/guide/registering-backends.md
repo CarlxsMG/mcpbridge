@@ -22,13 +22,13 @@ curl -X POST https://bridge.example.com/register \
 
 Useful fields:
 
-| Field | Purpose |
-|---|---|
-| `openapi_url` | Discover tools from a spec (mutually exclusive with `tools`) |
-| `tools` | Provide tool definitions manually when there's no spec |
-| `base_url` | Override the API base (defaults to the host of `health_url`) |
-| `include_tags` / `exclude_operations` | Select exactly which operations become tools |
-| `retry_non_safe_methods` | Allow retries on non-idempotent methods (off by default) |
+| Field                                 | Purpose                                                      |
+| ------------------------------------- | ------------------------------------------------------------ |
+| `openapi_url`                         | Discover tools from a spec (mutually exclusive with `tools`) |
+| `tools`                               | Provide tool definitions manually when there's no spec       |
+| `base_url`                            | Override the API base (defaults to the host of `health_url`) |
+| `include_tags` / `exclude_operations` | Select exactly which operations become tools                 |
+| `retry_non_safe_methods`              | Allow retries on non-idempotent methods (off by default)     |
 
 ## An existing MCP server (upstream)
 

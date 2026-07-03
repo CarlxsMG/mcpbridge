@@ -8,15 +8,15 @@ import ipaddr from "ipaddr.js";
 
 /** Named list of blocked IPv4 CIDRs. No magic strings elsewhere in this file. */
 export const BLOCKED_IPV4_CIDRS: readonly [string, string][] = [
-  ["127.0.0.0/8",    "loopback"],
-  ["10.0.0.0/8",     "RFC-1918 class-A private"],
-  ["172.16.0.0/12",  "RFC-1918 class-B private"],
+  ["127.0.0.0/8", "loopback"],
+  ["10.0.0.0/8", "RFC-1918 class-A private"],
+  ["172.16.0.0/12", "RFC-1918 class-B private"],
   ["192.168.0.0/16", "RFC-1918 class-C private"],
   ["169.254.0.0/16", "link-local"],
-  ["0.0.0.0/8",      "unspecified / this-network"],
-  ["100.64.0.0/10",  "CGNAT (RFC-6598)"],
-  ["192.0.0.0/24",   "IETF protocol assignments (RFC-6890)"],
-  ["192.0.2.0/24",   "TEST-NET-1 (RFC-5737)"],
+  ["0.0.0.0/8", "unspecified / this-network"],
+  ["100.64.0.0/10", "CGNAT (RFC-6598)"],
+  ["192.0.0.0/24", "IETF protocol assignments (RFC-6890)"],
+  ["192.0.2.0/24", "TEST-NET-1 (RFC-5737)"],
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -24,8 +24,8 @@ export const BLOCKED_IPV4_CIDRS: readonly [string, string][] = [
 // ---------------------------------------------------------------------------
 
 // Pre-parse CIDR ranges once at module load for IPv4 matching.
-const BLOCKED_IPV4_PARSED: Array<[ipaddr.IPv4, number]> = BLOCKED_IPV4_CIDRS.map(
-  ([cidr]) => ipaddr.IPv4.parseCIDR(cidr)
+const BLOCKED_IPV4_PARSED: Array<[ipaddr.IPv4, number]> = BLOCKED_IPV4_CIDRS.map(([cidr]) =>
+  ipaddr.IPv4.parseCIDR(cidr),
 );
 
 function isBlockedIpv4(ip: string): boolean {
@@ -35,7 +35,7 @@ function isBlockedIpv4(ip: string): boolean {
   } catch {
     return false;
   }
-  return BLOCKED_IPV4_PARSED.some(range => parsed.match(range));
+  return BLOCKED_IPV4_PARSED.some((range) => parsed.match(range));
 }
 
 /**
@@ -67,7 +67,7 @@ function isBlockedIpv6(ip: string): boolean {
     "unspecified",
     "linkLocal",
     "uniqueLocal",
-    "reserved",  // covers 2001:db8::/32 (documentation), 100::/64 (discard), and others
+    "reserved", // covers 2001:db8::/32 (documentation), 100::/64 (discard), and others
     "multicast",
   ];
   if (blockedRanges.includes(range)) return true;
@@ -124,7 +124,7 @@ function isPrivateIp(ip: string): boolean {
 export async function validateBackendUrl(
   url: string,
   allowPrivateIps: boolean,
-  allowedHosts: string[]
+  allowedHosts: string[],
 ): Promise<{ valid: boolean; reason?: string; resolvedIp?: string }> {
   let parsed: URL;
   try {
@@ -163,10 +163,8 @@ export async function validateBackendUrl(
     Bun.dns.lookup(hostname, { family: 6 }),
   ]);
 
-  const v4Records: { address: string }[] =
-    v4Result.status === "fulfilled" ? v4Result.value : [];
-  const v6Records: { address: string }[] =
-    v6Result.status === "fulfilled" ? v6Result.value : [];
+  const v4Records: { address: string }[] = v4Result.status === "fulfilled" ? v4Result.value : [];
+  const v6Records: { address: string }[] = v6Result.status === "fulfilled" ? v6Result.value : [];
 
   const allRecords = [...v4Records, ...v6Records];
 
@@ -209,7 +207,7 @@ export interface PinnedIp {
 export async function refreshPinIfStale(
   hostname: string,
   current: PinnedIp,
-  now: number = Date.now()
+  now: number = Date.now(),
 ): Promise<PinnedIp> {
   if (now - current.resolvedAt < IP_PIN_TTL_MS) return current;
 
@@ -217,9 +215,7 @@ export async function refreshPinIfStale(
   const result = await validateBackendUrl(`http://${hostname}/`, false, []);
 
   if (!result.valid || !result.resolvedIp) {
-    throw new Error(
-      `Backend hostname now resolves to private IP or failed DNS: ${result.reason ?? hostname}`
-    );
+    throw new Error(`Backend hostname now resolves to private IP or failed DNS: ${result.reason ?? hostname}`);
   }
 
   return { ip: result.resolvedIp, resolvedAt: now };

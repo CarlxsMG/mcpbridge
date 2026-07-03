@@ -20,8 +20,8 @@
   --vp-c-bg-elv: #ffffff;
 
   /* Type — same families as the product. */
-  --vp-font-family-base: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --vp-font-family-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --vp-font-family-base: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --vp-font-family-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Home hero — teal → deep teal gradient on the product name. */
   --vp-home-hero-name-color: transparent;
@@ -62,7 +62,7 @@
 .VPHero .name,
 .VPHero .text,
 .VPFeature .title {
-  font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+  font-family: "Space Grotesk", "IBM Plex Sans", sans-serif;
   letter-spacing: -0.015em;
 }
 
@@ -83,7 +83,10 @@
 /* A touch more presence on the feature cards. */
 .VPFeatures .VPFeature {
   border-color: var(--vp-c-border);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.06s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.06s ease;
 }
 .VPFeatures .VPFeature:hover {
   border-color: var(--vp-c-brand-2);

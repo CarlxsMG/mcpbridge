@@ -35,8 +35,14 @@ function makeFactory(): (p: McpConnParams) => Transport {
       if (req.params.name === "with-progress") {
         const token = req.params._meta?.progressToken;
         if (token !== undefined) {
-          await extra.sendNotification({ method: "notifications/progress", params: { progressToken: token, progress: 1, total: 3 } });
-          await extra.sendNotification({ method: "notifications/progress", params: { progressToken: token, progress: 2, total: 3 } });
+          await extra.sendNotification({
+            method: "notifications/progress",
+            params: { progressToken: token, progress: 1, total: 3 },
+          });
+          await extra.sendNotification({
+            method: "notifications/progress",
+            params: { progressToken: token, progress: 2, total: 3 },
+          });
         }
         return { content: [{ type: "text", text: "done" }] };
       }
@@ -57,7 +63,12 @@ describe("McpUpstreamPool.call — progress forwarding", () => {
   test("forwards upstream progress notifications to onprogress when the caller requested them", async () => {
     const pool = new McpUpstreamPool({ transportFactory: makeFactory() });
     const received: Progress[] = [];
-    const r = await pool.call(PARAMS, "with-progress", {}, { timeoutMs: 2000, maxBytes: 1_000_000, onprogress: (p) => received.push(p) });
+    const r = await pool.call(
+      PARAMS,
+      "with-progress",
+      {},
+      { timeoutMs: 2000, maxBytes: 1_000_000, onprogress: (p) => received.push(p) },
+    );
     expect(r.isError).toBeUndefined();
     expect(lastSeenProgressToken).toBeDefined(); // SDK auto-populated _meta.progressToken because onprogress was set
     expect(received.map((p) => p.progress)).toEqual([1, 2]);
@@ -78,7 +89,12 @@ describe("McpUpstreamPool.call — cancellation", () => {
   test("an aborted signal yields a cancelled result and leaves the connection live (no disconnect)", async () => {
     const pool = new McpUpstreamPool({ transportFactory: makeFactory() });
     const controller = new AbortController();
-    const callPromise = pool.call(PARAMS, "hangs", {}, { timeoutMs: 10_000, maxBytes: 1_000_000, signal: controller.signal });
+    const callPromise = pool.call(
+      PARAMS,
+      "hangs",
+      {},
+      { timeoutMs: 10_000, maxBytes: 1_000_000, signal: controller.signal },
+    );
     await new Promise((r) => setTimeout(r, 20));
     controller.abort();
 

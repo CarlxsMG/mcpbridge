@@ -24,7 +24,14 @@ function sha256Hex(s: string): string {
  * a historical row (or a deleted/inserted row) breaks every subsequent hash, so
  * verifyAuditChain() can detect tampering.
  */
-function computeAuditHash(prevHash: string, actor: string, action: string, target: string, detailJson: string | null, createdAt: number): string {
+function computeAuditHash(
+  prevHash: string,
+  actor: string,
+  action: string,
+  target: string,
+  detailJson: string | null,
+  createdAt: number,
+): string {
   return sha256Hex([prevHash, actor, action, target, detailJson ?? "", String(createdAt)].join("\n"));
 }
 
@@ -32,7 +39,14 @@ function computeAuditHash(prevHash: string, actor: string, action: string, targe
  * Best-effort delivery of an audit event to an external sink (SIEM), when
  * AUDIT_SINK_URL is set. Fire-and-forget: never blocks or fails the request.
  */
-function streamAuditEvent(event: { actor: string; action: string; target: string; detail: Record<string, unknown> | null; createdAt: number; hash: string }): void {
+function streamAuditEvent(event: {
+  actor: string;
+  action: string;
+  target: string;
+  detail: Record<string, unknown> | null;
+  createdAt: number;
+  hash: string;
+}): void {
   const url = config.auditSinkUrl;
   if (!url) return;
   void fetch(url, {
@@ -69,11 +83,14 @@ export function recordAudit(actor: string, action: string, target: string, detai
     // linkage is consistent. bun:sqlite is synchronous, so within one process
     // no other write interleaves between the read and the insert.
     const hash = db.transaction(() => {
-      const prev = db.query(`SELECT hash FROM admin_audit_log WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1`).get() as { hash: string } | null;
+      const prev = db
+        .query(`SELECT hash FROM admin_audit_log WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1`)
+        .get() as { hash: string } | null;
       const prevHash = prev?.hash ?? "";
       const h = computeAuditHash(prevHash, actor, action, target, detailJson, createdAt);
-      db.query(`INSERT INTO admin_audit_log (actor, action, target, detail_json, created_at, prev_hash, hash) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-        .run(actor, action, target, detailJson, createdAt, prevHash, h);
+      db.query(
+        `INSERT INTO admin_audit_log (actor, action, target, detail_json, created_at, prev_hash, hash) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(actor, action, target, detailJson, createdAt, prevHash, h);
       return h;
     })();
     streamAuditEvent({ actor, action, target, detail: detail ?? null, createdAt, hash });
@@ -90,8 +107,19 @@ export function recordAudit(actor: string, action: string, target: string, detai
  */
 export function verifyAuditChain(): { ok: boolean; checked: number; brokenAtId?: number } {
   const rows = getDb()
-    .query(`SELECT id, actor, action, target, detail_json, created_at, prev_hash, hash FROM admin_audit_log WHERE hash IS NOT NULL ORDER BY id ASC`)
-    .all() as { id: number; actor: string; action: string; target: string; detail_json: string | null; created_at: number; prev_hash: string | null; hash: string }[];
+    .query(
+      `SELECT id, actor, action, target, detail_json, created_at, prev_hash, hash FROM admin_audit_log WHERE hash IS NOT NULL ORDER BY id ASC`,
+    )
+    .all() as {
+    id: number;
+    actor: string;
+    action: string;
+    target: string;
+    detail_json: string | null;
+    created_at: number;
+    prev_hash: string | null;
+    hash: string;
+  }[];
   let prevHash = "";
   let checked = 0;
   for (const r of rows) {
@@ -104,7 +132,9 @@ export function verifyAuditChain(): { ok: boolean; checked: number; brokenAtId?:
   return { ok: true, checked };
 }
 
-export function listAuditLog(opts: { actor?: string; action?: string; from?: number; to?: number; cursor?: string; limit?: number } = {}): {
+export function listAuditLog(
+  opts: { actor?: string; action?: string; from?: number; to?: number; cursor?: string; limit?: number } = {},
+): {
   items: AuditLogEntry[];
   nextCursor?: string;
 } {
@@ -137,8 +167,18 @@ export function listAuditLog(opts: { actor?: string; action?: string; from?: num
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const rows = db
-    .query(`SELECT id, actor, action, target, detail_json, created_at, hash FROM admin_audit_log ${whereClause} ORDER BY id DESC LIMIT ?`)
-    .all(...params, limit + 1) as { id: number; actor: string; action: string; target: string; detail_json: string | null; created_at: number; hash: string | null }[];
+    .query(
+      `SELECT id, actor, action, target, detail_json, created_at, hash FROM admin_audit_log ${whereClause} ORDER BY id DESC LIMIT ?`,
+    )
+    .all(...params, limit + 1) as {
+    id: number;
+    actor: string;
+    action: string;
+    target: string;
+    detail_json: string | null;
+    created_at: number;
+    hash: string | null;
+  }[];
 
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
@@ -159,19 +199,41 @@ export function listAuditLog(opts: { actor?: string; action?: string; from?: num
 /** Bulk export of audit entries (up to `maxRows`) for download — same filters as listAuditLog, no pagination. */
 export function exportAuditLog(
   opts: { actor?: string; action?: string; from?: number; to?: number } = {},
-  maxRows = 10000
+  maxRows = 10000,
 ): AuditLogEntry[] {
   const db = getDb();
   const conditions: string[] = [];
   const params: (string | number)[] = [];
-  if (opts.actor) { conditions.push("actor = ?"); params.push(opts.actor); }
-  if (opts.action) { conditions.push("action = ?"); params.push(opts.action); }
-  if (opts.from !== undefined) { conditions.push("created_at >= ?"); params.push(opts.from); }
-  if (opts.to !== undefined) { conditions.push("created_at <= ?"); params.push(opts.to); }
+  if (opts.actor) {
+    conditions.push("actor = ?");
+    params.push(opts.actor);
+  }
+  if (opts.action) {
+    conditions.push("action = ?");
+    params.push(opts.action);
+  }
+  if (opts.from !== undefined) {
+    conditions.push("created_at >= ?");
+    params.push(opts.from);
+  }
+  if (opts.to !== undefined) {
+    conditions.push("created_at <= ?");
+    params.push(opts.to);
+  }
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = db
-    .query(`SELECT id, actor, action, target, detail_json, created_at, hash FROM admin_audit_log ${whereClause} ORDER BY id DESC LIMIT ?`)
-    .all(...params, Math.min(Math.max(maxRows, 1), 100000)) as { id: number; actor: string; action: string; target: string; detail_json: string | null; created_at: number; hash: string | null }[];
+    .query(
+      `SELECT id, actor, action, target, detail_json, created_at, hash FROM admin_audit_log ${whereClause} ORDER BY id DESC LIMIT ?`,
+    )
+    .all(...params, Math.min(Math.max(maxRows, 1), 100000)) as {
+    id: number;
+    actor: string;
+    action: string;
+    target: string;
+    detail_json: string | null;
+    created_at: number;
+    hash: string | null;
+  }[];
   return rows.map((r) => ({
     id: r.id,
     actor: r.actor,

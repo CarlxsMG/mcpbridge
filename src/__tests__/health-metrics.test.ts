@@ -27,14 +27,7 @@ function makeTool(): RestToolDefinition {
 }
 
 async function registerClient(name: string) {
-  await registry.register(
-    name,
-    [makeTool()],
-    "http://example.com/health",
-    "1.2.3.4",
-    "http://example.com",
-    "1.2.3.4"
-  );
+  await registry.register(name, [makeTool()], "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
 }
 
 /** Parse the current total count from a Counter's render() output. */
@@ -77,10 +70,7 @@ describe("health metrics — healthLoopErrorsTotal increments on loop body error
     // Register a client so checkBatch is called with a non-empty list
     await registerClient("loop-error-svc");
 
-    const countBefore = parseCounterTotal(
-      healthLoopErrorsTotal.render(),
-      "mcp_health_loop_errors_total"
-    );
+    const countBefore = parseCounterTotal(healthLoopErrorsTotal.render(), "mcp_health_loop_errors_total");
 
     // Make fetch throw so checkBatch itself throws (unhandled path)
     // The outer try/catch in startHealthCheckLoop catches this and increments healthLoopErrorsTotal.
@@ -98,16 +88,13 @@ describe("health metrics — healthLoopErrorsTotal increments on loop body error
       const { startHealthCheckLoop } = await import("../health.js");
       const stop = startHealthCheckLoop();
       // Give the immediate check time to run
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       stop();
     } finally {
       (registry as { listClients: () => readonly { name: string }[] }).listClients = origListClients;
     }
 
-    const countAfter = parseCounterTotal(
-      healthLoopErrorsTotal.render(),
-      "mcp_health_loop_errors_total"
-    );
+    const countAfter = parseCounterTotal(healthLoopErrorsTotal.render(), "mcp_health_loop_errors_total");
 
     // If healthLoopErrorsTotal.inc({}) were removed, countAfter would equal countBefore.
     expect(countAfter).toBeGreaterThan(countBefore);
@@ -122,10 +109,7 @@ describe("health metrics — healthEvictionsTotal increments on eviction", () =>
   test("healthEvictionsTotal increments after a client fails past maxConsecutiveFailures", async () => {
     const { healthEvictionsTotal } = await import("../observability/metrics.js");
 
-    const countBefore = parseCounterTotal(
-      healthEvictionsTotal.render(),
-      "mcp_health_evictions_total"
-    );
+    const countBefore = parseCounterTotal(healthEvictionsTotal.render(), "mcp_health_evictions_total");
 
     // Set threshold to 1 so a single failure triggers eviction
     const origThreshold = config.maxConsecutiveFailures;
@@ -134,21 +118,16 @@ describe("health metrics — healthEvictionsTotal increments on eviction", () =>
     await registerClient("evict-metrics-svc");
 
     // Mock fetch to always return 500 → health check fails
-    globalThis.fetch = (async () =>
-      new Response("error", { status: 500 })
-    ) as unknown as typeof fetch;
+    globalThis.fetch = (async () => new Response("error", { status: 500 })) as unknown as typeof fetch;
 
     const { startHealthCheckLoop } = await import("../health.js");
     const stop = startHealthCheckLoop();
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     stop();
 
     (config as Record<string, unknown>).maxConsecutiveFailures = origThreshold;
 
-    const countAfter = parseCounterTotal(
-      healthEvictionsTotal.render(),
-      "mcp_health_evictions_total"
-    );
+    const countAfter = parseCounterTotal(healthEvictionsTotal.render(), "mcp_health_evictions_total");
 
     // If healthEvictionsTotal.inc({ client: name }) were removed, countAfter would equal countBefore.
     expect(countAfter).toBeGreaterThan(countBefore);

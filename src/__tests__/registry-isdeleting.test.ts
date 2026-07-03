@@ -35,7 +35,7 @@ async function reg(name: string, toolName = "do-thing") {
     "http://example.com/health",
     "1.2.3.4",
     "http://example.com",
-    "1.2.3.4"
+    "1.2.3.4",
   );
 }
 
@@ -199,10 +199,7 @@ describe("registry.isDeleting — concurrent unregister clears both names", () =
     await reg("conc-a", "tool-a");
     await reg("conc-b", "tool-b");
 
-    await Promise.all([
-      registry.unregister("conc-a"),
-      registry.unregister("conc-b"),
-    ]);
+    await Promise.all([registry.unregister("conc-a"), registry.unregister("conc-b")]);
 
     expect(isDeleting("conc-a")).toBe(false);
     expect(isDeleting("conc-b")).toBe(false);

@@ -96,7 +96,7 @@ bundles** `/mcp-custom/:bundle`, or **legacy SSE** `/sse`.
 
 - **The UI is the product.** Most open-source MCP gateways are config-file only. This one
   ships a dashboard you'd actually hand to a teammate.
-- **One tool, both directions.** Bridge REST APIs *and* aggregate MCP servers behind a
+- **One tool, both directions.** Bridge REST APIs _and_ aggregate MCP servers behind a
   single governed endpoint.
 - **Security isn't an add-on.** SSRF, injection sanitizing and secret detection are on by
   default, on every path.

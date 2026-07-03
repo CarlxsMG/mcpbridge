@@ -13,7 +13,13 @@ import { getToolMock, setToolMock } from "../mock.js";
 import type { RestToolDefinition } from "../types.js";
 
 const CLIENT = "svc";
-const getTool: RestToolDefinition = { name: "get-x", method: "GET", endpoint: "/x", description: "x", inputSchema: { type: "object", properties: {} } };
+const getTool: RestToolDefinition = {
+  name: "get-x",
+  method: "GET",
+  endpoint: "/x",
+  description: "x",
+  inputSchema: { type: "object", properties: {} },
+};
 async function reg(): Promise<void> {
   await registry.register(CLIENT, [getTool], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 }

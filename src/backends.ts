@@ -21,7 +21,9 @@ export interface GraphqlConfig {
 }
 
 export function getToolGraphql(clientName: string, toolName: string): GraphqlConfig | null {
-  const row = getDb().query(`SELECT query, enabled FROM tool_graphql WHERE client_name = ? AND tool_name = ?`).get(clientName, toolName) as { query: string; enabled: number } | null;
+  const row = getDb()
+    .query(`SELECT query, enabled FROM tool_graphql WHERE client_name = ? AND tool_name = ?`)
+    .get(clientName, toolName) as { query: string; enabled: number } | null;
   return row ? { enabled: row.enabled === 1, query: row.query } : null;
 }
 
@@ -35,7 +37,11 @@ export function getGraphqlForClient(clientName: string): Record<string, GraphqlC
   return out;
 }
 
-export function setToolGraphql(clientName: string, toolName: string, input: { enabled: boolean; query: string } | null): boolean {
+export function setToolGraphql(
+  clientName: string,
+  toolName: string,
+  input: { enabled: boolean; query: string } | null,
+): boolean {
   const db = getDb();
   if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return false;
   if (input === null) {
@@ -60,17 +66,33 @@ export interface WsConfig {
 }
 
 export function getToolWs(clientName: string, toolName: string): WsConfig | null {
-  const row = getDb().query(`SELECT ws_url, resolved_ip, enabled, persistent FROM tool_ws WHERE client_name = ? AND tool_name = ?`).get(clientName, toolName) as { ws_url: string; resolved_ip: string; enabled: number; persistent: number } | null;
-  return row ? { enabled: row.enabled === 1, wsUrl: row.ws_url, resolvedIp: row.resolved_ip, persistent: row.persistent === 1 } : null;
+  const row = getDb()
+    .query(`SELECT ws_url, resolved_ip, enabled, persistent FROM tool_ws WHERE client_name = ? AND tool_name = ?`)
+    .get(clientName, toolName) as { ws_url: string; resolved_ip: string; enabled: number; persistent: number } | null;
+  return row
+    ? { enabled: row.enabled === 1, wsUrl: row.ws_url, resolvedIp: row.resolved_ip, persistent: row.persistent === 1 }
+    : null;
 }
 
 /** WS config for every tool of a client, keyed by tool name (batched for detail views). */
 export function getWsForClient(clientName: string): Record<string, WsConfig> {
   const rows = getDb()
     .query(`SELECT tool_name, ws_url, resolved_ip, enabled, persistent FROM tool_ws WHERE client_name = ?`)
-    .all(clientName) as { tool_name: string; ws_url: string; resolved_ip: string; enabled: number; persistent: number }[];
+    .all(clientName) as {
+    tool_name: string;
+    ws_url: string;
+    resolved_ip: string;
+    enabled: number;
+    persistent: number;
+  }[];
   const out: Record<string, WsConfig> = {};
-  for (const r of rows) out[r.tool_name] = { enabled: r.enabled === 1, wsUrl: r.ws_url, resolvedIp: r.resolved_ip, persistent: r.persistent === 1 };
+  for (const r of rows)
+    out[r.tool_name] = {
+      enabled: r.enabled === 1,
+      wsUrl: r.ws_url,
+      resolvedIp: r.resolved_ip,
+      persistent: r.persistent === 1,
+    };
   return out;
 }
 
@@ -82,7 +104,8 @@ export async function setToolWs(
   input: { enabled: boolean; wsUrl: string; persistent?: boolean } | null,
 ): Promise<{ ok: true } | { ok: false; error: WsError; reason?: string }> {
   const db = getDb();
-  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return { ok: false, error: "TOOL_NOT_FOUND" };
+  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName))
+    return { ok: false, error: "TOOL_NOT_FOUND" };
   if (input === null) {
     db.query(`DELETE FROM tool_ws WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
     return { ok: true };
@@ -95,7 +118,15 @@ export async function setToolWs(
   db.query(
     `INSERT INTO tool_ws (client_name, tool_name, ws_url, resolved_ip, enabled, persistent, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(client_name, tool_name) DO UPDATE SET ws_url = excluded.ws_url, resolved_ip = excluded.resolved_ip, enabled = excluded.enabled, persistent = excluded.persistent, updated_at = excluded.updated_at`,
-  ).run(clientName, toolName, input.wsUrl, check.resolvedIp, input.enabled ? 1 : 0, input.persistent ? 1 : 0, Date.now());
+  ).run(
+    clientName,
+    toolName,
+    input.wsUrl,
+    check.resolvedIp,
+    input.enabled ? 1 : 0,
+    input.persistent ? 1 : 0,
+    Date.now(),
+  );
   return { ok: true };
 }
 
@@ -196,6 +227,8 @@ export function wsRequestPersistent(
       // Deliberately does not `finish()` here — stays open for further messages.
     });
     ws.addEventListener("error", () => finish(() => reject(new Error("WebSocket error"))));
-    ws.addEventListener("close", () => finish(() => (lastData !== null ? resolve(lastData) : reject(new Error("WebSocket closed before a response")))));
+    ws.addEventListener("close", () =>
+      finish(() => (lastData !== null ? resolve(lastData) : reject(new Error("WebSocket closed before a response")))),
+    );
   });
 }

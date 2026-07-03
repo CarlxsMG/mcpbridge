@@ -52,7 +52,12 @@ let flushScheduled = false;
  */
 export function endSpan(span: Span, extraAttributes: Record<string, AttrValue> = {}, statusCode: 0 | 1 | 2 = 0): void {
   if (!tracingEnabled()) return;
-  const finished: FinishedSpan = { ...span, attributes: { ...span.attributes, ...extraAttributes }, endMs: Date.now(), statusCode };
+  const finished: FinishedSpan = {
+    ...span,
+    attributes: { ...span.attributes, ...extraAttributes },
+    endMs: Date.now(),
+    statusCode,
+  };
 
   if (config.traceStorageEnabled) persistSpan(finished);
   if (!config.otelEndpoint) return;
@@ -62,7 +67,10 @@ export function endSpan(span: Span, extraAttributes: Record<string, AttrValue> =
     void flush();
   } else if (!flushScheduled) {
     flushScheduled = true;
-    const t = setTimeout(() => { flushScheduled = false; void flush(); }, 2000);
+    const t = setTimeout(() => {
+      flushScheduled = false;
+      void flush();
+    }, 2000);
     if (t.unref) t.unref();
   }
 }
@@ -118,11 +126,17 @@ export async function flush(): Promise<void> {
       signal: AbortSignal.timeout(config.otelExportTimeoutMs),
     });
   } catch (err) {
-    log("warn", "OTLP span export failed", { error: err instanceof Error ? err.message : String(err), spans: batch.length });
+    log("warn", "OTLP span export failed", {
+      error: err instanceof Error ? err.message : String(err),
+      spans: batch.length,
+    });
   }
 }
 
 export const _internalsForTesting = {
   bufferLength: () => buffer.length,
-  clear: () => { buffer.length = 0; flushScheduled = false; },
+  clear: () => {
+    buffer.length = 0;
+    flushScheduled = false;
+  },
 };

@@ -61,7 +61,7 @@ export function createGuardPolicy(input: {
     .query(
       `INSERT INTO guard_policies (name, rate_limit_per_min, timeout_ms, created_at, updated_at, created_by)
        VALUES (?, ?, ?, ?, ?, ?)
-       RETURNING ${COLS}`
+       RETURNING ${COLS}`,
     )
     .get(input.name, input.rateLimitPerMin, input.timeoutMs, now, now, input.actor) as PolicyRow;
   return rowToPolicy(row);
@@ -69,7 +69,7 @@ export function createGuardPolicy(input: {
 
 export function updateGuardPolicy(
   id: number,
-  updates: { name?: string; rateLimitPerMin?: number | null; timeoutMs?: number | null }
+  updates: { name?: string; rateLimitPerMin?: number | null; timeoutMs?: number | null },
 ): GuardPolicy | null {
   const existing = getGuardPolicy(id);
   if (!existing) return null;

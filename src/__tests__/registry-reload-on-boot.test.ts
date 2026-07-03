@@ -77,7 +77,8 @@ describe("Persisted enabled/guards survive re-registration after this process 'f
 });
 
 describe("Persisted enabled state survives a real SQLite file close + reopen", () => {
-  const dbDir = "C:\\Users\\carlo\\AppData\\Local\\Temp\\claude\\C--Users-carlo-Desktop-test-1\\389c3acb-7605-40d2-86eb-81b21edd9c9a\\scratchpad";
+  const dbDir =
+    "C:\\Users\\carlo\\AppData\\Local\\Temp\\claude\\C--Users-carlo-Desktop-test-1\\389c3acb-7605-40d2-86eb-81b21edd9c9a\\scratchpad";
   const dbPath = `${dbDir}\\registry-reload-test.db`;
 
   afterEach(() => {

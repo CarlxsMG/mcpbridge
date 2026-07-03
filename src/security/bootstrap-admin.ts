@@ -19,7 +19,7 @@ export async function bootstrapAdminUser(): Promise<void> {
     if (username || password) {
       log(
         "warn",
-        `BOOTSTRAP_ADMIN_USERNAME/PASSWORD are set but ${existing} admin user(s) already exist — ignoring. Remove these env vars.`
+        `BOOTSTRAP_ADMIN_USERNAME/PASSWORD are set but ${existing} admin user(s) already exist — ignoring. Remove these env vars.`,
       );
     }
     return;
@@ -29,7 +29,7 @@ export async function bootstrapAdminUser(): Promise<void> {
     log(
       "warn",
       "No admin users exist yet and BOOTSTRAP_ADMIN_USERNAME/BOOTSTRAP_ADMIN_PASSWORD were not provided — " +
-        "the admin UI is inaccessible until an admin user is bootstrapped."
+        "the admin UI is inaccessible until an admin user is bootstrapped.",
     );
     return;
   }
@@ -37,7 +37,7 @@ export async function bootstrapAdminUser(): Promise<void> {
   if (password.length < MIN_BOOTSTRAP_PASSWORD_LENGTH) {
     log(
       "error",
-      `BOOTSTRAP_ADMIN_PASSWORD is shorter than the required ${MIN_BOOTSTRAP_PASSWORD_LENGTH} characters — refusing to bootstrap a weak admin password.`
+      `BOOTSTRAP_ADMIN_PASSWORD is shorter than the required ${MIN_BOOTSTRAP_PASSWORD_LENGTH} characters — refusing to bootstrap a weak admin password.`,
     );
     return;
   }
@@ -48,6 +48,6 @@ export async function bootstrapAdminUser(): Promise<void> {
     "warn",
     "Bootstrapped the initial admin user from BOOTSTRAP_ADMIN_USERNAME/PASSWORD. " +
       "Unset those env vars now and rotate the password after first login.",
-    { username }
+    { username },
   );
 }

@@ -55,7 +55,7 @@ const denyPatternCache = new Map<string, RegExp | null>();
 /** Compiles (and caches) an admin deny pattern case-insensitively. Returns null when it can't compile. */
 function compileDenyPattern(pattern: string): RegExp | null {
   if (denyPatternCache.has(pattern)) return denyPatternCache.get(pattern) ?? null;
-  let compiled: RegExp | null = null;
+  let compiled: RegExp | null;
   try {
     compiled = new RegExp(pattern, "i");
   } catch {
@@ -80,7 +80,9 @@ function rowToGuardrails(row: GuardrailRow | null): ToolGuardrails | null {
 
 export function getGuardrails(clientName: string, toolName: string): ToolGuardrails | null {
   const row = getDb()
-    .query(`SELECT deny_patterns_json, block_secrets, scan_responses FROM tool_guardrails WHERE client_name = ? AND tool_name = ?`)
+    .query(
+      `SELECT deny_patterns_json, block_secrets, scan_responses FROM tool_guardrails WHERE client_name = ? AND tool_name = ?`,
+    )
     .get(clientName, toolName) as GuardrailRow | null;
   return rowToGuardrails(row);
 }
@@ -94,7 +96,10 @@ export function setGuardrails(clientName: string, toolName: string, cfg: ToolGua
   const db = getDb();
   if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return false;
 
-  const denyPatterns = (cfg?.denyPatterns ?? []).map((p) => p.trim()).filter(Boolean).slice(0, MAX_DENY_PATTERNS);
+  const denyPatterns = (cfg?.denyPatterns ?? [])
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .slice(0, MAX_DENY_PATTERNS);
   const blockSecrets = cfg?.blockSecrets ?? false;
   const scanResponses = cfg?.scanResponses ?? false;
 
@@ -110,14 +115,14 @@ export function setGuardrails(clientName: string, toolName: string, cfg: ToolGua
        deny_patterns_json = excluded.deny_patterns_json,
        block_secrets = excluded.block_secrets,
        scan_responses = excluded.scan_responses,
-       updated_at = excluded.updated_at`
+       updated_at = excluded.updated_at`,
   ).run(
     clientName,
     toolName,
     denyPatterns.length > 0 ? JSON.stringify(denyPatterns) : null,
     blockSecrets ? 1 : 0,
     scanResponses ? 1 : 0,
-    Date.now()
+    Date.now(),
   );
   return true;
 }
@@ -125,7 +130,9 @@ export function setGuardrails(clientName: string, toolName: string, cfg: ToolGua
 /** Guardrails for every tool of a client, keyed by tool name (batched for detail views). */
 export function getGuardrailsForClient(clientName: string): Record<string, ToolGuardrails> {
   const rows = getDb()
-    .query(`SELECT tool_name, deny_patterns_json, block_secrets, scan_responses FROM tool_guardrails WHERE client_name = ?`)
+    .query(
+      `SELECT tool_name, deny_patterns_json, block_secrets, scan_responses FROM tool_guardrails WHERE client_name = ?`,
+    )
     .all(clientName) as (GuardrailRow & { tool_name: string })[];
   const out: Record<string, ToolGuardrails> = {};
   for (const r of rows) {

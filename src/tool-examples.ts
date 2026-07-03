@@ -26,7 +26,9 @@ const MAX_ARGS_BYTES = 16384;
 
 export function listExamples(clientName: string, toolName: string): ToolExample[] {
   const rows = getDb()
-    .query(`SELECT id, label, args_json, created_at, created_by FROM tool_examples WHERE client_name = ? AND tool_name = ? ORDER BY id`)
+    .query(
+      `SELECT id, label, args_json, created_at, created_by FROM tool_examples WHERE client_name = ? AND tool_name = ? ORDER BY id`,
+    )
     .all(clientName, toolName) as ExampleRow[];
   return rows.map((r) => ({
     id: r.id,
@@ -45,10 +47,11 @@ export function createExample(
   toolName: string,
   label: string,
   args: unknown,
-  actor: string | null
+  actor: string | null,
 ): ToolExample | ExampleError {
   const db = getDb();
-  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return "TOOL_NOT_FOUND";
+  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName))
+    return "TOOL_NOT_FOUND";
   if (typeof args !== "object" || args === null || Array.isArray(args)) return "INVALID_ARGS";
   const argsJson = JSON.stringify(args);
   if (argsJson.length > MAX_ARGS_BYTES) return "INVALID_ARGS";
@@ -57,7 +60,7 @@ export function createExample(
   const row = db
     .query(
       `INSERT INTO tool_examples (client_name, tool_name, label, args_json, created_at, created_by)
-       VALUES (?, ?, ?, ?, ?, ?) RETURNING id`
+       VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
     )
     .get(clientName, toolName, label, argsJson, now, actor) as { id: number };
   return { id: row.id, label, args: args as Record<string, unknown>, createdAt: now, createdBy: actor };

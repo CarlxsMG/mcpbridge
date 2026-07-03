@@ -21,8 +21,7 @@ function mockFetchWithBody(body: string): void {
     new Response(body, {
       status: 200,
       headers: { "content-type": "application/json" },
-    })
-  ) as unknown as typeof fetch;
+    })) as unknown as typeof fetch;
 }
 
 /**
@@ -72,9 +71,9 @@ describe("discoverToolsFromOpenApi — depth cap: exceeds maxJsonDepth", () => {
 
     try {
       const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
-      await expect(
-        discoverToolsFromOpenApi({ openapiUrl: "https://example.com/openapi.json" })
-      ).rejects.toThrow(/OPENAPI_TOO_DEEP/i);
+      await expect(discoverToolsFromOpenApi({ openapiUrl: "https://example.com/openapi.json" })).rejects.toThrow(
+        /OPENAPI_TOO_DEEP/i,
+      );
     } finally {
       (config as Record<string, unknown>).maxJsonDepth = origMax;
     }
@@ -158,9 +157,9 @@ describe("discoverToolsFromOpenApi — depth cap: cyclic reference terminates", 
       // No watchdog/race needed: the fix rejects synchronously (via JSON.stringify's
       // native cycle detection) before ever reaching the cycle-unsafe dereference()
       // call, so this resolves well within bun:test's default per-test timeout.
-      await expect(
-        discoverToolsFromOpenApi({ openapiUrl: "https://example.com/openapi.json" })
-      ).rejects.toThrow(/OPENAPI_CYCLIC_REFERENCE/i);
+      await expect(discoverToolsFromOpenApi({ openapiUrl: "https://example.com/openapi.json" })).rejects.toThrow(
+        /OPENAPI_CYCLIC_REFERENCE/i,
+      );
     } finally {
       JSON.parse = originalJSONParse;
     }

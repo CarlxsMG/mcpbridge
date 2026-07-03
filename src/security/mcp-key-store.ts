@@ -89,7 +89,7 @@ export function createMcpKey(
   expiresAt: number | null,
   actor: string | null,
   consumerId: number | null = null,
-  elevated = false
+  elevated = false,
 ): { record: McpApiKeyRecord; rawKey: string } {
   const rawKey = generateRawKey();
   const keyHash = hashApiKey(rawKey);
@@ -100,9 +100,20 @@ export function createMcpKey(
     .query(
       `INSERT INTO mcp_api_keys (label, key_hash, key_prefix, consumer_id, elevated, scopes_json, enabled, expires_at, revoked_at, last_used_at, created_at, updated_at, created_by)
        VALUES (?, ?, ?, ?, ?, ?, 1, ?, NULL, NULL, ?, ?, ?)
-       RETURNING ${SELECT_COLS}`
+       RETURNING ${SELECT_COLS}`,
     )
-    .get(label, keyHash, keyPrefix, consumerId, elevated ? 1 : 0, norm ? JSON.stringify(norm) : null, expiresAt, now, now, actor) as KeyRow;
+    .get(
+      label,
+      keyHash,
+      keyPrefix,
+      consumerId,
+      elevated ? 1 : 0,
+      norm ? JSON.stringify(norm) : null,
+      expiresAt,
+      now,
+      now,
+      actor,
+    ) as KeyRow;
   return { record: rowToRecord(row), rawKey };
 }
 
@@ -119,7 +130,14 @@ export function getMcpKey(id: number): McpApiKeyRecord | null {
 
 export function updateMcpKey(
   id: number,
-  updates: { label?: string; enabled?: boolean; expiresAt?: number | null; scopes?: McpKeyScopes | null; consumerId?: number | null; elevated?: boolean }
+  updates: {
+    label?: string;
+    enabled?: boolean;
+    expiresAt?: number | null;
+    scopes?: McpKeyScopes | null;
+    consumerId?: number | null;
+    elevated?: boolean;
+  },
 ): McpApiKeyRecord | null {
   const existing = getMcpKey(id);
   if (!existing) return null;
@@ -130,8 +148,19 @@ export function updateMcpKey(
   const consumerId = updates.consumerId !== undefined ? updates.consumerId : existing.consumerId;
   const elevated = updates.elevated ?? existing.elevated;
   getDb()
-    .query(`UPDATE mcp_api_keys SET label = ?, enabled = ?, expires_at = ?, scopes_json = ?, consumer_id = ?, elevated = ?, updated_at = ? WHERE id = ?`)
-    .run(label, enabled ? 1 : 0, expiresAt, scopes ? JSON.stringify(scopes) : null, consumerId, elevated ? 1 : 0, Date.now(), id);
+    .query(
+      `UPDATE mcp_api_keys SET label = ?, enabled = ?, expires_at = ?, scopes_json = ?, consumer_id = ?, elevated = ?, updated_at = ? WHERE id = ?`,
+    )
+    .run(
+      label,
+      enabled ? 1 : 0,
+      expiresAt,
+      scopes ? JSON.stringify(scopes) : null,
+      consumerId,
+      elevated ? 1 : 0,
+      Date.now(),
+      id,
+    );
   return getMcpKey(id);
 }
 
@@ -161,9 +190,9 @@ export function hasAnyMcpKeys(): boolean {
  */
 export function resolveMcpKeyByToken(token: string): McpApiKeyRecord | null {
   if (!token) return null;
-  const row = getDb().query(`SELECT ${SELECT_COLS} FROM mcp_api_keys WHERE key_hash = ?`).get(hashApiKey(token)) as
-    | KeyRow
-    | null;
+  const row = getDb()
+    .query(`SELECT ${SELECT_COLS} FROM mcp_api_keys WHERE key_hash = ?`)
+    .get(hashApiKey(token)) as KeyRow | null;
   if (!row) return null;
   const rec = rowToRecord(row);
   if (!rec.enabled || rec.revokedAt !== null) return null;
@@ -185,11 +214,7 @@ export function touchMcpKeyLastUsed(id: number): void {
  * `clientName` / `compositeToolKey` (`client__tool`). Unrestricted (null)
  * scopes always pass; otherwise the client or the exact tool must be listed.
  */
-export function isToolInKeyScope(
-  scopes: McpKeyScopes | null,
-  clientName: string,
-  compositeToolKey: string
-): boolean {
+export function isToolInKeyScope(scopes: McpKeyScopes | null, clientName: string, compositeToolKey: string): boolean {
   if (!scopes) return true;
   if (scopes.clients?.includes(clientName)) return true;
   if (scopes.tools?.includes(compositeToolKey)) return true;

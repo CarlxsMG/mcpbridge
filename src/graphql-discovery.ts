@@ -179,14 +179,24 @@ function buildSelectionSet(t: GqlTypeRef, typeMap: Map<string, GqlFullType>, dep
   return `{ ${picks.length ? picks.join(" ") : "__typename"} }`;
 }
 
-function synthesizeQuery(opKind: "query" | "mutation", field: GqlField, typeMap: Map<string, GqlFullType>, toolName: string): string {
+function synthesizeQuery(
+  opKind: "query" | "mutation",
+  field: GqlField,
+  typeMap: Map<string, GqlFullType>,
+  toolName: string,
+): string {
   const varDecls = field.args.map((a) => `$${a.name}: ${printTypeRef(a.type)}`).join(", ");
   const callArgs = field.args.map((a) => `${a.name}: $${a.name}`).join(", ");
   const selection = buildSelectionSet(field.type, typeMap, 0);
   return `${opKind} ${toolName}${varDecls ? `(${varDecls})` : ""} { ${field.name}${callArgs ? `(${callArgs})` : ""}${selection ? ` ${selection}` : ""} }`;
 }
 
-function fieldToTool(opKind: "query" | "mutation", field: GqlField, typeMap: Map<string, GqlFullType>, usedNames: Set<string>): GraphqlDiscoveredTool {
+function fieldToTool(
+  opKind: "query" | "mutation",
+  field: GqlField,
+  typeMap: Map<string, GqlFullType>,
+  usedNames: Set<string>,
+): GraphqlDiscoveredTool {
   // Prefer the bare field name; fall back to an opKind-prefixed variant on
   // collision (e.g. a query and mutation both named "pet") before falling
   // further back to uniqueToolName's numeric-suffix disambiguation — shared
@@ -251,7 +261,9 @@ export async function discoverToolsFromGraphQl(options: {
 
   const json = JSON.parse(text) as {
     errors?: { message: string }[];
-    data?: { __schema?: { queryType?: { name: string } | null; mutationType?: { name: string } | null; types?: GqlFullType[] } };
+    data?: {
+      __schema?: { queryType?: { name: string } | null; mutationType?: { name: string } | null; types?: GqlFullType[] };
+    };
   };
 
   // Defensive cyclic-reference trap — a fresh JSON.parse result can't actually
@@ -259,7 +271,10 @@ export async function discoverToolsFromGraphQl(options: {
   try {
     JSON.stringify(json);
   } catch (err) {
-    if (err instanceof TypeError) throw new Error("GRAPHQL_CYCLIC_REFERENCE: introspection response contains a circular reference");
+    if (err instanceof TypeError)
+      throw new Error("GRAPHQL_CYCLIC_REFERENCE: introspection response contains a circular reference", {
+        cause: err,
+      });
     throw err;
   }
 
@@ -273,7 +288,9 @@ export async function discoverToolsFromGraphQl(options: {
 
   const types = schema.types ?? [];
   if (types.length > config.graphqlMaxTypes) {
-    throw new Error(`GRAPHQL_TOO_MANY_TYPES: schema exposes ${types.length} types, exceeds maximum of ${config.graphqlMaxTypes}`);
+    throw new Error(
+      `GRAPHQL_TOO_MANY_TYPES: schema exposes ${types.length} types, exceeds maximum of ${config.graphqlMaxTypes}`,
+    );
   }
   const typeMap = new Map<string, GqlFullType>(types.filter((t) => t.name).map((t) => [t.name!, t]));
 

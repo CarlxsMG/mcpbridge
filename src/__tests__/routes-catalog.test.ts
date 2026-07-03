@@ -29,8 +29,12 @@ beforeAll(async () => {
       openapi: "3.0.0",
       info: { title: "demo", version: "1.0.0" },
       servers: [{ url: `http://127.0.0.1:${upstreamPort}` }],
-      paths: { "/pets": { get: { operationId: "list_pets", summary: "List pets", responses: { "200": { description: "ok" } } } } },
-    })
+      paths: {
+        "/pets": {
+          get: { operationId: "list_pets", summary: "List pets", responses: { "200": { description: "ok" } } },
+        },
+      },
+    }),
   );
   up.get("/health", (_req, res) => res.json({ ok: true }));
   await new Promise<void>((resolve) => {
@@ -76,7 +80,11 @@ function bearer(): Record<string, string> {
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {
-    if (adminServer) adminServer.close(() => { adminServer = null; resolve(); });
+    if (adminServer)
+      adminServer.close(() => {
+        adminServer = null;
+        resolve();
+      });
     else resolve();
   });
   (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
@@ -102,7 +110,13 @@ describe("custom catalog entry CRUD routes", () => {
     const create = await fetch(`${adminBase}/admin-api/catalog`, {
       method: "POST",
       headers: bearer(),
-      body: JSON.stringify({ slug: "internal-svc", name: "Internal Svc", kind: "rest", healthUrl: "https://internal/health", openapiUrl: "https://internal/openapi.json" }),
+      body: JSON.stringify({
+        slug: "internal-svc",
+        name: "Internal Svc",
+        kind: "rest",
+        healthUrl: "https://internal/health",
+        openapiUrl: "https://internal/openapi.json",
+      }),
     });
     expect(create.status).toBe(201);
     const created = (await create.json()) as { id: string };
@@ -131,10 +145,16 @@ describe("custom catalog entry CRUD routes", () => {
 
   test("builtin entries reject PATCH/DELETE with 403 IMMUTABLE_ENTRY", async () => {
     await startApp();
-    const list = (await (await fetch(`${adminBase}/admin-api/catalog`, { headers: bearer() })).json()) as { items: { id: string; source: string }[] };
+    const list = (await (await fetch(`${adminBase}/admin-api/catalog`, { headers: bearer() })).json()) as {
+      items: { id: string; source: string }[];
+    };
     const builtinId = list.items.find((i) => i.source === "builtin")!.id;
 
-    const patch = await fetch(`${adminBase}/admin-api/catalog/${builtinId}`, { method: "PATCH", headers: bearer(), body: JSON.stringify({ name: "x" }) });
+    const patch = await fetch(`${adminBase}/admin-api/catalog/${builtinId}`, {
+      method: "PATCH",
+      headers: bearer(),
+      body: JSON.stringify({ name: "x" }),
+    });
     expect(patch.status).toBe(403);
     const patchBody = (await patch.json()) as { error: { code: string } };
     expect(patchBody.error.code).toBe("IMMUTABLE_ENTRY");
@@ -148,13 +168,25 @@ describe("POST /admin-api/catalog/:id/install", () => {
   test("installs a custom REST entry through the real registration path", async () => {
     await startApp();
     createCustomEntry(
-      { slug: "petstore-clone", name: "Petstore Clone", kind: "rest", healthUrl: `http://127.0.0.1:${upstreamPort}/health`, openapiUrl: `http://127.0.0.1:${upstreamPort}/openapi.json` },
-      "admin"
+      {
+        slug: "petstore-clone",
+        name: "Petstore Clone",
+        kind: "rest",
+        healthUrl: `http://127.0.0.1:${upstreamPort}/health`,
+        openapiUrl: `http://127.0.0.1:${upstreamPort}/openapi.json`,
+      },
+      "admin",
     );
-    const list = (await (await fetch(`${adminBase}/admin-api/catalog`, { headers: bearer() })).json()) as { items: { id: string; slug: string }[] };
+    const list = (await (await fetch(`${adminBase}/admin-api/catalog`, { headers: bearer() })).json()) as {
+      items: { id: string; slug: string }[];
+    };
     const entryId = list.items.find((i) => i.slug === "petstore-clone")!.id;
 
-    const install = await fetch(`${adminBase}/admin-api/catalog/${entryId}/install`, { method: "POST", headers: bearer(), body: JSON.stringify({}) });
+    const install = await fetch(`${adminBase}/admin-api/catalog/${entryId}/install`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({}),
+    });
     expect(install.status).toBe(200);
     const body = (await install.json()) as { status: string; name: string; tools_count: number };
     expect(body.status).toBe("registered");
@@ -166,10 +198,18 @@ describe("POST /admin-api/catalog/:id/install", () => {
   test("install accepts a custom name to avoid collisions", async () => {
     await startApp();
     createCustomEntry(
-      { slug: "petstore-clone2", name: "Petstore Clone 2", kind: "rest", healthUrl: `http://127.0.0.1:${upstreamPort}/health`, openapiUrl: `http://127.0.0.1:${upstreamPort}/openapi.json` },
-      "admin"
+      {
+        slug: "petstore-clone2",
+        name: "Petstore Clone 2",
+        kind: "rest",
+        healthUrl: `http://127.0.0.1:${upstreamPort}/health`,
+        openapiUrl: `http://127.0.0.1:${upstreamPort}/openapi.json`,
+      },
+      "admin",
     );
-    const list = (await (await fetch(`${adminBase}/admin-api/catalog`, { headers: bearer() })).json()) as { items: { id: string; slug: string }[] };
+    const list = (await (await fetch(`${adminBase}/admin-api/catalog`, { headers: bearer() })).json()) as {
+      items: { id: string; slug: string }[];
+    };
     const entryId = list.items.find((i) => i.slug === "petstore-clone2")!.id;
 
     const install = await fetch(`${adminBase}/admin-api/catalog/${entryId}/install`, {
@@ -184,20 +224,36 @@ describe("POST /admin-api/catalog/:id/install", () => {
 
   test("404 for an unknown catalog entry id", async () => {
     await startApp();
-    const res = await fetch(`${adminBase}/admin-api/catalog/custom:999999/install`, { method: "POST", headers: bearer(), body: JSON.stringify({}) });
+    const res = await fetch(`${adminBase}/admin-api/catalog/custom:999999/install`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({}),
+    });
     expect(res.status).toBe(404);
   });
 
   test("a dead openapi_url surfaces the same DISCOVERY_ERROR as /register", async () => {
     await startApp();
     createCustomEntry(
-      { slug: "dead-svc", name: "Dead Svc", kind: "rest", healthUrl: `http://127.0.0.1:${upstreamPort}/health`, openapiUrl: `http://127.0.0.1:${upstreamPort}/does-not-exist.json` },
-      "admin"
+      {
+        slug: "dead-svc",
+        name: "Dead Svc",
+        kind: "rest",
+        healthUrl: `http://127.0.0.1:${upstreamPort}/health`,
+        openapiUrl: `http://127.0.0.1:${upstreamPort}/does-not-exist.json`,
+      },
+      "admin",
     );
-    const list = (await (await fetch(`${adminBase}/admin-api/catalog`, { headers: bearer() })).json()) as { items: { id: string; slug: string }[] };
+    const list = (await (await fetch(`${adminBase}/admin-api/catalog`, { headers: bearer() })).json()) as {
+      items: { id: string; slug: string }[];
+    };
     const entryId = list.items.find((i) => i.slug === "dead-svc")!.id;
 
-    const install = await fetch(`${adminBase}/admin-api/catalog/${entryId}/install`, { method: "POST", headers: bearer(), body: JSON.stringify({}) });
+    const install = await fetch(`${adminBase}/admin-api/catalog/${entryId}/install`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({}),
+    });
     expect(install.status).toBe(400);
     const body = (await install.json()) as { error: { code: string } };
     expect(body.error.code).toBe("DISCOVERY_ERROR");
@@ -210,7 +266,10 @@ describe("POST /admin-api/catalog/:id/install", () => {
     // env-key path is always treated as admin — covered at the requireAdminRole
     // unit level elsewhere. Here we just confirm unauthenticated requests 401.
     await startApp();
-    const res = await fetch(`${adminBase}/admin-api/catalog/builtin:petstore/install`, { method: "POST", body: JSON.stringify({}) });
+    const res = await fetch(`${adminBase}/admin-api/catalog/builtin:petstore/install`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
     expect(res.status).toBe(401);
   });
 });

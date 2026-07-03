@@ -12,8 +12,20 @@ import { getToolGraphql, setToolGraphql, getToolWs, setToolWs, wsRequest, wsRequ
 import type { RestToolDefinition } from "../types.js";
 
 const CLIENT = "svc";
-const gqlTool: RestToolDefinition = { name: "gql", method: "POST", endpoint: "/graphql", description: "gql", inputSchema: { type: "object", properties: { q: { type: "string" } } } };
-const wsTool: RestToolDefinition = { name: "wst", method: "POST", endpoint: "/ws", description: "ws", inputSchema: { type: "object", properties: { msg: { type: "string" } } } };
+const gqlTool: RestToolDefinition = {
+  name: "gql",
+  method: "POST",
+  endpoint: "/graphql",
+  description: "gql",
+  inputSchema: { type: "object", properties: { q: { type: "string" } } },
+};
+const wsTool: RestToolDefinition = {
+  name: "wst",
+  method: "POST",
+  endpoint: "/ws",
+  description: "ws",
+  inputSchema: { type: "object", properties: { msg: { type: "string" } } },
+};
 async function reg(): Promise<void> {
   await registry.register(CLIENT, [gqlTool, wsTool], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 }
@@ -64,7 +76,10 @@ describe("WebSocket", () => {
   test("rejects a non-ws URL; accepts a valid one", async () => {
     await reg();
     (config as Record<string, unknown>).allowPrivateIps = true;
-    expect(await setToolWs(CLIENT, "wst", { enabled: true, wsUrl: "http://1.2.3.4" })).toMatchObject({ ok: false, error: "INVALID_URL" });
+    expect(await setToolWs(CLIENT, "wst", { enabled: true, wsUrl: "http://1.2.3.4" })).toMatchObject({
+      ok: false,
+      error: "INVALID_URL",
+    });
     expect(await setToolWs(CLIENT, "wst", { enabled: true, wsUrl: "ws://5.6.7.8" })).toEqual({ ok: true });
     expect(getToolWs(CLIENT, "wst")?.resolvedIp).toBe("5.6.7.8");
   });
@@ -129,7 +144,9 @@ describe("WebSocket", () => {
       const server = multiMessageServer();
       try {
         const received: string[] = [];
-        const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000, (data) => received.push(data));
+        const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000, (data) =>
+          received.push(data),
+        );
         expect(received).toEqual(["first:hi", "second:hi", "third:hi"]);
         expect(result).toBe("third:hi");
       } finally {
@@ -142,7 +159,11 @@ describe("WebSocket", () => {
       (config as Record<string, unknown>).allowPrivateIps = true;
       const server = multiMessageServer();
       try {
-        const setRes = await setToolWs(CLIENT, "wst", { enabled: true, wsUrl: `ws://localhost:${server.port}`, persistent: true });
+        const setRes = await setToolWs(CLIENT, "wst", {
+          enabled: true,
+          wsUrl: `ws://localhost:${server.port}`,
+          persistent: true,
+        });
         expect(setRes.ok).toBe(true);
         expect(getToolWs(CLIENT, "wst")?.persistent).toBe(true);
         const r = await proxyToolCall(`${CLIENT}__wst`, { msg: "hi" });

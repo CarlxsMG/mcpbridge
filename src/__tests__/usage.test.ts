@@ -5,12 +5,24 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../registry.js";
 import { proxyToolCall } from "../proxy.js";
-import { recordUsage, getUsageSummary, getUsageTimeseries, getTopTools, getUsageByKey } from "../observability/usage.js";
+import {
+  recordUsage,
+  getUsageSummary,
+  getUsageTimeseries,
+  getTopTools,
+  getUsageByKey,
+} from "../observability/usage.js";
 import { createMcpKey } from "../security/mcp-key-store.js";
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(): RestToolDefinition {
-  return { name: "get-users", method: "GET", endpoint: "/users", description: "list", inputSchema: { type: "object", properties: {} } };
+  return {
+    name: "get-users",
+    method: "GET",
+    endpoint: "/users",
+    description: "list",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 async function reg(name: string): Promise<void> {
   await registry.register(name, [makeTool()], "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
@@ -40,8 +52,23 @@ describe("usage store aggregations", () => {
   });
 
   test("top tools ordered by call count", () => {
-    for (let i = 0; i < 5; i++) recordUsage({ clientName: "svc", toolName: "busy", keyId: null, statusClass: "2xx", isError: false, durationMs: 5 });
-    recordUsage({ clientName: "svc", toolName: "rare", keyId: null, statusClass: "2xx", isError: false, durationMs: 5 });
+    for (let i = 0; i < 5; i++)
+      recordUsage({
+        clientName: "svc",
+        toolName: "busy",
+        keyId: null,
+        statusClass: "2xx",
+        isError: false,
+        durationMs: 5,
+      });
+    recordUsage({
+      clientName: "svc",
+      toolName: "rare",
+      keyId: null,
+      statusClass: "2xx",
+      isError: false,
+      durationMs: 5,
+    });
     const top = getTopTools({ limit: 10 });
     expect(top[0].tool).toBe("busy");
     expect(top[0].calls).toBe(5);
@@ -49,7 +76,14 @@ describe("usage store aggregations", () => {
 
   test("by-key groups and labels the unattributed bucket", () => {
     const { record } = createMcpKey("bot", null, null, null);
-    recordUsage({ clientName: "svc", toolName: "a", keyId: record.id, statusClass: "2xx", isError: false, durationMs: 5 });
+    recordUsage({
+      clientName: "svc",
+      toolName: "a",
+      keyId: record.id,
+      statusClass: "2xx",
+      isError: false,
+      durationMs: 5,
+    });
     recordUsage({ clientName: "svc", toolName: "a", keyId: null, statusClass: "2xx", isError: false, durationMs: 5 });
     const byKey = getUsageByKey();
     expect(byKey.find((k) => k.keyId === record.id)?.label).toBe("bot");
@@ -92,7 +126,10 @@ describe("proxy usage attribution", () => {
     await reg("svc");
     const { rawKey, record } = createMcpKey("bot", null, null, null);
     globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch;
     const res = await proxyToolCall("svc__get-users", {}, rawKey);
     expect(res.isError).toBeUndefined();
     expect(getUsageSummary().calls).toBe(1);

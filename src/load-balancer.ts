@@ -76,9 +76,17 @@ export function getLb(clientName: string): LbConfig | null {
   if (!row) return null;
   const targets = (
     db
-      .query(`SELECT id, base_url, resolved_ip, weight, enabled FROM client_upstreams WHERE client_name = ? ORDER BY id`)
+      .query(
+        `SELECT id, base_url, resolved_ip, weight, enabled FROM client_upstreams WHERE client_name = ? ORDER BY id`,
+      )
       .all(clientName) as UpstreamRow[]
-  ).map((t) => ({ id: t.id, baseUrl: t.base_url, resolvedIp: t.resolved_ip, weight: t.weight, enabled: t.enabled === 1 }));
+  ).map((t) => ({
+    id: t.id,
+    baseUrl: t.base_url,
+    resolvedIp: t.resolved_ip,
+    weight: t.weight,
+    enabled: t.enabled === 1,
+  }));
   return {
     strategy: row.strategy as LbStrategy,
     primaryWeight: row.primary_weight,
@@ -89,7 +97,8 @@ export function getLb(clientName: string): LbConfig | null {
 
 // ── Mutations ─────────────────────────────────────────────────────────────
 
-export type LbError = "CLIENT_NOT_FOUND" | "NOT_REST" | "INVALID_STRATEGY" | "INVALID_WEIGHT" | "INVALID_URL" | "TARGET_NOT_FOUND";
+export type LbError =
+  "CLIENT_NOT_FOUND" | "NOT_REST" | "INVALID_STRATEGY" | "INVALID_WEIGHT" | "INVALID_URL" | "TARGET_NOT_FOUND";
 
 const STRATEGIES: readonly LbStrategy[] = ["round-robin", "weighted", "least-conn"];
 
@@ -159,16 +168,28 @@ export function updateUpstream(
   patch: { enabled?: boolean; weight?: number },
 ): { ok: true } | { ok: false; error: LbError } {
   const db = getDb();
-  const row = db.query(`SELECT id FROM client_upstreams WHERE client_name = ? AND id = ?`).get(clientName, id) as { id: number } | null;
+  const row = db.query(`SELECT id FROM client_upstreams WHERE client_name = ? AND id = ?`).get(clientName, id) as {
+    id: number;
+  } | null;
   if (!row) return { ok: false, error: "TARGET_NOT_FOUND" };
   if (patch.weight !== undefined && (!Number.isInteger(patch.weight) || patch.weight < 1 || patch.weight > 1000)) {
     return { ok: false, error: "INVALID_WEIGHT" };
   }
   if (patch.enabled !== undefined) {
-    db.query(`UPDATE client_upstreams SET enabled = ?, updated_at = ? WHERE client_name = ? AND id = ?`).run(patch.enabled ? 1 : 0, Date.now(), clientName, id);
+    db.query(`UPDATE client_upstreams SET enabled = ?, updated_at = ? WHERE client_name = ? AND id = ?`).run(
+      patch.enabled ? 1 : 0,
+      Date.now(),
+      clientName,
+      id,
+    );
   }
   if (patch.weight !== undefined) {
-    db.query(`UPDATE client_upstreams SET weight = ?, updated_at = ? WHERE client_name = ? AND id = ?`).run(patch.weight, Date.now(), clientName, id);
+    db.query(`UPDATE client_upstreams SET weight = ?, updated_at = ? WHERE client_name = ? AND id = ?`).run(
+      patch.weight,
+      Date.now(),
+      clientName,
+      id,
+    );
   }
   return { ok: true };
 }
@@ -200,19 +221,26 @@ function targetKey(clientName: string, baseUrl: string): string {
  * (better to try a cooling target than to not dispatch). Never returns null —
  * the primary is always a member — so callers gate on `lbActive` instead.
  */
-export function selectTarget(
-  client: { name: string; base_url: string; resolved_ip: string },
-  lb: LbConfig,
-): LbChoice {
+export function selectTarget(client: { name: string; base_url: string; resolved_ip: string }, lb: LbConfig): LbChoice {
   const members: Array<{ choice: LbChoice; weight: number }> = [
     {
-      choice: { baseUrl: client.base_url, resolvedIp: client.resolved_ip, key: targetKey(client.name, client.base_url), isPrimary: true },
+      choice: {
+        baseUrl: client.base_url,
+        resolvedIp: client.resolved_ip,
+        key: targetKey(client.name, client.base_url),
+        isPrimary: true,
+      },
       weight: Math.max(0, lb.primaryWeight),
     },
     ...lb.targets
       .filter((t) => t.enabled)
       .map((t) => ({
-        choice: { baseUrl: t.baseUrl, resolvedIp: t.resolvedIp, key: targetKey(client.name, t.baseUrl), isPrimary: false },
+        choice: {
+          baseUrl: t.baseUrl,
+          resolvedIp: t.resolvedIp,
+          key: targetKey(client.name, t.baseUrl),
+          isPrimary: false,
+        },
         weight: Math.max(1, t.weight),
       })),
   ];

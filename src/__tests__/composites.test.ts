@@ -29,7 +29,13 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { RestToolDefinition } from "../types.js";
 
 function tool(name: string, properties: Record<string, unknown> = {}): RestToolDefinition {
-  return { name, method: "POST", endpoint: `/${name}`, description: `tool ${name}`, inputSchema: { type: "object", properties } };
+  return {
+    name,
+    method: "POST",
+    endpoint: `/${name}`,
+    description: `tool ${name}`,
+    inputSchema: { type: "object", properties },
+  };
 }
 async function regSvc(): Promise<void> {
   // `second` declares itemId/msg so the proxy's Ajv (removeAdditional) doesn't
@@ -37,7 +43,10 @@ async function regSvc(): Promise<void> {
   await registry.register(
     "svc",
     [tool("first"), tool("second", { itemId: { type: "number" }, msg: { type: "string" } })],
-    "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+    "http://1.2.3.4/health",
+    "1.2.3.4",
+    "http://1.2.3.4",
+    "1.2.3.4",
   );
 }
 
@@ -61,7 +70,10 @@ afterEach(async () => {
 const OBJ_SCHEMA = { type: "object", properties: {} };
 
 describe("composites — templating", () => {
-  const ctx = { input: { a: 1, nested: { b: "x" } }, steps: [{ text: '{"id":42}', json: { id: 42, arr: [{ v: 7 }] } }] };
+  const ctx = {
+    input: { a: 1, nested: { b: "x" } },
+    steps: [{ text: '{"id":42}', json: { id: 42, arr: [{ v: 7 }] } }],
+  };
   test("resolveRef reads input / steps.text / steps.json paths", () => {
     expect(resolveRef("input.a", ctx)).toBe(1);
     expect(resolveRef("input.nested.b", ctx)).toBe("x");
@@ -79,10 +91,16 @@ describe("composites — templating", () => {
 describe("composites — CRUD", () => {
   test("create + detail + list", async () => {
     await regSvc();
-    const r = await createComposite("flow", "chains two", OBJ_SCHEMA, [
-      { targetClient: "svc", targetTool: "first", argsTemplate: {} },
-      { targetClient: "svc", targetTool: "second", argsTemplate: { id: { $ref: "steps.0.json.id" } } },
-    ], "tester");
+    const r = await createComposite(
+      "flow",
+      "chains two",
+      OBJ_SCHEMA,
+      [
+        { targetClient: "svc", targetTool: "first", argsTemplate: {} },
+        { targetClient: "svc", targetTool: "second", argsTemplate: { id: { $ref: "steps.0.json.id" } } },
+      ],
+      "tester",
+    );
     expect(r.ok).toBe(true);
     expect(getCompositeDetail("flow")?.steps.length).toBe(2);
     expect(listComposites()[0].name).toBe("flow");
@@ -91,13 +109,25 @@ describe("composites — CRUD", () => {
 
   test("rejects a name containing the __ separator", async () => {
     await regSvc();
-    const r = await createComposite("bad__name", undefined, OBJ_SCHEMA, [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }], "t");
+    const r = await createComposite(
+      "bad__name",
+      undefined,
+      OBJ_SCHEMA,
+      [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }],
+      "t",
+    );
     expect(r).toMatchObject({ ok: false, error: { code: "INVALID_NAME" } });
   });
 
   test("rejects a step referencing an unknown tool", async () => {
     await regSvc();
-    const r = await createComposite("flow", undefined, OBJ_SCHEMA, [{ targetClient: "svc", targetTool: "ghost", argsTemplate: {} }], "t");
+    const r = await createComposite(
+      "flow",
+      undefined,
+      OBJ_SCHEMA,
+      [{ targetClient: "svc", targetTool: "ghost", argsTemplate: {} }],
+      "t",
+    );
     expect(r).toMatchObject({ ok: false, error: { code: "UNKNOWN_TOOL" } });
   });
 
@@ -109,7 +139,13 @@ describe("composites — CRUD", () => {
 
   test("update toggles enabled; delete removes", async () => {
     await regSvc();
-    await createComposite("flow", undefined, OBJ_SCHEMA, [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }], "t");
+    await createComposite(
+      "flow",
+      undefined,
+      OBJ_SCHEMA,
+      [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }],
+      "t",
+    );
     expect((await updateComposite("flow", { enabled: false })).ok).toBe(true);
     expect(getCompositeDetail("flow")?.enabled).toBe(false);
     expect(await deleteComposite("flow")).toBe(true);
@@ -122,7 +158,10 @@ describe("composites — runComposite", () => {
   function chainFetch(): typeof fetch {
     return (async (url: string, opts: RequestInit) => {
       if (String(url).includes("/first")) {
-        return new Response(JSON.stringify({ id: 42 }), { status: 200, headers: { "content-type": "application/json" } });
+        return new Response(JSON.stringify({ id: 42 }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
       }
       return new Response(String(opts?.body ?? "{}"), { status: 200, headers: { "content-type": "application/json" } });
     }) as unknown as typeof fetch;
@@ -131,10 +170,16 @@ describe("composites — runComposite", () => {
   test("threads step0 output into step1 args", async () => {
     await regSvc();
     globalThis.fetch = chainFetch();
-    await createComposite("flow", undefined, OBJ_SCHEMA, [
-      { targetClient: "svc", targetTool: "first", argsTemplate: {} },
-      { targetClient: "svc", targetTool: "second", argsTemplate: { itemId: { $ref: "steps.0.json.id" } } },
-    ], "t");
+    await createComposite(
+      "flow",
+      undefined,
+      OBJ_SCHEMA,
+      [
+        { targetClient: "svc", targetTool: "first", argsTemplate: {} },
+        { targetClient: "svc", targetTool: "second", argsTemplate: { itemId: { $ref: "steps.0.json.id" } } },
+      ],
+      "t",
+    );
     const result = await runComposite("flow", {});
     expect(result.isError).toBeUndefined();
     expect(JSON.parse(result.content[0].text)).toEqual({ itemId: 42 });
@@ -146,10 +191,16 @@ describe("composites — runComposite", () => {
       String(url).includes("/first")
         ? new Response("boom", { status: 500 })
         : new Response("{}", { status: 200 })) as unknown as typeof fetch;
-    await createComposite("flow", undefined, OBJ_SCHEMA, [
-      { targetClient: "svc", targetTool: "first", argsTemplate: {} },
-      { targetClient: "svc", targetTool: "second", argsTemplate: {} },
-    ], "t");
+    await createComposite(
+      "flow",
+      undefined,
+      OBJ_SCHEMA,
+      [
+        { targetClient: "svc", targetTool: "first", argsTemplate: {} },
+        { targetClient: "svc", targetTool: "second", argsTemplate: {} },
+      ],
+      "t",
+    );
     const result = await runComposite("flow", {});
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toMatch(/step 1/);
@@ -157,7 +208,13 @@ describe("composites — runComposite", () => {
 
   test("a disabled composite is not runnable", async () => {
     await regSvc();
-    await createComposite("flow", undefined, OBJ_SCHEMA, [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }], "t");
+    await createComposite(
+      "flow",
+      undefined,
+      OBJ_SCHEMA,
+      [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }],
+      "t",
+    );
     await updateComposite("flow", { enabled: false });
     const result = await runComposite("flow", {});
     expect(result.isError).toBe(true);
@@ -168,7 +225,13 @@ describe("composites — runComposite", () => {
     await regSvc();
     globalThis.fetch = chainFetch();
     await registry.setToolEnabled("svc", "first", false);
-    await createComposite("flow", undefined, OBJ_SCHEMA, [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }], "t");
+    await createComposite(
+      "flow",
+      undefined,
+      OBJ_SCHEMA,
+      [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }],
+      "t",
+    );
     const result = await runComposite("flow", {});
     expect(result.isError).toBe(true);
   });
@@ -180,7 +243,13 @@ describe("composites — MCP integration (aggregated only)", () => {
     const server = createMcpServer();
     const client = new Client({ name: "t", version: "1.0.0" }, { capabilities: {} });
     await Promise.all([server.connect(st), client.connect(ct)]);
-    return { client, close: async () => { await client.close(); await server.close(); } };
+    return {
+      client,
+      close: async () => {
+        await client.close();
+        await server.close();
+      },
+    };
   }
 
   test("advertised in aggregated tools/list, callable through it", async () => {
@@ -189,7 +258,13 @@ describe("composites — MCP integration (aggregated only)", () => {
       String(url).includes("/first")
         ? new Response(JSON.stringify({ id: 1 }), { status: 200, headers: { "content-type": "application/json" } })
         : new Response("{}", { status: 200 })) as unknown as typeof fetch;
-    await createComposite("flow", "desc", OBJ_SCHEMA, [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }], "t");
+    await createComposite(
+      "flow",
+      "desc",
+      OBJ_SCHEMA,
+      [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }],
+      "t",
+    );
 
     const { client, close } = await connect();
     try {
@@ -204,7 +279,13 @@ describe("composites — MCP integration (aggregated only)", () => {
 
   test("not advertised on a sharded (single-client) scope", async () => {
     await regSvc();
-    await createComposite("flow", "desc", OBJ_SCHEMA, [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }], "t");
+    await createComposite(
+      "flow",
+      "desc",
+      OBJ_SCHEMA,
+      [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }],
+      "t",
+    );
     const [ct, st] = InMemoryTransport.createLinkedPair();
     const server = createMcpServer({ kind: "client", name: "svc" });
     const client = new Client({ name: "t", version: "1.0.0" }, { capabilities: {} });
@@ -232,13 +313,26 @@ describe("composites — admin route", () => {
     app.use(requestIdMiddleware);
     compositeRoutes(app);
     await new Promise<void>((resolve) => {
-      const srv = app.listen(0, "127.0.0.1", () => { baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`; server = srv; resolve(); });
+      const srv = app.listen(0, "127.0.0.1", () => {
+        baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+        server = srv;
+        resolve();
+      });
     });
   }
   afterEach(async () => {
-    await new Promise<void>((resolve) => { if (server) server.close(() => { server = null; resolve(); }); else resolve(); });
+    await new Promise<void>((resolve) => {
+      if (server)
+        server.close(() => {
+          server = null;
+          resolve();
+        });
+      else resolve();
+    });
   });
-  function bearer(): Record<string, string> { return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" }; }
+  function bearer(): Record<string, string> {
+    return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
+  }
 
   test("POST creates, GET returns detail, DELETE removes", async () => {
     await regSvc();
@@ -246,7 +340,12 @@ describe("composites — admin route", () => {
     const create = await fetch(`${baseUrl}/admin-api/composites`, {
       method: "POST",
       headers: bearer(),
-      body: JSON.stringify({ name: "flow", description: "d", inputSchema: OBJ_SCHEMA, steps: [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }] }),
+      body: JSON.stringify({
+        name: "flow",
+        description: "d",
+        inputSchema: OBJ_SCHEMA,
+        steps: [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }],
+      }),
     });
     expect(create.status).toBe(201);
     const get = await fetch(`${baseUrl}/admin-api/composites/flow`, { headers: bearer() });
@@ -261,7 +360,11 @@ describe("composites — admin route", () => {
     const res = await fetch(`${baseUrl}/admin-api/composites`, {
       method: "POST",
       headers: bearer(),
-      body: JSON.stringify({ name: "flow", inputSchema: OBJ_SCHEMA, steps: [{ targetClient: "svc", targetTool: "ghost", argsTemplate: {} }] }),
+      body: JSON.stringify({
+        name: "flow",
+        inputSchema: OBJ_SCHEMA,
+        steps: [{ targetClient: "svc", targetTool: "ghost", argsTemplate: {} }],
+      }),
     });
     expect(res.status).toBe(400);
   });

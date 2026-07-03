@@ -30,9 +30,7 @@ function matchAllowedOrigin(requestOrigin: string): string | null {
   if (scheme !== "http" && scheme !== "https") return null;
   const host = normalised.hostname.toLowerCase();
   const port = normalised.port;
-  const canonical = port
-    ? `${scheme}://${host}:${port}`
-    : `${scheme}://${host}`;
+  const canonical = port ? `${scheme}://${host}:${port}` : `${scheme}://${host}`;
 
   return origins.includes(canonical) ? canonical : null;
 }
@@ -81,18 +79,9 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction):
       res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
     }
 
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      config.corsAllowedMethods.join(", "),
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      config.corsAllowedHeaders.join(", "),
-    );
-    res.setHeader(
-      "Access-Control-Expose-Headers",
-      config.corsExposedHeaders.join(", "),
-    );
+    res.setHeader("Access-Control-Allow-Methods", config.corsAllowedMethods.join(", "));
+    res.setHeader("Access-Control-Allow-Headers", config.corsAllowedHeaders.join(", "));
+    res.setHeader("Access-Control-Expose-Headers", config.corsExposedHeaders.join(", "));
     res.setHeader("Access-Control-Max-Age", String(config.corsMaxAgeSeconds));
 
     // Credentials only when explicitly enabled AND not in wildcard mode

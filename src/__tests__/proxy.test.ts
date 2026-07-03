@@ -43,7 +43,7 @@ beforeEach(async () => {
     "http://1.2.3.4/health",
     "1.2.3.4",
     "http://1.2.3.4",
-    "1.2.3.4"
+    "1.2.3.4",
   );
 });
 
@@ -69,7 +69,7 @@ describe("proxyToolCall — signal isolation across retry attempts", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async function fakeFetch(
       _url: string | URL | Request,
-      options?: RequestInit
+      options?: RequestInit,
     ): Promise<Response> {
       callCount++;
       if (options?.signal) {
@@ -117,17 +117,17 @@ describe("proxyToolCall — signal isolation across retry attempts", () => {
 describe("proxyToolCall — Fix 1: response header allowlist", () => {
   test("Set-Cookie from upstream is not present in the tool result", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async function fakeFetch(): Promise<Response> {
+    globalThis.fetch = async function fakeFetch(): Promise<Response> {
       return new Response(JSON.stringify({ data: "ok" }), {
         status: 200,
         headers: {
           "content-type": "application/json",
           "set-cookie": "session=evil; HttpOnly",
-          "authorization": "Bearer leaked-token",
-          "www-authenticate": "Bearer realm=\"api\"",
+          authorization: "Bearer leaked-token",
+          "www-authenticate": 'Bearer realm="api"',
         },
       });
-    }) as unknown as typeof fetch;
+    } as unknown as typeof fetch;
 
     try {
       const { proxyToolCall } = await import("../proxy.js");
@@ -162,10 +162,10 @@ describe("proxyToolCall — Fix 2: path traversal rejection", () => {
   test("registry rejects endpoint template with '..' segment at registration time", async () => {
     let fetchCalled = false;
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async function fakeFetch(): Promise<Response> {
+    globalThis.fetch = async function fakeFetch(): Promise<Response> {
       fetchCalled = true;
       return new Response("should not reach", { status: 200 });
-    }) as unknown as typeof fetch;
+    } as unknown as typeof fetch;
 
     try {
       await expect(
@@ -183,8 +183,8 @@ describe("proxyToolCall — Fix 2: path traversal rejection", () => {
           "http://1.2.3.4/health",
           "1.2.3.4",
           "http://1.2.3.4",
-          "1.2.3.4"
-        )
+          "1.2.3.4",
+        ),
       ).rejects.toThrow(/invalid path segment/i);
 
       // fetch must never be called because registration was rejected
@@ -209,14 +209,14 @@ describe("proxyToolCall — Fix 3: body cap on error response path", () => {
     (config as Record<string, unknown>).maxResponseBytes = 10;
 
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async function fakeFetch(): Promise<Response> {
+    globalThis.fetch = async function fakeFetch(): Promise<Response> {
       // Return a 400 with a body larger than the 10-byte cap
       const largeBody = "x".repeat(100);
       return new Response(largeBody, {
         status: 400,
         headers: { "content-type": "text/plain" },
       });
-    }) as unknown as typeof fetch;
+    } as unknown as typeof fetch;
 
     try {
       const { proxyToolCall } = await import("../proxy.js");
@@ -262,7 +262,7 @@ async function registerAjvClient(toolName: string, schema: Record<string, unknow
     "http://1.2.3.4/health",
     "1.2.3.4",
     "http://1.2.3.4",
-    "1.2.3.4"
+    "1.2.3.4",
   );
 }
 
@@ -287,8 +287,19 @@ describe("proxyToolCall — Ajv validation: email format", () => {
     // Restore the default registration for outer afterEach
     await registry.register(
       CLIENT,
-      [{ name: TOOL, method: "GET", endpoint: "/item", description: "get an item", inputSchema: { type: "object", properties: {} } }],
-      "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+      [
+        {
+          name: TOOL,
+          method: "GET",
+          endpoint: "/item",
+          description: "get an item",
+          inputSchema: { type: "object", properties: {} },
+        },
+      ],
+      "http://1.2.3.4/health",
+      "1.2.3.4",
+      "http://1.2.3.4",
+      "1.2.3.4",
     );
   });
 
@@ -301,9 +312,11 @@ describe("proxyToolCall — Ajv validation: email format", () => {
 
   test("accepts valid email format", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true }), {
-      status: 200, headers: { "content-type": "application/json" },
-    })) as unknown as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch;
     try {
       const { proxyToolCall } = await import("../proxy.js");
       const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { email: "user@example.com" });
@@ -334,8 +347,19 @@ describe("proxyToolCall — Ajv validation: enum constraint", () => {
     removeCircuitBreaker(AJV_CLIENT);
     await registry.register(
       CLIENT,
-      [{ name: TOOL, method: "GET", endpoint: "/item", description: "get an item", inputSchema: { type: "object", properties: {} } }],
-      "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+      [
+        {
+          name: TOOL,
+          method: "GET",
+          endpoint: "/item",
+          description: "get an item",
+          inputSchema: { type: "object", properties: {} },
+        },
+      ],
+      "http://1.2.3.4/health",
+      "1.2.3.4",
+      "http://1.2.3.4",
+      "1.2.3.4",
     );
   });
 
@@ -366,16 +390,29 @@ describe("proxyToolCall — Ajv validation: nullable field", () => {
     removeCircuitBreaker(AJV_CLIENT);
     await registry.register(
       CLIENT,
-      [{ name: TOOL, method: "GET", endpoint: "/item", description: "get an item", inputSchema: { type: "object", properties: {} } }],
-      "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+      [
+        {
+          name: TOOL,
+          method: "GET",
+          endpoint: "/item",
+          description: "get an item",
+          inputSchema: { type: "object", properties: {} },
+        },
+      ],
+      "http://1.2.3.4/health",
+      "1.2.3.4",
+      "http://1.2.3.4",
+      "1.2.3.4",
     );
   });
 
   test("accepts null for nullable field", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async () => new Response(JSON.stringify({ ok: true }), {
-      status: 200, headers: { "content-type": "application/json" },
-    })) as unknown as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch;
     try {
       const { proxyToolCall } = await import("../proxy.js");
       const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { value: null });
@@ -412,8 +449,19 @@ describe("proxyToolCall — Ajv validation: nested object", () => {
     removeCircuitBreaker(AJV_CLIENT);
     await registry.register(
       CLIENT,
-      [{ name: TOOL, method: "GET", endpoint: "/item", description: "get an item", inputSchema: { type: "object", properties: {} } }],
-      "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+      [
+        {
+          name: TOOL,
+          method: "GET",
+          endpoint: "/item",
+          description: "get an item",
+          inputSchema: { type: "object", properties: {} },
+        },
+      ],
+      "http://1.2.3.4/health",
+      "1.2.3.4",
+      "http://1.2.3.4",
+      "1.2.3.4",
     );
   });
 
@@ -444,8 +492,19 @@ describe("proxyToolCall — Ajv validation: unknown additional property stripped
     removeCircuitBreaker(AJV_CLIENT);
     await registry.register(
       CLIENT,
-      [{ name: TOOL, method: "GET", endpoint: "/item", description: "get an item", inputSchema: { type: "object", properties: {} } }],
-      "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4"
+      [
+        {
+          name: TOOL,
+          method: "GET",
+          endpoint: "/item",
+          description: "get an item",
+          inputSchema: { type: "object", properties: {} },
+        },
+      ],
+      "http://1.2.3.4/health",
+      "1.2.3.4",
+      "http://1.2.3.4",
+      "1.2.3.4",
     );
   });
 
@@ -455,7 +514,8 @@ describe("proxyToolCall — Ajv validation: unknown additional property stripped
     globalThis.fetch = (async (_url: unknown, opts?: RequestInit) => {
       capturedBody = opts?.body as string | undefined;
       return new Response(JSON.stringify({ ok: true }), {
-        status: 200, headers: { "content-type": "application/json" },
+        status: 200,
+        headers: { "content-type": "application/json" },
       });
     }) as unknown as typeof fetch;
     try {

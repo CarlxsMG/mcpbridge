@@ -24,12 +24,12 @@ baseline and fires when traffic jumps beyond a configured factor.
 
 Create alert rules that POST to a webhook on:
 
-| Event | Fires when |
-|---|---|
-| `circuit_breaker_open` | A tool's breaker trips open |
-| `client_unreachable` | A backend fails health checks |
-| `error_rate` | Errors exceed a threshold over a minimum call count |
-| `usage_spike` | Traffic spikes vs. baseline |
+| Event                  | Fires when                                          |
+| ---------------------- | --------------------------------------------------- |
+| `circuit_breaker_open` | A tool's breaker trips open                         |
+| `client_unreachable`   | A backend fails health checks                       |
+| `error_rate`           | Errors exceed a threshold over a minimum call count |
+| `usage_spike`          | Traffic spikes vs. baseline                         |
 
 **Synthetic monitors** can additionally probe tools on a schedule and notify
 `MONITOR_WEBHOOK_URL` on failure or schema drift.

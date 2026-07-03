@@ -196,7 +196,10 @@ describe("POST /admin-api/auth/logout", () => {
     });
     const cookieHeader = cookieHeaderFrom(loginRes);
 
-    const noCSRF = await fetch(`${baseUrl}/admin-api/auth/logout`, { method: "POST", headers: { Cookie: cookieHeader } });
+    const noCSRF = await fetch(`${baseUrl}/admin-api/auth/logout`, {
+      method: "POST",
+      headers: { Cookie: cookieHeader },
+    });
     expect(noCSRF.status).toBe(403);
   });
 

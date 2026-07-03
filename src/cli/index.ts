@@ -21,7 +21,9 @@ async function main(): Promise<number> {
   const [cmd, ...rest] = process.argv.slice(2);
   const fn = cmd ? COMMANDS[cmd] : undefined;
   if (!fn) {
-    console.error(`Usage: gateway <command> [...args]\n\nCommands:\n  login --url <gateway-url> --token <admin-api-key>\n  pull [--file gateway.yaml]\n  plan [--file gateway.yaml]\n  apply [--file gateway.yaml] [--dry-run]`);
+    console.error(
+      `Usage: gateway <command> [...args]\n\nCommands:\n  login --url <gateway-url> --token <admin-api-key>\n  pull [--file gateway.yaml]\n  plan [--file gateway.yaml]\n  apply [--file gateway.yaml] [--dry-run]`,
+    );
     return cmd ? 1 : 0;
   }
   try {

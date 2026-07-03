@@ -16,7 +16,13 @@ let server: Server | null = null;
 const ADMIN_KEY = "test-admin-key";
 
 function makeTool(name: string): RestToolDefinition {
-  return { name, method: "GET", endpoint: `/${name}`, description: "d", inputSchema: { type: "object", properties: {} } };
+  return {
+    name,
+    method: "GET",
+    endpoint: `/${name}`,
+    description: "d",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 
 async function startApp(): Promise<void> {
@@ -43,13 +49,24 @@ function bearer(): Record<string, string> {
 }
 
 async function reg(name: string): Promise<void> {
-  await registry.register(name, [makeTool("t")], "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
+  await registry.register(
+    name,
+    [makeTool("t")],
+    "http://example.com/health",
+    "1.2.3.4",
+    "http://example.com",
+    "1.2.3.4",
+  );
 }
 
 afterEach(async () => {
   for (const c of registry.listClients()) await registry.unregister(c.name);
   await new Promise<void>((resolve) => {
-    if (server) server.close(() => { server = null; resolve(); });
+    if (server)
+      server.close(() => {
+        server = null;
+        resolve();
+      });
     else resolve();
   });
 });
@@ -58,27 +75,43 @@ describe("tag routes", () => {
   test("set tags then list them", async () => {
     await startApp();
     await reg("svc");
-    const put = await fetch(`${baseUrl}/admin-api/clients/svc/tools/t/tags`, { method: "PUT", headers: bearer(), body: JSON.stringify({ tags: ["billing", "read"] }) });
+    const put = await fetch(`${baseUrl}/admin-api/clients/svc/tools/t/tags`, {
+      method: "PUT",
+      headers: bearer(),
+      body: JSON.stringify({ tags: ["billing", "read"] }),
+    });
     expect(put.status).toBe(200);
 
-    const tags = (await (await fetch(`${baseUrl}/admin-api/tags`, { headers: bearer() })).json()) as { items: { tag: string; count: number }[] };
+    const tags = (await (await fetch(`${baseUrl}/admin-api/tags`, { headers: bearer() })).json()) as {
+      items: { tag: string; count: number }[];
+    };
     expect(tags.items.map((t) => t.tag).sort()).toEqual(["billing", "read"]);
 
-    const byTag = (await (await fetch(`${baseUrl}/admin-api/tags/billing/tools`, { headers: bearer() })).json()) as { items: { tool: string }[] };
+    const byTag = (await (await fetch(`${baseUrl}/admin-api/tags/billing/tools`, { headers: bearer() })).json()) as {
+      items: { tool: string }[];
+    };
     expect(byTag.items[0].tool).toBe("t");
   });
 
   test("400 for an invalid tag", async () => {
     await startApp();
     await reg("svc");
-    const put = await fetch(`${baseUrl}/admin-api/clients/svc/tools/t/tags`, { method: "PUT", headers: bearer(), body: JSON.stringify({ tags: ["has space"] }) });
+    const put = await fetch(`${baseUrl}/admin-api/clients/svc/tools/t/tags`, {
+      method: "PUT",
+      headers: bearer(),
+      body: JSON.stringify({ tags: ["has space"] }),
+    });
     expect(put.status).toBe(400);
   });
 
   test("404 for an unknown tool", async () => {
     await startApp();
     await reg("svc");
-    const put = await fetch(`${baseUrl}/admin-api/clients/svc/tools/nope/tags`, { method: "PUT", headers: bearer(), body: JSON.stringify({ tags: ["x"] }) });
+    const put = await fetch(`${baseUrl}/admin-api/clients/svc/tools/nope/tags`, {
+      method: "PUT",
+      headers: bearer(),
+      body: JSON.stringify({ tags: ["x"] }),
+    });
     expect(put.status).toBe(404);
   });
 

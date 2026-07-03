@@ -21,22 +21,14 @@ const tone = computed(() => {
 });
 
 const ariaLabel = computed(() =>
-  props.quota === null ? `${props.used} used, unlimited quota` : `${props.used} of ${props.quota} used`
+  props.quota === null ? `${props.used} used, unlimited quota` : `${props.used} of ${props.quota} used`,
 );
 </script>
 
 <template>
   <svg class="quota-bar" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" :aria-label="ariaLabel">
     <rect x="0" y="0" width="100" height="8" rx="4" class="track" />
-    <rect
-      v-if="tone === 'unlimited'"
-      x="0.5"
-      y="0.5"
-      width="99"
-      height="7"
-      rx="3.5"
-      class="fill unlimited"
-    />
+    <rect v-if="tone === 'unlimited'" x="0.5" y="0.5" width="99" height="7" rx="3.5" class="fill unlimited" />
     <rect v-else x="0" y="0" :width="pct * 100" height="8" rx="4" class="fill" :class="tone" />
   </svg>
 </template>

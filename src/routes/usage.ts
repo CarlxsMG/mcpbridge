@@ -16,7 +16,7 @@ export function usageRoutes(app: Express): void {
         from: num(req.query.from),
         to: num(req.query.to),
         clientName: typeof req.query.client === "string" ? req.query.client : undefined,
-      })
+      }),
     );
   });
 
@@ -27,7 +27,7 @@ export function usageRoutes(app: Express): void {
         to: num(req.query.to),
         bucketMs: num(req.query.bucketMs),
         clientName: typeof req.query.client === "string" ? req.query.client : undefined,
-      })
+      }),
     );
   });
 

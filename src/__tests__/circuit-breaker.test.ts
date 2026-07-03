@@ -42,7 +42,7 @@ describe("CircuitBreaker — opens after failure threshold", () => {
     expect(cb.getState()).toBe("closed"); // 2 failures — still closed
 
     cb.recordFailure();
-    expect(cb.getState()).toBe("open");   // 3 failures — now open
+    expect(cb.getState()).toBe("open"); // 3 failures — now open
   });
 
   test("rejects requests when open", () => {
@@ -161,7 +161,7 @@ describe("CircuitBreaker — recovery", () => {
     cb.recordFailure();
 
     const realNow = Date.now;
-    let nowOverride = realNow() + 31_000;
+    const nowOverride = realNow() + 31_000;
     try {
       Date.now = () => nowOverride;
       cb.canRequest(); // transitions state to half_open internally
@@ -224,16 +224,10 @@ describe("CircuitBreaker — half-open admits exactly one probe (thundering-herd
       // Simulate time elapsed past resetTimeoutMs (default 30 s)
       Date.now = () => realNow() + 31_000;
 
-      const results = [
-        cb.canRequest(),
-        cb.canRequest(),
-        cb.canRequest(),
-        cb.canRequest(),
-        cb.canRequest(),
-      ];
+      const results = [cb.canRequest(), cb.canRequest(), cb.canRequest(), cb.canRequest(), cb.canRequest()];
 
-      const allowed = results.filter(r => r.allowed);
-      const denied  = results.filter(r => !r.allowed);
+      const allowed = results.filter((r) => r.allowed);
+      const denied = results.filter((r) => !r.allowed);
 
       // Exactly one probe allowed
       expect(allowed).toHaveLength(1);

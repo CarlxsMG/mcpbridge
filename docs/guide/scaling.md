@@ -19,11 +19,11 @@ through a shared SQLite database.
 
 ## Turn on the HA primitives
 
-| Setting | Effect |
-|---|---|
-| `RATE_LIMIT_SHARED=true` | Rate limits use SQLite fixed-window counters, so a per-tool limit is enforced across **all** instances, not per-process. |
-| `REGISTRY_SYNC=true` | Each instance periodically reconciles its live registry from SQLite — a client registered (or removed) on one node propagates to the others. |
-| *(automatic)* leader election | Background loops that must run **once** — alert evaluation, maintenance schedules — elect a single leader via a SQLite lease. No configuration needed. |
+| Setting                       | Effect                                                                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RATE_LIMIT_SHARED=true`      | Rate limits use SQLite fixed-window counters, so a per-tool limit is enforced across **all** instances, not per-process.                               |
+| `REGISTRY_SYNC=true`          | Each instance periodically reconciles its live registry from SQLite — a client registered (or removed) on one node propagates to the others.           |
+| _(automatic)_ leader election | Background loops that must run **once** — alert evaluation, maintenance schedules — elect a single leader via a SQLite lease. No configuration needed. |
 
 ## Load balancing your backends
 

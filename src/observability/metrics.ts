@@ -41,10 +41,7 @@ export class Counter {
 
   /** @internal */
   render(): string {
-    const lines: string[] = [
-      `# HELP ${this.name} ${this.help}`,
-      `# TYPE ${this.name} counter`,
-    ];
+    const lines: string[] = [`# HELP ${this.name} ${this.help}`, `# TYPE ${this.name} counter`];
     for (const [key, val] of this.data) {
       const labels = JSON.parse(key) as Record<string, string>;
       lines.push(`${this.name}${formatLabels(labels)} ${val}`);
@@ -73,10 +70,7 @@ export class Gauge {
 
   /** @internal */
   render(): string {
-    const lines: string[] = [
-      `# HELP ${this.name} ${this.help}`,
-      `# TYPE ${this.name} gauge`,
-    ];
+    const lines: string[] = [`# HELP ${this.name} ${this.help}`, `# TYPE ${this.name} gauge`];
     for (const [key, val] of this.data) {
       const labels = JSON.parse(key) as Record<string, string>;
       lines.push(`${this.name}${formatLabels(labels)} ${val}`);
@@ -121,23 +115,26 @@ export class Histogram {
 
   /** @internal */
   render(): string {
-    const lines: string[] = [
-      `# HELP ${this.name} ${this.help}`,
-      `# TYPE ${this.name} histogram`,
-    ];
+    const lines: string[] = [`# HELP ${this.name} ${this.help}`, `# TYPE ${this.name} histogram`];
     for (const [key, bkts] of this.counts) {
       const labels = JSON.parse(key) as Record<string, string>;
       const baseLabels = formatLabels(labels);
-      const labelStr = Object.keys(labels).length > 0
-        ? `{${Object.entries(labels).map(([k, v]) => `${k}="${escapeLabel(v)}"`).join(",")},le="{{LE}}"}`
-        : `{le="{{LE}}"}`;
+      const labelStr =
+        Object.keys(labels).length > 0
+          ? `{${Object.entries(labels)
+              .map(([k, v]) => `${k}="${escapeLabel(v)}"`)
+              .join(",")},le="{{LE}}"}`
+          : `{le="{{LE}}"}`;
 
       for (let i = 0; i < this.buckets.length; i++) {
         lines.push(`${this.name}_bucket${labelStr.replace("{{LE}}", String(this.buckets[i]))} ${bkts[i]}`);
       }
-      const infLabel = Object.keys(labels).length > 0
-        ? `{${Object.entries(labels).map(([k, v]) => `${k}="${escapeLabel(v)}"`).join(",")},le="+Inf"}`
-        : `{le="+Inf"}`;
+      const infLabel =
+        Object.keys(labels).length > 0
+          ? `{${Object.entries(labels)
+              .map(([k, v]) => `${k}="${escapeLabel(v)}"`)
+              .join(",")},le="+Inf"}`
+          : `{le="+Inf"}`;
       lines.push(`${this.name}_bucket${infLabel} ${this.totals.get(key) ?? 0}`);
       lines.push(`${this.name}_sum${baseLabels} ${this.sums.get(key) ?? 0}`);
       lines.push(`${this.name}_count${baseLabels} ${this.totals.get(key) ?? 0}`);
@@ -158,7 +155,7 @@ export class MetricsRegistry {
 
   /** Produces Prometheus text exposition format. */
   render(): string {
-    return this.metrics.map(m => m.render()).join("\n\n") + "\n";
+    return this.metrics.map((m) => m.render()).join("\n\n") + "\n";
   }
 }
 
@@ -170,17 +167,11 @@ const DURATION_BUCKETS = [0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30] as const
 
 // Circuit breaker
 export const breakerStateTransitions = metricsRegistry.register(
-  new Counter(
-    "mcp_breaker_state_transitions_total",
-    "Total number of circuit breaker state transitions",
-  ),
+  new Counter("mcp_breaker_state_transitions_total", "Total number of circuit breaker state transitions"),
 );
 
 export const breakerCurrentState = metricsRegistry.register(
-  new Gauge(
-    "mcp_breaker_current_state",
-    "Current circuit breaker state: 0=closed, 1=half_open, 2=open",
-  ),
+  new Gauge("mcp_breaker_current_state", "Current circuit breaker state: 0=closed, 1=half_open, 2=open"),
 );
 
 export const breakerProbeRejected = metricsRegistry.register(
@@ -192,32 +183,20 @@ export const breakerProbeRejected = metricsRegistry.register(
 
 // Rate limiter
 export const rateLimitHits = metricsRegistry.register(
-  new Counter(
-    "mcp_rate_limit_hits_total",
-    "Total number of requests rejected with 429 by tier",
-  ),
+  new Counter("mcp_rate_limit_hits_total", "Total number of requests rejected with 429 by tier"),
 );
 
 export const rateLimitEvictions = metricsRegistry.register(
-  new Counter(
-    "mcp_rate_limit_evictions_total",
-    "Total number of rate-limit bucket evictions by tier and cause",
-  ),
+  new Counter("mcp_rate_limit_evictions_total", "Total number of rate-limit bucket evictions by tier and cause"),
 );
 
 export const rateLimitBuckets = metricsRegistry.register(
-  new Gauge(
-    "mcp_rate_limit_buckets",
-    "Current number of active rate-limit buckets by tier",
-  ),
+  new Gauge("mcp_rate_limit_buckets", "Current number of active rate-limit buckets by tier"),
 );
 
 // Proxy
 export const toolCallsTotal = metricsRegistry.register(
-  new Counter(
-    "mcp_tool_calls_total",
-    "Total number of proxied tool calls by outcome (success|error)",
-  ),
+  new Counter("mcp_tool_calls_total", "Total number of proxied tool calls by outcome (success|error)"),
 );
 
 export const proxyBodyCapRejections = metricsRegistry.register(
@@ -228,10 +207,7 @@ export const proxyBodyCapRejections = metricsRegistry.register(
 );
 
 export const proxyRetryAttempts = metricsRegistry.register(
-  new Counter(
-    "mcp_proxy_retry_attempts_total",
-    "Total proxy retry attempts by client, method, and outcome",
-  ),
+  new Counter("mcp_proxy_retry_attempts_total", "Total proxy retry attempts by client, method, and outcome"),
 );
 
 export const proxyRequestDuration = metricsRegistry.register(
@@ -243,17 +219,11 @@ export const proxyRequestDuration = metricsRegistry.register(
 );
 
 export const cacheEvents = metricsRegistry.register(
-  new Counter(
-    "mcp_response_cache_events_total",
-    "Total response-cache events by client and outcome (hit|miss|store)",
-  ),
+  new Counter("mcp_response_cache_events_total", "Total response-cache events by client and outcome (hit|miss|store)"),
 );
 
 export const lbRequests = metricsRegistry.register(
-  new Counter(
-    "mcp_lb_requests_total",
-    "Total load-balanced requests by client and selected member (primary|pool)",
-  ),
+  new Counter("mcp_lb_requests_total", "Total load-balanced requests by client and selected member (primary|pool)"),
 );
 
 export const coalesceHits = metricsRegistry.register(
@@ -265,17 +235,11 @@ export const coalesceHits = metricsRegistry.register(
 
 // Registry
 export const registryClients = metricsRegistry.register(
-  new Gauge(
-    "mcp_registry_clients",
-    "Number of registered clients by health status",
-  ),
+  new Gauge("mcp_registry_clients", "Number of registered clients by health status"),
 );
 
 export const registryToolsTotal = metricsRegistry.register(
-  new Gauge(
-    "mcp_registry_tools_total",
-    "Total number of tools currently indexed in the registry",
-  ),
+  new Gauge("mcp_registry_tools_total", "Total number of tools currently indexed in the registry"),
 );
 
 // Health checks
@@ -288,17 +252,11 @@ export const healthCheckDuration = metricsRegistry.register(
 );
 
 export const healthCheckRunsTotal = metricsRegistry.register(
-  new Counter(
-    "mcp_health_check_runs_total",
-    "Total number of health check runs by outcome",
-  ),
+  new Counter("mcp_health_check_runs_total", "Total number of health check runs by outcome"),
 );
 
 export const healthLoopErrorsTotal = metricsRegistry.register(
-  new Counter(
-    "mcp_health_loop_errors_total",
-    "Total number of unhandled errors in the health check outer loop",
-  ),
+  new Counter("mcp_health_loop_errors_total", "Total number of unhandled errors in the health check outer loop"),
 );
 
 export const healthEvictionsTotal = metricsRegistry.register(
@@ -310,10 +268,7 @@ export const healthEvictionsTotal = metricsRegistry.register(
 
 // WS proxy
 export const wsProxyActiveConnections = metricsRegistry.register(
-  new Gauge(
-    "mcp_ws_proxy_active_connections",
-    "Number of live WebSocket passthrough connections by target",
-  ),
+  new Gauge("mcp_ws_proxy_active_connections", "Number of live WebSocket passthrough connections by target"),
 );
 
 export const wsProxyBytesTotal = metricsRegistry.register(

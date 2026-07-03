@@ -75,7 +75,10 @@ const inFlight = new Map<string, Promise<unknown>>();
  * instead of invoking `factory` again. Returns whether THIS call piggybacked
  * (false for the caller that actually triggered `factory`).
  */
-export async function runCoalesced<T>(key: string, factory: () => Promise<T>): Promise<{ result: T; piggybacked: boolean }> {
+export async function runCoalesced<T>(
+  key: string,
+  factory: () => Promise<T>,
+): Promise<{ result: T; piggybacked: boolean }> {
   const existing = inFlight.get(key) as Promise<T> | undefined;
   if (existing) {
     return { result: await existing, piggybacked: true };

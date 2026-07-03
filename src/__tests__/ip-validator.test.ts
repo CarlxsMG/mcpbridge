@@ -125,9 +125,9 @@ describe("refreshPinIfStale — past TTL, public IP", () => {
     // Call with a raw IPv4 hostname so validateBackendUrl returns immediately without DNS.
     const result = await refreshPinIfStale("93.184.216.34", current, now);
 
-    expect(result).not.toBe(current);               // new object
-    expect(result.ip).toBe("93.184.216.34");         // same IP (it's a raw literal)
-    expect(result.resolvedAt).toBe(now);             // timestamp updated
+    expect(result).not.toBe(current); // new object
+    expect(result.ip).toBe("93.184.216.34"); // same IP (it's a raw literal)
+    expect(result.resolvedAt).toBe(now); // timestamp updated
   });
 });
 
@@ -138,8 +138,6 @@ describe("refreshPinIfStale — past TTL, private IP → throws", () => {
     // Hostname is a raw private IP — validateBackendUrl will reject it.
     const current: PinnedIp = { ip: "10.0.0.1", resolvedAt: now - staleAge };
 
-    await expect(
-      refreshPinIfStale("10.0.0.1", current, now)
-    ).rejects.toThrow(/private IP|blocked/i);
+    await expect(refreshPinIfStale("10.0.0.1", current, now)).rejects.toThrow(/private IP|blocked/i);
   });
 });

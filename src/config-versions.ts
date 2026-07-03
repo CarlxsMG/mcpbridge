@@ -35,9 +35,14 @@ export function createSnapshot(label: string, actor: string | null): SnapshotSum
 }
 
 export function listSnapshots(): SnapshotSummary[] {
-  return (getDb()
-    .query(`SELECT id, label, created_at, created_by FROM config_snapshots ORDER BY id DESC`)
-    .all() as { id: number; label: string; created_at: number; created_by: string | null }[]).map((r) => ({
+  return (
+    getDb().query(`SELECT id, label, created_at, created_by FROM config_snapshots ORDER BY id DESC`).all() as {
+      id: number;
+      label: string;
+      created_at: number;
+      created_by: string | null;
+    }[]
+  ).map((r) => ({
     id: r.id,
     label: r.label,
     createdAt: r.created_at,
@@ -48,9 +53,21 @@ export function listSnapshots(): SnapshotSummary[] {
 export function getSnapshot(id: number): Snapshot | undefined {
   const row = getDb()
     .query(`SELECT id, label, config_json, created_at, created_by FROM config_snapshots WHERE id = ?`)
-    .get(id) as { id: number; label: string; config_json: string; created_at: number; created_by: string | null } | null;
+    .get(id) as {
+    id: number;
+    label: string;
+    config_json: string;
+    created_at: number;
+    created_by: string | null;
+  } | null;
   if (!row) return undefined;
-  return { id: row.id, label: row.label, createdAt: row.created_at, createdBy: row.created_by, config: JSON.parse(row.config_json) as ConfigExport };
+  return {
+    id: row.id,
+    label: row.label,
+    createdAt: row.created_at,
+    createdBy: row.created_by,
+    config: JSON.parse(row.config_json) as ConfigExport,
+  };
 }
 
 export function deleteSnapshot(id: number): boolean {
@@ -65,7 +82,10 @@ export function deleteSnapshot(id: number): boolean {
  * Diffs a snapshot against another snapshot or the live config ("current").
  * Returns undefined when a referenced snapshot doesn't exist.
  */
-export function diffSnapshot(id: number, against: number | "current"): { from: SnapshotSummary; to: string; entries: ConfigDiffEntry[] } | undefined {
+export function diffSnapshot(
+  id: number,
+  against: number | "current",
+): { from: SnapshotSummary; to: string; entries: ConfigDiffEntry[] } | undefined {
   const from = getSnapshot(id);
   if (!from) return undefined;
   let toConfig: ConfigExport;

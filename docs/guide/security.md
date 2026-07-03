@@ -1,7 +1,7 @@
 # Security
 
 Security is built into MCP REST Bridge's default path, not bolted on. Because the bridge
-calls backends *on behalf of* AI clients, it defends both directions: it stops the bridge
+calls backends _on behalf of_ AI clients, it defends both directions: it stops the bridge
 from being turned into an attack tool (SSRF), and it stops untrusted backend output from
 steering the model (prompt injection).
 

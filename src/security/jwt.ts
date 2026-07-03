@@ -73,9 +73,7 @@ async function getJwks(): Promise<Jwk[]> {
 
 function importKey(jwk: Jwk, alg: "RS256" | "ES256"): Promise<CryptoKey> {
   const params =
-    alg === "RS256"
-      ? { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }
-      : { name: "ECDSA", namedCurve: "P-256" };
+    alg === "RS256" ? { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" } : { name: "ECDSA", namedCurve: "P-256" };
   return crypto.subtle.importKey("jwk", jwk as JsonWebKey, params, false, ["verify"]);
 }
 

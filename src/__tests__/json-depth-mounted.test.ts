@@ -38,8 +38,7 @@ async function startServer(): Promise<{ url: string; stop: () => Promise<void> }
       const addr = srv.address() as AddressInfo;
       resolve({
         url: `http://127.0.0.1:${addr.port}`,
-        stop: () =>
-          new Promise<void>((res) => srv.close(() => res())),
+        stop: () => new Promise<void>((res) => srv.close(() => res())),
       });
     });
     srv.on("error", reject);
@@ -72,7 +71,7 @@ describe("enforceJsonDepth mounted — body exceeds maxJsonDepth: 400 JSON_TOO_D
       });
 
       expect(res.status).toBe(400);
-      const json = await res.json() as { error?: { code?: string } };
+      const json = (await res.json()) as { error?: { code?: string } };
       expect(json.error?.code).toBe("JSON_TOO_DEEP");
     } finally {
       await stop();
@@ -128,7 +127,7 @@ describe("enforceJsonDepth mounted — middleware order: depth check before rout
       // If enforceJsonDepth were NOT mounted, the route handler would return 200.
       // 400 proves the middleware intercepted it first.
       expect(res.status).toBe(400);
-      const json = await res.json() as { error?: { code?: string } };
+      const json = (await res.json()) as { error?: { code?: string } };
       expect(json.error?.code).toBe("JSON_TOO_DEEP");
     } finally {
       await stop();

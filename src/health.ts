@@ -33,7 +33,7 @@ async function checkBatch(clients: ReturnType<typeof registry.listClients>): Pro
                 resolvedIp: client.resolved_ip,
                 authHeaders: getUpstreamAuthHeaders(client.name) ?? undefined,
               },
-              config.healthCheckTimeoutMs
+              config.healthCheckTimeoutMs,
             );
           } else {
             // Use pinned IP to prevent DNS rebinding
@@ -43,7 +43,7 @@ async function checkBatch(clients: ReturnType<typeof registry.listClients>): Pro
             const pinnedHealthUrl = healthParsed.toString();
 
             const res = await fetch(pinnedHealthUrl, {
-              headers: { "Host": originalHealthHost },
+              headers: { Host: originalHealthHost },
               redirect: "error" as RequestRedirect,
               signal: AbortSignal.timeout(config.healthCheckTimeoutMs),
             });
@@ -71,7 +71,7 @@ async function checkBatch(clients: ReturnType<typeof registry.listClients>): Pro
           });
           await handleFailure(client.name, previousStatus);
         }
-      })
+      }),
     );
   }
 }

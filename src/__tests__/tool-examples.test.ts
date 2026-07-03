@@ -13,7 +13,13 @@ import { listExamples, createExample, deleteExample } from "../tool-examples.js"
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(): RestToolDefinition {
-  return { name: "search", method: "GET", endpoint: "/search", description: "search", inputSchema: { type: "object", properties: { q: { type: "string" } } } };
+  return {
+    name: "search",
+    method: "GET",
+    endpoint: "/search",
+    description: "search",
+    inputSchema: { type: "object", properties: { q: { type: "string" } } },
+  };
 }
 async function reg(): Promise<void> {
   await registry.register("svc", [makeTool()], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
@@ -73,19 +79,34 @@ describe("tool-examples — admin route", () => {
     app.use(requestIdMiddleware);
     adminRoutes(app);
     await new Promise<void>((resolve) => {
-      const srv = app.listen(0, "127.0.0.1", () => { baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`; server = srv; resolve(); });
+      const srv = app.listen(0, "127.0.0.1", () => {
+        baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+        server = srv;
+        resolve();
+      });
     });
   }
   afterEach(async () => {
-    await new Promise<void>((resolve) => { if (server) server.close(() => { server = null; resolve(); }); else resolve(); });
+    await new Promise<void>((resolve) => {
+      if (server)
+        server.close(() => {
+          server = null;
+          resolve();
+        });
+      else resolve();
+    });
   });
-  function bearer(): Record<string, string> { return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" }; }
+  function bearer(): Record<string, string> {
+    return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
+  }
 
   test("POST creates, GET lists, DELETE removes", async () => {
     await reg();
     await startApp();
     const create = await fetch(`${baseUrl}/admin-api/clients/svc/tools/search/examples`, {
-      method: "POST", headers: bearer(), body: JSON.stringify({ label: "basic", args: { q: "hello" } }),
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ label: "basic", args: { q: "hello" } }),
     });
     expect(create.status).toBe(201);
     const { id } = (await create.json()) as { id: number };
@@ -93,7 +114,10 @@ describe("tool-examples — admin route", () => {
     const list = await fetch(`${baseUrl}/admin-api/clients/svc/tools/search/examples`, { headers: bearer() });
     expect(((await list.json()) as { items: unknown[] }).items).toHaveLength(1);
 
-    const del = await fetch(`${baseUrl}/admin-api/clients/svc/tools/search/examples/${id}`, { method: "DELETE", headers: bearer() });
+    const del = await fetch(`${baseUrl}/admin-api/clients/svc/tools/search/examples/${id}`, {
+      method: "DELETE",
+      headers: bearer(),
+    });
     expect(del.status).toBe(200);
   });
 
@@ -101,7 +125,9 @@ describe("tool-examples — admin route", () => {
     await reg();
     await startApp();
     const res = await fetch(`${baseUrl}/admin-api/clients/svc/tools/search/examples`, {
-      method: "POST", headers: bearer(), body: JSON.stringify({ args: { q: "x" } }),
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ args: { q: "x" } }),
     });
     expect(res.status).toBe(400);
   });

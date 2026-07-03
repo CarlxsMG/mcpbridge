@@ -17,7 +17,13 @@ import type { RestToolDefinition } from "../types.js";
 const originalAllowPrivate = config.allowPrivateIps;
 
 function makeTool(): RestToolDefinition {
-  return { name: "get-x", method: "GET", endpoint: "/x", description: "x", inputSchema: { type: "object", properties: {} } };
+  return {
+    name: "get-x",
+    method: "GET",
+    endpoint: "/x",
+    description: "x",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 
 beforeEach(async () => {

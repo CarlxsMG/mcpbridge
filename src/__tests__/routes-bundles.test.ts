@@ -96,11 +96,17 @@ describe("GET /admin-api/bundles", () => {
   test("lists bundles with tool counts", async () => {
     await startApp();
     await reg("svc", [makeTool({ name: "t1" }), makeTool({ name: "t2" })]);
-    await fetch(`${baseUrl}/admin-api/bundles`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "b", tools: [{ client: "svc", tool: "t1" }] }) });
+    await fetch(`${baseUrl}/admin-api/bundles`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "b", tools: [{ client: "svc", tool: "t1" }] }),
+    });
 
     const res = await fetch(`${baseUrl}/admin-api/bundles`, { headers: bearer() });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { items: { name: string; description: string | null; enabled: boolean; toolsCount: number }[] };
+    const body = (await res.json()) as {
+      items: { name: string; description: string | null; enabled: boolean; toolsCount: number }[];
+    };
     expect(body.items).toEqual([{ name: "b", description: null, enabled: true, toolsCount: 1 }]);
   });
 
@@ -153,9 +159,17 @@ describe("POST /admin-api/bundles", () => {
 
   test("409 when creating a duplicate bundle name", async () => {
     await startApp();
-    await fetch(`${baseUrl}/admin-api/bundles`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "b", tools: [] }) });
+    await fetch(`${baseUrl}/admin-api/bundles`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "b", tools: [] }),
+    });
 
-    const res = await fetch(`${baseUrl}/admin-api/bundles`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "b", tools: [] }) });
+    const res = await fetch(`${baseUrl}/admin-api/bundles`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "b", tools: [] }),
+    });
     expect(res.status).toBe(409);
   });
 
@@ -177,7 +191,14 @@ describe("POST /admin-api/bundles", () => {
     const res = await fetch(`${baseUrl}/admin-api/bundles`, {
       method: "POST",
       headers: bearer(),
-      body: JSON.stringify({ name: "b", tools: [{ client: "a", tool: "x" }, { client: "a", tool: "y" }, { client: "a", tool: "z" }] }),
+      body: JSON.stringify({
+        name: "b",
+        tools: [
+          { client: "a", tool: "x" },
+          { client: "a", tool: "y" },
+          { client: "a", tool: "z" },
+        ],
+      }),
     });
     expect(res.status).toBe(400);
   });
@@ -186,7 +207,11 @@ describe("POST /admin-api/bundles", () => {
 describe("PATCH /admin-api/bundles/:name", () => {
   test("toggles enabled and records an audit entry", async () => {
     await startApp();
-    await fetch(`${baseUrl}/admin-api/bundles`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "b", tools: [] }) });
+    await fetch(`${baseUrl}/admin-api/bundles`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "b", tools: [] }),
+    });
 
     const res = await fetch(`${baseUrl}/admin-api/bundles/b`, {
       method: "PATCH",
@@ -195,7 +220,9 @@ describe("PATCH /admin-api/bundles/:name", () => {
     });
     expect(res.status).toBe(200);
 
-    const detail = await (await fetch(`${baseUrl}/admin-api/bundles/b`, { headers: bearer() })).json() as { enabled: boolean };
+    const detail = (await (await fetch(`${baseUrl}/admin-api/bundles/b`, { headers: bearer() })).json()) as {
+      enabled: boolean;
+    };
     expect(detail.enabled).toBe(false);
 
     const auditRes = await fetch(`${baseUrl}/admin-api/audit-log`, { headers: bearer() });
@@ -205,7 +232,11 @@ describe("PATCH /admin-api/bundles/:name", () => {
 
   test("404 for an unknown bundle", async () => {
     await startApp();
-    const res = await fetch(`${baseUrl}/admin-api/bundles/nobody`, { method: "PATCH", headers: bearer(), body: JSON.stringify({ enabled: false }) });
+    const res = await fetch(`${baseUrl}/admin-api/bundles/nobody`, {
+      method: "PATCH",
+      headers: bearer(),
+      body: JSON.stringify({ enabled: false }),
+    });
     expect(res.status).toBe(404);
   });
 });
@@ -213,7 +244,11 @@ describe("PATCH /admin-api/bundles/:name", () => {
 describe("DELETE /admin-api/bundles/:name", () => {
   test("deletes a bundle and records an audit entry", async () => {
     await startApp();
-    await fetch(`${baseUrl}/admin-api/bundles`, { method: "POST", headers: bearer(), body: JSON.stringify({ name: "b", tools: [] }) });
+    await fetch(`${baseUrl}/admin-api/bundles`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ name: "b", tools: [] }),
+    });
 
     const res = await fetch(`${baseUrl}/admin-api/bundles/b`, { method: "DELETE", headers: bearer() });
     expect(res.status).toBe(200);

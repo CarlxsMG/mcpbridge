@@ -62,13 +62,13 @@ function normaliseOrigin(raw: string): string | null {
  * @returns Normalised array of origin strings, or `["*"]` for wildcard mode.
  * @throws {Error} When the input is invalid or wildcard is used unsafely.
  */
-export function parseCorsOrigins(
-  raw: string | undefined,
-  authDisabled: boolean,
-): string[] {
+export function parseCorsOrigins(raw: string | undefined, authDisabled: boolean): string[] {
   if (!raw || raw.trim() === "") return [];
 
-  const entries = raw.split(",").map((e) => e.trim()).filter(Boolean);
+  const entries = raw
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
 
   if (entries.includes("*")) {
     const allowUnsafe = process.env.ALLOW_UNSAFE_CORS_WILDCARD === "true";
@@ -122,12 +122,23 @@ export const config = {
   sessionTtlMs: Number(process.env.SESSION_TTL_MS) || 1_800_000,
   maxSessions: Number(process.env.MAX_SESSIONS) || 100,
   allowPrivateIps: process.env.ALLOW_PRIVATE_IPS === "true",
-  allowedHosts: process.env.ALLOWED_HOSTS?.split(",").map(h => h.trim()).filter(Boolean) ?? [],
-  allowedOrigins: process.env.ALLOWED_ORIGINS?.split(",").map(o => o.trim()).filter(Boolean) ?? ["http://localhost:*"],
+  allowedHosts:
+    process.env.ALLOWED_HOSTS?.split(",")
+      .map((h) => h.trim())
+      .filter(Boolean) ?? [],
+  allowedOrigins: process.env.ALLOWED_ORIGINS?.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean) ?? ["http://localhost:*"],
   corsOrigins,
   authDisabled,
-  adminApiKeys: process.env.ADMIN_API_KEYS?.split(",").map(k => k.trim()).filter(Boolean) ?? [],
-  mcpApiKeys: process.env.MCP_API_KEYS?.split(",").map(k => k.trim()).filter(Boolean) ?? [],
+  adminApiKeys:
+    process.env.ADMIN_API_KEYS?.split(",")
+      .map((k) => k.trim())
+      .filter(Boolean) ?? [],
+  mcpApiKeys:
+    process.env.MCP_API_KEYS?.split(",")
+      .map((k) => k.trim())
+      .filter(Boolean) ?? [],
   rateLimitRegister: Number(process.env.RATE_LIMIT_REGISTER) || 10,
   rateLimitMcp: Number(process.env.RATE_LIMIT_MCP) || 100,
   rateLimitGlobal: Number(process.env.RATE_LIMIT_GLOBAL) || 1000,

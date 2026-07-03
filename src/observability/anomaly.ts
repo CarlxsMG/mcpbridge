@@ -11,12 +11,14 @@ import { getUsageSummary } from "./usage.js";
 export interface SpikeResult {
   spike: boolean;
   recentCalls: number;
-  recentRate: number;   // calls per minute
+  recentRate: number; // calls per minute
   baselineRate: number; // calls per minute
   factor: number;
 }
 
-export function detectUsageSpike(opts: { factor?: number; minCalls?: number; now?: number; clientName?: string } = {}): SpikeResult {
+export function detectUsageSpike(
+  opts: { factor?: number; minCalls?: number; now?: number; clientName?: string } = {},
+): SpikeResult {
   const factor = opts.factor ?? 3;
   const minCalls = opts.minCalls ?? 20;
   const now = opts.now ?? Date.now();

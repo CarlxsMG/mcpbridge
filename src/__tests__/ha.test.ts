@@ -5,11 +5,22 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
 import { registry } from "../registry.js";
-import { checkSharedRateLimit, checkSharedToolRateLimit, checkSharedEndUserRateLimit, __clearRateCountersForTesting } from "../db/rate-counters.js";
+import {
+  checkSharedRateLimit,
+  checkSharedToolRateLimit,
+  checkSharedEndUserRateLimit,
+  __clearRateCountersForTesting,
+} from "../db/rate-counters.js";
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(name = "get-x"): RestToolDefinition {
-  return { name, method: "GET", endpoint: `/${name}`, description: name, inputSchema: { type: "object", properties: {} } };
+  return {
+    name,
+    method: "GET",
+    endpoint: `/${name}`,
+    description: name,
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 
 /** Simulates a peer instance having registered a client by writing its rows directly. */
@@ -18,11 +29,11 @@ function insertPeerClient(name: string, toolName: string): void {
   const now = Date.now();
   db.query(
     `INSERT INTO clients (name, ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, created_at, updated_at)
-     VALUES (?, '9.9.9.9', 'http://9.9.9.9/health', 'http://9.9.9.9', '9.9.9.9', 0, 1, 'rest', ?, ?)`
+     VALUES (?, '9.9.9.9', 'http://9.9.9.9/health', 'http://9.9.9.9', '9.9.9.9', 0, 1, 'rest', ?, ?)`,
   ).run(name, now, now);
   db.query(
     `INSERT INTO tools (client_name, name, method, endpoint, description, input_schema, enabled, created_at, updated_at)
-     VALUES (?, ?, 'GET', '/x', 'peer tool', '{"type":"object","properties":{}}', 1, ?, ?)`
+     VALUES (?, ?, 'GET', '/x', 'peer tool', '{"type":"object","properties":{}}', 1, ?, ?)`,
   ).run(name, toolName, now, now);
 }
 

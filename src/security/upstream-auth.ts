@@ -13,10 +13,7 @@ export interface UpstreamAuthInfo {
 }
 
 /** The sensitive part of a credential, stored only in encrypted form. */
-export type UpstreamSecret =
-  | { token: string }
-  | { username: string; password: string }
-  | { value: string };
+export type UpstreamSecret = { token: string } | { username: string; password: string } | { value: string };
 
 interface AuthRow {
   auth_type: string;
@@ -30,14 +27,19 @@ export function getUpstreamAuthInfo(clientName: string): UpstreamAuthInfo {
     .query(`SELECT auth_type, header_name, updated_at FROM client_upstream_auth WHERE client_name = ?`)
     .get(clientName) as { auth_type: string; header_name: string | null; updated_at: number } | null;
   if (!row) return { configured: false };
-  return { configured: true, type: row.auth_type as UpstreamAuthType, headerName: row.header_name, updatedAt: row.updated_at };
+  return {
+    configured: true,
+    type: row.auth_type as UpstreamAuthType,
+    headerName: row.header_name,
+    updatedAt: row.updated_at,
+  };
 }
 
 export function setUpstreamAuth(
   clientName: string,
   type: UpstreamAuthType,
   secret: UpstreamSecret,
-  headerName: string | null
+  headerName: string | null,
 ): void {
   const enc = encryptSecret(JSON.stringify(secret));
   getDb()
@@ -48,7 +50,7 @@ export function setUpstreamAuth(
          auth_type = excluded.auth_type,
          header_name = excluded.header_name,
          secret_enc = excluded.secret_enc,
-         updated_at = excluded.updated_at`
+         updated_at = excluded.updated_at`,
     )
     .run(clientName, type, headerName, enc, Date.now());
 }

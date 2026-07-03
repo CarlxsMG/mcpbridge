@@ -2,9 +2,9 @@
 // Horizontal-scaling topology: MCP clients → load balancer → N identical bridge
 // instances → one shared SQLite that coordinates them (config, shared rate
 // counters, registry sync, leader lease). Same visual system as HowItWorks.
-const instances = [1, 2, 3]
-const cx = [170, 360, 550] // centre x of each instance
-const ix = (i: number) => cx[i] - 84 // left x (width 168)
+const instances = [1, 2, 3];
+const cx = [170, 360, 550]; // centre x of each instance
+const ix = (i: number) => cx[i] - 84; // left x (width 168)
 </script>
 
 <template>
@@ -14,13 +14,21 @@ const ix = (i: number) => cx[i] - 84 // left x (width 168)
         <svg viewBox="0 0 720 424" role="img" aria-labelledby="so-title so-desc" class="so-svg">
           <title id="so-title">Scaling MCP REST Bridge horizontally</title>
           <desc id="so-desc">
-            MCP clients reach a load balancer, which spreads traffic across several identical
-            bridge instances. Every instance shares one SQLite database for config, cross-instance
-            rate counters, registry sync and the leader lease.
+            MCP clients reach a load balancer, which spreads traffic across several identical bridge instances. Every
+            instance shares one SQLite database for config, cross-instance rate counters, registry sync and the leader
+            lease.
           </desc>
 
           <defs>
-            <marker id="so-arrow" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto-start-reverse">
+            <marker
+              id="so-arrow"
+              markerUnits="userSpaceOnUse"
+              markerWidth="9"
+              markerHeight="9"
+              refX="8"
+              refY="4.5"
+              orient="auto-start-reverse"
+            >
               <path d="M0 0 L9 4.5 L0 9 z" fill="#00a99a" />
             </marker>
           </defs>
@@ -34,9 +42,27 @@ const ix = (i: number) => cx[i] - 84 // left x (width 168)
           <path class="so-flow" d="M360 140 V212" marker-end="url(#so-arrow)" fill="none" />
           <path class="so-flow" d="M360 140 C384 176 550 172 550 200 V212" marker-end="url(#so-arrow)" fill="none" />
           <!-- each instance ↕ shared SQLite (spread out along the SQLite top) -->
-          <path class="so-flow" d="M170 288 V300 C170 336 280 340 280 356 V368" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M360 288 V368" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
-          <path class="so-flow" d="M550 288 V300 C550 336 440 340 440 356 V368" marker-start="url(#so-arrow)" marker-end="url(#so-arrow)" fill="none" />
+          <path
+            class="so-flow"
+            d="M170 288 V300 C170 336 280 340 280 356 V368"
+            marker-start="url(#so-arrow)"
+            marker-end="url(#so-arrow)"
+            fill="none"
+          />
+          <path
+            class="so-flow"
+            d="M360 288 V368"
+            marker-start="url(#so-arrow)"
+            marker-end="url(#so-arrow)"
+            fill="none"
+          />
+          <path
+            class="so-flow"
+            d="M550 288 V300 C550 336 440 340 440 356 V368"
+            marker-start="url(#so-arrow)"
+            marker-end="url(#so-arrow)"
+            fill="none"
+          />
 
           <!-- clients -->
           <g class="so-chip-g">
@@ -75,8 +101,8 @@ const ix = (i: number) => cx[i] - 84 // left x (width 168)
       </div>
     </div>
     <figcaption class="so-cap">
-      Identical instances behind a load balancer, coordinated through one shared SQLite. Each
-      still proxies to your REST &amp; MCP backends; background loops run on the elected leader only.
+      Identical instances behind a load balancer, coordinated through one shared SQLite. Each still proxies to your REST
+      &amp; MCP backends; background loops run on the elected leader only.
     </figcaption>
   </figure>
 </template>
@@ -115,7 +141,7 @@ const ix = (i: number) => cx[i] - 84 // left x (width 168)
 }
 .so-label {
   fill: #14171c;
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 15px;
   font-weight: 600;
 }
@@ -150,7 +176,7 @@ const ix = (i: number) => cx[i] - 84 // left x (width 168)
 }
 .so-inst-title {
   fill: #ffffff;
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 12.5px;
   font-weight: 600;
 }
@@ -168,7 +194,7 @@ const ix = (i: number) => cx[i] - 84 // left x (width 168)
 }
 .so-db-title {
   fill: #0e4f49;
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 14px;
   font-weight: 600;
 }

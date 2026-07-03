@@ -51,7 +51,10 @@ function hydrate(source: Record<string, unknown>) {
   const next: Record<string, string | boolean> = {};
   for (const f of fields.value) {
     const v = source?.[f.name];
-    if (v === undefined) { next[f.name] = f.kind === "boolean" ? false : ""; continue; }
+    if (v === undefined) {
+      next[f.name] = f.kind === "boolean" ? false : "";
+      continue;
+    }
     next[f.name] = f.kind === "boolean" ? Boolean(v) : typeof v === "object" ? JSON.stringify(v) : String(v);
   }
   values.value = next;
@@ -61,28 +64,44 @@ hydrate(props.modelValue ?? {});
 
 watch(
   () => props.modelValue,
-  (mv) => { if (!suppress) hydrate(mv ?? {}); },
-  { deep: true }
+  (mv) => {
+    if (!suppress) hydrate(mv ?? {});
+  },
+  { deep: true },
 );
 
 function emitArgs() {
   const out: Record<string, unknown> = {};
   for (const f of fields.value) {
     const raw = values.value[f.name];
-    if (f.kind === "boolean") { out[f.name] = Boolean(raw); continue; }
-    const str = String(raw ?? "");
-    if (str === "") { if (f.kind === "json") jsonInvalid.value[f.name] = false; continue; }
-    if (f.kind === "number") { const n = Number(str); if (Number.isFinite(n)) out[f.name] = n; }
-    else if (f.kind === "json") {
-      try { out[f.name] = JSON.parse(str); jsonInvalid.value[f.name] = false; }
-      catch { out[f.name] = str; jsonInvalid.value[f.name] = true; }
+    if (f.kind === "boolean") {
+      out[f.name] = Boolean(raw);
+      continue;
     }
-    else out[f.name] = str;
+    const str = String(raw ?? "");
+    if (str === "") {
+      if (f.kind === "json") jsonInvalid.value[f.name] = false;
+      continue;
+    }
+    if (f.kind === "number") {
+      const n = Number(str);
+      if (Number.isFinite(n)) out[f.name] = n;
+    } else if (f.kind === "json") {
+      try {
+        out[f.name] = JSON.parse(str);
+        jsonInvalid.value[f.name] = false;
+      } catch {
+        out[f.name] = str;
+        jsonInvalid.value[f.name] = true;
+      }
+    } else out[f.name] = str;
   }
   suppress = true;
   emit("update:modelValue", out);
   // release the suppression on the next microtask so external loads still sync
-  Promise.resolve().then(() => { suppress = false; });
+  Promise.resolve().then(() => {
+    suppress = false;
+  });
 }
 </script>
 
@@ -90,31 +109,82 @@ function emitArgs() {
   <div class="schema-form">
     <p v-if="fields.length === 0" class="hint">This tool takes no arguments.</p>
     <div v-for="f in fields" :key="f.name" class="sf-field">
-      <label :for="`sf-${f.name}`">
-        {{ f.name }}<span v-if="f.required" class="req">*</span>
-      </label>
+      <label :for="`sf-${f.name}`"> {{ f.name }}<span v-if="f.required" class="req">*</span> </label>
       <p v-if="f.description" class="hint">{{ f.description }}</p>
-      <input v-if="f.kind === 'boolean'" :id="`sf-${f.name}`" type="checkbox" v-model="values[f.name]" @change="emitArgs" />
+      <input
+        v-if="f.kind === 'boolean'"
+        :id="`sf-${f.name}`"
+        v-model="values[f.name]"
+        type="checkbox"
+        @change="emitArgs"
+      />
       <select v-else-if="f.kind === 'enum'" :id="`sf-${f.name}`" v-model="values[f.name]" @change="emitArgs">
         <option value="">—</option>
         <option v-for="opt in f.enum" :key="opt" :value="opt">{{ opt }}</option>
       </select>
-      <textarea v-else-if="f.kind === 'json'" :id="`sf-${f.name}`" v-model="values[f.name] as string" rows="2" spellcheck="false" @input="emitArgs" placeholder='{"key": "value"}'></textarea>
-      <input v-else-if="f.kind === 'number'" :id="`sf-${f.name}`" type="number" v-model="values[f.name] as string" @input="emitArgs" />
-      <input v-else :id="`sf-${f.name}`" type="text" v-model="values[f.name] as string" @input="emitArgs" />
-      <p v-if="f.kind === 'json' && jsonInvalid[f.name]" class="field-error">Invalid JSON — sent as a raw string instead.</p>
+      <textarea
+        v-else-if="f.kind === 'json'"
+        :id="`sf-${f.name}`"
+        v-model="values[f.name] as string"
+        rows="2"
+        spellcheck="false"
+        placeholder='{"key": "value"}'
+        @input="emitArgs"
+      ></textarea>
+      <input
+        v-else-if="f.kind === 'number'"
+        :id="`sf-${f.name}`"
+        v-model="values[f.name] as string"
+        type="number"
+        @input="emitArgs"
+      />
+      <input v-else :id="`sf-${f.name}`" v-model="values[f.name] as string" type="text" @input="emitArgs" />
+      <p v-if="f.kind === 'json' && jsonInvalid[f.name]" class="field-error">
+        Invalid JSON — sent as a raw string instead.
+      </p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.schema-form { display: flex; flex-direction: column; gap: 0.7rem; }
-.sf-field label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.2rem; }
-.req { color: var(--breach); margin-left: 0.15rem; }
-.sf-field input[type="text"], .sf-field input[type="number"], .sf-field select, .sf-field textarea {
-  width: 100%; padding: 0.4rem 0.55rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-sizing: border-box; font-size: 0.9rem; font-family: var(--font-body);
+.schema-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
 }
-.sf-field textarea { font-family: var(--font-mono); }
-.hint { font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 0.3rem; }
-.field-error { color: var(--breach); font-size: 0.8rem; margin: 0.25rem 0 0; }
+.sf-field label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+}
+.req {
+  color: var(--breach);
+  margin-left: 0.15rem;
+}
+.sf-field input[type="text"],
+.sf-field input[type="number"],
+.sf-field select,
+.sf-field textarea {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+}
+.sf-field textarea {
+  font-family: var(--font-mono);
+}
+.hint {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.3rem;
+}
+.field-error {
+  color: var(--breach);
+  font-size: 0.8rem;
+  margin: 0.25rem 0 0;
+}
 </style>

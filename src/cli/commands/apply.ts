@@ -13,7 +13,13 @@ function toRegistrationPayload(s: GatewayServerEntry): Record<string, unknown> {
     return { kind: "mcp", name: s.name, mcp_url: s.mcp_url, mcp_transport: s.mcp_transport };
   }
   if (s.kind === "graphql") {
-    return { kind: "graphql", name: s.name, graphql_url: s.graphql_url, health_url: s.health_url, include_mutations: s.include_mutations };
+    return {
+      kind: "graphql",
+      name: s.name,
+      graphql_url: s.graphql_url,
+      health_url: s.health_url,
+      include_mutations: s.include_mutations,
+    };
   }
   return {
     name: s.name,
@@ -73,7 +79,9 @@ export async function applyCommand(argv: string[]): Promise<number> {
     } catch (err) {
       importFailed = true;
       if (err instanceof CliApiError && /unsupported export version/i.test(err.message)) {
-        console.error(`config: ${file} was exported from a different gateway version — run "gateway pull --file ${file}" to refresh, then re-apply your edits.`);
+        console.error(
+          `config: ${file} was exported from a different gateway version — run "gateway pull --file ${file}" to refresh, then re-apply your edits.`,
+        );
       } else {
         console.error(`config: import failed: ${err instanceof Error ? err.message : String(err)}`);
       }

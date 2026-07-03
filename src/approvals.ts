@@ -84,7 +84,9 @@ function rowToDecision(row: DecisionRow): ApprovalDecision {
 
 function listDecisions(approvalId: number): ApprovalDecision[] {
   return (
-    getDb().query(`SELECT * FROM approval_decisions WHERE approval_id = ? ORDER BY id ASC`).all(approvalId) as DecisionRow[]
+    getDb()
+      .query(`SELECT * FROM approval_decisions WHERE approval_id = ? ORDER BY id ASC`)
+      .all(approvalId) as DecisionRow[]
   ).map(rowToDecision);
 }
 
@@ -131,7 +133,12 @@ export function getRequiredLevels(clientName: string, toolName: string): number 
  * distinct-approver threshold (defaults to 1, clamped to [1, MAX_APPROVAL_LEVELS]).
  * False when the tool is unknown.
  */
-export function setApprovalRequired(clientName: string, toolName: string, enabled: boolean, requiredLevels?: number): boolean {
+export function setApprovalRequired(
+  clientName: string,
+  toolName: string,
+  enabled: boolean,
+  requiredLevels?: number,
+): boolean {
   const db = getDb();
   const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
   if (!exists) return false;
@@ -140,7 +147,10 @@ export function setApprovalRequired(clientName: string, toolName: string, enable
     return true;
   }
   const levels =
-    requiredLevels !== undefined && Number.isInteger(requiredLevels) && requiredLevels >= 1 && requiredLevels <= MAX_APPROVAL_LEVELS
+    requiredLevels !== undefined &&
+    Number.isInteger(requiredLevels) &&
+    requiredLevels >= 1 &&
+    requiredLevels <= MAX_APPROVAL_LEVELS
       ? requiredLevels
       : (getRequiredLevels(clientName, toolName) ?? 1);
   db.query(
@@ -151,7 +161,9 @@ export function setApprovalRequired(clientName: string, toolName: string, enable
 }
 
 /** Approval config for every tool of a client, keyed by tool name (batched for detail views). */
-export function getApprovalConfigForClient(clientName: string): Record<string, { required: boolean; requiredLevels: number }> {
+export function getApprovalConfigForClient(
+  clientName: string,
+): Record<string, { required: boolean; requiredLevels: number }> {
   const rows = getDb()
     .query(`SELECT tool_name, enabled, required_levels FROM tool_approval WHERE client_name = ?`)
     .all(clientName) as { tool_name: string; enabled: number; required_levels: number }[];
@@ -211,7 +223,12 @@ export type DecideApprovalResult =
  * ticket only flips to 'approved' once the count reaches the required N-of-M
  * threshold that was snapshotted on the ticket at creation time.
  */
-export function decideApproval(id: number, status: "approved" | "rejected", decidedBy: string, note: string | null): DecideApprovalResult {
+export function decideApproval(
+  id: number,
+  status: "approved" | "rejected",
+  decidedBy: string,
+  note: string | null,
+): DecideApprovalResult {
   const rec = getApproval(id);
   if (!rec) return { ok: false, message: `Approval #${id} not found` };
   if (rec.status !== "pending") return { ok: false, message: `Approval #${id} is no longer pending` };
@@ -220,22 +237,36 @@ export function decideApproval(id: number, status: "approved" | "rejected", deci
   const now = Date.now();
 
   if (status === "rejected") {
-    const r = db.query(`UPDATE approvals SET status = 'rejected', decided_at = ?, decided_by = ?, note = ? WHERE id = ? AND status = 'pending'`).run(now, decidedBy, note, id);
+    const r = db
+      .query(
+        `UPDATE approvals SET status = 'rejected', decided_at = ?, decided_by = ?, note = ? WHERE id = ? AND status = 'pending'`,
+      )
+      .run(now, decidedBy, note, id);
     if (r.changes === 0) return { ok: false, message: `Approval #${id} is no longer pending` };
-    db.query(`INSERT INTO approval_decisions (approval_id, decided_by, decision, note, decided_at) VALUES (?, ?, 'rejected', ?, ?)`).run(id, decidedBy, note, now);
+    db.query(
+      `INSERT INTO approval_decisions (approval_id, decided_by, decision, note, decided_at) VALUES (?, ?, 'rejected', ?, ?)`,
+    ).run(id, decidedBy, note, now);
     return { ok: true, finalStatus: "rejected", approvalsReceived: 0, requiredLevels: rec.requiredLevels };
   }
 
   try {
-    db.query(`INSERT INTO approval_decisions (approval_id, decided_by, decision, note, decided_at) VALUES (?, ?, 'approved', ?, ?)`).run(id, decidedBy, note, now);
+    db.query(
+      `INSERT INTO approval_decisions (approval_id, decided_by, decision, note, decided_at) VALUES (?, ?, 'approved', ?, ?)`,
+    ).run(id, decidedBy, note, now);
   } catch {
     // UNIQUE(approval_id, decided_by) violation — this actor already recorded a decision.
     return { ok: false, message: `You already recorded a decision for approval #${id}` };
   }
 
-  const approvedCount = (db.query(`SELECT COUNT(*) as c FROM approval_decisions WHERE approval_id = ? AND decision = 'approved'`).get(id) as { c: number }).c;
+  const approvedCount = (
+    db
+      .query(`SELECT COUNT(*) as c FROM approval_decisions WHERE approval_id = ? AND decision = 'approved'`)
+      .get(id) as { c: number }
+  ).c;
   if (approvedCount >= rec.requiredLevels) {
-    db.query(`UPDATE approvals SET status = 'approved', decided_at = ?, decided_by = ?, note = ? WHERE id = ? AND status = 'pending'`).run(now, decidedBy, note, id);
+    db.query(
+      `UPDATE approvals SET status = 'approved', decided_at = ?, decided_by = ?, note = ? WHERE id = ? AND status = 'pending'`,
+    ).run(now, decidedBy, note, id);
     return { ok: true, finalStatus: "approved", approvalsReceived: approvedCount, requiredLevels: rec.requiredLevels };
   }
   return { ok: true, finalStatus: "pending", approvalsReceived: approvedCount, requiredLevels: rec.requiredLevels };
@@ -258,7 +289,8 @@ export function consumeApproval(
   }
   if (rec.argsHash !== argsHash) return { ok: false, message: `Approval #${id} was issued for different arguments` };
   if (rec.status === "pending") return { ok: false, message: `Approval #${id} is still pending` };
-  if (rec.status === "rejected") return { ok: false, message: `Approval #${id} was rejected${rec.note ? `: ${rec.note}` : ""}` };
+  if (rec.status === "rejected")
+    return { ok: false, message: `Approval #${id} was rejected${rec.note ? `: ${rec.note}` : ""}` };
   if (rec.consumedAt !== null) return { ok: false, message: `Approval #${id} was already used` };
   getDb().query(`UPDATE approvals SET consumed_at = ? WHERE id = ?`).run(Date.now(), id);
   return { ok: true };
@@ -280,5 +312,8 @@ function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   const obj = value as Record<string, unknown>;
-  return `{${Object.keys(obj).sort().map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(",")}}`;
+  return `{${Object.keys(obj)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`)
+    .join(",")}}`;
 }

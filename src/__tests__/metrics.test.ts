@@ -1,10 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import {
-  Counter,
-  Gauge,
-  Histogram,
-  MetricsRegistry,
-} from "../observability/metrics.js";
+import { Counter, Gauge, Histogram, MetricsRegistry } from "../observability/metrics.js";
 import express from "express";
 import { createServer } from "http";
 import { metricsRoutes } from "../routes/metrics.js";

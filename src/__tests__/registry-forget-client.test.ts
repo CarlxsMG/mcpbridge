@@ -87,7 +87,9 @@ describe("Registry.forgetClient", () => {
     expect(detail).toBeDefined();
     expect(detail?.tools).toEqual([]);
 
-    const row = getDb().query(`SELECT 1 FROM mcp_bundle_tools WHERE client_name = ? AND tool_name = ?`).get("svc", "get-users");
+    const row = getDb()
+      .query(`SELECT 1 FROM mcp_bundle_tools WHERE client_name = ? AND tool_name = ?`)
+      .get("svc", "get-users");
     expect(row).toBeNull();
   });
 });

@@ -50,7 +50,7 @@ function matchOrigin(origin: string, pattern: string): boolean {
  */
 export function isOriginAllowed(origin: string | undefined, secFetchSite: string | undefined): boolean {
   if (!origin) return !secFetchSite; // server-to-server (no Origin) allowed unless it's clearly a browser request
-  return config.allowedOrigins.some(pattern => matchOrigin(origin, pattern));
+  return config.allowedOrigins.some((pattern) => matchOrigin(origin, pattern));
 }
 
 export function originValidator(req: Request, res: Response, next: NextFunction): void {
@@ -63,7 +63,9 @@ export function originValidator(req: Request, res: Response, next: NextFunction)
   }
 
   if (!origin) {
-    res.status(403).json({ error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin header required for browser requests" } });
+    res
+      .status(403)
+      .json({ error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin header required for browser requests" } });
     return;
   }
   res.status(403).json({ error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin not allowed" } });

@@ -115,8 +115,13 @@ describe("health cooldown", () => {
 describe("config persistence + validation", () => {
   test("setLb validates client / strategy / weight; getLb round-trips; clear removes", async () => {
     await reg();
-    expect(setLb("ghost", { strategy: "round-robin", primaryWeight: 1, enabled: true })).toMatchObject({ ok: false, error: "CLIENT_NOT_FOUND" });
-    expect(setLb(CLIENT, { strategy: "bogus" as LbConfig["strategy"], primaryWeight: 1, enabled: true })).toMatchObject({ ok: false, error: "INVALID_STRATEGY" });
+    expect(setLb("ghost", { strategy: "round-robin", primaryWeight: 1, enabled: true })).toMatchObject({
+      ok: false,
+      error: "CLIENT_NOT_FOUND",
+    });
+    expect(setLb(CLIENT, { strategy: "bogus" as LbConfig["strategy"], primaryWeight: 1, enabled: true })).toMatchObject(
+      { ok: false, error: "INVALID_STRATEGY" },
+    );
     expect(setLb(CLIENT, { strategy: "weighted", primaryWeight: 2, enabled: true })).toEqual({ ok: true });
     expect(getLb(CLIENT)).toMatchObject({ strategy: "weighted", primaryWeight: 2, enabled: true, targets: [] });
     expect(setLb(CLIENT, null)).toEqual({ ok: true });
@@ -132,7 +137,9 @@ describe("config persistence + validation", () => {
     const added = await addUpstream(CLIENT, "http://5.6.7.8", 2);
     expect(added.ok).toBe(true);
     const id = (added as { ok: true; id: number }).id;
-    expect(getLb(CLIENT)?.targets).toMatchObject([{ baseUrl: "http://5.6.7.8", resolvedIp: "5.6.7.8", weight: 2, enabled: true }]);
+    expect(getLb(CLIENT)?.targets).toMatchObject([
+      { baseUrl: "http://5.6.7.8", resolvedIp: "5.6.7.8", weight: 2, enabled: true },
+    ]);
 
     expect(updateUpstream(CLIENT, 9999, { enabled: false })).toMatchObject({ ok: false, error: "TARGET_NOT_FOUND" });
     expect(updateUpstream(CLIENT, id, { enabled: false, weight: 5 })).toEqual({ ok: true });

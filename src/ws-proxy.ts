@@ -65,7 +65,8 @@ function rowToTarget(row: WsProxyTargetRow): WsProxyTarget {
   };
 }
 
-const COLS = "name, backend_ws_url, resolved_ip, max_connections, max_message_bytes, idle_timeout_ms, enabled, created_at, updated_at";
+const COLS =
+  "name, backend_ws_url, resolved_ip, max_connections, max_message_bytes, idle_timeout_ms, enabled, created_at, updated_at";
 
 // In-memory target map, hydrated at boot and kept in sync on every admin
 // mutation — mirrors bundles.ts's liveBundles pattern.
@@ -134,13 +135,16 @@ export interface WsProxyTargetInput {
  */
 export async function upsertWsProxyTarget(
   name: string,
-  input: WsProxyTargetInput
+  input: WsProxyTargetInput,
 ): Promise<{ ok: true; target: WsProxyTarget } | { ok: false; error: WsProxyTargetError }> {
   if (!NAME_RE.test(name)) {
     return { ok: false, error: { code: "INVALID_NAME", message: "Name must match /^[a-z0-9][a-z0-9_-]{0,62}$/" } };
   }
   if (!targets.has(name) && registry.getClient(name)) {
-    return { ok: false, error: { code: "NAME_COLLISION", message: `"${name}" is already registered as an MCP/REST client` } };
+    return {
+      ok: false,
+      error: { code: "NAME_COLLISION", message: `"${name}" is already registered as an MCP/REST client` },
+    };
   }
   if (!/^wss?:\/\//.test(input.backendWsUrl)) {
     return { ok: false, error: { code: "INVALID_URL", message: "backendWsUrl must start with ws:// or wss://" } };
@@ -169,9 +173,19 @@ export async function upsertWsProxyTarget(
          idle_timeout_ms = excluded.idle_timeout_ms,
          enabled = excluded.enabled,
          updated_at = excluded.updated_at
-       RETURNING ${COLS}`
+       RETURNING ${COLS}`,
     )
-    .get(name, input.backendWsUrl, check.resolvedIp, maxConnections, maxMessageBytes, idleTimeoutMs, enabled ? 1 : 0, now, now) as WsProxyTargetRow;
+    .get(
+      name,
+      input.backendWsUrl,
+      check.resolvedIp,
+      maxConnections,
+      maxMessageBytes,
+      idleTimeoutMs,
+      enabled ? 1 : 0,
+      now,
+      now,
+    ) as WsProxyTargetRow;
 
   const target = rowToTarget(row);
   targets.set(name, target);
@@ -258,7 +272,7 @@ function rejectUpgrade(socket: Duplex, status: number, message: string): void {
   try {
     const body = message;
     socket.write(
-      `HTTP/1.1 ${status} ${message}\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`
+      `HTTP/1.1 ${status} ${message}\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`,
     );
   } catch {
     /* socket may already be gone */
@@ -329,7 +343,11 @@ export async function handleWsProxyUpgrade(req: IncomingMessage, socket: Duplex,
 /** Caps how many caller messages can queue up while the backend dial is still in flight (a chatty caller during a slow/stalled dial shouldn't grow unbounded). */
 const MAX_PENDING_MESSAGES = 256;
 
-function dialBackendAndPipe(clientWs: WsClient, target: WsProxyTarget, breaker: ReturnType<typeof getCircuitBreaker>): void {
+function dialBackendAndPipe(
+  clientWs: WsClient,
+  target: WsProxyTarget,
+  breaker: ReturnType<typeof getCircuitBreaker>,
+): void {
   const hostname = new URL(target.backendWsUrl.replace(/^ws/, "http")).hostname;
   const isRawIp = isRawIpLiteral(hostname);
 
@@ -340,7 +358,12 @@ function dialBackendAndPipe(clientWs: WsClient, target: WsProxyTarget, breaker: 
     // original hostname for the Host header / TLS SNI — same intent as the
     // fetch-side pinning proxy.ts does for REST, achieved differently since a
     // WS upgrade handshake can't rewrite the URL host the way fetch does.
-    ...(isRawIp ? {} : { lookup: (_h: string, _o: unknown, cb: (err: Error | null, address: string, family: number) => void) => cb(null, target.resolvedIp, 4) }),
+    ...(isRawIp
+      ? {}
+      : {
+          lookup: (_h: string, _o: unknown, cb: (err: Error | null, address: string, family: number) => void) =>
+            cb(null, target.resolvedIp, 4),
+        }),
   });
 
   const conn: ProxiedConn = { clientWs, backendWs, lastActivity: Date.now(), targetName: target.name, hostname };
@@ -471,7 +494,12 @@ export function startWsProxyRevalidationLoop(): () => void {
       if (!hostname) continue;
       void validateBackendUrl(`http://${hostname}`, config.allowPrivateIps, config.allowedHosts).then((check) => {
         if (check.valid) return;
-        log("warn", "WS proxy connections distrusted after revalidation", { target: targetName, hostname, reason: check.reason, count: remaining.length });
+        log("warn", "WS proxy connections distrusted after revalidation", {
+          target: targetName,
+          hostname,
+          reason: check.reason,
+          count: remaining.length,
+        });
         for (const conn of remaining) {
           safeClose(conn.clientWs);
           safeClose(conn.backendWs);

@@ -13,9 +13,8 @@
         <svg viewBox="0 0 820 264" role="img" aria-labelledby="hiw-title hiw-desc" class="hiw-svg">
           <title id="hiw-title">How MCP REST Bridge works</title>
           <desc id="hiw-desc">
-            AI clients send tool calls over MCP; the bridge runs each call through SSRF checks,
-            guardrails, per-tool policy, circuit breakers and an audit log, then dispatches it to
-            your REST APIs or upstream MCP servers.
+            AI clients send tool calls over MCP; the bridge runs each call through SSRF checks, guardrails, per-tool
+            policy, circuit breakers and an audit log, then dispatches it to your REST APIs or upstream MCP servers.
           </desc>
 
           <!-- eyebrows -->
@@ -112,8 +111,8 @@
       </div>
     </div>
     <figcaption class="hiw-cap">
-      Tool calls in over MCP — dispatched out to your REST APIs or MCP servers, through the
-      full guard stack on every hop.
+      Tool calls in over MCP — dispatched out to your REST APIs or MCP servers, through the full guard stack on every
+      hop.
     </figcaption>
   </figure>
 </template>
@@ -152,7 +151,7 @@
 }
 .hiw-label {
   fill: #14171c;
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 15px;
   font-weight: 600;
 }
@@ -161,7 +160,7 @@
 }
 .hiw-eyebrow {
   fill: #6b7280;
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -200,7 +199,7 @@
 }
 .hiw-bridge-title {
   fill: #ffffff;
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 16px;
   font-weight: 600;
 }
@@ -215,7 +214,7 @@
 }
 .hiw-pipe-label {
   fill: #2fd4c4;
-  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -247,13 +246,13 @@
   offset-distance: 0%;
 }
 .hiw-a {
-  offset-path: path('M188 70 C222 70 222 176 256 176 H544 C596 176 596 132 624 132');
+  offset-path: path("M188 70 C222 70 222 176 256 176 H544 C596 176 596 132 624 132");
 }
 .hiw-b {
-  offset-path: path('M188 206 C222 206 222 176 256 176 H544 C596 176 596 220 624 220');
+  offset-path: path("M188 206 C222 206 222 176 256 176 H544 C596 176 596 220 624 220");
 }
 .hiw-c {
-  offset-path: path('M188 138 C222 138 222 176 256 176 H544 C596 176 596 132 624 132');
+  offset-path: path("M188 138 C222 138 222 176 256 176 H544 C596 176 596 132 624 132");
 }
 @media (prefers-reduced-motion: no-preference) {
   .hiw-pulse {

@@ -16,7 +16,13 @@ import { requestIdMiddleware } from "../middleware/request-id.js";
 import type { RestToolDefinition } from "../types.js";
 
 function tool(name: string, endpoint = "/x"): RestToolDefinition {
-  return { name, method: "GET", endpoint, description: `desc ${name}`, inputSchema: { type: "object", properties: {} } };
+  return {
+    name,
+    method: "GET",
+    endpoint,
+    description: `desc ${name}`,
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 async function reg(clientName: string, tools: RestToolDefinition[]): Promise<void> {
   await registry.register(clientName, tools, "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
@@ -85,8 +91,20 @@ describe("display-name alias — registry", () => {
   });
 
   test("displayName can coexist with description + params overrides", async () => {
-    await reg("svc", [{ name: "t", method: "GET", endpoint: "/t", description: "orig", inputSchema: { type: "object", properties: { limit: { type: "number", description: "orig" } } } }]);
-    await registry.setToolOverride("svc", "t", { displayName: "clean", description: "better", params: { limit: { description: "max rows" } } });
+    await reg("svc", [
+      {
+        name: "t",
+        method: "GET",
+        endpoint: "/t",
+        description: "orig",
+        inputSchema: { type: "object", properties: { limit: { type: "number", description: "orig" } } },
+      },
+    ]);
+    await registry.setToolOverride("svc", "t", {
+      displayName: "clean",
+      description: "better",
+      params: { limit: { description: "max rows" } },
+    });
     const adv = registry.getAllMcpTools().find((t) => t.name === "svc__clean");
     expect(adv?.description).toBe("better");
     expect((adv?.inputSchema.properties as Record<string, { description: string }>).limit.description).toBe("max rows");
@@ -96,18 +114,24 @@ describe("display-name alias — registry", () => {
 describe("display-name alias — collision + validation", () => {
   test("rejects an alias that collides with another tool's real name", async () => {
     await reg("svc", [tool("alpha"), tool("beta")]);
-    await expect(registry.setToolOverride("svc", "alpha", { displayName: "beta" })).rejects.toBeInstanceOf(ToolOverrideError);
+    await expect(registry.setToolOverride("svc", "alpha", { displayName: "beta" })).rejects.toBeInstanceOf(
+      ToolOverrideError,
+    );
   });
 
   test("rejects an alias that collides with another tool's displayName", async () => {
     await reg("svc", [tool("alpha"), tool("beta")]);
     await registry.setToolOverride("svc", "beta", { displayName: "shared" });
-    await expect(registry.setToolOverride("svc", "alpha", { displayName: "shared" })).rejects.toMatchObject({ code: "TOOL_ALIAS_CONFLICT" });
+    await expect(registry.setToolOverride("svc", "alpha", { displayName: "shared" })).rejects.toMatchObject({
+      code: "TOOL_ALIAS_CONFLICT",
+    });
   });
 
   test("rejects a malformed alias", async () => {
     await reg("svc", [tool("alpha")]);
-    await expect(registry.setToolOverride("svc", "alpha", { displayName: "Bad Name!" })).rejects.toMatchObject({ code: "TOOL_ALIAS_INVALID" });
+    await expect(registry.setToolOverride("svc", "alpha", { displayName: "Bad Name!" })).rejects.toMatchObject({
+      code: "TOOL_ALIAS_INVALID",
+    });
   });
 
   test("the same alias on two different clients is fine (prefix keeps them distinct)", async () => {
@@ -129,7 +153,10 @@ describe("display-name alias — proxyToolCall", () => {
     let hits = 0;
     globalThis.fetch = (async () => {
       hits++;
-      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }) as unknown as typeof fetch;
 
     const result = await proxyToolCall("github__issues", {});
@@ -161,7 +188,11 @@ describe("display-name alias — admin route", () => {
   }
   afterEach(async () => {
     await new Promise<void>((resolve) => {
-      if (server) server.close(() => { server = null; resolve(); });
+      if (server)
+        server.close(() => {
+          server = null;
+          resolve();
+        });
       else resolve();
     });
   });

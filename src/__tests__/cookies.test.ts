@@ -1,5 +1,11 @@
 import { describe, test, expect } from "bun:test";
-import { sessionCookieName, csrfCookieName, SESSION_COOKIE_NAME, CSRF_COOKIE_NAME, parseCookies } from "../security/cookies.js";
+import {
+  sessionCookieName,
+  csrfCookieName,
+  SESSION_COOKIE_NAME,
+  CSRF_COOKIE_NAME,
+  parseCookies,
+} from "../security/cookies.js";
 
 describe("sessionCookieName / csrfCookieName", () => {
   test("use the __Host- prefix when secure=true (it requires the Secure attribute, which secure=true supplies)", () => {

@@ -95,16 +95,28 @@ async function initSession(path: string, extraHeaders: Record<string, string> = 
 
   await fetch(`${baseUrl}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-session-id": sessionId, ...extraHeaders },
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "mcp-session-id": sessionId,
+      ...extraHeaders,
+    },
     body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
   });
   return sessionId;
 }
 
-async function toolsList(path: string, sessionId: string): Promise<{ status: number; body?: { tools: { name: string }[] } }> {
+async function toolsList(
+  path: string,
+  sessionId: string,
+): Promise<{ status: number; body?: { tools: { name: string }[] } }> {
   const res = await fetch(`${baseUrl}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-session-id": sessionId },
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "mcp-session-id": sessionId,
+    },
     body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 2 }),
   });
   if (res.status !== 200) return { status: res.status };
@@ -115,16 +127,23 @@ async function toolsList(path: string, sessionId: string): Promise<{ status: num
 async function toolsCall(
   path: string,
   sessionId: string,
-  toolName: string
+  toolName: string,
 ): Promise<{ status: number; body?: { isError?: boolean; content?: { type: string; text: string }[] } }> {
   const res = await fetch(`${baseUrl}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-session-id": sessionId },
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "mcp-session-id": sessionId,
+    },
     body: JSON.stringify({ jsonrpc: "2.0", method: "tools/call", id: 3, params: { name: toolName, arguments: {} } }),
   });
   if (res.status !== 200) return { status: res.status };
   const parsed = parseSseJson(await res.text());
-  return { status: res.status, body: parsed.result as { isError?: boolean; content?: { type: string; text: string }[] } };
+  return {
+    status: res.status,
+    body: parsed.result as { isError?: boolean; content?: { type: string; text: string }[] },
+  };
 }
 
 beforeEach(async () => {
@@ -166,7 +185,7 @@ describe("POST /mcp-custom/:bundleName — new session", () => {
         { client: "client-a", tool: "tool-a" },
         { client: "client-b", tool: "tool-b" },
       ],
-      "test"
+      "test",
     );
 
     const sessionId = await initSession("/mcp-custom/mix");
@@ -175,7 +194,12 @@ describe("POST /mcp-custom/:bundleName — new session", () => {
     const list = await toolsList("/mcp-custom/mix", sessionId!);
     expect(list.status).toBe(200);
     // Only the two bundled tools — "other-a" (same client, not in the bundle) is excluded.
-    expect(list.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools").sort()).toEqual(["client-a__tool-a", "client-b__tool-b"]);
+    expect(
+      list.body?.tools
+        .map((t) => t.name)
+        .filter((n) => n !== "search_tools")
+        .sort(),
+    ).toEqual(["client-a__tool-a", "client-b__tool-b"]);
   });
 
   test("a disabled member tool is excluded from the bundle's tools/list", async () => {
@@ -188,7 +212,7 @@ describe("POST /mcp-custom/:bundleName — new session", () => {
         { client: "client-a", tool: "tool-a" },
         { client: "client-a", tool: "tool-b" },
       ],
-      "test"
+      "test",
     );
     await registry.setToolEnabled("client-a", "tool-a", false);
 
@@ -283,7 +307,11 @@ describe("Confused-deputy defense", () => {
 
     const res = await fetch(`${baseUrl}/mcp/shared-name`, {
       method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-session-id": bundleSession! },
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-session-id": bundleSession!,
+      },
       body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 3 }),
     });
     expect(res.status).toBe(404);
@@ -294,7 +322,11 @@ describe("Confused-deputy defense", () => {
 
     const res2 = await fetch(`${baseUrl}/mcp-custom/shared-name`, {
       method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-session-id": clientSession! },
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-session-id": clientSession!,
+      },
       body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 3 }),
     });
     expect(res2.status).toBe(404);
@@ -314,10 +346,17 @@ describe("side-by-side with /mcp/:clientName and aggregated /mcp", () => {
 
     const shardedSession = await initSession("/mcp/client-a");
     const shardedList = await toolsList("/mcp/client-a", shardedSession!);
-    expect(shardedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual(["client-a__tool-a"]);
+    expect(shardedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual([
+      "client-a__tool-a",
+    ]);
 
     const aggregatedSession = await initSession("/mcp");
     const aggregatedList = await toolsList("/mcp", aggregatedSession!);
-    expect(aggregatedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools").sort()).toEqual(["client-a__tool-a", "client-b__tool-b"]);
+    expect(
+      aggregatedList.body?.tools
+        .map((t) => t.name)
+        .filter((n) => n !== "search_tools")
+        .sort(),
+    ).toEqual(["client-a__tool-a", "client-b__tool-b"]);
   });
 });

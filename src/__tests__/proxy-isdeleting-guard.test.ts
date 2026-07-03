@@ -63,14 +63,7 @@ afterEach(async () => {
 
 describe("proxyToolCall — isDeleting guard: returns error without calling fetch", () => {
   test("returns isError result and does NOT call fetch when isDeleting() is true", async () => {
-    await registry.register(
-      CLIENT,
-      [makeTool()],
-      "http://1.2.3.4/health",
-      "1.2.3.4",
-      "http://1.2.3.4",
-      "1.2.3.4"
-    );
+    await registry.register(CLIENT, [makeTool()], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 
     let fetchCallCount = 0;
     globalThis.fetch = (async () => {
@@ -90,7 +83,7 @@ describe("proxyToolCall — isDeleting guard: returns error without calling fetc
     // Poll until isDeleting is true (the unregister has added to deletingClients)
     const deadline = Date.now() + 500;
     while (!isDeleting(CLIENT) && Date.now() < deadline) {
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
     let result: Awaited<ReturnType<typeof proxyToolCall>> | undefined;
@@ -126,14 +119,7 @@ describe("proxyToolCall — isDeleting guard: returns error without calling fetc
 
 describe("proxyToolCall — isDeleting guard: fetch IS called when not deleting", () => {
   test("fetch is called when isDeleting() is false", async () => {
-    await registry.register(
-      CLIENT,
-      [makeTool()],
-      "http://1.2.3.4/health",
-      "1.2.3.4",
-      "http://1.2.3.4",
-      "1.2.3.4"
-    );
+    await registry.register(CLIENT, [makeTool()], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 
     let fetchCallCount = 0;
     globalThis.fetch = (async () => {
@@ -161,14 +147,7 @@ describe("proxyToolCall — isDeleting guard: fetch IS called when not deleting"
 
 describe("proxyToolCall — isDeleting guard: returns error after client fully removed", () => {
   test("proxyToolCall returns isError with 'Unknown tool' after full unregister cycle", async () => {
-    await registry.register(
-      CLIENT,
-      [makeTool()],
-      "http://1.2.3.4/health",
-      "1.2.3.4",
-      "http://1.2.3.4",
-      "1.2.3.4"
-    );
+    await registry.register(CLIENT, [makeTool()], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 
     await registry.unregister(CLIENT);
 

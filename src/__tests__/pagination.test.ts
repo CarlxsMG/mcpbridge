@@ -32,7 +32,10 @@ async function reg(): Promise<void> {
   await registry.register(CLIENT, [listTool], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 }
 function json(body: unknown, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json", ...headers } });
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json", ...headers },
+  });
 }
 
 const originalFetch = globalThis.fetch;
@@ -70,7 +73,9 @@ describe("pure helpers", () => {
   });
 
   test("parseNextLink picks rel=next", () => {
-    expect(parseNextLink('<https://api/x?page=2>; rel="next", <https://api/x?page=9>; rel="last"')).toBe("https://api/x?page=2");
+    expect(parseNextLink('<https://api/x?page=2>; rel="next", <https://api/x?page=9>; rel="last"')).toBe(
+      "https://api/x?page=2",
+    );
     expect(parseNextLink('<https://api/x?page=9>; rel="last"')).toBeNull();
     expect(parseNextLink(null)).toBeNull();
   });
@@ -88,9 +93,33 @@ describe("pure helpers", () => {
 describe("config persistence", () => {
   test("unknown tool -> false; set/get; clear", async () => {
     await reg();
-    expect(setPaginationConfig(CLIENT, "nope", { enabled: true, strategy: "page", itemsPath: "items", pageParam: "page", maxPages: 5 })).toBe(false);
-    expect(setPaginationConfig(CLIENT, "get-list", { enabled: true, strategy: "cursor", itemsPath: "data", cursorResponsePath: "next", cursorParam: "cursor", maxPages: 5 })).toBe(true);
-    expect(getPaginationConfig(CLIENT, "get-list")).toMatchObject({ enabled: true, strategy: "cursor", itemsPath: "data", cursorResponsePath: "next", cursorParam: "cursor", maxPages: 5 });
+    expect(
+      setPaginationConfig(CLIENT, "nope", {
+        enabled: true,
+        strategy: "page",
+        itemsPath: "items",
+        pageParam: "page",
+        maxPages: 5,
+      }),
+    ).toBe(false);
+    expect(
+      setPaginationConfig(CLIENT, "get-list", {
+        enabled: true,
+        strategy: "cursor",
+        itemsPath: "data",
+        cursorResponsePath: "next",
+        cursorParam: "cursor",
+        maxPages: 5,
+      }),
+    ).toBe(true);
+    expect(getPaginationConfig(CLIENT, "get-list")).toMatchObject({
+      enabled: true,
+      strategy: "cursor",
+      itemsPath: "data",
+      cursorResponsePath: "next",
+      cursorParam: "cursor",
+      maxPages: 5,
+    });
     expect(setPaginationConfig(CLIENT, "get-list", null)).toBe(true);
     expect(getPaginationConfig(CLIENT, "get-list")).toBeNull();
   });
@@ -99,7 +128,14 @@ describe("config persistence", () => {
 describe("proxy integration", () => {
   test("cursor strategy aggregates pages until the cursor is null", async () => {
     await reg();
-    setPaginationConfig(CLIENT, "get-list", { enabled: true, strategy: "cursor", itemsPath: "data", cursorResponsePath: "next", cursorParam: "cursor", maxPages: 10 });
+    setPaginationConfig(CLIENT, "get-list", {
+      enabled: true,
+      strategy: "cursor",
+      itemsPath: "data",
+      cursorResponsePath: "next",
+      cursorParam: "cursor",
+      maxPages: 10,
+    });
     let calls = 0;
     globalThis.fetch = (async (url: string) => {
       calls++;
@@ -115,7 +151,13 @@ describe("proxy integration", () => {
 
   test("page strategy aggregates until an empty page", async () => {
     await reg();
-    setPaginationConfig(CLIENT, "get-list", { enabled: true, strategy: "page", itemsPath: "items", pageParam: "page", maxPages: 10 });
+    setPaginationConfig(CLIENT, "get-list", {
+      enabled: true,
+      strategy: "page",
+      itemsPath: "items",
+      pageParam: "page",
+      maxPages: 10,
+    });
     let calls = 0;
     globalThis.fetch = (async (url: string) => {
       calls++;
@@ -160,7 +202,14 @@ describe("proxy integration", () => {
 
   test("maxPages bounds the number of pages fetched", async () => {
     await reg();
-    setPaginationConfig(CLIENT, "get-list", { enabled: true, strategy: "cursor", itemsPath: "data", cursorResponsePath: "next", cursorParam: "cursor", maxPages: 2 });
+    setPaginationConfig(CLIENT, "get-list", {
+      enabled: true,
+      strategy: "cursor",
+      itemsPath: "data",
+      cursorResponsePath: "next",
+      cursorParam: "cursor",
+      maxPages: 2,
+    });
     let calls = 0;
     globalThis.fetch = (async () => {
       calls++;

@@ -5,12 +5,25 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../registry.js";
 import { proxyToolCall } from "../proxy.js";
-import { createConsumer, updateConsumer, deleteConsumer, listConsumers, checkConsumerQuota, checkEndUserRateLimit } from "../consumers.js";
+import {
+  createConsumer,
+  updateConsumer,
+  deleteConsumer,
+  listConsumers,
+  checkConsumerQuota,
+  checkEndUserRateLimit,
+} from "../consumers.js";
 import { createMcpKey, getMcpKey } from "../security/mcp-key-store.js";
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(): RestToolDefinition {
-  return { name: "get-users", method: "GET", endpoint: "/users", description: "list", inputSchema: { type: "object", properties: {} } };
+  return {
+    name: "get-users",
+    method: "GET",
+    endpoint: "/users",
+    description: "list",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 async function reg(name: string): Promise<void> {
   await registry.register(name, [makeTool()], "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
@@ -19,7 +32,10 @@ async function reg(name: string): Promise<void> {
 const originalFetch = globalThis.fetch;
 function mockOkFetch(): void {
   globalThis.fetch = (async () =>
-    new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+    new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })) as unknown as typeof fetch;
 }
 
 beforeEach(async () => {
@@ -179,7 +195,10 @@ describe("proxy end-user rate limit enforcement", () => {
     let capturedUrl = "";
     globalThis.fetch = (async (url: string) => {
       capturedUrl = String(url);
-      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }) as unknown as typeof fetch;
 
     await proxyToolCall("svc__get-users", { __end_user: "alice" }, rawKey);

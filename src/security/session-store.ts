@@ -52,7 +52,7 @@ export function createSession(userId: number, ip: string | undefined, userAgent:
   getDb()
     .query(
       `INSERT INTO admin_sessions (user_id, token_hash, csrf_token, created_at, last_seen_at, expires_at, ip_address, user_agent)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(userId, hashToken(token), csrfToken, now, now, expiresAt, ip ?? null, userAgent ?? null);
 
@@ -90,12 +90,16 @@ export function validateSession(token: string): SessionContext | null {
 
 export function revokeSession(token: string): void {
   const hash = hashToken(token);
-  getDb().query(`UPDATE admin_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL`).run(Date.now(), hash);
+  getDb()
+    .query(`UPDATE admin_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL`)
+    .run(Date.now(), hash);
 }
 
 /** Revokes every active session for a user — called on password change, deactivation, and deletion. */
 export function revokeAllSessionsForUser(userId: number): void {
-  getDb().query(`UPDATE admin_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL`).run(Date.now(), userId);
+  getDb()
+    .query(`UPDATE admin_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL`)
+    .run(Date.now(), userId);
 }
 
 export function listActiveSessionsForUser(userId: number): SessionSummary[] {
@@ -105,7 +109,7 @@ export function listActiveSessionsForUser(userId: number): SessionSummary[] {
       `SELECT id, created_at, last_seen_at, expires_at, ip_address, user_agent
        FROM admin_sessions
        WHERE user_id = ? AND revoked_at IS NULL AND expires_at > ?
-       ORDER BY last_seen_at DESC`
+       ORDER BY last_seen_at DESC`,
     )
     .all(userId, now) as {
     id: number;

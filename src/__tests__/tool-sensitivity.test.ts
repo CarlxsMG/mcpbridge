@@ -132,7 +132,11 @@ describe("sensitive flag via admin route", () => {
 
   afterEach(async () => {
     await new Promise<void>((resolve) => {
-      if (server) server.close(() => { server = null; resolve(); });
+      if (server)
+        server.close(() => {
+          server = null;
+          resolve();
+        });
       else resolve();
     });
   });

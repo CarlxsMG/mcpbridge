@@ -62,7 +62,14 @@ export interface ImportSkip {
 }
 export interface ImportResult {
   dryRun: boolean;
-  applied: { bundles: number; alertRules: number; clientsConfigured: number; toolsConfigured: number; guardrails: number; consumers: number };
+  applied: {
+    bundles: number;
+    alertRules: number;
+    clientsConfigured: number;
+    toolsConfigured: number;
+    guardrails: number;
+    consumers: number;
+  };
   skipped: ImportSkip[];
 }
 
@@ -88,7 +95,9 @@ export function exportConfig(): ConfigExport {
     minCalls: r.minCalls,
   }));
 
-  const clientNames = (db.query(`SELECT name FROM clients ORDER BY name`).all() as { name: string }[]).map((r) => r.name);
+  const clientNames = (db.query(`SELECT name FROM clients ORDER BY name`).all() as { name: string }[]).map(
+    (r) => r.name,
+  );
   const clients: ExportedClient[] = [];
   const guardrails: ExportedGuardrail[] = [];
   for (const name of clientNames) {
@@ -98,7 +107,12 @@ export function exportConfig(): ConfigExport {
       name: d.name,
       enabled: d.enabled,
       guards: d.guards ?? null,
-      tools: d.tools.map((t) => ({ name: t.name, enabled: t.enabled, guards: t.guards ?? null, override: t.override ?? null })),
+      tools: d.tools.map((t) => ({
+        name: t.name,
+        enabled: t.enabled,
+        guards: t.guards ?? null,
+        override: t.override ?? null,
+      })),
     });
     const clientGuardrails = getGuardrailsForClient(name);
     for (const [toolName, cfg] of Object.entries(clientGuardrails)) {
@@ -106,9 +120,21 @@ export function exportConfig(): ConfigExport {
     }
   }
 
-  const consumers: ExportedConsumer[] = listConsumers().map((c) => ({ name: c.name, monthlyQuota: c.monthlyQuota, endUserRateLimitPerMin: c.endUserRateLimitPerMin }));
+  const consumers: ExportedConsumer[] = listConsumers().map((c) => ({
+    name: c.name,
+    monthlyQuota: c.monthlyQuota,
+    endUserRateLimitPerMin: c.endUserRateLimitPerMin,
+  }));
 
-  return { version: CONFIG_EXPORT_VERSION, exportedAt: Date.now(), bundles, alertRules, clients, guardrails, consumers };
+  return {
+    version: CONFIG_EXPORT_VERSION,
+    exportedAt: Date.now(),
+    bundles,
+    alertRules,
+    clients,
+    guardrails,
+    consumers,
+  };
 }
 
 function asArray<T>(v: unknown): T[] {
@@ -124,7 +150,7 @@ function asArray<T>(v: unknown): T[] {
 export async function importConfig(
   data: unknown,
   opts: { dryRun: boolean },
-  actor: string | null
+  actor: string | null,
 ): Promise<ImportResult> {
   if (typeof data !== "object" || data === null) {
     throw new Error("import body must be an object");
@@ -149,7 +175,14 @@ export async function importConfig(
       continue;
     }
     if (!dryRun) {
-      createAlertRule({ name: r.name, eventType: r.eventType, webhookUrl: r.webhookUrl, threshold: r.threshold ?? null, minCalls: r.minCalls ?? null, actor });
+      createAlertRule({
+        name: r.name,
+        eventType: r.eventType,
+        webhookUrl: r.webhookUrl,
+        threshold: r.threshold ?? null,
+        minCalls: r.minCalls ?? null,
+        actor,
+      });
     }
     applied.alertRules++;
   }
@@ -227,15 +260,27 @@ export async function importConfig(
   // locking every one of that consumer's keys out with no error at import time.
   for (const c of asArray<ExportedConsumer>(doc.consumers)) {
     if (!isValidQuotaValue(c.monthlyQuota) || !isValidQuotaValue(c.endUserRateLimitPerMin)) {
-      skipped.push({ type: "consumer", id: c.name, reason: "monthlyQuota/endUserRateLimitPerMin must be a positive integer or null" });
+      skipped.push({
+        type: "consumer",
+        id: c.name,
+        reason: "monthlyQuota/endUserRateLimitPerMin must be a positive integer or null",
+      });
       continue;
     }
     if (!dryRun) {
       const existing = getConsumerByName(c.name);
       if (existing) {
-        updateConsumer(existing.id, { monthlyQuota: c.monthlyQuota ?? null, endUserRateLimitPerMin: c.endUserRateLimitPerMin ?? null });
+        updateConsumer(existing.id, {
+          monthlyQuota: c.monthlyQuota ?? null,
+          endUserRateLimitPerMin: c.endUserRateLimitPerMin ?? null,
+        });
       } else {
-        createConsumer({ name: c.name, monthlyQuota: c.monthlyQuota ?? null, endUserRateLimitPerMin: c.endUserRateLimitPerMin ?? null, actor });
+        createConsumer({
+          name: c.name,
+          monthlyQuota: c.monthlyQuota ?? null,
+          endUserRateLimitPerMin: c.endUserRateLimitPerMin ?? null,
+          actor,
+        });
       }
     }
     applied.consumers++;

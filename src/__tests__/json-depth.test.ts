@@ -21,15 +21,23 @@ function makeRes(): MockRes {
   const res: MockRes = {
     _status: undefined,
     _body: undefined,
-    status(code) { this._status = code; return this; },
-    json(body) { this._body = body; return this; },
+    status(code) {
+      this._status = code;
+      return this;
+    },
+    json(body) {
+      this._body = body;
+      return this;
+    },
   };
   return res;
 }
 
 function makeNext(): { fn: NextFunction; called: boolean } {
   const state = { fn: null as unknown as NextFunction, called: false };
-  state.fn = () => { state.called = true; };
+  state.fn = () => {
+    state.called = true;
+  };
   return state;
 }
 
@@ -169,7 +177,7 @@ describe("enforceJsonDepth — cyclic object handling", () => {
     // The middleware should terminate — BFS tracks depth by level, not by reference.
     // Since the depth will keep increasing and eventually exceed maxDepth, or the
     // seen-set (if implemented) stops it. Either way it must terminate.
-    let terminated = false;
+    let terminated: boolean;
     const timer = setTimeout(() => {
       // If we reach 2 seconds, the test will hang — this is our failsafe
     }, 2000);

@@ -15,12 +15,34 @@ import {
 } from "./observability/metrics.js";
 import { getToolCacheConfig, cacheKey, cacheGet, cacheSet } from "./response-cache.js";
 import { getToolCoalesce, runCoalesced } from "./coalesce.js";
-import { getLb, selectTarget, markTargetUp, markTargetDown, incInflight, decInflight, type LbChoice } from "./load-balancer.js";
-import { getPaginationConfig, extractItems, nextCursorValue, parseNextLink, withItems, type PaginationConfig } from "./pagination.js";
+import {
+  getLb,
+  selectTarget,
+  markTargetUp,
+  markTargetDown,
+  incInflight,
+  decInflight,
+  type LbChoice,
+} from "./load-balancer.js";
+import {
+  getPaginationConfig,
+  extractItems,
+  nextCursorValue,
+  parseNextLink,
+  withItems,
+  type PaginationConfig,
+} from "./pagination.js";
 import { getStreamingConfig, parseStream } from "./streaming.js";
 import { getToolTransform, applyOps } from "./transform.js";
 import { getToolMock } from "./mock.js";
-import { requiresApproval, approvalArgsHash, createApproval, consumeApproval, notifyApproval, getRequiredLevels } from "./approvals.js";
+import {
+  requiresApproval,
+  approvalArgsHash,
+  createApproval,
+  consumeApproval,
+  notifyApproval,
+  getRequiredLevels,
+} from "./approvals.js";
 import { recordTraffic } from "./traffic.js";
 import { getToolGraphql, getToolWs, wsRequest, wsRequestPersistent } from "./backends.js";
 import { getOAuthBearer } from "./oauth.js";
@@ -48,11 +70,11 @@ import type { RegisteredClient, RegisteredTool } from "./types.js";
 // Ajv singleton — shared across all tool calls
 // ---------------------------------------------------------------------------
 const ajv = new Ajv({
-  allErrors: false,       // first error is enough for tool calls
-  strict: false,           // tolerate vendor extensions in JSON Schema
+  allErrors: false, // first error is enough for tool calls
+  strict: false, // tolerate vendor extensions in JSON Schema
   removeAdditional: "all", // strip unknown keys (replicates prior manual behaviour)
-  useDefaults: true,       // apply defaults if specified in schema
-  coerceTypes: false,      // do NOT auto-coerce — surface real type errors
+  useDefaults: true, // apply defaults if specified in schema
+  coerceTypes: false, // do NOT auto-coerce — surface real type errors
 });
 addFormats(ajv);
 
@@ -62,7 +84,7 @@ const validatorCache = new Map<string, ReturnType<typeof ajv.compile>>();
 function getOrCompile(
   clientName: string,
   toolName: string,
-  schema: Record<string, unknown>
+  schema: Record<string, unknown>,
 ): ReturnType<typeof ajv.compile> {
   const key = `${clientName}::${toolName}`;
   let validate = validatorCache.get(key);
@@ -216,7 +238,8 @@ async function fetchAllPages(firstBodyText: string, cfg: PaginationConfig, ctx: 
 
   const all: unknown[] = [...firstItems];
   let totalBytes = ctx.firstBytes;
-  let cursor: string | null = cfg.strategy === "cursor" ? nextCursorValue(firstBody, cfg.cursorResponsePath ?? "") : null;
+  let cursor: string | null =
+    cfg.strategy === "cursor" ? nextCursorValue(firstBody, cfg.cursorResponsePath ?? "") : null;
   let link: string | null = cfg.strategy === "link" ? parseNextLink(ctx.firstLink) : null;
   let pageNum = 2;
 
@@ -224,7 +247,7 @@ async function fetchAllPages(firstBodyText: string, cfg: PaginationConfig, ctx: 
     const signal = AbortSignal.any([ctx.externalSignal, AbortSignal.timeout(ctx.timeoutMs)]);
     const resp = await fetch(urlStr, {
       method: "GET",
-      headers: { ...ctx.headers, "Content-Type": "application/json", "Host": ctx.originalHost },
+      headers: { ...ctx.headers, "Content-Type": "application/json", Host: ctx.originalHost },
       redirect: "error" as RequestRedirect,
       signal,
     });
@@ -345,7 +368,7 @@ export async function proxyToolCall(
   mcpToolName: string,
   args: Record<string, unknown> = {},
   callerToken?: string,
-  opts?: ToolCallOpts
+  opts?: ToolCallOpts,
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const capture = config.trafficCaptureEnabled;
   const started = capture ? Date.now() : 0;
@@ -366,7 +389,7 @@ export async function proxyToolCall(
       mcpToolName,
       clientName: resolved?.client.name ?? null,
       toolName: resolved?.tool.name ?? null,
-      keyId: callerToken ? resolveMcpKeyByToken(callerToken)?.id ?? null : null,
+      keyId: callerToken ? (resolveMcpKeyByToken(callerToken)?.id ?? null) : null,
       args,
       result,
       durationMs: Date.now() - started,
@@ -394,12 +417,24 @@ function runApprovalGate(
   const approvalId = typeof rawApprovalId === "number" ? rawApprovalId : null;
   const argsHash = approvalArgsHash(args as Record<string, unknown>);
   if (approvalId === null) {
-    const id = createApproval(client.name, tool.name, argsHash, JSON.stringify(args), callerKey?.id ?? null, getRequiredLevels(client.name, tool.name));
+    const id = createApproval(
+      client.name,
+      tool.name,
+      argsHash,
+      JSON.stringify(args),
+      callerKey?.id ?? null,
+      getRequiredLevels(client.name, tool.name),
+    );
     notifyApproval(id, client.name, tool.name);
     log("info", "Tool call queued for approval", { tool: mcpToolName, client: client.name, approval_id: id });
     return {
       isError: true,
-      content: [{ type: "text", text: `Tool '${mcpToolName}' requires human approval. Queued as approval #${id}. Once approved, re-call with {"__approval_id": ${id}}.` }],
+      content: [
+        {
+          type: "text",
+          text: `Tool '${mcpToolName}' requires human approval. Queued as approval #${id}. Once approved, re-call with {"__approval_id": ${id}}.`,
+        },
+      ],
     };
   }
   const decision = consumeApproval(approvalId, client.name, tool.name, argsHash);
@@ -413,7 +448,7 @@ async function dispatchToolCall(
   mcpToolName: string,
   args: Record<string, unknown> = {},
   callerToken?: string,
-  opts?: ToolCallOpts
+  opts?: ToolCallOpts,
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const resolved = registry.resolveTool(mcpToolName);
 
@@ -484,7 +519,9 @@ async function dispatchToolCall(
     if (quota.exceeded) {
       return {
         isError: true,
-        content: [{ type: "text", text: `Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})` }],
+        content: [
+          { type: "text", text: `Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})` },
+        ],
       };
     }
 
@@ -500,7 +537,9 @@ async function dispatchToolCall(
       if (endUserRl.limited) {
         return {
           isError: true,
-          content: [{ type: "text", text: `End-user rate limit exceeded — retry after ${endUserRl.retryAfterSeconds}s` }],
+          content: [
+            { type: "text", text: `End-user rate limit exceeded — retry after ${endUserRl.retryAfterSeconds}s` },
+          ],
         };
       }
     }
@@ -514,7 +553,12 @@ async function dispatchToolCall(
     if (!confirmed && callerKey?.elevated !== true) {
       return {
         isError: true,
-        content: [{ type: "text", text: `Tool '${mcpToolName}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.` }],
+        content: [
+          {
+            type: "text",
+            text: `Tool '${mcpToolName}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.`,
+          },
+        ],
       };
     }
   }
@@ -527,10 +571,19 @@ async function dispatchToolCall(
   const quarantine = checkQuarantine(client.name, tool.name);
   if (quarantine.active) {
     if (quarantine.action === "block") {
-      log("warn", "Tool call blocked by quarantine", { tool: mcpToolName, client: client.name, reason: quarantine.reason });
+      log("warn", "Tool call blocked by quarantine", {
+        tool: mcpToolName,
+        client: client.name,
+        reason: quarantine.reason,
+      });
       return {
         isError: true,
-        content: [{ type: "text", text: `Tool '${mcpToolName}' is quarantined: ${quarantine.reason ?? "too many guardrail violations"}` }],
+        content: [
+          {
+            type: "text",
+            text: `Tool '${mcpToolName}' is quarantined: ${quarantine.reason ?? "too many guardrail violations"}`,
+          },
+        ],
       };
     }
     if (quarantine.action === "force_approval") {
@@ -538,7 +591,11 @@ async function dispatchToolCall(
       approvalGateHandled = true;
       if (gated) return gated;
     } else if (quarantine.action === "observe") {
-      log("warn", "Quarantined tool call allowed through (observe mode)", { tool: mcpToolName, client: client.name, reason: quarantine.reason });
+      log("warn", "Quarantined tool call allowed through (observe mode)", {
+        tool: mcpToolName,
+        client: client.name,
+        reason: quarantine.reason,
+      });
     }
   }
 
@@ -560,7 +617,11 @@ async function dispatchToolCall(
     const inputCheck = checkInputGuardrails(guardrails, args);
     if (inputCheck.blocked) {
       recordGuardrailHit(client.name, tool.name, true);
-      log("warn", "Tool call rejected by input guardrail", { tool: mcpToolName, client: client.name, reason: inputCheck.reason });
+      log("warn", "Tool call rejected by input guardrail", {
+        tool: mcpToolName,
+        client: client.name,
+        reason: inputCheck.reason,
+      });
       return {
         isError: true,
         content: [{ type: "text", text: `Input rejected by guardrail: ${inputCheck.reason}` }],
@@ -588,7 +649,14 @@ async function dispatchToolCall(
   const mockCfg = client.kind === "rest" ? getToolMock(client.name, tool.name) : null;
   if (mockCfg?.enabled && mockCfg.mode === "always") {
     recordToolCall(0, false);
-    recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "2xx", isError: false, durationMs: 0 });
+    recordUsage({
+      clientName: client.name,
+      toolName: tool.name,
+      keyId: callerKey?.id ?? null,
+      statusClass: "2xx",
+      isError: false,
+      durationMs: 0,
+    });
     log("info", "Tool call served from mock", { tool: mcpToolName, client: client.name });
     return { content: [{ type: "text", text: mockCfg.response }] };
   }
@@ -601,19 +669,22 @@ async function dispatchToolCall(
   // value is the already-redacted/guardrail-scanned text, so every authorised
   // caller gets identical output and no raw secret is ever stored.
   const cacheCfg =
-    client.kind === "rest" && tool.method.toUpperCase() === "GET"
-      ? getToolCacheConfig(client.name, tool.name)
-      : null;
+    client.kind === "rest" && tool.method.toUpperCase() === "GET" ? getToolCacheConfig(client.name, tool.name) : null;
   const responseCacheEnabled = cacheCfg?.enabled === true;
-  const responseCacheKey = responseCacheEnabled
-    ? cacheKey(client.name, tool.name, client.base_url, args)
-    : "";
+  const responseCacheKey = responseCacheEnabled ? cacheKey(client.name, tool.name, client.base_url, args) : "";
   if (responseCacheEnabled) {
     const hit = cacheGet(responseCacheKey);
     if (hit) {
       cacheEvents.inc({ client: client.name, outcome: "hit" });
       recordToolCall(0, false);
-      recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "2xx", isError: false, durationMs: 0 });
+      recordUsage({
+        clientName: client.name,
+        toolName: tool.name,
+        keyId: callerKey?.id ?? null,
+        statusClass: "2xx",
+        isError: false,
+        durationMs: 0,
+      });
       log("info", "Tool call served from cache", { tool: mcpToolName, client: client.name });
       return { content: hit.content };
     }
@@ -629,431 +700,541 @@ async function dispatchToolCall(
   // fetch — calling canRequest() once per piggybacker would spuriously burn
   // extra half-open probe slots).
   const coalesceCfg =
-    client.kind === "rest" && tool.method.toUpperCase() === "GET"
-      ? getToolCoalesce(client.name, tool.name)
-      : null;
+    client.kind === "rest" && tool.method.toUpperCase() === "GET" ? getToolCoalesce(client.name, tool.name) : null;
   const coalesceKey = coalesceCfg?.enabled
     ? responseCacheKey || cacheKey(client.name, tool.name, client.base_url, args)
     : "";
 
   const runRest = async (): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> => {
+    // Circuit breaker check
+    const breaker = getCircuitBreaker(client.name, client.guards?.circuitBreaker);
+    const circuitCheck = breaker.canRequest();
 
-  // Circuit breaker check
-  const breaker = getCircuitBreaker(client.name, client.guards?.circuitBreaker);
-  const circuitCheck = breaker.canRequest();
+    // N-way load balancing (REST only) takes precedence over canary: when a pool
+    // is active it owns target selection, so canary routing is skipped. The
+    // client-level circuit breaker above stays unchanged — LB spreads load across
+    // members and tracks per-target health via its own cooldown, not the breaker.
+    const lb = client.kind === "rest" ? getLb(client.name) : null;
+    const lbActive = !!lb && lb.enabled && lb.targets.some((t) => t.enabled);
+    const lbChoice: LbChoice | null = lbActive ? selectTarget(client, lb!) : null;
+    if (lbChoice) lbRequests.inc({ client: client.name, member: lbChoice.isPrimary ? "primary" : "pool" });
 
-  // N-way load balancing (REST only) takes precedence over canary: when a pool
-  // is active it owns target selection, so canary routing is skipped. The
-  // client-level circuit breaker above stays unchanged — LB spreads load across
-  // members and tracks per-target health via its own cooldown, not the breaker.
-  const lb = client.kind === "rest" ? getLb(client.name) : null;
-  const lbActive = !!lb && lb.enabled && lb.targets.some((t) => t.enabled);
-  const lbChoice: LbChoice | null = lbActive ? selectTarget(client, lb!) : null;
-  if (lbChoice) lbRequests.inc({ client: client.name, member: lbChoice.isPrimary ? "primary" : "pool" });
+    // Secondary-upstream routing (canary / failover) — REST clients only, and only
+    // when LB is not active. When the breaker is open and a failover secondary is
+    // configured, route there instead of failing fast (bypassing the breaker).
+    const canary = client.kind === "rest" && !lbActive ? getCanary(client.name) : null;
+    const route = decideSecondary(canary, !circuitCheck.allowed);
 
-  // Secondary-upstream routing (canary / failover) — REST clients only, and only
-  // when LB is not active. When the breaker is open and a failover secondary is
-  // configured, route there instead of failing fast (bypassing the breaker).
-  const canary = client.kind === "rest" && !lbActive ? getCanary(client.name) : null;
-  const route = decideSecondary(canary, !circuitCheck.allowed);
-
-  if (!circuitCheck.allowed && !route.useSecondary) {
-    if (mockCfg?.enabled && mockCfg.mode === "fallback") return { content: [{ type: "text", text: mockCfg.response }] };
-    return {
-      content: [{ type: "text", text: `Circuit breaker OPEN for client '${client.name}' — failing fast` }],
-      isError: true,
-    };
-  }
-
-  // Use shorter timeout if half-open probe, else the tool's guard override, else the global default.
-  const effectiveTimeout = circuitCheck.timeout ?? tool.guards?.timeoutMs ?? config.toolCallTimeoutMs;
-
-  // MCP-kind upstream: forward to the outbound MCP client pool. Every
-  // transport-agnostic gate above (enable/deleting/status/key-scope/quota/
-  // sensitivity/rate-limit/circuit-breaker) has already applied; only the
-  // REST URL/path/IP/fetch machinery below is skipped.
-  if (client.kind === "mcp") {
-    return dispatchMcpToolCall(client, tool, args, mcpToolName, effectiveTimeout, breaker, callerKey, guardrails?.scanResponses ?? false, opts);
-  }
-
-  // WebSocket-backed tool — ephemeral request/response over WS. All the
-  // transport-agnostic gates above have already applied; only the HTTP fetch
-  // machinery below is replaced by a single WS round-trip.
-  const wsCfg = getToolWs(client.name, tool.name);
-  if (wsCfg?.enabled) {
-    return dispatchWsToolCall(client, tool, args, wsCfg, effectiveTimeout, breaker, callerKey, opts);
-  }
-
-  // When bypassing the primary breaker (failover call to the secondary), the
-  // breaker must not record this call's outcome — a secondary success must not
-  // prematurely close the breaker and send the next call back to the down
-  // primary. Canary calls (breaker was allowed) record normally.
-  // When an LB target served the call, mark it healthy/unhealthy for future
-  // selection (independent of the client-level breaker).
-  const lbKey = lbChoice?.key;
-  const recordBreakerSuccess = () => { if (!route.bypassBreaker) breaker.recordSuccess(); if (lbKey) markTargetUp(lbKey); };
-  const recordBreakerFailure = () => { if (!route.bypassBreaker) breaker.recordFailure(); if (lbKey) markTargetDown(lbKey); };
-
-  // Build URL with path param substitution
-  let remainingArgs = { ...args };
-  const resolvedPath = tool.endpoint.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (_, paramName) => {
-    const value = remainingArgs[paramName];
-    if (value !== undefined) {
-      delete remainingArgs[paramName];
-      return encodeURIComponent(String(value));
-    }
-    return `:${paramName}`;
-  });
-
-  // Fix 2 — Path traversal rejection post-substitution.
-  // Check the resolved path segments for ".." or "." after decoding.
-  // This catches endpoint templates that themselves contain traversal segments
-  // (e.g. "/users/:id/../admin") since encodeURIComponent never encodes "/".
-  // Note: encodeURIComponent applied to arg values cannot introduce "/" so a user
-  // supplying id="../admin" produces the safe literal segment "..%2Fadmin" —
-  // the real threat is the operator-supplied template containing ".." directly.
-  {
-    const pathToCheck = resolvedPath.split("?")[0]; // strip any inline query string
-    const segments = pathToCheck.split("/");
-    for (const seg of segments) {
-      let decoded: string;
-      try {
-        decoded = decodeURIComponent(seg);
-      } catch {
-        decoded = seg;
-      }
-      if (decoded === ".." || decoded === ".") {
-        return {
-          content: [{ type: "text", text: "Tool endpoint resolved to invalid path" }],
-          isError: true,
-        };
-      }
-    }
-  }
-
-  // Validate args against inputSchema via Ajv (handles enum, format, null, nested objects, etc.)
-  // removeAdditional:"all" on the Ajv instance means unknown keys are stripped from remainingArgs.
-  {
-    const validate = getOrCompile(client.name, tool.name, tool.inputSchema);
-    const valid = validate(remainingArgs);
-    if (!valid) {
-      const firstError = validate.errors?.[0];
+    if (!circuitCheck.allowed && !route.useSecondary) {
+      if (mockCfg?.enabled && mockCfg.mode === "fallback")
+        return { content: [{ type: "text", text: mockCfg.response }] };
       return {
+        content: [{ type: "text", text: `Circuit breaker OPEN for client '${client.name}' — failing fast` }],
         isError: true,
-        content: [{
-          type: "text",
-          text: `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
-        }],
       };
     }
-  }
 
-  // Declarative request transform — runs AFTER Ajv strip so an injected field
-  // the MCP inputSchema doesn't declare still reaches the backend.
-  const transformCfg = getToolTransform(client.name, tool.name);
-  if (transformCfg?.enabled && transformCfg.request.length > 0) {
-    remainingArgs = applyOps(remainingArgs, transformCfg.request) as Record<string, unknown>;
-  }
+    // Use shorter timeout if half-open probe, else the tool's guard override, else the global default.
+    const effectiveTimeout = circuitCheck.timeout ?? tool.guards?.timeoutMs ?? config.toolCallTimeoutMs;
 
-  // GraphQL-backed tool — the request body becomes a { query, variables } envelope
-  // (built in the body step below) with the args as variables.
-  const graphqlCfg = getToolGraphql(client.name, tool.name);
-
-  // Build URL with pinned IP to prevent DNS rebinding.
-  // Periodically re-resolve via TTL cache to mitigate IP-pin TOCTOU.
-  // When routing to the secondary, use its config-time-validated base URL and
-  // its pinned IP directly (no TTL re-resolution; it was pinned at setCanary).
-  const targetBaseUrl = lbChoice ? lbChoice.baseUrl : route.useSecondary ? canary!.secondaryBaseUrl : client.base_url;
-  const parsedBase = new URL(`${targetBaseUrl}${resolvedPath}`);
-  const originalHost = parsedBase.host;
-  const hostname = parsedBase.hostname;
-
-  let pinIp: string;
-  if (lbChoice) {
-    // LB members carry a config-time-pinned IP (pool targets) or the client's
-    // pinned IP (primary) — used directly, like the canary secondary.
-    pinIp = lbChoice.resolvedIp;
-  } else if (route.useSecondary) {
-    pinIp = canary!.secondaryResolvedIp;
-  } else {
-    // Seed the pin cache from the registry value on first access.
-    if (!pinnedIpCache.has(client.name)) {
-      pinnedIpCache.set(client.name, { ip: client.resolved_ip, resolvedAt: Date.now() });
+    // MCP-kind upstream: forward to the outbound MCP client pool. Every
+    // transport-agnostic gate above (enable/deleting/status/key-scope/quota/
+    // sensitivity/rate-limit/circuit-breaker) has already applied; only the
+    // REST URL/path/IP/fetch machinery below is skipped.
+    if (client.kind === "mcp") {
+      return dispatchMcpToolCall(
+        client,
+        tool,
+        args,
+        mcpToolName,
+        effectiveTimeout,
+        breaker,
+        callerKey,
+        guardrails?.scanResponses ?? false,
+        opts,
+      );
     }
 
-    let pin = pinnedIpCache.get(client.name)!;
-
-    // Only attempt re-resolution for hostnames (not raw IP literals).
-    const isRawIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
-    if (!isRawIp) {
-      try {
-        pin = await refreshPinIfStale(hostname, pin);
-        pinnedIpCache.set(client.name, pin);
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Backend hostname now resolves to private IP: ${reason}` }],
-        };
-      }
+    // WebSocket-backed tool — ephemeral request/response over WS. All the
+    // transport-agnostic gates above have already applied; only the HTTP fetch
+    // machinery below is replaced by a single WS round-trip.
+    const wsCfg = getToolWs(client.name, tool.name);
+    if (wsCfg?.enabled) {
+      return dispatchWsToolCall(client, tool, args, wsCfg, effectiveTimeout, breaker, callerKey, opts);
     }
-    pinIp = pin.ip;
-  }
 
-  parsedBase.hostname = pinIp;
-  let url = parsedBase.toString();
-
-  const method = tool.method.toUpperCase();
-  let body: string | undefined;
-
-  if (isDeleting(client.name)) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Client is being unregistered" }],
+    // When bypassing the primary breaker (failover call to the secondary), the
+    // breaker must not record this call's outcome — a secondary success must not
+    // prematurely close the breaker and send the next call back to the down
+    // primary. Canary calls (breaker was allowed) record normally.
+    // When an LB target served the call, mark it healthy/unhealthy for future
+    // selection (independent of the client-level breaker).
+    const lbKey = lbChoice?.key;
+    const recordBreakerSuccess = () => {
+      if (!route.bypassBreaker) breaker.recordSuccess();
+      if (lbKey) markTargetUp(lbKey);
     };
-  }
+    const recordBreakerFailure = () => {
+      if (!route.bypassBreaker) breaker.recordFailure();
+      if (lbKey) markTargetDown(lbKey);
+    };
 
-  const reqController = trackRequest(client.name);
-  if (lbKey) incInflight(lbKey);
+    // Build URL with path param substitution
+    let remainingArgs = { ...args };
+    const resolvedPath = tool.endpoint.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (_, paramName) => {
+      const value = remainingArgs[paramName];
+      if (value !== undefined) {
+        delete remainingArgs[paramName];
+        return encodeURIComponent(String(value));
+      }
+      return `:${paramName}`;
+    });
 
-  if (method === "GET" || method === "DELETE") {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(remainingArgs)) {
-      params.append(key, String(value));
-    }
-    const queryString = params.toString();
-    if (queryString) {
-      url = `${url}?${queryString}`;
-    }
-  } else if (graphqlCfg?.enabled) {
-    body = JSON.stringify({ query: graphqlCfg.query, variables: remainingArgs });
-  } else {
-    body = JSON.stringify(remainingArgs);
-  }
-
-  // Inject per-client upstream credentials (decrypted at call time). Spread
-  // first so the pinned Host and Content-Type set below always take precedence.
-  const upstreamAuthHeaders: Record<string, string> = { ...(getUpstreamAuthHeaders(client.name) ?? {}) };
-  // Outbound OAuth2 client-credentials — mint/reuse a short-lived token and inject
-  // it as a Bearer (the MCP caller never sees the real client secret).
-  const oauthBearer = await getOAuthBearer(client.name);
-  if (oauthBearer) upstreamAuthHeaders.Authorization = `Bearer ${oauthBearer}`;
-
-  // Response redaction paths for this tool (applied to JSON responses below).
-  const redactionPaths = getRedactionPaths(client.name, tool.name);
-
-  const startTime = Date.now();
-
-  // GET / HEAD / OPTIONS are always retried.
-  // DELETE / PUT are only retried when the client opts in via retry_non_safe_methods.
-  const alwaysSafe = method === "GET" || method === "HEAD" || method === "OPTIONS";
-  const optedIn = client.retry_non_safe_methods === true && (method === "DELETE" || method === "PUT");
-  const isIdempotent = alwaysSafe || optedIn;
-
-  const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504]);
-  const MAX_RETRIES = config.retryMaxAttempts;
-  const BASE_DELAY = config.retryBaseDelayMs;
-
-  let lastError: string | undefined;
-  let lastStatus: number | undefined;
-
-  try {
-  for (let attempt = 0; attempt <= (isIdempotent ? MAX_RETRIES : 0); attempt++) {
-    if (attempt > 0) {
-      // Don't retry if circuit is now open
-      if (!breaker.canRequest().allowed) break;
-      const delay = BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * BASE_DELAY;
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-
-    // A1: build a fresh composed signal per attempt so the timeout is renewed each time.
-    // reqController.signal stays persistent (external client cancellation).
-    const attemptSignal = AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]);
-
-    const fetchOptions: RequestInit = body !== undefined
-      ? { method, headers: { ...upstreamAuthHeaders, "Content-Type": "application/json", "Host": originalHost }, body, redirect: "error" as RequestRedirect, signal: attemptSignal }
-      : { method, headers: { ...upstreamAuthHeaders, "Content-Type": "application/json", "Host": originalHost }, redirect: "error" as RequestRedirect, signal: attemptSignal };
-
-    try {
-      const response = await fetch(url, fetchOptions);
-
-      if (response.ok) {
-        recordBreakerSuccess();
-
-        // A2: read body with streaming cap
-        const rawText = await readBodyWithCap(response);
-        if (rawText === null) {
-          proxyBodyCapRejections.inc({ client: client.name });
-          log("warn", "Upstream response exceeded size limit", { tool: mcpToolName, client: client.name, limit: config.maxResponseBytes });
-          recordToolCall(Date.now() - startTime, true);
-          recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "2xx", isError: true, durationMs: Date.now() - startTime });
-          proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, (Date.now() - startTime) / 1000);
+    // Fix 2 — Path traversal rejection post-substitution.
+    // Check the resolved path segments for ".." or "." after decoding.
+    // This catches endpoint templates that themselves contain traversal segments
+    // (e.g. "/users/:id/../admin") since encodeURIComponent never encodes "/".
+    // Note: encodeURIComponent applied to arg values cannot introduce "/" so a user
+    // supplying id="../admin" produces the safe literal segment "..%2Fadmin" —
+    // the real threat is the operator-supplied template containing ".." directly.
+    {
+      const pathToCheck = resolvedPath.split("?")[0]; // strip any inline query string
+      const segments = pathToCheck.split("/");
+      for (const seg of segments) {
+        let decoded: string;
+        try {
+          decoded = decodeURIComponent(seg);
+        } catch {
+          decoded = seg;
+        }
+        if (decoded === ".." || decoded === ".") {
           return {
+            content: [{ type: "text", text: "Tool endpoint resolved to invalid path" }],
             isError: true,
-            content: [{ type: "text", text: "Upstream response exceeded MAX_RESPONSE_BYTES limit" }],
           };
         }
+      }
+    }
 
-        const durationSuccess = (Date.now() - startTime) / 1000;
-        proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, durationSuccess);
-        if (attempt > 0) {
-          proxyRetryAttempts.inc({ client: client.name, method, outcome: "success" });
-        }
-        log("info", "Tool call succeeded", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
-        recordToolCall(Date.now() - startTime, false);
-        recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "2xx", isError: false, durationMs: Date.now() - startTime });
-
-        // Fix 1 — Response header allowlist (no-op confirmation).
-        // Only `content-type` is read internally to format the body; no upstream
-        // response headers (Set-Cookie, Authorization, WWW-Authenticate, etc.) are
-        // forwarded to the MCP caller. The return value carries only the body text,
-        // so sensitive headers cannot leak through this code path.
-        // Safe-to-forward allowlist (for future reference if headers are ever added):
-        //   content-type, content-length, content-encoding, content-language,
-        //   cache-control, etag, last-modified, retry-after
-        const contentType = response.headers.get("content-type") ?? "";
-
-        // Response pagination — follow cursor/page/link and aggregate the items
-        // array across pages BEFORE redaction/guardrail/cache. JSON GET only; the
-        // follow-ups reuse the pinned IP + Host of this request.
-        let bodyText = rawText;
-        const streamingCfg = getStreamingConfig(client.name, tool.name);
-        if (streamingCfg?.enabled) {
-          // Normalize a streaming-format body (NDJSON / SSE) into one aggregated
-          // JSON result — MCP returns a single tool result, so the upstream stream
-          // must complete (bounded by the response byte cap).
-          bodyText = JSON.stringify({ events: parseStream(rawText, streamingCfg.format, streamingCfg.maxEvents) }, null, 2);
-        } else if (method === "GET" && contentType.includes("application/json")) {
-          const paginationCfg = getPaginationConfig(client.name, tool.name);
-          if (paginationCfg?.enabled) {
-            const aggregated = await fetchAllPages(rawText, paginationCfg, {
-              targetBaseUrl,
-              resolvedPath,
-              baseQuery: new URLSearchParams(Object.entries(remainingArgs).map(([k, v]) => [k, String(v)] as [string, string])),
-              pinIp,
-              originalHost,
-              headers: upstreamAuthHeaders,
-              timeoutMs: effectiveTimeout,
-              externalSignal: reqController.signal,
-              maxBytes: config.maxResponseBytes,
-              firstBytes: new TextEncoder().encode(rawText).length,
-              firstLink: response.headers.get("link"),
-            });
-            if (aggregated !== null) bodyText = aggregated;
-          }
-        }
-
-        // Declarative response transform on the parsed JSON body (pre-redaction).
-        if (transformCfg?.enabled && transformCfg.response.length > 0) {
-          try {
-            bodyText = JSON.stringify(applyOps(JSON.parse(bodyText), transformCfg.response), null, 2);
-          } catch {
-            /* non-JSON body: leave unchanged */
-          }
-        }
-
-        let responseText = bodyText;
-        if (contentType.includes("application/json")) {
-          // applyRedaction parses, redacts configured paths, and pretty-prints;
-          // returns null on non-JSON so we fall back to the raw text.
-          const processed = applyRedaction(redactionPaths, bodyText);
-          if (processed !== null) responseText = processed;
-        }
-
-        // Response guardrail scan (spotlighting) — runs after redaction so the
-        // envelope wraps the already-redacted text, not raw secrets.
-        if (guardrails?.scanResponses) {
-          const scan = applyResponseScan(responseText);
-          recordGuardrailHit(client.name, tool.name, scan.flagged);
-          if (scan.flagged) {
-            log("warn", "Tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
-            responseText = scan.text;
-          }
-        }
-
-        if (responseCacheEnabled && cacheCfg && !route.useSecondary) {
-          cacheSet(responseCacheKey, { content: [{ type: "text", text: responseText }] }, cacheCfg.ttlSeconds);
-          cacheEvents.inc({ client: client.name, outcome: "store" });
-        }
+    // Validate args against inputSchema via Ajv (handles enum, format, null, nested objects, etc.)
+    // removeAdditional:"all" on the Ajv instance means unknown keys are stripped from remainingArgs.
+    {
+      const validate = getOrCompile(client.name, tool.name, tool.inputSchema);
+      const valid = validate(remainingArgs);
+      if (!valid) {
+        const firstError = validate.errors?.[0];
         return {
-          content: [{ type: "text", text: responseText }],
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
+            },
+          ],
         };
       }
+    }
 
-      lastStatus = response.status;
+    // Declarative request transform — runs AFTER Ajv strip so an injected field
+    // the MCP inputSchema doesn't declare still reaches the backend.
+    const transformCfg = getToolTransform(client.name, tool.name);
+    if (transformCfg?.enabled && transformCfg.request.length > 0) {
+      remainingArgs = applyOps(remainingArgs, transformCfg.request) as Record<string, unknown>;
+    }
 
-      // Check if retryable
-      if (isIdempotent && RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
-        proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
-        // A3: handle Retry-After header (integer seconds OR HTTP-date)
-        if (response.status === 429) {
-          const waitMs = parseRetryAfter(response.headers.get("retry-after"));
-          if (waitMs !== null && waitMs > 0) {
-            await new Promise(resolve => setTimeout(resolve, waitMs));
-          }
-        }
-        continue;
+    // GraphQL-backed tool — the request body becomes a { query, variables } envelope
+    // (built in the body step below) with the args as variables.
+    const graphqlCfg = getToolGraphql(client.name, tool.name);
+
+    // Build URL with pinned IP to prevent DNS rebinding.
+    // Periodically re-resolve via TTL cache to mitigate IP-pin TOCTOU.
+    // When routing to the secondary, use its config-time-validated base URL and
+    // its pinned IP directly (no TTL re-resolution; it was pinned at setCanary).
+    const targetBaseUrl = lbChoice ? lbChoice.baseUrl : route.useSecondary ? canary!.secondaryBaseUrl : client.base_url;
+    const parsedBase = new URL(`${targetBaseUrl}${resolvedPath}`);
+    const originalHost = parsedBase.host;
+    const hostname = parsedBase.hostname;
+
+    let pinIp: string;
+    if (lbChoice) {
+      // LB members carry a config-time-pinned IP (pool targets) or the client's
+      // pinned IP (primary) — used directly, like the canary secondary.
+      pinIp = lbChoice.resolvedIp;
+    } else if (route.useSecondary) {
+      pinIp = canary!.secondaryResolvedIp;
+    } else {
+      // Seed the pin cache from the registry value on first access.
+      if (!pinnedIpCache.has(client.name)) {
+        pinnedIpCache.set(client.name, { ip: client.resolved_ip, resolvedAt: Date.now() });
       }
 
-      // Non-retryable error response
-      proxyRequestDuration.observe({ client: client.name, method, status_class: httpStatusClass(response.status) }, (Date.now() - startTime) / 1000);
+      let pin = pinnedIpCache.get(client.name)!;
+
+      // Only attempt re-resolution for hostnames (not raw IP literals).
+      const isRawIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
+      if (!isRawIp) {
+        try {
+          pin = await refreshPinIfStale(hostname, pin);
+          pinnedIpCache.set(client.name, pin);
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          return {
+            isError: true,
+            content: [{ type: "text", text: `Backend hostname now resolves to private IP: ${reason}` }],
+          };
+        }
+      }
+      pinIp = pin.ip;
+    }
+
+    parsedBase.hostname = pinIp;
+    let url = parsedBase.toString();
+
+    const method = tool.method.toUpperCase();
+    let body: string | undefined;
+
+    if (isDeleting(client.name)) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: "Client is being unregistered" }],
+      };
+    }
+
+    const reqController = trackRequest(client.name);
+    if (lbKey) incInflight(lbKey);
+
+    if (method === "GET" || method === "DELETE") {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(remainingArgs)) {
+        params.append(key, String(value));
+      }
+      const queryString = params.toString();
+      if (queryString) {
+        url = `${url}?${queryString}`;
+      }
+    } else if (graphqlCfg?.enabled) {
+      body = JSON.stringify({ query: graphqlCfg.query, variables: remainingArgs });
+    } else {
+      body = JSON.stringify(remainingArgs);
+    }
+
+    // Inject per-client upstream credentials (decrypted at call time). Spread
+    // first so the pinned Host and Content-Type set below always take precedence.
+    const upstreamAuthHeaders: Record<string, string> = { ...(getUpstreamAuthHeaders(client.name) ?? {}) };
+    // Outbound OAuth2 client-credentials — mint/reuse a short-lived token and inject
+    // it as a Bearer (the MCP caller never sees the real client secret).
+    const oauthBearer = await getOAuthBearer(client.name);
+    if (oauthBearer) upstreamAuthHeaders.Authorization = `Bearer ${oauthBearer}`;
+
+    // Response redaction paths for this tool (applied to JSON responses below).
+    const redactionPaths = getRedactionPaths(client.name, tool.name);
+
+    const startTime = Date.now();
+
+    // GET / HEAD / OPTIONS are always retried.
+    // DELETE / PUT are only retried when the client opts in via retry_non_safe_methods.
+    const alwaysSafe = method === "GET" || method === "HEAD" || method === "OPTIONS";
+    const optedIn = client.retry_non_safe_methods === true && (method === "DELETE" || method === "PUT");
+    const isIdempotent = alwaysSafe || optedIn;
+
+    const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504]);
+    const MAX_RETRIES = config.retryMaxAttempts;
+    const BASE_DELAY = config.retryBaseDelayMs;
+
+    let lastError: string | undefined;
+    let lastStatus: number | undefined;
+
+    try {
+      for (let attempt = 0; attempt <= (isIdempotent ? MAX_RETRIES : 0); attempt++) {
+        if (attempt > 0) {
+          // Don't retry if circuit is now open
+          if (!breaker.canRequest().allowed) break;
+          const delay = BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * BASE_DELAY;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+
+        // A1: build a fresh composed signal per attempt so the timeout is renewed each time.
+        // reqController.signal stays persistent (external client cancellation).
+        const attemptSignal = AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]);
+
+        const fetchOptions: RequestInit =
+          body !== undefined
+            ? {
+                method,
+                headers: { ...upstreamAuthHeaders, "Content-Type": "application/json", Host: originalHost },
+                body,
+                redirect: "error" as RequestRedirect,
+                signal: attemptSignal,
+              }
+            : {
+                method,
+                headers: { ...upstreamAuthHeaders, "Content-Type": "application/json", Host: originalHost },
+                redirect: "error" as RequestRedirect,
+                signal: attemptSignal,
+              };
+
+        try {
+          const response = await fetch(url, fetchOptions);
+
+          if (response.ok) {
+            recordBreakerSuccess();
+
+            // A2: read body with streaming cap
+            const rawText = await readBodyWithCap(response);
+            if (rawText === null) {
+              proxyBodyCapRejections.inc({ client: client.name });
+              log("warn", "Upstream response exceeded size limit", {
+                tool: mcpToolName,
+                client: client.name,
+                limit: config.maxResponseBytes,
+              });
+              recordToolCall(Date.now() - startTime, true);
+              recordUsage({
+                clientName: client.name,
+                toolName: tool.name,
+                keyId: callerKey?.id ?? null,
+                statusClass: "2xx",
+                isError: true,
+                durationMs: Date.now() - startTime,
+              });
+              proxyRequestDuration.observe(
+                { client: client.name, method, status_class: "2xx" },
+                (Date.now() - startTime) / 1000,
+              );
+              return {
+                isError: true,
+                content: [{ type: "text", text: "Upstream response exceeded MAX_RESPONSE_BYTES limit" }],
+              };
+            }
+
+            const durationSuccess = (Date.now() - startTime) / 1000;
+            proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, durationSuccess);
+            if (attempt > 0) {
+              proxyRetryAttempts.inc({ client: client.name, method, outcome: "success" });
+            }
+            log("info", "Tool call succeeded", {
+              tool: mcpToolName,
+              client: client.name,
+              status: response.status,
+              duration_ms: Date.now() - startTime,
+              attempts: attempt + 1,
+            });
+            recordToolCall(Date.now() - startTime, false);
+            recordUsage({
+              clientName: client.name,
+              toolName: tool.name,
+              keyId: callerKey?.id ?? null,
+              statusClass: "2xx",
+              isError: false,
+              durationMs: Date.now() - startTime,
+            });
+
+            // Fix 1 — Response header allowlist (no-op confirmation).
+            // Only `content-type` is read internally to format the body; no upstream
+            // response headers (Set-Cookie, Authorization, WWW-Authenticate, etc.) are
+            // forwarded to the MCP caller. The return value carries only the body text,
+            // so sensitive headers cannot leak through this code path.
+            // Safe-to-forward allowlist (for future reference if headers are ever added):
+            //   content-type, content-length, content-encoding, content-language,
+            //   cache-control, etag, last-modified, retry-after
+            const contentType = response.headers.get("content-type") ?? "";
+
+            // Response pagination — follow cursor/page/link and aggregate the items
+            // array across pages BEFORE redaction/guardrail/cache. JSON GET only; the
+            // follow-ups reuse the pinned IP + Host of this request.
+            let bodyText = rawText;
+            const streamingCfg = getStreamingConfig(client.name, tool.name);
+            if (streamingCfg?.enabled) {
+              // Normalize a streaming-format body (NDJSON / SSE) into one aggregated
+              // JSON result — MCP returns a single tool result, so the upstream stream
+              // must complete (bounded by the response byte cap).
+              bodyText = JSON.stringify(
+                { events: parseStream(rawText, streamingCfg.format, streamingCfg.maxEvents) },
+                null,
+                2,
+              );
+            } else if (method === "GET" && contentType.includes("application/json")) {
+              const paginationCfg = getPaginationConfig(client.name, tool.name);
+              if (paginationCfg?.enabled) {
+                const aggregated = await fetchAllPages(rawText, paginationCfg, {
+                  targetBaseUrl,
+                  resolvedPath,
+                  baseQuery: new URLSearchParams(
+                    Object.entries(remainingArgs).map(([k, v]) => [k, String(v)] as [string, string]),
+                  ),
+                  pinIp,
+                  originalHost,
+                  headers: upstreamAuthHeaders,
+                  timeoutMs: effectiveTimeout,
+                  externalSignal: reqController.signal,
+                  maxBytes: config.maxResponseBytes,
+                  firstBytes: new TextEncoder().encode(rawText).length,
+                  firstLink: response.headers.get("link"),
+                });
+                if (aggregated !== null) bodyText = aggregated;
+              }
+            }
+
+            // Declarative response transform on the parsed JSON body (pre-redaction).
+            if (transformCfg?.enabled && transformCfg.response.length > 0) {
+              try {
+                bodyText = JSON.stringify(applyOps(JSON.parse(bodyText), transformCfg.response), null, 2);
+              } catch {
+                /* non-JSON body: leave unchanged */
+              }
+            }
+
+            let responseText = bodyText;
+            if (contentType.includes("application/json")) {
+              // applyRedaction parses, redacts configured paths, and pretty-prints;
+              // returns null on non-JSON so we fall back to the raw text.
+              const processed = applyRedaction(redactionPaths, bodyText);
+              if (processed !== null) responseText = processed;
+            }
+
+            // Response guardrail scan (spotlighting) — runs after redaction so the
+            // envelope wraps the already-redacted text, not raw secrets.
+            if (guardrails?.scanResponses) {
+              const scan = applyResponseScan(responseText);
+              recordGuardrailHit(client.name, tool.name, scan.flagged);
+              if (scan.flagged) {
+                log("warn", "Tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
+                responseText = scan.text;
+              }
+            }
+
+            if (responseCacheEnabled && cacheCfg && !route.useSecondary) {
+              cacheSet(responseCacheKey, { content: [{ type: "text", text: responseText }] }, cacheCfg.ttlSeconds);
+              cacheEvents.inc({ client: client.name, outcome: "store" });
+            }
+            return {
+              content: [{ type: "text", text: responseText }],
+            };
+          }
+
+          lastStatus = response.status;
+
+          // Check if retryable
+          if (isIdempotent && RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
+            proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
+            // A3: handle Retry-After header (integer seconds OR HTTP-date)
+            if (response.status === 429) {
+              const waitMs = parseRetryAfter(response.headers.get("retry-after"));
+              if (waitMs !== null && waitMs > 0) {
+                await new Promise((resolve) => setTimeout(resolve, waitMs));
+              }
+            }
+            continue;
+          }
+
+          // Non-retryable error response
+          proxyRequestDuration.observe(
+            { client: client.name, method, status_class: httpStatusClass(response.status) },
+            (Date.now() - startTime) / 1000,
+          );
+          recordBreakerFailure();
+          log("warn", "Tool call returned error", {
+            tool: mcpToolName,
+            client: client.name,
+            status: response.status,
+            duration_ms: Date.now() - startTime,
+            attempts: attempt + 1,
+          });
+          recordToolCall(Date.now() - startTime, true);
+          recordUsage({
+            clientName: client.name,
+            toolName: tool.name,
+            keyId: callerKey?.id ?? null,
+            statusClass: httpStatusClass(response.status),
+            isError: true,
+            durationMs: Date.now() - startTime,
+          });
+          // Fix 3 — cap error-response body via the same readBodyWithCap helper used for
+          // success responses, preventing a malicious upstream from OOM-ing the bridge with
+          // an oversized error body (e.g. a 400 with a 10 GB payload).
+          const errorBody = await readBodyWithCap(response);
+          const errorBodyText =
+            errorBody === null ? `[body truncated — exceeded ${config.maxResponseBytes} byte limit]` : errorBody;
+          if (mockCfg?.enabled && mockCfg.mode === "fallback" && response.status >= 500) {
+            return { content: [{ type: "text", text: mockCfg.response }] };
+          }
+          return {
+            content: [{ type: "text", text: `REST API returned ${response.status}: ${errorBodyText}` }],
+            isError: true,
+          };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+          if (!isIdempotent || attempt >= MAX_RETRIES) {
+            proxyRequestDuration.observe(
+              { client: client.name, method, status_class: "error" },
+              (Date.now() - startTime) / 1000,
+            );
+            recordBreakerFailure();
+            log("error", "Tool call failed", {
+              tool: mcpToolName,
+              client: client.name,
+              error: lastError,
+              duration_ms: Date.now() - startTime,
+              attempts: attempt + 1,
+            });
+            recordToolCall(Date.now() - startTime, true);
+            recordUsage({
+              clientName: client.name,
+              toolName: tool.name,
+              keyId: callerKey?.id ?? null,
+              statusClass: "error",
+              isError: true,
+              durationMs: Date.now() - startTime,
+            });
+            if (mockCfg?.enabled && mockCfg.mode === "fallback") {
+              return { content: [{ type: "text", text: mockCfg.response }] };
+            }
+            return {
+              content: [{ type: "text", text: `Failed to reach ${client.name}: ${lastError}` }],
+              isError: true,
+            };
+          }
+          proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
+        }
+      }
+
+      // Exhausted retries
+      proxyRetryAttempts.inc({ client: client.name, method, outcome: "exhausted" });
+      proxyRequestDuration.observe(
+        { client: client.name, method, status_class: lastError ? "error" : httpStatusClass(lastStatus ?? 0) },
+        (Date.now() - startTime) / 1000,
+      );
       recordBreakerFailure();
-      log("warn", "Tool call returned error", { tool: mcpToolName, client: client.name, status: response.status, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
+      const errorMsg = lastError || `REST API returned ${lastStatus}`;
+      log("error", "Tool call failed after retries", {
+        tool: mcpToolName,
+        client: client.name,
+        error: errorMsg,
+        duration_ms: Date.now() - startTime,
+        attempts: MAX_RETRIES + 1,
+      });
       recordToolCall(Date.now() - startTime, true);
-      recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: httpStatusClass(response.status), isError: true, durationMs: Date.now() - startTime });
-      // Fix 3 — cap error-response body via the same readBodyWithCap helper used for
-      // success responses, preventing a malicious upstream from OOM-ing the bridge with
-      // an oversized error body (e.g. a 400 with a 10 GB payload).
-      const errorBody = await readBodyWithCap(response);
-      const errorBodyText = errorBody === null
-        ? `[body truncated — exceeded ${config.maxResponseBytes} byte limit]`
-        : errorBody;
-      if (mockCfg?.enabled && mockCfg.mode === "fallback" && response.status >= 500) {
+      recordUsage({
+        clientName: client.name,
+        toolName: tool.name,
+        keyId: callerKey?.id ?? null,
+        statusClass: lastError ? "error" : httpStatusClass(lastStatus ?? 0),
+        isError: true,
+        durationMs: Date.now() - startTime,
+      });
+      if (mockCfg?.enabled && mockCfg.mode === "fallback") {
         return { content: [{ type: "text", text: mockCfg.response }] };
       }
       return {
-        content: [{ type: "text", text: `REST API returned ${response.status}: ${errorBodyText}` }],
+        content: [
+          { type: "text", text: `Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}` },
+        ],
         isError: true,
       };
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      if (!isIdempotent || attempt >= MAX_RETRIES) {
-        proxyRequestDuration.observe({ client: client.name, method, status_class: "error" }, (Date.now() - startTime) / 1000);
-        recordBreakerFailure();
-        log("error", "Tool call failed", { tool: mcpToolName, client: client.name, error: lastError, duration_ms: Date.now() - startTime, attempts: attempt + 1 });
-        recordToolCall(Date.now() - startTime, true);
-        recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "error", isError: true, durationMs: Date.now() - startTime });
-        if (mockCfg?.enabled && mockCfg.mode === "fallback") {
-          return { content: [{ type: "text", text: mockCfg.response }] };
-        }
-        return {
-          content: [{ type: "text", text: `Failed to reach ${client.name}: ${lastError}` }],
-          isError: true,
-        };
-      }
-      proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
+    } finally {
+      untrackRequest(client.name, reqController);
+      if (lbKey) decInflight(lbKey);
     }
-  }
-
-  // Exhausted retries
-  proxyRetryAttempts.inc({ client: client.name, method, outcome: "exhausted" });
-  proxyRequestDuration.observe({ client: client.name, method, status_class: lastError ? "error" : httpStatusClass(lastStatus ?? 0) }, (Date.now() - startTime) / 1000);
-  recordBreakerFailure();
-  const errorMsg = lastError || `REST API returned ${lastStatus}`;
-  log("error", "Tool call failed after retries", { tool: mcpToolName, client: client.name, error: errorMsg, duration_ms: Date.now() - startTime, attempts: MAX_RETRIES + 1 });
-  recordToolCall(Date.now() - startTime, true);
-  recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: lastError ? "error" : httpStatusClass(lastStatus ?? 0), isError: true, durationMs: Date.now() - startTime });
-  if (mockCfg?.enabled && mockCfg.mode === "fallback") {
-    return { content: [{ type: "text", text: mockCfg.response }] };
-  }
-  return {
-    content: [{ type: "text", text: `Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}` }],
-    isError: true,
-  };
-  } finally {
-    untrackRequest(client.name, reqController);
-    if (lbKey) decInflight(lbKey);
-  }
   };
 
   if (coalesceCfg?.enabled) {
@@ -1100,16 +1281,38 @@ async function dispatchWsToolCall(
     breaker.recordSuccess();
     const durationMs = Date.now() - startTime;
     recordToolCall(durationMs, false);
-    recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "2xx", isError: false, durationMs });
+    recordUsage({
+      clientName: client.name,
+      toolName: tool.name,
+      keyId: callerKey?.id ?? null,
+      statusClass: "2xx",
+      isError: false,
+      durationMs,
+    });
     proxyRequestDuration.observe({ client: client.name, method: "WS", status_class: "2xx" }, durationMs / 1000);
     return { content: [{ type: "text", text }] };
   } catch (err) {
     breaker.recordFailure();
     const durationMs = Date.now() - startTime;
     recordToolCall(durationMs, true);
-    recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass: "error", isError: true, durationMs });
+    recordUsage({
+      clientName: client.name,
+      toolName: tool.name,
+      keyId: callerKey?.id ?? null,
+      statusClass: "error",
+      isError: true,
+      durationMs,
+    });
     proxyRequestDuration.observe({ client: client.name, method: "WS", status_class: "error" }, durationMs / 1000);
-    return { isError: true, content: [{ type: "text", text: `WebSocket call failed for '${client.name}': ${err instanceof Error ? err.message : String(err)}` }] };
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text: `WebSocket call failed for '${client.name}': ${err instanceof Error ? err.message : String(err)}`,
+        },
+      ],
+    };
   }
 }
 
@@ -1129,7 +1332,7 @@ async function dispatchMcpToolCall(
   breaker: ReturnType<typeof getCircuitBreaker>,
   callerKey: { id: number } | null,
   scanResponses: boolean,
-  opts?: ToolCallOpts
+  opts?: ToolCallOpts,
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const startTime = Date.now();
 
@@ -1141,10 +1344,12 @@ async function dispatchMcpToolCall(
     const firstError = validate.errors?.[0];
     return {
       isError: true,
-      content: [{
-        type: "text",
-        text: `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
-      }],
+      content: [
+        {
+          type: "text",
+          text: `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
+        },
+      ],
     };
   }
 
@@ -1177,11 +1382,22 @@ async function dispatchMcpToolCall(
   }
 
   recordToolCall(durationMs, result.isError === true);
-  recordUsage({ clientName: client.name, toolName: tool.name, keyId: callerKey?.id ?? null, statusClass, isError: result.isError === true, durationMs });
+  recordUsage({
+    clientName: client.name,
+    toolName: tool.name,
+    keyId: callerKey?.id ?? null,
+    statusClass,
+    isError: result.isError === true,
+    durationMs,
+  });
   proxyRequestDuration.observe({ client: client.name, method: "MCP", status_class: statusClass }, durationMs / 1000);
   log(
     result.cancelled ? "info" : result.isError ? "warn" : "info",
-    result.cancelled ? "MCP tool call cancelled by caller" : result.isError ? "MCP tool call returned error" : "MCP tool call succeeded",
+    result.cancelled
+      ? "MCP tool call cancelled by caller"
+      : result.isError
+        ? "MCP tool call returned error"
+        : "MCP tool call succeeded",
     { tool: mcpToolName, client: client.name, duration_ms: durationMs },
   );
 
@@ -1190,7 +1406,7 @@ async function dispatchMcpToolCall(
     const paths = getRedactionPaths(client.name, tool.name);
     if (paths.length > 0) {
       result.content = result.content.map((item) =>
-        item.type === "text" ? { ...item, text: applyRedaction(paths, item.text) ?? item.text } : item
+        item.type === "text" ? { ...item, text: applyRedaction(paths, item.text) ?? item.text } : item,
       );
     }
     // Response guardrail scan parity — wrap flagged text parts (after redaction).

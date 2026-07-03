@@ -106,7 +106,9 @@ function rowToToolGuards(row: ToolGuardRow | null): ToolGuardConfig | undefined 
 
 function rowToToolOverride(row: ToolOverrideRow | null): ToolOverride | undefined {
   if (!row) return undefined;
-  const params = row.param_overrides_json ? (JSON.parse(row.param_overrides_json) as ToolOverride["params"]) : undefined;
+  const params = row.param_overrides_json
+    ? (JSON.parse(row.param_overrides_json) as ToolOverride["params"])
+    : undefined;
   const displayName = row.display_name ?? undefined;
   if (!row.description && !displayName && (!params || Object.keys(params).length === 0)) return undefined;
   return { description: row.description ?? undefined, params, displayName };
@@ -114,7 +116,10 @@ function rowToToolOverride(row: ToolOverrideRow | null): ToolOverride | undefine
 
 /** Thrown by setToolOverride when a displayName alias is malformed or collides with another tool. */
 export class ToolOverrideError extends Error {
-  constructor(public code: "TOOL_ALIAS_INVALID" | "TOOL_ALIAS_CONFLICT", message: string) {
+  constructor(
+    public code: "TOOL_ALIAS_INVALID" | "TOOL_ALIAS_CONFLICT",
+    message: string,
+  ) {
     super(message);
     this.name = "ToolOverrideError";
   }
@@ -169,7 +174,9 @@ class Registry {
   private async withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
     const prev = this.locks.get(name) ?? Promise.resolve();
     let release!: () => void;
-    const next = new Promise<void>((r) => { release = r; });
+    const next = new Promise<void>((r) => {
+      release = r;
+    });
     const lockEntry = prev.then(() => next);
     this.locks.set(name, lockEntry);
     try {
@@ -290,7 +297,7 @@ class Registry {
       .query(
         `SELECT t.name AS name, o.display_name AS display_name
          FROM tools t LEFT JOIN tool_overrides o ON o.client_name = t.client_name AND o.tool_name = t.name
-         WHERE t.client_name = ? AND t.name != ?`
+         WHERE t.client_name = ? AND t.name != ?`,
       )
       .all(clientName, toolName) as { name: string; display_name: string | null }[];
     for (const r of rows) {
@@ -318,7 +325,7 @@ class Registry {
     ip: string,
     baseUrl: string,
     resolvedIp: string,
-    retryNonSafeMethods: boolean
+    retryNonSafeMethods: boolean,
   ): { enabled: boolean; guards?: ClientGuardConfig; tools: RegisteredTool[] } {
     const db = getDb();
     const now = Date.now();
@@ -335,18 +342,20 @@ class Registry {
              resolved_ip = excluded.resolved_ip,
              retry_non_safe_methods = excluded.retry_non_safe_methods,
              updated_at = excluded.updated_at
-           RETURNING enabled`
+           RETURNING enabled`,
         )
         .get(name, ip, healthUrl, baseUrl, resolvedIp, retryNonSafeMethods ? 1 : 0, now, now) as { enabled: number };
 
       const clientGuardRow = db
-        .query(`SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`)
+        .query(
+          `SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`,
+        )
         .get(name) as ClientGuardRow | null;
 
       // Full-replace semantics for tools, mirroring the in-memory toolIndex rebuild below:
       // tools missing from this registration are deleted (cascades to tool_guards).
       const existingToolNames = new Set(
-        (db.query(`SELECT name FROM tools WHERE client_name = ?`).all(name) as { name: string }[]).map((r) => r.name)
+        (db.query(`SELECT name FROM tools WHERE client_name = ?`).all(name) as { name: string }[]).map((r) => r.name),
       );
       const newToolNames = new Set(tools.map((t) => t.name));
       for (const staleName of existingToolNames) {
@@ -367,18 +376,31 @@ class Registry {
                description = excluded.description,
                input_schema = excluded.input_schema,
                updated_at = excluded.updated_at
-             RETURNING enabled`
+             RETURNING enabled`,
           )
-          .get(name, tool.name, tool.method, tool.endpoint, tool.description, JSON.stringify(tool.inputSchema), now, now) as {
+          .get(
+            name,
+            tool.name,
+            tool.method,
+            tool.endpoint,
+            tool.description,
+            JSON.stringify(tool.inputSchema),
+            now,
+            now,
+          ) as {
           enabled: number;
         };
 
         const toolGuardRow = db
-          .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
+          .query(
+            `SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`,
+          )
           .get(name, tool.name) as ToolGuardRow | null;
 
         const toolOverrideRow = db
-          .query(`SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
+          .query(
+            `SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+          )
           .get(name, tool.name) as ToolOverrideRow | null;
 
         registeredTools.push({
@@ -408,7 +430,7 @@ class Registry {
     mcpUrl: string,
     transport: McpTransport,
     ip: string,
-    resolvedIp: string
+    resolvedIp: string,
   ): { enabled: boolean; guards?: ClientGuardConfig; tools: RegisteredTool[] } {
     const db = getDb();
     const now = Date.now();
@@ -427,12 +449,12 @@ class Registry {
              mcp_url = excluded.mcp_url,
              mcp_transport = excluded.mcp_transport,
              updated_at = excluded.updated_at
-           RETURNING enabled`
+           RETURNING enabled`,
         )
         .get(name, ip, mcpUrl, mcpUrl, resolvedIp, mcpUrl, transport, now, now) as { enabled: number };
 
       const existingToolNames = new Set(
-        (db.query(`SELECT name FROM tools WHERE client_name = ?`).all(name) as { name: string }[]).map((r) => r.name)
+        (db.query(`SELECT name FROM tools WHERE client_name = ?`).all(name) as { name: string }[]).map((r) => r.name),
       );
       const newToolNames = new Set(tools.map((t) => t.name));
       for (const staleName of existingToolNames) {
@@ -454,17 +476,21 @@ class Registry {
                input_schema = excluded.input_schema,
                upstream_name = excluded.upstream_name,
                updated_at = excluded.updated_at
-             RETURNING enabled`
+             RETURNING enabled`,
           )
           .get(name, tool.name, tool.description, JSON.stringify(tool.inputSchema), tool.upstreamName, now, now) as {
           enabled: number;
         };
 
         const toolGuardRow = db
-          .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
+          .query(
+            `SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`,
+          )
           .get(name, tool.name) as ToolGuardRow | null;
         const toolOverrideRow = db
-          .query(`SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
+          .query(
+            `SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+          )
           .get(name, tool.name) as ToolOverrideRow | null;
 
         registeredTools.push({
@@ -481,7 +507,9 @@ class Registry {
       }
 
       const clientGuardRow = db
-        .query(`SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`)
+        .query(
+          `SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`,
+        )
         .get(name) as ClientGuardRow | null;
 
       return { enabled: clientRow.enabled === 1, guards: rowToClientGuards(clientGuardRow), tools: registeredTools };
@@ -501,7 +529,7 @@ class Registry {
     ip: string,
     baseUrl: string,
     resolvedIp: string,
-    retryNonSafeMethods: boolean = false
+    retryNonSafeMethods: boolean = false,
   ): Promise<void> {
     if (!name || typeof name !== "string") {
       throw new Error("Client name is required and must be a non-empty string");
@@ -520,21 +548,17 @@ class Registry {
 
       if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(tool.name)) {
         throw new Error(
-          `Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`
+          `Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`,
         );
       }
 
       if (seenToolNames.has(tool.name)) {
-        throw new Error(
-          `Duplicate tool name "${tool.name}" found for client "${name}"`
-        );
+        throw new Error(`Duplicate tool name "${tool.name}" found for client "${name}"`);
       }
       seenToolNames.add(tool.name);
 
       if (!tool.method || !VALID_METHODS.has(tool.method)) {
-        throw new Error(
-          `Tool "${tool.name}" has missing or invalid method "${tool.method}"`
-        );
+        throw new Error(`Tool "${tool.name}" has missing or invalid method "${tool.method}"`);
       }
 
       if (!tool.endpoint || typeof tool.endpoint !== "string") {
@@ -557,15 +581,11 @@ class Registry {
       }
 
       if (tool.inputSchema["type"] !== "object") {
-        throw new Error(
-          `Tool "${tool.name}" inputSchema must have type: "object"`
-        );
+        throw new Error(`Tool "${tool.name}" inputSchema must have type: "object"`);
       }
 
       if (JSON.stringify(tool.inputSchema).length > 10240) {
-        throw new Error(
-          `Tool '${tool.name}': inputSchema exceeds 10KB size limit`
-        );
+        throw new Error(`Tool '${tool.name}': inputSchema exceeds 10KB size limit`);
       }
     }
 
@@ -636,7 +656,7 @@ class Registry {
     mcpUrl: string,
     transport: McpTransport,
     ip: string,
-    resolvedIp: string
+    resolvedIp: string,
   ): Promise<void> {
     if (!name || typeof name !== "string") {
       throw new Error("Client name is required and must be a non-empty string");
@@ -651,7 +671,9 @@ class Registry {
         throw new Error("Tool name is required and must be a non-empty string");
       }
       if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(tool.name)) {
-        throw new Error(`Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`);
+        throw new Error(
+          `Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`,
+        );
       }
       if (seenToolNames.has(tool.name)) {
         throw new Error(`Duplicate tool name "${tool.name}" found for client "${name}"`);
@@ -798,18 +820,46 @@ class Registry {
   private buildClientFromDb(name: string): RegisteredClient | undefined {
     const db = getDb();
     const row = db
-      .query(`SELECT ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport FROM clients WHERE name = ?`)
-      .get(name) as
-      | { ip: string; health_url: string; base_url: string; resolved_ip: string; retry_non_safe_methods: number; enabled: number; kind: string; mcp_url: string | null; mcp_transport: string | null }
-      | null;
+      .query(
+        `SELECT ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport FROM clients WHERE name = ?`,
+      )
+      .get(name) as {
+      ip: string;
+      health_url: string;
+      base_url: string;
+      resolved_ip: string;
+      retry_non_safe_methods: number;
+      enabled: number;
+      kind: string;
+      mcp_url: string | null;
+      mcp_transport: string | null;
+    } | null;
     if (!row) return undefined;
 
     const toolRows = db
-      .query(`SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`)
-      .all(name) as { name: string; method: string; endpoint: string; description: string; input_schema: string; enabled: number; upstream_name: string | null }[];
+      .query(
+        `SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`,
+      )
+      .all(name) as {
+      name: string;
+      method: string;
+      endpoint: string;
+      description: string;
+      input_schema: string;
+      enabled: number;
+      upstream_name: string | null;
+    }[];
     const tools: RegisteredTool[] = toolRows.map((t) => {
-      const tg = db.query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`).get(name, t.name) as ToolGuardRow | null;
-      const to = db.query(`SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`).get(name, t.name) as ToolOverrideRow | null;
+      const tg = db
+        .query(
+          `SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`,
+        )
+        .get(name, t.name) as ToolGuardRow | null;
+      const to = db
+        .query(
+          `SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+        )
+        .get(name, t.name) as ToolOverrideRow | null;
       return {
         name: t.name,
         method: t.method as RegisteredTool["method"],
@@ -823,7 +873,11 @@ class Registry {
       };
     });
 
-    const guardRow = db.query(`SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`).get(name) as ClientGuardRow | null;
+    const guardRow = db
+      .query(
+        `SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`,
+      )
+      .get(name) as ClientGuardRow | null;
     const existing = this.clients.get(name);
     return {
       name,
@@ -860,7 +914,9 @@ class Registry {
     // Remove live clients no longer present in SQLite.
     for (const name of Array.from(this.clients.keys())) {
       if (!dbNames.has(name)) {
-        await this.withLock(name, async () => { if (this.teardownLiveClient(name)) removed++; });
+        await this.withLock(name, async () => {
+          if (this.teardownLiveClient(name)) removed++;
+        });
       }
     }
 
@@ -871,7 +927,8 @@ class Registry {
           const client = this.buildClientFromDb(name);
           if (!client) return;
           this.clients.set(name, client);
-          for (const t of client.tools) this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${t.name}`, { clientName: name, toolName: t.name });
+          for (const t of client.tools)
+            this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${t.name}`, { clientName: name, toolName: t.name });
           this.rebuildAliasesForClient(name, client.tools);
           added++;
         });
@@ -880,11 +937,24 @@ class Registry {
       // Already live — refresh enable flags (the common cross-instance admin action).
       const live = this.clients.get(name)!;
       const crow = db.query(`SELECT enabled FROM clients WHERE name = ?`).get(name) as { enabled: number };
-      if ((crow.enabled === 1) !== live.enabled) { live.enabled = crow.enabled === 1; updated++; }
-      const toolEnabled = new Map((db.query(`SELECT name, enabled FROM tools WHERE client_name = ?`).all(name) as { name: string; enabled: number }[]).map((t) => [t.name, t.enabled === 1]));
+      if ((crow.enabled === 1) !== live.enabled) {
+        live.enabled = crow.enabled === 1;
+        updated++;
+      }
+      const toolEnabled = new Map(
+        (
+          db.query(`SELECT name, enabled FROM tools WHERE client_name = ?`).all(name) as {
+            name: string;
+            enabled: number;
+          }[]
+        ).map((t) => [t.name, t.enabled === 1]),
+      );
       for (const t of live.tools) {
         const e = toolEnabled.get(t.name);
-        if (e !== undefined && e !== t.enabled) { t.enabled = e; updated++; }
+        if (e !== undefined && e !== t.enabled) {
+          t.enabled = e;
+          updated++;
+        }
       }
     }
 
@@ -972,7 +1042,7 @@ class Registry {
              cb_half_open_timeout_ms = excluded.cb_half_open_timeout_ms,
              cb_window_ms = excluded.cb_window_ms,
              extra_json = excluded.extra_json,
-             updated_at = excluded.updated_at`
+             updated_at = excluded.updated_at`,
         ).run(
           clientName,
           cb?.failureThreshold ?? null,
@@ -980,7 +1050,7 @@ class Registry {
           cb?.halfOpenTimeoutMs ?? null,
           cb?.windowMs ?? null,
           guards.extra ? JSON.stringify(guards.extra) : null,
-          Date.now()
+          Date.now(),
         );
       }
 
@@ -1016,7 +1086,7 @@ class Registry {
              timeout_ms = excluded.timeout_ms,
              allowed_key_hashes = excluded.allowed_key_hashes,
              extra_json = excluded.extra_json,
-             updated_at = excluded.updated_at`
+             updated_at = excluded.updated_at`,
         ).run(
           clientName,
           toolName,
@@ -1024,7 +1094,7 @@ class Registry {
           guards.timeoutMs ?? null,
           guards.allowedKeyHashes ? JSON.stringify(guards.allowedKeyHashes) : null,
           guards.extra ? JSON.stringify(guards.extra) : null,
-          Date.now()
+          Date.now(),
         );
       }
 
@@ -1069,7 +1139,10 @@ class Registry {
             throw new ToolOverrideError("TOOL_ALIAS_INVALID", "displayName must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
           }
           if (!this.isAliasAvailable(clientName, toolName, override.displayName)) {
-            throw new ToolOverrideError("TOOL_ALIAS_CONFLICT", `displayName '${override.displayName}' collides with another tool of client '${clientName}'`);
+            throw new ToolOverrideError(
+              "TOOL_ALIAS_CONFLICT",
+              `displayName '${override.displayName}' collides with another tool of client '${clientName}'`,
+            );
           }
           if (override.displayName !== toolName) displayName = override.displayName;
         }
@@ -1086,8 +1159,15 @@ class Registry {
              description = excluded.description,
              param_overrides_json = excluded.param_overrides_json,
              display_name = excluded.display_name,
-             updated_at = excluded.updated_at`
-        ).run(clientName, toolName, normalized.description ?? null, normalized.params ? JSON.stringify(normalized.params) : null, normalized.displayName ?? null, Date.now());
+             updated_at = excluded.updated_at`,
+        ).run(
+          clientName,
+          toolName,
+          normalized.description ?? null,
+          normalized.params ? JSON.stringify(normalized.params) : null,
+          normalized.displayName ?? null,
+          Date.now(),
+        );
       }
 
       const client = this.clients.get(clientName);
@@ -1110,12 +1190,14 @@ class Registry {
   async applyGuardPolicy(
     clientName: string,
     toolName: string,
-    patch: { rateLimitPerMin?: number | null; timeoutMs?: number | null }
+    patch: { rateLimitPerMin?: number | null; timeoutMs?: number | null },
   ): Promise<boolean> {
     const db = getDb();
     if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return false;
     const row = db
-      .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
+      .query(
+        `SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`,
+      )
       .get(clientName, toolName) as ToolGuardRow | null;
     const merged: ToolGuardConfig = { ...(rowToToolGuards(row) ?? {}) };
     if (patch.rateLimitPerMin !== undefined) merged.rateLimitPerMin = patch.rateLimitPerMin ?? undefined;
@@ -1156,7 +1238,7 @@ class Registry {
    */
   private effectiveAdvertised(
     clientName: string,
-    tool: RegisteredTool
+    tool: RegisteredTool,
   ): { name: string; description: string; inputSchema: Record<string, unknown> } {
     const segment = tool.override?.displayName ?? tool.name;
     const name = `${clientName}${TOOL_KEY_SEPARATOR}${segment}`;
@@ -1192,7 +1274,9 @@ class Registry {
   }
 
   /** Servable (enabled) tools for a single client, for the sharded /mcp/:clientName endpoint. */
-  getMcpToolsForClient(clientName: string): { name: string; description: string; inputSchema: Record<string, unknown> }[] {
+  getMcpToolsForClient(
+    clientName: string,
+  ): { name: string; description: string; inputSchema: Record<string, unknown> }[] {
     const client = this.clients.get(clientName);
     if (!client) return [];
 
@@ -1249,7 +1333,14 @@ class Registry {
    * may return fewer than `limit` items — acceptable for an admin list view.
    */
   listClientsSummary(
-    opts: { q?: string; enabled?: boolean; status?: ClientStatus; cursor?: string; limit?: number; teamId?: number | null } = {}
+    opts: {
+      q?: string;
+      enabled?: boolean;
+      status?: ClientStatus;
+      cursor?: string;
+      limit?: number;
+      teamId?: number | null;
+    } = {},
   ): { items: ClientSummary[]; nextCursor?: string } {
     const db = getDb();
     const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
@@ -1283,9 +1374,17 @@ class Registry {
          ${whereClause}
          GROUP BY c.name
          ORDER BY c.name
-         LIMIT ?`
+         LIMIT ?`,
       )
-      .all(...params, limit + 1) as { name: string; enabled: number; kind: string; health_url: string; base_url: string; team_id: number | null; tools_count: number }[];
+      .all(...params, limit + 1) as {
+      name: string;
+      enabled: number;
+      kind: string;
+      health_url: string;
+      base_url: string;
+      team_id: number | null;
+      tools_count: number;
+    }[];
 
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
@@ -1320,15 +1419,28 @@ class Registry {
    * validating membership) should let an admin pick a tool belonging to a
    * temporarily-down client.
    */
-  listAllTools(): { client: string; tool: string; description: string; enabled: boolean; clientEnabled: boolean; tags: string[] }[] {
+  listAllTools(): {
+    client: string;
+    tool: string;
+    description: string;
+    enabled: boolean;
+    clientEnabled: boolean;
+    tags: string[];
+  }[] {
     const db = getDb();
     const rows = db
       .query(
         `SELECT c.name as client_name, c.enabled as client_enabled, t.name as tool_name, t.description, t.enabled
          FROM tools t JOIN clients c ON c.name = t.client_name
-         ORDER BY c.name, t.name`
+         ORDER BY c.name, t.name`,
       )
-      .all() as { client_name: string; client_enabled: number; tool_name: string; description: string; enabled: number }[];
+      .all() as {
+      client_name: string;
+      client_enabled: number;
+      tool_name: string;
+      description: string;
+      enabled: number;
+    }[];
 
     const allTags = getAllToolTags();
     return rows.map((r) => ({
@@ -1345,15 +1457,28 @@ class Registry {
   getClientDetail(name: string): ClientDetail | undefined {
     const db = getDb();
     const row = db
-      .query(`SELECT ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport, team_id FROM clients WHERE name = ?`)
-      .get(name) as
-      | { ip: string; health_url: string; base_url: string; resolved_ip: string; retry_non_safe_methods: number; enabled: number; kind: string; mcp_url: string | null; mcp_transport: string | null; team_id: number | null }
-      | null;
+      .query(
+        `SELECT ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport, team_id FROM clients WHERE name = ?`,
+      )
+      .get(name) as {
+      ip: string;
+      health_url: string;
+      base_url: string;
+      resolved_ip: string;
+      retry_non_safe_methods: number;
+      enabled: number;
+      kind: string;
+      mcp_url: string | null;
+      mcp_transport: string | null;
+      team_id: number | null;
+    } | null;
     if (!row) return undefined;
 
     const live = this.clients.get(name);
     const guardRow = db
-      .query(`SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`)
+      .query(
+        `SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`,
+      )
       .get(name) as ClientGuardRow | null;
 
     const tagMap = getTagsForClient(name);
@@ -1367,17 +1492,42 @@ class Registry {
     const graphqlMap = getGraphqlForClient(name);
     let tools: RegisteredTool[];
     if (live) {
-      tools = live.tools.map((t) => ({ ...t, tags: tagMap[t.name] ?? [], sensitive: sensMap[t.name] ?? null, redactPaths: redactMap[t.name] ?? [], guardrails: guardrailMap[t.name], coalesce: coalesceMap[t.name], approval: approvalMap[t.name], quarantine: quarantineMap[t.name], ws: wsMap[t.name], graphql: graphqlMap[t.name] }));
+      tools = live.tools.map((t) => ({
+        ...t,
+        tags: tagMap[t.name] ?? [],
+        sensitive: sensMap[t.name] ?? null,
+        redactPaths: redactMap[t.name] ?? [],
+        guardrails: guardrailMap[t.name],
+        coalesce: coalesceMap[t.name],
+        approval: approvalMap[t.name],
+        quarantine: quarantineMap[t.name],
+        ws: wsMap[t.name],
+        graphql: graphqlMap[t.name],
+      }));
     } else {
       const toolRows = db
-        .query(`SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`)
-        .all(name) as { name: string; method: string; endpoint: string; description: string; input_schema: string; enabled: number; upstream_name: string | null }[];
+        .query(
+          `SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`,
+        )
+        .all(name) as {
+        name: string;
+        method: string;
+        endpoint: string;
+        description: string;
+        input_schema: string;
+        enabled: number;
+        upstream_name: string | null;
+      }[];
       tools = toolRows.map((t) => {
         const tg = db
-          .query(`SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`)
+          .query(
+            `SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`,
+          )
           .get(name, t.name) as ToolGuardRow | null;
         const to = db
-          .query(`SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
+          .query(
+            `SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+          )
           .get(name, t.name) as ToolOverrideRow | null;
         return {
           name: t.name,
@@ -1422,7 +1572,6 @@ class Registry {
       tools,
     };
   }
-
 }
 
 export const registry = new Registry();

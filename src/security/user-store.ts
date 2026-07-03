@@ -78,13 +78,18 @@ export function listUsers(): AdminUser[] {
   return rows.map(rowToUser);
 }
 
-export function createUser(username: string, passwordHash: string, role: AdminRole, createdBy: string | null): AdminUser {
+export function createUser(
+  username: string,
+  passwordHash: string,
+  role: AdminRole,
+  createdBy: string | null,
+): AdminUser {
   const db = getDb();
   const now = Date.now();
   const result = db
     .query(
       `INSERT INTO admin_users (username, password_hash, role, is_active, created_at, updated_at, created_by)
-       VALUES (?, ?, ?, 1, ?, ?, ?)`
+       VALUES (?, ?, ?, 1, ?, ?, ?)`,
     )
     .run(username, passwordHash, role, now, now, createdBy);
   return findUserById(Number(result.lastInsertRowid))!;

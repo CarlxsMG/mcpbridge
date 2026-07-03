@@ -17,7 +17,13 @@ import {
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(): RestToolDefinition {
-  return { name: "get-x", method: "GET", endpoint: "/x", description: "x", inputSchema: { type: "object", properties: {} } };
+  return {
+    name: "get-x",
+    method: "GET",
+    endpoint: "/x",
+    description: "x",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 async function reg(): Promise<void> {
   await registry.register("svc", [makeTool()], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
@@ -47,8 +53,18 @@ describe("config-versions — snapshot CRUD", () => {
 
 describe("config-versions — diff", () => {
   test("identical documents (reordered arrays) diff empty", () => {
-    const a = { clients: [{ name: "a", enabled: true }, { name: "b", enabled: true }] };
-    const b = { clients: [{ name: "b", enabled: true }, { name: "a", enabled: true }] };
+    const a = {
+      clients: [
+        { name: "a", enabled: true },
+        { name: "b", enabled: true },
+      ],
+    };
+    const b = {
+      clients: [
+        { name: "b", enabled: true },
+        { name: "a", enabled: true },
+      ],
+    };
     expect(diffConfigs(a, b)).toEqual([]);
   });
 

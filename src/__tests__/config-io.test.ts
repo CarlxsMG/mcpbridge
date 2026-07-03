@@ -12,7 +12,13 @@ import { listConsumers, createConsumer } from "../consumers.js";
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(name = "get-users"): RestToolDefinition {
-  return { name, method: "GET", endpoint: "/users", description: "list", inputSchema: { type: "object", properties: {} } };
+  return {
+    name,
+    method: "GET",
+    endpoint: "/users",
+    description: "list",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 async function reg(name = "svc", tools: RestToolDefinition[] = [makeTool()]): Promise<void> {
   await registry.register(name, tools, "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
@@ -33,7 +39,14 @@ describe("config export/import", () => {
     await registry.setToolOverride("svc", "get-users", { description: "Override" });
     await registry.setClientEnabled("svc", false);
     await createBundle("b1", "desc", [{ client: "svc", tool: "get-users" }], "t");
-    createAlertRule({ name: "a1", eventType: "client_unreachable", webhookUrl: "http://127.0.0.1:9/x", threshold: null, minCalls: null, actor: null });
+    createAlertRule({
+      name: "a1",
+      eventType: "client_unreachable",
+      webhookUrl: "http://127.0.0.1:9/x",
+      threshold: null,
+      minCalls: null,
+      actor: null,
+    });
 
     const doc = exportConfig();
     expect(doc.version).toBe(1);
@@ -48,7 +61,14 @@ describe("config export/import", () => {
   test("dry-run import reports a plan but mutates nothing", async () => {
     await reg("svc");
     const doc = exportConfig();
-    doc.alertRules.push({ name: "new", eventType: "client_unreachable", enabled: true, webhookUrl: "http://127.0.0.1:9/x", threshold: null, minCalls: null });
+    doc.alertRules.push({
+      name: "new",
+      eventType: "client_unreachable",
+      enabled: true,
+      webhookUrl: "http://127.0.0.1:9/x",
+      threshold: null,
+      minCalls: null,
+    });
     const result = await importConfig(doc, { dryRun: true }, "t");
     expect(result.dryRun).toBe(true);
     expect(result.applied.alertRules).toBe(1);
@@ -79,7 +99,14 @@ describe("config export/import", () => {
       exportedAt: Date.now(),
       bundles: [],
       alertRules: [],
-      clients: [{ name: "ghost", enabled: true, guards: null, tools: [{ name: "t", enabled: true, guards: null, override: null }] }],
+      clients: [
+        {
+          name: "ghost",
+          enabled: true,
+          guards: null,
+          tools: [{ name: "t", enabled: true, guards: null, override: null }],
+        },
+      ],
     };
     const result = await importConfig(doc, { dryRun: false }, "t");
     expect(result.skipped.some((s) => s.type === "client" && s.id === "ghost")).toBe(true);
@@ -96,7 +123,13 @@ describe("config export/import", () => {
     createConsumer({ name: "acme", monthlyQuota: 1000, actor: "t" });
 
     const doc = exportConfig();
-    expect(doc.guardrails).toEqual([{ client: "svc", tool: "get-users", guardrails: { denyPatterns: ["DROP TABLE"], blockSecrets: true, scanResponses: false } }]);
+    expect(doc.guardrails).toEqual([
+      {
+        client: "svc",
+        tool: "get-users",
+        guardrails: { denyPatterns: ["DROP TABLE"], blockSecrets: true, scanResponses: false },
+      },
+    ]);
     expect(doc.consumers).toEqual([{ name: "acme", monthlyQuota: 1000, endUserRateLimitPerMin: null }]);
 
     // Fresh environment: guardrails/consumers must be recreated by import.
@@ -107,8 +140,14 @@ describe("config export/import", () => {
     const result = await importConfig(doc, { dryRun: false }, "t");
     expect(result.applied.guardrails).toBe(1);
     expect(result.applied.consumers).toBe(1);
-    expect(getGuardrails("svc", "get-users")).toEqual({ denyPatterns: ["DROP TABLE"], blockSecrets: true, scanResponses: false });
-    expect(listConsumers().map((c) => ({ name: c.name, monthlyQuota: c.monthlyQuota }))).toEqual([{ name: "acme", monthlyQuota: 1000 }]);
+    expect(getGuardrails("svc", "get-users")).toEqual({
+      denyPatterns: ["DROP TABLE"],
+      blockSecrets: true,
+      scanResponses: false,
+    });
+    expect(listConsumers().map((c) => ({ name: c.name, monthlyQuota: c.monthlyQuota }))).toEqual([
+      { name: "acme", monthlyQuota: 1000 },
+    ]);
 
     // Re-importing updates the existing consumer's quota by name instead of duplicating it.
     doc.consumers[0].monthlyQuota = 2000;
@@ -160,7 +199,9 @@ describe("config export/import", () => {
       bundles: [],
       alertRules: [],
       clients: [],
-      guardrails: [{ client: "ghost", tool: "t", guardrails: { denyPatterns: [], blockSecrets: true, scanResponses: false } }],
+      guardrails: [
+        { client: "ghost", tool: "t", guardrails: { denyPatterns: [], blockSecrets: true, scanResponses: false } },
+      ],
       consumers: [],
     };
     const result = await importConfig(doc, { dryRun: false }, "t");

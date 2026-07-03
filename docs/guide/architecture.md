@@ -10,18 +10,18 @@ call to the right backend through a single, uniform guard pipeline.
 
 Every policy is enforced at the **dispatch point** (`proxyToolCall`), never as HTTP
 middleware — MCP multiplexes many tools over one `POST /mcp` route, so the bridge must know
-*which* tool is being called before it can apply per-tool rules.
+_which_ tool is being called before it can apply per-tool rules.
 
 ## Four ways to serve tools
 
-| Mode | Endpoint | What it exposes |
-|---|---|---|
-| **Aggregated** | `POST /mcp` | Every enabled tool from every enabled client |
-| **Per-client shard** | `/mcp/:clientName` | Only one client's tools |
-| **Curated bundle** | `/mcp-custom/:bundleName` | A hand-picked cross-client subset |
-| **Legacy SSE** | `GET /sse` + `POST /messages` | The same tools for older MCP clients |
+| Mode                 | Endpoint                      | What it exposes                              |
+| -------------------- | ----------------------------- | -------------------------------------------- |
+| **Aggregated**       | `POST /mcp`                   | Every enabled tool from every enabled client |
+| **Per-client shard** | `/mcp/:clientName`            | Only one client's tools                      |
+| **Curated bundle**   | `/mcp-custom/:bundleName`     | A hand-picked cross-client subset            |
+| **Legacy SSE**       | `GET /sse` + `POST /messages` | The same tools for older MCP clients         |
 
-Bundles are a pure narrowing filter applied *before* dispatch — all guards, breakers and
+Bundles are a pure narrowing filter applied _before_ dispatch — all guards, breakers and
 SSRF checks behave identically regardless of which mode a call came through.
 
 ## Two kinds of backend

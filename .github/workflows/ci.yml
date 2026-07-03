@@ -1,0 +1,41 @@
+# Runs typechecking, tests, and builds for both the root gateway package and
+# the admin-ui Vue app on every push and pull request.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install root dependencies
+        run: bun install --frozen-lockfile
+      - name: Format check
+        run: bun run format:check
+      - name: Lint (root)
+        run: bun run lint
+      - name: Typecheck (root)
+        run: bun run typecheck
+      - name: Test (root)
+        run: bun test "--path-ignore-patterns={admin-ui,e2e}/**"
+
+      - name: Install admin-ui dependencies
+        working-directory: admin-ui
+        run: bun install --frozen-lockfile
+      - name: Lint (admin-ui)
+        working-directory: admin-ui
+        run: bun run lint
+      - name: Typecheck (admin-ui)
+        working-directory: admin-ui
+        run: bun run typecheck
+      - name: Build (admin-ui)
+        working-directory: admin-ui
+        run: bun run build

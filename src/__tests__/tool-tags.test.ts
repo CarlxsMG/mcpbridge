@@ -8,7 +8,13 @@ import { setToolTags, getToolTags, listAllTags, listToolsByTag } from "../tool-t
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(name: string): RestToolDefinition {
-  return { name, method: "GET", endpoint: `/${name}`, description: "d", inputSchema: { type: "object", properties: {} } };
+  return {
+    name,
+    method: "GET",
+    endpoint: `/${name}`,
+    description: "d",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 async function reg(name: string, tools: RestToolDefinition[]): Promise<void> {
   await registry.register(name, tools, "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");

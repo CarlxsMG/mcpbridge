@@ -44,8 +44,13 @@ describe("tool overrides — registry", () => {
     await reg("svc");
     await registry.setToolOverride("svc", "get-users", { params: { limit: { description: "max rows" } } });
     const advertised = registry.getMcpToolsForClient("svc").find((t) => t.name === "svc__get-users");
-    expect((advertised?.inputSchema.properties as Record<string, { description: string }>).limit.description).toBe("max rows");
-    const orig = registry.resolveTool("svc__get-users")?.tool.inputSchema.properties as Record<string, { description: string }>;
+    expect((advertised?.inputSchema.properties as Record<string, { description: string }>).limit.description).toBe(
+      "max rows",
+    );
+    const orig = registry.resolveTool("svc__get-users")?.tool.inputSchema.properties as Record<
+      string,
+      { description: string }
+    >;
     expect(orig.limit.description).toBe("orig");
   });
 
@@ -53,7 +58,9 @@ describe("tool overrides — registry", () => {
     await reg("svc");
     await registry.setToolOverride("svc", "get-users", { description: "X" });
     await registry.setToolOverride("svc", "get-users", null);
-    expect(registry.getAllMcpTools().find((t) => t.name === "svc__get-users")?.description).toBe("Original description");
+    expect(registry.getAllMcpTools().find((t) => t.name === "svc__get-users")?.description).toBe(
+      "Original description",
+    );
   });
 
   test("override survives re-registration (backend reboot)", async () => {
@@ -93,7 +100,11 @@ describe("tool overrides — admin route", () => {
 
   afterEach(async () => {
     await new Promise<void>((resolve) => {
-      if (server) server.close(() => { server = null; resolve(); });
+      if (server)
+        server.close(() => {
+          server = null;
+          resolve();
+        });
       else resolve();
     });
   });

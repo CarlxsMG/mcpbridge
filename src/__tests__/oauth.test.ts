@@ -8,11 +8,23 @@ import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
 import { proxyToolCall } from "../proxy.js";
-import { getClientOAuth, setClientOAuth, getOAuthBearer, __setOAuthDepsForTesting, __resetOAuthForTesting } from "../oauth.js";
+import {
+  getClientOAuth,
+  setClientOAuth,
+  getOAuthBearer,
+  __setOAuthDepsForTesting,
+  __resetOAuthForTesting,
+} from "../oauth.js";
 import type { RestToolDefinition } from "../types.js";
 
 const CLIENT = "svc";
-const getTool: RestToolDefinition = { name: "get-x", method: "GET", endpoint: "/x", description: "x", inputSchema: { type: "object", properties: {} } };
+const getTool: RestToolDefinition = {
+  name: "get-x",
+  method: "GET",
+  endpoint: "/x",
+  description: "x",
+  inputSchema: { type: "object", properties: {} },
+};
 async function reg(): Promise<void> {
   await registry.register(CLIENT, [getTool], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 }
@@ -27,7 +39,10 @@ function tokenFetch(token: string): { count: () => number } {
   __setOAuthDepsForTesting({
     fetch: (async () => {
       n++;
-      return new Response(JSON.stringify({ access_token: token, expires_in: 3600 }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ access_token: token, expires_in: 3600 }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }) as unknown as typeof fetch,
   });
   return { count: () => n };
@@ -52,10 +67,16 @@ afterEach(async () => {
 describe("config", () => {
   test("unknown client / no secret-box / happy path / read-model hides secret", async () => {
     await reg();
-    expect(await setClientOAuth("ghost", { tokenUrl: "http://5.6.7.8/t", clientId: "id", clientSecret: "s" })).toMatchObject({ ok: false, error: "CLIENT_NOT_FOUND" });
-    expect(await setClientOAuth(CLIENT, { tokenUrl: "http://5.6.7.8/t", clientId: "id", clientSecret: "s" })).toMatchObject({ ok: false, error: "SECRET_BOX_UNCONFIGURED" });
+    expect(
+      await setClientOAuth("ghost", { tokenUrl: "http://5.6.7.8/t", clientId: "id", clientSecret: "s" }),
+    ).toMatchObject({ ok: false, error: "CLIENT_NOT_FOUND" });
+    expect(
+      await setClientOAuth(CLIENT, { tokenUrl: "http://5.6.7.8/t", clientId: "id", clientSecret: "s" }),
+    ).toMatchObject({ ok: false, error: "SECRET_BOX_UNCONFIGURED" });
     configureSecretBox();
-    expect(await setClientOAuth(CLIENT, { tokenUrl: "http://5.6.7.8/t", clientId: "id", clientSecret: "s", scope: "read" })).toEqual({ ok: true });
+    expect(
+      await setClientOAuth(CLIENT, { tokenUrl: "http://5.6.7.8/t", clientId: "id", clientSecret: "s", scope: "read" }),
+    ).toEqual({ ok: true });
     expect(getClientOAuth(CLIENT)).toEqual({ tokenUrl: "http://5.6.7.8/t", clientId: "id", scope: "read" });
     expect(await setClientOAuth(CLIENT, null)).toEqual({ ok: true });
     expect(getClientOAuth(CLIENT)).toBeNull();

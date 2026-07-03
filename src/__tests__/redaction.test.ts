@@ -14,7 +14,13 @@ import { requestIdMiddleware } from "../middleware/request-id.js";
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(): RestToolDefinition {
-  return { name: "get-users", method: "GET", endpoint: "/users", description: "d", inputSchema: { type: "object", properties: {} } };
+  return {
+    name: "get-users",
+    method: "GET",
+    endpoint: "/users",
+    description: "d",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 async function reg(name: string): Promise<void> {
   await registry.register(name, [makeTool()], "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
@@ -33,7 +39,10 @@ afterEach(async () => {
 
 describe("applyRedaction", () => {
   test("redacts top-level and nested paths, leaving others", () => {
-    const out = applyRedaction(["password", "user.ssn"], JSON.stringify({ password: "p", user: { ssn: "1", name: "x" } }));
+    const out = applyRedaction(
+      ["password", "user.ssn"],
+      JSON.stringify({ password: "p", user: { ssn: "1", name: "x" } }),
+    );
     const data = JSON.parse(out!);
     expect(data.password).toBe("[REDACTED]");
     expect(data.user.ssn).toBe("[REDACTED]");
@@ -41,7 +50,15 @@ describe("applyRedaction", () => {
   });
 
   test("wildcard over array elements", () => {
-    const out = applyRedaction(["items.*.secret"], JSON.stringify({ items: [{ secret: "a", id: 1 }, { secret: "b", id: 2 }] }));
+    const out = applyRedaction(
+      ["items.*.secret"],
+      JSON.stringify({
+        items: [
+          { secret: "a", id: 1 },
+          { secret: "b", id: 2 },
+        ],
+      }),
+    );
     const data = JSON.parse(out!);
     expect(data.items[0].secret).toBe("[REDACTED]");
     expect(data.items[1].secret).toBe("[REDACTED]");
@@ -79,7 +96,10 @@ describe("proxy redaction", () => {
     await reg("svc");
     setRedactionPaths("svc", "get-users", ["password"]);
     globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ user: "a", password: "secret" }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+      new Response(JSON.stringify({ user: "a", password: "secret" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch;
     const res = await proxyToolCall("svc__get-users", {});
     const body = JSON.parse(res.content[0].text);
     expect(body.password).toBe("[REDACTED]");
@@ -111,7 +131,11 @@ describe("admin route", () => {
 
   afterEach(async () => {
     await new Promise<void>((resolve) => {
-      if (server) server.close(() => { server = null; resolve(); });
+      if (server)
+        server.close(() => {
+          server = null;
+          resolve();
+        });
       else resolve();
     });
   });

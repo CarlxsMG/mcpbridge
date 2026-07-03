@@ -150,20 +150,25 @@ export function createSchedule(input: {
   const db = getDb();
   // The client FK would otherwise throw; return a clean error instead.
   if (!db.query(`SELECT 1 FROM clients WHERE name = ?`).get(input.clientName)) return "INVALID_TARGET";
-  if (toolName && !db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(input.clientName, toolName)) return "INVALID_TARGET";
+  if (toolName && !db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(input.clientName, toolName))
+    return "INVALID_TARGET";
 
   const now = Date.now();
   const row = db
     .query(
       `INSERT INTO schedules (target_type, client_name, tool_name, action, cron, enabled, created_at, created_by)
-       VALUES (?, ?, ?, ?, ?, 1, ?, ?) RETURNING *`
+       VALUES (?, ?, ?, ?, ?, 1, ?, ?) RETURNING *`,
     )
     .get(input.targetType, input.clientName, toolName, input.action, input.cron, now, input.actor) as ScheduleRow;
   return rowTo(row);
 }
 
 export function setScheduleEnabled(id: number, enabled: boolean): boolean {
-  return getDb().query(`UPDATE schedules SET enabled = ? WHERE id = ?`).run(enabled ? 1 : 0, id).changes > 0;
+  return (
+    getDb()
+      .query(`UPDATE schedules SET enabled = ? WHERE id = ?`)
+      .run(enabled ? 1 : 0, id).changes > 0
+  );
 }
 
 export function deleteSchedule(id: number): boolean {
@@ -203,7 +208,10 @@ export async function runDueSchedules(now: Date): Promise<number> {
       db.query(`UPDATE schedules SET last_run_minute = ? WHERE id = ?`).run(currentMinute, s.id);
       fired++;
     } catch (err) {
-      log("error", "Schedule application failed", { scheduleId: s.id, error: err instanceof Error ? err.message : String(err) });
+      log("error", "Schedule application failed", {
+        scheduleId: s.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   return fired;

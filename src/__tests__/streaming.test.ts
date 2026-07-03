@@ -71,7 +71,10 @@ describe("proxy integration", () => {
     await reg();
     setStreamingConfig(CLIENT, "get-stream", { enabled: true, format: "ndjson", maxEvents: 100 });
     globalThis.fetch = (async () =>
-      new Response('{"a":1}\n{"a":2}\n{"a":3}\n', { status: 200, headers: { "content-type": "application/x-ndjson" } })) as unknown as typeof fetch;
+      new Response('{"a":1}\n{"a":2}\n{"a":3}\n', {
+        status: 200,
+        headers: { "content-type": "application/x-ndjson" },
+      })) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-stream`, {});
     expect(JSON.parse(r.content[0].text).events).toEqual([{ a: 1 }, { a: 2 }, { a: 3 }]);
   });
@@ -80,7 +83,10 @@ describe("proxy integration", () => {
     await reg();
     setStreamingConfig(CLIENT, "get-stream", { enabled: true, format: "sse", maxEvents: 100 });
     globalThis.fetch = (async () =>
-      new Response('data: {"t":"a"}\n\ndata: {"t":"b"}\n\ndata: [DONE]\n\n', { status: 200, headers: { "content-type": "text/event-stream" } })) as unknown as typeof fetch;
+      new Response('data: {"t":"a"}\n\ndata: {"t":"b"}\n\ndata: [DONE]\n\n', {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      })) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-stream`, {});
     expect(JSON.parse(r.content[0].text).events).toEqual([{ t: "a" }, { t: "b" }]);
   });

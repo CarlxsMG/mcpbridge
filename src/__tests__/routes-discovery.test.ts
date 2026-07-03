@@ -25,7 +25,9 @@ function spec() {
     info: { title: "demo", version: "1.0.0" },
     servers: [{ url: `http://127.0.0.1:${upstreamPort}` }],
     paths: {
-      "/users": { get: { operationId: "listUsers", summary: "List users", responses: { "200": { description: "ok" } } } },
+      "/users": {
+        get: { operationId: "listUsers", summary: "List users", responses: { "200": { description: "ok" } } },
+      },
       "/users/{id}": {
         get: {
           operationId: "getUser",
@@ -46,7 +48,13 @@ function graphqlSchema() {
         queryType: { name: "Query" },
         mutationType: null,
         types: [
-          { kind: "OBJECT", name: "Query", fields: [{ name: "hello", description: "Say hello", args: [], type: typeRef("SCALAR", "String") }], inputFields: null, enumValues: null },
+          {
+            kind: "OBJECT",
+            name: "Query",
+            fields: [{ name: "hello", description: "Say hello", args: [], type: typeRef("SCALAR", "String") }],
+            inputFields: null,
+            enumValues: null,
+          },
           { kind: "SCALAR", name: "String", fields: null, inputFields: null, enumValues: null },
         ],
       },
@@ -102,7 +110,11 @@ function bearer(): Record<string, string> {
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {
-    if (adminServer) adminServer.close(() => { adminServer = null; resolve(); });
+    if (adminServer)
+      adminServer.close(() => {
+        adminServer = null;
+        resolve();
+      });
     else resolve();
   });
   (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;

@@ -31,7 +31,13 @@ import type { RestToolDefinition } from "../types.js";
 // that first surfaced this).
 const CLIENT = "quarantine-test-client";
 function makeTool(name = "do-x"): RestToolDefinition {
-  return { name, method: "POST", endpoint: `/${name}`, description: "x", inputSchema: { type: "object", properties: { a: { type: "string" } } } };
+  return {
+    name,
+    method: "POST",
+    endpoint: `/${name}`,
+    description: "x",
+    inputSchema: { type: "object", properties: { a: { type: "string" } } },
+  };
 }
 async function reg(): Promise<void> {
   await registry.register(CLIENT, [makeTool()], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
@@ -110,7 +116,8 @@ describe("escalation", () => {
 
 describe("proxy integration", () => {
   function mockFetch(): void {
-    globalThis.fetch = (async () => new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
   }
 
   test("action=block: the 3rd guardrail-violating call quarantines the tool and a clean-args call is then blocked; breaker untouched", async () => {
@@ -182,7 +189,11 @@ describe("recovery", () => {
     await reg();
     let now = 1_000_000;
     __setClockForTesting(() => now);
-    setQuarantinePolicy(CLIENT, "do-x", policy({ consecutiveThreshold: 1, action: "block", recoveryMode: "auto", cooldownMs: 60_000 }));
+    setQuarantinePolicy(
+      CLIENT,
+      "do-x",
+      policy({ consecutiveThreshold: 1, action: "block", recoveryMode: "auto", cooldownMs: 60_000 }),
+    );
     recordGuardrailHit(CLIENT, "do-x", true);
     expect(checkQuarantine(CLIENT, "do-x").active).toBe(true);
 

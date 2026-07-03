@@ -33,15 +33,15 @@ from a real admin UI** rather than config files.
 
 Most tools in this space fall into three buckets:
 
-| | OpenAPI→MCP CLIs | Heavy gateways (k8s) | **MCP REST Bridge** |
-|---|:---:|:---:|:---:|
-| REST / OpenAPI → MCP | ✅ | partial | ✅ |
-| MCP → MCP gateway | ❌ | ✅ | ✅ |
-| Admin UI | ❌ | some | ✅ Vue SPA |
-| Built-in security (SSRF, injection, secrets) | ❌ | some | ✅ |
-| RBAC + audit + teams | ❌ | ✅ | ✅ |
-| Runs without Kubernetes | ✅ | ❌ | ✅ |
-| No external database | ✅ | ❌ | ✅ (Bun + SQLite) |
+|                                              | OpenAPI→MCP CLIs | Heavy gateways (k8s) | **MCP REST Bridge** |
+| -------------------------------------------- | :--------------: | :------------------: | :-----------------: |
+| REST / OpenAPI → MCP                         |        ✅        |       partial        |         ✅          |
+| MCP → MCP gateway                            |        ❌        |          ✅          |         ✅          |
+| Admin UI                                     |        ❌        |         some         |     ✅ Vue SPA      |
+| Built-in security (SSRF, injection, secrets) |        ❌        |         some         |         ✅          |
+| RBAC + audit + teams                         |        ❌        |          ✅          |         ✅          |
+| Runs without Kubernetes                      |        ✅        |          ❌          |         ✅          |
+| No external database                         |        ✅        |          ❌          |  ✅ (Bun + SQLite)  |
 
 - **OpenAPI→MCP converters/CLIs** are great for a one-shot translation, but they don't manage
   a running fleet — no UI, no per-tool policy, no audit.
@@ -51,8 +51,8 @@ Most tools in this space fall into three buckets:
 MCP REST Bridge aims for the middle: **the governance of an enterprise gateway with the
 footprint of a single binary**, plus a UI you'd actually hand to a teammate.
 
-*Capabilities of other projects vary and evolve quickly — this is general positioning, not a
-scorecard of any specific tool. Check each project for its current feature set.*
+_Capabilities of other projects vary and evolve quickly — this is general positioning, not a
+scorecard of any specific tool. Check each project for its current feature set._
 
 ## When it's a good fit
 

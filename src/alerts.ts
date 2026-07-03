@@ -8,9 +8,16 @@ import { detectUsageSpike } from "./observability/anomaly.js";
 import { validateBackendUrl } from "./security/ip-validator.js";
 import { isLeader } from "./db/leader-lease.js";
 
-export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike" | "schema_drift";
+export type AlertEventType =
+  "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike" | "schema_drift";
 
-export const ALERT_EVENT_TYPES: AlertEventType[] = ["circuit_breaker_open", "client_unreachable", "error_rate", "usage_spike", "schema_drift"];
+export const ALERT_EVENT_TYPES: AlertEventType[] = [
+  "circuit_breaker_open",
+  "client_unreachable",
+  "error_rate",
+  "usage_spike",
+  "schema_drift",
+];
 
 export interface AlertRule {
   id: number;
@@ -40,7 +47,8 @@ interface AlertRow {
   created_by: string | null;
 }
 
-const COLS = "id, name, event_type, enabled, webhook_url, threshold, min_calls, last_fired_at, created_at, updated_at, created_by";
+const COLS =
+  "id, name, event_type, enabled, webhook_url, threshold, min_calls, last_fired_at, created_at, updated_at, created_by";
 
 function rowToRule(row: AlertRow): AlertRule {
   return {
@@ -85,15 +93,30 @@ export function createAlertRule(input: {
     .query(
       `INSERT INTO alert_rules (name, event_type, enabled, webhook_url, threshold, min_calls, created_at, updated_at, created_by)
        VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)
-       RETURNING ${COLS}`
+       RETURNING ${COLS}`,
     )
-    .get(input.name, input.eventType, input.webhookUrl, input.threshold ?? null, input.minCalls ?? null, now, now, input.actor) as AlertRow;
+    .get(
+      input.name,
+      input.eventType,
+      input.webhookUrl,
+      input.threshold ?? null,
+      input.minCalls ?? null,
+      now,
+      now,
+      input.actor,
+    ) as AlertRow;
   return rowToRule(row);
 }
 
 export function updateAlertRule(
   id: number,
-  updates: { name?: string; enabled?: boolean; webhookUrl?: string; threshold?: number | null; minCalls?: number | null }
+  updates: {
+    name?: string;
+    enabled?: boolean;
+    webhookUrl?: string;
+    threshold?: number | null;
+    minCalls?: number | null;
+  },
 ): AlertRule | null {
   const existing = getAlertRule(id);
   if (!existing) return null;
@@ -103,7 +126,9 @@ export function updateAlertRule(
   const threshold = updates.threshold !== undefined ? updates.threshold : existing.threshold;
   const minCalls = updates.minCalls !== undefined ? updates.minCalls : existing.minCalls;
   getDb()
-    .query(`UPDATE alert_rules SET name = ?, enabled = ?, webhook_url = ?, threshold = ?, min_calls = ?, updated_at = ? WHERE id = ?`)
+    .query(
+      `UPDATE alert_rules SET name = ?, enabled = ?, webhook_url = ?, threshold = ?, min_calls = ?, updated_at = ? WHERE id = ?`,
+    )
     .run(name, enabled ? 1 : 0, webhookUrl, threshold, minCalls, Date.now(), id);
   return getAlertRule(id);
 }
@@ -121,11 +146,16 @@ interface ConditionResult {
 function evaluateCondition(rule: AlertRule): ConditionResult {
   switch (rule.eventType) {
     case "client_unreachable": {
-      const clients = registry.listClients().filter((c) => c.status === "unreachable").map((c) => c.name);
+      const clients = registry
+        .listClients()
+        .filter((c) => c.status === "unreachable")
+        .map((c) => c.name);
       return { active: clients.length > 0, detail: { clients } };
     }
     case "circuit_breaker_open": {
-      const open = Object.entries(getAllCircuitStates()).filter(([, s]) => s === "open").map(([n]) => n);
+      const open = Object.entries(getAllCircuitStates())
+        .filter(([, s]) => s === "open")
+        .map(([n]) => n);
       return { active: open.length > 0, detail: { clients: open } };
     }
     case "error_rate": {
@@ -143,14 +173,21 @@ function evaluateCondition(rule: AlertRule): ConditionResult {
       const r = detectUsageSpike({ factor, minCalls });
       return {
         active: r.spike,
-        detail: { recentCalls: r.recentCalls, recentRatePerMin: Math.round(r.recentRate * 100) / 100, baselineRatePerMin: Math.round(r.baselineRate * 100) / 100, factor, minCalls },
+        detail: {
+          recentCalls: r.recentCalls,
+          recentRatePerMin: Math.round(r.recentRate * 100) / 100,
+          baselineRatePerMin: Math.round(r.baselineRate * 100) / 100,
+          factor,
+          minCalls,
+        },
       };
     }
     case "schema_drift": {
       // Queried directly (not via monitor.ts) to avoid a circular import: monitor.ts -> proxy.ts.
-      const rows = getDb()
-        .query(`SELECT client_name, tool_name FROM tool_monitor WHERE drift_detected = 1`)
-        .all() as { client_name: string; tool_name: string }[];
+      const rows = getDb().query(`SELECT client_name, tool_name FROM tool_monitor WHERE drift_detected = 1`).all() as {
+        client_name: string;
+        tool_name: string;
+      }[];
       const tools = rows.map((r) => `${r.client_name}__${r.tool_name}`);
       return { active: tools.length > 0, detail: { tools } };
     }
@@ -175,7 +212,10 @@ async function dispatchWebhook(rule: AlertRule, detail: Record<string, unknown>)
     });
     return true;
   } catch (err) {
-    log("warn", "Alert webhook delivery failed", { rule: rule.name, error: err instanceof Error ? err.message : String(err) });
+    log("warn", "Alert webhook delivery failed", {
+      rule: rule.name,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return false;
   }
 }
@@ -219,7 +259,9 @@ export async function sendTestAlert(id: number): Promise<{ ok: boolean; reason?:
 export function startAlertLoop(): () => void {
   const timer = setInterval(() => {
     if (!isLeader()) return;
-    evaluateAlerts().catch((err) => log("warn", "Alert evaluation failed", { error: err instanceof Error ? err.message : String(err) }));
+    evaluateAlerts().catch((err) =>
+      log("warn", "Alert evaluation failed", { error: err instanceof Error ? err.message : String(err) }),
+    );
   }, config.alertIntervalMs);
   if (timer.unref) timer.unref();
   return () => clearInterval(timer);

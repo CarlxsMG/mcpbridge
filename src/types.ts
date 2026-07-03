@@ -100,8 +100,19 @@ export interface RegisteredTool extends RestToolDefinition {
   approval?: { required: boolean; requiredLevels: number };
   /** Auto-quarantine policy + runtime state (populated on read), when a policy is configured. */
   quarantine?: {
-    policy: { consecutiveThreshold: number; action: "block" | "force_approval" | "observe"; recoveryMode: "auto" | "manual"; cooldownMs: number | null };
-    state: { quarantined: boolean; consecutiveHits: number; quarantinedAt: number | null; reason: string | null; cooldownUntil: number | null };
+    policy: {
+      consecutiveThreshold: number;
+      action: "block" | "force_approval" | "observe";
+      recoveryMode: "auto" | "manual";
+      cooldownMs: number | null;
+    };
+    state: {
+      quarantined: boolean;
+      consecutiveHits: number;
+      quarantinedAt: number | null;
+      reason: string | null;
+      cooldownUntil: number | null;
+    };
   };
   /** Per-tool WebSocket backend config (populated on read), when configured. */
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };

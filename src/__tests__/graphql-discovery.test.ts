@@ -46,7 +46,14 @@ function schema() {
               {
                 name: "createPet",
                 description: "Create a new pet",
-                args: [{ name: "input", description: null, type: NON_NULL(NAMED("INPUT_OBJECT", "PetInput")), defaultValue: null }],
+                args: [
+                  {
+                    name: "input",
+                    description: null,
+                    type: NON_NULL(NAMED("INPUT_OBJECT", "PetInput")),
+                    defaultValue: null,
+                  },
+                ],
                 type: NAMED("OBJECT", "Pet"),
               },
               {
@@ -103,7 +110,10 @@ function mockFetch(json: unknown, opts: { ok?: boolean; status?: number; content
     const text = JSON.stringify(json);
     return new Response(text, {
       status: opts.status ?? 200,
-      headers: { "content-type": "application/json", ...(opts.contentLength ? { "content-length": opts.contentLength } : {}) },
+      headers: {
+        "content-type": "application/json",
+        ...(opts.contentLength ? { "content-length": opts.contentLength } : {}),
+      },
     });
   }) as unknown as typeof fetch;
 }
@@ -125,7 +135,10 @@ describe("discoverToolsFromGraphQl", () => {
 
     const pets = tools.find((t) => t.name === "pets")!;
     expect(pets).toBeDefined();
-    expect(pets.inputSchema).toEqual({ type: "object", properties: { status: { type: "string", enum: ["AVAILABLE", "SOLD"] } } });
+    expect(pets.inputSchema).toEqual({
+      type: "object",
+      properties: { status: { type: "string", enum: ["AVAILABLE", "SOLD"] } },
+    });
 
     const createPet = tools.find((t) => t.name === "create_pet")!;
     expect(createPet).toBeDefined();
@@ -140,7 +153,10 @@ describe("discoverToolsFromGraphQl", () => {
 
   test("excludes mutations when includeMutations is false", async () => {
     mockFetch(schema());
-    const tools = await discoverToolsFromGraphQl({ graphqlUrl: "http://example.test/graphql", includeMutations: false });
+    const tools = await discoverToolsFromGraphQl({
+      graphqlUrl: "http://example.test/graphql",
+      includeMutations: false,
+    });
     expect(tools.some((t) => t.name === "create_pet")).toBe(false);
     expect(tools.some((t) => t.name === "pet")).toBe(true);
   });
@@ -156,12 +172,16 @@ describe("discoverToolsFromGraphQl", () => {
 
   test("throws GRAPHQL_INTROSPECTION_DISABLED when __schema is absent", async () => {
     mockFetch({ data: {} });
-    await expect(discoverToolsFromGraphQl({ graphqlUrl: "http://example.test/graphql" })).rejects.toThrow(/GRAPHQL_INTROSPECTION_DISABLED/);
+    await expect(discoverToolsFromGraphQl({ graphqlUrl: "http://example.test/graphql" })).rejects.toThrow(
+      /GRAPHQL_INTROSPECTION_DISABLED/,
+    );
   });
 
   test("throws on GraphQL errors in the introspection response", async () => {
     mockFetch({ errors: [{ message: "not authorized" }] });
-    await expect(discoverToolsFromGraphQl({ graphqlUrl: "http://example.test/graphql" })).rejects.toThrow(/not authorized/);
+    await expect(discoverToolsFromGraphQl({ graphqlUrl: "http://example.test/graphql" })).rejects.toThrow(
+      /not authorized/,
+    );
   });
 
   test("throws GRAPHQL_TOO_MANY_TYPES when the schema exceeds the configured cap", async () => {
@@ -169,7 +189,9 @@ describe("discoverToolsFromGraphQl", () => {
     (config as Record<string, unknown>).graphqlMaxTypes = 1;
     try {
       mockFetch(schema());
-      await expect(discoverToolsFromGraphQl({ graphqlUrl: "http://example.test/graphql" })).rejects.toThrow(/GRAPHQL_TOO_MANY_TYPES/);
+      await expect(discoverToolsFromGraphQl({ graphqlUrl: "http://example.test/graphql" })).rejects.toThrow(
+        /GRAPHQL_TOO_MANY_TYPES/,
+      );
     } finally {
       (config as Record<string, unknown>).graphqlMaxTypes = original;
     }

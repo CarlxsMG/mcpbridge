@@ -153,7 +153,11 @@ button {
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.06s ease;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    transform 0.06s ease;
 }
 .btn-primary:active:not(:disabled),
 .btn-secondary:active:not(:disabled),
@@ -245,7 +249,9 @@ input[type="radio"] {
   border: 1.5px solid var(--border-strong);
   background: var(--surface);
   cursor: pointer;
-  transition: background-color 0.12s ease, border-color 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
 }
 input[type="checkbox"] {
   border-radius: 5px;
@@ -318,7 +324,10 @@ input[type="radio"]:focus-visible {
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .segmented label:hover {
   color: var(--text-primary);

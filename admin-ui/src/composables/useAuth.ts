@@ -31,10 +31,13 @@ export function useAuth() {
   }
 
   async function login(username: string, password: string): Promise<void> {
-    const res = await api.post<{ user: NonNullable<CurrentUser["user"]>; csrf_token: string }>("/admin-api/auth/login", {
-      username,
-      password,
-    });
+    const res = await api.post<{ user: NonNullable<CurrentUser["user"]>; csrf_token: string }>(
+      "/admin-api/auth/login",
+      {
+        username,
+        password,
+      },
+    );
     state.user = res.user;
     state.authMethod = "session";
     state.checked = true;

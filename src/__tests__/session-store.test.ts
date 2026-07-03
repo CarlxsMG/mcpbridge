@@ -42,7 +42,9 @@ describe("createSession / validateSession — happy path", () => {
     const user = makeUser();
     const session = createSession(user.id, undefined, undefined);
 
-    const row = getDb().query(`SELECT token_hash FROM admin_sessions WHERE user_id = ?`).get(user.id) as { token_hash: string };
+    const row = getDb().query(`SELECT token_hash FROM admin_sessions WHERE user_id = ?`).get(user.id) as {
+      token_hash: string;
+    };
     expect(row.token_hash).not.toBe(session.token);
     expect(row.token_hash).toHaveLength(64); // SHA-256 hex
   });

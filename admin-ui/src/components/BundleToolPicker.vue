@@ -39,7 +39,10 @@ function isSelected(item: ToolListItem): boolean {
 
 function toggle(item: ToolListItem) {
   if (isSelected(item)) {
-    emit("update:modelValue", props.modelValue.filter((t) => refKey(t) !== refKey(item)));
+    emit(
+      "update:modelValue",
+      props.modelValue.filter((t) => refKey(t) !== refKey(item)),
+    );
   } else {
     emit("update:modelValue", [...props.modelValue, { client: item.client, tool: item.tool }]);
   }
@@ -56,7 +59,8 @@ const filteredTools = computed(() => {
   if (showSelectedOnly.value) tools = tools.filter((t) => isSelected(t));
   if (!q) return tools;
   return tools.filter(
-    (t) => t.client.toLowerCase().includes(q) || t.tool.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+    (t) =>
+      t.client.toLowerCase().includes(q) || t.tool.toLowerCase().includes(q) || t.description.toLowerCase().includes(q),
   );
 });
 
@@ -76,10 +80,16 @@ const groupedByClient = computed(() => {
       <label for="tool-filter" class="visually-hidden">Filter tools</label>
       <div class="search-input">
         <Search :size="15" stroke-width="2" aria-hidden="true" />
-        <input id="tool-filter" v-model="search" type="search" placeholder="Filter by client, tool, or description…" aria-label="Filter tools" />
+        <input
+          id="tool-filter"
+          v-model="search"
+          type="search"
+          placeholder="Filter by client, tool, or description…"
+          aria-label="Filter tools"
+        />
       </div>
       <label class="show-selected">
-        <input type="checkbox" v-model="showSelectedOnly" />
+        <input v-model="showSelectedOnly" type="checkbox" />
         Show selected only
       </label>
       <span class="selected-count">{{ modelValue.length }} selected</span>
@@ -99,7 +109,9 @@ const groupedByClient = computed(() => {
       <summary>
         {{ clientName }}
         <span v-if="!tools[0].clientEnabled" class="hint-tag">client disabled</span>
-        <button type="button" class="link-btn select-all-btn" @click.stop.prevent="selectAllInGroup(tools)">Select all</button>
+        <button type="button" class="link-btn select-all-btn" @click.stop.prevent="selectAllInGroup(tools)">
+          Select all
+        </button>
       </summary>
       <ul>
         <li v-for="tool in tools" :key="tool.tool">

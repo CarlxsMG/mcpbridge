@@ -23,7 +23,7 @@ export function setToolSensitive(clientName: string, toolName: string, sensitive
     db.query(
       `INSERT INTO tool_sensitivity (client_name, tool_name, sensitive, updated_at)
        VALUES (?, ?, ?, ?)
-       ON CONFLICT(client_name, tool_name) DO UPDATE SET sensitive = excluded.sensitive, updated_at = excluded.updated_at`
+       ON CONFLICT(client_name, tool_name) DO UPDATE SET sensitive = excluded.sensitive, updated_at = excluded.updated_at`,
     ).run(clientName, toolName, sensitive ? 1 : 0, Date.now());
   }
   return true;

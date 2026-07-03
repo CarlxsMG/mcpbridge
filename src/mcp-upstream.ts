@@ -76,8 +76,7 @@ function makePinnedFetch(originalHostname: string, ip: string): FetchLike {
 export function buildTransport(p: McpConnParams): Transport {
   const url = new URL(p.url);
   const requestInit: RequestInit | undefined = p.authHeaders ? { headers: p.authHeaders } : undefined;
-  const pinnedFetch =
-    p.resolvedIp && p.resolvedIp.length > 0 ? makePinnedFetch(url.hostname, p.resolvedIp) : undefined;
+  const pinnedFetch = p.resolvedIp && p.resolvedIp.length > 0 ? makePinnedFetch(url.hostname, p.resolvedIp) : undefined;
 
   if (p.transport === "sse") {
     const opts: NonNullable<ConstructorParameters<typeof SSEClientTransport>[1]> = {};
@@ -108,8 +107,7 @@ export function mcpResultToProxyResult(result: unknown, maxBytes: number): Proxy
 
   for (const raw of items) {
     const item = raw as { type?: unknown; text?: unknown };
-    const text =
-      item.type === "text" && typeof item.text === "string" ? item.text : JSON.stringify(raw);
+    const text = item.type === "text" && typeof item.text === "string" ? item.text : JSON.stringify(raw);
     totalBytes += Buffer.byteLength(text, "utf8");
     if (totalBytes > maxBytes) {
       return errorResult("Upstream MCP response exceeded MAX_RESPONSE_BYTES limit");
@@ -177,7 +175,7 @@ export class McpUpstreamPool {
     p: McpConnParams,
     upstreamToolName: string,
     args: Record<string, unknown>,
-    opts: { timeoutMs: number; maxBytes: number; signal?: AbortSignal; onprogress?: ProgressCallback }
+    opts: { timeoutMs: number; maxBytes: number; signal?: AbortSignal; onprogress?: ProgressCallback },
   ): Promise<ProxyToolResult> {
     let client: Client;
     try {
@@ -187,11 +185,11 @@ export class McpUpstreamPool {
     }
 
     try {
-      const result = await client.callTool(
-        { name: upstreamToolName, arguments: args },
-        undefined,
-        { timeout: opts.timeoutMs, signal: opts.signal, onprogress: opts.onprogress }
-      );
+      const result = await client.callTool({ name: upstreamToolName, arguments: args }, undefined, {
+        timeout: opts.timeoutMs,
+        signal: opts.signal,
+        onprogress: opts.onprogress,
+      });
       return mcpResultToProxyResult(result, opts.maxBytes);
     } catch (err) {
       if (opts.signal?.aborted) {

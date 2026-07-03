@@ -39,8 +39,14 @@ function makeRes(): MockRes {
   const res: MockRes = {
     _status: undefined,
     _body: undefined,
-    status(code) { this._status = code; return this; },
-    json(body) { this._body = body; return this; },
+    status(code) {
+      this._status = code;
+      return this;
+    },
+    json(body) {
+      this._body = body;
+      return this;
+    },
     setHeader() {},
   };
   return res;
@@ -48,7 +54,9 @@ function makeRes(): MockRes {
 
 function makeNext(): { fn: NextFunction; called: boolean } {
   const state = { fn: null as unknown as NextFunction, called: false };
-  state.fn = () => { state.called = true; };
+  state.fn = () => {
+    state.called = true;
+  };
   return state;
 }
 
@@ -328,7 +336,7 @@ describe("adminAuth — session cookie authentication", () => {
 
     const req = makeReq(
       { cookie: `${SESSION_COOKIE_NAME}=${session.token}`, "x-csrf-token": session.csrfToken },
-      "POST"
+      "POST",
     );
     const res = makeRes();
     const next = makeNext();
@@ -343,10 +351,7 @@ describe("adminAuth — session cookie authentication", () => {
     config.authDisabled = false;
     const { session } = setupUserAndSession();
 
-    const req = makeReq(
-      { cookie: `${SESSION_COOKIE_NAME}=${session.token}`, "x-csrf-token": "wrong-token" },
-      "POST"
-    );
+    const req = makeReq({ cookie: `${SESSION_COOKIE_NAME}=${session.token}`, "x-csrf-token": "wrong-token" }, "POST");
     const res = makeRes();
     const next = makeNext();
 
@@ -364,7 +369,7 @@ describe("adminAuth — session cookie authentication", () => {
 
     const req = makeReq(
       { authorization: "Bearer bearer-key", cookie: `${SESSION_COOKIE_NAME}=${session.token}` },
-      "POST"
+      "POST",
     );
     const res = makeRes();
     const next = makeNext();

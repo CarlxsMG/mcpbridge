@@ -43,7 +43,11 @@ function shutdown(code: number): never {
   if (!shuttingDown) {
     shuttingDown = true;
     for (const p of [backend, ui]) {
-      try { p.kill(); } catch { /* already gone */ }
+      try {
+        p.kill();
+      } catch {
+        /* already gone */
+      }
     }
   }
   process.exit(code);

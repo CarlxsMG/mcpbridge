@@ -21,7 +21,7 @@ shadows the plain one. **Clear the site's cookies** and log in again.
 
 ## A sharded/bundle endpoint returns 404 for my session
 
-The per-client and bundle endpoints reject a session created for a *different* scope, and
+The per-client and bundle endpoints reject a session created for a _different_ scope, and
 return the **same 404** as an unknown session (so a caller can't distinguish "wrong shard"
 from "no session"). Open the session against the exact URL you'll use.
 
@@ -37,7 +37,7 @@ from "no session"). Open the session against the exact URL you'll use.
 - **Allowed-key restriction** — the calling key isn't in the tool's allow-list (fail-closed
   even if global auth is off).
 - **Guardrail** — the input matched a deny-rule or secret pattern, or the key lacks
-  *elevated* scope for a sensitive tool.
+  _elevated_ scope for a sensitive tool.
 - **Circuit breaker open** — the backend is failing; calls fail fast until it recovers.
 
 ## The admin UI isn't served

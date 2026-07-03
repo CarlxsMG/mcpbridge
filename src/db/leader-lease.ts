@@ -20,7 +20,7 @@ export function tryAcquireOrRenewLease(): boolean {
     .query(
       `INSERT INTO _leader_lease (id, holder_id, lease_expires_at) VALUES (1, ?1, ?2)
        ON CONFLICT(id) DO UPDATE SET holder_id = ?1, lease_expires_at = ?2
-       WHERE _leader_lease.holder_id = ?1 OR _leader_lease.lease_expires_at < ?3`
+       WHERE _leader_lease.holder_id = ?1 OR _leader_lease.lease_expires_at < ?3`,
     )
     .run(config.instanceId, expiresAt, now);
 

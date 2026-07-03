@@ -56,7 +56,9 @@ async function verifyIntegrity() {
   integrity.value = null;
   errorMessage.value = "";
   try {
-    integrity.value = await api.get<{ ok: boolean; checked: number; brokenAtId?: number }>("/admin-api/audit-log/verify");
+    integrity.value = await api.get<{ ok: boolean; checked: number; brokenAtId?: number }>(
+      "/admin-api/audit-log/verify",
+    );
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Verification failed.";
   } finally {
@@ -87,45 +89,52 @@ onMounted(() => load());
     </form>
 
     <div class="integrity-actions">
-      <button type="button" class="btn-secondary" :disabled="verifying" @click="verifyIntegrity">{{ verifying ? "Verifying…" : "Verify integrity" }}</button>
+      <button type="button" class="btn-secondary" :disabled="verifying" @click="verifyIntegrity">
+        {{ verifying ? "Verifying…" : "Verify integrity" }}
+      </button>
     </div>
 
     <p v-if="integrity" class="integrity" :class="integrity.ok ? 'ok' : 'broken'">
       <CheckCircle2 v-if="integrity.ok" :size="16" stroke-width="2" aria-hidden="true" />
       <XCircle v-else :size="16" stroke-width="2" aria-hidden="true" />
       <span v-if="integrity.ok">Chain intact — {{ integrity.checked }} entries verified.</span>
-      <span v-else>Tampering detected — chain breaks at entry #{{ integrity.brokenAtId }} (after {{ integrity.checked }} valid). Escalate to security and do not trust entries after this point.</span>
+      <span v-else
+        >Tampering detected — chain breaks at entry #{{ integrity.brokenAtId }} (after {{ integrity.checked }} valid).
+        Escalate to security and do not trust entries after this point.</span
+      >
     </p>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
     <div v-if="entries.length" class="table-card table-scroll">
-    <table class="audit-table">
-      <thead>
-        <tr>
-          <th>When</th>
-          <th>Actor</th>
-          <th>Action</th>
-          <th>Target</th>
-          <th>Detail</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="entry in entries" :key="entry.id">
-          <td>{{ new Date(entry.createdAt).toLocaleString() }}</td>
-          <td>{{ entry.actor }}</td>
-          <td><code>{{ entry.action }}</code></td>
-          <td>{{ entry.target }}</td>
-          <td>
-            <details v-if="entry.detail" class="detail-disclosure">
-              <summary>View</summary>
-              <pre>{{ JSON.stringify(entry.detail, null, 2) }}</pre>
-            </details>
-            <span v-else class="detail-none">—</span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Actor</th>
+            <th>Action</th>
+            <th>Target</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="entry in entries" :key="entry.id">
+            <td>{{ new Date(entry.createdAt).toLocaleString() }}</td>
+            <td>{{ entry.actor }}</td>
+            <td>
+              <code>{{ entry.action }}</code>
+            </td>
+            <td>{{ entry.target }}</td>
+            <td>
+              <details v-if="entry.detail" class="detail-disclosure">
+                <summary>View</summary>
+                <pre>{{ JSON.stringify(entry.detail, null, 2) }}</pre>
+              </details>
+              <span v-else class="detail-none">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
     <div v-else-if="!loading" class="empty-state">
       <ScrollText :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />

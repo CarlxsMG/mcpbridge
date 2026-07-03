@@ -9,9 +9,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'admin-ui/**'
-      - '.github/workflows/deploy-docs.yml'
+      - "docs/**"
+      - "admin-ui/**"
+      - ".github/workflows/deploy-docs.yml"
   workflow_dispatch:
 
 permissions:
@@ -40,7 +40,7 @@ jobs:
       - name: Build interactive demo
         working-directory: admin-ui
         env:
-          VITE_DEMO: 'true'
+          VITE_DEMO: "true"
           DEMO_BASE: /${{ github.event.repository.name }}/demo/
         run: |
           bun install

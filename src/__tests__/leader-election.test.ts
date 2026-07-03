@@ -6,7 +6,8 @@ import { __resetDbForTesting } from "../db/connection.js";
 import { tryAcquireOrRenewLease, refreshLeaderStatus, isLeader } from "../db/leader-lease.js";
 
 const realNow = Date.now.bind(Date);
-const dbDir = "C:\\Users\\carlo\\AppData\\Local\\Temp\\claude\\C--Users-carlo-Desktop-test-1\\389c3acb-7605-40d2-86eb-81b21edd9c9a\\scratchpad";
+const dbDir =
+  "C:\\Users\\carlo\\AppData\\Local\\Temp\\claude\\C--Users-carlo-Desktop-test-1\\389c3acb-7605-40d2-86eb-81b21edd9c9a\\scratchpad";
 const dbPath = `${dbDir}\\leader-election-test.db`;
 
 const originalInstanceId = config.instanceId;
@@ -18,7 +19,7 @@ function tryAcquireAsOtherInstance(db: Database, holderId: string, now: number, 
     .query(
       `INSERT INTO _leader_lease (id, holder_id, lease_expires_at) VALUES (1, ?1, ?2)
        ON CONFLICT(id) DO UPDATE SET holder_id = ?1, lease_expires_at = ?2
-       WHERE _leader_lease.holder_id = ?1 OR _leader_lease.lease_expires_at < ?3`
+       WHERE _leader_lease.holder_id = ?1 OR _leader_lease.lease_expires_at < ?3`,
     )
     .run(holderId, now + leaseDurationMs, now);
   return result.changes === 1;

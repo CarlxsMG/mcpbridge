@@ -52,7 +52,13 @@ interface StateRow {
   cooldown_until: number | null;
 }
 
-const EMPTY_STATE: QuarantineState = { quarantined: false, consecutiveHits: 0, quarantinedAt: null, reason: null, cooldownUntil: null };
+const EMPTY_STATE: QuarantineState = {
+  quarantined: false,
+  consecutiveHits: 0,
+  quarantinedAt: null,
+  reason: null,
+  cooldownUntil: null,
+};
 
 /** Injectable clock so cooldown expiry is deterministically testable. */
 let nowFn: () => number = () => Date.now();
@@ -78,14 +84,18 @@ function rowToState(row: StateRow): QuarantineState {
 
 export function getQuarantinePolicy(clientName: string, toolName: string): QuarantinePolicy | null {
   const row = getDb()
-    .query(`SELECT consecutive_threshold, action, recovery_mode, cooldown_ms FROM tool_quarantine_policy WHERE client_name = ? AND tool_name = ?`)
+    .query(
+      `SELECT consecutive_threshold, action, recovery_mode, cooldown_ms FROM tool_quarantine_policy WHERE client_name = ? AND tool_name = ?`,
+    )
     .get(clientName, toolName) as PolicyRow | null;
   return row ? rowToPolicy(row) : null;
 }
 
 export function getQuarantineState(clientName: string, toolName: string): QuarantineState {
   const row = getDb()
-    .query(`SELECT quarantined, consecutive_hits, quarantined_at, reason, cooldown_until FROM tool_quarantine_state WHERE client_name = ? AND tool_name = ?`)
+    .query(
+      `SELECT quarantined, consecutive_hits, quarantined_at, reason, cooldown_until FROM tool_quarantine_state WHERE client_name = ? AND tool_name = ?`,
+    )
     .get(clientName, toolName) as StateRow | null;
   return row ? rowToState(row) : EMPTY_STATE;
 }
@@ -147,7 +157,10 @@ export function recordGuardrailHit(clientName: string, toolName: string, hit: bo
   const now = nowFn();
 
   if (!hit) {
-    db.query(`UPDATE tool_quarantine_state SET consecutive_hits = 0 WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+    db.query(`UPDATE tool_quarantine_state SET consecutive_hits = 0 WHERE client_name = ? AND tool_name = ?`).run(
+      clientName,
+      toolName,
+    );
     return;
   }
 
@@ -157,9 +170,20 @@ export function recordGuardrailHit(clientName: string, toolName: string, hit: bo
     const cooldownUntil = policy.recoveryMode === "auto" && policy.cooldownMs ? now + policy.cooldownMs : null;
     db.query(
       `UPDATE tool_quarantine_state SET consecutive_hits = ?, quarantined = 1, quarantined_at = ?, reason = ?, cooldown_until = ? WHERE client_name = ? AND tool_name = ?`,
-    ).run(consecutiveHits, now, `${consecutiveHits} consecutive guardrail violations`, cooldownUntil, clientName, toolName);
+    ).run(
+      consecutiveHits,
+      now,
+      `${consecutiveHits} consecutive guardrail violations`,
+      cooldownUntil,
+      clientName,
+      toolName,
+    );
   } else {
-    db.query(`UPDATE tool_quarantine_state SET consecutive_hits = ? WHERE client_name = ? AND tool_name = ?`).run(consecutiveHits, clientName, toolName);
+    db.query(`UPDATE tool_quarantine_state SET consecutive_hits = ? WHERE client_name = ? AND tool_name = ?`).run(
+      consecutiveHits,
+      clientName,
+      toolName,
+    );
   }
 }
 
@@ -200,13 +224,19 @@ export function clearQuarantine(clientName: string, toolName: string): boolean {
 }
 
 /** Policy+state for every tool of a client, keyed by tool name (batched for detail views). */
-export function getQuarantineForClient(clientName: string): Record<string, { policy: QuarantinePolicy; state: QuarantineState }> {
+export function getQuarantineForClient(
+  clientName: string,
+): Record<string, { policy: QuarantinePolicy; state: QuarantineState }> {
   const db = getDb();
   const policyRows = db
-    .query(`SELECT tool_name, consecutive_threshold, action, recovery_mode, cooldown_ms FROM tool_quarantine_policy WHERE client_name = ?`)
+    .query(
+      `SELECT tool_name, consecutive_threshold, action, recovery_mode, cooldown_ms FROM tool_quarantine_policy WHERE client_name = ?`,
+    )
     .all(clientName) as (PolicyRow & { tool_name: string })[];
   const stateRows = db
-    .query(`SELECT tool_name, quarantined, consecutive_hits, quarantined_at, reason, cooldown_until FROM tool_quarantine_state WHERE client_name = ?`)
+    .query(
+      `SELECT tool_name, quarantined, consecutive_hits, quarantined_at, reason, cooldown_until FROM tool_quarantine_state WHERE client_name = ?`,
+    )
     .all(clientName) as (StateRow & { tool_name: string })[];
   const stateByTool = new Map(stateRows.map((r) => [r.tool_name, rowToState(r)]));
 

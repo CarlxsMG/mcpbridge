@@ -30,7 +30,9 @@ interface OAuthRow {
 
 /** Read-model (never returns the secret). */
 export function getClientOAuth(clientName: string): OAuthPublic | null {
-  const row = getDb().query(`SELECT token_url, client_id, scope FROM client_oauth WHERE client_name = ?`).get(clientName) as { token_url: string; client_id: string; scope: string | null } | null;
+  const row = getDb()
+    .query(`SELECT token_url, client_id, scope FROM client_oauth WHERE client_name = ?`)
+    .get(clientName) as { token_url: string; client_id: string; scope: string | null } | null;
   return row ? { tokenUrl: row.token_url, clientId: row.client_id, scope: row.scope } : null;
 }
 
@@ -41,7 +43,8 @@ export async function setClientOAuth(
   input: { tokenUrl: string; clientId: string; clientSecret: string; scope?: string } | null,
 ): Promise<{ ok: true } | { ok: false; error: OAuthError; reason?: string }> {
   const db = getDb();
-  if (!db.query(`SELECT 1 FROM clients WHERE name = ?`).get(clientName)) return { ok: false, error: "CLIENT_NOT_FOUND" };
+  if (!db.query(`SELECT 1 FROM clients WHERE name = ?`).get(clientName))
+    return { ok: false, error: "CLIENT_NOT_FOUND" };
   if (input === null) {
     db.query(`DELETE FROM client_oauth WHERE client_name = ?`).run(clientName);
     tokenCache.delete(clientName);
@@ -88,7 +91,9 @@ export function __resetOAuthForTesting(): void {
  * in which case the call proceeds without it and the backend decides.
  */
 export async function getOAuthBearer(clientName: string): Promise<string | null> {
-  const row = getDb().query(`SELECT token_url, client_id, client_secret_enc, scope FROM client_oauth WHERE client_name = ?`).get(clientName) as OAuthRow | null;
+  const row = getDb()
+    .query(`SELECT token_url, client_id, client_secret_enc, scope FROM client_oauth WHERE client_name = ?`)
+    .get(clientName) as OAuthRow | null;
   if (!row) return null;
 
   const now = nowFn();
@@ -101,7 +106,11 @@ export async function getOAuthBearer(clientName: string): Promise<string | null>
   } catch {
     return null;
   }
-  const body = new URLSearchParams({ grant_type: "client_credentials", client_id: row.client_id, client_secret: secret });
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: row.client_id,
+    client_secret: secret,
+  });
   if (row.scope) body.set("scope", row.scope);
 
   try {

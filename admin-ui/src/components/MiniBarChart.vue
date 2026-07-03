@@ -21,7 +21,9 @@ const format = computed(() => props.valueFormat ?? ((n: number) => String(n)));
           :style="{ width: Math.max((r.value / max) * 100, 2) + '%' }"
         />
       </div>
-      <span class="bar-value">{{ format(r.value) }}<span v-if="r.hint" class="bar-hint"> · {{ r.hint }}</span></span>
+      <span class="bar-value"
+        >{{ format(r.value) }}<span v-if="r.hint" class="bar-hint"> · {{ r.hint }}</span></span
+      >
     </div>
     <p v-if="!rows.length" class="bar-empty">No data in this window.</p>
   </div>

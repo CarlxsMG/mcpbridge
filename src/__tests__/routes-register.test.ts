@@ -29,7 +29,9 @@ function spec() {
     info: { title: "demo", version: "1.0.0" },
     servers: [{ url: `http://127.0.0.1:${upstreamPort}` }],
     paths: {
-      "/users": { get: { operationId: "list_users", summary: "List users", responses: { "200": { description: "ok" } } } },
+      "/users": {
+        get: { operationId: "list_users", summary: "List users", responses: { "200": { description: "ok" } } },
+      },
     },
   };
 }
@@ -47,7 +49,14 @@ function graphqlSchema() {
           {
             kind: "OBJECT",
             name: "Query",
-            fields: [{ name: "hello", description: "Say hello", args: [{ name: "name", description: null, type: NON_NULL(SCALAR("String")), defaultValue: null }], type: SCALAR("String") }],
+            fields: [
+              {
+                name: "hello",
+                description: "Say hello",
+                args: [{ name: "name", description: null, type: NON_NULL(SCALAR("String")), defaultValue: null }],
+                type: SCALAR("String"),
+              },
+            ],
             inputFields: null,
             enumValues: null,
           },
@@ -109,7 +118,11 @@ function bearer(): Record<string, string> {
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {
-    if (adminServer) adminServer.close(() => { adminServer = null; resolve(); });
+    if (adminServer)
+      adminServer.close(() => {
+        adminServer = null;
+        resolve();
+      });
     else resolve();
   });
   (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
@@ -145,7 +158,15 @@ describe("POST /register — REST/OpenAPI branch", () => {
       body: JSON.stringify({
         name: "manual-svc",
         health_url: `http://127.0.0.1:${upstreamPort}/health`,
-        tools: [{ name: "ping", method: "GET", endpoint: "/health", description: "ping", inputSchema: { type: "object", properties: {} } }],
+        tools: [
+          {
+            name: "ping",
+            method: "GET",
+            endpoint: "/health",
+            description: "ping",
+            inputSchema: { type: "object", properties: {} },
+          },
+        ],
       }),
     });
     expect(res.status).toBe(200);
@@ -184,7 +205,11 @@ describe("POST /register — REST/OpenAPI branch", () => {
 
   test("400 for a non-object body (Change A guard)", async () => {
     await startApp();
-    const res = await fetch(`${adminBase}/register`, { method: "POST", headers: bearer(), body: JSON.stringify(["not", "an", "object"]) });
+    const res = await fetch(`${adminBase}/register`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify(["not", "an", "object"]),
+    });
     expect(res.status).toBe(400);
   });
 
@@ -200,8 +225,20 @@ describe("POST /register — REST/OpenAPI branch", () => {
           name: "too-many",
           health_url: `http://127.0.0.1:${upstreamPort}/health`,
           tools: [
-            { name: "a", method: "GET", endpoint: "/a", description: "a", inputSchema: { type: "object", properties: {} } },
-            { name: "b", method: "GET", endpoint: "/b", description: "b", inputSchema: { type: "object", properties: {} } },
+            {
+              name: "a",
+              method: "GET",
+              endpoint: "/a",
+              description: "a",
+              inputSchema: { type: "object", properties: {} },
+            },
+            {
+              name: "b",
+              method: "GET",
+              endpoint: "/b",
+              description: "b",
+              inputSchema: { type: "object", properties: {} },
+            },
           ],
         }),
       });
@@ -240,7 +277,12 @@ describe("POST /register — MCP branch validation", () => {
     const res = await fetch(`${adminBase}/register`, {
       method: "POST",
       headers: bearer(),
-      body: JSON.stringify({ kind: "mcp", name: "mcp-svc", mcp_url: `http://127.0.0.1:${upstreamPort}`, mcp_transport: "carrier-pigeon" }),
+      body: JSON.stringify({
+        kind: "mcp",
+        name: "mcp-svc",
+        mcp_url: `http://127.0.0.1:${upstreamPort}`,
+        mcp_transport: "carrier-pigeon",
+      }),
     });
     expect(res.status).toBe(400);
   });
@@ -289,7 +331,11 @@ describe("POST /register — GraphQL branch", () => {
     const res = await fetch(`${adminBase}/register`, {
       method: "POST",
       headers: bearer(),
-      body: JSON.stringify({ kind: "graphql", name: "graphql-svc2", graphql_url: `http://127.0.0.1:${upstreamPort}/graphql` }),
+      body: JSON.stringify({
+        kind: "graphql",
+        name: "graphql-svc2",
+        graphql_url: `http://127.0.0.1:${upstreamPort}/graphql`,
+      }),
     });
     expect(res.status).toBe(200);
   });
@@ -347,7 +393,11 @@ describe("POST /register — GraphQL branch", () => {
     await fetch(`${adminBase}/register`, {
       method: "POST",
       headers: bearer(),
-      body: JSON.stringify({ name: "graphql-svc5", graphql_url: `http://127.0.0.1:${upstreamPort}/graphql`, health_url: `http://127.0.0.1:${upstreamPort}/health` }),
+      body: JSON.stringify({
+        name: "graphql-svc5",
+        graphql_url: `http://127.0.0.1:${upstreamPort}/graphql`,
+        health_url: `http://127.0.0.1:${upstreamPort}/health`,
+      }),
     });
     expect(registry.getClientDetail("graphql-svc5")?.tools).toHaveLength(1);
 
@@ -360,7 +410,15 @@ describe("POST /register — GraphQL branch", () => {
       body: JSON.stringify({
         name: "graphql-svc5",
         health_url: `http://127.0.0.1:${upstreamPort}/health`,
-        tools: [{ name: "ping", method: "GET", endpoint: "/health", description: "ping", inputSchema: { type: "object", properties: {} } }],
+        tools: [
+          {
+            name: "ping",
+            method: "GET",
+            endpoint: "/health",
+            description: "ping",
+            inputSchema: { type: "object", properties: {} },
+          },
+        ],
       }),
     });
     expect(second.status).toBe(200);

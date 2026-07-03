@@ -38,7 +38,11 @@ function bearer(): Record<string, string> {
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {
-    if (server) server.close(() => { server = null; resolve(); });
+    if (server)
+      server.close(() => {
+        server = null;
+        resolve();
+      });
     else resolve();
   });
 });
@@ -56,7 +60,11 @@ describe("config-io routes", () => {
   test("import (dry-run) accepts a document", async () => {
     await startApp();
     const doc = { version: 1, exportedAt: 0, bundles: [], alertRules: [], clients: [] };
-    const res = await fetch(`${baseUrl}/admin-api/config/import`, { method: "POST", headers: bearer(), body: JSON.stringify({ dryRun: true, data: doc }) });
+    const res = await fetch(`${baseUrl}/admin-api/config/import`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ dryRun: true, data: doc }),
+    });
     expect(res.status).toBe(200);
     const result = (await res.json()) as { dryRun: boolean };
     expect(result.dryRun).toBe(true);
@@ -64,7 +72,11 @@ describe("config-io routes", () => {
 
   test("import rejects an unsupported version with 400", async () => {
     await startApp();
-    const res = await fetch(`${baseUrl}/admin-api/config/import`, { method: "POST", headers: bearer(), body: JSON.stringify({ data: { version: 999 } }) });
+    const res = await fetch(`${baseUrl}/admin-api/config/import`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ data: { version: 999 } }),
+    });
     expect(res.status).toBe(400);
   });
 

@@ -29,7 +29,7 @@ describe("migration #16 — mcp upstream columns", () => {
       "10.0.0.1",
       "http://10.0.0.1",
       "10.0.0.1",
-      false
+      false,
     );
 
     const row = getDb().query(`SELECT kind FROM clients WHERE name = ?`).get("svc") as { kind: string };

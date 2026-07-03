@@ -68,14 +68,18 @@ function startSessionCleanup(): void {
       if (now - lastActivity > config.sessionTtlMs) {
         const streamable = streamableSessions.get(id);
         if (streamable) {
-          try { streamable.close(); } catch {}
+          try {
+            streamable.close();
+          } catch {}
           streamableSessions.delete(id);
           sessionScope.delete(id);
           activeSessionCount = Math.max(0, activeSessionCount - 1);
         }
         const sse = sseSessions.get(id);
         if (sse) {
-          try { sse.close(); } catch {}
+          try {
+            sse.close();
+          } catch {}
           sseSessions.delete(id);
           activeSessionCount = Math.max(0, activeSessionCount - 1);
         }
@@ -106,9 +110,7 @@ async function handleStreamablePost(req: Request, res: Response, scope: McpServe
   let transport: StreamableHTTPServerTransport | undefined;
   let transportInserted = false;
   const rawSessionId = req.headers["mcp-session-id"];
-  const sessionId = rawSessionId !== undefined
-    ? (isValidSessionId(rawSessionId) ? rawSessionId : null)
-    : undefined;
+  const sessionId = rawSessionId !== undefined ? (isValidSessionId(rawSessionId) ? rawSessionId : null) : undefined;
 
   if (sessionId === null) {
     res.status(400).json({
@@ -135,9 +137,10 @@ async function handleStreamablePost(req: Request, res: Response, scope: McpServe
       touchSession(sessionId);
     } else if (!sessionId) {
       if (scope && scopeNotFound(scope)) {
-        const notFound = scope.kind === "client"
-          ? { code: "CLIENT_NOT_FOUND", message: "Client not found" }
-          : { code: "BUNDLE_NOT_FOUND", message: "Bundle not found" };
+        const notFound =
+          scope.kind === "client"
+            ? { code: "CLIENT_NOT_FOUND", message: "Client not found" }
+            : { code: "BUNDLE_NOT_FOUND", message: "Bundle not found" };
         res.status(404).json({ error: notFound });
         return;
       }
@@ -194,16 +197,17 @@ async function handleStreamablePost(req: Request, res: Response, scope: McpServe
       });
     }
   } catch (err) {
-    log("error", scope ? `POST /mcp handler failed (scope=${scopeKey(scope)})` : "POST /mcp failed", { sessionId, err });
+    log("error", scope ? `POST /mcp handler failed (scope=${scopeKey(scope)})` : "POST /mcp failed", {
+      sessionId,
+      err,
+    });
     if (transport && !transportInserted) {
       // Release the reservation taken before the failed insert
       activeSessionCount = Math.max(0, activeSessionCount - 1);
       await transport.close().catch(() => {});
     }
     if (res.headersSent) return;
-    const id = typeof req.body?.id === "string" || typeof req.body?.id === "number"
-      ? req.body.id
-      : null;
+    const id = typeof req.body?.id === "string" || typeof req.body?.id === "number" ? req.body.id : null;
     res.status(500).json({
       jsonrpc: "2.0",
       error: { code: -32603, message: "Internal error" },
@@ -390,8 +394,12 @@ export function setupTransports(app: Express): () => void {
             sseSessions.delete(transport!.sessionId);
             sessionActivity.delete(transport!.sessionId);
             activeSessionCount = Math.max(0, activeSessionCount - 1);
-            try { server?.close(); } catch {}
-            try { transport!.close(); } catch {}
+            try {
+              server?.close();
+            } catch {}
+            try {
+              transport!.close();
+            } catch {}
           }
         }, 15_000);
 
@@ -400,8 +408,12 @@ export function setupTransports(app: Express): () => void {
           sseSessions.delete(transport!.sessionId);
           sessionActivity.delete(transport!.sessionId);
           activeSessionCount = Math.max(0, activeSessionCount - 1);
-          try { server?.close(); } catch {}
-          try { transport!.close(); } catch {}
+          try {
+            server?.close();
+          } catch {}
+          try {
+            transport!.close();
+          } catch {}
         });
 
         server = createMcpServer();
@@ -424,7 +436,9 @@ export function setupTransports(app: Express): () => void {
             error: { code: "SSE_INIT_FAILED", message: "Failed to establish SSE stream" },
           });
         } else {
-          try { res.end(); } catch {}
+          try {
+            res.end();
+          } catch {}
         }
       }
     });
@@ -456,13 +470,17 @@ export function setupTransports(app: Express): () => void {
   return () => {
     if (cleanupTimer) clearInterval(cleanupTimer);
     for (const [id, transport] of streamableSessions) {
-      try { transport.close(); } catch {}
+      try {
+        transport.close();
+      } catch {}
       streamableSessions.delete(id);
       sessionScope.delete(id);
       activeSessionCount = Math.max(0, activeSessionCount - 1);
     }
     for (const [id, transport] of sseSessions) {
-      try { transport.close(); } catch {}
+      try {
+        transport.close();
+      } catch {}
       sseSessions.delete(id);
       activeSessionCount = Math.max(0, activeSessionCount - 1);
     }

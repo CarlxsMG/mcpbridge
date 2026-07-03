@@ -174,9 +174,7 @@ describe("checkStartupGuards — all safe", () => {
 
 describe("checkStartupGuards — guard ordering", () => {
   test("AUTH_DISABLED fires before CORS wildcard when both are set", () => {
-    const result = checkStartupGuards(
-      safeEnv({ authDisabled: true, corsOrigins: ["*"], nodeEnv: "production" })
-    );
+    const result = checkStartupGuards(safeEnv({ authDisabled: true, corsOrigins: ["*"], nodeEnv: "production" }));
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.reason).toContain("AUTH_DISABLED");

@@ -28,7 +28,7 @@ function handleCall(name: string, args: Record<string, unknown>): ToolResult | P
       return { content: [{ type: "text", text: "boom details" }], isError: true };
     case "slow":
       return new Promise<ToolResult>((res) =>
-        setTimeout(() => res({ content: [{ type: "text", text: "late" }] }), 300)
+        setTimeout(() => res({ content: [{ type: "text", text: "late" }] }), 300),
       );
     case "big":
       return { content: [{ type: "text", text: "x".repeat(5000) }] };
@@ -46,7 +46,7 @@ function makeFactory() {
     const server = new Server({ name: "test-upstream", version: "1.0.0" }, { capabilities: { tools: {} } });
     server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: LIST_TOOLS }));
     server.setRequestHandler(CallToolRequestSchema, async (req) =>
-      handleCall(req.params.name, req.params.arguments ?? {})
+      handleCall(req.params.name, req.params.arguments ?? {}),
     );
     void server.connect(serverT);
     return clientT;
@@ -147,10 +147,7 @@ describe("discovery", () => {
 
 describe("mcpResultToProxyResult", () => {
   test("JSON-encodes non-text content instead of dropping it", () => {
-    const r = mcpResultToProxyResult(
-      { content: [{ type: "image", data: "AAAA", mimeType: "image/png" }] },
-      1_000_000
-    );
+    const r = mcpResultToProxyResult({ content: [{ type: "image", data: "AAAA", mimeType: "image/png" }] }, 1_000_000);
     expect(r.isError).toBeUndefined();
     expect(r.content[0].type).toBe("text");
     expect(r.content[0].text).toContain("image/png");

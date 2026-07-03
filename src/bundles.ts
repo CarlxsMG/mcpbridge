@@ -57,7 +57,9 @@ const locks = new Map<string, Promise<unknown>>();
 async function withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
   const prev = locks.get(name) ?? Promise.resolve();
   let release!: () => void;
-  const next = new Promise<void>((r) => { release = r; });
+  const next = new Promise<void>((r) => {
+    release = r;
+  });
   const lockEntry = prev.then(() => next);
   locks.set(name, lockEntry);
   try {
@@ -151,17 +153,28 @@ export function listBundles(): BundleSummary[] {
       `SELECT b.name, b.description, b.enabled, COUNT(t.client_name) as tools_count
        FROM mcp_bundles b LEFT JOIN mcp_bundle_tools t ON t.bundle_name = b.name
        GROUP BY b.name
-       ORDER BY b.name`
+       ORDER BY b.name`,
     )
     .all() as { name: string; description: string | null; enabled: number; tools_count: number }[];
-  return rows.map((r) => ({ name: r.name, description: r.description, enabled: r.enabled === 1, toolsCount: r.tools_count }));
+  return rows.map((r) => ({
+    name: r.name,
+    description: r.description,
+    enabled: r.enabled === 1,
+    toolsCount: r.tools_count,
+  }));
 }
 
 export function getBundleDetail(name: string): BundleDetail | undefined {
   const db = getDb();
   const row = db
     .query(`SELECT name, description, enabled, created_at, updated_at FROM mcp_bundles WHERE name = ?`)
-    .get(name) as { name: string; description: string | null; enabled: number; created_at: number; updated_at: number } | null;
+    .get(name) as {
+    name: string;
+    description: string | null;
+    enabled: number;
+    created_at: number;
+    updated_at: number;
+  } | null;
   if (!row) return undefined;
 
   const toolRows = db
@@ -182,10 +195,13 @@ export async function createBundle(
   name: string,
   description: string | undefined,
   tools: BundleToolRef[],
-  actor: string
+  actor: string,
 ): Promise<BundleMutationResult> {
   if (!NAME_RE.test(name)) {
-    return { ok: false, error: { code: "INVALID_NAME", message: "Bundle name must match /^[a-z0-9][a-z0-9_-]{0,62}$/" } };
+    return {
+      ok: false,
+      error: { code: "INVALID_NAME", message: "Bundle name must match /^[a-z0-9][a-z0-9_-]{0,62}$/" },
+    };
   }
   const deduped = dedupeToolRefs(tools);
 
@@ -206,10 +222,10 @@ export async function createBundle(
     const now = Date.now();
     const txn = db.transaction(() => {
       db.query(
-        `INSERT INTO mcp_bundles (name, description, enabled, created_at, updated_at, created_by) VALUES (?, ?, 1, ?, ?, ?)`
+        `INSERT INTO mcp_bundles (name, description, enabled, created_at, updated_at, created_by) VALUES (?, ?, 1, ?, ?, ?)`,
       ).run(name, description ?? null, now, now, actor);
       const insertTool = db.query(
-        `INSERT INTO mcp_bundle_tools (bundle_name, client_name, tool_name, created_at) VALUES (?, ?, ?, ?)`
+        `INSERT INTO mcp_bundle_tools (bundle_name, client_name, tool_name, created_at) VALUES (?, ?, ?, ?)`,
       );
       for (const t of deduped) insertTool.run(name, t.client, t.tool, now);
     });
@@ -223,7 +239,7 @@ export async function createBundle(
 
 export async function updateBundle(
   name: string,
-  updates: { description?: string | null; enabled?: boolean; tools?: BundleToolRef[] }
+  updates: { description?: string | null; enabled?: boolean; tools?: BundleToolRef[] },
 ): Promise<BundleMutationResult> {
   return withLock(name, async () => {
     const db = getDb();
@@ -247,15 +263,23 @@ export async function updateBundle(
     const now = Date.now();
     const txn = db.transaction(() => {
       if (updates.description !== undefined) {
-        db.query(`UPDATE mcp_bundles SET description = ?, updated_at = ? WHERE name = ?`).run(updates.description, now, name);
+        db.query(`UPDATE mcp_bundles SET description = ?, updated_at = ? WHERE name = ?`).run(
+          updates.description,
+          now,
+          name,
+        );
       }
       if (updates.enabled !== undefined) {
-        db.query(`UPDATE mcp_bundles SET enabled = ?, updated_at = ? WHERE name = ?`).run(updates.enabled ? 1 : 0, now, name);
+        db.query(`UPDATE mcp_bundles SET enabled = ?, updated_at = ? WHERE name = ?`).run(
+          updates.enabled ? 1 : 0,
+          now,
+          name,
+        );
       }
       if (deduped !== undefined) {
         db.query(`DELETE FROM mcp_bundle_tools WHERE bundle_name = ?`).run(name);
         const insertTool = db.query(
-          `INSERT INTO mcp_bundle_tools (bundle_name, client_name, tool_name, created_at) VALUES (?, ?, ?, ?)`
+          `INSERT INTO mcp_bundle_tools (bundle_name, client_name, tool_name, created_at) VALUES (?, ?, ?, ?)`,
         );
         for (const t of deduped) insertTool.run(name, t.client, t.tool, now);
         if (updates.description === undefined && updates.enabled === undefined) {

@@ -24,16 +24,27 @@ function factory(_p: McpConnParams): Transport {
   const server = new Server({ name: "up", version: "1.0.0" }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
-      { name: "echo", description: "e", inputSchema: { type: "object", properties: { msg: { type: "string" } }, required: ["msg"] } },
+      {
+        name: "echo",
+        description: "e",
+        inputSchema: { type: "object", properties: { msg: { type: "string" } }, required: ["msg"] },
+      },
     ],
   }));
-  server.setRequestHandler(CallToolRequestSchema, async (req) => handleCall(req.params.name, req.params.arguments ?? {}));
+  server.setRequestHandler(CallToolRequestSchema, async (req) =>
+    handleCall(req.params.name, req.params.arguments ?? {}),
+  );
   void server.connect(serverT);
   return clientT;
 }
 
 const TOOLS: DiscoveredMcpTool[] = [
-  { name: "echo", upstreamName: "echo", description: "Echoes", inputSchema: { type: "object", properties: { msg: { type: "string" } }, required: ["msg"] } },
+  {
+    name: "echo",
+    upstreamName: "echo",
+    description: "Echoes",
+    inputSchema: { type: "object", properties: { msg: { type: "string" } }, required: ["msg"] },
+  },
   { name: "boom", upstreamName: "boom", description: "Fails", inputSchema: { type: "object" } },
 ];
 
@@ -76,7 +87,10 @@ describe("proxyToolCall — MCP-kind dispatch", () => {
   });
 
   test("advertises MCP tools via getAllMcpTools", () => {
-    const names = registry.getAllMcpTools().map((t) => t.name).filter((n) => n.startsWith("up__"));
+    const names = registry
+      .getAllMcpTools()
+      .map((t) => t.name)
+      .filter((n) => n.startsWith("up__"));
     expect(names.sort()).toEqual(["up__boom", "up__echo"]);
   });
 });

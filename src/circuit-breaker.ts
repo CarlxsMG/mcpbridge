@@ -1,9 +1,6 @@
 import { config } from "./config.js";
 import { log } from "./logger.js";
-import {
-  breakerStateTransitions,
-  breakerProbeRejected,
-} from "./observability/metrics.js";
+import { breakerStateTransitions, breakerProbeRejected } from "./observability/metrics.js";
 
 type CircuitState = "closed" | "open" | "half_open";
 
@@ -97,9 +94,7 @@ class CircuitBreaker {
 
     // Append to sliding window and prune stale entries.
     this.failureTimestamps.push(now);
-    this.failureTimestamps = this.failureTimestamps.filter(
-      ts => now - ts < this.cfg.windowMs,
-    );
+    this.failureTimestamps = this.failureTimestamps.filter((ts) => now - ts < this.cfg.windowMs);
 
     if (this.failureTimestamps.length >= this.cfg.failureThreshold) {
       this.state = "open";

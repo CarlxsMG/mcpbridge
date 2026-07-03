@@ -21,14 +21,18 @@ export interface ConfigDiffEntry {
 function canonicalize(v: unknown): unknown {
   if (Array.isArray(v)) {
     const arr = v.map(canonicalize);
-    if (arr.length > 0 && arr.every((x) => x !== null && typeof x === "object" && "name" in (x as Record<string, unknown>))) {
+    if (
+      arr.length > 0 &&
+      arr.every((x) => x !== null && typeof x === "object" && "name" in (x as Record<string, unknown>))
+    ) {
       arr.sort((a, b) => String((a as { name: unknown }).name).localeCompare(String((b as { name: unknown }).name)));
     }
     return arr;
   }
   if (v !== null && typeof v === "object") {
     const out: Record<string, unknown> = {};
-    for (const k of Object.keys(v as Record<string, unknown>).sort()) out[k] = canonicalize((v as Record<string, unknown>)[k]);
+    for (const k of Object.keys(v as Record<string, unknown>).sort())
+      out[k] = canonicalize((v as Record<string, unknown>)[k]);
     return out;
   }
   return v;

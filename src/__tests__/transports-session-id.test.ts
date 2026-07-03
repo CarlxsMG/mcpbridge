@@ -40,7 +40,7 @@ async function startApp(): Promise<void> {
 
 function stopApp(): Promise<void> {
   if (cleanupFn) cleanupFn();
-  return new Promise<void>(resolve => {
+  return new Promise<void>((resolve) => {
     if (activeServer) {
       activeServer.close(() => {
         activeServer = null;
@@ -72,7 +72,7 @@ describe("transports — INVALID_SESSION_ID guard: POST /mcp with bad session", 
       body: JSON.stringify({ jsonrpc: "2.0", method: "initialize", id: 1 }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error?: { code?: string } };
+    const body = (await res.json()) as { error?: { code?: string } };
     expect(body.error?.code).toBe("INVALID_SESSION_ID");
   });
 });
@@ -87,7 +87,7 @@ describe("transports — INVALID_SESSION_ID guard: GET /mcp with numeric session
       headers: { "mcp-session-id": "12345" },
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error?: { code?: string } };
+    const body = (await res.json()) as { error?: { code?: string } };
     expect(body.error?.code).toBe("INVALID_SESSION_ID");
   });
 });
@@ -102,7 +102,7 @@ describe("transports — INVALID_SESSION_ID guard: DELETE /mcp with path travers
       headers: { "mcp-session-id": "../etc/passwd" },
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error?: { code?: string } };
+    const body = (await res.json()) as { error?: { code?: string } };
     expect(body.error?.code).toBe("INVALID_SESSION_ID");
   });
 });
@@ -118,7 +118,7 @@ describe("transports — INVALID_SESSION_ID guard: POST /messages with invalid s
       body: JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error?: { code?: string } };
+    const body = (await res.json()) as { error?: { code?: string } };
     expect(body.error?.code).toBe("INVALID_SESSION_ID");
   });
 });
@@ -143,7 +143,7 @@ describe("transports — INVALID_SESSION_ID guard: valid UUID passes format chec
     // Must NOT be 400 for the session ID format reason
     // (may be 404 session-not-found, 500, 200, etc.)
     if (res.status === 400) {
-      const body = await res.json() as { error?: { code?: string } };
+      const body = (await res.json()) as { error?: { code?: string } };
       expect(body.error?.code).not.toBe("INVALID_SESSION_ID");
     } else {
       expect(res.status).not.toBe(400);
@@ -156,7 +156,7 @@ describe("transports — INVALID_SESSION_ID guard: valid UUID passes format chec
       headers: { "mcp-session-id": VALID_UUID },
     });
     if (res.status === 400) {
-      const body = await res.json() as { error?: { code?: string } };
+      const body = (await res.json()) as { error?: { code?: string } };
       expect(body.error?.code).not.toBe("INVALID_SESSION_ID");
     } else {
       expect(res.status).not.toBe(400);
@@ -169,7 +169,7 @@ describe("transports — INVALID_SESSION_ID guard: valid UUID passes format chec
       headers: { "mcp-session-id": VALID_UUID },
     });
     if (res.status === 400) {
-      const body = await res.json() as { error?: { code?: string } };
+      const body = (await res.json()) as { error?: { code?: string } };
       expect(body.error?.code).not.toBe("INVALID_SESSION_ID");
     } else {
       expect(res.status).not.toBe(400);
@@ -183,7 +183,7 @@ describe("transports — INVALID_SESSION_ID guard: valid UUID passes format chec
       body: JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 }),
     });
     if (res.status === 400) {
-      const body = await res.json() as { error?: { code?: string } };
+      const body = (await res.json()) as { error?: { code?: string } };
       expect(body.error?.code).not.toBe("INVALID_SESSION_ID");
     } else {
       expect(res.status).not.toBe(400);

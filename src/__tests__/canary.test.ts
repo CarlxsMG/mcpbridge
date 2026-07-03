@@ -13,7 +13,13 @@ import type { RestToolDefinition } from "../types.js";
 
 const CLIENT = "svc";
 function makeTool(): RestToolDefinition {
-  return { name: "get-x", method: "GET", endpoint: "/x", description: "x", inputSchema: { type: "object", properties: {} } };
+  return {
+    name: "get-x",
+    method: "GET",
+    endpoint: "/x",
+    description: "x",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 async function reg(): Promise<void> {
   await registry.register(CLIENT, [makeTool()], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
@@ -21,7 +27,11 @@ async function reg(): Promise<void> {
 
 const originalFetch = globalThis.fetch;
 const cfg = (enabled: boolean, mode: "canary" | "failover", weight: number): CanaryConfig => ({
-  secondaryBaseUrl: "http://5.6.7.8", secondaryResolvedIp: "5.6.7.8", mode, weight, enabled,
+  secondaryBaseUrl: "http://5.6.7.8",
+  secondaryResolvedIp: "5.6.7.8",
+  mode,
+  weight,
+  enabled,
 });
 
 beforeEach(async () => {
@@ -59,10 +69,18 @@ describe("decideSecondary", () => {
 describe("setCanary validation", () => {
   test("rejects unknown client / bad weight / bad url; accepts a valid raw-IP secondary", async () => {
     await reg();
-    expect(await setCanary("ghost", { secondaryBaseUrl: "http://5.6.7.8", mode: "canary", weight: 50, enabled: true })).toMatchObject({ ok: false, error: "CLIENT_NOT_FOUND" });
-    expect(await setCanary(CLIENT, { secondaryBaseUrl: "http://5.6.7.8", mode: "canary", weight: 0, enabled: true })).toMatchObject({ ok: false, error: "INVALID_WEIGHT" });
-    expect(await setCanary(CLIENT, { secondaryBaseUrl: "not a url", mode: "canary", weight: 50, enabled: true })).toMatchObject({ ok: false, error: "INVALID_URL" });
-    expect(await setCanary(CLIENT, { secondaryBaseUrl: "http://5.6.7.8", mode: "canary", weight: 50, enabled: true })).toEqual({ ok: true });
+    expect(
+      await setCanary("ghost", { secondaryBaseUrl: "http://5.6.7.8", mode: "canary", weight: 50, enabled: true }),
+    ).toMatchObject({ ok: false, error: "CLIENT_NOT_FOUND" });
+    expect(
+      await setCanary(CLIENT, { secondaryBaseUrl: "http://5.6.7.8", mode: "canary", weight: 0, enabled: true }),
+    ).toMatchObject({ ok: false, error: "INVALID_WEIGHT" });
+    expect(
+      await setCanary(CLIENT, { secondaryBaseUrl: "not a url", mode: "canary", weight: 50, enabled: true }),
+    ).toMatchObject({ ok: false, error: "INVALID_URL" });
+    expect(
+      await setCanary(CLIENT, { secondaryBaseUrl: "http://5.6.7.8", mode: "canary", weight: 50, enabled: true }),
+    ).toEqual({ ok: true });
     expect(getCanary(CLIENT)?.secondaryResolvedIp).toBe("5.6.7.8");
   });
 
@@ -79,7 +97,10 @@ describe("proxy integration", () => {
     await reg();
     await setCanary(CLIENT, { secondaryBaseUrl: "http://5.6.7.8", mode: "canary", weight: 100, enabled: true });
     let lastUrl = "";
-    globalThis.fetch = (async (url: string) => { lastUrl = String(url); return new Response("{}", { status: 200, headers: { "content-type": "application/json" } }); }) as unknown as typeof fetch;
+    globalThis.fetch = (async (url: string) => {
+      lastUrl = String(url);
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-x`, {});
     expect(r.isError).toBeUndefined();
     expect(lastUrl).toContain("5.6.7.8");
@@ -93,7 +114,10 @@ describe("proxy integration", () => {
     globalThis.fetch = (async (url: string) =>
       String(url).includes("1.2.3.4")
         ? new Response("down", { status: 500 })
-        : new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+        : new Response("{}", {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          })) as unknown as typeof fetch;
 
     // First call hits the (failing) primary and trips the breaker.
     const first = await proxyToolCall(`${CLIENT}__get-x`, {});

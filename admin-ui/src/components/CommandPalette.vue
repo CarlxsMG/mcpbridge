@@ -37,26 +37,131 @@ interface Entry {
 }
 
 const PAGES: Entry[] = [
-  { id: "p-servers", label: "Servers", hint: "List and manage upstream servers", group: "Pages", icon: Server, to: "/servers" },
-  { id: "p-register", label: "Add server", hint: "Register a new upstream", group: "Pages", icon: Server, to: "/register-server" },
-  { id: "p-catalog", label: "Catalog", hint: "Browse & one-click install servers", group: "Pages", icon: LayoutGrid, to: "/catalog" },
-  { id: "p-bundles", label: "Bundles", hint: "Cross-client tool selections", group: "Pages", icon: Boxes, to: "/bundles" },
-  { id: "p-composites", label: "Composites", hint: "Chained tool calls", group: "Pages", icon: Combine, to: "/composites" },
-  { id: "p-ws-proxies", label: "WS proxies", hint: "Live WebSocket passthrough targets", group: "Pages", icon: Cable, to: "/ws-proxies" },
+  {
+    id: "p-servers",
+    label: "Servers",
+    hint: "List and manage upstream servers",
+    group: "Pages",
+    icon: Server,
+    to: "/servers",
+  },
+  {
+    id: "p-register",
+    label: "Add server",
+    hint: "Register a new upstream",
+    group: "Pages",
+    icon: Server,
+    to: "/register-server",
+  },
+  {
+    id: "p-catalog",
+    label: "Catalog",
+    hint: "Browse & one-click install servers",
+    group: "Pages",
+    icon: LayoutGrid,
+    to: "/catalog",
+  },
+  {
+    id: "p-bundles",
+    label: "Bundles",
+    hint: "Cross-client tool selections",
+    group: "Pages",
+    icon: Boxes,
+    to: "/bundles",
+  },
+  {
+    id: "p-composites",
+    label: "Composites",
+    hint: "Chained tool calls",
+    group: "Pages",
+    icon: Combine,
+    to: "/composites",
+  },
+  {
+    id: "p-ws-proxies",
+    label: "WS proxies",
+    hint: "Live WebSocket passthrough targets",
+    group: "Pages",
+    icon: Cable,
+    to: "/ws-proxies",
+  },
   { id: "p-keys", label: "API keys", hint: "MCP client credentials", group: "Pages", icon: KeyRound, to: "/keys" },
-  { id: "p-policies", label: "Policies", hint: "Reusable rate-limit/timeout presets", group: "Pages", icon: ShieldCheck, to: "/policies" },
-  { id: "p-consumers", label: "Consumers", hint: "Quota-tracked key owners", group: "Pages", icon: Users2, to: "/consumers" },
-  { id: "p-overview", label: "Overview", hint: "Bridge instance snapshot", group: "Pages", icon: LayoutDashboard, to: "/overview" },
+  {
+    id: "p-policies",
+    label: "Policies",
+    hint: "Reusable rate-limit/timeout presets",
+    group: "Pages",
+    icon: ShieldCheck,
+    to: "/policies",
+  },
+  {
+    id: "p-consumers",
+    label: "Consumers",
+    hint: "Quota-tracked key owners",
+    group: "Pages",
+    icon: Users2,
+    to: "/consumers",
+  },
+  {
+    id: "p-overview",
+    label: "Overview",
+    hint: "Bridge instance snapshot",
+    group: "Pages",
+    icon: LayoutDashboard,
+    to: "/overview",
+  },
   { id: "p-usage", label: "Usage", hint: "Call volume and latency", group: "Pages", icon: Activity, to: "/usage" },
-  { id: "p-traffic", label: "Traffic", hint: "Captured request/response calls", group: "Pages", icon: ArrowLeftRight, to: "/traffic" },
-  { id: "p-monitors", label: "Monitors", hint: "Synthetic uptime + schema-drift checks", group: "Pages", icon: Radar, to: "/monitors" },
-  { id: "p-approvals", label: "Approvals", hint: "Human-in-the-loop approval queue", group: "Pages", icon: ClipboardCheck, to: "/approvals" },
+  {
+    id: "p-traffic",
+    label: "Traffic",
+    hint: "Captured request/response calls",
+    group: "Pages",
+    icon: ArrowLeftRight,
+    to: "/traffic",
+  },
+  {
+    id: "p-monitors",
+    label: "Monitors",
+    hint: "Synthetic uptime + schema-drift checks",
+    group: "Pages",
+    icon: Radar,
+    to: "/monitors",
+  },
+  {
+    id: "p-approvals",
+    label: "Approvals",
+    hint: "Human-in-the-loop approval queue",
+    group: "Pages",
+    icon: ClipboardCheck,
+    to: "/approvals",
+  },
   { id: "p-alerts", label: "Alerts", hint: "Webhook alert rules", group: "Pages", icon: BellRing, to: "/alerts" },
-  { id: "p-schedules", label: "Schedules", hint: "Cron enable/disable jobs", group: "Pages", icon: Clock, to: "/schedules" },
-  { id: "p-audit", label: "Audit log", hint: "Hash-chained admin actions", group: "Pages", icon: ScrollText, to: "/audit-log" },
+  {
+    id: "p-schedules",
+    label: "Schedules",
+    hint: "Cron enable/disable jobs",
+    group: "Pages",
+    icon: Clock,
+    to: "/schedules",
+  },
+  {
+    id: "p-audit",
+    label: "Audit log",
+    hint: "Hash-chained admin actions",
+    group: "Pages",
+    icon: ScrollText,
+    to: "/audit-log",
+  },
   { id: "p-users", label: "Users", hint: "Admin accounts", group: "Pages", icon: UserCog, to: "/users" },
   { id: "p-teams", label: "Teams", hint: "Server ownership groups", group: "Pages", icon: UsersRound, to: "/teams" },
-  { id: "p-config", label: "Config", hint: "Export, import, snapshots", group: "Pages", icon: Settings2, to: "/config" },
+  {
+    id: "p-config",
+    label: "Config",
+    hint: "Export, import, snapshots",
+    group: "Pages",
+    icon: Settings2,
+    to: "/config",
+  },
 ];
 
 const router = useRouter();
@@ -71,7 +176,11 @@ const listEl = ref<HTMLDivElement | null>(null);
 function onGlobalKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
     e.preventDefault();
-    open.value ? close() : show();
+    if (open.value) {
+      close();
+    } else {
+      show();
+    }
   } else if (e.key === "Escape" && open.value) {
     close();
   }
@@ -94,7 +203,9 @@ async function loadLive() {
   loadedLive.value = true;
   try {
     const [clients, bundles, keys] = await Promise.all([
-      api.get<PaginatedResult<ClientSummary>>("/admin-api/clients?limit=25").catch(() => ({ items: [] as ClientSummary[] })),
+      api
+        .get<PaginatedResult<ClientSummary>>("/admin-api/clients?limit=25")
+        .catch(() => ({ items: [] as ClientSummary[] })),
       api.get<{ items: BundleSummary[] }>("/admin-api/bundles").catch(() => ({ items: [] as BundleSummary[] })),
       api.get<{ items: McpApiKey[] }>("/admin-api/mcp-keys").catch(() => ({ items: [] as McpApiKey[] })),
     ]);
@@ -197,7 +308,7 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
 </script>
 
 <template>
-  <button type="button" class="cmd-trigger" @click="show" aria-label="Open command palette">
+  <button type="button" class="cmd-trigger" aria-label="Open command palette" @click="show">
     <Search :size="14" stroke-width="2" aria-hidden="true" />
     <span>Jump to…</span>
     <kbd>⌘K</kbd>
@@ -256,7 +367,9 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
   font-size: var(--text-sm);
   cursor: pointer;
   text-align: left;
-  transition: background-color 0.12s ease, border-color 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
 }
 .cmd-trigger:hover {
   background: rgba(255, 255, 255, 0.1);

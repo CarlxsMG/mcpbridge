@@ -29,14 +29,7 @@ function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefiniti
 }
 
 async function reg(name: string) {
-  await registry.register(
-    name,
-    [makeTool()],
-    "http://example.com/health",
-    "1.2.3.4",
-    "http://example.com",
-    "1.2.3.4"
-  );
+  await registry.register(name, [makeTool()], "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
 }
 
 beforeEach(async () => {
@@ -94,7 +87,7 @@ describe("registry — re-register after unregister", () => {
       "http://example.com/health",
       "1.2.3.4",
       "http://example.com",
-      "1.2.3.4"
+      "1.2.3.4",
     );
     await registry.unregister("reuse2-svc");
 
@@ -104,7 +97,7 @@ describe("registry — re-register after unregister", () => {
       "http://example.com/health",
       "1.2.3.4",
       "http://example.com",
-      "1.2.3.4"
+      "1.2.3.4",
     );
 
     // Old tool must be gone; new tool must be present
@@ -153,10 +146,7 @@ describe("registry — concurrent delete and re-register via mutex", () => {
     await reg("concurrent-svc");
 
     // Fire both concurrently — the mutex must serialise them
-    await Promise.all([
-      registry.unregister("concurrent-svc"),
-      reg("concurrent-svc"),
-    ]);
+    await Promise.all([registry.unregister("concurrent-svc"), reg("concurrent-svc")]);
 
     // Exactly one operation must have won — toolIndex must be internally consistent
     const client = registry.getClient("concurrent-svc");
@@ -184,7 +174,7 @@ describe("registry.resolveTool — after unregister", () => {
       "http://example.com/health",
       "1.2.3.4",
       "http://example.com",
-      "1.2.3.4"
+      "1.2.3.4",
     );
     await registry.unregister("multi-svc");
 

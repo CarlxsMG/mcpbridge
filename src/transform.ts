@@ -69,7 +69,14 @@ export function setToolTransform(
        response_json = excluded.response_json,
        enabled = excluded.enabled,
        updated_at = excluded.updated_at`,
-  ).run(clientName, toolName, JSON.stringify(input.request), JSON.stringify(input.response), input.enabled ? 1 : 0, Date.now());
+  ).run(
+    clientName,
+    toolName,
+    JSON.stringify(input.request),
+    JSON.stringify(input.response),
+    input.enabled ? 1 : 0,
+    Date.now(),
+  );
   return true;
 }
 

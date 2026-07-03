@@ -38,7 +38,7 @@ async function startApp(): Promise<() => void> {
 
 function stopServer(cleanup: () => void): Promise<void> {
   cleanup();
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     if (activeServer) {
       activeServer.close(() => {
         activeServer = null;
@@ -176,7 +176,7 @@ describe("transports — TTL cleanup loop does not underflow counter", () => {
 
     // Wait long enough for the cleanup loop's 60s interval to NOT run — we are just
     // verifying that the counter does not go below zero via any other cleanup path.
-    await new Promise(resolve => setTimeout(resolve, 30));
+    await new Promise((resolve) => setTimeout(resolve, 30));
 
     const count = getActiveSessionCount();
     expect(count).toBeGreaterThanOrEqual(0);

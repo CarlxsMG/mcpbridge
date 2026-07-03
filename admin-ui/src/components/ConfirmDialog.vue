@@ -29,7 +29,7 @@ watch(
       previouslyFocused?.focus();
       previouslyFocused = null;
     }
-  }
+  },
 );
 
 // Cancel/Confirm are the only two focusable elements — cycle Tab/Shift+Tab

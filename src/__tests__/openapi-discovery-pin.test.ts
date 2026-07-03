@@ -89,8 +89,7 @@ describe("discoverToolsFromOpenApi — DNS pin: URL hostname replaced", () => {
     const headers = state.captured!.options.headers as Record<string, string> | undefined;
     expect(headers).toBeDefined();
     // Accept both "Host" and "host" (case-insensitive)
-    const hostValue =
-      headers?.["Host"] ?? headers?.["host"] ?? headers?.["HOST"];
+    const hostValue = headers?.["Host"] ?? headers?.["host"] ?? headers?.["HOST"];
     expect(hostValue).toBe("example.com");
   });
 

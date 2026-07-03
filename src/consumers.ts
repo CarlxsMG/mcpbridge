@@ -65,24 +65,35 @@ export function getConsumerByName(name: string): Consumer | null {
   return row ? rowToConsumer(row) : null;
 }
 
-export function createConsumer(input: { name: string; monthlyQuota: number | null; endUserRateLimitPerMin?: number | null; actor: string | null }): Consumer {
+export function createConsumer(input: {
+  name: string;
+  monthlyQuota: number | null;
+  endUserRateLimitPerMin?: number | null;
+  actor: string | null;
+}): Consumer {
   const now = Date.now();
   const row = getDb()
     .query(
-      `INSERT INTO consumers (name, monthly_quota, end_user_rate_limit_per_min, created_at, updated_at, created_by) VALUES (?, ?, ?, ?, ?, ?) RETURNING ${COLS}`
+      `INSERT INTO consumers (name, monthly_quota, end_user_rate_limit_per_min, created_at, updated_at, created_by) VALUES (?, ?, ?, ?, ?, ?) RETURNING ${COLS}`,
     )
     .get(input.name, input.monthlyQuota, input.endUserRateLimitPerMin ?? null, now, now, input.actor) as ConsumerRow;
   return rowToConsumer(row);
 }
 
-export function updateConsumer(id: number, updates: { name?: string; monthlyQuota?: number | null; endUserRateLimitPerMin?: number | null }): Consumer | null {
+export function updateConsumer(
+  id: number,
+  updates: { name?: string; monthlyQuota?: number | null; endUserRateLimitPerMin?: number | null },
+): Consumer | null {
   const existing = getConsumer(id);
   if (!existing) return null;
   const name = updates.name ?? existing.name;
   const quota = updates.monthlyQuota !== undefined ? updates.monthlyQuota : existing.monthlyQuota;
-  const endUserRateLimitPerMin = updates.endUserRateLimitPerMin !== undefined ? updates.endUserRateLimitPerMin : existing.endUserRateLimitPerMin;
+  const endUserRateLimitPerMin =
+    updates.endUserRateLimitPerMin !== undefined ? updates.endUserRateLimitPerMin : existing.endUserRateLimitPerMin;
   getDb()
-    .query(`UPDATE consumers SET name = ?, monthly_quota = ?, end_user_rate_limit_per_min = ?, updated_at = ? WHERE id = ?`)
+    .query(
+      `UPDATE consumers SET name = ?, monthly_quota = ?, end_user_rate_limit_per_min = ?, updated_at = ? WHERE id = ?`,
+    )
     .run(name, quota, endUserRateLimitPerMin, Date.now(), id);
   return getConsumer(id);
 }
@@ -97,7 +108,7 @@ export function getConsumerUsageThisMonth(consumerId: number): number {
   const row = getDb()
     .query(
       `SELECT COUNT(*) as c FROM tool_call_log
-       WHERE created_at >= ? AND key_id IN (SELECT id FROM mcp_api_keys WHERE consumer_id = ?)`
+       WHERE created_at >= ? AND key_id IN (SELECT id FROM mcp_api_keys WHERE consumer_id = ?)`,
     )
     .get(monthStart(), consumerId) as { c: number };
   return row.c;
@@ -135,7 +146,11 @@ export interface EndUserRateLimitStatus {
  * proxy.ts). A consumer that hasn't opted in, or an unknown/deleted consumer,
  * never limits (fail-open, symmetric with checkConsumerQuota above).
  */
-export function checkEndUserRateLimit(consumerId: number, rawEndUserId: string, consumer?: Consumer | null): EndUserRateLimitStatus {
+export function checkEndUserRateLimit(
+  consumerId: number,
+  rawEndUserId: string,
+  consumer?: Consumer | null,
+): EndUserRateLimitStatus {
   const c = consumer !== undefined ? consumer : getConsumer(consumerId);
   if (!c || c.endUserRateLimitPerMin === null) return { limited: false, retryAfterSeconds: 0 };
   const endUserId = rawEndUserId.slice(0, 256);

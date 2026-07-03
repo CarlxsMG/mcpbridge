@@ -22,8 +22,7 @@ function mockFetch(body: string, status = 200, contentType = "application/json")
     new Response(body, {
       status,
       headers: { "content-type": contentType },
-    })
-  ) as unknown as typeof fetch;
+    })) as unknown as typeof fetch;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,7 +57,7 @@ describe("discoverToolsFromOpenApi — happy path JSON", () => {
     const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
 
-    const names = tools.map(t => t.name);
+    const names = tools.map((t) => t.name);
     expect(names).toContain("list-users");
     expect(names).toContain("create-user");
   });
@@ -116,13 +115,12 @@ describe("discoverToolsFromOpenApi — size cap (hardcoded 5 MB)", () => {
       new Response(bigBody, {
         status: 200,
         headers: { "content-type": "application/json" },
-      })
-    ) as unknown as typeof fetch;
+      })) as unknown as typeof fetch;
 
     const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
-    await expect(
-      discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" })
-    ).rejects.toThrow(/too large/i);
+    await expect(discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" })).rejects.toThrow(
+      /too large/i,
+    );
   });
 
   test("throws when content-length header exceeds 5 MB", async () => {
@@ -135,13 +133,12 @@ describe("discoverToolsFromOpenApi — size cap (hardcoded 5 MB)", () => {
           "content-type": "application/json",
           "content-length": String(FIVE_MB + 1),
         },
-      })
-    ) as unknown as typeof fetch;
+      })) as unknown as typeof fetch;
 
     const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
-    await expect(
-      discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" })
-    ).rejects.toThrow(/too large/i);
+    await expect(discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" })).rejects.toThrow(
+      /too large/i,
+    );
   });
 });
 
@@ -154,9 +151,7 @@ describe("discoverToolsFromOpenApi — non-2xx response", () => {
     mockFetch("Not found", 404, "text/plain");
 
     const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
-    await expect(
-      discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" })
-    ).rejects.toThrow(/404/);
+    await expect(discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" })).rejects.toThrow(/404/);
   });
 });
 
@@ -233,7 +228,7 @@ describe("discoverToolsFromOpenApi — x-internal skip", () => {
     const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
 
-    const names = tools.map(t => t.name);
+    const names = tools.map((t) => t.name);
     expect(names).toContain("public-op");
     expect(names).not.toContain("internal-op");
   });
@@ -291,7 +286,10 @@ describe("discoverToolsFromOpenApi — tool name sanitization", () => {
     });
     mockFetch(spec);
     const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
-    const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json", excludeOperations: ["dropThis"] });
+    const tools = await discoverToolsFromOpenApi({
+      openapiUrl: "http://example.com/openapi.json",
+      excludeOperations: ["dropThis"],
+    });
     expect(tools.map((t) => t.name)).toEqual(["keep_this"]);
   });
 });

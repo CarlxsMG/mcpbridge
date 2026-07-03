@@ -51,7 +51,8 @@ afterEach(async () => {
 });
 
 function okFetch(): typeof fetch {
-  return (async () => new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+  return (async () =>
+    new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
 }
 
 describe("proxyToolCall — per-tool rate limit guard", () => {

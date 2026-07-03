@@ -34,7 +34,14 @@ describe("gateway.yaml load/save round-trip", () => {
     const path = join(dir, "gateway.yaml");
     const file: GatewayFile = {
       version: 1,
-      servers: [{ name: "svc", kind: "rest", health_url: "https://svc.example.com/health", openapi_url: "https://svc.example.com/openapi.json" }],
+      servers: [
+        {
+          name: "svc",
+          kind: "rest",
+          health_url: "https://svc.example.com/health",
+          openapi_url: "https://svc.example.com/openapi.json",
+        },
+      ],
       config: { version: 1, exportedAt: 0, bundles: [], alertRules: [], clients: [], guardrails: [], consumers: [] },
     };
     await saveGatewayFile(path, file);
@@ -72,7 +79,14 @@ describe("gateway.yaml load/save round-trip", () => {
       exportedAt: 12345,
       bundles: [{ name: "b1", description: null, enabled: true, tools: [{ client: "svc", tool: "get-x" }] }],
       alertRules: [],
-      clients: [{ name: "svc", enabled: true, guards: null, tools: [{ name: "get-x", enabled: true, guards: null, override: null }] }],
+      clients: [
+        {
+          name: "svc",
+          enabled: true,
+          guards: null,
+          tools: [{ name: "get-x", enabled: true, guards: null, override: null }],
+        },
+      ],
       guardrails: [],
       consumers: [{ name: "team", monthlyQuota: 100, endUserRateLimitPerMin: null }],
     };

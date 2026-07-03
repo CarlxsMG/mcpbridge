@@ -21,14 +21,22 @@ const ADMIN_KEY = "test-admin-key";
 const originalKey = config.secretEncryptionKey;
 
 function makeTool(): RestToolDefinition {
-  return { name: "get-users", method: "GET", endpoint: "/users", description: "list", inputSchema: { type: "object", properties: {} } };
+  return {
+    name: "get-users",
+    method: "GET",
+    endpoint: "/users",
+    description: "list",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 
 async function startApp(withSecretBox = true): Promise<void> {
   __resetDbForTesting();
   (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
   (config as Record<string, unknown>).authDisabled = false;
-  (config as Record<string, unknown>).secretEncryptionKey = withSecretBox ? Buffer.alloc(32, 3).toString("base64") : undefined;
+  (config as Record<string, unknown>).secretEncryptionKey = withSecretBox
+    ? Buffer.alloc(32, 3).toString("base64")
+    : undefined;
 
   const { upstreamAuthRoutes } = await import("../routes/upstream-auth.js");
   const app = express();
@@ -48,7 +56,11 @@ async function startApp(withSecretBox = true): Promise<void> {
 
 function stopServer(): Promise<void> {
   return new Promise((resolve) => {
-    if (activeServer) activeServer.close(() => { activeServer = null; resolve(); });
+    if (activeServer)
+      activeServer.close(() => {
+        activeServer = null;
+        resolve();
+      });
     else resolve();
   });
 }

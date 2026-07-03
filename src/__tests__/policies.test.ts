@@ -17,7 +17,13 @@ import { hashApiKey } from "../security/key-hash.js";
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(name: string): RestToolDefinition {
-  return { name, method: "GET", endpoint: `/${name}`, description: "d", inputSchema: { type: "object", properties: {} } };
+  return {
+    name,
+    method: "GET",
+    endpoint: `/${name}`,
+    description: "d",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 async function reg(name: string, tools: RestToolDefinition[]): Promise<void> {
   await registry.register(name, tools, "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
@@ -56,7 +62,15 @@ describe("guard policies", () => {
 
   test("apply to a bundle covers all its tools", async () => {
     await reg("svc", [makeTool("a"), makeTool("b")]);
-    await createBundle("bnd", undefined, [{ client: "svc", tool: "a" }, { client: "svc", tool: "b" }], "t");
+    await createBundle(
+      "bnd",
+      undefined,
+      [
+        { client: "svc", tool: "a" },
+        { client: "svc", tool: "b" },
+      ],
+      "t",
+    );
     const p = createGuardPolicy({ name: "p", rateLimitPerMin: 3, timeoutMs: null, actor: null });
 
     const res = await applyPolicyToBundle(p, "bnd");

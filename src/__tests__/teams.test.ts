@@ -10,14 +10,28 @@ import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../registry.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
-import { createTeam, deleteTeam, listTeams, setClientTeam, getClientTeam, setUserTeam, canAccessClient } from "../teams.js";
+import {
+  createTeam,
+  deleteTeam,
+  listTeams,
+  setClientTeam,
+  getClientTeam,
+  setUserTeam,
+  canAccessClient,
+} from "../teams.js";
 import { createUser } from "../security/user-store.js";
 import { createSession } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME } from "../security/cookies.js";
 import type { RestToolDefinition } from "../types.js";
 
 function makeTool(): RestToolDefinition {
-  return { name: "get-x", method: "GET", endpoint: "/x", description: "x", inputSchema: { type: "object", properties: {} } };
+  return {
+    name: "get-x",
+    method: "GET",
+    endpoint: "/x",
+    description: "x",
+    inputSchema: { type: "object", properties: {} },
+  };
 }
 async function reg(name: string): Promise<void> {
   await registry.register(name, [makeTool()], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
@@ -55,10 +69,10 @@ describe("teams — module", () => {
 
   test("canAccessClient decision matrix", () => {
     expect(canAccessClient(undefined, 5)).toBe(true); // bearer
-    expect(canAccessClient(null, 5)).toBe(true);      // super-admin
+    expect(canAccessClient(null, 5)).toBe(true); // super-admin
     expect(canAccessClient(5, 5)).toBe(true);
     expect(canAccessClient(5, 6)).toBe(false);
-    expect(canAccessClient(5, null)).toBe(false);     // team user can't see unowned
+    expect(canAccessClient(5, null)).toBe(false); // team user can't see unowned
   });
 
   test("deleting a team unassigns its clients (FK SET NULL)", async () => {
@@ -77,7 +91,12 @@ describe("registry — team-scoped listing", () => {
     const t = createTeam("t1", null) as { id: number };
     setClientTeam("a", t.id);
     expect(registry.listClientsSummary({ teamId: t.id }).items.map((i) => i.name)).toEqual(["a"]);
-    expect(registry.listClientsSummary({}).items.map((i) => i.name).sort()).toEqual(["a", "b"]);
+    expect(
+      registry
+        .listClientsSummary({})
+        .items.map((i) => i.name)
+        .sort(),
+    ).toEqual(["a", "b"]);
   });
 });
 
@@ -96,11 +115,22 @@ describe("teams — route enforcement", () => {
     adminRoutes(app);
     teamRoutes(app);
     await new Promise<void>((resolve) => {
-      const srv = app.listen(0, "127.0.0.1", () => { baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`; server = srv; resolve(); });
+      const srv = app.listen(0, "127.0.0.1", () => {
+        baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+        server = srv;
+        resolve();
+      });
     });
   }
   afterEach(async () => {
-    await new Promise<void>((resolve) => { if (server) server.close(() => { server = null; resolve(); }); else resolve(); });
+    await new Promise<void>((resolve) => {
+      if (server)
+        server.close(() => {
+          server = null;
+          resolve();
+        });
+      else resolve();
+    });
   });
   function sessionCookie(username: string, teamId: number): string {
     const u = createUser(username, "x", "admin", null);
@@ -125,9 +155,13 @@ describe("teams — route enforcement", () => {
     const denied = await fetch(`${baseUrl}/admin-api/clients/owned`, { headers: { Cookie: u2 } });
     expect(denied.status).toBe(404);
 
-    const list1 = await (await fetch(`${baseUrl}/admin-api/clients`, { headers: { Cookie: u1 } })).json() as { items: { name: string }[] };
+    const list1 = (await (await fetch(`${baseUrl}/admin-api/clients`, { headers: { Cookie: u1 } })).json()) as {
+      items: { name: string }[];
+    };
     expect(list1.items.map((i) => i.name)).toContain("owned");
-    const list2 = await (await fetch(`${baseUrl}/admin-api/clients`, { headers: { Cookie: u2 } })).json() as { items: { name: string }[] };
+    const list2 = (await (await fetch(`${baseUrl}/admin-api/clients`, { headers: { Cookie: u2 } })).json()) as {
+      items: { name: string }[];
+    };
     expect(list2.items.map((i) => i.name)).not.toContain("owned");
   });
 
@@ -136,14 +170,24 @@ describe("teams — route enforcement", () => {
     await startApp();
     const bearer = { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
 
-    const create = await fetch(`${baseUrl}/admin-api/teams`, { method: "POST", headers: bearer, body: JSON.stringify({ name: "Payments" }) });
+    const create = await fetch(`${baseUrl}/admin-api/teams`, {
+      method: "POST",
+      headers: bearer,
+      body: JSON.stringify({ name: "Payments" }),
+    });
     expect(create.status).toBe(201);
     const team = (await create.json()) as { id: number };
 
-    const assign = await fetch(`${baseUrl}/admin-api/clients/owned/team`, { method: "PUT", headers: bearer, body: JSON.stringify({ teamId: team.id }) });
+    const assign = await fetch(`${baseUrl}/admin-api/clients/owned/team`, {
+      method: "PUT",
+      headers: bearer,
+      body: JSON.stringify({ teamId: team.id }),
+    });
     expect(assign.status).toBe(200);
 
-    const detail = await (await fetch(`${baseUrl}/admin-api/clients/owned`, { headers: bearer })).json() as { teamId: number | null };
+    const detail = (await (await fetch(`${baseUrl}/admin-api/clients/owned`, { headers: bearer })).json()) as {
+      teamId: number | null;
+    };
     expect(detail.teamId).toBe(team.id);
   });
 
@@ -151,7 +195,11 @@ describe("teams — route enforcement", () => {
     const t1 = createTeam("t1", null) as { id: number };
     await startApp();
     const scoped = sessionCookie("scoped", t1.id);
-    const res = await fetch(`${baseUrl}/admin-api/teams`, { method: "POST", headers: { Cookie: scoped, "Content-Type": "application/json" }, body: JSON.stringify({ name: "Nope" }) });
+    const res = await fetch(`${baseUrl}/admin-api/teams`, {
+      method: "POST",
+      headers: { Cookie: scoped, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Nope" }),
+    });
     expect(res.status).toBe(403);
   });
 });

@@ -41,7 +41,11 @@ function bearer(): Record<string, string> {
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {
-    if (activeServer) activeServer.close(() => { activeServer = null; resolve(); });
+    if (activeServer)
+      activeServer.close(() => {
+        activeServer = null;
+        resolve();
+      });
     else resolve();
   });
 });

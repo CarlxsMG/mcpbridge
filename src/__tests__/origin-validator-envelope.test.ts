@@ -37,7 +37,9 @@ function makeRes() {
 
 function makeNext(): { called: boolean; fn: NextFunction } {
   const state = { called: false, fn: null as unknown as NextFunction };
-  state.fn = () => { state.called = true; };
+  state.fn = () => {
+    state.called = true;
+  };
   return state;
 }
 

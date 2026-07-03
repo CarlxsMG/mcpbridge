@@ -59,7 +59,10 @@ describe("tracing — OTLP export", () => {
     (config as Record<string, unknown>).otelEndpoint = "http://otel.local/v1/traces";
     let captured: Record<string, unknown> | null = null;
     globalThis.fetch = (async (url: string, opts: RequestInit) => {
-      if (String(url).includes("otel.local")) { captured = JSON.parse(String(opts.body)); return new Response("{}", { status: 200 }); }
+      if (String(url).includes("otel.local")) {
+        captured = JSON.parse(String(opts.body));
+        return new Response("{}", { status: 200 });
+      }
       return new Response("{}", { status: 200 });
     }) as unknown as typeof fetch;
 
@@ -75,7 +78,7 @@ describe("tracing — OTLP export", () => {
     expect((span.status as { code: number }).code).toBe(1);
     expect(typeof span.startTimeUnixNano).toBe("string");
     // resource carries service.name
-    const resAttrs = ((rs.resource as { attributes: { key: string; value: { stringValue: string } }[] }).attributes);
+    const resAttrs = (rs.resource as { attributes: { key: string; value: { stringValue: string } }[] }).attributes;
     expect(resAttrs.find((a) => a.key === "service.name")?.value.stringValue).toBe(config.otelServiceName);
   });
 });
@@ -85,11 +88,20 @@ describe("tracing — proxy integration", () => {
     (config as Record<string, unknown>).otelEndpoint = "http://otel.local/v1/traces";
     let captured: Record<string, unknown> | null = null;
     globalThis.fetch = (async (url: string, opts: RequestInit) => {
-      if (String(url).includes("otel.local")) { captured = JSON.parse(String(opts.body)); return new Response("{}", { status: 200 }); }
+      if (String(url).includes("otel.local")) {
+        captured = JSON.parse(String(opts.body));
+        return new Response("{}", { status: 200 });
+      }
       return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
     }) as unknown as typeof fetch;
 
-    const tool: RestToolDefinition = { name: "get-x", method: "GET", endpoint: "/x", description: "x", inputSchema: { type: "object", properties: {} } };
+    const tool: RestToolDefinition = {
+      name: "get-x",
+      method: "GET",
+      endpoint: "/x",
+      description: "x",
+      inputSchema: { type: "object", properties: {} },
+    };
     await registry.register("svc", [tool], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
 
     const r = await proxyToolCall("svc__get-x", {});
@@ -97,7 +109,14 @@ describe("tracing — proxy integration", () => {
     expect(_internalsForTesting.bufferLength()).toBe(1);
 
     await flush();
-    const span = ((((captured as unknown as { resourceSpans: Record<string, unknown>[] }).resourceSpans[0].scopeSpans as Record<string, unknown>[])[0].spans as Record<string, unknown>[])[0]);
+    const span = (
+      (
+        (captured as unknown as { resourceSpans: Record<string, unknown>[] }).resourceSpans[0].scopeSpans as Record<
+          string,
+          unknown
+        >[]
+      )[0].spans as Record<string, unknown>[]
+    )[0];
     expect(span.name).toBe("tool_call svc__get-x");
   });
 });

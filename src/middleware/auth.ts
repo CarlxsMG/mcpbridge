@@ -6,7 +6,12 @@ import { validateSession } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME, parseCookies } from "../security/cookies.js";
 import type { AdminRole } from "../security/user-store.js";
 import { findUserById } from "../security/user-store.js";
-import { resolveMcpKeyByToken, touchMcpKeyLastUsed, hasAnyMcpKeys, type McpKeyScopes } from "../security/mcp-key-store.js";
+import {
+  resolveMcpKeyByToken,
+  touchMcpKeyLastUsed,
+  hasAnyMcpKeys,
+  type McpKeyScopes,
+} from "../security/mcp-key-store.js";
 import { verifyJwt, isJwtConfigured } from "../security/jwt.js";
 
 export interface AuthContext {
@@ -48,11 +53,14 @@ function extractBearerToken(req: Request): string | null {
  * and therefore not CSRF-vulnerable.
  */
 export function adminAuth(req: Request, res: Response, next: NextFunction): void {
-  if (config.authDisabled) { next(); return; }
+  if (config.authDisabled) {
+    next();
+    return;
+  }
 
   const bearerToken = extractBearerToken(req);
   if (bearerToken !== null) {
-    if (!config.adminApiKeys.some(key => safeCompare(key, bearerToken))) {
+    if (!config.adminApiKeys.some((key) => safeCompare(key, bearerToken))) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "Invalid API key" } });
       return;
     }
@@ -64,7 +72,9 @@ export function adminAuth(req: Request, res: Response, next: NextFunction): void
   const cookies = parseCookies(req.headers.cookie);
   const sessionToken = cookies[SESSION_COOKIE_NAME];
   if (!sessionToken) {
-    res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Missing Authorization header or session cookie" } });
+    res
+      .status(401)
+      .json({ error: { code: "UNAUTHORIZED", message: "Missing Authorization header or session cookie" } });
     return;
   }
 
@@ -78,14 +88,22 @@ export function adminAuth(req: Request, res: Response, next: NextFunction): void
     const csrfHeader = req.headers["x-csrf-token"];
     const csrfToken = Array.isArray(csrfHeader) ? csrfHeader[0] : csrfHeader;
     if (!csrfToken || !safeCompare(csrfToken, session.csrfToken)) {
-      res.status(403).json({ error: { code: "CSRF_VALIDATION_FAILED", message: "Missing or invalid X-CSRF-Token header" } });
+      res
+        .status(403)
+        .json({ error: { code: "CSRF_VALIDATION_FAILED", message: "Missing or invalid X-CSRF-Token header" } });
       return;
     }
   }
 
   // Resolve the caller's team for tenancy scoping (null = super-admin).
   const teamId = findUserById(session.userId)?.teamId ?? null;
-  req.authContext = { method: "session", userId: session.userId, username: session.username, role: session.role, teamId };
+  req.authContext = {
+    method: "session",
+    userId: session.userId,
+    username: session.username,
+    role: session.role,
+    teamId,
+  };
   next();
 }
 
@@ -118,7 +136,7 @@ export async function evaluateMcpAuth(headers: IncomingHttpHeaders): Promise<Mcp
   const token = extractBearerFromHeaders(headers);
 
   if (token) {
-    if (envConfigured && config.mcpApiKeys.some(key => safeCompare(key, token))) return { ok: true };
+    if (envConfigured && config.mcpApiKeys.some((key) => safeCompare(key, token))) return { ok: true };
     const managed = resolveMcpKeyByToken(token);
     if (managed) {
       touchMcpKeyLastUsed(managed.id);

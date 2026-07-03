@@ -75,7 +75,8 @@ export type CatalogMutationError =
   | { code: "NOT_FOUND"; message: string }
   | { code: "IMMUTABLE_ENTRY"; message: string };
 
-export type CatalogMutationResult = { ok: true; entry: CustomCatalogEntry } | { ok: false; error: CatalogMutationError };
+export type CatalogMutationResult =
+  { ok: true; entry: CustomCatalogEntry } | { ok: false; error: CatalogMutationError };
 
 const COLS =
   "id, slug, name, description, kind, category, tags_json, icon, openapi_url, health_url, base_url, include_tags_json, exclude_operations_json, mcp_url, mcp_transport, featured, created_at, updated_at, created_by";
@@ -105,7 +106,9 @@ function rowToEntry(row: CustomCatalogRow): CustomCatalogEntry {
 }
 
 function listCustomEntries(): CustomCatalogEntry[] {
-  return (getDb().query(`SELECT ${COLS} FROM catalog_entries ORDER BY name`).all() as CustomCatalogRow[]).map(rowToEntry);
+  return (getDb().query(`SELECT ${COLS} FROM catalog_entries ORDER BY name`).all() as CustomCatalogRow[]).map(
+    rowToEntry,
+  );
 }
 
 function getCustomEntry(id: number): CustomCatalogEntry | null {
@@ -120,8 +123,16 @@ function customSlugExists(slug: string): boolean {
 
 /** Merges the static builtin catalog with admin-authored custom entries, tagging each with its source. */
 export function listCatalog(): CatalogEntry[] {
-  const builtin: CatalogEntry[] = BUILTIN_CATALOG.map((e) => ({ ...e, id: `builtin:${e.slug}`, source: "builtin" as const }));
-  const custom: CatalogEntry[] = listCustomEntries().map((e) => ({ ...e, id: `custom:${e.id}`, source: "custom" as const }));
+  const builtin: CatalogEntry[] = BUILTIN_CATALOG.map((e) => ({
+    ...e,
+    id: `builtin:${e.slug}`,
+    source: "builtin" as const,
+  }));
+  const custom: CatalogEntry[] = listCustomEntries().map((e) => ({
+    ...e,
+    id: `custom:${e.id}`,
+    source: "custom" as const,
+  }));
   return [...builtin, ...custom];
 }
 
@@ -142,7 +153,10 @@ export function getCatalogEntry(id: string): CatalogEntry | undefined {
 
 export function createCustomEntry(input: CustomCatalogEntryInput, actor: string | null): CatalogMutationResult {
   if (!NAME_RE.test(input.slug)) {
-    return { ok: false, error: { code: "INVALID_SLUG", message: "Catalog entry slug must match /^[a-z0-9][a-z0-9_-]{0,62}$/" } };
+    return {
+      ok: false,
+      error: { code: "INVALID_SLUG", message: "Catalog entry slug must match /^[a-z0-9][a-z0-9_-]{0,62}$/" },
+    };
   }
   if (customSlugExists(input.slug)) {
     return { ok: false, error: { code: "ALREADY_EXISTS", message: `Catalog entry "${input.slug}" already exists` } };
@@ -153,7 +167,7 @@ export function createCustomEntry(input: CustomCatalogEntryInput, actor: string 
       `INSERT INTO catalog_entries
          (slug, name, description, kind, category, tags_json, icon, openapi_url, health_url, base_url, include_tags_json, exclude_operations_json, mcp_url, mcp_transport, featured, created_at, updated_at, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       RETURNING ${COLS}`
+       RETURNING ${COLS}`,
     )
     .get(
       input.slug,
@@ -173,7 +187,7 @@ export function createCustomEntry(input: CustomCatalogEntryInput, actor: string 
       input.featured ? 1 : 0,
       now,
       now,
-      actor
+      actor,
     ) as CustomCatalogRow;
   return { ok: true, entry: rowToEntry(row) };
 }
@@ -206,7 +220,7 @@ export function updateCustomEntry(id: number, updates: Partial<CustomCatalogEntr
          name = ?, description = ?, kind = ?, category = ?, tags_json = ?, icon = ?,
          openapi_url = ?, health_url = ?, base_url = ?, include_tags_json = ?, exclude_operations_json = ?,
          mcp_url = ?, mcp_transport = ?, featured = ?, updated_at = ?
-       WHERE id = ?`
+       WHERE id = ?`,
     )
     .run(
       merged.name,
@@ -224,7 +238,7 @@ export function updateCustomEntry(id: number, updates: Partial<CustomCatalogEntr
       merged.mcpTransport ?? null,
       merged.featured ? 1 : 0,
       Date.now(),
-      id
+      id,
     );
   return { ok: true, entry: getCustomEntry(id)! };
 }
