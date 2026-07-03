@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { readonly, ref } from "vue";
 import { api } from "./useApi";
 import type { UsageSummary } from "../types/api";
 
@@ -45,5 +45,5 @@ export function useLiveSignal() {
     }
   }
 
-  return { isLive, callsPerMinute, start, stop };
+  return { isLive: readonly(isLive), callsPerMinute: readonly(callsPerMinute), start, stop };
 }

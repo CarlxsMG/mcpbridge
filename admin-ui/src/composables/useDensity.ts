@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { readonly, ref } from "vue";
 
 export type Density = "comfortable" | "compact";
 
@@ -23,5 +23,5 @@ export function useDensity() {
     applyDensity(d);
   }
 
-  return { density, setDensity };
+  return { density: readonly(density), setDensity };
 }

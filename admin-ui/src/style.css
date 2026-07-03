@@ -380,6 +380,22 @@ input[type="radio"]:focus-visible {
   outline-offset: 2px;
 }
 
+/* ---- Form field inputs: promoted from the ~10 pages that used to hand-roll
+   this exact block in their own scoped <style> — one copy here instead of ten
+   drifting ones. The `.field` wrapper/label half of the recipe still lives
+   per-component (see FormField.vue). */
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+  box-sizing: border-box;
+}
+
 /* ---- Segmented control: replaces a visible native radio group when there
    are 2-4 mutually-exclusive inline choices (e.g. REST/MCP, OpenAPI/Manual).
    Keeps real <input type="radio"> under the hood for a11y/keyboard nav —
