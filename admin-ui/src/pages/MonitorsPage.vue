@@ -1,25 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { onMounted, computed } from "vue";
+import { api } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { MonitorRecord } from "../types/api";
 import DonutChart from "../components/DonutChart.vue";
 import { Radar, RefreshCw } from "lucide-vue-next";
 
-const monitors = ref<MonitorRecord[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
-
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    monitors.value = (await api.get<{ items: MonitorRecord[] }>("/admin-api/monitors")).items;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load monitors. Check your connection and try again.";
-  } finally {
-    loading.value = false;
-  }
-}
+const {
+  data: monitors,
+  loading,
+  errorMessage,
+  load,
+} = useResource<MonitorRecord[]>(
+  async () => (await api.get<{ items: MonitorRecord[] }>("/admin-api/monitors")).items,
+  [],
+  "Failed to load monitors. Check your connection and try again.",
+);
 onMounted(load);
 
 type MonitorState = "healthy" | "drift" | "failing" | "never" | "disabled";
@@ -68,8 +64,9 @@ function formatChecked(t: number | null): string {
       <div>
         <h1>Monitors</h1>
         <p class="subtitle">
-          Synthetic uptime + schema-drift checks, replaying saved examples on a schedule. Informational only today — failures and drift
-          are recorded here and optionally pinged to one operator webhook, but they don't participate in the Alerts rule system.
+          Synthetic uptime + schema-drift checks, replaying saved examples on a schedule. Informational only today —
+          failures and drift are recorded here and optionally pinged to one operator webhook, but they don't participate
+          in the Alerts rule system.
         </p>
       </div>
       <button type="button" class="btn-secondary" :disabled="loading" @click="load">
@@ -105,7 +102,11 @@ function formatChecked(t: number | null): string {
           <tbody>
             <tr v-for="m in monitors" :key="`${m.clientName}/${m.toolName}`">
               <td class="mono">{{ m.clientName }}/{{ m.toolName }}</td>
-              <td><span class="state-dot" :style="{ background: STATE_COLOR[stateOf(m)] }" aria-hidden="true" />{{ STATE_LABEL[stateOf(m)] }}</td>
+              <td>
+                <span class="state-dot" :style="{ background: STATE_COLOR[stateOf(m)] }" aria-hidden="true" />{{
+                  STATE_LABEL[stateOf(m)]
+                }}
+              </td>
               <td>{{ m.intervalMinutes }}m</td>
               <td>{{ formatChecked(m.lastCheckedAt) }}</td>
               <td class="preview" :title="m.lastError ?? ''">{{ m.lastError ?? "—" }}</td>

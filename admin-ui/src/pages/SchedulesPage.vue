@@ -1,32 +1,34 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { Schedule } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { Clock } from "lucide-vue-next";
 
-const items = ref<Schedule[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
+const {
+  data: items,
+  loading,
+  errorMessage,
+  load,
+} = useResource<Schedule[]>(
+  async () => (await api.get<{ items: Schedule[] }>("/admin-api/schedules")).items,
+  [],
+  "Failed to load schedules.",
+);
 const rowError = ref<Record<number, string>>({});
 const pendingDelete = ref<Schedule | null>(null);
 
-const form = ref({ targetType: "client" as "client" | "tool", clientName: "", toolName: "", action: "disable" as "enable" | "disable", cron: "0 3 * * *" });
+const form = ref({
+  targetType: "client" as "client" | "tool",
+  clientName: "",
+  toolName: "",
+  action: "disable" as "enable" | "disable",
+  cron: "0 3 * * *",
+});
 const createError = ref("");
 const creating = ref(false);
 
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    const res = await api.get<{ items: Schedule[] }>("/admin-api/schedules");
-    items.value = res.items;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load schedules.";
-  } finally {
-    loading.value = false;
-  }
-}
 onMounted(load);
 
 async function create() {
@@ -89,7 +91,10 @@ function formatLastRun(m: number | null): string {
     <header class="page-header">
       <div>
         <h1>Maintenance schedules</h1>
-        <p class="subtitle">Cron-driven enable/disable of a client or a single tool. Evaluated once a minute in UTC on the leader instance. Fields: <code>min hour day-of-month month day-of-week</code>.</p>
+        <p class="subtitle">
+          Cron-driven enable/disable of a client or a single tool. Evaluated once a minute in UTC on the leader
+          instance. Fields: <code>min hour day-of-month month day-of-week</code>.
+        </p>
       </div>
     </header>
 
@@ -136,12 +141,29 @@ function formatLastRun(m: number | null): string {
 
     <div v-else class="table-card table-scroll">
       <table class="schedules-table">
-        <thead><tr><th>Target</th><th>Action</th><th>Cron</th><th>Enabled</th><th>Last run</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <th>Target</th>
+            <th>Action</th>
+            <th>Cron</th>
+            <th>Enabled</th>
+            <th>Last run</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
           <tr v-for="s in items" :key="s.id">
-            <td><code>{{ s.clientName }}</code><template v-if="s.toolName"> → <code>{{ s.toolName }}</code></template> <span class="tag">{{ s.targetType }}</span></td>
+            <td>
+              <code>{{ s.clientName }}</code
+              ><template v-if="s.toolName">
+                → <code>{{ s.toolName }}</code></template
+              >
+              <span class="tag">{{ s.targetType }}</span>
+            </td>
             <td>{{ s.action }}</td>
-            <td><code>{{ s.cron }}</code></td>
+            <td>
+              <code>{{ s.cron }}</code>
+            </td>
             <td>
               <button
                 type="button"
@@ -154,7 +176,9 @@ function formatLastRun(m: number | null): string {
               </button>
               <p v-if="rowError[s.id]" class="row-error">{{ rowError[s.id] }}</p>
             </td>
-            <td><span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span></td>
+            <td>
+              <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>
+            </td>
             <td><button class="link-btn danger" @click="pendingDelete = s">delete</button></td>
           </tr>
         </tbody>
@@ -164,7 +188,11 @@ function formatLastRun(m: number | null): string {
     <ConfirmDialog
       :open="pendingDelete !== null"
       title="Delete this schedule?"
-      :message="pendingDelete ? `This schedule (${pendingDelete.cron}) for ${pendingDelete.clientName}${pendingDelete.toolName ? ' → ' + pendingDelete.toolName : ''} will be removed.` : ''"
+      :message="
+        pendingDelete
+          ? `This schedule (${pendingDelete.cron}) for ${pendingDelete.clientName}${pendingDelete.toolName ? ' → ' + pendingDelete.toolName : ''} will be removed.`
+          : ''
+      "
       confirm-label="Delete"
       danger
       @confirm="confirmDelete"
@@ -174,7 +202,9 @@ function formatLastRun(m: number | null): string {
 </template>
 
 <style scoped>
-.page { max-width: 900px; }
+.page {
+  max-width: 900px;
+}
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -200,14 +230,18 @@ function formatLastRun(m: number | null): string {
   border-radius: var(--radius-md);
   margin-bottom: 1rem;
 }
-.field { margin-bottom: 0; }
+.field {
+  margin-bottom: 0;
+}
 .field label {
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 0.3rem;
 }
-.field input, .field select, .field textarea {
+.field input,
+.field select,
+.field textarea {
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -215,22 +249,42 @@ function formatLastRun(m: number | null): string {
   font-family: var(--font-body);
   box-sizing: border-box;
 }
-.field .cron { font-family: var(--font-mono); min-width: 140px; }
+.field .cron {
+  font-family: var(--font-mono);
+  min-width: 140px;
+}
 .table-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
 }
-.schedules-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-.schedules-table th {
-  text-align: left; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--border);
-  color: var(--text-muted); font-size: 0.74rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.04em;
+.schedules-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
 }
-.schedules-table td { padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.schedules-table tbody tr:last-child td { border-bottom: none; }
-.schedules-table tbody tr:hover { background: var(--surface-sunken); }
+.schedules-table th {
+  text-align: left;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.schedules-table td {
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.schedules-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.schedules-table tbody tr:hover {
+  background: var(--surface-sunken);
+}
 .tag {
   background: var(--surface-sunken);
   border-radius: var(--radius-pill);
@@ -239,17 +293,42 @@ function formatLastRun(m: number | null): string {
   color: var(--text-secondary);
 }
 .toggle {
-  display: inline-flex; align-items: center; gap: 0.45em;
-  border-radius: var(--radius-pill); padding: 0.28rem 0.8rem;
-  font-size: 0.78rem; font-weight: 600; cursor: pointer;
-  background: var(--surface); transition: background-color 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  border-radius: var(--radius-pill);
+  padding: 0.28rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--surface);
+  transition: background-color 0.12s ease;
 }
-.toggle::before { content: ""; width: 0.55em; height: 0.55em; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-.toggle-on { border: 1px solid var(--ok); color: var(--ok); }
-.toggle-off { border: 1px solid var(--border-strong); color: var(--text-secondary); }
-.toggle-on:hover { background: var(--ok-soft); }
-.toggle-off:hover { background: var(--surface-sunken); }
-.last-run-never { color: var(--text-muted); }
+.toggle::before {
+  content: "";
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.toggle-on {
+  border: 1px solid var(--ok);
+  color: var(--ok);
+}
+.toggle-off {
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+.toggle-on:hover {
+  background: var(--ok-soft);
+}
+.toggle-off:hover {
+  background: var(--surface-sunken);
+}
+.last-run-never {
+  color: var(--text-muted);
+}
 .empty-state {
   padding: 3rem 2rem;
   text-align: center;
@@ -258,7 +337,17 @@ function formatLastRun(m: number | null): string {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
-.empty-icon { color: var(--text-muted); margin-bottom: 0.75rem; }
-.loading { color: var(--text-muted); padding: 1rem 0; }
-.row-error { color: var(--breach); font-size: 0.75rem; margin: 0.25rem 0 0; }
+.empty-icon {
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+.loading {
+  color: var(--text-muted);
+  padding: 1rem 0;
+}
+.row-error {
+  color: var(--breach);
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0;
+}
 </style>

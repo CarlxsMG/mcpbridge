@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { useRouter, onBeforeRouteLeave } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { BundleDetail, BundleToolRef } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
@@ -9,9 +10,16 @@ import BundleToolPicker from "../components/BundleToolPicker.vue";
 const props = defineProps<{ name: string }>();
 const router = useRouter();
 
-const detail = ref<BundleDetail | null>(null);
-const loading = ref(false);
-const errorMessage = ref("");
+const {
+  data: detail,
+  loading,
+  errorMessage,
+  load: loadDetail,
+} = useResource<BundleDetail | null>(
+  () => api.get<BundleDetail>(`/admin-api/bundles/${encodeURIComponent(props.name)}`),
+  null,
+  "Failed to load bundle.",
+);
 const descriptionError = ref("");
 const toolsError = ref("");
 const deleteError = ref("");
@@ -31,16 +39,10 @@ const pendingDelete = ref(false);
 const deleting = ref(false);
 
 async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    detail.value = await api.get<BundleDetail>(`/admin-api/bundles/${encodeURIComponent(props.name)}`);
-    descriptionInput.value = detail.value.description ?? "";
-    toolsDraft.value = detail.value.tools.map((t) => ({ ...t }));
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load bundle.";
-  } finally {
-    loading.value = false;
+  const result = await loadDetail();
+  if (result) {
+    descriptionInput.value = result.description ?? "";
+    toolsDraft.value = result.tools.map((t) => ({ ...t }));
   }
 }
 watch(() => props.name, load);
@@ -53,7 +55,9 @@ async function saveDescription() {
   descriptionError.value = "";
   savingDescription.value = true;
   try {
-    await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { description: descriptionInput.value || null });
+    await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, {
+      description: descriptionInput.value || null,
+    });
     await load();
   } catch (err) {
     descriptionError.value = err instanceof ApiError ? err.message : "Failed to save description.";
@@ -171,7 +175,12 @@ function cancelLeave() {
         <label for="bundle-description">Description</label>
         <div class="description-row">
           <input id="bundle-description" v-model="descriptionInput" type="text" placeholder="What this bundle is for" />
-          <button type="button" class="btn-secondary" :disabled="!descriptionDirty || savingDescription" @click="saveDescription">
+          <button
+            type="button"
+            class="btn-secondary"
+            :disabled="!descriptionDirty || savingDescription"
+            @click="saveDescription"
+          >
             {{ savingDescription ? "Saving…" : "Save" }}
           </button>
         </div>

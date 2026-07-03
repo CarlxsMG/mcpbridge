@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { BundleSummary, BundleDetail, BundleToolRef } from "../types/api";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
 import { Boxes } from "lucide-vue-next";
 
-const items = ref<BundleSummary[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
+const {
+  data: items,
+  loading,
+  errorMessage,
+  load,
+} = useResource<BundleSummary[]>(
+  async () => (await api.get<{ items: BundleSummary[] }>("/admin-api/bundles")).items,
+  [],
+  "Failed to load bundles.",
+);
 const rowError = ref<Record<string, string>>({});
 
 const showCreateForm = ref(false);
@@ -17,18 +25,6 @@ const newTools = ref<BundleToolRef[]>([]);
 const createError = ref("");
 const creating = ref(false);
 
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    const res = await api.get<{ items: BundleSummary[] }>("/admin-api/bundles");
-    items.value = res.items;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load bundles.";
-  } finally {
-    loading.value = false;
-  }
-}
 onMounted(load);
 
 async function createBundle() {
@@ -75,9 +71,15 @@ async function toggleEnabled(bundle: BundleSummary) {
     <header class="page-header">
       <div>
         <h1>Bundles</h1>
-        <p class="subtitle">Cross-client tool selections, each served at its own <code>/mcp-custom/&lt;name&gt;</code> endpoint.</p>
+        <p class="subtitle">
+          Cross-client tool selections, each served at its own <code>/mcp-custom/&lt;name&gt;</code> endpoint.
+        </p>
       </div>
-      <button type="button" :class="showCreateForm ? 'btn-secondary' : 'btn-primary'" @click="showCreateForm = !showCreateForm">
+      <button
+        type="button"
+        :class="showCreateForm ? 'btn-secondary' : 'btn-primary'"
+        @click="showCreateForm = !showCreateForm"
+      >
         {{ showCreateForm ? "Cancel" : "Create bundle" }}
       </button>
     </header>
@@ -96,7 +98,9 @@ async function toggleEnabled(bundle: BundleSummary) {
         <label>Tools</label>
         <BundleToolPicker v-model="newTools" />
       </div>
-      <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Creating…" : "Create bundle" }}</button>
+      <button type="submit" class="btn-primary" :disabled="creating">
+        {{ creating ? "Creating…" : "Create bundle" }}
+      </button>
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
@@ -105,7 +109,10 @@ async function toggleEnabled(bundle: BundleSummary) {
     <template v-else-if="items.length === 0">
       <div class="empty-state">
         <Boxes :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>No bundles yet. A bundle lets you hand an MCP client a curated, cross-client tool selection instead of one client's full tool list.</p>
+        <p>
+          No bundles yet. A bundle lets you hand an MCP client a curated, cross-client tool selection instead of one
+          client's full tool list.
+        </p>
       </div>
     </template>
 

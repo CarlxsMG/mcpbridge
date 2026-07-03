@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
+import { useLoadState } from "../composables/useResource";
 import type { UsageSummary, TopToolRow, UsageByKeyRow, UsageTimeseries } from "../types/api";
 import StatCard from "../components/StatCard.vue";
 import MiniBarChart from "../components/MiniBarChart.vue";
@@ -18,18 +19,15 @@ const summary = ref<UsageSummary | null>(null);
 const topTools = ref<TopToolRow[]>([]);
 const byKey = ref<UsageByKeyRow[]>([]);
 const timeseries = ref<UsageTimeseries | null>(null);
-const loading = ref(false);
-const errorMessage = ref("");
+const { loading, errorMessage, run } = useLoadState("Failed to load usage.");
 
 function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
 async function load() {
-  loading.value = true;
-  errorMessage.value = "";
   const from = Date.now() - windowMs.value;
-  try {
+  await run(async () => {
     const [s, t, k, ts] = await Promise.all([
       api.get<UsageSummary>(`/admin-api/usage/summary?from=${from}`),
       api.get<{ items: TopToolRow[] }>(`/admin-api/usage/top-tools?from=${from}&limit=20`),
@@ -40,11 +38,7 @@ async function load() {
     topTools.value = t.items;
     byKey.value = k.items;
     timeseries.value = ts;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load usage.";
-  } finally {
-    loading.value = false;
-  }
+  });
 }
 
 const callsSeries = computed(() => timeseries.value?.points.map((p) => ({ t: p.t, v: p.calls })) ?? []);
@@ -62,7 +56,7 @@ const topToolsChart = computed(() =>
     value: t.calls,
     hint: t.errors ? `${t.errors} err` : undefined,
     danger: t.errorRate > 0.1,
-  }))
+  })),
 );
 
 const byKeyChart = computed(() =>
@@ -70,7 +64,7 @@ const byKeyChart = computed(() =>
     label: k.label,
     value: k.calls,
     danger: false,
-  }))
+  })),
 );
 
 onMounted(load);
@@ -93,8 +87,18 @@ onMounted(load);
     <template v-if="summary">
       <div class="cards">
         <StatCard :icon="Activity" label="Calls" :value="summary.calls" />
-        <StatCard :icon="AlertTriangle" label="Errors" :value="summary.errors" :tone="summary.errors > 0 ? 'warning' : 'default'" />
-        <StatCard :icon="Percent" label="Error rate" :value="pct(summary.errorRate)" :tone="summary.errorRate > 0.1 ? 'danger' : 'default'" />
+        <StatCard
+          :icon="AlertTriangle"
+          label="Errors"
+          :value="summary.errors"
+          :tone="summary.errors > 0 ? 'warning' : 'default'"
+        />
+        <StatCard
+          :icon="Percent"
+          label="Error rate"
+          :value="pct(summary.errorRate)"
+          :tone="summary.errorRate > 0.1 ? 'danger' : 'default'"
+        />
         <StatCard :icon="Timer" label="Avg latency" :value="`${summary.avgMs}ms`" />
         <StatCard :icon="Gauge" label="Max latency" :value="`${summary.maxMs}ms`" />
         <StatCard :icon="Wrench" label="Active tools" :value="summary.tools" />
@@ -125,7 +129,17 @@ onMounted(load);
       <h2>Top tools</h2>
       <div v-if="topTools.length" class="table-card table-scroll">
         <table class="usage-table">
-          <thead><tr><th>Client</th><th>Tool</th><th>Calls</th><th>Errors</th><th>Error rate</th><th>Avg</th><th>Max</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Tool</th>
+              <th>Calls</th>
+              <th>Errors</th>
+              <th>Error rate</th>
+              <th>Avg</th>
+              <th>Max</th>
+            </tr>
+          </thead>
           <tbody>
             <tr v-for="t in topTools" :key="`${t.client}/${t.tool}`">
               <td>{{ t.client }}</td>
@@ -144,7 +158,13 @@ onMounted(load);
       <h2>By API key</h2>
       <div v-if="byKey.length" class="table-card table-scroll">
         <table class="usage-table">
-          <thead><tr><th>Key</th><th>Calls</th><th>Errors</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Calls</th>
+              <th>Errors</th>
+            </tr>
+          </thead>
           <tbody>
             <tr v-for="k in byKey" :key="k.keyId ?? 'none'">
               <td>{{ k.label }}</td>

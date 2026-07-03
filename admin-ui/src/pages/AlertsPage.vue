@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { AlertRule, AlertEventType } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { BellRing } from "lucide-vue-next";
@@ -16,9 +17,16 @@ const EVENT_LABELS: Record<AlertEventType, string> = {
 /** Event types that use the threshold + minCalls numeric inputs. */
 const NUMERIC_EVENTS = new Set<AlertEventType>(["error_rate", "usage_spike"]);
 
-const rules = ref<AlertRule[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
+const {
+  data: rules,
+  loading,
+  errorMessage,
+  load,
+} = useResource<AlertRule[]>(
+  async () => (await api.get<{ items: AlertRule[] }>("/admin-api/alerts")).items,
+  [],
+  "Failed to load alerts.",
+);
 const testMessage = ref("");
 const pendingDelete = ref<AlertRule | null>(null);
 const pendingDisable = ref<AlertRule | null>(null);
@@ -36,17 +44,6 @@ const nameError = ref("");
 const urlError = ref("");
 const creating = ref(false);
 
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    rules.value = (await api.get<{ items: AlertRule[] }>("/admin-api/alerts")).items;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load alerts.";
-  } finally {
-    loading.value = false;
-  }
-}
 onMounted(load);
 
 async function createRule() {
@@ -64,7 +61,11 @@ async function createRule() {
   }
   creating.value = true;
   try {
-    const body: Record<string, unknown> = { name: newName.value.trim(), eventType: newEvent.value, webhookUrl: newUrl.value.trim() };
+    const body: Record<string, unknown> = {
+      name: newName.value.trim(),
+      eventType: newEvent.value,
+      webhookUrl: newUrl.value.trim(),
+    };
     if (NUMERIC_EVENTS.has(newEvent.value)) {
       body.threshold = Number(newThreshold.value);
       body.minCalls = Number(newMinCalls.value);
@@ -140,9 +141,14 @@ async function confirmDelete() {
   <section>
     <header class="page-header">
       <h1>Alerts</h1>
-      <button type="button" :class="showCreate ? 'btn-secondary' : 'btn-primary'" @click="showCreate = !showCreate">{{ showCreate ? "Cancel" : "New rule" }}</button>
+      <button type="button" :class="showCreate ? 'btn-secondary' : 'btn-primary'" @click="showCreate = !showCreate">
+        {{ showCreate ? "Cancel" : "New rule" }}
+      </button>
     </header>
-    <p class="hint">Rules are evaluated on the leader instance and POST a JSON payload to a webhook when a condition first becomes true.</p>
+    <p class="hint">
+      Rules are evaluated on the leader instance and POST a JSON payload to a webhook when a condition first becomes
+      true.
+    </p>
 
     <form v-if="showCreate" class="create-form" @submit.prevent="createRule">
       <div class="field">
@@ -163,16 +169,32 @@ async function confirmDelete() {
       </div>
       <template v-if="NUMERIC_EVENTS.has(newEvent)">
         <div class="field">
-          <label for="alert-threshold">{{ newEvent === 'usage_spike' ? 'Spike factor (× baseline)' : 'Threshold (0–1)' }}</label>
-          <input id="alert-threshold" v-model="newThreshold" type="text" inputmode="decimal" :placeholder="newEvent === 'usage_spike' ? '3' : '0.5'" />
+          <label for="alert-threshold">{{
+            newEvent === "usage_spike" ? "Spike factor (× baseline)" : "Threshold (0–1)"
+          }}</label>
+          <input
+            id="alert-threshold"
+            v-model="newThreshold"
+            type="text"
+            inputmode="decimal"
+            :placeholder="newEvent === 'usage_spike' ? '3' : '0.5'"
+          />
         </div>
         <div class="field">
           <label for="alert-mincalls">Min calls</label>
-          <input id="alert-mincalls" v-model="newMinCalls" type="text" inputmode="numeric" :placeholder="newEvent === 'usage_spike' ? '20' : '10'" />
+          <input
+            id="alert-mincalls"
+            v-model="newMinCalls"
+            type="text"
+            inputmode="numeric"
+            :placeholder="newEvent === 'usage_spike' ? '20' : '10'"
+          />
         </div>
       </template>
       <p v-if="createError" class="error">{{ createError }}</p>
-      <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Creating…" : "Create rule" }}</button>
+      <button type="submit" class="btn-primary" :disabled="creating">
+        {{ creating ? "Creating…" : "Create rule" }}
+      </button>
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
@@ -186,7 +208,16 @@ async function confirmDelete() {
 
     <div v-else class="table-card table-scroll">
       <table class="alerts-table">
-        <thead><tr><th>Name</th><th>Event</th><th>Webhook</th><th>Last fired</th><th>Enabled</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Event</th>
+            <th>Webhook</th>
+            <th>Last fired</th>
+            <th>Enabled</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
           <tr v-for="rule in rules" :key="rule.id">
             <td>{{ rule.name }}</td>

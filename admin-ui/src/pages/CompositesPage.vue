@@ -2,12 +2,20 @@
 import { ref, computed, onMounted } from "vue";
 import { Combine } from "lucide-vue-next";
 import { api, ApiError } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { CompositeSummary, CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 
-const items = ref<CompositeSummary[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
+const {
+  data: items,
+  loading,
+  errorMessage,
+  load,
+} = useResource<CompositeSummary[]>(
+  async () => (await api.get<{ items: CompositeSummary[] }>("/admin-api/composites")).items,
+  [],
+  "Failed to load composites.",
+);
 const rowError = ref<Record<string, string>>({});
 
 const showCreateForm = ref(false);
@@ -16,7 +24,7 @@ const newNameTouched = ref(false);
 const newDescription = ref("");
 const newSchema = ref('{\n  "type": "object",\n  "properties": {}\n}');
 const newSteps = ref(
-  '[\n  { "targetClient": "docs", "targetTool": "search", "argsTemplate": { "query": "${input.query}" } },\n  { "targetClient": "docs", "targetTool": "get", "argsTemplate": { "id": { "$ref": "steps.0.json.id" } } }\n]'
+  '[\n  { "targetClient": "docs", "targetTool": "search", "argsTemplate": { "query": "${input.query}" } },\n  { "targetClient": "docs", "targetTool": "get", "argsTemplate": { "id": { "$ref": "steps.0.json.id" } } }\n]',
 );
 const createError = ref("");
 const schemaError = ref("");
@@ -31,18 +39,6 @@ const newNameError = computed(() => {
     : "Lowercase letters, digits, - and _ (max 63 chars); must not contain '__'.";
 });
 
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    const res = await api.get<{ items: CompositeSummary[] }>("/admin-api/composites");
-    items.value = res.items;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load composites.";
-  } finally {
-    loading.value = false;
-  }
-}
 onMounted(load);
 
 async function createComposite() {
@@ -130,11 +126,15 @@ async function confirmDelete() {
       <div>
         <h1>Composite tools</h1>
         <p class="subtitle">
-          Chains several existing tool calls into one, exposed on the aggregated MCP endpoint. Each step forwards to
-          a real <code>client__tool</code> through the full guard stack.
+          Chains several existing tool calls into one, exposed on the aggregated MCP endpoint. Each step forwards to a
+          real <code>client__tool</code> through the full guard stack.
         </p>
       </div>
-      <button type="button" :class="showCreateForm ? 'btn-secondary' : 'btn-primary'" @click="showCreateForm = !showCreateForm">
+      <button
+        type="button"
+        :class="showCreateForm ? 'btn-secondary' : 'btn-primary'"
+        @click="showCreateForm = !showCreateForm"
+      >
         {{ showCreateForm ? "Cancel" : "New composite" }}
       </button>
     </header>
@@ -158,19 +158,28 @@ async function confirmDelete() {
       </div>
       <div class="field">
         <label for="new-composite-schema">Input schema (JSON)</label>
-        <textarea id="new-composite-schema" class="mono-field" v-model="newSchema" rows="4" spellcheck="false"></textarea>
+        <textarea
+          id="new-composite-schema"
+          v-model="newSchema"
+          class="mono-field"
+          rows="4"
+          spellcheck="false"
+        ></textarea>
         <p v-if="schemaError" class="error">{{ schemaError }}</p>
       </div>
       <div class="field">
         <label for="new-composite-steps">Steps (JSON array)</label>
         <p class="template-hint">
-          Templates: <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> or <code>{{ '"${input.query}"' }}</code>.
+          Templates: <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> or <code>{{ '"${input.query}"' }}</code
+          >.
         </p>
-        <textarea id="new-composite-steps" class="mono-field" v-model="newSteps" rows="6" spellcheck="false"></textarea>
+        <textarea id="new-composite-steps" v-model="newSteps" class="mono-field" rows="6" spellcheck="false"></textarea>
         <p v-if="stepsError" class="error">{{ stepsError }}</p>
       </div>
       <p v-if="createError" class="error">{{ createError }}</p>
-      <button class="btn-primary" type="submit" :disabled="creating">{{ creating ? "Creating…" : "Create composite" }}</button>
+      <button class="btn-primary" type="submit" :disabled="creating">
+        {{ creating ? "Creating…" : "Create composite" }}
+      </button>
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
@@ -179,7 +188,10 @@ async function confirmDelete() {
     <template v-else-if="items.length === 0">
       <div class="empty-state">
         <Combine :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>No composite tools yet. A composite chains several existing tool calls into one, exposed on the aggregated MCP endpoint.</p>
+        <p>
+          No composite tools yet. A composite chains several existing tool calls into one, exposed on the aggregated MCP
+          endpoint.
+        </p>
       </div>
     </template>
 
@@ -196,7 +208,9 @@ async function confirmDelete() {
         </thead>
         <tbody>
           <tr v-for="c in items" :key="c.name">
-            <td><RouterLink :to="`/composites/${encodeURIComponent(c.name)}`">{{ c.name }}</RouterLink></td>
+            <td>
+              <RouterLink :to="`/composites/${encodeURIComponent(c.name)}`">{{ c.name }}</RouterLink>
+            </td>
             <td class="desc-cell" :title="c.description || undefined">{{ c.description || "—" }}</td>
             <td>{{ c.stepsCount }}</td>
             <td>
@@ -220,7 +234,11 @@ async function confirmDelete() {
     <ConfirmDialog
       :open="pendingDelete !== null"
       title="Delete this composite?"
-      :message="pendingDelete ? `MCP clients calling '${pendingDelete.name}' will start failing immediately. This cannot be undone.` : ''"
+      :message="
+        pendingDelete
+          ? `MCP clients calling '${pendingDelete.name}' will start failing immediately. This cannot be undone.`
+          : ''
+      "
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmDelete"

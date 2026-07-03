@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { WsProxyTarget } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { Waypoints } from "lucide-vue-next";
 
-const targets = ref<WsProxyTarget[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
+const {
+  data: targets,
+  loading,
+  errorMessage,
+  load,
+} = useResource<WsProxyTarget[]>(
+  async () => (await api.get<{ items: WsProxyTarget[] }>("/admin-api/ws-proxy-targets")).items,
+  [],
+  "Failed to load WS proxy targets.",
+);
 const pendingDelete = ref<WsProxyTarget | null>(null);
 const disconnectingName = ref<string | null>(null);
 
@@ -21,17 +29,6 @@ const createError = ref("");
 const creating = ref(false);
 const editingTarget = ref<WsProxyTarget | null>(null);
 
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    targets.value = (await api.get<{ items: WsProxyTarget[] }>("/admin-api/ws-proxy-targets")).items;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load WS proxy targets.";
-  } finally {
-    loading.value = false;
-  }
-}
 onMounted(load);
 
 function resetForm() {
@@ -96,7 +93,10 @@ async function submitTarget() {
 async function toggleEnabled(target: WsProxyTarget) {
   const next = !target.enabled;
   try {
-    await api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}`, { enabled: next, backendWsUrl: target.backendWsUrl });
+    await api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}`, {
+      enabled: next,
+      backendWsUrl: target.backendWsUrl,
+    });
     await load();
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to update target.";
@@ -138,7 +138,11 @@ async function confirmDelete() {
           <code>/ws-proxy/&lt;name&gt;</code>. Distinct from a registered server — a target has no tools.
         </p>
       </div>
-      <button type="button" :class="showCreate ? 'btn-secondary' : 'btn-primary'" @click="showCreate ? closeForm() : openCreate()">
+      <button
+        type="button"
+        :class="showCreate ? 'btn-secondary' : 'btn-primary'"
+        @click="showCreate ? closeForm() : openCreate()"
+      >
         {{ showCreate ? "Cancel" : "New target" }}
       </button>
     </header>
@@ -146,7 +150,13 @@ async function confirmDelete() {
     <form v-if="showCreate" class="create-form" @submit.prevent="submitTarget">
       <div class="field">
         <label for="wp-name">Name</label>
-        <input id="wp-name" v-model="newName" type="text" placeholder="iot-gateway" :disabled="editingTarget !== null" />
+        <input
+          id="wp-name"
+          v-model="newName"
+          type="text"
+          placeholder="iot-gateway"
+          :disabled="editingTarget !== null"
+        />
       </div>
       <div class="field">
         <label for="wp-url">Backend WebSocket URL</label>
@@ -179,20 +189,38 @@ async function confirmDelete() {
 
     <div v-else class="table-card table-scroll">
       <table class="wp-table">
-        <thead><tr><th>Name</th><th>Backend URL</th><th>Connections</th><th>Enabled</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Backend URL</th>
+            <th>Connections</th>
+            <th>Enabled</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
           <tr v-for="t in targets" :key="t.name">
             <td>{{ t.name }}</td>
             <td class="url-cell" :title="t.backendWsUrl">{{ t.backendWsUrl }}</td>
             <td>{{ t.activeConnections }} / {{ t.maxConnections }}</td>
             <td>
-              <button type="button" class="toggle" :class="t.enabled ? 'toggle-on' : 'toggle-off'" @click="toggleEnabled(t)">
+              <button
+                type="button"
+                class="toggle"
+                :class="t.enabled ? 'toggle-on' : 'toggle-off'"
+                @click="toggleEnabled(t)"
+              >
                 {{ t.enabled ? "Enabled" : "Disabled" }}
               </button>
             </td>
             <td class="actions">
               <button type="button" class="link-btn" @click="openEdit(t)">Edit</button>
-              <button type="button" class="link-btn" :disabled="disconnectingName === t.name || t.activeConnections === 0" @click="disconnectAll(t)">
+              <button
+                type="button"
+                class="link-btn"
+                :disabled="disconnectingName === t.name || t.activeConnections === 0"
+                @click="disconnectAll(t)"
+              >
                 {{ disconnectingName === t.name ? "Disconnecting…" : "Disconnect all" }}
               </button>
               <button type="button" class="link-btn danger" @click="pendingDelete = t">Delete</button>

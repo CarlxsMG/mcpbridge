@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useLoadState } from "../composables/useResource";
 import type { GuardPolicy, BundleSummary } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { ShieldCheck } from "lucide-vue-next";
 
 const policies = ref<GuardPolicy[]>([]);
 const bundles = ref<BundleSummary[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
+const { loading, errorMessage, run } = useLoadState("Failed to load policies.");
 const notice = ref("");
 const pendingDelete = ref<GuardPolicy | null>(null);
 
@@ -25,20 +25,14 @@ const applyingId = ref<number | null>(null);
 const applyResult = ref<Record<number, string>>({});
 
 async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
+  await run(async () => {
     const [p, b] = await Promise.all([
       api.get<{ items: GuardPolicy[] }>("/admin-api/policies"),
       api.get<{ items: BundleSummary[] }>("/admin-api/bundles"),
     ]);
     policies.value = p.items;
     bundles.value = b.items;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load policies.";
-  } finally {
-    loading.value = false;
-  }
+  });
 }
 onMounted(load);
 
@@ -65,7 +59,11 @@ async function createPolicy() {
   }
   creating.value = true;
   try {
-    await api.post("/admin-api/policies", { name: newName.value.trim(), rateLimitPerMin: numOrNull(newRate.value), timeoutMs: numOrNull(newTimeout.value) });
+    await api.post("/admin-api/policies", {
+      name: newName.value.trim(),
+      rateLimitPerMin: numOrNull(newRate.value),
+      timeoutMs: numOrNull(newTimeout.value),
+    });
     newName.value = "";
     newRate.value = "";
     newTimeout.value = "";
@@ -84,7 +82,9 @@ async function apply(policy: GuardPolicy) {
   notice.value = "";
   applyingId.value = policy.id;
   try {
-    const res = await api.post<{ applied: number; skipped: unknown[] }>(`/admin-api/policies/${policy.id}/apply`, { bundle });
+    const res = await api.post<{ applied: number; skipped: unknown[] }>(`/admin-api/policies/${policy.id}/apply`, {
+      bundle,
+    });
     const message = `Applied "${policy.name}" to ${res.applied} tool(s) in bundle "${bundle}".`;
     notice.value = message;
     applyResult.value[policy.id] = message;
@@ -113,17 +113,32 @@ async function confirmDelete() {
     <header class="page-header">
       <div>
         <h1>Guard policies</h1>
-        <p class="subtitle">Reusable rate-limit / timeout templates. Apply one to every tool in a bundle at once — each tool's existing API-key allow-list is left untouched.</p>
+        <p class="subtitle">
+          Reusable rate-limit / timeout templates. Apply one to every tool in a bundle at once — each tool's existing
+          API-key allow-list is left untouched.
+        </p>
       </div>
-      <button type="button" :class="showCreate ? 'btn-secondary' : 'btn-primary'" @click="showCreate = !showCreate">{{ showCreate ? "Cancel" : "New policy" }}</button>
+      <button type="button" :class="showCreate ? 'btn-secondary' : 'btn-primary'" @click="showCreate = !showCreate">
+        {{ showCreate ? "Cancel" : "New policy" }}
+      </button>
     </header>
 
     <form v-if="showCreate" class="create-form" @submit.prevent="createPolicy">
-      <div class="field"><label for="p-name">Name</label><input id="p-name" v-model="newName" type="text" placeholder="strict" /></div>
-      <div class="field"><label for="p-rate">Rate limit (calls/min, blank = none)</label><input id="p-rate" v-model="newRate" type="text" inputmode="numeric" /></div>
-      <div class="field"><label for="p-timeout">Timeout (ms, blank = none)</label><input id="p-timeout" v-model="newTimeout" type="text" inputmode="numeric" /></div>
+      <div class="field">
+        <label for="p-name">Name</label><input id="p-name" v-model="newName" type="text" placeholder="strict" />
+      </div>
+      <div class="field">
+        <label for="p-rate">Rate limit (calls/min, blank = none)</label
+        ><input id="p-rate" v-model="newRate" type="text" inputmode="numeric" />
+      </div>
+      <div class="field">
+        <label for="p-timeout">Timeout (ms, blank = none)</label
+        ><input id="p-timeout" v-model="newTimeout" type="text" inputmode="numeric" />
+      </div>
       <p v-if="createError" class="error">{{ createError }}</p>
-      <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Creating…" : "Create policy" }}</button>
+      <button type="submit" class="btn-primary" :disabled="creating">
+        {{ creating ? "Creating…" : "Create policy" }}
+      </button>
     </form>
 
     <p v-if="notice" class="notice">{{ notice }}</p>
@@ -136,7 +151,15 @@ async function confirmDelete() {
 
     <div v-else class="table-card table-scroll">
       <table class="pol-table">
-        <thead><tr><th>Name</th><th>Rate/min</th><th>Timeout</th><th>Apply to bundle</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Rate/min</th>
+            <th>Timeout</th>
+            <th>Apply to bundle</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
           <tr v-for="p in policies" :key="p.id">
             <td>{{ p.name }}</td>
@@ -166,7 +189,11 @@ async function confirmDelete() {
     <ConfirmDialog
       :open="pendingDelete !== null"
       title="Delete this policy?"
-      :message="pendingDelete ? `'${pendingDelete.name}' will be removed. Already-applied guards on tools are not reverted.` : ''"
+      :message="
+        pendingDelete
+          ? `'${pendingDelete.name}' will be removed. Already-applied guards on tools are not reverted.`
+          : ''
+      "
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmDelete"

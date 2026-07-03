@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useLoadState } from "../composables/useResource";
 import type { ApprovalRecord, ApprovalStatus } from "../types/api";
 import DonutChart from "../components/DonutChart.vue";
 import { ClipboardCheck, Check, X, RefreshCw } from "lucide-vue-next";
@@ -16,16 +17,13 @@ const activeTab = ref<TabKey>("pending");
 
 const summary = ref<ApprovalRecord[]>([]);
 const tableItems = ref<ApprovalRecord[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
+const { loading, errorMessage, run } = useLoadState("Failed to load approvals. Check your connection and try again.");
 const decidingId = ref<number | null>(null);
 const noteDraft = reactive<Record<number, string>>({});
 
 async function loadTable() {
   const tab = activeTab.value;
-  loading.value = true;
-  errorMessage.value = "";
-  try {
+  await run(async () => {
     const summaryReq = api.get<{ items: ApprovalRecord[] }>("/admin-api/approvals").then((r) => r.items);
     if (tab === "all") {
       const all = await summaryReq;
@@ -43,11 +41,7 @@ async function loadTable() {
         summary.value = all;
       }
     }
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load approvals. Check your connection and try again.";
-  } finally {
-    loading.value = false;
-  }
+  });
 }
 onMounted(loadTable);
 
@@ -100,7 +94,9 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
     <header class="page-header">
       <div>
         <h1>Approvals</h1>
-        <p class="subtitle">Human-in-the-loop queue for tools configured to require approval before their upstream call runs.</p>
+        <p class="subtitle">
+          Human-in-the-loop queue for tools configured to require approval before their upstream call runs.
+        </p>
       </div>
       <button type="button" class="btn-secondary" :disabled="loading" @click="loadTable">
         <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
@@ -133,7 +129,10 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
     <div v-else-if="tableItems.length === 0" class="empty-state">
       <ClipboardCheck :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
       <p v-if="activeTab === 'pending'">Nothing waiting for review right now.</p>
-      <p v-else>No {{ activeTab === "all" ? "" : activeTab + " " }}approvals yet. Requests show up here once a tool is configured to require approval before its upstream call runs.</p>
+      <p v-else>
+        No {{ activeTab === "all" ? "" : activeTab + " " }}approvals yet. Requests show up here once a tool is
+        configured to require approval before its upstream call runs.
+      </p>
     </div>
 
     <div v-else class="table-card table-scroll">
@@ -152,16 +151,22 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
           <tr v-for="a in tableItems" :key="a.id">
             <td class="mono">{{ a.id }}</td>
             <td class="mono">{{ a.clientName }}/{{ a.toolName }}</td>
-            <td class="args" :title="prettyArgs(a.argsJson)"><code>{{ prettyArgs(a.argsJson) }}</code></td>
+            <td class="args" :title="prettyArgs(a.argsJson)">
+              <code>{{ prettyArgs(a.argsJson) }}</code>
+            </td>
             <td>{{ new Date(a.createdAt).toLocaleString() }}</td>
             <td>
               <span v-if="a.status === 'pending'" class="status-pending">
                 Pending
-                <span v-if="a.requiredLevels > 1" class="levels-badge">{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span>
+                <span v-if="a.requiredLevels > 1" class="levels-badge"
+                  >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
+                >
               </span>
               <span v-else :class="a.status === 'approved' ? 'status-approved' : 'status-rejected'">
                 {{ a.status === "approved" ? "Approved" : "Rejected" }}
-                <template v-if="a.requiredLevels > 1 && a.status === 'approved'">({{ approvedCount(a) }}/{{ a.requiredLevels }})</template>
+                <template v-if="a.requiredLevels > 1 && a.status === 'approved'"
+                  >({{ approvedCount(a) }}/{{ a.requiredLevels }})</template
+                >
                 by {{ a.decidedBy }}
                 <span v-if="a.note" class="note">— {{ a.note }}</span>
               </span>
@@ -184,7 +189,12 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
                 <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
                   <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
                 </button>
-                <button type="button" class="link-btn danger" :disabled="decidingId === a.id" @click="decide(a, 'rejected')">
+                <button
+                  type="button"
+                  class="link-btn danger"
+                  :disabled="decidingId === a.id"
+                  @click="decide(a, 'rejected')"
+                >
                   <X :size="13" stroke-width="2" aria-hidden="true" /> Reject
                 </button>
               </template>
@@ -259,7 +269,9 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
   padding: 0.55rem 0.35rem;
   margin-bottom: -1px;
   cursor: pointer;
-  transition: color 0.12s ease, border-color 0.12s ease;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
 }
 .tab-btn:hover {
   color: var(--text-primary);

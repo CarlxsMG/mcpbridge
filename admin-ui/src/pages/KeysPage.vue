@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useLoadState } from "../composables/useResource";
 import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { KeyRound } from "lucide-vue-next";
 
 const keys = ref<McpApiKey[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
+const { loading, errorMessage, run } = useLoadState("Failed to load API keys.");
 
 const showCreateForm = ref(false);
 const newLabel = ref("");
@@ -43,24 +43,21 @@ function scopeSummary(key: McpApiKey): string {
 }
 
 function parseList(raw: string): string[] {
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
+  await run(async () => {
     const [k, c] = await Promise.all([
       api.get<{ items: McpApiKey[] }>("/admin-api/mcp-keys"),
       api.get<{ items: Consumer[] }>("/admin-api/consumers"),
     ]);
     keys.value = k.items;
     consumers.value = c.items;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load API keys.";
-  } finally {
-    loading.value = false;
-  }
+  });
 }
 
 function consumerName(id: number | null): string {
@@ -162,7 +159,11 @@ async function confirmDelete() {
           unrestricted. The secret is shown only once at creation.
         </p>
       </div>
-      <button type="button" :class="showCreateForm ? 'btn-secondary' : 'btn-primary'" @click="showCreateForm = !showCreateForm">
+      <button
+        type="button"
+        :class="showCreateForm ? 'btn-secondary' : 'btn-primary'"
+        @click="showCreateForm = !showCreateForm"
+      >
         {{ showCreateForm ? "Cancel" : "Mint key" }}
       </button>
     </header>
@@ -201,7 +202,9 @@ async function confirmDelete() {
           <option v-for="c in consumers" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </div>
-      <label class="checkbox-field elev-chip"><input v-model="newElevated" type="checkbox" /> Elevated (bypasses sensitive-tool confirmation)</label>
+      <label class="checkbox-field elev-chip"
+        ><input v-model="newElevated" type="checkbox" /> Elevated (bypasses sensitive-tool confirmation)</label
+      >
       <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Minting…" : "Mint key" }}</button>
     </form>
 
@@ -230,7 +233,9 @@ async function confirmDelete() {
         <tbody>
           <tr v-for="key in keys" :key="key.id">
             <td>{{ key.label }} <span v-if="key.elevated" class="elev-chip">elevated</span></td>
-            <td><code>{{ key.keyPrefix }}…</code></td>
+            <td>
+              <code>{{ key.keyPrefix }}…</code>
+            </td>
             <td>
               {{ scopeSummary(key) }}
               <details v-if="key.scopes" class="scope-disclosure">
@@ -248,20 +253,10 @@ async function confirmDelete() {
             <td>{{ key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : "Never" }}</td>
             <td>{{ key.expiresAt ? new Date(key.expiresAt).toLocaleString() : "—" }}</td>
             <td class="actions">
-              <button
-                v-if="key.revokedAt === null"
-                type="button"
-                class="link-btn"
-                @click="toggleEnabled(key)"
-              >
+              <button v-if="key.revokedAt === null" type="button" class="link-btn" @click="toggleEnabled(key)">
                 {{ key.enabled ? "Disable" : "Enable" }}
               </button>
-              <button
-                v-if="key.revokedAt === null"
-                type="button"
-                class="link-btn danger"
-                @click="pendingRevoke = key"
-              >
+              <button v-if="key.revokedAt === null" type="button" class="link-btn danger" @click="pendingRevoke = key">
                 Revoke
               </button>
               <button type="button" class="link-btn danger" @click="pendingDelete = key">Delete</button>
@@ -274,7 +269,9 @@ async function confirmDelete() {
     <ConfirmDialog
       :open="pendingDelete !== null"
       title="Delete this API key?"
-      :message="pendingDelete ? `'${pendingDelete.label}' will stop working immediately and be removed permanently.` : ''"
+      :message="
+        pendingDelete ? `'${pendingDelete.label}' will stop working immediately and be removed permanently.` : ''
+      "
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.label}` : 'Delete'"
       danger
       @confirm="confirmDelete"
@@ -284,7 +281,9 @@ async function confirmDelete() {
     <ConfirmDialog
       :open="pendingRevoke !== null"
       title="Revoke this API key?"
-      :message="pendingRevoke ? `'${pendingRevoke.label}' will stop working immediately. Revoking cannot be undone.` : ''"
+      :message="
+        pendingRevoke ? `'${pendingRevoke.label}' will stop working immediately. Revoking cannot be undone.` : ''
+      "
       :confirm-label="pendingRevoke ? `Revoke ${pendingRevoke.label}` : 'Revoke'"
       danger
       @confirm="confirmRevoke"

@@ -1,27 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { onMounted, computed } from "vue";
+import { api } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { OverviewStats } from "../types/api";
 import StatCard from "../components/StatCard.vue";
 import SegmentedBar from "../components/SegmentedBar.vue";
 import DonutChart from "../components/DonutChart.vue";
 import { Server, Wrench, GitBranch, ShieldCheck, RefreshCw } from "lucide-vue-next";
 
-const stats = ref<OverviewStats | null>(null);
-const errorMessage = ref("");
-const loading = ref(false);
-
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    stats.value = await api.get<OverviewStats>("/admin-api/overview");
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load overview.";
-  } finally {
-    loading.value = false;
-  }
-}
+const {
+  data: stats,
+  loading,
+  errorMessage,
+  load,
+} = useResource<OverviewStats | null>(
+  () => api.get<OverviewStats>("/admin-api/overview"),
+  null,
+  "Failed to load overview.",
+);
 
 const clientSegments = computed(() => {
   if (!stats.value) return [];
@@ -63,7 +59,12 @@ onMounted(load);
     <div v-if="loading && !stats" class="loading">Loading…</div>
 
     <div v-else-if="stats" class="cards">
-      <StatCard :icon="Server" label="Clients" :value="stats.clients.live" :detail="`${stats.clients.disabled} disabled`">
+      <StatCard
+        :icon="Server"
+        label="Clients"
+        :value="stats.clients.live"
+        :detail="`${stats.clients.disabled} disabled`"
+      >
         <SegmentedBar v-if="clientSegments.length" :segments="clientSegments" />
       </StatCard>
       <StatCard :icon="Wrench" label="Tools" :value="stats.tools.total" :detail="`${stats.tools.disabled} disabled`" />

@@ -2,30 +2,28 @@
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "../types/api";
 import { LayoutGrid, Plus } from "lucide-vue-next";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const router = useRouter();
 
-const items = ref<CatalogEntry[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
-
-const sorted = computed(() =>
-  [...items.value].sort((a, b) => (a.featured === b.featured ? a.name.localeCompare(b.name) : a.featured ? -1 : 1))
+const {
+  data: items,
+  loading,
+  errorMessage,
+  load,
+} = useResource<CatalogEntry[]>(
+  async () => (await api.get<{ items: CatalogEntry[] }>("/admin-api/catalog")).items,
+  [],
+  "Failed to load catalog.",
 );
 
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    items.value = (await api.get<{ items: CatalogEntry[] }>("/admin-api/catalog")).items;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load catalog.";
-  } finally {
-    loading.value = false;
-  }
-}
+const sorted = computed(() =>
+  [...items.value].sort((a, b) => (a.featured === b.featured ? a.name.localeCompare(b.name) : a.featured ? -1 : 1)),
+);
+
 onMounted(load);
 
 // ── Install flow ────────────────────────────────────────────────────────────
@@ -128,7 +126,16 @@ async function createEntry() {
   }
 }
 
-async function deleteEntry(entry: CatalogEntry) {
+const pendingDelete = ref<CatalogEntry | null>(null);
+
+function deleteEntry(entry: CatalogEntry) {
+  pendingDelete.value = entry;
+}
+
+async function confirmDelete() {
+  if (!pendingDelete.value) return;
+  const entry = pendingDelete.value;
+  pendingDelete.value = null;
   try {
     await api.delete(`/admin-api/catalog/${encodeURIComponent(entry.id)}`);
     await load();
@@ -143,9 +150,15 @@ async function deleteEntry(entry: CatalogEntry) {
     <header class="page-header">
       <div>
         <h1>Catalog</h1>
-        <p class="subtitle">Browse well-known servers and install them with one click, or save your own reusable templates.</p>
+        <p class="subtitle">
+          Browse well-known servers and install them with one click, or save your own reusable templates.
+        </p>
       </div>
-      <button type="button" :class="showCreateForm ? 'btn-secondary' : 'btn-primary'" @click="showCreateForm = !showCreateForm">
+      <button
+        type="button"
+        :class="showCreateForm ? 'btn-secondary' : 'btn-primary'"
+        @click="showCreateForm = !showCreateForm"
+      >
         <Plus :size="14" stroke-width="2.5" aria-hidden="true" /> {{ showCreateForm ? "Cancel" : "Add custom entry" }}
       </button>
     </header>
@@ -174,7 +187,12 @@ async function deleteEntry(entry: CatalogEntry) {
         </div>
         <div class="field">
           <label for="ce-openapi">OpenAPI URL</label>
-          <input id="ce-openapi" v-model="newOpenapiUrl" type="url" placeholder="https://api.example.com/openapi.json" />
+          <input
+            id="ce-openapi"
+            v-model="newOpenapiUrl"
+            type="url"
+            placeholder="https://api.example.com/openapi.json"
+          />
         </div>
       </template>
       <div v-else class="field">
@@ -196,7 +214,12 @@ async function deleteEntry(entry: CatalogEntry) {
     </template>
 
     <div v-else class="catalog-grid">
-      <article v-for="entry in sorted" :key="entry.id" class="catalog-card" :class="{ 'is-open': openEntryId === entry.id }">
+      <article
+        v-for="entry in sorted"
+        :key="entry.id"
+        class="catalog-card"
+        :class="{ 'is-open': openEntryId === entry.id }"
+      >
         <div class="card-top">
           <span class="kind-badge" :class="`kind-${entry.kind}`">{{ entry.kind === "mcp" ? "MCP" : "REST" }}</span>
           <span v-if="entry.featured" class="featured-badge">Featured</span>
@@ -213,7 +236,9 @@ async function deleteEntry(entry: CatalogEntry) {
           <button type="button" class="btn-secondary" @click="toggleInstall(entry)">
             {{ openEntryId === entry.id ? "Cancel" : "Install" }}
           </button>
-          <button v-if="entry.source === 'custom'" type="button" class="link-btn danger" @click="deleteEntry(entry)">Delete</button>
+          <button v-if="entry.source === 'custom'" type="button" class="link-btn danger" @click="deleteEntry(entry)">
+            Delete
+          </button>
         </div>
 
         <div v-if="openEntryId === entry.id" class="install-panel">
@@ -231,8 +256,8 @@ async function deleteEntry(entry: CatalogEntry) {
             <p v-if="previewError" class="error">{{ previewError }}</p>
           </template>
           <p v-else class="hint">
-            The bridge connects to the MCP server and discovers its tools on install. If it requires
-            authentication, install it first, set upstream credentials on its detail page, then re-register.
+            The bridge connects to the MCP server and discovers its tools on install. If it requires authentication,
+            install it first, set upstream credentials on its detail page, then re-register.
           </p>
           <p v-if="installError" class="error">{{ installError }}</p>
           <button type="button" class="btn-primary" :disabled="installing" @click="confirmInstall(entry)">
@@ -241,6 +266,20 @@ async function deleteEntry(entry: CatalogEntry) {
         </div>
       </article>
     </div>
+
+    <ConfirmDialog
+      :open="pendingDelete !== null"
+      title="Delete catalog entry?"
+      :message="
+        pendingDelete
+          ? `'${pendingDelete.name}' will be removed from the catalog. This does not affect any servers already installed from it.`
+          : ''
+      "
+      :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
+      danger
+      @confirm="confirmDelete"
+      @cancel="pendingDelete = null"
+    />
   </section>
 </template>
 

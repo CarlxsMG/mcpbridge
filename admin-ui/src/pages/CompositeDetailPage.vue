@@ -1,16 +1,24 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, onBeforeRouteLeave } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const props = defineProps<{ name: string }>();
 const router = useRouter();
 
-const detail = ref<CompositeDetail | null>(null);
-const loading = ref(false);
-const errorMessage = ref("");
+const {
+  data: detail,
+  loading,
+  errorMessage,
+  load: loadDetail,
+} = useResource<CompositeDetail | null>(
+  () => api.get<CompositeDetail>(`/admin-api/composites/${encodeURIComponent(props.name)}`),
+  null,
+  "Failed to load composite.",
+);
 
 const descriptionInput = ref("");
 const savingDescription = ref(false);
@@ -25,19 +33,14 @@ const savingSteps = ref(false);
 
 const pendingDelete = ref(false);
 const deleting = ref(false);
+const deleted = ref(false);
 
 async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    detail.value = await api.get<CompositeDetail>(`/admin-api/composites/${encodeURIComponent(props.name)}`);
-    descriptionInput.value = detail.value.description ?? "";
-    schemaInput.value = JSON.stringify(detail.value.inputSchema, null, 2);
-    stepsInput.value = JSON.stringify(detail.value.steps, null, 2);
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load composite.";
-  } finally {
-    loading.value = false;
+  const result = await loadDetail();
+  if (result) {
+    descriptionInput.value = result.description ?? "";
+    schemaInput.value = JSON.stringify(result.inputSchema, null, 2);
+    stepsInput.value = JSON.stringify(result.steps, null, 2);
   }
 }
 watch(() => props.name, load);
@@ -46,12 +49,39 @@ onMounted(load);
 const descriptionDirty = computed(() => descriptionInput.value !== (detail.value?.description ?? ""));
 const schemaDirty = computed(() => schemaInput.value !== JSON.stringify(detail.value?.inputSchema ?? {}, null, 2));
 const stepsDirty = computed(() => stepsInput.value !== JSON.stringify(detail.value?.steps ?? [], null, 2));
+const isDirty = computed(() => descriptionDirty.value || schemaDirty.value || stepsDirty.value);
+
+const pendingLeave = ref(false);
+let leaveNext: ((valid?: boolean) => void) | null = null;
+
+onBeforeRouteLeave((_to, _from, next) => {
+  if (!deleted.value && isDirty.value) {
+    leaveNext = next;
+    pendingLeave.value = true;
+  } else {
+    next();
+  }
+});
+
+function confirmLeave() {
+  pendingLeave.value = false;
+  leaveNext?.(true);
+  leaveNext = null;
+}
+
+function cancelLeave() {
+  pendingLeave.value = false;
+  leaveNext?.(false);
+  leaveNext = null;
+}
 
 async function saveDescription() {
   if (!detail.value) return;
   savingDescription.value = true;
   try {
-    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { description: descriptionInput.value || null });
+    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, {
+      description: descriptionInput.value || null,
+    });
     await load();
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to save description.";
@@ -122,6 +152,7 @@ async function confirmDelete() {
   deleting.value = true;
   try {
     await api.delete(`/admin-api/composites/${encodeURIComponent(props.name)}`);
+    deleted.value = true;
     router.push("/composites");
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete composite.";
@@ -163,8 +194,18 @@ async function confirmDelete() {
       <div class="field description-field">
         <label for="composite-description">Description</label>
         <div class="description-row">
-          <input id="composite-description" v-model="descriptionInput" type="text" placeholder="What this composite does" />
-          <button type="button" class="btn-secondary" :disabled="!descriptionDirty || savingDescription" @click="saveDescription">
+          <input
+            id="composite-description"
+            v-model="descriptionInput"
+            type="text"
+            placeholder="What this composite does"
+          />
+          <button
+            type="button"
+            class="btn-secondary"
+            :disabled="!descriptionDirty || savingDescription"
+            @click="saveDescription"
+          >
             {{ savingDescription ? "Saving…" : "Save" }}
           </button>
         </div>
@@ -184,7 +225,8 @@ async function confirmDelete() {
       <div class="field json-field">
         <label for="composite-steps">Steps (JSON array)</label>
         <p class="template-hint">
-          Templates: <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> or <code>{{ '"${input.name}"' }}</code>.
+          Templates: <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> or <code>{{ '"${input.name}"' }}</code
+          >.
         </p>
         <textarea id="composite-steps" v-model="stepsInput" rows="10" spellcheck="false"></textarea>
         <div class="field-actions">
@@ -204,6 +246,16 @@ async function confirmDelete() {
       danger
       @confirm="confirmDelete"
       @cancel="pendingDelete = false"
+    />
+
+    <ConfirmDialog
+      :open="pendingLeave"
+      title="Discard unsaved changes?"
+      message="You have unsaved changes to the description, input schema, or steps for this composite. Leaving now will discard them."
+      confirm-label="Discard changes"
+      danger
+      @confirm="confirmLeave"
+      @cancel="cancelLeave"
     />
   </section>
 </template>
