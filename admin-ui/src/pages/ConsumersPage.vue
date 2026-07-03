@@ -5,6 +5,7 @@ import { useResource } from "../composables/useResource";
 import type { ConsumerWithUsage, ConsumerUsage } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import QuotaBar from "../components/QuotaBar.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { Users2, ChevronDown, ChevronRight } from "lucide-vue-next";
 
 const {
@@ -214,7 +215,7 @@ async function confirmDelete() {
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
     <div v-else-if="consumers.length === 0" class="empty-state">
       <Users2 :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
       <p>No consumers yet. A consumer groups one or more API keys under a shared monthly quota and rate limit.</p>
@@ -264,7 +265,7 @@ async function confirmDelete() {
             <tr v-if="expandedId === c.id" class="usage-detail-row">
               <td colspan="6">
                 <div class="usage-detail">
-                  <p v-if="usageLoadingId === c.id" class="loading">Loading usage…</p>
+                  <SignalLoader v-if="usageLoadingId === c.id" label="Loading usage…" />
                   <p v-else-if="usageErrorById[c.id]" class="error">{{ usageErrorById[c.id] }}</p>
                   <template v-else-if="usageById[c.id]">
                     <div class="usage-detail-stats">
@@ -451,9 +452,6 @@ async function confirmDelete() {
 }
 .error {
   color: var(--breach);
-}
-.loading {
-  color: var(--text-muted);
 }
 .empty-state {
   padding: 3rem 2rem;

@@ -82,6 +82,9 @@
   --space-10: 2.5rem; /* 40px — page content horizontal padding */
   --space-12: 3rem; /* 48px — empty-state padding, big vertical breathing room */
 
+  /* Density — table cell vertical padding, overridable via body.density-compact. */
+  --table-pad-y: 0.6rem;
+
   /* Font sizes — t-shirt scale, matches the radius/shadow naming convention.
      Use these instead of a bespoke rem value; if nothing fits, that's a sign
      the UI needs an actual heading (h1-h4, already tokened) rather than a
@@ -108,6 +111,28 @@
   --z-mobile-nav: 200; /* mobile sidebar panel */
   --z-banner: 250; /* persistent fixed banners (e.g. demo-mode ribbon) */
   --z-command-palette: 300; /* always reachable above everything else */
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0b0d11;
+  --surface: #12151b;
+  --surface-sunken: #171b22;
+  --text-primary: #e7e9ec;
+  --text-secondary: #a2a8b5;
+  --text-muted: #6b7280;
+  --border: #262c3a;
+  --border-strong: #333a4a;
+  --signal-strong: #20c4b3;
+  --signal-soft: #0f2e2b;
+  --canary-soft: #33230c;
+  --breach-soft: #33161a;
+  --ok-soft: #103322;
+  --kind-mcp-soft: #241c3d;
+}
+
+body.density-compact {
+  --table-pad-y: 0.3rem;
 }
 
 * {
@@ -233,6 +258,20 @@ button {
   overflow-x: auto;
 }
 
+/* Page header — every page defines its own scoped `.page-header { display: flex;
+   justify-content: space-between; ... }` (see DESIGN_SYSTEM.md's page-header recipe),
+   but none of those ~24 copies declare flex-wrap, so on narrow viewports the title
+   collides with the action button(s) and clips/scrolls horizontally. Adding it once
+   here fixes every page at once: title stacks above, actions wrap to their own row
+   below, both left-aligned (space-between with one item per wrapped line resolves to
+   flex-start). Also covers `.header-actions`, the multi-button wrapper a few pages use
+   inside `.page-header`, so 2-3 buttons themselves wrap instead of overflowing. */
+.page-header,
+.header-actions {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
 @keyframes signal-pulse {
   0%,
   100% {
@@ -356,4 +395,15 @@ input[type="radio"]:focus-visible {
   height: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

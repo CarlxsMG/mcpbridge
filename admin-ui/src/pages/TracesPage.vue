@@ -4,6 +4,7 @@ import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import type { TraceSummary, StoredSpan, PaginatedResult } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { Waypoints, Trash2 } from "lucide-vue-next";
 
 const props = defineProps<{ traceId?: string }>();
@@ -182,7 +183,7 @@ const waterfall = computed(() => {
       </form>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-      <div v-if="loading && !traces.length" class="loading">Loading…</div>
+      <SignalLoader v-if="loading && !traces.length" />
       <div v-else-if="traces.length === 0" class="empty-state">
         <Waypoints :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
         <p>No traces recorded yet.</p>
@@ -223,7 +224,7 @@ const waterfall = computed(() => {
     <template v-else>
       <button type="button" class="link-btn back-link" @click="backToList">&larr; Back to traces</button>
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-      <div v-if="loading" class="loading">Loading…</div>
+      <SignalLoader v-if="loading" />
       <div v-else-if="waterfall.rows.length === 0" class="empty-state">
         <p>Trace not found.</p>
       </div>
@@ -321,7 +322,7 @@ const waterfall = computed(() => {
   letter-spacing: 0.04em;
 }
 .trace-table td {
-  padding: 0.6rem 0.85rem;
+  padding: var(--table-pad-y) 0.85rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -355,7 +356,6 @@ const waterfall = computed(() => {
 .error {
   color: var(--breach);
 }
-.loading,
 .empty-state p {
   color: var(--text-muted);
 }

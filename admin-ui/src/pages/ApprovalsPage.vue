@@ -5,6 +5,7 @@ import { useLoadState } from "../composables/useResource";
 import type { ApprovalRecord, ApprovalStatus } from "../types/api";
 import DonutChart from "../components/DonutChart.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { ClipboardCheck, Check, X, RefreshCw } from "lucide-vue-next";
 
 type TabKey = ApprovalStatus | "all";
@@ -138,7 +139,7 @@ async function confirmReject() {
     </div>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading && !tableItems.length" class="loading">Loading…</div>
+    <SignalLoader v-if="loading && !tableItems.length" />
     <div v-else-if="tableItems.length === 0" class="empty-state">
       <ClipboardCheck :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
       <p v-if="activeTab === 'pending'">Nothing waiting for review right now.</p>
@@ -259,6 +260,8 @@ async function confirmReject() {
 }
 .chart-card {
   background: var(--surface);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 16px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
@@ -394,7 +397,6 @@ async function confirmReject() {
 .error {
   color: var(--breach);
 }
-.loading,
 .empty-state p {
   color: var(--text-muted);
 }

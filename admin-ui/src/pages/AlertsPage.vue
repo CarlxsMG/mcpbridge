@@ -4,6 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import type { AlertRule, AlertEventType } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { BellRing } from "lucide-vue-next";
 
 const EVENT_LABELS: Record<AlertEventType, string> = {
@@ -199,7 +200,7 @@ async function confirmDelete() {
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <p v-if="testMessage" class="success" role="status">{{ testMessage }}</p>
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
 
     <div v-else-if="rules.length === 0" class="empty-state">
       <BellRing :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
@@ -408,8 +409,5 @@ async function confirmDelete() {
 .empty-icon {
   color: var(--text-muted);
   margin-bottom: 0.75rem;
-}
-.loading {
-  color: var(--text-muted);
 }
 </style>

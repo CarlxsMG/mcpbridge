@@ -6,6 +6,7 @@ import { useResource } from "../composables/useResource";
 import type { BundleDetail, BundleToolRef } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 
 const props = defineProps<{ name: string }>();
 const router = useRouter();
@@ -141,7 +142,7 @@ function cancelLeave() {
   <section>
     <p class="breadcrumb"><RouterLink to="/bundles">Bundles</RouterLink> / {{ name }}</p>
 
-    <div v-if="loading && !detail" class="loading">Loading…</div>
+    <SignalLoader v-if="loading && !detail" />
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
 
     <template v-else-if="detail">
@@ -319,9 +320,6 @@ function cancelLeave() {
   color: var(--breach);
   font-size: 0.75rem;
   margin: 0.25rem 0 0;
-}
-.loading {
-  color: var(--text-muted);
 }
 .error {
   color: var(--breach);

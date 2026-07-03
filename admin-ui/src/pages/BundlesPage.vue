@@ -4,6 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import type { BundleSummary, BundleDetail, BundleToolRef } from "../types/api";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { Boxes } from "lucide-vue-next";
 
 const {
@@ -104,7 +105,7 @@ async function toggleEnabled(bundle: BundleSummary) {
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
 
     <template v-else-if="items.length === 0">
       <div class="empty-state">
@@ -281,10 +282,6 @@ async function toggleEnabled(bundle: BundleSummary) {
 .empty-icon {
   color: var(--text-muted);
   margin-bottom: 0.75rem;
-}
-.loading {
-  color: var(--text-muted);
-  padding: 1rem 0;
 }
 .error {
   color: var(--breach);

@@ -4,6 +4,7 @@ import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import type { MonitorRecord } from "../types/api";
 import DonutChart from "../components/DonutChart.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { Radar, RefreshCw } from "lucide-vue-next";
 
 const {
@@ -76,7 +77,7 @@ function formatChecked(t: number | null): string {
     </header>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading && !monitors.length" class="loading">Loading…</div>
+    <SignalLoader v-if="loading && !monitors.length" />
     <div v-else-if="monitors.length === 0" class="empty-state">
       <Radar :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
       <p>No tools are monitored yet. Configure a monitor from a tool's settings in Server detail.</p>
@@ -149,6 +150,8 @@ function formatChecked(t: number | null): string {
 }
 .chart-card {
   background: var(--surface);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 16px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
@@ -216,7 +219,6 @@ function formatChecked(t: number | null): string {
 .error {
   color: var(--breach);
 }
-.loading,
 .empty-state p {
   color: var(--text-muted);
 }

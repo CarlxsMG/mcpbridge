@@ -3,11 +3,16 @@ import { onMounted, ref } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useAuth } from "../composables/useAuth";
+import { useTheme } from "../composables/useTheme";
+import { useDensity } from "../composables/useDensity";
 import type { AdminSession } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
-import { Lock, Monitor, LogOut } from "lucide-vue-next";
+import SignalLoader from "../components/SignalLoader.vue";
+import { Lock, Monitor, LogOut, SlidersHorizontal } from "lucide-vue-next";
 
 const { state: authState } = useAuth();
+const { theme, setTheme } = useTheme();
+const { density, setDensity } = useDensity();
 
 // --- Change password -------------------------------------------------------
 
@@ -176,7 +181,7 @@ onMounted(loadSessions);
       </p>
 
       <p v-if="revokeError" class="error" role="alert">{{ revokeError }}</p>
-      <div v-if="sessionsLoading" class="loading">Loading…</div>
+      <SignalLoader v-if="sessionsLoading" />
       <p v-else-if="sessionsError" class="error" role="alert">{{ sessionsError }}</p>
       <div v-else-if="sessions.length === 0" class="empty-state">
         <Monitor :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
@@ -208,6 +213,68 @@ onMounted(loadSessions);
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <div class="account-section">
+      <h2><SlidersHorizontal :size="16" stroke-width="2" aria-hidden="true" /> Preferences</h2>
+
+      <div class="pref-row pref-row-first">
+        <div>
+          <p class="pref-label">Theme</p>
+          <p class="hint">Applies to this browser only.</p>
+        </div>
+        <div class="segmented" role="radiogroup" aria-label="Theme">
+          <label>
+            <input
+              type="radio"
+              name="theme-pref"
+              value="light"
+              :checked="theme === 'light'"
+              @change="setTheme('light')"
+            />
+            Light
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="theme-pref"
+              value="dark"
+              :checked="theme === 'dark'"
+              @change="setTheme('dark')"
+            />
+            Dark
+          </label>
+        </div>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <p class="pref-label">Table density</p>
+          <p class="hint">Affects Traffic, Audit log, Traces, and API keys.</p>
+        </div>
+        <div class="segmented" role="radiogroup" aria-label="Table density">
+          <label>
+            <input
+              type="radio"
+              name="density-pref"
+              value="comfortable"
+              :checked="density === 'comfortable'"
+              @change="setDensity('comfortable')"
+            />
+            Comfortable
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="density-pref"
+              value="compact"
+              :checked="density === 'compact'"
+              @change="setDensity('compact')"
+            />
+            Compact
+          </label>
+        </div>
       </div>
     </div>
 
@@ -345,13 +412,26 @@ onMounted(loadSessions);
   color: var(--text-muted);
   margin-bottom: 0.75rem;
 }
-.loading {
-  color: var(--text-muted);
-}
 .error {
   color: var(--breach);
 }
 .success {
   color: var(--ok);
+}
+.pref-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+.pref-row-first {
+  border-top: none;
+}
+.pref-label {
+  font-weight: 600;
+  margin: 0 0 0.2rem;
+  font-size: var(--text-md);
 }
 </style>

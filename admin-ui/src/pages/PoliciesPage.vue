@@ -4,6 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import type { GuardPolicy, BundleSummary } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { ShieldCheck } from "lucide-vue-next";
 
 const policies = ref<GuardPolicy[]>([]);
@@ -153,10 +154,10 @@ async function confirmDelete() {
 
     <p v-if="notice" class="notice">{{ notice }}</p>
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
     <div v-else-if="policies.length === 0" class="empty-state">
       <ShieldCheck :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No policies yet.</p>
+      <p>No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each one individually.</p>
     </div>
 
     <div v-else class="table-card table-scroll">
@@ -320,9 +321,6 @@ async function confirmDelete() {
 }
 .error {
   color: var(--breach);
-}
-.loading {
-  color: var(--text-muted);
 }
 .empty-state {
   padding: 3rem 2rem;

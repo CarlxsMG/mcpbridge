@@ -6,6 +6,7 @@ import { useResource } from "../composables/useResource";
 import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "../types/api";
 import { LayoutGrid, Plus } from "lucide-vue-next";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 
 const router = useRouter();
 
@@ -204,12 +205,12 @@ async function confirmDelete() {
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
 
     <template v-else-if="items.length === 0">
       <div class="empty-state">
         <LayoutGrid :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>No catalog entries yet.</p>
+        <p>No catalog entries yet. The catalog lists one-click installable servers -- built-in or admin-added -- so registering a new backend doesn't start from a blank form.</p>
       </div>
     </template>
 
@@ -450,9 +451,5 @@ async function confirmDelete() {
 .empty-icon {
   color: var(--text-muted);
   margin-bottom: 0.75rem;
-}
-.loading {
-  color: var(--text-muted);
-  padding: 1rem 0;
 }
 </style>

@@ -6,6 +6,7 @@ import type { UsageSummary, TopToolRow, UsageByKeyRow, UsageTimeseries } from ".
 import StatCard from "../components/StatCard.vue";
 import MiniBarChart from "../components/MiniBarChart.vue";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench } from "lucide-vue-next";
 
 const WINDOWS = [
@@ -182,7 +183,7 @@ onMounted(load);
         Showing the top 20 — narrower windows or filtering may reveal others.
       </p>
     </template>
-    <div v-else-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-else-if="loading" />
   </section>
 </template>
 
@@ -222,6 +223,8 @@ onMounted(load);
 }
 .chart-card {
   background: var(--surface);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 16px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
@@ -285,7 +288,6 @@ h2 {
 .error {
   color: var(--breach);
 }
-.loading,
 .empty {
   color: var(--text-muted);
 }

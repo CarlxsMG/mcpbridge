@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "../composables/useAuth";
 import { ApiError } from "../composables/useApi";
+import { GitBranch } from "lucide-vue-next";
 
 const username = ref("");
 const password = ref("");
@@ -37,8 +38,15 @@ async function onSubmit() {
 
 <template>
   <div class="login-shell">
+    <div class="signal-trace-wrap" aria-hidden="true">
+      <svg class="signal-trace-svg" viewBox="0 0 400 40" preserveAspectRatio="none">
+        <polyline
+          points="0,20 40,20 55,8 70,32 90,20 130,20 145,8 160,32 180,20 200,20 240,20 255,8 270,32 290,20 330,20 345,8 360,32 380,20 400,20"
+        />
+      </svg>
+    </div>
     <form class="login-card" @submit.prevent="onSubmit">
-      <h1>MCP REST Bridge</h1>
+      <h1><GitBranch :size="20" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge</h1>
       <p class="subtitle">Sign in to manage servers and tools</p>
 
       <div class="field">
@@ -62,13 +70,44 @@ async function onSubmit() {
 
 <style scoped>
 .login-shell {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--paper);
 }
+.signal-trace-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  z-index: 0;
+}
+.signal-trace-svg {
+  width: 200%;
+  height: 64px;
+  animation: signal-trace-drift 9s linear infinite;
+}
+.signal-trace-svg polyline {
+  stroke: var(--signal);
+  stroke-width: 1.5;
+  fill: none;
+  opacity: 0.3;
+}
+@keyframes signal-trace-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
 .login-card {
+  position: relative;
+  z-index: 1;
   background: var(--surface);
   padding: 2.5rem;
   border-radius: var(--radius-md);
@@ -77,8 +116,15 @@ async function onSubmit() {
   max-width: 360px;
 }
 .login-card h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 1.3rem;
   margin: 0 0 0.25rem;
+}
+.login-card h1 svg {
+  color: var(--signal);
+  flex-shrink: 0;
 }
 .subtitle {
   color: var(--text-secondary);

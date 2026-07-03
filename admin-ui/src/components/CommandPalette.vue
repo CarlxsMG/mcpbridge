@@ -190,6 +190,7 @@ const liveEntries = ref<Entry[]>([]);
 const loadedLive = ref(false);
 const inputEl = ref<HTMLInputElement | null>(null);
 const listEl = ref<HTMLDivElement | null>(null);
+const justOpened = ref(false);
 
 function onGlobalKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -208,6 +209,10 @@ async function show() {
   open.value = true;
   query.value = "";
   activeIndex.value = 0;
+  justOpened.value = true;
+  setTimeout(() => {
+    justOpened.value = false;
+  }, 700);
   await nextTick();
   inputEl.value?.focus();
   if (!loadedLive.value) void loadLive();
@@ -334,6 +339,7 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
 
   <div v-if="open" class="cmd-overlay" @click.self="close" @keydown="onKeydown">
     <div class="cmd-panel" role="dialog" aria-modal="true" aria-label="Command palette">
+      <div class="sweep-line" :class="{ 'is-sweeping': justOpened }" aria-hidden="true"></div>
       <div class="cmd-input-row">
         <Search :size="16" stroke-width="2" aria-hidden="true" class="cmd-input-icon" />
         <input
@@ -415,6 +421,7 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
   z-index: var(--z-command-palette);
 }
 .cmd-panel {
+  position: relative;
   width: 100%;
   max-width: 560px;
   max-height: 60vh;
@@ -424,6 +431,32 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+.sweep-line {
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--signal), transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+.sweep-line.is-sweeping {
+  animation: cmd-sweep 0.7s ease-out;
+}
+@keyframes cmd-sweep {
+  0% {
+    left: -40%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
 }
 .cmd-input-row {
   display: flex;

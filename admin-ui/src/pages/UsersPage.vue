@@ -5,6 +5,7 @@ import { useResource } from "../composables/useResource";
 import { useAuth } from "../composables/useAuth";
 import type { AdminUserSummary, AdminRole, Team } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { UserCog } from "lucide-vue-next";
 
 const { state: authState } = useAuth();
@@ -228,11 +229,11 @@ async function confirmDelete() {
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <p v-if="teamChangeError" class="error" role="alert">{{ teamChangeError }}</p>
     <p v-if="teamsError" class="error" role="alert">{{ teamsError }}</p>
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
 
     <div v-else-if="users.length === 0" class="empty-state">
       <UserCog :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No admin users yet.</p>
+      <p>No admin users yet. Every person who signs in to this panel needs their own account here -- shared logins aren't supported.</p>
     </div>
 
     <div v-else class="table-card table-scroll">
@@ -435,8 +436,5 @@ async function confirmDelete() {
 }
 .error {
   color: var(--breach);
-}
-.loading {
-  color: var(--text-muted);
 }
 </style>

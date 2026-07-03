@@ -4,6 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import type { Team } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { UsersRound } from "lucide-vue-next";
 
 const {
@@ -75,11 +76,11 @@ async function confirmRemove() {
     </form>
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
 
     <div v-if="!loading && teams.length === 0" class="empty-state">
       <UsersRound :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No teams yet.</p>
+      <p>No teams yet. A team groups servers under shared ownership, so operator-role admins only see and manage what's assigned to their team.</p>
     </div>
 
     <div v-else-if="!loading" class="table-card table-scroll">
@@ -205,9 +206,5 @@ async function confirmRemove() {
 .field-error {
   color: var(--breach);
   font-size: 0.85rem;
-}
-.loading {
-  color: var(--text-muted);
-  padding: 1rem 0;
 }
 </style>

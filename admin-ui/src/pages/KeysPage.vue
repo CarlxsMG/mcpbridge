@@ -4,6 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { KeyRound } from "lucide-vue-next";
 
 const keys = ref<McpApiKey[]>([]);
@@ -209,7 +210,7 @@ async function confirmDelete() {
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
 
     <div v-else-if="keys.length === 0" class="empty-state">
       <KeyRound :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
@@ -385,7 +386,7 @@ async function confirmDelete() {
   letter-spacing: 0.04em;
 }
 .keys-table td {
-  padding: 0.6rem 0.85rem;
+  padding: var(--table-pad-y) 0.85rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -450,9 +451,6 @@ async function confirmDelete() {
 }
 .error {
   color: var(--breach);
-}
-.loading {
-  color: var(--text-muted);
 }
 .empty-state {
   padding: 3rem 2rem;

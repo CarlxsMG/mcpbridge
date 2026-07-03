@@ -4,6 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import type { Schedule } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { Clock } from "lucide-vue-next";
 
 const {
@@ -130,7 +131,7 @@ function formatLastRun(m: number | null): string {
     <p v-if="createError" class="error" role="alert">{{ createError }}</p>
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
 
     <template v-else-if="items.length === 0">
       <div class="empty-state">
@@ -340,10 +341,6 @@ function formatLastRun(m: number | null): string {
 .empty-icon {
   color: var(--text-muted);
   margin-bottom: 0.75rem;
-}
-.loading {
-  color: var(--text-muted);
-  padding: 1rem 0;
 }
 .row-error {
   color: var(--breach);

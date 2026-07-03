@@ -19,6 +19,7 @@ import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import GuardEditor from "../components/GuardEditor.vue";
 import SchemaForm from "../components/SchemaForm.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { Wrench, Settings2, RotateCcw } from "lucide-vue-next";
 
 interface ToolExample {
@@ -923,7 +924,7 @@ async function resetBreaker() {
   <section>
     <p class="breadcrumb"><RouterLink to="/servers">Servers</RouterLink> / {{ name }}</p>
 
-    <div v-if="loading && !detail" class="loading">Loading…</div>
+    <SignalLoader v-if="loading && !detail" />
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
 
     <template v-else-if="detail">
@@ -1864,9 +1865,6 @@ async function resetBreaker() {
   color: #63676e;
   background: #fafbfc;
   border-radius: 8px;
-}
-.loading {
-  color: #63676e;
 }
 .error {
   color: #a11212;

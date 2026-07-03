@@ -2,7 +2,16 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuth } from "./composables/useAuth";
+import { useLiveSignal } from "./composables/useLiveSignal";
+// Side-effect-only imports: useTheme/useDensity apply the saved theme/density
+// preference to the document at module-load time. App.vue is the one component
+// guaranteed to be in every route's chunk graph, so importing them here (rather
+// than only from AccountPage.vue, where the toggles live) is what makes the
+// preference actually apply on a fresh load of any page, not just /account.
+import "./composables/useTheme";
+import "./composables/useDensity";
 import CommandPalette from "./components/CommandPalette.vue";
+import SignalLoader from "./components/SignalLoader.vue";
 import {
   Server,
   Boxes,
@@ -31,17 +40,58 @@ import {
 const route = useRoute();
 const router = useRouter();
 const { state, logout } = useAuth();
+const { isLive, callsPerMinute, start: startLiveSignal, stop: stopLiveSignal } = useLiveSignal();
+
+// Pulse speed scales with real recent call volume (never fabricated — callsPerMinute
+// comes straight from useLiveSignal's poll of /admin-api/usage/summary) instead of a
+// flat on/off blink, so the sidebar dot reads as an actual traffic signal.
+const pulseTier = computed<"slow" | "normal" | "fast" | null>(() => {
+  if (!isLive.value) return null;
+  if (callsPerMinute.value >= 15) return "fast";
+  if (callsPerMinute.value >= 5) return "normal";
+  return "slow";
+});
 
 const isDemo = import.meta.env.VITE_DEMO === "true";
 
 const showShell = computed(() => state.user !== null);
 const mobileNavOpen = ref(false);
 
+const AVATAR_TONES: Array<{ soft: string; strong: string }> = [
+  { soft: "var(--signal-soft)", strong: "var(--signal-strong)" },
+  { soft: "var(--canary-soft)", strong: "var(--canary)" },
+  { soft: "var(--ok-soft)", strong: "var(--ok)" },
+  { soft: "var(--kind-mcp-soft)", strong: "var(--kind-mcp-text)" },
+];
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash += value.charCodeAt(i);
+  }
+  return hash;
+}
+
+const userInitials = computed(() => (state.user?.username ?? "").slice(0, 2).toUpperCase());
+const avatarTone = computed(() => AVATAR_TONES[hashString(state.user?.username ?? "") % AVATAR_TONES.length]);
+
 watch(
   () => route.fullPath,
   () => {
     mobileNavOpen.value = false;
   },
+);
+
+watch(
+  showShell,
+  (shown) => {
+    if (shown) {
+      startLiveSignal();
+    } else {
+      stopLiveSignal();
+    }
+  },
+  { immediate: true },
 );
 
 async function onLogout() {
@@ -53,7 +103,10 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key === "Escape" && mobileNavOpen.value) mobileNavOpen.value = false;
 }
 onMounted(() => window.addEventListener("keydown", onKeydown));
-onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+onUnmounted(() => {
+  window.removeEventListener("keydown", onKeydown);
+  stopLiveSignal();
+});
 </script>
 
 <template>
@@ -78,11 +131,27 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       >
         <span aria-hidden="true">☰</span>
       </button>
-      <div class="brand"><GitBranch :size="16" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge</div>
+      <div class="brand">
+        <GitBranch :size="16" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge
+        <span
+          class="live-dot"
+          :class="{ 'is-live': isLive, [`pulse-${pulseTier}`]: pulseTier }"
+          :title="isLive ? 'Live traffic in the last minute' : 'No recent traffic'"
+          aria-hidden="true"
+        ></span>
+      </div>
     </header>
     <div v-if="mobileNavOpen" class="mobile-nav-backdrop" @click="mobileNavOpen = false"></div>
     <nav id="sidebar-nav" class="sidebar" :class="{ 'sidebar-open': mobileNavOpen }">
-      <div class="brand"><GitBranch :size="17" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge</div>
+      <div class="brand">
+        <GitBranch :size="17" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge
+        <span
+          class="live-dot"
+          :class="{ 'is-live': isLive, [`pulse-${pulseTier}`]: pulseTier }"
+          :title="isLive ? 'Live traffic in the last minute' : 'No recent traffic'"
+          aria-hidden="true"
+        ></span>
+      </div>
       <CommandPalette />
       <div class="nav-groups">
         <div class="nav-label">Servers</div>
@@ -181,7 +250,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       </div>
       <div class="sidebar-footer">
         <div class="current-user">
-          {{ state.user?.username }} <span class="role">({{ state.user?.role }})</span>
+          <span
+            class="user-avatar"
+            :style="{ background: avatarTone.soft, color: avatarTone.strong }"
+            aria-hidden="true"
+            >{{ userInitials }}</span
+          >
+          <span>{{ state.user?.username }} <span class="role">({{ state.user?.role }})</span></span>
         </div>
         <RouterLink to="/account" class="account-link"
           ><UserCircle :size="14" stroke-width="2" aria-hidden="true" /> Account</RouterLink
@@ -193,7 +268,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       <RouterView />
     </main>
   </div>
-  <div v-else-if="!state.checked" class="loading">Loading…</div>
+  <SignalLoader v-else-if="!state.checked" class="loading" />
   <RouterView v-else />
 </template>
 
@@ -325,11 +400,43 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
   font-size: var(--text-sm);
 }
 .current-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin-bottom: var(--space-1-5);
   color: var(--text-on-dark);
 }
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
 .role {
   color: var(--text-on-dark-muted);
+}
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-on-dark-muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.live-dot.is-live {
+  background: var(--signal);
+  animation: signal-pulse 1.6s ease-in-out infinite;
+}
+.live-dot.is-live.pulse-slow {
+  animation-duration: 2.4s;
+}
+.live-dot.is-live.pulse-fast {
+  animation-duration: 0.85s;
 }
 .account-link {
   display: flex;

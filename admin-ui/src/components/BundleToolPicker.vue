@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { ToolListItem, BundleToolRef } from "../types/api";
 import { Search } from "lucide-vue-next";
+import SignalLoader from "./SignalLoader.vue";
 
 const props = defineProps<{ modelValue: BundleToolRef[] }>();
 const emit = defineEmits<{ "update:modelValue": [value: BundleToolRef[]] }>();
@@ -96,7 +97,7 @@ const groupedByClient = computed(() => {
     </div>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading" class="loading">Loading tools…</div>
+    <SignalLoader v-if="loading" label="Loading tools…" />
 
     <template v-else-if="allTools.length === 0">
       <p class="empty-state">No tools available yet — register a client first.</p>
@@ -251,10 +252,6 @@ const groupedByClient = computed(() => {
   padding: 1rem;
   text-align: center;
   color: var(--text-secondary);
-}
-.loading {
-  color: var(--text-muted);
-  padding: 0.5rem 0;
 }
 .error {
   color: var(--breach);

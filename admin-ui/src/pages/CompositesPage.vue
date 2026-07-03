@@ -5,6 +5,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import type { CompositeSummary, CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 
 const {
   data: items,
@@ -183,7 +184,7 @@ async function confirmDelete() {
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
 
     <template v-else-if="items.length === 0">
       <div class="empty-state">
@@ -391,9 +392,5 @@ async function confirmDelete() {
 .empty-icon {
   color: var(--text-muted);
   margin-bottom: 0.75rem;
-}
-.loading {
-  color: var(--text-secondary);
-  padding: 1rem 0;
 }
 </style>

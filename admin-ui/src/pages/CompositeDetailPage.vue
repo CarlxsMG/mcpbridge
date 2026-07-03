@@ -5,6 +5,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import type { CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 
 const props = defineProps<{ name: string }>();
 const router = useRouter();
@@ -165,7 +166,7 @@ async function confirmDelete() {
   <section>
     <p class="breadcrumb"><RouterLink to="/composites">Composites</RouterLink> / {{ name }}</p>
 
-    <div v-if="loading && !detail" class="loading">Loading…</div>
+    <SignalLoader v-if="loading && !detail" />
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
 
     <template v-else-if="detail">
@@ -357,8 +358,5 @@ async function confirmDelete() {
 }
 .toggle-off:hover {
   background: var(--surface-sunken);
-}
-.loading {
-  color: var(--text-secondary);
 }
 </style>

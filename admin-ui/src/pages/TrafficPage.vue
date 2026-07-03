@@ -5,6 +5,7 @@ import { api, ApiError } from "../composables/useApi";
 import type { TrafficRecord, PaginatedResult } from "../types/api";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 
 const router = useRouter();
@@ -187,7 +188,7 @@ async function confirmReplay() {
       {{ replayNote.text }}
     </p>
 
-    <div v-if="loading && !records.length" class="loading">Loading…</div>
+    <SignalLoader v-if="loading && !records.length" />
     <div v-else-if="records.length === 0" class="empty-state">
       <ArrowLeftRight :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
       <p>
@@ -325,6 +326,8 @@ async function confirmReplay() {
 }
 .chart-card {
   background: var(--surface);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 16px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
@@ -361,7 +364,7 @@ async function confirmReplay() {
   white-space: nowrap;
 }
 .traffic-table td {
-  padding: 0.6rem 0.85rem;
+  padding: var(--table-pad-y) 0.85rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -405,7 +408,6 @@ async function confirmReplay() {
 .success {
   color: var(--ok);
 }
-.loading,
 .empty-state p {
   color: var(--text-muted);
 }

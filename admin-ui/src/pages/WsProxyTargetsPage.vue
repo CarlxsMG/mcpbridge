@@ -4,6 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import type { WsProxyTarget } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { Waypoints } from "lucide-vue-next";
 
 const {
@@ -189,7 +190,7 @@ async function confirmDelete() {
     </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
     <div v-else-if="targets.length === 0" class="empty-state">
       <Waypoints :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
       <p>
@@ -412,8 +413,5 @@ async function confirmDelete() {
 .empty-icon {
   color: var(--text-muted);
   margin-bottom: 0.75rem;
-}
-.loading {
-  color: var(--text-muted);
 }
 </style>

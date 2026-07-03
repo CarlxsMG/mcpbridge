@@ -5,6 +5,7 @@ import { api, ApiError } from "../composables/useApi";
 import type { ClientSummary, PaginatedResult, TagSummary, TagToolRef } from "../types/api";
 import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import SignalLoader from "../components/SignalLoader.vue";
 import { Search, Server, Tags, ChevronRight } from "lucide-vue-next";
 
 const router = useRouter();
@@ -217,7 +218,7 @@ onMounted(() => load(initialCursor));
     </header>
 
     <div v-if="showTagBrowser" class="tag-browser">
-      <p v-if="tagsLoading" class="loading">Loading tags…</p>
+      <SignalLoader v-if="tagsLoading" label="Loading tags…" />
       <p v-else-if="tagsError" class="error">{{ tagsError }}</p>
       <p v-else-if="tags.length === 0" class="subtitle">
         No tools have been tagged yet. Tag a tool from its server's Settings tab.
@@ -237,7 +238,7 @@ onMounted(() => load(initialCursor));
           </button>
         </div>
         <div v-if="selectedTag" class="tag-tools">
-          <p v-if="tagToolsLoading" class="loading">Loading tools…</p>
+          <SignalLoader v-if="tagToolsLoading" label="Loading tools…" />
           <p v-else-if="tagToolsError" class="error">{{ tagToolsError }}</p>
           <p v-else-if="tagTools.length === 0" class="subtitle">No tools currently carry '{{ selectedTag }}'.</p>
           <ul v-else class="tag-tools-list">
@@ -285,7 +286,7 @@ onMounted(() => load(initialCursor));
       <span v-if="bulkError" class="error">{{ bulkError }}</span>
     </div>
 
-    <div v-if="loading" class="loading">Loading…</div>
+    <SignalLoader v-if="loading" />
 
     <template v-else-if="items.length === 0">
       <div class="empty-state">
@@ -667,10 +668,6 @@ onMounted(() => load(initialCursor));
 .empty-icon {
   color: var(--text-muted);
   margin-bottom: 0.75rem;
-}
-.loading {
-  color: var(--text-muted);
-  padding: 1rem 0;
 }
 .error {
   color: var(--breach);
