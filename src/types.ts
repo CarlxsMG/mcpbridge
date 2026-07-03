@@ -1,3 +1,5 @@
+import type { ContextBudgetPublic } from "./context-budget.js";
+
 /** Canonical status values for a registered client. */
 export type ClientStatus = "healthy" | "degraded" | "unreachable";
 
@@ -135,6 +137,8 @@ export interface RegisteredTool extends RestToolDefinition {
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
   /** Per-tool GraphQL backend config (populated on read), when configured — auto-discovered or manually set. */
   graphql?: { enabled: boolean; query: string };
+  /** Context-budget guardrail (populated on read), when configured — see src/context-budget.ts. Public shape only (never the encrypted LLM key ref). */
+  contextBudget?: ContextBudgetPublic;
 }
 
 export interface RegisteredClient {

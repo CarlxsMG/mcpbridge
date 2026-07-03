@@ -893,6 +893,25 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_tool_spans_session ON tool_spans(session_id);
     `,
   },
+  {
+    id: 49,
+    name: "tool_context_budget",
+    sql: `
+      CREATE TABLE IF NOT EXISTS tool_context_budget (
+        client_name        TEXT NOT NULL,
+        tool_name          TEXT NOT NULL,
+        mode               TEXT NOT NULL CHECK (mode IN ('truncate', 'llm_summarize')) DEFAULT 'truncate',
+        max_response_bytes INTEGER NOT NULL,
+        llm_provider       TEXT CHECK (llm_provider IN ('openai', 'anthropic')),
+        llm_base_url       TEXT,
+        llm_model          TEXT,
+        llm_api_key_ref    TEXT,
+        updated_at         INTEGER NOT NULL,
+        PRIMARY KEY (client_name, tool_name),
+        FOREIGN KEY (client_name, tool_name) REFERENCES tools(client_name, name) ON DELETE CASCADE
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

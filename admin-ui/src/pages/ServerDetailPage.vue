@@ -790,6 +790,30 @@ async function saveGraphql(payload: { enabled: boolean; query: string } | null) 
   }
 }
 
+async function saveContextBudget(
+  payload: {
+    mode: "truncate" | "llm_summarize";
+    maxResponseBytes: number;
+    llm?: { provider: "openai" | "anthropic"; baseUrl: string; model: string; apiKey: string };
+  } | null,
+) {
+  if (!activeTool.value) return;
+  savingGuards.value = true;
+  try {
+    await api.patch(
+      `/admin-api/clients/${encodeURIComponent(props.name)}/tools/${encodeURIComponent(activeTool.value.name)}`,
+      {
+        contextBudget: payload,
+      },
+    );
+    await load();
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save context budget.";
+  } finally {
+    savingGuards.value = false;
+  }
+}
+
 async function toggleSensitive(tool: ToolDetail) {
   const next = tool.sensitive === true ? false : true;
   delete rowError.value[tool.name];
@@ -1426,6 +1450,7 @@ async function resetBreaker() {
         :quarantine="activeTool.quarantine"
         :ws="activeTool.ws"
         :graphql="activeTool.graphql"
+        :context-budget="activeTool.contextBudget"
         :client-name="props.name"
         :tool-name="activeTool.name"
         :tags="activeTool.tags"
@@ -1442,6 +1467,7 @@ async function resetBreaker() {
         @clear-quarantine="clearQuarantineFn"
         @save-ws="saveWs"
         @save-graphql="saveGraphql"
+        @save-context-budget="saveContextBudget"
       />
 
       <section class="playground">

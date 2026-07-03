@@ -294,6 +294,10 @@ export const config = {
   /** Timeout for an outbound Vault Transit encrypt/decrypt request (ms). */
   vaultRequestTimeoutMs: Number(process.env.VAULT_REQUEST_TIMEOUT_MS) || 5_000,
 
+  // ─── Per-tool context budget (src/context-budget.ts) ───────────────────────
+  /** Hard timeout for the opt-in per-tool llm_summarize compression call (ms). A miss/timeout falls back to truncation. */
+  contextBudgetLlmTimeoutMs: Number(process.env.CONTEXT_BUDGET_LLM_TIMEOUT_MS) || 15_000,
+
   // ─── Usage analytics ───────────────────────────────────────────────────────
   /** How long to retain per-call usage rows before opportunistic pruning (ms). Default 30 days. */
   usageRetentionMs: Number(process.env.USAGE_RETENTION_MS) || 30 * 24 * 60 * 60_000,

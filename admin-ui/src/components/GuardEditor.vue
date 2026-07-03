@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import type { ToolGuardConfig } from "../types/api";
+import type { ToolGuardConfig, ContextBudgetConfig, ContextBudgetLlmProvider } from "../types/api";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import { api, ApiError } from "../composables/useApi";
 import { KeyRound, ShieldCheck, Eraser } from "lucide-vue-next";
@@ -28,6 +28,7 @@ const props = defineProps<{
   };
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
   graphql?: { enabled: boolean; query: string };
+  contextBudget?: ContextBudgetConfig;
   clientName?: string;
   toolName?: string;
   tags?: string[];
@@ -56,6 +57,13 @@ const emit = defineEmits<{
   clearQuarantine: [];
   saveWs: [payload: { enabled: boolean; wsUrl: string; persistent: boolean } | null];
   saveGraphql: [payload: { enabled: boolean; query: string } | null];
+  saveContextBudget: [
+    payload: {
+      mode: "truncate" | "llm_summarize";
+      maxResponseBytes: number;
+      llm?: { provider: ContextBudgetLlmProvider; baseUrl: string; model: string; apiKey: string };
+    } | null,
+  ];
 }>();
 
 const descriptionInput = ref(props.override?.description ?? "");
@@ -82,6 +90,15 @@ const graphqlEnabledInput = ref(Boolean(props.graphql?.enabled));
 const graphqlQueryInput = ref(props.graphql?.query ?? "");
 const tagsInput = ref((props.tags ?? []).join(", "));
 const redactInput = ref((props.redactPaths ?? []).join("\n"));
+
+const contextBudgetEnabledInput = ref(Boolean(props.contextBudget));
+const contextBudgetModeInput = ref<"truncate" | "llm_summarize">(props.contextBudget?.mode ?? "truncate");
+const contextBudgetMaxBytesInput = ref((props.contextBudget?.maxResponseBytes ?? 8_000).toString());
+const contextBudgetLlmProviderInput = ref<ContextBudgetLlmProvider>(props.contextBudget?.llm?.provider ?? "openai");
+const contextBudgetLlmBaseUrlInput = ref(props.contextBudget?.llm?.baseUrl ?? "");
+const contextBudgetLlmModelInput = ref(props.contextBudget?.llm?.model ?? "");
+// Write-only, like OAuth's client secret field — never populated from a previous save.
+const contextBudgetLlmApiKeyInput = ref("");
 
 const rateLimitInput = ref(props.guards?.rateLimitPerMin?.toString() ?? "");
 const timeoutInput = ref(props.guards?.timeoutMs?.toString() ?? "");
@@ -118,6 +135,8 @@ const savingWs = ref(false);
 const savedWs = ref(false);
 const savingGraphql = ref(false);
 const savedGraphql = ref(false);
+const savingContextBudget = ref(false);
+const savedContextBudget = ref(false);
 const purgingCache = ref(false);
 const purgedCache = ref(false);
 const purgeCacheError = ref("");
@@ -149,6 +168,7 @@ watch(
     savingQuarantine.value = false;
     clearingQuarantine.value = false;
     savingWs.value = false;
+    savingContextBudget.value = false;
   },
 );
 
@@ -409,6 +429,60 @@ function saveGraphqlFn() {
   if (!graphqlQueryInput.value.trim()) return;
   savingGraphql.value = true;
   emit("saveGraphql", { enabled: true, query: graphqlQueryInput.value.trim() });
+}
+
+watch(
+  () => props.contextBudget,
+  (cb) => {
+    contextBudgetEnabledInput.value = Boolean(cb);
+    contextBudgetModeInput.value = cb?.mode ?? "truncate";
+    contextBudgetMaxBytesInput.value = (cb?.maxResponseBytes ?? 8_000).toString();
+    contextBudgetLlmProviderInput.value = cb?.llm?.provider ?? "openai";
+    contextBudgetLlmBaseUrlInput.value = cb?.llm?.baseUrl ?? "";
+    contextBudgetLlmModelInput.value = cb?.llm?.model ?? "";
+    contextBudgetLlmApiKeyInput.value = ""; // never repopulated from a previous save
+    if (savingContextBudget.value) {
+      savingContextBudget.value = false;
+      flashSaved(savedContextBudget);
+    }
+  },
+);
+
+const contextBudgetBytesError = computed(() => {
+  if (!contextBudgetEnabledInput.value) return null;
+  const n = Number(contextBudgetMaxBytesInput.value);
+  return Number.isInteger(n) && n >= 256 ? null : "Must be a whole number of at least 256 bytes";
+});
+
+const contextBudgetLlmError = computed(() => {
+  if (!contextBudgetEnabledInput.value || contextBudgetModeInput.value !== "llm_summarize") return null;
+  if (!contextBudgetLlmBaseUrlInput.value.trim()) return "Base URL is required";
+  if (!contextBudgetLlmModelInput.value.trim()) return "Model is required";
+  if (!contextBudgetLlmApiKeyInput.value.trim()) return "API key is required";
+  return null;
+});
+
+function saveContextBudgetFn() {
+  if (!contextBudgetEnabledInput.value) {
+    savingContextBudget.value = true;
+    emit("saveContextBudget", null);
+    return;
+  }
+  if (contextBudgetBytesError.value || contextBudgetLlmError.value) return;
+  savingContextBudget.value = true;
+  emit("saveContextBudget", {
+    mode: contextBudgetModeInput.value,
+    maxResponseBytes: Number(contextBudgetMaxBytesInput.value),
+    llm:
+      contextBudgetModeInput.value === "llm_summarize"
+        ? {
+            provider: contextBudgetLlmProviderInput.value,
+            baseUrl: contextBudgetLlmBaseUrlInput.value.trim(),
+            model: contextBudgetLlmModelInput.value.trim(),
+            apiKey: contextBudgetLlmApiKeyInput.value,
+          }
+        : undefined,
+  });
 }
 
 const rateLimitError = computed(() => {
@@ -852,6 +926,88 @@ function saveRedactionFn() {
       </button>
       <span v-if="purgedCache" class="save-ok">Purged</span>
       <p v-if="purgeCacheError" class="field-error">{{ purgeCacheError }}</p>
+    </div>
+
+    <h3>Context budget</h3>
+    <div class="field">
+      <label class="checkline"
+        ><input v-model="contextBudgetEnabledInput" type="checkbox" /> Cap this tool's response size so it can't blow an
+        agent's context window</label
+      >
+      <p class="hint">
+        No budget configured (the default) means responses are returned unbounded, exactly as today. Once enabled, a
+        response over the limit is either cut off with a marker, or — if you configure an LLM below — compressed into a
+        faithful summary instead.
+      </p>
+      <template v-if="contextBudgetEnabledInput">
+        <label for="cb-max-bytes">Max response size (bytes)</label>
+        <input id="cb-max-bytes" v-model="contextBudgetMaxBytesInput" type="text" inputmode="numeric" />
+        <p v-if="contextBudgetBytesError" class="field-error">{{ contextBudgetBytesError }}</p>
+
+        <label for="cb-mode">Mode when a response exceeds the limit</label>
+        <select id="cb-mode" v-model="contextBudgetModeInput">
+          <option value="truncate">Truncate — cut it off and note how much was omitted</option>
+          <option value="llm_summarize">Compress with an LLM — summarize instead of cutting off</option>
+        </select>
+
+        <template v-if="contextBudgetModeInput === 'llm_summarize'">
+          <p class="hint">
+            One extra call per oversized response, made only after this tool's own redaction and guardrail scan have
+            already run — the LLM never sees pre-redaction data. Any failure (network, non-2xx, timeout) silently falls
+            back to truncation; the tool call itself never fails because of this.
+          </p>
+          <label for="cb-provider">Provider</label>
+          <select id="cb-provider" v-model="contextBudgetLlmProviderInput">
+            <option value="openai">OpenAI-compatible (POST {base}/chat/completions)</option>
+            <option value="anthropic">Anthropic-compatible (POST {base}/v1/messages)</option>
+          </select>
+
+          <label for="cb-base-url">Base URL</label>
+          <input
+            id="cb-base-url"
+            v-model="contextBudgetLlmBaseUrlInput"
+            type="text"
+            placeholder="https://api.openai.com/v1"
+            autocomplete="off"
+          />
+
+          <label for="cb-model">Model</label>
+          <input
+            id="cb-model"
+            v-model="contextBudgetLlmModelInput"
+            type="text"
+            placeholder="gpt-4o-mini"
+            autocomplete="off"
+          />
+
+          <label for="cb-api-key">API key</label>
+          <p class="hint">
+            {{
+              contextBudget?.llm
+                ? "A key is already configured and is write-only — it cannot be displayed again. Saving here, even just to change another field, replaces it, so re-enter the key."
+                : "Bring your own key — stored encrypted, never displayed again once saved."
+            }}
+          </p>
+          <input
+            id="cb-api-key"
+            v-model="contextBudgetLlmApiKeyInput"
+            class="api-key-input"
+            type="password"
+            placeholder="Paste the raw API key"
+            autocomplete="off"
+          />
+          <p v-if="contextBudgetLlmError" class="field-error">{{ contextBudgetLlmError }}</p>
+        </template>
+      </template>
+      <button
+        type="button"
+        class="btn-secondary desc-save"
+        :disabled="saving || Boolean(contextBudgetBytesError || contextBudgetLlmError)"
+        @click="saveContextBudgetFn"
+      >
+        {{ savingContextBudget ? "Saving…" : "Save context budget" }}
+      </button>
+      <span v-if="savedContextBudget" class="save-ok">Saved</span>
     </div>
 
     <details class="preview">

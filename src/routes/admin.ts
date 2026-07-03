@@ -33,6 +33,13 @@ import { listTraffic, getTraffic } from "../traffic.js";
 import { setMonitor, deleteMonitor, listMonitors } from "../monitor.js";
 import { setToolGraphql, setToolWs } from "../backends.js";
 import { getClientOAuth, setClientOAuth, type OAuthError } from "../oauth.js";
+import {
+  setToolContextBudget,
+  MIN_CONTEXT_BUDGET_BYTES,
+  type ContextBudgetInput,
+  type ContextBudgetMode,
+  type ContextBudgetLlmProvider,
+} from "../context-budget.js";
 import { getClientTeam, canAccessClient } from "../teams.js";
 import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog, verifyAuditChain } from "../admin/audit.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
@@ -158,6 +165,80 @@ function validateQuarantinePolicyInput(raw: unknown):
       action: obj.action as QuarantineAction,
       recoveryMode: obj.recoveryMode as QuarantineRecoveryMode,
       cooldownMs,
+    },
+  };
+}
+
+const CONTEXT_BUDGET_MODES: ContextBudgetMode[] = ["truncate", "llm_summarize"];
+const CONTEXT_BUDGET_LLM_PROVIDERS: ContextBudgetLlmProvider[] = ["openai", "anthropic"];
+
+/**
+ * `null`/`false` clears the config. An object opts the tool in: `mode` plus a
+ * bounded `maxResponseBytes`, and — only when `mode` is `llm_summarize` — an
+ * `llm` object carrying the provider/baseUrl/model and a raw `apiKey` (never
+ * stored raw; setToolContextBudget encrypts it via getSecretsProvider()).
+ */
+function validateContextBudgetInput(
+  raw: unknown,
+): { ok: true; value: ContextBudgetInput | null } | { ok: false; message: string } {
+  if (raw === null || raw === false) return { ok: true, value: null };
+  if (typeof raw !== "object") return { ok: false, message: "contextBudget must be an object, null, or false" };
+  const obj = raw as Record<string, unknown>;
+
+  if (typeof obj.mode !== "string" || !CONTEXT_BUDGET_MODES.includes(obj.mode as ContextBudgetMode)) {
+    return { ok: false, message: `contextBudget.mode must be one of ${CONTEXT_BUDGET_MODES.join(", ")}` };
+  }
+  const mode = obj.mode as ContextBudgetMode;
+
+  const maxResponseBytes = typeof obj.maxResponseBytes === "number" ? obj.maxResponseBytes : NaN;
+  if (
+    !Number.isInteger(maxResponseBytes) ||
+    maxResponseBytes < MIN_CONTEXT_BUDGET_BYTES ||
+    maxResponseBytes > config.maxResponseBytes
+  ) {
+    return {
+      ok: false,
+      message: `contextBudget.maxResponseBytes must be an integer between ${MIN_CONTEXT_BUDGET_BYTES} and ${config.maxResponseBytes}`,
+    };
+  }
+
+  if (mode === "truncate") return { ok: true, value: { mode, maxResponseBytes } };
+
+  const llmRaw = obj.llm;
+  if (typeof llmRaw !== "object" || llmRaw === null) {
+    return { ok: false, message: "contextBudget.llm is required when mode is 'llm_summarize'" };
+  }
+  const llm = llmRaw as Record<string, unknown>;
+  if (
+    typeof llm.provider !== "string" ||
+    !CONTEXT_BUDGET_LLM_PROVIDERS.includes(llm.provider as ContextBudgetLlmProvider)
+  ) {
+    return {
+      ok: false,
+      message: `contextBudget.llm.provider must be one of ${CONTEXT_BUDGET_LLM_PROVIDERS.join(", ")}`,
+    };
+  }
+  if (typeof llm.baseUrl !== "string" || !llm.baseUrl.trim()) {
+    return { ok: false, message: "contextBudget.llm.baseUrl (non-empty string) is required" };
+  }
+  if (typeof llm.model !== "string" || !llm.model.trim()) {
+    return { ok: false, message: "contextBudget.llm.model (non-empty string) is required" };
+  }
+  if (typeof llm.apiKey !== "string" || !llm.apiKey.trim()) {
+    return { ok: false, message: "contextBudget.llm.apiKey (non-empty string) is required" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      mode,
+      maxResponseBytes,
+      llm: {
+        provider: llm.provider as ContextBudgetLlmProvider,
+        baseUrl: llm.baseUrl.trim(),
+        model: llm.model.trim(),
+        apiKey: llm.apiKey,
+      },
     },
   };
 }
@@ -921,6 +1002,35 @@ export function adminRoutes(app: Express): void {
             persistent: w.persistent === true,
           });
         }
+      }
+
+      if (body.contextBudget !== undefined) {
+        const parsed = validateContextBudgetInput(body.contextBudget);
+        if (!parsed.ok) {
+          validationError(res, parsed.message);
+          return;
+        }
+        const result = await setToolContextBudget(name, tool, parsed.value);
+        if (!result.ok) {
+          if (result.error === "TOOL_NOT_FOUND") {
+            notFound(res, "TOOL_NOT_FOUND", "Client or tool not found");
+          } else {
+            sendError(res, 400, result.error, result.reason ?? result.error);
+          }
+          return;
+        }
+        recordAudit(
+          actor,
+          parsed.value ? "tool.context_budget.set" : "tool.context_budget.clear",
+          `${name}${TOOL_KEY_SEPARATOR}${tool}`,
+          parsed.value
+            ? {
+                mode: parsed.value.mode,
+                maxResponseBytes: parsed.value.maxResponseBytes,
+                ...(parsed.value.mode === "llm_summarize" ? { llmProvider: parsed.value.llm.provider } : {}),
+              }
+            : undefined,
+        );
       }
 
       res.status(200).json({ status: "updated", name, tool });

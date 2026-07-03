@@ -23,6 +23,7 @@ import { getCoalesceForClient } from "./coalesce.js";
 import { getApprovalConfigForClient } from "./approvals.js";
 import { getQuarantineForClient } from "./quarantine.js";
 import { getWsForClient, getGraphqlForClient } from "./backends.js";
+import { getContextBudgetForClient } from "./context-budget.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";
 
@@ -1592,6 +1593,7 @@ class Registry {
     const quarantineMap = getQuarantineForClient(name);
     const wsMap = getWsForClient(name);
     const graphqlMap = getGraphqlForClient(name);
+    const contextBudgetMap = getContextBudgetForClient(name);
     let tools: RegisteredTool[];
     if (live) {
       tools = live.tools.map((t) => ({
@@ -1605,6 +1607,7 @@ class Registry {
         quarantine: quarantineMap[t.name],
         ws: wsMap[t.name],
         graphql: graphqlMap[t.name],
+        contextBudget: contextBudgetMap[t.name],
       }));
     } else {
       const toolRows = db
@@ -1650,6 +1653,7 @@ class Registry {
           quarantine: quarantineMap[t.name],
           ws: wsMap[t.name],
           graphql: graphqlMap[t.name],
+          contextBudget: contextBudgetMap[t.name],
         };
       });
     }

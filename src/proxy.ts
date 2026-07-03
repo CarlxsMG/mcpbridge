@@ -60,6 +60,7 @@ import { isToolSensitive } from "./tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "./redaction.js";
 import { getGuardrails, checkInputGuardrails, applyResponseScan } from "./guardrails.js";
 import { checkQuarantine, recordGuardrailHit } from "./quarantine.js";
+import { applyContextBudget } from "./context-budget.js";
 import { getCanary, decideSecondary } from "./canary.js";
 import { tracingEnabled, startSpan, endSpan } from "./observability/tracing.js";
 import { mcpUpstream } from "./mcp-upstream.js";
@@ -1116,6 +1117,12 @@ async function dispatchToolCall(
               }
             }
 
+            // Context budget — MUST run after redaction and the guardrail scan above:
+            // this is the last transformation before the response is cached/returned,
+            // so an opt-in llm_summarize call only ever sees already-sanitized text.
+            const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, responseText);
+            responseText = budgeted.text;
+
             if (responseCacheEnabled && cacheCfg && !route.useSecondary) {
               cacheSet(responseCacheKey, { content: [{ type: "text", text: responseText }] }, cacheCfg.ttlSeconds);
               cacheEvents.inc({ client: client.name, outcome: "store" });
@@ -1436,6 +1443,17 @@ async function dispatchMcpToolCall(
       });
       recordGuardrailHit(client.name, tool.name, anyFlagged);
     }
+
+    // Context budget parity with the REST path — MUST run after redaction and
+    // the guardrail scan above so an opt-in llm_summarize call only ever sees
+    // already-sanitized text, right before the response goes back to the caller.
+    result.content = await Promise.all(
+      result.content.map(async (item) => {
+        if (item.type !== "text") return item;
+        const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, item.text);
+        return budgeted.applied === "none" ? item : { ...item, text: budgeted.text };
+      }),
+    );
   }
 
   return result;

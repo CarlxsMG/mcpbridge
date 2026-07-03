@@ -82,6 +82,17 @@ export interface ToolDetail {
   };
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
   graphql?: { enabled: boolean; query: string };
+  contextBudget?: ContextBudgetConfig;
+}
+
+export type ContextBudgetMode = "truncate" | "llm_summarize";
+export type ContextBudgetLlmProvider = "openai" | "anthropic";
+
+/** Public shape only — the encrypted LLM API key ref is never sent to the admin UI. */
+export interface ContextBudgetConfig {
+  mode: ContextBudgetMode;
+  maxResponseBytes: number;
+  llm: { provider: ContextBudgetLlmProvider; baseUrl: string; model: string } | null;
 }
 
 export interface TraceSummary {
