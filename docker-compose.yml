@@ -1,0 +1,29 @@
+# Minimal production compose file for the MCP REST Bridge.
+#
+#   cp .env.example .env   # fill in real values (BOOTSTRAP_ADMIN_*, etc.)
+#   docker compose up -d --build
+#
+# Notes:
+# - `env_file` injects .env into the container's process env (same file
+#   Compose also reads for ${VAR} substitution below, so PORT stays in sync
+#   on both sides of the port mapping).
+# - The image already declares a HEALTHCHECK (wget .../health) in the
+#   Dockerfile — Compose picks that up automatically, no need to redeclare
+#   it here. It assumes the default PORT=3000; if you override PORT in
+#   .env, the Dockerfile's hardcoded healthcheck URL will need updating too.
+# - The SQLite DB (DB_PATH=/app/data/mcp-bridge.db, set in the Dockerfile)
+#   lives on the named volume below so it survives container recreation.
+
+services:
+  mcp-bridge:
+    build: .
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    env_file:
+      - .env
+    volumes:
+      - mcp-bridge-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  mcp-bridge-data:

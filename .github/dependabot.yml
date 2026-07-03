@@ -1,0 +1,32 @@
+version: 2
+
+updates:
+  # Root gateway package (Bun runtime, bun.lock — Dependabot uses the "npm"
+  # ecosystem for package.json/lockfile-based JS/TS dependency updates).
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+
+  # Admin UI (Vue 3 + Vite), its own package.json/lockfile.
+  - package-ecosystem: "npm"
+    directory: "/admin-ui"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "admin-ui"
+
+  # GitHub Actions workflow files themselves.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
