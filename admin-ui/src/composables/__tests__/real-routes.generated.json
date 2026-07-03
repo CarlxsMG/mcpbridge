@@ -1,0 +1,632 @@
+[
+  {
+    "method": "get",
+    "path": "/admin-api/alerts",
+    "file": "alerts.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/alerts",
+    "file": "alerts.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/alerts/:id",
+    "file": "alerts.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/alerts/:id",
+    "file": "alerts.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/alerts/:id/test",
+    "file": "alerts.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/approvals",
+    "file": "admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/approvals/:id/approve",
+    "file": "admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/approvals/:id/reject",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/audit-log",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/audit-log/export",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/audit-log/verify",
+    "file": "admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/auth/login",
+    "file": "auth.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/auth/logout",
+    "file": "auth.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/auth/me",
+    "file": "auth.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/auth/me/password",
+    "file": "auth.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/auth/sessions",
+    "file": "auth.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/auth/sessions/:id",
+    "file": "auth.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/backup",
+    "file": "backup.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/bundles",
+    "file": "bundles.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/bundles",
+    "file": "bundles.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/bundles/:name",
+    "file": "bundles.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/bundles/:name",
+    "file": "bundles.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/bundles/:name",
+    "file": "bundles.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/catalog",
+    "file": "catalog.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/catalog",
+    "file": "catalog.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/catalog/:id",
+    "file": "catalog.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/catalog/:id",
+    "file": "catalog.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/catalog/:id/install",
+    "file": "catalog.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/clients",
+    "file": "admin.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/clients",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/clients/:name",
+    "file": "admin.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/clients/:name",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/clients/:name/canary",
+    "file": "admin.ts"
+  },
+  {
+    "method": "put",
+    "path": "/admin-api/clients/:name/canary",
+    "file": "admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/clients/:name/circuit-breaker/reset",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/clients/:name/lb",
+    "file": "admin.ts"
+  },
+  {
+    "method": "put",
+    "path": "/admin-api/clients/:name/lb",
+    "file": "admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/clients/:name/lb/upstreams",
+    "file": "admin.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/clients/:name/lb/upstreams/:id",
+    "file": "admin.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/clients/:name/lb/upstreams/:id",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/clients/:name/oauth",
+    "file": "admin.ts"
+  },
+  {
+    "method": "put",
+    "path": "/admin-api/clients/:name/oauth",
+    "file": "admin.ts"
+  },
+  {
+    "method": "put",
+    "path": "/admin-api/clients/:name/team",
+    "file": "teams.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/clients/:name/tools",
+    "file": "admin.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/clients/:name/tools/:tool",
+    "file": "admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/clients/:name/tools/:tool/cache/purge",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/clients/:name/tools/:tool/examples",
+    "file": "admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/clients/:name/tools/:tool/examples",
+    "file": "admin.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/clients/:name/tools/:tool/examples/:id",
+    "file": "admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/clients/:name/tools/:tool/quarantine/clear",
+    "file": "admin.ts"
+  },
+  {
+    "method": "put",
+    "path": "/admin-api/clients/:name/tools/:tool/tags",
+    "file": "tags.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/clients/:name/tools/:tool/test",
+    "file": "admin.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/clients/:name/upstream-auth",
+    "file": "upstream-auth.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/clients/:name/upstream-auth",
+    "file": "upstream-auth.ts"
+  },
+  {
+    "method": "put",
+    "path": "/admin-api/clients/:name/upstream-auth",
+    "file": "upstream-auth.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/composites",
+    "file": "composites.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/composites",
+    "file": "composites.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/composites/:name",
+    "file": "composites.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/composites/:name",
+    "file": "composites.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/composites/:name",
+    "file": "composites.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/config/export",
+    "file": "config-io.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/config/import",
+    "file": "config-io.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/config/snapshots",
+    "file": "config-io.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/config/snapshots",
+    "file": "config-io.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/config/snapshots/:id",
+    "file": "config-io.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/config/snapshots/:id",
+    "file": "config-io.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/config/snapshots/:id/diff",
+    "file": "config-io.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/config/snapshots/:id/rollback",
+    "file": "config-io.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/consumers",
+    "file": "consumers.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/consumers",
+    "file": "consumers.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/consumers/:id",
+    "file": "consumers.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/consumers/:id",
+    "file": "consumers.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/consumers/:id/usage",
+    "file": "consumers.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/discovery/preview",
+    "file": "discovery.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/discovery/preview-graphql",
+    "file": "discovery.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/mcp-keys",
+    "file": "mcp-keys.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/mcp-keys",
+    "file": "mcp-keys.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/mcp-keys/:id",
+    "file": "mcp-keys.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/mcp-keys/:id",
+    "file": "mcp-keys.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/mcp-keys/:id",
+    "file": "mcp-keys.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/mcp-keys/:id/revoke",
+    "file": "mcp-keys.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/monitors",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/overview",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/policies",
+    "file": "policies.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/policies",
+    "file": "policies.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/policies/:id",
+    "file": "policies.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/policies/:id",
+    "file": "policies.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/policies/:id/apply",
+    "file": "policies.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/schedules",
+    "file": "schedules.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/schedules",
+    "file": "schedules.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/schedules/:id",
+    "file": "schedules.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/schedules/:id",
+    "file": "schedules.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/tags",
+    "file": "tags.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/tags/:tag/tools",
+    "file": "tags.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/teams",
+    "file": "teams.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/teams",
+    "file": "teams.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/teams/:id",
+    "file": "teams.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/tools",
+    "file": "bundles.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/traces",
+    "file": "traces.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/traces",
+    "file": "traces.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/traces/:traceId",
+    "file": "traces.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/traffic",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/traffic/:id",
+    "file": "admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/traffic/:id/replay",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/usage/by-key",
+    "file": "usage.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/usage/summary",
+    "file": "usage.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/usage/timeseries",
+    "file": "usage.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/usage/top-tools",
+    "file": "usage.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/users",
+    "file": "admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/users",
+    "file": "admin.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/users/:username",
+    "file": "admin.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/users/:username",
+    "file": "admin.ts"
+  },
+  {
+    "method": "put",
+    "path": "/admin-api/users/:username/team",
+    "file": "teams.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/ws-proxy-targets",
+    "file": "ws-proxy-admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/ws-proxy-targets",
+    "file": "ws-proxy-admin.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/ws-proxy-targets/:name",
+    "file": "ws-proxy-admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/ws-proxy-targets/:name",
+    "file": "ws-proxy-admin.ts"
+  },
+  {
+    "method": "patch",
+    "path": "/admin-api/ws-proxy-targets/:name",
+    "file": "ws-proxy-admin.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/ws-proxy-targets/:name/disconnect-all",
+    "file": "ws-proxy-admin.ts"
+  },
+  {
+    "method": "get",
+    "path": "/clients",
+    "file": "introspection.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/clients/:name",
+    "file": "introspection.ts"
+  },
+  {
+    "method": "get",
+    "path": "/clients/:name/tools",
+    "file": "introspection.ts"
+  },
+  {
+    "method": "get",
+    "path": "/metrics",
+    "file": "metrics.ts"
+  },
+  {
+    "method": "get",
+    "path": "/metrics/legacy",
+    "file": "metrics.ts"
+  },
+  {
+    "method": "post",
+    "path": "/register",
+    "file": "register.ts"
+  },
+  {
+    "method": "get",
+    "path": "/register/schema",
+    "file": "register.ts"
+  }
+]
