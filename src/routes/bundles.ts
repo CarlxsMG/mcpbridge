@@ -13,6 +13,13 @@ import {
   type BundleToolRef,
   type BundleMutationError,
 } from "../bundles.js";
+import {
+  createInstallLink,
+  listInstallLinks,
+  revokeInstallLink,
+  revokeAllInstallLinksForBundle,
+  type InstallLinkMutationError,
+} from "../bundle-install-links.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
 
 function statusForBundleError(code: BundleMutationError["code"]): number {
@@ -25,6 +32,29 @@ function statusForBundleError(code: BundleMutationError["code"]): number {
     case "NOT_FOUND":
       return 404;
   }
+}
+
+function statusForInstallLinkError(code: InstallLinkMutationError["code"]): number {
+  switch (code) {
+    case "BUNDLE_NOT_FOUND":
+    case "NOT_FOUND":
+      return 404;
+    case "EMPTY_BUNDLE":
+      return 400;
+    case "SECRET_BOX_NOT_CONFIGURED":
+      return 501;
+    case "ALREADY_REVOKED":
+      return 409;
+  }
+}
+
+/** expiresAt is optional and, when present, must be a positive epoch-ms number — same shape as mcp-keys' validateExpiresAt. */
+function validateExpiresAt(input: unknown): { ok: true; value: number | null } | { ok: false; message: string } {
+  if (input === undefined || input === null) return { ok: true, value: null };
+  if (typeof input !== "number" || !Number.isFinite(input) || input <= 0) {
+    return { ok: false, message: "expiresAt must be a positive epoch-ms number or null" };
+  }
+  return { ok: true, value: input };
 }
 
 /** Same maxToolsPerClient cap /register applies to a client's tools[] — a bundle's tools[] is bounded the same way. */
@@ -142,6 +172,12 @@ export function bundleRoutes(app: Express): void {
     requireAdminRole,
     async (req: Request<{ name: string }>, res: Response) => {
       const { name } = req.params;
+      // Revoke any still-active install links (and their auto-provisioned MCP
+      // keys) BEFORE the bundle row disappears — mcp_bundles' ON DELETE CASCADE
+      // only removes the link rows, it never touches the separately-owned
+      // mcp_api_keys rows they reference, so this is the one place that can
+      // still see (bundle_name -> link -> key) to close that out.
+      revokeAllInstallLinksForBundle(name);
       const ok = await deleteBundle(name);
       if (!ok) {
         notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
@@ -149,6 +185,69 @@ export function bundleRoutes(app: Express): void {
       }
       recordAudit(actorFromRequest(req), "bundle.delete", name);
       res.status(200).json({ status: "deleted", name });
+    },
+  );
+
+  // ── Install links ───────────────────────────────────────────────────────
+  // Shareable, revocable "install this bundle" links — see
+  // src/bundle-install-links.ts and the public src/routes/install-links.ts
+  // (GET /install/:token) for the teammate-facing side of this feature.
+  // Bundles carry no tenancy scoping of their own today (see bundles.ts /
+  // routes/bundles.ts above — every bundle route here is adminAuth only, no
+  // ensureClientAccess/canAccessClient check), so these routes match that.
+
+  app.post(
+    "/admin-api/bundles/:name/install-links",
+    adminAuth,
+    requireAdminRole,
+    (req: Request<{ name: string }>, res: Response) => {
+      const { name } = req.params;
+      const body = (req.body as Record<string, unknown>) ?? {};
+      const exp = validateExpiresAt(body.expiresAt);
+      if (!exp.ok) {
+        validationError(res, exp.message);
+        return;
+      }
+
+      const actor = actorFromRequest(req);
+      const result = createInstallLink(name, exp.value, actor);
+      if (!result.ok) {
+        sendError(res, statusForInstallLinkError(result.error.code), result.error.code, result.error.message);
+        return;
+      }
+      recordAudit(actor, "bundle.install_link.create", name, { installLinkId: result.record.id });
+      // The raw token is returned exactly once, here — it is never persisted or retrievable again.
+      res.status(201).json({ ...result.record, token: result.rawToken });
+    },
+  );
+
+  app.get(
+    "/admin-api/bundles/:name/install-links",
+    adminAuth,
+    (req: Request<{ name: string }>, res: Response) => {
+      const { name } = req.params;
+      if (!getBundleDetail(name)) {
+        notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
+        return;
+      }
+      res.status(200).json({ items: listInstallLinks(name) });
+    },
+  );
+
+  app.delete(
+    "/admin-api/bundles/:name/install-links/:id",
+    adminAuth,
+    requireAdminRole,
+    (req: Request<{ name: string; id: string }>, res: Response) => {
+      const { name } = req.params;
+      const id = Number(req.params.id);
+      const result = revokeInstallLink(name, id);
+      if (!result.ok) {
+        sendError(res, statusForInstallLinkError(result.error.code), result.error.code, result.error.message);
+        return;
+      }
+      recordAudit(actorFromRequest(req), "bundle.install_link.revoke", name, { installLinkId: id });
+      res.status(200).json({ status: "revoked", id });
     },
   );
 

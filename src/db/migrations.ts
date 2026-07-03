@@ -857,6 +857,27 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 46,
+    name: "bundle_install_tokens",
+    sql: `
+      CREATE TABLE IF NOT EXISTS bundle_install_tokens (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        bundle_name         TEXT NOT NULL REFERENCES mcp_bundles(name) ON DELETE CASCADE,
+        token_hash          TEXT NOT NULL UNIQUE,
+        token_prefix        TEXT NOT NULL,
+        mcp_key_id          INTEGER NOT NULL REFERENCES mcp_api_keys(id) ON DELETE CASCADE,
+        mcp_key_secret_enc  TEXT NOT NULL,
+        created_by          TEXT,
+        created_at          INTEGER NOT NULL,
+        expires_at          INTEGER,
+        revoked_at          INTEGER,
+        last_used_at        INTEGER
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_bundle_install_tokens_bundle ON bundle_install_tokens(bundle_name);
+    `,
+  },
 ];
 
 /**

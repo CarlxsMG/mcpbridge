@@ -325,6 +325,15 @@ export const config = {
   /** Rate limit for POST /admin-api/auth/login, per source IP. */
   rateLimitLogin: Number(process.env.RATE_LIMIT_LOGIN) || 10,
   rateLimitMaxBucketsLogin: Number(process.env.RATE_LIMIT_MAX_BUCKETS_LOGIN) || 5_000,
+  /**
+   * Rate limit for the public, unauthenticated GET /install/:token route, per
+   * source IP. Defense in depth only — the 32-random-byte token space is
+   * already infeasible to brute-force — but this is the one route in the
+   * whole admin surface a fully anonymous caller can hit, so it gets its own
+   * tier rather than sharing bucket state with any authenticated route.
+   */
+  rateLimitInstallLink: Number(process.env.RATE_LIMIT_INSTALL_LINK) || 20,
+  rateLimitMaxBucketsInstallLink: Number(process.env.RATE_LIMIT_MAX_BUCKETS_INSTALL_LINK) || 5_000,
   /** Optional bootstrap credentials — only consumed once, when admin_users is empty. */
   bootstrapAdminUsername: process.env.BOOTSTRAP_ADMIN_USERNAME || undefined,
   bootstrapAdminPassword: process.env.BOOTSTRAP_ADMIN_PASSWORD || undefined,

@@ -33,6 +33,7 @@ const registerBuckets = new Map<string, Bucket>();
 /** Per-tool admin guard rate limits — only populated for tools that have one configured. */
 const toolBuckets = new Map<string, Bucket>();
 const loginBuckets = new Map<string, Bucket>();
+const installLinkBuckets = new Map<string, Bucket>();
 
 const WINDOW_MS = 60_000;
 
@@ -145,13 +146,17 @@ function checkLimit(
 /**
  * Returns current bucket map sizes per tier for Prometheus gauge snapshots.
  */
-export function getRateLimitBucketSizes(): Record<"global" | "mcp" | "register" | "tool" | "login", number> {
+export function getRateLimitBucketSizes(): Record<
+  "global" | "mcp" | "register" | "tool" | "login" | "install_link",
+  number
+> {
   return {
     global: globalBuckets.size,
     mcp: mcpBuckets.size,
     register: registerBuckets.size,
     tool: toolBuckets.size,
     login: loginBuckets.size,
+    install_link: installLinkBuckets.size,
   };
 }
 
@@ -163,6 +168,7 @@ export const _internalsForTesting = {
   registerBuckets,
   toolBuckets,
   loginBuckets,
+  installLinkBuckets,
   lruGet,
   lruSet,
   checkLimit,
@@ -191,6 +197,7 @@ export function startRateLimiterCleanup(): () => void {
     evictEmpty(registerBuckets, "register");
     evictEmpty(toolBuckets, "tool");
     evictEmpty(loginBuckets, "login");
+    evictEmpty(installLinkBuckets, "install_link");
   }, config.rateLimitCleanupIntervalMs);
 
   return () => clearInterval(handle);
@@ -210,6 +217,21 @@ export function rateLimitLogin(maxPerMinute: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const key = `login:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
     if (checkLimit(loginBuckets, config.rateLimitMaxBucketsLogin, key, maxPerMinute, "login", res)) {
+      next();
+    }
+  };
+}
+
+/**
+ * Per-IP rate limit for the public, unauthenticated GET /install/:token route.
+ * Defense in depth against token-enumeration abuse — see config.rateLimitInstallLink.
+ */
+export function rateLimitInstallLink(maxPerMinute: number) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const key = `install_link:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
+    if (
+      checkLimit(installLinkBuckets, config.rateLimitMaxBucketsInstallLink, key, maxPerMinute, "install_link", res)
+    ) {
       next();
     }
   };

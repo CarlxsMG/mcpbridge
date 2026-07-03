@@ -8,7 +8,8 @@ import ConfirmDialog from "../components/ConfirmDialog.vue";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
 import SignalLoader from "../components/SignalLoader.vue";
 import ConnectClientDialog from "../components/ConnectClientDialog.vue";
-import { Cable } from "lucide-vue-next";
+import ShareInstallLinkDialog from "../components/ShareInstallLinkDialog.vue";
+import { Cable, Share2 } from "lucide-vue-next";
 
 const props = defineProps<{ name: string }>();
 const router = useRouter();
@@ -41,6 +42,7 @@ const toolsDirty = computed(() => {
 const pendingDelete = ref(false);
 const deleting = ref(false);
 const connectOpen = ref(false);
+const shareOpen = ref(false);
 
 async function load() {
   const result = await loadDetail();
@@ -169,6 +171,9 @@ function cancelLeave() {
           >
             {{ detail.enabled ? "Disable bundle" : "Enable bundle" }}
           </button>
+          <button type="button" class="btn-secondary share-btn" @click="shareOpen = true">
+            <Share2 :size="14" stroke-width="2" aria-hidden="true" /> Share install link
+          </button>
           <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
             {{ deleting ? "Deleting…" : "Delete bundle" }}
           </button>
@@ -226,6 +231,7 @@ function cancelLeave() {
     />
 
     <ConnectClientDialog :open="connectOpen" preset-scope="bundle" :preset-name="name" @close="connectOpen = false" />
+    <ShareInstallLinkDialog :open="shareOpen" :bundle-name="name" @close="shareOpen = false" />
   </section>
 </template>
 
@@ -255,6 +261,11 @@ function cancelLeave() {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+}
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 .header-actions {
   display: flex;

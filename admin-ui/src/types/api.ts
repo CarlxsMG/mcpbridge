@@ -401,6 +401,24 @@ export interface McpApiKeyWithSecret extends McpApiKey {
   key: string;
 }
 
+/** GET /admin-api/bundles/:name/install-links item — prefix + timestamps only, never the raw token. */
+export interface BundleInstallLink {
+  id: number;
+  bundleName: string;
+  tokenPrefix: string;
+  mcpKeyId: number;
+  createdBy: string | null;
+  createdAt: number;
+  expiresAt: number | null;
+  revokedAt: number | null;
+  lastUsedAt: number | null;
+}
+
+/** POST /admin-api/bundles/:name/install-links response — the raw `token` is returned exactly once. */
+export interface BundleInstallLinkWithToken extends BundleInstallLink {
+  token: string;
+}
+
 /** GET /admin-api/clients/:name/upstream-auth — non-secret view of the upstream credential. */
 export interface UpstreamAuthInfo {
   configured: boolean;

@@ -13,6 +13,8 @@ import type {
   ApprovalStatus,
   AuditLogEntry,
   BundleDetail,
+  BundleInstallLink,
+  BundleInstallLinkWithToken,
   BundleSummary,
   CatalogEntry,
   ClientDetail,
@@ -442,6 +444,9 @@ const mcpKeys: McpApiKey[] = [
     createdBy: "demo",
   },
 ];
+
+let installLinkNextId = 1;
+const installLinks: BundleInstallLink[] = [];
 
 const consumers: ConsumerWithUsage[] = [
   {
@@ -1199,6 +1204,40 @@ function route(
       updatedAt: NOW,
       tools: (TOOLS[clients[0].name] ?? []).slice(0, 2).map((t) => ({ client: clients[0].name, tool: t.name })),
     });
+  }
+
+  // Bundle install links
+  const installLinksListMatch = p.match(/^\/admin-api\/bundles\/([^/]+)\/install-links$/);
+  if (installLinksListMatch) {
+    const bundleName = decodeURIComponent(installLinksListMatch[1]);
+    if (method === "GET") {
+      return ok({ items: installLinks.filter((l) => l.bundleName === bundleName) });
+    }
+    if (method === "POST") {
+      const id = installLinkNextId++;
+      const tokenPrefix = `bil_demo${String(id).padStart(3, "0")}`;
+      const link: BundleInstallLinkWithToken = {
+        id,
+        bundleName,
+        tokenPrefix,
+        mcpKeyId: 900 + id,
+        createdBy: "demo",
+        createdAt: NOW,
+        expiresAt: null,
+        revokedAt: null,
+        lastUsedAt: null,
+        token: `${tokenPrefix}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`,
+      };
+      installLinks.unshift(link);
+      return ok<BundleInstallLinkWithToken>(link);
+    }
+  }
+  const installLinkRevokeMatch = p.match(/^\/admin-api\/bundles\/[^/]+\/install-links\/(\d+)$/);
+  if (installLinkRevokeMatch && method === "DELETE") {
+    const id = Number(installLinkRevokeMatch[1]);
+    const link = installLinks.find((l) => l.id === id);
+    if (link) link.revokedAt = NOW;
+    return ok({ status: "revoked", id });
   }
 
   if (p === "/admin-api/tools") return ok({ items: flatTools });
