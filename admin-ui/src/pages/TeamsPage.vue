@@ -1,28 +1,25 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import type { Team } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { UsersRound } from "lucide-vue-next";
 
-const teams = ref<Team[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
+const {
+  data: teams,
+  loading,
+  errorMessage,
+  load,
+} = useResource<Team[]>(
+  async () => (await api.get<{ items: Team[] }>("/admin-api/teams")).items,
+  [],
+  "Failed to load teams.",
+);
 const newName = ref("");
 const creating = ref(false);
 const pendingDelete = ref<Team | null>(null);
 
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    teams.value = (await api.get<{ items: Team[] }>("/admin-api/teams")).items;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load teams.";
-  } finally {
-    loading.value = false;
-  }
-}
 onMounted(load);
 
 async function create() {
@@ -63,8 +60,8 @@ async function confirmRemove() {
       <div>
         <h1>Teams</h1>
         <p class="subtitle">
-          Teams own clients; a team-scoped admin only sees and manages its own team's servers.
-          Super-admins (admin role with no team) manage teams and assign ownership. Assign a client's team from its detail page.
+          Teams own clients; a team-scoped admin only sees and manages its own team's servers. Super-admins (admin role
+          with no team) manage teams and assign ownership. Assign a client's team from its detail page.
         </p>
       </div>
     </header>
@@ -85,7 +82,14 @@ async function confirmRemove() {
 
     <div v-else-if="!loading" class="table-card table-scroll">
       <table class="grid">
-        <thead><tr><th>ID</th><th>Name</th><th>Created</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
           <tr v-for="t in teams" :key="t.id">
             <td>{{ t.id }}</td>
@@ -100,7 +104,9 @@ async function confirmRemove() {
     <ConfirmDialog
       :open="pendingDelete !== null"
       title="Delete this team?"
-      :message='pendingDelete ? `Delete team "${pendingDelete.name}"? Its clients and users become unowned.` : ""'
+      :message="
+        pendingDelete ? `Delete team &quot;${pendingDelete.name}&quot;? Its clients and users become unowned.` : ''
+      "
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmRemove"
@@ -110,7 +116,9 @@ async function confirmRemove() {
 </template>
 
 <style scoped>
-.page { max-width: 760px; }
+.page {
+  max-width: 760px;
+}
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -125,9 +133,21 @@ async function confirmRemove() {
   margin: 0;
   font-size: 0.9rem;
 }
-.create-form { display: flex; gap: 0.5rem; margin: 1rem 0; align-items: flex-end; }
-.field { flex: 1; }
-.field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+.create-form {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  align-items: flex-end;
+}
+.field {
+  flex: 1;
+}
+.field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
 .field input {
   width: 100%;
   padding: 0.55rem 0.7rem;
@@ -143,7 +163,11 @@ async function confirmRemove() {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
 }
-.grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
 .grid th {
   text-align: left;
   padding: 0.65rem 0.85rem;
@@ -160,8 +184,12 @@ async function confirmRemove() {
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
-.grid tbody tr:last-child td { border-bottom: none; }
-.grid tbody tr:hover { background: var(--surface-sunken); }
+.grid tbody tr:last-child td {
+  border-bottom: none;
+}
+.grid tbody tr:hover {
+  background: var(--surface-sunken);
+}
 .empty-state {
   padding: 3rem 2rem;
   text-align: center;
@@ -174,5 +202,8 @@ async function confirmRemove() {
   color: var(--text-muted);
   margin-bottom: 0.75rem;
 }
-.field-error { color: var(--breach); font-size: 0.85rem; }
+.field-error {
+  color: var(--breach);
+  font-size: 0.85rem;
+}
 </style>

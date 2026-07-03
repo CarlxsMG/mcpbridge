@@ -2,7 +2,8 @@
 import { ref, computed, watch } from "vue";
 import type { ToolGuardConfig } from "../types/api";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import { KeyRound, ShieldCheck } from "lucide-vue-next";
+import { api, ApiError } from "../composables/useApi";
+import { KeyRound, ShieldCheck, Eraser } from "lucide-vue-next";
 
 const props = defineProps<{
   guards?: ToolGuardConfig;
@@ -11,8 +12,19 @@ const props = defineProps<{
   coalesce?: { enabled: boolean };
   approval?: { required: boolean; requiredLevels: number };
   quarantine?: {
-    policy: { consecutiveThreshold: number; action: "block" | "force_approval" | "observe"; recoveryMode: "auto" | "manual"; cooldownMs: number | null };
-    state: { quarantined: boolean; consecutiveHits: number; quarantinedAt: number | null; reason: string | null; cooldownUntil: number | null };
+    policy: {
+      consecutiveThreshold: number;
+      action: "block" | "force_approval" | "observe";
+      recoveryMode: "auto" | "manual";
+      cooldownMs: number | null;
+    };
+    state: {
+      quarantined: boolean;
+      consecutiveHits: number;
+      quarantinedAt: number | null;
+      reason: string | null;
+      cooldownUntil: number | null;
+    };
   };
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
   graphql?: { enabled: boolean; query: string };
@@ -25,13 +37,22 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   save: [payload: { rateLimitPerMin?: number; timeoutMs?: number; allowedApiKeys?: string[] } | null];
-  saveOverride: [payload: { description?: string; params?: Record<string, { description?: string }>; displayName?: string } | null];
+  saveOverride: [
+    payload: { description?: string; params?: Record<string, { description?: string }>; displayName?: string } | null,
+  ];
   saveTags: [tags: string[]];
   saveRedaction: [paths: string[]];
   saveGuardrails: [payload: { denyPatterns: string[]; blockSecrets: boolean; scanResponses: boolean } | null];
   saveCoalesce: [payload: { enabled: boolean } | null];
   saveApproval: [payload: { required: boolean; requiredLevels: number }];
-  saveQuarantinePolicy: [payload: { consecutiveThreshold: number; action: "block" | "force_approval" | "observe"; recoveryMode: "auto" | "manual"; cooldownMs: number | null } | null];
+  saveQuarantinePolicy: [
+    payload: {
+      consecutiveThreshold: number;
+      action: "block" | "force_approval" | "observe";
+      recoveryMode: "auto" | "manual";
+      cooldownMs: number | null;
+    } | null,
+  ];
   clearQuarantine: [];
   saveWs: [payload: { enabled: boolean; wsUrl: string; persistent: boolean } | null];
   saveGraphql: [payload: { enabled: boolean; query: string } | null];
@@ -50,7 +71,9 @@ const quarantineEnabledInput = ref(Boolean(props.quarantine));
 const quarantineThresholdInput = ref((props.quarantine?.policy.consecutiveThreshold ?? 3).toString());
 const quarantineActionInput = ref<"block" | "force_approval" | "observe">(props.quarantine?.policy.action ?? "block");
 const quarantineRecoveryInput = ref<"auto" | "manual">(props.quarantine?.policy.recoveryMode ?? "manual");
-const quarantineCooldownInput = ref(props.quarantine?.policy.cooldownMs ? (props.quarantine.policy.cooldownMs / 60_000).toString() : "");
+const quarantineCooldownInput = ref(
+  props.quarantine?.policy.cooldownMs ? (props.quarantine.policy.cooldownMs / 60_000).toString() : "",
+);
 
 const wsEnabledInput = ref(Boolean(props.ws?.enabled));
 const wsUrlInput = ref(props.ws?.wsUrl ?? "");
@@ -95,6 +118,9 @@ const savingWs = ref(false);
 const savedWs = ref(false);
 const savingGraphql = ref(false);
 const savedGraphql = ref(false);
+const purgingCache = ref(false);
+const purgedCache = ref(false);
+const purgeCacheError = ref("");
 
 function flashSaved(flag: { value: boolean }) {
   flag.value = true;
@@ -123,7 +149,7 @@ watch(
     savingQuarantine.value = false;
     clearingQuarantine.value = false;
     savingWs.value = false;
-  }
+  },
 );
 
 watch(
@@ -144,7 +170,7 @@ watch(
       clearingGuards.value = false;
       flashSaved(savedClear);
     }
-  }
+  },
 );
 
 watch(
@@ -157,7 +183,7 @@ watch(
       savingPresentation.value = false;
       flashSaved(savedPresentation);
     }
-  }
+  },
 );
 
 const displayNameError = computed(() => {
@@ -179,7 +205,7 @@ watch(
       savingTags.value = false;
       flashSaved(savedTags);
     }
-  }
+  },
 );
 
 watch(
@@ -190,7 +216,7 @@ watch(
       savingRedaction.value = false;
       flashSaved(savedRedaction);
     }
-  }
+  },
 );
 
 watch(
@@ -203,17 +229,24 @@ watch(
       savingGuardrails.value = false;
       flashSaved(savedGuardrails);
     }
-  }
+  },
 );
 
 function saveGuardrailsFn() {
-  const denyPatterns = denyPatternsInput.value.split("\n").map((p) => p.trim()).filter(Boolean);
+  const denyPatterns = denyPatternsInput.value
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(Boolean);
   savingGuardrails.value = true;
   if (denyPatterns.length === 0 && !blockSecretsInput.value && !scanResponsesInput.value) {
     emit("saveGuardrails", null);
     return;
   }
-  emit("saveGuardrails", { denyPatterns, blockSecrets: blockSecretsInput.value, scanResponses: scanResponsesInput.value });
+  emit("saveGuardrails", {
+    denyPatterns,
+    blockSecrets: blockSecretsInput.value,
+    scanResponses: scanResponsesInput.value,
+  });
 }
 
 watch(
@@ -224,12 +257,31 @@ watch(
       savingCoalesce.value = false;
       flashSaved(savedCoalesce);
     }
-  }
+  },
 );
 
 function saveCoalesceFn() {
   savingCoalesce.value = true;
   emit("saveCoalesce", coalesceInput.value ? { enabled: true } : null);
+}
+
+// Response cache purge (POST /admin-api/clients/:name/tools/:tool/cache/purge). Non-destructive
+// to config — only clears already-cached entries — so this skips the ConfirmDialog used for
+// actual config-clearing actions elsewhere in this drawer.
+async function purgeCacheFn() {
+  if (!props.clientName || !props.toolName) return;
+  purgeCacheError.value = "";
+  purgingCache.value = true;
+  try {
+    await api.post(
+      `/admin-api/clients/${encodeURIComponent(props.clientName)}/tools/${encodeURIComponent(props.toolName)}/cache/purge`,
+    );
+    purgingCache.value = false;
+    flashSaved(purgedCache);
+  } catch (err) {
+    purgeCacheError.value = err instanceof ApiError ? err.message : "Failed to purge cache.";
+    purgingCache.value = false;
+  }
 }
 
 watch(
@@ -241,7 +293,7 @@ watch(
       savingApproval.value = false;
       flashSaved(savedApproval);
     }
-  }
+  },
 );
 
 const approvalLevelsError = computed(() => {
@@ -270,7 +322,7 @@ watch(
     if (clearingQuarantine.value) {
       clearingQuarantine.value = false;
     }
-  }
+  },
 );
 
 const quarantineThresholdError = computed(() => {
@@ -297,7 +349,8 @@ function saveQuarantineFn() {
     consecutiveThreshold: Number(quarantineThresholdInput.value),
     action: quarantineActionInput.value,
     recoveryMode: quarantineRecoveryInput.value,
-    cooldownMs: quarantineRecoveryInput.value === "auto" ? Math.round(Number(quarantineCooldownInput.value) * 60_000) : null,
+    cooldownMs:
+      quarantineRecoveryInput.value === "auto" ? Math.round(Number(quarantineCooldownInput.value) * 60_000) : null,
   });
 }
 
@@ -316,7 +369,7 @@ watch(
       savingWs.value = false;
       flashSaved(savedWs);
     }
-  }
+  },
 );
 
 const wsUrlError = computed(() => {
@@ -344,7 +397,7 @@ watch(
       savingGraphql.value = false;
       flashSaved(savedGraphql);
     }
-  }
+  },
 );
 
 function saveGraphqlFn() {
@@ -372,14 +425,19 @@ const timeoutError = computed(() => {
 
 const isValid = computed(() => !rateLimitError.value && !timeoutError.value);
 
-const hasAnyGuard = computed(() => existingKeyCount.value > 0 || Boolean(props.guards?.rateLimitPerMin) || Boolean(props.guards?.timeoutMs));
+const hasAnyGuard = computed(
+  () => existingKeyCount.value > 0 || Boolean(props.guards?.rateLimitPerMin) || Boolean(props.guards?.timeoutMs),
+);
 
 const previewJson = computed(() => {
   const preview: Record<string, unknown> = {};
   if (rateLimitInput.value && !rateLimitError.value) preview.rateLimitPerMin = Number(rateLimitInput.value);
   if (timeoutInput.value && !timeoutError.value) preview.timeoutMs = Number(timeoutInput.value);
   if (hasAllowedKeysGuard.value) {
-    preview.allowedApiKeys = replacementKeys.value.length > 0 ? `${replacementKeys.value.length} new key(s)` : `${existingKeyCount.value} key(s) unchanged`;
+    preview.allowedApiKeys =
+      replacementKeys.value.length > 0
+        ? `${replacementKeys.value.length} new key(s)`
+        : `${existingKeyCount.value} key(s) unchanged`;
   }
   return JSON.stringify(preview, null, 2);
 });
@@ -439,13 +497,19 @@ function saveOverrideFn() {
 }
 
 function saveTagsFn() {
-  const tags = tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean);
+  const tags = tagsInput.value
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
   savingTags.value = true;
   emit("saveTags", tags);
 }
 
 function saveRedactionFn() {
-  const paths = redactInput.value.split(/[\n,]/).map((p) => p.trim()).filter(Boolean);
+  const paths = redactInput.value
+    .split(/[\n,]/)
+    .map((p) => p.trim())
+    .filter(Boolean);
   savingRedaction.value = true;
   emit("saveRedaction", paths);
 }
@@ -483,7 +547,11 @@ function saveRedactionFn() {
     <div class="field">
       <label>Allowed API keys</label>
       <p class="hint">
-        {{ existingKeyCount > 0 ? `${existingKeyCount} key(s) currently allowed.` : "No restriction — any valid MCP key may call this tool." }}
+        {{
+          existingKeyCount > 0
+            ? `${existingKeyCount} key(s) currently allowed.`
+            : "No restriction — any valid MCP key may call this tool."
+        }}
         Keys are hashed on save; existing keys cannot be displayed again.
       </p>
       <div class="key-input">
@@ -515,8 +583,8 @@ function saveRedactionFn() {
     <div class="field">
       <label for="tool-display-name">Display name (alias)</label>
       <p class="hint">
-        Renames the tool for MCP clients. The <code>{{ clientName ?? "client" }}__</code> prefix is always kept.
-        Leave blank to use the registered name. Advertised as: <code>{{ advertisedName }}</code>
+        Renames the tool for MCP clients. The <code>{{ clientName ?? "client" }}__</code> prefix is always kept. Leave
+        blank to use the registered name. Advertised as: <code>{{ advertisedName }}</code>
       </p>
       <input
         id="tool-display-name"
@@ -531,9 +599,21 @@ function saveRedactionFn() {
 
     <div class="field">
       <label for="tool-desc">Advertised description override</label>
-      <p class="hint">Replaces what MCP clients see for this tool in tools/list. Leave blank to use the registered description.</p>
-      <textarea id="tool-desc" v-model="descriptionInput" rows="3" placeholder="Registered description is used when blank"></textarea>
-      <button type="button" class="btn-secondary desc-save" :disabled="saving || Boolean(displayNameError)" @click="saveOverrideFn">
+      <p class="hint">
+        Replaces what MCP clients see for this tool in tools/list. Leave blank to use the registered description.
+      </p>
+      <textarea
+        id="tool-desc"
+        v-model="descriptionInput"
+        rows="3"
+        placeholder="Registered description is used when blank"
+      ></textarea>
+      <button
+        type="button"
+        class="btn-secondary desc-save"
+        :disabled="saving || Boolean(displayNameError)"
+        @click="saveOverrideFn"
+      >
         {{ savingPresentation ? "Saving…" : "Save presentation" }}
       </button>
       <span v-if="savedPresentation" class="save-ok">Saved</span>
@@ -553,8 +633,16 @@ function saveRedactionFn() {
     <h3>Redaction</h3>
     <div class="field">
       <label for="tool-redact">Response redaction paths</label>
-      <p class="hint">One dot-path per line (e.g. user.ssn, items.*.secret). Matching JSON values are replaced with [REDACTED] before returning to the caller.</p>
-      <textarea id="tool-redact" v-model="redactInput" rows="3" placeholder="user.password&#10;items.*.token"></textarea>
+      <p class="hint">
+        One dot-path per line (e.g. user.ssn, items.*.secret). Matching JSON values are replaced with [REDACTED] before
+        returning to the caller.
+      </p>
+      <textarea
+        id="tool-redact"
+        v-model="redactInput"
+        rows="3"
+        placeholder="user.password&#10;items.*.token"
+      ></textarea>
       <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveRedactionFn">
         {{ savingRedaction ? "Saving…" : "Save redaction" }}
       </button>
@@ -564,10 +652,23 @@ function saveRedactionFn() {
     <h3><ShieldCheck :size="15" stroke-width="2" aria-hidden="true" /> Guardrails</h3>
     <div class="field">
       <label for="tool-deny">Content guardrails</label>
-      <p class="hint">Input deny patterns (one regex per line). A call whose arguments match any pattern is rejected before dispatch.</p>
-      <textarea id="tool-deny" v-model="denyPatternsInput" rows="2" placeholder="\bDROP\s+TABLE\b&#10;rm\s+-rf"></textarea>
-      <label class="checkline"><input type="checkbox" v-model="blockSecretsInput" /> Block arguments that look like secrets (AWS keys, private keys, tokens…)</label>
-      <label class="checkline"><input type="checkbox" v-model="scanResponsesInput" /> Scan responses for prompt-injection and wrap flagged output</label>
+      <p class="hint">
+        Input deny patterns (one regex per line). A call whose arguments match any pattern is rejected before dispatch.
+      </p>
+      <textarea
+        id="tool-deny"
+        v-model="denyPatternsInput"
+        rows="2"
+        placeholder="\bDROP\s+TABLE\b&#10;rm\s+-rf"
+      ></textarea>
+      <label class="checkline"
+        ><input v-model="blockSecretsInput" type="checkbox" /> Block arguments that look like secrets (AWS keys, private
+        keys, tokens…)</label
+      >
+      <label class="checkline"
+        ><input v-model="scanResponsesInput" type="checkbox" /> Scan responses for prompt-injection and wrap flagged
+        output</label
+      >
       <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveGuardrailsFn">
         {{ savingGuardrails ? "Saving…" : "Save guardrails" }}
       </button>
@@ -576,9 +677,14 @@ function saveRedactionFn() {
 
     <h3>Human-in-the-loop approval</h3>
     <div class="field">
-      <label class="checkline"><input type="checkbox" v-model="approvalRequiredInput" /> Require human approval before this tool runs</label>
+      <label class="checkline"
+        ><input v-model="approvalRequiredInput" type="checkbox" /> Require human approval before this tool runs</label
+      >
       <label for="approval-levels">Distinct approvers required</label>
-      <p class="hint">A call is only allowed once this many DIFFERENT admins/operators have approved it (1 = today's single-approval behavior). Any single rejection blocks the call immediately, regardless of prior approvals.</p>
+      <p class="hint">
+        A call is only allowed once this many DIFFERENT admins/operators have approved it (1 = today's single-approval
+        behavior). Any single rejection blocks the call immediately, regardless of prior approvals.
+      </p>
       <input
         id="approval-levels"
         v-model="approvalLevelsInput"
@@ -587,7 +693,12 @@ function saveRedactionFn() {
         :disabled="!approvalRequiredInput"
       />
       <p v-if="approvalRequiredInput && approvalLevelsError" class="field-error">{{ approvalLevelsError }}</p>
-      <button type="button" class="btn-secondary desc-save" :disabled="saving || (approvalRequiredInput && Boolean(approvalLevelsError))" @click="saveApprovalFn">
+      <button
+        type="button"
+        class="btn-secondary desc-save"
+        :disabled="saving || (approvalRequiredInput && Boolean(approvalLevelsError))"
+        @click="saveApprovalFn"
+      >
         {{ savingApproval ? "Saving…" : "Save approval settings" }}
       </button>
       <span v-if="savedApproval" class="save-ok">Saved</span>
@@ -601,7 +712,10 @@ function saveRedactionFn() {
           {{ clearingQuarantine ? "Clearing…" : "Clear now" }}
         </button>
       </div>
-      <label class="checkline"><input type="checkbox" v-model="quarantineEnabledInput" /> Auto-quarantine after repeated guardrail violations</label>
+      <label class="checkline"
+        ><input v-model="quarantineEnabledInput" type="checkbox" /> Auto-quarantine after repeated guardrail
+        violations</label
+      >
       <template v-if="quarantineEnabledInput">
         <label for="q-threshold">Consecutive violations before quarantine</label>
         <input id="q-threshold" v-model="quarantineThresholdInput" type="text" inputmode="numeric" />
@@ -622,7 +736,13 @@ function saveRedactionFn() {
 
         <template v-if="quarantineRecoveryInput === 'auto'">
           <label for="q-cooldown">Cooldown (minutes)</label>
-          <input id="q-cooldown" v-model="quarantineCooldownInput" type="text" inputmode="decimal" placeholder="e.g. 15" />
+          <input
+            id="q-cooldown"
+            v-model="quarantineCooldownInput"
+            type="text"
+            inputmode="decimal"
+            placeholder="e.g. 15"
+          />
           <p v-if="quarantineCooldownError" class="field-error">{{ quarantineCooldownError }}</p>
         </template>
       </template>
@@ -639,15 +759,29 @@ function saveRedactionFn() {
 
     <h3>WebSocket backend</h3>
     <div class="field">
-      <label class="checkline"><input type="checkbox" v-model="wsEnabledInput" /> Dispatch this tool over a WebSocket instead of REST</label>
+      <label class="checkline"
+        ><input v-model="wsEnabledInput" type="checkbox" /> Dispatch this tool over a WebSocket instead of REST</label
+      >
       <template v-if="wsEnabledInput">
         <label for="ws-url">WebSocket URL</label>
         <input id="ws-url" v-model="wsUrlInput" type="text" placeholder="wss://example.com/socket" />
         <p v-if="wsUrlError" class="field-error">{{ wsUrlError }}</p>
-        <label class="checkline"><input type="checkbox" v-model="wsPersistentInput" /> Persistent connection — forward every message as progress instead of closing after the first</label>
-        <p class="hint">Non-persistent (default) opens a fresh connection per call and returns the first message. Persistent stays open and resolves with the last message once the connection closes or the timeout elapses — intermediate messages are forwarded as MCP progress notifications to callers that requested them.</p>
+        <label class="checkline"
+          ><input v-model="wsPersistentInput" type="checkbox" /> Persistent connection — forward every message as
+          progress instead of closing after the first</label
+        >
+        <p class="hint">
+          Non-persistent (default) opens a fresh connection per call and returns the first message. Persistent stays
+          open and resolves with the last message once the connection closes or the timeout elapses — intermediate
+          messages are forwarded as MCP progress notifications to callers that requested them.
+        </p>
       </template>
-      <button type="button" class="btn-secondary desc-save" :disabled="saving || (wsEnabledInput && Boolean(wsUrlError))" @click="saveWsFn">
+      <button
+        type="button"
+        class="btn-secondary desc-save"
+        :disabled="saving || (wsEnabledInput && Boolean(wsUrlError))"
+        @click="saveWsFn"
+      >
         {{ savingWs ? "Saving…" : "Save WebSocket settings" }}
       </button>
       <span v-if="savedWs" class="save-ok">Saved</span>
@@ -655,13 +789,31 @@ function saveRedactionFn() {
 
     <h3>GraphQL backend</h3>
     <div class="field">
-      <label class="checkline"><input type="checkbox" v-model="graphqlEnabledInput" /> Dispatch this tool as a GraphQL query/mutation instead of a plain REST body</label>
+      <label class="checkline"
+        ><input v-model="graphqlEnabledInput" type="checkbox" /> Dispatch this tool as a GraphQL query/mutation instead
+        of a plain REST body</label
+      >
       <template v-if="graphqlEnabledInput">
         <label for="graphql-query">GraphQL query/mutation</label>
-        <textarea id="graphql-query" v-model="graphqlQueryInput" rows="6" spellcheck="false" placeholder="query my_tool($id: ID!) { pet(id: $id) { id name } }"></textarea>
-        <p class="hint">Tool-call arguments are sent as GraphQL variables — declare a <code>$var: Type</code> for each argument this tool's input schema accepts. Auto-discovered tools start with a synthesized query you can extend here (e.g. deeper selection sets).</p>
+        <textarea
+          id="graphql-query"
+          v-model="graphqlQueryInput"
+          rows="6"
+          spellcheck="false"
+          placeholder="query my_tool($id: ID!) { pet(id: $id) { id name } }"
+        ></textarea>
+        <p class="hint">
+          Tool-call arguments are sent as GraphQL variables — declare a <code>$var: Type</code> for each argument this
+          tool's input schema accepts. Auto-discovered tools start with a synthesized query you can extend here (e.g.
+          deeper selection sets).
+        </p>
       </template>
-      <button type="button" class="btn-secondary desc-save" :disabled="saving || (graphqlEnabledInput && !graphqlQueryInput.trim())" @click="saveGraphqlFn">
+      <button
+        type="button"
+        class="btn-secondary desc-save"
+        :disabled="saving || (graphqlEnabledInput && !graphqlQueryInput.trim())"
+        @click="saveGraphqlFn"
+      >
         {{ savingGraphql ? "Saving…" : "Save GraphQL settings" }}
       </button>
       <span v-if="savedGraphql" class="save-ok">Saved</span>
@@ -669,12 +821,37 @@ function saveRedactionFn() {
 
     <h3>Request coalescing</h3>
     <div class="field">
-      <label class="checkline"><input type="checkbox" v-model="coalesceInput" /> Share one upstream fetch across concurrent identical calls (GET tools only)</label>
-      <p class="hint">Distinct from the response cache's TTL — only dedupes calls that are in flight at the same moment, so it's safe even without caching enabled.</p>
+      <label class="checkline"
+        ><input v-model="coalesceInput" type="checkbox" /> Share one upstream fetch across concurrent identical calls
+        (GET tools only)</label
+      >
+      <p class="hint">
+        Distinct from the response cache's TTL — only dedupes calls that are in flight at the same moment, so it's safe
+        even without caching enabled.
+      </p>
       <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveCoalesceFn">
         {{ savingCoalesce ? "Saving…" : "Save coalescing" }}
       </button>
       <span v-if="savedCoalesce" class="save-ok">Saved</span>
+    </div>
+
+    <h3>Response cache</h3>
+    <div class="field">
+      <p class="hint">
+        Clears any responses already cached for this tool. Doesn't change the cache's enabled/TTL config — new responses
+        are cached again on the next matching call.
+      </p>
+      <button
+        type="button"
+        class="btn-secondary desc-save"
+        :disabled="purgingCache || !clientName || !toolName"
+        @click="purgeCacheFn"
+      >
+        <Eraser :size="14" stroke-width="2" aria-hidden="true" />
+        {{ purgingCache ? "Purging…" : "Purge cached responses" }}
+      </button>
+      <span v-if="purgedCache" class="save-ok">Purged</span>
+      <p v-if="purgeCacheError" class="field-error">{{ purgeCacheError }}</p>
     </div>
 
     <details class="preview">
@@ -684,7 +861,7 @@ function saveRedactionFn() {
 
     <div class="actions">
       <span class="action-group">
-        <button type="button" class="btn-secondary" @click="requestClear" :disabled="saving">
+        <button type="button" class="btn-secondary" :disabled="saving" @click="requestClear">
           {{ clearingGuards ? "Clearing…" : "Clear guards" }}
         </button>
         <span v-if="savedClear" class="save-ok">Cleared</span>

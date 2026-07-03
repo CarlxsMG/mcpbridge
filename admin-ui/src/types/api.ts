@@ -66,8 +66,19 @@ export interface ToolDetail {
   coalesce?: { enabled: boolean };
   approval?: { required: boolean; requiredLevels: number };
   quarantine?: {
-    policy: { consecutiveThreshold: number; action: "block" | "force_approval" | "observe"; recoveryMode: "auto" | "manual"; cooldownMs: number | null };
-    state: { quarantined: boolean; consecutiveHits: number; quarantinedAt: number | null; reason: string | null; cooldownUntil: number | null };
+    policy: {
+      consecutiveThreshold: number;
+      action: "block" | "force_approval" | "observe";
+      recoveryMode: "auto" | "manual";
+      cooldownMs: number | null;
+    };
+    state: {
+      quarantined: boolean;
+      consecutiveHits: number;
+      quarantinedAt: number | null;
+      reason: string | null;
+      cooldownUntil: number | null;
+    };
   };
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
   graphql?: { enabled: boolean; query: string };
@@ -173,6 +184,32 @@ export interface CanaryConfig {
   enabled: boolean;
 }
 
+/** GET/PUT /admin-api/clients/:name/lb — N-way upstream pool (REST clients only). Takes
+ *  precedence over CanaryConfig above when an enabled pool has at least one enabled target. */
+export type LbStrategy = "round-robin" | "weighted" | "least-conn";
+
+export interface LbTarget {
+  id: number;
+  baseUrl: string;
+  resolvedIp: string;
+  weight: number;
+  enabled: boolean;
+}
+
+export interface LbConfig {
+  strategy: LbStrategy;
+  primaryWeight: number;
+  enabled: boolean;
+  targets: LbTarget[];
+}
+
+/** GET /admin-api/clients/:name/oauth — outbound OAuth2 client-credentials (never carries the secret). */
+export interface ClientOAuthConfig {
+  tokenUrl: string;
+  clientId: string;
+  scope: string | null;
+}
+
 export interface Schedule {
   id: number;
   targetType: "client" | "tool";
@@ -197,6 +234,8 @@ export interface AdminUserSummary {
   is_active: boolean;
   created_at: number;
   last_login_at: number | null;
+  /** null = super-admin (manages teams, sees everything); set = scoped to that team. */
+  team_id: number | null;
 }
 
 export interface AuditLogEntry {
@@ -220,6 +259,16 @@ export interface CurrentUser {
   authenticated: true;
   auth_method: "bearer" | "session";
   user?: { username: string; role: AdminRole };
+}
+
+/** GET /admin-api/auth/sessions item — mirrors SessionSummary in src/security/session-store.ts. */
+export interface AdminSession {
+  id: number;
+  createdAt: number;
+  lastSeenAt: number;
+  expiresAt: number;
+  ipAddress: string | null;
+  userAgent: string | null;
 }
 
 export interface BundleToolRef {
@@ -251,6 +300,18 @@ export interface ToolListItem {
   enabled: boolean;
   clientEnabled: boolean;
   tags: string[];
+}
+
+/** GET /admin-api/tags item — every distinct tag currently set on any tool, with its usage count. */
+export interface TagSummary {
+  tag: string;
+  count: number;
+}
+
+/** GET /admin-api/tags/:tag/tools item — every (client, tool) pair carrying a given tag. */
+export interface TagToolRef {
+  client: string;
+  tool: string;
 }
 
 export interface ApiErrorBody {
@@ -309,6 +370,13 @@ export interface Consumer {
 
 export interface ConsumerWithUsage extends Consumer {
   usedThisMonth: number;
+}
+
+/** GET /admin-api/consumers/:id/usage — the same monthly counter as ConsumerWithUsage.usedThisMonth,
+ *  fetched fresh for a single consumer (drilldown view). */
+export interface ConsumerUsage {
+  used: number;
+  quota: number | null;
 }
 
 /** GET /admin-api/mcp-keys item — never carries the raw secret. */
@@ -463,11 +531,19 @@ export interface GuardPolicy {
 
 export interface ConfigImportResult {
   dryRun: boolean;
-  applied: { bundles: number; alertRules: number; clientsConfigured: number; toolsConfigured: number; guardrails: number; consumers: number };
+  applied: {
+    bundles: number;
+    alertRules: number;
+    clientsConfigured: number;
+    toolsConfigured: number;
+    guardrails: number;
+    consumers: number;
+  };
   skipped: { type: string; id: string; reason: string }[];
 }
 
-export type AlertEventType = "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike" | "schema_drift";
+export type AlertEventType =
+  "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike" | "schema_drift";
 
 export interface AlertRule {
   id: number;

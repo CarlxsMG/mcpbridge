@@ -5,7 +5,12 @@ const routes = [
   { path: "/", redirect: "/overview" },
   { path: "/login", name: "login", component: () => import("../pages/LoginPage.vue"), meta: { public: true } },
   { path: "/servers", name: "servers", component: () => import("../pages/DashboardPage.vue") },
-  { path: "/servers/:name", name: "server-detail", component: () => import("../pages/ServerDetailPage.vue"), props: true },
+  {
+    path: "/servers/:name",
+    name: "server-detail",
+    component: () => import("../pages/ServerDetailPage.vue"),
+    props: true,
+  },
   {
     path: "/servers/:name/tools/:tool",
     name: "tool-guard",
@@ -16,9 +21,19 @@ const routes = [
   { path: "/catalog", name: "catalog", component: () => import("../pages/CatalogPage.vue") },
   { path: "/ws-proxies", name: "ws-proxies", component: () => import("../pages/WsProxyTargetsPage.vue") },
   { path: "/bundles", name: "bundles", component: () => import("../pages/BundlesPage.vue") },
-  { path: "/bundles/:name", name: "bundle-detail", component: () => import("../pages/BundleDetailPage.vue"), props: true },
+  {
+    path: "/bundles/:name",
+    name: "bundle-detail",
+    component: () => import("../pages/BundleDetailPage.vue"),
+    props: true,
+  },
   { path: "/composites", name: "composites", component: () => import("../pages/CompositesPage.vue") },
-  { path: "/composites/:name", name: "composite-detail", component: () => import("../pages/CompositeDetailPage.vue"), props: true },
+  {
+    path: "/composites/:name",
+    name: "composite-detail",
+    component: () => import("../pages/CompositeDetailPage.vue"),
+    props: true,
+  },
   { path: "/keys", name: "keys", component: () => import("../pages/KeysPage.vue") },
   { path: "/policies", name: "policies", component: () => import("../pages/PoliciesPage.vue") },
   { path: "/consumers", name: "consumers", component: () => import("../pages/ConsumersPage.vue") },
@@ -26,6 +41,7 @@ const routes = [
   { path: "/teams", name: "teams", component: () => import("../pages/TeamsPage.vue"), meta: { role: "admin" } },
   { path: "/config", name: "config", component: () => import("../pages/ConfigPage.vue"), meta: { role: "admin" } },
   { path: "/audit-log", name: "audit-log", component: () => import("../pages/AuditLogPage.vue") },
+  { path: "/account", name: "account", component: () => import("../pages/AccountPage.vue") },
   { path: "/overview", name: "overview", component: () => import("../pages/OverviewPage.vue") },
   { path: "/usage", name: "usage", component: () => import("../pages/UsagePage.vue") },
   { path: "/traffic", name: "traffic", component: () => import("../pages/TrafficPage.vue") },
@@ -35,7 +51,12 @@ const routes = [
   { path: "/schedules", name: "schedules", component: () => import("../pages/SchedulesPage.vue") },
   { path: "/traces", name: "traces", component: () => import("../pages/TracesPage.vue") },
   { path: "/traces/:traceId", name: "trace-detail", component: () => import("../pages/TracesPage.vue"), props: true },
-  { path: "/:pathMatch(.*)*", name: "not-found", component: () => import("../pages/NotFoundPage.vue"), meta: { public: true } },
+  {
+    path: "/:pathMatch(.*)*",
+    name: "not-found",
+    component: () => import("../pages/NotFoundPage.vue"),
+    meta: { public: true },
+  },
 ];
 
 // The base comes from Vite (`import.meta.env.BASE_URL`) so history stays in lockstep

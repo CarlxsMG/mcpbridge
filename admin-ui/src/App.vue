@@ -25,6 +25,7 @@ import {
   Waypoints,
   LayoutGrid,
   Cable,
+  UserCircle,
 } from "lucide-vue-next";
 
 const route = useRoute();
@@ -36,9 +37,12 @@ const isDemo = import.meta.env.VITE_DEMO === "true";
 const showShell = computed(() => state.user !== null);
 const mobileNavOpen = ref(false);
 
-watch(() => route.fullPath, () => {
-  mobileNavOpen.value = false;
-});
+watch(
+  () => route.fullPath,
+  () => {
+    mobileNavOpen.value = false;
+  },
+);
 
 async function onLogout() {
   await logout();
@@ -77,42 +81,105 @@ async function onLogout() {
       <div class="nav-groups">
         <div class="nav-label">Servers</div>
         <ul>
-          <li><RouterLink to="/servers"><Server :size="15" stroke-width="2" aria-hidden="true" /> Servers</RouterLink></li>
-          <li><RouterLink to="/register-server"><Server :size="15" stroke-width="2" aria-hidden="true" /> Add server</RouterLink></li>
-          <li><RouterLink to="/catalog"><LayoutGrid :size="15" stroke-width="2" aria-hidden="true" /> Catalog</RouterLink></li>
-          <li><RouterLink to="/bundles"><Boxes :size="15" stroke-width="2" aria-hidden="true" /> Bundles</RouterLink></li>
-          <li><RouterLink to="/composites"><Combine :size="15" stroke-width="2" aria-hidden="true" /> Composites</RouterLink></li>
-          <li><RouterLink to="/ws-proxies"><Cable :size="15" stroke-width="2" aria-hidden="true" /> WS proxies</RouterLink></li>
+          <li>
+            <RouterLink to="/servers"><Server :size="15" stroke-width="2" aria-hidden="true" /> Servers</RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/register-server"
+              ><Server :size="15" stroke-width="2" aria-hidden="true" /> Add server</RouterLink
+            >
+          </li>
+          <li>
+            <RouterLink to="/catalog"><LayoutGrid :size="15" stroke-width="2" aria-hidden="true" /> Catalog</RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/bundles"><Boxes :size="15" stroke-width="2" aria-hidden="true" /> Bundles</RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/composites"
+              ><Combine :size="15" stroke-width="2" aria-hidden="true" /> Composites</RouterLink
+            >
+          </li>
+          <li>
+            <RouterLink to="/ws-proxies"
+              ><Cable :size="15" stroke-width="2" aria-hidden="true" /> WS proxies</RouterLink
+            >
+          </li>
         </ul>
         <div class="nav-label">Access</div>
         <ul>
-          <li><RouterLink to="/keys"><KeyRound :size="15" stroke-width="2" aria-hidden="true" /> API keys</RouterLink></li>
-          <li><RouterLink to="/policies"><ShieldCheck :size="15" stroke-width="2" aria-hidden="true" /> Policies</RouterLink></li>
-          <li><RouterLink to="/consumers"><Users2 :size="15" stroke-width="2" aria-hidden="true" /> Consumers</RouterLink></li>
-          <li><RouterLink to="/approvals"><ClipboardCheck :size="15" stroke-width="2" aria-hidden="true" /> Approvals</RouterLink></li>
+          <li>
+            <RouterLink to="/keys"><KeyRound :size="15" stroke-width="2" aria-hidden="true" /> API keys</RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/policies"
+              ><ShieldCheck :size="15" stroke-width="2" aria-hidden="true" /> Policies</RouterLink
+            >
+          </li>
+          <li>
+            <RouterLink to="/consumers"><Users2 :size="15" stroke-width="2" aria-hidden="true" /> Consumers</RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/approvals"
+              ><ClipboardCheck :size="15" stroke-width="2" aria-hidden="true" /> Approvals</RouterLink
+            >
+          </li>
         </ul>
         <div class="nav-label">Observability</div>
         <ul>
-          <li><RouterLink to="/overview"><LayoutDashboard :size="15" stroke-width="2" aria-hidden="true" /> Overview</RouterLink></li>
-          <li><RouterLink to="/usage"><Activity :size="15" stroke-width="2" aria-hidden="true" /> Usage</RouterLink></li>
-          <li><RouterLink to="/traffic"><ArrowLeftRight :size="15" stroke-width="2" aria-hidden="true" /> Traffic</RouterLink></li>
-          <li><RouterLink to="/traces"><Waypoints :size="15" stroke-width="2" aria-hidden="true" /> Traces</RouterLink></li>
-          <li><RouterLink to="/monitors"><Radar :size="15" stroke-width="2" aria-hidden="true" /> Monitors</RouterLink></li>
-          <li><RouterLink to="/alerts"><BellRing :size="15" stroke-width="2" aria-hidden="true" /> Alerts</RouterLink></li>
-          <li><RouterLink to="/schedules"><Clock :size="15" stroke-width="2" aria-hidden="true" /> Schedules</RouterLink></li>
-          <li><RouterLink to="/audit-log"><ScrollText :size="15" stroke-width="2" aria-hidden="true" /> Audit log</RouterLink></li>
+          <li>
+            <RouterLink to="/overview"
+              ><LayoutDashboard :size="15" stroke-width="2" aria-hidden="true" /> Overview</RouterLink
+            >
+          </li>
+          <li>
+            <RouterLink to="/usage"><Activity :size="15" stroke-width="2" aria-hidden="true" /> Usage</RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/traffic"
+              ><ArrowLeftRight :size="15" stroke-width="2" aria-hidden="true" /> Traffic</RouterLink
+            >
+          </li>
+          <li>
+            <RouterLink to="/traces"><Waypoints :size="15" stroke-width="2" aria-hidden="true" /> Traces</RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/monitors"><Radar :size="15" stroke-width="2" aria-hidden="true" /> Monitors</RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/alerts"><BellRing :size="15" stroke-width="2" aria-hidden="true" /> Alerts</RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/schedules"><Clock :size="15" stroke-width="2" aria-hidden="true" /> Schedules</RouterLink>
+          </li>
+          <li>
+            <RouterLink to="/audit-log"
+              ><ScrollText :size="15" stroke-width="2" aria-hidden="true" /> Audit log</RouterLink
+            >
+          </li>
         </ul>
         <template v-if="state.user?.role === 'admin'">
           <div class="nav-label">Administration</div>
           <ul>
-            <li><RouterLink to="/users"><UserCog :size="15" stroke-width="2" aria-hidden="true" /> Users</RouterLink></li>
-            <li><RouterLink to="/teams"><UsersRound :size="15" stroke-width="2" aria-hidden="true" /> Teams</RouterLink></li>
-            <li><RouterLink to="/config"><Settings2 :size="15" stroke-width="2" aria-hidden="true" /> Config</RouterLink></li>
+            <li>
+              <RouterLink to="/users"><UserCog :size="15" stroke-width="2" aria-hidden="true" /> Users</RouterLink>
+            </li>
+            <li>
+              <RouterLink to="/teams"><UsersRound :size="15" stroke-width="2" aria-hidden="true" /> Teams</RouterLink>
+            </li>
+            <li>
+              <RouterLink to="/config"><Settings2 :size="15" stroke-width="2" aria-hidden="true" /> Config</RouterLink>
+            </li>
           </ul>
         </template>
       </div>
       <div class="sidebar-footer">
-        <div class="current-user">{{ state.user?.username }} <span class="role">({{ state.user?.role }})</span></div>
+        <div class="current-user">
+          {{ state.user?.username }} <span class="role">({{ state.user?.role }})</span>
+        </div>
+        <RouterLink to="/account" class="account-link"
+          ><UserCircle :size="14" stroke-width="2" aria-hidden="true" /> Account</RouterLink
+        >
         <button type="button" class="link-btn" @click="onLogout">Sign out</button>
       </div>
     </nav>
@@ -225,7 +292,9 @@ async function onLogout() {
   text-decoration: none;
   font-size: var(--text-base);
   border-left: 2px solid transparent;
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
 }
 .sidebar :deep(a svg) {
   flex-shrink: 0;
@@ -255,6 +324,23 @@ async function onLogout() {
 }
 .role {
   color: var(--text-on-dark-muted);
+}
+.account-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  color: var(--text-on-dark-muted);
+  text-decoration: none;
+  margin-bottom: var(--space-1-5);
+  transition: color 0.12s ease;
+}
+.account-link:hover,
+.account-link.router-link-active {
+  color: var(--text-on-dark);
+}
+.account-link svg {
+  flex-shrink: 0;
+  opacity: 0.75;
 }
 .sidebar-footer .link-btn {
   color: var(--text-on-dark-muted);
