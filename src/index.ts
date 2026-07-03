@@ -25,11 +25,17 @@ import { upstreamAuthRoutes } from "./routes/upstream-auth.js";
 import { discoveryRoutes } from "./routes/discovery.js";
 import { catalogRoutes } from "./routes/catalog.js";
 import { wsProxyAdminRoutes } from "./routes/ws-proxy-admin.js";
-import { loadWsProxyTargets, handleWsProxyUpgrade, startWsProxyRevalidationLoop, closeAllWsProxyConnections } from "./ws-proxy.js";
+import {
+  loadWsProxyTargets,
+  handleWsProxyUpgrade,
+  startWsProxyRevalidationLoop,
+  closeAllWsProxyConnections,
+} from "./ws-proxy.js";
 import { usageRoutes } from "./routes/usage.js";
 import { alertRoutes } from "./routes/alerts.js";
 import { startAlertLoop } from "./alerts.js";
 import { configIoRoutes } from "./routes/config-io.js";
+import { backupRoutes } from "./routes/backup.js";
 import { policyRoutes } from "./routes/policies.js";
 import { tagRoutes } from "./routes/tags.js";
 import { consumerRoutes } from "./routes/consumers.js";
@@ -84,7 +90,11 @@ if (!guard.ok) {
 }
 
 // Warn when AUTH_DISABLED is allowed via escape hatch
-if (config.authDisabled && process.env.NODE_ENV !== "development" && process.env.ALLOW_UNSAFE_AUTH_DISABLED === "true") {
+if (
+  config.authDisabled &&
+  process.env.NODE_ENV !== "development" &&
+  process.env.ALLOW_UNSAFE_AUTH_DISABLED === "true"
+) {
   log(
     "warn",
     "AUTH_DISABLED is true outside development environment — all endpoints unauthenticated. " +
@@ -138,6 +148,7 @@ wsProxyAdminRoutes(app);
 usageRoutes(app);
 alertRoutes(app);
 configIoRoutes(app);
+backupRoutes(app);
 policyRoutes(app);
 tagRoutes(app);
 consumerRoutes(app);
@@ -199,7 +210,11 @@ const stopSchedules = startScheduleLoop();
 let stopRegistrySync: () => void = () => {};
 if (config.registrySyncEnabled) {
   const t = setInterval(() => {
-    registry.reconcileFromDb().catch((err) => log("warn", "Registry reconciliation failed", { error: err instanceof Error ? err.message : String(err) }));
+    registry
+      .reconcileFromDb()
+      .catch((err) =>
+        log("warn", "Registry reconciliation failed", { error: err instanceof Error ? err.message : String(err) }),
+      );
   }, config.registrySyncIntervalMs);
   if (t.unref) t.unref();
   stopRegistrySync = () => clearInterval(t);
@@ -218,14 +233,18 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     err: err instanceof Error ? { message: err.message, stack: err.stack, name: err.name } : err,
   });
   const errObj = err as Record<string, unknown>;
-  const rawStatus = typeof errObj.status === "number" ? errObj.status : typeof errObj.statusCode === "number" ? errObj.statusCode : 500;
+  const rawStatus =
+    typeof errObj.status === "number" ? errObj.status : typeof errObj.statusCode === "number" ? errObj.statusCode : 500;
   const status = rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
   const is5xx = status >= 500;
   const code: string = typeof errObj.code === "string" ? errObj.code : is5xx ? "INTERNAL_ERROR" : "BAD_REQUEST";
   const message: string = is5xx
     ? "Internal server error"
-    : typeof (err instanceof Error ? err.message : errObj.message) === "string" && (err instanceof Error ? err.message : String(errObj.message)).length < 500
-      ? (err instanceof Error ? err.message : String(errObj.message))
+    : typeof (err instanceof Error ? err.message : errObj.message) === "string" &&
+        (err instanceof Error ? err.message : String(errObj.message)).length < 500
+      ? err instanceof Error
+        ? err.message
+        : String(errObj.message)
       : "Bad request";
   res.setHeader("Content-Type", "application/json");
   res.status(status).json({ error: { code, message, request_id: requestId ?? null } });
