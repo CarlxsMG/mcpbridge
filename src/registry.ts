@@ -79,6 +79,7 @@ interface ToolOverrideRow {
   description: string | null;
   param_overrides_json: string | null;
   display_name: string | null;
+  drift_note: string | null;
 }
 
 function rowToClientGuards(row: ClientGuardRow | null): ClientGuardConfig | undefined {
@@ -110,8 +111,11 @@ function rowToToolOverride(row: ToolOverrideRow | null): ToolOverride | undefine
     ? (JSON.parse(row.param_overrides_json) as ToolOverride["params"])
     : undefined;
   const displayName = row.display_name ?? undefined;
-  if (!row.description && !displayName && (!params || Object.keys(params).length === 0)) return undefined;
-  return { description: row.description ?? undefined, params, displayName };
+  const driftNote = row.drift_note ?? undefined;
+  if (!row.description && !displayName && !driftNote && (!params || Object.keys(params).length === 0)) {
+    return undefined;
+  }
+  return { description: row.description ?? undefined, params, displayName, driftNote };
 }
 
 /** Thrown by setToolOverride when a displayName alias is malformed or collides with another tool. */
@@ -399,7 +403,7 @@ class Registry {
 
         const toolOverrideRow = db
           .query(
-            `SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+            `SELECT description, param_overrides_json, display_name, drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
           )
           .get(name, tool.name) as ToolOverrideRow | null;
 
@@ -489,7 +493,7 @@ class Registry {
           .get(name, tool.name) as ToolGuardRow | null;
         const toolOverrideRow = db
           .query(
-            `SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+            `SELECT description, param_overrides_json, display_name, drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
           )
           .get(name, tool.name) as ToolOverrideRow | null;
 
@@ -857,7 +861,7 @@ class Registry {
         .get(name, t.name) as ToolGuardRow | null;
       const to = db
         .query(
-          `SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+          `SELECT description, param_overrides_json, display_name, drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
         )
         .get(name, t.name) as ToolOverrideRow | null;
       return {
@@ -1150,7 +1154,22 @@ class Registry {
       }
 
       if (!normalized) {
-        db.query(`DELETE FROM tool_overrides WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+        // A schema-drift note (system-authored, see annotateToolDrift) can live
+        // in the same row's `drift_note` column. Clearing the admin's own
+        // override must never silently delete that note out from under the
+        // monitor — only drop the row entirely when no note is active;
+        // otherwise just null out the admin-authored columns and keep it.
+        const current = db
+          .query(`SELECT drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`)
+          .get(clientName, toolName) as { drift_note: string | null } | null;
+        if (current?.drift_note) {
+          db.query(
+            `UPDATE tool_overrides SET description = NULL, param_overrides_json = NULL, display_name = NULL, updated_at = ?
+             WHERE client_name = ? AND tool_name = ?`,
+          ).run(Date.now(), clientName, toolName);
+        } else {
+          db.query(`DELETE FROM tool_overrides WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+        }
       } else {
         db.query(
           `INSERT INTO tool_overrides (client_name, tool_name, description, param_overrides_json, display_name, updated_at)
@@ -1172,10 +1191,88 @@ class Registry {
 
       const client = this.clients.get(clientName);
       const tool = client?.tools.find((t) => t.name === toolName);
-      if (tool) tool.override = normalized ?? undefined;
+      if (tool) {
+        // Re-read rather than assume `normalized` is the full picture — a
+        // drift_note may have survived the branch above and must be reflected
+        // in the live in-memory override too.
+        const row = db
+          .query(
+            `SELECT description, param_overrides_json, display_name, drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+          )
+          .get(clientName, toolName) as ToolOverrideRow | null;
+        tool.override = rowToToolOverride(row);
+      }
       // Keep the alias index in lockstep — resolveAdvertisedName/resolveTool
       // depend on it. Safe for a non-live client too (rebuilt on next register).
       this.setAlias(clientName, toolName, normalized?.displayName);
+      notifyToolsChanged();
+      return true;
+    });
+  }
+
+  /**
+   * System-authored schema-drift changelog annotation (called from
+   * monitor.ts's runSyntheticChecks on the drift-detected/drift-resolved
+   * EDGE, and from setMonitor when an admin resets a monitor's baseline).
+   * Pass a bracketed, dated note string to add/replace it; pass `null` to
+   * clear it (drift resolved, or the baseline was reset — never leave a
+   * stale note behind, mirroring quarantine.ts's lazy auto-clear idiom).
+   *
+   * Stored in tool_overrides.drift_note — a column the admin-facing
+   * setToolOverride() never writes to — so this can never clobber an
+   * admin-authored description, param overrides, or displayName, and an
+   * admin editing those can never clobber this note either. The two are
+   * concatenated only at advertise-time, in effectiveAdvertised(). Uses the
+   * same UPSERT + notifyToolsChanged() idiom setToolOverride uses (this DOES
+   * change what tools/list advertises). Idempotent — a no-op call (already
+   * in the requested state) skips the write and the tools/list broadcast.
+   * Returns false for an unknown client/tool.
+   */
+  async annotateToolDrift(clientName: string, toolName: string, note: string | null): Promise<boolean> {
+    return this.withLock(clientName, async () => {
+      const db = getDb();
+      const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
+      if (!exists) return false;
+
+      const current = db
+        .query(
+          `SELECT description, param_overrides_json, display_name, drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+        )
+        .get(clientName, toolName) as ToolOverrideRow | null;
+
+      if ((current?.drift_note ?? null) === note) {
+        return true; // already in the desired state — avoid a redundant write + broadcast
+      }
+
+      if (note === null) {
+        if (current?.description || current?.param_overrides_json || current?.display_name) {
+          // Admin-authored fields remain — null out only the note, keep the row.
+          db.query(
+            `UPDATE tool_overrides SET drift_note = NULL, updated_at = ? WHERE client_name = ? AND tool_name = ?`,
+          ).run(Date.now(), clientName, toolName);
+        } else {
+          db.query(`DELETE FROM tool_overrides WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+        }
+      } else {
+        db.query(
+          `INSERT INTO tool_overrides (client_name, tool_name, drift_note, updated_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(client_name, tool_name) DO UPDATE SET
+             drift_note = excluded.drift_note,
+             updated_at = excluded.updated_at`,
+        ).run(clientName, toolName, note, Date.now());
+      }
+
+      const client = this.clients.get(clientName);
+      const tool = client?.tools.find((t) => t.name === toolName);
+      if (tool) {
+        const row = db
+          .query(
+            `SELECT description, param_overrides_json, display_name, drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+          )
+          .get(clientName, toolName) as ToolOverrideRow | null;
+        tool.override = rowToToolOverride(row);
+      }
       notifyToolsChanged();
       return true;
     });
@@ -1244,7 +1341,12 @@ class Registry {
     const name = `${clientName}${TOOL_KEY_SEPARATOR}${segment}`;
     const ov = tool.override;
     if (!ov) return { name, description: tool.description, inputSchema: tool.inputSchema };
-    const description = ov.description ?? tool.description;
+    const base = ov.description ?? tool.description;
+    // The drift-note prefix is concatenated here, at advertise-time only — it
+    // is never merged into the stored `description`, so it can be added/removed
+    // independently of whatever the admin has (or hasn't) set. See
+    // ToolOverride.driftNote and Registry.annotateToolDrift.
+    const description = ov.driftNote ? `${ov.driftNote} ${base}` : base;
     let inputSchema = tool.inputSchema;
     if (ov.params && Object.keys(ov.params).length > 0 && inputSchema && typeof inputSchema === "object") {
       const clone = JSON.parse(JSON.stringify(inputSchema)) as Record<string, unknown>;
@@ -1526,7 +1628,7 @@ class Registry {
           .get(name, t.name) as ToolGuardRow | null;
         const to = db
           .query(
-            `SELECT description, param_overrides_json, display_name FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
+            `SELECT description, param_overrides_json, display_name, drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
           )
           .get(name, t.name) as ToolOverrideRow | null;
         return {

@@ -72,6 +72,18 @@ export interface ToolOverride {
    * canonical name stays callable as a backstop for stale client caches.
    */
   displayName?: string;
+  /**
+   * System-authored schema-drift changelog note (see monitor.ts's
+   * runSyntheticChecks + registry.annotateToolDrift), e.g.
+   * `[schema drift 2026-07-03: input schema changed since last check]`.
+   * Stored in a column separate from `description` above and concatenated
+   * with it only at advertise-time (registry's effectiveAdvertised), so an
+   * admin's own override text and the monitor's auto-note can never clobber
+   * one another — clearing/editing one never touches the other. Never set
+   * via setToolOverride/the admin UI; only annotateToolDrift writes it.
+   * Absent = no active drift for this tool.
+   */
+  driftNote?: string;
 }
 
 /** Per-tool content guardrails (input deny/secret gate + response injection scan). */

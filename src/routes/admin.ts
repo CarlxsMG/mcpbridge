@@ -853,7 +853,7 @@ export function adminRoutes(app: Express): void {
 
       if (body.monitor !== undefined) {
         if (body.monitor === null || body.monitor === false) {
-          deleteMonitor(name, tool);
+          await deleteMonitor(name, tool);
           recordAudit(actor, "tool.monitor.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
         } else if (typeof body.monitor === "object") {
           const mo = body.monitor as Record<string, unknown>;
@@ -862,7 +862,7 @@ export function adminRoutes(app: Express): void {
             validationError(res, "monitor.exampleId (number) is required");
             return;
           }
-          const result = setMonitor(name, tool, {
+          const result = await setMonitor(name, tool, {
             exampleId,
             intervalMinutes: typeof mo.intervalMinutes === "number" ? mo.intervalMinutes : 15,
             enabled: mo.enabled !== false,

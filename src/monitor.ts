@@ -68,12 +68,22 @@ export type MonitorError = "TOOL_NOT_LIVE" | "INVALID_INTERVAL";
 /**
  * Creates/updates a tool's monitor, capturing the CURRENT inputSchema hash as the
  * drift baseline (so the tool must be live). Returns an error otherwise.
+ *
+ * Every (re-)baselining also clears any schema-drift changelog note left on
+ * the tool's advertised description by a previous drift (see
+ * annotateToolDrift) — an admin re-baselining is explicitly one of the two
+ * ways a drift note gets removed (the other being the next check finding the
+ * live schema matches baseline again, handled in runSyntheticChecks). Without
+ * this, resetting the baseline here would silently desync `tool_monitor.
+ * drift_detected` (reset to 0) from the still-attached note, and the note
+ * would never get cleared since runSyntheticChecks only detects the resolved
+ * *edge*, which this reset happens outside of.
  */
-export function setMonitor(
+export async function setMonitor(
   clientName: string,
   toolName: string,
   input: { exampleId: number; intervalMinutes: number; enabled: boolean },
-): { ok: true } | { ok: false; error: MonitorError } {
+): Promise<{ ok: true } | { ok: false; error: MonitorError }> {
   if (!Number.isInteger(input.intervalMinutes) || input.intervalMinutes < 1 || input.intervalMinutes > 1440) {
     return { ok: false, error: "INVALID_INTERVAL" };
   }
@@ -93,14 +103,21 @@ export function setMonitor(
          updated_at = excluded.updated_at`,
     )
     .run(clientName, toolName, input.exampleId, input.intervalMinutes, input.enabled ? 1 : 0, baseline, Date.now());
+  await registry.annotateToolDrift(clientName, toolName, null);
   return { ok: true };
 }
 
-export function deleteMonitor(clientName: string, toolName: string): boolean {
-  return (
+/**
+ * Deletes a tool's monitor and clears any drift note it left behind — once
+ * the monitor is gone nothing will ever detect the drift resolving, so the
+ * note would otherwise linger on the advertised description forever.
+ */
+export async function deleteMonitor(clientName: string, toolName: string): Promise<boolean> {
+  const deleted =
     getDb().query(`DELETE FROM tool_monitor WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName)
-      .changes > 0
-  );
+      .changes > 0;
+  if (deleted) await registry.annotateToolDrift(clientName, toolName, null);
+  return deleted;
 }
 
 export function listMonitors(): MonitorRecord[] {
@@ -127,7 +144,8 @@ export async function runSyntheticChecks(now: Date): Promise<number> {
     const args = exampleArgs(m.example_id);
 
     // Schema drift — compare the live tool's schema to the captured baseline.
-    let drift = m.drift_detected === 1;
+    const wasDrifted = m.drift_detected === 1;
+    let drift = wasDrifted;
     const resolved = registry.resolveTool(mcpName);
     if (resolved) drift = schemaHash(resolved.tool.inputSchema) !== m.baseline_schema_hash;
 
@@ -146,6 +164,18 @@ export async function runSyntheticChecks(now: Date): Promise<number> {
       `UPDATE tool_monitor SET last_run_minute = ?, last_status = ?, last_error = ?, last_checked_at = ?, drift_detected = ? WHERE client_name = ? AND tool_name = ?`,
     ).run(minute, status, error, now.getTime(), drift ? 1 : 0, m.client_name, m.tool_name);
 
+    // Edge-triggered changelog annotation — only act the moment drift newly
+    // appears or newly resolves, not on every check while already (un)drifted
+    // (mirrors the edge-triggered idiom alert_rules/canary use elsewhere: act
+    // on the transition, not the level). The calling LLM agent sees the note
+    // via the tool's advertised description without a human reading a Slack
+    // alert first.
+    if (drift && !wasDrifted) {
+      await registry.annotateToolDrift(m.client_name, m.tool_name, driftNoteFor(now));
+    } else if (!drift && wasDrifted) {
+      await registry.annotateToolDrift(m.client_name, m.tool_name, null);
+    }
+
     if (status === "fail" || drift) {
       log("warn", "Synthetic monitor flagged a tool", { tool: mcpName, status, drift });
       notifyMonitor(m.client_name, m.tool_name, status, drift);
@@ -153,6 +183,12 @@ export async function runSyntheticChecks(now: Date): Promise<number> {
     ran++;
   }
   return ran;
+}
+
+/** Bracketed, dated, LLM-parseable changelog tag prepended to a drifted tool's advertised description. */
+function driftNoteFor(now: Date): string {
+  const date = now.toISOString().slice(0, 10);
+  return `[schema drift ${date}: input schema changed since last check]`;
 }
 
 function exampleArgs(exampleId: number): Record<string, unknown> | null {

@@ -878,6 +878,13 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_bundle_install_tokens_bundle ON bundle_install_tokens(bundle_name);
     `,
   },
+  {
+    id: 47,
+    name: "tool_override_drift_note",
+    sql: `
+      ALTER TABLE tool_overrides ADD COLUMN drift_note TEXT;
+    `,
+  },
 ];
 
 /**
