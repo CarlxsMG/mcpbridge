@@ -1150,6 +1150,7 @@ function route(
   if (/^\/admin-api\/auth\/sessions\/[^/]+$/.test(p) && method === "DELETE") return ok({});
 
   if (p === "/admin-api/overview") return ok(overview);
+  if (p === "/admin-api/connect/gateway-url") return ok({ publicUrl: null });
 
   // Clients (servers)
   if (p === "/admin-api/clients" && method === "GET") return ok({ items: clients });

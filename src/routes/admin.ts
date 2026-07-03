@@ -49,6 +49,7 @@ import { revokeAllSessionsForUser } from "../security/session-store.js";
 import type { ClientGuardConfig, ToolGuardConfig, ClientStatus, ToolOverride, ToolGuardrails } from "../types.js";
 import type { AdminRole } from "../security/user-store.js";
 import { sendError, validationError, notFound, forbidden } from "./http-errors.js";
+import { config } from "../config.js";
 
 /** The caller's tenancy scope: a team id, null for a super-admin session, or undefined for a bearer caller (super-admin). */
 export function callerTeamId(req: Request): number | null | undefined {
@@ -464,6 +465,16 @@ function validateClientGuardInput(
 }
 
 export function adminRoutes(app: Express): void {
+  // ── Client-connection config generator ─────────────────────────────────────
+
+  // Read-only, non-mutating — the "Connect client" admin-UI dialog and `gateway
+  // connect` CLI command use this only to prefill the gateway base URL; both
+  // still let the caller override it (multi-host / dev setups where the
+  // admin UI's own origin isn't the gateway's externally-reachable URL).
+  app.get("/admin-api/connect/gateway-url", adminAuth, (_req: Request, res: Response) => {
+    res.status(200).json({ publicUrl: config.gatewayPublicUrl ?? null });
+  });
+
   // ── Clients ─────────────────────────────────────────────────────────────
 
   app.get("/admin-api/clients", adminAuth, (req: Request, res: Response) => {

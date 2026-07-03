@@ -1364,6 +1364,29 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   # ---------------------------------------------------------------------------
+  # Admin — client-connection config generator ("Connect client")
+  # ---------------------------------------------------------------------------
+  /admin-api/connect/gateway-url:
+    get:
+      operationId: getConnectGatewayUrl
+      summary: Get the operator-declared public gateway URL, for prefilling the client-connection config generator
+      description: >
+        Read-only. Backed by the optional GATEWAY_PUBLIC_URL env var; returns
+        null when unset, in which case callers (the admin-UI "Connect client"
+        dialog) fall back to window.location.origin. Never mutates anything,
+        so it isn't audit-logged like the routes below.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: The configured public URL, or null if unset.
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { publicUrl: { type: ["string", "null"] } } } },
+            }
+
+  # ---------------------------------------------------------------------------
   # Admin — client/tool management
   # ---------------------------------------------------------------------------
   /admin-api/clients:

@@ -9,12 +9,14 @@ import { loginCommand } from "./commands/login.js";
 import { pullCommand } from "./commands/pull.js";
 import { planCommand } from "./commands/plan.js";
 import { applyCommand } from "./commands/apply.js";
+import { connectCommand } from "./commands/connect.js";
 
 const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
   login: loginCommand,
   pull: pullCommand,
   plan: planCommand,
   apply: applyCommand,
+  connect: connectCommand,
 };
 
 async function main(): Promise<number> {
@@ -22,7 +24,7 @@ async function main(): Promise<number> {
   const fn = cmd ? COMMANDS[cmd] : undefined;
   if (!fn) {
     console.error(
-      `Usage: gateway <command> [...args]\n\nCommands:\n  login --url <gateway-url> --token <admin-api-key>\n  pull [--file gateway.yaml]\n  plan [--file gateway.yaml]\n  apply [--file gateway.yaml] [--dry-run]`,
+      `Usage: gateway <command> [...args]\n\nCommands:\n  login --url <gateway-url> --token <admin-api-key>\n  pull [--file gateway.yaml]\n  plan [--file gateway.yaml]\n  apply [--file gateway.yaml] [--dry-run]\n  connect --client <claude-desktop|cursor|windsurf|continue|generic-json> --scope <client|bundle|aggregated> [--name <clientOrBundleName>] [--out <file>]`,
     );
     return cmd ? 1 : 0;
   }

@@ -150,6 +150,11 @@
     "file": "admin.ts"
   },
   {
+    "method": "delete",
+    "path": "/admin-api/clients/:name",
+    "file": "admin.ts"
+  },
+  {
     "method": "get",
     "path": "/admin-api/clients/:name",
     "file": "admin.ts"
@@ -338,6 +343,11 @@
     "method": "post",
     "path": "/admin-api/config/snapshots/:id/rollback",
     "file": "config-io.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/connect/gateway-url",
+    "file": "admin.ts"
   },
   {
     "method": "get",

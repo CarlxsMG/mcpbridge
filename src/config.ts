@@ -298,6 +298,18 @@ export const config = {
   /** Whether the legacy aggregated /mcp, /sse, /messages endpoints stay mounted. Disable at scale. */
   enableAggregatedMcp: process.env.ENABLE_AGGREGATED_MCP !== "false",
 
+  // ─── Public gateway URL (client-connection config generator) ────────────────
+  /**
+   * Operator-declared externally-reachable base URL for this gateway (e.g.
+   * behind a reverse proxy at a different host than the admin UI). Used only
+   * to prefill the "connect a client" config generator (CLI `gateway connect`
+   * and the admin-UI "Connect client" dialog) — when unset, the CLI falls
+   * back to the URL already passed to `gateway login`, and the admin UI falls
+   * back to `window.location.origin`, both editable/overridable at the call
+   * site regardless.
+   */
+  gatewayPublicUrl: process.env.GATEWAY_PUBLIC_URL || undefined,
+
   // ─── Tool discovery ─────────────────────────────────────────────────────────
   /** Whether to advertise the synthetic `search_tools` meta-tool that helps clients find tools by query. */
   enableSearchTool: process.env.ENABLE_SEARCH_TOOL !== "false",

@@ -7,6 +7,8 @@ import type { BundleDetail, BundleToolRef } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import ConnectClientDialog from "../components/ConnectClientDialog.vue";
+import { Cable } from "lucide-vue-next";
 
 const props = defineProps<{ name: string }>();
 const router = useRouter();
@@ -38,6 +40,7 @@ const toolsDirty = computed(() => {
 
 const pendingDelete = ref(false);
 const deleting = ref(false);
+const connectOpen = ref(false);
 
 async function load() {
   const result = await loadDetail();
@@ -151,6 +154,9 @@ function cancelLeave() {
           <h1>{{ detail.name }}</h1>
           <p class="endpoint">
             <code>/mcp-custom/{{ detail.name }}</code>
+            <button type="button" class="link-btn connect-link" @click="connectOpen = true">
+              <Cable :size="13" stroke-width="2" aria-hidden="true" /> Connect client
+            </button>
           </p>
         </div>
         <div class="header-actions">
@@ -218,6 +224,8 @@ function cancelLeave() {
       @confirm="confirmLeave"
       @cancel="cancelLeave"
     />
+
+    <ConnectClientDialog :open="connectOpen" preset-scope="bundle" :preset-name="name" @close="connectOpen = false" />
   </section>
 </template>
 
@@ -239,6 +247,14 @@ function cancelLeave() {
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.connect-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 .header-actions {
   display: flex;

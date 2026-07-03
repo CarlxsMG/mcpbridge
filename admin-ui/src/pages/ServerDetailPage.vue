@@ -20,7 +20,8 @@ import ConfirmDialog from "../components/ConfirmDialog.vue";
 import GuardEditor from "../components/GuardEditor.vue";
 import SchemaForm from "../components/SchemaForm.vue";
 import SignalLoader from "../components/SignalLoader.vue";
-import { Wrench, Settings2, RotateCcw } from "lucide-vue-next";
+import ConnectClientDialog from "../components/ConnectClientDialog.vue";
+import { Wrench, Settings2, RotateCcw, Cable } from "lucide-vue-next";
 
 interface ToolExample {
   id: number;
@@ -45,6 +46,7 @@ const testingTool = ref<string | null>(null);
 const testResult = ref<{ tool: string; text: string; isError: boolean } | null>(null);
 const resettingBreaker = ref(false);
 const drawerCloseBtn = ref<HTMLButtonElement | null>(null);
+const connectOpen = ref(false);
 
 // Playground (schema-driven test form + saved examples) for the active tool.
 const playgroundArgs = ref<Record<string, unknown>>({});
@@ -958,6 +960,10 @@ async function resetBreaker() {
             <RotateCcw :size="14" stroke-width="2" aria-hidden="true" />
             {{ resettingBreaker ? "Resetting…" : "Reset circuit breaker" }}
           </button>
+          <button type="button" class="btn-secondary" @click="connectOpen = true">
+            <Cable :size="14" stroke-width="2" aria-hidden="true" />
+            Connect client
+          </button>
         </div>
       </header>
 
@@ -1579,6 +1585,8 @@ async function resetBreaker() {
       @confirm="confirmRemoveServer"
       @cancel="pendingRemoveServer = false"
     />
+
+    <ConnectClientDialog :open="connectOpen" preset-scope="client" :preset-name="name" @close="connectOpen = false" />
   </section>
 </template>
 
