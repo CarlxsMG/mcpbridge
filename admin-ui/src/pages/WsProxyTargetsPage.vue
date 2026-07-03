@@ -225,17 +225,19 @@ async function confirmDelete() {
                 {{ t.enabled ? "Enabled" : "Disabled" }}
               </button>
             </td>
-            <td class="actions">
-              <button type="button" class="link-btn" @click="openEdit(t)">Edit</button>
-              <button
-                type="button"
-                class="link-btn"
-                :disabled="disconnectingName === t.name || t.activeConnections === 0"
-                @click="requestDisconnectAll(t)"
-              >
-                {{ disconnectingName === t.name ? "Disconnecting…" : "Disconnect all" }}
-              </button>
-              <button type="button" class="link-btn danger" @click="pendingDelete = t">Delete</button>
+            <td>
+              <div  class="actions">
+                <button type="button" class="link-btn" @click="openEdit(t)">Edit</button>
+                <button
+                  type="button"
+                  class="link-btn"
+                  :disabled="disconnectingName === t.name || t.activeConnections === 0"
+                  @click="requestDisconnectAll(t)"
+                >
+                  {{ disconnectingName === t.name ? "Disconnecting…" : "Disconnect all" }}
+                </button>
+                <button type="button" class="link-btn danger" @click="pendingDelete = t">Delete</button>
+              </div>
             </td>
           </tr>
         </tbody>

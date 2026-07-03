@@ -190,23 +190,25 @@ async function confirmReject() {
                 </li>
               </ul>
             </td>
-            <td class="actions">
-              <template v-if="a.status === 'pending'">
-                <input
-                  v-model="noteDraft[a.id]"
-                  type="text"
-                  placeholder="Note…"
-                  class="note-input"
-                  :aria-label="`Note for approval #${a.id}`"
-                  :disabled="decidingId === a.id"
-                />
-                <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
-                  <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
-                </button>
-                <button type="button" class="link-btn danger" :disabled="decidingId === a.id" @click="requestReject(a)">
-                  <X :size="13" stroke-width="2" aria-hidden="true" /> Reject
-                </button>
-              </template>
+            <td>
+              <div class="actions">
+                <template v-if="a.status === 'pending'">
+                  <input
+                    v-model="noteDraft[a.id]"
+                    type="text"
+                    placeholder="Note…"
+                    class="note-input"
+                    :aria-label="`Note for approval #${a.id}`"
+                    :disabled="decidingId === a.id"
+                  />
+                  <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
+                    <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
+                  </button>
+                  <button type="button" class="link-btn danger" :disabled="decidingId === a.id" @click="requestReject(a)">
+                    <X :size="13" stroke-width="2" aria-hidden="true" /> Reject
+                  </button>
+                </template>
+              </div>
             </td>
           </tr>
         </tbody>

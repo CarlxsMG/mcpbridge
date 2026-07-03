@@ -228,17 +228,19 @@ async function confirmReplay() {
               <td>{{ formatDuration(r.durationMs) }}</td>
               <td :class="{ hot: r.isError }">{{ r.isError ? "Error" : "OK" }}</td>
               <td class="preview" :title="r.preview">{{ r.preview }}</td>
-              <td class="actions">
-                <button
-                  type="button"
-                  class="link-btn"
-                  :disabled="replayingId === r.id"
-                  title="Sends this call to the upstream tool again, right now."
-                  @click="replay(r)"
-                >
-                  <Repeat :size="13" stroke-width="2" aria-hidden="true" />
-                  {{ replayingId === r.id ? "Replaying…" : "Replay" }}
-                </button>
+              <td>
+                <div class="actions">
+                  <button
+                    type="button"
+                    class="link-btn"
+                    :disabled="replayingId === r.id"
+                    title="Sends this call to the upstream tool again, right now."
+                    @click="replay(r)"
+                  >
+                    <Repeat :size="13" stroke-width="2" aria-hidden="true" />
+                    {{ replayingId === r.id ? "Replaying…" : "Replay" }}
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>

@@ -237,11 +237,13 @@ async function confirmDelete() {
                 {{ rule.enabled ? "Enabled" : "Disabled" }}
               </button>
             </td>
-            <td class="actions">
-              <button type="button" class="link-btn" :disabled="testingRuleId === rule.id" @click="testRule(rule)">
-                {{ testingRuleId === rule.id ? "Testing…" : "Test" }}
-              </button>
-              <button type="button" class="link-btn danger" @click="pendingDelete = rule">Delete</button>
+            <td>
+              <div class="actions">
+                <button type="button" class="link-btn" :disabled="testingRuleId === rule.id" @click="testRule(rule)">
+                  {{ testingRuleId === rule.id ? "Testing…" : "Test" }}
+                </button>
+                <button type="button" class="link-btn danger" @click="pendingDelete = rule">Delete</button>
+              </div>
             </td>
           </tr>
         </tbody>

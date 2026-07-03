@@ -198,15 +198,17 @@ function trapFocus(e: KeyboardEvent) {
               </td>
               <td>{{ new Date(link.createdAt).toLocaleString() }}</td>
               <td>{{ link.lastUsedAt ? new Date(link.lastUsedAt).toLocaleString() : "Never" }}</td>
-              <td class="actions">
-                <button
-                  v-if="link.revokedAt === null"
-                  type="button"
-                  class="link-btn danger"
-                  @click="pendingRevoke = link"
-                >
-                  Revoke
-                </button>
+              <td>
+                <div class="actions">
+                  <button
+                    v-if="link.revokedAt === null"
+                    type="button"
+                    class="link-btn danger"
+                    @click="pendingRevoke = link"
+                  >
+                    Revoke
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>

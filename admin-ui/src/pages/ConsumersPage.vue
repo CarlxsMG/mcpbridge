@@ -257,9 +257,11 @@ async function confirmDelete() {
                   <div class="usage-bar-wrap"><QuotaBar :used="c.usedThisMonth" :quota="c.monthlyQuota" /></div>
                 </div>
               </td>
-              <td class="actions" @click.stop>
-                <button type="button" class="link-btn" @click="openEdit(c)">Edit</button>
-                <button type="button" class="link-btn danger" @click="pendingDelete = c">Delete</button>
+              <td>
+                <div class="actions" @click.stop>
+                  <button type="button" class="link-btn" @click="openEdit(c)">Edit</button>
+                  <button type="button" class="link-btn danger" @click="pendingDelete = c">Delete</button>
+                </div>
               </td>
             </tr>
             <tr v-if="expandedId === c.id" class="usage-detail-row">

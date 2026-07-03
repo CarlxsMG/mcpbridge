@@ -205,10 +205,12 @@ onMounted(loadSessions);
               <td class="mono-cell">{{ session.ipAddress ?? "—" }}</td>
               <td>{{ new Date(session.lastSeenAt).toLocaleString() }}</td>
               <td>{{ new Date(session.createdAt).toLocaleString() }}</td>
-              <td class="actions">
-                <button type="button" class="link-btn danger" @click="requestRevoke(session)">
-                  <LogOut :size="13" stroke-width="2" aria-hidden="true" /> Sign out
-                </button>
+              <td>
+                <div class="actions">
+                  <button type="button" class="link-btn danger" @click="requestRevoke(session)">
+                    <LogOut :size="13" stroke-width="2" aria-hidden="true" /> Sign out
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>

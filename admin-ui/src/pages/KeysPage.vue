@@ -253,14 +253,16 @@ async function confirmDelete() {
             </td>
             <td>{{ key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : "Never" }}</td>
             <td>{{ key.expiresAt ? new Date(key.expiresAt).toLocaleString() : "—" }}</td>
-            <td class="actions">
-              <button v-if="key.revokedAt === null" type="button" class="link-btn" @click="toggleEnabled(key)">
-                {{ key.enabled ? "Disable" : "Enable" }}
-              </button>
-              <button v-if="key.revokedAt === null" type="button" class="link-btn danger" @click="pendingRevoke = key">
-                Revoke
-              </button>
-              <button type="button" class="link-btn danger" @click="pendingDelete = key">Delete</button>
+            <td>
+              <div class="actions">
+                <button v-if="key.revokedAt === null" type="button" class="link-btn" @click="toggleEnabled(key)">
+                  {{ key.enabled ? "Disable" : "Enable" }}
+                </button>
+                <button v-if="key.revokedAt === null" type="button" class="link-btn danger" @click="pendingRevoke = key">
+                  Revoke
+                </button>
+                <button type="button" class="link-btn danger" @click="pendingDelete = key">Delete</button>
+              </div>
             </td>
           </tr>
         </tbody>
