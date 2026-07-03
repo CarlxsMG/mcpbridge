@@ -238,7 +238,7 @@ const genericJson: ConnectTemplate = {
       filename: "mcp.json",
       snippet,
       instructions: [
-        "This is a reference shape (the \"url\" + \"headers\" convention several clients share), not a guaranteed exact match for every client — check your specific client's MCP docs for its precise field names.",
+        'This is a reference shape (the "url" + "headers" convention several clients share), not a guaranteed exact match for every client — check your specific client\'s MCP docs for its precise field names.',
         apiKeyHint(apiKeyPlaceholder),
       ],
     };

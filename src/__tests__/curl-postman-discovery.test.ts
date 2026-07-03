@@ -14,7 +14,7 @@ describe("parseCurlCommand", () => {
       "curl -X POST https://api.example.com/users \\",
       '  -H "Content-Type: application/json" \\',
       '  -H "X-Api-Key: secret123" \\',
-      "  -d '{\"name\":\"Jane\"}'",
+      '  -d \'{"name":"Jane"}\'',
     ].join("\n");
 
     const tools = parseCurlCommand(cmd);
@@ -126,9 +126,7 @@ curl -X POST https://api.example.com/users \\
   test("urlencoded --data-urlencode style body contributes its keys", () => {
     const [tool] = parseCurlCommand(`curl https://api.example.com/login -d 'user=alice' -d 'pass=hunter2'`);
     expect(tool.method).toBe("POST");
-    expect(Object.keys(tool.inputSchema.properties as object)).toEqual(
-      expect.arrayContaining(["user", "pass"]),
-    );
+    expect(Object.keys(tool.inputSchema.properties as object)).toEqual(expect.arrayContaining(["user", "pass"]));
   });
 });
 

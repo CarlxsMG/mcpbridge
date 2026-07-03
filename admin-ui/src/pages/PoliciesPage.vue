@@ -157,7 +157,10 @@ async function confirmDelete() {
     <SignalLoader v-if="loading" />
     <div v-else-if="policies.length === 0" class="empty-state">
       <ShieldCheck :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each one individually.</p>
+      <p>
+        No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each
+        one individually.
+      </p>
     </div>
 
     <div v-else class="table-card table-scroll">

@@ -256,7 +256,9 @@ onUnmounted(() => {
             aria-hidden="true"
             >{{ userInitials }}</span
           >
-          <span>{{ state.user?.username }} <span class="role">({{ state.user?.role }})</span></span>
+          <span
+            >{{ state.user?.username }} <span class="role">({{ state.user?.role }})</span></span
+          >
         </div>
         <RouterLink to="/account" class="account-link"
           ><UserCircle :size="14" stroke-width="2" aria-hidden="true" /> Account</RouterLink

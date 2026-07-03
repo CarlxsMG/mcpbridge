@@ -25,9 +25,9 @@ const postmanText = ref("");
 const postmanFileName = ref("");
 
 const curlPlaceholder =
-  'curl -X POST https://api.example.com/users \\\n' +
+  "curl -X POST https://api.example.com/users \\\n" +
   '  -H "Content-Type: application/json" \\\n' +
-  "  -d '{\"name\":\"Jane\"}'\n\n" +
+  '  -d \'{"name":"Jane"}\'\n\n' +
   "# a second command works too — separate with a blank line\n" +
   "curl https://api.example.com/users";
 
@@ -285,8 +285,8 @@ async function register() {
             :placeholder="curlPlaceholder"
           ></textarea>
           <p class="hint">
-            Paste one or more cURL commands — separate multiple with a blank line, or use a trailing "\" to continue
-            one command across lines. An optional "# name" comment line right above a command sets that tool's name.
+            Paste one or more cURL commands — separate multiple with a blank line, or use a trailing "\" to continue one
+            command across lines. An optional "# name" comment line right above a command sets that tool's name.
           </p>
         </div>
 

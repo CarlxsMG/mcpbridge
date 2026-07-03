@@ -233,7 +233,10 @@ async function confirmDelete() {
 
     <div v-else-if="users.length === 0" class="empty-state">
       <UserCog :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No admin users yet. Every person who signs in to this panel needs their own account here -- shared logins aren't supported.</p>
+      <p>
+        No admin users yet. Every person who signs in to this panel needs their own account here -- shared logins aren't
+        supported.
+      </p>
     </div>
 
     <div v-else class="table-card table-scroll">

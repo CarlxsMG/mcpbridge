@@ -236,13 +236,7 @@ onMounted(loadSessions);
             Light
           </label>
           <label>
-            <input
-              type="radio"
-              name="theme-pref"
-              value="dark"
-              :checked="theme === 'dark'"
-              @change="setTheme('dark')"
-            />
+            <input type="radio" name="theme-pref" value="dark" :checked="theme === 'dark'" @change="setTheme('dark')" />
             Dark
           </label>
         </div>

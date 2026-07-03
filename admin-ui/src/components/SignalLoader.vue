@@ -5,7 +5,9 @@ withDefaults(defineProps<{ label?: string }>(), { label: "Loading…" });
 <template>
   <div class="signal-loader" role="status">
     <svg class="signal-loader-svg" viewBox="0 0 120 24" preserveAspectRatio="none" aria-hidden="true">
-      <polyline points="0,12 14,12 19,4 25,20 31,12 45,12 50,4 56,20 62,12 76,12 81,4 87,20 93,12 107,12 112,4 118,20 120,12" />
+      <polyline
+        points="0,12 14,12 19,4 25,20 31,12 45,12 50,4 56,20 62,12 76,12 81,4 87,20 93,12 107,12 112,4 118,20 120,12"
+      />
     </svg>
     <span>{{ label }}</span>
   </div>

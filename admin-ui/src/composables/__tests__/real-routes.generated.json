@@ -116,6 +116,21 @@
   },
   {
     "method": "get",
+    "path": "/admin-api/bundles/:name/install-links",
+    "file": "bundles.ts"
+  },
+  {
+    "method": "post",
+    "path": "/admin-api/bundles/:name/install-links",
+    "file": "bundles.ts"
+  },
+  {
+    "method": "delete",
+    "path": "/admin-api/bundles/:name/install-links/:id",
+    "file": "bundles.ts"
+  },
+  {
+    "method": "get",
     "path": "/admin-api/catalog",
     "file": "catalog.ts"
   },
@@ -623,6 +638,11 @@
     "method": "get",
     "path": "/clients/:name/tools",
     "file": "introspection.ts"
+  },
+  {
+    "method": "get",
+    "path": "/install/:token",
+    "file": "install-links.ts"
   },
   {
     "method": "get",

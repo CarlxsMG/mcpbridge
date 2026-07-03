@@ -87,7 +87,9 @@ const allDone = computed(() => doneCount.value === steps.value.length);
     <div class="onboarding-head">
       <div>
         <h2>Get started</h2>
-        <p class="subtitle">{{ allDone ? "All steps complete — nice work." : `${doneCount} of ${steps.length} done` }}</p>
+        <p class="subtitle">
+          {{ allDone ? "All steps complete — nice work." : `${doneCount} of ${steps.length} done` }}
+        </p>
       </div>
       <button type="button" class="link-btn" @click="dismiss">Dismiss</button>
     </div>

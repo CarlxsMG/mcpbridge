@@ -16,3 +16,8 @@ test-results
 coverage
 **/coverage
 *.tsbuildinfo
+# Helm templates are Go-template syntax wrapped in YAML (e.g. `{{- include
+# ... | nindent 4 }}` at arbitrary indentation) — not valid standalone YAML,
+# so prettier's yaml parser cannot parse them. Chart.yaml/values.yaml are
+# plain YAML and stay covered by prettier.
+helm/**/templates

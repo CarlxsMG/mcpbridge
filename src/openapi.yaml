@@ -1381,10 +1381,7 @@ paths:
         "200":
           description: The configured public URL, or null if unset.
           content:
-            {
-              application/json:
-                { schema: { type: object, properties: { publicUrl: { type: ["string", "null"] } } } },
-            }
+            { application/json: { schema: { type: object, properties: { publicUrl: { type: ["string", "null"] } } } } }
 
   # ---------------------------------------------------------------------------
   # Admin — client/tool management
@@ -5301,7 +5298,8 @@ components:
         sessionId:
           {
             type: [string, "null"],
-            description: The calling MCP transport session id (mcp-session-id), if the call happened over a live session.,
+            description: The calling MCP transport session id (mcp-session-id),
+            if the call happened over a live session.,
           }
         startMs: { type: integer }
         endMs: { type: integer }

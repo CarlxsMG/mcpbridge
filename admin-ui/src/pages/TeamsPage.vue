@@ -80,7 +80,10 @@ async function confirmRemove() {
 
     <div v-if="!loading && teams.length === 0" class="empty-state">
       <UsersRound :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No teams yet. A team groups servers under shared ownership, so operator-role admins only see and manage what's assigned to their team.</p>
+      <p>
+        No teams yet. A team groups servers under shared ownership, so operator-role admins only see and manage what's
+        assigned to their team.
+      </p>
     </div>
 
     <div v-else-if="!loading" class="table-card table-scroll">

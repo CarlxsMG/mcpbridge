@@ -210,7 +210,10 @@ async function confirmDelete() {
     <template v-else-if="items.length === 0">
       <div class="empty-state">
         <LayoutGrid :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>No catalog entries yet. The catalog lists one-click installable servers -- built-in or admin-added -- so registering a new backend doesn't start from a blank form.</p>
+        <p>
+          No catalog entries yet. The catalog lists one-click installable servers -- built-in or admin-added -- so
+          registering a new backend doesn't start from a blank form.
+        </p>
       </div>
     </template>
 

@@ -159,6 +159,13 @@ const EXCLUDED_ROUTES = new Set<string>([
   // Legacy discovery-schema endpoint, superseded by
   // /admin-api/discovery/preview(-graphql); not called by admin-ui.
   "GET /register/schema",
+  // Public, unauthenticated "install this bundle" landing endpoint
+  // (src/routes/install-links.ts). ShareInstallLinkDialog.vue only ever
+  // builds this URL as a string (`${base}/install/${token}`) to display/copy
+  // for an external recipient to open directly against a *real* deployed
+  // gateway — the admin-ui SPA itself never fetches it, so the demo (a
+  // static SPA with no real backend behind it) has nothing to stand in for.
+  "GET /install/:token",
 ]);
 
 describe("demo.ts vs real backend route coverage", () => {
@@ -177,18 +184,14 @@ describe("demo.ts vs real backend route coverage", () => {
 
     if (missing.length > 0) {
       const list = missing.map((r) => `  - ${r.method.toUpperCase()} ${r.path}  (src/routes/${r.file})`).join("\n");
-      // Known-red at time of writing (see admin-ui task that added this
-      // test): AccountPage.vue's password-change and session-management
-      // calls have no demo.ts mock, so the public demo silently breaks on
-      // that page (GET /admin-api/auth/sessions falls through to the
-      // generic `{ items: [] }` default, but AccountPage reads `.sessions`
-      // off the response — that comes back `undefined`). Left failing on
-      // purpose rather than warn-only: the gap list is short (3 routes) and
-      // actionable, and demo-vs-real drift on an auth-adjacent page is worth
-      // a loud regression signal. Not wired into scripts/check-all.ts or
+      // AccountPage.vue's password-change and session-management calls (the
+      // original known-red gap this test was written against) now have
+      // demo.ts mocks. Left failing (not warn-only) so any *future* drift —
+      // a new admin-api route the demo never learned to fake — is a loud
+      // regression signal. Not wired into scripts/check-all.ts or
       // .github/workflows/ci.yml (neither currently runs admin-ui's vitest
-      // suite at all), so this red test does not block the aggregate CI
-      // gate — it surfaces on `bun run test` in admin-ui/.
+      // suite at all), so a red run here does not block the aggregate CI
+      // gate — it only surfaces on `bun run test` in admin-ui/.
       expect.fail(`${missing.length} real admin-api route(s) have no demo.ts mock:\n${list}`);
     }
   });

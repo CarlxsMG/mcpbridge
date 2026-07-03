@@ -161,7 +161,9 @@ describe("schema-drift changelog annotation", () => {
       .run(CLIENT, "get-x");
     ok200();
     await runSyntheticChecks(min(3_000_000));
-    expect(advertised()?.description).toBe(`[schema drift ${min(3_000_000).toISOString().slice(0, 10)}: input schema changed since last check] ${getTool.description}`);
+    expect(advertised()?.description).toBe(
+      `[schema drift ${min(3_000_000).toISOString().slice(0, 10)}: input schema changed since last check] ${getTool.description}`,
+    );
 
     const liveHash = schemaHash(registry.resolveTool(`${CLIENT}__get-x`)!.tool.inputSchema);
     getDb()

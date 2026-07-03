@@ -59,7 +59,9 @@ export async function connectCommand(argv: string[]): Promise<number> {
       }
     } catch (err) {
       if (err instanceof CliApiError && err.status === 404) {
-        console.error(`Client "${name}" was not found on ${gatewayUrl} — check the name in the admin UI's Servers page.`);
+        console.error(
+          `Client "${name}" was not found on ${gatewayUrl} — check the name in the admin UI's Servers page.`,
+        );
         return 1;
       }
       throw err;
@@ -74,7 +76,9 @@ export async function connectCommand(argv: string[]): Promise<number> {
       }
     } catch (err) {
       if (err instanceof CliApiError && err.status === 404) {
-        console.error(`Bundle "${name}" was not found on ${gatewayUrl} — check the name in the admin UI's Bundles page.`);
+        console.error(
+          `Bundle "${name}" was not found on ${gatewayUrl} — check the name in the admin UI's Bundles page.`,
+        );
         return 1;
       }
       throw err;

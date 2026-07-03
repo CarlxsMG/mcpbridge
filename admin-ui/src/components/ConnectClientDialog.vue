@@ -86,7 +86,11 @@ watch(
 );
 
 const targetOptions = computed(() =>
-  scope.value === "client" ? clients.value.map((c) => c.name) : scope.value === "bundle" ? bundles.value.map((b) => b.name) : [],
+  scope.value === "client"
+    ? clients.value.map((c) => c.name)
+    : scope.value === "bundle"
+      ? bundles.value.map((b) => b.name)
+      : [],
 );
 
 // Snippets never carry a real key — always a clearly-marked placeholder the
@@ -188,7 +192,8 @@ function trapFocus(e: KeyboardEvent) {
       </p>
       <p v-else-if="keyCount !== null" class="key-hint">
         You have {{ keyCount }} active MCP API key{{ keyCount === 1 ? "" : "s" }} — paste one in place of
-        <code>{{ API_KEY_PLACEHOLDER }}</code> below. Manage them under <RouterLink to="/keys" @click="emit('close')">API keys</RouterLink>.
+        <code>{{ API_KEY_PLACEHOLDER }}</code> below. Manage them under
+        <RouterLink to="/keys" @click="emit('close')">API keys</RouterLink>.
       </p>
 
       <template v-if="result">

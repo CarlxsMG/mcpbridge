@@ -259,7 +259,10 @@ async function confirmImport() {
           </tbody>
         </table>
       </div>
-      <p v-else-if="!snapshotsError" class="hint">No snapshots yet. A snapshot captures the full config -- bundles, guardrails, consumers, and more -- so you can compare or roll back later.</p>
+      <p v-else-if="!snapshotsError" class="hint">
+        No snapshots yet. A snapshot captures the full config -- bundles, guardrails, consumers, and more -- so you can
+        compare or roll back later.
+      </p>
 
       <div v-if="diff" class="diff">
         <h3>Diff: #{{ diff.from.id }} “{{ diff.from.label }}” → {{ diff.to }}</h3>
