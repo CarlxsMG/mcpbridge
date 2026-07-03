@@ -35,9 +35,40 @@ tags:
       configure per-tool/per-client guards, manage admin users, and inspect
       the audit log. Every endpoint accepts either a Bearer admin API key or
       an authenticated admin-UI session (see AdminAuth/SessionAuth).
+  - name: Bundles
+    description: Admin-curated cross-client tool bundles, each served on its own MCP endpoint at /mcp-custom/{bundleName}.
+  - name: Composites
+    description: Admin-authored composite ("macro") tools that chain several existing tool calls into one, served on the aggregated /mcp endpoint.
+  - name: MCP Keys
+    description: Managed MCP API keys — scoped, revocable, optionally consumer-attributed credentials for calling /mcp* endpoints (distinct from the static MCP_API_KEYS env var).
+  - name: Consumers
+    description: Named upstream API consumers with monthly call quotas and per-end-user rate limits, attributable via an MCP key's consumerId.
+  - name: Policies
+    description: Reusable rate-limit/timeout guard policies that can be bulk-applied to a set of tools or an entire bundle.
+  - name: Teams
+    description: Multi-tenancy — teams own clients, and admin users may be scoped to a team. Team CRUD and assignment require a super-admin (an admin-role session with no team).
+  - name: Traces
+    description: SQLite-persisted span waterfalls for the admin-UI trace viewer (opt-in via TRACE_STORAGE).
+  - name: Config
+    description: Config export/import as a portable document, plus versioned snapshots with diff and rollback.
+  - name: Approvals
+    description: Human-in-the-loop approval queue for tools flagged as requiring approval.
+  - name: WS Proxy
+    description: Admin CRUD for live, bidirectional WebSocket proxy targets (distinct from the per-tool tool_ws backend).
+  - name: Catalog
+    description: A curated marketplace of installable REST/MCP servers (builtin + admin-authored custom entries) with one-click install.
+  - name: Tags
+    description: Admin-assigned organizational tags on tools, for filtering/grouping in the admin UI.
+  - name: Alerts
+    description: Webhook alert rules fired on operational events (circuit breaker open, error rate, usage spikes, schema drift, etc.).
+  - name: Schedules
+    description: Cron-driven maintenance schedules that enable/disable a client or tool on a recurring basis.
+  - name: Usage
+    description: Read-only usage analytics — summary stats, timeseries, top tools, and per-key breakdowns.
+  - name: Traffic
+    description: Per-call traffic capture (opt-in via TRAFFIC_CAPTURE) for the admin traffic explorer, with one-click replay.
 
 paths:
-
   # ---------------------------------------------------------------------------
   # POST /register
   # ---------------------------------------------------------------------------
@@ -46,15 +77,15 @@ paths:
       operationId: registerClient
       summary: Register a REST service and its tools
       description: >
-        Called by a REST service on startup. The service provides a client
-        identifier, a list of tool definitions (each mapping an MCP tool name
-        to an HTTP method + path), and a health-check URL. The bridge
-        immediately stores the registration and starts health-polling the
-        service. If a client with the same name was already registered its
-        entry is replaced. Supports two registration modes: **manual** (provide
-        a `tools` array) or **auto-discovery** (provide an `openapi_url` and
-        the bridge will fetch the spec and extract tools automatically). The
-        two modes are mutually exclusive.
+        Called by a REST service (or by POST /admin-api/catalog/{id}/install)
+        on startup. The bridge immediately stores the registration and starts
+        health-polling the service. If a client with the same name was
+        already registered its entry is replaced. Supports four mutually
+        exclusive registration modes, selected by which fields are present
+        (see RegistrationPayload): REST **manual** (`tools` array), REST
+        **openapi** auto-discovery (`openapi_url`), **graphql**
+        auto-discovery (`graphql_url` or `kind: graphql`), and **mcp**
+        upstream proxying (`mcp_url` or `kind: mcp`).
       tags:
         - Registration
       security:
@@ -65,7 +96,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegistrationPayload'
+              $ref: "#/components/schemas/RegistrationPayload"
             examples:
               manual_registration:
                 summary: Manual tool registration
@@ -95,8 +126,22 @@ paths:
                     - public
                   exclude_operations:
                     - healthz
+              graphql_discovery:
+                summary: Auto-discovery from a GraphQL endpoint
+                value:
+                  name: catalog_service
+                  kind: graphql
+                  graphql_url: https://catalog.internal/graphql
+                  include_mutations: false
+              mcp_upstream:
+                summary: Proxy an upstream MCP server
+                value:
+                  name: search_mcp
+                  kind: mcp
+                  mcp_url: http://upstream-mcp.internal:9000/mcp
+                  mcp_transport: streamable-http
       responses:
-        '200':
+        "200":
           description: Client successfully registered.
           content:
             application/json:
@@ -123,17 +168,28 @@ paths:
                     example: 2
                   source:
                     type: string
-                    description: How tools were registered — "manual" if provided directly, "openapi" if discovered from spec.
+                    description: Which registration mode was used.
                     enum:
                       - manual
                       - openapi
+                      - mcp
+                      - graphql
                     example: manual
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                    description: >
+                      Non-fatal advisories. Currently only emitted by GraphQL
+                      mode when health_url was omitted (defaults to
+                      graphql_url, which some GraphQL servers reject on a
+                      bare health-check GET).
               example:
                 status: registered
                 name: customer_service
                 tools_count: 2
                 source: manual
-        '400':
+        "400":
           description: >
             Validation failed. The request body is missing required fields or
             contains values that fail schema checks (e.g. an unrecognised HTTP
@@ -141,7 +197,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: "#/components/schemas/ApiError"
               examples:
                 missing_fields:
                   summary: Required top-level field missing
@@ -162,32 +218,32 @@ paths:
                     error:
                       code: DISCOVERY_ERROR
                       message: "Failed to fetch OpenAPI spec from http://127.0.0.1:4000/docs/openapi.json: 404"
-        '401':
+        "401":
           description: Missing Authorization header.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: "#/components/schemas/ApiError"
               example:
                 error:
                   code: UNAUTHORIZED
                   message: Missing Authorization header
-        '403':
+        "403":
           description: Invalid API key.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: "#/components/schemas/ApiError"
               example:
                 error:
                   code: FORBIDDEN
                   message: Invalid API key
-        '429':
+        "429":
           description: Rate limit exceeded.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: "#/components/schemas/ApiError"
               example:
                 error:
                   code: RATE_LIMITED
@@ -212,7 +268,7 @@ paths:
       security:
         - AdminAuth: []
       responses:
-        '200':
+        "200":
           description: Array of registered client summaries.
           content:
             application/json:
@@ -226,7 +282,7 @@ paths:
                     type: array
                     description: All clients currently known to the bridge.
                     items:
-                      $ref: '#/components/schemas/RegisteredClient'
+                      $ref: "#/components/schemas/RegisteredClient"
               example:
                 clients:
                   - name: customer_service
@@ -239,22 +295,22 @@ paths:
                     status: unreachable
                     tools_count: 1
                     health_url: http://192.168.1.42:5000/health
-        '401':
+        "401":
           description: Missing Authorization header.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: "#/components/schemas/ApiError"
               example:
                 error:
                   code: UNAUTHORIZED
                   message: Missing Authorization header
-        '403':
+        "403":
           description: Invalid API key.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: "#/components/schemas/ApiError"
               example:
                 error:
                   code: FORBIDDEN
@@ -286,7 +342,7 @@ paths:
             type: string
             example: customer_service
       responses:
-        '200':
+        "200":
           description: Full tool definitions for the requested client.
           content:
             application/json:
@@ -300,7 +356,7 @@ paths:
                     type: array
                     description: All tool definitions registered by this client.
                     items:
-                      $ref: '#/components/schemas/RestToolDefinition'
+                      $ref: "#/components/schemas/RestToolDefinition"
               example:
                 tools:
                   - name: get_customer
@@ -315,32 +371,91 @@ paths:
                           description: The unique customer identifier.
                       required:
                         - id
-        '401':
+        "401":
           description: Missing Authorization header.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: "#/components/schemas/ApiError"
               example:
                 error:
                   code: UNAUTHORIZED
                   message: Missing Authorization header
-        '403':
+        "403":
           description: Invalid API key.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: "#/components/schemas/ApiError"
               example:
                 error:
                   code: FORBIDDEN
                   message: Invalid API key
-        '404':
+        "404":
           description: No client with the given name is currently registered.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: CLIENT_NOT_FOUND
+                  message: Client not found
+
+  # ---------------------------------------------------------------------------
+  # DELETE /clients/:name
+  # ---------------------------------------------------------------------------
+  /clients/{name}:
+    delete:
+      operationId: unregisterClient
+      summary: Unregister a client
+      description: >
+        Removes a client from the live in-memory registry — aborts any
+        in-flight health polling, tears down its circuit breaker, removes its
+        tools from the tool index, and notifies connected MCP sessions that
+        the tool list changed. This is a live/introspection-scope operation
+        (mirrors GET /clients): it does not touch the SQL-backed admin state
+        used by GET /admin-api/clients, so a client removed here can simply
+        re-register itself to come back.
+      tags:
+        - Registration
+      security:
+        - AdminAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            example: customer_service
+      responses:
+        "200":
+          description: Client unregistered.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: unregistered }
+                  name: { type: string, example: customer_service }
+        "401":
+          description: Missing Authorization header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No client with the given name is currently registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
               example:
                 error:
                   code: CLIENT_NOT_FOUND
@@ -361,14 +476,14 @@ paths:
       tags:
         - Schema
       responses:
-        '200':
+        "200":
           description: >
             The JSON Schema object that describes a RegistrationPayload. The
             response body IS the schema — it is not wrapped in an envelope.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegistrationPayload'
+                $ref: "#/components/schemas/RegistrationPayload"
               example:
                 type: object
                 required:
@@ -384,7 +499,7 @@ paths:
                     type: array
                     description: One or more tool definitions exposed by this client.
                     items:
-                      $ref: '#/components/schemas/RestToolDefinition'
+                      $ref: "#/components/schemas/RestToolDefinition"
                   health_url:
                     type: string
                     description: >
@@ -414,50 +529,50 @@ paths:
         - McpAuth: []
       x-internal: true
       parameters:
-        - $ref: '#/components/parameters/McpSessionId'
+        - $ref: "#/components/parameters/McpSessionId"
       requestBody:
         required: true
         description: A JSON-RPC 2.0 request, notification, or batch array.
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JsonRpcMessage'
+              $ref: "#/components/schemas/JsonRpcMessage"
             example:
               jsonrpc: "2.0"
               id: 1
               method: tools/list
               params: {}
       responses:
-        '200':
+        "200":
           description: JSON-RPC 2.0 response from the MCP server or proxied tool result.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcMessage'
-        '403':
+                $ref: "#/components/schemas/JsonRpcMessage"
+        "403":
           description: Origin not allowed or invalid API key.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
-        '404':
+                $ref: "#/components/schemas/JsonRpcError"
+        "404":
           description: The supplied `mcp-session-id` does not match any active session.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
+                $ref: "#/components/schemas/JsonRpcError"
               example:
                 jsonrpc: "2.0"
                 error:
                   code: -32000
                   message: Session not found or expired
                 id: null
-        '503':
+        "503":
           description: Server at capacity (maximum sessions reached).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
+                $ref: "#/components/schemas/JsonRpcError"
               example:
                 jsonrpc: "2.0"
                 error:
@@ -484,9 +599,9 @@ paths:
         - McpAuth: []
       x-internal: true
       parameters:
-        - $ref: '#/components/parameters/McpSessionId'
+        - $ref: "#/components/parameters/McpSessionId"
       responses:
-        '200':
+        "200":
           description: SSE stream — connection kept open; events arrive as `data:` lines.
           content:
             text/event-stream:
@@ -495,18 +610,18 @@ paths:
                 description: >
                   Newline-delimited Server-Sent Events. Each event carries a
                   JSON-RPC 2.0 notification as its `data` field.
-        '403':
+        "403":
           description: Origin not allowed or invalid API key.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
-        '404':
+                $ref: "#/components/schemas/JsonRpcError"
+        "404":
           description: The supplied `mcp-session-id` does not match any active session.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
+                $ref: "#/components/schemas/JsonRpcError"
 
     # -------------------------------------------------------------------------
     # DELETE /mcp
@@ -525,22 +640,289 @@ paths:
         - McpAuth: []
       x-internal: true
       parameters:
-        - $ref: '#/components/parameters/McpSessionId'
+        - $ref: "#/components/parameters/McpSessionId"
       responses:
-        '200':
+        "200":
           description: Session successfully closed.
-        '403':
+        "403":
           description: Origin not allowed or invalid API key.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
-        '404':
+                $ref: "#/components/schemas/JsonRpcError"
+        "404":
           description: The supplied `mcp-session-id` does not match any active session.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
+                $ref: "#/components/schemas/JsonRpcError"
+
+  # ---------------------------------------------------------------------------
+  # Sharded Streamable HTTP transport — one endpoint per registered client.
+  # Always mounted (not gated by ENABLE_AGGREGATED_MCP). Recommended at scale:
+  # keeps each session's tool list bounded to a single client instead of every
+  # registered client's tools flattened together on /mcp.
+  # ---------------------------------------------------------------------------
+  /mcp/{clientName}:
+    post:
+      operationId: mcpShardedPost
+      summary: Sharded Streamable HTTP transport — initiate or resume a session scoped to one client
+      description: >
+        Identical semantics to POST /mcp, except the resulting MCP session is
+        scoped to a single registered client — only that client's tools are
+        advertised via tools/list, and a session created here can't be reused
+        against a different client's endpoint (the session is bound to this
+        `clientName` at creation time; a mismatched `mcp-session-id` on a
+        later request returns 404, same as an unknown session).
+      tags:
+        - MCP Transport
+      security:
+        - McpAuth: []
+      x-internal: true
+      parameters:
+        - name: clientName
+          in: path
+          required: true
+          description: The registered client name this MCP session is scoped to.
+          schema:
+            type: string
+            example: customer_service
+        - $ref: "#/components/parameters/McpSessionId"
+      requestBody:
+        required: true
+        description: A JSON-RPC 2.0 request, notification, or batch array.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonRpcMessage"
+      responses:
+        "200":
+          description: JSON-RPC 2.0 response from the MCP server or proxied tool result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcMessage"
+        "403":
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+        "404":
+          description: Unknown client name, or the supplied `mcp-session-id` does not belong to this client's scope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+        "503":
+          description: Server at capacity (maximum sessions reached).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+
+    get:
+      operationId: mcpShardedGet
+      summary: Sharded Streamable HTTP transport — open SSE stream for an existing client-scoped session
+      description: Same as GET /mcp, scoped to the session created against this `clientName`.
+      tags:
+        - MCP Transport
+      security:
+        - McpAuth: []
+      x-internal: true
+      parameters:
+        - name: clientName
+          in: path
+          required: true
+          schema:
+            type: string
+            example: customer_service
+        - $ref: "#/components/parameters/McpSessionId"
+      responses:
+        "200":
+          description: SSE stream — connection kept open; events arrive as `data:` lines.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "403":
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+        "404":
+          description: Unknown client name, or the supplied `mcp-session-id` does not belong to this client's scope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+
+    delete:
+      operationId: mcpShardedDelete
+      summary: Sharded Streamable HTTP transport — close a client-scoped session
+      description: Same as DELETE /mcp, scoped to the session created against this `clientName`.
+      tags:
+        - MCP Transport
+      security:
+        - McpAuth: []
+      x-internal: true
+      parameters:
+        - name: clientName
+          in: path
+          required: true
+          schema:
+            type: string
+            example: customer_service
+        - $ref: "#/components/parameters/McpSessionId"
+      responses:
+        "200":
+          description: Session successfully closed.
+        "403":
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+        "404":
+          description: Unknown client name, or the supplied `mcp-session-id` does not belong to this client's scope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+
+  # ---------------------------------------------------------------------------
+  # Bundle Streamable HTTP transport — one endpoint per admin-curated bundle
+  # (see /admin-api/bundles). A deliberate sibling top-level path rather than
+  # nested under /mcp, so its origin/auth/rate-limit middleware chain doesn't
+  # double-run against /mcp/:clientName's. Always mounted (not gated by
+  # ENABLE_AGGREGATED_MCP).
+  # ---------------------------------------------------------------------------
+  /mcp-custom/{bundleName}:
+    post:
+      operationId: mcpBundlePost
+      summary: Bundle Streamable HTTP transport — initiate or resume a session scoped to one bundle
+      description: >
+        Identical semantics to POST /mcp, except the resulting MCP session is
+        scoped to a single admin-curated bundle — only the tools listed in
+        that bundle (which may span multiple underlying clients) are
+        advertised via tools/list.
+      tags:
+        - MCP Transport
+      security:
+        - McpAuth: []
+      x-internal: true
+      parameters:
+        - name: bundleName
+          in: path
+          required: true
+          description: The bundle name (see /admin-api/bundles) this MCP session is scoped to.
+          schema:
+            type: string
+            example: support-tools
+        - $ref: "#/components/parameters/McpSessionId"
+      requestBody:
+        required: true
+        description: A JSON-RPC 2.0 request, notification, or batch array.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonRpcMessage"
+      responses:
+        "200":
+          description: JSON-RPC 2.0 response from the MCP server or proxied tool result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcMessage"
+        "403":
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+        "404":
+          description: Unknown or disabled bundle, or the supplied `mcp-session-id` does not belong to this bundle's scope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+        "503":
+          description: Server at capacity (maximum sessions reached).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+
+    get:
+      operationId: mcpBundleGet
+      summary: Bundle Streamable HTTP transport — open SSE stream for an existing bundle-scoped session
+      description: Same as GET /mcp, scoped to the session created against this `bundleName`.
+      tags:
+        - MCP Transport
+      security:
+        - McpAuth: []
+      x-internal: true
+      parameters:
+        - name: bundleName
+          in: path
+          required: true
+          schema:
+            type: string
+            example: support-tools
+        - $ref: "#/components/parameters/McpSessionId"
+      responses:
+        "200":
+          description: SSE stream — connection kept open; events arrive as `data:` lines.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "403":
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+        "404":
+          description: Unknown or disabled bundle, or the supplied `mcp-session-id` does not belong to this bundle's scope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+
+    delete:
+      operationId: mcpBundleDelete
+      summary: Bundle Streamable HTTP transport — close a bundle-scoped session
+      description: Same as DELETE /mcp, scoped to the session created against this `bundleName`.
+      tags:
+        - MCP Transport
+      security:
+        - McpAuth: []
+      x-internal: true
+      parameters:
+        - name: bundleName
+          in: path
+          required: true
+          schema:
+            type: string
+            example: support-tools
+        - $ref: "#/components/parameters/McpSessionId"
+      responses:
+        "200":
+          description: Session successfully closed.
+        "403":
+          description: Origin not allowed or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
+        "404":
+          description: Unknown or disabled bundle, or the supplied `mcp-session-id` does not belong to this bundle's scope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcError"
 
   # ---------------------------------------------------------------------------
   # GET /sse — Legacy SSE transport
@@ -563,7 +945,7 @@ paths:
         - McpAuth: []
       x-internal: true
       responses:
-        '200':
+        "200":
           description: SSE stream — connection kept open for the lifetime of the MCP session.
           content:
             text/event-stream:
@@ -572,18 +954,18 @@ paths:
                 description: >
                   Newline-delimited Server-Sent Events carrying JSON-RPC 2.0
                   messages from the MCP server.
-        '403':
+        "403":
           description: Origin not allowed or invalid API key.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
-        '503':
+                $ref: "#/components/schemas/JsonRpcError"
+        "503":
           description: Server at capacity (maximum sessions reached).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
+                $ref: "#/components/schemas/JsonRpcError"
               example:
                 jsonrpc: "2.0"
                 error:
@@ -626,7 +1008,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JsonRpcMessage'
+              $ref: "#/components/schemas/JsonRpcMessage"
             example:
               jsonrpc: "2.0"
               id: 2
@@ -636,20 +1018,20 @@ paths:
                 arguments:
                   id: "cust_001"
       responses:
-        '200':
+        "200":
           description: Message accepted and forwarded to the MCP session.
-        '403':
+        "403":
           description: Origin not allowed or invalid API key.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
-        '404':
+                $ref: "#/components/schemas/JsonRpcError"
+        "404":
           description: The supplied `sessionId` does not correspond to an open SSE session.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsonRpcError'
+                $ref: "#/components/schemas/JsonRpcError"
               example:
                 jsonrpc: "2.0"
                 error:
@@ -663,14 +1045,67 @@ paths:
   /metrics:
     get:
       operationId: getMetrics
-      summary: Get server metrics
+      summary: Get server metrics (Prometheus exposition format)
       description: >
-        Returns current operational metrics including uptime, active sessions,
-        client health, tool call statistics, and circuit breaker states.
+        Returns current operational metrics in Prometheus text exposition
+        format (registry client/tool counts, circuit-breaker gauges, rate
+        limiter bucket sizes, tool-call counters, etc. — see
+        src/observability/metrics.ts for the full metric set). Requires
+        AdminAuth. Returns 404 when METRICS_ENABLED=false. For a JSON
+        equivalent kept for older dashboards, see GET /metrics/legacy.
       tags:
         - Introspection
+      security:
+        - AdminAuth: []
       responses:
-        '200':
+        "200":
+          description: Prometheus text exposition format snapshot.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Prometheus exposition format (`# HELP`/`# TYPE` comments followed by `metric{labels} value` lines).
+              example: |
+                # HELP mcp_bridge_registry_clients Registered clients by status
+                # TYPE mcp_bridge_registry_clients gauge
+                mcp_bridge_registry_clients{status="healthy"} 2
+                mcp_bridge_registry_clients{status="unreachable"} 1
+        "401":
+          description: Missing Authorization header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Metrics endpoint is disabled (METRICS_ENABLED=false).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  # ---------------------------------------------------------------------------
+  # GET /metrics/legacy
+  # ---------------------------------------------------------------------------
+  /metrics/legacy:
+    get:
+      operationId: getLegacyMetrics
+      summary: Get server metrics (legacy JSON format)
+      description: >
+        JSON-shaped metrics snapshot kept for backwards compatibility with
+        dashboards built against the pre-Prometheus /metrics response.
+        Independent of METRICS_ENABLED — always available. Requires AdminAuth.
+      tags:
+        - Introspection
+      security:
+        - AdminAuth: []
+      responses:
+        "200":
           description: Current server metrics.
           content:
             application/json:
@@ -721,6 +1156,18 @@ paths:
                         - closed
                         - open
                         - half_open
+        "401":
+          description: Missing Authorization header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
   # ---------------------------------------------------------------------------
   # GET /health
@@ -733,7 +1180,7 @@ paths:
       tags:
         - Introspection
       responses:
-        '200':
+        "200":
           description: Proxy is healthy.
           content:
             application/json:
@@ -768,7 +1215,7 @@ paths:
                 username: { type: string, example: admin }
                 password: { type: string, format: password, example: correct-horse-battery-staple }
       responses:
-        '200':
+        "200":
           description: Signed in. Sets Set-Cookie for both the session and CSRF cookies.
           content:
             application/json:
@@ -779,19 +1226,19 @@ paths:
                     type: object
                     properties:
                       username: { type: string, example: admin }
-                      role: { type: string, enum: [admin, viewer], example: admin }
+                      role: { type: string, enum: [admin, operator, auditor, viewer], example: admin }
                   csrf_token:
                     type: string
                     description: Same value as the (non-httpOnly) CSRF cookie, for convenience.
-        '400':
+        "400":
           description: Missing username/password.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
-        '401':
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "401":
           description: Invalid credentials.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
-        '429':
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "429":
           description: Too many login attempts from this IP.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /admin-api/auth/logout:
     post:
@@ -801,9 +1248,13 @@ paths:
       tags: [Auth]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       responses:
-        '200':
+        "200":
           description: Signed out.
-          content: { application/json: { schema: { type: object, properties: { status: { type: string, example: logged_out } } } } }
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string, example: logged_out } } } },
+            }
 
   /admin-api/auth/me:
     get:
@@ -813,7 +1264,7 @@ paths:
       tags: [Auth]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       responses:
-        '200':
+        "200":
           description: Authentication status.
           content:
             application/json:
@@ -826,10 +1277,10 @@ paths:
                     type: object
                     properties:
                       username: { type: string }
-                      role: { type: string, enum: [admin, viewer] }
-        '401':
+                      role: { type: string, enum: [admin, operator, auditor, viewer] }
+        "401":
           description: Not authenticated.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /admin-api/auth/me/password:
     patch:
@@ -852,12 +1303,16 @@ paths:
                 current_password: { type: string, format: password }
                 new_password: { type: string, format: password, minLength: 12 }
       responses:
-        '200':
+        "200":
           description: Password changed.
-          content: { application/json: { schema: { type: object, properties: { status: { type: string }, csrf_token: { type: string } } } } }
-        '401':
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string }, csrf_token: { type: string } } } },
+            }
+        "401":
           description: Current password incorrect.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /admin-api/auth/sessions:
     get:
@@ -866,7 +1321,7 @@ paths:
       tags: [Auth]
       security: [{ SessionAuth: [] }]
       responses:
-        '200':
+        "200":
           description: Active sessions for the caller.
           content:
             application/json:
@@ -897,12 +1352,16 @@ paths:
           required: true
           schema: { type: integer }
       responses:
-        '200':
+        "200":
           description: Session revoked.
-          content: { application/json: { schema: { type: object, properties: { status: { type: string, example: revoked } } } } }
-        '404':
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string, example: revoked } } } },
+            }
+        "404":
           description: No such session for this user.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   # ---------------------------------------------------------------------------
   # Admin — client/tool management
@@ -921,10 +1380,15 @@ paths:
         - { name: q, in: query, schema: { type: string }, description: Substring search on client name. }
         - { name: status, in: query, schema: { type: string, enum: [healthy, degraded, unreachable] } }
         - { name: enabled, in: query, schema: { type: boolean } }
-        - { name: cursor, in: query, schema: { type: string }, description: Opaque cursor from a previous page's nextCursor. }
+        - {
+            name: cursor,
+            in: query,
+            schema: { type: string },
+            description: Opaque cursor from a previous page's nextCursor.,
+          }
         - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 200 } }
       responses:
-        '200':
+        "200":
           description: A page of client summaries.
           content:
             application/json:
@@ -933,7 +1397,7 @@ paths:
                 properties:
                   items:
                     type: array
-                    items: { $ref: '#/components/schemas/ClientSummary' }
+                    items: { $ref: "#/components/schemas/ClientSummary" }
                   nextCursor: { type: string }
     patch:
       operationId: bulkSetClientsEnabled
@@ -951,7 +1415,7 @@ paths:
                 names: { type: array, items: { type: string } }
                 enabled: { type: boolean }
       responses:
-        '200':
+        "200":
           description: Per-name outcome (false = unknown client name, skipped).
           content:
             application/json:
@@ -969,12 +1433,12 @@ paths:
       parameters:
         - { name: name, in: path, required: true, schema: { type: string } }
       responses:
-        '200':
+        "200":
           description: Full client detail.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ClientDetail' } } }
-        '404':
+          content: { application/json: { schema: { $ref: "#/components/schemas/ClientDetail" } } }
+        "404":
           description: No such client has ever registered.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
     patch:
       operationId: updateAdminClient
       summary: Enable/disable a client and/or set its circuit-breaker guard
@@ -991,15 +1455,19 @@ paths:
                 enabled: { type: boolean }
                 guards:
                   oneOf:
-                    - $ref: '#/components/schemas/ClientGuardConfig'
+                    - $ref: "#/components/schemas/ClientGuardConfig"
                     - type: "null"
       responses:
-        '200':
+        "200":
           description: Updated.
-          content: { application/json: { schema: { type: object, properties: { status: { type: string }, name: { type: string } } } } }
-        '404':
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string }, name: { type: string } } } },
+            }
+        "404":
           description: No such client.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /admin-api/clients/{name}/tools/{tool}:
     patch:
@@ -1030,15 +1498,15 @@ paths:
                         allowedApiKeys: { type: array, items: { type: string } }
                     - type: "null"
       responses:
-        '200':
+        "200":
           description: Updated.
           content: { application/json: { schema: { type: object } } }
-        '400':
+        "400":
           description: Invalid guard shape.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
-        '404':
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
           description: No such client/tool.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /admin-api/clients/{name}/tools:
     patch:
@@ -1059,9 +1527,19 @@ paths:
                 tool_names: { type: array, items: { type: string } }
                 enabled: { type: boolean }
       responses:
-        '200':
+        "200":
           description: Per-tool outcome.
-          content: { application/json: { schema: { type: object, properties: { results: { type: object, additionalProperties: { type: boolean } } } } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { results: { type: object, additionalProperties: { type: boolean } } },
+                    },
+                },
+            }
 
   /admin-api/clients/{name}/tools/{tool}/test:
     post:
@@ -1078,12 +1556,12 @@ paths:
           application/json:
             schema: { type: object, description: Tool arguments, matching the tool's inputSchema. }
       responses:
-        '200':
+        "200":
           description: Tool-call result (may itself carry isError:true — that's the tool failing, not this endpoint).
           content: { application/json: { schema: { type: object } } }
-        '404':
+        "404":
           description: No such client/tool.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /admin-api/clients/{name}/circuit-breaker/reset:
     post:
@@ -1094,12 +1572,12 @@ paths:
       parameters:
         - { name: name, in: path, required: true, schema: { type: string } }
       responses:
-        '200':
+        "200":
           description: Reset.
           content: { application/json: { schema: { type: object } } }
-        '404':
+        "404":
           description: Client is not currently live (nothing to reset).
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   # ---------------------------------------------------------------------------
   # Admin — user management (requires the admin role, not viewer)
@@ -1111,14 +1589,14 @@ paths:
       tags: [Admin]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       responses:
-        '200':
+        "200":
           description: All admin users (password hashes never included).
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  users: { type: array, items: { $ref: '#/components/schemas/AdminUserSummary' } }
+                  users: { type: array, items: { $ref: "#/components/schemas/AdminUserSummary" } }
     post:
       operationId: createAdminUser
       summary: Create a new admin UI user
@@ -1134,14 +1612,18 @@ paths:
               properties:
                 username: { type: string }
                 password: { type: string, format: password, minLength: 12 }
-                role: { type: string, enum: [admin, viewer], default: admin }
+                role: { type: string, enum: [admin, operator, auditor, viewer], default: admin }
       responses:
-        '201':
+        "201":
           description: Created.
-          content: { application/json: { schema: { type: object, properties: { username: { type: string }, role: { type: string } } } } }
-        '409':
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { username: { type: string }, role: { type: string } } } },
+            }
+        "409":
           description: Username already taken.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /admin-api/users/{username}:
     patch:
@@ -1158,18 +1640,18 @@ paths:
             schema:
               type: object
               properties:
-                role: { type: string, enum: [admin, viewer] }
+                role: { type: string, enum: [admin, operator, auditor, viewer] }
                 is_active: { type: boolean }
       responses:
-        '200':
+        "200":
           description: Updated.
           content: { application/json: { schema: { type: object } } }
-        '404':
+        "404":
           description: No such user.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
-        '409':
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
           description: Would remove the last active admin.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
     delete:
       operationId: deleteAdminUser
       summary: Delete an admin UI user
@@ -1179,15 +1661,15 @@ paths:
       parameters:
         - { name: username, in: path, required: true, schema: { type: string } }
       responses:
-        '200':
+        "200":
           description: Deleted.
           content: { application/json: { schema: { type: object } } }
-        '404':
+        "404":
           description: No such user.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
-        '409':
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
           description: Would remove the last active admin.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   # ---------------------------------------------------------------------------
   # Admin — audit log & overview
@@ -1207,14 +1689,14 @@ paths:
         - { name: cursor, in: query, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 200 } }
       responses:
-        '200':
+        "200":
           description: A page of audit entries, newest first.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  items: { type: array, items: { $ref: '#/components/schemas/AuditLogEntry' } }
+                  items: { type: array, items: { $ref: "#/components/schemas/AuditLogEntry" } }
                   nextCursor: { type: string }
 
   /admin-api/overview:
@@ -1225,7 +1707,7 @@ paths:
       tags: [Admin]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       responses:
-        '200':
+        "200":
           description: Aggregate stats.
           content:
             application/json:
@@ -1253,11 +1735,2730 @@ paths:
                       closed: { type: integer }
                   admin_users: { type: integer }
 
+  /admin-api/audit-log/verify:
+    get:
+      operationId: verifyAuditChain
+      summary: Verify the audit log's hash chain
+      description: Each audit row stores a hash over its own fields plus the previous row's hash; this walks the whole table and reports the first row (if any) where the chain breaks — evidence of tampering or an out-of-band DB edit.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: Verification result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid: { type: boolean }
+                  checked: { type: integer, description: Number of rows verified. }
+                  brokenAt:
+                    {
+                      type: [integer, "null"],
+                      description: id of the first row whose hash doesn't match,
+                      or null if valid.,
+                    }
+
+  /admin-api/audit-log/export:
+    get:
+      operationId: exportAuditLog
+      summary: Export the full (unpaginated, filtered) audit trail
+      description: Same filters as GET /admin-api/audit-log but returns every matching row in one response — for downloading a CSV/JSON export, not for UI pagination.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: actor, in: query, schema: { type: string } }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: integer }, description: Unix ms epoch, inclusive. }
+        - { name: to, in: query, schema: { type: integer }, description: Unix ms epoch, inclusive. }
+      responses:
+        "200":
+          description: All matching audit entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/AuditLogEntry" } }
+                  count: { type: integer }
+
+  # ── Saved examples (playground) ─────────────────────────────────────────────
+
+  /admin-api/clients/{name}/tools/{tool}/examples:
+    get:
+      operationId: listToolExamples
+      summary: List saved argument examples for a tool
+      description: Powers the admin-UI "playground" — a saved set of arguments an operator can re-run against POST .../test without retyping them.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: tool, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Saved examples for this tool.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/ToolExample" } }
+        "404":
+          description: Caller's team can't access this client (tenancy-scoped 404, same shape as a truly unknown client).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    post:
+      operationId: createToolExample
+      summary: Save a new argument example for a tool
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: tool, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label: { type: string, maxLength: 100 }
+                args:
+                  { type: object, description: "Argument payload matching the tool's inputSchema, <= 16KB serialized." }
+      responses:
+        "201":
+          description: Created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ToolExample" } } }
+        "400":
+          description: label missing/too long, or args isn't an object (or exceeds 16KB).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such client/tool.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/clients/{name}/tools/{tool}/examples/{id}:
+    delete:
+      operationId: deleteToolExample
+      summary: Delete a saved example
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: tool, in: path, required: true, schema: { type: string } }
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: deleted }, id: { type: integer } } },
+                },
+            }
+        "404":
+          description: No such example.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Response cache / auto-quarantine ────────────────────────────────────────
+
+  /admin-api/clients/{name}/tools/{tool}/cache/purge:
+    post:
+      operationId: purgeToolCache
+      summary: Purge the per-tool response cache
+      description: Drops every cached entry for this tool (see the tool's `cache` guard config, set via PATCH .../tools/{tool}). Requires the admin or operator role for session callers.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: tool, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Purged.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties:
+                        { status: { type: string, example: purged }, name: { type: string }, tool: { type: string } },
+                    },
+                },
+            }
+        "404":
+          description: No such client/tool.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/clients/{name}/tools/{tool}/quarantine/clear:
+    post:
+      operationId: clearToolQuarantine
+      summary: Manually clear an auto-quarantined tool's state
+      description: Resets the consecutive-failure counter and lifts quarantine, regardless of the policy's `recoveryMode` (useful when `recoveryMode` is "manual"). Requires the admin or operator role for session callers.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: tool, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Cleared.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties:
+                        { status: { type: string, example: cleared }, name: { type: string }, tool: { type: string } },
+                    },
+                },
+            }
+        "404":
+          description: No such client/tool.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Canary / failover (secondary upstream) ──────────────────────────────────
+
+  /admin-api/clients/{name}/canary:
+    get:
+      operationId: getClientCanary
+      summary: Get a client's canary/failover configuration
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Current canary config, or null if unset.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties:
+                        { canary: { oneOf: [{ $ref: "#/components/schemas/CanaryConfig" }, { type: "null" }] } },
+                    },
+                },
+            }
+        "404":
+          description: Caller's team can't access this client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    put:
+      operationId: setClientCanary
+      summary: Configure (or clear) a secondary upstream for canary/failover traffic splitting
+      description: 'Send `{"canary": null}` to clear. Requires the admin or operator role for session callers.'
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [secondaryBaseUrl]
+                  properties:
+                    secondaryBaseUrl: { type: string, example: "http://backup.internal:4000" }
+                    mode: { type: string, enum: [canary, failover], default: canary }
+                    weight:
+                      { type: number, description: "Fraction (0-1) of traffic routed to the secondary in canary mode." }
+                    enabled: { type: boolean, default: true }
+                - type: object
+                  properties:
+                    canary: { type: "null" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string }, name: { type: string } } } },
+            }
+        "400":
+          description: secondaryBaseUrl missing, or SSRF/validation failure.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Load balancing (N-way upstream pool) ────────────────────────────────────
+
+  /admin-api/clients/{name}/lb:
+    get:
+      operationId: getClientLb
+      summary: Get a client's load-balancing configuration
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Current LB config (including upstream pool), or null if unset.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { lb: { oneOf: [{ $ref: "#/components/schemas/LbConfig" }, { type: "null" }] } },
+                    },
+                },
+            }
+        "404":
+          description: Caller's team can't access this client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    put:
+      operationId: setClientLb
+      summary: Enable/configure (or clear) N-way load balancing across the primary and any registered upstreams
+      description: 'Send `{"lb": null}` to clear. Requires the admin or operator role for session callers.'
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [strategy]
+                  properties:
+                    strategy: { type: string, enum: [round_robin, weighted, random] }
+                    primaryWeight: { type: number, default: 1 }
+                    enabled: { type: boolean, default: true }
+                - type: object
+                  properties:
+                    lb: { type: "null" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string }, name: { type: string } } } },
+            }
+        "400":
+          description: Invalid strategy.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/clients/{name}/lb/upstreams:
+    post:
+      operationId: addLbUpstream
+      summary: Add an upstream to a client's load-balancing pool
+      description: The upstream's URL is SSRF-validated and IP-pinned, same posture as registration. Requires the admin or operator role for session callers.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [baseUrl]
+              properties:
+                baseUrl: { type: string, example: "http://upstream-2.internal:4000" }
+                weight: { type: number, default: 1 }
+      responses:
+        "201":
+          description: Added.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: added }, id: { type: integer } } },
+                },
+            }
+        "400":
+          description: baseUrl missing, or SSRF/validation failure.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/clients/{name}/lb/upstreams/{id}:
+    patch:
+      operationId: updateLbUpstream
+      summary: Enable/disable or reweight one load-balancer upstream
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+                weight: { type: number }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string }, id: { type: integer } } } },
+            }
+        "400":
+          description: No such upstream target, or invalid field type.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: removeLbUpstream
+      summary: Remove an upstream from a client's load-balancing pool
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Removed.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: removed }, id: { type: integer } } },
+                },
+            }
+        "404":
+          description: No such upstream target.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Outbound OAuth2 client-credentials ───────────────────────────────────────
+
+  /admin-api/clients/{name}/oauth:
+    get:
+      operationId: getClientOauth
+      summary: Get a client's outbound OAuth2 client-credentials configuration
+      description: The client secret is never returned in cleartext once set (see OAuthConfigInfo).
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Current OAuth config, or null if unset.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties:
+                        { oauth: { oneOf: [{ $ref: "#/components/schemas/OAuthConfigInfo" }, { type: "null" }] } },
+                    },
+                },
+            }
+        "404":
+          description: Caller's team can't access this client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    put:
+      operationId: setClientOauth
+      summary: Configure (or clear) outbound OAuth2 client-credentials for a client's upstream calls
+      description: 'The bridge fetches and caches an access token from `tokenUrl` using client-credentials grant, then attaches it to every proxied call. Send `{"oauth": null}` to clear. Requires the admin or operator role for session callers.'
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [tokenUrl, clientId, clientSecret]
+                  properties:
+                    tokenUrl: { type: string, example: "https://auth.example.com/oauth/token" }
+                    clientId: { type: string }
+                    clientSecret: { type: string, format: password }
+                    scope: { type: string }
+                - type: object
+                  properties:
+                    oauth: { type: "null" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string }, name: { type: string } } } },
+            }
+        "400":
+          description: tokenUrl/clientId/clientSecret missing.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Upstream auth (inbound credentials the bridge presents to the backend) ──
+
+  /admin-api/clients/{name}/upstream-auth:
+    get:
+      operationId: getClientUpstreamAuth
+      summary: Get a client's upstream auth configuration (metadata only, never the secret)
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Upstream auth info.
+          content: { application/json: { schema: { $ref: "#/components/schemas/UpstreamAuthInfo" } } }
+        "404":
+          description: No such client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    put:
+      operationId: setClientUpstreamAuth
+      summary: Configure the credential the bridge presents to this client's backend on every proxied call
+      description: >
+        Encrypted at rest via the app's secret box (SECRET_ENCRYPTION_KEY) —
+        returns 501 SECRET_BOX_NOT_CONFIGURED if that env var isn't set.
+        `bearer`/`basic`/`header` are mutually exclusive shapes selected by
+        `type`; a `header`-type headerName may not be Host, Content-Length, or
+        Content-Type (would break SSRF pinning or body framing). Requires the
+        admin role for session callers.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [type, token]
+                  properties: { type: { type: string, enum: [bearer] }, token: { type: string } }
+                - type: object
+                  required: [type, username, password]
+                  properties:
+                    {
+                      type: { type: string, enum: [basic] },
+                      username: { type: string },
+                      password: { type: string, format: password },
+                    }
+                - type: object
+                  required: [type, headerName, value]
+                  properties:
+                    { type: { type: string, enum: [header] }, headerName: { type: string }, value: { type: string } }
+      responses:
+        "200":
+          description: Updated.
+          content: { application/json: { schema: { $ref: "#/components/schemas/UpstreamAuthInfo" } } }
+        "400":
+          description: Invalid/missing fields for the given type.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "501":
+          description: SECRET_ENCRYPTION_KEY is not configured — upstream credentials can't be encrypted at rest.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: clearClientUpstreamAuth
+      summary: Clear a client's upstream auth configuration
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Cleared.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { status: { type: string, example: cleared }, name: { type: string } },
+                    },
+                },
+            }
+        "404":
+          description: No upstream auth was configured for this client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── OpenAPI/GraphQL discovery preview (no persistence) ──────────────────────
+
+  /admin-api/discovery/preview:
+    post:
+      operationId: previewOpenApiDiscovery
+      summary: Preview tools that OpenAPI auto-discovery would register, without persisting anything
+      description: Runs the same SSRF-validated discovery pipeline as POST /register's openapi_url mode. Powers the admin-UI "Add server" wizard and re-sync diff. Requires the admin role for session callers.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [openapi_url]
+              properties:
+                openapi_url: { type: string, example: "https://api.example.com/openapi.json" }
+                include_tags: { type: array, items: { type: string } }
+                exclude_operations: { type: array, items: { type: string } }
+      responses:
+        "200":
+          description: Discovered tools (preview only — nothing is registered).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+                  tools:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        method: { type: string }
+                        endpoint: { type: string }
+                        description: { type: string }
+        "400":
+          description: openapi_url missing/not absolute http(s), SSRF validation failed, or discovery/parsing failed.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/discovery/preview-graphql:
+    post:
+      operationId: previewGraphqlDiscovery
+      summary: Preview tools that GraphQL introspection would register, without persisting anything
+      description: Runs GraphQL introspection and returns one discovered tool per query/mutation field. Safe to run repeatedly (introspection alone can't mutate server state). Requires the admin role for session callers.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [graphql_url]
+              properties:
+                graphql_url: { type: string, example: "https://api.example.com/graphql" }
+                include_mutations: { type: boolean, default: true }
+      responses:
+        "200":
+          description: Discovered tools (preview only — nothing is registered).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+                  tools:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        method: { type: string, example: POST }
+                        endpoint: { type: string }
+                        description: { type: string }
+        "400":
+          description: graphql_url missing/not absolute http(s), SSRF validation failed, or introspection failed.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Synthetic monitors (read-only list; mutation is via the tool's `monitor` guard) ──
+
+  /admin-api/monitors:
+    get:
+      operationId: listMonitors
+      summary: List all configured synthetic monitors
+      description: A monitor periodically re-runs a saved example against a tool on a schedule and alerts on failure; configured per-tool via the `monitor` field of PATCH .../tools/{tool}.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All monitors.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        clientName: { type: string }
+                        toolName: { type: string }
+                        exampleId: { type: integer }
+                        intervalMinutes: { type: integer }
+                        enabled: { type: boolean }
+                        lastRunAt: { type: [integer, "null"] }
+                        lastStatus: { type: [string, "null"], enum: [ok, failed, null] }
+
+  # ── Traffic explorer + replay ────────────────────────────────────────────────
+
+  /admin-api/traffic:
+    get:
+      operationId: listTraffic
+      summary: List captured tool-call traffic
+      description: Opt-in via TRAFFIC_CAPTURE — empty when disabled. Time-bounded by TRAFFIC_RETENTION_MS.
+      tags: [Traffic]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: client, in: query, schema: { type: string } }
+        - { name: tool, in: query, schema: { type: string } }
+        - { name: errors, in: query, schema: { type: boolean }, description: When true, only error results. }
+        - {
+            name: cursor,
+            in: query,
+            schema: { type: string },
+            description: Opaque nextCursor from a previous page (keyset,
+            by id).,
+          }
+        - { name: limit, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Matching traffic records, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/TrafficRecord" } }
+                  nextCursor:
+                    { type: string, description: Present when more rows exist; pass back as the cursor param. }
+
+  /admin-api/traffic/{id}:
+    get:
+      operationId: getTrafficRecord
+      summary: Get one captured traffic record
+      tags: [Traffic]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: The record.
+          content: { application/json: { schema: { $ref: "#/components/schemas/TrafficRecord" } } }
+        "404":
+          description: No such traffic record.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/traffic/{id}/replay:
+    post:
+      operationId: replayTraffic
+      summary: Re-invoke a captured tool call with its original arguments
+      description: Goes through the exact same proxyToolCall() path a live MCP tools/call would — guards, retries, circuit breaker, and all. Requires the admin or operator role for session callers.
+      tags: [Traffic]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Tool-call result (may itself carry isError:true).
+          content: { application/json: { schema: { type: object } } }
+        "404":
+          description: No such traffic record, or (tenancy-scoped) caller's team can't access the record's client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Approvals (human-in-the-loop queue) ──────────────────────────────────────
+
+  /admin-api/approvals:
+    get:
+      operationId: listApprovals
+      summary: List approval tickets
+      tags: [Approvals]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - {
+            name: status,
+            in: query,
+            schema: { type: string, enum: [pending, approved, rejected] },
+            description: Omit for all statuses.,
+          }
+      responses:
+        "200":
+          description: Matching approval tickets.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/ApprovalRecord" } }
+
+  /admin-api/approvals/{id}/approve:
+    post:
+      operationId: approveApproval
+      summary: Approve a pending approval ticket
+      description: >
+        Records this caller's decision. If the tool's `requiredLevels` needs
+        more than one distinct approver, the ticket stays "pending" until
+        enough approvals accumulate — the response's `approvalsReceived` vs
+        `requiredLevels` shows progress. Requires the admin or operator role
+        for session callers.
+      tags: [Approvals]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string }
+      responses:
+        "200":
+          description: Decision recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [pending, approved] }
+                  id: { type: integer }
+                  approvalsReceived: { type: integer }
+                  requiredLevels: { type: integer }
+        "404":
+          description: No such approval ticket, or (tenancy-scoped) caller's team can't access the ticket's client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: Ticket is no longer pending (already decided).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/approvals/{id}/reject:
+    post:
+      operationId: rejectApproval
+      summary: Reject a pending approval ticket
+      description: A single reject is always terminal — unlike approve, it doesn't wait for N-of-M. Requires the admin or operator role for session callers.
+      tags: [Approvals]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string }
+      responses:
+        "200":
+          description: Rejected.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { status: { type: string, example: rejected }, id: { type: integer } },
+                    },
+                },
+            }
+        "404":
+          description: No such approval ticket, or (tenancy-scoped) caller's team can't access the ticket's client.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: Ticket is no longer pending.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Bundles ───────────────────────────────────────────────────────────────
+
+  /admin-api/bundles:
+    get:
+      operationId: listBundles
+      summary: List admin-curated tool bundles
+      tags: [Bundles]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All bundles.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/BundleSummary" } } },
+                    },
+                },
+            }
+    post:
+      operationId: createBundle
+      summary: Create a new bundle
+      description: A bundle is served on its own MCP endpoint at /mcp-custom/{name} once created. Requires the admin role for session callers.
+      tags: [Bundles]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{0,62}$" }
+                description: { type: string }
+                tools:
+                  {
+                    type: array,
+                    items: { $ref: "#/components/schemas/BundleToolRef" },
+                    description: "Each entry {client, tool} must reference an existing, resolvable tool.",
+                  }
+      responses:
+        "201":
+          description: Created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/BundleDetail" } } }
+        "400":
+          description: Invalid name, tools[] shape, or a tools[] entry references an unknown client/tool.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: A bundle with that name already exists.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/bundles/{name}:
+    get:
+      operationId: getBundle
+      summary: Get full detail for one bundle
+      tags: [Bundles]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Bundle detail.
+          content: { application/json: { schema: { $ref: "#/components/schemas/BundleDetail" } } }
+        "404":
+          description: No such bundle.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    patch:
+      operationId: updateBundle
+      summary: Update a bundle's description, enabled state, and/or tool list
+      description: Requires the admin role for session callers.
+      tags: [Bundles]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description: { type: [string, "null"] }
+                enabled: { type: boolean }
+                tools: { type: array, items: { $ref: "#/components/schemas/BundleToolRef" } }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string }, name: { type: string } } } },
+            }
+        "400":
+          description: Invalid tools[] shape, or a tools[] entry references an unknown client/tool.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such bundle.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deleteBundle
+      summary: Delete a bundle
+      description: Requires the admin role for session callers.
+      tags: [Bundles]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { status: { type: string, example: deleted }, name: { type: string } },
+                    },
+                },
+            }
+        "404":
+          description: No such bundle.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/tools:
+    get:
+      operationId: listAllToolsFlat
+      summary: Flat listing of every tool across every registered client (live or not)
+      description: Purpose-built for the admin-UI bundle/composite tool picker so it doesn't need to fetch per-client.
+      tags: [Bundles]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All tools.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        client: { type: string }
+                        tool: { type: string }
+                        description: { type: string }
+                        enabled: { type: boolean }
+                        clientEnabled: { type: boolean }
+                        tags: { type: array, items: { type: string } }
+
+  # ── Composites ────────────────────────────────────────────────────────────
+
+  /admin-api/composites:
+    get:
+      operationId: listComposites
+      summary: List admin-authored composite ("macro") tools
+      tags: [Composites]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All composites.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/CompositeSummary" } } },
+                    },
+                },
+            }
+    post:
+      operationId: createComposite
+      summary: Create a new composite tool
+      description: >
+        Each step forwards to a real `client__tool` through the unchanged
+        proxyToolCall() path, so every guard/quota/guardrail applies exactly
+        as if invoked directly — a composite grants no new capability, only
+        orchestration. Composites are aggregated-`/mcp`-only (not exposed on
+        sharded or bundle endpoints) and cannot reference other composites.
+        Requires the admin role for session callers.
+      tags: [Composites]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, steps]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                inputSchema:
+                  {
+                    type: object,
+                    description: "JSON Schema for the composite's own arguments. Defaults to {type: object, properties: {}}.",
+                  }
+                steps: { type: array, minItems: 1, maxItems: 10, items: { $ref: "#/components/schemas/CompositeStep" } }
+      responses:
+        "201":
+          description: Created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/CompositeDetail" } } }
+        "400":
+          description: Invalid name/inputSchema/steps, or a step references an unknown client/tool.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: A composite with that name already exists.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/composites/{name}:
+    get:
+      operationId: getComposite
+      summary: Get full detail for one composite
+      tags: [Composites]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Composite detail.
+          content: { application/json: { schema: { $ref: "#/components/schemas/CompositeDetail" } } }
+        "404":
+          description: No such composite.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    patch:
+      operationId: updateComposite
+      summary: Update a composite's description, enabled state, input schema, and/or steps
+      description: Requires the admin role for session callers.
+      tags: [Composites]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description: { type: [string, "null"] }
+                enabled: { type: boolean }
+                inputSchema: { type: object }
+                steps: { type: array, minItems: 1, maxItems: 10, items: { $ref: "#/components/schemas/CompositeStep" } }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string }, name: { type: string } } } },
+            }
+        "400":
+          description: Invalid inputSchema/steps, or a step references an unknown client/tool.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such composite.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deleteComposite
+      summary: Delete a composite
+      description: Requires the admin role for session callers.
+      tags: [Composites]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { status: { type: string, example: deleted }, name: { type: string } },
+                    },
+                },
+            }
+        "404":
+          description: No such composite.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Tags ──────────────────────────────────────────────────────────────────
+
+  /admin-api/tags:
+    get:
+      operationId: listAllTags
+      summary: List every tag currently assigned to any tool, with counts
+      tags: [Tags]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All tags in use.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tag: { type: string }
+                        count: { type: integer }
+
+  /admin-api/tags/{tag}/tools:
+    get:
+      operationId: listToolsByTag
+      summary: List every tool carrying a given tag
+      tags: [Tags]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: tag, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Matching tools.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        client: { type: string }
+                        tool: { type: string }
+
+  /admin-api/clients/{name}/tools/{tool}/tags:
+    put:
+      operationId: setToolTags
+      summary: Replace a tool's full tag set
+      description: Each tag is normalized (lowercased/trimmed) and must match `/^[a-z0-9_-]{1,32}$/`. Requires the admin role for session callers.
+      tags: [Tags]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: tool, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tags]
+              properties:
+                tags: { type: array, items: { type: string } }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  name: { type: string }
+                  tool: { type: string }
+                  tags: { type: array, items: { type: string } }
+        "400":
+          description: tags isn't an array of strings, or one entry fails the tag pattern.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such client/tool.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── MCP Keys ──────────────────────────────────────────────────────────────
+
+  /admin-api/mcp-keys:
+    get:
+      operationId: listMcpKeys
+      summary: List managed MCP API keys
+      description: Never includes the raw key or its hash.
+      tags: [MCP Keys]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All keys.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/McpApiKeyRecord" } } },
+                    },
+                },
+            }
+    post:
+      operationId: createMcpKey
+      summary: Create a new managed MCP API key
+      description: The raw key is returned exactly once, in this response — it is never persisted or retrievable again. Requires the admin role for session callers.
+      tags: [MCP Keys]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label: { type: string, maxLength: 128 }
+                scopes:
+                  oneOf:
+                    - $ref: "#/components/schemas/McpKeyScopes"
+                    - type: "null"
+                  description: "null/omitted = unrestricted (may call any enabled tool)."
+                expiresAt: { type: [number, "null"], description: Epoch ms. }
+                consumerId: { type: [integer, "null"], description: Must reference an existing consumer. }
+                elevated: { type: boolean, default: false }
+      responses:
+        "201":
+          description: Created — includes the one-time raw key.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/McpApiKeyRecord"
+                  - type: object
+                    properties:
+                      key: { type: string, description: "The raw key. Shown once, here, only." }
+        "400":
+          description: Invalid label/scopes/expiresAt/consumerId.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/mcp-keys/{id}:
+    get:
+      operationId: getMcpKey
+      summary: Get one managed MCP API key
+      tags: [MCP Keys]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: The key record.
+          content: { application/json: { schema: { $ref: "#/components/schemas/McpApiKeyRecord" } } }
+        "404":
+          description: No such key.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    patch:
+      operationId: updateMcpKey
+      summary: Update a managed MCP API key
+      description: Requires the admin role for session callers.
+      tags: [MCP Keys]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string, maxLength: 128 }
+                enabled: { type: boolean }
+                expiresAt: { type: [number, "null"] }
+                scopes:
+                  oneOf:
+                    - $ref: "#/components/schemas/McpKeyScopes"
+                    - type: "null"
+                consumerId: { type: [integer, "null"] }
+                elevated: { type: boolean }
+      responses:
+        "200":
+          description: Updated.
+          content: { application/json: { schema: { $ref: "#/components/schemas/McpApiKeyRecord" } } }
+        "400":
+          description: Invalid field value.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such key.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deleteMcpKey
+      summary: Permanently delete a managed MCP API key
+      description: Requires the admin role for session callers.
+      tags: [MCP Keys]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: deleted }, id: { type: integer } } },
+                },
+            }
+        "404":
+          description: No such key.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/mcp-keys/{id}/revoke:
+    post:
+      operationId: revokeMcpKey
+      summary: Revoke a managed MCP API key
+      description: Sets revokedAt — the key is immediately rejected on /mcp* but the row (and its history) is kept, unlike DELETE. Requires the admin role for session callers.
+      tags: [MCP Keys]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Revoked.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: revoked }, id: { type: integer } } },
+                },
+            }
+        "404":
+          description: No such key.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: Key is already revoked.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Consumers ─────────────────────────────────────────────────────────────
+
+  /admin-api/consumers:
+    get:
+      operationId: listConsumers
+      summary: List consumers, with this-month usage
+      tags: [Consumers]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All consumers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/Consumer"
+                        - type: object
+                          properties:
+                            usedThisMonth: { type: integer }
+    post:
+      operationId: createConsumer
+      summary: Create a new consumer
+      description: A consumer groups one or more MCP keys under a shared monthly call quota and/or per-end-user rate limit. Requires the admin role for session callers.
+      tags: [Consumers]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 128 }
+                monthlyQuota: { type: [integer, "null"], description: Positive integer, or null for unlimited. }
+                endUserRateLimitPerMin: { type: [integer, "null"], description: Positive integer, or null to disable. }
+      responses:
+        "201":
+          description: Created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Consumer" } } }
+        "400":
+          description: name missing/too long, or an invalid quota/rate-limit value.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: A consumer with that name already exists.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/consumers/{id}:
+    patch:
+      operationId: updateConsumer
+      summary: Update a consumer's name, quota, and/or rate limit
+      description: Requires the admin role for session callers.
+      tags: [Consumers]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                monthlyQuota: { type: [integer, "null"] }
+                endUserRateLimitPerMin: { type: [integer, "null"] }
+      responses:
+        "200":
+          description: Updated.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Consumer" } } }
+        "400":
+          description: Invalid field value.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such consumer.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: Another consumer already has that name.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deleteConsumer
+      summary: Delete a consumer
+      description: Requires the admin role for session callers.
+      tags: [Consumers]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: deleted }, id: { type: integer } } },
+                },
+            }
+        "404":
+          description: No such consumer.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/consumers/{id}/usage:
+    get:
+      operationId: getConsumerUsage
+      summary: Get a consumer's usage against its monthly quota
+      tags: [Consumers]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Usage this calendar month.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  used: { type: integer }
+                  quota: { type: [integer, "null"] }
+        "404":
+          description: No such consumer.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Policies (reusable rate-limit/timeout guard bundles) ────────────────────
+
+  /admin-api/policies:
+    get:
+      operationId: listPolicies
+      summary: List guard policies
+      tags: [Policies]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All policies.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/GuardPolicy" } } },
+                    },
+                },
+            }
+    post:
+      operationId: createPolicy
+      summary: Create a new guard policy
+      description: Requires the admin role for session callers.
+      tags: [Policies]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 128 }
+                rateLimitPerMin: { type: [number, "null"] }
+                timeoutMs: { type: [number, "null"] }
+      responses:
+        "201":
+          description: Created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/GuardPolicy" } } }
+        "400":
+          description: name missing/too long, or an invalid rateLimitPerMin/timeoutMs.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: A policy with that name already exists.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/policies/{id}:
+    patch:
+      operationId: updatePolicy
+      summary: Update a guard policy
+      description: Editing a policy does NOT retroactively re-apply it to tools it was previously applied to — use POST .../apply again. Requires the admin role for session callers.
+      tags: [Policies]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                rateLimitPerMin: { type: [number, "null"] }
+                timeoutMs: { type: [number, "null"] }
+      responses:
+        "200":
+          description: Updated.
+          content: { application/json: { schema: { $ref: "#/components/schemas/GuardPolicy" } } }
+        "400":
+          description: Invalid field value.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such policy.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: Another policy already has that name.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deletePolicy
+      summary: Delete a guard policy
+      description: Requires the admin role for session callers.
+      tags: [Policies]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: deleted }, id: { type: integer } } },
+                },
+            }
+        "404":
+          description: No such policy.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/policies/{id}/apply:
+    post:
+      operationId: applyPolicy
+      summary: Apply a policy's rateLimitPerMin/timeoutMs to a set of tools, or every tool in a bundle
+      description: Provide either `bundle` (a bundle name) or `tools` (an explicit list) — not both. Existing per-tool key allow-lists are preserved. Requires the admin role for session callers.
+      tags: [Policies]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [bundle]
+                  properties: { bundle: { type: string } }
+                - type: object
+                  required: [tools]
+                  properties: { tools: { type: array, items: { $ref: "#/components/schemas/BundleToolRef" } } }
+      responses:
+        "200":
+          description: Application result.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApplyResult" } } }
+        "400":
+          description: Neither bundle nor tools[] provided in a valid shape.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such policy, or (when using `bundle`) no such bundle.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Teams (multi-tenancy) ─────────────────────────────────────────────────
+
+  /admin-api/teams:
+    get:
+      operationId: listTeams
+      summary: List teams
+      description: Any authenticated admin caller may read the team list (needed for assignment dropdowns), regardless of role or tenancy scope.
+      tags: [Teams]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All teams.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/Team" } } },
+                    },
+                },
+            }
+    post:
+      operationId: createTeam
+      summary: Create a new team
+      description: Requires a super-admin (an admin-role session with no team assignment). Bearer callers always pass.
+      tags: [Teams]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, pattern: "^[a-zA-Z0-9][a-zA-Z0-9 _-]{0,62}$" }
+      responses:
+        "201":
+          description: Created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Team" } } }
+        "400":
+          description: Invalid name.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "403":
+          description: Caller is not a super-admin.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: A team with that name already exists.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/teams/{id}:
+    delete:
+      operationId: deleteTeam
+      summary: Delete a team
+      description: Requires a super-admin. Clients/users owned by the team are not deleted — check how deleteTeam() reassigns them before relying on this in a scripted flow.
+      tags: [Teams]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: deleted }, id: { type: integer } } },
+                },
+            }
+        "403":
+          description: Caller is not a super-admin.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such team.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/clients/{name}/team:
+    put:
+      operationId: setClientTeam
+      summary: Assign (or clear) a client's owning team
+      description: Requires a super-admin.
+      tags: [Teams]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [teamId]
+              properties:
+                teamId:
+                  {
+                    type: [integer, "null"],
+                    description: null clears ownership (client becomes visible only to super-admins).,
+                  }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties:
+                        { status: { type: string }, name: { type: string }, teamId: { type: [integer, "null"] } },
+                    },
+                },
+            }
+        "400":
+          description: teamId missing or not a number/null.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "403":
+          description: Caller is not a super-admin.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such client or team.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/users/{username}/team:
+    put:
+      operationId: setUserTeam
+      summary: Assign (or clear) an admin user's team membership
+      description: A user with teamId null is a super-admin over tenancy — sees and mutates every team's clients, and can reassign ownership. Requires a super-admin.
+      tags: [Teams]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: username, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [teamId]
+              properties:
+                teamId: { type: [integer, "null"] }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties:
+                        { status: { type: string }, username: { type: string }, teamId: { type: [integer, "null"] } },
+                    },
+                },
+            }
+        "400":
+          description: teamId missing or not a number/null.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "403":
+          description: Caller is not a super-admin.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such user or team.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Traces ────────────────────────────────────────────────────────────────
+
+  /admin-api/traces:
+    get:
+      operationId: listTraces
+      summary: List trace summaries
+      description: Opt-in via TRACE_STORAGE — empty when disabled.
+      tags: [Traces]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: tool, in: query, schema: { type: string }, description: Filter to a single mcpToolName. }
+        - {
+            name: cursor,
+            in: query,
+            schema: { type: string },
+            description: Opaque nextCursor from a previous page (keyset,
+            by underlying span id).,
+          }
+        - { name: limit, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Matching trace summaries, newest first.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties:
+                        {
+                          items: { type: array, items: { $ref: "#/components/schemas/TraceSummary" } },
+                          nextCursor:
+                            {
+                              type: string,
+                              description: Present when more traces exist; pass back as the cursor param.,
+                            },
+                        },
+                    },
+                },
+            }
+    delete:
+      operationId: purgeAllTraces
+      summary: Purge every stored span
+      description: Requires the admin role for session callers.
+      tags: [Traces]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: Purged.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { status: { type: string, example: purged }, removed: { type: integer } },
+                    },
+                },
+            }
+
+  /admin-api/traces/{traceId}:
+    get:
+      operationId: getTrace
+      summary: Get every span in a trace (waterfall view)
+      tags: [Traces]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: traceId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The trace's spans.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  traceId: { type: string }
+                  spans: { type: array, items: { $ref: "#/components/schemas/StoredSpan" } }
+        "404":
+          description: No spans found for this trace id.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Config export/import + versioned snapshots ───────────────────────────────
+
+  /admin-api/config/export:
+    get:
+      operationId: exportConfig
+      summary: Export all admin-authored config as a portable document
+      description: Excludes decrypted upstream secrets (stay in their own encrypted table); tool key-allowlists export as SHA-256 hashes, which round-trip on import. Requires the admin role for session callers.
+      tags: [Config]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: format, in: query, schema: { type: string, enum: [json, yaml] }, description: Defaults to json. }
+      responses:
+        "200":
+          description: The export document (Content-Type is application/yaml when format=yaml, else application/json).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConfigExport" }
+            application/yaml:
+              schema: { type: string }
+
+  /admin-api/config/import:
+    post:
+      operationId: importConfig
+      summary: Import a config document, reconfiguring existing entities and re-creating bundles/alerts/consumers
+      description: >
+        Best-effort: cannot re-register a client that no longer exists (those
+        entries are skipped, listed in `skipped`). Accepts `{dryRun, data}`, a
+        bare export document, or `{format: "yaml", raw}` (YAML text travels
+        inside the JSON body). Set `dryRun: true` to preview without applying.
+        Requires the admin role for session callers.
+      tags: [Config]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    dryRun: { type: boolean }
+                    data: { $ref: "#/components/schemas/ConfigExport" }
+                - type: object
+                  properties:
+                    dryRun: { type: boolean }
+                    format: { type: string, enum: [yaml] }
+                    raw: { type: string }
+                - $ref: "#/components/schemas/ConfigExport"
+      responses:
+        "200":
+          description: Import result (whether or not dryRun was set).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ImportResult" } } }
+        "400":
+          description: Invalid YAML, or the document failed to import.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/config/snapshots:
+    get:
+      operationId: listConfigSnapshots
+      summary: List config snapshots
+      description: Requires the admin role for session callers.
+      tags: [Config]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All snapshots (metadata only — no embedded config document).
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/SnapshotSummary" } } },
+                    },
+                },
+            }
+    post:
+      operationId: createConfigSnapshot
+      summary: Take a labeled snapshot of the current config
+      description: Requires the admin role for session callers.
+      tags: [Config]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label: { type: string, maxLength: 120 }
+      responses:
+        "201":
+          description: Created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/SnapshotSummary" } } }
+        "400":
+          description: label missing/too long.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/config/snapshots/{id}:
+    get:
+      operationId: getConfigSnapshot
+      summary: Get a snapshot, including its full embedded config document
+      description: Requires the admin role for session callers.
+      tags: [Config]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: The snapshot.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Snapshot" } } }
+        "404":
+          description: No such snapshot.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deleteConfigSnapshot
+      summary: Delete a snapshot
+      description: Requires the admin role for session callers.
+      tags: [Config]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: deleted }, id: { type: integer } } },
+                },
+            }
+        "404":
+          description: No such snapshot.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/config/snapshots/{id}/diff:
+    get:
+      operationId: diffConfigSnapshot
+      summary: Diff a snapshot against another snapshot or the live config
+      description: Requires the admin role for session callers.
+      tags: [Config]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+        - {
+            name: against,
+            in: query,
+            schema: { type: string, default: current },
+            description: "'current' (the live config) or another snapshot id.",
+          }
+      responses:
+        "200":
+          description: Field-level diff.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  from: { $ref: "#/components/schemas/SnapshotSummary" }
+                  to: { type: string, description: "'current', or the compared-against snapshot id as a string." }
+                  entries: { type: array, items: { $ref: "#/components/schemas/ConfigDiffEntry" } }
+        "400":
+          description: against is neither 'current' nor a valid integer id.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such snapshot (either id or against).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/config/snapshots/{id}/rollback:
+    post:
+      operationId: rollbackConfigSnapshot
+      summary: Roll back to a snapshot by re-applying it through the same importConfig path
+      description: Best-effort, same semantics/limits as POST /admin-api/config/import (cannot resurrect a since-deleted client). Requires the admin role for session callers.
+      tags: [Config]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Rollback result.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ImportResult" } } }
+        "404":
+          description: No such snapshot.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Alerts ────────────────────────────────────────────────────────────────
+
+  /admin-api/alerts:
+    get:
+      operationId: listAlertRules
+      summary: List webhook alert rules
+      tags: [Alerts]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All alert rules.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/AlertRule" } } },
+                    },
+                },
+            }
+    post:
+      operationId: createAlertRule
+      summary: Create a new alert rule
+      description: Requires the admin role for session callers.
+      tags: [Alerts]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, eventType, webhookUrl]
+              properties:
+                name: { type: string, maxLength: 128 }
+                eventType:
+                  {
+                    type: string,
+                    enum: [circuit_breaker_open, client_unreachable, error_rate, usage_spike, schema_drift],
+                  }
+                webhookUrl: { type: string, description: Absolute http(s) URL. }
+                threshold:
+                  { type: [number, "null"], description: "Meaning depends on eventType, e.g. an error-rate fraction." }
+                minCalls:
+                  {
+                    type: [number, "null"],
+                    description: Minimum sample size before an error_rate/usage_spike rule can fire.,
+                  }
+      responses:
+        "201":
+          description: Created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/AlertRule" } } }
+        "400":
+          description: Invalid name/eventType/webhookUrl/threshold/minCalls.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/alerts/{id}:
+    patch:
+      operationId: updateAlertRule
+      summary: Update an alert rule
+      description: Requires the admin role for session callers.
+      tags: [Alerts]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                enabled: { type: boolean }
+                webhookUrl: { type: string }
+                threshold: { type: [number, "null"] }
+                minCalls: { type: [number, "null"] }
+      responses:
+        "200":
+          description: Updated.
+          content: { application/json: { schema: { $ref: "#/components/schemas/AlertRule" } } }
+        "400":
+          description: Invalid field value.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such alert rule.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deleteAlertRule
+      summary: Delete an alert rule
+      description: Requires the admin role for session callers.
+      tags: [Alerts]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: deleted }, id: { type: integer } } },
+                },
+            }
+        "404":
+          description: No such alert rule.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/alerts/{id}/test:
+    post:
+      operationId: testAlertRule
+      summary: Fire a test webhook delivery for an alert rule
+      description: Requires the admin role for session callers.
+      tags: [Alerts]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Delivered.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: sent }, reason: { type: string } } },
+                },
+            }
+        "404":
+          description: No such alert rule.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "502":
+          description: The webhook delivery failed (e.g. non-2xx from the receiving endpoint, or a network error).
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { status: { type: string, example: failed }, reason: { type: string } },
+                    },
+                },
+            }
+
+  # ── Schedules ─────────────────────────────────────────────────────────────
+
+  /admin-api/schedules:
+    get:
+      operationId: listSchedules
+      summary: List maintenance schedules
+      tags: [Schedules]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All schedules.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/Schedule" } } },
+                    },
+                },
+            }
+    post:
+      operationId: createSchedule
+      summary: Create a new cron-driven enable/disable schedule
+      description: A "tool" target additionally requires toolName. Cron is a standard 5-field expression (min hour dom month dow), evaluated leader-only, once a minute. Requires the admin or operator role for session callers.
+      tags: [Schedules]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetType, clientName, action, cron]
+              properties:
+                targetType: { type: string, enum: [client, tool] }
+                clientName: { type: string }
+                toolName: { type: [string, "null"], description: Required when targetType is "tool". }
+                action: { type: string, enum: [enable, disable] }
+                cron: { type: string, example: "0 2 * * *" }
+      responses:
+        "201":
+          description: Created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Schedule" } } }
+        "400":
+          description: Missing/invalid targetType, clientName, action, or cron — or targetType is "tool" without toolName (INVALID_TARGET) — or cron fails to parse (INVALID_CRON).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/schedules/{id}:
+    patch:
+      operationId: setScheduleEnabled
+      summary: Enable/disable a schedule
+      description: Requires the admin or operator role for session callers.
+      tags: [Schedules]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string }, id: { type: integer } } } },
+            }
+        "400":
+          description: enabled missing or not a boolean.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such schedule.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deleteSchedule
+      summary: Delete a schedule
+      description: Requires the admin or operator role for session callers.
+      tags: [Schedules]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: deleted }, id: { type: integer } } },
+                },
+            }
+        "404":
+          description: No such schedule.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Usage analytics (read-only) ──────────────────────────────────────────────
+
+  /admin-api/usage/summary:
+    get:
+      operationId: getUsageSummary
+      summary: Aggregate call/error/latency stats over a time window
+      description: Read-only — accessible to every role including viewer.
+      tags: [Usage]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - {
+            name: from,
+            in: query,
+            schema: { type: integer },
+            description: "Epoch ms, inclusive. Defaults to 7 days ago.",
+          }
+        - { name: to, in: query, schema: { type: integer }, description: Epoch ms, inclusive. }
+        - { name: client, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Summary stats.
+          content: { application/json: { schema: { $ref: "#/components/schemas/UsageSummary" } } }
+
+  /admin-api/usage/timeseries:
+    get:
+      operationId: getUsageTimeseries
+      summary: Bucketed calls/errors/avg-latency over a time window, zero-filled
+      tags: [Usage]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: integer } }
+        - { name: to, in: query, schema: { type: integer } }
+        - {
+            name: bucketMs,
+            in: query,
+            schema: { type: integer },
+            description: "Defaults to 1h buckets for windows <= 26h, else 24h buckets. Floored at 60000 (1 min).",
+          }
+        - { name: client, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Bucketed points.
+          content: { application/json: { schema: { $ref: "#/components/schemas/UsageTimeseries" } } }
+
+  /admin-api/usage/top-tools:
+    get:
+      operationId: getTopTools
+      summary: Most-called tools over a time window
+      tags: [Usage]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        "200":
+          description: Top tools by call count, descending.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/TopToolRow" } } },
+                    },
+                },
+            }
+
+  /admin-api/usage/by-key:
+    get:
+      operationId: getUsageByKey
+      summary: Call/error counts grouped by MCP API key
+      tags: [Usage]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 200 } }
+      responses:
+        "200":
+          description: Per-key usage, descending by call count.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/UsageByKeyRow" } } },
+                    },
+                },
+            }
+
+  # ── WS Proxy targets ──────────────────────────────────────────────────────
+
+  /admin-api/ws-proxy-targets:
+    get:
+      operationId: listWsProxyTargets
+      summary: List WebSocket proxy targets
+      tags: [WS Proxy]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All targets, with live connection counts.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/WsProxyTarget" } } },
+                    },
+                },
+            }
+    post:
+      operationId: createWsProxyTarget
+      summary: Create a new WebSocket proxy target
+      description: The backend URL is SSRF-validated and IP-pinned; the target then becomes reachable at the `/ws-proxy/{name}` upgrade route (wired separately from Express, via the HTTP server's `upgrade` event). Requires the admin role for session callers.
+      tags: [WS Proxy]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, backendWsUrl]
+              properties:
+                name: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{0,62}$" }
+                backendWsUrl: { type: string, example: "wss://backend.internal/socket" }
+                maxConnections: { type: integer, minimum: 1 }
+                maxMessageBytes: { type: integer, minimum: 1 }
+                idleTimeoutMs: { type: integer, minimum: 1 }
+                enabled: { type: boolean, default: true }
+      responses:
+        "201":
+          description: Created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/WsProxyTarget" } } }
+        "400":
+          description: Invalid name, missing/invalid backendWsUrl, or an invalid numeric field.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: name collides with an existing WS proxy target (or, per the reciprocal check in register.ts, with an existing registered client).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/ws-proxy-targets/{name}:
+    get:
+      operationId: getWsProxyTarget
+      summary: Get one WebSocket proxy target
+      tags: [WS Proxy]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The target.
+          content: { application/json: { schema: { $ref: "#/components/schemas/WsProxyTarget" } } }
+        "404":
+          description: No such target.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    patch:
+      operationId: updateWsProxyTarget
+      summary: Update a WebSocket proxy target
+      description: Merged with the existing config — omitted fields keep their current value. Re-validates backendWsUrl (SSRF + IP pin) even when unchanged. Requires the admin role for session callers.
+      tags: [WS Proxy]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                backendWsUrl: { type: string }
+                maxConnections: { type: integer, minimum: 1 }
+                maxMessageBytes: { type: integer, minimum: 1 }
+                idleTimeoutMs: { type: integer, minimum: 1 }
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Updated.
+          content: { application/json: { schema: { $ref: "#/components/schemas/WsProxyTarget" } } }
+        "400":
+          description: Invalid backendWsUrl or numeric field.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such target.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deleteWsProxyTarget
+      summary: Delete a WebSocket proxy target
+      description: Requires the admin role for session callers.
+      tags: [WS Proxy]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { status: { type: string, example: deleted }, name: { type: string } },
+                    },
+                },
+            }
+        "404":
+          description: No such target.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/ws-proxy-targets/{name}/disconnect-all:
+    post:
+      operationId: disconnectAllWsProxyConnections
+      summary: Forcibly close every live connection on a target
+      description: Requires the admin role for session callers.
+      tags: [WS Proxy]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Disconnected.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { status: { type: string, example: disconnected }, closed: { type: integer } },
+                    },
+                },
+            }
+        "404":
+          description: No such target.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Catalog / marketplace ─────────────────────────────────────────────────
+
+  /admin-api/catalog:
+    get:
+      operationId: listCatalog
+      summary: List the merged catalog (builtin gallery + admin-authored custom entries)
+      tags: [Catalog]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: All catalog entries.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { items: { type: array, items: { $ref: "#/components/schemas/CatalogEntry" } } },
+                    },
+                },
+            }
+    post:
+      operationId: createCatalogEntry
+      summary: Add a custom catalog entry
+      description: Requires the admin role for session callers.
+      tags: [Catalog]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomCatalogEntryInput"
+      responses:
+        "201":
+          description: Created — `id` is prefixed `custom:` to disambiguate from builtin entries.
+          content: { application/json: { schema: { $ref: "#/components/schemas/CatalogEntry" } } }
+        "400":
+          description: Invalid slug/name/kind/mcpTransport.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: A custom entry with that slug already exists.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/catalog/{id}:
+    patch:
+      operationId: updateCatalogEntry
+      summary: Update a custom catalog entry
+      description: "`id` must be a `custom:<n>` id — builtin entries (`builtin:...`) are immutable at runtime. Requires the admin role for session callers."
+      tags: [Catalog]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: "e.g. custom:3" }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomCatalogEntryInput"
+      responses:
+        "200":
+          description: Updated.
+          content: { application/json: { schema: { $ref: "#/components/schemas/CatalogEntry" } } }
+        "400":
+          description: Invalid field value.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "403":
+          description: id refers to a builtin entry (immutable).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such custom entry.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deleteCatalogEntry
+      summary: Delete a custom catalog entry
+      description: "`id` must be a `custom:<n>` id — builtin entries can't be deleted. Requires the admin role for session callers."
+      tags: [Catalog]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: deleted }, id: { type: string } } },
+                },
+            }
+        "403":
+          description: id refers to a builtin entry (immutable).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such custom entry.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/catalog/{id}/install:
+    post:
+      operationId: installCatalogEntry
+      summary: One-click install a catalog entry as a registered client
+      description: >
+        Reuses the exact same SSRF-validated registration logic as POST
+        /register (performRestRegistration/performMcpRegistration) — a
+        catalog entry is never a shortcut around that validation, curated or
+        not. Rate-limited the same as /register. Requires the admin role for
+        session callers.
+      tags: [Catalog]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - {
+            name: id,
+            in: path,
+            required: true,
+            schema: { type: string },
+            description: "A builtin:... or custom:<n> catalog entry id.",
+          }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, description: "Client name to register as. Defaults to the catalog entry's slug." }
+      responses:
+        "200":
+          description: Installed — same success body as POST /register.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: registered }
+                  name: { type: string }
+                  tools_count: { type: integer }
+                  source: { type: string, enum: [manual, openapi, mcp] }
+        "400":
+          description: Registration/discovery failed (same error shapes as POST /register).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such catalog entry.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "429":
+          description: Rate limit exceeded.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
 # =============================================================================
 # Components
 # =============================================================================
 components:
-
   parameters:
     McpSessionId:
       name: mcp-session-id
@@ -1304,21 +4505,64 @@ components:
         development (SESSION_COOKIE_SECURE=false) uses the unprefixed
         `mcp_admin_session` / `mcp_admin_csrf` names instead.
 
-  schemas:
+        A session carries one of four roles — `admin`, `operator`,
+        `auditor`, or `viewer` — and, independently, an optional team
+        assignment. `viewer`/`auditor` sessions may read but not mutate;
+        `operator` may perform day-to-day operational mutations (enable/
+        disable, guards, tool tests, schedules) but not admin-only actions
+        (user/team/policy/bundle/composite/consumer/mcp-key/catalog CRUD,
+        config import/rollback); `admin` may do everything an operator can
+        plus the admin-only actions. A per-endpoint role floor, when one
+        applies, is noted in that operation's description (the concrete
+        gates are `requireOperator`/`requireAdminRole` in
+        src/routes/admin.ts) — OpenAPI 3.1 has no first-class way to express
+        a role-scoped `apiKey` security requirement, so it's documented in
+        prose here rather than as a separate scheme per role.
 
+        Separately, a session whose user has a non-null `teamId` is
+        tenancy-scoped: client/tool/bundle/etc. reads and writes are
+        restricted to resources owned by that team, and an out-of-scope
+        resource 404s exactly like a nonexistent one (no existence signal
+        leaks across teams). A session with `teamId: null` sees and mutates
+        every team's resources; `requireSuperAdmin`-gated endpoints (team
+        CRUD, client/user team assignment) additionally require `role:
+        admin` AND `teamId: null` — that combination is referred to as
+        "super-admin" elsewhere in this document. Bearer (AdminAuth) callers
+        are always treated as an unscoped super-admin, regardless of role,
+        for backwards compatibility with existing CI/integrations.
+
+  schemas:
     # -------------------------------------------------------------------------
     # RegistrationPayload
     # -------------------------------------------------------------------------
     RegistrationPayload:
       type: object
       description: >
-        The full payload sent by a REST service when it registers itself with
-        the MCP bridge. Supports two mutually exclusive modes: provide a
-        'tools' array (manual) or an 'openapi_url' (auto-discovery).
+        The full payload sent to POST /register. Covers four mutually
+        exclusive registration modes, selected by which fields are present
+        (or by an explicit 'kind'): REST manual (provide 'tools'), REST
+        OpenAPI auto-discovery (provide 'openapi_url'), GraphQL
+        auto-discovery ('kind: graphql' or 'graphql_url'), and MCP-upstream
+        proxying ('kind: mcp' or 'mcp_url'). 'health_url' is required for the
+        two REST modes; the MCP mode needs no health_url (the bridge health-
+        checks the MCP endpoint itself) and the GraphQL mode defaults
+        health_url to graphql_url when omitted (with a returned `warnings`
+        entry, since many GraphQL servers reject a bare health-check GET).
       required:
         - name
-        - health_url
       properties:
+        kind:
+          type: string
+          enum:
+            - rest
+            - graphql
+            - mcp
+          description: >
+            Explicit mode selector. Optional for the REST/GraphQL modes
+            (inferred from 'openapi_url'/'graphql_url'/'tools' when omitted)
+            but the clearest way to select GraphQL or MCP mode; equivalent to
+            supplying 'graphql_url' or 'mcp_url' respectively.
+          example: rest
         name:
           type: string
           description: >
@@ -1334,7 +4578,7 @@ components:
             method and path on this service.
           minItems: 1
           items:
-            $ref: '#/components/schemas/RestToolDefinition'
+            $ref: "#/components/schemas/RestToolDefinition"
         health_url:
           type: string
           description: >
@@ -1400,6 +4644,33 @@ components:
           description: >
             Optional filter for GraphQL auto-discovery mode. When false, only
             query fields are registered as tools. Defaults to true.
+        mcp_url:
+          type: string
+          description: >
+            URL of an upstream MCP server to proxy (streamable-http or SSE
+            transport). When provided (or kind is "mcp"), the bridge connects
+            to it, discovers its tools via tools/list, and registers them —
+            mutually exclusive with 'tools', 'openapi_url', and
+            'graphql_url'. 'health_url' is not used in this mode. Must start
+            with http:// or https:// and passes the same SSRF/IP-pin
+            validation as base_url.
+          example: http://upstream-mcp.internal:9000/mcp
+        mcp_transport:
+          type: string
+          enum:
+            - streamable-http
+            - sse
+          default: streamable-http
+          description: Transport used to reach 'mcp_url'. Only meaningful in MCP-upstream mode.
+        retry_non_safe_methods:
+          type: boolean
+          description: >
+            REST mode only. When true, DELETE and PUT are retried on failure
+            the same as GET/HEAD/OPTIONS (which are always retried).
+            Defaults to false, since retrying a non-idempotent write can
+            double-apply it if the first attempt actually succeeded but the
+            response was lost.
+          default: false
       example:
         name: customer_service
         health_url: /health
@@ -1468,7 +4739,7 @@ components:
             them) can understand when to invoke the tool.
           example: Retrieve a single customer record by ID.
         inputSchema:
-          $ref: '#/components/schemas/InputSchema'
+          $ref: "#/components/schemas/InputSchema"
       example:
         name: get_customer
         method: GET
@@ -1634,6 +4905,7 @@ components:
         toolsCount: { type: integer }
         healthUrl: { type: string }
         baseUrl: { type: string }
+        teamId: { type: [integer, "null"], description: Owning team id, or null (visible only to super-admins). }
 
     ClientDetail:
       type: object
@@ -1649,37 +4921,588 @@ components:
         resolvedIp: { type: [string, "null"] }
         retryNonSafeMethods: { type: boolean }
         consecutiveFailures: { type: [integer, "null"] }
-        guards: { $ref: '#/components/schemas/ClientGuardConfig' }
+        guards: { $ref: "#/components/schemas/ClientGuardConfig" }
         circuitBreakerState: { type: [string, "null"], enum: [closed, open, half_open, null] }
+        teamId: { type: [integer, "null"], description: Owning team id, or null (visible only to super-admins). }
         tools:
           type: array
           items:
             allOf:
-              - $ref: '#/components/schemas/RestToolDefinition'
+              - $ref: "#/components/schemas/RestToolDefinition"
               - type: object
                 properties:
                   enabled: { type: boolean }
-                  guards: { $ref: '#/components/schemas/ToolGuardConfig' }
+                  guards: { $ref: "#/components/schemas/ToolGuardConfig" }
 
     AdminUserSummary:
       type: object
       description: Admin user row — password_hash is never included in API responses.
       properties:
         username: { type: string }
-        role: { type: string, enum: [admin, viewer] }
+        role: { type: string, enum: [admin, operator, auditor, viewer] }
         is_active: { type: boolean }
         created_at: { type: integer, description: Unix ms epoch }
         last_login_at: { type: [integer, "null"], description: Unix ms epoch }
+        team_id:
+          { type: [integer, "null"], description: "Owning team id, or null for a super-admin (team-unscoped) user." }
 
     AuditLogEntry:
       type: object
       properties:
         id: { type: integer }
-        actor: { type: string, description: "Username, or \"bearer:admin-api-key\" for API-key-driven changes." }
+        actor: { type: string, description: 'Username, or "bearer:admin-api-key" for API-key-driven changes.' }
         action: { type: string, example: tool.guards.update }
         target: { type: string, example: "billing_service__charge_card" }
         detail: { type: [object, "null"], additionalProperties: true }
         createdAt: { type: integer, description: Unix ms epoch }
+
+    # -------------------------------------------------------------------------
+    # Tool examples (playground), canary/failover, load balancing, OAuth, upstream auth
+    # -------------------------------------------------------------------------
+    ToolExample:
+      type: object
+      properties:
+        id: { type: integer }
+        label: { type: string }
+        args: { type: object }
+        createdAt: { type: integer, description: Unix ms epoch }
+        createdBy: { type: [string, "null"] }
+
+    CanaryConfig:
+      type: object
+      description: Per-client secondary-upstream routing — "canary" splits a weighted % of traffic to the secondary; "failover" only routes there while the primary's circuit breaker is open.
+      properties:
+        secondaryBaseUrl: { type: string }
+        secondaryResolvedIp: { type: string, description: IP the secondary hostname was pinned to at config time. }
+        mode: { type: string, enum: [canary, failover] }
+        weight: { type: number, description: "Fraction (0-1) of traffic routed to the secondary in canary mode." }
+        enabled: { type: boolean }
+
+    LbUpstream:
+      type: object
+      description: One additional upstream in a client's load-balancing pool (the primary base_url is always an implicit member, weighted by primaryWeight).
+      properties:
+        id: { type: integer }
+        baseUrl: { type: string }
+        resolvedIp: { type: string }
+        weight: { type: number }
+        enabled: { type: boolean }
+
+    LbConfig:
+      type: object
+      properties:
+        strategy: { type: string, enum: [round-robin, weighted, least-conn] }
+        primaryWeight: { type: number }
+        enabled: { type: boolean }
+        targets: { type: array, items: { $ref: "#/components/schemas/LbUpstream" } }
+
+    OAuthConfigInfo:
+      type: object
+      description: Non-secret view of a client's outbound OAuth2 client-credentials config — clientSecret is never returned once set.
+      properties:
+        tokenUrl: { type: string }
+        clientId: { type: string }
+        scope: { type: [string, "null"] }
+
+    UpstreamAuthInfo:
+      type: object
+      description: Non-secret view of a client's upstream credential config — the secret itself is never returned once set.
+      properties:
+        configured: { type: boolean }
+        type: { type: string, enum: [bearer, basic, header] }
+        headerName: { type: [string, "null"] }
+        updatedAt: { type: integer, description: Unix ms epoch }
+
+    # -------------------------------------------------------------------------
+    # Traffic explorer + approvals
+    # -------------------------------------------------------------------------
+    TrafficRecord:
+      type: object
+      description: A captured tool call (opt-in via TRAFFIC_CAPTURE). Args are stored in full for faithful replay; the result is a truncated preview.
+      properties:
+        id: { type: integer }
+        mcpToolName: { type: string, example: "billing_service__charge_card" }
+        clientName: { type: [string, "null"] }
+        toolName: { type: [string, "null"] }
+        keyId: { type: [integer, "null"] }
+        argsJson: { type: string, description: JSON-serialized original call arguments. }
+        preview: { type: string, description: Truncated, already-redacted/guardrail-processed result preview. }
+        isError: { type: boolean }
+        durationMs: { type: integer }
+        createdAt: { type: integer, description: Unix ms epoch }
+
+    ApprovalRecord:
+      type: object
+      description: A human-in-the-loop approval ticket, filed when a tool requiring approval is called without an `__approval_id`.
+      properties:
+        id: { type: integer }
+        clientName: { type: string }
+        toolName: { type: string }
+        argsHash: { type: string, description: SHA-256 of the exact arguments this ticket is bound to. }
+        argsJson: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        createdAt: { type: integer, description: Unix ms epoch }
+        decidedAt: { type: [integer, "null"] }
+        decidedBy: { type: [string, "null"] }
+        note: { type: [string, "null"] }
+        consumedAt:
+          {
+            type: [integer, "null"],
+            description: "Set once the caller re-invokes the tool with this ticket's __approval_id — a ticket is single-use.",
+          }
+        requestedBy: { type: [integer, "null"] }
+        requiredLevels:
+          {
+            type: integer,
+            description: N-of-M distinct-approver threshold,
+            snapshotted from the tool's config at ticket creation.,
+          }
+
+    # -------------------------------------------------------------------------
+    # Bundles
+    # -------------------------------------------------------------------------
+    BundleToolRef:
+      type: object
+      required: [client, tool]
+      properties:
+        client: { type: string }
+        tool: { type: string }
+
+    BundleSummary:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: [string, "null"] }
+        enabled: { type: boolean }
+        toolsCount: { type: integer }
+
+    BundleDetail:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: [string, "null"] }
+        enabled: { type: boolean }
+        createdAt: { type: integer, description: Unix ms epoch }
+        updatedAt: { type: integer, description: Unix ms epoch }
+        tools: { type: array, items: { $ref: "#/components/schemas/BundleToolRef" } }
+
+    # -------------------------------------------------------------------------
+    # Composites
+    # -------------------------------------------------------------------------
+    CompositeStep:
+      type: object
+      required: [targetClient, targetTool]
+      description: "One step of a composite: forwards to a real client__tool through the normal proxyToolCall() path."
+      properties:
+        targetClient: { type: string }
+        targetTool: { type: string }
+        argsTemplate:
+          type: object
+          description: >
+            JSON template resolved against {input, steps} to build this
+            step's arguments. Supports {"$ref":"input.<path>"},
+            {"$ref":"steps.<i>.text"}, {"$ref":"steps.<i>.json.<path>"}, and
+            string interpolation like "literal ${input.x}". Max 10KB
+            serialized.
+
+    CompositeSummary:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: [string, "null"] }
+        enabled: { type: boolean }
+        stepsCount: { type: integer }
+
+    CompositeDetail:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: [string, "null"] }
+        enabled: { type: boolean }
+        inputSchema: { type: object }
+        steps: { type: array, items: { $ref: "#/components/schemas/CompositeStep" } }
+        createdAt: { type: integer, description: Unix ms epoch }
+        updatedAt: { type: integer, description: Unix ms epoch }
+
+    # -------------------------------------------------------------------------
+    # MCP Keys
+    # -------------------------------------------------------------------------
+    McpKeyScopes:
+      type: object
+      description: "null = unrestricted (may call any enabled tool, matching a legacy MCP_API_KEYS entry). Non-null is fail-closed: only what's listed is allowed."
+      properties:
+        clients: { type: array, items: { type: string }, description: Client names this key may call any tool on. }
+        tools: { type: array, items: { type: string }, description: "Composite client__tool keys this key may call." }
+
+    McpApiKeyRecord:
+      type: object
+      description: Public shape of a managed MCP API key — never carries the hash or raw secret (except the one-time POST response, which also includes `key`).
+      properties:
+        id: { type: integer }
+        label: { type: string }
+        keyPrefix: { type: string, description: First few characters of the raw key, for identification in the UI. }
+        consumerId: { type: [integer, "null"] }
+        elevated:
+          {
+            type: boolean,
+            description: "Elevated keys bypass certain guardrails/quarantine gates — see backends.ts/guardrails.ts for exact semantics.",
+          }
+        scopes:
+          oneOf:
+            - $ref: "#/components/schemas/McpKeyScopes"
+            - type: "null"
+        enabled: { type: boolean }
+        expiresAt: { type: [number, "null"], description: Epoch ms. }
+        revokedAt: { type: [number, "null"], description: Epoch ms. }
+        lastUsedAt: { type: [number, "null"], description: Epoch ms. }
+        createdAt: { type: number, description: Epoch ms. }
+        updatedAt: { type: number, description: Epoch ms. }
+        createdBy: { type: [string, "null"] }
+
+    # -------------------------------------------------------------------------
+    # Consumers
+    # -------------------------------------------------------------------------
+    Consumer:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        monthlyQuota: { type: [integer, "null"], description: Positive integer, or null for unlimited. }
+        endUserRateLimitPerMin: { type: [integer, "null"], description: Positive integer, or null to disable. }
+        createdAt: { type: integer, description: Unix ms epoch }
+        updatedAt: { type: integer, description: Unix ms epoch }
+        createdBy: { type: [string, "null"] }
+
+    # -------------------------------------------------------------------------
+    # Policies
+    # -------------------------------------------------------------------------
+    GuardPolicy:
+      type: object
+      description: A reusable rate-limit/timeout pair that can be bulk-applied to a set of tools or a whole bundle.
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        rateLimitPerMin: { type: [number, "null"] }
+        timeoutMs: { type: [number, "null"] }
+        createdAt: { type: integer, description: Unix ms epoch }
+        updatedAt: { type: integer, description: Unix ms epoch }
+        createdBy: { type: [string, "null"] }
+
+    ApplyResult:
+      type: object
+      properties:
+        applied: { type: integer }
+        skipped:
+          type: array
+          items:
+            type: object
+            properties:
+              tool: { type: string }
+              reason: { type: string }
+
+    # -------------------------------------------------------------------------
+    # Teams
+    # -------------------------------------------------------------------------
+    Team:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        createdAt: { type: integer, description: Unix ms epoch }
+        createdBy: { type: [string, "null"] }
+
+    # -------------------------------------------------------------------------
+    # Traces
+    # -------------------------------------------------------------------------
+    StoredSpan:
+      type: object
+      properties:
+        id: { type: integer }
+        traceId: { type: string }
+        spanId: { type: string }
+        name: { type: string }
+        mcpToolName: { type: [string, "null"] }
+        startMs: { type: integer }
+        endMs: { type: integer }
+        statusCode:
+          { type: integer, enum: [0, 1, 2], description: "0 unset, 1 ok, 2 error (OTel status code convention)." }
+        attributes: { type: object, additionalProperties: true }
+        createdAt: { type: integer, description: Unix ms epoch }
+
+    TraceSummary:
+      type: object
+      properties:
+        traceId: { type: string }
+        spanCount: { type: integer }
+        startMs: { type: integer }
+        endMs: { type: integer }
+        mcpToolName: { type: [string, "null"] }
+        hasError: { type: boolean }
+
+    # -------------------------------------------------------------------------
+    # Config export/import + snapshots
+    # -------------------------------------------------------------------------
+    ConfigExport:
+      type: object
+      description: >
+        A portable document of all admin-authored config. Excludes decrypted
+        upstream secrets; tool key-allowlists export as SHA-256 hashes (which
+        round-trip on import, since the runtime only ever compares hashes).
+      properties:
+        version: { type: integer, example: 1 }
+        exportedAt: { type: integer, description: Unix ms epoch }
+        bundles:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              description: { type: [string, "null"] }
+              enabled: { type: boolean }
+              tools: { type: array, items: { $ref: "#/components/schemas/BundleToolRef" } }
+        alertRules:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              eventType:
+                {
+                  type: string,
+                  enum: [circuit_breaker_open, client_unreachable, error_rate, usage_spike, schema_drift],
+                }
+              enabled: { type: boolean }
+              webhookUrl: { type: string }
+              threshold: { type: [number, "null"] }
+              minCalls: { type: [number, "null"] }
+        clients:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              enabled: { type: boolean }
+              guards:
+                oneOf:
+                  - $ref: "#/components/schemas/ClientGuardConfig"
+                  - type: "null"
+              tools:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name: { type: string }
+                    enabled: { type: boolean }
+                    guards:
+                      oneOf:
+                        - $ref: "#/components/schemas/ToolGuardConfig"
+                        - type: "null"
+                    override:
+                      type: [object, "null"]
+                      additionalProperties: true
+        guardrails:
+          type: array
+          items:
+            type: object
+            properties:
+              client: { type: string }
+              tool: { type: string }
+              guardrails: { type: object, additionalProperties: true }
+        consumers:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              monthlyQuota: { type: [integer, "null"] }
+              endUserRateLimitPerMin: { type: [integer, "null"] }
+
+    ImportResult:
+      type: object
+      properties:
+        dryRun: { type: boolean }
+        applied:
+          type: object
+          properties:
+            bundles: { type: integer }
+            alertRules: { type: integer }
+            clientsConfigured: { type: integer }
+            toolsConfigured: { type: integer }
+            guardrails: { type: integer }
+            consumers: { type: integer }
+        skipped:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string, enum: [bundle, alert, client, tool, guardrail, consumer] }
+              id: { type: string }
+              reason: { type: string }
+
+    SnapshotSummary:
+      type: object
+      properties:
+        id: { type: integer }
+        label: { type: string }
+        createdAt: { type: integer, description: Unix ms epoch }
+        createdBy: { type: [string, "null"] }
+
+    Snapshot:
+      allOf:
+        - $ref: "#/components/schemas/SnapshotSummary"
+        - type: object
+          properties:
+            config: { $ref: "#/components/schemas/ConfigExport" }
+
+    ConfigDiffEntry:
+      type: object
+      properties:
+        path: { type: string, example: "clients.billing_service.enabled" }
+        kind: { type: string, enum: [added, removed, changed] }
+        before: {}
+        after: {}
+
+    # -------------------------------------------------------------------------
+    # Alerts
+    # -------------------------------------------------------------------------
+    AlertRule:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        eventType:
+          { type: string, enum: [circuit_breaker_open, client_unreachable, error_rate, usage_spike, schema_drift] }
+        enabled: { type: boolean }
+        webhookUrl: { type: string }
+        threshold: { type: [number, "null"] }
+        minCalls: { type: [number, "null"] }
+        lastFiredAt: { type: [integer, "null"], description: Unix ms epoch }
+        createdAt: { type: integer, description: Unix ms epoch }
+        updatedAt: { type: integer, description: Unix ms epoch }
+        createdBy: { type: [string, "null"] }
+
+    # -------------------------------------------------------------------------
+    # Schedules
+    # -------------------------------------------------------------------------
+    Schedule:
+      type: object
+      properties:
+        id: { type: integer }
+        targetType: { type: string, enum: [client, tool] }
+        clientName: { type: string }
+        toolName: { type: [string, "null"] }
+        action: { type: string, enum: [enable, disable] }
+        cron: { type: string, example: "0 2 * * *" }
+        enabled: { type: boolean }
+        lastRunMinute:
+          { type: [integer, "null"], description: "Epoch minute of the last fire — used to de-dupe within a minute." }
+        createdAt: { type: integer, description: Unix ms epoch }
+        createdBy: { type: [string, "null"] }
+
+    # -------------------------------------------------------------------------
+    # Usage analytics
+    # -------------------------------------------------------------------------
+    UsageSummary:
+      type: object
+      properties:
+        from: { type: integer, description: Unix ms epoch — start of the window. }
+        calls: { type: integer }
+        errors: { type: integer }
+        errorRate: { type: number, description: errors / calls, or 0 when calls is 0. }
+        avgMs: { type: integer }
+        maxMs: { type: integer }
+        tools: { type: integer, description: Distinct client__tool pairs called in the window. }
+        keys: { type: integer, description: Distinct MCP keys used in the window. }
+
+    UsageTimeseries:
+      type: object
+      properties:
+        bucketMs: { type: integer }
+        points:
+          type: array
+          items:
+            type: object
+            properties:
+              t: { type: integer, description: Bucket start, Unix ms epoch. }
+              calls: { type: integer }
+              errors: { type: integer }
+              avgMs: { type: integer }
+
+    TopToolRow:
+      type: object
+      properties:
+        client: { type: string }
+        tool: { type: string }
+        calls: { type: integer }
+        errors: { type: integer }
+        errorRate: { type: number }
+        avgMs: { type: integer }
+        maxMs: { type: integer }
+
+    UsageByKeyRow:
+      type: object
+      properties:
+        keyId: { type: [integer, "null"] }
+        label:
+          {
+            type: string,
+            description: 'The key''s label, "key #<id>" if the key row is gone, or "(unattributed)" for calls with no key.',
+          }
+        calls: { type: integer }
+        errors: { type: integer }
+
+    # -------------------------------------------------------------------------
+    # WS Proxy targets
+    # -------------------------------------------------------------------------
+    WsProxyTarget:
+      type: object
+      properties:
+        name: { type: string }
+        backendWsUrl: { type: string }
+        resolvedIp: { type: string, description: IP the backend hostname was pinned to at config time. }
+        maxConnections: { type: integer }
+        maxMessageBytes: { type: integer }
+        idleTimeoutMs: { type: integer }
+        enabled: { type: boolean }
+        activeConnections: { type: integer }
+        createdAt: { type: integer, description: Unix ms epoch }
+        updatedAt: { type: integer, description: Unix ms epoch }
+
+    # -------------------------------------------------------------------------
+    # Catalog / marketplace
+    # -------------------------------------------------------------------------
+    CustomCatalogEntryInput:
+      type: object
+      required: [slug, name, kind]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        kind: { type: string, enum: [rest, mcp] }
+        category: { type: [string, "null"] }
+        tags: { type: array, items: { type: string } }
+        icon: { type: [string, "null"] }
+        openapiUrl: { type: [string, "null"] }
+        healthUrl: { type: [string, "null"] }
+        baseUrl: { type: [string, "null"] }
+        includeTags: { type: [array, "null"], items: { type: string } }
+        excludeOperations: { type: [array, "null"], items: { type: string } }
+        mcpUrl: { type: [string, "null"] }
+        mcpTransport: { type: [string, "null"], enum: [streamable-http, sse, null] }
+        featured: { type: boolean }
+
+    CatalogEntry:
+      type: object
+      description: A merged view of the static builtin gallery and admin-authored custom entries. `id` is prefixed `builtin:` or `custom:` to disambiguate; `source` tells you which.
+      allOf:
+        - $ref: "#/components/schemas/CustomCatalogEntryInput"
+        - type: object
+          properties:
+            id: { type: string, example: "custom:3" }
+            source: { type: string, enum: [builtin, custom] }
+            createdAt: { type: integer, description: Unix ms epoch. Absent on builtin entries. }
+            updatedAt: { type: integer, description: Unix ms epoch. Absent on builtin entries. }
+            createdBy: { type: [string, "null"] }
 
     # -------------------------------------------------------------------------
     # ApiError
@@ -1719,10 +5542,22 @@ components:
                 caused the error. Omitted when the error is not tied to a
                 single field.
               example: "tools[0].name"
+            request_id:
+              type: [string, "null"]
+              description: >
+                Correlation id for this request (from res.locals.requestId),
+                echoed back so a caller can quote it when reporting an issue.
+                Present on almost every error response in the admin API;
+                absent (or omitted) on the handful of handlers that don't
+                thread it through (notably GET /clients and GET
+                /clients/{name}/tools's error bodies, and /metrics's disabled
+                response).
+              example: "3f9c9a2e-9c34-4b3a-9a0e-4f7a6f6c9a1b"
       example:
         error:
           code: VALIDATION_ERROR
           message: "Missing required fields: name, health_url"
+          request_id: "3f9c9a2e-9c34-4b3a-9a0e-4f7a6f6c9a1b"
 
     # -------------------------------------------------------------------------
     # JsonRpcMessage  (internal — MCP transport)
