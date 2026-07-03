@@ -400,6 +400,11 @@ onMounted(() => load(initialCursor));
 </template>
 
 <style scoped>
+section {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -652,7 +657,13 @@ onMounted(() => load(initialCursor));
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-top: 1.25rem;
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--paper);
+  border-top: 1px solid var(--border);
+  padding: var(--space-3) 0;
 }
 .pagination .subtitle {
   margin-left: 0.4rem;

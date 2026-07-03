@@ -397,6 +397,40 @@ input[type="radio"]:focus-visible {
   pointer-events: none;
 }
 
+/* ---- Scrollbars: match the token palette instead of the raw OS/browser
+   default, on every scrollable element (page content, sidebar nav, table
+   overflow, command palette, drawers). Firefox via scrollbar-width/-color
+   (inherited, so setting it once on html covers descendants); WebKit via the
+   pseudo-elements, which aren't inherited and so are declared with `*` to
+   reach whichever element actually overflows. Colors use --border-strong/
+   --text-muted, which already flip for [data-theme="dark"] — no separate
+   dark-theme rule needed here. The sidebar is the one exception: it's always
+   on --ink (dark) regardless of theme, so it gets its own override in
+   App.vue rather than reusing these theme-tied tokens. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--border-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

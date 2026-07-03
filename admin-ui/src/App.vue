@@ -275,7 +275,7 @@ onUnmounted(() => {
 <style scoped>
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
 }
 .demo-ribbon {
   position: fixed;
@@ -326,6 +326,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   padding: var(--space-4) var(--space-3);
+  overflow: hidden;
 }
 .brand {
   display: flex;
@@ -344,7 +345,17 @@ onUnmounted(() => {
 }
 .nav-groups {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   margin-top: var(--space-4);
+  padding-right: 1rem;
+  scrollbar-color: var(--ink-border) transparent;
+}
+.nav-groups::-webkit-scrollbar-thumb {
+  background-color: var(--ink-border);
+}
+.nav-groups::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-on-dark-muted);
 }
 .sidebar ul {
   list-style: none;
@@ -460,6 +471,8 @@ onUnmounted(() => {
 }
 .content {
   flex: 1;
+  height: 100%;
+  overflow-y: auto;
   padding: var(--space-8) var(--space-10);
   max-width: 1180px;
   min-width: 0;
@@ -468,6 +481,7 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .app-shell {
     display: block;
+    height: auto;
   }
   .mobile-topbar {
     display: flex;
@@ -519,6 +533,8 @@ onUnmounted(() => {
     display: none;
   }
   .content {
+    height: auto;
+    overflow-y: visible;
     padding: var(--space-5) var(--space-4) 4.5rem;
     max-width: 100%;
   }

@@ -79,6 +79,15 @@ below), replace them with the matching token as you touch that file.
 are already globally re-skinned in `style.css` — you get those for free everywhere, no per-page work
 needed.
 
+Scrollbars are also globally re-skinned (thin, token-colored thumb on a transparent track, using
+`--border-strong`/`--text-muted` which already flip for dark theme) on every overflowing element —
+page content, `.table-scroll`, the command palette, drawers, etc. Don't add a per-component
+scrollbar rule; if you find one styled with raw browser defaults, it means it's not overflowing yet
+(new scrollable areas get the global rule automatically). The one exception is the sidebar
+(`.nav-groups` in `App.vue`), which sits on `--ink` regardless of theme, so it overrides the thumb
+color with `--ink-border`/`--text-on-dark-muted` instead of the theme-tied tokens above — copy that
+override for any other future surface that's permanently dark.
+
 ### Measurement tokens (spacing, font-size, z-index)
 
 Same idea as colors: **never write a bespoke margin/padding/gap/font-size/z-index value** — use the
@@ -409,6 +418,44 @@ heading above it):
   margin-bottom: 0.75rem;
 }
 ```
+
+**Pagination bar pinned to the bottom of the screen** (Previous/Next controls below a table —
+Servers, Traces, Traffic…): `position: sticky` alone only keeps the bar visible while scrolling
+content taller than the viewport — on a short page (e.g. 2 servers) it just sits right after the
+table with empty space below, not at the bottom of the screen. To get real app-like behavior in
+both cases, the page root also needs to be a full-height flex column so the bar's own margin can
+push it down when content is short:
+
+```css
+section {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%; /* fills the .content viewport; grows taller if content overflows it */
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: auto; /* pushes the bar to the bottom when content doesn't fill the viewport */
+  position: sticky; /* ...and re-pins it to the bottom edge once content does overflow */
+  bottom: 0;
+  z-index: 1;
+  background: var(--paper);
+  border-top: 1px solid var(--border);
+  padding: var(--space-3) 0;
+}
+```
+
+`.content` (`App.vue`) already has a definite `height: 100%` and is the page's scroll container, so
+`min-height: 100%` on `section` resolves correctly without any other markup changes — every other
+direct child of `section` (`.page-header`, `.filters`, `.table-card`, etc.) keeps its normal size,
+only `.pagination`'s auto margin absorbs the leftover space.
+
+Only apply this where the page has one real trailing Previous/Next bar (`DashboardPage.vue`,
+`TracesPage.vue`, `TrafficPage.vue`). Pages with several independent inline save buttons scattered
+across sections (`ServerDetailPage.vue`, `BundleDetailPage.vue`, `CompositeDetailPage.vue`) or a
+single create/edit form near the top (`ConsumersPage.vue`, `WsProxyTargetsPage.vue`) don't have one
+canonical "bottom bar" to pin — don't force it there.
 
 **"Cancel" toggling a create form** — the button must not stay `.btn-primary` once it means Cancel:
 
