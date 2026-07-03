@@ -11,10 +11,7 @@ import {
   type WsProxyTargetError,
   type WsProxyTargetInput,
 } from "../ws-proxy.js";
-
-function requestId(res: Response): string | null {
-  return (res.locals.requestId as string) ?? null;
-}
+import { sendError, validationError, notFound } from "./http-errors.js";
 
 function statusForWsProxyError(code: WsProxyTargetError["code"]): number {
   switch (code) {
@@ -26,7 +23,9 @@ function statusForWsProxyError(code: WsProxyTargetError["code"]): number {
   }
 }
 
-function parseTargetInput(body: Record<string, unknown>): { ok: true; value: WsProxyTargetInput } | { ok: false; message: string } {
+function parseTargetInput(
+  body: Record<string, unknown>,
+): { ok: true; value: WsProxyTargetInput } | { ok: false; message: string } {
   if (typeof body.backendWsUrl !== "string" || !body.backendWsUrl) {
     return { ok: false, message: "backendWsUrl is required" };
   }
@@ -38,7 +37,11 @@ function parseTargetInput(body: Record<string, unknown>): { ok: true; value: WsP
     value.maxConnections = body.maxConnections;
   }
   if (body.maxMessageBytes !== undefined) {
-    if (typeof body.maxMessageBytes !== "number" || !Number.isInteger(body.maxMessageBytes) || body.maxMessageBytes < 1) {
+    if (
+      typeof body.maxMessageBytes !== "number" ||
+      !Number.isInteger(body.maxMessageBytes) ||
+      body.maxMessageBytes < 1
+    ) {
       return { ok: false, message: "maxMessageBytes must be a positive integer" };
     }
     value.maxMessageBytes = body.maxMessageBytes;
@@ -71,7 +74,7 @@ export function wsProxyAdminRoutes(app: Express): void {
   app.get("/admin-api/ws-proxy-targets/:name", adminAuth, (req: Request<{ name: string }>, res: Response) => {
     const detail = getWsProxyTargetDetail(req.params.name);
     if (!detail) {
-      res.status(404).json({ error: { code: "WS_PROXY_TARGET_NOT_FOUND", message: "Target not found", request_id: requestId(res) } });
+      notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
       return;
     }
     res.status(200).json(detail);
@@ -82,59 +85,81 @@ export function wsProxyAdminRoutes(app: Express): void {
     const name = typeof body.name === "string" ? body.name : "";
     const parsed = parseTargetInput(body);
     if (!parsed.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+      validationError(res, parsed.message);
       return;
     }
     const result = await upsertWsProxyTarget(name, parsed.value);
     if (!result.ok) {
-      res.status(statusForWsProxyError(result.error.code)).json({ error: { ...result.error, request_id: requestId(res) } });
+      sendError(res, statusForWsProxyError(result.error.code), result.error.code, result.error.message);
       return;
     }
     recordAudit(actorFromRequest(req), "ws_proxy_target.create", name, { backendWsUrl: parsed.value.backendWsUrl });
     res.status(201).json(getWsProxyTargetDetail(name));
   });
 
-  app.patch("/admin-api/ws-proxy-targets/:name", adminAuth, requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
-    const { name } = req.params;
-    if (!getWsProxyTargetDetail(name)) {
-      res.status(404).json({ error: { code: "WS_PROXY_TARGET_NOT_FOUND", message: "Target not found", request_id: requestId(res) } });
-      return;
-    }
-    const body = (req.body as Record<string, unknown>) ?? {};
-    const existing = getWsProxyTargetDetail(name)!;
-    const merged = { backendWsUrl: existing.backendWsUrl, maxConnections: existing.maxConnections, maxMessageBytes: existing.maxMessageBytes, idleTimeoutMs: existing.idleTimeoutMs, enabled: existing.enabled, ...body };
-    const parsed = parseTargetInput(merged);
-    if (!parsed.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
-      return;
-    }
-    const result = await upsertWsProxyTarget(name, parsed.value);
-    if (!result.ok) {
-      res.status(statusForWsProxyError(result.error.code)).json({ error: { ...result.error, request_id: requestId(res) } });
-      return;
-    }
-    recordAudit(actorFromRequest(req), "ws_proxy_target.update", name, { fields: Object.keys(body) });
-    res.status(200).json(getWsProxyTargetDetail(name));
-  });
+  app.patch(
+    "/admin-api/ws-proxy-targets/:name",
+    adminAuth,
+    requireAdminRole,
+    async (req: Request<{ name: string }>, res: Response) => {
+      const { name } = req.params;
+      if (!getWsProxyTargetDetail(name)) {
+        notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
+        return;
+      }
+      const body = (req.body as Record<string, unknown>) ?? {};
+      const existing = getWsProxyTargetDetail(name)!;
+      const merged = {
+        backendWsUrl: existing.backendWsUrl,
+        maxConnections: existing.maxConnections,
+        maxMessageBytes: existing.maxMessageBytes,
+        idleTimeoutMs: existing.idleTimeoutMs,
+        enabled: existing.enabled,
+        ...body,
+      };
+      const parsed = parseTargetInput(merged);
+      if (!parsed.ok) {
+        validationError(res, parsed.message);
+        return;
+      }
+      const result = await upsertWsProxyTarget(name, parsed.value);
+      if (!result.ok) {
+        sendError(res, statusForWsProxyError(result.error.code), result.error.code, result.error.message);
+        return;
+      }
+      recordAudit(actorFromRequest(req), "ws_proxy_target.update", name, { fields: Object.keys(body) });
+      res.status(200).json(getWsProxyTargetDetail(name));
+    },
+  );
 
-  app.delete("/admin-api/ws-proxy-targets/:name", adminAuth, requireAdminRole, (req: Request<{ name: string }>, res: Response) => {
-    const { name } = req.params;
-    if (!deleteWsProxyTarget(name)) {
-      res.status(404).json({ error: { code: "WS_PROXY_TARGET_NOT_FOUND", message: "Target not found", request_id: requestId(res) } });
-      return;
-    }
-    recordAudit(actorFromRequest(req), "ws_proxy_target.delete", name);
-    res.status(200).json({ status: "deleted", name });
-  });
+  app.delete(
+    "/admin-api/ws-proxy-targets/:name",
+    adminAuth,
+    requireAdminRole,
+    (req: Request<{ name: string }>, res: Response) => {
+      const { name } = req.params;
+      if (!deleteWsProxyTarget(name)) {
+        notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
+        return;
+      }
+      recordAudit(actorFromRequest(req), "ws_proxy_target.delete", name);
+      res.status(200).json({ status: "deleted", name });
+    },
+  );
 
-  app.post("/admin-api/ws-proxy-targets/:name/disconnect-all", adminAuth, requireAdminRole, (req: Request<{ name: string }>, res: Response) => {
-    const { name } = req.params;
-    if (!getWsProxyTargetDetail(name)) {
-      res.status(404).json({ error: { code: "WS_PROXY_TARGET_NOT_FOUND", message: "Target not found", request_id: requestId(res) } });
-      return;
-    }
-    const closed = disconnectAllForTarget(name);
-    recordAudit(actorFromRequest(req), "ws_proxy_target.disconnect_all", name, { closed });
-    res.status(200).json({ status: "disconnected", closed });
-  });
+  app.post(
+    "/admin-api/ws-proxy-targets/:name/disconnect-all",
+    adminAuth,
+    requireAdminRole,
+    (req: Request<{ name: string }>, res: Response) => {
+      const { name } = req.params;
+      if (!getWsProxyTargetDetail(name)) {
+        notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
+        return;
+      }
+      const closed = disconnectAllForTarget(name);
+      recordAudit(actorFromRequest(req), "ws_proxy_target.disconnect_all", name, { closed });
+      res.status(200).json({ status: "disconnected", closed });
+    },
+  );
 }

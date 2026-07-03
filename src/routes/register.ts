@@ -15,6 +15,7 @@ import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
 import { setToolGraphql } from "../backends.js";
 import { getWsProxyTargetDetail } from "../ws-proxy.js";
 import type { McpTransport } from "../types.js";
+import { validationError } from "./http-errors.js";
 
 /**
  * ws-proxy.ts's upsertWsProxyTarget() rejects a new ws-proxy target whose
@@ -34,7 +35,13 @@ function wsProxyNameCollision(name: string, requestId: string | null): RegisterO
   return {
     ok: false,
     status: 409,
-    body: { error: { code: "NAME_COLLISION", message: `"${name}" is already registered as a WS proxy target`, request_id: requestId } },
+    body: {
+      error: {
+        code: "NAME_COLLISION",
+        message: `"${name}" is already registered as a WS proxy target`,
+        request_id: requestId,
+      },
+    },
   };
 }
 
@@ -45,7 +52,7 @@ type SchemaObject = { [k: string]: JsonValue };
 function resolveRefs(obj: JsonValue, visited: WeakSet<object> = new WeakSet()): JsonValue {
   if (obj === null || typeof obj !== "object") return obj;
   if (Array.isArray(obj)) {
-    return obj.map(item => resolveRefs(item, visited));
+    return obj.map((item) => resolveRefs(item, visited));
   }
   if (visited.has(obj)) return ("$ref" in obj ? obj["$ref"] : obj) as JsonValue;
   visited.add(obj);
@@ -84,7 +91,17 @@ try {
  * duplicating any SSRF/validation logic.
  */
 export type RegisterOutcome =
-  | { ok: true; status: number; body: { status: string; name: string; tools_count: number; source: "openapi" | "manual" | "mcp" | "graphql"; warnings?: string[] } }
+  | {
+      ok: true;
+      status: number;
+      body: {
+        status: string;
+        name: string;
+        tools_count: number;
+        source: "openapi" | "manual" | "mcp" | "graphql";
+        warnings?: string[];
+      };
+    }
   | { ok: false; status: number; body: { error: { code: string; message: string; request_id?: string | null } } };
 
 export function registerRoutes(app: Express): void {
@@ -93,24 +110,15 @@ export function registerRoutes(app: Express): void {
 
     // Change A — guard against non-object bodies ([], "string", null, etc.)
     if (req.body === null || typeof req.body !== "object" || Array.isArray(req.body)) {
-      return res.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Request body must be a JSON object",
-          request_id: requestId,
-        },
-      });
+      return validationError(res, "Request body must be a JSON object");
     }
 
     // Change B — cap tools[] length before any other processing
-    if (Array.isArray((req.body as Record<string, unknown>).tools) && ((req.body as Record<string, unknown>).tools as unknown[]).length > config.maxToolsPerClient) {
-      return res.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: `tools[] exceeds maximum of ${config.maxToolsPerClient}`,
-          request_id: requestId,
-        },
-      });
+    if (
+      Array.isArray((req.body as Record<string, unknown>).tools) &&
+      ((req.body as Record<string, unknown>).tools as unknown[]).length > config.maxToolsPerClient
+    ) {
+      return validationError(res, `tools[] exceeds maximum of ${config.maxToolsPerClient}`);
     }
 
     const peerIp = req.socket?.remoteAddress;
@@ -148,22 +156,39 @@ export function registerRoutes(app: Express): void {
  * `req.body` always had here (no schema validation upstream), so this keeps
  * the same permissive field access the route relied on.
  */
-export async function performRestRegistration(body: any, peerIp: string | undefined, requestId: string | null): Promise<RegisterOutcome> {
+export async function performRestRegistration(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentionally loose: mirrors the unvalidated req.body shape this branch has always had (see doc comment above).
+  body: any,
+  peerIp: string | undefined,
+  requestId: string | null,
+): Promise<RegisterOutcome> {
   const { name, tools, health_url, openapi_url, include_tags, exclude_operations, retry_non_safe_methods } = body;
 
   // Validate required fields
   if (!name || !health_url) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Missing required fields: name, health_url" } } };
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: "Missing required fields: name, health_url" } },
+    };
   }
   const wsCollision = wsProxyNameCollision(name, requestId);
   if (wsCollision) return wsCollision;
 
   // Must provide either tools or openapi_url, not both
   if (!tools && !openapi_url) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Must provide either 'tools' or 'openapi_url'" } } };
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: "Must provide either 'tools' or 'openapi_url'" } },
+    };
   }
   if (tools && openapi_url) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Provide 'tools' or 'openapi_url', not both" } } };
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: "Provide 'tools' or 'openapi_url', not both" } },
+    };
   }
 
   // Change C — use the true peer address; req.ip follows X-Forwarded-For when
@@ -172,7 +197,13 @@ export async function performRestRegistration(body: any, peerIp: string | undefi
     return {
       ok: false,
       status: 400,
-      body: { error: { code: "VALIDATION_ERROR", message: "Cannot determine peer IP for relative health_url", request_id: requestId } },
+      body: {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Cannot determine peer IP for relative health_url",
+          request_id: requestId,
+        },
+      },
     };
   }
   const ip = peerIp || "127.0.0.1";
@@ -185,7 +216,11 @@ export async function performRestRegistration(body: any, peerIp: string | undefi
   // Validate health_url against SSRF
   const healthValidation = await validateBackendUrl(resolvedHealthUrl, config.allowPrivateIps, config.allowedHosts);
   if (!healthValidation.valid) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid health_url: ${healthValidation.reason}` } } };
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: `Invalid health_url: ${healthValidation.reason}` } },
+    };
   }
 
   // Resolve base_url
@@ -193,7 +228,11 @@ export async function performRestRegistration(body: any, peerIp: string | undefi
   let resolvedBaseUrl: string;
   if (base_url) {
     if (!base_url.startsWith("http://") && !base_url.startsWith("https://")) {
-      return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "base_url must start with http:// or https://" } } };
+      return {
+        ok: false,
+        status: 400,
+        body: { error: { code: "VALIDATION_ERROR", message: "base_url must start with http:// or https://" } },
+      };
     }
     resolvedBaseUrl = base_url;
   } else {
@@ -209,7 +248,11 @@ export async function performRestRegistration(body: any, peerIp: string | undefi
   // Validate base_url against SSRF and capture pinned IP
   const baseUrlValidation = await validateBackendUrl(resolvedBaseUrl, config.allowPrivateIps, config.allowedHosts);
   if (!baseUrlValidation.valid) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid base_url: ${baseUrlValidation.reason}` } } };
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: `Invalid base_url: ${baseUrlValidation.reason}` } },
+    };
   }
   const pinnedIp = baseUrlValidation.resolvedIp!;
 
@@ -221,9 +264,17 @@ export async function performRestRegistration(body: any, peerIp: string | undefi
         ? openapi_url
         : `http://${ip}${openapi_url.startsWith("/") ? "" : "/"}${openapi_url}`;
 
-      const openapiValidation = await validateBackendUrl(resolvedOpenapiUrl, config.allowPrivateIps, config.allowedHosts);
+      const openapiValidation = await validateBackendUrl(
+        resolvedOpenapiUrl,
+        config.allowPrivateIps,
+        config.allowedHosts,
+      );
       if (!openapiValidation.valid) {
-        return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid openapi_url: ${openapiValidation.reason}` } } };
+        return {
+          ok: false,
+          status: 400,
+          body: { error: { code: "VALIDATION_ERROR", message: `Invalid openapi_url: ${openapiValidation.reason}` } },
+        };
       }
 
       const openapiHostname = new URL(resolvedOpenapiUrl).hostname;
@@ -238,12 +289,21 @@ export async function performRestRegistration(body: any, peerIp: string | undefi
         return {
           ok: false,
           status: 400,
-          body: { error: { code: "DISCOVERY_ERROR", message: "No tools discovered from OpenAPI spec. Check include_tags/exclude_operations filters." } },
+          body: {
+            error: {
+              code: "DISCOVERY_ERROR",
+              message: "No tools discovered from OpenAPI spec. Check include_tags/exclude_operations filters.",
+            },
+          },
         };
       }
     } else {
       if (!Array.isArray(tools)) {
-        return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "'tools' must be an array" } } };
+        return {
+          ok: false,
+          status: 400,
+          body: { error: { code: "VALIDATION_ERROR", message: "'tools' must be an array" } },
+        };
       }
       resolvedTools = tools;
     }
@@ -255,19 +315,37 @@ export async function performRestRegistration(body: any, peerIp: string | undefi
       if (typeof tool.endpoint === "string") {
         const pathError = validateEndpointPath(tool.endpoint);
         if (pathError) {
-          return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Tool "${tool.name}": ${pathError}`, request_id: requestId } } };
+          return {
+            ok: false,
+            status: 400,
+            body: {
+              error: { code: "VALIDATION_ERROR", message: `Tool "${tool.name}": ${pathError}`, request_id: requestId },
+            },
+          };
         }
       }
     }
 
-    await registry.register(name, resolvedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp, retry_non_safe_methods === true);
+    await registry.register(
+      name,
+      resolvedTools,
+      resolvedHealthUrl,
+      ip,
+      resolvedBaseUrl,
+      pinnedIp,
+      retry_non_safe_methods === true,
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     const code = openapi_url ? "DISCOVERY_ERROR" : "VALIDATION_ERROR";
     return { ok: false, status: 400, body: { error: { code, message } } };
   }
 
-  log("info", "Client registered", { name, tools_count: resolvedTools.length, source: openapi_url ? "openapi" : "manual" });
+  log("info", "Client registered", {
+    name,
+    tools_count: resolvedTools.length,
+    source: openapi_url ? "openapi" : "manual",
+  });
   return {
     ok: true,
     status: 200,
@@ -282,28 +360,63 @@ export async function performRestRegistration(body: any, peerIp: string | undefi
  * is read from any previously-configured per-client upstream credential, so
  * an operator can configure auth then re-register.
  */
-export async function performMcpRegistration(body: any, peerIp: string | undefined, requestId: string | null): Promise<RegisterOutcome> {
+export async function performMcpRegistration(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentionally loose: mirrors the unvalidated req.body shape this branch has always had (see doc comment above).
+  body: any,
+  peerIp: string | undefined,
+  requestId: string | null,
+): Promise<RegisterOutcome> {
   const name = body.name;
   const mcpUrl = body.mcp_url;
   const transportRaw = typeof body.mcp_transport === "string" ? body.mcp_transport : "streamable-http";
 
   if (typeof name !== "string" || !name) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } } };
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } },
+    };
   }
   const mcpWsCollision = wsProxyNameCollision(name, requestId);
   if (mcpWsCollision) return mcpWsCollision;
   if (typeof mcpUrl !== "string" || (!mcpUrl.startsWith("http://") && !mcpUrl.startsWith("https://"))) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "mcp_url must start with http:// or https://", request_id: requestId } } };
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "mcp_url must start with http:// or https://",
+          request_id: requestId,
+        },
+      },
+    };
   }
   if (transportRaw !== "streamable-http" && transportRaw !== "sse") {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "mcp_transport must be 'streamable-http' or 'sse'", request_id: requestId } } };
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "mcp_transport must be 'streamable-http' or 'sse'",
+          request_id: requestId,
+        },
+      },
+    };
   }
   const transport: McpTransport = transportRaw;
 
   // SSRF validation + IP pin on the MCP endpoint (same posture as REST base_url).
   const validation = await validateBackendUrl(mcpUrl, config.allowPrivateIps, config.allowedHosts);
   if (!validation.valid) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid mcp_url: ${validation.reason}`, request_id: requestId } } };
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error: { code: "VALIDATION_ERROR", message: `Invalid mcp_url: ${validation.reason}`, request_id: requestId },
+      },
+    };
   }
   const pinnedIp = validation.resolvedIp!;
   const ip = peerIp || "127.0.0.1";
@@ -312,16 +425,28 @@ export async function performMcpRegistration(body: any, peerIp: string | undefin
   try {
     const discovered = await discoverToolsFromMcpServer(
       { name, url: mcpUrl, transport, resolvedIp: pinnedIp, authHeaders: getUpstreamAuthHeaders(name) ?? undefined },
-      { timeoutMs: config.toolCallTimeoutMs }
+      { timeoutMs: config.toolCallTimeoutMs },
     );
     if (discovered.length === 0) {
-      return { ok: false, status: 400, body: { error: { code: "DISCOVERY_ERROR", message: "No tools discovered from MCP upstream", request_id: requestId } } };
+      return {
+        ok: false,
+        status: 400,
+        body: {
+          error: { code: "DISCOVERY_ERROR", message: "No tools discovered from MCP upstream", request_id: requestId },
+        },
+      };
     }
     if (discovered.length > config.maxToolsPerClient) {
       return {
         ok: false,
         status: 400,
-        body: { error: { code: "VALIDATION_ERROR", message: `MCP upstream exposes ${discovered.length} tools, exceeds maximum of ${config.maxToolsPerClient}`, request_id: requestId } },
+        body: {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `MCP upstream exposes ${discovered.length} tools, exceeds maximum of ${config.maxToolsPerClient}`,
+            request_id: requestId,
+          },
+        },
       };
     }
     await registry.registerMcp(name, discovered, mcpUrl, transport, ip, pinnedIp);
@@ -345,22 +470,51 @@ export async function performMcpRegistration(body: any, peerIp: string | undefin
  * present, which cascades (tool_graphql's FK is ON DELETE CASCADE) — no manual
  * cleanup step needed.
  */
-export async function performGraphqlRegistration(body: any, peerIp: string | undefined, requestId: string | null): Promise<RegisterOutcome> {
+export async function performGraphqlRegistration(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentionally loose: mirrors the unvalidated req.body shape this branch has always had (see doc comment above).
+  body: any,
+  peerIp: string | undefined,
+  requestId: string | null,
+): Promise<RegisterOutcome> {
   const name = body.name;
   const graphqlUrl = body.graphql_url;
 
   if (typeof name !== "string" || !name) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } } };
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } },
+    };
   }
   const gqlWsCollision = wsProxyNameCollision(name, requestId);
   if (gqlWsCollision) return gqlWsCollision;
   if (typeof graphqlUrl !== "string" || (!graphqlUrl.startsWith("http://") && !graphqlUrl.startsWith("https://"))) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: "graphql_url must start with http:// or https://", request_id: requestId } } };
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "graphql_url must start with http:// or https://",
+          request_id: requestId,
+        },
+      },
+    };
   }
 
   const validation = await validateBackendUrl(graphqlUrl, config.allowPrivateIps, config.allowedHosts);
   if (!validation.valid) {
-    return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid graphql_url: ${validation.reason}`, request_id: requestId } } };
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `Invalid graphql_url: ${validation.reason}`,
+          request_id: requestId,
+        },
+      },
+    };
   }
   const pinnedIp = validation.resolvedIp!;
   const ip = peerIp || "127.0.0.1";
@@ -382,13 +536,23 @@ export async function performGraphqlRegistration(body: any, peerIp: string | und
       : `http://${ip}${rawHealthUrl.startsWith("/") ? "" : "/"}${rawHealthUrl}`;
     const healthValidation = await validateBackendUrl(resolvedHealthUrl, config.allowPrivateIps, config.allowedHosts);
     if (!healthValidation.valid) {
-      return { ok: false, status: 400, body: { error: { code: "VALIDATION_ERROR", message: `Invalid health_url: ${healthValidation.reason}`, request_id: requestId } } };
+      return {
+        ok: false,
+        status: 400,
+        body: {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `Invalid health_url: ${healthValidation.reason}`,
+            request_id: requestId,
+          },
+        },
+      };
     }
   } else {
     resolvedHealthUrl = graphqlUrl;
     warnings.push(
       "No health_url provided — defaulting to graphql_url. Many GraphQL servers reject a bare GET on the operation " +
-        "endpoint, which can cause false health-check failures and auto-eviction. Supply a dedicated liveness endpoint if available."
+        "endpoint, which can cause false health-check failures and auto-eviction. Supply a dedicated liveness endpoint if available.",
     );
   }
 
@@ -406,13 +570,29 @@ export async function performGraphqlRegistration(body: any, peerIp: string | und
       includeMutations: body.include_mutations !== false,
     });
     if (discovered.length === 0) {
-      return { ok: false, status: 400, body: { error: { code: "DISCOVERY_ERROR", message: "No tools discovered from GraphQL endpoint", request_id: requestId } } };
+      return {
+        ok: false,
+        status: 400,
+        body: {
+          error: {
+            code: "DISCOVERY_ERROR",
+            message: "No tools discovered from GraphQL endpoint",
+            request_id: requestId,
+          },
+        },
+      };
     }
     if (discovered.length > config.maxToolsPerClient) {
       return {
         ok: false,
         status: 400,
-        body: { error: { code: "VALIDATION_ERROR", message: `GraphQL schema exposes ${discovered.length} tools, exceeds maximum of ${config.maxToolsPerClient}`, request_id: requestId } },
+        body: {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `GraphQL schema exposes ${discovered.length} tools, exceeds maximum of ${config.maxToolsPerClient}`,
+            request_id: requestId,
+          },
+        },
       };
     }
 
@@ -439,6 +619,12 @@ export async function performGraphqlRegistration(body: any, peerIp: string | und
   return {
     ok: true,
     status: 200,
-    body: { status: "registered", name, tools_count: toolsCount, source: "graphql", ...(warnings.length ? { warnings } : {}) },
+    body: {
+      status: "registered",
+      name,
+      tools_count: toolsCount,
+      source: "graphql",
+      ...(warnings.length ? { warnings } : {}),
+    },
   };
 }

@@ -3,10 +3,7 @@ import { adminAuth } from "../middleware/auth.js";
 import { requireSuperAdmin } from "./admin.js";
 import { recordAudit, actorFromRequest } from "../admin/audit.js";
 import { listTeams, createTeam, deleteTeam, setClientTeam, setUserTeam } from "../teams.js";
-
-function requestId(res: Response): string | null {
-  return (res.locals.requestId as string) ?? null;
-}
+import { sendError, validationError, notFound } from "./http-errors.js";
 
 export function teamRoutes(app: Express): void {
   // Any admin may read the team list (needed for assignment dropdowns).
@@ -18,16 +15,16 @@ export function teamRoutes(app: Express): void {
     const body = (req.body as Record<string, unknown>) ?? {};
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "name is required", request_id: requestId(res) } });
+      validationError(res, "name is required");
       return;
     }
     const result = createTeam(name, actorFromRequest(req));
     if (result === "INVALID_NAME") {
-      res.status(400).json({ error: { code: "INVALID_NAME", message: "Team name must be 1-63 chars: letters, digits, space, - or _", request_id: requestId(res) } });
+      sendError(res, 400, "INVALID_NAME", "Team name must be 1-63 chars: letters, digits, space, - or _");
       return;
     }
     if (result === "ALREADY_EXISTS") {
-      res.status(409).json({ error: { code: "ALREADY_EXISTS", message: "A team with that name already exists", request_id: requestId(res) } });
+      sendError(res, 409, "ALREADY_EXISTS", "A team with that name already exists");
       return;
     }
     recordAudit(actorFromRequest(req), "team.create", `team:${result.id}`, { name: result.name });
@@ -37,7 +34,7 @@ export function teamRoutes(app: Express): void {
   app.delete("/admin-api/teams/:id", adminAuth, requireSuperAdmin, (req: Request<{ id: string }>, res: Response) => {
     const ok = deleteTeam(Number(req.params.id));
     if (!ok) {
-      res.status(404).json({ error: { code: "TEAM_NOT_FOUND", message: "Team not found", request_id: requestId(res) } });
+      notFound(res, "TEAM_NOT_FOUND", "Team not found");
       return;
     }
     recordAudit(actorFromRequest(req), "team.delete", `team:${req.params.id}`);
@@ -45,36 +42,46 @@ export function teamRoutes(app: Express): void {
   });
 
   // Assign (or clear) a client's owning team.
-  app.put("/admin-api/clients/:name/team", adminAuth, requireSuperAdmin, (req: Request<{ name: string }>, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
-    const teamId = body.teamId === null ? null : typeof body.teamId === "number" ? body.teamId : undefined;
-    if (teamId === undefined) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "teamId must be a number or null", request_id: requestId(res) } });
-      return;
-    }
-    const ok = setClientTeam(req.params.name, teamId);
-    if (!ok) {
-      res.status(404).json({ error: { code: "NOT_FOUND", message: "Client or team not found", request_id: requestId(res) } });
-      return;
-    }
-    recordAudit(actorFromRequest(req), "client.team.set", req.params.name, { teamId });
-    res.status(200).json({ status: "updated", name: req.params.name, teamId });
-  });
+  app.put(
+    "/admin-api/clients/:name/team",
+    adminAuth,
+    requireSuperAdmin,
+    (req: Request<{ name: string }>, res: Response) => {
+      const body = (req.body as Record<string, unknown>) ?? {};
+      const teamId = body.teamId === null ? null : typeof body.teamId === "number" ? body.teamId : undefined;
+      if (teamId === undefined) {
+        validationError(res, "teamId must be a number or null");
+        return;
+      }
+      const ok = setClientTeam(req.params.name, teamId);
+      if (!ok) {
+        notFound(res, "NOT_FOUND", "Client or team not found");
+        return;
+      }
+      recordAudit(actorFromRequest(req), "client.team.set", req.params.name, { teamId });
+      res.status(200).json({ status: "updated", name: req.params.name, teamId });
+    },
+  );
 
   // Assign (or clear) a user's team membership.
-  app.put("/admin-api/users/:username/team", adminAuth, requireSuperAdmin, (req: Request<{ username: string }>, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
-    const teamId = body.teamId === null ? null : typeof body.teamId === "number" ? body.teamId : undefined;
-    if (teamId === undefined) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "teamId must be a number or null", request_id: requestId(res) } });
-      return;
-    }
-    const ok = setUserTeam(req.params.username, teamId);
-    if (!ok) {
-      res.status(404).json({ error: { code: "NOT_FOUND", message: "User or team not found", request_id: requestId(res) } });
-      return;
-    }
-    recordAudit(actorFromRequest(req), "user.team.set", req.params.username, { teamId });
-    res.status(200).json({ status: "updated", username: req.params.username, teamId });
-  });
+  app.put(
+    "/admin-api/users/:username/team",
+    adminAuth,
+    requireSuperAdmin,
+    (req: Request<{ username: string }>, res: Response) => {
+      const body = (req.body as Record<string, unknown>) ?? {};
+      const teamId = body.teamId === null ? null : typeof body.teamId === "number" ? body.teamId : undefined;
+      if (teamId === undefined) {
+        validationError(res, "teamId must be a number or null");
+        return;
+      }
+      const ok = setUserTeam(req.params.username, teamId);
+      if (!ok) {
+        notFound(res, "NOT_FOUND", "User or team not found");
+        return;
+      }
+      recordAudit(actorFromRequest(req), "user.team.set", req.params.username, { teamId });
+      res.status(200).json({ status: "updated", username: req.params.username, teamId });
+    },
+  );
 }

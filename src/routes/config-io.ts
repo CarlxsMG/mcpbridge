@@ -4,11 +4,15 @@ import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
 import { recordAudit, actorFromRequest } from "../admin/audit.js";
 import { exportConfig, importConfig } from "../config-io.js";
-import { createSnapshot, listSnapshots, getSnapshot, deleteSnapshot, diffSnapshot, rollbackToSnapshot } from "../config-versions.js";
-
-function requestId(res: Response): string | null {
-  return (res.locals.requestId as string) ?? null;
-}
+import {
+  createSnapshot,
+  listSnapshots,
+  getSnapshot,
+  deleteSnapshot,
+  diffSnapshot,
+  rollbackToSnapshot,
+} from "../config-versions.js";
+import { sendError, validationError, notFound } from "./http-errors.js";
 
 export function configIoRoutes(app: Express): void {
   app.get("/admin-api/config/export", adminAuth, requireAdminRole, (req: Request, res: Response) => {
@@ -32,7 +36,7 @@ export function configIoRoutes(app: Express): void {
       try {
         data = parseYaml(body.raw);
       } catch (err) {
-        res.status(400).json({ error: { code: "IMPORT_ERROR", message: `invalid YAML: ${err instanceof Error ? err.message : String(err)}`, request_id: requestId(res) } });
+        sendError(res, 400, "IMPORT_ERROR", `invalid YAML: ${err instanceof Error ? err.message : String(err)}`);
         return;
       }
     } else {
@@ -41,11 +45,14 @@ export function configIoRoutes(app: Express): void {
     try {
       const result = await importConfig(data, { dryRun }, actorFromRequest(req));
       if (!dryRun) {
-        recordAudit(actorFromRequest(req), "config.import", "config", { applied: result.applied, skipped: result.skipped.length });
+        recordAudit(actorFromRequest(req), "config.import", "config", {
+          applied: result.applied,
+          skipped: result.skipped.length,
+        });
       }
       res.status(200).json(result);
     } catch (err) {
-      res.status(400).json({ error: { code: "IMPORT_ERROR", message: err instanceof Error ? err.message : String(err), request_id: requestId(res) } });
+      sendError(res, 400, "IMPORT_ERROR", err instanceof Error ? err.message : String(err));
     }
   });
 
@@ -59,7 +66,7 @@ export function configIoRoutes(app: Express): void {
     const body = (req.body as Record<string, unknown>) ?? {};
     const label = typeof body.label === "string" ? body.label.trim() : "";
     if (!label || label.length > 120) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "label is required (<= 120 chars)", request_id: requestId(res) } });
+      validationError(res, "label is required (<= 120 chars)");
       return;
     }
     const actor = actorFromRequest(req);
@@ -68,48 +75,71 @@ export function configIoRoutes(app: Express): void {
     res.status(201).json(snap);
   });
 
-  app.get("/admin-api/config/snapshots/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
-    const snap = getSnapshot(Number(req.params.id));
-    if (!snap) {
-      res.status(404).json({ error: { code: "SNAPSHOT_NOT_FOUND", message: "Snapshot not found", request_id: requestId(res) } });
-      return;
-    }
-    res.status(200).json(snap);
-  });
+  app.get(
+    "/admin-api/config/snapshots/:id",
+    adminAuth,
+    requireAdminRole,
+    (req: Request<{ id: string }>, res: Response) => {
+      const snap = getSnapshot(Number(req.params.id));
+      if (!snap) {
+        notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
+        return;
+      }
+      res.status(200).json(snap);
+    },
+  );
 
-  app.delete("/admin-api/config/snapshots/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
-    const ok = deleteSnapshot(Number(req.params.id));
-    if (!ok) {
-      res.status(404).json({ error: { code: "SNAPSHOT_NOT_FOUND", message: "Snapshot not found", request_id: requestId(res) } });
-      return;
-    }
-    recordAudit(actorFromRequest(req), "config.snapshot.delete", `snapshot:${req.params.id}`);
-    res.status(200).json({ status: "deleted", id: Number(req.params.id) });
-  });
+  app.delete(
+    "/admin-api/config/snapshots/:id",
+    adminAuth,
+    requireAdminRole,
+    (req: Request<{ id: string }>, res: Response) => {
+      const ok = deleteSnapshot(Number(req.params.id));
+      if (!ok) {
+        notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
+        return;
+      }
+      recordAudit(actorFromRequest(req), "config.snapshot.delete", `snapshot:${req.params.id}`);
+      res.status(200).json({ status: "deleted", id: Number(req.params.id) });
+    },
+  );
 
-  app.get("/admin-api/config/snapshots/:id/diff", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
-    const againstRaw = typeof req.query.against === "string" ? req.query.against : "current";
-    const against: number | "current" = againstRaw === "current" ? "current" : Number(againstRaw);
-    if (against !== "current" && !Number.isInteger(against)) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "against must be 'current' or a snapshot id", request_id: requestId(res) } });
-      return;
-    }
-    const result = diffSnapshot(Number(req.params.id), against);
-    if (!result) {
-      res.status(404).json({ error: { code: "SNAPSHOT_NOT_FOUND", message: "Snapshot not found", request_id: requestId(res) } });
-      return;
-    }
-    res.status(200).json(result);
-  });
+  app.get(
+    "/admin-api/config/snapshots/:id/diff",
+    adminAuth,
+    requireAdminRole,
+    (req: Request<{ id: string }>, res: Response) => {
+      const againstRaw = typeof req.query.against === "string" ? req.query.against : "current";
+      const against: number | "current" = againstRaw === "current" ? "current" : Number(againstRaw);
+      if (against !== "current" && !Number.isInteger(against)) {
+        validationError(res, "against must be 'current' or a snapshot id");
+        return;
+      }
+      const result = diffSnapshot(Number(req.params.id), against);
+      if (!result) {
+        notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
+        return;
+      }
+      res.status(200).json(result);
+    },
+  );
 
-  app.post("/admin-api/config/snapshots/:id/rollback", adminAuth, requireAdminRole, async (req: Request<{ id: string }>, res: Response) => {
-    const actor = actorFromRequest(req);
-    const result = await rollbackToSnapshot(Number(req.params.id), actor);
-    if (!result) {
-      res.status(404).json({ error: { code: "SNAPSHOT_NOT_FOUND", message: "Snapshot not found", request_id: requestId(res) } });
-      return;
-    }
-    recordAudit(actor, "config.snapshot.rollback", `snapshot:${req.params.id}`, { applied: result.applied, skipped: result.skipped.length });
-    res.status(200).json(result);
-  });
+  app.post(
+    "/admin-api/config/snapshots/:id/rollback",
+    adminAuth,
+    requireAdminRole,
+    async (req: Request<{ id: string }>, res: Response) => {
+      const actor = actorFromRequest(req);
+      const result = await rollbackToSnapshot(Number(req.params.id), actor);
+      if (!result) {
+        notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
+        return;
+      }
+      recordAudit(actor, "config.snapshot.rollback", `snapshot:${req.params.id}`, {
+        applied: result.applied,
+        skipped: result.skipped.length,
+      });
+      res.status(200).json(result);
+    },
+  );
 }

@@ -14,10 +14,7 @@ import {
   type CustomCatalogEntryInput,
   type CatalogMutationError,
 } from "../catalog.js";
-
-function requestId(res: Response): string | null {
-  return (res.locals.requestId as string) ?? null;
-}
+import { requestId, sendError, validationError, notFound, forbidden } from "./http-errors.js";
 
 function statusForCatalogError(code: CatalogMutationError["code"]): number {
   switch (code) {
@@ -39,7 +36,10 @@ function stringArrayOrUndefined(v: unknown): string[] | undefined {
 }
 
 /** Parses+validates the mutable fields of a custom catalog entry from a request body. Returns a validation message on failure. */
-function parseCustomEntryInput(body: Record<string, unknown>, requireSlug: boolean): { ok: true; value: Partial<CustomCatalogEntryInput> } | { ok: false; message: string } {
+function parseCustomEntryInput(
+  body: Record<string, unknown>,
+  requireSlug: boolean,
+): { ok: true; value: Partial<CustomCatalogEntryInput> } | { ok: false; message: string } {
   const value: Partial<CustomCatalogEntryInput> = {};
   if (requireSlug || body.slug !== undefined) {
     if (typeof body.slug !== "string" || !body.slug) return { ok: false, message: "slug is required" };
@@ -53,7 +53,8 @@ function parseCustomEntryInput(body: Record<string, unknown>, requireSlug: boole
     if (body.kind !== "rest" && body.kind !== "mcp") return { ok: false, message: "kind must be 'rest' or 'mcp'" };
     value.kind = body.kind;
   }
-  if (body.description !== undefined) value.description = typeof body.description === "string" ? body.description : null;
+  if (body.description !== undefined)
+    value.description = typeof body.description === "string" ? body.description : null;
   if (body.category !== undefined) value.category = typeof body.category === "string" ? body.category : null;
   if (body.icon !== undefined) value.icon = typeof body.icon === "string" ? body.icon : null;
   if (body.tags !== undefined) value.tags = stringArrayOrUndefined(body.tags) ?? [];
@@ -61,7 +62,8 @@ function parseCustomEntryInput(body: Record<string, unknown>, requireSlug: boole
   if (body.healthUrl !== undefined) value.healthUrl = typeof body.healthUrl === "string" ? body.healthUrl : null;
   if (body.baseUrl !== undefined) value.baseUrl = typeof body.baseUrl === "string" ? body.baseUrl : null;
   if (body.includeTags !== undefined) value.includeTags = stringArrayOrUndefined(body.includeTags) ?? null;
-  if (body.excludeOperations !== undefined) value.excludeOperations = stringArrayOrUndefined(body.excludeOperations) ?? null;
+  if (body.excludeOperations !== undefined)
+    value.excludeOperations = stringArrayOrUndefined(body.excludeOperations) ?? null;
   if (body.mcpUrl !== undefined) value.mcpUrl = typeof body.mcpUrl === "string" ? body.mcpUrl : null;
   if (body.mcpTransport !== undefined) {
     if (body.mcpTransport !== "streamable-http" && body.mcpTransport !== "sse" && body.mcpTransport !== null) {
@@ -89,13 +91,13 @@ export function catalogRoutes(app: Express): void {
     const body = (req.body as Record<string, unknown>) ?? {};
     const parsed = parseCustomEntryInput(body, true);
     if (!parsed.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+      validationError(res, parsed.message);
       return;
     }
     const actor = actorFromRequest(req);
     const result = createCustomEntry(parsed.value as CustomCatalogEntryInput, actor);
     if (!result.ok) {
-      res.status(statusForCatalogError(result.error.code)).json({ error: { ...result.error, request_id: requestId(res) } });
+      sendError(res, statusForCatalogError(result.error.code), result.error.code, result.error.message);
       return;
     }
     recordAudit(actor, "catalog.entry.create", result.entry.slug, { kind: result.entry.kind });
@@ -105,42 +107,44 @@ export function catalogRoutes(app: Express): void {
   app.patch("/admin-api/catalog/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
     if (id.startsWith("builtin:")) {
-      res.status(403).json({ error: { code: "IMMUTABLE_ENTRY", message: "Builtin catalog entries can't be edited at runtime", request_id: requestId(res) } });
+      forbidden(res, "IMMUTABLE_ENTRY", "Builtin catalog entries can't be edited at runtime");
       return;
     }
     if (!id.startsWith("custom:")) {
-      res.status(404).json({ error: { code: "NOT_FOUND", message: "Catalog entry not found", request_id: requestId(res) } });
+      notFound(res, "NOT_FOUND", "Catalog entry not found");
       return;
     }
     const rowId = Number(id.slice("custom:".length));
     const body = (req.body as Record<string, unknown>) ?? {};
     const parsed = parseCustomEntryInput(body, false);
     if (!parsed.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: parsed.message, request_id: requestId(res) } });
+      validationError(res, parsed.message);
       return;
     }
     const result = updateCustomEntry(rowId, parsed.value);
     if (!result.ok) {
-      res.status(statusForCatalogError(result.error.code)).json({ error: { ...result.error, request_id: requestId(res) } });
+      sendError(res, statusForCatalogError(result.error.code), result.error.code, result.error.message);
       return;
     }
-    recordAudit(actorFromRequest(req), "catalog.entry.update", result.entry.slug, { fields: Object.keys(parsed.value) });
+    recordAudit(actorFromRequest(req), "catalog.entry.update", result.entry.slug, {
+      fields: Object.keys(parsed.value),
+    });
     res.status(200).json({ ...result.entry, id: `custom:${result.entry.id}`, source: "custom" });
   });
 
   app.delete("/admin-api/catalog/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
     if (id.startsWith("builtin:")) {
-      res.status(403).json({ error: { code: "IMMUTABLE_ENTRY", message: "Builtin catalog entries can't be deleted", request_id: requestId(res) } });
+      forbidden(res, "IMMUTABLE_ENTRY", "Builtin catalog entries can't be deleted");
       return;
     }
     if (!id.startsWith("custom:")) {
-      res.status(404).json({ error: { code: "NOT_FOUND", message: "Catalog entry not found", request_id: requestId(res) } });
+      notFound(res, "NOT_FOUND", "Catalog entry not found");
       return;
     }
     const rowId = Number(id.slice("custom:".length));
     if (!deleteCustomEntry(rowId)) {
-      res.status(404).json({ error: { code: "NOT_FOUND", message: "Catalog entry not found", request_id: requestId(res) } });
+      notFound(res, "NOT_FOUND", "Catalog entry not found");
       return;
     }
     recordAudit(actorFromRequest(req), "catalog.entry.delete", id);
@@ -155,7 +159,7 @@ export function catalogRoutes(app: Express): void {
     async (req: Request<{ id: string }>, res: Response) => {
       const entry = getCatalogEntry(req.params.id);
       if (!entry) {
-        res.status(404).json({ error: { code: "CATALOG_ENTRY_NOT_FOUND", message: "Catalog entry not found", request_id: requestId(res) } });
+        notFound(res, "CATALOG_ENTRY_NOT_FOUND", "Catalog entry not found");
         return;
       }
       const body = (req.body as Record<string, unknown>) ?? {};
@@ -165,7 +169,11 @@ export function catalogRoutes(app: Express): void {
 
       const outcome =
         entry.kind === "mcp"
-          ? await performMcpRegistration({ name, mcp_url: entry.mcpUrl, mcp_transport: entry.mcpTransport ?? "streamable-http" }, peerIp, reqId)
+          ? await performMcpRegistration(
+              { name, mcp_url: entry.mcpUrl, mcp_transport: entry.mcpTransport ?? "streamable-http" },
+              peerIp,
+              reqId,
+            )
           : await performRestRegistration(
               {
                 name,
@@ -176,13 +184,16 @@ export function catalogRoutes(app: Express): void {
                 exclude_operations: entry.excludeOperations ?? undefined,
               },
               peerIp,
-              reqId
+              reqId,
             );
 
       res.status(outcome.status).json(outcome.body);
       if (outcome.ok) {
-        recordAudit(actorFromRequest(req), "catalog.install", entry.id, { installedAs: name, toolsCount: outcome.body.tools_count });
+        recordAudit(actorFromRequest(req), "catalog.install", entry.id, {
+          installedAs: name,
+          toolsCount: outcome.body.tools_count,
+        });
       }
-    }
+    },
   );
 }

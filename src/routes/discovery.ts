@@ -7,10 +7,7 @@ import { validateBackendUrl } from "../security/ip-validator.js";
 import { discoverToolsFromOpenApi } from "../openapi-discovery.js";
 import { discoverToolsFromGraphQl } from "../graphql-discovery.js";
 import { recordAudit, actorFromRequest } from "../admin/audit.js";
-
-function requestId(res: Response): string | null {
-  return (res.locals.requestId as string) ?? null;
-}
+import { sendError, validationError } from "./http-errors.js";
 
 function stringArray(input: unknown): string[] | undefined {
   if (!Array.isArray(input)) return undefined;
@@ -38,13 +35,13 @@ export function discoveryRoutes(app: Express): void {
       const excludeOperations = stringArray(body.exclude_operations);
 
       if (!openapiUrl.startsWith("http://") && !openapiUrl.startsWith("https://")) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "openapi_url must be an absolute http(s) URL", request_id: requestId(res) } });
+        validationError(res, "openapi_url must be an absolute http(s) URL");
         return;
       }
 
       const validation = await validateBackendUrl(openapiUrl, config.allowPrivateIps, config.allowedHosts);
       if (!validation.valid) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `Invalid openapi_url: ${validation.reason}`, request_id: requestId(res) } });
+        validationError(res, `Invalid openapi_url: ${validation.reason}`);
         return;
       }
 
@@ -59,12 +56,17 @@ export function discoveryRoutes(app: Express): void {
         recordAudit(actorFromRequest(req), "discovery.preview", openapiUrl, { count: tools.length });
         res.status(200).json({
           count: tools.length,
-          tools: tools.map((t) => ({ name: t.name, method: t.method, endpoint: t.endpoint, description: t.description })),
+          tools: tools.map((t) => ({
+            name: t.name,
+            method: t.method,
+            endpoint: t.endpoint,
+            description: t.description,
+          })),
         });
       } catch (err) {
-        res.status(400).json({ error: { code: "DISCOVERY_ERROR", message: err instanceof Error ? err.message : String(err), request_id: requestId(res) } });
+        sendError(res, 400, "DISCOVERY_ERROR", err instanceof Error ? err.message : String(err));
       }
-    }
+    },
   );
 
   /**
@@ -82,13 +84,13 @@ export function discoveryRoutes(app: Express): void {
       const graphqlUrl = typeof body.graphql_url === "string" ? body.graphql_url : "";
 
       if (!graphqlUrl.startsWith("http://") && !graphqlUrl.startsWith("https://")) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "graphql_url must be an absolute http(s) URL", request_id: requestId(res) } });
+        validationError(res, "graphql_url must be an absolute http(s) URL");
         return;
       }
 
       const validation = await validateBackendUrl(graphqlUrl, config.allowPrivateIps, config.allowedHosts);
       if (!validation.valid) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: `Invalid graphql_url: ${validation.reason}`, request_id: requestId(res) } });
+        validationError(res, `Invalid graphql_url: ${validation.reason}`);
         return;
       }
 
@@ -102,11 +104,16 @@ export function discoveryRoutes(app: Express): void {
         recordAudit(actorFromRequest(req), "discovery.preview_graphql", graphqlUrl, { count: tools.length });
         res.status(200).json({
           count: tools.length,
-          tools: tools.map((t) => ({ name: t.name, method: "POST", endpoint: new URL(graphqlUrl).pathname || "/graphql", description: t.description })),
+          tools: tools.map((t) => ({
+            name: t.name,
+            method: "POST",
+            endpoint: new URL(graphqlUrl).pathname || "/graphql",
+            description: t.description,
+          })),
         });
       } catch (err) {
-        res.status(400).json({ error: { code: "DISCOVERY_ERROR", message: err instanceof Error ? err.message : String(err), request_id: requestId(res) } });
+        sendError(res, 400, "DISCOVERY_ERROR", err instanceof Error ? err.message : String(err));
       }
-    }
+    },
   );
 }

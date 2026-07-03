@@ -11,10 +11,7 @@ import {
   type CompositeStep,
   type CompositeMutationError,
 } from "../composites.js";
-
-function requestId(res: Response): string | null {
-  return (res.locals.requestId as string) ?? null;
-}
+import { sendError, validationError, notFound } from "./http-errors.js";
 
 const MAX_STEPS = 10;
 
@@ -40,7 +37,10 @@ function validateSteps(input: unknown): { ok: true; value: CompositeStep[] } | {
   for (const item of input) {
     const e = item as Record<string, unknown>;
     if (typeof e !== "object" || e === null || typeof e.targetClient !== "string" || typeof e.targetTool !== "string") {
-      return { ok: false, message: "each step must be {targetClient: string, targetTool: string, argsTemplate: object}" };
+      return {
+        ok: false,
+        message: "each step must be {targetClient: string, targetTool: string, argsTemplate: object}",
+      };
     }
     const tmpl = e.argsTemplate ?? {};
     if (typeof tmpl !== "object" || tmpl === null || Array.isArray(tmpl)) {
@@ -49,7 +49,11 @@ function validateSteps(input: unknown): { ok: true; value: CompositeStep[] } | {
     if (JSON.stringify(tmpl).length > 10240) {
       return { ok: false, message: "argsTemplate exceeds 10KB" };
     }
-    value.push({ targetClient: e.targetClient, targetTool: e.targetTool, argsTemplate: tmpl as Record<string, unknown> });
+    value.push({
+      targetClient: e.targetClient,
+      targetTool: e.targetTool,
+      argsTemplate: tmpl as Record<string, unknown>,
+    });
   }
   return { ok: true, value };
 }
@@ -62,7 +66,7 @@ export function compositeRoutes(app: Express): void {
   app.get("/admin-api/composites/:name", adminAuth, (req: Request<{ name: string }>, res: Response) => {
     const detail = getCompositeDetail(req.params.name);
     if (!detail) {
-      res.status(404).json({ error: { code: "COMPOSITE_NOT_FOUND", message: "Composite not found", request_id: requestId(res) } });
+      notFound(res, "COMPOSITE_NOT_FOUND", "Composite not found");
       return;
     }
     res.status(200).json(detail);
@@ -72,76 +76,95 @@ export function compositeRoutes(app: Express): void {
     const body = (req.body as Record<string, unknown>) ?? {};
     const name = typeof body.name === "string" ? body.name : "";
     const description = typeof body.description === "string" ? body.description : undefined;
-    const inputSchema = (typeof body.inputSchema === "object" && body.inputSchema !== null ? body.inputSchema : { type: "object", properties: {} }) as Record<string, unknown>;
+    const inputSchema = (
+      typeof body.inputSchema === "object" && body.inputSchema !== null
+        ? body.inputSchema
+        : { type: "object", properties: {} }
+    ) as Record<string, unknown>;
 
     const stepsResult = validateSteps(body.steps);
     if (!stepsResult.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: stepsResult.message, request_id: requestId(res) } });
+      validationError(res, stepsResult.message);
       return;
     }
 
     const actor = actorFromRequest(req);
     const result = await createComposite(name, description, inputSchema, stepsResult.value, actor);
     if (!result.ok) {
-      res.status(statusForError(result.error.code)).json({ error: { ...result.error, request_id: requestId(res) } });
+      sendError(res, statusForError(result.error.code), result.error.code, result.error.message);
       return;
     }
     recordAudit(actor, "composite.create", name, { steps: stepsResult.value.length });
     res.status(201).json(getCompositeDetail(name));
   });
 
-  app.patch("/admin-api/composites/:name", adminAuth, requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
-    const { name } = req.params;
-    const body = (req.body as Record<string, unknown>) ?? {};
-    const updates: { description?: string | null; enabled?: boolean; inputSchema?: Record<string, unknown>; steps?: CompositeStep[] } = {};
+  app.patch(
+    "/admin-api/composites/:name",
+    adminAuth,
+    requireAdminRole,
+    async (req: Request<{ name: string }>, res: Response) => {
+      const { name } = req.params;
+      const body = (req.body as Record<string, unknown>) ?? {};
+      const updates: {
+        description?: string | null;
+        enabled?: boolean;
+        inputSchema?: Record<string, unknown>;
+        steps?: CompositeStep[];
+      } = {};
 
-    if (body.description !== undefined) {
-      if (body.description !== null && typeof body.description !== "string") {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "description must be a string or null", request_id: requestId(res) } });
-        return;
+      if (body.description !== undefined) {
+        if (body.description !== null && typeof body.description !== "string") {
+          validationError(res, "description must be a string or null");
+          return;
+        }
+        updates.description = body.description;
       }
-      updates.description = body.description;
-    }
-    if (body.enabled !== undefined) {
-      if (typeof body.enabled !== "boolean") {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "enabled must be a boolean", request_id: requestId(res) } });
-        return;
+      if (body.enabled !== undefined) {
+        if (typeof body.enabled !== "boolean") {
+          validationError(res, "enabled must be a boolean");
+          return;
+        }
+        updates.enabled = body.enabled;
       }
-      updates.enabled = body.enabled;
-    }
-    if (body.inputSchema !== undefined) {
-      if (typeof body.inputSchema !== "object" || body.inputSchema === null || Array.isArray(body.inputSchema)) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "inputSchema must be an object", request_id: requestId(res) } });
-        return;
+      if (body.inputSchema !== undefined) {
+        if (typeof body.inputSchema !== "object" || body.inputSchema === null || Array.isArray(body.inputSchema)) {
+          validationError(res, "inputSchema must be an object");
+          return;
+        }
+        updates.inputSchema = body.inputSchema as Record<string, unknown>;
       }
-      updates.inputSchema = body.inputSchema as Record<string, unknown>;
-    }
-    if (body.steps !== undefined) {
-      const stepsResult = validateSteps(body.steps);
-      if (!stepsResult.ok) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: stepsResult.message, request_id: requestId(res) } });
-        return;
+      if (body.steps !== undefined) {
+        const stepsResult = validateSteps(body.steps);
+        if (!stepsResult.ok) {
+          validationError(res, stepsResult.message);
+          return;
+        }
+        updates.steps = stepsResult.value;
       }
-      updates.steps = stepsResult.value;
-    }
 
-    const result = await updateComposite(name, updates);
-    if (!result.ok) {
-      res.status(statusForError(result.error.code)).json({ error: { ...result.error, request_id: requestId(res) } });
-      return;
-    }
-    recordAudit(actorFromRequest(req), "composite.update", name, { fields: Object.keys(updates) });
-    res.status(200).json({ status: "updated", name });
-  });
+      const result = await updateComposite(name, updates);
+      if (!result.ok) {
+        sendError(res, statusForError(result.error.code), result.error.code, result.error.message);
+        return;
+      }
+      recordAudit(actorFromRequest(req), "composite.update", name, { fields: Object.keys(updates) });
+      res.status(200).json({ status: "updated", name });
+    },
+  );
 
-  app.delete("/admin-api/composites/:name", adminAuth, requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
-    const { name } = req.params;
-    const ok = await deleteComposite(name);
-    if (!ok) {
-      res.status(404).json({ error: { code: "COMPOSITE_NOT_FOUND", message: "Composite not found", request_id: requestId(res) } });
-      return;
-    }
-    recordAudit(actorFromRequest(req), "composite.delete", name);
-    res.status(200).json({ status: "deleted", name });
-  });
+  app.delete(
+    "/admin-api/composites/:name",
+    adminAuth,
+    requireAdminRole,
+    async (req: Request<{ name: string }>, res: Response) => {
+      const { name } = req.params;
+      const ok = await deleteComposite(name);
+      if (!ok) {
+        notFound(res, "COMPOSITE_NOT_FOUND", "Composite not found");
+        return;
+      }
+      recordAudit(actorFromRequest(req), "composite.delete", name);
+      res.status(200).json({ status: "deleted", name });
+    },
+  );
 }

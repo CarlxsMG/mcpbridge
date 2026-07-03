@@ -12,10 +12,7 @@ import {
   getConsumerUsageThisMonth,
   isValidQuotaValue,
 } from "../consumers.js";
-
-function requestId(res: Response): string | null {
-  return (res.locals.requestId as string) ?? null;
-}
+import { sendError, validationError, notFound } from "./http-errors.js";
 
 function optPositiveIntOrNull(v: unknown): { ok: true; value: number | null } | { ok: false } {
   if (!isValidQuotaValue(v)) return { ok: false };
@@ -32,25 +29,30 @@ export function consumerRoutes(app: Express): void {
     const body = (req.body as Record<string, unknown>) ?? {};
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name || name.length > 128) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "name is required (1-128 chars)", request_id: requestId(res) } });
+      validationError(res, "name is required (1-128 chars)");
       return;
     }
     if (consumerNameExists(name)) {
-      res.status(409).json({ error: { code: "CONSUMER_EXISTS", message: "A consumer with that name already exists", request_id: requestId(res) } });
+      sendError(res, 409, "CONSUMER_EXISTS", "A consumer with that name already exists");
       return;
     }
     const quota = optPositiveIntOrNull(body.monthlyQuota);
     if (!quota.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "monthlyQuota must be a positive integer or null", request_id: requestId(res) } });
+      validationError(res, "monthlyQuota must be a positive integer or null");
       return;
     }
     const endUserRateLimit = optPositiveIntOrNull(body.endUserRateLimitPerMin);
     if (!endUserRateLimit.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "endUserRateLimitPerMin must be a positive integer or null", request_id: requestId(res) } });
+      validationError(res, "endUserRateLimitPerMin must be a positive integer or null");
       return;
     }
     const actor = actorFromRequest(req);
-    const consumer = createConsumer({ name, monthlyQuota: quota.value, endUserRateLimitPerMin: endUserRateLimit.value, actor });
+    const consumer = createConsumer({
+      name,
+      monthlyQuota: quota.value,
+      endUserRateLimitPerMin: endUserRateLimit.value,
+      actor,
+    });
     recordAudit(actor, "consumer.create", String(consumer.id), { name });
     res.status(201).json(consumer);
   });
@@ -59,30 +61,36 @@ export function consumerRoutes(app: Express): void {
     const id = Number(req.params.id);
     const existing = getConsumer(id);
     if (!existing) {
-      res.status(404).json({ error: { code: "CONSUMER_NOT_FOUND", message: "Consumer not found", request_id: requestId(res) } });
+      notFound(res, "CONSUMER_NOT_FOUND", "Consumer not found");
       return;
     }
     const body = (req.body as Record<string, unknown>) ?? {};
     const updates: { name?: string; monthlyQuota?: number | null; endUserRateLimitPerMin?: number | null } = {};
     if (body.name !== undefined) {
       if (typeof body.name !== "string" || !body.name.trim()) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "name must be a non-empty string", request_id: requestId(res) } });
+        validationError(res, "name must be a non-empty string");
         return;
       }
       if (body.name.trim() !== existing.name && consumerNameExists(body.name.trim())) {
-        res.status(409).json({ error: { code: "CONSUMER_EXISTS", message: "A consumer with that name already exists", request_id: requestId(res) } });
+        sendError(res, 409, "CONSUMER_EXISTS", "A consumer with that name already exists");
         return;
       }
       updates.name = body.name.trim();
     }
     if (body.monthlyQuota !== undefined) {
       const q = optPositiveIntOrNull(body.monthlyQuota);
-      if (!q.ok) { res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "monthlyQuota must be a positive integer or null", request_id: requestId(res) } }); return; }
+      if (!q.ok) {
+        validationError(res, "monthlyQuota must be a positive integer or null");
+        return;
+      }
       updates.monthlyQuota = q.value;
     }
     if (body.endUserRateLimitPerMin !== undefined) {
       const l = optPositiveIntOrNull(body.endUserRateLimitPerMin);
-      if (!l.ok) { res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "endUserRateLimitPerMin must be a positive integer or null", request_id: requestId(res) } }); return; }
+      if (!l.ok) {
+        validationError(res, "endUserRateLimitPerMin must be a positive integer or null");
+        return;
+      }
       updates.endUserRateLimitPerMin = l.value;
     }
     const consumer = updateConsumer(id, updates);
@@ -93,7 +101,7 @@ export function consumerRoutes(app: Express): void {
   app.delete("/admin-api/consumers/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     if (!deleteConsumer(id)) {
-      res.status(404).json({ error: { code: "CONSUMER_NOT_FOUND", message: "Consumer not found", request_id: requestId(res) } });
+      notFound(res, "CONSUMER_NOT_FOUND", "Consumer not found");
       return;
     }
     recordAudit(actorFromRequest(req), "consumer.delete", String(id));
@@ -104,7 +112,7 @@ export function consumerRoutes(app: Express): void {
     const id = Number(req.params.id);
     const consumer = getConsumer(id);
     if (!consumer) {
-      res.status(404).json({ error: { code: "CONSUMER_NOT_FOUND", message: "Consumer not found", request_id: requestId(res) } });
+      notFound(res, "CONSUMER_NOT_FOUND", "Consumer not found");
       return;
     }
     res.status(200).json({ used: getConsumerUsageThisMonth(id), quota: consumer.monthlyQuota });

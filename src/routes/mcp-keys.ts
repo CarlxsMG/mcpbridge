@@ -12,14 +12,12 @@ import {
   type McpKeyScopes,
 } from "../security/mcp-key-store.js";
 import { getConsumer } from "../consumers.js";
-
-function requestId(res: Response): string | null {
-  return (res.locals.requestId as string) ?? null;
-}
+import { sendError, validationError, notFound } from "./http-errors.js";
 
 function validateConsumerId(v: unknown): { ok: true; value: number | null } | { ok: false; message: string } {
   if (v === undefined || v === null) return { ok: true, value: null };
-  if (typeof v !== "number" || !Number.isInteger(v)) return { ok: false, message: "consumerId must be an integer or null" };
+  if (typeof v !== "number" || !Number.isInteger(v))
+    return { ok: false, message: "consumerId must be an integer or null" };
   if (!getConsumer(v)) return { ok: false, message: "consumerId does not reference an existing consumer" };
   return { ok: true, value: v };
 }
@@ -66,30 +64,34 @@ export function mcpKeyRoutes(app: Express): void {
     const body = (req.body as Record<string, unknown>) ?? {};
     const label = validateLabel(body.label);
     if (!label.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: label.message, request_id: requestId(res) } });
+      validationError(res, label.message);
       return;
     }
     const scopes = validateScopes(body.scopes);
     if (!scopes.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: scopes.message, request_id: requestId(res) } });
+      validationError(res, scopes.message);
       return;
     }
     const exp = validateExpiresAt(body.expiresAt);
     if (!exp.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: exp.message, request_id: requestId(res) } });
+      validationError(res, exp.message);
       return;
     }
 
     const consumer = validateConsumerId(body.consumerId);
     if (!consumer.ok) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: consumer.message, request_id: requestId(res) } });
+      validationError(res, consumer.message);
       return;
     }
 
     const actor = actorFromRequest(req);
     const elevated = body.elevated === true;
     const { record, rawKey } = createMcpKey(label.value, scopes.value, exp.value, actor, consumer.value, elevated);
-    recordAudit(actor, "mcp_key.create", String(record.id), { label: label.value, scopes: scopes.value ?? undefined, consumerId: consumer.value ?? undefined });
+    recordAudit(actor, "mcp_key.create", String(record.id), {
+      label: label.value,
+      scopes: scopes.value ?? undefined,
+      consumerId: consumer.value ?? undefined,
+    });
     // The raw key is returned exactly once, here — it is never persisted or retrievable again.
     res.status(201).json({ ...record, key: rawKey });
   });
@@ -97,7 +99,7 @@ export function mcpKeyRoutes(app: Express): void {
   app.get("/admin-api/mcp-keys/:id", adminAuth, (req: Request<{ id: string }>, res: Response) => {
     const rec = getMcpKey(Number(req.params.id));
     if (!rec) {
-      res.status(404).json({ error: { code: "MCP_KEY_NOT_FOUND", message: "API key not found", request_id: requestId(res) } });
+      notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
       return;
     }
     res.status(200).json(rec);
@@ -107,23 +109,30 @@ export function mcpKeyRoutes(app: Express): void {
     const id = Number(req.params.id);
     const existing = getMcpKey(id);
     if (!existing) {
-      res.status(404).json({ error: { code: "MCP_KEY_NOT_FOUND", message: "API key not found", request_id: requestId(res) } });
+      notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
       return;
     }
     const body = (req.body as Record<string, unknown>) ?? {};
-    const updates: { label?: string; enabled?: boolean; expiresAt?: number | null; scopes?: McpKeyScopes | null; consumerId?: number | null; elevated?: boolean } = {};
+    const updates: {
+      label?: string;
+      enabled?: boolean;
+      expiresAt?: number | null;
+      scopes?: McpKeyScopes | null;
+      consumerId?: number | null;
+      elevated?: boolean;
+    } = {};
 
     if (body.label !== undefined) {
       const label = validateLabel(body.label);
       if (!label.ok) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: label.message, request_id: requestId(res) } });
+        validationError(res, label.message);
         return;
       }
       updates.label = label.value;
     }
     if (body.enabled !== undefined) {
       if (typeof body.enabled !== "boolean") {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "enabled must be a boolean", request_id: requestId(res) } });
+        validationError(res, "enabled must be a boolean");
         return;
       }
       updates.enabled = body.enabled;
@@ -131,7 +140,7 @@ export function mcpKeyRoutes(app: Express): void {
     if (body.expiresAt !== undefined) {
       const exp = validateExpiresAt(body.expiresAt);
       if (!exp.ok) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: exp.message, request_id: requestId(res) } });
+        validationError(res, exp.message);
         return;
       }
       updates.expiresAt = exp.value;
@@ -139,7 +148,7 @@ export function mcpKeyRoutes(app: Express): void {
     if (body.scopes !== undefined) {
       const scopes = validateScopes(body.scopes);
       if (!scopes.ok) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: scopes.message, request_id: requestId(res) } });
+        validationError(res, scopes.message);
         return;
       }
       updates.scopes = scopes.value;
@@ -147,14 +156,14 @@ export function mcpKeyRoutes(app: Express): void {
     if (body.consumerId !== undefined) {
       const consumer = validateConsumerId(body.consumerId);
       if (!consumer.ok) {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: consumer.message, request_id: requestId(res) } });
+        validationError(res, consumer.message);
         return;
       }
       updates.consumerId = consumer.value;
     }
     if (body.elevated !== undefined) {
       if (typeof body.elevated !== "boolean") {
-        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "elevated must be a boolean", request_id: requestId(res) } });
+        validationError(res, "elevated must be a boolean");
         return;
       }
       updates.elevated = body.elevated;
@@ -165,26 +174,31 @@ export function mcpKeyRoutes(app: Express): void {
     res.status(200).json(rec);
   });
 
-  app.post("/admin-api/mcp-keys/:id/revoke", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
-    const id = Number(req.params.id);
-    if (!getMcpKey(id)) {
-      res.status(404).json({ error: { code: "MCP_KEY_NOT_FOUND", message: "API key not found", request_id: requestId(res) } });
-      return;
-    }
-    const ok = revokeMcpKey(id);
-    if (!ok) {
-      res.status(409).json({ error: { code: "ALREADY_REVOKED", message: "API key is already revoked", request_id: requestId(res) } });
-      return;
-    }
-    recordAudit(actorFromRequest(req), "mcp_key.revoke", String(id));
-    res.status(200).json({ status: "revoked", id });
-  });
+  app.post(
+    "/admin-api/mcp-keys/:id/revoke",
+    adminAuth,
+    requireAdminRole,
+    (req: Request<{ id: string }>, res: Response) => {
+      const id = Number(req.params.id);
+      if (!getMcpKey(id)) {
+        notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
+        return;
+      }
+      const ok = revokeMcpKey(id);
+      if (!ok) {
+        sendError(res, 409, "ALREADY_REVOKED", "API key is already revoked");
+        return;
+      }
+      recordAudit(actorFromRequest(req), "mcp_key.revoke", String(id));
+      res.status(200).json({ status: "revoked", id });
+    },
+  );
 
   app.delete("/admin-api/mcp-keys/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     const ok = deleteMcpKey(id);
     if (!ok) {
-      res.status(404).json({ error: { code: "MCP_KEY_NOT_FOUND", message: "API key not found", request_id: requestId(res) } });
+      notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
       return;
     }
     recordAudit(actorFromRequest(req), "mcp_key.delete", String(id));

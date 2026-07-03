@@ -12,6 +12,7 @@ import {
   revokeSessionById,
 } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME, parseCookies } from "../security/cookies.js";
+import { requestId, sendError, validationError, forbidden, notFound } from "./http-errors.js";
 
 // A syntactically-valid argon2id hash with no corresponding real user, verified
 // against on every login where the username doesn't exist — keeps failure
@@ -33,15 +34,12 @@ function clearSessionCookies(res: Response): void {
 
 export function authRoutes(app: Express): void {
   app.post("/admin-api/auth/login", rateLimitLogin(config.rateLimitLogin), async (req: Request, res: Response) => {
-    const requestId = (res.locals.requestId as string) ?? null;
     const body = req.body as Record<string, unknown> | null;
     const username = typeof body?.username === "string" ? body.username.trim().toLowerCase() : "";
     const password = typeof body?.password === "string" ? body.password : "";
 
     if (!username || !password) {
-      res.status(400).json({
-        error: { code: "VALIDATION_ERROR", message: "username and password are required", request_id: requestId },
-      });
+      validationError(res, "username and password are required");
       return;
     }
 
@@ -50,10 +48,8 @@ export function authRoutes(app: Express): void {
     const valid = await Bun.password.verify(password, hashToVerify).catch(() => false);
 
     if (!user || !user.isActive || !valid) {
-      log("warn", "Admin login failed", { username, request_id: requestId });
-      res.status(401).json({
-        error: { code: "INVALID_CREDENTIALS", message: "Invalid username or password", request_id: requestId },
-      });
+      log("warn", "Admin login failed", { username, request_id: requestId(res) });
+      sendError(res, 401, "INVALID_CREDENTIALS", "Invalid username or password");
       return;
     }
 
@@ -61,7 +57,7 @@ export function authRoutes(app: Express): void {
     touchLastLogin(user.id);
     setSessionCookies(res, session.token, session.csrfToken, session.expiresAt);
 
-    log("info", "Admin login succeeded", { username: user.username, request_id: requestId });
+    log("info", "Admin login succeeded", { username: user.username, request_id: requestId(res) });
     res.status(200).json({
       user: { username: user.username, role: user.role },
       csrf_token: session.csrfToken,
@@ -90,12 +86,9 @@ export function authRoutes(app: Express): void {
   });
 
   app.patch("/admin-api/auth/me/password", adminAuth, async (req: Request, res: Response) => {
-    const requestId = (res.locals.requestId as string) ?? null;
     const ctx = req.authContext;
     if (!ctx || ctx.method !== "session" || !ctx.username) {
-      res.status(403).json({
-        error: { code: "FORBIDDEN", message: "Password change requires a session-authenticated user", request_id: requestId },
-      });
+      forbidden(res, "FORBIDDEN", "Password change requires a session-authenticated user");
       return;
     }
 
@@ -104,16 +97,14 @@ export function authRoutes(app: Express): void {
     const newPassword = typeof body?.new_password === "string" ? body.new_password : "";
 
     if (!currentPassword || !newPassword || newPassword.length < 12) {
-      res.status(400).json({
-        error: { code: "VALIDATION_ERROR", message: "current_password and new_password (min 12 chars) are required", request_id: requestId },
-      });
+      validationError(res, "current_password and new_password (min 12 chars) are required");
       return;
     }
 
     const user = findUserByUsername(ctx.username);
     const valid = user ? await Bun.password.verify(currentPassword, user.passwordHash).catch(() => false) : false;
     if (!user || !valid) {
-      res.status(401).json({ error: { code: "INVALID_CREDENTIALS", message: "Current password is incorrect", request_id: requestId } });
+      sendError(res, 401, "INVALID_CREDENTIALS", "Current password is incorrect");
       return;
     }
 
@@ -125,35 +116,33 @@ export function authRoutes(app: Express): void {
     const session = createSession(user.id, req.socket?.remoteAddress, req.headers["user-agent"]);
     setSessionCookies(res, session.token, session.csrfToken, session.expiresAt);
 
-    log("info", "Admin password changed", { username: user.username, request_id: requestId });
+    log("info", "Admin password changed", { username: user.username, request_id: requestId(res) });
     res.status(200).json({ status: "password_changed", csrf_token: session.csrfToken });
   });
 
   app.get("/admin-api/auth/sessions", adminAuth, (req: Request, res: Response) => {
-    const requestId = (res.locals.requestId as string) ?? null;
     const ctx = req.authContext;
     if (!ctx || ctx.method !== "session" || ctx.userId === undefined) {
-      res.status(403).json({ error: { code: "FORBIDDEN", message: "Requires a session-authenticated user", request_id: requestId } });
+      forbidden(res, "FORBIDDEN", "Requires a session-authenticated user");
       return;
     }
     res.status(200).json({ sessions: listActiveSessionsForUser(ctx.userId) });
   });
 
   app.delete("/admin-api/auth/sessions/:id", adminAuth, (req: Request<{ id: string }>, res: Response) => {
-    const requestId = (res.locals.requestId as string) ?? null;
     const ctx = req.authContext;
     if (!ctx || ctx.method !== "session" || ctx.userId === undefined) {
-      res.status(403).json({ error: { code: "FORBIDDEN", message: "Requires a session-authenticated user", request_id: requestId } });
+      forbidden(res, "FORBIDDEN", "Requires a session-authenticated user");
       return;
     }
     const sessionId = Number(req.params.id);
     if (!Number.isInteger(sessionId)) {
-      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Invalid session id", request_id: requestId } });
+      validationError(res, "Invalid session id");
       return;
     }
     const revoked = revokeSessionById(ctx.userId, sessionId);
     if (!revoked) {
-      res.status(404).json({ error: { code: "SESSION_NOT_FOUND", message: "Session not found", request_id: requestId } });
+      notFound(res, "SESSION_NOT_FOUND", "Session not found");
       return;
     }
     res.status(200).json({ status: "revoked" });
