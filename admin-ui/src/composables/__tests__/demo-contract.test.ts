@@ -166,6 +166,14 @@ const EXCLUDED_ROUTES = new Set<string>([
   // gateway — the admin-ui SPA itself never fetches it, so the demo (a
   // static SPA with no real backend behind it) has nothing to stand in for.
   "GET /install/:token",
+  // OIDC SSO (src/routes/auth-oidc.ts): LoginPage.vue only ever builds these
+  // as a plain `href`/full-page redirect target for a *real* deployed gateway
+  // + IdP round trip — never fetched via api.*(), and a static demo SPA has
+  // no backend to redirect through or IdP to fake a callback from. GET
+  // /admin-api/auth/oidc/config and .../settings ARE fetched by the demo and
+  // have real mocks above.
+  "GET /admin-api/auth/oidc/start",
+  "GET /admin-api/auth/oidc/callback",
 ]);
 
 describe("demo.ts vs real backend route coverage", () => {

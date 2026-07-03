@@ -5,7 +5,14 @@
  */
 import { describe, test, expect, afterEach } from "bun:test";
 import { config } from "../config.js";
-import { verifyJwt, __setJwtDepsForTesting, __resetJwtForTesting } from "../security/jwt.js";
+import {
+  verifyJwt,
+  __setJwtDepsForTesting,
+  __resetJwtForTesting,
+  verifyJwtSignatureWithKeys,
+  createJwksFetcher,
+  type Jwk,
+} from "../security/jwt.js";
 
 function b64url(bytes: Uint8Array): string {
   let bin = "";
@@ -92,5 +99,55 @@ describe("verifyJwt", () => {
     const { token, jwk } = await makeToken({ sub: "u1", iss: "https://issuer", aud: "my-api", exp: future() }, "k1");
     serveJwks({ ...jwk, kid: "different" });
     expect(await verifyJwt(token)).toMatchObject({ valid: false, reason: "no matching key" });
+  });
+});
+
+// Reusable building blocks factored out for OIDC ID-token verification (see
+// src/security/oidc.ts) — exercised directly here, independent of verifyJwt()'s
+// own config-driven issuer/audience/cache, to confirm they work standalone.
+describe("verifyJwtSignatureWithKeys (reused by OIDC ID-token verification)", () => {
+  test("verifies signature only — does not enforce exp/iss/aud itself", async () => {
+    const past = Math.floor(Date.now() / 1000) - 10;
+    const { token, jwk } = await makeToken({ sub: "u1", iss: "https://anyone", aud: "anyone", exp: past });
+    const result = await verifyJwtSignatureWithKeys(token, [jwk as unknown as Jwk]);
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.claims.sub).toBe("u1");
+  });
+
+  test("rejects a tampered signature", async () => {
+    const { token, jwk } = await makeToken({ sub: "u1", iss: "https://issuer", aud: "my-api", exp: future() });
+    const parts = token.split(".");
+    const tampered = `${parts[0]}.${parts[1]}.${parts[2].slice(0, -2)}${parts[2].slice(-2) === "AA" ? "BB" : "AA"}`;
+    expect(await verifyJwtSignatureWithKeys(tampered, [jwk as unknown as Jwk])).toMatchObject({ valid: false });
+  });
+});
+
+describe("createJwksFetcher", () => {
+  test("caches keys across calls within cacheMs, keyed independently per URL", async () => {
+    let fetchCount = 0;
+    let now = 0;
+    const fetcher = createJwksFetcher("https://issuer-a/jwks", {
+      fetchImpl: (async () => {
+        fetchCount++;
+        return new Response(JSON.stringify({ keys: [{ kid: "a" }] }), { status: 200 });
+      }) as unknown as typeof fetch,
+      cacheMs: 1000,
+      nowFn: () => now,
+    });
+
+    await fetcher();
+    await fetcher();
+    expect(fetchCount).toBe(1); // second call served from cache
+
+    now += 1001;
+    await fetcher();
+    expect(fetchCount).toBe(2); // cache expired — refetched
+  });
+
+  test("throws on a non-OK response", async () => {
+    const fetcher = createJwksFetcher("https://issuer-b/jwks", {
+      fetchImpl: (async () => new Response("nope", { status: 500 })) as unknown as typeof fetch,
+    });
+    await expect(fetcher()).rejects.toThrow();
   });
 });

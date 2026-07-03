@@ -81,6 +81,31 @@
   },
   {
     "method": "get",
+    "path": "/admin-api/auth/oidc/callback",
+    "file": "auth-oidc.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/auth/oidc/config",
+    "file": "auth-oidc.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/auth/oidc/settings",
+    "file": "auth-oidc.ts"
+  },
+  {
+    "method": "put",
+    "path": "/admin-api/auth/oidc/settings",
+    "file": "auth-oidc.ts"
+  },
+  {
+    "method": "get",
+    "path": "/admin-api/auth/oidc/start",
+    "file": "auth-oidc.ts"
+  },
+  {
+    "method": "get",
     "path": "/admin-api/auth/sessions",
     "file": "auth.ts"
   },

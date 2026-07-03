@@ -40,6 +40,7 @@ const routes = [
   { path: "/users", name: "users", component: () => import("../pages/UsersPage.vue"), meta: { role: "admin" } },
   { path: "/teams", name: "teams", component: () => import("../pages/TeamsPage.vue"), meta: { role: "admin" } },
   { path: "/config", name: "config", component: () => import("../pages/ConfigPage.vue"), meta: { role: "admin" } },
+  { path: "/sso", name: "sso", component: () => import("../pages/SsoSettingsPage.vue"), meta: { role: "admin" } },
   { path: "/audit-log", name: "audit-log", component: () => import("../pages/AuditLogPage.vue") },
   { path: "/account", name: "account", component: () => import("../pages/AccountPage.vue") },
   { path: "/overview", name: "overview", component: () => import("../pages/OverviewPage.vue") },

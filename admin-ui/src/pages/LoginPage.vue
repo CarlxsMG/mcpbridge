@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "../composables/useAuth";
-import { ApiError } from "../composables/useApi";
+import { api, ApiError } from "../composables/useApi";
+import type { OidcPublicConfig } from "../types/api";
 import { GitBranch } from "lucide-vue-next";
 
 const username = ref("");
@@ -13,6 +14,19 @@ const errorMessage = ref("");
 const { login } = useAuth();
 const router = useRouter();
 const route = useRoute();
+
+// Does the login page need to offer an SSO button? Fetched before any
+// session exists, so this call is deliberately public (no adminAuth) —
+// see GET /admin-api/auth/oidc/config. Never alters the password-login
+// flow above; if the check itself fails, the button just doesn't appear.
+const ssoConfig = ref<OidcPublicConfig>({ enabled: false });
+onMounted(async () => {
+  try {
+    ssoConfig.value = await api.get<OidcPublicConfig>("/admin-api/auth/oidc/config");
+  } catch {
+    ssoConfig.value = { enabled: false };
+  }
+});
 
 async function onSubmit() {
   errorMessage.value = "";
@@ -45,26 +59,33 @@ async function onSubmit() {
         />
       </svg>
     </div>
-    <form class="login-card" @submit.prevent="onSubmit">
-      <h1><GitBranch :size="20" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge</h1>
-      <p class="subtitle">Sign in to manage servers and tools</p>
+    <div class="login-card">
+      <form @submit.prevent="onSubmit">
+        <h1><GitBranch :size="20" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge</h1>
+        <p class="subtitle">Sign in to manage servers and tools</p>
 
-      <div class="field">
-        <label for="username">Username</label>
-        <input id="username" v-model="username" type="text" autocomplete="username" required autofocus />
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" v-model="username" type="text" autocomplete="username" required autofocus />
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" v-model="password" type="password" autocomplete="current-password" required />
+        </div>
+
+        <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+
+        <button type="submit" class="btn-primary" :disabled="submitting">
+          {{ submitting ? "Signing in…" : "Sign in" }}
+        </button>
+      </form>
+
+      <div v-if="ssoConfig.enabled" class="sso-section">
+        <div class="divider" role="separator"><span>or</span></div>
+        <a class="btn-secondary sso-link" href="/admin-api/auth/oidc/start">Sign in with SSO</a>
       </div>
-
-      <div class="field">
-        <label for="password">Password</label>
-        <input id="password" v-model="password" type="password" autocomplete="current-password" required />
-      </div>
-
-      <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-
-      <button type="submit" class="btn-primary" :disabled="submitting">
-        {{ submitting ? "Signing in…" : "Sign in" }}
-      </button>
-    </form>
+    </div>
   </div>
 </template>
 
@@ -156,5 +177,30 @@ async function onSubmit() {
   color: var(--breach);
   font-size: 0.85rem;
   margin: 0 0 1rem;
+}
+.sso-section {
+  margin-top: 1.25rem;
+}
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin: 0 0 1rem;
+}
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.sso-link {
+  display: block;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+  text-decoration: none;
 }
 </style>

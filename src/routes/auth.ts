@@ -20,7 +20,8 @@ import { requestId, sendError, validationError, forbidden, notFound } from "./ht
 // timing side-channel).
 const DUMMY_HASH = "$argon2id$v=19$m=65536,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
-function setSessionCookies(res: Response, token: string, csrfToken: string, expiresAt: number): void {
+/** Exported so src/routes/auth-oidc.ts's SSO callback issues cookies via the exact same code path as password login. */
+export function setSessionCookies(res: Response, token: string, csrfToken: string, expiresAt: number): void {
   const maxAge = Math.max(0, expiresAt - Date.now());
   const shared = { secure: config.sessionCookieSecure, sameSite: "lax" as const, path: "/", maxAge };
   res.cookie(SESSION_COOKIE_NAME, token, { ...shared, httpOnly: true });

@@ -34,7 +34,8 @@ import {
   Waypoints,
   LayoutGrid,
   Cable,
-  UserCircle,
+  ChevronRight,
+  Fingerprint,
 } from "lucide-vue-next";
 
 const route = useRoute();
@@ -245,24 +246,30 @@ onUnmounted(() => {
             <li>
               <RouterLink to="/config"><Settings2 :size="15" stroke-width="2" aria-hidden="true" /> Config</RouterLink>
             </li>
+            <li>
+              <RouterLink to="/sso"><Fingerprint :size="15" stroke-width="2" aria-hidden="true" /> SSO</RouterLink>
+            </li>
           </ul>
         </template>
       </div>
       <div class="sidebar-footer">
-        <div class="current-user">
+        <RouterLink
+          to="/account"
+          class="current-user"
+          title="Account settings"
+          :aria-label="`Account settings — ${state.user?.username} (${state.user?.role})`"
+        >
           <span
             class="user-avatar"
             :style="{ background: avatarTone.soft, color: avatarTone.strong }"
             aria-hidden="true"
             >{{ userInitials }}</span
           >
-          <span
+          <span class="current-user-id"
             >{{ state.user?.username }} <span class="role">({{ state.user?.role }})</span></span
           >
-        </div>
-        <RouterLink to="/account" class="account-link"
-          ><UserCircle :size="14" stroke-width="2" aria-hidden="true" /> Account</RouterLink
-        >
+          <ChevronRight class="current-user-chevron" :size="14" stroke-width="2" aria-hidden="true" />
+        </RouterLink>
         <button type="button" class="link-btn" @click="onLogout">Sign out</button>
       </div>
     </nav>
@@ -418,6 +425,24 @@ onUnmounted(() => {
   gap: var(--space-2);
   margin-bottom: var(--space-1-5);
   color: var(--text-on-dark);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.current-user-id {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.current-user .current-user-chevron {
+  flex-shrink: 0;
+  opacity: 0.45;
+  transition: opacity 0.12s ease;
+}
+.current-user:hover .current-user-chevron,
+.current-user:focus-visible .current-user-chevron {
+  opacity: 0.85;
 }
 .user-avatar {
   width: 1.75rem;
@@ -450,23 +475,6 @@ onUnmounted(() => {
 }
 .live-dot.is-live.pulse-fast {
   animation-duration: 0.85s;
-}
-.account-link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  color: var(--text-on-dark-muted);
-  text-decoration: none;
-  margin-bottom: var(--space-1-5);
-  transition: color 0.12s ease;
-}
-.account-link:hover,
-.account-link.router-link-active {
-  color: var(--text-on-dark);
-}
-.account-link svg {
-  flex-shrink: 0;
-  opacity: 0.75;
 }
 .sidebar-footer .link-btn {
   color: var(--text-on-dark-muted);

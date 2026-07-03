@@ -912,6 +912,60 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 50,
+    name: "oidc_sso",
+    sql: `
+      -- Single-row/single-provider by design (v1 scope) — the CHECK(id = 1)
+      -- singleton pattern already used by _leader_lease above. client_secret_ref
+      -- is an opaque blob from getSecretsProvider().encryptSecret(), NEVER a raw
+      -- secret column. default_role is constrained to 'viewer' at the schema
+      -- level: auto-provisioned SSO users must never default to an elevated
+      -- role, so there is no configurable path (even a future UI bug) that
+      -- could write anything else here — an admin must manually promote a new
+      -- SSO user after reviewing them.
+      CREATE TABLE IF NOT EXISTS oidc_config (
+        id                 INTEGER PRIMARY KEY CHECK (id = 1),
+        issuer             TEXT NOT NULL,
+        client_id          TEXT NOT NULL,
+        client_secret_ref  TEXT NOT NULL,
+        redirect_uri       TEXT NOT NULL,
+        scopes             TEXT NOT NULL DEFAULT 'openid profile email',
+        enabled            INTEGER NOT NULL DEFAULT 0,
+        default_role       TEXT NOT NULL DEFAULT 'viewer' CHECK (default_role = 'viewer'),
+        created_at         INTEGER NOT NULL,
+        updated_at         INTEGER NOT NULL
+      ) STRICT;
+
+      -- (provider, subject) -> admin_users.id, so a second IdP (or Google-vs-Okta
+      -- at once) is a clean additional row rather than overloading a column on
+      -- admin_users directly.
+      CREATE TABLE IF NOT EXISTS admin_user_identities (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        provider    TEXT NOT NULL,
+        subject     TEXT NOT NULL,
+        user_id     INTEGER NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+        created_at  INTEGER NOT NULL,
+        UNIQUE (provider, subject)
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_admin_user_identities_user ON admin_user_identities(user_id);
+
+      -- Short-lived server-side correlator for the Authorization Code + PKCE
+      -- round trip: state is the random, unguessable primary key (also sent
+      -- to the IdP as the OAuth state param, so it doubles as CSRF
+      -- protection), mapped to the code_verifier the callback needs to
+      -- complete the token exchange. Rows are deleted the moment they're
+      -- consumed (single-use) and opportunistically pruned by expiry on every
+      -- read/write — see src/security/oidc.ts.
+      CREATE TABLE IF NOT EXISTS oidc_auth_state (
+        state          TEXT PRIMARY KEY,
+        code_verifier  TEXT NOT NULL,
+        created_at     INTEGER NOT NULL,
+        expires_at     INTEGER NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

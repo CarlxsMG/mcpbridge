@@ -596,3 +596,19 @@ export interface AlertRule {
   updatedAt: number;
   createdBy: string | null;
 }
+
+/** Pre-auth read-model for the login page — deliberately nothing beyond whether SSO is available. */
+export interface OidcPublicConfig {
+  enabled: boolean;
+}
+
+/** Superadmin settings read-model — never carries the client secret (write-only, see SsoSettingsPage.vue). */
+export interface OidcSettings {
+  issuer: string;
+  clientId: string;
+  redirectUri: string;
+  scopes: string;
+  enabled: boolean;
+  defaultRole: "viewer";
+  updatedAt: number;
+}

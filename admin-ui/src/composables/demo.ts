@@ -28,6 +28,8 @@ import type {
   McpApiKey,
   McpApiKeyWithSecret,
   MonitorRecord,
+  OidcPublicConfig,
+  OidcSettings,
   OverviewStats,
   Schedule,
   StoredSpan,
@@ -55,6 +57,11 @@ const hex = (seed: number): string =>
   Array.from({ length: 16 }, (_, i) => (((seed * 2654435761 + i * 40503) >>> 0) % 16).toString(16)).join("");
 
 // ─── Mutable session state (toggles persist within the tab) ──────────────────
+
+// SSO is off by default in the public demo (there's no real IdP to redirect
+// to) but the settings form itself is still interactive, like every other
+// admin-only config screen in this demo.
+let oidcSettings: OidcSettings | null = null;
 
 const clients: ClientSummary[] = [
   {
@@ -1186,6 +1193,30 @@ function route(
     });
   }
   if (/^\/admin-api\/auth\/sessions\/[^/]+$/.test(p) && method === "DELETE") return ok({});
+
+  // SSO — GET/config is what LoginPage.vue checks pre-auth; the demo never
+  // enables it (no real IdP to redirect to), but /settings is still a real,
+  // interactive form like the rest of this demo's admin-only config screens.
+  // /start and /callback are real OAuth redirect targets a static demo SPA
+  // has no backend to stand behind, so they're excluded from the demo-vs-real
+  // contract test instead of mocked here.
+  if (p === "/admin-api/auth/oidc/config") return ok<OidcPublicConfig>({ enabled: oidcSettings?.enabled ?? false });
+  if (p === "/admin-api/auth/oidc/settings") {
+    if (method === "GET") return ok<{ settings: OidcSettings | null }>({ settings: oidcSettings });
+    if (method === "PUT") {
+      const b = body ?? {};
+      oidcSettings = {
+        issuer: typeof b.issuer === "string" ? b.issuer : "",
+        clientId: typeof b.clientId === "string" ? b.clientId : "",
+        redirectUri: typeof b.redirectUri === "string" ? b.redirectUri : "",
+        scopes: typeof b.scopes === "string" ? b.scopes : "openid profile email",
+        enabled: b.enabled === true,
+        defaultRole: "viewer",
+        updatedAt: NOW,
+      };
+      return ok({ status: "updated" });
+    }
+  }
 
   if (p === "/admin-api/overview") return ok(overview);
   if (p === "/admin-api/connect/gateway-url") return ok({ publicUrl: null });
