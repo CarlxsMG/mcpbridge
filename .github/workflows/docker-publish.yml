@@ -1,0 +1,72 @@
+# Builds the multi-stage Dockerfile at the repo root and publishes it to the
+# GitHub Container Registry (GHCR) whenever a `vX.Y.Z` release tag is pushed.
+# Uses the built-in GITHUB_TOKEN (no extra secrets needed) since the image is
+# published under this same repo/org.
+name: Docker Publish (GHCR)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR requires the image name to be all-lowercase; ${{ github.repository }}
+      # preserves the owner/repo's actual casing, so normalize it here.
+      - name: Compute lowercase image name
+        id: image
+        run: echo "name=${REGISTRY}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      # On a `push` of a `v*` tag this is the tag itself (e.g. v1.2.3). On a
+      # manual workflow_dispatch run it falls back to the ref that was run
+      # (e.g. a branch name), so the image is still tagged meaningfully.
+      - name: Determine image tag
+        id: version
+        run: echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ steps.version.outputs.tag }}
+            ${{ steps.image.outputs.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Job summary
+        run: |
+          {
+            echo "### Docker image published :whale:"
+            echo
+            echo "- \`${{ steps.image.outputs.name }}:${{ steps.version.outputs.tag }}\`"
+            echo "- \`${{ steps.image.outputs.name }}:latest\`"
+            echo
+            echo "\`\`\`bash"
+            echo "docker pull ${{ steps.image.outputs.name }}:${{ steps.version.outputs.tag }}"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
