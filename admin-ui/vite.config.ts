@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 
 // Uncommon/high ports so they don't clash with 3000/5173/8080. Overridable via
@@ -40,5 +40,10 @@ export default defineConfig({
   build: {
     outDir: IS_DEMO ? "dist-demo" : "dist",
     emptyOutDir: true,
+  },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test-setup.ts"],
   },
 });
