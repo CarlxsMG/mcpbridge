@@ -150,9 +150,9 @@ function trapFocus(e: KeyboardEvent) {
         <button ref="closeBtn" type="button" class="link-btn" @click="emit('close')">Close</button>
       </div>
       <p class="hint">
-        Anyone with this link can connect to <strong>{{ bundleName }}</strong> immediately — no admin login required.
-        It carries a fresh MCP API key scoped ONLY to this bundle's tools, never your own credentials. Revoke a link
-        at any time to cut off access instantly.
+        Anyone with this link can connect to <strong>{{ bundleName }}</strong> immediately — no admin login required. It
+        carries a fresh MCP API key scoped ONLY to this bundle's tools, never your own credentials. Revoke a link at any
+        time to cut off access instantly.
       </p>
 
       <div v-if="minted" class="minted" role="alert">
@@ -190,8 +190,12 @@ function trapFocus(e: KeyboardEvent) {
           </thead>
           <tbody>
             <tr v-for="link in links" :key="link.id">
-              <td><code>{{ link.tokenPrefix }}…</code></td>
-              <td><span class="status" :class="statusOf(link).toLowerCase()">{{ statusOf(link) }}</span></td>
+              <td>
+                <code>{{ link.tokenPrefix }}…</code>
+              </td>
+              <td>
+                <span class="status" :class="statusOf(link).toLowerCase()">{{ statusOf(link) }}</span>
+              </td>
               <td>{{ new Date(link.createdAt).toLocaleString() }}</td>
               <td>{{ link.lastUsedAt ? new Date(link.lastUsedAt).toLocaleString() : "Never" }}</td>
               <td class="actions">
