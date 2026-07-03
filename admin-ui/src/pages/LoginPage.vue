@@ -89,6 +89,7 @@ async function onSubmit() {
 .signal-trace-svg {
   width: 200%;
   height: 64px;
+  flex-shrink: 0;
   animation: signal-trace-drift 9s linear infinite;
 }
 .signal-trace-svg polyline {
