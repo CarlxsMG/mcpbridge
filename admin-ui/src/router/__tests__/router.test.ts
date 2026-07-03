@@ -14,10 +14,10 @@ describe("router", () => {
     expect(paths).toContain("/config");
   });
 
-  it("resolves '/' to a redirect to /overview", () => {
+  it("resolves '/' to a redirect to /servers", () => {
     const root = routes.find((r) => r.path === "/");
 
-    expect(root?.redirect).toBe("/overview");
+    expect(root?.redirect).toBe("/servers");
   });
 
   it("marks the login and not-found routes as public", () => {
