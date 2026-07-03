@@ -60,6 +60,16 @@ async function createRule() {
   if (nameError.value || urlError.value) {
     return;
   }
+  if (NUMERIC_EVENTS.has(newEvent.value)) {
+    if (!Number.isFinite(Number(newThreshold.value.trim()))) {
+      createError.value = "Threshold must be a plain number.";
+      return;
+    }
+    if (!Number.isFinite(Number(newMinCalls.value.trim()))) {
+      createError.value = "Minimum calls must be a plain number.";
+      return;
+    }
+  }
   creating.value = true;
   try {
     const body: Record<string, unknown> = {
@@ -68,8 +78,8 @@ async function createRule() {
       webhookUrl: newUrl.value.trim(),
     };
     if (NUMERIC_EVENTS.has(newEvent.value)) {
-      body.threshold = Number(newThreshold.value);
-      body.minCalls = Number(newMinCalls.value);
+      body.threshold = Number(newThreshold.value.trim());
+      body.minCalls = Number(newMinCalls.value.trim());
     }
     await api.post("/admin-api/alerts", body);
     newName.value = "";

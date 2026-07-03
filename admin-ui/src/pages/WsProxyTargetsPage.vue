@@ -70,6 +70,16 @@ async function submitTarget() {
     createError.value = "Name and backend WebSocket URL are required.";
     return;
   }
+  for (const [label, field] of [
+    ["Max connections", newMaxConnections],
+    ["Max message size", newMaxMessageBytes],
+    ["Idle timeout", newIdleTimeoutMinutes],
+  ] as const) {
+    if (field.value.trim() && !Number.isFinite(Number(field.value.trim()))) {
+      createError.value = `${label} must be a plain number, or blank.`;
+      return;
+    }
+  }
   creating.value = true;
   try {
     const body: Record<string, unknown> = { backendWsUrl: newBackendUrl.value.trim() };
