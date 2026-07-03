@@ -6,6 +6,7 @@ import type { ClientSummary, PaginatedResult, TagSummary, TagToolRef } from "../
 import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import OnboardingChecklist from "../components/OnboardingChecklist.vue";
 import { Search, Server, Tags, ChevronRight } from "lucide-vue-next";
 
 const router = useRouter();
@@ -216,6 +217,8 @@ onMounted(() => load(initialCursor));
         <RouterLink to="/register-server" class="btn-primary">Add server</RouterLink>
       </div>
     </header>
+
+    <OnboardingChecklist :has-servers="items.length > 0" />
 
     <div v-if="showTagBrowser" class="tag-browser">
       <SignalLoader v-if="tagsLoading" label="Loading tags…" />
