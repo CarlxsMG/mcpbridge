@@ -121,7 +121,7 @@ async function confirmRemove() {
 
 <style scoped>
 .page {
-  max-width: 760px;
+  max-width: 47.5rem;
 }
 .page-header {
   display: flex;

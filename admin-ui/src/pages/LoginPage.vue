@@ -88,7 +88,7 @@ async function onSubmit() {
 }
 .signal-trace-svg {
   width: 200%;
-  height: 64px;
+  height: 4rem;
   flex-shrink: 0;
   animation: signal-trace-drift 9s linear infinite;
 }
@@ -114,7 +114,7 @@ async function onSubmit() {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   width: 100%;
-  max-width: 360px;
+  max-width: 22.5rem;
 }
 .login-card h1 {
   display: flex;

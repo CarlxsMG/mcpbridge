@@ -27,8 +27,8 @@ withDefaults(defineProps<{ label?: string }>(), { label: "Loading…" });
   padding: var(--space-2) 0;
 }
 .signal-loader-svg {
-  width: 44px;
-  height: 16px;
+  width: 2.75rem;
+  height: 1rem;
   flex-shrink: 0;
   overflow: visible;
 }

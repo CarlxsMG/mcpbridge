@@ -132,7 +132,7 @@ function formatChecked(t: number | null): string {
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
-  max-width: 680px;
+  max-width: 42.5rem;
 }
 .page-header .btn-secondary {
   display: inline-flex;
@@ -204,13 +204,13 @@ function formatChecked(t: number | null): string {
 }
 .state-dot {
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 0.4375rem;
+  height: 0.4375rem;
   border-radius: 50%;
   margin-right: 0.5em;
 }
 .preview {
-  max-width: 320px;
+  max-width: 20rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

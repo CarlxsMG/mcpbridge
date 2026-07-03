@@ -375,12 +375,12 @@ async function confirmImport() {
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
-  max-width: 640px;
+  max-width: 40rem;
 }
 .hint {
   color: var(--text-secondary);
   font-size: 0.85rem;
-  max-width: 640px;
+  max-width: 40rem;
 }
 .block {
   background: var(--surface);
@@ -445,7 +445,7 @@ textarea {
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
   font-family: var(--font-body);
-  min-width: 260px;
+  min-width: 16.25rem;
 }
 .snap-table,
 .diff-table {

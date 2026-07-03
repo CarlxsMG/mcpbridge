@@ -1047,7 +1047,7 @@ function saveRedactionFn() {
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
-  max-width: 420px;
+  max-width: 26.25rem;
 }
 .guard-editor h3 {
   display: flex;

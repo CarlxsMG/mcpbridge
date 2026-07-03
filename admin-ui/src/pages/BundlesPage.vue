@@ -166,14 +166,14 @@ async function toggleEnabled(bundle: BundleSummary) {
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
-  max-width: 520px;
+  max-width: 32.5rem;
 }
 .create-form {
   background: var(--surface-sunken);
   padding: 1.25rem;
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
-  max-width: 480px;
+  max-width: 30rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -227,7 +227,7 @@ async function toggleEnabled(bundle: BundleSummary) {
 }
 .desc-cell {
   color: var(--text-secondary);
-  max-width: 320px;
+  max-width: 20rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

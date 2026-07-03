@@ -1239,7 +1239,7 @@ async function resetBreaker() {
                         max="1000"
                         :value="t.weight"
                         :disabled="savingTargetId === t.id"
-                        style="max-width: 80px"
+                        style="max-width: 5rem"
                         @change="updateTargetWeight(t, Number(($event.target as HTMLInputElement).value))"
                       />
                     </td>
@@ -1308,7 +1308,7 @@ async function resetBreaker() {
             </label>
             <label
               >Weight percent
-              <input v-model.number="canaryForm.weight" type="number" min="1" max="100" style="max-width: 90px"
+              <input v-model.number="canaryForm.weight" type="number" min="1" max="100" style="max-width: 5.625rem"
             /></label>
             <label class="inline-check"><input v-model="canaryForm.enabled" type="checkbox" /> enabled</label>
             <button type="submit" class="btn-secondary">Save canary config</button>
@@ -1667,7 +1667,7 @@ async function resetBreaker() {
 }
 .meta {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
   gap: 0.75rem;
   margin: 1rem 0 1.5rem;
   padding: 1rem 1.1rem;
@@ -1755,7 +1755,7 @@ async function resetBreaker() {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.83rem;
-  max-width: 260px;
+  max-width: 16.25rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1876,7 +1876,7 @@ async function resetBreaker() {
   top: 0;
   right: 0;
   height: 100vh;
-  width: min(420px, 100%);
+  width: min(26.25rem, 100%);
   background: #fff;
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
   padding: 1.5rem;
@@ -1933,7 +1933,7 @@ async function resetBreaker() {
   flex-direction: column;
   gap: 0.6rem;
   margin-top: 0.9rem;
-  max-width: 360px;
+  max-width: 22.5rem;
 }
 .ua-form label {
   display: flex;

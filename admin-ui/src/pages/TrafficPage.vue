@@ -288,7 +288,7 @@ section {
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
-  max-width: 640px;
+  max-width: 40rem;
 }
 .filter-row {
   display: flex;
@@ -315,7 +315,7 @@ section {
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 0.9rem;
-  min-width: 160px;
+  min-width: 10rem;
 }
 .errors-only {
   display: inline-flex;
@@ -385,7 +385,7 @@ section {
   white-space: nowrap;
 }
 .preview {
-  max-width: 320px;
+  max-width: 20rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

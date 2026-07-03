@@ -425,7 +425,7 @@ async function register() {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  max-width: 560px;
+  max-width: 35rem;
   margin-top: 1rem;
 }
 .field {

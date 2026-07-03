@@ -36,8 +36,8 @@ const ariaLabel = computed(() =>
 <style scoped>
 .quota-bar {
   width: 100%;
-  min-width: 60px;
-  height: 8px;
+  min-width: 3.75rem;
+  height: 0.5rem;
   display: block;
 }
 .track {

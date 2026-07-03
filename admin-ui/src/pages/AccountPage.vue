@@ -320,7 +320,7 @@ onMounted(loadSessions);
   padding: var(--space-5);
   border-radius: var(--radius-md);
   margin-top: var(--space-4);
-  max-width: 380px;
+  max-width: 23.75rem;
 }
 .field {
   margin-bottom: var(--space-4);

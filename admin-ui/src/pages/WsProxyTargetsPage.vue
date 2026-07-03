@@ -281,14 +281,14 @@ async function confirmDelete() {
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
-  max-width: 560px;
+  max-width: 35rem;
 }
 .create-form {
   background: var(--surface-sunken);
   padding: 1.25rem;
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
-  max-width: 420px;
+  max-width: 26.25rem;
 }
 .field {
   margin-bottom: 1rem;
@@ -348,7 +348,7 @@ async function confirmDelete() {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.83rem;
-  max-width: 280px;
+  max-width: 17.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

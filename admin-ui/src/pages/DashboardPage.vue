@@ -517,7 +517,7 @@ section {
 }
 .filters .field:first-of-type {
   flex: 1;
-  max-width: 320px;
+  max-width: 20rem;
 }
 .search-input {
   display: flex;
@@ -595,7 +595,7 @@ section {
   background: var(--surface-sunken);
 }
 .url-cell {
-  max-width: 260px;
+  max-width: 16.25rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

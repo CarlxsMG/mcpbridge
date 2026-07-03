@@ -250,7 +250,7 @@ onMounted(load);
 }
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(14.375rem, 1fr));
   gap: 1rem;
 }
 .card-slot {
@@ -276,8 +276,8 @@ onMounted(load);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 1.375rem;
+  height: 1.375rem;
   padding: 0;
   background: none;
   border: none;

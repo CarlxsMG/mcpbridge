@@ -348,7 +348,7 @@ section {
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
-  max-width: 680px;
+  max-width: 42.5rem;
 }
 .filter-row {
   display: flex;
@@ -363,11 +363,11 @@ section {
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 0.9rem;
-  min-width: 220px;
+  min-width: 13.75rem;
 }
 .filter-row input.session-input {
   font-family: var(--font-mono);
-  min-width: 180px;
+  min-width: 11.25rem;
 }
 .btn-secondary.danger {
   display: inline-flex;
@@ -506,7 +506,7 @@ section {
 }
 .waterfall-row {
   display: grid;
-  grid-template-columns: 200px 1fr 70px;
+  grid-template-columns: 12.5rem 1fr 4.375rem;
   align-items: center;
   gap: 0.75rem;
 }
@@ -518,7 +518,7 @@ section {
 }
 .waterfall-track {
   position: relative;
-  height: 20px;
+  height: 1.25rem;
   background: var(--surface-sunken);
   border-radius: var(--radius-sm);
 }

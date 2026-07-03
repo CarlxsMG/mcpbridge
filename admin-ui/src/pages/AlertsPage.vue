@@ -289,7 +289,7 @@ async function confirmDelete() {
   box-shadow: var(--shadow-xs);
   padding: 1.25rem;
   margin-bottom: 1.5rem;
-  max-width: 420px;
+  max-width: 26.25rem;
 }
 .field {
   margin-bottom: 1rem;
@@ -347,7 +347,7 @@ async function confirmDelete() {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.83rem;
-  max-width: 240px;
+  max-width: 15rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

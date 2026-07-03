@@ -423,7 +423,7 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
 .cmd-panel {
   position: relative;
   width: 100%;
-  max-width: 560px;
+  max-width: 35rem;
   max-height: 60vh;
   background: var(--surface);
   border-radius: var(--radius-lg);

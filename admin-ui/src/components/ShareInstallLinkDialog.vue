@@ -242,7 +242,7 @@ function trapFocus(e: KeyboardEvent) {
   background: var(--surface);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
-  max-width: 640px;
+  max-width: 40rem;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
@@ -292,7 +292,7 @@ function trapFocus(e: KeyboardEvent) {
   font-family: var(--font-mono);
   word-break: break-all;
   flex: 1;
-  min-width: 200px;
+  min-width: 12.5rem;
 }
 .copy-btn {
   display: inline-flex;

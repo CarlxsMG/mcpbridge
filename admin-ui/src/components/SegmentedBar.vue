@@ -36,7 +36,7 @@ const withPct = computed(() => props.segments.map((s) => ({ ...s, pct: (s.value 
 .segmented-bar {
   display: flex;
   width: 100%;
-  height: 8px;
+  height: 0.5rem;
   border-radius: var(--radius-pill);
   overflow: hidden;
   background: var(--surface-sunken);
@@ -66,8 +66,8 @@ const withPct = computed(() => props.segments.map((s) => ({ ...s, pct: (s.value 
   font-weight: 600;
 }
 .dot {
-  width: 7px;
-  height: 7px;
+  width: 0.55em;
+  height: 0.55em;
   border-radius: 50%;
   flex-shrink: 0;
 }

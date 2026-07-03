@@ -34,35 +34,53 @@ const props = withDefaults(
 );
 
 const gradientId = `tsc-grad-${useId()}`;
-const PAD = { top: 14, right: 46, bottom: 24, left: 46 };
+/* Geometry is authored in px at 1x zoom. The plot's CSS height is rem-based
+   (see :style in the template) so the root font-size ramp (style.css, TV mode)
+   grows it; measured-height / authored-height is then the live zoom factor and
+   every px-space measure (paddings, strokes, dot radii, label offsets) scales
+   by it. The viewBox always matches the measured px box, keeping 1 SVG unit ==
+   1 screen px — so the rem-sized axis/tooltip text renders at its natural size
+   instead of being distorted by a stretched viewBox. */
+const BASE_PAD = { top: 14, right: 46, bottom: 24, left: 46 };
 
 const containerEl = ref<HTMLDivElement | null>(null);
 const width = ref(600);
+const heightPx = ref(props.height);
 let ro: ResizeObserver | null = null;
 
 onMounted(() => {
   if (!containerEl.value) return;
   width.value = containerEl.value.clientWidth || 600;
+  heightPx.value = containerEl.value.clientHeight || props.height;
   ro = new ResizeObserver((entries) => {
-    const w = entries[0]?.contentRect.width;
-    if (w && w > 0) width.value = w;
+    const rect = entries[0]?.contentRect;
+    if (rect && rect.width > 0) width.value = rect.width;
+    if (rect && rect.height > 0) heightPx.value = rect.height;
   });
   ro.observe(containerEl.value);
 });
 onBeforeUnmount(() => ro?.disconnect());
 
-const plotWidth = computed(() => Math.max(width.value - PAD.left - PAD.right, 1));
-const plotHeight = computed(() => props.height - PAD.top - PAD.bottom);
+const zoom = computed(() => heightPx.value / props.height);
+const PAD = computed(() => ({
+  top: BASE_PAD.top * zoom.value,
+  right: BASE_PAD.right * zoom.value,
+  bottom: BASE_PAD.bottom * zoom.value,
+  left: BASE_PAD.left * zoom.value,
+}));
+
+const plotWidth = computed(() => Math.max(width.value - PAD.value.left - PAD.value.right, 1));
+const plotHeight = computed(() => heightPx.value - PAD.value.top - PAD.value.bottom);
 
 const hasData = computed(() => props.points.length > 0);
 const hasSecondary = computed(() => props.secondaryPoints.length > 0);
 
 function xAt(i: number, n: number): number {
-  if (n <= 1) return PAD.left + plotWidth.value / 2;
-  return PAD.left + (i / (n - 1)) * plotWidth.value;
+  if (n <= 1) return PAD.value.left + plotWidth.value / 2;
+  return PAD.value.left + (i / (n - 1)) * plotWidth.value;
 }
 function yAt(v: number, max: number): number {
-  return PAD.top + plotHeight.value - (v / max) * plotHeight.value;
+  return PAD.value.top + plotHeight.value - (v / max) * plotHeight.value;
 }
 
 const primaryMax = computed(() => Math.max(...props.points.map((p) => p.v), 1));
@@ -79,7 +97,7 @@ const primaryPath = computed(() => {
 const areaPath = computed(() => {
   const n = props.points.length;
   if (n === 0) return "";
-  const baseline = (PAD.top + plotHeight.value).toFixed(1);
+  const baseline = (PAD.value.top + plotHeight.value).toFixed(1);
   return `${primaryPath.value} L ${xAt(n - 1, n).toFixed(1)} ${baseline} L ${xAt(0, n).toFixed(1)} ${baseline} Z`;
 });
 
@@ -104,7 +122,7 @@ const yTicks = computed(() => {
     const rounded = Math.round(value);
     if (seenRounded.has(rounded)) continue;
     seenRounded.add(rounded);
-    ticks.push({ y: PAD.top + plotHeight.value * (1 - frac), value });
+    ticks.push({ y: PAD.value.top + plotHeight.value * (1 - frac), value });
   }
   return ticks;
 });
@@ -113,9 +131,10 @@ const xTicks = computed(() => {
   const n = props.points.length;
   if (n === 0) return [];
   if (n === 1) return [{ x: xAt(0, n), t: props.points[0].t, anchor: "middle" as const }];
-  // Below this width, "Jul 2, 2:30 PM"-length labels for start/mid/end collide with
-  // no separating space — drop the middle tick and keep just start + end.
-  const idxs = plotWidth.value < 280 ? [...new Set([0, n - 1])] : [...new Set([0, Math.floor((n - 1) / 2), n - 1])];
+  // Below this width (zoom-relative), "Jul 2, 2:30 PM"-length labels for start/mid/end
+  // collide with no separating space — drop the middle tick and keep just start + end.
+  const idxs =
+    plotWidth.value < 280 * zoom.value ? [...new Set([0, n - 1])] : [...new Set([0, Math.floor((n - 1) / 2), n - 1])];
   return idxs.map((i) => ({
     x: xAt(i, n),
     t: props.points[i].t,
@@ -131,7 +150,7 @@ function onMove(evt: MouseEvent): void {
   if (n === 0 || !containerEl.value) return;
   const rect = containerEl.value.getBoundingClientRect();
   const relX = evt.clientX - rect.left;
-  const frac = (relX - PAD.left) / plotWidth.value;
+  const frac = (relX - PAD.value.left) / plotWidth.value;
   hoverIndex.value = Math.min(Math.max(Math.round(frac * (n - 1)), 0), n - 1);
 }
 function onLeave(): void {
@@ -168,11 +187,11 @@ const tooltipStyle = computed(() => {
       v-else
       ref="containerEl"
       class="ts-plot"
-      :style="{ height: `${height}px` }"
+      :style="{ height: `${height / 16}rem` }"
       @mousemove="onMove"
       @mouseleave="onLeave"
     >
-      <svg :viewBox="`0 0 ${width} ${height}`" class="ts-svg" role="img" :aria-label="`${primaryLabel} over time`">
+      <svg :viewBox="`0 0 ${width} ${heightPx}`" class="ts-svg" role="img" :aria-label="`${primaryLabel} over time`">
         <defs>
           <linearGradient :id="gradientId" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" :style="{ stopColor: color, stopOpacity: 0.28 }" />
@@ -195,7 +214,7 @@ const tooltipStyle = computed(() => {
           :d="primaryPath"
           fill="none"
           :stroke="color"
-          stroke-width="2"
+          :stroke-width="2 * zoom"
           stroke-linejoin="round"
           stroke-linecap="round"
         />
@@ -204,8 +223,8 @@ const tooltipStyle = computed(() => {
           :d="secondaryPath"
           fill="none"
           :stroke="secondaryColor"
-          stroke-width="1.5"
-          stroke-dasharray="4 3"
+          :stroke-width="1.5 * zoom"
+          :stroke-dasharray="`${4 * zoom} ${3 * zoom}`"
           stroke-linejoin="round"
           stroke-linecap="round"
         />
@@ -213,8 +232,8 @@ const tooltipStyle = computed(() => {
         <text
           v-for="tick in yTicks"
           :key="`ly-${tick.y}`"
-          :x="PAD.left - 8"
-          :y="tick.y + 3"
+          :x="PAD.left - 8 * zoom"
+          :y="tick.y + 3 * zoom"
           class="axis-label y-label"
           text-anchor="end"
         >
@@ -224,7 +243,7 @@ const tooltipStyle = computed(() => {
           v-for="tick in xTicks"
           :key="`lx-${tick.x}`"
           :x="tick.x"
-          :y="height - 6"
+          :y="heightPx - 6 * zoom"
           class="axis-label x-label"
           :text-anchor="tick.anchor"
         >
@@ -233,12 +252,12 @@ const tooltipStyle = computed(() => {
 
         <template v-if="hoverPoint">
           <line :x1="hoverX" :x2="hoverX" :y1="PAD.top" :y2="PAD.top + plotHeight" class="crosshair" />
-          <circle :cx="hoverX" :cy="yAt(hoverPoint.v, primaryMax)" r="3.5" :fill="color" class="hover-dot" />
+          <circle :cx="hoverX" :cy="yAt(hoverPoint.v, primaryMax)" :r="3.5 * zoom" :fill="color" class="hover-dot" />
           <circle
             v-if="hoverSecondary"
             :cx="hoverX"
             :cy="yAt(hoverSecondary.v, secondaryMax)"
-            r="3"
+            :r="3 * zoom"
             :fill="secondaryColor"
             class="hover-dot"
           />
@@ -278,8 +297,8 @@ const tooltipStyle = computed(() => {
   gap: 0.4em;
 }
 .dot {
-  width: 7px;
-  height: 7px;
+  width: 0.55em;
+  height: 0.55em;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -350,8 +369,8 @@ const tooltipStyle = computed(() => {
   color: var(--text-primary);
 }
 .tt-dot {
-  width: 6px;
-  height: 6px;
+  width: 0.5em;
+  height: 0.5em;
   border-radius: 50%;
   flex-shrink: 0;
 }

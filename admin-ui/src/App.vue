@@ -321,7 +321,7 @@ onUnmounted(() => {
   display: none;
 }
 .sidebar {
-  width: 232px;
+  width: 14.5rem; /* rem, not px: must grow with the root font-size ramp on TV-class screens */
   flex-shrink: 0;
   background: var(--ink);
   color: var(--text-on-dark);
@@ -420,8 +420,8 @@ onUnmounted(() => {
   color: var(--text-on-dark);
 }
 .user-avatar {
-  width: 28px;
-  height: 28px;
+  width: 1.75rem;
+  height: 1.75rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -434,8 +434,8 @@ onUnmounted(() => {
   color: var(--text-on-dark-muted);
 }
 .live-dot {
-  width: 7px;
-  height: 7px;
+  width: 0.4375rem;
+  height: 0.4375rem;
   border-radius: 50%;
   background: var(--text-on-dark-muted);
   margin-left: auto;
@@ -472,11 +472,17 @@ onUnmounted(() => {
   color: var(--text-on-dark-muted);
 }
 .content {
+  /* Fluid on purpose — no max-width cap. This is an observability/management
+     surface: tables, charts and grids should use every pixel a big monitor or
+     a wall TV offers. Readability at huge widths is handled by the root
+     font-size ramp in style.css (the effective design width stays ~1920-2750px
+     at any resolution) plus per-page max-widths on forms/prose, never by
+     capping the shell itself. */
   flex: 1;
+  width: 100%;
   height: 100%;
   overflow-y: auto;
   padding: var(--space-8) var(--space-10);
-  max-width: 1180px;
   min-width: 0;
 }
 

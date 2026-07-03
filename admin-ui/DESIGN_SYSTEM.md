@@ -145,6 +145,40 @@ Rules for using these:
   of those files for any reason, prefer switching its values to the nearest token over leaving new
   bespoke numbers next to old ones.
 
+## Large screens / TV mode
+
+This is a manager + observability + realtime surface — it ends up full-screen on big monitors and
+wall TVs viewed from meters away. The strategy (implemented, don't regress it):
+
+1. **The shell is fluid.** `.content` in `App.vue` has **no max-width** — pages fill every pixel.
+   Never re-introduce a cap on the shell; constrain _forms and prose_ per page instead (rem-based
+   `max-width` on the form/filter element, which every page already does).
+2. **The root font-size ramps up with viewport width** (`:root` in `style.css`):
+   `clamp(100%, calc(100% + (100vw - 1920px) / 240), 175%)` — 16px below 1920, ~18.7px at 2560,
+   24px at 4K, capped 28px. Because every spacing/type token is rem-based, this zooms the whole UI
+   coherently, and it bounds the _effective_ design width to ~1920–2750px on any screen — layouts
+   tested at desktop widths stay valid on an 8K wall.
+3. **Structural dimensions are rem, never px.** Anything ≥ ~1.5rem/24px that participates in layout
+   (sidebar/drawer/dialog widths, form/filter `max-width`s, grid `minmax()` mins, table column
+   widths, bar/track heights) must be written in rem so the ramp scales it. Keep px only for
+   hairlines (1–2px borders), radii, shadows, and `@media` breakpoints (those intentionally stay
+   physical). The `min()`/`clamp()` insides count too: `width: min(26.25rem, 100%)`, not `min(420px, 100%)`.
+4. **Icons are em-sized globally.** `svg.lucide { width: 1em; height: 1em }` in `style.css` re-bases
+   every lucide icon on its local font-size (authored `:size` values were ~1em of their context
+   anyway); `.empty-icon`/`.not-found-icon` are 1.75em. The `:size` prop still sets the fallback —
+   keep passing it — but don't fight the em rule with per-icon px CSS.
+5. **Charts scale.** `TimeSeriesChart` measures its rem-based box and multiplies its px-space
+   geometry (paddings, stroke widths, dot radii) by the live zoom factor; `DonutChart` is CSS-sized
+   in rem over a fixed viewBox (pure vector scaling — note its center text is viewBox-px on purpose,
+   rem there would double-scale). New chart components must follow one of these two patterns.
+6. **Grids add columns on their own.** Card/stat grids use `repeat(auto-fit|auto-fill, minmax(Nrem, 1fr))`
+   — with rem mins, the column count grows with effective width. Don't hardcode column counts for
+   wide screens.
+
+Test at 2560×1440 and 3840×2160 (and still at ~700–900px) when touching layout: no dead space to the
+right of `.content`, no horizontal scrollbar, text/controls visibly larger at 4K, charts keep their
+aspect and stroke proportions.
+
 ## Icons
 
 Library: `lucide-vue-next` (already installed). Import specific icons per file, e.g.

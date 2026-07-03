@@ -134,7 +134,7 @@ const groupedByClient = computed(() => {
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: 0.85rem;
-  max-height: 360px;
+  max-height: 22.5rem;
   overflow-y: auto;
 }
 .picker-header {

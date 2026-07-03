@@ -360,7 +360,7 @@ async function confirmDelete() {
   padding: 1.25rem;
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
-  max-width: 380px;
+  max-width: 23.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;

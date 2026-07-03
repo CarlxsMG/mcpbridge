@@ -288,7 +288,7 @@ async function confirmDelete() {
 }
 .description-field {
   margin: 1rem 0 1.5rem;
-  max-width: 520px;
+  max-width: 32.5rem;
 }
 .description-row {
   display: flex;

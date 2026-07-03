@@ -77,7 +77,7 @@ function trapFocus(e: KeyboardEvent) {
   background: var(--surface);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
-  max-width: 420px;
+  max-width: 26.25rem;
   width: 90%;
   box-shadow: var(--shadow-lg);
 }

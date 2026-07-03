@@ -37,9 +37,11 @@ const centerText = computed(() => {
 <template>
   <div class="donut-wrap">
     <template v-if="total > 0">
+      <!-- CSS size in rem (not width/height attrs in px) so the root font-size
+           ramp scales the whole donut on TV-class screens; the viewBox stays in
+           authored units, so everything inside scales as pure vector. -->
       <svg
-        :width="size"
-        :height="size"
+        :style="{ width: `${size / 16}rem`, height: `${size / 16}rem` }"
         :viewBox="`0 0 ${size} ${size}`"
         role="img"
         :aria-label="segments.map((s) => `${s.label}: ${s.value}`).join(', ')"
@@ -102,7 +104,10 @@ const centerText = computed(() => {
   fill: var(--text-primary);
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 1.3rem;
+  /* viewBox px on purpose (was 1.3rem = 20.8px): the svg element is CSS-sized
+     in rem, so the viewBox transform already applies the root zoom — a rem
+     font-size here would double-scale on large screens. */
+  font-size: 20.8px;
 }
 .donut-legend {
   list-style: none;
@@ -125,8 +130,8 @@ const centerText = computed(() => {
   font-variant-numeric: tabular-nums;
 }
 .dot {
-  width: 8px;
-  height: 8px;
+  width: 0.625em;
+  height: 0.625em;
   border-radius: 50%;
   flex-shrink: 0;
 }

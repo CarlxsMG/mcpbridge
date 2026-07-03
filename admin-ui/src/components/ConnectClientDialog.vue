@@ -232,7 +232,7 @@ function trapFocus(e: KeyboardEvent) {
   background: var(--surface);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
-  max-width: 640px;
+  max-width: 40rem;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;

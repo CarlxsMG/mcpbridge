@@ -50,7 +50,7 @@ const format = computed(() => props.valueFormat ?? ((n: number) => String(n)));
   font-family: var(--font-mono);
 }
 .bar-track {
-  height: 8px;
+  height: 0.5rem;
   border-radius: var(--radius-pill);
   background: var(--surface-sunken);
   overflow: hidden;

@@ -242,7 +242,7 @@ async function confirmReject() {
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
-  max-width: 640px;
+  max-width: 40rem;
 }
 .page-header .btn-secondary {
   display: inline-flex;
@@ -343,7 +343,7 @@ async function confirmReject() {
   white-space: nowrap;
 }
 .args {
-  max-width: 190px;
+  max-width: 11.875rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -382,7 +382,7 @@ async function confirmReject() {
   white-space: nowrap;
 }
 .note-input {
-  width: 110px;
+  width: 6.875rem;
   padding: 0.3rem 0.5rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);

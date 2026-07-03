@@ -57,8 +57,8 @@ withDefaults(
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 1.625rem;
+  height: 1.625rem;
   flex-shrink: 0;
   border-radius: var(--radius-sm);
   background: var(--signal-soft);

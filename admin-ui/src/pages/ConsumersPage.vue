@@ -319,14 +319,14 @@ async function confirmDelete() {
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
-  max-width: 640px;
+  max-width: 40rem;
 }
 .create-form {
   background: var(--surface-sunken);
   padding: 1.25rem;
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
-  max-width: 380px;
+  max-width: 23.75rem;
 }
 .field {
   margin-bottom: 1rem;
@@ -390,7 +390,7 @@ async function confirmDelete() {
   gap: 0.3rem;
 }
 .usage-bar-wrap {
-  width: 90px;
+  width: 5.625rem;
 }
 .actions {
   display: flex;

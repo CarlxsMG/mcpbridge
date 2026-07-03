@@ -211,13 +211,13 @@ onMounted(load);
 }
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(9.375rem, 1fr));
   gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 .charts-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }

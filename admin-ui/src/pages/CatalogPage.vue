@@ -300,7 +300,7 @@ async function confirmDelete() {
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
-  max-width: 560px;
+  max-width: 35rem;
 }
 .btn-primary,
 .btn-secondary {
@@ -313,7 +313,7 @@ async function confirmDelete() {
   padding: 1.25rem;
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
-  max-width: 480px;
+  max-width: 30rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -340,7 +340,7 @@ async function confirmDelete() {
 }
 .catalog-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(16.25rem, 1fr));
   gap: 1rem;
 }
 .catalog-card {

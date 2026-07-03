@@ -295,7 +295,7 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   padding: 0 0.6rem;
   background: var(--surface);
-  max-width: 260px;
+  max-width: 16.25rem;
 }
 .search-input svg {
   color: var(--text-muted);
@@ -358,7 +358,7 @@ onMounted(() => {
   background: var(--surface-sunken);
   border-radius: var(--radius-sm);
   font-size: 0.78rem;
-  max-width: 360px;
+  max-width: 22.5rem;
   overflow-x: auto;
 }
 .detail-none {

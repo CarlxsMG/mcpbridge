@@ -204,7 +204,7 @@ function formatLastRun(m: number | null): string {
 
 <style scoped>
 .page {
-  max-width: 900px;
+  max-width: 56.25rem;
 }
 .page-header {
   display: flex;
@@ -252,7 +252,7 @@ function formatLastRun(m: number | null): string {
 }
 .field .cron {
   font-family: var(--font-mono);
-  min-width: 140px;
+  min-width: 8.75rem;
 }
 .table-card {
   background: var(--surface);

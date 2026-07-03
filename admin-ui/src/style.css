@@ -54,6 +54,20 @@
 
   font-family: var(--font-body);
 
+  /* ---- Viewport scale (large screens / TV mode) -------------------------- */
+  /* Every spacing/type token below is rem-based, so scaling the root font-size
+     zooms the whole UI coherently. Below 1920px this resolves to 100% (16px) —
+     nothing changes on laptops. From 1920px up it ramps +1px per 240px of extra
+     viewport width (2560 -> ~18.7px, 3840/4K TV -> 24px), capped at 175% (28px,
+     reached at 4800px for 5K+). Rationale: this is an observability tool that
+     ends up on wall TVs viewed from meters away — text and controls must grow,
+     not just gain empty margins. The ramp also bounds the *effective* design
+     width (100vw / zoom) to ~1920-2750px on any screen, so layouts designed and
+     tested at desktop widths stay valid at any physical resolution.
+     Structural dimensions must be rem for this to work — see DESIGN_SYSTEM.md
+     "Large screens" section before adding any px width/height >= ~48px. */
+  font-size: clamp(100%, calc(100% + (100vw - 1920px) / 240), 175%);
+
   /* ---- Scale ------------------------------------------------------------ */
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -282,13 +296,30 @@ button {
   }
 }
 
+/* ---- Lucide icons: em-sized so the viewport scale reaches them ---------- */
+/* lucide-vue-next's :size prop writes px width/height attributes, which the
+   root font-size ramp can't scale — on a 4K TV every icon would stay tiny next
+   to grown text. CSS wins over presentation attributes, so one rule re-bases
+   all icons on the local font-size (authored :size values are 13-17px next to
+   13-15px text, i.e. ~1em already). Icons meant to be larger than their text
+   context override this with an em size (.empty-icon, .not-found-icon). */
+svg.lucide {
+  width: 1em;
+  height: 1em;
+}
+.empty-icon,
+.not-found-icon {
+  width: 1.75em;
+  height: 1.75em;
+}
+
 /* ---- Checkboxes & radios: custom appearance, tokens-driven ------------- */
 input[type="checkbox"],
 input[type="radio"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 1.125rem;
+  height: 1.125rem;
   margin: 0;
   flex-shrink: 0;
   display: inline-grid;
@@ -306,8 +337,8 @@ input[type="checkbox"] {
 }
 input[type="checkbox"]::before {
   content: "";
-  width: 10px;
-  height: 10px;
+  width: 0.625rem;
+  height: 0.625rem;
   transform: scale(0);
   transition: transform 0.12s ease;
   box-shadow: inset 1em 1em #fff;
@@ -325,8 +356,8 @@ input[type="radio"] {
 }
 input[type="radio"]::before {
   content: "";
-  width: 9px;
-  height: 9px;
+  width: 0.5625rem;
+  height: 0.5625rem;
   border-radius: 50%;
   background: var(--signal);
   transform: scale(0);
