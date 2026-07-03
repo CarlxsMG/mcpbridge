@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
-import type { TraceSummary, StoredSpan } from "../types/api";
+import type { TraceSummary, StoredSpan, PaginatedResult } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { Waypoints, Trash2 } from "lucide-vue-next";
 
@@ -10,6 +10,8 @@ const props = defineProps<{ traceId?: string }>();
 const router = useRouter();
 
 const traces = ref<TraceSummary[]>([]);
+const nextCursor = ref<string | undefined>(undefined);
+const cursorStack = ref<(string | undefined)[]>([]);
 const spans = ref<StoredSpan[] | null>(null);
 const loading = ref(false);
 const errorMessage = ref("");
@@ -17,13 +19,21 @@ const toolFilter = ref("");
 const pendingPurge = ref(false);
 const purging = ref(false);
 
-async function loadList() {
+function buildListQuery(cursor?: string): string {
+  const params = new URLSearchParams();
+  if (toolFilter.value.trim()) params.set("tool", toolFilter.value.trim());
+  if (cursor) params.set("cursor", cursor);
+  params.set("limit", "50");
+  return params.toString();
+}
+
+async function loadList(cursor?: string) {
   loading.value = true;
   errorMessage.value = "";
-  const params = new URLSearchParams({ limit: "200" });
-  if (toolFilter.value.trim()) params.set("tool", toolFilter.value.trim());
   try {
-    traces.value = (await api.get<{ items: TraceSummary[] }>(`/admin-api/traces?${params}`)).items;
+    const result = await api.get<PaginatedResult<TraceSummary>>(`/admin-api/traces?${buildListQuery(cursor)}`);
+    traces.value = result.items;
+    nextCursor.value = result.nextCursor;
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to load traces.";
   } finally {
@@ -31,12 +41,32 @@ async function loadList() {
   }
 }
 
+function applyFilters() {
+  cursorStack.value = [];
+  loadList();
+}
+
+function nextPage() {
+  if (!nextCursor.value) return;
+  cursorStack.value.push(undefined); // placeholder for "page before current" bookkeeping
+  loadList(nextCursor.value);
+}
+
+function prevPage() {
+  if (cursorStack.value.length === 0) return;
+  cursorStack.value.pop();
+  const cursor = cursorStack.value[cursorStack.value.length - 1];
+  loadList(cursor);
+}
+
 async function loadDetail(traceId: string) {
   loading.value = true;
   errorMessage.value = "";
   spans.value = null;
   try {
-    spans.value = (await api.get<{ traceId: string; spans: StoredSpan[] }>(`/admin-api/traces/${encodeURIComponent(traceId)}`)).spans;
+    spans.value = (
+      await api.get<{ traceId: string; spans: StoredSpan[] }>(`/admin-api/traces/${encodeURIComponent(traceId)}`)
+    ).spans;
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to load trace.";
   } finally {
@@ -45,8 +75,14 @@ async function loadDetail(traceId: string) {
 }
 
 async function refresh() {
-  if (props.traceId) await loadDetail(props.traceId);
-  else await loadList();
+  if (props.traceId) {
+    await loadDetail(props.traceId);
+  } else {
+    // Returning to the list (e.g. from a detail view) always shows page one —
+    // keep the pagination stack in sync so Previous doesn't stay wrongly enabled.
+    cursorStack.value = [];
+    await loadList();
+  }
 }
 onMounted(refresh);
 watch(() => props.traceId, refresh);
@@ -64,6 +100,7 @@ async function confirmPurge() {
   purging.value = true;
   try {
     await api.delete("/admin-api/traces");
+    cursorStack.value = [];
     await loadList();
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to purge traces.";
@@ -101,17 +138,29 @@ const waterfall = computed(() => {
       <div>
         <h1>Traces</h1>
         <p class="subtitle">
-          Per-call span timing for a built-in waterfall view — independent of any external OTLP collector. Opt-in
-          (<code>TRACE_STORAGE=true</code> on the server) — an empty list can mean either storage is off or there's genuinely nothing recent.
+          Per-call span timing for a built-in waterfall view — independent of any external OTLP collector. Opt-in (<code
+            >TRACE_STORAGE=true</code
+          >
+          on the server) — an empty list can mean either storage is off or there's genuinely nothing recent.
         </p>
       </div>
     </header>
 
     <template v-if="!traceId">
-      <form class="filter-row" @submit.prevent="loadList">
-        <input v-model="toolFilter" type="text" placeholder="Tool name (e.g. github__search_issues)" aria-label="Filter by tool" />
+      <form class="filter-row" @submit.prevent="applyFilters">
+        <input
+          v-model="toolFilter"
+          type="text"
+          placeholder="Tool name (e.g. github__search_issues)"
+          aria-label="Filter by tool"
+        />
         <button type="submit" class="btn-secondary">Filter</button>
-        <button type="button" class="btn-secondary danger" :disabled="purging || traces.length === 0" @click="pendingPurge = true">
+        <button
+          type="button"
+          class="btn-secondary danger"
+          :disabled="purging || traces.length === 0"
+          @click="pendingPurge = true"
+        >
           <Trash2 :size="14" stroke-width="2" aria-hidden="true" /> Purge all
         </button>
       </form>
@@ -144,6 +193,14 @@ const waterfall = computed(() => {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="pagination">
+        <button type="button" class="btn-secondary" :disabled="cursorStack.length === 0" @click="prevPage">
+          Previous
+        </button>
+        <button type="button" class="btn-secondary" :disabled="!nextCursor" @click="nextPage">Next</button>
+        <p class="subtitle">{{ traces.length }} trace(s) on this page</p>
       </div>
     </template>
 
@@ -254,6 +311,15 @@ const waterfall = computed(() => {
 }
 .trace-table tbody tr:last-child td {
   border-bottom: none;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+.pagination .subtitle {
+  margin-left: 0.4rem;
 }
 .clickable {
   cursor: pointer;

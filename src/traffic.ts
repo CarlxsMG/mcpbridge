@@ -65,19 +65,44 @@ export function recordTraffic(input: {
   durationMs: number;
 }): void {
   const argsJson = safeJson(input.args);
-  const preview = truncate((input.result.content ?? []).map((c) => c.text ?? "").join("\n"), config.trafficMaxBodyBytes);
+  const preview = truncate(
+    (input.result.content ?? []).map((c) => c.text ?? "").join("\n"),
+    config.trafficMaxBodyBytes,
+  );
   getDb()
     .query(
       `INSERT INTO tool_traffic (mcp_tool_name, client_name, tool_name, key_id, args_json, preview, is_error, duration_ms, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(input.mcpToolName, input.clientName, input.toolName, input.keyId, argsJson, preview, input.result.isError ? 1 : 0, input.durationMs, Date.now());
+    .run(
+      input.mcpToolName,
+      input.clientName,
+      input.toolName,
+      input.keyId,
+      argsJson,
+      preview,
+      input.result.isError ? 1 : 0,
+      input.durationMs,
+      Date.now(),
+    );
   if (Math.random() < 0.02) pruneTraffic();
 }
 
-export function listTraffic(filter: { clientName?: string; toolName?: string; errorsOnly?: boolean; limit?: number } = {}): TrafficRecord[] {
+/**
+ * Keyset-paginated (by `id`, matching the audit-log idiom): rows are ordered
+ * `id DESC`, so `cursor` is the `id` of the last row returned to the caller —
+ * translated to `WHERE id < ?`. Fetches one extra row to determine `nextCursor`
+ * without a second COUNT query.
+ */
+export function listTraffic(
+  filter: { clientName?: string; toolName?: string; errorsOnly?: boolean; cursor?: string; limit?: number } = {},
+): { items: TrafficRecord[]; nextCursor?: string } {
   const where: string[] = [];
-  const params: string[] = [];
+  const params: (string | number)[] = [];
+  if (filter.cursor) {
+    where.push("id < ?");
+    params.push(Number(filter.cursor));
+  }
   if (filter.clientName) {
     where.push("client_name = ?");
     params.push(filter.clientName);
@@ -88,8 +113,13 @@ export function listTraffic(filter: { clientName?: string; toolName?: string; er
   }
   if (filter.errorsOnly) where.push("is_error = 1");
   const limit = Math.min(Math.max(filter.limit ?? 100, 1), 1000);
-  const sql = `SELECT * FROM tool_traffic ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY id DESC LIMIT ${limit}`;
-  return (getDb().query(sql).all(...params) as TrafficRow[]).map(rowTo);
+  const sql = `SELECT * FROM tool_traffic ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY id DESC LIMIT ?`;
+  const rows = getDb()
+    .query(sql)
+    .all(...params, limit + 1) as TrafficRow[];
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  return { items: page.map(rowTo), nextCursor: hasMore ? String(page[page.length - 1].id) : undefined };
 }
 
 export function getTraffic(id: number): TrafficRecord | null {

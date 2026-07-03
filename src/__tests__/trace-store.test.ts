@@ -6,8 +6,19 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
-import { tracingEnabled, startSpan, endSpan, _internalsForTesting as tracingInternals } from "../observability/tracing.js";
-import { listTraces, getTrace, pruneSpans, purgeAllSpans, __clearSpansForTesting } from "../observability/trace-store.js";
+import {
+  tracingEnabled,
+  startSpan,
+  endSpan,
+  _internalsForTesting as tracingInternals,
+} from "../observability/tracing.js";
+import {
+  listTraces,
+  getTrace,
+  pruneSpans,
+  purgeAllSpans,
+  __clearSpansForTesting,
+} from "../observability/trace-store.js";
 
 const origTraceStorage = config.traceStorageEnabled;
 const origOtelEndpoint = config.otelEndpoint;
@@ -53,14 +64,22 @@ describe("opt-in write behavior", () => {
 
     const trace = getTrace(span.traceId);
     expect(trace).toHaveLength(1);
-    expect(trace[0]).toMatchObject({ traceId: span.traceId, spanId: span.spanId, mcpToolName: "svc__do-x", statusCode: 1 });
+    expect(trace[0]).toMatchObject({
+      traceId: span.traceId,
+      spanId: span.spanId,
+      mcpToolName: "svc__do-x",
+      statusCode: 1,
+    });
   });
 
   test("storage and OTLP export are independent — storage-only mode never calls fetch", async () => {
     (config as Record<string, unknown>).traceStorageEnabled = true;
     (config as Record<string, unknown>).otelEndpoint = undefined;
     let fetchCalls = 0;
-    globalThis.fetch = (async () => { fetchCalls++; return new Response("{}"); }) as unknown as typeof fetch;
+    globalThis.fetch = (async () => {
+      fetchCalls++;
+      return new Response("{}");
+    }) as unknown as typeof fetch;
 
     const span = startSpan("tool_call svc__do-x", {});
     endSpan(span, {}, 0);
@@ -89,7 +108,7 @@ describe("listTraces / getTrace", () => {
     const s2 = startSpan("tool_call svc__b", { "mcp.tool": "svc__b" });
     endSpan(s2, {}, 2);
 
-    const traces = listTraces();
+    const traces = listTraces().items;
     expect(traces).toHaveLength(2);
     const errored = traces.find((t) => t.traceId === s2.traceId)!;
     expect(errored.hasError).toBe(true);
@@ -104,11 +123,28 @@ describe("listTraces / getTrace", () => {
     const s2 = startSpan("tool_call svc__b", { "mcp.tool": "svc__b" });
     endSpan(s2, {}, 1);
 
-    expect(listTraces({ mcpToolName: "svc__a" }).map((t) => t.traceId)).toEqual([s1.traceId]);
+    expect(listTraces({ mcpToolName: "svc__a" }).items.map((t) => t.traceId)).toEqual([s1.traceId]);
   });
 
   test("getTrace returns [] for an unknown trace id", () => {
     expect(getTrace("does-not-exist")).toEqual([]);
+  });
+
+  test("cursor pagination: newest-first by underlying span id, nextCursor set only when more groups remain", () => {
+    const s1 = startSpan("tool_call svc__t1", { "mcp.tool": "svc__t1" });
+    endSpan(s1, {}, 0);
+    const s2 = startSpan("tool_call svc__t2", { "mcp.tool": "svc__t2" });
+    endSpan(s2, {}, 0);
+    const s3 = startSpan("tool_call svc__t3", { "mcp.tool": "svc__t3" });
+    endSpan(s3, {}, 0);
+
+    const page1 = listTraces({ limit: 2 });
+    expect(page1.items.map((t) => t.traceId)).toEqual([s3.traceId, s2.traceId]);
+    expect(page1.nextCursor).toBeDefined();
+
+    const page2 = listTraces({ limit: 2, cursor: page1.nextCursor });
+    expect(page2.items.map((t) => t.traceId)).toEqual([s1.traceId]);
+    expect(page2.nextCursor).toBeUndefined();
   });
 });
 

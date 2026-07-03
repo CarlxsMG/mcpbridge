@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { api, ApiError } from "../composables/useApi";
-import type { TrafficRecord } from "../types/api";
+import type { TrafficRecord, PaginatedResult } from "../types/api";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 
 const records = ref<TrafficRecord[]>([]);
+const nextCursor = ref<string | undefined>(undefined);
+const cursorStack = ref<(string | undefined)[]>([]);
 const loading = ref(false);
 const errorMessage = ref("");
 
@@ -16,22 +19,50 @@ const errorsOnly = ref(false);
 const replayingId = ref<number | null>(null);
 const replayNote = ref<{ id: number; ok: boolean; text: string } | null>(null);
 
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  const params = new URLSearchParams({ limit: "500" });
+function buildQuery(cursor?: string): string {
+  const params = new URLSearchParams();
   if (clientFilter.value.trim()) params.set("client", clientFilter.value.trim());
   if (toolFilter.value.trim()) params.set("tool", toolFilter.value.trim());
   if (errorsOnly.value) params.set("errors", "true");
+  if (cursor) params.set("cursor", cursor);
+  params.set("limit", "50");
+  return params.toString();
+}
+
+async function load(cursor?: string) {
+  loading.value = true;
+  errorMessage.value = "";
   try {
-    records.value = (await api.get<{ items: TrafficRecord[] }>(`/admin-api/traffic?${params}`)).items;
+    const result = await api.get<PaginatedResult<TrafficRecord>>(`/admin-api/traffic?${buildQuery(cursor)}`);
+    records.value = result.items;
+    nextCursor.value = result.nextCursor;
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load traffic. Check your connection and try again.";
+    errorMessage.value =
+      err instanceof ApiError ? err.message : "Failed to load traffic. Check your connection and try again.";
   } finally {
     loading.value = false;
   }
 }
-onMounted(load);
+
+function applyFilters() {
+  cursorStack.value = [];
+  load();
+}
+
+function nextPage() {
+  if (!nextCursor.value) return;
+  cursorStack.value.push(undefined); // placeholder for "page before current" bookkeeping
+  load(nextCursor.value);
+}
+
+function prevPage() {
+  if (cursorStack.value.length === 0) return;
+  cursorStack.value.pop();
+  const cursor = cursorStack.value[cursorStack.value.length - 1];
+  load(cursor);
+}
+
+onMounted(() => load());
 
 function formatDuration(ms: number): string {
   return `${ms}ms`;
@@ -39,7 +70,8 @@ function formatDuration(ms: number): string {
 
 const chart = computed(() => {
   const rows = records.value;
-  if (rows.length === 0) return { points: [] as { t: number; v: number }[], errorPoints: [] as { t: number; v: number }[] };
+  if (rows.length === 0)
+    return { points: [] as { t: number; v: number }[], errorPoints: [] as { t: number; v: number }[] };
   const times = rows.map((r) => r.createdAt);
   const min = Math.min(...times);
   const max = Math.max(...times);
@@ -65,11 +97,22 @@ const chart = computed(() => {
   return { points, errorPoints };
 });
 
-async function replay(r: TrafficRecord) {
+const pendingReplay = ref<TrafficRecord | null>(null);
+
+function replay(r: TrafficRecord) {
+  pendingReplay.value = r;
+}
+
+async function confirmReplay() {
+  if (!pendingReplay.value) return;
+  const r = pendingReplay.value;
+  pendingReplay.value = null;
   replayingId.value = r.id;
   replayNote.value = null;
   try {
-    const res = await api.post<{ content?: { type: string; text: string }[]; isError?: boolean }>(`/admin-api/traffic/${r.id}/replay`);
+    const res = await api.post<{ content?: { type: string; text: string }[]; isError?: boolean }>(
+      `/admin-api/traffic/${r.id}/replay`,
+    );
     const text = res.content?.map((c) => c.text).join(" ") ?? "(no content)";
     replayNote.value = { id: r.id, ok: !res.isError, text: text.length > 300 ? `${text.slice(0, 300)}…` : text };
   } catch (err) {
@@ -86,13 +129,13 @@ async function replay(r: TrafficRecord) {
       <div>
         <h1>Traffic</h1>
         <p class="subtitle">
-          Captured request/response calls. Capture is opt-in (<code>TRAFFIC_CAPTURE=true</code> on the server) — an empty list here can
-          mean either capture is off or there's genuinely nothing recent.
+          Captured request/response calls. Capture is opt-in (<code>TRAFFIC_CAPTURE=true</code> on the server) — an
+          empty list here can mean either capture is off or there's genuinely nothing recent.
         </p>
       </div>
     </header>
 
-    <form class="filter-row" @submit.prevent="load">
+    <form class="filter-row" @submit.prevent="applyFilters">
       <div class="filter-field">
         <span class="filter-label">Client name</span>
         <input v-model="clientFilter" type="text" placeholder="Client name" aria-label="Filter by client" />
@@ -109,19 +152,29 @@ async function replay(r: TrafficRecord) {
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <p v-if="replayNote" :class="replayNote.ok ? 'success' : 'error'" role="status">
-      Replayed call #{{ replayNote.id }} against the upstream tool — {{ replayNote.ok ? "succeeded" : "failed" }}: {{ replayNote.text }}
+      Replayed call #{{ replayNote.id }} against the upstream tool — {{ replayNote.ok ? "succeeded" : "failed" }}:
+      {{ replayNote.text }}
     </p>
 
     <div v-if="loading && !records.length" class="loading">Loading…</div>
     <div v-else-if="records.length === 0" class="empty-state">
       <ArrowLeftRight :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No traffic recorded yet. If <code>TRAFFIC_CAPTURE</code> isn't set on the server, calls aren't being recorded — enable it, then check back after your next request.</p>
+      <p>
+        No traffic recorded yet. If <code>TRAFFIC_CAPTURE</code> isn't set on the server, calls aren't being recorded —
+        enable it, then check back after your next request.
+      </p>
     </div>
 
     <template v-else>
       <div class="chart-card">
         <h2>Call volume</h2>
-        <TimeSeriesChart :points="chart.points" :secondary-points="chart.errorPoints" primary-label="Calls" secondary-label="Errors" :height="160" />
+        <TimeSeriesChart
+          :points="chart.points"
+          :secondary-points="chart.errorPoints"
+          primary-label="Calls"
+          secondary-label="Errors"
+          :height="160"
+        />
       </div>
 
       <div class="table-card table-scroll">
@@ -151,14 +204,37 @@ async function replay(r: TrafficRecord) {
                   title="Sends this call to the upstream tool again, right now."
                   @click="replay(r)"
                 >
-                  <Repeat :size="13" stroke-width="2" aria-hidden="true" /> {{ replayingId === r.id ? "Replaying…" : "Replay" }}
+                  <Repeat :size="13" stroke-width="2" aria-hidden="true" />
+                  {{ replayingId === r.id ? "Replaying…" : "Replay" }}
                 </button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <div class="pagination">
+        <button type="button" class="btn-secondary" :disabled="cursorStack.length === 0" @click="prevPage">
+          Previous
+        </button>
+        <button type="button" class="btn-secondary" :disabled="!nextCursor" @click="nextPage">Next</button>
+        <p class="subtitle">{{ records.length }} record(s) on this page</p>
+      </div>
     </template>
+
+    <ConfirmDialog
+      :open="pendingReplay !== null"
+      title="Replay this call?"
+      :message="
+        pendingReplay
+          ? `This sends '${pendingReplay.mcpToolName}' to the live upstream again, right now, with the same arguments — including any side effects (writes, refunds, deletes) the original call had.`
+          : ''
+      "
+      :confirm-label="pendingReplay ? `Replay ${pendingReplay.mcpToolName}` : 'Replay'"
+      danger
+      @confirm="confirmReplay"
+      @cancel="pendingReplay = null"
+    />
   </section>
 </template>
 
@@ -282,6 +358,15 @@ async function replay(r: TrafficRecord) {
 }
 .actions {
   white-space: nowrap;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+.pagination .subtitle {
+  margin-left: 0.4rem;
 }
 .error {
   color: var(--breach);

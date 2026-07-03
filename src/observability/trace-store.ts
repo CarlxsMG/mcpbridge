@@ -74,7 +74,17 @@ export function persistSpan(span: FinishedSpan): void {
         `INSERT INTO tool_spans (trace_id, span_id, name, mcp_tool_name, start_ms, end_ms, status_code, attributes_json, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(span.traceId, span.spanId, span.name, mcpToolName, span.startMs, span.endMs, span.statusCode, JSON.stringify(span.attributes), Date.now());
+      .run(
+        span.traceId,
+        span.spanId,
+        span.name,
+        mcpToolName,
+        span.startMs,
+        span.endMs,
+        span.statusCode,
+        JSON.stringify(span.attributes),
+        Date.now(),
+      );
   } catch (err) {
     log("warn", "Failed to persist span for trace viewer", { error: err instanceof Error ? err.message : String(err) });
     return;
@@ -82,33 +92,52 @@ export function persistSpan(span: FinishedSpan): void {
   if (Math.random() < 0.02) pruneSpans();
 }
 
-/** Recent traces (one row per trace_id), most recent first. */
-export function listTraces(filter: { mcpToolName?: string; limit?: number } = {}): TraceSummary[] {
+/**
+ * Recent traces (one row per trace_id), most recent first.
+ *
+ * Keyset-paginated on `MAX(id)` per trace group rather than `start_ms`: `id`
+ * is AUTOINCREMENT and thus guaranteed unique/monotonic, whereas two traces'
+ * spans can share a millisecond-resolution `start_ms` and silently collide as
+ * a cursor. `cursor` is the `lastId` of the last trace returned to the caller.
+ * Fetches one extra group to determine `nextCursor` without a second query.
+ */
+export function listTraces(filter: { mcpToolName?: string; cursor?: string; limit?: number } = {}): {
+  items: TraceSummary[];
+  nextCursor?: string;
+} {
   const where: string[] = [];
-  const params: string[] = [];
+  const params: (string | number)[] = [];
   if (filter.mcpToolName) {
     where.push("mcp_tool_name = ?");
     params.push(filter.mcpToolName);
   }
+  const having = filter.cursor ? "HAVING MAX(id) < ?" : "";
+  if (filter.cursor) params.push(Number(filter.cursor));
   const limit = Math.min(Math.max(filter.limit ?? 50, 1), 500);
   const sql = `
     SELECT trace_id, COUNT(*) as span_count, MIN(start_ms) as start_ms, MAX(end_ms) as end_ms,
-           MAX(status_code) as status_code, MAX(mcp_tool_name) as mcp_tool_name
+           MAX(status_code) as status_code, MAX(mcp_tool_name) as mcp_tool_name, MAX(id) as last_id
     FROM tool_spans
     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
     GROUP BY trace_id
-    ORDER BY start_ms DESC
-    LIMIT ${limit}
+    ${having}
+    ORDER BY last_id DESC
+    LIMIT ?
   `;
-  const rows = getDb().query(sql).all(...params) as {
+  const rows = getDb()
+    .query(sql)
+    .all(...params, limit + 1) as {
     trace_id: string;
     span_count: number;
     start_ms: number;
     end_ms: number;
     status_code: number;
     mcp_tool_name: string | null;
+    last_id: number;
   }[];
-  return rows.map((r) => ({
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const items: TraceSummary[] = page.map((r) => ({
     traceId: r.trace_id,
     spanCount: r.span_count,
     startMs: r.start_ms,
@@ -116,11 +145,14 @@ export function listTraces(filter: { mcpToolName?: string; limit?: number } = {}
     mcpToolName: r.mcp_tool_name,
     hasError: r.status_code === 2,
   }));
+  return { items, nextCursor: hasMore ? String(page[page.length - 1].last_id) : undefined };
 }
 
 /** Every span belonging to one trace, in chronological order (the waterfall view's data). */
 export function getTrace(traceId: string): StoredSpan[] {
-  return (getDb().query(`SELECT * FROM tool_spans WHERE trace_id = ? ORDER BY start_ms ASC`).all(traceId) as SpanRow[]).map(rowTo);
+  return (
+    getDb().query(`SELECT * FROM tool_spans WHERE trace_id = ? ORDER BY start_ms ASC`).all(traceId) as SpanRow[]
+  ).map(rowTo);
 }
 
 /** Deletes spans older than the retention window. Returns rows removed. */
