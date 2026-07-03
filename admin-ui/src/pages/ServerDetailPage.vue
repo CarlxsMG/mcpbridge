@@ -364,10 +364,16 @@ watch(
 );
 
 function onKeydown(e: KeyboardEvent) {
+  if (document.querySelector('[role="dialog"][aria-label="Command palette"]')) return;
   if (e.key === "Escape" && props.tool) closeGuardEditor();
 }
-onMounted(() => window.addEventListener("keydown", onKeydown));
-onUnmounted(() => window.removeEventListener("keydown", onKeydown));
+// Capture phase, not bubble: CommandPalette's own bubble-phase Escape handler
+// (registered on window too, but mounted earlier via App.vue) closes the
+// palette itself fast enough that a bubble-phase check here can already find
+// it gone, so this would then wrongly also close the drawer. Capture runs
+// before that handler, so the palette-open check above still sees it open.
+onMounted(() => window.addEventListener("keydown", onKeydown, true));
+onUnmounted(() => window.removeEventListener("keydown", onKeydown, true));
 
 async function load() {
   loading.value = true;
@@ -382,7 +388,7 @@ async function load() {
       await loadOAuth();
     }
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load client.";
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load server.";
   } finally {
     loading.value = false;
   }
@@ -530,6 +536,20 @@ async function confirmClientDisable() {
   await toggleClientEnabled();
 }
 
+const pendingRemoveServer = ref(false);
+function requestRemoveServer() {
+  pendingRemoveServer.value = true;
+}
+async function confirmRemoveServer() {
+  pendingRemoveServer.value = false;
+  try {
+    await api.delete(`/admin-api/clients/${encodeURIComponent(props.name)}`);
+    router.push("/servers");
+  } catch (err) {
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to remove server.";
+  }
+}
+
 async function toggleToolEnabled(tool: ToolDetail) {
   const next = !tool.enabled;
   const previous = tool.enabled;
@@ -579,7 +599,6 @@ async function saveGuards(payload: { rateLimitPerMin?: number; timeoutMs?: numbe
       },
     );
     await load();
-    closeGuardEditor();
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to save guards.";
   } finally {
@@ -1142,7 +1161,7 @@ async function resetBreaker() {
           <p class="ua-status">
             Spread calls across the primary backend plus an N-way pool of additional targets. Takes precedence over
             canary/failover below — while an enabled pool has at least one enabled target, canary routing is skipped
-            entirely for this client.
+            entirely for this server.
             <template v-if="lb">
               Currently: <code>{{ lb.strategy }}</code
               >, primary weight {{ lb.primaryWeight }}, {{ lb.enabled ? "enabled" : "disabled" }},
@@ -1245,12 +1264,21 @@ async function resetBreaker() {
             canary/failover config is bypassed.
           </p>
           <form class="ua-form" @submit.prevent="saveCanary">
-            <input v-model="canaryForm.secondaryBaseUrl" type="url" placeholder="https://v2.api.example.com" />
-            <select v-model="canaryForm.mode">
-              <option value="canary">canary</option>
-              <option value="failover">failover</option>
-            </select>
-            <input v-model.number="canaryForm.weight" type="number" min="1" max="100" style="max-width: 90px" />
+            <label
+              >Secondary base URL
+              <input v-model="canaryForm.secondaryBaseUrl" type="url" placeholder="https://v2.api.example.com"
+            /></label>
+            <label
+              >Mode
+              <select v-model="canaryForm.mode">
+                <option value="canary">canary</option>
+                <option value="failover">failover</option>
+              </select>
+            </label>
+            <label
+              >Weight percent
+              <input v-model.number="canaryForm.weight" type="number" min="1" max="100" style="max-width: 90px"
+            /></label>
             <label class="inline-check"><input v-model="canaryForm.enabled" type="checkbox" /> enabled</label>
             <button type="submit" class="btn-secondary">Save canary config</button>
           </form>
@@ -1284,6 +1312,18 @@ async function resetBreaker() {
             </select>
           </div>
           <p v-if="teamError" class="error">{{ teamError }}</p>
+        </div>
+
+        <div class="upstream-auth">
+          <div class="ua-head">
+            <h2>Remove server</h2>
+          </div>
+          <p class="ua-status">
+            Unlike Disable above, this permanently deletes the server's registration, guards, and all per-tool
+            configuration. Connected MCP agents lose access to its tools immediately, and this can't be undone — Disable
+            above is the reversible alternative.
+          </p>
+          <button type="button" class="btn-danger" @click="requestRemoveServer">Remove server</button>
         </div>
       </template>
 
@@ -1348,7 +1388,7 @@ async function resetBreaker() {
             </tbody>
           </table>
         </div>
-        <p v-else class="empty-state">This client has no tools registered.</p>
+        <p v-else class="empty-state">This server has no tools registered.</p>
 
         <div v-if="testResult" class="test-result" :class="testResult.isError ? 'test-error' : 'test-ok'">
           <strong>{{ testResult.tool }}</strong>
@@ -1441,7 +1481,7 @@ async function resetBreaker() {
         </div>
       </section>
     </div>
-    <p v-else-if="tool && detail && !activeTool" class="error">Tool "{{ tool }}" not found on this client.</p>
+    <p v-else-if="tool && detail && !activeTool" class="error">Tool "{{ tool }}" not found on this server.</p>
 
     <ConfirmDialog
       :open="pendingToolDisable !== null"
@@ -1459,7 +1499,7 @@ async function resetBreaker() {
 
     <ConfirmDialog
       :open="pendingClientDisable"
-      title="Disable this client?"
+      title="Disable this server?"
       :message="
         detail
           ? `'${detail.name}' and all of its tools will stop working for connected MCP agents until re-enabled.`
@@ -1494,7 +1534,7 @@ async function resetBreaker() {
     <ConfirmDialog
       :open="pendingClearLb"
       title="Clear load-balancing pool config?"
-      message="This removes the pool strategy config for this client, but keeps the individual targets stored — routing falls back to the primary backend only (and canary/failover, if configured) until you reconfigure the pool."
+      message="This removes the pool strategy config for this server, but keeps the individual targets stored — routing falls back to the primary backend only (and canary/failover, if configured) until you reconfigure the pool."
       confirm-label="Clear pool config"
       danger
       @confirm="confirmClearLb"
@@ -1523,6 +1563,20 @@ async function resetBreaker() {
       danger
       @confirm="confirmClearOAuth"
       @cancel="pendingClearOAuth = false"
+    />
+
+    <ConfirmDialog
+      :open="pendingRemoveServer"
+      title="Remove this server?"
+      :message="
+        detail
+          ? `This permanently deletes the registration, guards, and all per-tool configuration for '${detail.name}'. Connected MCP agents lose access to its tools immediately. This can't be undone.`
+          : ''
+      "
+      :confirm-label="detail ? `Remove ${detail.name}` : 'Remove'"
+      danger
+      @confirm="confirmRemoveServer"
+      @cancel="pendingRemoveServer = false"
     />
   </section>
 </template>
@@ -1573,8 +1627,8 @@ async function resetBreaker() {
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  background: #ece9fb;
-  color: #5a3aa8;
+  background: var(--kind-mcp-soft);
+  color: var(--kind-mcp-text);
 }
 .meta {
   display: grid;

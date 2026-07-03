@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import type { TraceSummary, StoredSpan, PaginatedResult } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -8,14 +8,17 @@ import { Waypoints, Trash2 } from "lucide-vue-next";
 
 const props = defineProps<{ traceId?: string }>();
 const router = useRouter();
+const route = useRoute();
 
 const traces = ref<TraceSummary[]>([]);
 const nextCursor = ref<string | undefined>(undefined);
 const cursorStack = ref<(string | undefined)[]>([]);
+const currentCursor = ref<string | undefined>(undefined);
 const spans = ref<StoredSpan[] | null>(null);
 const loading = ref(false);
 const errorMessage = ref("");
-const toolFilter = ref("");
+const toolFilter = ref(typeof route.query.tool === "string" ? route.query.tool : "");
+const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
 const pendingPurge = ref(false);
 const purging = ref(false);
 
@@ -43,20 +46,24 @@ async function loadList(cursor?: string) {
 
 function applyFilters() {
   cursorStack.value = [];
+  currentCursor.value = undefined;
+  router.replace({ query: { tool: toolFilter.value.trim() || undefined } });
   loadList();
 }
 
 function nextPage() {
   if (!nextCursor.value) return;
-  cursorStack.value.push(undefined); // placeholder for "page before current" bookkeeping
-  loadList(nextCursor.value);
+  cursorStack.value.push(currentCursor.value);
+  currentCursor.value = nextCursor.value;
+  router.replace({ query: { tool: toolFilter.value.trim() || undefined, cursor: currentCursor.value } });
+  loadList(currentCursor.value);
 }
 
 function prevPage() {
   if (cursorStack.value.length === 0) return;
-  cursorStack.value.pop();
-  const cursor = cursorStack.value[cursorStack.value.length - 1];
-  loadList(cursor);
+  currentCursor.value = cursorStack.value.pop();
+  router.replace({ query: { tool: toolFilter.value.trim() || undefined, cursor: currentCursor.value || undefined } });
+  loadList(currentCursor.value);
 }
 
 async function loadDetail(traceId: string) {
@@ -81,10 +88,18 @@ async function refresh() {
     // Returning to the list (e.g. from a detail view) always shows page one —
     // keep the pagination stack in sync so Previous doesn't stay wrongly enabled.
     cursorStack.value = [];
+    currentCursor.value = undefined;
     await loadList();
   }
 }
-onMounted(refresh);
+onMounted(() => {
+  if (props.traceId) {
+    loadDetail(props.traceId);
+  } else {
+    currentCursor.value = initialCursor;
+    loadList(initialCursor);
+  }
+});
 watch(() => props.traceId, refresh);
 
 function openTrace(t: TraceSummary) {
@@ -101,6 +116,7 @@ async function confirmPurge() {
   try {
     await api.delete("/admin-api/traces");
     cursorStack.value = [];
+    currentCursor.value = undefined;
     await loadList();
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to purge traces.";

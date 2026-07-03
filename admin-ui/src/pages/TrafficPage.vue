@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import type { TrafficRecord, PaginatedResult } from "../types/api";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
+
+const router = useRouter();
+const route = useRoute();
 
 const records = ref<TrafficRecord[]>([]);
 const nextCursor = ref<string | undefined>(undefined);
@@ -12,9 +16,11 @@ const cursorStack = ref<(string | undefined)[]>([]);
 const loading = ref(false);
 const errorMessage = ref("");
 
-const clientFilter = ref("");
-const toolFilter = ref("");
-const errorsOnly = ref(false);
+const clientFilter = ref(typeof route.query.client === "string" ? route.query.client : "");
+const toolFilter = ref(typeof route.query.tool === "string" ? route.query.tool : "");
+const errorsOnly = ref(route.query.errors === "true");
+const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
+const currentCursor = ref<string | undefined>(initialCursor);
 
 const replayingId = ref<number | null>(null);
 const replayNote = ref<{ id: number; ok: boolean; text: string } | null>(null);
@@ -46,23 +52,48 @@ async function load(cursor?: string) {
 
 function applyFilters() {
   cursorStack.value = [];
+  currentCursor.value = undefined;
+  router.replace({
+    query: {
+      client: clientFilter.value.trim() || undefined,
+      tool: toolFilter.value.trim() || undefined,
+      errors: errorsOnly.value ? "true" : undefined,
+    },
+  });
   load();
 }
 
 function nextPage() {
   if (!nextCursor.value) return;
-  cursorStack.value.push(undefined); // placeholder for "page before current" bookkeeping
+  cursorStack.value.push(currentCursor.value);
+  currentCursor.value = nextCursor.value;
+  router.replace({
+    query: {
+      client: clientFilter.value.trim() || undefined,
+      tool: toolFilter.value.trim() || undefined,
+      errors: errorsOnly.value ? "true" : undefined,
+      cursor: nextCursor.value,
+    },
+  });
   load(nextCursor.value);
 }
 
 function prevPage() {
   if (cursorStack.value.length === 0) return;
-  cursorStack.value.pop();
-  const cursor = cursorStack.value[cursorStack.value.length - 1];
+  const cursor = cursorStack.value.pop();
+  currentCursor.value = cursor;
+  router.replace({
+    query: {
+      client: clientFilter.value.trim() || undefined,
+      tool: toolFilter.value.trim() || undefined,
+      errors: errorsOnly.value ? "true" : undefined,
+      cursor: cursor || undefined,
+    },
+  });
   load(cursor);
 }
 
-onMounted(() => load());
+onMounted(() => load(initialCursor));
 
 function formatDuration(ms: number): string {
   return `${ms}ms`;

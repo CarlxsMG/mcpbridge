@@ -621,7 +621,7 @@ function saveRedactionFn() {
 
     <h3>Tags</h3>
     <div class="field">
-      <label for="tool-tags">Tags</label>
+      <label for="tool-tags">Comma-separated tags</label>
       <p class="hint">Comma-separated (lowercase letters, digits, - and _). Used to organize and filter tools.</p>
       <input id="tool-tags" v-model="tagsInput" type="text" placeholder="billing, read-only" @keydown.enter.prevent />
       <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveTagsFn">

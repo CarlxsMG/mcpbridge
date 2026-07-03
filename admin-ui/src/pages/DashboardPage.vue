@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import type { ClientSummary, PaginatedResult, TagSummary, TagToolRef } from "../types/api";
@@ -12,6 +12,7 @@ const route = useRoute();
 
 const items = ref<ClientSummary[]>([]);
 const nextCursor = ref<string | undefined>(undefined);
+const currentCursor = ref<string | undefined>(undefined);
 const cursorStack = ref<(string | undefined)[]>([]);
 const loading = ref(false);
 const errorMessage = ref("");
@@ -81,13 +82,15 @@ async function load(cursor?: string) {
     const result = await api.get<PaginatedResult<ClientSummary>>(`/admin-api/clients?${buildQuery(cursor)}`);
     items.value = result.items;
     nextCursor.value = result.nextCursor;
+    currentCursor.value = cursor;
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load clients.";
+    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load servers.";
   } finally {
     loading.value = false;
   }
 }
 
+// debounce-free: filters apply on explicit submit here, not on every keystroke
 function applyFilters() {
   cursorStack.value = [];
   router.replace({ query: { q: q.value || undefined, enabled: enabledFilter.value || undefined } });
@@ -96,7 +99,7 @@ function applyFilters() {
 
 function nextPage() {
   if (!nextCursor.value) return;
-  cursorStack.value.push(undefined); // placeholder for "page before current" bookkeeping
+  cursorStack.value.push(currentCursor.value);
   router.replace({
     query: { q: q.value || undefined, enabled: enabledFilter.value || undefined, cursor: nextCursor.value },
   });
@@ -105,8 +108,7 @@ function nextPage() {
 
 function prevPage() {
   if (cursorStack.value.length === 0) return;
-  cursorStack.value.pop();
-  const cursor = cursorStack.value[cursorStack.value.length - 1];
+  const cursor = cursorStack.value.pop();
   router.replace({
     query: { q: q.value || undefined, enabled: enabledFilter.value || undefined, cursor: cursor || undefined },
   });
@@ -148,10 +150,6 @@ function onToggleClick(client: ClientSummary) {
     toggleEnabled(client);
   }
 }
-
-watch([q, enabledFilter], () => {
-  // debounce-free: filters apply on explicit submit via applyFilters(), not on every keystroke
-});
 
 // Browse-by-tag — GET /admin-api/tags + GET /admin-api/tags/:tag/tools. Separate from the
 // client filters above: tags live on tools, not clients, so this is a lightweight side panel
@@ -208,7 +206,7 @@ onMounted(() => load(initialCursor));
     <header class="page-header">
       <div>
         <h1>Servers</h1>
-        <p class="subtitle">Registered backend clients and their tools.</p>
+        <p class="subtitle">Registered backend servers and their tools.</p>
       </div>
       <div class="header-actions">
         <button type="button" class="btn-secondary" :aria-expanded="showTagBrowser" @click="toggleTagBrowser">
@@ -293,7 +291,7 @@ onMounted(() => load(initialCursor));
       <div class="empty-state">
         <Server :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
         <p v-if="q || enabledFilter">
-          No clients match your filters.
+          No servers match your filters.
           <button
             type="button"
             class="link-btn"
@@ -307,7 +305,7 @@ onMounted(() => load(initialCursor));
           </button>
         </p>
         <p v-else>
-          No clients registered yet. REST backends register themselves via <code>POST /register</code>; you can also
+          No servers registered yet. REST backends register themselves via <code>POST /register</code>; you can also
           <RouterLink to="/register-server">add a REST or MCP server</RouterLink> manually.
         </p>
       </div>
@@ -546,7 +544,7 @@ onMounted(() => load(initialCursor));
   align-items: center;
   gap: 0.75rem;
   background: var(--signal-soft);
-  border: 1px solid #b6e3dd;
+  border: 1px solid var(--signal);
   border-radius: var(--radius-md);
   padding: 0.6rem 1rem;
   margin-bottom: 1rem;
@@ -641,8 +639,8 @@ onMounted(() => load(initialCursor));
   display: inline-block;
   margin-left: 0.4rem;
   padding: 0.05rem 0.4rem;
-  background: #ece9fb;
-  color: #5a3aa8;
+  background: var(--kind-mcp-soft);
+  color: var(--kind-mcp-text);
   border-radius: var(--radius-pill);
   font-size: 0.68rem;
   font-weight: 700;

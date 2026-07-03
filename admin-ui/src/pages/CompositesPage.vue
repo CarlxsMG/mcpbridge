@@ -221,7 +221,7 @@ async function confirmDelete() {
                 :aria-pressed="c.enabled"
                 @click="toggleEnabled(c)"
               >
-                {{ c.enabled ? "Enabled" : "Disabled" }}
+                {{ c.enabled ? "Disable composite" : "Enable composite" }}
               </button>
               <p v-if="rowError[c.name]" class="row-error">{{ rowError[c.name] }}</p>
             </td>

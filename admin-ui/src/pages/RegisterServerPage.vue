@@ -31,6 +31,7 @@ const includeMutations = ref(true);
 const graphqlHealthUrl = ref("");
 
 const previewTools = ref<DiscoveredTool[] | null>(null);
+const previewStale = ref(false);
 const previewing = ref(false);
 const previewError = ref("");
 const registering = ref(false);
@@ -58,6 +59,7 @@ async function preview() {
       exclude_operations: parseList(excludeOps.value),
     });
     previewTools.value = res.tools;
+    previewStale.value = false;
   } catch (err) {
     previewError.value = err instanceof ApiError ? err.message : "Preview failed.";
   } finally {
@@ -66,6 +68,7 @@ async function preview() {
 }
 
 watch([openapiUrl, includeTags, excludeOps], () => {
+  if (previewTools.value) previewStale.value = true;
   previewTools.value = null;
 });
 
@@ -309,6 +312,12 @@ async function register() {
         </p>
       </template>
 
+      <p v-if="kind === 'rest' && mode === 'openapi' && !previewTools && !previewStale" class="hint">
+        Run Preview tools first so you can confirm what will be registered.
+      </p>
+      <p v-if="kind === 'rest' && mode === 'openapi' && !previewTools && previewStale" class="hint warn">
+        Preview is out of date — run it again before registering.
+      </p>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <button
         type="submit"
@@ -370,6 +379,10 @@ async function register() {
   font-size: 0.82rem;
   color: var(--text-secondary);
   margin: 0;
+}
+.hint.warn {
+  color: var(--canary);
+  font-weight: 600;
 }
 .preview-row {
   display: flex;

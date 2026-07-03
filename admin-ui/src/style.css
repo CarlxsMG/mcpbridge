@@ -33,6 +33,11 @@
   --ok: #1a8f4f;
   --ok-soft: #e5f6ec;
 
+  /* Kind-mcp: soft violet pair for the small "MCP" pill next to a server's
+     name — distinct from --signal, not a status/semantic color. */
+  --kind-mcp-soft: #ece9fb;
+  --kind-mcp-text: #5a3aa8;
+
   --text-primary: #14171c;
   --text-secondary: #565d6b;
   --text-muted: #8a8f98;
@@ -90,10 +95,14 @@
   /* Z-index — named layers, low to high. Always use the token; never a bare
      number, or the next overlay someone adds will collide with an existing
      one (this scale replaced 7 uncoordinated magic numbers found in the
-     wild: 49, 50, 100, 120, 150, 200, 300 used on 2 different elements). */
-  --z-drawer: 40; /* ServerDetailPage guard-editor drawer overlay */
-  --z-drawer-top: 41; /* the drawer panel itself, sibling of its overlay */
-  --z-overlay: 100; /* ConfirmDialog — blocks the whole page */
+     wild: 49, 50, 100, 120, 150, 200, 300 used on 2 different elements).
+     --z-drawer/--z-drawer-top sit above --z-mobile-topbar so the guard-editor
+     drawer (header + Close button included) stays usable on mobile, and
+     --z-overlay sits above --z-drawer-top so an in-drawer ConfirmDialog
+     (e.g. clear-guards) still renders on top of the drawer on every viewport. */
+  --z-drawer: 130; /* ServerDetailPage guard-editor drawer overlay */
+  --z-drawer-top: 131; /* the drawer panel itself, sibling of its overlay */
+  --z-overlay: 140; /* ConfirmDialog — blocks the whole page */
   --z-mobile-topbar: 120; /* sticky mobile header */
   --z-mobile-backdrop: 150; /* mobile nav backdrop */
   --z-mobile-nav: 200; /* mobile sidebar panel */

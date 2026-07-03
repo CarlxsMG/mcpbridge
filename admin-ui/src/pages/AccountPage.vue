@@ -132,6 +132,7 @@ onMounted(loadSessions);
 
     <div class="account-section">
       <h2><Lock :size="16" stroke-width="2" aria-hidden="true" /> Change password</h2>
+      <p class="hint warn">Changing your password immediately signs out every other active session.</p>
       <form class="password-form" @submit.prevent="changePassword">
         <div class="field">
           <label for="acc-current-password">Current password</label>
@@ -169,6 +170,10 @@ onMounted(loadSessions);
     <div class="account-section">
       <h2><Monitor :size="16" stroke-width="2" aria-hidden="true" /> Active sessions</h2>
       <p class="subtitle">Devices and browsers currently signed in as you. Sign out any you don't recognize.</p>
+      <p class="hint warn">
+        This list doesn't indicate which session is the device you're using right now. Revoking a session may sign that
+        device out immediately.
+      </p>
 
       <p v-if="revokeError" class="error" role="alert">{{ revokeError }}</p>
       <div v-if="sessionsLoading" class="loading">Loading…</div>
@@ -278,6 +283,9 @@ onMounted(loadSessions);
   margin: 0.3rem 0 0;
   color: var(--text-muted);
   font-size: var(--text-xs);
+}
+.hint.warn {
+  color: var(--canary);
 }
 .table-card {
   background: var(--surface);

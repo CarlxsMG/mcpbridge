@@ -17,6 +17,7 @@ const {
   "Failed to load WS proxy targets.",
 );
 const pendingDelete = ref<WsProxyTarget | null>(null);
+const pendingDisconnect = ref<WsProxyTarget | null>(null);
 const disconnectingName = ref<string | null>(null);
 
 const showCreate = ref(false);
@@ -103,7 +104,14 @@ async function toggleEnabled(target: WsProxyTarget) {
   }
 }
 
-async function disconnectAll(target: WsProxyTarget) {
+function requestDisconnectAll(target: WsProxyTarget) {
+  pendingDisconnect.value = target;
+}
+
+async function confirmDisconnectAll() {
+  if (!pendingDisconnect.value) return;
+  const target = pendingDisconnect.value;
+  pendingDisconnect.value = null;
   disconnectingName.value = target.name;
   try {
     await api.post(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}/disconnect-all`, {});
@@ -184,7 +192,10 @@ async function confirmDelete() {
     <div v-if="loading" class="loading">Loading…</div>
     <div v-else-if="targets.length === 0" class="empty-state">
       <Waypoints :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No WS proxy targets yet.</p>
+      <p>
+        No WS proxy targets yet. A target lets MCP tools dispatch over a persistent WebSocket connection to a backend
+        service instead of plain REST.
+      </p>
     </div>
 
     <div v-else class="table-card table-scroll">
@@ -219,7 +230,7 @@ async function confirmDelete() {
                 type="button"
                 class="link-btn"
                 :disabled="disconnectingName === t.name || t.activeConnections === 0"
-                @click="disconnectAll(t)"
+                @click="requestDisconnectAll(t)"
               >
                 {{ disconnectingName === t.name ? "Disconnecting…" : "Disconnect all" }}
               </button>
@@ -238,6 +249,20 @@ async function confirmDelete() {
       danger
       @confirm="confirmDelete"
       @cancel="pendingDelete = null"
+    />
+
+    <ConfirmDialog
+      :open="pendingDisconnect !== null"
+      title="Disconnect all sessions?"
+      :message="
+        pendingDisconnect
+          ? `'${pendingDisconnect.name}' has ${pendingDisconnect.activeConnections} live connection(s); disconnecting will force-close all of them and drop any in-flight messages.`
+          : ''
+      "
+      confirm-label="Disconnect all"
+      danger
+      @confirm="confirmDisconnectAll"
+      @cancel="pendingDisconnect = null"
     />
   </section>
 </template>

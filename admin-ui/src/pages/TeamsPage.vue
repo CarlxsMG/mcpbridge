@@ -73,7 +73,9 @@ async function confirmRemove() {
       </div>
       <button class="btn-primary" type="submit" :disabled="creating || !newName.trim()">Create team</button>
     </form>
-    <p v-if="errorMessage" class="field-error">{{ errorMessage }}</p>
+    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+
+    <div v-if="loading" class="loading">Loading…</div>
 
     <div v-if="!loading && teams.length === 0" class="empty-state">
       <UsersRound :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
@@ -95,7 +97,7 @@ async function confirmRemove() {
             <td>{{ t.id }}</td>
             <td>{{ t.name }}</td>
             <td>{{ new Date(t.createdAt).toLocaleDateString() }}</td>
-            <td><button class="link-btn danger" @click="requestRemove(t)">delete</button></td>
+            <td><button class="link-btn danger" @click="requestRemove(t)">Delete</button></td>
           </tr>
         </tbody>
       </table>
@@ -104,9 +106,7 @@ async function confirmRemove() {
     <ConfirmDialog
       :open="pendingDelete !== null"
       title="Delete this team?"
-      :message="
-        pendingDelete ? `Delete team &quot;${pendingDelete.name}&quot;? Its clients and users become unowned.` : ''
-      "
+      :message="pendingDelete ? `Delete team '${pendingDelete.name}'? Its servers and users become unowned.` : ''"
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmRemove"
@@ -205,5 +205,9 @@ async function confirmRemove() {
 .field-error {
   color: var(--breach);
   font-size: 0.85rem;
+}
+.loading {
+  color: var(--text-muted);
+  padding: 1rem 0;
 }
 </style>

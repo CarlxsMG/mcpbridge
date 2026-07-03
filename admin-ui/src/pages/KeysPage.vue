@@ -202,7 +202,7 @@ async function confirmDelete() {
           <option v-for="c in consumers" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </div>
-      <label class="checkbox-field elev-chip"
+      <label class="checkbox-field"
         ><input v-model="newElevated" type="checkbox" /> Elevated (bypasses sensitive-tool confirmation)</label
       >
       <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Minting…" : "Mint key" }}</button>
@@ -213,7 +213,7 @@ async function confirmDelete() {
 
     <div v-else-if="keys.length === 0" class="empty-state">
       <KeyRound :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No API keys yet.</p>
+      <p>No API keys yet. MCP clients present a key to call tools through this bridge — mint one to get started.</p>
     </div>
 
     <div v-else class="table-card table-scroll">
@@ -431,11 +431,6 @@ async function confirmDelete() {
 }
 .checkbox-field input {
   width: auto;
-}
-.checkbox-field.elev-chip {
-  display: flex;
-  width: fit-content;
-  padding: 0.35rem 0.6rem;
 }
 .elev-chip {
   display: inline-block;

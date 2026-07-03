@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuth } from "./composables/useAuth";
 import CommandPalette from "./components/CommandPalette.vue";
@@ -48,6 +48,12 @@ async function onLogout() {
   await logout();
   await router.push("/login");
 }
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape" && mobileNavOpen.value) mobileNavOpen.value = false;
+}
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>

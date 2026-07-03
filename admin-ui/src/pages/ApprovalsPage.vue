@@ -4,6 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import type { ApprovalRecord, ApprovalStatus } from "../types/api";
 import DonutChart from "../components/DonutChart.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { ClipboardCheck, Check, X, RefreshCw } from "lucide-vue-next";
 
 type TabKey = ApprovalStatus | "all";
@@ -86,6 +87,18 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
   } finally {
     decidingId.value = null;
   }
+}
+
+const pendingReject = ref<ApprovalRecord | null>(null);
+
+function requestReject(a: ApprovalRecord) {
+  pendingReject.value = a;
+}
+
+async function confirmReject() {
+  if (!pendingReject.value) return;
+  await decide(pendingReject.value, "rejected");
+  pendingReject.value = null;
 }
 </script>
 
@@ -189,12 +202,7 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
                 <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
                   <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
                 </button>
-                <button
-                  type="button"
-                  class="link-btn danger"
-                  :disabled="decidingId === a.id"
-                  @click="decide(a, 'rejected')"
-                >
+                <button type="button" class="link-btn danger" :disabled="decidingId === a.id" @click="requestReject(a)">
                   <X :size="13" stroke-width="2" aria-hidden="true" /> Reject
                 </button>
               </template>
@@ -203,6 +211,20 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
         </tbody>
       </table>
     </div>
+
+    <ConfirmDialog
+      :open="pendingReject !== null"
+      title="Reject this call?"
+      :message="
+        pendingReject
+          ? `This will deny ${pendingReject.clientName}'s pending call to ${pendingReject.toolName}. This cannot be undone.`
+          : ''
+      "
+      confirm-label="Reject call"
+      danger
+      @confirm="confirmReject"
+      @cancel="pendingReject = null"
+    />
   </section>
 </template>
 

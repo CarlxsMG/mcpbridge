@@ -181,7 +181,7 @@ async function confirmDelete() {
             :aria-pressed="detail.enabled"
             @click="toggleEnabled"
           >
-            {{ detail.enabled ? "Enabled" : "Disabled" }}
+            {{ detail.enabled ? "Disable composite" : "Enable composite" }}
           </button>
           <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
             {{ deleting ? "Deleting…" : "Delete composite" }}

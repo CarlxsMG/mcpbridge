@@ -23,6 +23,8 @@ import {
   CornerDownLeft,
   LayoutGrid,
   Cable,
+  Waypoints,
+  UserCircle,
 } from "lucide-vue-next";
 import { api } from "../composables/useApi";
 import type { ClientSummary, BundleSummary, McpApiKey, PaginatedResult } from "../types/api";
@@ -120,6 +122,14 @@ const PAGES: Entry[] = [
     to: "/traffic",
   },
   {
+    id: "p-traces",
+    label: "Traces",
+    hint: "Per-call spans and waterfalls",
+    group: "Pages",
+    icon: Waypoints,
+    to: "/traces",
+  },
+  {
     id: "p-monitors",
     label: "Monitors",
     hint: "Synthetic uptime + schema-drift checks",
@@ -161,6 +171,14 @@ const PAGES: Entry[] = [
     group: "Pages",
     icon: Settings2,
     to: "/config",
+  },
+  {
+    id: "p-account",
+    label: "Account",
+    hint: "Your profile, password, and sessions",
+    group: "Pages",
+    icon: UserCircle,
+    to: "/account",
   },
 ];
 

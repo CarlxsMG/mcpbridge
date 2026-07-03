@@ -154,6 +154,9 @@ onMounted(load);
         </table>
       </div>
       <p v-else class="empty">No calls recorded in this window.</p>
+      <p v-if="topTools.length === 20" class="hint">
+        Showing the top 20 — narrower windows or filtering may reveal others.
+      </p>
 
       <h2>By API key</h2>
       <div v-if="byKey.length" class="table-card table-scroll">
@@ -175,6 +178,9 @@ onMounted(load);
         </table>
       </div>
       <p v-else class="empty">No attributed calls in this window.</p>
+      <p v-if="byKey.length === 20" class="hint">
+        Showing the top 20 — narrower windows or filtering may reveal others.
+      </p>
     </template>
     <div v-else-if="loading" class="loading">Loading…</div>
   </section>
@@ -270,6 +276,11 @@ h2 {
 .usage-table td.hot {
   color: var(--breach);
   font-weight: 600;
+}
+.hint {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  margin: var(--space-2) 0 0;
 }
 .error {
   color: var(--breach);

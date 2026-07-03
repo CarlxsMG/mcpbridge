@@ -217,7 +217,7 @@ async function confirmDelete() {
     <div v-if="loading" class="loading">Loading…</div>
     <div v-else-if="consumers.length === 0" class="empty-state">
       <Users2 :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No consumers yet.</p>
+      <p>No consumers yet. A consumer groups one or more API keys under a shared monthly quota and rate limit.</p>
     </div>
 
     <div v-else class="table-card table-scroll">

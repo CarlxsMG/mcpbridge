@@ -532,6 +532,24 @@ export function adminRoutes(app: Express): void {
     },
   );
 
+  app.delete(
+    "/admin-api/clients/:name",
+    adminAuth,
+    requireOperator,
+    async (req: Request<{ name: string }>, res: Response) => {
+      const { name } = req.params;
+      if (!ensureClientAccess(req, res, name)) return;
+      const actor = actorFromRequest(req);
+      const removed = await registry.forgetClient(name);
+      if (!removed) {
+        notFound(res, "CLIENT_NOT_FOUND", "Client not found");
+        return;
+      }
+      recordAudit(actor, "client.delete", name);
+      res.status(200).json({ status: "deleted", name });
+    },
+  );
+
   app.patch("/admin-api/clients", adminAuth, requireOperator, async (req: Request, res: Response) => {
     const body = (req.body as Record<string, unknown>) ?? {};
     const names = body.names;

@@ -2,7 +2,7 @@ import { createRouter, createWebHashHistory, createWebHistory } from "vue-router
 import { useAuth } from "../composables/useAuth";
 
 const routes = [
-  { path: "/", redirect: "/overview" },
+  { path: "/", redirect: "/servers" },
   { path: "/login", name: "login", component: () => import("../pages/LoginPage.vue"), meta: { public: true } },
   { path: "/servers", name: "servers", component: () => import("../pages/DashboardPage.vue") },
   {
@@ -92,4 +92,12 @@ router.beforeEach(async (to) => {
     return { name: "servers" };
   }
   return true;
+});
+
+// Derives a readable page title from the route name (e.g. "server-detail" -> "Server detail")
+// so the browser tab reflects where the user actually is, not a static index.html title.
+router.afterEach((to) => {
+  if (typeof to.name !== "string") return;
+  const readable = to.name.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
+  document.title = `${readable} — MCP Bridge`;
 });

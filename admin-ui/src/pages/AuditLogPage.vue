@@ -138,7 +138,20 @@ onMounted(() => load());
     </div>
     <div v-else-if="!loading" class="empty-state">
       <ScrollText :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No audit entries yet.</p>
+      <p v-if="actorFilter">
+        No entries match this actor.
+        <button
+          type="button"
+          class="link-btn"
+          @click="
+            actorFilter = '';
+            applyFilter();
+          "
+        >
+          Clear filter
+        </button>
+      </p>
+      <p v-else>No audit entries yet.</p>
     </div>
 
     <button v-if="nextCursor" type="button" class="btn-secondary" :disabled="loading" @click="load(nextCursor)">

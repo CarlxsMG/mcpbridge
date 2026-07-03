@@ -203,7 +203,7 @@ async function confirmDelete() {
 
     <div v-else-if="rules.length === 0" class="empty-state">
       <BellRing :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No alert rules yet.</p>
+      <p>No alert rules yet. A rule watches for an event and POSTs a JSON payload to a webhook when it fires.</p>
     </div>
 
     <div v-else class="table-card table-scroll">
@@ -229,6 +229,7 @@ async function confirmDelete() {
                 type="button"
                 class="toggle"
                 :class="rule.enabled ? 'toggle-on' : 'toggle-off'"
+                :aria-pressed="rule.enabled"
                 :disabled="togglingRuleId === rule.id"
                 @click="toggle(rule)"
               >

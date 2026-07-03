@@ -66,13 +66,13 @@ async function onSubmit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f4f5f7;
+  background: var(--paper);
 }
 .login-card {
-  background: #fff;
+  background: var(--surface);
   padding: 2.5rem;
-  border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(20, 24, 30, 0.1);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 360px;
 }
@@ -81,7 +81,7 @@ async function onSubmit() {
   margin: 0 0 0.25rem;
 }
 .subtitle {
-  color: #63676e;
+  color: var(--text-secondary);
   margin: 0 0 1.5rem;
   font-size: 0.9rem;
 }
@@ -97,8 +97,8 @@ async function onSubmit() {
 .field input {
   width: 100%;
   padding: 0.55rem 0.7rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   font-size: 0.95rem;
   box-sizing: border-box;
 }
@@ -106,7 +106,7 @@ async function onSubmit() {
   width: 100%;
 }
 .error {
-  color: #a11212;
+  color: var(--breach);
   font-size: 0.85rem;
   margin: 0 0 1rem;
 }

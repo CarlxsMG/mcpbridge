@@ -22,13 +22,15 @@ const snapshotBusy = ref(false);
 const diff = ref<ConfigDiffResult | null>(null);
 const pendingRollback = ref<ConfigSnapshotSummary | null>(null);
 const pendingDeleteSnapshot = ref<ConfigSnapshotSummary | null>(null);
+const snapshotsError = ref("");
 
 async function loadSnapshots() {
+  snapshotsError.value = "";
   try {
     const res = await api.get<{ items: ConfigSnapshotSummary[] }>("/admin-api/config/snapshots");
     snapshots.value = res.items;
-  } catch {
-    /* ignore */
+  } catch (err) {
+    snapshotsError.value = err instanceof ApiError ? err.message : "Failed to load snapshots.";
   }
 }
 onMounted(loadSnapshots);
@@ -230,6 +232,7 @@ async function confirmImport() {
           Snapshot now
         </button>
       </div>
+      <p v-if="snapshotsError" class="error" role="alert">{{ snapshotsError }}</p>
       <div v-if="snapshots.length" class="table-scroll">
         <table class="snap-table">
           <thead>
@@ -256,7 +259,7 @@ async function confirmImport() {
           </tbody>
         </table>
       </div>
-      <p v-else class="hint">No snapshots yet.</p>
+      <p v-else-if="!snapshotsError" class="hint">No snapshots yet.</p>
 
       <div v-if="diff" class="diff">
         <h3>Diff: #{{ diff.from.id }} “{{ diff.from.label }}” → {{ diff.to }}</h3>
@@ -335,7 +338,7 @@ async function confirmImport() {
       title="Roll back this config?"
       :message="
         pendingRollback
-          ? `Roll back config to snapshot &quot;${pendingRollback.label}&quot;? This re-applies it to existing servers.`
+          ? `Roll back config to snapshot '${pendingRollback.label}'? This re-applies it to existing servers.`
           : ''
       "
       confirm-label="Roll back"
@@ -347,7 +350,7 @@ async function confirmImport() {
     <ConfirmDialog
       :open="pendingDeleteSnapshot !== null"
       title="Delete this snapshot?"
-      :message="pendingDeleteSnapshot ? `Delete snapshot &quot;${pendingDeleteSnapshot.label}&quot;?` : ''"
+      :message="pendingDeleteSnapshot ? `Delete snapshot '${pendingDeleteSnapshot.label}'?` : ''"
       :confirm-label="pendingDeleteSnapshot ? `Delete ${pendingDeleteSnapshot.label}` : 'Delete'"
       danger
       @confirm="confirmDeleteSnapshot"

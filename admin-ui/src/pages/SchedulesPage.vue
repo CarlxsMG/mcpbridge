@@ -135,7 +135,7 @@ function formatLastRun(m: number | null): string {
     <template v-else-if="items.length === 0">
       <div class="empty-state">
         <Clock :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>No schedules yet.</p>
+        <p>No schedules yet. A schedule enables or disables a client or tool automatically on a cron interval.</p>
       </div>
     </template>
 
@@ -179,7 +179,7 @@ function formatLastRun(m: number | null): string {
             <td>
               <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>
             </td>
-            <td><button class="link-btn danger" @click="pendingDelete = s">delete</button></td>
+            <td><button class="link-btn danger" @click="pendingDelete = s">Delete</button></td>
           </tr>
         </tbody>
       </table>

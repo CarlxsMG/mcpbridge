@@ -21,6 +21,7 @@ const {
 );
 const pendingDelete = ref<AdminUserSummary | null>(null);
 const pendingRoleChange = ref<{ user: AdminUserSummary; nextRole: string } | null>(null);
+const roleSelectResetTick = ref<Record<string, number>>({});
 
 // Teams — any admin may read the list (needed to populate the assignment dropdown),
 // but only a super-admin (admin role, no team) can actually change a user's team;
@@ -37,6 +38,7 @@ async function loadTeams() {
 }
 const pendingTeamChange = ref<{ user: AdminUserSummary; nextTeamId: number | null } | null>(null);
 const teamChangeError = ref("");
+const teamSelectResetTick = ref<Record<string, number>>({});
 
 function teamName(teamId: number | null): string {
   if (teamId === null) return "None (super-admin)";
@@ -117,6 +119,17 @@ async function confirmRoleChange() {
   await changeRole(user, nextRole);
 }
 
+// Bumping the per-user tick forces the role <select> to remount (via its :key),
+// re-syncing its displayed value from the unchanged v-bind since a cancelled
+// change leaves the bound value identical and Vue would otherwise skip the DOM update.
+function cancelRoleChange() {
+  if (pendingRoleChange.value) {
+    const { username } = pendingRoleChange.value.user;
+    roleSelectResetTick.value[username] = (roleSelectResetTick.value[username] ?? 0) + 1;
+  }
+  pendingRoleChange.value = null;
+}
+
 async function changeTeam(user: AdminUserSummary, nextTeamId: number | null) {
   teamChangeError.value = "";
   try {
@@ -147,6 +160,15 @@ async function confirmTeamChange() {
   const { user, nextTeamId } = pendingTeamChange.value;
   pendingTeamChange.value = null;
   await changeTeam(user, nextTeamId);
+}
+
+// See cancelRoleChange — same reasoning, forces the team <select> to remount.
+function cancelTeamChange() {
+  if (pendingTeamChange.value) {
+    const { username } = pendingTeamChange.value.user;
+    teamSelectResetTick.value[username] = (teamSelectResetTick.value[username] ?? 0) + 1;
+  }
+  pendingTeamChange.value = null;
 }
 
 function requestDelete(user: AdminUserSummary) {
@@ -232,6 +254,7 @@ async function confirmDelete() {
             </td>
             <td>
               <select
+                :key="`${user.username}-role-${roleSelectResetTick[user.username] ?? 0}`"
                 class="role-select"
                 :value="user.role"
                 :disabled="isLastActiveAdmin(user)"
@@ -251,6 +274,7 @@ async function confirmDelete() {
             </td>
             <td>
               <select
+                :key="`${user.username}-team-${teamSelectResetTick[user.username] ?? 0}`"
                 class="role-select"
                 :value="user.team_id ?? ''"
                 title="Only super-admins can change this."
@@ -303,7 +327,7 @@ async function confirmDelete() {
       :message="pendingRoleChange ? roleChangeMessage(pendingRoleChange.user, pendingRoleChange.nextRole) : ''"
       :confirm-label="pendingRoleChange ? `Change to ${pendingRoleChange.nextRole}` : 'Change role'"
       @confirm="confirmRoleChange"
-      @cancel="pendingRoleChange = null"
+      @cancel="cancelRoleChange"
     />
 
     <ConfirmDialog
@@ -312,7 +336,7 @@ async function confirmDelete() {
       :message="pendingTeamChange ? teamChangeMessage(pendingTeamChange.user, pendingTeamChange.nextTeamId) : ''"
       :confirm-label="pendingTeamChange ? `Assign to ${teamName(pendingTeamChange.nextTeamId)}` : 'Assign team'"
       @confirm="confirmTeamChange"
-      @cancel="pendingTeamChange = null"
+      @cancel="cancelTeamChange"
     />
   </section>
 </template>

@@ -11,6 +11,7 @@ const bundles = ref<BundleSummary[]>([]);
 const { loading, errorMessage, run } = useLoadState("Failed to load policies.");
 const notice = ref("");
 const pendingDelete = ref<GuardPolicy | null>(null);
+const pendingApply = ref<{ policy: GuardPolicy; bundle: string } | null>(null);
 
 const showCreate = ref(false);
 const newName = ref("");
@@ -22,7 +23,6 @@ const creating = ref(false);
 // per-policy selected bundle to apply to
 const applyBundle = ref<Record<number, string>>({});
 const applyingId = ref<number | null>(null);
-const applyResult = ref<Record<number, string>>({});
 
 async function load() {
   await run(async () => {
@@ -76,18 +76,28 @@ async function createPolicy() {
   }
 }
 
-async function apply(policy: GuardPolicy) {
+function requestApply(policy: GuardPolicy) {
   const bundle = applyBundle.value[policy.id];
   if (!bundle) return;
+  pendingApply.value = { policy, bundle };
+}
+
+async function confirmApply() {
+  if (!pendingApply.value) return;
+  const { policy, bundle } = pendingApply.value;
+  pendingApply.value = null;
   notice.value = "";
   applyingId.value = policy.id;
   try {
-    const res = await api.post<{ applied: number; skipped: unknown[] }>(`/admin-api/policies/${policy.id}/apply`, {
-      bundle,
-    });
-    const message = `Applied "${policy.name}" to ${res.applied} tool(s) in bundle "${bundle}".`;
+    const res = await api.post<{ applied: number; skipped: { tool: string; reason: string }[] }>(
+      `/admin-api/policies/${policy.id}/apply`,
+      { bundle },
+    );
+    let message = `Applied "${policy.name}" to ${res.applied} tool(s) in bundle "${bundle}".`;
+    if (res.skipped.length > 0) {
+      message += ` ${res.skipped.length} tool(s) were skipped because they no longer exist in the registry.`;
+    }
     notice.value = message;
-    applyResult.value[policy.id] = message;
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Apply failed.";
   } finally {
@@ -174,11 +184,10 @@ async function confirmDelete() {
                 type="button"
                 class="btn-secondary"
                 :disabled="!applyBundle[p.id] || applyingId === p.id"
-                @click="apply(p)"
+                @click="requestApply(p)"
               >
                 {{ applyingId === p.id ? "Applying…" : "Apply" }}
               </button>
-              <span v-if="applyResult[p.id]" class="row-notice">{{ applyResult[p.id] }}</span>
             </td>
             <td><button type="button" class="link-btn danger" @click="pendingDelete = p">Delete</button></td>
           </tr>
@@ -198,6 +207,20 @@ async function confirmDelete() {
       danger
       @confirm="confirmDelete"
       @cancel="pendingDelete = null"
+    />
+
+    <ConfirmDialog
+      :open="pendingApply !== null"
+      title="Apply this policy?"
+      :message="
+        pendingApply
+          ? `Applying '${pendingApply.policy.name}' will overwrite the existing rate-limit and timeout guards on every tool in the '${pendingApply.bundle}' bundle.`
+          : ''
+      "
+      confirm-label="Apply policy"
+      danger
+      @confirm="confirmApply"
+      @cancel="pendingApply = null"
     />
   </section>
 </template>
@@ -291,10 +314,6 @@ async function confirmDelete() {
 .notice {
   color: var(--ok);
   font-size: 0.9rem;
-}
-.row-notice {
-  color: var(--ok);
-  font-size: 0.8rem;
 }
 .link-btn.danger {
   color: var(--breach);

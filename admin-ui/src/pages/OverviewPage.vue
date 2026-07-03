@@ -47,7 +47,7 @@ onMounted(load);
     <header class="page-header">
       <div>
         <h1>Overview</h1>
-        <p class="subtitle">Live snapshot of this bridge instance.</p>
+        <p class="subtitle">Snapshot of this bridge instance — use Refresh to update.</p>
       </div>
       <button type="button" class="btn-secondary" :disabled="loading" @click="load">
         <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
@@ -70,7 +70,7 @@ onMounted(load);
       <StatCard :icon="Wrench" label="Tools" :value="stats.tools.total" :detail="`${stats.tools.disabled} disabled`" />
       <StatCard
         :icon="GitBranch"
-        label="Circuit breakers"
+        label="Breakers open"
         :value="stats.circuit_breakers.open"
         :detail="`${stats.circuit_breakers.half_open} half-open`"
         :tone="stats.circuit_breakers.open > 0 ? 'danger' : 'ok'"
@@ -79,6 +79,14 @@ onMounted(load);
         <DonutChart v-if="breakerSegments.length" :segments="breakerSegments" :size="72" :center-label="null" />
       </StatCard>
       <StatCard :icon="ShieldCheck" label="Admin users" :value="stats.admin_users" />
+    </div>
+
+    <div v-if="stats && stats.clients.live === 0" class="empty-state">
+      <Server :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
+      <p>
+        No servers registered yet. <RouterLink to="/register-server">Add a server</RouterLink> or
+        <RouterLink to="/catalog">browse the catalog</RouterLink>.
+      </p>
     </div>
   </section>
 </template>
@@ -120,5 +128,18 @@ onMounted(load);
 }
 .loading {
   color: var(--text-muted);
+}
+.empty-state {
+  margin-top: var(--space-4);
+  padding: var(--space-12) var(--space-8);
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.empty-icon {
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
 }
 </style>
