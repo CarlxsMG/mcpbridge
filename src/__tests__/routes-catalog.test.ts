@@ -266,7 +266,7 @@ describe("POST /admin-api/catalog/:id/install", () => {
     // env-key path is always treated as admin — covered at the requireAdminRole
     // unit level elsewhere. Here we just confirm unauthenticated requests 401.
     await startApp();
-    const res = await fetch(`${adminBase}/admin-api/catalog/builtin:petstore/install`, {
+    const res = await fetch(`${adminBase}/admin-api/catalog/builtin:slack/install`, {
       method: "POST",
       body: JSON.stringify({}),
     });

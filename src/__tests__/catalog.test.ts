@@ -31,6 +31,62 @@ describe("listCatalog / getCatalogEntry", () => {
   });
 });
 
+describe("BUILTIN_CATALOG content", () => {
+  test("the old Petstore demo entry is gone", () => {
+    expect(BUILTIN_CATALOG.find((b) => b.slug === "petstore")).toBeUndefined();
+    expect(BUILTIN_CATALOG.find((b) => /petstore/i.test(b.name))).toBeUndefined();
+  });
+
+  test("has a healthy number of real, professional entries", () => {
+    expect(BUILTIN_CATALOG.length).toBeGreaterThanOrEqual(5);
+  });
+
+  test("every entry is well-formed", () => {
+    const slugs = new Set<string>();
+    for (const entry of BUILTIN_CATALOG) {
+      expect(entry.slug).toMatch(/^[a-z0-9][a-z0-9-]*$/);
+      expect(slugs.has(entry.slug)).toBe(false);
+      slugs.add(entry.slug);
+
+      expect(entry.name.length).toBeGreaterThan(0);
+      expect(entry.description.length).toBeGreaterThan(0);
+      expect(entry.category.length).toBeGreaterThan(0);
+      expect(entry.icon.length).toBeGreaterThan(0);
+      expect(Array.isArray(entry.tags)).toBe(true);
+      expect(entry.tags.length).toBeGreaterThan(0);
+      expect(["rest", "mcp"]).toContain(entry.kind);
+
+      if (entry.kind === "rest") {
+        // REST entries must be resolvable through the exact same install path
+        // as a hand-typed registration: an openapi_url (or a manual base/health
+        // pair), all served over https.
+        expect(entry.openapiUrl).toBeDefined();
+        expect(entry.openapiUrl).toMatch(/^https:\/\//);
+        expect(entry.healthUrl).toBeDefined();
+        expect(entry.healthUrl).toMatch(/^https:\/\//);
+        expect(entry.baseUrl).toBeDefined();
+        expect(entry.baseUrl).toMatch(/^https:\/\//);
+      } else {
+        expect(entry.mcpUrl).toBeDefined();
+        expect(entry.mcpUrl).toMatch(/^https?:\/\//);
+      }
+
+      // includeTags/excludeOperations are only meaningful alongside an
+      // openapi_url-driven discovery — the same precondition performRestRegistration
+      // enforces (tools XOR openapi_url).
+      if (entry.includeTags || entry.excludeOperations) {
+        expect(entry.openapiUrl).toBeDefined();
+      }
+    }
+  });
+
+  test("featured entries are a small, deliberate subset", () => {
+    const featured = BUILTIN_CATALOG.filter((b) => b.featured);
+    expect(featured.length).toBeGreaterThanOrEqual(1);
+    expect(featured.length).toBeLessThanOrEqual(3);
+  });
+});
+
 describe("custom catalog entries", () => {
   test("create / list / get / update / delete round-trip", () => {
     const created = createCustomEntry(
