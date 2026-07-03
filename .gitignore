@@ -47,6 +47,11 @@ data/
 # Playwright MCP manual-testing artifacts
 .playwright-mcp/
 
+# Playwright e2e test run artifacts (playwright.config.ts)
+/test-results/
+/playwright-report/
+/blob-report/
+
 # AICO artifacts
 .aico/*
 !.aico/docs/
