@@ -22,8 +22,8 @@ export function installLinkRoutes(app: Express): void {
   app.get(
     "/install/:token",
     rateLimitInstallLink(config.rateLimitInstallLink),
-    (req: Request<{ token: string }>, res: Response) => {
-      const resolved = resolveInstallLinkToken(req.params.token);
+    async (req: Request<{ token: string }>, res: Response) => {
+      const resolved = await resolveInstallLinkToken(req.params.token);
       if (!resolved) {
         // Deliberately identical for "unknown token", "revoked", and "expired" —
         // never let a caller distinguish those states (see resolveInstallLinkToken's contract).

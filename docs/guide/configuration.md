@@ -30,6 +30,28 @@ tables below cover the settings you'll reach for most often.
 | `DB_PATH`               | SQLite file path (Docker default `/app/data/mcp-bridge.db`). Use `:memory:` for an ephemeral store.                            |
 | `SECRET_ENCRYPTION_KEY` | Enables encrypting per-client upstream credentials at rest (AES-256-GCM). Base64 32 bytes, or any string (hashed to 32 bytes). |
 
+### External secrets manager (optional)
+
+Secrets at rest (OAuth2 client-credentials secrets, auto-provisioned MCP install-link keys) go
+through a pluggable `SecretsProvider` (`src/secrets/`), not `SECRET_ENCRYPTION_KEY` directly. Two
+backends are available:
+
+- **`local`** (default) — the built-in secret-box above. Zero extra infrastructure; this is what
+  `SECRET_ENCRYPTION_KEY` configures.
+- **`vault`** — HashiCorp Vault's [Transit secrets engine](https://developer.hashicorp.com/vault/docs/secrets/transit)
+  does the encrypt/decrypt instead, for operators required by policy to keep secret material in an
+  external KMS. `SECRET_ENCRYPTION_KEY` is ignored in this mode.
+
+| Variable                 | Default           | Description                                                                         |
+| ------------------------ | ----------------- | ----------------------------------------------------------------------------------- |
+| `SECRETS_PROVIDER`       | `local`           | `local` or `vault`. Any other value fails fast at startup.                          |
+| `VAULT_ADDR`             | —                 | Vault server address (e.g. `https://vault.example.com:8200`). Required for `vault`. |
+| `VAULT_TOKEN`            | —                 | Vault token sent as `X-Vault-Token`. Required for `vault`.                          |
+| `VAULT_TRANSIT_KEY_NAME` | `mcp-rest-bridge` | Name of the Vault Transit key used for encrypt/decrypt.                             |
+
+If Vault is unreachable or returns an error, the operation fails with a clear error — it never
+silently falls back to storing a secret in plaintext.
+
 ## Feature flags & integrations
 
 | Variable                      | Description                                                        |

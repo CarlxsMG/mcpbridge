@@ -234,3 +234,56 @@ describe("parseTrustProxy — CSV / named presets / hostnames", () => {
     expect(await importFreshTrustProxy("uniquelocal")).toBe("uniquelocal");
   });
 });
+
+// ─── parseSecretsProvider (private — exercised via a fresh config.ts import) ─
+
+/**
+ * Re-imports config.ts as a brand-new module instance with the given
+ * SECRETS_PROVIDER env value, so its module-level `parseSecretsProvider()`
+ * call re-runs. Unlike `parseTrustProxy`, this parser can throw at
+ * module-load time (an invalid value), so the import itself is wrapped in a
+ * try/finally to guarantee env vars are restored either way.
+ */
+let importCounterSecrets = 0;
+async function importFreshSecretsProvider(value: string | undefined): Promise<"local" | "vault"> {
+  const prevSecretsProvider = process.env.SECRETS_PROVIDER;
+  const prevTrustProxy = process.env.TRUST_PROXY;
+  const prevCorsOrigins = process.env.CORS_ORIGINS;
+  delete process.env.TRUST_PROXY;
+  delete process.env.CORS_ORIGINS;
+  if (value === undefined) delete process.env.SECRETS_PROVIDER;
+  else process.env.SECRETS_PROVIDER = value;
+
+  importCounterSecrets++;
+  try {
+    const mod = (await import(`../config.js?secretsprovidertest=${importCounterSecrets}`)) as {
+      config: { secretsProvider: "local" | "vault" };
+    };
+    return mod.config.secretsProvider;
+  } finally {
+    if (prevSecretsProvider === undefined) delete process.env.SECRETS_PROVIDER;
+    else process.env.SECRETS_PROVIDER = prevSecretsProvider;
+    if (prevTrustProxy === undefined) delete process.env.TRUST_PROXY;
+    else process.env.TRUST_PROXY = prevTrustProxy;
+    if (prevCorsOrigins === undefined) delete process.env.CORS_ORIGINS;
+    else process.env.CORS_ORIGINS = prevCorsOrigins;
+  }
+}
+
+describe("parseSecretsProvider", () => {
+  test("absent SECRETS_PROVIDER -> 'local'", async () => {
+    expect(await importFreshSecretsProvider(undefined)).toBe("local");
+  });
+
+  test("SECRETS_PROVIDER='local' -> 'local'", async () => {
+    expect(await importFreshSecretsProvider("local")).toBe("local");
+  });
+
+  test("SECRETS_PROVIDER='vault' -> 'vault'", async () => {
+    expect(await importFreshSecretsProvider("vault")).toBe("vault");
+  });
+
+  test("an invalid value throws at config-load time rather than silently defaulting to 'local'", async () => {
+    await expect(importFreshSecretsProvider("bogus")).rejects.toThrow(/Invalid SECRETS_PROVIDER/);
+  });
+});

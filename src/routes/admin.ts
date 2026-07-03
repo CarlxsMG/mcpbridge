@@ -32,7 +32,7 @@ import {
 import { listTraffic, getTraffic } from "../traffic.js";
 import { setMonitor, deleteMonitor, listMonitors } from "../monitor.js";
 import { setToolGraphql, setToolWs } from "../backends.js";
-import { getClientOAuth, setClientOAuth } from "../oauth.js";
+import { getClientOAuth, setClientOAuth, type OAuthError } from "../oauth.js";
 import { getClientTeam, canAccessClient } from "../teams.js";
 import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog, verifyAuditChain } from "../admin/audit.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
@@ -1313,6 +1313,19 @@ export function adminRoutes(app: Express): void {
 
   // ── Outbound OAuth2 client-credentials ─────────────────────────────────────
 
+  /** SECRETS_PROVIDER_ERROR -> 502 (external KMS/secrets-manager dependency failure), not a client input error. */
+  function statusForOAuthError(error: OAuthError): number {
+    switch (error) {
+      case "CLIENT_NOT_FOUND":
+        return 404;
+      case "SECRETS_PROVIDER_ERROR":
+        return 502;
+      case "SECRET_BOX_UNCONFIGURED":
+      case "INVALID_URL":
+        return 400;
+    }
+  }
+
   app.get("/admin-api/clients/:name/oauth", adminAuth, (req: Request<{ name: string }>, res: Response) => {
     if (!ensureClientAccess(req, res, req.params.name)) return;
     res.status(200).json({ oauth: getClientOAuth(req.params.name) });
@@ -1341,7 +1354,7 @@ export function adminRoutes(app: Express): void {
       }
       const result = await setClientOAuth(name, input);
       if (!result.ok) {
-        sendError(res, result.error === "CLIENT_NOT_FOUND" ? 404 : 400, result.error, result.reason ?? result.error);
+        sendError(res, statusForOAuthError(result.error), result.error, result.reason ?? result.error);
         return;
       }
       recordAudit(actorFromRequest(req), input ? "client.oauth.set" : "client.oauth.clear", name);

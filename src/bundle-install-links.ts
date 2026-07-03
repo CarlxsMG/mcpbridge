@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { getDb } from "./db/connection.js";
 import { hashApiKey } from "./security/key-hash.js";
-import { encryptSecret, decryptSecret, isSecretBoxConfigured } from "./security/secret-box.js";
+import { getSecretsProvider } from "./secrets/index.js";
 import { createMcpKey, revokeMcpKey, type McpKeyScopes } from "./security/mcp-key-store.js";
 import { getBundleDetail, type BundleDetail } from "./bundles.js";
 import { TOOL_KEY_SEPARATOR } from "./registry.js";
@@ -21,8 +21,10 @@ import { log } from "./logger.js";
  *      same composite `client__tool` scope format proxy.ts's isToolInKeyScope
  *      already checks, using this project's existing per-key access-scoping
  *      machinery rather than inventing a bundle-level equivalent.
- *   2. Stores that key's raw secret encrypted at rest (secret-box.ts's
- *      encryptSecret/decryptSecret, AES-256-GCM — the same mechanism
+ *   2. Stores that key's raw secret encrypted at rest via the pluggable
+ *      secrets provider (src/secrets/index.ts's getSecretsProvider() — the
+ *      built-in local secret-box, AES-256-GCM, by default; HashiCorp Vault
+ *      Transit when SECRETS_PROVIDER=vault — the same mechanism
  *      client_upstream_auth already uses to keep a *retrievable* secret out
  *      of plaintext) so the connection snippet can be rebuilt on demand, any
  *      time the link is visited — not just once at creation.
@@ -61,6 +63,7 @@ export type InstallLinkMutationError =
   | { code: "BUNDLE_NOT_FOUND"; message: string }
   | { code: "EMPTY_BUNDLE"; message: string }
   | { code: "SECRET_BOX_NOT_CONFIGURED"; message: string }
+  | { code: "SECRETS_PROVIDER_ERROR"; message: string }
   | { code: "NOT_FOUND"; message: string }
   | { code: "ALREADY_REVOKED"; message: string };
 
@@ -115,11 +118,11 @@ function toolScopesFor(bundle: BundleDetail): McpKeyScopes {
  * (never persisted or retrievable again — same "show once" contract as
  * mcp-key-store.createMcpKey).
  */
-export function createInstallLink(
+export async function createInstallLink(
   bundleName: string,
   expiresAt: number | null,
   actor: string,
-): CreateInstallLinkResult {
+): Promise<CreateInstallLinkResult> {
   const bundle = getBundleDetail(bundleName);
   if (!bundle) {
     return { ok: false, error: { code: "BUNDLE_NOT_FOUND", message: `Bundle "${bundleName}" not found` } };
@@ -133,7 +136,8 @@ export function createInstallLink(
       },
     };
   }
-  if (!isSecretBoxConfigured()) {
+  const secretsProvider = getSecretsProvider();
+  if (!secretsProvider.isConfigured()) {
     return {
       ok: false,
       error: { code: "SECRET_BOX_NOT_CONFIGURED", message: "Set SECRET_ENCRYPTION_KEY to create install links" },
@@ -149,10 +153,23 @@ export function createInstallLink(
     false,
   );
 
+  let secretEnc: string;
+  try {
+    secretEnc = await secretsProvider.encryptSecret(rawKey);
+  } catch (err) {
+    // The MCP key was already minted above — without a stored, retrievable
+    // encrypted secret there is no install-link row to hang it off of, so
+    // revoke it rather than leave an orphaned, unused-but-live key behind.
+    revokeMcpKey(keyRecord.id);
+    return {
+      ok: false,
+      error: { code: "SECRETS_PROVIDER_ERROR", message: err instanceof Error ? err.message : String(err) },
+    };
+  }
+
   const rawToken = generateRawToken();
   const tokenHash = hashApiKey(rawToken);
   const tokenPrefix = rawToken.slice(0, 12);
-  const secretEnc = encryptSecret(rawKey);
   const now = Date.now();
 
   const row = getDb()
@@ -235,7 +252,7 @@ export function revokeAllInstallLinksForBundle(bundleName: string): void {
  * distinguish "unknown token" from "revoked/expired token" in the response).
  * Hashes the incoming token before ever touching SQLite — never a raw-value scan.
  */
-export function resolveInstallLinkToken(rawToken: string): ResolvedInstallLink | null {
+export async function resolveInstallLinkToken(rawToken: string): Promise<ResolvedInstallLink | null> {
   if (!rawToken) return null;
   const row = getDb()
     .query(`SELECT ${SELECT_COLS} FROM bundle_install_tokens WHERE token_hash = ?`)
@@ -249,9 +266,9 @@ export function resolveInstallLinkToken(rawToken: string): ResolvedInstallLink |
 
   let mcpApiKey: string;
   try {
-    mcpApiKey = decryptSecret(row.mcp_key_secret_enc);
+    mcpApiKey = await getSecretsProvider().decryptSecret(row.mcp_key_secret_enc);
   } catch (err) {
-    log("warn", "Failed to decrypt install-link MCP key — is SECRET_ENCRYPTION_KEY correct?", {
+    log("warn", "Failed to decrypt install-link MCP key — is the secrets provider configured correctly?", {
       installLinkId: row.id,
       error: err instanceof Error ? err.message : String(err),
     });

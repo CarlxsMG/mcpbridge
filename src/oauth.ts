@@ -12,7 +12,7 @@
  */
 import { getDb } from "./db/connection.js";
 import { config } from "./config.js";
-import { encryptSecret, decryptSecret, isSecretBoxConfigured } from "./security/secret-box.js";
+import { getSecretsProvider } from "./secrets/index.js";
 import { validateBackendUrl } from "./security/ip-validator.js";
 
 export interface OAuthPublic {
@@ -36,7 +36,7 @@ export function getClientOAuth(clientName: string): OAuthPublic | null {
   return row ? { tokenUrl: row.token_url, clientId: row.client_id, scope: row.scope } : null;
 }
 
-export type OAuthError = "CLIENT_NOT_FOUND" | "SECRET_BOX_UNCONFIGURED" | "INVALID_URL";
+export type OAuthError = "CLIENT_NOT_FOUND" | "SECRET_BOX_UNCONFIGURED" | "INVALID_URL" | "SECRETS_PROVIDER_ERROR";
 
 export async function setClientOAuth(
   clientName: string,
@@ -50,9 +50,17 @@ export async function setClientOAuth(
     tokenCache.delete(clientName);
     return { ok: true };
   }
-  if (!isSecretBoxConfigured()) return { ok: false, error: "SECRET_BOX_UNCONFIGURED" };
+  const secretsProvider = getSecretsProvider();
+  if (!secretsProvider.isConfigured()) return { ok: false, error: "SECRET_BOX_UNCONFIGURED" };
   const check = await validateBackendUrl(input.tokenUrl, config.allowPrivateIps, config.allowedHosts);
   if (!check.valid) return { ok: false, error: "INVALID_URL", reason: check.reason };
+
+  let clientSecretEnc: string;
+  try {
+    clientSecretEnc = await secretsProvider.encryptSecret(input.clientSecret);
+  } catch (err) {
+    return { ok: false, error: "SECRETS_PROVIDER_ERROR", reason: err instanceof Error ? err.message : String(err) };
+  }
 
   db.query(
     `INSERT INTO client_oauth (client_name, token_url, client_id, client_secret_enc, scope, updated_at)
@@ -63,7 +71,7 @@ export async function setClientOAuth(
        client_secret_enc = excluded.client_secret_enc,
        scope = excluded.scope,
        updated_at = excluded.updated_at`,
-  ).run(clientName, input.tokenUrl, input.clientId, encryptSecret(input.clientSecret), input.scope ?? null, Date.now());
+  ).run(clientName, input.tokenUrl, input.clientId, clientSecretEnc, input.scope ?? null, Date.now());
   tokenCache.delete(clientName);
   return { ok: true };
 }
@@ -102,7 +110,7 @@ export async function getOAuthBearer(clientName: string): Promise<string | null>
 
   let secret: string;
   try {
-    secret = decryptSecret(row.client_secret_enc);
+    secret = await getSecretsProvider().decryptSecret(row.client_secret_enc);
   } catch {
     return null;
   }

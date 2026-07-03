@@ -43,6 +43,8 @@ function statusForInstallLinkError(code: InstallLinkMutationError["code"]): numb
       return 400;
     case "SECRET_BOX_NOT_CONFIGURED":
       return 501;
+    case "SECRETS_PROVIDER_ERROR":
+      return 502;
     case "ALREADY_REVOKED":
       return 409;
   }
@@ -200,7 +202,7 @@ export function bundleRoutes(app: Express): void {
     "/admin-api/bundles/:name/install-links",
     adminAuth,
     requireAdminRole,
-    (req: Request<{ name: string }>, res: Response) => {
+    async (req: Request<{ name: string }>, res: Response) => {
       const { name } = req.params;
       const body = (req.body as Record<string, unknown>) ?? {};
       const exp = validateExpiresAt(body.expiresAt);
@@ -210,7 +212,7 @@ export function bundleRoutes(app: Express): void {
       }
 
       const actor = actorFromRequest(req);
-      const result = createInstallLink(name, exp.value, actor);
+      const result = await createInstallLink(name, exp.value, actor);
       if (!result.ok) {
         sendError(res, statusForInstallLinkError(result.error.code), result.error.code, result.error.message);
         return;

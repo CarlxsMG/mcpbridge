@@ -95,6 +95,20 @@ export function parseCorsOrigins(raw: string | undefined, authDisabled: boolean)
   return normalised;
 }
 
+/**
+ * Parses SECRETS_PROVIDER ('local' default | 'vault') — selects which
+ * SecretsProvider (src/secrets/index.ts) encrypts/decrypts secrets at rest.
+ * Throws on any other value rather than silently falling back to 'local':
+ * an operator who requires an external KMS by policy must get a loud
+ * failure on a typo'd env var, never a silent downgrade to local encryption.
+ */
+function parseSecretsProvider(): "local" | "vault" {
+  const raw = process.env.SECRETS_PROVIDER;
+  if (!raw || raw === "local") return "local";
+  if (raw === "vault") return "vault";
+  throw new Error(`Invalid SECRETS_PROVIDER "${raw}" — must be "local" or "vault".`);
+}
+
 const authDisabled = process.env.AUTH_DISABLED === "true";
 const corsOrigins = parseCorsOrigins(process.env.CORS_ORIGINS, authDisabled);
 
@@ -263,6 +277,22 @@ export const config = {
    * hashed to 32 bytes via SHA-256. Unset means secret storage is disabled.
    */
   secretEncryptionKey: process.env.SECRET_ENCRYPTION_KEY || undefined,
+
+  // ─── Pluggable external secrets manager (src/secrets/) ─────────────────────
+  /**
+   * Which SecretsProvider (src/secrets/index.ts) encrypts/decrypts secrets at
+   * rest: 'local' (default — this project's built-in secret-box above, keyed
+   * by SECRET_ENCRYPTION_KEY) or 'vault' (HashiCorp Vault's Transit engine).
+   */
+  secretsProvider: parseSecretsProvider(),
+  /** Vault server address (e.g. https://vault.example.com:8200). Required when secretsProvider is 'vault'. */
+  vaultAddr: process.env.VAULT_ADDR || undefined,
+  /** Vault token sent as the X-Vault-Token header. Required when secretsProvider is 'vault'. */
+  vaultToken: process.env.VAULT_TOKEN || undefined,
+  /** Name of the Vault Transit key used for encrypt/decrypt operations. */
+  vaultTransitKeyName: process.env.VAULT_TRANSIT_KEY_NAME || "mcp-rest-bridge",
+  /** Timeout for an outbound Vault Transit encrypt/decrypt request (ms). */
+  vaultRequestTimeoutMs: Number(process.env.VAULT_REQUEST_TIMEOUT_MS) || 5_000,
 
   // ─── Usage analytics ───────────────────────────────────────────────────────
   /** How long to retain per-call usage rows before opportunistic pruning (ms). Default 30 days. */
