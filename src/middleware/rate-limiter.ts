@@ -229,9 +229,7 @@ export function rateLimitLogin(maxPerMinute: number) {
 export function rateLimitInstallLink(maxPerMinute: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const key = `install_link:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
-    if (
-      checkLimit(installLinkBuckets, config.rateLimitMaxBucketsInstallLink, key, maxPerMinute, "install_link", res)
-    ) {
+    if (checkLimit(installLinkBuckets, config.rateLimitMaxBucketsInstallLink, key, maxPerMinute, "install_link", res)) {
       next();
     }
   };

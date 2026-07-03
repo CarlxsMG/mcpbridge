@@ -221,18 +221,14 @@ export function bundleRoutes(app: Express): void {
     },
   );
 
-  app.get(
-    "/admin-api/bundles/:name/install-links",
-    adminAuth,
-    (req: Request<{ name: string }>, res: Response) => {
-      const { name } = req.params;
-      if (!getBundleDetail(name)) {
-        notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
-        return;
-      }
-      res.status(200).json({ items: listInstallLinks(name) });
-    },
-  );
+  app.get("/admin-api/bundles/:name/install-links", adminAuth, (req: Request<{ name: string }>, res: Response) => {
+    const { name } = req.params;
+    if (!getBundleDetail(name)) {
+      notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
+      return;
+    }
+    res.status(200).json({ items: listInstallLinks(name) });
+  });
 
   app.delete(
     "/admin-api/bundles/:name/install-links/:id",

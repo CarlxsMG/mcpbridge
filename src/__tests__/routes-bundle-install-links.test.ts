@@ -242,7 +242,11 @@ describe("GET /install/:token (public)", () => {
     const res = await fetch(`${baseUrl}/install/${token}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      bundle: { name: string; description: string | null; tools: { client: string; tool: string; description: string }[] };
+      bundle: {
+        name: string;
+        description: string | null;
+        tools: { client: string; tool: string; description: string }[];
+      };
       connect: { filename: string; snippet: string; instructions: string[] };
     };
     expect(body.bundle.name).toBe("install-link-bundle-b");

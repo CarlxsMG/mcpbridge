@@ -65,8 +65,7 @@ export type InstallLinkMutationError =
   | { code: "ALREADY_REVOKED"; message: string };
 
 export type CreateInstallLinkResult =
-  | { ok: true; record: InstallLinkSummary; rawToken: string }
-  | { ok: false; error: InstallLinkMutationError };
+  { ok: true; record: InstallLinkSummary; rawToken: string } | { ok: false; error: InstallLinkMutationError };
 
 export type RevokeInstallLinkResult = { ok: true } | { ok: false; error: InstallLinkMutationError };
 
