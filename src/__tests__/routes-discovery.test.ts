@@ -172,6 +172,61 @@ describe("POST /admin-api/discovery/preview", () => {
     });
     expect(res.status).toBe(401);
   });
+
+  test("previews tools parsed from a curl_input paste without persisting anything", async () => {
+    await startApp();
+    const res = await fetch(`${adminBase}/admin-api/discovery/preview`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({
+        curl_input: `curl -X POST https://api.example.com/orders -d '{"sku":"abc"}'`,
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { count: number; tools: { name: string; method: string; endpoint: string }[] };
+    expect(body.count).toBe(1);
+    expect(body.tools[0].method).toBe("POST");
+    expect(body.tools[0].endpoint).toBe("/orders");
+  });
+
+  test("previews tools parsed from a postman_collection without persisting anything", async () => {
+    await startApp();
+    const res = await fetch(`${adminBase}/admin-api/discovery/preview`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({
+        postman_collection: {
+          item: [{ name: "Ping", request: { method: "GET", url: "https://api.example.com/ping" } }],
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { count: number; tools: { name: string; method: string }[] };
+    expect(body.count).toBe(1);
+    expect(body.tools[0].method).toBe("GET");
+  });
+
+  test("400 VALIDATION_ERROR for an unparseable curl_input", async () => {
+    await startApp();
+    const res = await fetch(`${adminBase}/admin-api/discovery/preview`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ curl_input: "# no command here" }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  test("400 when no discovery-source field is provided", async () => {
+    await startApp();
+    const res = await fetch(`${adminBase}/admin-api/discovery/preview`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("POST /admin-api/discovery/preview-graphql", () => {

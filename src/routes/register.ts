@@ -8,6 +8,7 @@ import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { log } from "../logger.js";
 import { discoverToolsFromMcpServer } from "../mcp-discovery.js";
 import { discoverToolsFromGraphQl } from "../graphql-discovery.js";
+import { parseCurlCommand, parsePostmanCollection } from "../curl-postman-discovery.js";
 import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
 import { setToolGraphql } from "../backends.js";
 import { getWsProxyTargetDetail } from "../ws-proxy.js";
@@ -165,7 +166,17 @@ export async function performRestRegistration(
   peerIp: string | undefined,
   requestId: string | null,
 ): Promise<RegisterOutcome> {
-  const { name, tools, health_url, openapi_url, include_tags, exclude_operations, retry_non_safe_methods } = body;
+  const {
+    name,
+    tools,
+    health_url,
+    openapi_url,
+    include_tags,
+    exclude_operations,
+    retry_non_safe_methods,
+    curl_input,
+    postman_collection,
+  } = body;
 
   // Validate required fields
   if (!name || !health_url) {
@@ -178,19 +189,38 @@ export async function performRestRegistration(
   const wsCollision = wsProxyNameCollision(name, requestId);
   if (wsCollision) return wsCollision;
 
-  // Must provide either tools or openapi_url, not both
-  if (!tools && !openapi_url) {
+  // Exactly one discovery-source field: an explicit 'tools' array, OpenAPI
+  // auto-discovery, or one of the two lower-friction alternatives below (a
+  // raw cURL paste or a Postman Collection v2.1 export) — both of which parse
+  // down into the same 'tools' array shape and are registered exactly like
+  // hand-written manual tools (source: "manual").
+  const hasTools = tools !== undefined && tools !== null;
+  const hasOpenapi = typeof openapi_url === "string" && openapi_url.length > 0;
+  const hasCurl = typeof curl_input === "string" && curl_input.trim().length > 0;
+  const hasPostman = postman_collection !== undefined && postman_collection !== null && postman_collection !== "";
+  const providedCount = [hasTools, hasOpenapi, hasCurl, hasPostman].filter(Boolean).length;
+  if (providedCount === 0) {
     return {
       ok: false,
       status: 400,
-      body: { error: { code: "VALIDATION_ERROR", message: "Must provide either 'tools' or 'openapi_url'" } },
+      body: {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Must provide exactly one of 'tools', 'openapi_url', 'curl_input', or 'postman_collection'",
+        },
+      },
     };
   }
-  if (tools && openapi_url) {
+  if (providedCount > 1) {
     return {
       ok: false,
       status: 400,
-      body: { error: { code: "VALIDATION_ERROR", message: "Provide 'tools' or 'openapi_url', not both" } },
+      body: {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Provide exactly one of 'tools', 'openapi_url', 'curl_input', or 'postman_collection', not several",
+        },
+      },
     };
   }
 
@@ -300,6 +330,14 @@ export async function performRestRegistration(
           },
         };
       }
+    } else if (hasCurl) {
+      // Parsing is pure/local (no network access, no SSRF surface) — a parse
+      // failure here is a VALIDATION_ERROR (bad input), not a DISCOVERY_ERROR
+      // (which the catch block below reserves for openapi_url's network path).
+      resolvedTools = parseCurlCommand(curl_input);
+    } else if (hasPostman) {
+      const collection = typeof postman_collection === "string" ? JSON.parse(postman_collection) : postman_collection;
+      resolvedTools = parsePostmanCollection(collection);
     } else {
       if (!Array.isArray(tools)) {
         return {
@@ -309,6 +347,24 @@ export async function performRestRegistration(
         };
       }
       resolvedTools = tools;
+    }
+
+    // A curl_input/postman_collection paste can legitimately produce far more
+    // tools than a hand-written 'tools' array ever would (Change B above only
+    // caps a literal 'tools' array, before either parser has run) — enforce
+    // the same cap here for parity with the OpenAPI/MCP/GraphQL branches.
+    if ((hasCurl || hasPostman) && resolvedTools.length > config.maxToolsPerClient) {
+      return {
+        ok: false,
+        status: 400,
+        body: {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `Parsed ${resolvedTools.length} tools, exceeds maximum of ${config.maxToolsPerClient}`,
+            request_id: requestId,
+          },
+        },
+      };
     }
 
     // Validate resolved tool endpoints for path-traversal segments before registering.

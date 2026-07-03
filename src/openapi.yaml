@@ -4694,6 +4694,31 @@ components:
             double-apply it if the first attempt actually succeeded but the
             response was lost.
           default: false
+        curl_input:
+          type: string
+          description: >
+            REST mode, lower-friction alternative to 'tools'/'openapi_url'.
+            One or more cURL commands (see curl-postman-discovery.ts) parsed
+            into tool definitions and registered exactly like a hand-written
+            'tools' array (source: "manual"). Mutually exclusive with
+            'tools', 'openapi_url', and 'postman_collection'. Multiple
+            commands may be separated by a blank line or a plain newline;
+            a single command may span several lines via a trailing "\".
+          example: |
+            curl -X POST https://api.example.com/users \
+              -H "Content-Type: application/json" \
+              -d '{"name":"Jane"}'
+        postman_collection:
+          description: >
+            REST mode, lower-friction alternative to 'tools'/'openapi_url'.
+            A Postman Collection v2.1 export (object or its JSON-encoded
+            string form), parsed into tool definitions and registered
+            exactly like a hand-written 'tools' array (source: "manual").
+            Mutually exclusive with 'tools', 'openapi_url', and
+            'curl_input'. Nested folders are flattened into an
+            underscore-joined name prefix (e.g. "Users" > "Get" becomes
+            tool name "users_get") to avoid collisions between
+            identically-named requests in different folders.
       example:
         name: customer_service
         health_url: /health

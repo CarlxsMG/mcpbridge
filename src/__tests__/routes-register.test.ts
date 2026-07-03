@@ -175,6 +175,78 @@ describe("POST /register — REST/OpenAPI branch", () => {
     expect(body.tools_count).toBe(1);
   });
 
+  test("registers a client from a raw cURL paste (curl_input)", async () => {
+    await startApp();
+    const res = await fetch(`${adminBase}/register`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({
+        name: "curl-svc",
+        health_url: `http://127.0.0.1:${upstreamPort}/health`,
+        curl_input: `curl -X POST https://api.example.com/widgets -H "Content-Type: application/json" -d '{"sku":"abc"}'`,
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { source: string; tools_count: number };
+    expect(body.source).toBe("manual");
+    expect(body.tools_count).toBe(1);
+    const detail = registry.getClientDetail("curl-svc");
+    expect(detail?.tools[0]?.method).toBe("POST");
+    expect(detail?.tools[0]?.endpoint).toBe("/widgets");
+  });
+
+  test("registers a client from a Postman Collection v2.1 export (postman_collection)", async () => {
+    await startApp();
+    const res = await fetch(`${adminBase}/register`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({
+        name: "postman-svc",
+        health_url: `http://127.0.0.1:${upstreamPort}/health`,
+        postman_collection: {
+          item: [{ name: "List Widgets", request: { method: "GET", url: "https://api.example.com/widgets" } }],
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { source: string; tools_count: number };
+    expect(body.source).toBe("manual");
+    expect(body.tools_count).toBe(1);
+  });
+
+  test("400 VALIDATION_ERROR when both tools and curl_input are provided", async () => {
+    await startApp();
+    const res = await fetch(`${adminBase}/register`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({
+        name: "both-svc",
+        health_url: `http://127.0.0.1:${upstreamPort}/health`,
+        tools: [{ name: "ping", method: "GET", endpoint: "/health", description: "ping", inputSchema: {} }],
+        curl_input: "curl https://api.example.com/ping",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  test("400 VALIDATION_ERROR for an unparseable curl_input", async () => {
+    await startApp();
+    const res = await fetch(`${adminBase}/register`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({
+        name: "bad-curl-svc",
+        health_url: `http://127.0.0.1:${upstreamPort}/health`,
+        curl_input: "# just a comment, no actual command",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   test("400 VALIDATION_ERROR when neither tools nor openapi_url is provided", async () => {
     await startApp();
     const res = await fetch(`${adminBase}/register`, {

@@ -15,11 +15,21 @@ const name = ref("");
 // REST fields
 const healthUrl = ref("");
 const baseUrl = ref("");
-const mode = ref<"openapi" | "manual">("openapi");
+const mode = ref<"openapi" | "manual" | "curl" | "postman">("openapi");
 const openapiUrl = ref("");
 const includeTags = ref("");
 const excludeOps = ref("");
 const manualTools = ref("");
+const curlInput = ref("");
+const postmanText = ref("");
+const postmanFileName = ref("");
+
+const curlPlaceholder =
+  'curl -X POST https://api.example.com/users \\\n' +
+  '  -H "Content-Type: application/json" \\\n' +
+  "  -d '{\"name\":\"Jane\"}'\n\n" +
+  "# a second command works too — separate with a blank line\n" +
+  "curl https://api.example.com/users";
 
 // MCP upstream fields
 const mcpUrl = ref("");
@@ -44,20 +54,60 @@ function parseList(raw: string): string[] {
     .filter(Boolean);
 }
 
-async function preview() {
-  previewError.value = "";
-  previewTools.value = null;
-  if (!openapiUrl.value.trim()) {
-    previewError.value = "Enter an OpenAPI URL first.";
-    return;
-  }
-  previewing.value = true;
+function parseJsonField(raw: string, label: string): unknown {
   try {
-    const res = await api.post<DiscoveryPreview>("/admin-api/discovery/preview", {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error(`${label} must be valid JSON.`);
+  }
+}
+
+/**
+ * Builds the discovery-source portion of the /register (and preview) payload
+ * for whichever REST mode is currently selected — openapi/manual/curl/postman
+ * all funnel through the SAME preview() flow and the SAME /register call
+ * below; only this one piece of the payload differs per mode. Throws a plain
+ * Error (not ApiError) with a user-facing message for client-side input
+ * problems (empty field, invalid JSON) so both preview() and register() can
+ * surface it identically without hitting the network.
+ */
+function buildRestDiscoveryPayload(): Record<string, unknown> {
+  if (mode.value === "openapi") {
+    if (!openapiUrl.value.trim()) throw new Error("Enter an OpenAPI URL first.");
+    return {
       openapi_url: openapiUrl.value.trim(),
       include_tags: parseList(includeTags.value),
       exclude_operations: parseList(excludeOps.value),
-    });
+    };
+  }
+  if (mode.value === "manual") {
+    if (!manualTools.value.trim()) throw new Error("Enter a tools JSON array first.");
+    return { tools: parseJsonField(manualTools.value, "Tools") };
+  }
+  if (mode.value === "curl") {
+    if (!curlInput.value.trim()) throw new Error("Enter a cURL command first.");
+    return { curl_input: curlInput.value };
+  }
+  // postman
+  if (!postmanText.value.trim()) throw new Error("Paste or upload a Postman collection first.");
+  return { postman_collection: parseJsonField(postmanText.value, "Postman collection") };
+}
+
+async function preview() {
+  previewError.value = "";
+  previewTools.value = null;
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = buildRestDiscoveryPayload();
+  } catch (err) {
+    previewError.value = err instanceof Error ? err.message : "Invalid input.";
+    return;
+  }
+
+  previewing.value = true;
+  try {
+    const res = await api.post<DiscoveryPreview>("/admin-api/discovery/preview", payload);
     previewTools.value = res.tools;
     previewStale.value = false;
   } catch (err) {
@@ -67,7 +117,19 @@ async function preview() {
   }
 }
 
-watch([openapiUrl, includeTags, excludeOps], () => {
+function onPostmanFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  postmanFileName.value = file.name;
+  const reader = new FileReader();
+  reader.onload = () => {
+    postmanText.value = typeof reader.result === "string" ? reader.result : "";
+  };
+  reader.readAsText(file);
+}
+
+watch([mode, openapiUrl, includeTags, excludeOps, manualTools, curlInput, postmanText], () => {
   if (previewTools.value) previewStale.value = true;
   previewTools.value = null;
 });
@@ -138,20 +200,13 @@ async function register() {
     }
     const payload: Record<string, unknown> = { name: name.value.trim(), health_url: healthUrl.value.trim() };
     if (baseUrl.value.trim()) payload.base_url = baseUrl.value.trim();
-    if (mode.value === "openapi") {
-      payload.openapi_url = openapiUrl.value.trim();
-      const tags = parseList(includeTags.value);
-      if (tags.length) payload.include_tags = tags;
-      const ex = parseList(excludeOps.value);
-      if (ex.length) payload.exclude_operations = ex;
-    } else {
-      payload.tools = JSON.parse(manualTools.value);
-    }
+    Object.assign(payload, buildRestDiscoveryPayload());
     await api.post("/register", payload);
     await router.push(`/servers/${encodeURIComponent(name.value.trim())}`);
   } catch (err) {
-    if (err instanceof SyntaxError) error.value = "Manual tools must be valid JSON.";
-    else error.value = err instanceof ApiError ? err.message : "Registration failed.";
+    if (err instanceof ApiError) error.value = err.message;
+    else if (err instanceof Error) error.value = err.message;
+    else error.value = "Registration failed.";
   } finally {
     registering.value = false;
   }
@@ -190,6 +245,8 @@ async function register() {
         <div class="segmented" role="radiogroup" aria-label="Tool discovery mode">
           <label><input v-model="mode" type="radio" name="mode" value="openapi" /> From OpenAPI</label>
           <label><input v-model="mode" type="radio" name="mode" value="manual" /> Manual tools</label>
+          <label><input v-model="mode" type="radio" name="mode" value="curl" /> From cURL</label>
+          <label><input v-model="mode" type="radio" name="mode" value="postman" /> From Postman</label>
         </div>
 
         <template v-if="mode === 'openapi'">
@@ -205,44 +262,68 @@ async function register() {
             <label for="r-exclude">Exclude operationIds (comma-separated, optional)</label>
             <input id="r-exclude" v-model="excludeOps" type="text" placeholder="deleteEverything" />
           </div>
-          <div class="preview-row">
-            <button type="button" class="btn-secondary" :disabled="previewing" @click="preview">
-              {{ previewing ? "Discovering…" : "Preview tools" }}
-            </button>
-            <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
-          </div>
-          <p v-if="previewError" class="error">{{ previewError }}</p>
-          <div v-if="previewTools && previewTools.length" class="table-card table-scroll">
-            <table class="preview-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Method</th>
-                  <th>Endpoint</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="t in previewTools" :key="t.name">
-                  <td>{{ t.name }}</td>
-                  <td>
-                    <code>{{ t.method }}</code>
-                  </td>
-                  <td class="ep">{{ t.endpoint }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </template>
 
-        <div v-else class="field">
+        <div v-else-if="mode === 'manual'" class="field">
           <label for="r-manual">Tools (JSON array of {name, method, endpoint, description, inputSchema})</label>
           <textarea
             id="r-manual"
             v-model="manualTools"
             rows="10"
             spellcheck="false"
-            placeholder='[{"name":"get_user","method":"GET","endpoint":"/users/{id}","description":"Fetch a user by id","inputSchema":{"type":"object","properties":{"id":{"type":"string"}}}}]'
+            placeholder='[{"name":"get_user","method":"GET","endpoint":"/users/:id","description":"Fetch a user by id","inputSchema":{"type":"object","properties":{"id":{"type":"string"}}}}]'
           ></textarea>
+        </div>
+
+        <div v-else-if="mode === 'curl'" class="field">
+          <label for="r-curl">cURL command(s)</label>
+          <textarea
+            id="r-curl"
+            v-model="curlInput"
+            rows="10"
+            spellcheck="false"
+            :placeholder="curlPlaceholder"
+          ></textarea>
+          <p class="hint">
+            Paste one or more cURL commands — separate multiple with a blank line, or use a trailing "\" to continue
+            one command across lines. An optional "# name" comment line right above a command sets that tool's name.
+          </p>
+        </div>
+
+        <div v-else class="field">
+          <label for="r-postman-file">Postman Collection v2.1</label>
+          <input id="r-postman-file" type="file" accept="application/json,.json" @change="onPostmanFileChange" />
+          <p v-if="postmanFileName" class="hint">Loaded from file: {{ postmanFileName }}</p>
+          <label for="r-postman-text" class="postman-paste-label">…or paste the exported collection JSON</label>
+          <textarea id="r-postman-text" v-model="postmanText" rows="8" spellcheck="false"></textarea>
+        </div>
+
+        <div class="preview-row">
+          <button type="button" class="btn-secondary" :disabled="previewing" @click="preview">
+            {{ previewing ? "Discovering…" : "Preview tools" }}
+          </button>
+          <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
+        </div>
+        <p v-if="previewError" class="error">{{ previewError }}</p>
+        <div v-if="previewTools && previewTools.length" class="table-card table-scroll">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Method</th>
+                <th>Endpoint</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="t in previewTools" :key="t.name">
+                <td>{{ t.name }}</td>
+                <td>
+                  <code>{{ t.method }}</code>
+                </td>
+                <td class="ep">{{ t.endpoint }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </template>
 
@@ -312,18 +393,14 @@ async function register() {
         </p>
       </template>
 
-      <p v-if="kind === 'rest' && mode === 'openapi' && !previewTools && !previewStale" class="hint">
+      <p v-if="kind === 'rest' && !previewTools && !previewStale" class="hint">
         Run Preview tools first so you can confirm what will be registered.
       </p>
-      <p v-if="kind === 'rest' && mode === 'openapi' && !previewTools && previewStale" class="hint warn">
+      <p v-if="kind === 'rest' && !previewTools && previewStale" class="hint warn">
         Preview is out of date — run it again before registering.
       </p>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <button
-        type="submit"
-        class="btn-primary"
-        :disabled="registering || (kind === 'rest' && mode === 'openapi' && !previewTools)"
-      >
+      <button type="submit" class="btn-primary" :disabled="registering || (kind === 'rest' && !previewTools)">
         {{ registering ? "Registering…" : "Register server" }}
       </button>
     </form>
@@ -383,6 +460,16 @@ async function register() {
 .hint.warn {
   color: var(--canary);
   font-weight: 600;
+}
+.field input[type="file"] {
+  padding: 0.4rem 0;
+  border: none;
+}
+.postman-paste-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0.6rem 0 0.3rem;
 }
 .preview-row {
   display: flex;
