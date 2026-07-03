@@ -1,0 +1,107 @@
+# Default values for the mcp-rest-bridge chart.
+# This is a deliberately minimal chart: Deployment + Service + ConfigMap (+ an
+# optional Secret and PVC). No Ingress/HPA/NetworkPolicy — front it with
+# whatever your cluster already uses for that.
+
+replicaCount: 1
+# SQLite (bun:sqlite) is this app's entire persistence layer — a single
+# writer owns the on-disk DB file at env.DB_PATH. Only raise replicaCount
+# above 1 if `persistence` below is backed by shared (ReadWriteMany) storage
+# AND you've also set REGISTRY_SYNC=true / RATE_LIMIT_SHARED=true in `env`
+# (see .env.example in the main repo) so instances reconcile with each other.
+# Otherwise each replica opens its own database and their state will diverge.
+
+image:
+  # Published by .github/workflows/docker-publish.yml to GHCR on every
+  # `vX.Y.Z` tag push. Point this at your own fork's GHCR path if you build
+  # and publish the image yourself.
+  repository: ghcr.io/aico-dot-team-code/mcpbridge
+  # Defaults to .Chart.appVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+# Non-sensitive runtime configuration, rendered into a ConfigMap and applied
+# with `envFrom`. Mirrors the repo root's .env.example — add any of the other
+# documented variables here as needed (all values must be strings).
+env:
+  NODE_ENV: "production"
+  PORT: "3000"
+  DB_PATH: "/app/data/mcp-bridge.db"
+  SESSION_COOKIE_SECURE: "true"
+  ALLOW_PRIVATE_IPS: "false"
+
+# Sensitive values, rendered into a Secret and applied with `envFrom`.
+# BOOTSTRAP_ADMIN_USERNAME/PASSWORD only take effect once, while the
+# admin_users table is empty — rotate the password after first login, then
+# blank these back out and `helm upgrade`.
+secretEnv:
+  BOOTSTRAP_ADMIN_USERNAME: ""
+  BOOTSTRAP_ADMIN_PASSWORD: ""
+  ADMIN_API_KEYS: ""
+  MCP_API_KEYS: ""
+  SECRET_ENCRYPTION_KEY: ""
+
+# Reference a pre-existing Secret instead of templating one from `secretEnv`
+# above (e.g. one managed by external-secrets/sealed-secrets/Vault). When
+# set, `secretEnv` is ignored and no Secret is created by this chart.
+existingSecret: ""
+
+persistence:
+  # SQLite lives at env.DB_PATH inside the container. Disabled by default,
+  # which mounts an emptyDir — fine for a quick trial, but the database is
+  # LOST whenever the pod is rescheduled/restarted. Enable for anything else.
+  enabled: false
+  size: 1Gi
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  # Use an existing PVC instead of letting this chart create one.
+  existingClaim: ""
+  mountPath: /app/data
+
+resources: {}
+# Example:
+#   requests:
+#     cpu: 100m
+#     memory: 128Mi
+#   limits:
+#     memory: 512Mi
+
+podAnnotations: {}
+
+# Matches the `bun` user/group baked into the oven/bun:1-alpine base image
+# used by the repo's Dockerfile.
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 15
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

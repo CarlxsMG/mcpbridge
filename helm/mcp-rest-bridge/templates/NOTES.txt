@@ -1,0 +1,27 @@
+mcp-rest-bridge has been deployed.
+
+1. Reach the app:
+{{- if eq .Values.service.type "ClusterIP" }}
+   export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "mcp-rest-bridge.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:{{ .Values.service.targetPort }}
+   Then open http://127.0.0.1:8080/admin (admin UI) or http://127.0.0.1:8080/health (health check).
+{{- else if eq .Values.service.type "LoadBalancer" }}
+   kubectl get svc --namespace {{ .Release.Namespace }} {{ include "mcp-rest-bridge.fullname" . }} -w
+{{- else if eq .Values.service.type "NodePort" }}
+   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "mcp-rest-bridge.fullname" . }})
+   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo http://$NODE_IP:$NODE_PORT
+{{- end }}
+
+2. First-boot admin account: if the `admin_users` table is empty, the app
+   bootstraps one from the BOOTSTRAP_ADMIN_USERNAME/BOOTSTRAP_ADMIN_PASSWORD
+   values under `secretEnv` in values.yaml. Rotate the password after first
+   login, then blank those two values back out and `helm upgrade`.
+
+{{- if not .Values.persistence.enabled }}
+
+WARNING: persistence.enabled is false — the SQLite database lives on an
+emptyDir volume and is LOST whenever this pod is rescheduled or restarted.
+Set persistence.enabled=true (with a real storageClassName) for anything
+beyond a quick trial.
+{{- end }}

@@ -1,0 +1,20 @@
+apiVersion: v2
+name: mcp-rest-bridge
+description: >-
+  A minimal Helm chart for self-hosting the MCP REST Bridge gateway (Bun +
+  Express + bun:sqlite backend, with a bundled Vue admin UI) on Kubernetes.
+type: application
+# Chart version (bump on any template/values change).
+version: 0.1.0
+# Tracks the app's package.json "version" — bump alongside it.
+appVersion: "1.0.0"
+home: https://github.com/aico-dot-team-code/mcpbridge
+sources:
+  - https://github.com/aico-dot-team-code/mcpbridge
+keywords:
+  - mcp
+  - model-context-protocol
+  - api-gateway
+  - llm-tools
+maintainers:
+  - name: aico.team

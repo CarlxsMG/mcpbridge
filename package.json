@@ -9,6 +9,7 @@
     "start": "bun src/index.ts",
     "cli": "bun src/cli/index.ts",
     "build": "cd admin-ui && bun run build",
+    "compile": "bun build --compile --minify --sourcemap ./src/index.ts --outfile dist/mcp-rest-bridge",
     "test": "bun test \"--path-ignore-patterns={admin-ui,e2e}/**\"",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",

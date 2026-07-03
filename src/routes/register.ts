@@ -1,7 +1,4 @@
 import type { Request, Response, Express } from "express";
-import { readFileSync } from "fs";
-import { resolve } from "path";
-import { parse } from "yaml";
 import { registry, validateEndpointPath } from "../registry.js";
 import { discoverToolsFromOpenApi } from "../openapi-discovery.js";
 import { config } from "../config.js";
@@ -16,6 +13,13 @@ import { setToolGraphql } from "../backends.js";
 import { getWsProxyTargetDetail } from "../ws-proxy.js";
 import type { McpTransport } from "../types.js";
 import { validationError } from "./http-errors.js";
+// Bun parses YAML modules at bundle time (native loader, same as JSON) — this
+// works identically under `bun src/index.ts` and under `bun build --compile`.
+// The previous `readFileSync(resolve(import.meta.dirname, ...))` approach
+// broke in standalone-executable mode: `import.meta.dirname` resolves to a
+// synthetic $bunfs path there, not a real on-disk directory, so the read
+// always threw ENOENT (harmless here — this route degrades to a 503 below).
+import openapiSpec from "../openapi.yaml";
 
 /**
  * ws-proxy.ts's upsertWsProxyTarget() rejects a new ws-proxy target whose
@@ -74,8 +78,7 @@ function resolveRefs(obj: JsonValue, visited: WeakSet<object> = new WeakSet()): 
 let _schemaComponents: Record<string, SchemaObject> | null = null;
 let _resolvedSchema: SchemaObject | null = null;
 try {
-  const specPath = resolve(import.meta.dirname, "../openapi.yaml");
-  const spec = parse(readFileSync(specPath, "utf-8")) as { components: { schemas: Record<string, SchemaObject> } };
+  const spec = openapiSpec as { components: { schemas: Record<string, SchemaObject> } };
   _schemaComponents = spec.components.schemas;
   _resolvedSchema = resolveRefs(JSON.parse(JSON.stringify(_schemaComponents["RegistrationPayload"]))) as SchemaObject;
 } catch (err) {

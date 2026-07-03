@@ -1,0 +1,110 @@
+# Cross-compiles standalone `bun build --compile` executables for a small
+# target matrix and publishes them as GitHub Release assets whenever a
+# `vX.Y.Z` release tag is pushed. Mirrors docker-publish.yml's trigger style
+# (tag push + manual dispatch) but produces self-contained binaries instead
+# of a container image — for self-hosters who'd rather skip Docker/Bun-install
+# friction entirely (grab one file, run it).
+#
+# All targets are cross-compiled from a single ubuntu-latest runner via Bun's
+# `--target=bun-<os>-<arch>` flag — Bun ships a prebuilt runtime blob for each
+# supported target, so no matching-OS runner is required. See:
+# https://bun.sh/docs/bundler/executables#cross-compile-to-other-platforms
+name: Release Binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: bun-linux-x64
+            asset: mcp-rest-bridge-linux-x64
+          - target: bun-linux-arm64
+            asset: mcp-rest-bridge-linux-arm64
+          - target: bun-darwin-x64
+            asset: mcp-rest-bridge-darwin-x64
+          - target: bun-darwin-arm64
+            asset: mcp-rest-bridge-darwin-arm64
+          - target: bun-windows-x64
+            asset: mcp-rest-bridge-windows-x64.exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # --minify/--sourcemap shrink the binary and keep stack traces readable
+      # (see "Deploying to production" in Bun's executables doc); --target
+      # picks the cross-compilation target for this matrix leg.
+      - name: Compile ${{ matrix.target }}
+        run: |
+          bun build --compile --minify --sourcemap \
+            --target=${{ matrix.target }} \
+            ./src/index.ts \
+            --outfile "dist/${{ matrix.asset }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    # Only cut/attach-to a real GitHub Release on an actual tag push. A manual
+    # workflow_dispatch run still exercises the full build matrix above (and
+    # its artifacts are downloadable from the run) without publishing.
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # download-artifact@v4 lays each artifact out in its own
+      # artifacts/<name>/ subdirectory — flatten so the release step gets a
+      # flat list of files to attach.
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -la release
+
+      - name: Create/update release with binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          fail_on_unmatched_files: true
+
+      - name: Job summary
+        run: |
+          {
+            echo "### Standalone binaries published :package:"
+            echo
+            echo "Tag: \`${{ github.ref_name }}\`"
+            echo
+            for f in release/*; do
+              echo "- \`$(basename "$f")\`"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
