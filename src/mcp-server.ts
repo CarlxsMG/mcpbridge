@@ -164,7 +164,12 @@ export function createMcpServer(scope?: McpServerScope): Server {
           }
         : undefined;
 
-    return proxyToolCall(name, args ?? {}, callerToken, { signal: extra.signal, onProgress, endUserId });
+    return proxyToolCall(name, args ?? {}, callerToken, {
+      signal: extra.signal,
+      onProgress,
+      endUserId,
+      sessionId: extra.sessionId,
+    });
   });
 
   // Resources & prompts — passthrough for a client-scoped MCP upstream; empty /

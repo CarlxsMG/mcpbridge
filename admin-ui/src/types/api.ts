@@ -90,6 +90,7 @@ export interface TraceSummary {
   startMs: number;
   endMs: number;
   mcpToolName: string | null;
+  sessionId: string | null;
   hasError: boolean;
 }
 
@@ -99,11 +100,19 @@ export interface StoredSpan {
   spanId: string;
   name: string;
   mcpToolName: string | null;
+  sessionId: string | null;
   startMs: number;
   endMs: number;
   statusCode: number;
   attributes: Record<string, unknown>;
   createdAt: number;
+}
+
+/** GET /admin-api/traces/top-sessions item. */
+export interface TopSessionRow {
+  sessionId: string;
+  calls: number;
+  hasError: boolean;
 }
 
 export interface ClientDetail {

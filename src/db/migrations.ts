@@ -885,6 +885,14 @@ export const migrations: Migration[] = [
       ALTER TABLE tool_overrides ADD COLUMN drift_note TEXT;
     `,
   },
+  {
+    id: 48,
+    name: "tool_spans_session_id",
+    sql: `
+      ALTER TABLE tool_spans ADD COLUMN session_id TEXT;
+      CREATE INDEX IF NOT EXISTS idx_tool_spans_session ON tool_spans(session_id);
+    `,
+  },
 ];
 
 /**

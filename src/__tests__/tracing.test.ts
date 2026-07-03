@@ -119,6 +119,76 @@ describe("tracing — proxy integration", () => {
     )[0];
     expect(span.name).toBe("tool_call svc__get-x");
   });
+
+  test("a session id threaded via ToolCallOpts is attached to the span as mcp.session_id", async () => {
+    (config as Record<string, unknown>).otelEndpoint = "http://otel.local/v1/traces";
+    let captured: Record<string, unknown> | null = null;
+    globalThis.fetch = (async (url: string, opts: RequestInit) => {
+      if (String(url).includes("otel.local")) {
+        captured = JSON.parse(String(opts.body));
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+
+    const tool: RestToolDefinition = {
+      name: "get-x",
+      method: "GET",
+      endpoint: "/x",
+      description: "x",
+      inputSchema: { type: "object", properties: {} },
+    };
+    await registry.register("svc", [tool], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
+
+    const r = await proxyToolCall("svc__get-x", {}, undefined, { sessionId: "mcp-session-42" });
+    expect(r.isError).toBeUndefined();
+
+    await flush();
+    const span = (
+      (
+        (captured as unknown as { resourceSpans: Record<string, unknown>[] }).resourceSpans[0].scopeSpans as Record<
+          string,
+          unknown
+        >[]
+      )[0].spans as Record<string, unknown>[]
+    )[0];
+    const attrs = span.attributes as { key: string; value: { stringValue?: string } }[];
+    expect(attrs.find((a) => a.key === "mcp.session_id")?.value.stringValue).toBe("mcp-session-42");
+  });
+
+  test("no ToolCallOpts.sessionId -> the span carries no mcp.session_id attribute at all", async () => {
+    (config as Record<string, unknown>).otelEndpoint = "http://otel.local/v1/traces";
+    let captured: Record<string, unknown> | null = null;
+    globalThis.fetch = (async (url: string, opts: RequestInit) => {
+      if (String(url).includes("otel.local")) {
+        captured = JSON.parse(String(opts.body));
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+
+    const tool: RestToolDefinition = {
+      name: "get-x",
+      method: "GET",
+      endpoint: "/x",
+      description: "x",
+      inputSchema: { type: "object", properties: {} },
+    };
+    await registry.register("svc", [tool], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
+
+    await proxyToolCall("svc__get-x", {});
+    await flush();
+    const span = (
+      (
+        (captured as unknown as { resourceSpans: Record<string, unknown>[] }).resourceSpans[0].scopeSpans as Record<
+          string,
+          unknown
+        >[]
+      )[0].spans as Record<string, unknown>[]
+    )[0];
+    const attrs = span.attributes as { key: string; value: { stringValue?: string } }[];
+    expect(attrs.find((a) => a.key === "mcp.session_id")).toBeUndefined();
+  });
 });
 
 describe("metrics — prometheus tool-call counter", () => {

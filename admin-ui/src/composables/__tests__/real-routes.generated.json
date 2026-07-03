@@ -516,6 +516,11 @@
   },
   {
     "method": "get",
+    "path": "/admin-api/traces/top-sessions",
+    "file": "traces.ts"
+  },
+  {
+    "method": "get",
     "path": "/admin-api/traffic",
     "file": "admin.ts"
   },

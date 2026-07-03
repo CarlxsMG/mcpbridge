@@ -2,9 +2,10 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
-import type { TraceSummary, StoredSpan, PaginatedResult } from "../types/api";
+import type { TraceSummary, StoredSpan, TopSessionRow, PaginatedResult } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import MiniBarChart from "../components/MiniBarChart.vue";
 import { Waypoints, Trash2 } from "lucide-vue-next";
 
 const props = defineProps<{ traceId?: string }>();
@@ -19,16 +20,27 @@ const spans = ref<StoredSpan[] | null>(null);
 const loading = ref(false);
 const errorMessage = ref("");
 const toolFilter = ref(typeof route.query.tool === "string" ? route.query.tool : "");
+const sessionFilter = ref(typeof route.query.session_id === "string" ? route.query.session_id : "");
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
 const pendingPurge = ref(false);
 const purging = ref(false);
+const topSessions = ref<TopSessionRow[]>([]);
 
 function buildListQuery(cursor?: string): string {
   const params = new URLSearchParams();
   if (toolFilter.value.trim()) params.set("tool", toolFilter.value.trim());
+  if (sessionFilter.value.trim()) params.set("session_id", sessionFilter.value.trim());
   if (cursor) params.set("cursor", cursor);
   params.set("limit", "50");
   return params.toString();
+}
+
+function currentFilterQuery(cursor?: string): Record<string, string | undefined> {
+  return {
+    tool: toolFilter.value.trim() || undefined,
+    session_id: sessionFilter.value.trim() || undefined,
+    cursor,
+  };
 }
 
 async function loadList(cursor?: string) {
@@ -45,25 +57,40 @@ async function loadList(cursor?: string) {
   }
 }
 
+async function loadTopSessions() {
+  try {
+    const result = await api.get<{ items: TopSessionRow[] }>("/admin-api/traces/top-sessions?limit=8");
+    topSessions.value = result.items;
+  } catch {
+    // Nice-to-have summary — a failure here shouldn't block the trace list.
+    topSessions.value = [];
+  }
+}
+
 function applyFilters() {
   cursorStack.value = [];
   currentCursor.value = undefined;
-  router.replace({ query: { tool: toolFilter.value.trim() || undefined } });
+  router.replace({ query: currentFilterQuery() });
   loadList();
+}
+
+function filterBySession(sessionId: string) {
+  sessionFilter.value = sessionId;
+  applyFilters();
 }
 
 function nextPage() {
   if (!nextCursor.value) return;
   cursorStack.value.push(currentCursor.value);
   currentCursor.value = nextCursor.value;
-  router.replace({ query: { tool: toolFilter.value.trim() || undefined, cursor: currentCursor.value } });
+  router.replace({ query: currentFilterQuery(currentCursor.value) });
   loadList(currentCursor.value);
 }
 
 function prevPage() {
   if (cursorStack.value.length === 0) return;
   currentCursor.value = cursorStack.value.pop();
-  router.replace({ query: { tool: toolFilter.value.trim() || undefined, cursor: currentCursor.value || undefined } });
+  router.replace({ query: currentFilterQuery(currentCursor.value || undefined) });
   loadList(currentCursor.value);
 }
 
@@ -99,6 +126,7 @@ onMounted(() => {
   } else {
     currentCursor.value = initialCursor;
     loadList(initialCursor);
+    loadTopSessions();
   }
 });
 watch(() => props.traceId, refresh);
@@ -119,6 +147,7 @@ async function confirmPurge() {
     cursorStack.value = [];
     currentCursor.value = undefined;
     await loadList();
+    await loadTopSessions();
   } catch (err) {
     errorMessage.value = err instanceof ApiError ? err.message : "Failed to purge traces.";
   } finally {
@@ -129,6 +158,19 @@ async function confirmPurge() {
 function fmtDuration(ms: number): string {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`;
 }
+
+/** Short display form of a session id (first 8 hex chars) — full id shown on hover / used for filtering. */
+function shortSession(sessionId: string): string {
+  return sessionId.length > 8 ? `${sessionId.slice(0, 8)}…` : sessionId;
+}
+
+const topSessionsChart = computed(() =>
+  topSessions.value.map((s) => ({
+    label: shortSession(s.sessionId),
+    value: s.calls,
+    danger: s.hasError,
+  })),
+);
 
 /** Waterfall bar geometry: left%/width% relative to the earliest span's start. */
 const waterfall = computed(() => {
@@ -171,6 +213,13 @@ const waterfall = computed(() => {
           placeholder="Tool name (e.g. github__search_issues)"
           aria-label="Filter by tool"
         />
+        <input
+          v-model="sessionFilter"
+          type="text"
+          placeholder="Session id"
+          aria-label="Filter by session id"
+          class="session-input"
+        />
         <button type="submit" class="btn-secondary">Filter</button>
         <button
           type="button"
@@ -181,6 +230,11 @@ const waterfall = computed(() => {
           <Trash2 :size="14" stroke-width="2" aria-hidden="true" /> Purge all
         </button>
       </form>
+
+      <div v-if="topSessionsChart.length" class="chart-card top-sessions-card">
+        <h2>Top sessions by call volume</h2>
+        <MiniBarChart :rows="topSessionsChart" />
+      </div>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
       <SignalLoader v-if="loading && !traces.length" />
@@ -195,6 +249,7 @@ const waterfall = computed(() => {
             <tr>
               <th>Started</th>
               <th>Tool</th>
+              <th>Session</th>
               <th>Spans</th>
               <th>Duration</th>
               <th>Status</th>
@@ -204,6 +259,18 @@ const waterfall = computed(() => {
             <tr v-for="t in traces" :key="t.traceId" class="clickable" @click="openTrace(t)">
               <td class="mono">{{ new Date(t.startMs).toLocaleString() }}</td>
               <td class="mono">{{ t.mcpToolName ?? "—" }}</td>
+              <td class="mono">
+                <button
+                  v-if="t.sessionId"
+                  type="button"
+                  class="session-badge"
+                  :title="`Filter to session ${t.sessionId}`"
+                  @click.stop="filterBySession(t.sessionId)"
+                >
+                  {{ shortSession(t.sessionId) }}
+                </button>
+                <span v-else>—</span>
+              </td>
               <td>{{ t.spanCount }}</td>
               <td>{{ fmtDuration(t.endMs - t.startMs) }}</td>
               <td :class="{ hot: t.hasError }">{{ t.hasError ? "Error" : "OK" }}</td>
@@ -298,12 +365,46 @@ section {
   font-size: 0.9rem;
   min-width: 220px;
 }
+.filter-row input.session-input {
+  font-family: var(--font-mono);
+  min-width: 180px;
+}
 .btn-secondary.danger {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   color: var(--breach);
   margin-left: auto;
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+}
+.chart-card h2 {
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-3);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+.session-badge {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.15rem 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.session-badge:hover {
+  background: var(--surface);
+  color: var(--signal-strong);
+  border-color: var(--signal);
 }
 .table-card {
   background: var(--surface);

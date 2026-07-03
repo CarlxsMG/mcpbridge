@@ -3576,6 +3576,12 @@ paths:
       parameters:
         - { name: tool, in: query, schema: { type: string }, description: Filter to a single mcpToolName. }
         - {
+            name: session_id,
+            in: query,
+            schema: { type: string },
+            description: Filter to a single calling MCP transport session id.,
+          }
+        - {
             name: cursor,
             in: query,
             schema: { type: string },
@@ -3625,6 +3631,28 @@ paths:
                     },
                 },
             }
+
+  /admin-api/traces/top-sessions:
+    get:
+      operationId: getTopSessions
+      summary: Top MCP session ids by tool-call volume
+      description: >
+        Aggregates persisted spans by session_id — for spotting which
+        client session/agent run is causing a spike or a burst of errors.
+        Opt-in via TRACE_STORAGE like the rest of this section.
+      tags: [Traces]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer }, description: "Defaults to 10, max 100." }
+      responses:
+        "200":
+          description: Sessions ordered by call count, descending.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/TopSessionRow" } }
 
   /admin-api/traces/{traceId}:
     get:
@@ -5270,6 +5298,11 @@ components:
         spanId: { type: string }
         name: { type: string }
         mcpToolName: { type: [string, "null"] }
+        sessionId:
+          {
+            type: [string, "null"],
+            description: The calling MCP transport session id (mcp-session-id), if the call happened over a live session.,
+          }
         startMs: { type: integer }
         endMs: { type: integer }
         statusCode:
@@ -5285,6 +5318,14 @@ components:
         startMs: { type: integer }
         endMs: { type: integer }
         mcpToolName: { type: [string, "null"] }
+        sessionId: { type: [string, "null"] }
+        hasError: { type: boolean }
+
+    TopSessionRow:
+      type: object
+      properties:
+        sessionId: { type: string }
+        calls: { type: integer }
         hasError: { type: boolean }
 
     # -------------------------------------------------------------------------

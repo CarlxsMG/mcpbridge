@@ -329,6 +329,12 @@ export interface ToolCallOpts {
   /** Caller-asserted end-user identity (X-End-User-Id header), for optional
    * per-end-user rate limiting. Unauthenticated — see resolveEndUserId. */
   endUserId?: string;
+  /** The calling MCP transport session id (extra.sessionId from the SDK's
+   * RequestHandlerExtra — see transports.ts's session maps), threaded through
+   * so the trace viewer can attribute a span to the session/agent run that
+   * caused it, not just the API key. Undefined for callers with no live MCP
+   * session (composite steps, admin test-calls). */
+  sessionId?: string;
 }
 
 /**
@@ -379,7 +385,14 @@ export async function proxyToolCall(
   } else {
     const span = startSpan(`tool_call ${mcpToolName}`, { "mcp.tool": mcpToolName });
     result = await dispatchToolCall(mcpToolName, args, callerToken, opts);
-    endSpan(span, { "mcp.tool.is_error": result.isError === true }, result.isError ? 2 : 1);
+    endSpan(
+      span,
+      {
+        "mcp.tool.is_error": result.isError === true,
+        ...(opts?.sessionId ? { "mcp.session_id": opts.sessionId } : {}),
+      },
+      result.isError ? 2 : 1,
+    );
   }
 
   // Traffic capture — a single point covering every dispatch outcome. Opt-in.

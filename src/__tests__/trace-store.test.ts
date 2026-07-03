@@ -17,6 +17,7 @@ import {
   getTrace,
   pruneSpans,
   purgeAllSpans,
+  getTopSessions,
   __clearSpansForTesting,
 } from "../observability/trace-store.js";
 
@@ -70,6 +71,28 @@ describe("opt-in write behavior", () => {
       mcpToolName: "svc__do-x",
       statusCode: 1,
     });
+  });
+
+  test("mcp.session_id in the finished span's attributes is extracted into the dedicated session_id column", () => {
+    (config as Record<string, unknown>).traceStorageEnabled = true;
+    const span = startSpan("tool_call svc__do-x", { "mcp.tool": "svc__do-x" });
+    endSpan(span, { "mcp.session_id": "session-abc" }, 1);
+
+    const trace = getTrace(span.traceId);
+    expect(trace).toHaveLength(1);
+    expect(trace[0].sessionId).toBe("session-abc");
+    // Still present in the full attributes blob too — the column is an index,
+    // not a replacement for the JSON detail view.
+    expect(trace[0].attributes["mcp.session_id"]).toBe("session-abc");
+  });
+
+  test("session_id is null when the call had no live MCP session (e.g. composite steps, admin test-calls)", () => {
+    (config as Record<string, unknown>).traceStorageEnabled = true;
+    const span = startSpan("tool_call svc__do-x", { "mcp.tool": "svc__do-x" });
+    endSpan(span, {}, 1);
+
+    const trace = getTrace(span.traceId);
+    expect(trace[0].sessionId).toBeNull();
   });
 
   test("storage and OTLP export are independent — storage-only mode never calls fetch", async () => {
@@ -126,6 +149,17 @@ describe("listTraces / getTrace", () => {
     expect(listTraces({ mcpToolName: "svc__a" }).items.map((t) => t.traceId)).toEqual([s1.traceId]);
   });
 
+  test("filters by sessionId", () => {
+    const s1 = startSpan("tool_call svc__a", { "mcp.tool": "svc__a" });
+    endSpan(s1, { "mcp.session_id": "session-1" }, 1);
+    const s2 = startSpan("tool_call svc__b", { "mcp.tool": "svc__b" });
+    endSpan(s2, { "mcp.session_id": "session-2" }, 1);
+
+    const filtered = listTraces({ sessionId: "session-2" }).items;
+    expect(filtered.map((t) => t.traceId)).toEqual([s2.traceId]);
+    expect(filtered[0].sessionId).toBe("session-2");
+  });
+
   test("getTrace returns [] for an unknown trace id", () => {
     expect(getTrace("does-not-exist")).toEqual([]);
   });
@@ -145,6 +179,47 @@ describe("listTraces / getTrace", () => {
     const page2 = listTraces({ limit: 2, cursor: page1.nextCursor });
     expect(page2.items.map((t) => t.traceId)).toEqual([s1.traceId]);
     expect(page2.nextCursor).toBeUndefined();
+  });
+});
+
+describe("getTopSessions", () => {
+  beforeEach(() => {
+    (config as Record<string, unknown>).traceStorageEnabled = true;
+  });
+
+  test("aggregates call volume per session_id, busiest first", () => {
+    endSpan(startSpan("tool_call svc__a", {}), { "mcp.session_id": "busy" }, 1);
+    endSpan(startSpan("tool_call svc__a", {}), { "mcp.session_id": "busy" }, 1);
+    endSpan(startSpan("tool_call svc__a", {}), { "mcp.session_id": "busy" }, 1);
+    endSpan(startSpan("tool_call svc__b", {}), { "mcp.session_id": "quiet" }, 1);
+
+    const top = getTopSessions();
+    expect(top[0]).toMatchObject({ sessionId: "busy", calls: 3, hasError: false });
+    expect(top[1]).toMatchObject({ sessionId: "quiet", calls: 1, hasError: false });
+  });
+
+  test("flags hasError when any span in the session errored", () => {
+    endSpan(startSpan("tool_call svc__a", {}), { "mcp.session_id": "flaky" }, 1);
+    endSpan(startSpan("tool_call svc__a", {}), { "mcp.session_id": "flaky" }, 2);
+
+    expect(getTopSessions().find((s) => s.sessionId === "flaky")).toMatchObject({ calls: 2, hasError: true });
+  });
+
+  test("spans with no session_id are excluded from the ranking", () => {
+    endSpan(startSpan("tool_call svc__a", {}), {}, 1);
+    endSpan(startSpan("tool_call svc__b", {}), { "mcp.session_id": "s1" }, 1);
+
+    const top = getTopSessions();
+    expect(top).toHaveLength(1);
+    expect(top[0].sessionId).toBe("s1");
+  });
+
+  test("respects the limit parameter", () => {
+    endSpan(startSpan("tool_call svc__a", {}), { "mcp.session_id": "s1" }, 1);
+    endSpan(startSpan("tool_call svc__b", {}), { "mcp.session_id": "s2" }, 1);
+    endSpan(startSpan("tool_call svc__c", {}), { "mcp.session_id": "s3" }, 1);
+
+    expect(getTopSessions(1)).toHaveLength(1);
   });
 });
 
