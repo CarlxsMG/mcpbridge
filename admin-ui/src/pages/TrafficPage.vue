@@ -409,7 +409,6 @@ section {
   bottom: 0;
   z-index: 1;
   background: var(--paper);
-  border-top: 1px solid var(--border);
   padding: var(--space-3) 0;
 }
 .pagination .subtitle {

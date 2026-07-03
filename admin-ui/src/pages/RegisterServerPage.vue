@@ -426,7 +426,7 @@ async function register() {
   flex-direction: column;
   gap: 0.85rem;
   max-width: 35rem;
-  margin-top: 1rem;
+  margin: 1rem 0;
 }
 .field {
   margin-bottom: 1rem;

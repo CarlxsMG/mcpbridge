@@ -490,7 +490,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  padding: var(--space-8) var(--space-10);
+  padding: var(--space-8) var(--space-10) 0;
   min-width: 0;
 }
 
