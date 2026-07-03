@@ -41,7 +41,15 @@ import {
   type ContextBudgetLlmProvider,
 } from "../context-budget.js";
 import { getClientTeam, canAccessClient } from "../teams.js";
-import { recordAudit, actorFromRequest, listAuditLog, exportAuditLog, verifyAuditChain } from "../admin/audit.js";
+import {
+  recordAudit,
+  actorFromRequest,
+  listAuditLog,
+  exportAuditLog,
+  verifyAuditChain,
+  listAuditActions,
+} from "../admin/audit.js";
+import { auditLogToCsv, auditLogToHtml } from "../admin/audit-export.js";
 import { getAllCircuitStates } from "../circuit-breaker.js";
 import {
   listUsers,
@@ -1629,14 +1637,41 @@ export function adminRoutes(app: Express): void {
     res.status(200).json(verifyAuditChain());
   });
 
+  /** Distinct action values already present in the log — backs the admin-ui action filter's <select>. */
+  app.get("/admin-api/audit-log/actions", adminAuth, (_req: Request, res: Response) => {
+    res.status(200).json({ actions: listAuditActions() });
+  });
+
   app.get("/admin-api/audit-log/export", adminAuth, (req: Request, res: Response) => {
-    const { actor, action, from, to } = req.query;
-    const items = exportAuditLog({
+    const { actor, action, from, to, format } = req.query;
+    const filters = {
       actor: typeof actor === "string" ? actor : undefined,
       action: typeof action === "string" ? action : undefined,
       from: typeof from === "string" ? Number(from) : undefined,
       to: typeof to === "string" ? Number(to) : undefined,
-    });
+    };
+    const items = exportAuditLog(filters);
+
+    // Filtering/row-cap logic lives entirely in exportAuditLog above — `format`
+    // only changes how those same rows are serialized here at the route layer.
+    if (format === "csv") {
+      res
+        .status(200)
+        .type("text/csv")
+        .setHeader("Content-Disposition", 'attachment; filename="audit-log.csv"')
+        .send(auditLogToCsv(items));
+      return;
+    }
+    if (format === "html") {
+      const html = auditLogToHtml(items, { ...filters, generatedAt: Date.now(), chain: verifyAuditChain() });
+      res
+        .status(200)
+        .type("text/html")
+        .setHeader("Content-Disposition", 'attachment; filename="audit-log.html"')
+        .send(html);
+      return;
+    }
+    // format=json (or omitted/unrecognized) — unchanged existing behavior.
     res.status(200).json({ items, count: items.length });
   });
 

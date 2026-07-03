@@ -196,6 +196,19 @@ export function listAuditLog(
   return { items, nextCursor: hasMore ? String(page[page.length - 1].id) : undefined };
 }
 
+/**
+ * Distinct action values seen in the log so far, sorted alphabetically —
+ * backs the admin-ui action filter's <select> (a practical, always-accurate
+ * "known action types" list with zero maintenance burden, vs. hand-maintaining
+ * an enum of every `recordAudit(..., "some.action", ...)` call site).
+ */
+export function listAuditActions(): string[] {
+  const rows = getDb().query(`SELECT DISTINCT action FROM admin_audit_log ORDER BY action ASC`).all() as {
+    action: string;
+  }[];
+  return rows.map((r) => r.action);
+}
+
 /** Bulk export of audit entries (up to `maxRows`) for download — same filters as listAuditLog, no pagination. */
 export function exportAuditLog(
   opts: { actor?: string; action?: string; from?: number; to?: number } = {},

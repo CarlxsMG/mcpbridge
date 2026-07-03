@@ -10,13 +10,14 @@ import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../config.js";
-import { __resetDbForTesting } from "../db/connection.js";
+import { __resetDbForTesting, getDb } from "../db/connection.js";
 import { registry } from "../registry.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 import { createUser } from "../security/user-store.js";
 import { createSession } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "../security/cookies.js";
 import { hashApiKey } from "../security/key-hash.js";
+import { recordAudit } from "../admin/audit.js";
 import type { RestToolDefinition } from "../types.js";
 
 let baseUrl = "";
@@ -449,5 +450,184 @@ describe("GET /admin-api/overview", () => {
     expect(b.open).toBeGreaterThanOrEqual(0);
     expect(b.half_open).toBeGreaterThanOrEqual(0);
     expect(b.closed).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ── Compliance evidence export (GET /admin-api/audit-log/export?format=…) ──
+
+/**
+ * Minimal hand-rolled CSV parser used only by this test file, to verify
+ * auditLogToCsv's output round-trips: handles quoted fields, doubled-quote
+ * escaping, and both raw newlines and CRLF row separators inside quoted
+ * fields. Deliberately independent of src/admin/audit-export.ts's own
+ * escaping logic so the test isn't just checking the encoder against itself.
+ */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 2;
+          continue;
+        }
+        inQuotes = false;
+        i++;
+        continue;
+      }
+      field += c;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inQuotes = true;
+      i++;
+      continue;
+    }
+    if (c === ",") {
+      row.push(field);
+      field = "";
+      i++;
+      continue;
+    }
+    if (c === "\r") {
+      i++;
+      continue;
+    }
+    if (c === "\n") {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+      i++;
+      continue;
+    }
+    field += c;
+    i++;
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+describe("GET /admin-api/audit-log/export", () => {
+  test("format=json (default and explicit) is completely unchanged: { items, count }", async () => {
+    await startApp();
+    recordAudit("alice", "client.enable", "svc-a", { note: "ok" });
+    recordAudit("bob", "client.disable", "svc-b");
+
+    const defaultRes = await fetch(`${baseUrl}/admin-api/audit-log/export`, { headers: bearer() });
+    expect(defaultRes.status).toBe(200);
+    expect(defaultRes.headers.get("content-type")).toMatch(/application\/json/);
+    const defaultBody = (await defaultRes.json()) as {
+      items: { actor: string; action: string; target: string }[];
+      count: number;
+    };
+    expect(defaultBody.count).toBe(2);
+    expect(defaultBody.items.map((i) => i.actor).sort()).toEqual(["alice", "bob"]);
+
+    // Explicit format=json must behave identically to the (pre-existing) default.
+    const explicitRes = await fetch(`${baseUrl}/admin-api/audit-log/export?format=json`, { headers: bearer() });
+    expect(explicitRes.status).toBe(200);
+    const explicitBody = await explicitRes.json();
+    expect(explicitBody).toEqual(defaultBody);
+
+    // An unrecognized format value also falls back to the unchanged JSON behavior.
+    const unknownRes = await fetch(`${baseUrl}/admin-api/audit-log/export?format=xml`, { headers: bearer() });
+    expect(unknownRes.status).toBe(200);
+    expect(unknownRes.headers.get("content-type")).toMatch(/application\/json/);
+  });
+
+  test("format=csv round-trips actor/action/target/detail even with commas, quotes, and a raw newline", async () => {
+    await startApp();
+    recordAudit('alice, "the admin"', "client.enable", "svc-a\nsvc-a-mirror", {
+      note: "line one, line two",
+      quoted: 'she said "hi"',
+    });
+
+    const res = await fetch(`${baseUrl}/admin-api/audit-log/export?format=csv`, { headers: bearer() });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/text\/csv/);
+    expect(res.headers.get("content-disposition")).toMatch(/attachment; filename="audit-log\.csv"/);
+
+    const text = await res.text();
+    const rows = parseCsv(text);
+    expect(rows[0]).toEqual(["id", "actor", "action", "target", "detail", "createdAt", "hash"]);
+    expect(rows).toHaveLength(2); // header + 1 entry, no stray trailing row from the final CRLF
+
+    const [id, actor, action, target, detail, createdAt, hash] = rows[1];
+    expect(Number(id)).toBeGreaterThan(0);
+    expect(actor).toBe('alice, "the admin"');
+    expect(action).toBe("client.enable");
+    expect(target).toBe("svc-a\nsvc-a-mirror");
+    expect(JSON.parse(detail)).toEqual({ note: "line one, line two", quoted: 'she said "hi"' });
+    expect(new Date(createdAt).toISOString()).toBe(createdAt);
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  test("format=html renders the verifyAuditChain() verdict and reflects the requested filters", async () => {
+    await startApp();
+    recordAudit("alice", "client.enable", "svc-a");
+    recordAudit("bob", "client.disable", "svc-b");
+
+    const res = await fetch(`${baseUrl}/admin-api/audit-log/export?format=html&actor=alice&action=client.enable`, {
+      headers: bearer(),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/text\/html/);
+    expect(res.headers.get("content-disposition")).toMatch(/attachment; filename="audit-log\.html"/);
+
+    const html = await res.text();
+    // The chain verdict is computed over the WHOLE log (not the filtered
+    // subset) — both audit rows above must be counted, even though only one
+    // matches the actor/action filter below.
+    expect(html).toContain("Chain intact");
+    expect(html).toContain("2 entries cryptographically verified");
+    // The applied filters are echoed back in the report.
+    expect(html).toContain("<th>Actor</th><td>alice</td>");
+    expect(html).toContain("<th>Action</th><td>client.enable</td>");
+    expect(html).toContain("<th>From</th><td>Any</td>");
+    // Only the filtered-in row (alice/client.enable) appears in the table body.
+    expect(html).toContain(">alice<");
+    expect(html).not.toContain(">bob<");
+  });
+
+  test("format=html surfaces a broken chain prominently when tampering is detected", async () => {
+    await startApp();
+    recordAudit("alice", "client.enable", "svc-a");
+    recordAudit("bob", "client.disable", "svc-b");
+    getDb().query(`UPDATE admin_audit_log SET target = 'tampered' WHERE id = 1`).run();
+
+    const res = await fetch(`${baseUrl}/admin-api/audit-log/export?format=html`, { headers: bearer() });
+    const html = await res.text();
+    expect(html).toContain("TAMPERING DETECTED");
+  });
+
+  test("requires auth", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/admin-api/audit-log/export?format=csv`);
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /admin-api/audit-log/actions", () => {
+  test("returns the distinct action values seen across all entries", async () => {
+    await startApp();
+    recordAudit("alice", "client.enable", "svc-a");
+    recordAudit("bob", "client.enable", "svc-b");
+    recordAudit("carol", "tool.disable", "svc-a__some-tool");
+
+    const res = await fetch(`${baseUrl}/admin-api/audit-log/actions`, { headers: bearer() });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { actions: string[] };
+    expect(body.actions.sort()).toEqual(["client.enable", "tool.disable"]);
   });
 });

@@ -46,6 +46,11 @@
   },
   {
     "method": "get",
+    "path": "/admin-api/audit-log/actions",
+    "file": "admin.ts"
+  },
+  {
+    "method": "get",
     "path": "/admin-api/audit-log/export",
     "file": "admin.ts"
   },

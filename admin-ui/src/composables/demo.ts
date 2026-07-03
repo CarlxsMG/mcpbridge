@@ -1399,6 +1399,9 @@ function route(
   if (p === "/admin-api/usage/timeseries") return ok(usageTimeseries);
   if (p === "/admin-api/alerts" && method === "GET") return ok({ items: alerts });
   if (/^\/admin-api\/alerts/.test(p)) return ok({ id: 99 });
+  if (p === "/admin-api/audit-log/actions") {
+    return ok({ actions: Array.from(new Set(auditLog.map((e) => e.action))).sort() });
+  }
   if (p === "/admin-api/audit-log") return ok({ items: auditLog });
   if (p === "/admin-api/audit-log/export") return ok({ items: auditLog });
   if (p === "/admin-api/audit-log/verify") return ok({ ok: true, checked: auditLog.length });
