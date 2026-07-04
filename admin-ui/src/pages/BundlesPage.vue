@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import type { BundleSummary, BundleDetail, BundleToolRef } from "../types/api";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -9,6 +10,7 @@ import TableCard from "../components/TableCard.vue";
 import EmptyState from "../components/EmptyState.vue";
 import FormField from "../components/FormField.vue";
 import ToggleFormButton from "../components/ToggleFormButton.vue";
+import TogglePill from "../components/TogglePill.vue";
 import { Boxes } from "lucide-vue-next";
 
 const {
@@ -21,7 +23,7 @@ const {
   [],
   "Failed to load bundles.",
 );
-const rowError = ref<Record<string, string>>({});
+const { rowError, toggle } = useOptimisticToggle<BundleSummary>((b) => b.name, "Failed to update.");
 
 const showCreateForm = ref(false);
 const newName = ref("");
@@ -57,17 +59,10 @@ async function createBundle() {
   }
 }
 
-async function toggleEnabled(bundle: BundleSummary) {
-  const next = !bundle.enabled;
-  const previous = bundle.enabled;
-  bundle.enabled = next; // optimistic
-  delete rowError.value[bundle.name];
-  try {
-    await api.patch(`/admin-api/bundles/${encodeURIComponent(bundle.name)}`, { enabled: next });
-  } catch (err) {
-    bundle.enabled = previous; // revert on failure
-    rowError.value[bundle.name] = err instanceof ApiError ? err.message : "Failed to update.";
-  }
+function toggleEnabled(bundle: BundleSummary) {
+  toggle(bundle, "enabled", (next) =>
+    api.patch(`/admin-api/bundles/${encodeURIComponent(bundle.name)}`, { enabled: next }),
+  );
 }
 </script>
 
@@ -125,15 +120,13 @@ async function toggleEnabled(bundle: BundleSummary) {
           <td class="desc-cell" :title="bundle.description || undefined">{{ bundle.description || "—" }}</td>
           <td>{{ bundle.toolsCount }}</td>
           <td>
-            <button
-              type="button"
-              class="toggle"
-              :class="bundle.enabled ? 'toggle-on' : 'toggle-off'"
+            <TogglePill
+              :on="bundle.enabled"
+              on-label="Disable bundle"
+              off-label="Enable bundle"
               :aria-pressed="bundle.enabled"
               @click="toggleEnabled(bundle)"
-            >
-              {{ bundle.enabled ? "Disable bundle" : "Enable bundle" }}
-            </button>
+            />
             <p v-if="rowError[bundle.name]" class="row-error">{{ rowError[bundle.name] }}</p>
           </td>
         </tr>
@@ -179,40 +172,6 @@ async function toggleEnabled(bundle: BundleSummary) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  border-radius: var(--radius-pill);
-  padding: 0.28rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--surface);
-  transition: background-color 0.12s ease;
-}
-.toggle::before {
-  content: "";
-  width: 0.55em;
-  height: 0.55em;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-.toggle-on {
-  border: 1px solid var(--ok);
-  color: var(--ok);
-}
-.toggle-off {
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-}
-.toggle-on:hover {
-  background: var(--ok-soft);
-}
-.toggle-off:hover {
-  background: var(--surface-sunken);
 }
 .row-error {
   color: var(--breach);

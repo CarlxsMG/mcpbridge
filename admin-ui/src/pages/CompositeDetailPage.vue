@@ -4,11 +4,13 @@ import { useRouter, onBeforeRouteLeave } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import type { CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
 import PageHeader from "../components/PageHeader.vue";
 import FormField from "../components/FormField.vue";
+import TogglePill from "../components/TogglePill.vue";
 
 const props = defineProps<{ name: string }>();
 const router = useRouter();
@@ -139,17 +141,16 @@ async function saveSteps() {
   }
 }
 
-async function toggleEnabled() {
+const { rowError: toggleError, toggle: toggleEnabledField } = useOptimisticToggle<CompositeDetail>(
+  (c) => c.name,
+  "Failed to update.",
+);
+
+function toggleEnabled() {
   if (!detail.value) return;
-  const next = !detail.value.enabled;
-  const previous = detail.value.enabled;
-  detail.value.enabled = next; // optimistic
-  try {
-    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { enabled: next });
-  } catch (err) {
-    detail.value.enabled = previous;
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to update.";
-  }
+  toggleEnabledField(detail.value, "enabled", (next) =>
+    api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { enabled: next }),
+  );
 }
 
 function requestDelete() {
@@ -180,21 +181,20 @@ async function confirmDelete() {
 
     <template v-else-if="detail">
       <PageHeader :title="detail.name">
-        <button
-          type="button"
-          class="toggle"
-          :class="detail.enabled ? 'toggle-on' : 'toggle-off'"
+        <TogglePill
+          :on="detail.enabled"
+          on-label="Disable composite"
+          off-label="Enable composite"
           :aria-pressed="detail.enabled"
           @click="toggleEnabled"
-        >
-          {{ detail.enabled ? "Disable composite" : "Enable composite" }}
-        </button>
+        />
         <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
           {{ deleting ? "Deleting…" : "Delete composite" }}
         </button>
       </PageHeader>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+      <p v-if="toggleError[detail.name]" class="error" role="alert">{{ toggleError[detail.name] }}</p>
 
       <FormField label="Description" for="composite-description" class="description-field">
         <div class="description-row">
@@ -305,39 +305,5 @@ async function confirmDelete() {
   align-items: center;
   gap: 0.75rem;
   margin-top: 0.5rem;
-}
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  border-radius: var(--radius-pill);
-  padding: 0.28rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--surface);
-  transition: background-color 0.12s ease;
-}
-.toggle::before {
-  content: "";
-  width: 0.55em;
-  height: 0.55em;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-.toggle-on {
-  border: 1px solid var(--ok);
-  color: var(--ok);
-}
-.toggle-off {
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-}
-.toggle-on:hover {
-  background: var(--ok-soft);
-}
-.toggle-off:hover {
-  background: var(--surface-sunken);
 }
 </style>

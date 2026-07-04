@@ -4,6 +4,7 @@ import { Combine } from "lucide-vue-next";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import type { CompositeSummary, CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -11,6 +12,7 @@ import TableCard from "../components/TableCard.vue";
 import EmptyState from "../components/EmptyState.vue";
 import FormField from "../components/FormField.vue";
 import ToggleFormButton from "../components/ToggleFormButton.vue";
+import TogglePill from "../components/TogglePill.vue";
 
 const {
   data: items,
@@ -23,6 +25,7 @@ const {
   "Failed to load composites.",
 );
 const rowError = ref<Record<string, string>>({});
+const { rowError: toggleError, toggle } = useOptimisticToggle<CompositeSummary>((c) => c.name, "Failed to update.");
 
 const showCreateForm = ref(false);
 const newName = ref("");
@@ -93,17 +96,10 @@ async function createComposite() {
   }
 }
 
-async function toggleEnabled(c: CompositeSummary) {
-  const next = !c.enabled;
-  const previous = c.enabled;
-  c.enabled = next;
-  delete rowError.value[c.name];
-  try {
-    await api.patch(`/admin-api/composites/${encodeURIComponent(c.name)}`, { enabled: next });
-  } catch (err) {
-    c.enabled = previous;
-    rowError.value[c.name] = err instanceof ApiError ? err.message : "Failed to update.";
-  }
+function toggleEnabled(c: CompositeSummary) {
+  toggle(c, "enabled", (next) =>
+    api.patch(`/admin-api/composites/${encodeURIComponent(c.name)}`, { enabled: next }),
+  );
 }
 
 const {
@@ -206,16 +202,14 @@ function confirmDelete() {
           <td class="desc-cell" :title="c.description || undefined">{{ c.description || "—" }}</td>
           <td>{{ c.stepsCount }}</td>
           <td>
-            <button
-              type="button"
-              class="toggle"
-              :class="c.enabled ? 'toggle-on' : 'toggle-off'"
+            <TogglePill
+              :on="c.enabled"
+              on-label="Disable composite"
+              off-label="Enable composite"
               :aria-pressed="c.enabled"
               @click="toggleEnabled(c)"
-            >
-              {{ c.enabled ? "Disable composite" : "Enable composite" }}
-            </button>
-            <p v-if="rowError[c.name]" class="row-error">{{ rowError[c.name] }}</p>
+            />
+            <p v-if="toggleError[c.name]" class="row-error">{{ toggleError[c.name] }}</p>
           </td>
           <td><button type="button" class="link-btn danger" @click="requestDelete(c)">Delete</button></td>
         </tr>
@@ -290,40 +284,6 @@ function confirmDelete() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  border-radius: var(--radius-pill);
-  padding: 0.28rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--surface);
-  transition: background-color 0.12s ease;
-}
-.toggle::before {
-  content: "";
-  width: 0.55em;
-  height: 0.55em;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-.toggle-on {
-  border: 1px solid var(--ok);
-  color: var(--ok);
-}
-.toggle-off {
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-}
-.toggle-on:hover {
-  background: var(--ok-soft);
-}
-.toggle-off:hover {
-  background: var(--surface-sunken);
 }
 .row-error {
   color: var(--breach);

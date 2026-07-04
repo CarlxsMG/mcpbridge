@@ -4,6 +4,7 @@ import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useCursorPagination } from "../composables/useCursorPagination";
+import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import type { ClientSummary, PaginatedResult, TagSummary, TagToolRef } from "../types/api";
 import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -14,12 +15,13 @@ import TableCard from "../components/TableCard.vue";
 import EmptyState from "../components/EmptyState.vue";
 import SearchInput from "../components/SearchInput.vue";
 import PaginationBar from "../components/PaginationBar.vue";
+import TogglePill from "../components/TogglePill.vue";
 import { Server, Tags, ChevronRight } from "lucide-vue-next";
 
 const router = useRouter();
 const route = useRoute();
 
-const rowError = ref<Record<string, string>>({});
+const { rowError, toggle } = useOptimisticToggle<ClientSummary>((c) => c.name, "Failed to update.");
 
 const q = ref(typeof route.query.q === "string" ? route.query.q : "");
 const enabledFilter = ref(typeof route.query.enabled === "string" ? route.query.enabled : "");
@@ -123,16 +125,9 @@ function confirmBulkDisable() {
 }
 
 async function toggleEnabled(client: ClientSummary) {
-  const nextEnabled = !client.enabled;
-  const previous = client.enabled;
-  client.enabled = nextEnabled; // optimistic
-  delete rowError.value[client.name];
-  try {
-    await api.patch(`/admin-api/clients/${encodeURIComponent(client.name)}`, { enabled: nextEnabled });
-  } catch (err) {
-    client.enabled = previous; // revert on failure
-    rowError.value[client.name] = err instanceof ApiError ? err.message : "Failed to update.";
-  }
+  await toggle(client, "enabled", (next) =>
+    api.patch(`/admin-api/clients/${encodeURIComponent(client.name)}`, { enabled: next }),
+  );
 }
 
 function requestDisable(client: ClientSummary) {
@@ -343,15 +338,13 @@ onMounted(() => load());
           <td>{{ client.toolsCount }}</td>
           <td class="url-cell" :title="client.healthUrl">{{ client.healthUrl }}</td>
           <td>
-            <button
-              type="button"
-              class="toggle"
-              :class="client.enabled ? 'toggle-on' : 'toggle-off'"
+            <TogglePill
+              :on="client.enabled"
+              on-label="Enabled"
+              off-label="Disabled"
               :aria-pressed="client.enabled"
               @click="onToggleClick(client)"
-            >
-              {{ client.enabled ? "Enabled" : "Disabled" }}
-            </button>
+            />
             <p v-if="rowError[client.name]" class="row-error">{{ rowError[client.name] }}</p>
           </td>
         </tr>
@@ -528,42 +521,6 @@ section {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.83rem;
-}
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  border-radius: var(--radius-pill);
-  padding: 0.28rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--surface);
-  transition:
-    background-color 0.12s ease,
-    border-color 0.12s ease;
-}
-.toggle::before {
-  content: "";
-  width: 0.55em;
-  height: 0.55em;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-.toggle-on {
-  border: 1px solid var(--ok);
-  color: var(--ok);
-}
-.toggle-off {
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-}
-.toggle-on:hover {
-  background: var(--ok-soft);
-}
-.toggle-off:hover {
-  background: var(--surface-sunken);
 }
 .row-error {
   color: var(--breach);

@@ -4,10 +4,12 @@ import { useRouter, onBeforeRouteLeave } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import type { BundleDetail, BundleToolRef } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import TogglePill from "../components/TogglePill.vue";
 import ConnectClientDialog from "../components/ConnectClientDialog.vue";
 import ShareInstallLinkDialog from "../components/ShareInstallLinkDialog.vue";
 import FormField from "../components/FormField.vue";
@@ -50,6 +52,8 @@ const {
 const deleting = ref(false);
 const connectOpen = ref(false);
 const shareOpen = ref(false);
+
+const { rowError: toggleError, toggle } = useOptimisticToggle<BundleDetail>(() => "singleton", "Failed to update bundle.");
 
 async function load() {
   const result = await loadDetail();
@@ -94,15 +98,10 @@ async function saveTools() {
 
 async function toggleEnabled() {
   if (!detail.value) return;
-  const next = !detail.value.enabled;
-  const previous = detail.value.enabled;
-  detail.value.enabled = next; // optimistic
-  try {
-    await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { enabled: next });
-  } catch (err) {
-    detail.value.enabled = previous;
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to update.";
-  }
+  await toggle(detail.value, "enabled", (next) =>
+    api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { enabled: next }),
+  );
+  errorMessage.value = toggleError.value.singleton ?? "";
 }
 
 function requestDelete() {
@@ -170,15 +169,13 @@ function cancelLeave() {
           </p>
         </div>
         <div class="header-actions">
-          <button
-            type="button"
-            class="toggle"
-            :class="detail.enabled ? 'toggle-on' : 'toggle-off'"
+          <TogglePill
+            :on="detail.enabled"
+            on-label="Disable bundle"
+            off-label="Enable bundle"
             :aria-pressed="detail.enabled"
             @click="toggleEnabled"
-          >
-            {{ detail.enabled ? "Disable bundle" : "Enable bundle" }}
-          </button>
+          />
           <button type="button" class="btn-secondary share-btn" @click="shareOpen = true">
             <Share2 :size="14" stroke-width="2" aria-hidden="true" /> Share install link
           </button>
@@ -309,40 +306,6 @@ function cancelLeave() {
 .hint {
   font-size: 0.8rem;
   color: var(--canary);
-}
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  border-radius: var(--radius-pill);
-  padding: 0.28rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--surface);
-  transition: background-color 0.12s ease;
-}
-.toggle::before {
-  content: "";
-  width: 0.55em;
-  height: 0.55em;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-.toggle-on {
-  border: 1px solid var(--ok);
-  color: var(--ok);
-}
-.toggle-off {
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-}
-.toggle-on:hover {
-  background: var(--ok-soft);
-}
-.toggle-off:hover {
-  background: var(--surface-sunken);
 }
 .row-error {
   color: var(--breach);

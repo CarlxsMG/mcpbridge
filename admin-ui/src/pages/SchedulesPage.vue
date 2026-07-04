@@ -3,12 +3,14 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import type { Schedule } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
 import TableCard from "../components/TableCard.vue";
 import EmptyState from "../components/EmptyState.vue";
 import FormField from "../components/FormField.vue";
+import TogglePill from "../components/TogglePill.vue";
 import { Clock } from "lucide-vue-next";
 
 const {
@@ -21,7 +23,7 @@ const {
   [],
   "Failed to load schedules.",
 );
-const rowError = ref<Record<number, string>>({});
+const { rowError, toggle: toggleField } = useOptimisticToggle<Schedule>((s) => s.id, "Failed.");
 const {
   pending: pendingDelete,
   request: requestDelete,
@@ -66,17 +68,8 @@ async function create() {
   }
 }
 
-async function toggle(s: Schedule) {
-  const next = !s.enabled;
-  const prev = s.enabled;
-  s.enabled = next;
-  delete rowError.value[s.id];
-  try {
-    await api.patch(`/admin-api/schedules/${s.id}`, { enabled: next });
-  } catch (err) {
-    s.enabled = prev;
-    rowError.value[s.id] = err instanceof ApiError ? err.message : "Failed.";
-  }
+function toggle(s: Schedule) {
+  toggleField(s, "enabled", (next) => api.patch(`/admin-api/schedules/${s.id}`, { enabled: next }));
 }
 
 function confirmDelete() {
@@ -165,15 +158,7 @@ function formatLastRun(m: number | null): string {
             <code>{{ s.cron }}</code>
           </td>
           <td>
-            <button
-              type="button"
-              class="toggle"
-              :class="s.enabled ? 'toggle-on' : 'toggle-off'"
-              :aria-pressed="s.enabled"
-              @click="toggle(s)"
-            >
-              {{ s.enabled ? "Enabled" : "Disabled" }}
-            </button>
+            <TogglePill :on="s.enabled" on-label="Enabled" off-label="Disabled" :aria-pressed="s.enabled" @click="toggle(s)" />
             <p v-if="rowError[s.id]" class="row-error">{{ rowError[s.id] }}</p>
           </td>
           <td>
@@ -242,40 +227,6 @@ function formatLastRun(m: number | null): string {
   padding: 0.05rem 0.45rem;
   font-size: 0.72rem;
   color: var(--text-secondary);
-}
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  border-radius: var(--radius-pill);
-  padding: 0.28rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--surface);
-  transition: background-color 0.12s ease;
-}
-.toggle::before {
-  content: "";
-  width: 0.55em;
-  height: 0.55em;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-.toggle-on {
-  border: 1px solid var(--ok);
-  color: var(--ok);
-}
-.toggle-off {
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-}
-.toggle-on:hover {
-  background: var(--ok-soft);
-}
-.toggle-off:hover {
-  background: var(--surface-sunken);
 }
 .last-run-never {
   color: var(--text-muted);
