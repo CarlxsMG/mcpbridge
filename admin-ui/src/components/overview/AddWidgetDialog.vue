@@ -1,0 +1,166 @@
+<script setup lang="ts">
+import { computed, ref } from "vue";
+import ModalShell from "@/components/ui/ModalShell.vue";
+import SearchInput from "@/components/ui/SearchInput.vue";
+import { X } from "lucide-vue-next";
+import { CATALOG_PRESETS, GROUP_LABELS, GROUP_ORDER, type WidgetPreset } from "./widgetCatalog";
+
+defineProps<{ open: boolean }>();
+const emit = defineEmits<{ close: []; add: [preset: WidgetPreset] }>();
+
+const query = ref("");
+
+const grouped = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  const match = (p: WidgetPreset) => !q || p.label.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
+  return GROUP_ORDER.map((group) => ({
+    group,
+    label: GROUP_LABELS[group],
+    presets: CATALOG_PRESETS.filter((p) => p.group === group && match(p)),
+  })).filter((g) => g.presets.length > 0);
+});
+
+// Reset the filter whenever the dialog is reopened.
+function onAdd(preset: WidgetPreset) {
+  emit("add", preset);
+}
+</script>
+
+<template>
+  <!-- :ariaLabel kept camelCase (not :aria-label): vue-tsc treats the hyphenated form as the
+       built-in ARIA passthrough attribute rather than resolving it to ModalShell's ariaLabel prop -->
+  <!-- eslint-disable-next-line vue/attribute-hyphenation -->
+  <ModalShell :open="open" :ariaLabel="'Add a widget'" max-width="46rem" @close="emit('close')">
+    <div class="add-head">
+      <h2>Add a widget</h2>
+      <button type="button" class="icon-btn" aria-label="Close" @click="emit('close')">
+        <X :size="18" stroke-width="2" aria-hidden="true" />
+      </button>
+    </div>
+    <p class="add-sub">Pick a metric to add to your dashboard. Everything you add can be resized, moved, or removed.</p>
+
+    <div class="add-search">
+      <SearchInput v-model="query" placeholder="Search widgets…" />
+    </div>
+
+    <div class="add-scroll">
+      <section v-for="g in grouped" :key="g.group" class="add-group">
+        <h3 class="add-group-title">{{ g.label }}</h3>
+        <div class="add-grid">
+          <button v-for="p in g.presets" :key="p.key" type="button" class="preset" @click="onAdd(p)">
+            <span class="preset-icon"><component :is="p.icon" :size="16" stroke-width="2" aria-hidden="true" /></span>
+            <span class="preset-text">
+              <span class="preset-label">{{ p.label }}</span>
+              <span class="preset-desc">{{ p.description }}</span>
+            </span>
+          </button>
+        </div>
+      </section>
+      <p v-if="grouped.length === 0" class="add-empty">No widgets match “{{ query }}”.</p>
+    </div>
+  </ModalShell>
+</template>
+
+<style scoped>
+.add-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.add-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.icon-btn:hover {
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+}
+.add-sub {
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.add-search {
+  margin-bottom: var(--space-4);
+}
+.add-scroll {
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.add-group + .add-group {
+  margin-top: var(--space-5);
+}
+.add-group-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.add-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--space-2);
+}
+.preset {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  text-align: left;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease;
+}
+.preset:hover {
+  border-color: var(--signal);
+  background: var(--signal-soft);
+}
+.preset-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--signal-soft);
+  color: var(--signal-strong);
+}
+.preset-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.preset-label {
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+}
+.preset-desc {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.add-empty {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+</style>
