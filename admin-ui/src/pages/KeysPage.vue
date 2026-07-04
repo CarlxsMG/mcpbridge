@@ -5,6 +5,11 @@ import { useLoadState } from "../composables/useResource";
 import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
+import ToggleFormButton from "../components/ToggleFormButton.vue";
 import { KeyRound } from "lucide-vue-next";
 
 const keys = ref<McpApiKey[]>([]);
@@ -152,22 +157,12 @@ async function confirmDelete() {
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>API keys</h1>
-        <p class="subtitle">
-          MCP keys authenticate clients calling the bridge. Scope a key to specific clients or tools, or leave it
-          unrestricted. The secret is shown only once at creation.
-        </p>
-      </div>
-      <button
-        type="button"
-        :class="showCreateForm ? 'btn-secondary' : 'btn-primary'"
-        @click="showCreateForm = !showCreateForm"
-      >
-        {{ showCreateForm ? "Cancel" : "Mint key" }}
-      </button>
-    </header>
+    <PageHeader
+      title="API keys"
+      subtitle="MCP keys authenticate clients calling the bridge. Scope a key to specific clients or tools, or leave it unrestricted. The secret is shown only once at creation."
+    >
+      <ToggleFormButton v-model="showCreateForm" show-label="Mint key" />
+    </PageHeader>
 
     <div v-if="mintedKey" class="minted" role="alert">
       <div class="minted-title">New key “{{ mintedKey.label }}” — copy it now, it won't be shown again:</div>
@@ -179,30 +174,25 @@ async function confirmDelete() {
     </div>
 
     <form v-if="showCreateForm" class="create-form" @submit.prevent="createKey">
-      <div class="field">
-        <label for="k-label">Label</label>
+      <FormField label="Label" for="k-label">
         <input id="k-label" v-model="newLabel" type="text" required placeholder="e.g. ci-bot" />
         <p v-if="createError" class="error">{{ createError }}</p>
-      </div>
-      <div class="field">
-        <label for="k-clients">Allowed clients (comma-separated, blank = all)</label>
+      </FormField>
+      <FormField label="Allowed clients (comma-separated, blank = all)" for="k-clients">
         <input id="k-clients" v-model="newClients" type="text" placeholder="payments-svc, inventory-svc" />
-      </div>
-      <div class="field">
-        <label for="k-tools">Allowed tools (comma-separated client__tool)</label>
+      </FormField>
+      <FormField label="Allowed tools (comma-separated client__tool)" for="k-tools">
         <input id="k-tools" v-model="newTools" type="text" placeholder="payments-svc__charge" />
-      </div>
-      <div class="field">
-        <label for="k-expires">Expires (optional)</label>
+      </FormField>
+      <FormField label="Expires (optional)" for="k-expires">
         <input id="k-expires" v-model="newExpires" type="datetime-local" />
-      </div>
-      <div class="field">
-        <label for="k-consumer">Consumer (optional)</label>
+      </FormField>
+      <FormField label="Consumer (optional)" for="k-consumer">
         <select id="k-consumer" v-model="newConsumerId">
           <option value="">None</option>
           <option v-for="c in consumers" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
-      </div>
+      </FormField>
       <label class="checkbox-field"
         ><input v-model="newElevated" type="checkbox" /> Elevated (bypasses sensitive-tool confirmation)</label
       >
@@ -212,62 +202,59 @@ async function confirmDelete() {
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading" />
 
-    <div v-else-if="keys.length === 0" class="empty-state">
-      <KeyRound :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No API keys yet. MCP clients present a key to call tools through this bridge — mint one to get started.</p>
-    </div>
+    <EmptyState v-else-if="keys.length === 0" :icon="KeyRound">
+      No API keys yet. MCP clients present a key to call tools through this bridge — mint one to get started.
+    </EmptyState>
 
-    <div v-else class="table-card table-scroll">
-      <table class="keys-table">
-        <thead>
-          <tr>
-            <th>Label</th>
-            <th>Prefix</th>
-            <th>Scope</th>
-            <th>Consumer</th>
-            <th>Status</th>
-            <th>Last used</th>
-            <th>Expires</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="key in keys" :key="key.id">
-            <td>{{ key.label }} <span v-if="key.elevated" class="elev-chip">elevated</span></td>
-            <td>
-              <code>{{ key.keyPrefix }}…</code>
-            </td>
-            <td>
-              {{ scopeSummary(key) }}
-              <details v-if="key.scopes" class="scope-disclosure">
-                <summary class="link-btn">View scope</summary>
-                <div class="scope-detail">
-                  <div v-if="key.scopes.clients?.length">Clients: {{ key.scopes.clients.join(", ") }}</div>
-                  <div v-if="key.scopes.tools?.length">Tools: {{ key.scopes.tools.join(", ") }}</div>
-                </div>
-              </details>
-            </td>
-            <td>{{ consumerName(key.consumerId) }}</td>
-            <td>
-              <span class="status" :class="statusOf(key).toLowerCase()">{{ statusOf(key) }}</span>
-            </td>
-            <td>{{ key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : "Never" }}</td>
-            <td>{{ key.expiresAt ? new Date(key.expiresAt).toLocaleString() : "—" }}</td>
-            <td>
-              <div class="actions">
-                <button v-if="key.revokedAt === null" type="button" class="link-btn" @click="toggleEnabled(key)">
-                  {{ key.enabled ? "Disable" : "Enable" }}
-                </button>
-                <button v-if="key.revokedAt === null" type="button" class="link-btn danger" @click="pendingRevoke = key">
-                  Revoke
-                </button>
-                <button type="button" class="link-btn danger" @click="pendingDelete = key">Delete</button>
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Prefix</th>
+          <th>Scope</th>
+          <th>Consumer</th>
+          <th>Status</th>
+          <th>Last used</th>
+          <th>Expires</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="key in keys" :key="key.id">
+          <td>{{ key.label }} <span v-if="key.elevated" class="elev-chip">elevated</span></td>
+          <td>
+            <code>{{ key.keyPrefix }}…</code>
+          </td>
+          <td>
+            {{ scopeSummary(key) }}
+            <details v-if="key.scopes" class="scope-disclosure">
+              <summary class="link-btn">View scope</summary>
+              <div class="scope-detail">
+                <div v-if="key.scopes.clients?.length">Clients: {{ key.scopes.clients.join(", ") }}</div>
+                <div v-if="key.scopes.tools?.length">Tools: {{ key.scopes.tools.join(", ") }}</div>
               </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+            </details>
+          </td>
+          <td>{{ consumerName(key.consumerId) }}</td>
+          <td>
+            <span class="status" :class="statusOf(key).toLowerCase()">{{ statusOf(key) }}</span>
+          </td>
+          <td>{{ key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : "Never" }}</td>
+          <td>{{ key.expiresAt ? new Date(key.expiresAt).toLocaleString() : "—" }}</td>
+          <td>
+            <div class="actions">
+              <button v-if="key.revokedAt === null" type="button" class="link-btn" @click="toggleEnabled(key)">
+                {{ key.enabled ? "Disable" : "Enable" }}
+              </button>
+              <button v-if="key.revokedAt === null" type="button" class="link-btn danger" @click="pendingRevoke = key">
+                Revoke
+              </button>
+              <button type="button" class="link-btn danger" @click="pendingDelete = key">Delete</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </TableCard>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -296,18 +283,9 @@ async function confirmDelete() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
+/* PageHeader's own recipe covers color/margin; this page's subtitle is long
+   enough to need a line-length cap that the shared component doesn't set. */
+:deep(.subtitle) {
   max-width: 40rem;
 }
 .minted {
@@ -346,15 +324,6 @@ async function confirmDelete() {
   margin-bottom: 1.5rem;
   max-width: 28.75rem;
 }
-.field {
-  margin-bottom: 1rem;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-}
 .field input,
 .field select,
 .field textarea {
@@ -366,37 +335,11 @@ async function confirmDelete() {
   font-family: var(--font-body);
   box-sizing: border-box;
 }
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.keys-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.keys-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.keys-table td {
+/* TableCard's global .data-table recipe hardcodes td vertical padding;
+   this page participates in the density toggle (body.density-compact),
+   so it needs the token-driven value reinstated for its own table. */
+:deep(.data-table td) {
   padding: var(--table-pad-y) 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.keys-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.keys-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 .actions {
   display: flex;
@@ -453,17 +396,5 @@ async function confirmDelete() {
 }
 .error {
   color: var(--breach);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 </style>

@@ -6,6 +6,10 @@ import type { ConsumerWithUsage, ConsumerUsage } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import QuotaBar from "../components/QuotaBar.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
 import { Users2, ChevronDown, ChevronRight } from "lucide-vue-next";
 
 const {
@@ -173,14 +177,10 @@ async function confirmDelete() {
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>Consumers</h1>
-        <p class="subtitle">
-          Consumers (teams / apps) own API keys and can carry a monthly call quota and an optional per-end-user rate
-          limit enforced across all their keys.
-        </p>
-      </div>
+    <PageHeader
+      title="Consumers"
+      subtitle="Consumers (teams / apps) own API keys and can carry a monthly call quota and an optional per-end-user rate limit enforced across all their keys."
+    >
       <button
         type="button"
         :class="showCreate ? 'btn-secondary' : 'btn-primary'"
@@ -188,24 +188,21 @@ async function confirmDelete() {
       >
         {{ showCreate ? "Cancel" : "New consumer" }}
       </button>
-    </header>
+    </PageHeader>
 
     <form v-if="showCreate" class="create-form" @submit.prevent="submitConsumer">
-      <div class="field">
-        <label for="c-name">Name</label>
+      <FormField label="Name" for="c-name">
         <input id="c-name" v-model="newName" type="text" placeholder="mobile-app" />
         <p v-if="nameError" class="error">{{ nameError }}</p>
-      </div>
-      <div class="field">
-        <label for="c-quota">Monthly quota (blank = unlimited)</label>
+      </FormField>
+      <FormField label="Monthly quota (blank = unlimited)" for="c-quota">
         <input id="c-quota" v-model="newQuota" type="text" inputmode="numeric" />
         <p v-if="quotaError" class="error">{{ quotaError }}</p>
-      </div>
-      <div class="field">
-        <label for="c-end-user-limit">Per-end-user rate limit (calls/min, blank = disabled)</label>
+      </FormField>
+      <FormField label="Per-end-user rate limit (calls/min, blank = disabled)" for="c-end-user-limit">
         <input id="c-end-user-limit" v-model="newEndUserLimit" type="text" inputmode="numeric" />
         <p v-if="endUserLimitError" class="error">{{ endUserLimitError }}</p>
-      </div>
+      </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">
         {{
@@ -216,83 +213,80 @@ async function confirmDelete() {
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading" />
-    <div v-else-if="consumers.length === 0" class="empty-state">
-      <Users2 :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No consumers yet. A consumer groups one or more API keys under a shared monthly quota and rate limit.</p>
-    </div>
+    <EmptyState v-else-if="consumers.length === 0" :icon="Users2">
+      No consumers yet. A consumer groups one or more API keys under a shared monthly quota and rate limit.
+    </EmptyState>
 
-    <div v-else class="table-card table-scroll">
-      <table class="cons-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Name</th>
-            <th>Quota</th>
-            <th>Per-end-user limit</th>
-            <th>Used this month</th>
-            <th></th>
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Name</th>
+          <th>Quota</th>
+          <th>Per-end-user limit</th>
+          <th>Used this month</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template v-for="c in consumers" :key="c.id">
+          <tr class="cons-row" @click="toggleUsage(c)">
+            <td class="expand-col">
+              <button
+                type="button"
+                class="expand-btn"
+                :aria-expanded="expandedId === c.id"
+                :aria-label="`Toggle usage detail for ${c.name}`"
+                @click.stop="toggleUsage(c)"
+              >
+                <ChevronDown v-if="expandedId === c.id" :size="15" stroke-width="2" aria-hidden="true" />
+                <ChevronRight v-else :size="15" stroke-width="2" aria-hidden="true" />
+              </button>
+            </td>
+            <td>{{ c.name }}</td>
+            <td>{{ c.monthlyQuota ?? "Unlimited" }}</td>
+            <td>{{ c.endUserRateLimitPerMin !== null ? `${c.endUserRateLimitPerMin}/min per user` : "—" }}</td>
+            <td :class="{ hot: c.monthlyQuota !== null && c.usedThisMonth >= c.monthlyQuota }">
+              <div class="usage-cell">
+                <span>{{ c.usedThisMonth }}</span>
+                <div class="usage-bar-wrap"><QuotaBar :used="c.usedThisMonth" :quota="c.monthlyQuota" /></div>
+              </div>
+            </td>
+            <td>
+              <div class="actions" @click.stop>
+                <button type="button" class="link-btn" @click="openEdit(c)">Edit</button>
+                <button type="button" class="link-btn danger" @click="pendingDelete = c">Delete</button>
+              </div>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          <template v-for="c in consumers" :key="c.id">
-            <tr class="cons-row" @click="toggleUsage(c)">
-              <td class="expand-col">
-                <button
-                  type="button"
-                  class="expand-btn"
-                  :aria-expanded="expandedId === c.id"
-                  :aria-label="`Toggle usage detail for ${c.name}`"
-                  @click.stop="toggleUsage(c)"
-                >
-                  <ChevronDown v-if="expandedId === c.id" :size="15" stroke-width="2" aria-hidden="true" />
-                  <ChevronRight v-else :size="15" stroke-width="2" aria-hidden="true" />
-                </button>
-              </td>
-              <td>{{ c.name }}</td>
-              <td>{{ c.monthlyQuota ?? "Unlimited" }}</td>
-              <td>{{ c.endUserRateLimitPerMin !== null ? `${c.endUserRateLimitPerMin}/min per user` : "—" }}</td>
-              <td :class="{ hot: c.monthlyQuota !== null && c.usedThisMonth >= c.monthlyQuota }">
-                <div class="usage-cell">
-                  <span>{{ c.usedThisMonth }}</span>
-                  <div class="usage-bar-wrap"><QuotaBar :used="c.usedThisMonth" :quota="c.monthlyQuota" /></div>
-                </div>
-              </td>
-              <td>
-                <div class="actions" @click.stop>
-                  <button type="button" class="link-btn" @click="openEdit(c)">Edit</button>
-                  <button type="button" class="link-btn danger" @click="pendingDelete = c">Delete</button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="expandedId === c.id" class="usage-detail-row">
-              <td colspan="6">
-                <div class="usage-detail">
-                  <SignalLoader v-if="usageLoadingId === c.id" label="Loading usage…" />
-                  <p v-else-if="usageErrorById[c.id]" class="error">{{ usageErrorById[c.id] }}</p>
-                  <template v-else-if="usageById[c.id]">
-                    <div class="usage-detail-stats">
-                      <div class="usage-stat">
-                        <span class="usage-stat-label">Used this month</span>
-                        <span class="usage-stat-value">{{ usageById[c.id].used }}</span>
-                      </div>
-                      <div class="usage-stat">
-                        <span class="usage-stat-label">Monthly quota</span>
-                        <span class="usage-stat-value">{{ usageById[c.id].quota ?? "Unlimited" }}</span>
-                      </div>
-                      <div class="usage-stat">
-                        <span class="usage-stat-label">Remaining</span>
-                        <span class="usage-stat-value">{{ remainingLabel(usageById[c.id]) }}</span>
-                      </div>
+          <tr v-if="expandedId === c.id" class="usage-detail-row">
+            <td colspan="6">
+              <div class="usage-detail">
+                <SignalLoader v-if="usageLoadingId === c.id" label="Loading usage…" />
+                <p v-else-if="usageErrorById[c.id]" class="error">{{ usageErrorById[c.id] }}</p>
+                <template v-else-if="usageById[c.id]">
+                  <div class="usage-detail-stats">
+                    <div class="usage-stat">
+                      <span class="usage-stat-label">Used this month</span>
+                      <span class="usage-stat-value">{{ usageById[c.id].used }}</span>
                     </div>
-                    <QuotaBar :used="usageById[c.id].used" :quota="usageById[c.id].quota" />
-                  </template>
-                </div>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
+                    <div class="usage-stat">
+                      <span class="usage-stat-label">Monthly quota</span>
+                      <span class="usage-stat-value">{{ usageById[c.id].quota ?? "Unlimited" }}</span>
+                    </div>
+                    <div class="usage-stat">
+                      <span class="usage-stat-label">Remaining</span>
+                      <span class="usage-stat-value">{{ remainingLabel(usageById[c.id]) }}</span>
+                    </div>
+                  </div>
+                  <QuotaBar :used="usageById[c.id].used" :quota="usageById[c.id].quota" />
+                </template>
+              </div>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </TableCard>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -309,35 +303,12 @@ async function confirmDelete() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
-  max-width: 40rem;
-}
 .create-form {
   background: var(--surface-sunken);
   padding: 1.25rem;
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
   max-width: 23.75rem;
-}
-.field {
-  margin-bottom: 1rem;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
 }
 .field input,
 .field select,
@@ -350,39 +321,7 @@ async function confirmDelete() {
   font-family: var(--font-body);
   box-sizing: border-box;
 }
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.cons-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.cons-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.cons-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.cons-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.cons-table tbody tr:hover {
-  background: var(--surface-sunken);
-}
-.cons-table td.hot {
+:deep(.data-table td.hot) {
   color: var(--breach);
   font-weight: 600;
 }
@@ -454,17 +393,5 @@ async function confirmDelete() {
 }
 .error {
   color: var(--breach);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 </style>

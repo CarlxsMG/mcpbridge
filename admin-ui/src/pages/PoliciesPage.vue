@@ -5,6 +5,11 @@ import { useLoadState } from "../composables/useResource";
 import type { GuardPolicy, BundleSummary } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
+import ToggleFormButton from "../components/ToggleFormButton.vue";
 import { ShieldCheck } from "lucide-vue-next";
 
 const policies = ref<GuardPolicy[]>([]);
@@ -121,31 +126,23 @@ async function confirmDelete() {
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>Guard policies</h1>
-        <p class="subtitle">
-          Reusable rate-limit / timeout templates. Apply one to every tool in a bundle at once — each tool's existing
-          API-key allow-list is left untouched.
-        </p>
-      </div>
-      <button type="button" :class="showCreate ? 'btn-secondary' : 'btn-primary'" @click="showCreate = !showCreate">
-        {{ showCreate ? "Cancel" : "New policy" }}
-      </button>
-    </header>
+    <PageHeader
+      title="Guard policies"
+      subtitle="Reusable rate-limit / timeout templates. Apply one to every tool in a bundle at once — each tool's existing API-key allow-list is left untouched."
+    >
+      <ToggleFormButton v-model="showCreate" show-label="New policy" />
+    </PageHeader>
 
     <form v-if="showCreate" class="create-form" @submit.prevent="createPolicy">
-      <div class="field">
-        <label for="p-name">Name</label><input id="p-name" v-model="newName" type="text" placeholder="strict" />
-      </div>
-      <div class="field">
-        <label for="p-rate">Rate limit (calls/min, blank = none)</label
-        ><input id="p-rate" v-model="newRate" type="text" inputmode="numeric" />
-      </div>
-      <div class="field">
-        <label for="p-timeout">Timeout (ms, blank = none)</label
-        ><input id="p-timeout" v-model="newTimeout" type="text" inputmode="numeric" />
-      </div>
+      <FormField label="Name" for="p-name">
+        <input id="p-name" v-model="newName" type="text" placeholder="strict" />
+      </FormField>
+      <FormField label="Rate limit (calls/min, blank = none)" for="p-rate">
+        <input id="p-rate" v-model="newRate" type="text" inputmode="numeric" />
+      </FormField>
+      <FormField label="Timeout (ms, blank = none)" for="p-timeout">
+        <input id="p-timeout" v-model="newTimeout" type="text" inputmode="numeric" />
+      </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">
         {{ creating ? "Creating…" : "Create policy" }}
@@ -155,49 +152,44 @@ async function confirmDelete() {
     <p v-if="notice" class="notice">{{ notice }}</p>
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading" />
-    <div v-else-if="policies.length === 0" class="empty-state">
-      <ShieldCheck :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>
-        No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each
-        one individually.
-      </p>
-    </div>
+    <EmptyState v-else-if="policies.length === 0" :icon="ShieldCheck">
+      No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each
+      one individually.
+    </EmptyState>
 
-    <div v-else class="table-card table-scroll">
-      <table class="pol-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Rate/min</th>
-            <th>Timeout</th>
-            <th>Apply to bundle</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="p in policies" :key="p.id">
-            <td>{{ p.name }}</td>
-            <td>{{ p.rateLimitPerMin ?? "—" }}</td>
-            <td>{{ p.timeoutMs ? `${p.timeoutMs}ms` : "—" }}</td>
-            <td class="apply-cell">
-              <select v-model="applyBundle[p.id]">
-                <option value="">Select bundle…</option>
-                <option v-for="b in bundles" :key="b.name" :value="b.name">{{ b.name }}</option>
-              </select>
-              <button
-                type="button"
-                class="btn-secondary"
-                :disabled="!applyBundle[p.id] || applyingId === p.id"
-                @click="requestApply(p)"
-              >
-                {{ applyingId === p.id ? "Applying…" : "Apply" }}
-              </button>
-            </td>
-            <td><button type="button" class="link-btn danger" @click="pendingDelete = p">Delete</button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Rate/min</th>
+          <th>Timeout</th>
+          <th>Apply to bundle</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="p in policies" :key="p.id">
+          <td>{{ p.name }}</td>
+          <td>{{ p.rateLimitPerMin ?? "—" }}</td>
+          <td>{{ p.timeoutMs ? `${p.timeoutMs}ms` : "—" }}</td>
+          <td class="apply-cell">
+            <select v-model="applyBundle[p.id]">
+              <option value="">Select bundle…</option>
+              <option v-for="b in bundles" :key="b.name" :value="b.name">{{ b.name }}</option>
+            </select>
+            <button
+              type="button"
+              class="btn-secondary"
+              :disabled="!applyBundle[p.id] || applyingId === p.id"
+              @click="requestApply(p)"
+            >
+              {{ applyingId === p.id ? "Applying…" : "Apply" }}
+            </button>
+          </td>
+          <td><button type="button" class="link-btn danger" @click="pendingDelete = p">Delete</button></td>
+        </tr>
+      </tbody>
+    </TableCard>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -230,35 +222,12 @@ async function confirmDelete() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
-  max-width: 40rem;
-}
 .create-form {
   background: var(--surface-sunken);
   padding: 1.25rem;
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
   max-width: 26.25rem;
-}
-.field {
-  margin-bottom: 1rem;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
 }
 .field input,
 .field select,
@@ -270,38 +239,6 @@ async function confirmDelete() {
   font-size: 0.9rem;
   font-family: var(--font-body);
   box-sizing: border-box;
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.pol-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.pol-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.pol-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.pol-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.pol-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 .apply-cell {
   display: flex;
@@ -324,17 +261,5 @@ async function confirmDelete() {
 }
 .error {
   color: var(--breach);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 </style>

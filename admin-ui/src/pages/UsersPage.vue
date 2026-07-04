@@ -6,6 +6,11 @@ import { useAuth } from "../composables/useAuth";
 import type { AdminUserSummary, AdminRole, Team } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
+import ToggleFormButton from "../components/ToggleFormButton.vue";
 import { UserCog } from "lucide-vue-next";
 
 const { state: authState } = useAuth();
@@ -191,35 +196,25 @@ async function confirmDelete() {
 
 <template>
   <section>
-    <header class="page-header">
-      <h1>Users</h1>
-      <button
-        type="button"
-        :class="showCreateForm ? 'btn-secondary' : 'btn-primary'"
-        @click="showCreateForm = !showCreateForm"
-      >
-        {{ showCreateForm ? "Cancel" : "Add user" }}
-      </button>
-    </header>
+    <PageHeader title="Users">
+      <ToggleFormButton v-model="showCreateForm" show-label="Add user" />
+    </PageHeader>
 
     <form v-if="showCreateForm" class="create-form" @submit.prevent="createUser">
-      <div class="field">
-        <label for="new-username">Username</label>
+      <FormField label="Username" for="new-username">
         <input id="new-username" v-model="newUsername" type="text" required />
-      </div>
-      <div class="field">
-        <label for="new-password">Password (min 12 chars)</label>
+      </FormField>
+      <FormField label="Password (min 12 chars)" for="new-password">
         <input id="new-password" v-model="newPassword" type="password" required minlength="12" />
-      </div>
-      <div class="field">
-        <label for="new-role">Role</label>
+      </FormField>
+      <FormField label="Role" for="new-role">
         <select id="new-role" v-model="newRole">
           <option value="admin">Admin</option>
           <option value="operator">Operator</option>
           <option value="auditor">Auditor</option>
           <option value="viewer">Viewer</option>
         </select>
-      </div>
+      </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">
         {{ creating ? "Creating…" : "Create user" }}
@@ -231,86 +226,81 @@ async function confirmDelete() {
     <p v-if="teamsError" class="error" role="alert">{{ teamsError }}</p>
     <SignalLoader v-if="loading" />
 
-    <div v-else-if="users.length === 0" class="empty-state">
-      <UserCog :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>
-        No admin users yet. Every person who signs in to this panel needs their own account here -- shared logins aren't
-        supported.
-      </p>
-    </div>
+    <EmptyState v-else-if="users.length === 0" :icon="UserCog">
+      No admin users yet. Every person who signs in to this panel needs their own account here -- shared logins aren't
+      supported.
+    </EmptyState>
 
-    <div v-else class="table-card table-scroll">
-      <table class="users-table">
-        <thead>
-          <tr>
-            <th>Username</th>
-            <th>Role</th>
-            <th>Team</th>
-            <th>Active</th>
-            <th>Last login</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="user in users" :key="user.username">
-            <td>
-              {{ user.username }} <span v-if="user.username === authState.user?.username" class="you-tag">(you)</span>
-            </td>
-            <td>
-              <select
-                :key="`${user.username}-role-${roleSelectResetTick[user.username] ?? 0}`"
-                class="role-select"
-                :value="user.role"
-                :disabled="isLastActiveAdmin(user)"
-                :title="
-                  isLastActiveAdmin(user) ? 'Cannot change the last active admin — promote another user first.' : ''
-                "
-                @change="requestRoleChange(user, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="admin">admin</option>
-                <option value="operator">operator</option>
-                <option value="auditor">auditor</option>
-                <option value="viewer">viewer</option>
-              </select>
-              <br />
-              <span v-if="isLastActiveAdmin(user)" class="switch-hint"
-                >Cannot change the last active admin — promote another user first.</span
-              >
-            </td>
-            <td>
-              <select
-                :key="`${user.username}-team-${teamSelectResetTick[user.username] ?? 0}`"
-                class="role-select"
-                :value="user.team_id ?? ''"
-                title="Only super-admins can change this."
-                @change="requestTeamChange(user, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="">None (super-admin)</option>
-                <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
-              </select>
-            </td>
-            <td>{{ user.is_active ? "Yes" : "No" }}</td>
-            <td>{{ user.last_login_at ? new Date(user.last_login_at).toLocaleString() : "Never" }}</td>
-            <td>
-              <button
-                type="button"
-                class="link-btn danger"
-                :disabled="isLastActiveAdmin(user)"
-                :title="
-                  isLastActiveAdmin(user) ? 'Cannot delete the last active admin — promote another user first.' : ''
-                "
-                @click="requestDelete(user)"
-              >
-                Delete</button
-              ><br />
-              <span v-if="isLastActiveAdmin(user)" class="switch-hint">
-                Cannot delete the last active admin — promote another user first.
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Team</th>
+          <th>Active</th>
+          <th>Last login</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="user in users" :key="user.username">
+          <td>
+            {{ user.username }} <span v-if="user.username === authState.user?.username" class="you-tag">(you)</span>
+          </td>
+          <td>
+            <select
+              :key="`${user.username}-role-${roleSelectResetTick[user.username] ?? 0}`"
+              class="role-select"
+              :value="user.role"
+              :disabled="isLastActiveAdmin(user)"
+              :title="
+                isLastActiveAdmin(user) ? 'Cannot change the last active admin — promote another user first.' : ''
+              "
+              @change="requestRoleChange(user, ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="admin">admin</option>
+              <option value="operator">operator</option>
+              <option value="auditor">auditor</option>
+              <option value="viewer">viewer</option>
+            </select>
+            <br />
+            <span v-if="isLastActiveAdmin(user)" class="switch-hint"
+              >Cannot change the last active admin — promote another user first.</span
+            >
+          </td>
+          <td>
+            <select
+              :key="`${user.username}-team-${teamSelectResetTick[user.username] ?? 0}`"
+              class="role-select"
+              :value="user.team_id ?? ''"
+              title="Only super-admins can change this."
+              @change="requestTeamChange(user, ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">None (super-admin)</option>
+              <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+          </td>
+          <td>{{ user.is_active ? "Yes" : "No" }}</td>
+          <td>{{ user.last_login_at ? new Date(user.last_login_at).toLocaleString() : "Never" }}</td>
+          <td>
+            <button
+              type="button"
+              class="link-btn danger"
+              :disabled="isLastActiveAdmin(user)"
+              :title="
+                isLastActiveAdmin(user) ? 'Cannot delete the last active admin — promote another user first.' : ''
+              "
+              @click="requestDelete(user)"
+            >
+              Delete</button
+            ><br />
+            <span v-if="isLastActiveAdmin(user)" class="switch-hint">
+              Cannot delete the last active admin — promote another user first.
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </TableCard>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -347,15 +337,6 @@ async function confirmDelete() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
 .create-form {
   background: var(--surface-sunken);
   padding: 1.25rem;
@@ -365,54 +346,6 @@ async function confirmDelete() {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-}
-.field input,
-.field select {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.users-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.users-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.users-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.users-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.users-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 .you-tag {
   color: var(--text-muted);
@@ -425,18 +358,6 @@ async function confirmDelete() {
 }
 .link-btn.danger {
   color: var(--breach);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 .error {
   color: var(--breach);

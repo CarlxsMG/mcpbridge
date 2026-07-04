@@ -5,6 +5,10 @@ import { useResource } from "../composables/useResource";
 import type { Team } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import FormField from "../components/FormField.vue";
+import EmptyState from "../components/EmptyState.vue";
+import TableCard from "../components/TableCard.vue";
 import { UsersRound } from "lucide-vue-next";
 
 const {
@@ -57,55 +61,44 @@ async function confirmRemove() {
 
 <template>
   <section class="page">
-    <header class="page-header">
-      <div>
-        <h1>Teams</h1>
-        <p class="subtitle">
-          Teams own clients; a team-scoped admin only sees and manages its own team's servers. Super-admins (admin role
-          with no team) manage teams and assign ownership. Assign a client's team from its detail page.
-        </p>
-      </div>
-    </header>
+    <PageHeader
+      title="Teams"
+      subtitle="Teams own clients; a team-scoped admin only sees and manages its own team's servers. Super-admins (admin role with no team) manage teams and assign ownership. Assign a client's team from its detail page."
+    />
 
     <form class="create-form" @submit.prevent="create">
-      <div class="field">
-        <label for="new-team-name">Team name</label>
+      <FormField label="Team name" for="new-team-name">
         <input id="new-team-name" v-model="newName" type="text" placeholder="Team name (e.g. Payments)" required />
-      </div>
+      </FormField>
       <button class="btn-primary" type="submit" :disabled="creating || !newName.trim()">Create team</button>
     </form>
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
     <SignalLoader v-if="loading" />
 
-    <div v-if="!loading && teams.length === 0" class="empty-state">
-      <UsersRound :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>
-        No teams yet. A team groups servers under shared ownership, so operator-role admins only see and manage what's
-        assigned to their team.
-      </p>
-    </div>
+    <EmptyState v-if="!loading && teams.length === 0" :icon="UsersRound">
+      No teams yet. A team groups servers under shared ownership, so operator-role admins only see and manage what's
+      assigned to their team.
+    </EmptyState>
 
-    <div v-else-if="!loading" class="table-card table-scroll">
-      <table class="grid">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Created</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="t in teams" :key="t.id">
-            <td>{{ t.id }}</td>
-            <td>{{ t.name }}</td>
-            <td>{{ new Date(t.createdAt).toLocaleDateString() }}</td>
-            <td><button class="link-btn danger" @click="requestRemove(t)">Delete</button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TableCard v-else-if="!loading">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="t in teams" :key="t.id">
+          <td>{{ t.id }}</td>
+          <td>{{ t.name }}</td>
+          <td>{{ new Date(t.createdAt).toLocaleDateString() }}</td>
+          <td><button class="link-btn danger" @click="requestRemove(t)">Delete</button></td>
+        </tr>
+      </tbody>
+    </TableCard>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -123,20 +116,6 @@ async function confirmRemove() {
 .page {
   max-width: 47.5rem;
 }
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
-  font-size: 0.9rem;
-}
 .create-form {
   display: flex;
   gap: 0.5rem;
@@ -145,66 +124,6 @@ async function confirmRemove() {
 }
 .field {
   flex: 1;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-}
-.field input {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.grid {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.grid th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.grid td {
-  text-align: left;
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.grid tbody tr:last-child td {
-  border-bottom: none;
-}
-.grid tbody tr:hover {
-  background: var(--surface-sunken);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 .field-error {
   color: var(--breach);
