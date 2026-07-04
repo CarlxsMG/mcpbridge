@@ -3,6 +3,9 @@ import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "../types/api";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import FormField from "../components/FormField.vue";
 
 const router = useRouter();
 
@@ -216,9 +219,7 @@ async function register() {
 <template>
   <section>
     <p class="breadcrumb"><RouterLink to="/servers">Servers</RouterLink> / Add server</p>
-    <header class="page-header">
-      <h1>Register a server</h1>
-    </header>
+    <PageHeader title="Register a server" />
 
     <form class="reg-form" @submit.prevent="register">
       <div class="segmented" role="radiogroup" aria-label="Server kind">
@@ -227,20 +228,17 @@ async function register() {
         <label><input v-model="kind" type="radio" name="kind" value="mcp" /> MCP server</label>
       </div>
 
-      <div class="field">
-        <label for="r-name">Name</label>
+      <FormField label="Name" for="r-name">
         <input id="r-name" v-model="name" type="text" required placeholder="payments-svc" />
-      </div>
+      </FormField>
 
       <template v-if="kind === 'rest'">
-        <div class="field">
-          <label for="r-health">Health URL</label>
+        <FormField label="Health URL" for="r-health">
           <input id="r-health" v-model="healthUrl" type="url" placeholder="https://api.example.com/health" />
-        </div>
-        <div class="field">
-          <label for="r-base">Base URL (optional — defaults to the health URL's origin)</label>
+        </FormField>
+        <FormField label="Base URL (optional — defaults to the health URL's origin)" for="r-base">
           <input id="r-base" v-model="baseUrl" type="url" placeholder="https://api.example.com" />
-        </div>
+        </FormField>
 
         <div class="segmented" role="radiogroup" aria-label="Tool discovery mode">
           <label><input v-model="mode" type="radio" name="mode" value="openapi" /> From OpenAPI</label>
@@ -250,22 +248,22 @@ async function register() {
         </div>
 
         <template v-if="mode === 'openapi'">
-          <div class="field">
-            <label for="r-openapi">OpenAPI URL</label>
+          <FormField label="OpenAPI URL" for="r-openapi">
             <input id="r-openapi" v-model="openapiUrl" type="url" placeholder="https://api.example.com/openapi.json" />
-          </div>
-          <div class="field">
-            <label for="r-tags">Include tags (comma-separated, optional)</label>
+          </FormField>
+          <FormField label="Include tags (comma-separated, optional)" for="r-tags">
             <input id="r-tags" v-model="includeTags" type="text" placeholder="public, v2" />
-          </div>
-          <div class="field">
-            <label for="r-exclude">Exclude operationIds (comma-separated, optional)</label>
+          </FormField>
+          <FormField label="Exclude operationIds (comma-separated, optional)" for="r-exclude">
             <input id="r-exclude" v-model="excludeOps" type="text" placeholder="deleteEverything" />
-          </div>
+          </FormField>
         </template>
 
-        <div v-else-if="mode === 'manual'" class="field">
-          <label for="r-manual">Tools (JSON array of {name, method, endpoint, description, inputSchema})</label>
+        <FormField
+          v-else-if="mode === 'manual'"
+          label="Tools (JSON array of {name, method, endpoint, description, inputSchema})"
+          for="r-manual"
+        >
           <textarea
             id="r-manual"
             v-model="manualTools"
@@ -273,10 +271,9 @@ async function register() {
             spellcheck="false"
             placeholder='[{"name":"get_user","method":"GET","endpoint":"/users/:id","description":"Fetch a user by id","inputSchema":{"type":"object","properties":{"id":{"type":"string"}}}}]'
           ></textarea>
-        </div>
+        </FormField>
 
-        <div v-else-if="mode === 'curl'" class="field">
-          <label for="r-curl">cURL command(s)</label>
+        <FormField v-else-if="mode === 'curl'" label="cURL command(s)" for="r-curl">
           <textarea
             id="r-curl"
             v-model="curlInput"
@@ -288,15 +285,14 @@ async function register() {
             Paste one or more cURL commands — separate multiple with a blank line, or use a trailing "\" to continue one
             command across lines. An optional "# name" comment line right above a command sets that tool's name.
           </p>
-        </div>
+        </FormField>
 
-        <div v-else class="field">
-          <label for="r-postman-file">Postman Collection v2.1</label>
+        <FormField v-else label="Postman Collection v2.1" for="r-postman-file">
           <input id="r-postman-file" type="file" accept="application/json,.json" @change="onPostmanFileChange" />
           <p v-if="postmanFileName" class="hint">Loaded from file: {{ postmanFileName }}</p>
           <label for="r-postman-text" class="postman-paste-label">…or paste the exported collection JSON</label>
           <textarea id="r-postman-text" v-model="postmanText" rows="8" spellcheck="false"></textarea>
-        </div>
+        </FormField>
 
         <div class="preview-row">
           <button type="button" class="btn-secondary" :disabled="previewing" @click="preview">
@@ -305,35 +301,31 @@ async function register() {
           <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
         </div>
         <p v-if="previewError" class="error">{{ previewError }}</p>
-        <div v-if="previewTools && previewTools.length" class="table-card table-scroll">
-          <table class="preview-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Method</th>
-                <th>Endpoint</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="t in previewTools" :key="t.name">
-                <td>{{ t.name }}</td>
-                <td>
-                  <code>{{ t.method }}</code>
-                </td>
-                <td class="ep">{{ t.endpoint }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <TableCard v-if="previewTools && previewTools.length">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Method</th>
+              <th>Endpoint</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="t in previewTools" :key="t.name">
+              <td>{{ t.name }}</td>
+              <td>
+                <code>{{ t.method }}</code>
+              </td>
+              <td class="ep">{{ t.endpoint }}</td>
+            </tr>
+          </tbody>
+        </TableCard>
       </template>
 
       <template v-else-if="kind === 'graphql'">
-        <div class="field">
-          <label for="r-graphql-url">GraphQL URL</label>
+        <FormField label="GraphQL URL" for="r-graphql-url">
           <input id="r-graphql-url" v-model="graphqlUrl" type="url" placeholder="https://api.example.com/graphql" />
-        </div>
-        <div class="field">
-          <label for="r-graphql-health">Health URL (optional — defaults to the GraphQL URL)</label>
+        </FormField>
+        <FormField label="Health URL (optional — defaults to the GraphQL URL)" for="r-graphql-health">
           <input
             id="r-graphql-health"
             v-model="graphqlHealthUrl"
@@ -344,7 +336,7 @@ async function register() {
             Many GraphQL servers reject a bare GET on the operation endpoint. If you have a dedicated liveness endpoint,
             use it here to avoid false health-check failures.
           </p>
-        </div>
+        </FormField>
         <label class="checkline"><input v-model="includeMutations" type="checkbox" /> Include mutations</label>
         <div class="preview-row">
           <button type="button" class="btn-secondary" :disabled="previewing" @click="previewGraphql">
@@ -353,40 +345,36 @@ async function register() {
           <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
         </div>
         <p v-if="previewError" class="error">{{ previewError }}</p>
-        <div v-if="previewTools && previewTools.length" class="table-card table-scroll">
-          <table class="preview-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Method</th>
-                <th>Endpoint</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="t in previewTools" :key="t.name">
-                <td>{{ t.name }}</td>
-                <td>
-                  <code>{{ t.method }}</code>
-                </td>
-                <td class="ep">{{ t.endpoint }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <TableCard v-if="previewTools && previewTools.length">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Method</th>
+              <th>Endpoint</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="t in previewTools" :key="t.name">
+              <td>{{ t.name }}</td>
+              <td>
+                <code>{{ t.method }}</code>
+              </td>
+              <td class="ep">{{ t.endpoint }}</td>
+            </tr>
+          </tbody>
+        </TableCard>
       </template>
 
       <template v-else>
-        <div class="field">
-          <label for="r-mcp-url">MCP server URL</label>
+        <FormField label="MCP server URL" for="r-mcp-url">
           <input id="r-mcp-url" v-model="mcpUrl" type="url" required placeholder="https://mcp.example.com/mcp" />
-        </div>
-        <div class="field">
-          <label for="r-mcp-transport">Transport</label>
+        </FormField>
+        <FormField label="Transport" for="r-mcp-transport">
           <select id="r-mcp-transport" v-model="mcpTransport">
             <option value="streamable-http">Streamable HTTP</option>
             <option value="sse">SSE (legacy)</option>
           </select>
-        </div>
+        </FormField>
         <p class="hint">
           The bridge connects to the MCP server and discovers its tools on registration. If the server requires
           authentication, register it first, set upstream credentials on its detail page, then re-discover.
@@ -412,15 +400,6 @@ async function register() {
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
 .reg-form {
   display: flex;
   flex-direction: column;
@@ -428,27 +407,7 @@ async function register() {
   max-width: 35rem;
   margin: 1rem 0;
 }
-.field {
-  margin-bottom: 1rem;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-}
-.field input,
-.field select,
-.field textarea {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
-}
-.field textarea {
+:deep(.field textarea) {
   font-family: var(--font-mono);
   font-size: 0.82rem;
 }
@@ -461,7 +420,7 @@ async function register() {
   color: var(--canary);
   font-weight: 600;
 }
-.field input[type="file"] {
+:deep(.field input[type="file"]) {
   padding: 0.4rem 0;
   border: none;
 }
@@ -480,39 +439,7 @@ async function register() {
   font-size: 0.85rem;
   color: var(--ok);
 }
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.preview-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.preview-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.preview-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.preview-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.preview-table tbody tr:hover {
-  background: var(--surface-sunken);
-}
-.preview-table .ep {
+:deep(.data-table .ep) {
   color: var(--text-secondary);
 }
 .error {

@@ -7,6 +7,9 @@ import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "../types/ap
 import { LayoutGrid, Plus } from "lucide-vue-next";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
 
 const router = useRouter();
 
@@ -148,13 +151,10 @@ async function confirmDelete() {
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>Catalog</h1>
-        <p class="subtitle">
-          Browse well-known servers and install them with one click, or save your own reusable templates.
-        </p>
-      </div>
+    <PageHeader
+      title="Catalog"
+      subtitle="Browse well-known servers and install them with one click, or save your own reusable templates."
+    >
       <button
         type="button"
         :class="showCreateForm ? 'btn-secondary' : 'btn-primary'"
@@ -162,44 +162,38 @@ async function confirmDelete() {
       >
         <Plus :size="14" stroke-width="2.5" aria-hidden="true" /> {{ showCreateForm ? "Cancel" : "Add custom entry" }}
       </button>
-    </header>
+    </PageHeader>
 
     <form v-if="showCreateForm" class="create-form" @submit.prevent="createEntry">
-      <div class="field">
-        <label for="ce-slug">Slug</label>
+      <FormField label="Slug" for="ce-slug">
         <input id="ce-slug" v-model="newSlug" type="text" placeholder="internal-crm-staging" required />
-      </div>
-      <div class="field">
-        <label for="ce-name">Name</label>
+      </FormField>
+      <FormField label="Name" for="ce-name">
         <input id="ce-name" v-model="newName" type="text" placeholder="Internal CRM (staging)" required />
-      </div>
-      <div class="field">
-        <label for="ce-description">Description (optional)</label>
+      </FormField>
+      <FormField label="Description (optional)" for="ce-description">
         <input id="ce-description" v-model="newDescription" type="text" placeholder="What this template registers" />
-      </div>
+      </FormField>
       <div class="segmented" role="radiogroup" aria-label="Kind">
         <label><input v-model="newKind" type="radio" name="ce-kind" value="rest" /> REST API</label>
         <label><input v-model="newKind" type="radio" name="ce-kind" value="mcp" /> MCP server</label>
       </div>
       <template v-if="newKind === 'rest'">
-        <div class="field">
-          <label for="ce-health">Health URL</label>
+        <FormField label="Health URL" for="ce-health">
           <input id="ce-health" v-model="newHealthUrl" type="url" placeholder="https://api.example.com/health" />
-        </div>
-        <div class="field">
-          <label for="ce-openapi">OpenAPI URL</label>
+        </FormField>
+        <FormField label="OpenAPI URL" for="ce-openapi">
           <input
             id="ce-openapi"
             v-model="newOpenapiUrl"
             type="url"
             placeholder="https://api.example.com/openapi.json"
           />
-        </div>
+        </FormField>
       </template>
-      <div v-else class="field">
-        <label for="ce-mcp">MCP server URL</label>
+      <FormField v-else label="MCP server URL" for="ce-mcp">
         <input id="ce-mcp" v-model="newMcpUrl" type="url" placeholder="https://mcp.example.com/mcp" />
-      </div>
+      </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Saving…" : "Save entry" }}</button>
     </form>
@@ -207,15 +201,10 @@ async function confirmDelete() {
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading" />
 
-    <template v-else-if="items.length === 0">
-      <div class="empty-state">
-        <LayoutGrid :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>
-          No catalog entries yet. The catalog lists one-click installable servers -- built-in or admin-added -- so
-          registering a new backend doesn't start from a blank form.
-        </p>
-      </div>
-    </template>
+    <EmptyState v-else-if="items.length === 0" :icon="LayoutGrid">
+      No catalog entries yet. The catalog lists one-click installable servers -- built-in or admin-added -- so
+      registering a new backend doesn't start from a blank form.
+    </EmptyState>
 
     <div v-else class="catalog-grid">
       <article
@@ -246,10 +235,9 @@ async function confirmDelete() {
         </div>
 
         <div v-if="openEntryId === entry.id" class="install-panel">
-          <div class="field">
-            <label :for="`install-name-${entry.id}`">Install as</label>
+          <FormField label="Install as" :for="`install-name-${entry.id}`">
             <input :id="`install-name-${entry.id}`" v-model="installName" type="text" />
-          </div>
+          </FormField>
           <template v-if="entry.kind === 'rest' && entry.openapiUrl">
             <div class="preview-row">
               <button type="button" class="btn-secondary" :disabled="previewing" @click="preview(entry)">
@@ -288,18 +276,9 @@ async function confirmDelete() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
+/* PageHeader's own recipe covers color/margin; this page's subtitle keeps a
+   line-length cap that the shared component doesn't set. */
+:deep(.subtitle) {
   max-width: 35rem;
 }
 .btn-primary,
@@ -317,12 +296,6 @@ async function confirmDelete() {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
 }
 .field input {
   width: 100%;
@@ -442,17 +415,5 @@ async function confirmDelete() {
 }
 .error {
   color: var(--breach);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 </style>

@@ -6,6 +6,10 @@ import { useResource } from "../composables/useResource";
 import type { CompositeSummary, CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
+import ToggleFormButton from "../components/ToggleFormButton.vue";
 
 const {
   data: items,
@@ -131,18 +135,11 @@ async function confirmDelete() {
           real <code>client__tool</code> through the full guard stack.
         </p>
       </div>
-      <button
-        type="button"
-        :class="showCreateForm ? 'btn-secondary' : 'btn-primary'"
-        @click="showCreateForm = !showCreateForm"
-      >
-        {{ showCreateForm ? "Cancel" : "New composite" }}
-      </button>
+      <ToggleFormButton v-model="showCreateForm" show-label="New composite" />
     </header>
 
     <form v-if="showCreateForm" class="create-form" @submit.prevent="createComposite">
-      <div class="field">
-        <label for="new-composite-name">Name</label>
+      <FormField label="Name" for="new-composite-name">
         <input
           id="new-composite-name"
           v-model="newName"
@@ -152,13 +149,11 @@ async function confirmDelete() {
           @blur="newNameTouched = true"
         />
         <p v-if="newNameTouched && newNameError" class="error">{{ newNameError }}</p>
-      </div>
-      <div class="field">
-        <label for="new-composite-description">Description</label>
+      </FormField>
+      <FormField label="Description" for="new-composite-description">
         <input id="new-composite-description" v-model="newDescription" type="text" placeholder="Optional" />
-      </div>
-      <div class="field">
-        <label for="new-composite-schema">Input schema (JSON)</label>
+      </FormField>
+      <FormField label="Input schema (JSON)" for="new-composite-schema">
         <textarea
           id="new-composite-schema"
           v-model="newSchema"
@@ -167,16 +162,15 @@ async function confirmDelete() {
           spellcheck="false"
         ></textarea>
         <p v-if="schemaError" class="error">{{ schemaError }}</p>
-      </div>
-      <div class="field">
-        <label for="new-composite-steps">Steps (JSON array)</label>
+      </FormField>
+      <FormField label="Steps (JSON array)" for="new-composite-steps">
         <p class="template-hint">
           Templates: <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> or <code>{{ '"${input.query}"' }}</code
           >.
         </p>
         <textarea id="new-composite-steps" v-model="newSteps" class="mono-field" rows="6" spellcheck="false"></textarea>
         <p v-if="stepsError" class="error">{{ stepsError }}</p>
-      </div>
+      </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button class="btn-primary" type="submit" :disabled="creating">
         {{ creating ? "Creating…" : "Create composite" }}
@@ -187,50 +181,45 @@ async function confirmDelete() {
     <SignalLoader v-if="loading" />
 
     <template v-else-if="items.length === 0">
-      <div class="empty-state">
-        <Combine :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>
-          No composite tools yet. A composite chains several existing tool calls into one, exposed on the aggregated MCP
-          endpoint.
-        </p>
-      </div>
+      <EmptyState :icon="Combine">
+        No composite tools yet. A composite chains several existing tool calls into one, exposed on the aggregated MCP
+        endpoint.
+      </EmptyState>
     </template>
 
-    <div v-else class="table-card table-scroll">
-      <table class="composites-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Steps</th>
-            <th>Enabled</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="c in items" :key="c.name">
-            <td>
-              <RouterLink :to="`/composites/${encodeURIComponent(c.name)}`">{{ c.name }}</RouterLink>
-            </td>
-            <td class="desc-cell" :title="c.description || undefined">{{ c.description || "—" }}</td>
-            <td>{{ c.stepsCount }}</td>
-            <td>
-              <button
-                type="button"
-                class="toggle"
-                :class="c.enabled ? 'toggle-on' : 'toggle-off'"
-                :aria-pressed="c.enabled"
-                @click="toggleEnabled(c)"
-              >
-                {{ c.enabled ? "Disable composite" : "Enable composite" }}
-              </button>
-              <p v-if="rowError[c.name]" class="row-error">{{ rowError[c.name] }}</p>
-            </td>
-            <td><button type="button" class="link-btn danger" @click="requestDelete(c)">Delete</button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Steps</th>
+          <th>Enabled</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="c in items" :key="c.name">
+          <td>
+            <RouterLink :to="`/composites/${encodeURIComponent(c.name)}`">{{ c.name }}</RouterLink>
+          </td>
+          <td class="desc-cell" :title="c.description || undefined">{{ c.description || "—" }}</td>
+          <td>{{ c.stepsCount }}</td>
+          <td>
+            <button
+              type="button"
+              class="toggle"
+              :class="c.enabled ? 'toggle-on' : 'toggle-off'"
+              :aria-pressed="c.enabled"
+              @click="toggleEnabled(c)"
+            >
+              {{ c.enabled ? "Disable composite" : "Enable composite" }}
+            </button>
+            <p v-if="rowError[c.name]" class="row-error">{{ rowError[c.name] }}</p>
+          </td>
+          <td><button type="button" class="link-btn danger" @click="requestDelete(c)">Delete</button></td>
+        </tr>
+      </tbody>
+    </TableCard>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -275,12 +264,6 @@ async function confirmDelete() {
   flex-direction: column;
   gap: 0.8rem;
 }
-.field label {
-  display: block;
-  font-weight: 600;
-  font-size: 0.85rem;
-  margin-bottom: 0.3rem;
-}
 .field input,
 .field textarea {
   width: 100%;
@@ -300,39 +283,7 @@ async function confirmDelete() {
   font-size: 0.82rem;
   margin: 0 0 0.4rem;
 }
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.composites-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.composites-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.composites-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.composites-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.composites-table tbody tr:hover {
-  background: var(--surface-sunken);
-}
-.desc-cell {
+:deep(.data-table td.desc-cell) {
   color: var(--text-secondary);
   max-width: 20rem;
   overflow: hidden;
@@ -380,17 +331,5 @@ async function confirmDelete() {
 }
 .link-btn.danger {
   color: var(--breach);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 </style>

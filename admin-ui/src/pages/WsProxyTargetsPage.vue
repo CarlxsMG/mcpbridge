@@ -5,6 +5,9 @@ import { useResource } from "../composables/useResource";
 import type { WsProxyTarget } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
 import { Waypoints } from "lucide-vue-next";
 
 const {
@@ -167,8 +170,7 @@ async function confirmDelete() {
     </header>
 
     <form v-if="showCreate" class="create-form" @submit.prevent="submitTarget">
-      <div class="field">
-        <label for="wp-name">Name</label>
+      <FormField label="Name" for="wp-name">
         <input
           id="wp-name"
           v-model="newName"
@@ -176,23 +178,19 @@ async function confirmDelete() {
           placeholder="iot-gateway"
           :disabled="editingTarget !== null"
         />
-      </div>
-      <div class="field">
-        <label for="wp-url">Backend WebSocket URL</label>
+      </FormField>
+      <FormField label="Backend WebSocket URL" for="wp-url">
         <input id="wp-url" v-model="newBackendUrl" type="text" placeholder="wss://backend.example.com/socket" />
-      </div>
-      <div class="field">
-        <label for="wp-max-conn">Max concurrent connections (blank = default)</label>
+      </FormField>
+      <FormField label="Max concurrent connections (blank = default)" for="wp-max-conn">
         <input id="wp-max-conn" v-model="newMaxConnections" type="text" inputmode="numeric" />
-      </div>
-      <div class="field">
-        <label for="wp-max-bytes">Max message size, bytes (blank = default)</label>
+      </FormField>
+      <FormField label="Max message size, bytes (blank = default)" for="wp-max-bytes">
         <input id="wp-max-bytes" v-model="newMaxMessageBytes" type="text" inputmode="numeric" />
-      </div>
-      <div class="field">
-        <label for="wp-idle">Idle timeout, minutes (blank = default)</label>
+      </FormField>
+      <FormField label="Idle timeout, minutes (blank = default)" for="wp-idle">
         <input id="wp-idle" v-model="newIdleTimeoutMinutes" type="text" inputmode="numeric" />
-      </div>
+      </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">
         {{ creating ? "Saving…" : editingTarget ? "Save changes" : "Create target" }}
@@ -201,58 +199,53 @@ async function confirmDelete() {
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading" />
-    <div v-else-if="targets.length === 0" class="empty-state">
-      <Waypoints :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>
-        No WS proxy targets yet. A target lets MCP tools dispatch over a persistent WebSocket connection to a backend
-        service instead of plain REST.
-      </p>
-    </div>
+    <EmptyState v-else-if="targets.length === 0" :icon="Waypoints">
+      No WS proxy targets yet. A target lets MCP tools dispatch over a persistent WebSocket connection to a backend
+      service instead of plain REST.
+    </EmptyState>
 
-    <div v-else class="table-card table-scroll">
-      <table class="wp-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Backend URL</th>
-            <th>Connections</th>
-            <th>Enabled</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="t in targets" :key="t.name">
-            <td>{{ t.name }}</td>
-            <td class="url-cell" :title="t.backendWsUrl">{{ t.backendWsUrl }}</td>
-            <td>{{ t.activeConnections }} / {{ t.maxConnections }}</td>
-            <td>
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Backend URL</th>
+          <th>Connections</th>
+          <th>Enabled</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="t in targets" :key="t.name">
+          <td>{{ t.name }}</td>
+          <td class="url-cell" :title="t.backendWsUrl">{{ t.backendWsUrl }}</td>
+          <td>{{ t.activeConnections }} / {{ t.maxConnections }}</td>
+          <td>
+            <button
+              type="button"
+              class="toggle"
+              :class="t.enabled ? 'toggle-on' : 'toggle-off'"
+              @click="toggleEnabled(t)"
+            >
+              {{ t.enabled ? "Enabled" : "Disabled" }}
+            </button>
+          </td>
+          <td>
+            <div class="actions">
+              <button type="button" class="link-btn" @click="openEdit(t)">Edit</button>
               <button
                 type="button"
-                class="toggle"
-                :class="t.enabled ? 'toggle-on' : 'toggle-off'"
-                @click="toggleEnabled(t)"
+                class="link-btn"
+                :disabled="disconnectingName === t.name || t.activeConnections === 0"
+                @click="requestDisconnectAll(t)"
               >
-                {{ t.enabled ? "Enabled" : "Disabled" }}
+                {{ disconnectingName === t.name ? "Disconnecting…" : "Disconnect all" }}
               </button>
-            </td>
-            <td>
-              <div  class="actions">
-                <button type="button" class="link-btn" @click="openEdit(t)">Edit</button>
-                <button
-                  type="button"
-                  class="link-btn"
-                  :disabled="disconnectingName === t.name || t.activeConnections === 0"
-                  @click="requestDisconnectAll(t)"
-                >
-                  {{ disconnectingName === t.name ? "Disconnecting…" : "Disconnect all" }}
-                </button>
-                <button type="button" class="link-btn danger" @click="pendingDelete = t">Delete</button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              <button type="button" class="link-btn danger" @click="pendingDelete = t">Delete</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </TableCard>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -302,15 +295,6 @@ async function confirmDelete() {
   margin-bottom: 1.5rem;
   max-width: 26.25rem;
 }
-.field {
-  margin-bottom: 1rem;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-}
 .field input {
   width: 100%;
   padding: 0.55rem 0.7rem;
@@ -323,38 +307,6 @@ async function confirmDelete() {
 .field input:disabled {
   background: var(--surface-sunken);
   color: var(--text-muted);
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.wp-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.wp-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.wp-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.wp-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.wp-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 .url-cell {
   color: var(--text-secondary);
@@ -413,17 +365,5 @@ async function confirmDelete() {
 }
 .error {
   color: var(--breach);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 </style>

@@ -5,6 +5,10 @@ import { useResource } from "../composables/useResource";
 import type { BundleSummary, BundleDetail, BundleToolRef } from "../types/api";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
+import ToggleFormButton from "../components/ToggleFormButton.vue";
 import { Boxes } from "lucide-vue-next";
 
 const {
@@ -76,25 +80,17 @@ async function toggleEnabled(bundle: BundleSummary) {
           Cross-client tool selections, each served at its own <code>/mcp-custom/&lt;name&gt;</code> endpoint.
         </p>
       </div>
-      <button
-        type="button"
-        :class="showCreateForm ? 'btn-secondary' : 'btn-primary'"
-        @click="showCreateForm = !showCreateForm"
-      >
-        {{ showCreateForm ? "Cancel" : "Create bundle" }}
-      </button>
+      <ToggleFormButton v-model="showCreateForm" show-label="Create bundle" />
     </header>
 
     <form v-if="showCreateForm" class="create-form" @submit.prevent="createBundle">
-      <div class="field">
-        <label for="new-bundle-name">Name</label>
+      <FormField label="Name" for="new-bundle-name">
         <input id="new-bundle-name" v-model="newName" type="text" placeholder="e.g. assistant-a" required />
-      </div>
+      </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
-      <div class="field">
-        <label for="new-bundle-description">Description (optional)</label>
+      <FormField label="Description (optional)" for="new-bundle-description">
         <input id="new-bundle-description" v-model="newDescription" type="text" placeholder="What this bundle is for" />
-      </div>
+      </FormField>
       <div class="field">
         <label>Tools</label>
         <BundleToolPicker v-model="newTools" />
@@ -107,49 +103,42 @@ async function toggleEnabled(bundle: BundleSummary) {
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading" />
 
-    <template v-else-if="items.length === 0">
-      <div class="empty-state">
-        <Boxes :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>
-          No bundles yet. A bundle lets you hand an MCP client a curated, cross-client tool selection instead of one
-          client's full tool list.
-        </p>
-      </div>
-    </template>
+    <EmptyState v-else-if="items.length === 0" :icon="Boxes">
+      No bundles yet. A bundle lets you hand an MCP client a curated, cross-client tool selection instead of one
+      client's full tool list.
+    </EmptyState>
 
-    <div v-else class="table-card table-scroll">
-      <table class="bundles-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Tools</th>
-            <th>Enabled</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="bundle in items" :key="bundle.name">
-            <td>
-              <RouterLink :to="`/bundles/${encodeURIComponent(bundle.name)}`">{{ bundle.name }}</RouterLink>
-            </td>
-            <td class="desc-cell" :title="bundle.description || undefined">{{ bundle.description || "—" }}</td>
-            <td>{{ bundle.toolsCount }}</td>
-            <td>
-              <button
-                type="button"
-                class="toggle"
-                :class="bundle.enabled ? 'toggle-on' : 'toggle-off'"
-                :aria-pressed="bundle.enabled"
-                @click="toggleEnabled(bundle)"
-              >
-                {{ bundle.enabled ? "Disable bundle" : "Enable bundle" }}
-              </button>
-              <p v-if="rowError[bundle.name]" class="row-error">{{ rowError[bundle.name] }}</p>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Tools</th>
+          <th>Enabled</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="bundle in items" :key="bundle.name">
+          <td>
+            <RouterLink :to="`/bundles/${encodeURIComponent(bundle.name)}`">{{ bundle.name }}</RouterLink>
+          </td>
+          <td class="desc-cell" :title="bundle.description || undefined">{{ bundle.description || "—" }}</td>
+          <td>{{ bundle.toolsCount }}</td>
+          <td>
+            <button
+              type="button"
+              class="toggle"
+              :class="bundle.enabled ? 'toggle-on' : 'toggle-off'"
+              :aria-pressed="bundle.enabled"
+              @click="toggleEnabled(bundle)"
+            >
+              {{ bundle.enabled ? "Disable bundle" : "Enable bundle" }}
+            </button>
+            <p v-if="rowError[bundle.name]" class="row-error">{{ rowError[bundle.name] }}</p>
+          </td>
+        </tr>
+      </tbody>
+    </TableCard>
   </section>
 </template>
 
@@ -183,47 +172,6 @@ async function toggleEnabled(bundle: BundleSummary) {
   font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 0.3rem;
-}
-.field input {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.bundles-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.bundles-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.bundles-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.bundles-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.bundles-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 .desc-cell {
   color: var(--text-secondary);
@@ -270,18 +218,6 @@ async function toggleEnabled(bundle: BundleSummary) {
   color: var(--breach);
   font-size: 0.75rem;
   margin: 0.25rem 0 0;
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 .error {
   color: var(--breach);
