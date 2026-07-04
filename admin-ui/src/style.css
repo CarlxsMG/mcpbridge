@@ -38,6 +38,13 @@
   --kind-mcp-soft: #ece9fb;
   --kind-mcp-text: #5a3aa8;
 
+  /* Overlay backdrop: the translucent scrim behind a modal/dialog. Was
+     hardcoded as this exact rgba() in 3 dialog components' own scoped
+     styles (ConfirmDialog.vue, ConnectClientDialog.vue,
+     ShareInstallLinkDialog.vue); promoted here so a future shared modal
+     component has one place to read it from. */
+  --overlay-backdrop: rgba(14, 17, 22, 0.55);
+
   --text-primary: #14171c;
   --text-secondary: #565d6b;
   --text-muted: #8a8f98;
@@ -487,4 +494,153 @@ html {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---- Row-level field error text: promoted from ~9 pages' identical scoped
+   copy (a small error line under a table row/form field). Excludes
+   ShareInstallLinkDialog.vue's same-named `.row-error` — it uses
+   var(--text-sm)/var(--space-2) (0.8rem / 0.5rem-top) instead of 0.75rem /
+   0.25rem-top, a real (not rounding-error) divergence, so it keeps its own
+   scoped override, which continues to win via Vue's scoped-attribute
+   specificity. ------------------------------------------------------------ */
+.row-error {
+  color: var(--breach);
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0;
+}
+
+/* ---- Truncated table cell: promoted from 4 differently-named page-local
+   classes (.url-cell, .desc-cell, .preview, .args) that all hand-rolled the
+   same overflow-ellipsis recipe. max-width is deliberately NOT included —
+   it ranged from 11.875rem to 20rem across usages — so adopters keep
+   declaring their own max-width alongside this class. ---------------------- */
+.cell-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Monospace table cell: promoted from 4 pages' identical (or
+   effectively identical — TracesPage hardcoded 0.82rem instead of
+   var(--text-sm)'s 0.8rem, a sub-pixel difference not worth a separate
+   rule) copy. --------------------------------------------------------------- */
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+/* ---- "Hot"/danger-highlight table cell: promoted from 4 pages' identical
+   copy. (TracesPage's separate `.waterfall-bar.hot` compound selector is an
+   unrelated recipe — a waterfall-chart bar's background — and stays
+   page-side.) --------------------------------------------------------------- */
+.hot {
+  color: var(--breach);
+  font-weight: 600;
+}
+
+/* ---- Inline create/edit form container: promoted from the 7 (of 11) pages
+   whose copy matched exactly modulo max-width (23.75rem-30rem, left as a
+   per-page concern, same reasoning as .cell-truncate above): BundlesPage,
+   CatalogPage, ConsumersPage, KeysPage, PoliciesPage, UsersPage,
+   WsProxyTargetsPage.
+   4 usages are excluded on purpose — their bodies diverge in more than just
+   max-width, so folding them in would silently change their look once this
+   phase's per-page duplicates are eventually deleted:
+     - AlertsPage / CompositesPage use a bordered+shadowed `--surface` card
+       (border + box-shadow) instead of the flat `--surface-sunken` block.
+     - SchedulesPage uses different padding (1rem)/margin-bottom (1rem) and
+       is a wrapping horizontal toolbar (flex-wrap, align-items: flex-end),
+       not a vertical card.
+     - TeamsPage has no background/padding/border-radius at all — just a
+       flex row with margin.
+   Do not delete those 4 pages' own `.create-form` override without
+   re-checking against this list. --------------------------------------------- */
+.create-form {
+  background: var(--surface-sunken);
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+}
+
+/* ---- Spinning refresh icon: promoted from 3 pages' identical copy. ------- */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ---- List-page shell + sticky pagination footer: promoted from 3 pages
+   (DashboardPage, TracesPage, TrafficPage) that each hand-rolled an
+   identical bare `section { display: flex; flex-direction: column;
+   min-height: 100%; }` plus a sticky `.pagination` bar wrapping
+   PaginationBar.vue. Promoted under new, explicitly-namespaced class names
+   rather than reusing `section`/`.pagination` as-is: every one of this
+   app's ~27 page components roots its template in a bare `<section>`, so a
+   global bare-element rule here would silently reflow all of them, not just
+   these 3. Adopting these at migration time is a markup change (add the
+   class), not just a CSS deletion — swap the page's root `<section>` for
+   `<section class="list-shell">` and its `<div class="pagination">` for
+   `<div class="sticky-pagination">`. ------------------------------------------ */
+.list-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.sticky-pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--paper);
+  padding: var(--space-3) 0;
+}
+.sticky-pagination .subtitle {
+  margin-left: 0.4rem;
+}
+
+/* ---- Filter-row toolbar: two page-local names (.filters on
+   DashboardPage/AuditLogPage, .filter-row on TracesPage/TrafficPage) for the
+   same "labelled filter inputs + Apply button" row. Aliased here as one
+   ruleset. Only the shared container shape + typed-input styling is
+   promoted; a few sub-recipes are excluded because they aren't actually
+   common to all 4:
+     - The `.field label` tightening inside DashboardPage/AuditLogPage's
+       filters is a page-specific override of FormField.vue's own `.field
+       label` margin, not part of this row recipe, so it stays page-side.
+     - TrafficPage's `.filter-field`/`.filter-label` (an uppercase eyebrow
+       label) and TracesPage's `.session-input` are one-off, page-specific
+       sub-elements, not shared across the other 3.
+   Values below are rounded to a shared value where the 4 originals differed
+   by a hair (gap 0.6rem vs var(--space-3); padding 0.45rem/0.6rem vs
+   0.5rem/0.7rem) — each page's own scoped copy still wins by specificity
+   wherever it explicitly redeclares a property, so nothing visually changes
+   for those pages until the per-page copies are deleted in a later phase.
+   One exception: DashboardPage's local copy never set flex-wrap at all, so
+   this rule's flex-wrap: wrap newly takes effect there (rows wrap instead of
+   overflowing on narrow viewports) — the same kind of fix already applied
+   once to .page-header above. TracesPage still centers items instead of
+   bottom-aligning them via its own surviving override. ---------------------- */
+.filters,
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.filters select,
+.filters input[type="date"],
+.filter-row input[type="text"] {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
 }
