@@ -1,4 +1,5 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
+import { sha256Hex } from "../lib/crypto.js";
 
 /**
  * Constant-time string comparison via hash-then-timingSafeEqual, so that
@@ -9,8 +10,8 @@ import { createHash, timingSafeEqual } from "node:crypto";
  */
 export function safeCompare(a: string, b: string): boolean {
   try {
-    const ha = createHash("sha256").update(a, "utf8").digest();
-    const hb = createHash("sha256").update(b, "utf8").digest();
+    const ha = Buffer.from(sha256Hex(a), "hex");
+    const hb = Buffer.from(sha256Hex(b), "hex");
     return timingSafeEqual(ha, hb);
   } catch {
     return false;

@@ -12,9 +12,9 @@
  * Extends the destructive-gating idea of `tool-sensitivity` (which uses an inline
  * `__confirm`); approval adds an out-of-band human decision on top.
  */
-import { createHash } from "node:crypto";
 import { getDb } from "./db/connection.js";
 import { config } from "./config.js";
+import { sha256Hex } from "./lib/crypto.js";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -179,7 +179,7 @@ export function approvalArgsHash(args: Record<string, unknown>): string {
   const clean: Record<string, unknown> = { ...args };
   delete clean.__approval_id;
   delete clean.__confirm;
-  return createHash("sha256").update(stableStringify(clean)).digest("hex");
+  return sha256Hex(stableStringify(clean));
 }
 
 export function createApproval(

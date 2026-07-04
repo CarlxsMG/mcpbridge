@@ -4,6 +4,7 @@ import { proxyToolCall } from "./proxy/proxy.js";
 import { TOOL_KEY_SEPARATOR } from "./mcp/registry.js";
 import { SEARCH_TOOL_NAME, type AdvertisedTool } from "./mcp/tool-search.js";
 import { log } from "./logger.js";
+import { TOOL_NAME_RE } from "./lib/identifier.js";
 
 /**
  * Composite (a.k.a. virtual/macro) tools: an admin-authored tool that chains
@@ -58,8 +59,6 @@ export type CompositeMutationError =
 
 export type CompositeMutationResult = { ok: true } | { ok: false; error: CompositeMutationError };
 
-const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
-
 interface LiveComposite {
   enabled: boolean;
   description: string | null;
@@ -94,7 +93,7 @@ async function withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
 
 /** Composite names must be tool-name-shaped but MUST NOT contain the `__` separator (would shadow a real tool) or be reserved. */
 export function isValidCompositeName(name: string): boolean {
-  return NAME_RE.test(name) && !name.includes(TOOL_KEY_SEPARATOR) && name !== SEARCH_TOOL_NAME;
+  return TOOL_NAME_RE.test(name) && !name.includes(TOOL_KEY_SEPARATOR) && name !== SEARCH_TOOL_NAME;
 }
 
 function validateSteps(db: ReturnType<typeof getDb>, steps: CompositeStep[]): CompositeMutationError | null {

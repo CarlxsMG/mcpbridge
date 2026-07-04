@@ -21,12 +21,13 @@
  * migration 50's oidc_config.default_role CHECK constraint and the comment
  * on that function for why.
  */
-import { randomBytes, createHash } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { getDb } from "../db/connection.js";
 import { getSecretsProvider } from "../secrets/index.js";
 import { log } from "../logger.js";
 import { createUser, findUserByUsername, findUserById, type AdminUser } from "./user-store.js";
 import { createJwksFetcher, verifyJwtSignatureWithKeys, type JwtClaims, type Jwk } from "./jwt.js";
+import { sha256Hex } from "../lib/crypto.js";
 
 // ── WebCrypto-based PKCE (RFC 7636) ─────────────────────────────────────────
 
@@ -365,7 +366,7 @@ function linkIdentity(provider: string, subject: string, userId: number): void {
 }
 
 function shortSubjectHash(subject: string): string {
-  return createHash("sha256").update(subject, "utf8").digest("hex").slice(0, 8);
+  return sha256Hex(subject).slice(0, 8);
 }
 
 function slugifyLocalPart(raw: string): string {

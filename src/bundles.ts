@@ -2,6 +2,7 @@ import { getDb } from "./db/connection.js";
 import { notifyToolsChanged } from "./mcp/mcp-server.js";
 import { TOOL_KEY_SEPARATOR } from "./mcp/registry.js";
 import { log } from "./logger.js";
+import { TOOL_NAME_RE } from "./lib/identifier.js";
 
 export interface BundleToolRef {
   client: string;
@@ -31,8 +32,6 @@ export type BundleMutationError =
   | { code: "UNKNOWN_TOOL"; message: string };
 
 export type BundleMutationResult = { ok: true } | { ok: false; error: BundleMutationError };
-
-const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
 
 interface LiveBundle {
   enabled: boolean;
@@ -197,7 +196,7 @@ export async function createBundle(
   tools: BundleToolRef[],
   actor: string,
 ): Promise<BundleMutationResult> {
-  if (!NAME_RE.test(name)) {
+  if (!TOOL_NAME_RE.test(name)) {
     return {
       ok: false,
       error: { code: "INVALID_NAME", message: "Bundle name must match /^[a-z0-9][a-z0-9_-]{0,62}$/" },

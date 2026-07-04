@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "../lib/crypto.js";
 import { safeCompare } from "./compare.js";
 
 /**
@@ -6,7 +6,7 @@ import { safeCompare } from "./compare.js";
  * without ever writing a raw `mcpApiKeys` secret to disk.
  */
 export function hashApiKey(key: string): string {
-  return createHash("sha256").update(key, "utf8").digest("hex");
+  return sha256Hex(key);
 }
 
 /**

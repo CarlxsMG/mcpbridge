@@ -24,8 +24,7 @@ import { getCircuitBreaker } from "./middleware/circuit-breaker.js";
 import { registry } from "./mcp/registry.js";
 import { log } from "./logger.js";
 import { wsProxyActiveConnections, wsProxyBytesTotal } from "./observability/metrics.js";
-
-const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
+import { TOOL_NAME_RE } from "./lib/identifier.js";
 
 export interface WsProxyTarget {
   name: string;
@@ -137,7 +136,7 @@ export async function upsertWsProxyTarget(
   name: string,
   input: WsProxyTargetInput,
 ): Promise<{ ok: true; target: WsProxyTarget } | { ok: false; error: WsProxyTargetError }> {
-  if (!NAME_RE.test(name)) {
+  if (!TOOL_NAME_RE.test(name)) {
     return { ok: false, error: { code: "INVALID_NAME", message: "Name must match /^[a-z0-9][a-z0-9_-]{0,62}$/" } };
   }
   if (!targets.has(name) && registry.getClient(name)) {

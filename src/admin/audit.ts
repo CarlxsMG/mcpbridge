@@ -1,7 +1,7 @@
-import { createHash } from "crypto";
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
+import { sha256Hex } from "../lib/crypto.js";
 import type { Request } from "express";
 
 export interface AuditLogEntry {
@@ -13,10 +13,6 @@ export interface AuditLogEntry {
   createdAt: number;
   /** Tamper-evidence chain hash (null for rows written before the hash-chain migration). */
   hash: string | null;
-}
-
-function sha256Hex(s: string): string {
-  return createHash("sha256").update(s).digest("hex");
 }
 
 /**

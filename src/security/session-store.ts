@@ -1,12 +1,13 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { safeCompare } from "./compare.js";
 import { findUserById } from "./user-store.js";
 import type { AdminRole } from "./user-store.js";
+import { sha256Hex } from "../lib/crypto.js";
 
 function hashToken(token: string): string {
-  return createHash("sha256").update(token, "utf8").digest("hex");
+  return sha256Hex(token);
 }
 
 export interface CreatedSession {

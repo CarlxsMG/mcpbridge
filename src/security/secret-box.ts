@@ -1,5 +1,6 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { config } from "../config.js";
+import { sha256Hex } from "../lib/crypto.js";
 
 /**
  * Authenticated symmetric encryption for secrets at rest (AES-256-GCM).
@@ -18,7 +19,7 @@ function getKey(): Buffer | null {
   if (!raw) return null;
   const decoded = Buffer.from(raw, "base64");
   if (decoded.length === 32) return decoded;
-  return createHash("sha256").update(raw, "utf8").digest();
+  return Buffer.from(sha256Hex(raw), "hex");
 }
 
 export function isSecretBoxConfigured(): boolean {

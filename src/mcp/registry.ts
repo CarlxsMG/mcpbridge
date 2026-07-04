@@ -30,6 +30,7 @@ import { getWsForClient, getGraphqlForClient } from "../proxy/backends.js";
 import { getContextBudgetForClient } from "../context-budget.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";
+import { TOOL_NAME_RE } from "../lib/identifier.js";
 
 export interface ClientSummary {
   name: string;
@@ -544,7 +545,7 @@ class Registry {
       throw new Error("Client name is required and must be a non-empty string");
     }
 
-    if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(name)) {
+    if (!TOOL_NAME_RE.test(name)) {
       throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
     }
 
@@ -555,7 +556,7 @@ class Registry {
         throw new Error("Tool name is required and must be a non-empty string");
       }
 
-      if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(tool.name)) {
+      if (!TOOL_NAME_RE.test(tool.name)) {
         throw new Error(
           `Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`,
         );
@@ -670,7 +671,7 @@ class Registry {
     if (!name || typeof name !== "string") {
       throw new Error("Client name is required and must be a non-empty string");
     }
-    if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(name)) {
+    if (!TOOL_NAME_RE.test(name)) {
       throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
     }
 
@@ -679,7 +680,7 @@ class Registry {
       if (!tool.name || typeof tool.name !== "string") {
         throw new Error("Tool name is required and must be a non-empty string");
       }
-      if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(tool.name)) {
+      if (!TOOL_NAME_RE.test(tool.name)) {
         throw new Error(
           `Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`,
         );
@@ -1144,7 +1145,7 @@ class Registry {
           // A display-name alias becomes part of the composite MCP key, so it
           // must satisfy the same charset as a tool name (keeps the `__`
           // separator unambiguous — see TOOL_KEY_SEPARATOR invariant).
-          if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test(override.displayName)) {
+          if (!TOOL_NAME_RE.test(override.displayName)) {
             throw new ToolOverrideError("TOOL_ALIAS_INVALID", "displayName must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
           }
           if (!this.isAliasAvailable(clientName, toolName, override.displayName)) {
