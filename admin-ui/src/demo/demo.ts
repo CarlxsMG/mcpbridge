@@ -64,6 +64,59 @@ function ok<T>(v: T): T {
   return v;
 }
 
+/**
+ * Shared shape behind the clients & bundles detail routes: GET and PATCH
+ * both return the same freshly computed detail view (via `computeDetail`,
+ * which gets the found item so it can reflect a just-applied mutation),
+ * PATCH's only supported change is toggling `enabled`, and DELETE
+ * deliberately leaves the item in its backing array — the mock returns
+ * undefined without removing it, matching how both flows already behaved.
+ * Callers gate which methods reach this helper; anything not passed in is
+ * left for the caller to fall through to a later route unchanged.
+ */
+function detailWithEnabledToggle<T extends { enabled: boolean }>(
+  item: T | undefined,
+  method: string,
+  body: Record<string, unknown> | undefined,
+  computeDetail: (item: T | undefined) => unknown,
+): unknown {
+  if (method === "DELETE") return undefined;
+  if (method === "PATCH" && item && body && typeof body.enabled === "boolean") {
+    item.enabled = body.enabled;
+  }
+  return ok(computeDetail(item));
+}
+
+/**
+ * Shared shape behind the catalog-entry & ws-proxy-target detail routes:
+ * PATCH merges the whole request body onto the found item with
+ * Object.assign, DELETE removes it outright via findIndex + splice, and
+ * neither resource has its own GET-single branch (their collection-level
+ * GET already covers the list). Returns the `undefined` sentinel for any
+ * other method — since DELETE and PATCH here always return a real object,
+ * that's unambiguous — so callers can fall through to a later route exactly
+ * as the un-factored per-resource blocks did.
+ */
+function patchOrDeleteInArray<T>(
+  items: T[],
+  predicate: (item: T) => boolean,
+  method: string,
+  body: Record<string, unknown> | undefined,
+  deletedBody: () => Record<string, unknown>,
+): unknown {
+  if (method === "DELETE") {
+    const idx = items.findIndex(predicate);
+    if (idx !== -1) items.splice(idx, 1);
+    return ok(deletedBody());
+  }
+  if (method === "PATCH") {
+    const item = items.find(predicate);
+    if (item && body) Object.assign(item, body);
+    return ok(item ?? {});
+  }
+  return undefined;
+}
+
 function route(
   pathname: string,
   method: string,
@@ -134,13 +187,14 @@ function route(
   const clientDetailMatch = p.match(/^\/admin-api\/clients\/([^/]+)$/);
   if (clientDetailMatch) {
     const name = decodeURIComponent(clientDetailMatch[1]);
-    if (method === "GET") return ok(clientDetail(name));
-    if (method === "PATCH") {
-      const c = clients.find((x) => x.name === name);
-      if (c && body && typeof body.enabled === "boolean") c.enabled = body.enabled;
-      return ok(clientDetail(name));
+    if (method === "GET" || method === "PATCH" || method === "DELETE") {
+      return detailWithEnabledToggle(
+        clients.find((x) => x.name === name),
+        method,
+        body,
+        () => clientDetail(name),
+      );
     }
-    if (method === "DELETE") return undefined;
   }
   if (/^\/admin-api\/clients\/[^/]+\/canary$/.test(p)) return ok({ canary: null });
   if (/^\/admin-api\/clients\/[^/]+\/upstream-auth$/.test(p)) return ok({ configured: false });
@@ -162,20 +216,17 @@ function route(
   const bundleDetailMatch = p.match(/^\/admin-api\/bundles\/([^/]+)$/);
   if (bundleDetailMatch) {
     const name = decodeURIComponent(bundleDetailMatch[1]);
-    if (method === "DELETE") return undefined;
-    if (method === "PATCH") {
-      const b = bundles.find((x) => x.name === name);
-      if (b && body && typeof body.enabled === "boolean") b.enabled = body.enabled;
-    }
-    const b = bundles.find((x) => x.name === name);
-    return ok<BundleDetail>({
+    // No method gate here (unlike clients above): the pre-refactor code
+    // computed & returned this detail for any method except DELETE, so this
+    // call stays unconditional to keep that the same.
+    return detailWithEnabledToggle(bundles.find((x) => x.name === name), method, body, (b): BundleDetail => ({
       name,
       description: b?.description ?? null,
       enabled: b?.enabled ?? true,
       createdAt: days(9),
       updatedAt: NOW,
       tools: (TOOLS[clients[0].name] ?? []).slice(0, 2).map((t) => ({ client: clients[0].name, tool: t.name })),
-    });
+    }));
   }
 
   // Bundle install links
@@ -244,16 +295,11 @@ function route(
   const catalogEntryMatch = p.match(/^\/admin-api\/catalog\/([^/]+)$/);
   if (catalogEntryMatch) {
     const id = decodeURIComponent(catalogEntryMatch[1]);
-    if (method === "DELETE") {
-      const idx = catalogEntries.findIndex((e) => e.id === id);
-      if (idx !== -1) catalogEntries.splice(idx, 1);
-      return ok({ status: "deleted", id });
-    }
-    if (method === "PATCH") {
-      const e = catalogEntries.find((x) => x.id === id);
-      if (e && body) Object.assign(e, body);
-      return ok(e ?? {});
-    }
+    const result = patchOrDeleteInArray(catalogEntries, (e) => e.id === id, method, body, () => ({
+      status: "deleted",
+      id,
+    }));
+    if (result !== undefined) return result;
   }
 
   // WS proxy targets
@@ -284,16 +330,11 @@ function route(
   const wsProxyTargetMatch = p.match(/^\/admin-api\/ws-proxy-targets\/([^/]+)$/);
   if (wsProxyTargetMatch) {
     const name = decodeURIComponent(wsProxyTargetMatch[1]);
-    if (method === "DELETE") {
-      const idx = wsProxyTargets.findIndex((x) => x.name === name);
-      if (idx !== -1) wsProxyTargets.splice(idx, 1);
-      return ok({ status: "deleted", name });
-    }
-    if (method === "PATCH") {
-      const t = wsProxyTargets.find((x) => x.name === name);
-      if (t && body) Object.assign(t, body);
-      return ok(t ?? {});
-    }
+    const result = patchOrDeleteInArray(wsProxyTargets, (x) => x.name === name, method, body, () => ({
+      status: "deleted",
+      name,
+    }));
+    if (result !== undefined) return result;
   }
 
   // Keys & consumers
