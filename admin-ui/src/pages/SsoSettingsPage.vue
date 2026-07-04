@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { OidcSettings } from "../types/api";
 import { Fingerprint } from "lucide-vue-next";
+import FormField from "../components/FormField.vue";
 
 const settings = ref<OidcSettings | null>(null);
 const loading = ref(true);
@@ -96,8 +97,7 @@ async function save() {
     <p v-if="loadError" class="error" role="alert">{{ loadError }}</p>
 
     <form v-if="!loading" class="settings-form" @submit.prevent="save">
-      <div class="field">
-        <label for="sso-issuer">Issuer URL</label>
+      <FormField label="Issuer URL" for="sso-issuer">
         <input
           id="sso-issuer"
           v-model="issuer"
@@ -110,15 +110,13 @@ async function save() {
           The bridge fetches <code>{issuer}/.well-known/openid-configuration</code> — no need to enter individual
           endpoints.
         </p>
-      </div>
+      </FormField>
 
-      <div class="field">
-        <label for="sso-client-id">Client ID</label>
+      <FormField label="Client ID" for="sso-client-id">
         <input id="sso-client-id" v-model="clientId" type="text" autocomplete="off" required />
-      </div>
+      </FormField>
 
-      <div class="field">
-        <label for="sso-client-secret">Client secret</label>
+      <FormField label="Client secret" for="sso-client-secret">
         <input
           id="sso-client-secret"
           v-model="clientSecret"
@@ -130,10 +128,9 @@ async function save() {
           Write-only: stored encrypted at rest and never shown again once saved — re-enter it on every save, even one
           that only changes another field below.
         </p>
-      </div>
+      </FormField>
 
-      <div class="field">
-        <label for="sso-redirect-uri">Redirect URI</label>
+      <FormField label="Redirect URI" for="sso-redirect-uri">
         <input
           id="sso-redirect-uri"
           v-model="redirectUri"
@@ -143,13 +140,12 @@ async function save() {
           required
         />
         <p class="hint">Must exactly match a redirect URI registered with the identity provider.</p>
-      </div>
+      </FormField>
 
-      <div class="field">
-        <label for="sso-scopes">Scopes</label>
+      <FormField label="Scopes" for="sso-scopes">
         <input id="sso-scopes" v-model="scopes" type="text" placeholder="openid profile email" autocomplete="off" />
         <p class="hint">Must include <code>openid</code>.</p>
-      </div>
+      </FormField>
 
       <div class="field">
         <span class="field-label">New SSO users are provisioned as</span>
@@ -202,21 +198,19 @@ async function save() {
   flex-direction: column;
   gap: 1.1rem;
 }
-.field label,
 .field-label {
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 0.3rem;
 }
-.field input {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
+/* .settings-form's flex `gap` already provides the 1.1rem vertical rhythm
+   between fields; FormField.vue also puts a margin-bottom on its own root,
+   which would stack on top of that gap and widen spacing only between the
+   fields that got migrated onto <FormField>. Zeroed here to keep the
+   original, uniform spacing. */
+:deep(.settings-form .field) {
+  margin-bottom: 0;
 }
 .hint {
   color: var(--text-secondary);

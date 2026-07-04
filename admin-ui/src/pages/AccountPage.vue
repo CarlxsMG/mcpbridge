@@ -8,6 +8,10 @@ import { useDensity } from "../composables/useDensity";
 import type { AdminSession } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
 import { Lock, Monitor, LogOut, SlidersHorizontal } from "lucide-vue-next";
 
 const { state: authState } = useAuth();
@@ -128,19 +132,16 @@ onMounted(loadSessions);
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>Account</h1>
-        <p class="subtitle">Manage your password and active sessions for {{ authState.user?.username }}.</p>
-      </div>
-    </header>
+    <PageHeader
+      title="Account"
+      :subtitle="`Manage your password and active sessions for ${authState.user?.username ?? ''}.`"
+    />
 
     <div class="account-section">
       <h2><Lock :size="16" stroke-width="2" aria-hidden="true" /> Change password</h2>
       <p class="hint warn">Changing your password immediately signs out every other active session.</p>
       <form class="password-form" @submit.prevent="changePassword">
-        <div class="field">
-          <label for="acc-current-password">Current password</label>
+        <FormField label="Current password" for="acc-current-password">
           <input
             id="acc-current-password"
             v-model="currentPassword"
@@ -148,14 +149,12 @@ onMounted(loadSessions);
             autocomplete="current-password"
             required
           />
-        </div>
-        <div class="field">
-          <label for="acc-new-password">New password</label>
+        </FormField>
+        <FormField label="New password" for="acc-new-password">
           <input id="acc-new-password" v-model="newPassword" type="password" autocomplete="new-password" required />
           <p class="hint">At least 12 characters.</p>
-        </div>
-        <div class="field">
-          <label for="acc-confirm-password">Confirm new password</label>
+        </FormField>
+        <FormField label="Confirm new password" for="acc-confirm-password">
           <input
             id="acc-confirm-password"
             v-model="confirmPassword"
@@ -163,7 +162,7 @@ onMounted(loadSessions);
             autocomplete="new-password"
             required
           />
-        </div>
+        </FormField>
         <p v-if="passwordError" class="error" role="alert">{{ passwordError }}</p>
         <p v-if="passwordSuccess" class="success" role="status">{{ passwordSuccess }}</p>
         <button type="submit" class="btn-primary" :disabled="changingPassword">
@@ -183,39 +182,34 @@ onMounted(loadSessions);
       <p v-if="revokeError" class="error" role="alert">{{ revokeError }}</p>
       <SignalLoader v-if="sessionsLoading" />
       <p v-else-if="sessionsError" class="error" role="alert">{{ sessionsError }}</p>
-      <div v-else-if="sessions.length === 0" class="empty-state">
-        <Monitor :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>No active sessions.</p>
-      </div>
+      <EmptyState v-else-if="sessions.length === 0" :icon="Monitor">No active sessions.</EmptyState>
 
-      <div v-else class="table-card table-scroll">
-        <table class="sessions-table">
-          <thead>
-            <tr>
-              <th>Device</th>
-              <th>IP address</th>
-              <th>Last active</th>
-              <th>Signed in</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="session in sessions" :key="session.id">
-              <td>{{ describeUserAgent(session.userAgent) }}</td>
-              <td class="mono-cell">{{ session.ipAddress ?? "—" }}</td>
-              <td>{{ new Date(session.lastSeenAt).toLocaleString() }}</td>
-              <td>{{ new Date(session.createdAt).toLocaleString() }}</td>
-              <td>
-                <div class="actions">
-                  <button type="button" class="link-btn danger" @click="requestRevoke(session)">
-                    <LogOut :size="13" stroke-width="2" aria-hidden="true" /> Sign out
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TableCard v-else>
+        <thead>
+          <tr>
+            <th>Device</th>
+            <th>IP address</th>
+            <th>Last active</th>
+            <th>Signed in</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="session in sessions" :key="session.id">
+            <td>{{ describeUserAgent(session.userAgent) }}</td>
+            <td class="mono-cell">{{ session.ipAddress ?? "—" }}</td>
+            <td>{{ new Date(session.lastSeenAt).toLocaleString() }}</td>
+            <td>{{ new Date(session.createdAt).toLocaleString() }}</td>
+            <td>
+              <div class="actions">
+                <button type="button" class="link-btn danger" @click="requestRevoke(session)">
+                  <LogOut :size="13" stroke-width="2" aria-hidden="true" /> Sign out
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </TableCard>
     </div>
 
     <div class="account-section">
@@ -287,15 +281,6 @@ onMounted(loadSessions);
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
@@ -324,15 +309,6 @@ onMounted(loadSessions);
   margin-top: var(--space-4);
   max-width: 23.75rem;
 }
-.field {
-  margin-bottom: var(--space-4);
-}
-.field label {
-  display: block;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-}
 .field input {
   width: 100%;
   padding: 0.55rem 0.7rem;
@@ -350,38 +326,6 @@ onMounted(loadSessions);
 .hint.warn {
   color: var(--canary);
 }
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.sessions-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.sessions-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.sessions-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.sessions-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.sessions-table tbody tr:hover {
-  background: var(--surface-sunken);
-}
 .mono-cell {
   font-family: var(--font-mono);
   font-size: 0.83rem;
@@ -395,18 +339,6 @@ onMounted(loadSessions);
   align-items: center;
   gap: var(--space-1);
   color: var(--breach);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 .error {
   color: var(--breach);

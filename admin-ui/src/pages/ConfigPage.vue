@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { ConfigImportResult, ConfigSnapshotSummary, ConfigDiffResult } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import PageHeader from "../components/PageHeader.vue";
 
 const exporting = ref(false);
 const importText = ref("");
@@ -160,15 +161,10 @@ async function confirmImport() {
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>Configuration</h1>
-        <p class="subtitle">
-          Export a portable snapshot of admin-authored config (bundles, alerts, per-client guards & overrides), or
-          import one into this instance.
-        </p>
-      </div>
-    </header>
+    <PageHeader
+      title="Configuration"
+      subtitle="Export a portable snapshot of admin-authored config (bundles, alerts, per-client guards & overrides), or import one into this instance."
+    />
 
     <div class="block">
       <h2>Export</h2>
@@ -363,18 +359,9 @@ async function confirmImport() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
+/* PageHeader's own recipe covers color/margin; this page's subtitle is long
+   enough to need a line-length cap that the shared component doesn't set. */
+:deep(.subtitle) {
   max-width: 40rem;
 }
 .hint {

@@ -9,6 +9,7 @@ import BundleToolPicker from "../components/BundleToolPicker.vue";
 import SignalLoader from "../components/SignalLoader.vue";
 import ConnectClientDialog from "../components/ConnectClientDialog.vue";
 import ShareInstallLinkDialog from "../components/ShareInstallLinkDialog.vue";
+import FormField from "../components/FormField.vue";
 import { Cable, Share2 } from "lucide-vue-next";
 
 const props = defineProps<{ name: string }>();
@@ -183,8 +184,7 @@ function cancelLeave() {
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
       <p v-if="deleteError" class="row-error">{{ deleteError }}</p>
 
-      <div class="field description-field">
-        <label for="bundle-description">Description</label>
+      <FormField label="Description" for="bundle-description" class="description-field">
         <div class="description-row">
           <input id="bundle-description" v-model="descriptionInput" type="text" placeholder="What this bundle is for" />
           <button
@@ -197,7 +197,7 @@ function cancelLeave() {
           </button>
         </div>
         <p v-if="descriptionError" class="row-error">{{ descriptionError }}</p>
-      </div>
+      </FormField>
 
       <h2>Tools ({{ toolsDraft.length }})</h2>
       <BundleToolPicker v-model="toolsDraft" />
@@ -275,12 +275,6 @@ function cancelLeave() {
 }
 .header-actions .btn-danger {
   margin-left: auto;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
 }
 .description-field {
   margin: 1rem 0 1.5rem;

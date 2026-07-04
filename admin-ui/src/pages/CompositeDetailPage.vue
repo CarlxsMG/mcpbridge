@@ -6,6 +6,8 @@ import { useResource } from "../composables/useResource";
 import type { CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import FormField from "../components/FormField.vue";
 
 const props = defineProps<{ name: string }>();
 const router = useRouter();
@@ -170,30 +172,24 @@ async function confirmDelete() {
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
 
     <template v-else-if="detail">
-      <header class="page-header">
-        <div>
-          <h1>{{ detail.name }}</h1>
-        </div>
-        <div class="header-actions">
-          <button
-            type="button"
-            class="toggle"
-            :class="detail.enabled ? 'toggle-on' : 'toggle-off'"
-            :aria-pressed="detail.enabled"
-            @click="toggleEnabled"
-          >
-            {{ detail.enabled ? "Disable composite" : "Enable composite" }}
-          </button>
-          <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
-            {{ deleting ? "Deleting…" : "Delete composite" }}
-          </button>
-        </div>
-      </header>
+      <PageHeader :title="detail.name">
+        <button
+          type="button"
+          class="toggle"
+          :class="detail.enabled ? 'toggle-on' : 'toggle-off'"
+          :aria-pressed="detail.enabled"
+          @click="toggleEnabled"
+        >
+          {{ detail.enabled ? "Disable composite" : "Enable composite" }}
+        </button>
+        <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
+          {{ deleting ? "Deleting…" : "Delete composite" }}
+        </button>
+      </PageHeader>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-      <div class="field description-field">
-        <label for="composite-description">Description</label>
+      <FormField label="Description" for="composite-description" class="description-field">
         <div class="description-row">
           <input
             id="composite-description"
@@ -210,10 +206,9 @@ async function confirmDelete() {
             {{ savingDescription ? "Saving…" : "Save" }}
           </button>
         </div>
-      </div>
+      </FormField>
 
-      <div class="field json-field">
-        <label for="composite-schema">Input schema (JSON)</label>
+      <FormField label="Input schema (JSON)" for="composite-schema" class="json-field">
         <textarea id="composite-schema" v-model="schemaInput" rows="8" spellcheck="false"></textarea>
         <div class="field-actions">
           <button type="button" class="btn-primary" :disabled="!schemaDirty || savingSchema" @click="saveSchema">
@@ -221,10 +216,9 @@ async function confirmDelete() {
           </button>
         </div>
         <p v-if="schemaError" class="error">{{ schemaError }}</p>
-      </div>
+      </FormField>
 
-      <div class="field json-field">
-        <label for="composite-steps">Steps (JSON array)</label>
+      <FormField label="Steps (JSON array)" for="composite-steps" class="json-field">
         <p class="template-hint">
           Templates: <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> or <code>{{ '"${input.name}"' }}</code
           >.
@@ -236,7 +230,7 @@ async function confirmDelete() {
           </button>
         </div>
         <p v-if="stepsError" class="error">{{ stepsError }}</p>
-      </div>
+      </FormField>
     </template>
 
     <ConfirmDialog
@@ -265,26 +259,6 @@ async function confirmDelete() {
 .breadcrumb {
   font-size: 0.85rem;
   color: var(--text-secondary);
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-}
-.page-header h1 {
-  margin: 0 0 0.3rem;
-}
-.header-actions {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
 }
 .description-field {
   margin: 1rem 0 1.5rem;
