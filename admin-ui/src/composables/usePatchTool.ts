@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { api, ApiError } from "./useApi";
-import { toolPath } from "./apiPaths";
+import { toolPath } from "@/utils/apiPaths";
 
 /** Callers decide whether/when to reload after a successful patch — unlike the hand-rolled functions this replaces, which always reloaded. */
 export function usePatchTool(clientName: () => string, toolName: () => string | undefined) {

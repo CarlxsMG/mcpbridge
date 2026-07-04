@@ -1,6 +1,6 @@
 /**
  * Mirror of src/__tests__/connect-templates.test.ts, against the admin-ui
- * copy of the template registry (composables/connect-templates.ts — admin-ui
+ * copy of the template registry (utils/connectTemplates.ts — admin-ui
  * has zero shared deps with the backend, so this is a hand-kept-in-sync
  * duplicate, not an import of the backend module). Keeping both test files
  * gives a fast signal the moment the two copies drift.
@@ -11,7 +11,7 @@ import {
   isConnectClientId,
   generateConnectSnippet,
   resolveGatewayEndpoint,
-} from "../connect-templates";
+} from "../connectTemplates";
 
 const PLACEHOLDER = "<YOUR_MCP_API_KEY>";
 const URL = "https://gw.example.com/mcp/acme-crm";

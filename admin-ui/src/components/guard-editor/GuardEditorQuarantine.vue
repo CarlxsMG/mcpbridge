@@ -2,7 +2,7 @@
 import { ref, computed, watch } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
-import { numberRangeValidator } from "@/composables/fieldParsing";
+import { numberRangeValidator } from "@/utils/fieldParsing";
 
 const props = defineProps<{
   quarantine?: {

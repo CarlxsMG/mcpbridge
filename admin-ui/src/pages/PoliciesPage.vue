@@ -3,7 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
-import { parseOptionalNumber } from "../composables/fieldParsing";
+import { parseOptionalNumber } from "@/utils/fieldParsing";
 import type { GuardPolicy, BundleSummary } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";

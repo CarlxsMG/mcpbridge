@@ -9,7 +9,7 @@ import {
   generateConnectSnippet,
   type ConnectClientId,
   type ConnectScope,
-} from "../composables/connect-templates";
+} from "@/utils/connectTemplates";
 import { Copy, Check } from "lucide-vue-next";
 
 const props = defineProps<{
@@ -95,7 +95,7 @@ const targetOptions = computed(() =>
 );
 
 // Snippets never carry a real key — always a clearly-marked placeholder the
-// user swaps out by hand (see the module doc comment in connect-templates.ts).
+// user swaps out by hand (see the module doc comment in connectTemplates.ts).
 const API_KEY_PLACEHOLDER = "<YOUR_MCP_API_KEY>";
 
 const result = computed(() => {

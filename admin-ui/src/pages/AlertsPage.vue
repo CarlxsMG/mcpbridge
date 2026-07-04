@@ -4,7 +4,7 @@ import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
-import { parseOptionalNumber } from "../composables/fieldParsing";
+import { parseOptionalNumber } from "@/utils/fieldParsing";
 import type { AlertRule, AlertEventType } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";

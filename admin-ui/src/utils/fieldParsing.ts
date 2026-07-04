@@ -1,6 +1,6 @@
 /**
  * Non-reactive form-field parsing helpers (same precedent as
- * composables/connect-templates.ts — plain functions, no "use" prefix).
+ * utils/connectTemplates.ts — plain functions, no "use" prefix).
  *
  * Consolidates optional-numeric-field parsing that had drifted across pages:
  * PoliciesPage's numOrNull() checked Number.isFinite, ConsumersPage inlined

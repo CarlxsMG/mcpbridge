@@ -15,7 +15,7 @@ import GuardEditorCachePurge from "./GuardEditorCachePurge.vue";
 import GuardEditorContextBudget from "./GuardEditorContextBudget.vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
-import { numberRangeValidator } from "@/composables/fieldParsing";
+import { numberRangeValidator } from "@/utils/fieldParsing";
 import { KeyRound } from "lucide-vue-next";
 
 const props = defineProps<{

@@ -2,7 +2,7 @@
 import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
-import { parseList } from "../composables/fieldParsing";
+import { parseList } from "@/utils/fieldParsing";
 import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "../types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";

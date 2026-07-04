@@ -5,7 +5,7 @@ import { useLoadState } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import { useClipboard } from "../composables/useClipboard";
-import { parseList } from "../composables/fieldParsing";
+import { parseList } from "@/utils/fieldParsing";
 import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";

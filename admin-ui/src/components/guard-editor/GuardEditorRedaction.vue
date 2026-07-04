@@ -2,7 +2,7 @@
 import { ref, watch } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
-import { parseList } from "@/composables/fieldParsing";
+import { parseList } from "@/utils/fieldParsing";
 
 const props = defineProps<{ redactPaths?: string[]; clientName?: string; toolName?: string }>();
 const emit = defineEmits<{ saved: [] }>();

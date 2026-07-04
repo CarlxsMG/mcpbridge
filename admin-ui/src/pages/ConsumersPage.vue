@@ -3,7 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
-import { parseOptionalNumber } from "../composables/fieldParsing";
+import { parseOptionalNumber } from "@/utils/fieldParsing";
 import type { ConsumerWithUsage, ConsumerUsage } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import QuotaBar from "@/components/charts/QuotaBar.vue";
