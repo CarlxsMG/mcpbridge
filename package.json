@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "dev:ui": "cd admin-ui && bun run dev",
+    "dev:demo": "cd admin-ui && VITE_DEMO=true bun run dev",
     "dev:all": "bun scripts/dev-all.ts",
     "start": "bun src/index.ts",
     "cli": "bun src/cli/index.ts",
