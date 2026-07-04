@@ -13,6 +13,7 @@ import {
   type McpKeyScopes,
 } from "../security/mcp-key-store.js";
 import { verifyJwt, isJwtConfigured } from "../security/jwt.js";
+import { sendError, forbidden } from "../routes/http-errors.js";
 
 export interface AuthContext {
   method: "bearer" | "session";
@@ -61,7 +62,7 @@ export function adminAuth(req: Request, res: Response, next: NextFunction): void
   const bearerToken = extractBearerToken(req);
   if (bearerToken !== null) {
     if (!config.adminApiKeys.some((key) => safeCompare(key, bearerToken))) {
-      res.status(403).json({ error: { code: "FORBIDDEN", message: "Invalid API key" } });
+      forbidden(res, "FORBIDDEN", "Invalid API key");
       return;
     }
     req.authContext = { method: "bearer" };
@@ -72,15 +73,13 @@ export function adminAuth(req: Request, res: Response, next: NextFunction): void
   const cookies = parseCookies(req.headers.cookie);
   const sessionToken = cookies[SESSION_COOKIE_NAME];
   if (!sessionToken) {
-    res
-      .status(401)
-      .json({ error: { code: "UNAUTHORIZED", message: "Missing Authorization header or session cookie" } });
+    sendError(res, 401, "UNAUTHORIZED", "Missing Authorization header or session cookie");
     return;
   }
 
   const session = validateSession(sessionToken);
   if (!session) {
-    res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Session expired or invalid" } });
+    sendError(res, 401, "UNAUTHORIZED", "Session expired or invalid");
     return;
   }
 
@@ -88,9 +87,7 @@ export function adminAuth(req: Request, res: Response, next: NextFunction): void
     const csrfHeader = req.headers["x-csrf-token"];
     const csrfToken = Array.isArray(csrfHeader) ? csrfHeader[0] : csrfHeader;
     if (!csrfToken || !safeCompare(csrfToken, session.csrfToken)) {
-      res
-        .status(403)
-        .json({ error: { code: "CSRF_VALIDATION_FAILED", message: "Missing or invalid X-CSRF-Token header" } });
+      forbidden(res, "CSRF_VALIDATION_FAILED", "Missing or invalid X-CSRF-Token header");
       return;
     }
   }
@@ -172,7 +169,7 @@ export async function evaluateMcpAuth(headers: IncomingHttpHeaders): Promise<Mcp
 export async function mcpAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const verdict = await evaluateMcpAuth(req.headers);
   if (!verdict.ok) {
-    res.status(verdict.status!).json({ error: { code: verdict.code, message: verdict.message } });
+    sendError(res, verdict.status!, verdict.code!, verdict.message!);
     return;
   }
   if (verdict.mcpKeyId !== undefined) req.mcpKeyId = verdict.mcpKeyId;

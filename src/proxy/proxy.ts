@@ -3,6 +3,7 @@ import addFormats from "ajv-formats";
 import { registry } from "../mcp/registry.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
+import { isRawIpLiteral } from "../ws-proxy.js";
 import { getCircuitBreaker } from "../middleware/circuit-breaker.js";
 import { recordToolCall } from "../routes/metrics.js";
 import {
@@ -885,8 +886,7 @@ async function dispatchToolCall(
       let pin = pinnedIpCache.get(client.name)!;
 
       // Only attempt re-resolution for hostnames (not raw IP literals).
-      const isRawIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
-      if (!isRawIp) {
+      if (!isRawIpLiteral(hostname)) {
         try {
           pin = await refreshPinIfStale(hostname, pin);
           pinnedIpCache.set(client.name, pin);

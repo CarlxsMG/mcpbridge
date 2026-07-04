@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { config } from "../config.js";
+import { forbidden } from "../routes/http-errors.js";
 
 function matchOrigin(origin: string, pattern: string): boolean {
   if (pattern === "*") return true;
@@ -63,10 +64,8 @@ export function originValidator(req: Request, res: Response, next: NextFunction)
   }
 
   if (!origin) {
-    res
-      .status(403)
-      .json({ error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin header required for browser requests" } });
+    forbidden(res, "ORIGIN_NOT_ALLOWED", "Origin header required for browser requests");
     return;
   }
-  res.status(403).json({ error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin not allowed" } });
+  forbidden(res, "ORIGIN_NOT_ALLOWED", "Origin not allowed");
 }

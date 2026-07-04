@@ -12,6 +12,7 @@ import {
   rateLimitBuckets,
   toolCallsTotal,
 } from "../observability/metrics.js";
+import { notFound } from "./http-errors.js";
 
 // ── Legacy JSON metrics (kept for backwards compatibility) ───────────────────
 
@@ -71,7 +72,7 @@ function snapshotGauges(): void {
 export function metricsRoutes(app: Express): void {
   app.get("/metrics", adminAuth, (_req: Request, res: Response) => {
     if (!config.metricsEnabled) {
-      res.status(404).json({ error: { code: "NOT_FOUND", message: "Metrics endpoint is disabled" } });
+      notFound(res, "NOT_FOUND", "Metrics endpoint is disabled");
       return;
     }
 

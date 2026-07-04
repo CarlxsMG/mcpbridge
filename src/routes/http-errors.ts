@@ -8,7 +8,7 @@ import type { Response } from "express";
  * function, so it now lives here as the single source of truth.
  */
 export function requestId(res: Response): string | null {
-  return (res.locals.requestId as string) ?? null;
+  return (res.locals?.requestId as string) ?? null;
 }
 
 /**

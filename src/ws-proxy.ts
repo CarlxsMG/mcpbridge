@@ -89,7 +89,7 @@ function totalActiveConnections(): number {
 }
 
 /** Whether hostname is already an IP literal (vs. a DNS name) — an IP-literal backend has no hostname to re-pin via the `lookup` override, and its trust was already established once at registration time. */
-function isRawIpLiteral(hostname: string): boolean {
+export function isRawIpLiteral(hostname: string): boolean {
   return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
 }
 

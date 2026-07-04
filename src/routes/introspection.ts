@@ -2,6 +2,7 @@ import type { Request, Response, Express } from "express";
 import { registry } from "../mcp/registry.js";
 import { adminAuth } from "../middleware/auth.js";
 import { log } from "../logger.js";
+import { notFound } from "./http-errors.js";
 
 export function introspectionRoutes(app: Express): void {
   // List all registered clients
@@ -20,7 +21,7 @@ export function introspectionRoutes(app: Express): void {
   app.get("/clients/:name/tools", adminAuth, (req: Request<{ name: string }>, res: Response) => {
     const tools = registry.getClientTools(req.params.name);
     if (!tools) {
-      res.status(404).json({ error: { code: "CLIENT_NOT_FOUND", message: "Client not found" } });
+      notFound(res, "CLIENT_NOT_FOUND", "Client not found");
       return;
     }
     res.json({ tools });
@@ -31,7 +32,7 @@ export function introspectionRoutes(app: Express): void {
   app.delete("/clients/:name", adminAuth, async (req: Request<{ name: string }>, res: Response) => {
     const removed = await registry.unregister(req.params.name);
     if (!removed) {
-      res.status(404).json({ error: { code: "CLIENT_NOT_FOUND", message: "Client not found" } });
+      notFound(res, "CLIENT_NOT_FOUND", "Client not found");
       return;
     }
     log("info", "Client unregistered", { name: req.params.name });
