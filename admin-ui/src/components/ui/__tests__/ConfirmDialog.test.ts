@@ -111,4 +111,26 @@ describe("ConfirmDialog", () => {
 
     trigger.remove();
   });
+
+  it('uses role="alertdialog" rather than plain "dialog"', () => {
+    const wrapper = mountDialog(true);
+
+    expect(wrapper.find('[role="alertdialog"]').exists()).toBe(true);
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  });
+
+  it("defaults the confirm button to btn-primary when danger is not set", () => {
+    const wrapper = mountDialog(true);
+
+    expect(wrapper.find(".btn-primary").exists()).toBe(true);
+    expect(wrapper.find(".btn-danger").exists()).toBe(false);
+  });
+
+  it("switches the confirm button to btn-danger when danger is true", async () => {
+    const wrapper = mountDialog(true);
+    await wrapper.setProps({ danger: true });
+
+    expect(wrapper.find(".btn-danger").exists()).toBe(true);
+    expect(wrapper.find(".btn-primary").exists()).toBe(false);
+  });
 });
