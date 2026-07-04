@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useCursorPagination } from "../composables/useCursorPagination";
 import type { TrafficRecord, PaginatedResult } from "../types/api";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -16,17 +17,10 @@ import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 const router = useRouter();
 const route = useRoute();
 
-const records = ref<TrafficRecord[]>([]);
-const nextCursor = ref<string | undefined>(undefined);
-const cursorStack = ref<(string | undefined)[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
-
 const clientFilter = ref(typeof route.query.client === "string" ? route.query.client : "");
 const toolFilter = ref(typeof route.query.tool === "string" ? route.query.tool : "");
 const errorsOnly = ref(route.query.errors === "true");
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
-const currentCursor = ref<string | undefined>(initialCursor);
 
 const replayingId = ref<number | null>(null);
 const replayNote = ref<{ id: number; ok: boolean; text: string } | null>(null);
@@ -41,24 +35,35 @@ function buildQuery(cursor?: string): string {
   return params.toString();
 }
 
-async function load(cursor?: string) {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    const result = await api.get<PaginatedResult<TrafficRecord>>(`/admin-api/traffic?${buildQuery(cursor)}`);
-    records.value = result.items;
-    nextCursor.value = result.nextCursor;
-  } catch (err) {
-    errorMessage.value =
-      err instanceof ApiError ? err.message : "Failed to load traffic. Check your connection and try again.";
-  } finally {
-    loading.value = false;
-  }
-}
+const {
+  items: records,
+  loading,
+  errorMessage,
+  load,
+  reset,
+  next: nextPage,
+  prev: prevPage,
+  hasPrev,
+  hasNext,
+} = useCursorPagination<TrafficRecord>(
+  (cursor) => api.get<PaginatedResult<TrafficRecord>>(`/admin-api/traffic?${buildQuery(cursor)}`),
+  {
+    initialCursor,
+    fallbackMessage: "Failed to load traffic. Check your connection and try again.",
+    onCursorChange: (cursor) =>
+      router.replace({
+        query: {
+          client: clientFilter.value.trim() || undefined,
+          tool: toolFilter.value.trim() || undefined,
+          errors: errorsOnly.value ? "true" : undefined,
+          cursor,
+        },
+      }),
+  },
+);
 
 function applyFilters() {
-  cursorStack.value = [];
-  currentCursor.value = undefined;
+  reset();
   router.replace({
     query: {
       client: clientFilter.value.trim() || undefined,
@@ -69,37 +74,7 @@ function applyFilters() {
   load();
 }
 
-function nextPage() {
-  if (!nextCursor.value) return;
-  cursorStack.value.push(currentCursor.value);
-  currentCursor.value = nextCursor.value;
-  router.replace({
-    query: {
-      client: clientFilter.value.trim() || undefined,
-      tool: toolFilter.value.trim() || undefined,
-      errors: errorsOnly.value ? "true" : undefined,
-      cursor: nextCursor.value,
-    },
-  });
-  load(nextCursor.value);
-}
-
-function prevPage() {
-  if (cursorStack.value.length === 0) return;
-  const cursor = cursorStack.value.pop();
-  currentCursor.value = cursor;
-  router.replace({
-    query: {
-      client: clientFilter.value.trim() || undefined,
-      tool: toolFilter.value.trim() || undefined,
-      errors: errorsOnly.value ? "true" : undefined,
-      cursor: cursor || undefined,
-    },
-  });
-  load(cursor);
-}
-
-onMounted(() => load(initialCursor));
+onMounted(() => load());
 
 function formatDuration(ms: number): string {
   return `${ms}ms`;
@@ -251,7 +226,7 @@ function confirmReplay() {
       </TableCard>
 
       <div class="pagination">
-        <PaginationBar :has-prev="cursorStack.length > 0" :has-next="!!nextCursor" @prev="prevPage" @next="nextPage" />
+        <PaginationBar :has-prev="hasPrev" :has-next="hasNext" @prev="prevPage" @next="nextPage" />
         <p class="subtitle">{{ records.length }} record(s) on this page</p>
       </div>
     </template>

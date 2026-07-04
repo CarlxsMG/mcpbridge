@@ -3,6 +3,8 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useCursorPagination } from "../composables/useCursorPagination";
+import { useLoadState } from "../composables/useResource";
 import type { TraceSummary, StoredSpan, TopSessionRow, PaginatedResult } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -17,13 +19,7 @@ const props = defineProps<{ traceId?: string }>();
 const router = useRouter();
 const route = useRoute();
 
-const traces = ref<TraceSummary[]>([]);
-const nextCursor = ref<string | undefined>(undefined);
-const cursorStack = ref<(string | undefined)[]>([]);
-const currentCursor = ref<string | undefined>(undefined);
 const spans = ref<StoredSpan[] | null>(null);
-const loading = ref(false);
-const errorMessage = ref("");
 const toolFilter = ref(typeof route.query.tool === "string" ? route.query.tool : "");
 const sessionFilter = ref(typeof route.query.session_id === "string" ? route.query.session_id : "");
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
@@ -53,19 +49,33 @@ function currentFilterQuery(cursor?: string): Record<string, string | undefined>
   };
 }
 
-async function loadList(cursor?: string) {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    const result = await api.get<PaginatedResult<TraceSummary>>(`/admin-api/traces?${buildListQuery(cursor)}`);
-    traces.value = result.items;
-    nextCursor.value = result.nextCursor;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load traces.";
-  } finally {
-    loading.value = false;
-  }
-}
+const {
+  items: traces,
+  loading: listLoading,
+  errorMessage: listErrorMessage,
+  load: loadList,
+  reset,
+  next: nextPage,
+  prev: prevPage,
+  hasPrev,
+  hasNext,
+} = useCursorPagination<TraceSummary>(
+  (cursor) => api.get<PaginatedResult<TraceSummary>>(`/admin-api/traces?${buildListQuery(cursor)}`),
+  {
+    initialCursor,
+    onCursorChange: (cursor) => router.replace({ query: currentFilterQuery(cursor) }),
+    fallbackMessage: "Failed to load traces.",
+  },
+);
+
+const {
+  loading: detailLoading,
+  errorMessage: detailErrorMessage,
+  run: runDetail,
+} = useLoadState("Failed to load trace.");
+
+const loading = computed(() => (props.traceId ? detailLoading.value : listLoading.value));
+const errorMessage = computed(() => (props.traceId ? detailErrorMessage.value : listErrorMessage.value));
 
 async function loadTopSessions() {
   try {
@@ -78,8 +88,7 @@ async function loadTopSessions() {
 }
 
 function applyFilters() {
-  cursorStack.value = [];
-  currentCursor.value = undefined;
+  reset();
   router.replace({ query: currentFilterQuery() });
   loadList();
 }
@@ -89,34 +98,12 @@ function filterBySession(sessionId: string) {
   applyFilters();
 }
 
-function nextPage() {
-  if (!nextCursor.value) return;
-  cursorStack.value.push(currentCursor.value);
-  currentCursor.value = nextCursor.value;
-  router.replace({ query: currentFilterQuery(currentCursor.value) });
-  loadList(currentCursor.value);
-}
-
-function prevPage() {
-  if (cursorStack.value.length === 0) return;
-  currentCursor.value = cursorStack.value.pop();
-  router.replace({ query: currentFilterQuery(currentCursor.value || undefined) });
-  loadList(currentCursor.value);
-}
-
 async function loadDetail(traceId: string) {
-  loading.value = true;
-  errorMessage.value = "";
   spans.value = null;
-  try {
-    spans.value = (
-      await api.get<{ traceId: string; spans: StoredSpan[] }>(`/admin-api/traces/${encodeURIComponent(traceId)}`)
-    ).spans;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load trace.";
-  } finally {
-    loading.value = false;
-  }
+  const result = await runDetail(() =>
+    api.get<{ traceId: string; spans: StoredSpan[] }>(`/admin-api/traces/${encodeURIComponent(traceId)}`),
+  );
+  if (result !== undefined) spans.value = result.spans;
 }
 
 async function refresh() {
@@ -125,8 +112,7 @@ async function refresh() {
   } else {
     // Returning to the list (e.g. from a detail view) always shows page one —
     // keep the pagination stack in sync so Previous doesn't stay wrongly enabled.
-    cursorStack.value = [];
-    currentCursor.value = undefined;
+    reset();
     await loadList();
   }
 }
@@ -134,8 +120,7 @@ onMounted(() => {
   if (props.traceId) {
     loadDetail(props.traceId);
   } else {
-    currentCursor.value = initialCursor;
-    loadList(initialCursor);
+    loadList();
     loadTopSessions();
   }
 });
@@ -154,12 +139,11 @@ async function confirmPurge() {
     purging.value = true;
     try {
       await api.delete("/admin-api/traces");
-      cursorStack.value = [];
-      currentCursor.value = undefined;
+      reset();
       await loadList();
       await loadTopSessions();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to purge traces.";
+      listErrorMessage.value = err instanceof ApiError ? err.message : "Failed to purge traces.";
     } finally {
       purging.value = false;
     }
@@ -285,7 +269,7 @@ const waterfall = computed(() => {
       </TableCard>
 
       <div class="pagination">
-        <PaginationBar :has-prev="cursorStack.length > 0" :has-next="!!nextCursor" @prev="prevPage" @next="nextPage" />
+        <PaginationBar :has-prev="hasPrev" :has-next="hasNext" @prev="prevPage" @next="nextPage" />
         <p class="subtitle">{{ traces.length }} trace(s) on this page</p>
       </div>
     </template>

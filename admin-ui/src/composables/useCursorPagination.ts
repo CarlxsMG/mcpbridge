@@ -15,13 +15,13 @@ import type { PaginatedResult } from "../types/api";
  */
 export function useCursorPagination<T>(
   fetchPage: (cursor: string | undefined) => Promise<PaginatedResult<T>>,
-  options?: { initialCursor?: string; onCursorChange?: (cursor: string | undefined) => void },
+  options?: { initialCursor?: string; onCursorChange?: (cursor: string | undefined) => void; fallbackMessage?: string },
 ) {
   const items = ref<T[]>([]) as Ref<T[]>;
   const nextCursor = ref<string | undefined>();
   const cursorStack = ref<(string | undefined)[]>([]);
   const currentCursor = ref<string | undefined>(options?.initialCursor);
-  const { loading, errorMessage, run } = useLoadState();
+  const { loading, errorMessage, run } = useLoadState(options?.fallbackMessage);
 
   async function load(cursor: string | undefined = currentCursor.value) {
     const result = await run(() => fetchPage(cursor));
