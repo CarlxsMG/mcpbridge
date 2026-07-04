@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useCommandPalette } from "../composables/useCommandPalette";
 import type { ClientDetail } from "../types/api";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -22,6 +23,7 @@ import { Wrench, Settings2, RotateCcw, Cable } from "lucide-vue-next";
 
 const props = defineProps<{ name: string; tool?: string }>();
 const router = useRouter();
+const { paletteOpen } = useCommandPalette();
 
 const detail = ref<ClientDetail | null>(null);
 const loading = ref(false);
@@ -47,7 +49,7 @@ watch(
 );
 
 function onKeydown(e: KeyboardEvent) {
-  if (document.querySelector('[role="dialog"][aria-label="Command palette"]')) return;
+  if (paletteOpen.value) return;
   if (e.key === "Escape" && props.tool) closeGuardEditor();
 }
 // Capture phase, not bubble: CommandPalette's own bubble-phase Escape handler

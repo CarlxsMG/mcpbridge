@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch, type Component 
 import { useRouter } from "vue-router";
 import { Search, Server, Boxes, KeyRound, CornerDownLeft } from "lucide-vue-next";
 import { api } from "../composables/useApi";
+import { useCommandPalette } from "../composables/useCommandPalette";
 import { navEntries } from "../navigation";
 import type { ClientSummary, BundleSummary, McpApiKey, PaginatedResult } from "../types/api";
 
@@ -28,7 +29,7 @@ const PAGES: Entry[] = navEntries.map((entry) => ({
 }));
 
 const router = useRouter();
-const open = ref(false);
+const { paletteOpen: open } = useCommandPalette();
 const query = ref("");
 const activeIndex = ref(0);
 const liveEntries = ref<Entry[]>([]);
