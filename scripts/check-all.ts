@@ -61,6 +61,7 @@ const steps: Step[] = [
     env: testEnv,
   },
   { label: "admin-ui typecheck", cmd: [bunExe, "run", "typecheck"], cwd: `${root}/admin-ui` },
+  { label: "admin-ui tests", cmd: [bunExe, "run", "test"], cwd: `${root}/admin-ui` },
   { label: "admin-ui build", cmd: [bunExe, "run", "build"], cwd: `${root}/admin-ui` },
 ];
 

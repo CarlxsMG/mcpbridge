@@ -36,6 +36,9 @@ jobs:
       - name: Typecheck (admin-ui)
         working-directory: admin-ui
         run: bun run typecheck
+      - name: Test (admin-ui)
+        working-directory: admin-ui
+        run: bun run test
       - name: Build (admin-ui)
         working-directory: admin-ui
         run: bun run build
