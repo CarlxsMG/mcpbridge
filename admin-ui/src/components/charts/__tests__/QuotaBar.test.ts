@@ -34,4 +34,16 @@ describe("QuotaBar", () => {
 
     expect(wrapper.find("rect.fill.breach").exists()).toBe(true);
   });
+
+  it("sizes the fill with a percentage width, not a viewBox-scaled number", () => {
+    // A percentage renders identically at any container width; a fixed viewBox
+    // with preserveAspectRatio="none" instead stretches x/y (and rx/ry with
+    // them) by different factors depending on how wide the bar is rendered,
+    // which is what made the rounded end caps look egg-shaped at ~1500px+
+    // (see QuotaBar.vue's comment). No viewBox at all means no such transform.
+    const wrapper = mount(QuotaBar, { props: { used: 25, quota: 100 } });
+
+    expect(wrapper.attributes("viewBox")).toBeUndefined();
+    expect(wrapper.find("rect.fill").attributes("width")).toBe("25.00%");
+  });
 });

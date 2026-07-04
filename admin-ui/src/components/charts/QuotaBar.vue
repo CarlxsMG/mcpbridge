@@ -11,6 +11,14 @@ const pct = computed(() => {
   return Math.min(props.used / props.quota, 1);
 });
 
+// A percentage width, not a viewBox-scaled number: this bar renders anywhere
+// from ~90px (a table cell) to 1500px+ wide (an expanded detail panel), and a
+// fixed viewBox with preserveAspectRatio="none" stretches x and y by
+// different factors at those two extremes. rx/ry inherit that same stretch,
+// so the "rounded" end caps come out visibly egg-shaped the wider the bar
+// gets. A percentage width has no such coordinate transform to distort.
+const fillWidth = computed(() => `${(pct.value * 100).toFixed(2)}%`);
+
 const tone = computed(() => {
   if (props.quota === null) return "unlimited";
   if (props.quota <= 0) return "breach";
@@ -26,10 +34,18 @@ const ariaLabel = computed(() =>
 </script>
 
 <template>
-  <svg class="quota-bar" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" :aria-label="ariaLabel">
-    <rect x="0" y="0" width="100" height="8" rx="4" class="track" />
-    <rect v-if="tone === 'unlimited'" x="0.5" y="0.5" width="99" height="7" rx="3.5" class="fill unlimited" />
-    <rect v-else x="0" y="0" :width="pct * 100" height="8" rx="4" class="fill" :class="tone" />
+  <svg class="quota-bar" role="img" :aria-label="ariaLabel">
+    <rect x="0" y="0" width="100%" height="100%" rx="0.25rem" class="track" />
+    <rect
+      v-if="tone === 'unlimited'"
+      x="1"
+      y="1"
+      width="calc(100% - 2px)"
+      height="calc(100% - 2px)"
+      rx="calc(0.25rem - 1px)"
+      class="fill unlimited"
+    />
+    <rect v-else x="0" y="0" :width="fillWidth" height="100%" rx="0.25rem" class="fill" :class="tone" />
   </svg>
 </template>
 
