@@ -26,9 +26,11 @@ const uaPass = ref("");
 const uaHeader = ref("");
 const uaValue = ref("");
 
-const { saving: uaSaving, error: uaError, run: runUpstreamAuth } = usePatchResource(() =>
-  clientPath(props.clientName, "upstream-auth"),
-);
+const {
+  saving: uaSaving,
+  error: uaError,
+  run: runUpstreamAuth,
+} = usePatchResource(() => clientPath(props.clientName, "upstream-auth"));
 
 async function saveUpstreamAuth() {
   const body: Record<string, unknown> = { type: uaType.value };

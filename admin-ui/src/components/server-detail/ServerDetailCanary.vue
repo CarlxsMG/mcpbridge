@@ -14,8 +14,7 @@ const props = defineProps<{ clientName: string }>();
 const canaryForm = ref({ secondaryBaseUrl: "", mode: "canary" as "canary" | "failover", weight: 10, enabled: true });
 
 const { data: canary, load: loadCanaryData } = useResource<CanaryConfig | null>(
-  () =>
-    api.get<{ canary: CanaryConfig | null }>(clientPath(props.clientName, "canary")).then((res) => res.canary),
+  () => api.get<{ canary: CanaryConfig | null }>(clientPath(props.clientName, "canary")).then((res) => res.canary),
   null,
 );
 

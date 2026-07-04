@@ -62,9 +62,11 @@ function confirmClearLb() {
 
 const newTargetUrl = ref("");
 const newTargetWeight = ref(1);
-const { saving: addingTarget, error: targetError, run: runAddTarget } = usePatchResource(() =>
-  clientPath(props.clientName, "lb", "upstreams"),
-);
+const {
+  saving: addingTarget,
+  error: targetError,
+  run: runAddTarget,
+} = usePatchResource(() => clientPath(props.clientName, "lb", "upstreams"));
 async function addTarget() {
   if (!newTargetUrl.value.trim()) {
     targetError.value = "Base URL is required.";

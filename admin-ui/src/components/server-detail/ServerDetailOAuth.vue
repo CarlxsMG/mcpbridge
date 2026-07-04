@@ -24,9 +24,11 @@ const oauthClientId = ref("");
 const oauthClientSecret = ref("");
 const oauthScope = ref("");
 
-const { saving: oauthSaving, error: oauthError, run: runOAuth } = usePatchResource(() =>
-  clientPath(props.clientName, "oauth"),
-);
+const {
+  saving: oauthSaving,
+  error: oauthError,
+  run: runOAuth,
+} = usePatchResource(() => clientPath(props.clientName, "oauth"));
 
 async function saveOAuth() {
   if (!oauthTokenUrl.value.trim() || !oauthClientId.value.trim() || !oauthClientSecret.value.trim()) {
