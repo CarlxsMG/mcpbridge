@@ -22,7 +22,7 @@ const DISPATCH = 4; // index of the Dispatch stage → y = 196 + 4*36 = 340
 
 <template>
   <figure class="rp">
-    <div class="rp-card">
+    <div class="rp-card diagram-card">
       <div class="rp-scroll">
         <svg viewBox="0 0 680 540" role="img" aria-labelledby="rp-title rp-desc" class="rp-svg">
           <title id="rp-title">The request path through MCP REST Bridge</title>
@@ -124,14 +124,6 @@ const DISPATCH = 4; // index of the Dispatch stage → y = 196 + 4*36 = 340
 <style scoped>
 .rp {
   margin: 1.75rem 0 1.5rem;
-}
-.rp-card {
-  background: #edeff2;
-  border-radius: 16px;
-  padding: 1.25rem 1rem 0.75rem;
-  box-shadow:
-    0 1px 2px rgba(14, 17, 22, 0.05),
-    0 6px 20px rgba(14, 17, 22, 0.06);
 }
 .rp-scroll {
   overflow-x: auto;

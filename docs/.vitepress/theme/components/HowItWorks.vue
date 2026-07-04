@@ -8,7 +8,7 @@
 
 <template>
   <figure class="hiw">
-    <div class="hiw-card">
+    <div class="hiw-card diagram-card">
       <div class="hiw-scroll">
         <svg viewBox="0 0 820 264" role="img" aria-labelledby="hiw-title hiw-desc" class="hiw-svg">
           <title id="hiw-title">How MCP REST Bridge works</title>
@@ -120,21 +120,13 @@
 }
 
 /* Fixed light "card" in both themes — keeps all text dark-on-light (crisp) and
-   makes the ink bridge the single dark element. Grey fill, rounded, no border. */
-.hiw-card {
-  background: #edeff2;
-  border-radius: 16px;
-  padding: 1.5rem 1.25rem 0.75rem;
-  box-shadow:
-    0 1px 2px rgba(14, 17, 22, 0.05),
-    0 6px 20px rgba(14, 17, 22, 0.06);
-}
+   makes the ink bridge the single dark element. Recipe itself lives in the
+   shared `.diagram-card` class (custom.css); see the class on the template. */
 .hiw-scroll {
   overflow-x: auto;
 }
 .hiw-svg {
   width: 100%;
-  min-width: 560px;
   height: auto;
   display: block;
   text-rendering: geometricPrecision;
@@ -156,7 +148,7 @@
   fill: #00a99a;
 }
 .hiw-eyebrow {
-  fill: #6b7280;
+  fill: #565d6b;
   font-family: "Space Grotesk", var(--vp-font-family-base);
   font-size: 11px;
   font-weight: 600;

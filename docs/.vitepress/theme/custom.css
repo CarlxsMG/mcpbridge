@@ -29,8 +29,11 @@
   --vp-home-hero-image-background-image: linear-gradient(160deg, rgba(0, 169, 154, 0.28), rgba(217, 127, 10, 0.18));
   --vp-home-hero-image-filter: blur(56px);
 
-  /* Buttons (brand) */
+  /* Buttons (brand). Text is "ink", not white — white-on-#00a99a computes to
+     ~2.9:1 (fails WCAG AA); ink-on-signal reuses the same dark tone the
+     diagrams' bridge cards use and clears ~6.4:1 in both themes. */
   --vp-button-brand-bg: #00a99a;
+  --vp-button-brand-text: #0e1116;
   --vp-button-brand-hover-bg: #00877b;
   --vp-button-brand-active-bg: #00877b;
   --vp-button-brand-border: transparent;
@@ -43,7 +46,7 @@
   --vp-c-bg: #0e1116; /* ink */
   --vp-c-bg-alt: #171b24; /* ink-raised */
   --vp-c-bg-soft: #171b24;
-  --vp-c-bg-elv: #171b24;
+  --vp-c-bg-elv: #1c212c; /* one step lighter than bg-soft, so raised surfaces (cards, popovers) still read as raised */
   --vp-c-border: #262c3a; /* ink-border */
   --vp-c-divider: #262c3a;
   --vp-c-brand-1: #2fd4c4; /* lift teal for contrast on ink */
@@ -68,6 +71,23 @@
 
 .VPHero .tagline {
   max-width: 36rem;
+}
+
+/* Shared "diagram card" recipe — HowItWorks/RequestPath/ScaleOut all render on
+   this same fixed light card (see each component's own top-of-file comment for
+   why). Hoisted here instead of tripled per-component so the three can't drift. */
+.diagram-card {
+  background: #edeff2;
+  border-radius: 16px;
+  padding: 1.25rem 1rem 0.75rem;
+  box-shadow:
+    0 1px 2px rgba(14, 17, 22, 0.05),
+    0 6px 20px rgba(14, 17, 22, 0.06);
+}
+
+/* Homepage feature icons get a brand-tinted chip instead of floating bare. */
+.VPFeature .icon {
+  background-color: var(--vp-c-brand-soft);
 }
 
 /* Framed product screenshots inside markdown content. */

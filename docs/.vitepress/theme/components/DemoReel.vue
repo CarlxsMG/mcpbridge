@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
   background: #00a99a;
-  color: #fff;
+  color: #0e1116;
   font-size: 0.82rem;
   font-weight: 600;
   text-decoration: none;
@@ -157,6 +157,10 @@ onBeforeUnmount(() => {
 .reel-cta:hover {
   background: #00877b;
   transform: translateX(-50%) translateY(-1px);
+}
+.reel-cta:focus-visible {
+  outline: 2px solid var(--vp-c-brand-2);
+  outline-offset: 2px;
 }
 .reel-tabs {
   display: flex;
@@ -182,8 +186,12 @@ onBeforeUnmount(() => {
   color: var(--vp-c-text-1);
   border-color: var(--vp-c-text-3);
 }
+.reel-tab:focus-visible {
+  outline: 2px solid var(--vp-c-brand-2);
+  outline-offset: 2px;
+}
 .reel-tab.is-on {
-  color: #fff;
+  color: #0e1116;
   background: #00a99a;
   border-color: #00a99a;
 }

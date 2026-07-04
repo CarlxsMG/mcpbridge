@@ -9,7 +9,7 @@ const ix = (i: number) => cx[i] - 84; // left x (width 168)
 
 <template>
   <figure class="so">
-    <div class="so-card">
+    <div class="so-card diagram-card">
       <div class="so-scroll">
         <svg viewBox="0 0 720 424" role="img" aria-labelledby="so-title so-desc" class="so-svg">
           <title id="so-title">Scaling MCP REST Bridge horizontally</title>
@@ -108,20 +108,11 @@ const ix = (i: number) => cx[i] - 84; // left x (width 168)
 .so {
   margin: 1.75rem 0 1.5rem;
 }
-.so-card {
-  background: #edeff2;
-  border-radius: 16px;
-  padding: 1.25rem 1rem 0.75rem;
-  box-shadow:
-    0 1px 2px rgba(14, 17, 22, 0.05),
-    0 6px 20px rgba(14, 17, 22, 0.06);
-}
 .so-scroll {
   overflow-x: auto;
 }
 .so-svg {
   width: 100%;
-  min-width: 560px;
   height: auto;
   display: block;
   text-rendering: geometricPrecision;
