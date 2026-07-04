@@ -66,10 +66,7 @@
 
           <!-- 6 · bridge header -->
           <g class="hiw-glyph" transform="translate(276,60)">
-            <line x1="4" y1="1" x2="4" y2="12" />
-            <circle cx="14" cy="4" r="2.4" />
-            <circle cx="4" cy="15" r="2.4" />
-            <path d="M14 6.4a7 7 0 0 1-7 7" />
+            <polyline points="15.4,8.4 12.6,8.4 10.5,14.7 6.3,2.1 4.2,8.4 1.4,8.4" />
           </g>
           <text class="hiw-bridge-title" x="300" y="72">MCP REST Bridge</text>
           <text class="hiw-bridge-sub" x="276" y="92">one governed path for every call</text>

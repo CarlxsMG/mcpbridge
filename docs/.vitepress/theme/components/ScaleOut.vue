@@ -82,10 +82,7 @@ const ix = (i: number) => cx[i] - 84; // left x (width 168)
           <g v-for="(n, i) in instances" :key="n" class="so-inst-g">
             <rect class="so-inst" :x="ix(i)" y="212" width="168" height="76" rx="14" />
             <g class="so-glyph" :transform="`translate(${ix(i) + 18},${228})`">
-              <line x1="4" y1="1" x2="4" y2="12" />
-              <circle cx="14" cy="4" r="2.4" />
-              <circle cx="4" cy="15" r="2.4" />
-              <path d="M14 6.4a7 7 0 0 1-7 7" />
+              <polyline points="15.4,8.4 12.6,8.4 10.5,14.7 6.3,2.1 4.2,8.4 1.4,8.4" />
             </g>
             <text class="so-inst-title" :x="ix(i) + 42" y="237">MCP REST Bridge</text>
             <text class="so-inst-sub" :x="ix(i) + 18" y="266">instance {{ n }}</text>

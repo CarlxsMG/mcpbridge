@@ -82,10 +82,7 @@ const DISPATCH = 4; // index of the Dispatch stage → y = 196 + 4*36 = 340
 
           <!-- 7 · bridge header -->
           <g class="rp-glyph" transform="translate(230,124)">
-            <line x1="4" y1="1" x2="4" y2="12" />
-            <circle cx="14" cy="4" r="2.4" />
-            <circle cx="4" cy="15" r="2.4" />
-            <path d="M14 6.4a7 7 0 0 1-7 7" />
+            <polyline points="15.4,8.4 12.6,8.4 10.5,14.7 6.3,2.1 4.2,8.4 1.4,8.4" />
           </g>
           <text class="rp-bridge-title" x="256" y="137">MCP REST Bridge</text>
           <text class="rp-bridge-sub" x="230" y="157">proxyToolCall — one guarded path</text>
