@@ -81,11 +81,20 @@ export default defineConfig({
       { text: "Guide", link: "/guide/getting-started", activeMatch: "/guide/(?!features|why-mcp-rest-bridge)" },
       { text: "Features", link: "/guide/features", activeMatch: "/guide/features" },
       { text: "Live demo", link: DEMO_URL },
-      { text: "Why", link: "/guide/why-mcp-rest-bridge", activeMatch: "/guide/why-mcp-rest-bridge" },
       {
-        text: "v1",
+        text: "Why MCP REST Bridge",
+        link: "/guide/why-mcp-rest-bridge",
+        activeMatch: "/guide/why-mcp-rest-bridge",
+      },
+      {
+        // Was "v1" — read as a doc-version switcher (a pattern most doc sites
+        // train users to expect), not "meta project links". Renamed so the
+        // label matches its actual contents.
+        text: "Community",
         items: [
-          { text: "Changelog", link: REPO_URL + "/releases" },
+          { text: "Contributing", link: "/guide/contributing" },
+          { text: "Changelog", link: "/guide/changelog" },
+          { text: "Security policy", link: "/guide/security-policy" },
           { text: "Report an issue", link: REPO_URL + "/issues/new" },
         ],
       },
@@ -96,6 +105,9 @@ export default defineConfig({
         {
           text: "Introduction",
           items: [
+            // Explicit way back to the landing pitch — previously only the
+            // small header logo did this from inside /guide/.
+            { text: "Overview", link: "/" },
             { text: "Getting started", link: "/guide/getting-started" },
             { text: "Why MCP REST Bridge", link: "/guide/why-mcp-rest-bridge" },
             { text: "Architecture", link: "/guide/architecture" },
@@ -113,10 +125,10 @@ export default defineConfig({
           text: "Operate",
           items: [
             { text: "Security", link: "/guide/security" },
-            { text: "Access control", link: "/guide/access-control" },
+            { text: "Access control & multi-tenancy", link: "/guide/access-control" },
             { text: "Guardrails & resilience", link: "/guide/guardrails-resilience" },
-            { text: "Observability", link: "/guide/observability" },
-            { text: "Scaling & HA", link: "/guide/scaling" },
+            { text: "Observability & monitoring", link: "/guide/observability" },
+            { text: "Scaling & high availability", link: "/guide/scaling" },
             { text: "Deployment", link: "/guide/deployment" },
           ],
         },
@@ -125,9 +137,28 @@ export default defineConfig({
           items: [
             { text: "Configuration", link: "/guide/configuration" },
             { text: "API reference", link: "/guide/api-reference" },
-            { text: "CLI (config-as-code)", link: "/guide/cli" },
+            { text: "CLI", link: "/guide/cli" },
             { text: "Features", link: "/guide/features" },
+          ],
+        },
+        {
+          // Troubleshooting is diagnose-a-problem content, not lookup content
+          // like the Reference group above it — a different mental mode, so
+          // it gets its own group instead of being the odd one out in Reference.
+          text: "Support",
+          items: [
             { text: "Troubleshooting", link: "/guide/troubleshooting" },
+            { text: "FAQ", link: "/guide/faq" },
+          ],
+        },
+        {
+          // Mirrors the nav's "Community" dropdown so these pages are reachable
+          // (and get a proper sidebar "you are here" highlight) without opening it.
+          text: "Community",
+          items: [
+            { text: "Contributing", link: "/guide/contributing" },
+            { text: "Changelog", link: "/guide/changelog" },
+            { text: "Security policy", link: "/guide/security-policy" },
           ],
         },
       ],
