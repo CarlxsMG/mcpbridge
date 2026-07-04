@@ -1,5 +1,7 @@
 <script setup lang="ts" generic="T extends string">
-defineProps<{ tabs: { key: T; label: string }[]; ariaLabel?: string }>();
+import type { Component } from "vue";
+
+defineProps<{ tabs: { key: T; label: string; icon?: Component }[]; ariaLabel?: string }>();
 const active = defineModel<T>({ required: true });
 </script>
 
@@ -15,6 +17,7 @@ const active = defineModel<T>({ required: true });
       :class="{ 'tab-active': active === tab.key }"
       @click="active = tab.key"
     >
+      <component :is="tab.icon" v-if="tab.icon" :size="15" stroke-width="2" aria-hidden="true" />
       {{ tab.label }}
     </button>
   </div>
