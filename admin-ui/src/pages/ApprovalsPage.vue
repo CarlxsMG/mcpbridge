@@ -4,13 +4,13 @@ import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import type { ApprovalRecord, ApprovalStatus } from "../types/api";
-import DonutChart from "../components/DonutChart.vue";
+import DonutChart from "@/components/charts/DonutChart.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
-import ChartCard from "../components/ChartCard.vue";
+import ChartCard from "@/components/charts/ChartCard.vue";
 import TabStrip from "@/components/ui/TabStrip.vue";
 import { ClipboardCheck, Check, X, RefreshCw } from "lucide-vue-next";
 

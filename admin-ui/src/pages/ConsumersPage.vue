@@ -6,7 +6,7 @@ import { useConfirmAction } from "../composables/useConfirmAction";
 import { parseOptionalNumber } from "../composables/fieldParsing";
 import type { ConsumerWithUsage, ConsumerUsage } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import QuotaBar from "../components/QuotaBar.vue";
+import QuotaBar from "@/components/charts/QuotaBar.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";

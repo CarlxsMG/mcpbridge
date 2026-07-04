@@ -4,12 +4,12 @@ import { api } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import type { UsageSummary, TopToolRow, UsageByKeyRow, UsageTimeseries } from "../types/api";
 import StatCard from "@/components/ui/StatCard.vue";
-import MiniBarChart from "../components/MiniBarChart.vue";
-import TimeSeriesChart from "../components/TimeSeriesChart.vue";
+import MiniBarChart from "@/components/charts/MiniBarChart.vue";
+import TimeSeriesChart from "@/components/charts/TimeSeriesChart.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
-import ChartCard from "../components/ChartCard.vue";
+import ChartCard from "@/components/charts/ChartCard.vue";
 import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench } from "lucide-vue-next";
 
 const WINDOWS = [

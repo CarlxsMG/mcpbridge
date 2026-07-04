@@ -5,12 +5,12 @@ import { api, ApiError } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useCursorPagination } from "../composables/useCursorPagination";
 import type { TrafficRecord, PaginatedResult } from "../types/api";
-import TimeSeriesChart from "../components/TimeSeriesChart.vue";
+import TimeSeriesChart from "@/components/charts/TimeSeriesChart.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
-import ChartCard from "../components/ChartCard.vue";
+import ChartCard from "@/components/charts/ChartCard.vue";
 import PaginationBar from "@/components/ui/PaginationBar.vue";
 import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 

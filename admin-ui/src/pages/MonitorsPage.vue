@@ -3,12 +3,12 @@ import { onMounted, computed } from "vue";
 import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import type { MonitorRecord } from "../types/api";
-import DonutChart from "../components/DonutChart.vue";
+import DonutChart from "@/components/charts/DonutChart.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
-import ChartCard from "../components/ChartCard.vue";
+import ChartCard from "@/components/charts/ChartCard.vue";
 import { Radar, RefreshCw } from "lucide-vue-next";
 
 const {
