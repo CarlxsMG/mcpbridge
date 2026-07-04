@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
-import { useRouter, onBeforeRouteLeave } from "vue-router";
+import { ref, watch, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { useUnsavedChangesGuard } from "../composables/useUnsavedChangesGuard";
+import { useDraftField } from "../composables/useDraftField";
 import type { BundleDetail, BundleToolRef } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
@@ -28,20 +30,46 @@ const {
   null,
   "Failed to load bundle.",
 );
-const descriptionError = ref("");
-const toolsError = ref("");
 const deleteError = ref("");
 
-const descriptionInput = ref("");
-const savingDescription = ref(false);
+const {
+  draft: descriptionInput,
+  dirty: descriptionDirty,
+  saving: savingDescription,
+  errorMessage: descriptionError,
+  sync: syncDescription,
+  commit: saveDescription,
+} = useDraftField(
+  () => detail.value?.description ?? "",
+  async (value) => {
+    await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { description: value || null });
+    await load();
+  },
+  { fallbackMessage: "Failed to save description." },
+);
 
-const toolsDraft = ref<BundleToolRef[]>([]);
-const savingTools = ref(false);
-const toolsDirty = computed(() => {
-  const current = new Set((detail.value?.tools ?? []).map((t) => `${t.client}__${t.tool}`));
-  const draft = new Set(toolsDraft.value.map((t) => `${t.client}__${t.tool}`));
-  return current.size !== draft.size || [...current].some((k) => !draft.has(k));
-});
+const {
+  draft: toolsDraft,
+  dirty: toolsDirty,
+  saving: savingTools,
+  errorMessage: toolsError,
+  sync: syncTools,
+  commit: saveTools,
+} = useDraftField<BundleToolRef[]>(
+  () => detail.value?.tools ?? [],
+  async (value) => {
+    await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { tools: value });
+    await load();
+  },
+  {
+    fallbackMessage: "Failed to save tools.",
+    isEqual: (a, b) => {
+      const setA = new Set(a.map((t) => `${t.client}__${t.tool}`));
+      const setB = new Set(b.map((t) => `${t.client}__${t.tool}`));
+      return setA.size === setB.size && [...setA].every((k) => setB.has(k));
+    },
+  },
+);
 
 const {
   pending: pendingDelete,
@@ -58,43 +86,12 @@ const { rowError: toggleError, toggle } = useOptimisticToggle<BundleDetail>(() =
 async function load() {
   const result = await loadDetail();
   if (result) {
-    descriptionInput.value = result.description ?? "";
-    toolsDraft.value = result.tools.map((t) => ({ ...t }));
+    syncDescription();
+    syncTools();
   }
 }
 watch(() => props.name, load);
 onMounted(load);
-
-const descriptionDirty = computed(() => descriptionInput.value !== (detail.value?.description ?? ""));
-
-async function saveDescription() {
-  if (!detail.value) return;
-  descriptionError.value = "";
-  savingDescription.value = true;
-  try {
-    await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, {
-      description: descriptionInput.value || null,
-    });
-    await load();
-  } catch (err) {
-    descriptionError.value = err instanceof ApiError ? err.message : "Failed to save description.";
-  } finally {
-    savingDescription.value = false;
-  }
-}
-
-async function saveTools() {
-  toolsError.value = "";
-  savingTools.value = true;
-  try {
-    await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { tools: toolsDraft.value });
-    await load();
-  } catch (err) {
-    toolsError.value = err instanceof ApiError ? err.message : "Failed to save tools.";
-  } finally {
-    savingTools.value = false;
-  }
-}
 
 async function toggleEnabled() {
   if (!detail.value) return;
@@ -125,29 +122,10 @@ function confirmDelete() {
   });
 }
 
-const pendingLeave = ref(false);
-let leaveNext: ((valid?: boolean) => void) | null = null;
-
-onBeforeRouteLeave((_to, _from, next) => {
-  if (!deleted.value && (descriptionDirty.value || toolsDirty.value)) {
-    leaveNext = next;
-    pendingLeave.value = true;
-  } else {
-    next();
-  }
-});
-
-function confirmLeave() {
-  pendingLeave.value = false;
-  leaveNext?.(true);
-  leaveNext = null;
-}
-
-function cancelLeave() {
-  pendingLeave.value = false;
-  leaveNext?.(false);
-  leaveNext = null;
-}
+const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
+  () => descriptionDirty.value || toolsDirty.value,
+  () => deleted.value,
+);
 </script>
 
 <template>

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
-import { useRouter, onBeforeRouteLeave } from "vue-router";
+import { computed, ref, watch, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { useUnsavedChangesGuard } from "../composables/useUnsavedChangesGuard";
+import { useDraftField } from "../composables/useDraftField";
 import type { CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -26,16 +28,65 @@ const {
   "Failed to load composite.",
 );
 
-const descriptionInput = ref("");
-const savingDescription = ref(false);
+const {
+  draft: descriptionInput,
+  dirty: descriptionDirty,
+  saving: savingDescription,
+  errorMessage: descriptionError,
+  sync: syncDescription,
+  commit: saveDescription,
+} = useDraftField(
+  () => detail.value?.description ?? "",
+  async (value) => {
+    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { description: value || null });
+    await load();
+  },
+  { fallbackMessage: "Failed to save description." },
+);
 
-const schemaInput = ref("");
-const schemaError = ref("");
-const savingSchema = ref(false);
+const {
+  draft: schemaInput,
+  dirty: schemaDirty,
+  saving: savingSchema,
+  errorMessage: schemaError,
+  sync: syncSchema,
+  commit: saveSchema,
+} = useDraftField(
+  () => JSON.stringify(detail.value?.inputSchema ?? {}, null, 2),
+  async (value) => {
+    let inputSchema: Record<string, unknown>;
+    try {
+      inputSchema = JSON.parse(value) as Record<string, unknown>;
+    } catch {
+      throw new ApiError(0, "INVALID_JSON", "inputSchema is not valid JSON.");
+    }
+    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { inputSchema });
+    await load();
+  },
+  { fallbackMessage: "Failed to save input schema." },
+);
 
-const stepsInput = ref("");
-const stepsError = ref("");
-const savingSteps = ref(false);
+const {
+  draft: stepsInput,
+  dirty: stepsDirty,
+  saving: savingSteps,
+  errorMessage: stepsError,
+  sync: syncSteps,
+  commit: saveSteps,
+} = useDraftField(
+  () => JSON.stringify(detail.value?.steps ?? [], null, 2),
+  async (value) => {
+    let steps: CompositeStep[];
+    try {
+      steps = JSON.parse(value) as CompositeStep[];
+    } catch {
+      throw new ApiError(0, "INVALID_JSON", "steps is not valid JSON.");
+    }
+    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { steps });
+    await load();
+  },
+  { fallbackMessage: "Failed to save steps." },
+);
 
 const {
   pending: pendingDelete,
@@ -49,97 +100,20 @@ const deleted = ref(false);
 async function load() {
   const result = await loadDetail();
   if (result) {
-    descriptionInput.value = result.description ?? "";
-    schemaInput.value = JSON.stringify(result.inputSchema, null, 2);
-    stepsInput.value = JSON.stringify(result.steps, null, 2);
+    syncDescription();
+    syncSchema();
+    syncSteps();
   }
 }
 watch(() => props.name, load);
 onMounted(load);
 
-const descriptionDirty = computed(() => descriptionInput.value !== (detail.value?.description ?? ""));
-const schemaDirty = computed(() => schemaInput.value !== JSON.stringify(detail.value?.inputSchema ?? {}, null, 2));
-const stepsDirty = computed(() => stepsInput.value !== JSON.stringify(detail.value?.steps ?? [], null, 2));
 const isDirty = computed(() => descriptionDirty.value || schemaDirty.value || stepsDirty.value);
 
-const pendingLeave = ref(false);
-let leaveNext: ((valid?: boolean) => void) | null = null;
-
-onBeforeRouteLeave((_to, _from, next) => {
-  if (!deleted.value && isDirty.value) {
-    leaveNext = next;
-    pendingLeave.value = true;
-  } else {
-    next();
-  }
-});
-
-function confirmLeave() {
-  pendingLeave.value = false;
-  leaveNext?.(true);
-  leaveNext = null;
-}
-
-function cancelLeave() {
-  pendingLeave.value = false;
-  leaveNext?.(false);
-  leaveNext = null;
-}
-
-async function saveDescription() {
-  if (!detail.value) return;
-  savingDescription.value = true;
-  try {
-    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, {
-      description: descriptionInput.value || null,
-    });
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to save description.";
-  } finally {
-    savingDescription.value = false;
-  }
-}
-
-async function saveSchema() {
-  schemaError.value = "";
-  let inputSchema: Record<string, unknown>;
-  try {
-    inputSchema = JSON.parse(schemaInput.value) as Record<string, unknown>;
-  } catch {
-    schemaError.value = "inputSchema is not valid JSON.";
-    return;
-  }
-  savingSchema.value = true;
-  try {
-    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { inputSchema });
-    await load();
-  } catch (err) {
-    schemaError.value = err instanceof ApiError ? err.message : "Failed to save input schema.";
-  } finally {
-    savingSchema.value = false;
-  }
-}
-
-async function saveSteps() {
-  stepsError.value = "";
-  let steps: CompositeStep[];
-  try {
-    steps = JSON.parse(stepsInput.value) as CompositeStep[];
-  } catch {
-    stepsError.value = "steps is not valid JSON.";
-    return;
-  }
-  savingSteps.value = true;
-  try {
-    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { steps });
-    await load();
-  } catch (err) {
-    stepsError.value = err instanceof ApiError ? err.message : "Failed to save steps.";
-  } finally {
-    savingSteps.value = false;
-  }
-}
+const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
+  () => isDirty.value,
+  () => deleted.value,
+);
 
 const { rowError: toggleError, toggle: toggleEnabledField } = useOptimisticToggle<CompositeDetail>(
   (c) => c.name,
@@ -213,6 +187,7 @@ async function confirmDelete() {
             {{ savingDescription ? "Saving…" : "Save" }}
           </button>
         </div>
+        <p v-if="descriptionError" class="error">{{ descriptionError }}</p>
       </FormField>
 
       <FormField label="Input schema (JSON)" for="composite-schema" class="json-field">
