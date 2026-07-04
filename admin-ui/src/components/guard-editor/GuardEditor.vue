@@ -61,7 +61,11 @@ const newApiKey = ref("");
 const showApiKey = ref(false);
 const hasAllowedKeysGuard = ref(Boolean(props.guards?.allowedKeyHashes?.length));
 const existingKeyCount = ref(props.guards?.allowedKeyHashes?.length ?? 0);
-const replacementKeys = ref<string[]>([]);
+// { id, value } rather than a parallel id array: keeps each entry's identity
+// and payload attached to a single object, so there's no way for the two to
+// drift out of lockstep across push/splice mutations.
+let nextKeyId = 0;
+const replacementKeys = ref<{ id: number; value: string }[]>([]);
 const pendingClear = ref(false);
 const savedMain = ref(false);
 const savedClear = ref(false);
@@ -115,13 +119,14 @@ const previewJson = computed(() => {
 function addKey() {
   const key = newApiKey.value.trim();
   if (!key) return;
-  replacementKeys.value.push(key);
+  replacementKeys.value.push({ id: nextKeyId++, value: key });
   newApiKey.value = "";
   hasAllowedKeysGuard.value = true;
 }
 
-function removeReplacementKey(index: number) {
-  replacementKeys.value.splice(index, 1);
+function removeReplacementKey(id: number) {
+  const index = replacementKeys.value.findIndex((k) => k.id === id);
+  if (index !== -1) replacementKeys.value.splice(index, 1);
 }
 
 const {
@@ -141,7 +146,7 @@ async function submit() {
   if (timeoutInput.value) payload.timeoutMs = Number(timeoutInput.value);
   // Only send allowedApiKeys when the operator actually typed replacement
   // keys — otherwise leave the existing (hashed, unrecoverable) set alone.
-  if (replacementKeys.value.length > 0) payload.allowedApiKeys = replacementKeys.value;
+  if (replacementKeys.value.length > 0) payload.allowedApiKeys = replacementKeys.value.map((k) => k.value);
   const ok = await patchField("guards", payload, "Failed to save guards.");
   if (ok) {
     flash(savedMain);
@@ -227,9 +232,9 @@ function confirmClear() {
         <button type="button" class="btn-secondary" @click="addKey">Add</button>
       </div>
       <ul v-if="replacementKeys.length" class="key-list">
-        <li v-for="(_, i) in replacementKeys" :key="i">
+        <li v-for="(k, i) in replacementKeys" :key="k.id">
           New key #{{ i + 1 }}
-          <button type="button" class="link-btn danger" @click="removeReplacementKey(i)">remove</button>
+          <button type="button" class="link-btn danger" @click="removeReplacementKey(k.id)">remove</button>
         </li>
       </ul>
       <p v-if="replacementKeys.length" class="hint warn">
