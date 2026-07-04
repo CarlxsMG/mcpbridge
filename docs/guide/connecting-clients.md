@@ -23,6 +23,11 @@ against — worth knowing if you hit a client-specific quirk.
 Prefer **Streamable HTTP** (`/mcp`, `/mcp/:name`, `/mcp-custom/:bundle`) unless a client
 requires SSE.
 
+> **Note:** "client" is overloaded on this page — `:clientName` in a URL is the name you gave
+> a **backend** at registration (e.g. `petstore`), not the app connecting to the bridge
+> (Claude Desktop, Cursor, …). This doc uses "client" for both; check context. See
+> [Concepts & glossary](/guide/concepts) for the full vocabulary.
+
 ## Point a client at it
 
 Most clients take a remote MCP server URL:
@@ -36,6 +41,10 @@ Most clients take a remote MCP server URL:
 ```
 
 For a curated bundle, swap the URL for `https://bridge.example.com/mcp-custom/support-agent`.
+
+Prefer not to hand-edit that JSON? `gateway connect --client cursor --scope client --name petstore`
+(and friends for Claude Desktop, Windsurf, Continue) generates the same snippet from the CLI —
+see [CLI reference →](/guide/cli).
 
 ## Authentication
 
@@ -56,7 +65,8 @@ an expiry — see [Access control](/guide/access-control). The bridge can also a
 - `GET /health` should return `{ "status": "ok" }`.
 - The client's tool list should populate after connecting; if it's empty, the client/tool
   may be disabled or the key out of scope.
-- `GET /metrics` exposes `mcp_tool_calls_total{outcome}` once calls start flowing.
+- `GET /metrics` (admin-authenticated) exposes `mcp_tool_calls_total{outcome}` once calls
+  start flowing.
 
 Next: **[Registering backends →](/guide/registering-backends)** to give clients something
 to call, or **[Access control →](/guide/access-control)** to scope who can call what.

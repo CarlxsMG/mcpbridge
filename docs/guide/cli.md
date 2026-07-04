@@ -89,6 +89,26 @@ so a file that both registers a new server and sets guards on it in the same run
 on servers being created first. Pass `--dry-run` to preview phase 1 without registering
 anything (phase 2's import endpoint has its own `dryRun` mode, reported inline).
 
+### `connect`
+
+```bash
+gateway connect --client <claude-desktop|cursor|windsurf|continue|generic-json> \
+  --scope <client|bundle|aggregated> [--name <clientOrBundleName>] [--out <file>]
+```
+
+Generates a ready-to-paste MCP client config (`claude_desktop_config.json`, `.cursor/mcp.json`,
+Windsurf's `mcp_config.json`, Continue's `config.yaml`, or a generic JSON snippet) for one of
+the serving modes, instead of hand-editing the file yourself:
+
+- `--scope client --name petstore` — a per-client shard (`/mcp/petstore`)
+- `--scope bundle --name support-agent` — a curated bundle (`/mcp-custom/support-agent`)
+- `--scope aggregated` — the full `/mcp` endpoint (no `--name` needed)
+
+It checks the target actually exists (and is enabled) against the live admin API before
+generating anything, so a typo'd name fails with a clear message instead of a config that
+silently returns no tools. Without `--out` the snippet prints to stdout; with it, it's written
+straight to the file.
+
 ## `gateway.yaml` format
 
 ```yaml

@@ -15,16 +15,21 @@ bridge with a registered backend in a few minutes.
 ```bash
 docker build -t mcpbridge .
 
+export ADMIN_API_KEY=$(openssl rand -hex 24)
+
 docker run -p 3000:3000 \
   -e NODE_ENV=development \
   -e SESSION_COOKIE_SECURE=false \
   -e BOOTSTRAP_ADMIN_USERNAME=admin \
   -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
+  -e ADMIN_API_KEYS=$ADMIN_API_KEY \
   -v "$PWD/data:/app/data" \
   mcpbridge
 ```
 
 Then open **http://localhost:3000/admin** and log in with the bootstrap credentials.
+`$ADMIN_API_KEY` is the Bearer token the `curl` examples below use — keep it exported in the
+same shell, or re-export it later with the same value.
 
 ::: warning Local HTTP only
 `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false` relax the startup guards so the
@@ -54,13 +59,22 @@ Open **http://localhost:8791/admin/** and log in.
 The bootstrap admin is created **only once**, while the users table is empty. After that
 these env vars are ignored and you manage users from the UI.
 
+Set `ADMIN_API_KEYS` in `.env` (e.g. `ADMIN_API_KEYS=$(openssl rand -hex 24)`), restart
+`bun run dev:all`, then export the same value as `$ADMIN_API_KEY` for the `curl` examples below.
+
+::: tip Every command below assumes Option A's port
+The examples use `http://localhost:3000` (Docker/Option A). On **Option B**, the backend is on
+`:8790` instead — set `export BASE=http://localhost:8790` and swap `$BASE` in for
+`http://localhost:3000`, or just replace the port by hand.
+:::
+
 ## Register a REST API (auto-discovered from OpenAPI)
 
 The easy path: in the UI, go to **Add server → REST**, paste an OpenAPI URL, and submit —
 the bridge fetches the spec, generates one MCP tool per operation, and starts health-checking
 the backend.
 
-Or via the API (needs an admin API key — set `ADMIN_API_KEYS` and send it as a Bearer token):
+Or via the API (needs the admin API key you set above, sent as a Bearer token):
 
 ```bash
 curl -X POST http://localhost:3000/register \
@@ -107,6 +121,8 @@ The bridge implements **MCP protocol version `2025-06-18`** — see
   }
 }
 ```
+
+(`:8790` instead of `:3000` if you're on Option B.)
 
 Four serving modes are available:
 

@@ -4,11 +4,10 @@ A quick tour of the vocabulary used across these docs and the admin UI.
 
 ## The core idea
 
-The bridge keeps a **registry** of backends and the **tools** they expose, advertises a
-unified tool list to MCP clients, and proxies each call to the right backend through one
-uniform guard pipeline. Every tool is addressed by a stable `client__tool` identity, so all
-governance (guards, guardrails, RBAC, bundles, usage, audit) keys off that identity and
-works the same for REST and MCP backends.
+The bridge keeps a **registry** of backends and proxies every call through one uniform guard
+pipeline, addressed by a stable `client__tool` identity — see
+**[Architecture →](/guide/architecture)** for the full request path. The glossary below covers
+the vocabulary that shows up across these docs and the admin UI.
 
 ## Glossary
 

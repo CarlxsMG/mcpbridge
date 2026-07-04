@@ -27,8 +27,19 @@ skip the local build entirely:
 
 ```bash
 docker pull ghcr.io/aico-dot-team-code/mcpbridge:latest
-docker run -d --name mcpbridge -p 3000:3000 -v mcpbridge-data:/app/data ghcr.io/aico-dot-team-code/mcpbridge:latest
+
+docker run -d --name mcpbridge -p 3000:3000 \
+  -e SESSION_COOKIE_SECURE=true \
+  -e BOOTSTRAP_ADMIN_USERNAME=admin \
+  -e BOOTSTRAP_ADMIN_PASSWORD='<a strong 12+ char password>' \
+  -e MCP_API_KEYS='<key1,key2>' \
+  -v mcpbridge-data:/app/data \
+  ghcr.io/aico-dot-team-code/mcpbridge:latest
 ```
+
+Same env vars as the local-build example above — only the image differs. Without
+`BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD`, the container starts with an empty
+`admin_users` table and no way to log in.
 
 ## Behind a reverse proxy (HTTPS)
 
@@ -80,18 +91,14 @@ Because of that:
 
 ## High availability (opt-in)
 
-For multiple instances behind a load balancer:
-
-- **`RATE_LIMIT_SHARED=true`** — SQLite-backed shared rate counters so limits are consistent
-  across instances.
-- **`REGISTRY_SYNC=true`** — each instance reconciles its registry from SQLite, so
-  registrations/removals on one peer propagate to the others.
-- Leader-only background loops (alerts, schedules) elect a single leader automatically.
+Run several instances behind a load balancer, sharing one SQLite database — see
+**[Scaling & high availability →](/guide/scaling)** for the HA flags, sticky-session guidance,
+and the caveats around shared SQLite.
 
 ## Observability
 
-- **Prometheus** metrics at `/metrics` (includes `mcp_tool_calls_total{outcome}`).
-- **OpenTelemetry** traces per tool call when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
-- **Alerts** (circuit-breaker-open, client-unreachable, error-rate, usage-spike) via webhooks.
+Metrics, tracing, usage analytics and alerting all ship in the same process — see
+**[Observability & monitoring →](/guide/observability)** for what's available and how to wire
+each one up.
 
-See **[Configuration →](/guide/configuration)** for the full environment reference.
+Next: **[Configuration →](/guide/configuration)** · **[Troubleshooting →](/guide/troubleshooting)**

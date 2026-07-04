@@ -17,8 +17,7 @@ Set `OTEL_EXPORTER_OTLP_ENDPOINT` and the bridge exports one OTLP/HTTP span **pe
 ## Usage analytics & anomaly detection
 
 The admin UI's **Usage** view shows calls, error rate, latency, top tools and per-key
-breakdowns over a window. A `usage_spike` alert type watches a recent window against a
-baseline and fires when traffic jumps beyond a configured factor.
+breakdowns over a window — the same window the `usage_spike` alert below watches.
 
 ## Alerts
 

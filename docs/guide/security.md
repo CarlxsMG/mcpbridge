@@ -16,28 +16,18 @@ steering the model (prompt injection).
 
 ## Content guardrails
 
-Per tool, you can enable:
-
-- **Input deny-rules** — reject calls whose arguments match configured patterns.
-- **Secret detection** — block requests that appear to carry credentials/tokens.
-- **Response sanitizing** — scan backend responses for prompt-injection payloads and wrap
-  untrusted data in a safe envelope before returning it to the model.
-- **Field redaction** — strip sensitive fields from responses.
-
-Guardrails run inside dispatch **before** the circuit breaker, so a rejected call never
-consumes a breaker probe slot.
+Per-tool guardrails — input deny-rules, secret detection, response sanitizing, field
+redaction — scan both directions of every call, and run **before** the circuit breaker so a
+rejected call never consumes a breaker probe slot. See
+**[Guardrails & resilience →](/guide/guardrails-resilience)** for the full set.
 
 ## Access control
 
-- **MCP API keys** gate tool calls, and can be **scoped** to specific clients/tools; keys
-  are stored as hashes, never in plaintext, and the raw key is shown exactly once.
-- **Per-tool allowed-key** restrictions are **fail-closed** — enforced even if global auth
-  is disabled, because an admin who set one clearly wants it.
-- **Admin RBAC** — `admin` / `operator` / `auditor` / `viewer` roles gate the admin UI and
-  API. Admin login uses argon2id password hashing; sessions are cookie-based with CSRF
-  protection on mutating requests, while programmatic callers use static Bearer keys.
-- **Team multi-tenancy** scopes clients to teams so tenants only see their own resources,
-  with identical “not found” responses on cross-team access to avoid information leaks.
+Admin RBAC (`admin` / `operator` / `auditor` / `viewer`), MCP API keys (scoped, hashed,
+fail-closed allowed-key restrictions), and team multi-tenancy gate who can administer the
+bridge and who can call which tools. See
+**[Access control & multi-tenancy →](/guide/access-control)** for roles, key scoping and
+team isolation.
 
 ## Tamper-evident audit
 

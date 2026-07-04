@@ -4,6 +4,11 @@ The [Model Context Protocol](https://modelcontextprotocol.io) ecosystem is movin
 the gateway/aggregator space is crowded. Here's where MCP REST Bridge fits and why you might
 pick it.
 
+> **Who this is for:** teams exposing REST APIs or aggregating MCP servers for AI agents, who
+> want an admin UI and governance (RBAC, guardrails, audit) without standing up Kubernetes or
+> a database. See "When it's a good fit" further down for the full picture, or the
+> [FAQ →](/guide/faq) for specific questions.
+
 ## The problem
 
 As soon as you have more than one MCP server — or a REST API you want an AI agent to use —
@@ -20,7 +25,8 @@ you hit the same questions:
 ## The approach
 
 MCP REST Bridge is a single, self-hosted gateway that does all of the above and is **managed
-from a real admin UI** rather than config files.
+from a real admin UI, or as version-controlled YAML via the `gateway` CLI** — not by scripting
+a bare admin API by hand.
 
 - **Bidirectional.** REST/OpenAPI → MCP **and** MCP → MCP, in one process.
 - **Secure by default.** SSRF/DNS-rebinding protection, IP pinning, prompt-injection

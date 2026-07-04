@@ -1,8 +1,14 @@
-# Guardrails, policies & resilience
+# Guardrails & resilience
 
 Every tool call runs through a uniform stack at the dispatch point (`proxyToolCall`) — see
 the [request path](/guide/architecture#the-request-path). This page covers the knobs you set
 per tool or per client.
+
+## Circuit breakers
+
+Each tool has a breaker that trips after repeated failures (`closed → open → half_open`).
+While open, calls fail fast; a single probe in `half_open` tests recovery. Tune the failure
+threshold and reset window per client, or reset a breaker manually from a server's detail page.
 
 ## Content guardrails
 
@@ -14,20 +20,18 @@ Enable any of these on a tool:
   untrusted data in a safe envelope before it reaches the model.
 - **Field redaction** — strip sensitive fields from responses.
 
-Guardrails run **before** the circuit breaker, so a rejected call never consumes a breaker
-probe slot.
+Guardrails run **before** the circuit breaker above, so a rejected call never consumes a
+breaker probe slot.
 
-## Per-tool policy & reusable policies
+## Per-tool overrides
 
 Set a **rate limit**, **timeout**, **circuit-breaker override** or **allowed-key**
-restriction on any single tool. To avoid repetition, define a reusable **guard policy**
-(rate + timeout) once and apply it across a whole bundle of tools.
+restriction on any single tool.
 
-## Circuit breakers
+## Reusable guard policies
 
-Each tool has a breaker that trips after repeated failures (`closed → open → half_open`).
-While open, calls fail fast; a single probe in `half_open` tests recovery. Tune the failure
-threshold and reset window per client, or reset a breaker manually from a server's detail page.
+To avoid repeating the same rate limit + timeout on every tool in a bundle, define a reusable
+**guard policy** (rate + timeout only) once and apply it across the whole bundle.
 
 ## Canary & failover
 
