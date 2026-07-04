@@ -1,9 +1,9 @@
 <script setup lang="ts">
-defineProps<{ title: string }>();
+defineProps<{ title: string; dotted?: boolean }>();
 </script>
 
 <template>
-  <div class="chart-card">
+  <div class="chart-card" :class="{ dotted: dotted }">
     <h2>{{ title }}</h2>
     <slot />
   </div>
@@ -17,6 +17,10 @@ defineProps<{ title: string }>();
   box-shadow: var(--shadow-xs);
   padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-6);
+}
+.chart-card.dotted {
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 16px 16px;
 }
 .chart-card h2 {
   font-size: var(--text-sm);

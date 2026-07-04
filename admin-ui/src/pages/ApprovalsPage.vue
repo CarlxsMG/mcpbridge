@@ -121,7 +121,7 @@ async function confirmReject() {
       </button>
     </PageHeader>
 
-    <ChartCard title="Status breakdown">
+    <ChartCard title="Status breakdown" dotted>
       <DonutChart :segments="segments" :size="88" />
     </ChartCard>
 
@@ -236,12 +236,6 @@ async function confirmReject() {
   to {
     transform: rotate(360deg);
   }
-}
-/* Page-specific tweak on top of ChartCard.vue's own recipe: a dotted grid background behind the
-   donut chart, not part of the shared component. */
-:deep(.chart-card) {
-  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
-  background-size: 16px 16px;
 }
 .mono {
   font-family: var(--font-mono);

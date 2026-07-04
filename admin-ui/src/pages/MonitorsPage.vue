@@ -82,7 +82,7 @@ function formatChecked(t: number | null): string {
     </EmptyState>
 
     <template v-else>
-      <ChartCard title="Status breakdown">
+      <ChartCard title="Status breakdown" dotted>
         <DonutChart :segments="segments" :size="96" />
       </ChartCard>
 
@@ -133,13 +133,6 @@ function formatChecked(t: number | null): string {
   to {
     transform: rotate(360deg);
   }
-}
-/* Page-specific dotted-grid background for the chart card — not part of the
-   shared ChartCard recipe, so it's re-applied here via :deep() since the
-   .chart-card element itself now lives inside ChartCard.vue's own template. */
-:deep(.chart-card) {
-  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
-  background-size: 16px 16px;
 }
 .mono {
   font-family: var(--font-mono);

@@ -179,7 +179,7 @@ function confirmReplay() {
     </EmptyState>
 
     <template v-else>
-      <ChartCard title="Call volume">
+      <ChartCard title="Call volume" dotted>
         <TimeSeriesChart
           :points="chart.points"
           :secondary-points="chart.errorPoints"
@@ -305,11 +305,6 @@ section {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-}
-/* ChartCard's own recipe doesn't include this page's dotted-grid background accent. */
-:deep(.chart-card) {
-  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
-  background-size: 16px 16px;
 }
 /* TableCard's global .data-table recipe doesn't set white-space on th;
    this page needs its long "Time" header to stay on one line. */

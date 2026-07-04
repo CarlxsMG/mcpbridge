@@ -107,7 +107,7 @@ onMounted(load);
         <StatCard :icon="Wrench" label="Active tools" :value="summary.tools" />
       </div>
 
-      <ChartCard title="Calls &amp; errors over time">
+      <ChartCard title="Calls &amp; errors over time" dotted>
         <TimeSeriesChart
           :points="callsSeries"
           :secondary-points="errorsSeries"
@@ -118,10 +118,10 @@ onMounted(load);
       </ChartCard>
 
       <div class="charts-row">
-        <ChartCard title="Top tools by calls">
+        <ChartCard title="Top tools by calls" dotted>
           <MiniBarChart :rows="topToolsChart" />
         </ChartCard>
-        <ChartCard title="Calls by API key">
+        <ChartCard title="Calls by API key" dotted>
           <MiniBarChart :rows="byKeyChart" />
         </ChartCard>
       </div>
@@ -209,13 +209,6 @@ onMounted(load);
   grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
-}
-/* Page-specific dotted-grid background for chart cards — not part of the shared
-   ChartCard recipe, so it's re-applied here via :deep() since the .chart-card
-   element itself now lives inside ChartCard.vue's own template. */
-:deep(.chart-card) {
-  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
-  background-size: 16px 16px;
 }
 /* ChartCard bakes in margin-bottom: var(--space-6), but the two charts-row cards
    sit in a grid whose own margin-bottom already provides that spacing — zero out
