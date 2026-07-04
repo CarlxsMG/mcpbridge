@@ -5,12 +5,12 @@ import { useResource } from "../composables/useResource";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import type { BundleSummary, BundleDetail, BundleToolRef } from "../types/api";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
-import SignalLoader from "../components/SignalLoader.vue";
-import TableCard from "../components/TableCard.vue";
-import EmptyState from "../components/EmptyState.vue";
-import FormField from "../components/FormField.vue";
-import ToggleFormButton from "../components/ToggleFormButton.vue";
-import TogglePill from "../components/TogglePill.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
+import TableCard from "@/components/ui/TableCard.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
+import FormField from "@/components/ui/FormField.vue";
+import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
+import TogglePill from "@/components/ui/TogglePill.vue";
 import { Boxes } from "lucide-vue-next";
 
 const {

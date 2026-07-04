@@ -8,13 +8,13 @@ import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import { useUnsavedChangesGuard } from "../composables/useUnsavedChangesGuard";
 import { useDraftField } from "../composables/useDraftField";
 import type { BundleDetail, BundleToolRef } from "../types/api";
-import ConfirmDialog from "../components/ConfirmDialog.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
-import SignalLoader from "../components/SignalLoader.vue";
-import TogglePill from "../components/TogglePill.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
+import TogglePill from "@/components/ui/TogglePill.vue";
 import ConnectClientDialog from "../components/ConnectClientDialog.vue";
 import ShareInstallLinkDialog from "../components/ShareInstallLinkDialog.vue";
-import FormField from "../components/FormField.vue";
+import FormField from "@/components/ui/FormField.vue";
 import { Cable, Share2 } from "lucide-vue-next";
 
 const props = defineProps<{ name: string }>();

@@ -3,12 +3,12 @@ import { ref, onMounted, computed } from "vue";
 import { api } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import type { UsageSummary, TopToolRow, UsageByKeyRow, UsageTimeseries } from "../types/api";
-import StatCard from "../components/StatCard.vue";
+import StatCard from "@/components/ui/StatCard.vue";
 import MiniBarChart from "../components/MiniBarChart.vue";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
-import SignalLoader from "../components/SignalLoader.vue";
-import PageHeader from "../components/PageHeader.vue";
-import TableCard from "../components/TableCard.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import TableCard from "@/components/ui/TableCard.vue";
 import ChartCard from "../components/ChartCard.vue";
 import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench } from "lucide-vue-next";
 

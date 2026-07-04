@@ -6,13 +6,13 @@ import { useConfirmAction } from "../composables/useConfirmAction";
 import { useCursorPagination } from "../composables/useCursorPagination";
 import { useLoadState } from "../composables/useResource";
 import type { TraceSummary, StoredSpan, TopSessionRow, PaginatedResult } from "../types/api";
-import ConfirmDialog from "../components/ConfirmDialog.vue";
-import SignalLoader from "../components/SignalLoader.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
 import MiniBarChart from "../components/MiniBarChart.vue";
-import TableCard from "../components/TableCard.vue";
-import EmptyState from "../components/EmptyState.vue";
+import TableCard from "@/components/ui/TableCard.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "../components/ChartCard.vue";
-import PaginationBar from "../components/PaginationBar.vue";
+import PaginationBar from "@/components/ui/PaginationBar.vue";
 import { Waypoints, Trash2 } from "lucide-vue-next";
 
 const props = defineProps<{ traceId?: string }>();

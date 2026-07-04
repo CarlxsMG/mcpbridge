@@ -4,10 +4,10 @@ import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import type { MonitorRecord } from "../types/api";
 import DonutChart from "../components/DonutChart.vue";
-import SignalLoader from "../components/SignalLoader.vue";
-import PageHeader from "../components/PageHeader.vue";
-import TableCard from "../components/TableCard.vue";
-import EmptyState from "../components/EmptyState.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import TableCard from "@/components/ui/TableCard.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "../components/ChartCard.vue";
 import { Radar, RefreshCw } from "lucide-vue-next";
 

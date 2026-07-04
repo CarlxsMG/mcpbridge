@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { ToolListItem, BundleToolRef } from "../types/api";
 import { Search } from "lucide-vue-next";
-import SignalLoader from "./SignalLoader.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
 
 const props = defineProps<{ modelValue: BundleToolRef[] }>();
 const emit = defineEmits<{ "update:modelValue": [value: BundleToolRef[]] }>();

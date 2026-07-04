@@ -6,11 +6,11 @@ import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "../types/api";
 import { LayoutGrid, Plus } from "lucide-vue-next";
-import ConfirmDialog from "../components/ConfirmDialog.vue";
-import SignalLoader from "../components/SignalLoader.vue";
-import PageHeader from "../components/PageHeader.vue";
-import EmptyState from "../components/EmptyState.vue";
-import FormField from "../components/FormField.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
+import FormField from "@/components/ui/FormField.vue";
 
 const router = useRouter();
 

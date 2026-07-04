@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
-import ConfirmDialog from "./ConfirmDialog.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 
 const props = defineProps<{ clientName: string }>();
 const router = useRouter();

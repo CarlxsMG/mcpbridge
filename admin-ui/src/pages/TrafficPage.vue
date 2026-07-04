@@ -6,12 +6,12 @@ import { useConfirmAction } from "../composables/useConfirmAction";
 import { useCursorPagination } from "../composables/useCursorPagination";
 import type { TrafficRecord, PaginatedResult } from "../types/api";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
-import ConfirmDialog from "../components/ConfirmDialog.vue";
-import SignalLoader from "../components/SignalLoader.vue";
-import TableCard from "../components/TableCard.vue";
-import EmptyState from "../components/EmptyState.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
+import TableCard from "@/components/ui/TableCard.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "../components/ChartCard.vue";
-import PaginationBar from "../components/PaginationBar.vue";
+import PaginationBar from "@/components/ui/PaginationBar.vue";
 import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 
 const router = useRouter();

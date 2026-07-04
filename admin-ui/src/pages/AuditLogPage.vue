@@ -4,10 +4,10 @@ import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import type { AuditLogEntry, PaginatedResult } from "../types/api";
 import { ScrollText, CheckCircle2, XCircle } from "lucide-vue-next";
-import PageHeader from "../components/PageHeader.vue";
-import TableCard from "../components/TableCard.vue";
-import EmptyState from "../components/EmptyState.vue";
-import SearchInput from "../components/SearchInput.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import TableCard from "@/components/ui/TableCard.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
+import SearchInput from "@/components/ui/SearchInput.vue";
 
 const entries = ref<AuditLogEntry[]>([]);
 const { loading, errorMessage, run } = useLoadState("Failed to load audit log.");

@@ -3,7 +3,7 @@ import { ref, watch, nextTick } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useClipboard } from "../composables/useClipboard";
 import type { BundleInstallLink, BundleInstallLinkWithToken } from "../types/api";
-import ConfirmDialog from "./ConfirmDialog.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import { Copy, Check } from "lucide-vue-next";
 
 const props = defineProps<{ open: boolean; bundleName: string }>();

@@ -3,8 +3,8 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import type { ConfigImportResult, ConfigSnapshotSummary, ConfigDiffResult } from "../types/api";
-import ConfirmDialog from "../components/ConfirmDialog.vue";
-import PageHeader from "../components/PageHeader.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
 
 const exporting = ref(false);
 const importText = ref("");

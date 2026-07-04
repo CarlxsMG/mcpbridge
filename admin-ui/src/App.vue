@@ -11,7 +11,7 @@ import { useLiveSignal } from "./composables/useLiveSignal";
 import "./composables/useTheme";
 import "./composables/useDensity";
 import CommandPalette from "./components/CommandPalette.vue";
-import SignalLoader from "./components/SignalLoader.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
 import { navEntries } from "./navigation";
 import { GitBranch, ChevronRight } from "lucide-vue-next";
 

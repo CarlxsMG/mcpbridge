@@ -6,14 +6,14 @@ import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import { parseOptionalNumber } from "../composables/fieldParsing";
 import type { AlertRule, AlertEventType } from "../types/api";
-import ConfirmDialog from "../components/ConfirmDialog.vue";
-import SignalLoader from "../components/SignalLoader.vue";
-import PageHeader from "../components/PageHeader.vue";
-import TableCard from "../components/TableCard.vue";
-import EmptyState from "../components/EmptyState.vue";
-import FormField from "../components/FormField.vue";
-import ToggleFormButton from "../components/ToggleFormButton.vue";
-import TogglePill from "../components/TogglePill.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import TableCard from "@/components/ui/TableCard.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
+import FormField from "@/components/ui/FormField.vue";
+import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
+import TogglePill from "@/components/ui/TogglePill.vue";
 import { BellRing } from "lucide-vue-next";
 
 const EVENT_LABELS: Record<AlertEventType, string> = {

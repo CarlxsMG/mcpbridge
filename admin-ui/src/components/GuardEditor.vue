@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import type { ToolGuardConfig, ContextBudgetConfig } from "../types/api";
-import ConfirmDialog from "./ConfirmDialog.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import GuardEditorPresentation from "./GuardEditorPresentation.vue";
 import GuardEditorTags from "./GuardEditorTags.vue";
 import GuardEditorRedaction from "./GuardEditorRedaction.vue";

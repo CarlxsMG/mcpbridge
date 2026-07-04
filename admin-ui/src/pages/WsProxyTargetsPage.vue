@@ -6,12 +6,12 @@ import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import { parseOptionalNumber } from "../composables/fieldParsing";
 import type { WsProxyTarget } from "../types/api";
-import ConfirmDialog from "../components/ConfirmDialog.vue";
-import SignalLoader from "../components/SignalLoader.vue";
-import TableCard from "../components/TableCard.vue";
-import EmptyState from "../components/EmptyState.vue";
-import FormField from "../components/FormField.vue";
-import TogglePill from "../components/TogglePill.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
+import TableCard from "@/components/ui/TableCard.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
+import FormField from "@/components/ui/FormField.vue";
+import TogglePill from "@/components/ui/TogglePill.vue";
 import { Waypoints } from "lucide-vue-next";
 
 const {

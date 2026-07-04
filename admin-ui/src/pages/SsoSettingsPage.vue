@@ -3,7 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { OidcSettings } from "../types/api";
 import { Fingerprint } from "lucide-vue-next";
-import FormField from "../components/FormField.vue";
+import FormField from "@/components/ui/FormField.vue";
 
 const settings = ref<OidcSettings | null>(null);
 const loading = ref(true);

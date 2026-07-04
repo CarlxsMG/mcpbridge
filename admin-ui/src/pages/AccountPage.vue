@@ -7,12 +7,12 @@ import { useAuth } from "../composables/useAuth";
 import { useTheme } from "../composables/useTheme";
 import { useDensity } from "../composables/useDensity";
 import type { AdminSession } from "../types/api";
-import ConfirmDialog from "../components/ConfirmDialog.vue";
-import SignalLoader from "../components/SignalLoader.vue";
-import PageHeader from "../components/PageHeader.vue";
-import TableCard from "../components/TableCard.vue";
-import EmptyState from "../components/EmptyState.vue";
-import FormField from "../components/FormField.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import TableCard from "@/components/ui/TableCard.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
+import FormField from "@/components/ui/FormField.vue";
 import { Lock, Monitor, LogOut, SlidersHorizontal } from "lucide-vue-next";
 
 const { state: authState } = useAuth();
