@@ -2,10 +2,15 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
+import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useCommandPalette } from "../composables/useCommandPalette";
+import { useFocusTrap } from "../composables/useFocusTrap";
 import type { ClientDetail } from "../types/api";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import TogglePill from "@/components/ui/TogglePill.vue";
+import TabStrip from "@/components/ui/TabStrip.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import GuardEditor from "@/components/guard-editor/GuardEditor.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
@@ -25,13 +30,30 @@ const props = defineProps<{ name: string; tool?: string }>();
 const router = useRouter();
 const { paletteOpen } = useCommandPalette();
 
-const detail = ref<ClientDetail | null>(null);
-const loading = ref(false);
-const errorMessage = ref("");
+const {
+  data: detail,
+  loading,
+  errorMessage,
+  load,
+} = useResource<ClientDetail | null>(
+  () => api.get<ClientDetail>(`/admin-api/clients/${encodeURIComponent(props.name)}`),
+  null,
+  "Failed to load server.",
+);
+
 const activeTab = ref<"tools" | "settings">("tools");
+const tabs = [
+  { key: "tools" as const, label: "Tools", icon: Wrench },
+  { key: "settings" as const, label: "Settings", icon: Settings2 },
+];
 const resettingBreaker = ref(false);
 const drawerCloseBtn = ref<HTMLButtonElement | null>(null);
+const drawerEl = ref<HTMLElement | null>(null);
 const connectOpen = ref(false);
+
+// Drawer's own internal Tab/Shift+Tab cycling — distinct from the window-level
+// `onKeydown` below (which only handles the palette-aware Escape-to-close).
+const { onKeydown: onDrawerKeydown } = useFocusTrap(drawerEl);
 
 const activeTool = computed(() => detail.value?.tools.find((t) => t.name === props.tool) ?? null);
 
@@ -59,18 +81,6 @@ function onKeydown(e: KeyboardEvent) {
 // before that handler, so the palette-open check above still sees it open.
 onMounted(() => window.addEventListener("keydown", onKeydown, true));
 onUnmounted(() => window.removeEventListener("keydown", onKeydown, true));
-
-async function load() {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    detail.value = await api.get<ClientDetail>(`/admin-api/clients/${encodeURIComponent(props.name)}`);
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load server.";
-  } finally {
-    loading.value = false;
-  }
-}
 
 watch(() => props.name, load);
 onMounted(load);
@@ -135,42 +145,36 @@ async function resetBreaker() {
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
 
     <template v-else-if="detail">
-      <header class="page-header">
-        <div>
-          <h1>{{ detail.name }}</h1>
-          <div class="badges">
-            <span v-if="detail.kind === 'mcp'" class="kind-mcp">MCP</span>
-            <StatusBadge :status="detail.status" />
-            <StatusBadge v-if="detail.circuitBreakerState" :status="detail.circuitBreakerState" />
-            <span v-if="!detail.live" class="badge badge-neutral">Not currently connected</span>
-          </div>
-        </div>
-        <div class="header-actions">
-          <button
-            type="button"
-            class="toggle"
-            :class="detail.enabled ? 'toggle-on' : 'toggle-off'"
-            :aria-pressed="detail.enabled"
-            @click="onClientToggleClick"
-          >
-            {{ detail.enabled ? "Enabled" : "Disabled" }}
-          </button>
-          <button
-            v-if="detail.live"
-            type="button"
-            class="btn-secondary"
-            :disabled="resettingBreaker"
-            @click="resetBreaker"
-          >
-            <RotateCcw :size="14" stroke-width="2" aria-hidden="true" />
-            {{ resettingBreaker ? "Resetting…" : "Reset circuit breaker" }}
-          </button>
-          <button type="button" class="btn-secondary" @click="connectOpen = true">
-            <Cable :size="14" stroke-width="2" aria-hidden="true" />
-            Connect client
-          </button>
-        </div>
-      </header>
+      <PageHeader :title="detail.name">
+        <template #meta>
+          <span v-if="detail.kind === 'mcp'" class="kind-mcp">MCP</span>
+          <StatusBadge :status="detail.status" />
+          <StatusBadge v-if="detail.circuitBreakerState" :status="detail.circuitBreakerState" />
+          <span v-if="!detail.live" class="badge badge-neutral">Not currently connected</span>
+        </template>
+
+        <TogglePill
+          :on="detail.enabled"
+          on-label="Enabled"
+          off-label="Disabled"
+          :aria-pressed="detail.enabled"
+          @click="onClientToggleClick"
+        />
+        <button
+          v-if="detail.live"
+          type="button"
+          class="btn-secondary"
+          :disabled="resettingBreaker"
+          @click="resetBreaker"
+        >
+          <RotateCcw :size="14" stroke-width="2" aria-hidden="true" />
+          {{ resettingBreaker ? "Resetting…" : "Reset circuit breaker" }}
+        </button>
+        <button type="button" class="btn-secondary" @click="connectOpen = true">
+          <Cable :size="14" stroke-width="2" aria-hidden="true" />
+          Connect client
+        </button>
+      </PageHeader>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
@@ -201,28 +205,7 @@ async function resetBreaker() {
         </div>
       </dl>
 
-      <div class="tab-strip" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="activeTab === 'tools'"
-          class="tab-btn"
-          :class="{ 'tab-active': activeTab === 'tools' }"
-          @click="activeTab = 'tools'"
-        >
-          <Wrench :size="15" stroke-width="2" aria-hidden="true" /> Tools
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="activeTab === 'settings'"
-          class="tab-btn"
-          :class="{ 'tab-active': activeTab === 'settings' }"
-          @click="activeTab = 'settings'"
-        >
-          <Settings2 :size="15" stroke-width="2" aria-hidden="true" /> Settings
-        </button>
-      </div>
+      <TabStrip v-model="activeTab" :tabs="tabs" />
 
       <template v-if="activeTab === 'settings'">
         <ServerDetailUpstreamAuth :client-name="props.name" :kind="detail.kind" />
@@ -243,10 +226,12 @@ async function resetBreaker() {
     <div v-if="tool && activeTool" class="drawer-overlay" @click="closeGuardEditor"></div>
     <div
       v-if="tool && activeTool"
+      ref="drawerEl"
       class="drawer"
       role="dialog"
       aria-modal="true"
       :aria-label="`Guards — ${activeTool.name}`"
+      @keydown="onDrawerKeydown"
     >
       <div class="drawer-header">
         <h2>Guards — {{ activeTool.name }}</h2>
@@ -301,24 +286,6 @@ async function resetBreaker() {
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-}
-.page-header h1 {
-  margin: 0 0 0.4rem;
-}
-.badges {
-  display: flex;
-  gap: 0.5rem;
-}
-.header-actions {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-}
 .header-actions .btn-secondary {
   display: inline-flex;
   align-items: center;
@@ -368,36 +335,6 @@ async function resetBreaker() {
   font-size: 0.88rem;
   font-family: var(--font-mono);
   word-break: break-all;
-}
-.tab-strip {
-  display: flex;
-  gap: 0.25rem;
-  margin-bottom: 1.25rem;
-  border-bottom: 1px solid var(--border);
-}
-.tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.88rem;
-  padding: 0.55rem 0.35rem;
-  margin-bottom: -1px;
-  cursor: pointer;
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease;
-}
-.tab-btn:hover {
-  color: var(--text-primary);
-}
-.tab-btn.tab-active {
-  color: var(--signal-strong);
-  border-bottom-color: var(--signal);
 }
 .table-card {
   background: var(--surface);
@@ -485,10 +422,10 @@ async function resetBreaker() {
   border-radius: 8px;
 }
 .test-ok {
-  background: #f0f7f2;
+  background: var(--ok-soft);
 }
 .test-error {
-  background: #fdf1f1;
+  background: var(--breach-soft);
 }
 .test-result pre {
   white-space: pre-wrap;
@@ -499,7 +436,7 @@ async function resetBreaker() {
 .playground {
   margin-top: 1.4rem;
   padding-top: 1rem;
-  border-top: 1px solid #e6e8eb;
+  border-top: 1px solid var(--border);
 }
 .playground h3 {
   margin: 0 0 0.2rem;
@@ -514,18 +451,18 @@ async function resetBreaker() {
   font-size: 0.85rem;
 }
 .ex-label {
-  color: #63676e;
+  color: var(--text-secondary);
 }
 .ex-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  background: #eef1f4;
+  background: var(--surface-sunken);
   border-radius: 12px;
   padding: 0.1rem 0.5rem;
 }
 .ex-chip .del {
-  color: #a11212;
+  color: var(--breach);
 }
 .pg-actions {
   display: flex;
@@ -541,7 +478,7 @@ async function resetBreaker() {
 }
 .save-ex input {
   padding: 0.4rem 0.55rem;
-  border: 1px solid #cfd4da;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   font-size: 0.85rem;
 }
@@ -557,7 +494,7 @@ async function resetBreaker() {
   right: 0;
   height: 100vh;
   width: min(26.25rem, 100%);
-  background: #fff;
+  background: var(--surface);
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
   padding: 1.5rem;
   overflow-y: auto;
@@ -573,64 +510,8 @@ async function resetBreaker() {
   font-size: 1.05rem;
   margin: 0;
 }
-.empty-state {
-  padding: 1.5rem;
-  text-align: center;
-  color: #63676e;
-  background: #fafbfc;
-  border-radius: 8px;
-}
 .error {
-  color: #a11212;
-}
-.upstream-auth {
-  margin: 0 0 1.75rem;
-  padding: 1rem 1.25rem;
-  background: #fafbfc;
-  border-radius: 8px;
-}
-.ua-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.ua-head h2 {
-  margin: 0;
-  font-size: 1.05rem;
-}
-.ua-actions {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-.ua-status {
-  font-size: 0.85rem;
-  color: #52565c;
-  margin: 0.5rem 0 0;
-}
-.ua-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  margin-top: 0.9rem;
-  max-width: 22.5rem;
-}
-.ua-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-.ua-form input,
-.ua-form select {
-  padding: 0.4rem 0.55rem;
-  border: 1px solid #cfd4da;
-  border-radius: 6px;
-  font-weight: 400;
-}
-.link-btn.danger {
-  color: #a11212;
+  color: var(--breach);
 }
 .resync-body {
   margin-top: 0.9rem;
@@ -643,7 +524,7 @@ async function resetBreaker() {
 .field-inline input {
   flex: 1;
   padding: 0.4rem 0.55rem;
-  border: 1px solid #cfd4da;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
 }
 .diff {
@@ -654,13 +535,17 @@ async function resetBreaker() {
   margin: 0 0 0.4rem;
 }
 .diff-add {
-  color: #146c2e;
+  color: var(--ok);
   margin: 0.2rem 0;
 }
 .diff-rem {
-  color: #a11212;
+  color: var(--breach);
   margin: 0.2rem 0;
 }
+/* .tag-chip's blue tint has no existing semantic token in this app's palette
+   (there's no "info" color — only --signal/--canary/--breach/--ok/--kind-mcp,
+   none of which mean "tag"). Left as a one-off hardcoded pair rather than
+   inventing a new token or forcing it onto an unrelated existing one. */
 .tag-chip {
   display: inline-block;
   margin-left: 0.35rem;

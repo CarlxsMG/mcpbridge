@@ -5,6 +5,8 @@ import { api, ApiError } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import type { ToolDetail, UpstreamKind } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
+import { Wrench } from "lucide-vue-next";
 
 const props = defineProps<{ tools: ToolDetail[]; kind: UpstreamKind; clientName: string }>();
 
@@ -155,7 +157,7 @@ async function testTool(tool: ToolDetail) {
       </tbody>
     </table>
   </div>
-  <p v-else class="empty-state">This server has no tools registered.</p>
+  <EmptyState v-else :icon="Wrench">This server has no tools registered.</EmptyState>
 
   <div v-if="testResult" class="test-result" :class="testResult.isError ? 'test-error' : 'test-ok'">
     <strong>{{ testResult.tool }}</strong>
