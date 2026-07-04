@@ -11,7 +11,7 @@ import type {
   UpstreamKind,
 } from "./types.js";
 import { sanitizeToolDescription } from "../sanitize.js";
-import { abortClientRequests } from "../proxy.js";
+import { abortClientRequests } from "../proxy/proxy.js";
 import { removeCircuitBreaker, updateCircuitBreakerConfig, getAllCircuitStates } from "../circuit-breaker.js";
 import { notifyToolsChanged } from "./mcp-server.js";
 import { getDb } from "../db/connection.js";
@@ -22,7 +22,7 @@ import { getGuardrailsForClient } from "../guardrails.js";
 import { getCoalesceForClient } from "../coalesce.js";
 import { getApprovalConfigForClient } from "../approvals.js";
 import { getQuarantineForClient } from "../quarantine.js";
-import { getWsForClient, getGraphqlForClient } from "../backends.js";
+import { getWsForClient, getGraphqlForClient } from "../proxy/backends.js";
 import { getContextBudgetForClient } from "../context-budget.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";

@@ -6,7 +6,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
-import { proxyToolCall } from "../proxy.js";
+import { proxyToolCall } from "../proxy/proxy.js";
 import { createMcpKey } from "../security/mcp-key-store.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 

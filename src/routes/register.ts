@@ -10,7 +10,7 @@ import { discoverToolsFromMcpServer } from "../mcp/mcp-discovery.js";
 import { discoverToolsFromGraphQl } from "../graphql-discovery.js";
 import { parseCurlCommand, parsePostmanCollection } from "../curl-postman-discovery.js";
 import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
-import { setToolGraphql } from "../backends.js";
+import { setToolGraphql } from "../proxy/backends.js";
 import { getWsProxyTargetDetail } from "../ws-proxy.js";
 import type { McpTransport } from "../mcp/types.js";
 import { validationError } from "./http-errors.js";

@@ -11,7 +11,7 @@ import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry, ToolOverrideError } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
-import { proxyToolCall } from "../proxy.js";
+import { proxyToolCall } from "../proxy/proxy.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 

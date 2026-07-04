@@ -13,7 +13,7 @@
  * inputSchema doesn't declare survives to the backend). Response ops run on the
  * parsed JSON body before redaction.
  */
-import { getDb } from "./db/connection.js";
+import { getDb } from "../db/connection.js";
 
 export type TransformOp =
   | { op: "set"; path: string; value: unknown }

@@ -12,7 +12,7 @@ import {
   type GetPromptResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { registry } from "./registry.js";
-import { proxyToolCall } from "../proxy.js";
+import { proxyToolCall } from "../proxy/proxy.js";
 import { mcpUpstream, type McpConnParams } from "./mcp-upstream.js";
 import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
 import { isBundleEnabled, getBundleToolKeys } from "../bundles.js";

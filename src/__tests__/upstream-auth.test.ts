@@ -5,7 +5,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
-import { proxyToolCall } from "../proxy.js";
+import { proxyToolCall } from "../proxy/proxy.js";
 import {
   setUpstreamAuth,
   getUpstreamAuthInfo,

@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction, Express } from "express";
 import { registry, TOOL_KEY_SEPARATOR, ToolOverrideError } from "../mcp/registry.js";
-import { proxyToolCall } from "../proxy.js";
+import { proxyToolCall } from "../proxy/proxy.js";
 import { adminAuth } from "../middleware/auth.js";
 import { hashApiKey } from "../security/key-hash.js";
 import { setToolSensitive } from "../tool-sensitivity.js";
@@ -18,8 +18,8 @@ import {
 } from "../quarantine.js";
 import { getLb, setLb, addUpstream, updateUpstream, removeUpstream, type LbStrategy } from "../load-balancer.js";
 import { setPaginationConfig, MAX_PAGINATION_PAGES, type PaginationStrategy } from "../pagination.js";
-import { setStreamingConfig, MAX_STREAM_EVENTS, type StreamFormat } from "../streaming.js";
-import { setToolTransform, MAX_TRANSFORM_OPS, type TransformOp } from "../transform.js";
+import { setStreamingConfig, MAX_STREAM_EVENTS, type StreamFormat } from "../proxy/streaming.js";
+import { setToolTransform, MAX_TRANSFORM_OPS, type TransformOp } from "../proxy/transform.js";
 import { setToolMock, type MockMode } from "../mock.js";
 import {
   setApprovalRequired,
@@ -31,7 +31,7 @@ import {
 } from "../approvals.js";
 import { listTraffic, getTraffic } from "../traffic.js";
 import { setMonitor, deleteMonitor, listMonitors } from "../monitor.js";
-import { setToolGraphql, setToolWs } from "../backends.js";
+import { setToolGraphql, setToolWs } from "../proxy/backends.js";
 import { getClientOAuth, setClientOAuth, type OAuthError } from "../oauth.js";
 import {
   setToolContextBudget,

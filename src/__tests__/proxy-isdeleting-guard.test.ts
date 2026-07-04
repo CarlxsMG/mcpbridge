@@ -74,7 +74,7 @@ describe("proxyToolCall — isDeleting guard: returns error without calling fetc
       });
     }) as unknown as typeof fetch;
 
-    const { proxyToolCall } = await import("../proxy.js");
+    const { proxyToolCall } = await import("../proxy/proxy.js");
 
     // Start unregister without awaiting — it will set isDeleting synchronously
     // after acquiring the lock (which happens in the same microtask for the first waiter).
@@ -133,7 +133,7 @@ describe("proxyToolCall — isDeleting guard: fetch IS called when not deleting"
     // isDeleting is not active — defaults to false for CLIENT
     expect(isDeleting(CLIENT)).toBe(false);
 
-    const { proxyToolCall } = await import("../proxy.js");
+    const { proxyToolCall } = await import("../proxy/proxy.js");
     await proxyToolCall(`${CLIENT}__${TOOL}`, {});
 
     expect(fetchCallCount).toBeGreaterThan(0);
@@ -160,7 +160,7 @@ describe("proxyToolCall — isDeleting guard: returns error after client fully r
       return new Response("{}", { status: 200 });
     }) as unknown as typeof fetch;
 
-    const { proxyToolCall } = await import("../proxy.js");
+    const { proxyToolCall } = await import("../proxy/proxy.js");
     const result = await proxyToolCall(`${CLIENT}__${TOOL}`, {});
 
     expect(result.isError).toBe(true);

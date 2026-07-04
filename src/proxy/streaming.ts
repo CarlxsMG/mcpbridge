@@ -9,7 +9,7 @@
  * `{ "events": [ ... ] }` JSON result. Useful for backends that emit NDJSON logs
  * or SSE token/event streams and then close.
  */
-import { getDb } from "./db/connection.js";
+import { getDb } from "../db/connection.js";
 
 export type StreamFormat = "ndjson" | "sse";
 

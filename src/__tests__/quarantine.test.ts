@@ -9,7 +9,7 @@ import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker, getAllCircuitStates } from "../circuit-breaker.js";
-import { proxyToolCall } from "../proxy.js";
+import { proxyToolCall } from "../proxy/proxy.js";
 import { setGuardrails } from "../guardrails.js";
 import { listApprovals } from "../approvals.js";
 import {

@@ -6,7 +6,7 @@ import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
-import { proxyToolCall } from "../proxy.js";
+import { proxyToolCall } from "../proxy/proxy.js";
 import { tracingEnabled, startSpan, endSpan, flush, _internalsForTesting } from "../observability/tracing.js";
 import { metricsRegistry } from "../observability/metrics.js";
 import { recordToolCall } from "../routes/metrics.js";

@@ -8,8 +8,8 @@ import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
-import { proxyToolCall } from "../proxy.js";
-import { getToolTransform, setToolTransform, applyOps } from "../transform.js";
+import { proxyToolCall } from "../proxy/proxy.js";
+import { getToolTransform, setToolTransform, applyOps } from "../proxy/transform.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "svc";

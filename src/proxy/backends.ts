@@ -9,9 +9,9 @@
  * Both reuse the same guard/breaker/usage stack as REST — only the wire format
  * differs. The WS URL is SSRF-validated at config time (via its http-equivalent).
  */
-import { getDb } from "./db/connection.js";
-import { config } from "./config.js";
-import { validateBackendUrl } from "./security/ip-validator.js";
+import { getDb } from "../db/connection.js";
+import { config } from "../config.js";
+import { validateBackendUrl } from "../security/ip-validator.js";
 
 // ── GraphQL ─────────────────────────────────────────────────────────────────
 

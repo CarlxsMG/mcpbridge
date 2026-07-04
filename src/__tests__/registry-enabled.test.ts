@@ -119,7 +119,7 @@ describe("enabled: false backstop in proxyToolCall", () => {
       return new Response("{}", { status: 200 });
     }) as unknown as typeof fetch;
 
-    const { proxyToolCall } = await import("../proxy.js");
+    const { proxyToolCall } = await import("../proxy/proxy.js");
     const result = await proxyToolCall("svc__get-users", {});
 
     globalThis.fetch = originalFetch;
@@ -139,7 +139,7 @@ describe("enabled: false backstop in proxyToolCall", () => {
       return new Response("{}", { status: 200 });
     }) as unknown as typeof fetch;
 
-    const { proxyToolCall } = await import("../proxy.js");
+    const { proxyToolCall } = await import("../proxy/proxy.js");
     const result = await proxyToolCall("svc__get-users", {});
 
     globalThis.fetch = originalFetch;

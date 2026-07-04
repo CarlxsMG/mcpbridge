@@ -127,7 +127,7 @@ describe("proxyToolCall — unknown tool after client unregistered", () => {
       return new Response("{}", { status: 200 });
     }) as unknown as typeof fetch;
 
-    const { proxyToolCall } = await import("../proxy.js");
+    const { proxyToolCall } = await import("../proxy/proxy.js");
     const result = await proxyToolCall("guard-svc__do-thing", {});
 
     expect(result.isError).toBe(true);

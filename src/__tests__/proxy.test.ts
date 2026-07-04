@@ -87,7 +87,7 @@ describe("proxyToolCall — signal isolation across retry attempts", () => {
     } as typeof fetch;
 
     try {
-      const { proxyToolCall } = await import("../proxy.js");
+      const { proxyToolCall } = await import("../proxy/proxy.js");
       const result = await proxyToolCall(`${CLIENT}__${TOOL}`, {});
 
       // Must succeed on second attempt
@@ -130,7 +130,7 @@ describe("proxyToolCall — Fix 1: response header allowlist", () => {
     } as unknown as typeof fetch;
 
     try {
-      const { proxyToolCall } = await import("../proxy.js");
+      const { proxyToolCall } = await import("../proxy/proxy.js");
       const result = await proxyToolCall(`${CLIENT}__${TOOL}`, {});
 
       // Result must not be an error
@@ -219,7 +219,7 @@ describe("proxyToolCall — Fix 3: body cap on error response path", () => {
     } as unknown as typeof fetch;
 
     try {
-      const { proxyToolCall } = await import("../proxy.js");
+      const { proxyToolCall } = await import("../proxy/proxy.js");
       const result = await proxyToolCall(`${CLIENT}__${TOOL}`, {});
 
       expect(result.isError).toBe(true);
@@ -304,7 +304,7 @@ describe("proxyToolCall — Ajv validation: email format", () => {
   });
 
   test("rejects invalid email format", async () => {
-    const { proxyToolCall } = await import("../proxy.js");
+    const { proxyToolCall } = await import("../proxy/proxy.js");
     const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { email: "not-an-email" });
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Argument validation failed");
@@ -318,7 +318,7 @@ describe("proxyToolCall — Ajv validation: email format", () => {
         headers: { "content-type": "application/json" },
       })) as unknown as typeof fetch;
     try {
-      const { proxyToolCall } = await import("../proxy.js");
+      const { proxyToolCall } = await import("../proxy/proxy.js");
       const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { email: "user@example.com" });
       expect(result.isError).toBeUndefined();
     } finally {
@@ -364,7 +364,7 @@ describe("proxyToolCall — Ajv validation: enum constraint", () => {
   });
 
   test("rejects value not in enum", async () => {
-    const { proxyToolCall } = await import("../proxy.js");
+    const { proxyToolCall } = await import("../proxy/proxy.js");
     const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { mode: "c" });
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Argument validation failed");
@@ -414,7 +414,7 @@ describe("proxyToolCall — Ajv validation: nullable field", () => {
         headers: { "content-type": "application/json" },
       })) as unknown as typeof fetch;
     try {
-      const { proxyToolCall } = await import("../proxy.js");
+      const { proxyToolCall } = await import("../proxy/proxy.js");
       const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { value: null });
       expect(result.isError).toBeUndefined();
     } finally {
@@ -466,7 +466,7 @@ describe("proxyToolCall — Ajv validation: nested object", () => {
   });
 
   test("rejects when required nested field is wrong type", async () => {
-    const { proxyToolCall } = await import("../proxy.js");
+    const { proxyToolCall } = await import("../proxy/proxy.js");
     const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { address: { zip: 12345 } });
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Argument validation failed");
@@ -519,7 +519,7 @@ describe("proxyToolCall — Ajv validation: unknown additional property stripped
       });
     }) as unknown as typeof fetch;
     try {
-      const { proxyToolCall } = await import("../proxy.js");
+      const { proxyToolCall } = await import("../proxy/proxy.js");
       const result = await proxyToolCall(`${AJV_CLIENT}__${TOOL_NAME}`, { name: "alice", secret: "hunter2" });
       expect(result.isError).toBeUndefined();
       // The body sent upstream must NOT contain the unknown key

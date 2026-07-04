@@ -1,10 +1,10 @@
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
-import { registry } from "./mcp/registry.js";
-import { config } from "./config.js";
-import { log } from "./logger.js";
-import { getCircuitBreaker } from "./circuit-breaker.js";
-import { recordToolCall } from "./routes/metrics.js";
+import { registry } from "../mcp/registry.js";
+import { config } from "../config.js";
+import { log } from "../logger.js";
+import { getCircuitBreaker } from "../circuit-breaker.js";
+import { recordToolCall } from "../routes/metrics.js";
 import {
   proxyBodyCapRejections,
   proxyRetryAttempts,
@@ -12,9 +12,9 @@ import {
   cacheEvents,
   lbRequests,
   coalesceHits,
-} from "./observability/metrics.js";
-import { getToolCacheConfig, cacheKey, cacheGet, cacheSet } from "./response-cache.js";
-import { getToolCoalesce, runCoalesced } from "./coalesce.js";
+} from "../observability/metrics.js";
+import { getToolCacheConfig, cacheKey, cacheGet, cacheSet } from "../response-cache.js";
+import { getToolCoalesce, runCoalesced } from "../coalesce.js";
 import {
   getLb,
   selectTarget,
@@ -23,7 +23,7 @@ import {
   incInflight,
   decInflight,
   type LbChoice,
-} from "./load-balancer.js";
+} from "../load-balancer.js";
 import {
   getPaginationConfig,
   extractItems,
@@ -31,10 +31,10 @@ import {
   parseNextLink,
   withItems,
   type PaginationConfig,
-} from "./pagination.js";
+} from "../pagination.js";
 import { getStreamingConfig, parseStream } from "./streaming.js";
 import { getToolTransform, applyOps } from "./transform.js";
-import { getToolMock } from "./mock.js";
+import { getToolMock } from "../mock.js";
 import {
   requiresApproval,
   approvalArgsHash,
@@ -42,30 +42,30 @@ import {
   consumeApproval,
   notifyApproval,
   getRequiredLevels,
-} from "./approvals.js";
-import { recordTraffic } from "./traffic.js";
+} from "../approvals.js";
+import { recordTraffic } from "../traffic.js";
 import { getToolGraphql, getToolWs, wsRequest, wsRequestPersistent } from "./backends.js";
-import { getOAuthBearer } from "./oauth.js";
-import { refreshPinIfStale } from "./security/ip-validator.js";
-import type { PinnedIp } from "./security/ip-validator.js";
-import { isDeleting } from "./mcp/registry.js";
-import { checkToolRateLimit } from "./middleware/rate-limiter.js";
-import { checkSharedToolRateLimit } from "./db/rate-counters.js";
-import { isKeyAllowed } from "./security/key-hash.js";
-import { resolveMcpKeyByToken, isToolInKeyScope } from "./security/mcp-key-store.js";
-import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
-import { recordUsage } from "./observability/usage.js";
-import { checkConsumerQuota, checkEndUserRateLimit, getConsumer } from "./consumers.js";
-import { isToolSensitive } from "./tool-sensitivity.js";
-import { getRedactionPaths, applyRedaction } from "./redaction.js";
-import { getGuardrails, checkInputGuardrails, applyResponseScan } from "./guardrails.js";
-import { checkQuarantine, recordGuardrailHit } from "./quarantine.js";
-import { applyContextBudget } from "./context-budget.js";
-import { getCanary, decideSecondary } from "./canary.js";
-import { tracingEnabled, startSpan, endSpan } from "./observability/tracing.js";
-import { mcpUpstream } from "./mcp/mcp-upstream.js";
-import type { McpConnParams } from "./mcp/mcp-upstream.js";
-import type { RegisteredClient, RegisteredTool } from "./mcp/types.js";
+import { getOAuthBearer } from "../oauth.js";
+import { refreshPinIfStale } from "../security/ip-validator.js";
+import type { PinnedIp } from "../security/ip-validator.js";
+import { isDeleting } from "../mcp/registry.js";
+import { checkToolRateLimit } from "../middleware/rate-limiter.js";
+import { checkSharedToolRateLimit } from "../db/rate-counters.js";
+import { isKeyAllowed } from "../security/key-hash.js";
+import { resolveMcpKeyByToken, isToolInKeyScope } from "../security/mcp-key-store.js";
+import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
+import { recordUsage } from "../observability/usage.js";
+import { checkConsumerQuota, checkEndUserRateLimit, getConsumer } from "../consumers.js";
+import { isToolSensitive } from "../tool-sensitivity.js";
+import { getRedactionPaths, applyRedaction } from "../redaction.js";
+import { getGuardrails, checkInputGuardrails, applyResponseScan } from "../guardrails.js";
+import { checkQuarantine, recordGuardrailHit } from "../quarantine.js";
+import { applyContextBudget } from "../context-budget.js";
+import { getCanary, decideSecondary } from "../canary.js";
+import { tracingEnabled, startSpan, endSpan } from "../observability/tracing.js";
+import { mcpUpstream } from "../mcp/mcp-upstream.js";
+import type { McpConnParams } from "../mcp/mcp-upstream.js";
+import type { RegisteredClient, RegisteredTool } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls

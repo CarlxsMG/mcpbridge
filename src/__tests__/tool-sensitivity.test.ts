@@ -9,7 +9,7 @@ import type { Server } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
-import { proxyToolCall } from "../proxy.js";
+import { proxyToolCall } from "../proxy/proxy.js";
 import { setToolSensitive, isToolSensitive } from "../tool-sensitivity.js";
 import { createMcpKey } from "../security/mcp-key-store.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
