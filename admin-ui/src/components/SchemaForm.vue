@@ -10,9 +10,8 @@ import { ref, computed, watch } from "vue";
  */
 const props = defineProps<{
   schema: Record<string, unknown>;
-  modelValue: Record<string, unknown>;
 }>();
-const emit = defineEmits<{ "update:modelValue": [value: Record<string, unknown>] }>();
+const model = defineModel<Record<string, unknown>>({ required: true });
 
 interface Field {
   name: string;
@@ -60,10 +59,10 @@ function hydrate(source: Record<string, unknown>) {
   values.value = next;
   jsonInvalid.value = {};
 }
-hydrate(props.modelValue ?? {});
+hydrate(model.value ?? {});
 
 watch(
-  () => props.modelValue,
+  () => model.value,
   (mv) => {
     if (!suppress) hydrate(mv ?? {});
   },
@@ -97,7 +96,7 @@ function emitArgs() {
     } else out[f.name] = str;
   }
   suppress = true;
-  emit("update:modelValue", out);
+  model.value = out;
   // release the suppression on the next microtask so external loads still sync
   Promise.resolve().then(() => {
     suppress = false;

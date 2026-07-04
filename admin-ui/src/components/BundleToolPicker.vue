@@ -5,8 +5,7 @@ import type { ToolListItem, BundleToolRef } from "../types/api";
 import { Search } from "lucide-vue-next";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 
-const props = defineProps<{ modelValue: BundleToolRef[] }>();
-const emit = defineEmits<{ "update:modelValue": [value: BundleToolRef[]] }>();
+const model = defineModel<BundleToolRef[]>({ required: true });
 
 const allTools = ref<ToolListItem[]>([]);
 const loading = ref(false);
@@ -32,7 +31,7 @@ function refKey(ref: { client: string; tool: string }): string {
   return `${ref.client}__${ref.tool}`;
 }
 
-const selectedKeys = computed(() => new Set(props.modelValue.map(refKey)));
+const selectedKeys = computed(() => new Set(model.value.map(refKey)));
 
 function isSelected(item: ToolListItem): boolean {
   return selectedKeys.value.has(refKey(item));
@@ -40,18 +39,15 @@ function isSelected(item: ToolListItem): boolean {
 
 function toggle(item: ToolListItem) {
   if (isSelected(item)) {
-    emit(
-      "update:modelValue",
-      props.modelValue.filter((t) => refKey(t) !== refKey(item)),
-    );
+    model.value = model.value.filter((t) => refKey(t) !== refKey(item));
   } else {
-    emit("update:modelValue", [...props.modelValue, { client: item.client, tool: item.tool }]);
+    model.value = [...model.value, { client: item.client, tool: item.tool }];
   }
 }
 
 function selectAllInGroup(tools: ToolListItem[]) {
   const additions = tools.filter((t) => !isSelected(t)).map((t) => ({ client: t.client, tool: t.tool }));
-  if (additions.length) emit("update:modelValue", [...props.modelValue, ...additions]);
+  if (additions.length) model.value = [...model.value, ...additions];
 }
 
 const filteredTools = computed(() => {
@@ -93,7 +89,7 @@ const groupedByClient = computed(() => {
         <input v-model="showSelectedOnly" type="checkbox" />
         Show selected only
       </label>
-      <span class="selected-count">{{ modelValue.length }} selected</span>
+      <span class="selected-count">{{ model.length }} selected</span>
     </div>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
