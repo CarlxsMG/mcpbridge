@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useEntityForm } from "@/composables/useEntityForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
+import { toErrorMessage } from "@/utils/errors";
 import type { GuardPolicy, BundleSummary } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -31,12 +33,17 @@ const {
   confirm: confirmActionApply,
 } = useConfirmAction<{ policy: GuardPolicy; bundle: string }>();
 
-const showCreate = ref(false);
 const newName = ref("");
 const newRate = ref("");
 const newTimeout = ref("");
-const createError = ref("");
-const creating = ref(false);
+
+function resetForm() {
+  newName.value = "";
+  newRate.value = "";
+  newTimeout.value = "";
+}
+
+const { open: showCreate, busy: creating, error: createError, submit } = useEntityForm<void>({ reset: resetForm });
 
 // per-policy selected bundle to apply to
 const applyBundle = ref<Record<number, string>>({});
@@ -70,23 +77,14 @@ async function createPolicy() {
     createError.value = timeout.error;
     return;
   }
-  creating.value = true;
-  try {
+  const ok = await submit(async () => {
     await api.post("/admin-api/policies", {
       name: newName.value.trim(),
       rateLimitPerMin: rate.value,
       timeoutMs: timeout.value,
     });
-    newName.value = "";
-    newRate.value = "";
-    newTimeout.value = "";
-    showCreate.value = false;
-    await load();
-  } catch (err) {
-    createError.value = err instanceof ApiError ? err.message : "Failed to create policy.";
-  } finally {
-    creating.value = false;
-  }
+  }, "Failed to create policy.");
+  if (ok) await load();
 }
 
 function requestApply(policy: GuardPolicy) {
@@ -110,7 +108,7 @@ async function confirmApply() {
       }
       notice.value = message;
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Apply failed.";
+      errorMessage.value = toErrorMessage(err, "Apply failed.");
     } finally {
       applyingId.value = null;
     }
@@ -123,7 +121,7 @@ async function confirmDelete() {
       await api.delete(`/admin-api/policies/${p.id}`);
       await load();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete policy.";
+      errorMessage.value = toErrorMessage(err, "Failed to delete policy.");
     }
   });
 }
@@ -155,46 +153,49 @@ async function confirmDelete() {
     </form>
 
     <p v-if="notice" class="notice">{{ notice }}</p>
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <SignalLoader v-if="loading" />
-    <EmptyState v-else-if="policies.length === 0" :icon="ShieldCheck">
-      No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each one
-      individually.
-    </EmptyState>
 
-    <TableCard v-else>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Rate/min</th>
-          <th>Timeout</th>
-          <th>Apply to bundle</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="p in policies" :key="p.id">
-          <td>{{ p.name }}</td>
-          <td>{{ p.rateLimitPerMin ?? "—" }}</td>
-          <td>{{ p.timeoutMs ? `${p.timeoutMs}ms` : "—" }}</td>
-          <td class="apply-cell">
-            <select v-model="applyBundle[p.id]">
-              <option value="">Select bundle…</option>
-              <option v-for="b in bundles" :key="b.name" :value="b.name">{{ b.name }}</option>
-            </select>
-            <button
-              type="button"
-              class="btn-secondary"
-              :disabled="!applyBundle[p.id] || applyingId === p.id"
-              @click="requestApply(p)"
-            >
-              {{ applyingId === p.id ? "Applying…" : "Apply" }}
-            </button>
-          </td>
-          <td><button type="button" class="link-btn danger" @click="requestDelete(p)">Delete</button></td>
-        </tr>
-      </tbody>
-    </TableCard>
+    <ListLayout :loading="loading" :error="errorMessage" :empty="policies.length === 0">
+      <template #empty>
+        <EmptyState :icon="ShieldCheck">
+          No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each
+          one individually.
+        </EmptyState>
+      </template>
+
+      <TableCard>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Rate/min</th>
+            <th>Timeout</th>
+            <th>Apply to bundle</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="p in policies" :key="p.id">
+            <td>{{ p.name }}</td>
+            <td>{{ p.rateLimitPerMin ?? "—" }}</td>
+            <td>{{ p.timeoutMs ? `${p.timeoutMs}ms` : "—" }}</td>
+            <td class="apply-cell">
+              <select v-model="applyBundle[p.id]">
+                <option value="">Select bundle…</option>
+                <option v-for="b in bundles" :key="b.name" :value="b.name">{{ b.name }}</option>
+              </select>
+              <button
+                type="button"
+                class="btn-secondary"
+                :disabled="!applyBundle[p.id] || applyingId === p.id"
+                @click="requestApply(p)"
+              >
+                {{ applyingId === p.id ? "Applying…" : "Apply" }}
+              </button>
+            </td>
+            <td><button type="button" class="link-btn danger" @click="requestDelete(p)">Delete</button></td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -228,22 +229,7 @@ async function confirmDelete() {
 
 <style scoped>
 .create-form {
-  background: var(--surface-sunken);
-  padding: 1.25rem;
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
   max-width: 26.25rem;
-}
-.field input,
-.field select,
-.field textarea {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
 }
 .apply-cell {
   display: flex;
@@ -260,11 +246,5 @@ async function confirmDelete() {
 .notice {
   color: var(--ok);
   font-size: 0.9rem;
-}
-.link-btn.danger {
-  color: var(--breach);
-}
-.error {
-  color: var(--breach);
 }
 </style>

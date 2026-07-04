@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { toErrorMessage } from "@/utils/errors";
 import type { Team } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import FormField from "@/components/ui/FormField.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import TableCard from "@/components/ui/TableCard.vue";
@@ -42,7 +43,7 @@ async function create() {
     newName.value = "";
     await load();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to create team.";
+    errorMessage.value = toErrorMessage(err, "Failed to create team.");
   } finally {
     creating.value = false;
   }
@@ -54,7 +55,7 @@ async function confirmRemove() {
       await api.delete(`/admin-api/teams/${t.id}`);
       await load();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete team.";
+      errorMessage.value = toErrorMessage(err, "Failed to delete team.");
     }
   });
 }
@@ -73,33 +74,33 @@ async function confirmRemove() {
       </FormField>
       <button class="btn-primary" type="submit" :disabled="creating || !newName.trim()">Create team</button>
     </form>
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+    <ListLayout :loading="loading" :error="errorMessage" :empty="teams.length === 0">
+      <template #empty>
+        <EmptyState :icon="UsersRound">
+          No teams yet. A team groups servers under shared ownership, so operator-role admins only see and manage what's
+          assigned to their team.
+        </EmptyState>
+      </template>
 
-    <SignalLoader v-if="loading" />
-
-    <EmptyState v-if="!loading && teams.length === 0" :icon="UsersRound">
-      No teams yet. A team groups servers under shared ownership, so operator-role admins only see and manage what's
-      assigned to their team.
-    </EmptyState>
-
-    <TableCard v-else-if="!loading">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Name</th>
-          <th>Created</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="t in teams" :key="t.id">
-          <td>{{ t.id }}</td>
-          <td>{{ t.name }}</td>
-          <td>{{ new Date(t.createdAt).toLocaleDateString() }}</td>
-          <td><button class="link-btn danger" @click="requestRemove(t)">Delete</button></td>
-        </tr>
-      </tbody>
-    </TableCard>
+      <TableCard>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="t in teams" :key="t.id">
+            <td>{{ t.id }}</td>
+            <td>{{ t.name }}</td>
+            <td>{{ new Date(t.createdAt).toLocaleDateString() }}</td>
+            <td><button class="link-btn danger" @click="requestRemove(t)">Delete</button></td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingDelete !== null"

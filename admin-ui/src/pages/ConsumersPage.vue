@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useEntityForm } from "@/composables/useEntityForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
+import { toErrorMessage } from "@/utils/errors";
 import type { ConsumerWithUsage, ConsumerUsage } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import QuotaBar from "@/components/charts/QuotaBar.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -31,16 +34,38 @@ const {
   confirm: confirmActionDelete,
 } = useConfirmAction<ConsumerWithUsage>();
 
-const showCreate = ref(false);
 const newName = ref("");
 const newQuota = ref("");
 const newEndUserLimit = ref("");
-const createError = ref("");
 const nameError = ref("");
 const quotaError = ref("");
 const endUserLimitError = ref("");
-const creating = ref(false);
-const editingConsumer = ref<ConsumerWithUsage | null>(null);
+
+function resetForm() {
+  newName.value = "";
+  newQuota.value = "";
+  newEndUserLimit.value = "";
+  nameError.value = "";
+  quotaError.value = "";
+  endUserLimitError.value = "";
+}
+
+function fillForm(consumer: ConsumerWithUsage) {
+  newName.value = consumer.name;
+  newQuota.value = consumer.monthlyQuota !== null ? String(consumer.monthlyQuota) : "";
+  newEndUserLimit.value = consumer.endUserRateLimitPerMin !== null ? String(consumer.endUserRateLimitPerMin) : "";
+}
+
+const {
+  open: showCreate,
+  editing: editingConsumer,
+  busy: creating,
+  error: createError,
+  openCreate,
+  openEdit,
+  close: closeForm,
+  submit,
+} = useEntityForm<ConsumerWithUsage>({ reset: resetForm, fill: fillForm });
 
 // Usage drilldown — GET /admin-api/consumers/:id/usage. Fetched lazily per row (rather than
 // bundled into the list load above) since the list already carries `usedThisMonth`; expanding
@@ -67,7 +92,7 @@ async function toggleUsage(consumer: ConsumerWithUsage) {
   try {
     usageById.value[consumer.id] = await api.get<ConsumerUsage>(`/admin-api/consumers/${consumer.id}/usage`);
   } catch (err) {
-    usageErrorById.value[consumer.id] = err instanceof ApiError ? err.message : "Failed to load usage detail.";
+    usageErrorById.value[consumer.id] = toErrorMessage(err, "Failed to load usage detail.");
   } finally {
     usageLoadingId.value = null;
   }
@@ -75,44 +100,7 @@ async function toggleUsage(consumer: ConsumerWithUsage) {
 
 onMounted(load);
 
-function openCreate() {
-  editingConsumer.value = null;
-  newName.value = "";
-  newQuota.value = "";
-  newEndUserLimit.value = "";
-  createError.value = "";
-  nameError.value = "";
-  quotaError.value = "";
-  endUserLimitError.value = "";
-  showCreate.value = true;
-}
-
-function openEdit(consumer: ConsumerWithUsage) {
-  editingConsumer.value = consumer;
-  newName.value = consumer.name;
-  newQuota.value = consumer.monthlyQuota !== null ? String(consumer.monthlyQuota) : "";
-  newEndUserLimit.value = consumer.endUserRateLimitPerMin !== null ? String(consumer.endUserRateLimitPerMin) : "";
-  createError.value = "";
-  nameError.value = "";
-  quotaError.value = "";
-  endUserLimitError.value = "";
-  showCreate.value = true;
-}
-
-function closeForm() {
-  showCreate.value = false;
-  editingConsumer.value = null;
-  newName.value = "";
-  newQuota.value = "";
-  newEndUserLimit.value = "";
-  createError.value = "";
-  nameError.value = "";
-  quotaError.value = "";
-  endUserLimitError.value = "";
-}
-
 async function submitConsumer() {
-  createError.value = "";
   nameError.value = "";
   quotaError.value = "";
   endUserLimitError.value = "";
@@ -131,33 +119,25 @@ async function submitConsumer() {
   if (nameError.value || quotaError.value || endUserLimitError.value) {
     return;
   }
-  creating.value = true;
-  try {
-    if (editingConsumer.value) {
-      await api.patch(`/admin-api/consumers/${editingConsumer.value.id}`, {
-        name: newName.value.trim(),
-        monthlyQuota: quota,
-        endUserRateLimitPerMin,
-      });
-    } else {
-      await api.post("/admin-api/consumers", {
-        name: newName.value.trim(),
-        monthlyQuota: quota,
-        endUserRateLimitPerMin,
-      });
-    }
-    closeForm();
-    await load();
-  } catch (err) {
-    createError.value =
-      err instanceof ApiError
-        ? err.message
-        : editingConsumer.value
-          ? "Failed to update consumer."
-          : "Failed to create consumer.";
-  } finally {
-    creating.value = false;
-  }
+  const ok = await submit(
+    async (editing) => {
+      if (editing) {
+        await api.patch(`/admin-api/consumers/${editing.id}`, {
+          name: newName.value.trim(),
+          monthlyQuota: quota,
+          endUserRateLimitPerMin,
+        });
+      } else {
+        await api.post("/admin-api/consumers", {
+          name: newName.value.trim(),
+          monthlyQuota: quota,
+          endUserRateLimitPerMin,
+        });
+      }
+    },
+    editingConsumer.value ? "Failed to update consumer." : "Failed to create consumer.",
+  );
+  if (ok) await load();
 }
 
 function confirmDelete() {
@@ -166,7 +146,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/consumers/${c.id}`);
       await load();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete consumer.";
+      errorMessage.value = toErrorMessage(err, "Failed to delete consumer.");
     }
   });
 }
@@ -208,82 +188,84 @@ function confirmDelete() {
       </button>
     </form>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <SignalLoader v-if="loading" />
-    <EmptyState v-else-if="consumers.length === 0" :icon="Users2">
-      No consumers yet. A consumer groups one or more API keys under a shared monthly quota and rate limit.
-    </EmptyState>
+    <ListLayout :loading="loading" :error="errorMessage" :empty="consumers.length === 0">
+      <template #empty>
+        <EmptyState :icon="Users2">
+          No consumers yet. A consumer groups one or more API keys under a shared monthly quota and rate limit.
+        </EmptyState>
+      </template>
 
-    <TableCard v-else>
-      <thead>
-        <tr>
-          <th></th>
-          <th>Name</th>
-          <th>Quota</th>
-          <th>Per-end-user limit</th>
-          <th>Used this month</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <template v-for="c in consumers" :key="c.id">
-          <tr class="cons-row" @click="toggleUsage(c)">
-            <td class="expand-col">
-              <button
-                type="button"
-                class="expand-btn"
-                :aria-expanded="expandedId === c.id"
-                :aria-label="`Toggle usage detail for ${c.name}`"
-                @click.stop="toggleUsage(c)"
-              >
-                <ChevronDown v-if="expandedId === c.id" :size="15" stroke-width="2" aria-hidden="true" />
-                <ChevronRight v-else :size="15" stroke-width="2" aria-hidden="true" />
-              </button>
-            </td>
-            <td>{{ c.name }}</td>
-            <td>{{ c.monthlyQuota ?? "Unlimited" }}</td>
-            <td>{{ c.endUserRateLimitPerMin !== null ? `${c.endUserRateLimitPerMin}/min per user` : "—" }}</td>
-            <td :class="{ hot: c.monthlyQuota !== null && c.usedThisMonth >= c.monthlyQuota }">
-              <div class="usage-cell">
-                <span>{{ c.usedThisMonth }}</span>
-                <div class="usage-bar-wrap"><QuotaBar :used="c.usedThisMonth" :quota="c.monthlyQuota" /></div>
-              </div>
-            </td>
-            <td>
-              <div class="actions" @click.stop>
-                <button type="button" class="link-btn" @click="openEdit(c)">Edit</button>
-                <button type="button" class="link-btn danger" @click="requestDelete(c)">Delete</button>
-              </div>
-            </td>
+      <TableCard>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Name</th>
+            <th>Quota</th>
+            <th>Per-end-user limit</th>
+            <th>Used this month</th>
+            <th></th>
           </tr>
-          <tr v-if="expandedId === c.id" class="usage-detail-row">
-            <td colspan="6">
-              <div class="usage-detail">
-                <SignalLoader v-if="usageLoadingId === c.id" label="Loading usage…" />
-                <p v-else-if="usageErrorById[c.id]" class="error">{{ usageErrorById[c.id] }}</p>
-                <template v-else-if="usageById[c.id]">
-                  <div class="usage-detail-stats">
-                    <div class="usage-stat">
-                      <span class="usage-stat-label">Used this month</span>
-                      <span class="usage-stat-value">{{ usageById[c.id].used }}</span>
+        </thead>
+        <tbody>
+          <template v-for="c in consumers" :key="c.id">
+            <tr class="cons-row" @click="toggleUsage(c)">
+              <td class="expand-col">
+                <button
+                  type="button"
+                  class="expand-btn"
+                  :aria-expanded="expandedId === c.id"
+                  :aria-label="`Toggle usage detail for ${c.name}`"
+                  @click.stop="toggleUsage(c)"
+                >
+                  <ChevronDown v-if="expandedId === c.id" :size="15" stroke-width="2" aria-hidden="true" />
+                  <ChevronRight v-else :size="15" stroke-width="2" aria-hidden="true" />
+                </button>
+              </td>
+              <td>{{ c.name }}</td>
+              <td>{{ c.monthlyQuota ?? "Unlimited" }}</td>
+              <td>{{ c.endUserRateLimitPerMin !== null ? `${c.endUserRateLimitPerMin}/min per user` : "—" }}</td>
+              <td :class="{ hot: c.monthlyQuota !== null && c.usedThisMonth >= c.monthlyQuota }">
+                <div class="usage-cell">
+                  <span>{{ c.usedThisMonth }}</span>
+                  <div class="usage-bar-wrap"><QuotaBar :used="c.usedThisMonth" :quota="c.monthlyQuota" /></div>
+                </div>
+              </td>
+              <td>
+                <div class="actions" @click.stop>
+                  <button type="button" class="link-btn" @click="openEdit(c)">Edit</button>
+                  <button type="button" class="link-btn danger" @click="requestDelete(c)">Delete</button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="expandedId === c.id" class="usage-detail-row">
+              <td colspan="6">
+                <div class="usage-detail">
+                  <SignalLoader v-if="usageLoadingId === c.id" label="Loading usage…" />
+                  <p v-else-if="usageErrorById[c.id]" class="error">{{ usageErrorById[c.id] }}</p>
+                  <template v-else-if="usageById[c.id]">
+                    <div class="usage-detail-stats">
+                      <div class="usage-stat">
+                        <span class="usage-stat-label">Used this month</span>
+                        <span class="usage-stat-value">{{ usageById[c.id].used }}</span>
+                      </div>
+                      <div class="usage-stat">
+                        <span class="usage-stat-label">Monthly quota</span>
+                        <span class="usage-stat-value">{{ usageById[c.id].quota ?? "Unlimited" }}</span>
+                      </div>
+                      <div class="usage-stat">
+                        <span class="usage-stat-label">Remaining</span>
+                        <span class="usage-stat-value">{{ remainingLabel(usageById[c.id]) }}</span>
+                      </div>
                     </div>
-                    <div class="usage-stat">
-                      <span class="usage-stat-label">Monthly quota</span>
-                      <span class="usage-stat-value">{{ usageById[c.id].quota ?? "Unlimited" }}</span>
-                    </div>
-                    <div class="usage-stat">
-                      <span class="usage-stat-label">Remaining</span>
-                      <span class="usage-stat-value">{{ remainingLabel(usageById[c.id]) }}</span>
-                    </div>
-                  </div>
-                  <QuotaBar :used="usageById[c.id].used" :quota="usageById[c.id].quota" />
-                </template>
-              </div>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </TableCard>
+                    <QuotaBar :used="usageById[c.id].used" :quota="usageById[c.id].quota" />
+                  </template>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -301,26 +283,7 @@ function confirmDelete() {
 
 <style scoped>
 .create-form {
-  background: var(--surface-sunken);
-  padding: 1.25rem;
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
   max-width: 23.75rem;
-}
-.field input,
-.field select,
-.field textarea {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
-}
-:deep(.data-table td.hot) {
-  color: var(--breach);
-  font-weight: 600;
 }
 .usage-cell {
   display: flex;
@@ -384,11 +347,5 @@ function confirmDelete() {
   font-family: var(--font-display);
   font-size: 1.1rem;
   color: var(--text-primary);
-}
-.link-btn.danger {
-  color: var(--breach);
-}
-.error {
-  color: var(--breach);
 }
 </style>

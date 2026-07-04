@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useAuth } from "../composables/useAuth";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useEntityForm } from "@/composables/useEntityForm";
+import { toErrorMessage } from "@/utils/errors";
+import { formatMaybeDate } from "@/utils/format";
 import type { AdminUserSummary, AdminRole, Team } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -50,7 +53,7 @@ async function loadTeams() {
     teams.value = (await api.get<{ items: Team[] }>("/admin-api/teams")).items;
   } catch (err) {
     teams.value = [];
-    teamsError.value = err instanceof ApiError ? err.message : "Failed to load teams.";
+    teamsError.value = toErrorMessage(err, "Failed to load teams.");
   }
 }
 const {
@@ -75,12 +78,17 @@ function isLastActiveAdmin(user: AdminUserSummary): boolean {
   return user.role === "admin" && user.is_active && activeAdminCount.value <= 1;
 }
 
-const showCreateForm = ref(false);
 const newUsername = ref("");
 const newPassword = ref("");
 const newRole = ref<AdminRole>("viewer");
-const createError = ref("");
-const creating = ref(false);
+
+function resetForm() {
+  newUsername.value = "";
+  newPassword.value = "";
+  newRole.value = "viewer";
+}
+
+const { open: showCreateForm, busy: creating, error: createError, submit } = useEntityForm<void>({ reset: resetForm });
 
 onMounted(() => {
   load();
@@ -93,23 +101,14 @@ async function createUser() {
     createError.value = "Password must be at least 12 characters.";
     return;
   }
-  creating.value = true;
-  try {
+  const ok = await submit(async () => {
     await api.post("/admin-api/users", {
       username: newUsername.value.trim(),
       password: newPassword.value,
       role: newRole.value,
     });
-    newUsername.value = "";
-    newPassword.value = "";
-    newRole.value = "viewer";
-    showCreateForm.value = false;
-    await load();
-  } catch (err) {
-    createError.value = err instanceof ApiError ? err.message : "Failed to create user.";
-  } finally {
-    creating.value = false;
-  }
+  }, "Failed to create user.");
+  if (ok) await load();
 }
 
 async function changeRole(user: AdminUserSummary, nextRole: string) {
@@ -117,7 +116,7 @@ async function changeRole(user: AdminUserSummary, nextRole: string) {
     await api.patch(`/admin-api/users/${encodeURIComponent(user.username)}`, { role: nextRole });
     await load();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to update role.";
+    errorMessage.value = toErrorMessage(err, "Failed to update role.");
     await load(); // reset the select back to the persisted value
   }
 }
@@ -157,7 +156,7 @@ async function changeTeam(user: AdminUserSummary, nextTeamId: number | null) {
     await api.put(`/admin-api/users/${encodeURIComponent(user.username)}/team`, { teamId: nextTeamId });
     await load();
   } catch (err) {
-    teamChangeError.value = err instanceof ApiError ? err.message : "Failed to assign team (super-admin only).";
+    teamChangeError.value = toErrorMessage(err, "Failed to assign team (super-admin only).");
     await load(); // reset the select back to the persisted value
   }
 }
@@ -197,7 +196,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/users/${encodeURIComponent(user.username)}`);
       await load();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete user.";
+      errorMessage.value = toErrorMessage(err, "Failed to delete user.");
     }
   });
 }
@@ -233,83 +232,86 @@ function confirmDelete() {
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <p v-if="teamChangeError" class="error" role="alert">{{ teamChangeError }}</p>
     <p v-if="teamsError" class="error" role="alert">{{ teamsError }}</p>
-    <SignalLoader v-if="loading" />
 
-    <EmptyState v-else-if="users.length === 0" :icon="UserCog">
-      No admin users yet. Every person who signs in to this panel needs their own account here -- shared logins aren't
-      supported.
-    </EmptyState>
+    <ListLayout :loading="loading" :empty="users.length === 0">
+      <template #empty>
+        <EmptyState :icon="UserCog">
+          No admin users yet. Every person who signs in to this panel needs their own account here -- shared logins
+          aren't supported.
+        </EmptyState>
+      </template>
 
-    <TableCard v-else>
-      <thead>
-        <tr>
-          <th>Username</th>
-          <th>Role</th>
-          <th>Team</th>
-          <th>Active</th>
-          <th>Last login</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="user in users" :key="user.username">
-          <td>
-            {{ user.username }} <span v-if="user.username === authState.user?.username" class="you-tag">(you)</span>
-          </td>
-          <td>
-            <select
-              :key="`${user.username}-role-${roleSelectResetTick[user.username] ?? 0}`"
-              class="role-select"
-              :value="user.role"
-              :disabled="isLastActiveAdmin(user)"
-              :title="
-                isLastActiveAdmin(user) ? 'Cannot change the last active admin — promote another user first.' : ''
-              "
-              @change="requestRoleChange(user, ($event.target as HTMLSelectElement).value)"
-            >
-              <option value="admin">admin</option>
-              <option value="operator">operator</option>
-              <option value="auditor">auditor</option>
-              <option value="viewer">viewer</option>
-            </select>
-            <br />
-            <span v-if="isLastActiveAdmin(user)" class="switch-hint"
-              >Cannot change the last active admin — promote another user first.</span
-            >
-          </td>
-          <td>
-            <select
-              :key="`${user.username}-team-${teamSelectResetTick[user.username] ?? 0}`"
-              class="role-select"
-              :value="user.team_id ?? ''"
-              title="Only super-admins can change this."
-              @change="requestTeamChange(user, ($event.target as HTMLSelectElement).value)"
-            >
-              <option value="">None (super-admin)</option>
-              <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
-            </select>
-          </td>
-          <td>{{ user.is_active ? "Yes" : "No" }}</td>
-          <td>{{ user.last_login_at ? new Date(user.last_login_at).toLocaleString() : "Never" }}</td>
-          <td>
-            <button
-              type="button"
-              class="link-btn danger"
-              :disabled="isLastActiveAdmin(user)"
-              :title="
-                isLastActiveAdmin(user) ? 'Cannot delete the last active admin — promote another user first.' : ''
-              "
-              @click="requestDelete(user)"
-            >
-              Delete</button
-            ><br />
-            <span v-if="isLastActiveAdmin(user)" class="switch-hint">
-              Cannot delete the last active admin — promote another user first.
-            </span>
-          </td>
-        </tr>
-      </tbody>
-    </TableCard>
+      <TableCard>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Team</th>
+            <th>Active</th>
+            <th>Last login</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="user in users" :key="user.username">
+            <td>
+              {{ user.username }} <span v-if="user.username === authState.user?.username" class="you-tag">(you)</span>
+            </td>
+            <td>
+              <select
+                :key="`${user.username}-role-${roleSelectResetTick[user.username] ?? 0}`"
+                class="role-select"
+                :value="user.role"
+                :disabled="isLastActiveAdmin(user)"
+                :title="
+                  isLastActiveAdmin(user) ? 'Cannot change the last active admin — promote another user first.' : ''
+                "
+                @change="requestRoleChange(user, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="admin">admin</option>
+                <option value="operator">operator</option>
+                <option value="auditor">auditor</option>
+                <option value="viewer">viewer</option>
+              </select>
+              <br />
+              <span v-if="isLastActiveAdmin(user)" class="switch-hint"
+                >Cannot change the last active admin — promote another user first.</span
+              >
+            </td>
+            <td>
+              <select
+                :key="`${user.username}-team-${teamSelectResetTick[user.username] ?? 0}`"
+                class="role-select"
+                :value="user.team_id ?? ''"
+                title="Only super-admins can change this."
+                @change="requestTeamChange(user, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">None (super-admin)</option>
+                <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </select>
+            </td>
+            <td>{{ user.is_active ? "Yes" : "No" }}</td>
+            <td>{{ formatMaybeDate(user.last_login_at) }}</td>
+            <td>
+              <button
+                type="button"
+                class="link-btn danger"
+                :disabled="isLastActiveAdmin(user)"
+                :title="
+                  isLastActiveAdmin(user) ? 'Cannot delete the last active admin — promote another user first.' : ''
+                "
+                @click="requestDelete(user)"
+              >
+                Delete</button
+              ><br />
+              <span v-if="isLastActiveAdmin(user)" class="switch-hint">
+                Cannot delete the last active admin — promote another user first.
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -347,10 +349,6 @@ function confirmDelete() {
 
 <style scoped>
 .create-form {
-  background: var(--surface-sunken);
-  padding: 1.25rem;
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
   max-width: 23.75rem;
   display: flex;
   flex-direction: column;
@@ -364,11 +362,5 @@ function confirmDelete() {
   color: var(--text-muted);
   font-weight: 400;
   font-size: 0.78rem;
-}
-.link-btn.danger {
-  color: var(--breach);
-}
-.error {
-  color: var(--breach);
 }
 </style>

@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { useEntityForm } from "@/composables/useEntityForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
+import { toErrorMessage } from "@/utils/errors";
 import type { WsProxyTarget } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -39,17 +41,11 @@ const {
 const disconnectingName = ref<string | null>(null);
 const { rowError, toggle: toggleField } = useOptimisticToggle<WsProxyTarget>((t) => t.name, "Failed to update target.");
 
-const showCreate = ref(false);
 const newName = ref("");
 const newBackendUrl = ref("");
 const newMaxConnections = ref("");
 const newMaxMessageBytes = ref("");
 const newIdleTimeoutMinutes = ref("");
-const createError = ref("");
-const creating = ref(false);
-const editingTarget = ref<WsProxyTarget | null>(null);
-
-onMounted(load);
 
 function resetForm() {
   newName.value = "";
@@ -57,30 +53,28 @@ function resetForm() {
   newMaxConnections.value = "";
   newMaxMessageBytes.value = "";
   newIdleTimeoutMinutes.value = "";
-  createError.value = "";
-  editingTarget.value = null;
 }
 
-function openCreate() {
-  resetForm();
-  showCreate.value = true;
-}
-
-function openEdit(target: WsProxyTarget) {
-  editingTarget.value = target;
+function fillForm(target: WsProxyTarget) {
   newName.value = target.name;
   newBackendUrl.value = target.backendWsUrl;
   newMaxConnections.value = String(target.maxConnections);
   newMaxMessageBytes.value = String(target.maxMessageBytes);
   newIdleTimeoutMinutes.value = String(Math.round(target.idleTimeoutMs / 60_000));
-  createError.value = "";
-  showCreate.value = true;
 }
 
-function closeForm() {
-  showCreate.value = false;
-  resetForm();
-}
+const {
+  open: showCreate,
+  editing: editingTarget,
+  busy: creating,
+  error: createError,
+  openCreate,
+  openEdit,
+  close: closeForm,
+  submit,
+} = useEntityForm<WsProxyTarget>({ reset: resetForm, fill: fillForm });
+
+onMounted(load);
 
 async function submitTarget() {
   createError.value = "";
@@ -106,26 +100,20 @@ async function submitTarget() {
       return;
     }
   }
-  creating.value = true;
-  try {
+  const ok = await submit(async (editing) => {
     const body: Record<string, unknown> = { backendWsUrl: newBackendUrl.value.trim() };
     if (maxConnectionsResult.value !== null) body.maxConnections = maxConnectionsResult.value;
     if (maxMessageBytesResult.value !== null) body.maxMessageBytes = maxMessageBytesResult.value;
     if (idleTimeoutMinutesResult.value !== null) body.idleTimeoutMs = idleTimeoutMinutesResult.value * 60_000;
 
-    if (editingTarget.value) {
-      await api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(editingTarget.value.name)}`, body);
+    if (editing) {
+      await api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(editing.name)}`, body);
     } else {
       body.name = newName.value.trim();
       await api.post("/admin-api/ws-proxy-targets", body);
     }
-    closeForm();
-    await load();
-  } catch (err) {
-    createError.value = err instanceof ApiError ? err.message : "Failed to save target.";
-  } finally {
-    creating.value = false;
-  }
+  }, "Failed to save target.");
+  if (ok) await load();
 }
 
 async function toggleEnabled(target: WsProxyTarget) {
@@ -144,7 +132,7 @@ async function confirmDisconnectAll() {
       await api.post(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}/disconnect-all`, {});
       await load();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to disconnect.";
+      errorMessage.value = toErrorMessage(err, "Failed to disconnect.");
     } finally {
       disconnectingName.value = null;
     }
@@ -157,7 +145,7 @@ async function confirmDelete() {
       await api.delete(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}`);
       await load();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete target.";
+      errorMessage.value = toErrorMessage(err, "Failed to delete target.");
     }
   });
 }
@@ -210,55 +198,57 @@ async function confirmDelete() {
       </button>
     </form>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <SignalLoader v-if="loading" />
-    <EmptyState v-else-if="targets.length === 0" :icon="Waypoints">
-      No WS proxy targets yet. A target lets MCP tools dispatch over a persistent WebSocket connection to a backend
-      service instead of plain REST.
-    </EmptyState>
+    <ListLayout :loading="loading" :error="errorMessage" :empty="targets.length === 0">
+      <template #empty>
+        <EmptyState :icon="Waypoints">
+          No WS proxy targets yet. A target lets MCP tools dispatch over a persistent WebSocket connection to a backend
+          service instead of plain REST.
+        </EmptyState>
+      </template>
 
-    <TableCard v-else>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Backend URL</th>
-          <th>Connections</th>
-          <th>Enabled</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="t in targets" :key="t.name">
-          <td>{{ t.name }}</td>
-          <td class="url-cell" :title="t.backendWsUrl">{{ t.backendWsUrl }}</td>
-          <td>{{ t.activeConnections }} / {{ t.maxConnections }}</td>
-          <td>
-            <TogglePill
-              :on="t.enabled"
-              on-label="Enabled"
-              off-label="Disabled"
-              :aria-pressed="t.enabled"
-              @click="toggleEnabled(t)"
-            />
-            <p v-if="rowError[t.name]" class="row-error">{{ rowError[t.name] }}</p>
-          </td>
-          <td>
-            <div class="actions">
-              <button type="button" class="link-btn" @click="openEdit(t)">Edit</button>
-              <button
-                type="button"
-                class="link-btn"
-                :disabled="disconnectingName === t.name || t.activeConnections === 0"
-                @click="requestDisconnectAll(t)"
-              >
-                {{ disconnectingName === t.name ? "Disconnecting…" : "Disconnect all" }}
-              </button>
-              <button type="button" class="link-btn danger" @click="requestDelete(t)">Delete</button>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </TableCard>
+      <TableCard>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Backend URL</th>
+            <th>Connections</th>
+            <th>Enabled</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="t in targets" :key="t.name">
+            <td>{{ t.name }}</td>
+            <td class="url-cell cell-truncate" :title="t.backendWsUrl">{{ t.backendWsUrl }}</td>
+            <td>{{ t.activeConnections }} / {{ t.maxConnections }}</td>
+            <td>
+              <TogglePill
+                :on="t.enabled"
+                on-label="Enabled"
+                off-label="Disabled"
+                :aria-pressed="t.enabled"
+                @click="toggleEnabled(t)"
+              />
+              <p v-if="rowError[t.name]" class="row-error">{{ rowError[t.name] }}</p>
+            </td>
+            <td>
+              <div class="actions">
+                <button type="button" class="link-btn" @click="openEdit(t)">Edit</button>
+                <button
+                  type="button"
+                  class="link-btn"
+                  :disabled="disconnectingName === t.name || t.activeConnections === 0"
+                  @click="requestDisconnectAll(t)"
+                >
+                  {{ disconnectingName === t.name ? "Disconnecting…" : "Disconnect all" }}
+                </button>
+                <button type="button" class="link-btn danger" @click="requestDelete(t)">Delete</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -302,20 +292,7 @@ async function confirmDelete() {
   max-width: 35rem;
 }
 .create-form {
-  background: var(--surface-sunken);
-  padding: 1.25rem;
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
   max-width: 26.25rem;
-}
-.field input {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
 }
 .field input:disabled {
   background: var(--surface-sunken);
@@ -326,28 +303,14 @@ async function confirmDelete() {
   font-family: var(--font-mono);
   font-size: 0.83rem;
   max-width: 17.5rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
-.link-btn.danger {
-  color: var(--breach);
-}
 .link-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-.row-error {
-  color: var(--breach);
-  font-size: 0.75rem;
-  margin: 0.25rem 0 0;
-}
-.error {
-  color: var(--breach);
 }
 </style>
