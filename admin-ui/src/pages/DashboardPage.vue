@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useCursorPagination } from "../composables/useCursorPagination";
 import type { ClientSummary, PaginatedResult, TagSummary, TagToolRef } from "../types/api";
 import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -18,17 +19,49 @@ import { Server, Tags, ChevronRight } from "lucide-vue-next";
 const router = useRouter();
 const route = useRoute();
 
-const items = ref<ClientSummary[]>([]);
-const nextCursor = ref<string | undefined>(undefined);
-const currentCursor = ref<string | undefined>(undefined);
-const cursorStack = ref<(string | undefined)[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
 const rowError = ref<Record<string, string>>({});
 
 const q = ref(typeof route.query.q === "string" ? route.query.q : "");
 const enabledFilter = ref(typeof route.query.enabled === "string" ? route.query.enabled : "");
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
+
+function buildQuery(cursor?: string): string {
+  const params = new URLSearchParams();
+  if (q.value) params.set("q", q.value);
+  if (enabledFilter.value) params.set("enabled", enabledFilter.value);
+  if (cursor) params.set("cursor", cursor);
+  params.set("limit", "50");
+  return params.toString();
+}
+
+const {
+  items,
+  loading,
+  errorMessage,
+  load,
+  reset,
+  next: nextPage,
+  prev: prevPage,
+  hasPrev,
+  hasNext,
+} = useCursorPagination<ClientSummary>(
+  (cursor) => api.get<PaginatedResult<ClientSummary>>(`/admin-api/clients?${buildQuery(cursor)}`),
+  {
+    initialCursor,
+    fallbackMessage: "Failed to load servers.",
+    onCursorChange: (cursor) =>
+      router.replace({
+        query: { q: q.value || undefined, enabled: enabledFilter.value || undefined, cursor },
+      }),
+  },
+);
+
+// debounce-free: filters apply on explicit submit here, not on every keystroke
+function applyFilters() {
+  reset();
+  router.replace({ query: { q: q.value || undefined, enabled: enabledFilter.value || undefined } });
+  load();
+}
 
 const {
   pending: pendingDisable,
@@ -67,6 +100,10 @@ async function runBulk(enabled: boolean) {
   try {
     await api.patch("/admin-api/clients", { names: Array.from(selected.value), enabled });
     selected.value = new Set();
+    // Original hand-rolled `load()` (no cursor arg) fell back to `cursor === undefined`,
+    // i.e. jumped back to page 1 after a bulk action. The composable's `load()` instead
+    // defaults to the *current* cursor, so `reset()` first is required to preserve that.
+    reset();
     await load();
   } catch (err) {
     bulkError.value = err instanceof ApiError ? err.message : "Bulk update failed.";
@@ -83,55 +120,6 @@ function confirmBulkDisable() {
   return confirmBulkDisableAction(async () => {
     await runBulk(false);
   });
-}
-
-function buildQuery(cursor?: string): string {
-  const params = new URLSearchParams();
-  if (q.value) params.set("q", q.value);
-  if (enabledFilter.value) params.set("enabled", enabledFilter.value);
-  if (cursor) params.set("cursor", cursor);
-  params.set("limit", "50");
-  return params.toString();
-}
-
-async function load(cursor?: string) {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
-    const result = await api.get<PaginatedResult<ClientSummary>>(`/admin-api/clients?${buildQuery(cursor)}`);
-    items.value = result.items;
-    nextCursor.value = result.nextCursor;
-    currentCursor.value = cursor;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load servers.";
-  } finally {
-    loading.value = false;
-  }
-}
-
-// debounce-free: filters apply on explicit submit here, not on every keystroke
-function applyFilters() {
-  cursorStack.value = [];
-  router.replace({ query: { q: q.value || undefined, enabled: enabledFilter.value || undefined } });
-  load();
-}
-
-function nextPage() {
-  if (!nextCursor.value) return;
-  cursorStack.value.push(currentCursor.value);
-  router.replace({
-    query: { q: q.value || undefined, enabled: enabledFilter.value || undefined, cursor: nextCursor.value },
-  });
-  load(nextCursor.value);
-}
-
-function prevPage() {
-  if (cursorStack.value.length === 0) return;
-  const cursor = cursorStack.value.pop();
-  router.replace({
-    query: { q: q.value || undefined, enabled: enabledFilter.value || undefined, cursor: cursor || undefined },
-  });
-  load(cursor);
 }
 
 async function toggleEnabled(client: ClientSummary) {
@@ -216,7 +204,7 @@ function toggleTagBrowser() {
   if (showTagBrowser.value && tags.value.length === 0 && !tagsLoading.value) loadTags();
 }
 
-onMounted(() => load(initialCursor));
+onMounted(() => load());
 </script>
 
 <template>
@@ -371,7 +359,7 @@ onMounted(() => load(initialCursor));
     </TableCard>
 
     <div class="pagination">
-      <PaginationBar :has-prev="cursorStack.length > 0" :has-next="!!nextCursor" @prev="prevPage" @next="nextPage" />
+      <PaginationBar :has-prev="hasPrev" :has-next="hasNext" @prev="prevPage" @next="nextPage" />
       <p class="subtitle">{{ items.length }} server(s) on this page</p>
     </div>
 
