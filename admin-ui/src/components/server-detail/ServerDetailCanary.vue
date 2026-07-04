@@ -1,42 +1,42 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "@/composables/useApi";
+import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
 import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useResource } from "@/composables/useResource";
+import { usePatchResource } from "@/composables/usePatchResource";
 import type { CanaryConfig } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import ConfigSection from "./ConfigSection.vue";
 
 const props = defineProps<{ clientName: string }>();
 
-const canary = ref<CanaryConfig | null>(null);
 const canaryForm = ref({ secondaryBaseUrl: "", mode: "canary" as "canary" | "failover", weight: 10, enabled: true });
-const canaryError = ref("");
+
+const { data: canary, load: loadCanaryData } = useResource<CanaryConfig | null>(
+  () =>
+    api.get<{ canary: CanaryConfig | null }>(clientPath(props.clientName, "canary")).then((res) => res.canary),
+  null,
+);
 
 async function loadCanary() {
-  try {
-    const res = await api.get<{ canary: CanaryConfig | null }>(clientPath(props.clientName, "canary"));
-    canary.value = res.canary;
-    if (res.canary)
-      canaryForm.value = {
-        secondaryBaseUrl: res.canary.secondaryBaseUrl,
-        mode: res.canary.mode,
-        weight: res.canary.weight,
-        enabled: res.canary.enabled,
-      };
-  } catch {
-    canary.value = null;
+  const result = await loadCanaryData();
+  if (result) {
+    canaryForm.value = {
+      secondaryBaseUrl: result.secondaryBaseUrl,
+      mode: result.mode,
+      weight: result.weight,
+      enabled: result.enabled,
+    };
   }
 }
 onMounted(loadCanary);
 
+const { error: canaryError, run: runCanary } = usePatchResource(() => clientPath(props.clientName, "canary"));
+
 async function saveCanary() {
-  canaryError.value = "";
-  try {
-    await api.put(clientPath(props.clientName, "canary"), { ...canaryForm.value });
-    await loadCanary();
-  } catch (err) {
-    canaryError.value = err instanceof ApiError ? err.message : "Failed to save.";
-  }
+  const ok = await runCanary((path) => api.put(path, { ...canaryForm.value }), "Failed to save.");
+  if (ok) await loadCanary();
 }
 
 const {
@@ -52,23 +52,17 @@ function requestClear() {
 
 function confirmClear() {
   return confirmClearCanaryAction(async () => {
-    canaryError.value = "";
-    try {
-      await api.put(clientPath(props.clientName, "canary"), { canary: null });
-      canary.value = null;
-    } catch (err) {
-      canaryError.value = err instanceof ApiError ? err.message : "Failed to clear.";
-    }
+    const ok = await runCanary((path) => api.put(path, { canary: null }), "Failed to clear.");
+    if (ok) canary.value = null;
   });
 }
 </script>
 
 <template>
-  <div class="upstream-auth">
-    <div class="ua-head">
-      <h2>Canary / failover</h2>
-      <button v-if="canary" type="button" class="link-btn danger" @click="requestClear">Clear</button>
-    </div>
+  <ConfigSection title="Canary / failover">
+    <template v-if="canary" #actions>
+      <button type="button" class="link-btn danger" @click="requestClear">Clear</button>
+    </template>
     <p class="ua-status">
       Route to a secondary backend. <strong>canary</strong>: send a % of calls there; <strong>failover</strong>: route
       there only while the primary breaker is open.
@@ -99,7 +93,7 @@ function confirmClear() {
       <button type="submit" class="btn-secondary">Save canary config</button>
     </form>
     <p v-if="canaryError" class="error">{{ canaryError }}</p>
-  </div>
+  </ConfigSection>
 
   <ConfirmDialog
     :open="pendingClearCanary !== null"

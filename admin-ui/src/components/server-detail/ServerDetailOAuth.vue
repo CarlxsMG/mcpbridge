@@ -1,56 +1,55 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "@/composables/useApi";
+import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
 import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useResource } from "@/composables/useResource";
+import { usePatchResource } from "@/composables/usePatchResource";
+import { toErrorMessage } from "@/utils/errors";
 import type { ClientOAuthConfig } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import ConfigSection from "./ConfigSection.vue";
 
 const props = defineProps<{ clientName: string }>();
 
-const oauth = ref<ClientOAuthConfig | null>(null);
+const { data: oauth, load: loadOAuth } = useResource<ClientOAuthConfig | null>(
+  () => api.get<{ oauth: ClientOAuthConfig | null }>(clientPath(props.clientName, "oauth")).then((res) => res.oauth),
+  null,
+);
+onMounted(loadOAuth);
+
 const oauthEditing = ref(false);
 const oauthTokenUrl = ref("");
 const oauthClientId = ref("");
 const oauthClientSecret = ref("");
 const oauthScope = ref("");
-const oauthSaving = ref(false);
-const oauthError = ref("");
 
-async function loadOAuth() {
-  try {
-    const res = await api.get<{ oauth: ClientOAuthConfig | null }>(clientPath(props.clientName, "oauth"));
-    oauth.value = res.oauth;
-  } catch {
-    oauth.value = null;
-  }
-}
-onMounted(loadOAuth);
+const { saving: oauthSaving, error: oauthError, run: runOAuth } = usePatchResource(() =>
+  clientPath(props.clientName, "oauth"),
+);
 
 async function saveOAuth() {
-  oauthError.value = "";
   if (!oauthTokenUrl.value.trim() || !oauthClientId.value.trim() || !oauthClientSecret.value.trim()) {
     oauthError.value = "Token URL, client ID, and client secret are required.";
     return;
   }
-  oauthSaving.value = true;
-  try {
-    await api.put(clientPath(props.clientName, "oauth"), {
-      tokenUrl: oauthTokenUrl.value.trim(),
-      clientId: oauthClientId.value.trim(),
-      clientSecret: oauthClientSecret.value,
-      scope: oauthScope.value.trim() || undefined,
-    });
+  const ok = await runOAuth(
+    (path) =>
+      api.put(path, {
+        tokenUrl: oauthTokenUrl.value.trim(),
+        clientId: oauthClientId.value.trim(),
+        clientSecret: oauthClientSecret.value,
+        scope: oauthScope.value.trim() || undefined,
+      }),
+    "Failed to save OAuth config.",
+  );
+  if (ok) {
     oauthTokenUrl.value = "";
     oauthClientId.value = "";
     oauthClientSecret.value = "";
     oauthScope.value = "";
     oauthEditing.value = false;
     await loadOAuth();
-  } catch (err) {
-    oauthError.value = err instanceof ApiError ? err.message : "Failed to save OAuth config.";
-  } finally {
-    oauthSaving.value = false;
   }
 }
 
@@ -71,23 +70,20 @@ function confirmClearOAuth() {
       await api.put(clientPath(props.clientName, "oauth"), { oauth: null });
       oauth.value = null;
     } catch (err) {
-      oauthError.value = err instanceof ApiError ? err.message : "Failed to clear OAuth config.";
+      oauthError.value = toErrorMessage(err, "Failed to clear OAuth config.");
     }
   });
 }
 </script>
 
 <template>
-  <div class="upstream-auth">
-    <div class="ua-head">
-      <h2>Upstream OAuth (client credentials)</h2>
-      <div class="ua-actions">
-        <button type="button" class="btn-secondary" @click="oauthEditing = !oauthEditing">
-          {{ oauthEditing ? "Cancel" : oauth ? "Change" : "Set credentials" }}
-        </button>
-        <button v-if="oauth" type="button" class="link-btn danger" @click="requestClearOAuth">Clear</button>
-      </div>
-    </div>
+  <ConfigSection title="Upstream OAuth (client credentials)">
+    <template #actions>
+      <button type="button" class="btn-secondary" @click="oauthEditing = !oauthEditing">
+        {{ oauthEditing ? "Cancel" : oauth ? "Change" : "Set credentials" }}
+      </button>
+      <button v-if="oauth" type="button" class="link-btn danger" @click="requestClearOAuth">Clear</button>
+    </template>
     <p class="ua-status">
       <template v-if="oauth">
         Configured: <code>{{ oauth.tokenUrl }}</code> · client <code>{{ oauth.clientId }}</code
@@ -114,7 +110,7 @@ function confirmClearOAuth() {
         {{ oauthSaving ? "Saving…" : "Save OAuth config" }}
       </button>
     </form>
-  </div>
+  </ConfigSection>
 
   <ConfirmDialog
     :open="pendingClearOAuth !== null"

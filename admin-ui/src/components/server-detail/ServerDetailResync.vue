@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { api, ApiError } from "@/composables/useApi";
+import { api } from "@/composables/useApi";
+import { toErrorMessage } from "@/utils/errors";
 import type { ClientDetail, DiscoveredTool, DiscoveryPreview } from "@/types/api";
+import ConfigSection from "./ConfigSection.vue";
 
 const props = defineProps<{ detail: ClientDetail }>();
 const emit = defineEmits<{ resynced: [] }>();
@@ -38,7 +40,7 @@ async function previewResync() {
     });
     resyncPreview.value = res.tools;
   } catch (err) {
-    resyncError.value = err instanceof ApiError ? err.message : "Preview failed.";
+    resyncError.value = toErrorMessage(err, "Preview failed.");
   } finally {
     resyncing.value = false;
   }
@@ -59,7 +61,7 @@ async function applyResync() {
     resyncUrl.value = "";
     emit("resynced");
   } catch (err) {
-    resyncError.value = err instanceof ApiError ? err.message : "Re-sync failed.";
+    resyncError.value = toErrorMessage(err, "Re-sync failed.");
   } finally {
     applyingResync.value = false;
   }
@@ -78,7 +80,7 @@ async function rediscoverMcp() {
     });
     emit("resynced");
   } catch (err) {
-    resyncError.value = err instanceof ApiError ? err.message : "Re-discovery failed.";
+    resyncError.value = toErrorMessage(err, "Re-discovery failed.");
   } finally {
     applyingResync.value = false;
   }
@@ -86,26 +88,24 @@ async function rediscoverMcp() {
 </script>
 
 <template>
-  <div v-if="detail.kind === 'mcp'" class="upstream-auth">
-    <div class="ua-head">
-      <h2>Re-discover tools</h2>
+  <ConfigSection v-if="detail.kind === 'mcp'" title="Re-discover tools">
+    <template #actions>
       <button type="button" class="btn-secondary" :disabled="applyingResync" @click="rediscoverMcp">
         {{ applyingResync ? "Discovering…" : "Re-discover from MCP server" }}
       </button>
-    </div>
+    </template>
     <p class="ua-status">
       Re-connects to <code>{{ detail.mcpUrl }}</code> and refreshes this server's tool list.
     </p>
     <p v-if="resyncError" class="error">{{ resyncError }}</p>
-  </div>
+  </ConfigSection>
 
-  <div v-else class="upstream-auth">
-    <div class="ua-head">
-      <h2>Re-sync from OpenAPI</h2>
+  <ConfigSection v-else title="Re-sync from OpenAPI">
+    <template #actions>
       <button type="button" class="btn-secondary" @click="resyncOpen = !resyncOpen">
         {{ resyncOpen ? "Cancel" : "Re-sync" }}
       </button>
-    </div>
+    </template>
     <div v-if="resyncOpen" class="resync-body">
       <div class="field-inline">
         <input v-model="resyncUrl" type="url" placeholder="https://api.example.com/openapi.json" />
@@ -127,5 +127,5 @@ async function rediscoverMcp() {
         </button>
       </div>
     </div>
-  </div>
+  </ConfigSection>
 </template>

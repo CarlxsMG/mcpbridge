@@ -1,22 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "@/composables/useApi";
+import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
 import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useResource } from "@/composables/useResource";
+import { usePatchResource } from "@/composables/usePatchResource";
+import { toErrorMessage } from "@/utils/errors";
 import type { UpstreamAuthInfo, UpstreamKind } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import ConfigSection from "./ConfigSection.vue";
 
 const props = defineProps<{ clientName: string; kind: UpstreamKind }>();
 
-const upstreamAuth = ref<UpstreamAuthInfo | null>(null);
-
-async function loadUpstreamAuth() {
-  try {
-    upstreamAuth.value = await api.get<UpstreamAuthInfo>(clientPath(props.clientName, "upstream-auth"));
-  } catch {
-    upstreamAuth.value = null;
-  }
-}
+const { data: upstreamAuth, load: loadUpstreamAuth } = useResource<UpstreamAuthInfo | null>(
+  () => api.get<UpstreamAuthInfo>(clientPath(props.clientName, "upstream-auth")),
+  null,
+);
 onMounted(loadUpstreamAuth);
 
 const uaEditing = ref(false);
@@ -26,11 +25,12 @@ const uaUser = ref("");
 const uaPass = ref("");
 const uaHeader = ref("");
 const uaValue = ref("");
-const uaSaving = ref(false);
-const uaError = ref("");
+
+const { saving: uaSaving, error: uaError, run: runUpstreamAuth } = usePatchResource(() =>
+  clientPath(props.clientName, "upstream-auth"),
+);
 
 async function saveUpstreamAuth() {
-  uaError.value = "";
   const body: Record<string, unknown> = { type: uaType.value };
   if (uaType.value === "bearer") body.token = uaToken.value;
   else if (uaType.value === "basic") {
@@ -40,16 +40,11 @@ async function saveUpstreamAuth() {
     body.headerName = uaHeader.value;
     body.value = uaValue.value;
   }
-  uaSaving.value = true;
-  try {
-    await api.put(clientPath(props.clientName, "upstream-auth"), body);
+  const ok = await runUpstreamAuth((path) => api.put(path, body), "Failed to save credentials.");
+  if (ok) {
     uaToken.value = uaUser.value = uaPass.value = uaHeader.value = uaValue.value = "";
     uaEditing.value = false;
     await loadUpstreamAuth();
-  } catch (err) {
-    uaError.value = err instanceof ApiError ? err.message : "Failed to save credentials.";
-  } finally {
-    uaSaving.value = false;
   }
 }
 
@@ -70,25 +65,22 @@ function confirmClearUpstreamAuth() {
       await api.delete(clientPath(props.clientName, "upstream-auth"));
       await loadUpstreamAuth();
     } catch (err) {
-      uaError.value = err instanceof ApiError ? err.message : "Failed to clear credentials.";
+      uaError.value = toErrorMessage(err, "Failed to clear credentials.");
     }
   });
 }
 </script>
 
 <template>
-  <div class="upstream-auth">
-    <div class="ua-head">
-      <h2>Upstream authentication</h2>
-      <div class="ua-actions">
-        <button type="button" class="btn-secondary" @click="uaEditing = !uaEditing">
-          {{ uaEditing ? "Cancel" : upstreamAuth?.configured ? "Change" : "Set credentials" }}
-        </button>
-        <button v-if="upstreamAuth?.configured" type="button" class="link-btn danger" @click="requestClearUpstreamAuth">
-          Clear
-        </button>
-      </div>
-    </div>
+  <ConfigSection title="Upstream authentication">
+    <template #actions>
+      <button type="button" class="btn-secondary" @click="uaEditing = !uaEditing">
+        {{ uaEditing ? "Cancel" : upstreamAuth?.configured ? "Change" : "Set credentials" }}
+      </button>
+      <button v-if="upstreamAuth?.configured" type="button" class="link-btn danger" @click="requestClearUpstreamAuth">
+        Clear
+      </button>
+    </template>
     <p class="ua-status">
       <template v-if="upstreamAuth?.configured">
         Configured: <code>{{ upstreamAuth.type }}</code
@@ -123,7 +115,7 @@ function confirmClearUpstreamAuth() {
         {{ uaSaving ? "Saving…" : "Save credentials" }}
       </button>
     </form>
-  </div>
+  </ConfigSection>
 
   <ConfirmDialog
     :open="pendingClearUpstreamAuth !== null"

@@ -1,45 +1,41 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "@/composables/useApi";
+import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
 import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useResource } from "@/composables/useResource";
+import { usePatchResource } from "@/composables/usePatchResource";
+import { toErrorMessage } from "@/utils/errors";
 import type { LbConfig, LbStrategy, LbTarget } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import ConfigSection from "./ConfigSection.vue";
 
 const props = defineProps<{ clientName: string }>();
 
-const lb = ref<LbConfig | null>(null);
 const lbForm = ref<{ strategy: LbStrategy; primaryWeight: number; enabled: boolean }>({
   strategy: "round-robin",
   primaryWeight: 1,
   enabled: true,
 });
-const lbError = ref("");
-const lbSaving = ref(false);
+
+const { data: lb, load: loadLbData } = useResource<LbConfig | null>(
+  () => api.get<{ lb: LbConfig | null }>(clientPath(props.clientName, "lb")).then((res) => res.lb),
+  null,
+);
 
 async function loadLb() {
-  try {
-    const res = await api.get<{ lb: LbConfig | null }>(clientPath(props.clientName, "lb"));
-    lb.value = res.lb;
-    if (res.lb)
-      lbForm.value = { strategy: res.lb.strategy, primaryWeight: res.lb.primaryWeight, enabled: res.lb.enabled };
-  } catch {
-    lb.value = null;
+  const result = await loadLbData();
+  if (result) {
+    lbForm.value = { strategy: result.strategy, primaryWeight: result.primaryWeight, enabled: result.enabled };
   }
 }
 onMounted(loadLb);
 
+const { saving: lbSaving, error: lbError, run: runLb } = usePatchResource(() => clientPath(props.clientName, "lb"));
+
 async function saveLb() {
-  lbError.value = "";
-  lbSaving.value = true;
-  try {
-    await api.put(clientPath(props.clientName, "lb"), { ...lbForm.value });
-    await loadLb();
-  } catch (err) {
-    lbError.value = err instanceof ApiError ? err.message : "Failed to save.";
-  } finally {
-    lbSaving.value = false;
-  }
+  const ok = await runLb((path) => api.put(path, { ...lbForm.value }), "Failed to save.");
+  if (ok) await loadLb();
 }
 
 const {
@@ -55,39 +51,33 @@ function requestClearLb() {
 
 function confirmClearLb() {
   return confirmClearLbAction(async () => {
-    lbError.value = "";
     try {
       await api.put(clientPath(props.clientName, "lb"), { lb: null });
       lb.value = null;
     } catch (err) {
-      lbError.value = err instanceof ApiError ? err.message : "Failed to clear.";
+      lbError.value = toErrorMessage(err, "Failed to clear.");
     }
   });
 }
 
 const newTargetUrl = ref("");
 const newTargetWeight = ref(1);
-const addingTarget = ref(false);
-const targetError = ref("");
+const { saving: addingTarget, error: targetError, run: runAddTarget } = usePatchResource(() =>
+  clientPath(props.clientName, "lb", "upstreams"),
+);
 async function addTarget() {
-  targetError.value = "";
   if (!newTargetUrl.value.trim()) {
     targetError.value = "Base URL is required.";
     return;
   }
-  addingTarget.value = true;
-  try {
-    await api.post(clientPath(props.clientName, "lb", "upstreams"), {
-      baseUrl: newTargetUrl.value.trim(),
-      weight: newTargetWeight.value,
-    });
+  const ok = await runAddTarget(
+    (path) => api.post(path, { baseUrl: newTargetUrl.value.trim(), weight: newTargetWeight.value }),
+    "Failed to add target.",
+  );
+  if (ok) {
     newTargetUrl.value = "";
     newTargetWeight.value = 1;
     await loadLb();
-  } catch (err) {
-    targetError.value = err instanceof ApiError ? err.message : "Failed to add target.";
-  } finally {
-    addingTarget.value = false;
   }
 }
 
@@ -106,7 +96,7 @@ async function updateTargetWeight(t: LbTarget, weight: number) {
   } catch (err) {
     targetRowError.value = {
       ...targetRowError.value,
-      [t.id]: err instanceof ApiError ? err.message : "Failed to update target.",
+      [t.id]: toErrorMessage(err, "Failed to update target."),
     };
   } finally {
     savingTargetId.value = null;
@@ -121,7 +111,7 @@ async function toggleTargetEnabled(t: LbTarget) {
   } catch (err) {
     targetRowError.value = {
       ...targetRowError.value,
-      [t.id]: err instanceof ApiError ? err.message : "Failed to update target.",
+      [t.id]: toErrorMessage(err, "Failed to update target."),
     };
   } finally {
     savingTargetId.value = null;
@@ -141,18 +131,17 @@ function confirmRemoveTarget() {
       await api.delete(clientPath(props.clientName, "lb", "upstreams", String(t.id)));
       await loadLb();
     } catch (err) {
-      lbError.value = err instanceof ApiError ? err.message : "Failed to remove target.";
+      lbError.value = toErrorMessage(err, "Failed to remove target.");
     }
   });
 }
 </script>
 
 <template>
-  <div class="upstream-auth">
-    <div class="ua-head">
-      <h2>Load balancing</h2>
-      <button v-if="lb" type="button" class="link-btn danger" @click="requestClearLb">Clear</button>
-    </div>
+  <ConfigSection title="Load balancing">
+    <template v-if="lb" #actions>
+      <button type="button" class="link-btn danger" @click="requestClearLb">Clear</button>
+    </template>
     <p class="ua-status">
       Spread calls across the primary backend plus an N-way pool of additional targets. Takes precedence over
       canary/failover below — while an enabled pool has at least one enabled target, canary routing is skipped entirely
@@ -238,7 +227,7 @@ function confirmRemoveTarget() {
         </button>
       </form>
     </template>
-  </div>
+  </ConfigSection>
 
   <ConfirmDialog
     :open="pendingClearLb !== null"

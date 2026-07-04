@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
-import { api, ApiError } from "@/composables/useApi";
+import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
+import { useResource } from "@/composables/useResource";
+import { usePatchResource } from "@/composables/usePatchResource";
 import type { Team } from "@/types/api";
+import ConfigSection from "./ConfigSection.vue";
 
 const props = defineProps<{ clientName: string; teamId: number | null }>();
 
-const teams = ref<Team[]>([]);
+const { data: teams, load: loadTeams } = useResource<Team[]>(
+  () => api.get<{ items: Team[] }>("/admin-api/teams").then((res) => res.items),
+  [],
+);
+onMounted(loadTeams);
+
 const currentTeamId = ref(props.teamId);
-const teamError = ref("");
 
 watch(
   () => props.teamId,
@@ -17,33 +24,18 @@ watch(
   },
 );
 
-async function loadTeams() {
-  try {
-    teams.value = (await api.get<{ items: Team[] }>("/admin-api/teams")).items;
-  } catch {
-    teams.value = [];
-  }
-}
-onMounted(loadTeams);
+const { error: teamError, run: runAssignTeam } = usePatchResource(() => clientPath(props.clientName, "team"));
 
 async function assignTeam(teamId: number | null) {
-  teamError.value = "";
   const previous = currentTeamId.value;
   currentTeamId.value = teamId; // optimistic
-  try {
-    await api.put(clientPath(props.clientName, "team"), { teamId });
-  } catch (err) {
-    currentTeamId.value = previous;
-    teamError.value = err instanceof ApiError ? err.message : "Failed to assign team (super-admin only).";
-  }
+  const ok = await runAssignTeam((path) => api.put(path, { teamId }), "Failed to assign team (super-admin only).");
+  if (!ok) currentTeamId.value = previous;
 }
 </script>
 
 <template>
-  <div class="upstream-auth">
-    <div class="ua-head">
-      <h2>Team ownership</h2>
-    </div>
+  <ConfigSection title="Team ownership">
     <p class="ua-status">
       Owning team:
       <strong>{{
@@ -65,5 +57,5 @@ async function assignTeam(teamId: number | null) {
       </select>
     </div>
     <p v-if="teamError" class="error">{{ teamError }}</p>
-  </div>
+  </ConfigSection>
 </template>
