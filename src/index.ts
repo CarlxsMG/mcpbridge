@@ -12,7 +12,7 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { log } from "./logger.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { metricsRoutes } from "./routes/metrics.js";
-import { startCircuitBreakerCleanup } from "./circuit-breaker.js";
+import { startCircuitBreakerCleanup } from "./middleware/circuit-breaker.js";
 import { checkStartupGuards } from "./security/startup-guards.js";
 import { enforceJsonDepth } from "./middleware/json-depth.js";
 import { getDb } from "./db/connection.js";

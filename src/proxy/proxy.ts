@@ -3,7 +3,7 @@ import addFormats from "ajv-formats";
 import { registry } from "../mcp/registry.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import { getCircuitBreaker } from "../circuit-breaker.js";
+import { getCircuitBreaker } from "../middleware/circuit-breaker.js";
 import { recordToolCall } from "../routes/metrics.js";
 import {
   proxyBodyCapRejections,

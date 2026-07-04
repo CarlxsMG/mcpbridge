@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
-import { removeCircuitBreaker } from "../circuit-breaker.js";
+import { removeCircuitBreaker } from "../middleware/circuit-breaker.js";
 import {
   upsertWsProxyTarget,
   listWsProxyTargets,

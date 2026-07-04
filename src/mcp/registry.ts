@@ -12,7 +12,11 @@ import type {
 } from "./types.js";
 import { sanitizeToolDescription } from "../sanitize.js";
 import { abortClientRequests } from "../proxy/proxy.js";
-import { removeCircuitBreaker, updateCircuitBreakerConfig, getAllCircuitStates } from "../circuit-breaker.js";
+import {
+  removeCircuitBreaker,
+  updateCircuitBreakerConfig,
+  getAllCircuitStates,
+} from "../middleware/circuit-breaker.js";
 import { notifyToolsChanged } from "./mcp-server.js";
 import { getDb } from "../db/connection.js";
 import { getTagsForClient, getAllToolTags } from "../tool-tags.js";

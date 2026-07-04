@@ -13,7 +13,7 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { registry, isDeleting } from "../mcp/registry.js";
-import { removeCircuitBreaker } from "../circuit-breaker.js";
+import { removeCircuitBreaker } from "../middleware/circuit-breaker.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 

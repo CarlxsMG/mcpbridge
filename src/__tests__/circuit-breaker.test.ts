@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { getCircuitBreaker, removeCircuitBreaker } from "../circuit-breaker.js";
+import { getCircuitBreaker, removeCircuitBreaker } from "../middleware/circuit-breaker.js";
 
 // Use a unique client name per describe block so the module-level `breakers` map
 // does not carry state across tests.  We also call removeCircuitBreaker in

@@ -50,7 +50,7 @@ import {
   listAuditActions,
 } from "../admin/audit.js";
 import { auditLogToCsv, auditLogToHtml } from "../admin/audit-export.js";
-import { getAllCircuitStates } from "../circuit-breaker.js";
+import { getAllCircuitStates } from "../middleware/circuit-breaker.js";
 import {
   listUsers,
   findUserByUsername,

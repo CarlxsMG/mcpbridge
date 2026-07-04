@@ -1,6 +1,6 @@
-import { config } from "./config.js";
-import { log } from "./logger.js";
-import { breakerStateTransitions, breakerProbeRejected } from "./observability/metrics.js";
+import { config } from "../config.js";
+import { log } from "../logger.js";
+import { breakerStateTransitions, breakerProbeRejected } from "../observability/metrics.js";
 
 type CircuitState = "closed" | "open" | "half_open";
 

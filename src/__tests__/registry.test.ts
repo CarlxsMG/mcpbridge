@@ -292,7 +292,7 @@ describe("Registry.unregister — cleanup regression", () => {
   });
 
   test("circuit breaker is removed after unregister (no stale open state)", async () => {
-    const { getCircuitBreaker, removeCircuitBreaker: removeCB } = await import("../circuit-breaker.js");
+    const { getCircuitBreaker, removeCircuitBreaker: removeCB } = await import("../middleware/circuit-breaker.js");
 
     await registry.register("cb-svc", [makeTool()], DEFAULT_HEALTH, DEFAULT_IP, DEFAULT_BASE, DEFAULT_RESOLVED_IP);
     // Trip the breaker before unregistering

@@ -12,7 +12,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
-import { removeCircuitBreaker, getAllCircuitStates } from "../circuit-breaker.js";
+import { removeCircuitBreaker, getAllCircuitStates } from "../middleware/circuit-breaker.js";
 import { proxyToolCall } from "../proxy/proxy.js";
 import { McpUpstreamPool, mcpUpstream, buildTransport, type McpConnParams } from "../mcp/mcp-upstream.js";
 import type { DiscoveredMcpTool } from "../mcp/mcp-discovery.js";

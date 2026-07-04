@@ -9,7 +9,7 @@ import type { AddressInfo } from "net";
 import type { Server as HttpServer } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { removeCircuitBreaker } from "../circuit-breaker.js";
+import { removeCircuitBreaker } from "../middleware/circuit-breaker.js";
 import {
   upsertWsProxyTarget,
   handleWsProxyUpgrade,

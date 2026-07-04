@@ -2,7 +2,7 @@ import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { registry } from "../mcp/registry.js";
-import { getAllCircuitStates } from "../circuit-breaker.js";
+import { getAllCircuitStates } from "../middleware/circuit-breaker.js";
 import { getUsageSummary } from "./usage.js";
 import { detectUsageSpike } from "./anomaly.js";
 import { validateBackendUrl } from "../security/ip-validator.js";

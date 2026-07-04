@@ -1,6 +1,6 @@
 import type { Request, Response, Express } from "express";
 import { registry } from "../mcp/registry.js";
-import { getAllCircuitStates, getAllBreakerStateGauges } from "../circuit-breaker.js";
+import { getAllCircuitStates, getAllBreakerStateGauges } from "../middleware/circuit-breaker.js";
 import { adminAuth } from "../middleware/auth.js";
 import { config } from "../config.js";
 import { getRateLimitBucketSizes } from "../middleware/rate-limiter.js";
