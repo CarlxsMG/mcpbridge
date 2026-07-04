@@ -274,14 +274,10 @@ onMounted(() => {
 .integrity-actions {
   margin-bottom: 1.25rem;
 }
-/* TableCard's global .data-table recipe hardcodes font-size and td vertical
-   padding; this page needs a slightly smaller type size and participates in
-   the density toggle (body.density-compact), so both need reinstating here. */
+/* TableCard's global .data-table recipe hardcodes font-size; this page
+   needs a slightly smaller type size. */
 :deep(.data-table) {
   font-size: 0.88rem;
-}
-:deep(.data-table td) {
-  padding: var(--table-pad-y) 0.85rem;
 }
 /* TableCard's own recipe has no bottom margin; this page needs a gap before
    the "Load more" button below it. */

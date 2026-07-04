@@ -377,12 +377,6 @@ section {
   color: var(--signal-strong);
   border-color: var(--signal);
 }
-/* TableCard's own recipe hardcodes 0.6rem td padding; this page's table needs to
-   keep respecting the live density toggle (body.density-compact), which the
-   shared component doesn't account for. */
-:deep(.data-table td) {
-  padding: var(--table-pad-y) 0.85rem;
-}
 .pagination {
   display: flex;
   align-items: center;

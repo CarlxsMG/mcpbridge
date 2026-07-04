@@ -311,12 +311,8 @@ section {
   background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
   background-size: 16px 16px;
 }
-/* TableCard's global .data-table recipe hardcodes td vertical padding and doesn't
-   set white-space on th; this page participates in the density toggle
-   (body.density-compact) and needs its long "Time" header to stay on one line. */
-:deep(.data-table td) {
-  padding: var(--table-pad-y) 0.85rem;
-}
+/* TableCard's global .data-table recipe doesn't set white-space on th;
+   this page needs its long "Time" header to stay on one line. */
 :deep(.data-table th) {
   white-space: nowrap;
 }

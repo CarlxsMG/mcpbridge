@@ -35,7 +35,7 @@
   letter-spacing: 0.04em;
 }
 .data-table td {
-  padding: 0.6rem 0.85rem;
+  padding: var(--table-pad-y) 0.85rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }

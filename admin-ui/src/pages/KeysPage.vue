@@ -333,12 +333,6 @@ function confirmDelete() {
   font-family: var(--font-body);
   box-sizing: border-box;
 }
-/* TableCard's global .data-table recipe hardcodes td vertical padding;
-   this page participates in the density toggle (body.density-compact),
-   so it needs the token-driven value reinstated for its own table. */
-:deep(.data-table td) {
-  padding: var(--table-pad-y) 0.85rem;
-}
 .actions {
   display: flex;
   gap: 0.75rem;
