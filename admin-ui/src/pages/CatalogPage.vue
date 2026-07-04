@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "../types/api";
 import { LayoutGrid, Plus } from "lucide-vue-next";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -130,22 +131,26 @@ async function createEntry() {
   }
 }
 
-const pendingDelete = ref<CatalogEntry | null>(null);
+const {
+  pending: pendingDelete,
+  request: requestDelete,
+  cancel: cancelDelete,
+  confirm: confirmActionDelete,
+} = useConfirmAction<CatalogEntry>();
 
 function deleteEntry(entry: CatalogEntry) {
-  pendingDelete.value = entry;
+  requestDelete(entry);
 }
 
-async function confirmDelete() {
-  if (!pendingDelete.value) return;
-  const entry = pendingDelete.value;
-  pendingDelete.value = null;
-  try {
-    await api.delete(`/admin-api/catalog/${encodeURIComponent(entry.id)}`);
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete catalog entry.";
-  }
+function confirmDelete() {
+  return confirmActionDelete(async (entry) => {
+    try {
+      await api.delete(`/admin-api/catalog/${encodeURIComponent(entry.id)}`);
+      await load();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete catalog entry.";
+    }
+  });
 }
 </script>
 
@@ -270,7 +275,7 @@ async function confirmDelete() {
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = null"
+      @cancel="cancelDelete"
     />
   </section>
 </template>

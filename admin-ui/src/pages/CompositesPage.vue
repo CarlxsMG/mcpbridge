@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { Combine } from "lucide-vue-next";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { CompositeSummary, CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -105,23 +106,23 @@ async function toggleEnabled(c: CompositeSummary) {
   }
 }
 
-const pendingDelete = ref<CompositeSummary | null>(null);
+const {
+  pending: pendingDelete,
+  request: requestDelete,
+  cancel: cancelDelete,
+  confirm: confirmDeleteAction,
+} = useConfirmAction<CompositeSummary>();
 
-function requestDelete(c: CompositeSummary) {
-  pendingDelete.value = c;
-}
-
-async function confirmDelete() {
-  if (!pendingDelete.value) return;
-  const c = pendingDelete.value;
-  pendingDelete.value = null;
-  delete rowError.value[c.name];
-  try {
-    await api.delete(`/admin-api/composites/${encodeURIComponent(c.name)}`);
-    await load();
-  } catch (err) {
-    rowError.value[c.name] = err instanceof ApiError ? err.message : "Failed to delete.";
-  }
+function confirmDelete() {
+  return confirmDeleteAction(async (c) => {
+    delete rowError.value[c.name];
+    try {
+      await api.delete(`/admin-api/composites/${encodeURIComponent(c.name)}`);
+      await load();
+    } catch (err) {
+      rowError.value[c.name] = err instanceof ApiError ? err.message : "Failed to delete.";
+    }
+  });
 }
 </script>
 
@@ -232,7 +233,7 @@ async function confirmDelete() {
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = null"
+      @cancel="cancelDelete"
     />
   </section>
 </template>

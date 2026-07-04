@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { WsProxyTarget } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -20,8 +21,18 @@ const {
   [],
   "Failed to load WS proxy targets.",
 );
-const pendingDelete = ref<WsProxyTarget | null>(null);
-const pendingDisconnect = ref<WsProxyTarget | null>(null);
+const {
+  pending: pendingDelete,
+  request: requestDelete,
+  cancel: cancelDelete,
+  confirm: confirmActionDelete,
+} = useConfirmAction<WsProxyTarget>();
+const {
+  pending: pendingDisconnect,
+  request: requestDisconnectAll,
+  cancel: cancelDisconnectAll,
+  confirm: confirmActionDisconnectAll,
+} = useConfirmAction<WsProxyTarget>();
 const disconnectingName = ref<string | null>(null);
 
 const showCreate = ref(false);
@@ -118,35 +129,29 @@ async function toggleEnabled(target: WsProxyTarget) {
   }
 }
 
-function requestDisconnectAll(target: WsProxyTarget) {
-  pendingDisconnect.value = target;
-}
-
 async function confirmDisconnectAll() {
-  if (!pendingDisconnect.value) return;
-  const target = pendingDisconnect.value;
-  pendingDisconnect.value = null;
-  disconnectingName.value = target.name;
-  try {
-    await api.post(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}/disconnect-all`, {});
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to disconnect.";
-  } finally {
-    disconnectingName.value = null;
-  }
+  await confirmActionDisconnectAll(async (target) => {
+    disconnectingName.value = target.name;
+    try {
+      await api.post(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}/disconnect-all`, {});
+      await load();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to disconnect.";
+    } finally {
+      disconnectingName.value = null;
+    }
+  });
 }
 
 async function confirmDelete() {
-  if (!pendingDelete.value) return;
-  const target = pendingDelete.value;
-  pendingDelete.value = null;
-  try {
-    await api.delete(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}`);
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete target.";
-  }
+  await confirmActionDelete(async (target) => {
+    try {
+      await api.delete(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}`);
+      await load();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete target.";
+    }
+  });
 }
 </script>
 
@@ -240,7 +245,7 @@ async function confirmDelete() {
               >
                 {{ disconnectingName === t.name ? "Disconnecting…" : "Disconnect all" }}
               </button>
-              <button type="button" class="link-btn danger" @click="pendingDelete = t">Delete</button>
+              <button type="button" class="link-btn danger" @click="requestDelete(t)">Delete</button>
             </div>
           </td>
         </tr>
@@ -254,7 +259,7 @@ async function confirmDelete() {
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = null"
+      @cancel="cancelDelete"
     />
 
     <ConfirmDialog
@@ -268,7 +273,7 @@ async function confirmDelete() {
       confirm-label="Disconnect all"
       danger
       @confirm="confirmDisconnectAll"
-      @cancel="pendingDisconnect = null"
+      @cancel="cancelDisconnectAll"
     />
   </section>
 </template>
