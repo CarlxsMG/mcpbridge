@@ -1,16 +1,9 @@
 <script setup lang="ts">
 defineProps<{ on: boolean; onLabel: string; offLabel: string; disabled?: boolean }>();
-const emit = defineEmits<{ click: [] }>();
 </script>
 
 <template>
-  <button
-    type="button"
-    class="toggle"
-    :class="on ? 'toggle-on' : 'toggle-off'"
-    :disabled="disabled"
-    @click="emit('click')"
-  >
+  <button type="button" class="toggle" :class="on ? 'toggle-on' : 'toggle-off'" :disabled="disabled">
     {{ on ? onLabel : offLabel }}
   </button>
 </template>
