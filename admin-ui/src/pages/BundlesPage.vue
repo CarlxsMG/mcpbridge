@@ -1,17 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
-import { useEntityForm } from "@/composables/useEntityForm";
-import type { BundleSummary, BundleDetail, BundleToolRef } from "@/types/api";
-import BundleToolPicker from "@/components/BundleToolPicker.vue";
+import type { BundleSummary } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
-import FormField from "@/components/ui/FormField.vue";
-import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { Boxes } from "lucide-vue-next";
@@ -28,34 +24,7 @@ const {
 );
 const { rowError, toggle } = useOptimisticToggle<BundleSummary>((b) => b.name, "Failed to update.");
 
-const newName = ref("");
-const newDescription = ref("");
-const newTools = ref<BundleToolRef[]>([]);
-
-function resetForm() {
-  newName.value = "";
-  newDescription.value = "";
-  newTools.value = [];
-}
-
-const { open: showCreateForm, busy: creating, error: createError, submit } = useEntityForm<void>({ reset: resetForm });
-
 onMounted(load);
-
-async function createBundle() {
-  if (!newName.value.trim()) {
-    createError.value = "Name is required.";
-    return;
-  }
-  const ok = await submit(async () => {
-    await api.post<BundleDetail>("/admin-api/bundles", {
-      name: newName.value.trim(),
-      description: newDescription.value.trim() || undefined,
-      tools: newTools.value,
-    });
-  }, "Failed to create bundle.");
-  if (ok) await load();
-}
 
 function toggleEnabled(bundle: BundleSummary) {
   toggle(bundle, "enabled", (next) =>
@@ -67,28 +36,11 @@ function toggleEnabled(bundle: BundleSummary) {
 <template>
   <section>
     <PageHeader title="Bundles">
-      <ToggleFormButton v-model="showCreateForm" show-label="Create bundle" />
+      <RouterLink to="/bundles/new" class="btn-primary">Create bundle</RouterLink>
     </PageHeader>
     <p class="subtitle">
       Cross-client tool selections, each served at its own <code>/mcp-custom/&lt;name&gt;</code> endpoint.
     </p>
-
-    <form v-if="showCreateForm" class="create-form" @submit.prevent="createBundle">
-      <FormField label="Name" for="new-bundle-name">
-        <input id="new-bundle-name" v-model="newName" type="text" placeholder="e.g. assistant-a" required />
-      </FormField>
-      <p v-if="createError" class="error">{{ createError }}</p>
-      <FormField label="Description (optional)" for="new-bundle-description">
-        <input id="new-bundle-description" v-model="newDescription" type="text" placeholder="What this bundle is for" />
-      </FormField>
-      <div class="field">
-        <label>Tools</label>
-        <BundleToolPicker v-model="newTools" />
-      </div>
-      <button type="submit" class="btn-primary" :disabled="creating">
-        {{ creating ? "Creating…" : "Create bundle" }}
-      </button>
-    </form>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
       <template #empty>
@@ -140,18 +92,6 @@ function toggleEnabled(bundle: BundleSummary) {
   color: var(--text-secondary);
   margin: 0 0 1.25rem;
   max-width: 32.5rem;
-}
-.create-form {
-  max-width: 30rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
 }
 .desc-cell {
   color: var(--text-secondary);

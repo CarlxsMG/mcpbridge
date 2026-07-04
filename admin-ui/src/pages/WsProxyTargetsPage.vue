@@ -65,11 +65,9 @@ function fillForm(target: WsProxyTarget) {
 }
 
 const {
-  open: showCreate,
-  editing: editingTarget,
+  open: showEdit,
   busy: creating,
   error: createError,
-  openCreate,
   openEdit,
   close: closeForm,
   submit,
@@ -102,17 +100,12 @@ async function submitTarget() {
     }
   }
   const ok = await submit(async (editing) => {
+    if (!editing) return;
     const body: Record<string, unknown> = { backendWsUrl: newBackendUrl.value.trim() };
     if (maxConnectionsResult.value !== null) body.maxConnections = maxConnectionsResult.value;
     if (maxMessageBytesResult.value !== null) body.maxMessageBytes = maxMessageBytesResult.value;
     if (idleTimeoutMinutesResult.value !== null) body.idleTimeoutMs = idleTimeoutMinutesResult.value * 60_000;
-
-    if (editing) {
-      await api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(editing.name)}`, body);
-    } else {
-      body.name = newName.value.trim();
-      await api.post("/admin-api/ws-proxy-targets", body);
-    }
+    await api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(editing.name)}`, body);
   }, "Failed to save target.");
   if (ok) await load();
 }
@@ -162,24 +155,12 @@ async function confirmDelete() {
           <code>/ws-proxy/&lt;name&gt;</code>. Distinct from a registered server — a target has no tools.
         </p>
       </div>
-      <button
-        type="button"
-        :class="showCreate ? 'btn-secondary' : 'btn-primary'"
-        @click="showCreate ? closeForm() : openCreate()"
-      >
-        {{ showCreate ? "Cancel" : "New target" }}
-      </button>
+      <RouterLink to="/ws-proxies/new" class="btn-primary">New target</RouterLink>
     </header>
 
-    <form v-if="showCreate" class="create-form" @submit.prevent="submitTarget">
+    <form v-if="showEdit" class="create-form" @submit.prevent="submitTarget">
       <FormField label="Name" for="wp-name">
-        <input
-          id="wp-name"
-          v-model="newName"
-          type="text"
-          placeholder="iot-gateway"
-          :disabled="editingTarget !== null"
-        />
+        <input id="wp-name" v-model="newName" type="text" placeholder="iot-gateway" disabled />
       </FormField>
       <FormField label="Backend WebSocket URL" for="wp-url">
         <input id="wp-url" v-model="newBackendUrl" type="text" placeholder="wss://backend.example.com/socket" />
@@ -194,9 +175,12 @@ async function confirmDelete() {
         <input id="wp-idle" v-model="newIdleTimeoutMinutes" type="text" inputmode="numeric" />
       </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
-      <button type="submit" class="btn-primary" :disabled="creating">
-        {{ creating ? "Saving…" : editingTarget ? "Save changes" : "Create target" }}
-      </button>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" :disabled="creating">
+          {{ creating ? "Saving…" : "Save changes" }}
+        </button>
+        <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
+      </div>
     </form>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="targets.length === 0">
@@ -296,6 +280,11 @@ async function confirmDelete() {
 }
 .create-form {
   max-width: 26.25rem;
+}
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 .field input:disabled {
   background: var(--surface-sunken);

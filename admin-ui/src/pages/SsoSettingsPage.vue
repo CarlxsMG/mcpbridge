@@ -5,6 +5,7 @@ import { toErrorMessage } from "@/utils/errors";
 import type { OidcSettings } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
+import FormPage from "@/components/ui/FormPage.vue";
 
 const settings = ref<OidcSettings | null>(null);
 const loading = ref(true);
@@ -84,84 +85,86 @@ async function save() {
 
 <template>
   <section>
-    <PageHeader
-      title="Single sign-on (OIDC)"
-      subtitle="Let admins sign in through an external identity provider (Okta, Azure AD, Google Workspace, Auth0, or any OIDC-compliant IdP) via Authorization Code + PKCE, instead of — or alongside — the built-in username/password login. SAML is not supported."
-    />
+    <FormPage max-width="34rem">
+      <PageHeader
+        title="Single sign-on (OIDC)"
+        subtitle="Let admins sign in through an external identity provider (Okta, Azure AD, Google Workspace, Auth0, or any OIDC-compliant IdP) via Authorization Code + PKCE, instead of — or alongside — the built-in username/password login. SAML is not supported."
+      />
 
-    <p v-if="loadError" class="error" role="alert">{{ loadError }}</p>
+      <p v-if="loadError" class="error" role="alert">{{ loadError }}</p>
 
-    <form v-if="!loading" class="settings-form" @submit.prevent="save">
-      <FormField label="Issuer URL" for="sso-issuer">
-        <input
-          id="sso-issuer"
-          v-model="issuer"
-          type="url"
-          placeholder="https://your-tenant.okta.com"
-          autocomplete="off"
-          required
-        />
-        <p class="hint">
-          The bridge fetches <code>{issuer}/.well-known/openid-configuration</code> — no need to enter individual
-          endpoints.
-        </p>
-      </FormField>
+      <form v-if="!loading" class="settings-form" @submit.prevent="save">
+        <FormField label="Issuer URL" for="sso-issuer">
+          <input
+            id="sso-issuer"
+            v-model="issuer"
+            type="url"
+            placeholder="https://your-tenant.okta.com"
+            autocomplete="off"
+            required
+          />
+          <p class="hint">
+            The bridge fetches <code>{issuer}/.well-known/openid-configuration</code> — no need to enter individual
+            endpoints.
+          </p>
+        </FormField>
 
-      <FormField label="Client ID" for="sso-client-id">
-        <input id="sso-client-id" v-model="clientId" type="text" autocomplete="off" required />
-      </FormField>
+        <FormField label="Client ID" for="sso-client-id">
+          <input id="sso-client-id" v-model="clientId" type="text" autocomplete="off" required />
+        </FormField>
 
-      <FormField label="Client secret" for="sso-client-secret">
-        <input
-          id="sso-client-secret"
-          v-model="clientSecret"
-          type="password"
-          autocomplete="off"
-          :placeholder="settings ? 'Configured — required again every time you save' : ''"
-        />
-        <p class="hint">
-          Write-only: stored encrypted at rest and never shown again once saved — re-enter it on every save, even one
-          that only changes another field below.
-        </p>
-      </FormField>
+        <FormField label="Client secret" for="sso-client-secret">
+          <input
+            id="sso-client-secret"
+            v-model="clientSecret"
+            type="password"
+            autocomplete="off"
+            :placeholder="settings ? 'Configured — required again every time you save' : ''"
+          />
+          <p class="hint">
+            Write-only: stored encrypted at rest and never shown again once saved — re-enter it on every save, even one
+            that only changes another field below.
+          </p>
+        </FormField>
 
-      <FormField label="Redirect URI" for="sso-redirect-uri">
-        <input
-          id="sso-redirect-uri"
-          v-model="redirectUri"
-          type="url"
-          placeholder="https://bridge.example.com/admin-api/auth/oidc/callback"
-          autocomplete="off"
-          required
-        />
-        <p class="hint">Must exactly match a redirect URI registered with the identity provider.</p>
-      </FormField>
+        <FormField label="Redirect URI" for="sso-redirect-uri">
+          <input
+            id="sso-redirect-uri"
+            v-model="redirectUri"
+            type="url"
+            placeholder="https://bridge.example.com/admin-api/auth/oidc/callback"
+            autocomplete="off"
+            required
+          />
+          <p class="hint">Must exactly match a redirect URI registered with the identity provider.</p>
+        </FormField>
 
-      <FormField label="Scopes" for="sso-scopes">
-        <input id="sso-scopes" v-model="scopes" type="text" placeholder="openid profile email" autocomplete="off" />
-        <p class="hint">Must include <code>openid</code>.</p>
-      </FormField>
+        <FormField label="Scopes" for="sso-scopes">
+          <input id="sso-scopes" v-model="scopes" type="text" placeholder="openid profile email" autocomplete="off" />
+          <p class="hint">Must include <code>openid</code>.</p>
+        </FormField>
 
-      <div class="field">
-        <span class="field-label">New SSO users are provisioned as</span>
-        <p class="hint">
-          <strong>viewer</strong> — always, regardless of any other setting. An existing admin must manually promote a
-          new SSO user from the <RouterLink to="/users">Users</RouterLink> page after reviewing them.
-        </p>
-      </div>
+        <div class="field">
+          <span class="field-label">New SSO users are provisioned as</span>
+          <p class="hint">
+            <strong>viewer</strong> — always, regardless of any other setting. An existing admin must manually promote a
+            new SSO user from the <RouterLink to="/users">Users</RouterLink> page after reviewing them.
+          </p>
+        </div>
 
-      <label class="inline-check">
-        <input v-model="enabled" type="checkbox" />
-        Enable SSO login (shows a "Sign in with SSO" button on the login page)
-      </label>
+        <label class="inline-check">
+          <input v-model="enabled" type="checkbox" />
+          Enable SSO login (shows a "Sign in with SSO" button on the login page)
+        </label>
 
-      <p v-if="saveError" class="error" role="alert">{{ saveError }}</p>
-      <p v-if="saved" class="success" role="status">SSO settings saved.</p>
+        <p v-if="saveError" class="error" role="alert">{{ saveError }}</p>
+        <p v-if="saved" class="success" role="status">SSO settings saved.</p>
 
-      <button type="submit" class="btn-primary" :disabled="saving">
-        {{ saving ? "Saving…" : "Save SSO settings" }}
-      </button>
-    </form>
+        <button type="submit" class="btn-primary" :disabled="saving">
+          {{ saving ? "Saving…" : "Save SSO settings" }}
+        </button>
+      </form>
+    </FormPage>
   </section>
 </template>
 

@@ -22,10 +22,20 @@ const routes = [
     props: true,
   },
   {
+    path: "/bundles/new",
+    name: "bundle-new",
+    component: () => import("../pages/NewBundlePage.vue"),
+  },
+  {
     path: "/bundles/:name",
     name: "bundle-detail",
     component: () => import("../pages/BundleDetailPage.vue"),
     props: true,
+  },
+  {
+    path: "/composites/new",
+    name: "composite-new",
+    component: () => import("../pages/NewCompositePage.vue"),
   },
   {
     path: "/composites/:name",
@@ -33,6 +43,29 @@ const routes = [
     component: () => import("../pages/CompositeDetailPage.vue"),
     props: true,
   },
+  { path: "/keys/new", name: "key-new", component: () => import("../pages/NewApiKeyPage.vue") },
+  { path: "/alerts/new", name: "alert-new", component: () => import("../pages/NewAlertPage.vue") },
+  {
+    path: "/users/new",
+    name: "user-new",
+    component: () => import("../pages/NewUserPage.vue"),
+    meta: { role: "admin" },
+  },
+  { path: "/policies/new", name: "policy-new", component: () => import("../pages/NewPolicyPage.vue") },
+  { path: "/catalog/new", name: "catalog-new", component: () => import("../pages/NewCatalogEntryPage.vue") },
+  { path: "/consumers/new", name: "consumer-new", component: () => import("../pages/NewConsumerPage.vue") },
+  {
+    path: "/ws-proxies/new",
+    name: "ws-proxy-new",
+    component: () => import("../pages/NewWsProxyTargetPage.vue"),
+  },
+  {
+    path: "/teams/new",
+    name: "team-new",
+    component: () => import("../pages/NewTeamPage.vue"),
+    meta: { role: "admin" },
+  },
+  { path: "/schedules/new", name: "schedule-new", component: () => import("../pages/NewSchedulePage.vue") },
   { path: "/traces/:traceId", name: "trace-detail", component: () => import("../pages/TracesPage.vue"), props: true },
   {
     path: "/:pathMatch(.*)*",

@@ -57,11 +57,9 @@ function fillForm(consumer: ConsumerWithUsage) {
 }
 
 const {
-  open: showCreate,
-  editing: editingConsumer,
+  open: showEdit,
   busy: creating,
   error: createError,
-  openCreate,
   openEdit,
   close: closeForm,
   submit,
@@ -119,24 +117,14 @@ async function submitConsumer() {
   if (nameError.value || quotaError.value || endUserLimitError.value) {
     return;
   }
-  const ok = await submit(
-    async (editing) => {
-      if (editing) {
-        await api.patch(`/admin-api/consumers/${editing.id}`, {
-          name: newName.value.trim(),
-          monthlyQuota: quota,
-          endUserRateLimitPerMin,
-        });
-      } else {
-        await api.post("/admin-api/consumers", {
-          name: newName.value.trim(),
-          monthlyQuota: quota,
-          endUserRateLimitPerMin,
-        });
-      }
-    },
-    editingConsumer.value ? "Failed to update consumer." : "Failed to create consumer.",
-  );
+  const ok = await submit(async (editing) => {
+    if (!editing) return;
+    await api.patch(`/admin-api/consumers/${editing.id}`, {
+      name: newName.value.trim(),
+      monthlyQuota: quota,
+      endUserRateLimitPerMin,
+    });
+  }, "Failed to update consumer.");
   if (ok) await load();
 }
 
@@ -158,16 +146,10 @@ function confirmDelete() {
       title="Consumers"
       subtitle="Consumers (teams / apps) own API keys and can carry a monthly call quota and an optional per-end-user rate limit enforced across all their keys."
     >
-      <button
-        type="button"
-        :class="showCreate ? 'btn-secondary' : 'btn-primary'"
-        @click="showCreate ? closeForm() : openCreate()"
-      >
-        {{ showCreate ? "Cancel" : "New consumer" }}
-      </button>
+      <RouterLink to="/consumers/new" class="btn-primary">New consumer</RouterLink>
     </PageHeader>
 
-    <form v-if="showCreate" class="create-form" @submit.prevent="submitConsumer">
+    <form v-if="showEdit" class="create-form" @submit.prevent="submitConsumer">
       <FormField label="Name" for="c-name">
         <input id="c-name" v-model="newName" type="text" placeholder="mobile-app" />
         <p v-if="nameError" class="error">{{ nameError }}</p>
@@ -181,11 +163,12 @@ function confirmDelete() {
         <p v-if="endUserLimitError" class="error">{{ endUserLimitError }}</p>
       </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
-      <button type="submit" class="btn-primary" :disabled="creating">
-        {{
-          creating ? (editingConsumer ? "Saving…" : "Creating…") : editingConsumer ? "Save changes" : "Create consumer"
-        }}
-      </button>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" :disabled="creating">
+          {{ creating ? "Saving…" : "Save changes" }}
+        </button>
+        <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
+      </div>
     </form>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="consumers.length === 0">
@@ -284,6 +267,11 @@ function confirmDelete() {
 <style scoped>
 .create-form {
   max-width: 23.75rem;
+}
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 .usage-cell {
   display: flex;

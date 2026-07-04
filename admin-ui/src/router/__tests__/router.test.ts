@@ -46,4 +46,36 @@ describe("router", () => {
     expect(bundleDetail.name).toBe("bundle-detail");
     expect(bundleDetail.params.name).toBe("my-bundle");
   });
+
+  it("prefers the static /new create route over the dynamic :name detail route", () => {
+    // A bundle or composite literally named "new" is an accepted edge case (same
+    // trade-off as /register-server living outside /servers/:name) — Vue Router
+    // ranks static segments above dynamic ones regardless of registration order.
+    expect(router.resolve("/bundles/new").name).toBe("bundle-new");
+    expect(router.resolve("/composites/new").name).toBe("composite-new");
+  });
+
+  it("registers a dedicated create route for each list page with an inline-form-turned-page", () => {
+    const names = router.getRoutes().map((r) => r.name);
+    for (const name of [
+      "bundle-new",
+      "composite-new",
+      "key-new",
+      "alert-new",
+      "user-new",
+      "policy-new",
+      "catalog-new",
+      "consumer-new",
+      "ws-proxy-new",
+      "team-new",
+      "schedule-new",
+    ]) {
+      expect(names).toContain(name);
+    }
+  });
+
+  it("marks the admin-only user-new and team-new routes with the admin role meta, matching /users and /teams", () => {
+    expect(router.resolve({ name: "user-new" }).meta.role).toBe("admin");
+    expect(router.resolve({ name: "team-new" }).meta.role).toBe("admin");
+  });
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
@@ -8,7 +8,6 @@ import type { Team } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
-import FormField from "@/components/ui/FormField.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import { UsersRound } from "lucide-vue-next";
@@ -23,8 +22,6 @@ const {
   [],
   "Failed to load teams.",
 );
-const newName = ref("");
-const creating = ref(false);
 const {
   pending: pendingDelete,
   request: requestRemove,
@@ -33,21 +30,6 @@ const {
 } = useConfirmAction<Team>();
 
 onMounted(load);
-
-async function create() {
-  if (!newName.value.trim()) return;
-  creating.value = true;
-  errorMessage.value = "";
-  try {
-    await api.post("/admin-api/teams", { name: newName.value.trim() });
-    newName.value = "";
-    await load();
-  } catch (err) {
-    errorMessage.value = toErrorMessage(err, "Failed to create team.");
-  } finally {
-    creating.value = false;
-  }
-}
 
 async function confirmRemove() {
   await confirmDeleteAction(async (t) => {
@@ -66,14 +48,10 @@ async function confirmRemove() {
     <PageHeader
       title="Teams"
       subtitle="Teams own clients; a team-scoped admin only sees and manages its own team's servers. Super-admins (admin role with no team) manage teams and assign ownership. Assign a client's team from its detail page."
-    />
+    >
+      <RouterLink to="/teams/new" class="btn-primary">New team</RouterLink>
+    </PageHeader>
 
-    <form class="create-form" @submit.prevent="create">
-      <FormField label="Team name" for="new-team-name">
-        <input id="new-team-name" v-model="newName" type="text" placeholder="Team name (e.g. Payments)" required />
-      </FormField>
-      <button class="btn-primary" type="submit" :disabled="creating || !newName.trim()">Create team</button>
-    </form>
     <ListLayout :loading="loading" :error="errorMessage" :empty="teams.length === 0">
       <template #empty>
         <EmptyState :icon="UsersRound">
@@ -113,19 +91,3 @@ async function confirmRemove() {
     />
   </section>
 </template>
-
-<style scoped>
-.create-form {
-  display: flex;
-  gap: 0.5rem;
-  margin: 1rem 0;
-  align-items: flex-end;
-}
-.field {
-  flex: 1;
-}
-.field-error {
-  color: var(--breach);
-  font-size: 0.85rem;
-}
-</style>

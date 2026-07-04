@@ -52,7 +52,7 @@ async function assignTeam(teamId: number | null) {
       <SelectMenu
         :model-value="currentTeamId"
         :options="teamOptions"
-        create-path="/teams"
+        create-path="/teams/new"
         create-label="Create team"
         :reload="loadTeams"
         @update:model-value="assignTeam"

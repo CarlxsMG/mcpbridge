@@ -3,8 +3,6 @@ import { ref, computed, onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
-import { useEntityForm } from "@/composables/useEntityForm";
-import { parseOptionalNumber } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
 import type { GuardPolicy, BundleSummary } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -12,8 +10,6 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
-import FormField from "@/components/ui/FormField.vue";
-import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { ShieldCheck } from "lucide-vue-next";
 
@@ -34,18 +30,6 @@ const {
   confirm: confirmActionApply,
 } = useConfirmAction<{ policy: GuardPolicy; bundle: string }>();
 
-const newName = ref("");
-const newRate = ref("");
-const newTimeout = ref("");
-
-function resetForm() {
-  newName.value = "";
-  newRate.value = "";
-  newTimeout.value = "";
-}
-
-const { open: showCreate, busy: creating, error: createError, submit } = useEntityForm<void>({ reset: resetForm });
-
 // per-policy selected bundle to apply to
 const applyBundle = ref<Record<number, string>>({});
 const applyingId = ref<number | null>(null);
@@ -65,32 +49,6 @@ async function load() {
   });
 }
 onMounted(load);
-
-async function createPolicy() {
-  createError.value = "";
-  if (!newName.value.trim()) {
-    createError.value = "Name is required.";
-    return;
-  }
-  const rate = parseOptionalNumber(newRate.value, "Rate limit must be a plain number (no units), or blank.");
-  if (rate.error) {
-    createError.value = rate.error;
-    return;
-  }
-  const timeout = parseOptionalNumber(newTimeout.value, "Timeout must be a plain number (no units), or blank.");
-  if (timeout.error) {
-    createError.value = timeout.error;
-    return;
-  }
-  const ok = await submit(async () => {
-    await api.post("/admin-api/policies", {
-      name: newName.value.trim(),
-      rateLimitPerMin: rate.value,
-      timeoutMs: timeout.value,
-    });
-  }, "Failed to create policy.");
-  if (ok) await load();
-}
 
 function requestApply(policy: GuardPolicy) {
   const bundle = applyBundle.value[policy.id];
@@ -138,24 +96,8 @@ async function confirmDelete() {
       title="Guard policies"
       subtitle="Reusable rate-limit / timeout templates. Apply one to every tool in a bundle at once — each tool's existing API-key allow-list is left untouched."
     >
-      <ToggleFormButton v-model="showCreate" show-label="New policy" />
+      <RouterLink to="/policies/new" class="btn-primary">New policy</RouterLink>
     </PageHeader>
-
-    <form v-if="showCreate" class="create-form" @submit.prevent="createPolicy">
-      <FormField label="Name" for="p-name">
-        <input id="p-name" v-model="newName" type="text" placeholder="strict" />
-      </FormField>
-      <FormField label="Rate limit (calls/min, blank = none)" for="p-rate">
-        <input id="p-rate" v-model="newRate" type="text" inputmode="numeric" />
-      </FormField>
-      <FormField label="Timeout (ms, blank = none)" for="p-timeout">
-        <input id="p-timeout" v-model="newTimeout" type="text" inputmode="numeric" />
-      </FormField>
-      <p v-if="createError" class="error">{{ createError }}</p>
-      <button type="submit" class="btn-primary" :disabled="creating">
-        {{ creating ? "Creating…" : "Create policy" }}
-      </button>
-    </form>
 
     <p v-if="notice" class="notice">{{ notice }}</p>
 
@@ -186,7 +128,7 @@ async function confirmDelete() {
               <SelectMenu
                 v-model="applyBundle[p.id]"
                 :options="bundleOptions"
-                create-path="/bundles"
+                create-path="/bundles/new"
                 create-label="Create bundle"
                 :reload="load"
               />
@@ -236,9 +178,6 @@ async function confirmDelete() {
 </template>
 
 <style scoped>
-.create-form {
-  max-width: 26.25rem;
-}
 .apply-cell {
   display: flex;
   gap: 0.5rem;

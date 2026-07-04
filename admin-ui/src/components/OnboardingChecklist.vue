@@ -115,7 +115,7 @@ const allDone = computed(() => doneCount.value === steps.value.length);
         <RouterLink v-if="step.id === 'server' && !step.done" to="/register-server" class="step-cta">
           Add a server
         </RouterLink>
-        <RouterLink v-if="step.id === 'teammate' && !step.done" to="/users" class="step-cta">Invite</RouterLink>
+        <RouterLink v-if="step.id === 'teammate' && !step.done" to="/users/new" class="step-cta">Invite</RouterLink>
       </li>
     </ul>
   </div>

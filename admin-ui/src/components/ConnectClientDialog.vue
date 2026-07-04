@@ -99,7 +99,7 @@ const targetSelectOptions = computed(() => {
 
 // Target create destination follows scope: a "server" here is a registered
 // upstream client (see clients.value above), not an MCP client app.
-const targetCreatePath = computed(() => (scope.value === "client" ? "/register-server" : "/bundles"));
+const targetCreatePath = computed(() => (scope.value === "client" ? "/register-server" : "/bundles/new"));
 const targetCreateLabel = computed(() => (scope.value === "client" ? "Add server" : "Create bundle"));
 
 // Snippets never carry a real key — always a clearly-marked placeholder the
@@ -173,7 +173,8 @@ async function copySnippet() {
     </div>
 
     <p v-if="keyCount === 0" class="key-warning">
-      You don't have an active MCP API key yet. <RouterLink to="/keys" @click="emit('close')">Create one</RouterLink>
+      You don't have an active MCP API key yet.
+      <RouterLink to="/keys/new" @click="emit('close')">Create one</RouterLink>
       first, then come back and paste it in below.
     </p>
     <p v-else-if="keyCount !== null" class="key-hint">

@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
-import { useEntityForm } from "@/composables/useEntityForm";
 import { toErrorMessage } from "@/utils/errors";
 import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "@/types/api";
 import { LayoutGrid } from "lucide-vue-next";
@@ -13,7 +12,6 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
-import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
 
 const router = useRouter();
 
@@ -90,50 +88,6 @@ async function confirmInstall(entry: CatalogEntry) {
   }
 }
 
-// ── Custom entry form ───────────────────────────────────────────────────────
-const newSlug = ref("");
-const newName = ref("");
-const newDescription = ref("");
-const newKind = ref<"rest" | "mcp">("rest");
-const newHealthUrl = ref("");
-const newOpenapiUrl = ref("");
-const newMcpUrl = ref("");
-
-function resetCreateForm() {
-  newSlug.value = "";
-  newName.value = "";
-  newDescription.value = "";
-  newHealthUrl.value = "";
-  newOpenapiUrl.value = "";
-  newMcpUrl.value = "";
-}
-
-const {
-  open: showCreateForm,
-  busy: creating,
-  error: createError,
-  submit,
-} = useEntityForm<void>({ reset: resetCreateForm });
-
-async function createEntry() {
-  if (!newSlug.value.trim() || !newName.value.trim()) {
-    createError.value = "Slug and name are required.";
-    return;
-  }
-  const ok = await submit(async () => {
-    await api.post("/admin-api/catalog", {
-      slug: newSlug.value.trim(),
-      name: newName.value.trim(),
-      description: newDescription.value.trim() || undefined,
-      kind: newKind.value,
-      healthUrl: newKind.value === "rest" ? newHealthUrl.value.trim() || undefined : undefined,
-      openapiUrl: newKind.value === "rest" ? newOpenapiUrl.value.trim() || undefined : undefined,
-      mcpUrl: newKind.value === "mcp" ? newMcpUrl.value.trim() || undefined : undefined,
-    });
-  }, "Failed to save catalog entry.");
-  if (ok) await load();
-}
-
 const {
   pending: pendingDelete,
   request: requestDelete,
@@ -163,42 +117,8 @@ function confirmDelete() {
       title="Catalog"
       subtitle="Browse well-known servers and install them with one click, or save your own reusable templates."
     >
-      <ToggleFormButton v-model="showCreateForm" show-label="Add custom entry" />
+      <RouterLink to="/catalog/new" class="btn-primary">Add custom entry</RouterLink>
     </PageHeader>
-
-    <form v-if="showCreateForm" class="create-form" @submit.prevent="createEntry">
-      <FormField label="Slug" for="ce-slug">
-        <input id="ce-slug" v-model="newSlug" type="text" placeholder="internal-crm-staging" required />
-      </FormField>
-      <FormField label="Name" for="ce-name">
-        <input id="ce-name" v-model="newName" type="text" placeholder="Internal CRM (staging)" required />
-      </FormField>
-      <FormField label="Description (optional)" for="ce-description">
-        <input id="ce-description" v-model="newDescription" type="text" placeholder="What this template registers" />
-      </FormField>
-      <div class="segmented" role="radiogroup" aria-label="Kind">
-        <label><input v-model="newKind" type="radio" name="ce-kind" value="rest" /> REST API</label>
-        <label><input v-model="newKind" type="radio" name="ce-kind" value="mcp" /> MCP server</label>
-      </div>
-      <template v-if="newKind === 'rest'">
-        <FormField label="Health URL" for="ce-health">
-          <input id="ce-health" v-model="newHealthUrl" type="url" placeholder="https://api.example.com/health" />
-        </FormField>
-        <FormField label="OpenAPI URL" for="ce-openapi">
-          <input
-            id="ce-openapi"
-            v-model="newOpenapiUrl"
-            type="url"
-            placeholder="https://api.example.com/openapi.json"
-          />
-        </FormField>
-      </template>
-      <FormField v-else label="MCP server URL" for="ce-mcp">
-        <input id="ce-mcp" v-model="newMcpUrl" type="url" placeholder="https://mcp.example.com/mcp" />
-      </FormField>
-      <p v-if="createError" class="error">{{ createError }}</p>
-      <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Saving…" : "Save entry" }}</button>
-    </form>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
       <template #empty>
@@ -283,17 +203,6 @@ function confirmDelete() {
    line-length cap that the shared component doesn't set. */
 :deep(.subtitle) {
   max-width: 35rem;
-}
-.create-form {
-  max-width: 30rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.segmented {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.85rem;
 }
 .catalog-grid {
   display: grid;

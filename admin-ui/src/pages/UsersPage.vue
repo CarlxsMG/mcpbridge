@@ -4,7 +4,6 @@ import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useAuth } from "@/composables/useAuth";
 import { useConfirmAction } from "@/composables/useConfirmAction";
-import { useEntityForm } from "@/composables/useEntityForm";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
 import type { AdminUserSummary, AdminRole, Team } from "@/types/api";
@@ -13,17 +12,9 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
-import FormField from "@/components/ui/FormField.vue";
-import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { UserCog } from "lucide-vue-next";
 
-const NEW_ROLE_OPTIONS: { value: AdminRole; label: string }[] = [
-  { value: "admin", label: "Admin" },
-  { value: "operator", label: "Operator" },
-  { value: "auditor", label: "Auditor" },
-  { value: "viewer", label: "Viewer" },
-];
 const ROLE_OPTIONS: { value: AdminRole; label: string }[] = [
   { value: "admin", label: "admin" },
   { value: "operator", label: "operator" },
@@ -94,38 +85,10 @@ function isLastActiveAdmin(user: AdminUserSummary): boolean {
   return user.role === "admin" && user.is_active && activeAdminCount.value <= 1;
 }
 
-const newUsername = ref("");
-const newPassword = ref("");
-const newRole = ref<AdminRole>("viewer");
-
-function resetForm() {
-  newUsername.value = "";
-  newPassword.value = "";
-  newRole.value = "viewer";
-}
-
-const { open: showCreateForm, busy: creating, error: createError, submit } = useEntityForm<void>({ reset: resetForm });
-
 onMounted(() => {
   load();
   loadTeams();
 });
-
-async function createUser() {
-  createError.value = "";
-  if (newPassword.value.length < 12) {
-    createError.value = "Password must be at least 12 characters.";
-    return;
-  }
-  const ok = await submit(async () => {
-    await api.post("/admin-api/users", {
-      username: newUsername.value.trim(),
-      password: newPassword.value,
-      role: newRole.value,
-    });
-  }, "Failed to create user.");
-  if (ok) await load();
-}
 
 async function changeRole(user: AdminUserSummary, nextRole: string) {
   try {
@@ -200,24 +163,8 @@ function confirmDelete() {
 <template>
   <section>
     <PageHeader title="Users">
-      <ToggleFormButton v-model="showCreateForm" show-label="Add user" />
+      <RouterLink to="/users/new" class="btn-primary">Add user</RouterLink>
     </PageHeader>
-
-    <form v-if="showCreateForm" class="create-form" @submit.prevent="createUser">
-      <FormField label="Username" for="new-username">
-        <input id="new-username" v-model="newUsername" type="text" required />
-      </FormField>
-      <FormField label="Password (min 12 chars)" for="new-password">
-        <input id="new-password" v-model="newPassword" type="password" required minlength="12" />
-      </FormField>
-      <FormField label="Role" for="new-role">
-        <SelectMenu id="new-role" v-model="newRole" :options="NEW_ROLE_OPTIONS" />
-      </FormField>
-      <p v-if="createError" class="error">{{ createError }}</p>
-      <button type="submit" class="btn-primary" :disabled="creating">
-        {{ creating ? "Creating…" : "Create user" }}
-      </button>
-    </form>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <p v-if="teamChangeError" class="error" role="alert">{{ teamChangeError }}</p>
@@ -267,7 +214,7 @@ function confirmDelete() {
                 :model-value="user.team_id"
                 :options="teamOptions"
                 title="Only super-admins can change this."
-                create-path="/teams"
+                create-path="/teams/new"
                 create-label="Create team"
                 :reload="loadTeams"
                 @update:model-value="(v) => requestTeamChange(user, v)"
@@ -331,12 +278,6 @@ function confirmDelete() {
 </template>
 
 <style scoped>
-.create-form {
-  max-width: 23.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
 .you-tag {
   color: var(--text-muted);
   font-size: 0.8rem;

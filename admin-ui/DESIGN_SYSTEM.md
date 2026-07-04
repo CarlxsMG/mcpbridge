@@ -280,10 +280,12 @@ boolean` (skip making the trigger span itself a tab stop — use when the defaul
   inline create/edit form quartet: `open`/`editing`/`busy`/`error` refs plus `openCreate()` /
   `openEdit(entity)` / `close()` / `submit(action: (editing: E | null) => Promise<void>, fallbackMessage: string)`.
   Deliberately doesn't own per-field validation — callers validate their own fields and return early
-  (without calling `submit`) on failure. **Use when:** any inline create/edit form with a toggle-open
-  "New X" button that shares one form for both create and edit. **Example:** see `ConsumersPage.vue`
-  (`showCreate`/`editingConsumer`/`creating`/`createError` → `openCreate`/`openEdit`/`closeForm`/
-  `submitConsumer`) — also used in `KeysPage.vue`, `PoliciesPage.vue`, `BundlesPage.vue`, and 9 others.
+  (without calling `submit`) on failure. **Use when:** an inline form that shares one open/edit/submit
+  cycle for both create and edit on the same page (edit-in-place is still fine inline — it's *create*
+  that gets its own dedicated page/route now, see `RegisterServerPage.vue` and the `New*Page.vue`
+  pages linked from `Bundles`/`Composites`/`API keys`/`Alerts`/`Users`/`Policies`/`Catalog`).
+  **Example:** see `ConsumersPage.vue` (`showCreate`/`editingConsumer`/`creating`/`createError` →
+  `openCreate`/`openEdit`/`closeForm`/`submitConsumer`) — also used in `WsProxyTargetsPage.vue`.
 - **`useQueryFilters<K extends string>(keys: readonly K[])`** — Seeds filter refs from `route.query`
   once at creation time, and syncs them back via `router.replace`. Returns
   `{ filters: Record<K, Ref<string>>, toQuery(extra?), syncUrl(extra?) }`. Deliberately one-way: it
