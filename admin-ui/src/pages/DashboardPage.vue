@@ -7,7 +7,12 @@ import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
 import OnboardingChecklist from "../components/OnboardingChecklist.vue";
-import { Search, Server, Tags, ChevronRight } from "lucide-vue-next";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import SearchInput from "../components/SearchInput.vue";
+import PaginationBar from "../components/PaginationBar.vue";
+import { Server, Tags, ChevronRight } from "lucide-vue-next";
 
 const router = useRouter();
 const route = useRoute();
@@ -205,18 +210,12 @@ onMounted(() => load(initialCursor));
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>Servers</h1>
-        <p class="subtitle">Registered backend servers and their tools.</p>
-      </div>
-      <div class="header-actions">
-        <button type="button" class="btn-secondary" :aria-expanded="showTagBrowser" @click="toggleTagBrowser">
-          <Tags :size="15" stroke-width="2" aria-hidden="true" /> Browse by tag
-        </button>
-        <RouterLink to="/register-server" class="btn-primary">Add server</RouterLink>
-      </div>
-    </header>
+    <PageHeader title="Servers" subtitle="Registered backend servers and their tools.">
+      <button type="button" class="btn-secondary" :aria-expanded="showTagBrowser" @click="toggleTagBrowser">
+        <Tags :size="15" stroke-width="2" aria-hidden="true" /> Browse by tag
+      </button>
+      <RouterLink to="/register-server" class="btn-primary">Add server</RouterLink>
+    </PageHeader>
 
     <OnboardingChecklist :has-servers="items.length > 0" />
 
@@ -259,10 +258,7 @@ onMounted(() => load(initialCursor));
     <form class="filters" @submit.prevent="applyFilters">
       <div class="field">
         <label for="d-search">Search</label>
-        <div class="search-input">
-          <Search :size="15" stroke-width="2" aria-hidden="true" />
-          <input id="d-search" v-model="q" type="search" placeholder="Search by name…" />
-        </div>
+        <SearchInput v-model="q" placeholder="Search by name…" />
       </div>
       <div class="field">
         <label for="d-state">State</label>
@@ -291,88 +287,80 @@ onMounted(() => load(initialCursor));
 
     <SignalLoader v-if="loading" />
 
-    <template v-else-if="items.length === 0">
-      <div class="empty-state">
-        <Server :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p v-if="q || enabledFilter">
-          No servers match your filters.
-          <button
-            type="button"
-            class="link-btn"
-            @click="
-              q = '';
-              enabledFilter = '';
-              applyFilters();
-            "
-          >
-            Clear filters
-          </button>
-        </p>
-        <p v-else>
-          No servers registered yet. REST backends register themselves via <code>POST /register</code>; you can also
-          <RouterLink to="/register-server">add a REST or MCP server</RouterLink> manually.
-        </p>
-      </div>
-    </template>
+    <EmptyState v-else-if="items.length === 0" :icon="Server">
+      <template v-if="q || enabledFilter">
+        No servers match your filters.
+        <button
+          type="button"
+          class="link-btn"
+          @click="
+            q = '';
+            enabledFilter = '';
+            applyFilters();
+          "
+        >
+          Clear filters
+        </button>
+      </template>
+      <template v-else>
+        No servers registered yet. REST backends register themselves via <code>POST /register</code>; you can also
+        <RouterLink to="/register-server">add a REST or MCP server</RouterLink> manually.
+      </template>
+    </EmptyState>
 
-    <div v-else class="table-card table-scroll">
-      <table class="clients-table">
-        <thead>
-          <tr>
-            <th class="checkbox-col">
-              <input
-                type="checkbox"
-                :checked="selected.size > 0 && selected.size === items.length"
-                aria-label="Select all servers on this page"
-                @change="toggleSelectAll"
-              />
-            </th>
-            <th>Name</th>
-            <th>Status</th>
-            <th>Tools</th>
-            <th>Health URL</th>
-            <th>Enabled</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="client in items" :key="client.name">
-            <td class="checkbox-col">
-              <input
-                type="checkbox"
-                :checked="selected.has(client.name)"
-                :aria-label="`Select ${client.name}`"
-                @change="toggleSelected(client.name)"
-              />
-            </td>
-            <td>
-              <RouterLink :to="`/servers/${encodeURIComponent(client.name)}`">{{ client.name }}</RouterLink>
-              <span v-if="client.kind === 'mcp'" class="kind-chip">MCP</span>
-            </td>
-            <td><StatusBadge :status="client.status" /></td>
-            <td>{{ client.toolsCount }}</td>
-            <td class="url-cell" :title="client.healthUrl">{{ client.healthUrl }}</td>
-            <td>
-              <button
-                type="button"
-                class="toggle"
-                :class="client.enabled ? 'toggle-on' : 'toggle-off'"
-                :aria-pressed="client.enabled"
-                @click="onToggleClick(client)"
-              >
-                {{ client.enabled ? "Enabled" : "Disabled" }}
-              </button>
-              <p v-if="rowError[client.name]" class="row-error">{{ rowError[client.name] }}</p>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th class="checkbox-col">
+            <input
+              type="checkbox"
+              :checked="selected.size > 0 && selected.size === items.length"
+              aria-label="Select all servers on this page"
+              @change="toggleSelectAll"
+            />
+          </th>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Tools</th>
+          <th>Health URL</th>
+          <th>Enabled</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="client in items" :key="client.name">
+          <td class="checkbox-col">
+            <input
+              type="checkbox"
+              :checked="selected.has(client.name)"
+              :aria-label="`Select ${client.name}`"
+              @change="toggleSelected(client.name)"
+            />
+          </td>
+          <td>
+            <RouterLink :to="`/servers/${encodeURIComponent(client.name)}`">{{ client.name }}</RouterLink>
+            <span v-if="client.kind === 'mcp'" class="kind-chip">MCP</span>
+          </td>
+          <td><StatusBadge :status="client.status" /></td>
+          <td>{{ client.toolsCount }}</td>
+          <td class="url-cell" :title="client.healthUrl">{{ client.healthUrl }}</td>
+          <td>
+            <button
+              type="button"
+              class="toggle"
+              :class="client.enabled ? 'toggle-on' : 'toggle-off'"
+              :aria-pressed="client.enabled"
+              @click="onToggleClick(client)"
+            >
+              {{ client.enabled ? "Enabled" : "Disabled" }}
+            </button>
+            <p v-if="rowError[client.name]" class="row-error">{{ rowError[client.name] }}</p>
+          </td>
+        </tr>
+      </tbody>
+    </TableCard>
 
     <div class="pagination">
-      <button type="button" class="btn-secondary" :disabled="cursorStack.length === 0" @click="prevPage">
-        Previous
-      </button>
-      <button type="button" class="btn-secondary" :disabled="!nextCursor" @click="nextPage">Next</button>
+      <PaginationBar :has-prev="cursorStack.length > 0" :has-next="!!nextCursor" @prev="prevPage" @next="nextPage" />
       <p class="subtitle">{{ items.length }} server(s) on this page</p>
     </div>
 
@@ -408,20 +396,14 @@ section {
   flex-direction: column;
   min-height: 100%;
 }
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
 }
-.header-actions {
+/* PageHeader's own recipe covers the title/subtitle; this page still needs its
+   header buttons laid out in a row (PageHeader's .header-actions wrapper is
+   rendered by the child component, so reaching it requires :deep()). */
+:deep(.header-actions) {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -519,29 +501,6 @@ section {
   flex: 1;
   max-width: 20rem;
 }
-.search-input {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0 0.6rem;
-  background: var(--surface);
-}
-.search-input svg {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-.search-input input[type="search"] {
-  flex: 1;
-  width: 100%;
-  padding: 0.45rem 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-}
 .filters select {
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--border-strong);
@@ -561,38 +520,6 @@ section {
 }
 .checkbox-col {
   width: 2rem;
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.clients-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.clients-table th {
-  text-align: left;
-  padding: 0.7rem 0.9rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.clients-table td {
-  padding: 0.65rem 0.9rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.clients-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.clients-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 .url-cell {
   max-width: 16.25rem;
@@ -669,18 +596,6 @@ section {
 }
 .pagination .subtitle {
   margin-left: 0.4rem;
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 .error {
   color: var(--breach);

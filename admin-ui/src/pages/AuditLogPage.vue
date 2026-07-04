@@ -2,7 +2,11 @@
 import { ref, computed, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import type { AuditLogEntry, PaginatedResult } from "../types/api";
-import { ScrollText, Search, CheckCircle2, XCircle } from "lucide-vue-next";
+import { ScrollText, CheckCircle2, XCircle } from "lucide-vue-next";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import SearchInput from "../components/SearchInput.vue";
 
 const entries = ref<AuditLogEntry[]>([]);
 const loading = ref(false);
@@ -138,18 +142,12 @@ onMounted(() => {
 
 <template>
   <section>
-    <header class="page-header">
-      <h1>Audit log</h1>
-      <p class="subtitle">Who changed what, and when.</p>
-    </header>
+    <PageHeader title="Audit log" subtitle="Who changed what, and when." />
 
     <form class="filters" @submit.prevent="applyFilter">
       <div class="field">
         <label for="actor-filter">Actor</label>
-        <div class="search-input">
-          <Search :size="15" stroke-width="2" aria-hidden="true" />
-          <input id="actor-filter" v-model="actorFilter" type="search" placeholder="Filter by actor…" />
-        </div>
+        <SearchInput v-model="actorFilter" placeholder="Filter by actor…" />
       </div>
 
       <div class="field">
@@ -158,10 +156,7 @@ onMounted(() => {
           <option value="">All actions</option>
           <option v-for="a in knownActions" :key="a" :value="a">{{ a }}</option>
         </select>
-        <div v-else class="search-input">
-          <Search :size="15" stroke-width="2" aria-hidden="true" />
-          <input id="action-filter" v-model="actionFilter" type="search" placeholder="Filter by action…" />
-        </div>
+        <SearchInput v-else v-model="actionFilter" placeholder="Filter by action…" />
       </div>
 
       <div class="field">
@@ -208,44 +203,41 @@ onMounted(() => {
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-    <div v-if="entries.length" class="table-card table-scroll">
-      <table class="audit-table">
-        <thead>
-          <tr>
-            <th>When</th>
-            <th>Actor</th>
-            <th>Action</th>
-            <th>Target</th>
-            <th>Detail</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="entry in entries" :key="entry.id">
-            <td>{{ new Date(entry.createdAt).toLocaleString() }}</td>
-            <td>{{ entry.actor }}</td>
-            <td>
-              <code>{{ entry.action }}</code>
-            </td>
-            <td>{{ entry.target }}</td>
-            <td>
-              <details v-if="entry.detail" class="detail-disclosure">
-                <summary>View</summary>
-                <pre>{{ JSON.stringify(entry.detail, null, 2) }}</pre>
-              </details>
-              <span v-else class="detail-none">—</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div v-else-if="!loading" class="empty-state">
-      <ScrollText :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p v-if="hasActiveFilters">
+    <TableCard v-if="entries.length">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Actor</th>
+          <th>Action</th>
+          <th>Target</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="entry in entries" :key="entry.id">
+          <td>{{ new Date(entry.createdAt).toLocaleString() }}</td>
+          <td>{{ entry.actor }}</td>
+          <td>
+            <code>{{ entry.action }}</code>
+          </td>
+          <td>{{ entry.target }}</td>
+          <td>
+            <details v-if="entry.detail" class="detail-disclosure">
+              <summary>View</summary>
+              <pre>{{ JSON.stringify(entry.detail, null, 2) }}</pre>
+            </details>
+            <span v-else class="detail-none">—</span>
+          </td>
+        </tr>
+      </tbody>
+    </TableCard>
+    <EmptyState v-else-if="!loading" :icon="ScrollText">
+      <template v-if="hasActiveFilters">
         No entries match these filters.
         <button type="button" class="link-btn" @click="clearFilters">Clear filters</button>
-      </p>
-      <p v-else>No audit entries yet.</p>
-    </div>
+      </template>
+      <template v-else>No audit entries yet.</template>
+    </EmptyState>
 
     <button v-if="nextCursor" type="button" class="btn-secondary" :disabled="loading" @click="load(nextCursor)">
       {{ loading ? "Loading…" : "Load more" }}
@@ -254,13 +246,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0 0 1.25rem;
-}
 .filters {
   display: flex;
   align-items: flex-end;
@@ -287,65 +272,27 @@ onMounted(() => {
 .export-field {
   margin-left: auto;
 }
-.search-input {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0 0.6rem;
-  background: var(--surface);
+/* SearchInput's own recipe has no max-width; this page constrains it so the
+   two search fields don't grow unbounded in the flex filter row. */
+:deep(.search-input) {
   max-width: 16.25rem;
-}
-.search-input svg {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-.search-input input {
-  flex: 1;
-  width: 100%;
-  padding: 0.45rem 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-family: var(--font-body);
-  font-size: 0.9rem;
 }
 .integrity-actions {
   margin-bottom: 1.25rem;
 }
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  margin-bottom: 1rem;
-}
-.audit-table {
-  width: 100%;
-  border-collapse: collapse;
+/* TableCard's global .data-table recipe hardcodes font-size and td vertical
+   padding; this page needs a slightly smaller type size and participates in
+   the density toggle (body.density-compact), so both need reinstating here. */
+:deep(.data-table) {
   font-size: 0.88rem;
 }
-.audit-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.audit-table td {
+:deep(.data-table td) {
   padding: var(--table-pad-y) 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
 }
-.audit-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.audit-table tbody tr:hover {
-  background: var(--surface-sunken);
+/* TableCard's own recipe has no bottom margin; this page needs a gap before
+   the "Load more" button below it. */
+:deep(.table-card) {
+  margin-bottom: 1rem;
 }
 .detail-disclosure summary {
   cursor: pointer;
@@ -363,18 +310,6 @@ onMounted(() => {
 }
 .detail-none {
   color: var(--text-muted);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 .error {
   color: var(--breach);

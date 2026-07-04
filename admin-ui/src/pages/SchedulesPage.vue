@@ -5,6 +5,9 @@ import { useResource } from "../composables/useResource";
 import type { Schedule } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
 import { Clock } from "lucide-vue-next";
 
 const {
@@ -100,32 +103,27 @@ function formatLastRun(m: number | null): string {
     </header>
 
     <form class="create-form" @submit.prevent="create">
-      <div class="field">
-        <label for="sched-type">Type</label>
+      <FormField label="Type" for="sched-type">
         <select id="sched-type" v-model="form.targetType">
           <option value="client">Client</option>
           <option value="tool">Tool</option>
         </select>
-      </div>
-      <div class="field">
-        <label for="sched-client">Client</label>
+      </FormField>
+      <FormField label="Client" for="sched-client">
         <input id="sched-client" v-model="form.clientName" type="text" placeholder="client name" />
-      </div>
-      <div v-if="form.targetType === 'tool'" class="field">
-        <label for="sched-tool">Tool</label>
+      </FormField>
+      <FormField v-if="form.targetType === 'tool'" label="Tool" for="sched-tool">
         <input id="sched-tool" v-model="form.toolName" type="text" placeholder="tool name" />
-      </div>
-      <div class="field">
-        <label for="sched-action">Action</label>
+      </FormField>
+      <FormField label="Action" for="sched-action">
         <select id="sched-action" v-model="form.action">
           <option value="disable">disable</option>
           <option value="enable">enable</option>
         </select>
-      </div>
-      <div class="field">
-        <label for="sched-cron">Cron</label>
+      </FormField>
+      <FormField label="Cron" for="sched-cron">
         <input id="sched-cron" v-model="form.cron" type="text" placeholder="0 3 * * *" class="cron" />
-      </div>
+      </FormField>
       <button class="btn-primary" type="submit" :disabled="creating">Add</button>
     </form>
     <p v-if="createError" class="error" role="alert">{{ createError }}</p>
@@ -133,58 +131,53 @@ function formatLastRun(m: number | null): string {
 
     <SignalLoader v-if="loading" />
 
-    <template v-else-if="items.length === 0">
-      <div class="empty-state">
-        <Clock :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>No schedules yet. A schedule enables or disables a client or tool automatically on a cron interval.</p>
-      </div>
-    </template>
+    <EmptyState v-else-if="items.length === 0" :icon="Clock">
+      No schedules yet. A schedule enables or disables a client or tool automatically on a cron interval.
+    </EmptyState>
 
-    <div v-else class="table-card table-scroll">
-      <table class="schedules-table">
-        <thead>
-          <tr>
-            <th>Target</th>
-            <th>Action</th>
-            <th>Cron</th>
-            <th>Enabled</th>
-            <th>Last run</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="s in items" :key="s.id">
-            <td>
-              <code>{{ s.clientName }}</code
-              ><template v-if="s.toolName">
-                → <code>{{ s.toolName }}</code></template
-              >
-              <span class="tag">{{ s.targetType }}</span>
-            </td>
-            <td>{{ s.action }}</td>
-            <td>
-              <code>{{ s.cron }}</code>
-            </td>
-            <td>
-              <button
-                type="button"
-                class="toggle"
-                :class="s.enabled ? 'toggle-on' : 'toggle-off'"
-                :aria-pressed="s.enabled"
-                @click="toggle(s)"
-              >
-                {{ s.enabled ? "Enabled" : "Disabled" }}
-              </button>
-              <p v-if="rowError[s.id]" class="row-error">{{ rowError[s.id] }}</p>
-            </td>
-            <td>
-              <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>
-            </td>
-            <td><button class="link-btn danger" @click="pendingDelete = s">Delete</button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th>Target</th>
+          <th>Action</th>
+          <th>Cron</th>
+          <th>Enabled</th>
+          <th>Last run</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="s in items" :key="s.id">
+          <td>
+            <code>{{ s.clientName }}</code
+            ><template v-if="s.toolName">
+              → <code>{{ s.toolName }}</code></template
+            >
+            <span class="tag">{{ s.targetType }}</span>
+          </td>
+          <td>{{ s.action }}</td>
+          <td>
+            <code>{{ s.cron }}</code>
+          </td>
+          <td>
+            <button
+              type="button"
+              class="toggle"
+              :class="s.enabled ? 'toggle-on' : 'toggle-off'"
+              :aria-pressed="s.enabled"
+              @click="toggle(s)"
+            >
+              {{ s.enabled ? "Enabled" : "Disabled" }}
+            </button>
+            <p v-if="rowError[s.id]" class="row-error">{{ rowError[s.id] }}</p>
+          </td>
+          <td>
+            <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>
+          </td>
+          <td><button class="link-btn danger" @click="pendingDelete = s">Delete</button></td>
+        </tr>
+      </tbody>
+    </TableCard>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -234,57 +227,9 @@ function formatLastRun(m: number | null): string {
 .field {
   margin-bottom: 0;
 }
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-}
-.field input,
-.field select,
-.field textarea {
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
-}
 .field .cron {
   font-family: var(--font-mono);
   min-width: 8.75rem;
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.schedules-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.schedules-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.schedules-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.schedules-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.schedules-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 .tag {
   background: var(--surface-sunken);
@@ -329,18 +274,6 @@ function formatLastRun(m: number | null): string {
 }
 .last-run-never {
   color: var(--text-muted);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 .row-error {
   color: var(--breach);

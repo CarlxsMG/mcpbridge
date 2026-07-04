@@ -7,6 +7,9 @@ import StatCard from "../components/StatCard.vue";
 import MiniBarChart from "../components/MiniBarChart.vue";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import ChartCard from "../components/ChartCard.vue";
 import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench } from "lucide-vue-next";
 
 const WINDOWS = [
@@ -73,15 +76,14 @@ onMounted(load);
 
 <template>
   <section>
-    <header class="page-header">
-      <h1>Usage</h1>
+    <PageHeader title="Usage">
       <div class="window-control">
         <select v-model.number="windowMs" aria-label="Time window" @change="load">
           <option v-for="w in WINDOWS" :key="w.ms" :value="w.ms">Last {{ w.label }}</option>
         </select>
         <span v-if="loading" class="loading-note">Loading…</span>
       </div>
-    </header>
+    </PageHeader>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
@@ -105,8 +107,7 @@ onMounted(load);
         <StatCard :icon="Wrench" label="Active tools" :value="summary.tools" />
       </div>
 
-      <div class="chart-card ts-card">
-        <h2>Calls &amp; errors over time</h2>
+      <ChartCard title="Calls &amp; errors over time">
         <TimeSeriesChart
           :points="callsSeries"
           :secondary-points="errorsSeries"
@@ -114,70 +115,64 @@ onMounted(load);
           secondary-label="Errors"
           :format-time="tsFormatTime"
         />
-      </div>
+      </ChartCard>
 
       <div class="charts-row">
-        <div class="chart-card">
-          <h2>Top tools by calls</h2>
+        <ChartCard title="Top tools by calls">
           <MiniBarChart :rows="topToolsChart" />
-        </div>
-        <div class="chart-card">
-          <h2>Calls by API key</h2>
+        </ChartCard>
+        <ChartCard title="Calls by API key">
           <MiniBarChart :rows="byKeyChart" />
-        </div>
+        </ChartCard>
       </div>
 
       <h2>Top tools</h2>
-      <div v-if="topTools.length" class="table-card table-scroll">
-        <table class="usage-table">
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>Tool</th>
-              <th>Calls</th>
-              <th>Errors</th>
-              <th>Error rate</th>
-              <th>Avg</th>
-              <th>Max</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="t in topTools" :key="`${t.client}/${t.tool}`">
-              <td>{{ t.client }}</td>
-              <td>{{ t.tool }}</td>
-              <td>{{ t.calls }}</td>
-              <td>{{ t.errors }}</td>
-              <td :class="{ hot: t.errorRate > 0.1 }">{{ pct(t.errorRate) }}</td>
-              <td>{{ t.avgMs }}ms</td>
-              <td>{{ t.maxMs }}ms</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TableCard v-if="topTools.length">
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Tool</th>
+            <th>Calls</th>
+            <th>Errors</th>
+            <th>Error rate</th>
+            <th>Avg</th>
+            <th>Max</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="t in topTools" :key="`${t.client}/${t.tool}`">
+            <td>{{ t.client }}</td>
+            <td>{{ t.tool }}</td>
+            <td>{{ t.calls }}</td>
+            <td>{{ t.errors }}</td>
+            <td :class="{ hot: t.errorRate > 0.1 }">{{ pct(t.errorRate) }}</td>
+            <td>{{ t.avgMs }}ms</td>
+            <td>{{ t.maxMs }}ms</td>
+          </tr>
+        </tbody>
+      </TableCard>
       <p v-else class="empty">No calls recorded in this window.</p>
       <p v-if="topTools.length === 20" class="hint">
         Showing the top 20 — narrower windows or filtering may reveal others.
       </p>
 
       <h2>By API key</h2>
-      <div v-if="byKey.length" class="table-card table-scroll">
-        <table class="usage-table">
-          <thead>
-            <tr>
-              <th>Key</th>
-              <th>Calls</th>
-              <th>Errors</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="k in byKey" :key="k.keyId ?? 'none'">
-              <td>{{ k.label }}</td>
-              <td>{{ k.calls }}</td>
-              <td>{{ k.errors }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TableCard v-if="byKey.length">
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Calls</th>
+            <th>Errors</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="k in byKey" :key="k.keyId ?? 'none'">
+            <td>{{ k.label }}</td>
+            <td>{{ k.calls }}</td>
+            <td>{{ k.errors }}</td>
+          </tr>
+        </tbody>
+      </TableCard>
       <p v-else class="empty">No attributed calls in this window.</p>
       <p v-if="byKey.length === 20" class="hint">
         Showing the top 20 — narrower windows or filtering may reveal others.
@@ -188,13 +183,7 @@ onMounted(load);
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.25rem;
-}
-.page-header select {
+.window-control select {
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -221,62 +210,26 @@ onMounted(load);
   gap: 1rem;
   margin-bottom: 2rem;
 }
-.chart-card {
-  background: var(--surface);
+/* Page-specific dotted-grid background for chart cards — not part of the shared
+   ChartCard recipe, so it's re-applied here via :deep() since the .chart-card
+   element itself now lives inside ChartCard.vue's own template. */
+:deep(.chart-card) {
   background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
   background-size: 16px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: var(--space-4) var(--space-5);
 }
-.chart-card h2 {
-  font-size: var(--text-sm);
-  margin: 0 0 var(--space-3);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-weight: 600;
-}
-.ts-card {
-  margin-bottom: var(--space-6);
+/* ChartCard bakes in margin-bottom: var(--space-6), but the two charts-row cards
+   sit in a grid whose own margin-bottom already provides that spacing — zero out
+   the per-card margin here so we don't double it up. */
+.charts-row :deep(.chart-card) {
+  margin-bottom: 0;
 }
 h2 {
   font-size: 1.05rem;
   margin: 0 0 0.75rem;
 }
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  margin-bottom: 1.5rem;
-}
-.usage-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.usage-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.usage-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-}
-.usage-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.usage-table tbody tr:hover {
-  background: var(--surface-sunken);
-}
-.usage-table td.hot {
+/* Page-specific error-rate highlight — not part of the shared TableCard recipe,
+   so it targets the .data-table rendered by TableCard.vue via :deep(). */
+:deep(.data-table td.hot) {
   color: var(--breach);
   font-weight: 600;
 }

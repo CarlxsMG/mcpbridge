@@ -6,6 +6,10 @@ import type { TrafficRecord, PaginatedResult } from "../types/api";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import ChartCard from "../components/ChartCard.vue";
+import PaginationBar from "../components/PaginationBar.vue";
 import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 
 const router = useRouter();
@@ -189,17 +193,13 @@ async function confirmReplay() {
     </p>
 
     <SignalLoader v-if="loading && !records.length" />
-    <div v-else-if="records.length === 0" class="empty-state">
-      <ArrowLeftRight :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>
-        No traffic recorded yet. If <code>TRAFFIC_CAPTURE</code> isn't set on the server, calls aren't being recorded —
-        enable it, then check back after your next request.
-      </p>
-    </div>
+    <EmptyState v-else-if="records.length === 0" :icon="ArrowLeftRight">
+      No traffic recorded yet. If <code>TRAFFIC_CAPTURE</code> isn't set on the server, calls aren't being recorded —
+      enable it, then check back after your next request.
+    </EmptyState>
 
     <template v-else>
-      <div class="chart-card">
-        <h2>Call volume</h2>
+      <ChartCard title="Call volume">
         <TimeSeriesChart
           :points="chart.points"
           :secondary-points="chart.errorPoints"
@@ -207,51 +207,46 @@ async function confirmReplay() {
           secondary-label="Errors"
           :height="160"
         />
-      </div>
+      </ChartCard>
 
-      <div class="table-card table-scroll">
-        <table class="traffic-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Client / Tool</th>
-              <th>Duration</th>
-              <th>Status</th>
-              <th>Preview</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in records" :key="r.id">
-              <td class="mono">{{ new Date(r.createdAt).toLocaleString() }}</td>
-              <td class="mono">{{ r.clientName ?? "—" }}/{{ r.toolName ?? r.mcpToolName }}</td>
-              <td>{{ formatDuration(r.durationMs) }}</td>
-              <td :class="{ hot: r.isError }">{{ r.isError ? "Error" : "OK" }}</td>
-              <td class="preview" :title="r.preview">{{ r.preview }}</td>
-              <td>
-                <div class="actions">
-                  <button
-                    type="button"
-                    class="link-btn"
-                    :disabled="replayingId === r.id"
-                    title="Sends this call to the upstream tool again, right now."
-                    @click="replay(r)"
-                  >
-                    <Repeat :size="13" stroke-width="2" aria-hidden="true" />
-                    {{ replayingId === r.id ? "Replaying…" : "Replay" }}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TableCard>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Client / Tool</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Preview</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="r in records" :key="r.id">
+            <td class="mono">{{ new Date(r.createdAt).toLocaleString() }}</td>
+            <td class="mono">{{ r.clientName ?? "—" }}/{{ r.toolName ?? r.mcpToolName }}</td>
+            <td>{{ formatDuration(r.durationMs) }}</td>
+            <td :class="{ hot: r.isError }">{{ r.isError ? "Error" : "OK" }}</td>
+            <td class="preview" :title="r.preview">{{ r.preview }}</td>
+            <td>
+              <div class="actions">
+                <button
+                  type="button"
+                  class="link-btn"
+                  :disabled="replayingId === r.id"
+                  title="Sends this call to the upstream tool again, right now."
+                  @click="replay(r)"
+                >
+                  <Repeat :size="13" stroke-width="2" aria-hidden="true" />
+                  {{ replayingId === r.id ? "Replaying…" : "Replay" }}
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </TableCard>
 
       <div class="pagination">
-        <button type="button" class="btn-secondary" :disabled="cursorStack.length === 0" @click="prevPage">
-          Previous
-        </button>
-        <button type="button" class="btn-secondary" :disabled="!nextCursor" @click="nextPage">Next</button>
+        <PaginationBar :has-prev="cursorStack.length > 0" :has-next="!!nextCursor" @prev="prevPage" @next="nextPage" />
         <p class="subtitle">{{ records.length }} record(s) on this page</p>
       </div>
     </template>
@@ -331,55 +326,19 @@ section {
   align-items: center;
   gap: 0.4rem;
 }
-.chart-card {
-  background: var(--surface);
+/* ChartCard's own recipe doesn't include this page's dotted-grid background accent. */
+:deep(.chart-card) {
   background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
   background-size: 16px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-6);
 }
-.chart-card h2 {
-  font-size: var(--text-sm);
-  margin: 0 0 var(--space-3);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-weight: 600;
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.traffic-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.traffic-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-.traffic-table td {
+/* TableCard's global .data-table recipe hardcodes td vertical padding and doesn't
+   set white-space on th; this page participates in the density toggle
+   (body.density-compact) and needs its long "Time" header to stay on one line. */
+:deep(.data-table td) {
   padding: var(--table-pad-y) 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
 }
-.traffic-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.traffic-table tbody tr:hover {
-  background: var(--surface-sunken);
+:deep(.data-table th) {
+  white-space: nowrap;
 }
 .mono {
   font-family: var(--font-mono);
@@ -420,18 +379,9 @@ section {
 .success {
   color: var(--ok);
 }
-.empty-state p {
+/* EmptyState's own recipe colors its paragraph via --text-secondary on the
+   wrapper; this page's empty copy is intentionally a step lighter. */
+:deep(.empty-state p) {
   color: var(--text-muted);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 </style>

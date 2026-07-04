@@ -7,6 +7,8 @@ import StatCard from "../components/StatCard.vue";
 import SegmentedBar from "../components/SegmentedBar.vue";
 import DonutChart from "../components/DonutChart.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import EmptyState from "../components/EmptyState.vue";
 import {
   Server,
   Wrench,
@@ -111,22 +113,16 @@ onMounted(load);
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>Overview</h1>
-        <p class="subtitle">Snapshot of this bridge instance — use Refresh to update.</p>
-      </div>
-      <div class="header-actions">
-        <button type="button" class="btn-secondary" :aria-pressed="customizing" @click="customizing = !customizing">
-          <SlidersHorizontal :size="14" stroke-width="2" aria-hidden="true" />
-          {{ customizing ? "Done" : "Customize" }}
-        </button>
-        <button type="button" class="btn-secondary" :disabled="loading" @click="load">
-          <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
-          {{ loading ? "Refreshing…" : "Refresh" }}
-        </button>
-      </div>
-    </header>
+    <PageHeader title="Overview" subtitle="Snapshot of this bridge instance — use Refresh to update.">
+      <button type="button" class="btn-secondary" :aria-pressed="customizing" @click="customizing = !customizing">
+        <SlidersHorizontal :size="14" stroke-width="2" aria-hidden="true" />
+        {{ customizing ? "Done" : "Customize" }}
+      </button>
+      <button type="button" class="btn-secondary" :disabled="loading" @click="load">
+        <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
+        {{ loading ? "Refreshing…" : "Refresh" }}
+      </button>
+    </PageHeader>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading && !stats" />
@@ -206,39 +202,27 @@ onMounted(load);
       </p>
     </template>
 
-    <div v-if="stats && stats.clients.live === 0" class="empty-state">
-      <Server :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>
-        No servers registered yet. <RouterLink to="/register-server">Add a server</RouterLink> or
-        <RouterLink to="/catalog">browse the catalog</RouterLink>.
-      </p>
-    </div>
+    <EmptyState v-if="stats && stats.clients.live === 0" :icon="Server">
+      No servers registered yet. <RouterLink to="/register-server">Add a server</RouterLink> or
+      <RouterLink to="/catalog">browse the catalog</RouterLink>.
+    </EmptyState>
   </section>
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.5rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
-}
-.page-header .btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.header-actions {
+/* PageHeader's own recipe covers the title/subtitle; this page still needs its
+   two header buttons laid out in a row (PageHeader's .header-actions wrapper
+   is rendered by the child component, so reaching it requires :deep()) and its
+   icon+label buttons to lay out inline. */
+:deep(.header-actions) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 .spin {
   animation: spin 0.8s linear infinite;
@@ -301,17 +285,9 @@ onMounted(load);
 .error {
   color: var(--breach);
 }
-.empty-state {
+/* EmptyState's own recipe matches this page's padding/colors exactly, but it
+   doesn't add top spacing to separate it from the cards grid above it. */
+:deep(.empty-state) {
   margin-top: var(--space-4);
-  padding: var(--space-12) var(--space-8);
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: var(--space-3);
 }
 </style>

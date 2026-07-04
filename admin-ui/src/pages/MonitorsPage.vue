@@ -5,6 +5,10 @@ import { useResource } from "../composables/useResource";
 import type { MonitorRecord } from "../types/api";
 import DonutChart from "../components/DonutChart.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import ChartCard from "../components/ChartCard.vue";
 import { Radar, RefreshCw } from "lucide-vue-next";
 
 const {
@@ -61,80 +65,62 @@ function formatChecked(t: number | null): string {
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>Monitors</h1>
-        <p class="subtitle">
-          Synthetic uptime + schema-drift checks, replaying saved examples on a schedule. Informational only today —
-          failures and drift are recorded here and optionally pinged to one operator webhook, but they don't participate
-          in the Alerts rule system.
-        </p>
-      </div>
+    <PageHeader
+      title="Monitors"
+      subtitle="Synthetic uptime + schema-drift checks, replaying saved examples on a schedule. Informational only today — failures and drift are recorded here and optionally pinged to one operator webhook, but they don't participate in the Alerts rule system."
+    >
       <button type="button" class="btn-secondary" :disabled="loading" @click="load">
         <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
         {{ loading ? "Refreshing…" : "Refresh" }}
       </button>
-    </header>
+    </PageHeader>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading && !monitors.length" />
-    <div v-else-if="monitors.length === 0" class="empty-state">
-      <Radar :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No tools are monitored yet. Configure a monitor from a tool's settings in Server detail.</p>
-    </div>
+    <EmptyState v-else-if="monitors.length === 0" :icon="Radar">
+      No tools are monitored yet. Configure a monitor from a tool's settings in Server detail.
+    </EmptyState>
 
     <template v-else>
-      <div class="chart-card">
-        <h2>Status breakdown</h2>
+      <ChartCard title="Status breakdown">
         <DonutChart :segments="segments" :size="96" />
-      </div>
+      </ChartCard>
 
-      <div class="table-card table-scroll">
-        <table class="mon-table">
-          <thead>
-            <tr>
-              <th>Client / Tool</th>
-              <th>State</th>
-              <th>Interval</th>
-              <th>Last checked</th>
-              <th>Last error</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="m in monitors" :key="`${m.clientName}/${m.toolName}`">
-              <td class="mono">{{ m.clientName }}/{{ m.toolName }}</td>
-              <td>
-                <span class="state-dot" :style="{ background: STATE_COLOR[stateOf(m)] }" aria-hidden="true" />{{
-                  STATE_LABEL[stateOf(m)]
-                }}
-              </td>
-              <td>{{ m.intervalMinutes }}m</td>
-              <td>{{ formatChecked(m.lastCheckedAt) }}</td>
-              <td class="preview" :title="m.lastError ?? ''">{{ m.lastError ?? "—" }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TableCard>
+        <thead>
+          <tr>
+            <th>Client / Tool</th>
+            <th>State</th>
+            <th>Interval</th>
+            <th>Last checked</th>
+            <th>Last error</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="m in monitors" :key="`${m.clientName}/${m.toolName}`">
+            <td class="mono">{{ m.clientName }}/{{ m.toolName }}</td>
+            <td>
+              <span class="state-dot" :style="{ background: STATE_COLOR[stateOf(m)] }" aria-hidden="true" />{{
+                STATE_LABEL[stateOf(m)]
+              }}
+            </td>
+            <td>{{ m.intervalMinutes }}m</td>
+            <td>{{ formatChecked(m.lastCheckedAt) }}</td>
+            <td class="preview" :title="m.lastError ?? ''">{{ m.lastError ?? "—" }}</td>
+          </tr>
+        </tbody>
+      </TableCard>
     </template>
   </section>
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
+/* PageHeader's own recipe covers color/margin; this page's subtitle keeps a
+   line-length cap that the shared component doesn't set. */
+:deep(.subtitle) {
   max-width: 42.5rem;
 }
-.page-header .btn-secondary {
+.header-actions .btn-secondary {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -148,54 +134,12 @@ function formatChecked(t: number | null): string {
     transform: rotate(360deg);
   }
 }
-.chart-card {
-  background: var(--surface);
+/* Page-specific dotted-grid background for the chart card — not part of the
+   shared ChartCard recipe, so it's re-applied here via :deep() since the
+   .chart-card element itself now lives inside ChartCard.vue's own template. */
+:deep(.chart-card) {
   background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
   background-size: 16px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-6);
-}
-.chart-card h2 {
-  font-size: var(--text-sm);
-  margin: 0 0 var(--space-3);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-weight: 600;
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.mon-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.mon-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.mon-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.mon-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.mon-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 .mono {
   font-family: var(--font-mono);
@@ -219,18 +163,9 @@ function formatChecked(t: number | null): string {
 .error {
   color: var(--breach);
 }
-.empty-state p {
+/* EmptyState's own recipe colors its paragraph via --text-secondary on the
+   wrapper; this page's empty copy is intentionally a step lighter. */
+:deep(.empty-state p) {
   color: var(--text-muted);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 </style>

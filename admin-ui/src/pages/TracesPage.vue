@@ -6,6 +6,10 @@ import type { TraceSummary, StoredSpan, TopSessionRow, PaginatedResult } from ".
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
 import MiniBarChart from "../components/MiniBarChart.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import ChartCard from "../components/ChartCard.vue";
+import PaginationBar from "../components/PaginationBar.vue";
 import { Waypoints, Trash2 } from "lucide-vue-next";
 
 const props = defineProps<{ traceId?: string }>();
@@ -231,59 +235,50 @@ const waterfall = computed(() => {
         </button>
       </form>
 
-      <div v-if="topSessionsChart.length" class="chart-card top-sessions-card">
-        <h2>Top sessions by call volume</h2>
+      <ChartCard v-if="topSessionsChart.length" title="Top sessions by call volume" class="top-sessions-card">
         <MiniBarChart :rows="topSessionsChart" />
-      </div>
+      </ChartCard>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
       <SignalLoader v-if="loading && !traces.length" />
-      <div v-else-if="traces.length === 0" class="empty-state">
-        <Waypoints :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-        <p>No traces recorded yet.</p>
-      </div>
+      <EmptyState v-else-if="traces.length === 0" :icon="Waypoints">No traces recorded yet.</EmptyState>
 
-      <div v-else class="table-card table-scroll">
-        <table class="trace-table">
-          <thead>
-            <tr>
-              <th>Started</th>
-              <th>Tool</th>
-              <th>Session</th>
-              <th>Spans</th>
-              <th>Duration</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="t in traces" :key="t.traceId" class="clickable" @click="openTrace(t)">
-              <td class="mono">{{ new Date(t.startMs).toLocaleString() }}</td>
-              <td class="mono">{{ t.mcpToolName ?? "—" }}</td>
-              <td class="mono">
-                <button
-                  v-if="t.sessionId"
-                  type="button"
-                  class="session-badge"
-                  :title="`Filter to session ${t.sessionId}`"
-                  @click.stop="filterBySession(t.sessionId)"
-                >
-                  {{ shortSession(t.sessionId) }}
-                </button>
-                <span v-else>—</span>
-              </td>
-              <td>{{ t.spanCount }}</td>
-              <td>{{ fmtDuration(t.endMs - t.startMs) }}</td>
-              <td :class="{ hot: t.hasError }">{{ t.hasError ? "Error" : "OK" }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TableCard v-else>
+        <thead>
+          <tr>
+            <th>Started</th>
+            <th>Tool</th>
+            <th>Session</th>
+            <th>Spans</th>
+            <th>Duration</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="t in traces" :key="t.traceId" class="clickable" @click="openTrace(t)">
+            <td class="mono">{{ new Date(t.startMs).toLocaleString() }}</td>
+            <td class="mono">{{ t.mcpToolName ?? "—" }}</td>
+            <td class="mono">
+              <button
+                v-if="t.sessionId"
+                type="button"
+                class="session-badge"
+                :title="`Filter to session ${t.sessionId}`"
+                @click.stop="filterBySession(t.sessionId)"
+              >
+                {{ shortSession(t.sessionId) }}
+              </button>
+              <span v-else>—</span>
+            </td>
+            <td>{{ t.spanCount }}</td>
+            <td>{{ fmtDuration(t.endMs - t.startMs) }}</td>
+            <td :class="{ hot: t.hasError }">{{ t.hasError ? "Error" : "OK" }}</td>
+          </tr>
+        </tbody>
+      </TableCard>
 
       <div class="pagination">
-        <button type="button" class="btn-secondary" :disabled="cursorStack.length === 0" @click="prevPage">
-          Previous
-        </button>
-        <button type="button" class="btn-secondary" :disabled="!nextCursor" @click="nextPage">Next</button>
+        <PaginationBar :has-prev="cursorStack.length > 0" :has-next="!!nextCursor" @prev="prevPage" @next="nextPage" />
         <p class="subtitle">{{ traces.length }} trace(s) on this page</p>
       </div>
     </template>
@@ -376,21 +371,6 @@ section {
   color: var(--breach);
   margin-left: auto;
 }
-.chart-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-5);
-}
-.chart-card h2 {
-  font-size: var(--text-sm);
-  margin: 0 0 var(--space-3);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-weight: 600;
-}
 .session-badge {
   background: var(--surface-sunken);
   border: 1px solid var(--border);
@@ -406,34 +386,11 @@ section {
   color: var(--signal-strong);
   border-color: var(--signal);
 }
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.trace-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.trace-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.trace-table td {
+/* TableCard's own recipe hardcodes 0.6rem td padding; this page's table needs to
+   keep respecting the live density toggle (body.density-compact), which the
+   shared component doesn't account for. */
+:deep(.data-table td) {
   padding: var(--table-pad-y) 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.trace-table tbody tr:last-child td {
-  border-bottom: none;
 }
 .pagination {
   display: flex;
@@ -476,10 +433,6 @@ section {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 .back-link {
   display: inline-block;

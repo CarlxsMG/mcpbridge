@@ -5,6 +5,11 @@ import { useResource } from "../composables/useResource";
 import type { AlertRule, AlertEventType } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import FormField from "../components/FormField.vue";
+import ToggleFormButton from "../components/ToggleFormButton.vue";
 import { BellRing } from "lucide-vue-next";
 
 const EVENT_LABELS: Record<AlertEventType, string> = {
@@ -150,39 +155,33 @@ async function confirmDelete() {
 
 <template>
   <section>
-    <header class="page-header">
-      <h1>Alerts</h1>
-      <button type="button" :class="showCreate ? 'btn-secondary' : 'btn-primary'" @click="showCreate = !showCreate">
-        {{ showCreate ? "Cancel" : "New rule" }}
-      </button>
-    </header>
+    <PageHeader title="Alerts">
+      <ToggleFormButton v-model="showCreate" show-label="New rule" />
+    </PageHeader>
     <p class="hint">
       Rules are evaluated on the leader instance and POST a JSON payload to a webhook when a condition first becomes
       true.
     </p>
 
     <form v-if="showCreate" class="create-form" @submit.prevent="createRule">
-      <div class="field">
-        <label for="alert-name">Name</label>
+      <FormField label="Name" for="alert-name">
         <input id="alert-name" v-model="newName" type="text" placeholder="pager" />
         <p v-if="nameError" class="error">{{ nameError }}</p>
-      </div>
-      <div class="field">
-        <label for="alert-event">Event</label>
+      </FormField>
+      <FormField label="Event" for="alert-event">
         <select id="alert-event" v-model="newEvent">
           <option v-for="(label, ev) in EVENT_LABELS" :key="ev" :value="ev">{{ label }}</option>
         </select>
-      </div>
-      <div class="field">
-        <label for="alert-url">Webhook URL</label>
+      </FormField>
+      <FormField label="Webhook URL" for="alert-url">
         <input id="alert-url" v-model="newUrl" type="url" placeholder="https://hooks.example.com/x" />
         <p v-if="urlError" class="error">{{ urlError }}</p>
-      </div>
+      </FormField>
       <template v-if="NUMERIC_EVENTS.has(newEvent)">
-        <div class="field">
-          <label for="alert-threshold">{{
-            newEvent === "usage_spike" ? "Spike factor (× baseline)" : "Threshold (0–1)"
-          }}</label>
+        <FormField
+          :label="newEvent === 'usage_spike' ? 'Spike factor (× baseline)' : 'Threshold (0–1)'"
+          for="alert-threshold"
+        >
           <input
             id="alert-threshold"
             v-model="newThreshold"
@@ -190,9 +189,8 @@ async function confirmDelete() {
             inputmode="decimal"
             :placeholder="newEvent === 'usage_spike' ? '3' : '0.5'"
           />
-        </div>
-        <div class="field">
-          <label for="alert-mincalls">Min calls</label>
+        </FormField>
+        <FormField label="Min calls" for="alert-mincalls">
           <input
             id="alert-mincalls"
             v-model="newMinCalls"
@@ -200,7 +198,7 @@ async function confirmDelete() {
             inputmode="numeric"
             :placeholder="newEvent === 'usage_spike' ? '20' : '10'"
           />
-        </div>
+        </FormField>
       </template>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">
@@ -212,53 +210,50 @@ async function confirmDelete() {
     <p v-if="testMessage" class="success" role="status">{{ testMessage }}</p>
     <SignalLoader v-if="loading" />
 
-    <div v-else-if="rules.length === 0" class="empty-state">
-      <BellRing :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p>No alert rules yet. A rule watches for an event and POSTs a JSON payload to a webhook when it fires.</p>
-    </div>
+    <EmptyState v-else-if="rules.length === 0" :icon="BellRing">
+      No alert rules yet. A rule watches for an event and POSTs a JSON payload to a webhook when it fires.
+    </EmptyState>
 
-    <div v-else class="table-card table-scroll">
-      <table class="alerts-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Event</th>
-            <th>Webhook</th>
-            <th>Last fired</th>
-            <th>Enabled</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="rule in rules" :key="rule.id">
-            <td>{{ rule.name }}</td>
-            <td>{{ EVENT_LABELS[rule.eventType] }}</td>
-            <td class="url-cell" :title="rule.webhookUrl">{{ rule.webhookUrl }}</td>
-            <td>{{ rule.lastFiredAt ? new Date(rule.lastFiredAt).toLocaleString() : "Never" }}</td>
-            <td>
-              <button
-                type="button"
-                class="toggle"
-                :class="rule.enabled ? 'toggle-on' : 'toggle-off'"
-                :aria-pressed="rule.enabled"
-                :disabled="togglingRuleId === rule.id"
-                @click="toggle(rule)"
-              >
-                {{ rule.enabled ? "Enabled" : "Disabled" }}
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Event</th>
+          <th>Webhook</th>
+          <th>Last fired</th>
+          <th>Enabled</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="rule in rules" :key="rule.id">
+          <td>{{ rule.name }}</td>
+          <td>{{ EVENT_LABELS[rule.eventType] }}</td>
+          <td class="url-cell" :title="rule.webhookUrl">{{ rule.webhookUrl }}</td>
+          <td>{{ rule.lastFiredAt ? new Date(rule.lastFiredAt).toLocaleString() : "Never" }}</td>
+          <td>
+            <button
+              type="button"
+              class="toggle"
+              :class="rule.enabled ? 'toggle-on' : 'toggle-off'"
+              :aria-pressed="rule.enabled"
+              :disabled="togglingRuleId === rule.id"
+              @click="toggle(rule)"
+            >
+              {{ rule.enabled ? "Enabled" : "Disabled" }}
+            </button>
+          </td>
+          <td>
+            <div class="actions">
+              <button type="button" class="link-btn" :disabled="testingRuleId === rule.id" @click="testRule(rule)">
+                {{ testingRuleId === rule.id ? "Testing…" : "Test" }}
               </button>
-            </td>
-            <td>
-              <div class="actions">
-                <button type="button" class="link-btn" :disabled="testingRuleId === rule.id" @click="testRule(rule)">
-                  {{ testingRuleId === rule.id ? "Testing…" : "Test" }}
-                </button>
-                <button type="button" class="link-btn danger" @click="pendingDelete = rule">Delete</button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              <button type="button" class="link-btn danger" @click="pendingDelete = rule">Delete</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </TableCard>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -283,12 +278,6 @@ async function confirmDelete() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.5rem;
-}
 .hint {
   color: var(--text-secondary);
   font-size: 0.85rem;
@@ -303,15 +292,6 @@ async function confirmDelete() {
   margin-bottom: 1.5rem;
   max-width: 26.25rem;
 }
-.field {
-  margin-bottom: 1rem;
-}
-.field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-}
 .field input,
 .field select,
 .field textarea {
@@ -323,39 +303,7 @@ async function confirmDelete() {
   font-family: var(--font-body);
   box-sizing: border-box;
 }
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.alerts-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.alerts-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.alerts-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.alerts-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.alerts-table tbody tr:hover {
-  background: var(--surface-sunken);
-}
-.url-cell {
+:deep(.data-table td.url-cell) {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.83rem;
@@ -409,17 +357,5 @@ async function confirmDelete() {
 }
 .success {
   color: var(--ok);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 </style>

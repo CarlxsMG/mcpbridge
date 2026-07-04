@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, reactive } from "vue";
+import { ref, onMounted, computed, reactive, watch } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import type { ApprovalRecord, ApprovalStatus } from "../types/api";
 import DonutChart from "../components/DonutChart.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
+import PageHeader from "../components/PageHeader.vue";
+import TableCard from "../components/TableCard.vue";
+import EmptyState from "../components/EmptyState.vue";
+import ChartCard from "../components/ChartCard.vue";
+import TabStrip from "../components/TabStrip.vue";
 import { ClipboardCheck, Check, X, RefreshCw } from "lucide-vue-next";
 
 type TabKey = ApprovalStatus | "all";
@@ -47,10 +52,9 @@ async function loadTable() {
 }
 onMounted(loadTable);
 
-function switchTab(key: TabKey) {
-  activeTab.value = key;
+watch(activeTab, () => {
   loadTable();
-}
+});
 
 const segments = computed(() => {
   const counts: Record<ApprovalStatus, number> = { pending: 0, approved: 0, rejected: 0 };
@@ -105,115 +109,95 @@ async function confirmReject() {
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>Approvals</h1>
-        <p class="subtitle">
-          Human-in-the-loop queue for tools configured to require approval before their upstream call runs.
-        </p>
-      </div>
+    <PageHeader
+      title="Approvals"
+      subtitle="Human-in-the-loop queue for tools configured to require approval before their upstream call runs."
+    >
       <button type="button" class="btn-secondary" :disabled="loading" @click="loadTable">
         <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
         {{ loading ? "Refreshing…" : "Refresh" }}
       </button>
-    </header>
+    </PageHeader>
 
-    <div class="chart-card">
-      <h2>Status breakdown</h2>
+    <ChartCard title="Status breakdown">
       <DonutChart :segments="segments" :size="88" />
-    </div>
+    </ChartCard>
 
-    <div class="tab-strip" role="tablist">
-      <button
-        v-for="t in TABS"
-        :key="t.key"
-        type="button"
-        role="tab"
-        :aria-selected="activeTab === t.key"
-        class="tab-btn"
-        :class="{ 'tab-active': activeTab === t.key }"
-        @click="switchTab(t.key)"
-      >
-        {{ t.label }}
-      </button>
-    </div>
+    <TabStrip v-model="activeTab" :tabs="TABS" aria-label="Approval status" />
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading && !tableItems.length" />
-    <div v-else-if="tableItems.length === 0" class="empty-state">
-      <ClipboardCheck :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-      <p v-if="activeTab === 'pending'">Nothing waiting for review right now.</p>
-      <p v-else>
+    <EmptyState v-else-if="tableItems.length === 0" :icon="ClipboardCheck">
+      <template v-if="activeTab === 'pending'">Nothing waiting for review right now.</template>
+      <template v-else>
         No {{ activeTab === "all" ? "" : activeTab + " " }}approvals yet. Requests show up here once a tool is
         configured to require approval before its upstream call runs.
-      </p>
-    </div>
+      </template>
+    </EmptyState>
 
-    <div v-else class="table-card table-scroll">
-      <table class="appr-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Client / Tool</th>
-            <th>Args</th>
-            <th>Requested</th>
-            <th>Decision</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="a in tableItems" :key="a.id">
-            <td class="mono">{{ a.id }}</td>
-            <td class="mono">{{ a.clientName }}/{{ a.toolName }}</td>
-            <td class="args" :title="prettyArgs(a.argsJson)">
-              <code>{{ prettyArgs(a.argsJson) }}</code>
-            </td>
-            <td>{{ new Date(a.createdAt).toLocaleString() }}</td>
-            <td>
-              <span v-if="a.status === 'pending'" class="status-pending">
-                Pending
-                <span v-if="a.requiredLevels > 1" class="levels-badge"
-                  >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
-                >
-              </span>
-              <span v-else :class="a.status === 'approved' ? 'status-approved' : 'status-rejected'">
-                {{ a.status === "approved" ? "Approved" : "Rejected" }}
-                <template v-if="a.requiredLevels > 1 && a.status === 'approved'"
-                  >({{ approvedCount(a) }}/{{ a.requiredLevels }})</template
-                >
-                by {{ a.decidedBy }}
-                <span v-if="a.note" class="note">— {{ a.note }}</span>
-              </span>
-              <ul v-if="a.decisions.length" class="decisions">
-                <li v-for="d in a.decisions" :key="d.id">
-                  {{ d.decidedBy }}: {{ d.decision }}<span v-if="d.note"> — {{ d.note }}</span>
-                </li>
-              </ul>
-            </td>
-            <td>
-              <div class="actions">
-                <template v-if="a.status === 'pending'">
-                  <input
-                    v-model="noteDraft[a.id]"
-                    type="text"
-                    placeholder="Note…"
-                    class="note-input"
-                    :aria-label="`Note for approval #${a.id}`"
-                    :disabled="decidingId === a.id"
-                  />
-                  <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
-                    <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
-                  </button>
-                  <button type="button" class="link-btn danger" :disabled="decidingId === a.id" @click="requestReject(a)">
-                    <X :size="13" stroke-width="2" aria-hidden="true" /> Reject
-                  </button>
-                </template>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <TableCard v-else>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Client / Tool</th>
+          <th>Args</th>
+          <th>Requested</th>
+          <th>Decision</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="a in tableItems" :key="a.id">
+          <td class="mono">{{ a.id }}</td>
+          <td class="mono">{{ a.clientName }}/{{ a.toolName }}</td>
+          <td class="args" :title="prettyArgs(a.argsJson)">
+            <code>{{ prettyArgs(a.argsJson) }}</code>
+          </td>
+          <td>{{ new Date(a.createdAt).toLocaleString() }}</td>
+          <td>
+            <span v-if="a.status === 'pending'" class="status-pending">
+              Pending
+              <span v-if="a.requiredLevels > 1" class="levels-badge"
+                >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
+              >
+            </span>
+            <span v-else :class="a.status === 'approved' ? 'status-approved' : 'status-rejected'">
+              {{ a.status === "approved" ? "Approved" : "Rejected" }}
+              <template v-if="a.requiredLevels > 1 && a.status === 'approved'"
+                >({{ approvedCount(a) }}/{{ a.requiredLevels }})</template
+              >
+              by {{ a.decidedBy }}
+              <span v-if="a.note" class="note">— {{ a.note }}</span>
+            </span>
+            <ul v-if="a.decisions.length" class="decisions">
+              <li v-for="d in a.decisions" :key="d.id">
+                {{ d.decidedBy }}: {{ d.decision }}<span v-if="d.note"> — {{ d.note }}</span>
+              </li>
+            </ul>
+          </td>
+          <td>
+            <div class="actions">
+              <template v-if="a.status === 'pending'">
+                <input
+                  v-model="noteDraft[a.id]"
+                  type="text"
+                  placeholder="Note…"
+                  class="note-input"
+                  :aria-label="`Note for approval #${a.id}`"
+                  :disabled="decidingId === a.id"
+                />
+                <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
+                  <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
+                </button>
+                <button type="button" class="link-btn danger" :disabled="decidingId === a.id" @click="requestReject(a)">
+                  <X :size="13" stroke-width="2" aria-hidden="true" /> Reject
+                </button>
+              </template>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </TableCard>
 
     <ConfirmDialog
       :open="pendingReject !== null"
@@ -232,18 +216,9 @@ async function confirmReject() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
+/* Page-specific tweak on top of PageHeader.vue's own recipe: a wider max-width for the subtitle
+   paragraph than the component's default (unbounded). */
+:deep(.subtitle) {
   max-width: 40rem;
 }
 .page-header .btn-secondary {
@@ -260,84 +235,11 @@ async function confirmReject() {
     transform: rotate(360deg);
   }
 }
-.chart-card {
-  background: var(--surface);
+/* Page-specific tweak on top of ChartCard.vue's own recipe: a dotted grid background behind the
+   donut chart, not part of the shared component. */
+:deep(.chart-card) {
   background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
   background-size: 16px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-6);
-}
-.chart-card h2 {
-  font-size: var(--text-sm);
-  margin: 0 0 var(--space-3);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-weight: 600;
-}
-.tab-strip {
-  display: flex;
-  gap: 0.25rem;
-  margin-bottom: 1.25rem;
-  border-bottom: 1px solid var(--border);
-}
-.tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.88rem;
-  padding: 0.55rem 0.35rem;
-  margin-bottom: -1px;
-  cursor: pointer;
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease;
-}
-.tab-btn:hover {
-  color: var(--text-primary);
-}
-.tab-btn.tab-active {
-  color: var(--signal-strong);
-  border-bottom-color: var(--signal);
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.appr-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.appr-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.appr-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.appr-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.appr-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 .mono {
   font-family: var(--font-mono);
@@ -399,18 +301,9 @@ async function confirmReject() {
 .error {
   color: var(--breach);
 }
-.empty-state p {
+/* Page-specific tweak on top of EmptyState.vue's own recipe: this page wants the muted text tone
+   here instead of the component's default (--text-secondary). */
+:deep(.empty-state p) {
   color: var(--text-muted);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.empty-icon {
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 </style>
