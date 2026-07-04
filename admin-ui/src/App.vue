@@ -12,36 +12,21 @@ import "./composables/useTheme";
 import "./composables/useDensity";
 import CommandPalette from "./components/CommandPalette.vue";
 import SignalLoader from "./components/SignalLoader.vue";
-import {
-  Server,
-  Boxes,
-  Combine,
-  KeyRound,
-  ShieldCheck,
-  Users2,
-  LayoutDashboard,
-  Activity,
-  ArrowLeftRight,
-  Radar,
-  ClipboardCheck,
-  BellRing,
-  Clock,
-  ScrollText,
-  UserCog,
-  UsersRound,
-  Settings2,
-  GitBranch,
-  Waypoints,
-  LayoutGrid,
-  Cable,
-  ChevronRight,
-  Fingerprint,
-} from "lucide-vue-next";
+import { navEntries } from "./navigation";
+import { GitBranch, ChevronRight } from "lucide-vue-next";
 
 const route = useRoute();
 const router = useRouter();
 const { state, logout } = useAuth();
 const { isLive, callsPerMinute, start: startLiveSignal, stop: stopLiveSignal } = useLiveSignal();
+
+const NAV_GROUPS = ["Servers", "Access", "Observability", "Administration"] as const;
+const groupedNav = computed(() =>
+  NAV_GROUPS.map((group) => ({
+    group,
+    entries: navEntries.filter((e) => e.group === group && (!e.meta?.role || e.meta.role === state.user?.role)),
+  })).filter((g) => g.entries.length > 0),
+);
 
 // Pulse speed scales with real recent call volume (never fabricated — callsPerMinute
 // comes straight from useLiveSignal's poll of /admin-api/usage/summary) instead of a
@@ -155,99 +140,13 @@ onUnmounted(() => {
       </div>
       <CommandPalette />
       <div class="nav-groups">
-        <div class="nav-label">Servers</div>
-        <ul>
-          <li>
-            <RouterLink to="/servers"><Server :size="15" stroke-width="2" aria-hidden="true" /> Servers</RouterLink>
-          </li>
-          <li>
-            <RouterLink to="/register-server"
-              ><Server :size="15" stroke-width="2" aria-hidden="true" /> Add server</RouterLink
-            >
-          </li>
-          <li>
-            <RouterLink to="/catalog"><LayoutGrid :size="15" stroke-width="2" aria-hidden="true" /> Catalog</RouterLink>
-          </li>
-          <li>
-            <RouterLink to="/bundles"><Boxes :size="15" stroke-width="2" aria-hidden="true" /> Bundles</RouterLink>
-          </li>
-          <li>
-            <RouterLink to="/composites"
-              ><Combine :size="15" stroke-width="2" aria-hidden="true" /> Composites</RouterLink
-            >
-          </li>
-          <li>
-            <RouterLink to="/ws-proxies"
-              ><Cable :size="15" stroke-width="2" aria-hidden="true" /> WS proxies</RouterLink
-            >
-          </li>
-        </ul>
-        <div class="nav-label">Access</div>
-        <ul>
-          <li>
-            <RouterLink to="/keys"><KeyRound :size="15" stroke-width="2" aria-hidden="true" /> API keys</RouterLink>
-          </li>
-          <li>
-            <RouterLink to="/policies"
-              ><ShieldCheck :size="15" stroke-width="2" aria-hidden="true" /> Policies</RouterLink
-            >
-          </li>
-          <li>
-            <RouterLink to="/consumers"><Users2 :size="15" stroke-width="2" aria-hidden="true" /> Consumers</RouterLink>
-          </li>
-          <li>
-            <RouterLink to="/approvals"
-              ><ClipboardCheck :size="15" stroke-width="2" aria-hidden="true" /> Approvals</RouterLink
-            >
-          </li>
-        </ul>
-        <div class="nav-label">Observability</div>
-        <ul>
-          <li>
-            <RouterLink to="/overview"
-              ><LayoutDashboard :size="15" stroke-width="2" aria-hidden="true" /> Overview</RouterLink
-            >
-          </li>
-          <li>
-            <RouterLink to="/usage"><Activity :size="15" stroke-width="2" aria-hidden="true" /> Usage</RouterLink>
-          </li>
-          <li>
-            <RouterLink to="/traffic"
-              ><ArrowLeftRight :size="15" stroke-width="2" aria-hidden="true" /> Traffic</RouterLink
-            >
-          </li>
-          <li>
-            <RouterLink to="/traces"><Waypoints :size="15" stroke-width="2" aria-hidden="true" /> Traces</RouterLink>
-          </li>
-          <li>
-            <RouterLink to="/monitors"><Radar :size="15" stroke-width="2" aria-hidden="true" /> Monitors</RouterLink>
-          </li>
-          <li>
-            <RouterLink to="/alerts"><BellRing :size="15" stroke-width="2" aria-hidden="true" /> Alerts</RouterLink>
-          </li>
-          <li>
-            <RouterLink to="/schedules"><Clock :size="15" stroke-width="2" aria-hidden="true" /> Schedules</RouterLink>
-          </li>
-          <li>
-            <RouterLink to="/audit-log"
-              ><ScrollText :size="15" stroke-width="2" aria-hidden="true" /> Audit log</RouterLink
-            >
-          </li>
-        </ul>
-        <template v-if="state.user?.role === 'admin'">
-          <div class="nav-label">Administration</div>
+        <template v-for="g in groupedNav" :key="g.group">
+          <div class="nav-label">{{ g.group }}</div>
           <ul>
-            <li>
-              <RouterLink to="/users"><UserCog :size="15" stroke-width="2" aria-hidden="true" /> Users</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/teams"><UsersRound :size="15" stroke-width="2" aria-hidden="true" /> Teams</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/config"><Settings2 :size="15" stroke-width="2" aria-hidden="true" /> Config</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/sso"><Fingerprint :size="15" stroke-width="2" aria-hidden="true" /> SSO</RouterLink>
+            <li v-for="entry in g.entries" :key="entry.path">
+              <RouterLink :to="entry.path"
+                ><component :is="entry.icon" :size="15" stroke-width="2" aria-hidden="true" /> {{ entry.label }}
+              </RouterLink>
             </li>
           </ul>
         </template>

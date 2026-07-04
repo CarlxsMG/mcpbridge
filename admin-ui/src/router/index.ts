@@ -1,10 +1,14 @@
 import { createRouter, createWebHashHistory, createWebHistory } from "vue-router";
 import { useAuth } from "../composables/useAuth";
+import { navEntries } from "../navigation";
 
+// The ~24 static, param-free routes come from navEntries (shared with App.vue's
+// sidebar and CommandPalette.vue) — see admin-ui/src/navigation.ts. Routes with
+// params, or with no fixed label/icon to share, stay hand-written here.
 const routes = [
   { path: "/", redirect: "/servers" },
   { path: "/login", name: "login", component: () => import("../pages/LoginPage.vue"), meta: { public: true } },
-  { path: "/servers", name: "servers", component: () => import("../pages/DashboardPage.vue") },
+  ...navEntries.map((entry) => ({ path: entry.path, name: entry.name, component: entry.component, meta: entry.meta })),
   {
     path: "/servers/:name",
     name: "server-detail",
@@ -17,40 +21,18 @@ const routes = [
     component: () => import("../pages/ServerDetailPage.vue"),
     props: true,
   },
-  { path: "/register-server", name: "register-server", component: () => import("../pages/RegisterServerPage.vue") },
-  { path: "/catalog", name: "catalog", component: () => import("../pages/CatalogPage.vue") },
-  { path: "/ws-proxies", name: "ws-proxies", component: () => import("../pages/WsProxyTargetsPage.vue") },
-  { path: "/bundles", name: "bundles", component: () => import("../pages/BundlesPage.vue") },
   {
     path: "/bundles/:name",
     name: "bundle-detail",
     component: () => import("../pages/BundleDetailPage.vue"),
     props: true,
   },
-  { path: "/composites", name: "composites", component: () => import("../pages/CompositesPage.vue") },
   {
     path: "/composites/:name",
     name: "composite-detail",
     component: () => import("../pages/CompositeDetailPage.vue"),
     props: true,
   },
-  { path: "/keys", name: "keys", component: () => import("../pages/KeysPage.vue") },
-  { path: "/policies", name: "policies", component: () => import("../pages/PoliciesPage.vue") },
-  { path: "/consumers", name: "consumers", component: () => import("../pages/ConsumersPage.vue") },
-  { path: "/users", name: "users", component: () => import("../pages/UsersPage.vue"), meta: { role: "admin" } },
-  { path: "/teams", name: "teams", component: () => import("../pages/TeamsPage.vue"), meta: { role: "admin" } },
-  { path: "/config", name: "config", component: () => import("../pages/ConfigPage.vue"), meta: { role: "admin" } },
-  { path: "/sso", name: "sso", component: () => import("../pages/SsoSettingsPage.vue"), meta: { role: "admin" } },
-  { path: "/audit-log", name: "audit-log", component: () => import("../pages/AuditLogPage.vue") },
-  { path: "/account", name: "account", component: () => import("../pages/AccountPage.vue") },
-  { path: "/overview", name: "overview", component: () => import("../pages/OverviewPage.vue") },
-  { path: "/usage", name: "usage", component: () => import("../pages/UsagePage.vue") },
-  { path: "/traffic", name: "traffic", component: () => import("../pages/TrafficPage.vue") },
-  { path: "/monitors", name: "monitors", component: () => import("../pages/MonitorsPage.vue") },
-  { path: "/approvals", name: "approvals", component: () => import("../pages/ApprovalsPage.vue") },
-  { path: "/alerts", name: "alerts", component: () => import("../pages/AlertsPage.vue") },
-  { path: "/schedules", name: "schedules", component: () => import("../pages/SchedulesPage.vue") },
-  { path: "/traces", name: "traces", component: () => import("../pages/TracesPage.vue") },
   { path: "/traces/:traceId", name: "trace-detail", component: () => import("../pages/TracesPage.vue"), props: true },
   {
     path: "/:pathMatch(.*)*",
