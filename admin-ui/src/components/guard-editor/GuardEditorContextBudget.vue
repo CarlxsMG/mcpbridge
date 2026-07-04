@@ -4,8 +4,18 @@ import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
 import { usePropDraft } from "@/composables/useDraftField";
 import SaveRow from "@/components/ui/SaveRow.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { numberRangeValidator } from "@/utils/fieldParsing";
-import type { ContextBudgetConfig, ContextBudgetLlmProvider } from "@/types/api";
+import type { ContextBudgetConfig, ContextBudgetLlmProvider, ContextBudgetMode } from "@/types/api";
+
+const MODE_OPTIONS: { value: ContextBudgetMode; label: string }[] = [
+  { value: "truncate", label: "Truncate — cut it off and note how much was omitted" },
+  { value: "llm_summarize", label: "Compress with an LLM — summarize instead of cutting off" },
+];
+const LLM_PROVIDER_OPTIONS: { value: ContextBudgetLlmProvider; label: string }[] = [
+  { value: "openai", label: "OpenAI-compatible (POST {base}/chat/completions)" },
+  { value: "anthropic", label: "Anthropic-compatible (POST {base}/v1/messages)" },
+];
 
 const props = defineProps<{
   contextBudget?: ContextBudgetConfig;
@@ -106,10 +116,7 @@ async function saveContextBudgetFn() {
       <p v-if="contextBudgetBytesError" class="field-error">{{ contextBudgetBytesError }}</p>
 
       <label for="cb-mode">Mode when a response exceeds the limit</label>
-      <select id="cb-mode" v-model="contextBudgetModeInput">
-        <option value="truncate">Truncate — cut it off and note how much was omitted</option>
-        <option value="llm_summarize">Compress with an LLM — summarize instead of cutting off</option>
-      </select>
+      <SelectMenu id="cb-mode" v-model="contextBudgetModeInput" :options="MODE_OPTIONS" />
 
       <template v-if="contextBudgetModeInput === 'llm_summarize'">
         <p class="hint">
@@ -118,10 +125,7 @@ async function saveContextBudgetFn() {
           back to truncation; the tool call itself never fails because of this.
         </p>
         <label for="cb-provider">Provider</label>
-        <select id="cb-provider" v-model="contextBudgetLlmProviderInput">
-          <option value="openai">OpenAI-compatible (POST {base}/chat/completions)</option>
-          <option value="anthropic">Anthropic-compatible (POST {base}/v1/messages)</option>
-        </select>
+        <SelectMenu id="cb-provider" v-model="contextBudgetLlmProviderInput" :options="LLM_PROVIDER_OPTIONS" />
 
         <label for="cb-base-url">Base URL</label>
         <input

@@ -9,8 +9,15 @@ import { toErrorMessage } from "@/utils/errors";
 import type { LbConfig, LbStrategy, LbTarget } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 
 const props = defineProps<{ clientName: string }>();
+
+const STRATEGY_OPTIONS: { value: LbStrategy; label: string }[] = [
+  { value: "round-robin", label: "round-robin" },
+  { value: "weighted", label: "weighted" },
+  { value: "least-conn", label: "least-conn" },
+];
 
 const lbForm = ref<{ strategy: LbStrategy; primaryWeight: number; enabled: boolean }>({
   strategy: "round-robin",
@@ -157,11 +164,7 @@ function confirmRemoveTarget() {
     <form class="ua-form" @submit.prevent="saveLb">
       <label
         >Strategy
-        <select v-model="lbForm.strategy">
-          <option value="round-robin">round-robin</option>
-          <option value="weighted">weighted</option>
-          <option value="least-conn">least-conn</option>
-        </select>
+        <SelectMenu v-model="lbForm.strategy" :options="STRATEGY_OPTIONS" />
       </label>
       <label>Primary weight <input v-model.number="lbForm.primaryWeight" type="number" min="0" max="1000" /></label>
       <label class="inline-check"><input v-model="lbForm.enabled" type="checkbox" /> enabled</label>

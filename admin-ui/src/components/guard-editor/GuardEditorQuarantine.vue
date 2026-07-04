@@ -4,7 +4,18 @@ import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
 import { usePropDraft } from "@/composables/useDraftField";
 import SaveRow from "@/components/ui/SaveRow.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { numberRangeValidator } from "@/utils/fieldParsing";
+
+const ACTION_OPTIONS: { value: "block" | "force_approval" | "observe"; label: string }[] = [
+  { value: "block", label: "Block calls (same as disabling the tool)" },
+  { value: "force_approval", label: "Force every call through human approval" },
+  { value: "observe", label: "Observe only — log and let calls through" },
+];
+const RECOVERY_OPTIONS: { value: "auto" | "manual"; label: string }[] = [
+  { value: "manual", label: "Manual only — an admin must clear it" },
+  { value: "auto", label: "Automatic — clears itself after a cooldown" },
+];
 
 const props = defineProps<{
   quarantine?: {
@@ -117,17 +128,10 @@ async function clearQuarantineFn() {
       <p v-if="quarantineThresholdError" class="field-error">{{ quarantineThresholdError }}</p>
 
       <label for="q-action">Action when quarantined</label>
-      <select id="q-action" v-model="quarantineActionInput">
-        <option value="block">Block calls (same as disabling the tool)</option>
-        <option value="force_approval">Force every call through human approval</option>
-        <option value="observe">Observe only — log and let calls through</option>
-      </select>
+      <SelectMenu id="q-action" v-model="quarantineActionInput" :options="ACTION_OPTIONS" />
 
       <label for="q-recovery">Recovery</label>
-      <select id="q-recovery" v-model="quarantineRecoveryInput">
-        <option value="manual">Manual only — an admin must clear it</option>
-        <option value="auto">Automatic — clears itself after a cooldown</option>
-      </select>
+      <SelectMenu id="q-recovery" v-model="quarantineRecoveryInput" :options="RECOVERY_OPTIONS" />
 
       <template v-if="quarantineRecoveryInput === 'auto'">
         <label for="q-cooldown">Cooldown (minutes)</label>

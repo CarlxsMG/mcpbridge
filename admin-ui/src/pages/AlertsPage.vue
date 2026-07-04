@@ -17,6 +17,7 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { BellRing } from "lucide-vue-next";
 
 const EVENT_LABELS: Record<AlertEventType, string> = {
@@ -26,6 +27,10 @@ const EVENT_LABELS: Record<AlertEventType, string> = {
   usage_spike: "Usage spike (anomaly)",
   schema_drift: "Tool schema drift",
 };
+const EVENT_OPTIONS = (Object.keys(EVENT_LABELS) as AlertEventType[]).map((value) => ({
+  value,
+  label: EVENT_LABELS[value],
+}));
 
 /** Event types that use the threshold + minCalls numeric inputs. */
 const NUMERIC_EVENTS = new Set<AlertEventType>(["error_rate", "usage_spike"]);
@@ -185,9 +190,7 @@ function confirmDelete() {
         <p v-if="nameError" class="error">{{ nameError }}</p>
       </FormField>
       <FormField label="Event" for="alert-event">
-        <select id="alert-event" v-model="newEvent">
-          <option v-for="(label, ev) in EVENT_LABELS" :key="ev" :value="ev">{{ label }}</option>
-        </select>
+        <SelectMenu id="alert-event" v-model="newEvent" :options="EVENT_OPTIONS" />
       </FormField>
       <FormField label="Webhook URL" for="alert-url">
         <input id="alert-url" v-model="newUrl" type="url" placeholder="https://hooks.example.com/x" />

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
 import { useResource } from "@/composables/useResource";
 import { usePatchResource } from "@/composables/usePatchResource";
 import type { Team } from "@/types/api";
 import ConfigSection from "./ConfigSection.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 
 const props = defineProps<{ clientName: string; teamId: number | null }>();
 
@@ -14,6 +15,10 @@ const { data: teams, load: loadTeams } = useResource<Team[]>(
   [],
 );
 onMounted(loadTeams);
+const teamOptions = computed(() => [
+  { value: null as number | null, label: "— unowned —" },
+  ...teams.value.map((t) => ({ value: t.id as number | null, label: t.name })),
+]);
 
 const currentTeamId = ref(props.teamId);
 
@@ -44,17 +49,14 @@ async function assignTeam(teamId: number | null) {
       >. Only super-admins can change this.
     </p>
     <div class="field-inline">
-      <select
-        :value="currentTeamId ?? ''"
-        @change="
-          assignTeam(
-            ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null,
-          )
-        "
-      >
-        <option value="">— unowned —</option>
-        <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
-      </select>
+      <SelectMenu
+        :model-value="currentTeamId"
+        :options="teamOptions"
+        create-path="/teams"
+        create-label="Create team"
+        :reload="loadTeams"
+        @update:model-value="assignTeam"
+      />
     </div>
     <p v-if="teamError" class="error">{{ teamError }}</p>
   </ConfigSection>

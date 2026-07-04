@@ -9,8 +9,15 @@ import { toErrorMessage } from "@/utils/errors";
 import type { UpstreamAuthInfo, UpstreamKind } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 
 const props = defineProps<{ clientName: string; kind: UpstreamKind }>();
+
+const TYPE_OPTIONS: { value: "bearer" | "basic" | "header"; label: string }[] = [
+  { value: "bearer", label: "Bearer token" },
+  { value: "basic", label: "Basic (user / password)" },
+  { value: "header", label: "Custom header" },
+];
 
 const { data: upstreamAuth, load: loadUpstreamAuth } = useResource<UpstreamAuthInfo | null>(
   () => api.get<UpstreamAuthInfo>(clientPath(props.clientName, "upstream-auth")),
@@ -97,11 +104,7 @@ function confirmClearUpstreamAuth() {
     <form v-if="uaEditing" class="ua-form" @submit.prevent="saveUpstreamAuth">
       <label
         >Type
-        <select v-model="uaType">
-          <option value="bearer">Bearer token</option>
-          <option value="basic">Basic (user / password)</option>
-          <option value="header">Custom header</option>
-        </select>
+        <SelectMenu v-model="uaType" :options="TYPE_OPTIONS" />
       </label>
       <label v-if="uaType === 'bearer'">Token <input v-model="uaToken" type="password" autocomplete="off" /></label>
       <template v-else-if="uaType === 'basic'">

@@ -8,10 +8,16 @@ import { downloadTextFile } from "@/utils/download";
 import type { ConfigImportResult, ConfigSnapshotSummary, ConfigDiffResult } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import FormField from "@/components/ui/FormField.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 
-const exporting = ref(false);
+const FORMAT_OPTIONS: { value: "json" | "yaml"; label: string }[] = [
+  { value: "json", label: "JSON" },
+  { value: "yaml", label: "YAML" },
+];
+
+const exportingFormat = ref<"json" | "yaml" | null>(null);
 const importText = ref("");
-const exportFormat = ref<"json" | "yaml">("json");
 const importFormat = ref<"json" | "yaml">("json");
 const jsonPlaceholder = '{ "version": 1, ... }';
 const result = ref<ConfigImportResult | null>(null);
@@ -112,21 +118,21 @@ function fmt(v: unknown): string {
   return typeof v === "object" ? JSON.stringify(v) : String(v);
 }
 
-async function doExport() {
-  exporting.value = true;
+async function doExport(format: "json" | "yaml") {
+  exportingFormat.value = format;
   errorMessage.value = "";
   try {
     // Formatting/parsing happens server-side — the admin UI never needs its
     // own YAML dependency, it just relays the raw text the backend produced.
-    const suffix = exportFormat.value === "yaml" ? "?format=yaml" : "";
+    const suffix = format === "yaml" ? "?format=yaml" : "";
     const raw = await api.getRaw(`/admin-api/config/export${suffix}`);
-    const mime = exportFormat.value === "yaml" ? "application/yaml" : "application/json";
-    const filename = exportFormat.value === "yaml" ? "mcp-bridge-config.yaml" : "mcp-bridge-config.json";
+    const mime = format === "yaml" ? "application/yaml" : "application/json";
+    const filename = format === "yaml" ? "mcp-bridge-config.yaml" : "mcp-bridge-config.json";
     downloadTextFile(filename, raw, mime);
   } catch (err) {
     errorMessage.value = toErrorMessage(err, "Export failed.");
   } finally {
-    exporting.value = false;
+    exportingFormat.value = null;
   }
 }
 
@@ -171,14 +177,12 @@ async function confirmImport() {
 
     <div class="block">
       <h2>Export</h2>
-      <div class="actions">
-        <label for="export-format">Format</label>
-        <select id="export-format" v-model="exportFormat">
-          <option value="json">JSON</option>
-          <option value="yaml">YAML</option>
-        </select>
-        <button type="button" class="btn-primary" :disabled="exporting" @click="doExport">
-          {{ exporting ? "Exporting…" : `Download config .${exportFormat}` }}
+      <div class="actions" role="group" aria-label="Export format">
+        <button type="button" class="btn-secondary" :disabled="exportingFormat !== null" @click="doExport('json')">
+          {{ exportingFormat === "json" ? "Exporting…" : "Download config .json" }}
+        </button>
+        <button type="button" class="btn-secondary" :disabled="exportingFormat !== null" @click="doExport('yaml')">
+          {{ exportingFormat === "yaml" ? "Exporting…" : "Download config .yaml" }}
         </button>
       </div>
     </div>
@@ -189,13 +193,9 @@ async function confirmImport() {
         Paste an exported document (policy-as-code — includes guardrails and consumer quotas). Dry-run first to preview
         what would change — client/tool config only applies to already-registered servers.
       </p>
-      <div class="actions">
-        <label for="import-format">Format</label>
-        <select id="import-format" v-model="importFormat">
-          <option value="json">JSON</option>
-          <option value="yaml">YAML</option>
-        </select>
-      </div>
+      <FormField class="format-field" label="Format" for="import-format">
+        <SelectMenu id="import-format" v-model="importFormat" :options="FORMAT_OPTIONS" />
+      </FormField>
       <label for="import-text">Import document</label>
       <textarea
         id="import-text"
@@ -433,6 +433,9 @@ textarea {
   font-size: 0.9rem;
   font-family: var(--font-body);
   min-width: 16.25rem;
+}
+.format-field {
+  max-width: 12rem;
 }
 .snap-table,
 .diff-table {

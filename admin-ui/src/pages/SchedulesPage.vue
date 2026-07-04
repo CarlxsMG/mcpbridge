@@ -14,7 +14,17 @@ import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { Clock } from "lucide-vue-next";
+
+const TARGET_TYPE_OPTIONS: { value: "client" | "tool"; label: string }[] = [
+  { value: "client", label: "Client" },
+  { value: "tool", label: "Tool" },
+];
+const ACTION_OPTIONS: { value: "enable" | "disable"; label: string }[] = [
+  { value: "disable", label: "disable" },
+  { value: "enable", label: "enable" },
+];
 
 const {
   data: items,
@@ -92,7 +102,7 @@ function formatLastRun(m: number | null): string {
 </script>
 
 <template>
-  <section class="page">
+  <section>
     <PageHeader title="Maintenance schedules" />
     <p class="subtitle">
       Cron-driven enable/disable of a client or a single tool. Evaluated once a minute in UTC on the leader instance.
@@ -101,10 +111,7 @@ function formatLastRun(m: number | null): string {
 
     <form class="create-form" @submit.prevent="create">
       <FormField label="Type" for="sched-type">
-        <select id="sched-type" v-model="form.targetType">
-          <option value="client">Client</option>
-          <option value="tool">Tool</option>
-        </select>
+        <SelectMenu id="sched-type" v-model="form.targetType" :options="TARGET_TYPE_OPTIONS" />
       </FormField>
       <FormField label="Client" for="sched-client">
         <input id="sched-client" v-model="form.clientName" type="text" placeholder="client name" />
@@ -113,10 +120,7 @@ function formatLastRun(m: number | null): string {
         <input id="sched-tool" v-model="form.toolName" type="text" placeholder="tool name" />
       </FormField>
       <FormField label="Action" for="sched-action">
-        <select id="sched-action" v-model="form.action">
-          <option value="disable">disable</option>
-          <option value="enable">enable</option>
-        </select>
+        <SelectMenu id="sched-action" v-model="form.action" :options="ACTION_OPTIONS" />
       </FormField>
       <FormField label="Cron" for="sched-cron">
         <input id="sched-cron" v-model="form.cron" type="text" placeholder="0 3 * * *" class="cron" />
@@ -192,9 +196,6 @@ function formatLastRun(m: number | null): string {
 </template>
 
 <style scoped>
-.page {
-  max-width: 56.25rem;
-}
 .subtitle {
   color: var(--text-secondary);
   margin: 0 0 1.25rem;

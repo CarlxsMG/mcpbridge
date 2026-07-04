@@ -8,6 +8,12 @@ import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "@/types/api
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import FormField from "@/components/ui/FormField.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
+
+const TRANSPORT_OPTIONS: { value: McpTransport; label: string }[] = [
+  { value: "streamable-http", label: "Streamable HTTP" },
+  { value: "sse", label: "SSE (legacy)" },
+];
 
 const router = useRouter();
 
@@ -364,10 +370,7 @@ async function register() {
           <input id="r-mcp-url" v-model="mcpUrl" type="url" required placeholder="https://mcp.example.com/mcp" />
         </FormField>
         <FormField label="Transport" for="r-mcp-transport">
-          <select id="r-mcp-transport" v-model="mcpTransport">
-            <option value="streamable-http">Streamable HTTP</option>
-            <option value="sse">SSE (legacy)</option>
-          </select>
+          <SelectMenu id="r-mcp-transport" v-model="mcpTransport" :options="TRANSPORT_OPTIONS" />
         </FormField>
         <p class="hint">
           The bridge connects to the MCP server and discovers its tools on registration. If the server requires

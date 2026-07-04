@@ -8,8 +8,14 @@ import { usePatchResource } from "@/composables/usePatchResource";
 import type { CanaryConfig } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 
 const props = defineProps<{ clientName: string }>();
+
+const MODE_OPTIONS: { value: "canary" | "failover"; label: string }[] = [
+  { value: "canary", label: "canary" },
+  { value: "failover", label: "failover" },
+];
 
 const canaryForm = ref({ secondaryBaseUrl: "", mode: "canary" as "canary" | "failover", weight: 10, enabled: true });
 
@@ -79,10 +85,7 @@ function confirmClear() {
       /></label>
       <label
         >Mode
-        <select v-model="canaryForm.mode">
-          <option value="canary">canary</option>
-          <option value="failover">failover</option>
-        </select>
+        <SelectMenu v-model="canaryForm.mode" :options="MODE_OPTIONS" />
       </label>
       <label
         >Weight percent

@@ -1,0 +1,380 @@
+<script setup lang="ts" generic="T extends string | number | boolean | null">
+import { ref, computed, nextTick, onBeforeUnmount } from "vue";
+import { useRouter } from "vue-router";
+import { ChevronDown, Plus } from "lucide-vue-next";
+
+interface Option<V> {
+  value: V;
+  label: string;
+  disabled?: boolean;
+}
+
+const props = defineProps<{
+  id?: string;
+  options: Option<T>[];
+  disabled?: boolean;
+  title?: string;
+  ariaLabel?: string;
+  /** Route path of the page that creates this entity, e.g. "/teams". Renders a trailing "+ create" row in the list. */
+  createPath?: string;
+  /** e.g. "Create team" — rendered with a trailing "↗" to signal the new tab. */
+  createLabel?: string;
+  /** Re-fetches `options`; called once when the user comes back to this tab after using createPath. */
+  reload?: () => unknown;
+}>();
+
+const model = defineModel<T>({ required: true });
+// Only components that actually render a create-row need router context —
+// calling useRouter() unconditionally would require every place that mounts
+// a plain SelectMenu (most of them, with no createPath) to also provide a
+// router, purely to satisfy an injection this instance never uses.
+const router = props.createPath ? useRouter() : undefined;
+
+const open = ref(false);
+const activeIndex = ref(0);
+const triggerEl = ref<HTMLButtonElement | null>(null);
+const listboxEl = ref<HTMLUListElement | null>(null);
+const listboxStyle = ref<Record<string, string>>({});
+const uid = Math.random().toString(36).slice(2, 9);
+const listboxId = `select-menu-${uid}`;
+
+const selectableCount = computed(() => props.options.length + (props.createPath ? 1 : 0));
+// Mirrors a native <select>'s behavior of always displaying *some* option
+// (falling back to the first) when the bound value matches none — e.g. a
+// per-row v-model like `record[id]` that's `undefined` until first touched.
+const selectedLabel = computed(
+  () => props.options.find((o) => o.value === model.value)?.label ?? props.options[0]?.label ?? "",
+);
+
+function optionId(i: number) {
+  return `${listboxId}-opt-${i}`;
+}
+const createIndex = computed(() => props.options.length);
+const activeOptionId = computed(() => (open.value ? optionId(activeIndex.value) : undefined));
+
+const POPOVER_MARGIN = 8;
+
+// Two-pass: first size the panel off the trigger alone (min-width matching
+// it, but free to grow up to 24rem for longer option/create labels), then
+// measure what it actually rendered at and slide `left` back if that grew
+// past the right edge of the viewport.
+async function updatePosition() {
+  const rect = triggerEl.value?.getBoundingClientRect();
+  if (!rect) return;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const openUpward = spaceBelow < 220 && rect.top > spaceBelow;
+  listboxStyle.value = {
+    position: "fixed",
+    left: `${rect.left}px`,
+    minWidth: `${rect.width}px`,
+    maxWidth: `min(24rem, calc(100vw - ${POPOVER_MARGIN * 2}px))`,
+    maxHeight: "16rem",
+    ...(openUpward ? { bottom: `${window.innerHeight - rect.top}px` } : { top: `${rect.bottom}px` }),
+  };
+  await nextTick();
+  const panelRect = listboxEl.value?.getBoundingClientRect();
+  if (panelRect && panelRect.right > window.innerWidth - POPOVER_MARGIN) {
+    listboxStyle.value = {
+      ...listboxStyle.value,
+      left: `${Math.max(POPOVER_MARGIN, window.innerWidth - POPOVER_MARGIN - panelRect.width)}px`,
+    };
+  }
+}
+
+function onScrollOrResize(e: Event) {
+  // Scroll events don't bubble, but a capture-phase listener on window still
+  // sees them — including the listbox's own option list scrolling internally
+  // (it has overflow-y: auto). That's normal interaction, not the page moving
+  // out from under the trigger, so don't close for it. Repositioning a
+  // teleported panel mid-scroll of an *ancestor* is fiddly to get
+  // pixel-perfect; closing (like a native select effectively does when the
+  // anchor moves) is simpler and avoids a panel that drifts from its trigger.
+  if (e.type === "scroll" && e.target instanceof Node && listboxEl.value?.contains(e.target)) return;
+  close();
+}
+
+function onDocMousedown(e: MouseEvent) {
+  const target = e.target as Node;
+  if (triggerEl.value?.contains(target) || listboxEl.value?.contains(target)) return;
+  close();
+}
+
+async function openMenu() {
+  if (props.disabled || open.value) return;
+  open.value = true;
+  const current = props.options.findIndex((o) => o.value === model.value);
+  activeIndex.value = current >= 0 ? current : 0;
+  await nextTick();
+  await updatePosition();
+  window.addEventListener("scroll", onScrollOrResize, true);
+  window.addEventListener("resize", onScrollOrResize);
+  document.addEventListener("mousedown", onDocMousedown);
+}
+
+function close() {
+  if (!open.value) return;
+  open.value = false;
+  window.removeEventListener("scroll", onScrollOrResize, true);
+  window.removeEventListener("resize", onScrollOrResize);
+  document.removeEventListener("mousedown", onDocMousedown);
+}
+
+function toggle() {
+  if (open.value) close();
+  else void openMenu();
+}
+
+function choose(i: number) {
+  const opt = props.options[i];
+  if (!opt || opt.disabled) return;
+  model.value = opt.value;
+  close();
+  triggerEl.value?.focus();
+}
+
+// Opening the create page in its own tab (rather than navigating away, or a
+// modal) leaves whatever the user was filling in around this select intact.
+// Re-fetching only once, on the next time this tab regains focus, avoids
+// refetching on every unrelated alt-tab.
+let armed = false;
+function chooseCreate() {
+  if (!props.createPath || !router) return;
+  close();
+  triggerEl.value?.focus();
+  const href = router.resolve(props.createPath).href;
+  window.open(href, "_blank", "noopener");
+  if (armed || !props.reload) return;
+  armed = true;
+  const onFocus = () => {
+    armed = false;
+    window.removeEventListener("focus", onFocus);
+    props.reload?.();
+  };
+  window.addEventListener("focus", onFocus);
+}
+
+function scrollActiveIntoView() {
+  nextTick(() => {
+    listboxEl.value?.querySelector(".is-active")?.scrollIntoView({ block: "nearest" });
+  });
+}
+
+let typeaheadBuffer = "";
+let typeaheadTimer: ReturnType<typeof setTimeout> | undefined;
+
+function typeahead(key: string) {
+  typeaheadBuffer += key.toLowerCase();
+  clearTimeout(typeaheadTimer);
+  typeaheadTimer = setTimeout(() => (typeaheadBuffer = ""), 500);
+  const match = props.options.findIndex((o) => !o.disabled && o.label.toLowerCase().startsWith(typeaheadBuffer));
+  if (match >= 0) {
+    activeIndex.value = match;
+    scrollActiveIntoView();
+  }
+}
+
+function onTriggerKeydown(e: KeyboardEvent) {
+  if (props.disabled) return;
+  if (!open.value) {
+    if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
+      e.preventDefault();
+      void openMenu();
+    }
+    return;
+  }
+  switch (e.key) {
+    case "ArrowDown":
+      e.preventDefault();
+      activeIndex.value = Math.min(activeIndex.value + 1, selectableCount.value - 1);
+      scrollActiveIntoView();
+      break;
+    case "ArrowUp":
+      e.preventDefault();
+      activeIndex.value = Math.max(activeIndex.value - 1, 0);
+      scrollActiveIntoView();
+      break;
+    case "Home":
+      e.preventDefault();
+      activeIndex.value = 0;
+      scrollActiveIntoView();
+      break;
+    case "End":
+      e.preventDefault();
+      activeIndex.value = selectableCount.value - 1;
+      scrollActiveIntoView();
+      break;
+    case "Enter":
+    case " ":
+      e.preventDefault();
+      if (activeIndex.value === createIndex.value && props.createPath) chooseCreate();
+      else choose(activeIndex.value);
+      break;
+    case "Escape":
+      e.preventDefault();
+      close();
+      break;
+    case "Tab":
+      close();
+      break;
+    default:
+      if (e.key.length === 1) typeahead(e.key);
+  }
+}
+
+onBeforeUnmount(close);
+</script>
+
+<template>
+  <div class="select-menu">
+    <button
+      :id="id"
+      ref="triggerEl"
+      type="button"
+      class="select-menu-trigger"
+      :class="{ 'is-open': open }"
+      role="combobox"
+      aria-haspopup="listbox"
+      :aria-expanded="open"
+      :aria-controls="listboxId"
+      :aria-activedescendant="activeOptionId"
+      :aria-label="ariaLabel"
+      :title="title"
+      :disabled="disabled"
+      @click="toggle"
+      @keydown="onTriggerKeydown"
+    >
+      <span class="select-menu-value">{{ selectedLabel }}</span>
+      <ChevronDown :size="14" stroke-width="2" aria-hidden="true" class="select-menu-chevron" />
+    </button>
+
+    <Teleport to="body">
+      <ul
+        v-if="open"
+        :id="listboxId"
+        ref="listboxEl"
+        role="listbox"
+        class="select-menu-listbox"
+        :aria-label="ariaLabel"
+        :style="listboxStyle"
+      >
+        <li
+          v-for="(opt, i) in options"
+          :id="optionId(i)"
+          :key="String(opt.value)"
+          role="option"
+          class="select-menu-option"
+          :class="{ 'is-active': i === activeIndex, 'is-selected': opt.value === model, 'is-disabled': opt.disabled }"
+          :aria-selected="opt.value === model"
+          :aria-disabled="opt.disabled"
+          @mousedown.prevent
+          @click="choose(i)"
+          @mouseenter="!opt.disabled && (activeIndex = i)"
+        >
+          {{ opt.label }}
+        </li>
+        <li
+          v-if="createPath"
+          :id="optionId(createIndex)"
+          role="option"
+          class="select-menu-option select-menu-create"
+          :class="{ 'is-active': activeIndex === createIndex }"
+          @mousedown.prevent
+          @click="chooseCreate"
+          @mouseenter="activeIndex = createIndex"
+        >
+          <Plus :size="14" stroke-width="2" aria-hidden="true" />
+          {{ createLabel }} ↗
+        </li>
+      </ul>
+    </Teleport>
+  </div>
+</template>
+
+<style scoped>
+.select-menu {
+  display: inline-block;
+  max-width: 100%;
+}
+.select-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+.select-menu-trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.select-menu-trigger.is-open,
+.select-menu-trigger:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+}
+.select-menu-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-menu-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+</style>
+
+<style>
+/* Unscoped: the listbox is teleported to <body>, outside this component's
+   scoped-attribute tree, so a `scoped` block here would never match it. */
+.select-menu-listbox {
+  z-index: var(--z-command-palette);
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+.select-menu-option {
+  padding: 0.4rem 0.6rem;
+  border-radius: calc(var(--radius-sm) - 2px);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-menu-option.is-active {
+  background: var(--signal-soft);
+}
+.select-menu-option.is-selected {
+  font-weight: 600;
+}
+.select-menu-option.is-disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+.select-menu-create {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--signal-strong);
+  font-weight: 600;
+}
+</style>

@@ -11,6 +11,7 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import SearchInput from "@/components/ui/SearchInput.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 
 const entries = ref<AuditLogEntry[]>([]);
 const { loading, errorMessage, run } = useLoadState("Failed to load audit log.");
@@ -20,8 +21,12 @@ const actionFilter = ref("");
 const fromDate = ref(""); // yyyy-mm-dd, from <input type="date">
 const toDate = ref("");
 
-/** Known action values already present in the log, for the action filter's <select>. Falls back to a free-text input if this comes back empty. */
+/** Known action values already present in the log, for the action filter's dropdown. Falls back to a free-text input if this comes back empty. */
 const knownActions = ref<string[]>([]);
+const actionOptions = computed(() => [
+  { value: "", label: "All actions" },
+  ...knownActions.value.map((a) => ({ value: a, label: a })),
+]);
 async function loadActions() {
   try {
     const result = await api.get<{ actions: string[] }>("/admin-api/audit-log/actions");
@@ -75,6 +80,11 @@ function clearFilters() {
 }
 
 const exportFormat = ref<"json" | "csv" | "html">("json");
+const EXPORT_FORMAT_OPTIONS: { value: "json" | "csv" | "html"; label: string }[] = [
+  { value: "json", label: "JSON" },
+  { value: "csv", label: "CSV" },
+  { value: "html", label: "HTML report" },
+];
 const exporting = ref(false);
 const EXPORT_MIME: Record<"json" | "csv" | "html", string> = {
   json: "application/json",
@@ -141,10 +151,7 @@ onMounted(() => {
 
       <div class="field">
         <label for="action-filter">Action</label>
-        <select v-if="knownActions.length" id="action-filter" v-model="actionFilter">
-          <option value="">All actions</option>
-          <option v-for="a in knownActions" :key="a" :value="a">{{ a }}</option>
-        </select>
+        <SelectMenu v-if="knownActions.length" id="action-filter" v-model="actionFilter" :options="actionOptions" />
         <SearchInput v-else v-model="actionFilter" placeholder="Filter by action…" />
       </div>
 
@@ -163,11 +170,7 @@ onMounted(() => {
 
       <div class="field export-field">
         <label for="export-format">Export as</label>
-        <select id="export-format" v-model="exportFormat">
-          <option value="json">JSON</option>
-          <option value="csv">CSV</option>
-          <option value="html">HTML report</option>
-        </select>
+        <SelectMenu id="export-format" v-model="exportFormat" :options="EXPORT_FORMAT_OPTIONS" />
       </div>
       <button type="button" class="btn-secondary" :disabled="exporting" @click="exportLog">
         {{ exporting ? "Exporting…" : "Export" }}
@@ -248,7 +251,6 @@ onMounted(() => {
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
-.filters select,
 .filters input[type="date"] {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);

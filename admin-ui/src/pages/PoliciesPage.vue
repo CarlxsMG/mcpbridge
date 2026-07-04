@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
@@ -14,6 +14,7 @@ import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { ShieldCheck } from "lucide-vue-next";
 
 const policies = ref<GuardPolicy[]>([]);
@@ -48,6 +49,10 @@ const { open: showCreate, busy: creating, error: createError, submit } = useEnti
 // per-policy selected bundle to apply to
 const applyBundle = ref<Record<number, string>>({});
 const applyingId = ref<number | null>(null);
+const bundleOptions = computed(() => [
+  { value: "", label: "Select bundle…" },
+  ...bundles.value.map((b) => ({ value: b.name, label: b.name })),
+]);
 
 async function load() {
   await run(async () => {
@@ -178,10 +183,13 @@ async function confirmDelete() {
             <td>{{ p.rateLimitPerMin ?? "—" }}</td>
             <td>{{ p.timeoutMs ? `${p.timeoutMs}ms` : "—" }}</td>
             <td class="apply-cell">
-              <select v-model="applyBundle[p.id]">
-                <option value="">Select bundle…</option>
-                <option v-for="b in bundles" :key="b.name" :value="b.name">{{ b.name }}</option>
-              </select>
+              <SelectMenu
+                v-model="applyBundle[p.id]"
+                :options="bundleOptions"
+                create-path="/bundles"
+                create-label="Create bundle"
+                :reload="load"
+              />
               <button
                 type="button"
                 class="btn-secondary"
@@ -236,12 +244,6 @@ async function confirmDelete() {
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
-}
-.apply-cell select {
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
 }
 .notice {
   color: var(--ok);

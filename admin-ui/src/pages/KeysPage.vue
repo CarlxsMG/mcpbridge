@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
@@ -18,6 +18,7 @@ import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { KeyRound } from "lucide-vue-next";
 
 const keys = ref<McpApiKey[]>([]);
@@ -30,6 +31,10 @@ const newExpires = ref("");
 const newConsumerId = ref<number | "">("");
 const newElevated = ref(false);
 const consumers = ref<Consumer[]>([]);
+const consumerOptions = computed(() => [
+  { value: "" as const, label: "None" },
+  ...consumers.value.map((c) => ({ value: c.id, label: c.name })),
+]);
 
 function resetForm() {
   newLabel.value = "";
@@ -189,10 +194,14 @@ function confirmDelete() {
         <input id="k-expires" v-model="newExpires" type="datetime-local" />
       </FormField>
       <FormField label="Consumer (optional)" for="k-consumer">
-        <select id="k-consumer" v-model="newConsumerId">
-          <option value="">None</option>
-          <option v-for="c in consumers" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
+        <SelectMenu
+          id="k-consumer"
+          v-model="newConsumerId"
+          :options="consumerOptions"
+          create-path="/consumers"
+          create-label="Create consumer"
+          :reload="load"
+        />
       </FormField>
       <label class="checkbox-field"
         ><input v-model="newElevated" type="checkbox" /> Elevated (bypasses sensitive-tool confirmation)</label

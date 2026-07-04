@@ -15,7 +15,21 @@ import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { UserCog } from "lucide-vue-next";
+
+const NEW_ROLE_OPTIONS: { value: AdminRole; label: string }[] = [
+  { value: "admin", label: "Admin" },
+  { value: "operator", label: "Operator" },
+  { value: "auditor", label: "Auditor" },
+  { value: "viewer", label: "Viewer" },
+];
+const ROLE_OPTIONS: { value: AdminRole; label: string }[] = [
+  { value: "admin", label: "admin" },
+  { value: "operator", label: "operator" },
+  { value: "auditor", label: "auditor" },
+  { value: "viewer", label: "viewer" },
+];
 
 const { state: authState } = useAuth();
 
@@ -41,7 +55,6 @@ const {
   cancel: cancelRoleChangeAction,
   confirm: confirmActionRoleChange,
 } = useConfirmAction<{ user: AdminUserSummary; nextRole: string }>();
-const roleSelectResetTick = ref<Record<string, number>>({});
 
 // Teams — any admin may read the list (needed to populate the assignment dropdown),
 // but only a super-admin (admin role, no team) can actually change a user's team;
@@ -63,7 +76,10 @@ const {
   confirm: confirmActionTeamChange,
 } = useConfirmAction<{ user: AdminUserSummary; nextTeamId: number | null }>();
 const teamChangeError = ref("");
-const teamSelectResetTick = ref<Record<string, number>>({});
+const teamOptions = computed(() => [
+  { value: null as number | null, label: "None (super-admin)" },
+  ...teams.value.map((t) => ({ value: t.id as number | null, label: t.name })),
+]);
 
 function teamName(teamId: number | null): string {
   if (teamId === null) return "None (super-admin)";
@@ -139,17 +155,6 @@ function confirmRoleChange() {
   });
 }
 
-// Bumping the per-user tick forces the role <select> to remount (via its :key),
-// re-syncing its displayed value from the unchanged v-bind since a cancelled
-// change leaves the bound value identical and Vue would otherwise skip the DOM update.
-function cancelRoleChange() {
-  if (pendingRoleChange.value) {
-    const { username } = pendingRoleChange.value.user;
-    roleSelectResetTick.value[username] = (roleSelectResetTick.value[username] ?? 0) + 1;
-  }
-  cancelRoleChangeAction();
-}
-
 async function changeTeam(user: AdminUserSummary, nextTeamId: number | null) {
   teamChangeError.value = "";
   try {
@@ -161,8 +166,7 @@ async function changeTeam(user: AdminUserSummary, nextTeamId: number | null) {
   }
 }
 
-function requestTeamChange(user: AdminUserSummary, rawValue: string) {
-  const nextTeamId = rawValue === "" ? null : Number(rawValue);
+function requestTeamChange(user: AdminUserSummary, nextTeamId: number | null) {
   if (nextTeamId === user.team_id) return;
   requestTeamChangeAction({ user, nextTeamId });
 }
@@ -179,15 +183,6 @@ function confirmTeamChange() {
   return confirmActionTeamChange(async ({ user, nextTeamId }) => {
     await changeTeam(user, nextTeamId);
   });
-}
-
-// See cancelRoleChange — same reasoning, forces the team <select> to remount.
-function cancelTeamChange() {
-  if (pendingTeamChange.value) {
-    const { username } = pendingTeamChange.value.user;
-    teamSelectResetTick.value[username] = (teamSelectResetTick.value[username] ?? 0) + 1;
-  }
-  cancelTeamChangeAction();
 }
 
 function confirmDelete() {
@@ -216,12 +211,7 @@ function confirmDelete() {
         <input id="new-password" v-model="newPassword" type="password" required minlength="12" />
       </FormField>
       <FormField label="Role" for="new-role">
-        <select id="new-role" v-model="newRole">
-          <option value="admin">Admin</option>
-          <option value="operator">Operator</option>
-          <option value="auditor">Auditor</option>
-          <option value="viewer">Viewer</option>
-        </select>
+        <SelectMenu id="new-role" v-model="newRole" :options="NEW_ROLE_OPTIONS" />
       </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
       <button type="submit" class="btn-primary" :disabled="creating">
@@ -258,37 +248,30 @@ function confirmDelete() {
               {{ user.username }} <span v-if="user.username === authState.user?.username" class="you-tag">(you)</span>
             </td>
             <td>
-              <select
-                :key="`${user.username}-role-${roleSelectResetTick[user.username] ?? 0}`"
-                class="role-select"
-                :value="user.role"
+              <SelectMenu
+                :model-value="user.role"
+                :options="ROLE_OPTIONS"
                 :disabled="isLastActiveAdmin(user)"
                 :title="
                   isLastActiveAdmin(user) ? 'Cannot change the last active admin — promote another user first.' : ''
                 "
-                @change="requestRoleChange(user, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="admin">admin</option>
-                <option value="operator">operator</option>
-                <option value="auditor">auditor</option>
-                <option value="viewer">viewer</option>
-              </select>
+                @update:model-value="(v) => requestRoleChange(user, v)"
+              />
               <br />
               <span v-if="isLastActiveAdmin(user)" class="switch-hint"
                 >Cannot change the last active admin — promote another user first.</span
               >
             </td>
             <td>
-              <select
-                :key="`${user.username}-team-${teamSelectResetTick[user.username] ?? 0}`"
-                class="role-select"
-                :value="user.team_id ?? ''"
+              <SelectMenu
+                :model-value="user.team_id"
+                :options="teamOptions"
                 title="Only super-admins can change this."
-                @change="requestTeamChange(user, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="">None (super-admin)</option>
-                <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
-              </select>
+                create-path="/teams"
+                create-label="Create team"
+                :reload="loadTeams"
+                @update:model-value="(v) => requestTeamChange(user, v)"
+              />
             </td>
             <td>{{ user.is_active ? "Yes" : "No" }}</td>
             <td>{{ formatMaybeDate(user.last_login_at) }}</td>
@@ -333,7 +316,7 @@ function confirmDelete() {
       :message="pendingRoleChange ? roleChangeMessage(pendingRoleChange.user, pendingRoleChange.nextRole) : ''"
       :confirm-label="pendingRoleChange ? `Change to ${pendingRoleChange.nextRole}` : 'Change role'"
       @confirm="confirmRoleChange"
-      @cancel="cancelRoleChange"
+      @cancel="cancelRoleChangeAction"
     />
 
     <ConfirmDialog
@@ -342,7 +325,7 @@ function confirmDelete() {
       :message="pendingTeamChange ? teamChangeMessage(pendingTeamChange.user, pendingTeamChange.nextTeamId) : ''"
       :confirm-label="pendingTeamChange ? `Assign to ${teamName(pendingTeamChange.nextTeamId)}` : 'Assign team'"
       @confirm="confirmTeamChange"
-      @cancel="cancelTeamChange"
+      @cancel="cancelTeamChangeAction"
     />
   </section>
 </template>

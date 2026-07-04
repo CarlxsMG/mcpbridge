@@ -11,6 +11,7 @@ import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench } from "lucide-vue-next";
 
 const WINDOWS = [
@@ -18,7 +19,13 @@ const WINDOWS = [
   { label: "7 days", ms: 7 * 24 * 60 * 60_000 },
   { label: "30 days", ms: 30 * 24 * 60 * 60_000 },
 ];
+const WINDOW_OPTIONS = WINDOWS.map((w) => ({ value: w.ms, label: `Last ${w.label}` }));
 const windowMs = ref(WINDOWS[1].ms);
+
+function onWindowChange(ms: number) {
+  windowMs.value = ms;
+  load();
+}
 
 const summary = ref<UsageSummary | null>(null);
 const topTools = ref<TopToolRow[]>([]);
@@ -75,9 +82,12 @@ onMounted(load);
   <section>
     <PageHeader title="Usage">
       <div class="window-control">
-        <select v-model.number="windowMs" aria-label="Time window" @change="load">
-          <option v-for="w in WINDOWS" :key="w.ms" :value="w.ms">Last {{ w.label }}</option>
-        </select>
+        <SelectMenu
+          :model-value="windowMs"
+          aria-label="Time window"
+          :options="WINDOW_OPTIONS"
+          @update:model-value="onWindowChange"
+        />
         <span v-if="loading" class="loading-note">Loading…</span>
       </div>
     </PageHeader>
@@ -180,12 +190,6 @@ onMounted(load);
 </template>
 
 <style scoped>
-.window-control select {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-}
 .window-control {
   display: flex;
   align-items: center;

@@ -11,6 +11,7 @@ import {
   type ConnectScope,
 } from "@/utils/connectTemplates";
 import ModalShell from "@/components/ui/ModalShell.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { Copy, Check } from "lucide-vue-next";
 
 const props = defineProps<{
@@ -21,7 +22,13 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ close: [] }>();
 
-const CLIENT_OPTIONS = Object.values(CONNECT_TEMPLATES).map((t) => ({ id: t.id, label: t.label }));
+const CLIENT_OPTIONS = Object.values(CONNECT_TEMPLATES).map((t) => ({ value: t.id, label: t.label }));
+
+const SCOPE_OPTIONS: { value: ConnectScope; label: string }[] = [
+  { value: "client", label: "A single server" },
+  { value: "bundle", label: "A curated bundle" },
+  { value: "aggregated", label: "Everything (aggregated /mcp)" },
+];
 
 const clientId = ref<ConnectClientId>("claude-desktop");
 const scope = ref<ConnectScope>(props.presetScope);
@@ -80,13 +87,20 @@ watch(
   },
 );
 
-const targetOptions = computed(() =>
-  scope.value === "client"
-    ? clients.value.map((c) => c.name)
-    : scope.value === "bundle"
-      ? bundles.value.map((b) => b.name)
-      : [],
-);
+const targetSelectOptions = computed(() => {
+  const names =
+    scope.value === "client"
+      ? clients.value.map((c) => c.name)
+      : scope.value === "bundle"
+        ? bundles.value.map((b) => b.name)
+        : [];
+  return [{ value: "", label: "— choose one —", disabled: true }, ...names.map((n) => ({ value: n, label: n }))];
+});
+
+// Target create destination follows scope: a "server" here is a registered
+// upstream client (see clients.value above), not an MCP client app.
+const targetCreatePath = computed(() => (scope.value === "client" ? "/register-server" : "/bundles"));
+const targetCreateLabel = computed(() => (scope.value === "client" ? "Add server" : "Create bundle"));
 
 // Snippets never carry a real key — always a clearly-marked placeholder the
 // user swaps out by hand (see the module doc comment in connectTemplates.ts).
@@ -133,26 +147,23 @@ async function copySnippet() {
     <div class="form-grid">
       <label
         >Client
-        <select v-model="clientId">
-          <option v-for="opt in CLIENT_OPTIONS" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
-        </select>
+        <SelectMenu v-model="clientId" :options="CLIENT_OPTIONS" />
       </label>
 
       <label
         >Connect to
-        <select v-model="scope">
-          <option value="client">A single server</option>
-          <option value="bundle">A curated bundle</option>
-          <option value="aggregated">Everything (aggregated /mcp)</option>
-        </select>
+        <SelectMenu v-model="scope" :options="SCOPE_OPTIONS" />
       </label>
 
       <label v-if="scope !== 'aggregated'"
         >{{ scope === "client" ? "Server" : "Bundle" }}
-        <select v-model="targetName">
-          <option value="" disabled>— choose one —</option>
-          <option v-for="n in targetOptions" :key="n" :value="n">{{ n }}</option>
-        </select>
+        <SelectMenu
+          v-model="targetName"
+          :options="targetSelectOptions"
+          :create-path="targetCreatePath"
+          :create-label="targetCreateLabel"
+          :reload="loadContext"
+        />
       </label>
 
       <label
@@ -222,8 +233,7 @@ async function copySnippet() {
   font-size: var(--text-sm);
   font-weight: 600;
 }
-.form-grid input,
-.form-grid select {
+.form-grid input {
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);

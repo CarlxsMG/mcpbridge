@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 
 /**
  * Renders a lightweight form from a JSON Schema's top-level properties so an
@@ -69,6 +70,15 @@ watch(
   { deep: true },
 );
 
+function enumOptions(f: Field): { value: string; label: string }[] {
+  return [{ value: "", label: "—" }, ...(f.enum ?? []).map((opt) => ({ value: opt, label: opt }))];
+}
+
+function setEnumValue(name: string, v: string) {
+  values.value[name] = v;
+  emitArgs();
+}
+
 function emitArgs() {
   const out: Record<string, unknown> = {};
   for (const f of fields.value) {
@@ -117,10 +127,13 @@ function emitArgs() {
         type="checkbox"
         @change="emitArgs"
       />
-      <select v-else-if="f.kind === 'enum'" :id="`sf-${f.name}`" v-model="values[f.name]" @change="emitArgs">
-        <option value="">—</option>
-        <option v-for="opt in f.enum" :key="opt" :value="opt">{{ opt }}</option>
-      </select>
+      <SelectMenu
+        v-else-if="f.kind === 'enum'"
+        :id="`sf-${f.name}`"
+        :model-value="values[f.name] as string"
+        :options="enumOptions(f)"
+        @update:model-value="(v) => setEnumValue(f.name, v)"
+      />
       <textarea
         v-else-if="f.kind === 'json'"
         :id="`sf-${f.name}`"

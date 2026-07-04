@@ -19,7 +19,14 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import SearchInput from "@/components/ui/SearchInput.vue";
 import PaginationBar from "@/components/ui/PaginationBar.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { Server, Tags, ChevronRight } from "lucide-vue-next";
+
+const ENABLED_FILTER_OPTIONS = [
+  { value: "", label: "All states" },
+  { value: "true", label: "Enabled only" },
+  { value: "false", label: "Disabled only" },
+];
 
 const route = useRoute();
 
@@ -256,11 +263,7 @@ onMounted(() => load());
       </div>
       <div class="field">
         <label for="d-state">State</label>
-        <select id="d-state" v-model="enabledFilter">
-          <option value="">All states</option>
-          <option value="true">Enabled only</option>
-          <option value="false">Disabled only</option>
-        </select>
+        <SelectMenu id="d-state" v-model="enabledFilter" :options="ENABLED_FILTER_OPTIONS" />
       </div>
       <button type="submit" class="btn-secondary">Apply</button>
     </form>
