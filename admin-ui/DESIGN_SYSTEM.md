@@ -288,7 +288,7 @@ form/save/filter/format pattern that feels generic** — it probably already exi
   `ServerDetailTeam.vue`. `usePatchTool.ts` builds a tool-scoped variant on top of it.
 - **`useDraftField<T>(source: () => T, save: (value: T) => Promise<unknown>, options?: { fallbackMessage?: string; isEqual?: (a: T, b: T) => boolean })`**
   — Generalizes the draft/dirty/save trio: `draft` ref seeded from `source()`, `dirty` computed
-  *live* against `source()` (not a snapshot taken at construction), `saving`/`errorMessage` refs,
+  _live_ against `source()` (not a snapshot taken at construction), `saving`/`errorMessage` refs,
   `sync()` to pull a fresh value in after a reload, `commit()` to save (no-ops if not dirty). **Use
   when:** a field needs local edit state tracked against "changed vs. current source" plus a save
   action (description/tools/schema/steps-style fields). **Example:** see `BundleDetailPage.vue`
