@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useRouter, onBeforeRouteLeave } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { BundleDetail, BundleToolRef } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
@@ -40,7 +41,12 @@ const toolsDirty = computed(() => {
   return current.size !== draft.size || [...current].some((k) => !draft.has(k));
 });
 
-const pendingDelete = ref(false);
+const {
+  pending: pendingDelete,
+  request: requestDeleteConfirm,
+  cancel: cancelDelete,
+  confirm: confirmDeleteAction,
+} = useConfirmAction<true>();
 const deleting = ref(false);
 const connectOpen = ref(false);
 const shareOpen = ref(false);
@@ -100,23 +106,24 @@ async function toggleEnabled() {
 }
 
 function requestDelete() {
-  pendingDelete.value = true;
+  requestDeleteConfirm(true);
 }
 
 const deleted = ref(false);
 
-async function confirmDelete() {
-  pendingDelete.value = false;
-  deleteError.value = "";
-  deleting.value = true;
-  try {
-    await api.delete(`/admin-api/bundles/${encodeURIComponent(props.name)}`);
-    deleted.value = true;
-    router.push("/bundles");
-  } catch (err) {
-    deleteError.value = err instanceof ApiError ? err.message : "Failed to delete bundle.";
-    deleting.value = false;
-  }
+function confirmDelete() {
+  return confirmDeleteAction(async () => {
+    deleteError.value = "";
+    deleting.value = true;
+    try {
+      await api.delete(`/admin-api/bundles/${encodeURIComponent(props.name)}`);
+      deleted.value = true;
+      router.push("/bundles");
+    } catch (err) {
+      deleteError.value = err instanceof ApiError ? err.message : "Failed to delete bundle.";
+      deleting.value = false;
+    }
+  });
 }
 
 const pendingLeave = ref(false);
@@ -211,13 +218,13 @@ function cancelLeave() {
     </template>
 
     <ConfirmDialog
-      :open="pendingDelete"
+      :open="pendingDelete !== null"
       title="Delete this bundle?"
       :message="`'${name}' and its /mcp-custom/${name} endpoint will stop working immediately for any connected MCP agent. This cannot be undone.`"
       :confirm-label="`Delete ${name}`"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = false"
+      @cancel="cancelDelete"
     />
 
     <ConfirmDialog

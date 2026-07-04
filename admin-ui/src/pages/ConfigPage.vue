@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { ConfigImportResult, ConfigSnapshotSummary, ConfigDiffResult } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import PageHeader from "../components/PageHeader.vue";
@@ -14,15 +15,30 @@ const result = ref<ConfigImportResult | null>(null);
 const resultKind = ref<"import" | "rollback">("import");
 const busy = ref(false);
 const errorMessage = ref("");
-const pendingImportConfirm = ref(false);
+const {
+  pending: pendingImportConfirm,
+  request: requestImportConfirm,
+  cancel: cancelImportConfirm,
+  confirm: confirmImportAction,
+} = useConfirmAction<true>();
 
 // Version history
 const snapshots = ref<ConfigSnapshotSummary[]>([]);
 const newSnapshotLabel = ref("");
 const snapshotBusy = ref(false);
 const diff = ref<ConfigDiffResult | null>(null);
-const pendingRollback = ref<ConfigSnapshotSummary | null>(null);
-const pendingDeleteSnapshot = ref<ConfigSnapshotSummary | null>(null);
+const {
+  pending: pendingRollback,
+  request: requestRollback,
+  cancel: cancelRollback,
+  confirm: confirmRollbackAction,
+} = useConfirmAction<ConfigSnapshotSummary>();
+const {
+  pending: pendingDeleteSnapshot,
+  request: requestDeleteSnapshot,
+  cancel: cancelDeleteSnapshot,
+  confirm: confirmDeleteSnapshotAction,
+} = useConfirmAction<ConfigSnapshotSummary>();
 const snapshotsError = ref("");
 
 async function loadSnapshots() {
@@ -61,41 +77,31 @@ async function showDiff(s: ConfigSnapshotSummary) {
   }
 }
 
-function requestRollback(s: ConfigSnapshotSummary) {
-  pendingRollback.value = s;
-}
-
 async function confirmRollback() {
-  if (!pendingRollback.value) return;
-  const s = pendingRollback.value;
-  pendingRollback.value = null;
-  snapshotBusy.value = true;
-  errorMessage.value = "";
-  try {
-    resultKind.value = "rollback";
-    result.value = await api.post<ConfigImportResult>(`/admin-api/config/snapshots/${s.id}/rollback`, {});
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Rollback failed.";
-  } finally {
-    snapshotBusy.value = false;
-  }
-}
-
-function requestDeleteSnapshot(s: ConfigSnapshotSummary) {
-  pendingDeleteSnapshot.value = s;
+  await confirmRollbackAction(async (s) => {
+    snapshotBusy.value = true;
+    errorMessage.value = "";
+    try {
+      resultKind.value = "rollback";
+      result.value = await api.post<ConfigImportResult>(`/admin-api/config/snapshots/${s.id}/rollback`, {});
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Rollback failed.";
+    } finally {
+      snapshotBusy.value = false;
+    }
+  });
 }
 
 async function confirmDeleteSnapshot() {
-  if (!pendingDeleteSnapshot.value) return;
-  const s = pendingDeleteSnapshot.value;
-  pendingDeleteSnapshot.value = null;
-  try {
-    await api.delete(`/admin-api/config/snapshots/${s.id}`);
-    if (diff.value?.from.id === s.id) diff.value = null;
-    await loadSnapshots();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Delete failed.";
-  }
+  await confirmDeleteSnapshotAction(async (s) => {
+    try {
+      await api.delete(`/admin-api/config/snapshots/${s.id}`);
+      if (diff.value?.from.id === s.id) diff.value = null;
+      await loadSnapshots();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Delete failed.";
+    }
+  });
 }
 
 function fmt(v: unknown): string {
@@ -150,12 +156,13 @@ async function runImport(dryRun: boolean) {
 }
 
 function requestImport() {
-  pendingImportConfirm.value = true;
+  requestImportConfirm(true);
 }
 
 async function confirmImport() {
-  pendingImportConfirm.value = false;
-  await runImport(false);
+  await confirmImportAction(async () => {
+    await runImport(false);
+  });
 }
 </script>
 
@@ -323,13 +330,13 @@ async function confirmImport() {
     </div>
 
     <ConfirmDialog
-      :open="pendingImportConfirm"
+      :open="pendingImportConfirm !== null"
       title="Apply this import?"
       message="This overwrites bundles, alert rules, and per-client/tool configuration on already-registered servers with the contents of the pasted document. This cannot be undone from here."
       confirm-label="Apply import"
       danger
       @confirm="confirmImport"
-      @cancel="pendingImportConfirm = false"
+      @cancel="cancelImportConfirm"
     />
 
     <ConfirmDialog
@@ -343,7 +350,7 @@ async function confirmImport() {
       confirm-label="Roll back"
       danger
       @confirm="confirmRollback"
-      @cancel="pendingRollback = null"
+      @cancel="cancelRollback"
     />
 
     <ConfirmDialog
@@ -353,7 +360,7 @@ async function confirmImport() {
       :confirm-label="pendingDeleteSnapshot ? `Delete ${pendingDeleteSnapshot.label}` : 'Delete'"
       danger
       @confirm="confirmDeleteSnapshot"
-      @cancel="pendingDeleteSnapshot = null"
+      @cancel="cancelDeleteSnapshot"
     />
   </section>
 </template>

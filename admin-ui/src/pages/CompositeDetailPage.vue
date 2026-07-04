@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useRouter, onBeforeRouteLeave } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -34,7 +35,12 @@ const stepsInput = ref("");
 const stepsError = ref("");
 const savingSteps = ref(false);
 
-const pendingDelete = ref(false);
+const {
+  pending: pendingDelete,
+  request: requestPendingDelete,
+  cancel: cancelDelete,
+  confirm: confirmPendingDelete,
+} = useConfirmAction<true>();
 const deleting = ref(false);
 const deleted = ref(false);
 
@@ -147,20 +153,21 @@ async function toggleEnabled() {
 }
 
 function requestDelete() {
-  pendingDelete.value = true;
+  requestPendingDelete(true);
 }
 
 async function confirmDelete() {
-  pendingDelete.value = false;
-  deleting.value = true;
-  try {
-    await api.delete(`/admin-api/composites/${encodeURIComponent(props.name)}`);
-    deleted.value = true;
-    router.push("/composites");
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete composite.";
-    deleting.value = false;
-  }
+  await confirmPendingDelete(async () => {
+    deleting.value = true;
+    try {
+      await api.delete(`/admin-api/composites/${encodeURIComponent(props.name)}`);
+      deleted.value = true;
+      router.push("/composites");
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete composite.";
+      deleting.value = false;
+    }
+  });
 }
 </script>
 
@@ -234,13 +241,13 @@ async function confirmDelete() {
     </template>
 
     <ConfirmDialog
-      :open="pendingDelete"
+      :open="pendingDelete !== null"
       title="Delete this composite?"
       :message="`MCP clients calling '${name}' will start failing immediately. This cannot be undone.`"
       :confirm-label="`Delete ${name}`"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = false"
+      @cancel="cancelDelete"
     />
 
     <ConfirmDialog

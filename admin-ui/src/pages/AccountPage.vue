@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import { useAuth } from "../composables/useAuth";
 import { useTheme } from "../composables/useTheme";
 import { useDensity } from "../composables/useDensity";
@@ -81,24 +82,28 @@ const {
   "Failed to load active sessions.",
 );
 
-const pendingRevoke = ref<AdminSession | null>(null);
+const {
+  pending: pendingRevoke,
+  request: requestRevokeAction,
+  cancel: cancelRevoke,
+  confirm: confirmRevokeAction,
+} = useConfirmAction<AdminSession>();
 const revokeError = ref("");
 
 function requestRevoke(session: AdminSession) {
   revokeError.value = "";
-  pendingRevoke.value = session;
+  requestRevokeAction(session);
 }
 
 async function confirmRevoke() {
-  if (!pendingRevoke.value) return;
-  const session = pendingRevoke.value;
-  pendingRevoke.value = null;
-  try {
-    await api.delete(`/admin-api/auth/sessions/${session.id}`);
-    await loadSessions();
-  } catch (err) {
-    revokeError.value = err instanceof ApiError ? err.message : "Failed to revoke session.";
-  }
+  await confirmRevokeAction(async (session) => {
+    try {
+      await api.delete(`/admin-api/auth/sessions/${session.id}`);
+      await loadSessions();
+    } catch (err) {
+      revokeError.value = err instanceof ApiError ? err.message : "Failed to revoke session.";
+    }
+  });
 }
 
 // The session list has no field identifying "this is the session you're using
@@ -275,7 +280,7 @@ onMounted(loadSessions);
       confirm-label="Sign out device"
       danger
       @confirm="confirmRevoke"
-      @cancel="pendingRevoke = null"
+      @cancel="cancelRevoke"
     />
   </section>
 </template>
