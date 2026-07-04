@@ -1,24 +1,28 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
-import { useRouter, useRoute } from "vue-router";
-import { api, ApiError } from "../composables/useApi";
+import { useRoute } from "vue-router";
+import { api } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useQueryFilters } from "../composables/useQueryFilters";
 import { useCursorPagination } from "../composables/useCursorPagination";
+import { toErrorMessage } from "@/utils/errors";
+import { formatDateTime } from "@/utils/format";
 import type { TrafficRecord, PaginatedResult } from "../types/api";
 import TimeSeriesChart from "@/components/charts/TimeSeriesChart.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
 import PaginationBar from "@/components/ui/PaginationBar.vue";
 import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 
-const router = useRouter();
 const route = useRoute();
 
-const clientFilter = ref(typeof route.query.client === "string" ? route.query.client : "");
-const toolFilter = ref(typeof route.query.tool === "string" ? route.query.tool : "");
+const { filters, syncUrl } = useQueryFilters(["client", "tool"] as const);
+const clientFilter = filters.client;
+const toolFilter = filters.tool;
 const errorsOnly = ref(route.query.errors === "true");
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
 
@@ -50,27 +54,13 @@ const {
   {
     initialCursor,
     fallbackMessage: "Failed to load traffic. Check your connection and try again.",
-    onCursorChange: (cursor) =>
-      router.replace({
-        query: {
-          client: clientFilter.value.trim() || undefined,
-          tool: toolFilter.value.trim() || undefined,
-          errors: errorsOnly.value ? "true" : undefined,
-          cursor,
-        },
-      }),
+    onCursorChange: (cursor) => syncUrl({ errors: errorsOnly.value ? "true" : undefined, cursor }),
   },
 );
 
 function applyFilters() {
   reset();
-  router.replace({
-    query: {
-      client: clientFilter.value.trim() || undefined,
-      tool: toolFilter.value.trim() || undefined,
-      errors: errorsOnly.value ? "true" : undefined,
-    },
-  });
+  syncUrl({ errors: errorsOnly.value ? "true" : undefined });
   load();
 }
 
@@ -131,7 +121,7 @@ function confirmReplay() {
       const text = res.content?.map((c) => c.text).join(" ") ?? "(no content)";
       replayNote.value = { id: r.id, ok: !res.isError, text: text.length > 300 ? `${text.slice(0, 300)}…` : text };
     } catch (err) {
-      replayNote.value = { id: r.id, ok: false, text: err instanceof ApiError ? err.message : "Replay failed." };
+      replayNote.value = { id: r.id, ok: false, text: toErrorMessage(err, "Replay failed.") };
     } finally {
       replayingId.value = null;
     }
@@ -140,16 +130,12 @@ function confirmReplay() {
 </script>
 
 <template>
-  <section>
-    <header class="page-header">
-      <div>
-        <h1>Traffic</h1>
-        <p class="subtitle">
-          Captured request/response calls. Capture is opt-in (<code>TRAFFIC_CAPTURE=true</code> on the server) — an
-          empty list here can mean either capture is off or there's genuinely nothing recent.
-        </p>
-      </div>
-    </header>
+  <section class="list-shell">
+    <PageHeader title="Traffic" />
+    <p class="subtitle">
+      Captured request/response calls. Capture is opt-in (<code>TRAFFIC_CAPTURE=true</code> on the server) — an empty
+      list here can mean either capture is off or there's genuinely nothing recent.
+    </p>
 
     <form class="filter-row" @submit.prevent="applyFilters">
       <div class="filter-field">
@@ -166,19 +152,19 @@ function confirmReplay() {
       </button>
     </form>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <p v-if="replayNote" :class="replayNote.ok ? 'success' : 'error'" role="status">
       Replayed call #{{ replayNote.id }} against the upstream tool — {{ replayNote.ok ? "succeeded" : "failed" }}:
       {{ replayNote.text }}
     </p>
 
-    <SignalLoader v-if="loading && !records.length" />
-    <EmptyState v-else-if="records.length === 0" :icon="ArrowLeftRight">
-      No traffic recorded yet. If <code>TRAFFIC_CAPTURE</code> isn't set on the server, calls aren't being recorded —
-      enable it, then check back after your next request.
-    </EmptyState>
+    <ListLayout :loading="loading && !records.length" :error="errorMessage" :empty="records.length === 0">
+      <template #empty>
+        <EmptyState :icon="ArrowLeftRight">
+          No traffic recorded yet. If <code>TRAFFIC_CAPTURE</code> isn't set on the server, calls aren't being recorded
+          — enable it, then check back after your next request.
+        </EmptyState>
+      </template>
 
-    <template v-else>
       <ChartCard title="Call volume" dotted>
         <TimeSeriesChart
           :points="chart.points"
@@ -202,11 +188,11 @@ function confirmReplay() {
         </thead>
         <tbody>
           <tr v-for="r in records" :key="r.id">
-            <td class="mono">{{ new Date(r.createdAt).toLocaleString() }}</td>
+            <td class="mono">{{ formatDateTime(r.createdAt) }}</td>
             <td class="mono">{{ r.clientName ?? "—" }}/{{ r.toolName ?? r.mcpToolName }}</td>
             <td>{{ formatDuration(r.durationMs) }}</td>
             <td :class="{ hot: r.isError }">{{ r.isError ? "Error" : "OK" }}</td>
-            <td class="preview" :title="r.preview">{{ r.preview }}</td>
+            <td class="cell-truncate" :title="r.preview">{{ r.preview }}</td>
             <td>
               <div class="actions">
                 <button
@@ -225,11 +211,11 @@ function confirmReplay() {
         </tbody>
       </TableCard>
 
-      <div class="pagination">
+      <div class="sticky-pagination">
         <PaginationBar :has-prev="hasPrev" :has-next="hasNext" @prev="prevPage" @next="nextPage" />
         <p class="subtitle">{{ records.length }} record(s) on this page</p>
       </div>
-    </template>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingReplay !== null"
@@ -248,31 +234,10 @@ function confirmReplay() {
 </template>
 
 <style scoped>
-section {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
   max-width: 40rem;
-}
-.filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
 }
 .filter-field {
   display: flex;
@@ -311,41 +276,12 @@ section {
 :deep(.data-table th) {
   white-space: nowrap;
 }
-.mono {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-.preview {
+.cell-truncate {
   max-width: 20rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--text-secondary);
-}
-.hot {
-  color: var(--breach);
-  font-weight: 600;
 }
 .actions {
   white-space: nowrap;
-}
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-top: auto;
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
-  background: var(--paper);
-  padding: var(--space-3) 0;
-}
-.pagination .subtitle {
-  margin-left: 0.4rem;
-}
-.error {
-  color: var(--breach);
 }
 .success {
   color: var(--ok);

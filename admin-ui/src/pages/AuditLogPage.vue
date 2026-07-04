@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
+import { toErrorMessage } from "@/utils/errors";
+import { formatDateTime, prettyJson } from "@/utils/format";
+import { downloadTextFile } from "@/utils/download";
 import type { AuditLogEntry, PaginatedResult } from "../types/api";
 import { ScrollText, CheckCircle2, XCircle } from "lucide-vue-next";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -91,21 +94,13 @@ async function exportLog() {
     // getRaw-then-Blob download, just with a different format= and mime type.
     const content =
       exportFormat.value === "json"
-        ? JSON.stringify(
+        ? prettyJson(
             (await api.get<{ items: AuditLogEntry[] }>(`/admin-api/audit-log/export?${params.toString()}`)).items,
-            null,
-            2,
           )
         : await api.getRaw(`/admin-api/audit-log/export?${params.toString()}`);
-    const blob = new Blob([content], { type: EXPORT_MIME[exportFormat.value] });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `audit-log.${exportFormat.value}`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadTextFile(`audit-log.${exportFormat.value}`, content, EXPORT_MIME[exportFormat.value]);
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Export failed.";
+    errorMessage.value = toErrorMessage(err, "Export failed.");
   } finally {
     exporting.value = false;
   }
@@ -122,7 +117,7 @@ async function verifyIntegrity() {
       "/admin-api/audit-log/verify",
     );
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Verification failed.";
+    errorMessage.value = toErrorMessage(err, "Verification failed.");
   } finally {
     verifying.value = false;
   }
@@ -209,7 +204,7 @@ onMounted(() => {
       </thead>
       <tbody>
         <tr v-for="entry in entries" :key="entry.id">
-          <td>{{ new Date(entry.createdAt).toLocaleString() }}</td>
+          <td>{{ formatDateTime(entry.createdAt) }}</td>
           <td>{{ entry.actor }}</td>
           <td>
             <code>{{ entry.action }}</code>
@@ -218,7 +213,7 @@ onMounted(() => {
           <td>
             <details v-if="entry.detail" class="detail-disclosure">
               <summary>View</summary>
-              <pre>{{ JSON.stringify(entry.detail, null, 2) }}</pre>
+              <pre>{{ prettyJson(entry.detail) }}</pre>
             </details>
             <span v-else class="detail-none">—</span>
           </td>
@@ -300,9 +295,6 @@ onMounted(() => {
 }
 .detail-none {
   color: var(--text-muted);
-}
-.error {
-  color: var(--breach);
 }
 .integrity {
   display: flex;

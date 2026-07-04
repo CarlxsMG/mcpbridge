@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useQueryFilters } from "../composables/useQueryFilters";
 import { useCursorPagination } from "../composables/useCursorPagination";
 import { useLoadState } from "../composables/useResource";
+import { toErrorMessage } from "@/utils/errors";
+import { formatDateTime, formatDuration, prettyJson } from "@/utils/format";
 import type { TraceSummary, StoredSpan, TopSessionRow, PaginatedResult } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
 import MiniBarChart from "@/components/charts/MiniBarChart.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
@@ -20,8 +24,9 @@ const router = useRouter();
 const route = useRoute();
 
 const spans = ref<StoredSpan[] | null>(null);
-const toolFilter = ref(typeof route.query.tool === "string" ? route.query.tool : "");
-const sessionFilter = ref(typeof route.query.session_id === "string" ? route.query.session_id : "");
+const { filters, syncUrl } = useQueryFilters(["tool", "session_id"] as const);
+const toolFilter = filters.tool;
+const sessionFilter = filters.session_id;
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
 const {
   pending: pendingPurge,
@@ -41,14 +46,6 @@ function buildListQuery(cursor?: string): string {
   return params.toString();
 }
 
-function currentFilterQuery(cursor?: string): Record<string, string | undefined> {
-  return {
-    tool: toolFilter.value.trim() || undefined,
-    session_id: sessionFilter.value.trim() || undefined,
-    cursor,
-  };
-}
-
 const {
   items: traces,
   loading: listLoading,
@@ -63,7 +60,7 @@ const {
   (cursor) => api.get<PaginatedResult<TraceSummary>>(`/admin-api/traces?${buildListQuery(cursor)}`),
   {
     initialCursor,
-    onCursorChange: (cursor) => router.replace({ query: currentFilterQuery(cursor) }),
+    onCursorChange: (cursor) => syncUrl({ cursor }),
     fallbackMessage: "Failed to load traces.",
   },
 );
@@ -89,7 +86,7 @@ async function loadTopSessions() {
 
 function applyFilters() {
   reset();
-  router.replace({ query: currentFilterQuery() });
+  syncUrl();
   loadList();
 }
 
@@ -143,15 +140,11 @@ async function confirmPurge() {
       await loadList();
       await loadTopSessions();
     } catch (err) {
-      listErrorMessage.value = err instanceof ApiError ? err.message : "Failed to purge traces.";
+      listErrorMessage.value = toErrorMessage(err, "Failed to purge traces.");
     } finally {
       purging.value = false;
     }
   });
-}
-
-function fmtDuration(ms: number): string {
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`;
 }
 
 /** Short display form of a session id (first 8 hex chars) — full id shown on hover / used for filtering. */
@@ -187,18 +180,14 @@ const waterfall = computed(() => {
 </script>
 
 <template>
-  <section>
-    <header class="page-header">
-      <div>
-        <h1>Traces</h1>
-        <p class="subtitle">
-          Per-call span timing for a built-in waterfall view — independent of any external OTLP collector. Opt-in (<code
-            >TRACE_STORAGE=true</code
-          >
-          on the server) — an empty list can mean either storage is off or there's genuinely nothing recent.
-        </p>
-      </div>
-    </header>
+  <section class="list-shell">
+    <PageHeader title="Traces" />
+    <p class="subtitle">
+      Per-call span timing for a built-in waterfall view — independent of any external OTLP collector. Opt-in (<code
+        >TRACE_STORAGE=true</code
+      >
+      on the server) — an empty list can mean either storage is off or there's genuinely nothing recent.
+    </p>
 
     <template v-if="!traceId">
       <form class="filter-row" @submit.prevent="applyFilters">
@@ -230,45 +219,47 @@ const waterfall = computed(() => {
         <MiniBarChart :rows="topSessionsChart" />
       </ChartCard>
 
-      <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-      <SignalLoader v-if="loading && !traces.length" />
-      <EmptyState v-else-if="traces.length === 0" :icon="Waypoints">No traces recorded yet.</EmptyState>
+      <ListLayout :loading="loading && !traces.length" :error="errorMessage" :empty="traces.length === 0">
+        <template #empty>
+          <EmptyState :icon="Waypoints">No traces recorded yet.</EmptyState>
+        </template>
 
-      <TableCard v-else>
-        <thead>
-          <tr>
-            <th>Started</th>
-            <th>Tool</th>
-            <th>Session</th>
-            <th>Spans</th>
-            <th>Duration</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="t in traces" :key="t.traceId" class="clickable" @click="openTrace(t)">
-            <td class="mono">{{ new Date(t.startMs).toLocaleString() }}</td>
-            <td class="mono">{{ t.mcpToolName ?? "—" }}</td>
-            <td class="mono">
-              <button
-                v-if="t.sessionId"
-                type="button"
-                class="session-badge"
-                :title="`Filter to session ${t.sessionId}`"
-                @click.stop="filterBySession(t.sessionId)"
-              >
-                {{ shortSession(t.sessionId) }}
-              </button>
-              <span v-else>—</span>
-            </td>
-            <td>{{ t.spanCount }}</td>
-            <td>{{ fmtDuration(t.endMs - t.startMs) }}</td>
-            <td :class="{ hot: t.hasError }">{{ t.hasError ? "Error" : "OK" }}</td>
-          </tr>
-        </tbody>
-      </TableCard>
+        <TableCard>
+          <thead>
+            <tr>
+              <th>Started</th>
+              <th>Tool</th>
+              <th>Session</th>
+              <th>Spans</th>
+              <th>Duration</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="t in traces" :key="t.traceId" class="clickable" @click="openTrace(t)">
+              <td class="mono">{{ formatDateTime(t.startMs) }}</td>
+              <td class="mono">{{ t.mcpToolName ?? "—" }}</td>
+              <td class="mono">
+                <button
+                  v-if="t.sessionId"
+                  type="button"
+                  class="session-badge"
+                  :title="`Filter to session ${t.sessionId}`"
+                  @click.stop="filterBySession(t.sessionId)"
+                >
+                  {{ shortSession(t.sessionId) }}
+                </button>
+                <span v-else>—</span>
+              </td>
+              <td>{{ t.spanCount }}</td>
+              <td>{{ formatDuration(t.endMs - t.startMs) }}</td>
+              <td :class="{ hot: t.hasError }">{{ t.hasError ? "Error" : "OK" }}</td>
+            </tr>
+          </tbody>
+        </TableCard>
+      </ListLayout>
 
-      <div class="pagination">
+      <div class="sticky-pagination">
         <PaginationBar :has-prev="hasPrev" :has-next="hasNext" @prev="prevPage" @next="nextPage" />
         <p class="subtitle">{{ traces.length }} trace(s) on this page</p>
       </div>
@@ -276,32 +267,35 @@ const waterfall = computed(() => {
 
     <template v-else>
       <button type="button" class="link-btn back-link" @click="backToList">&larr; Back to traces</button>
-      <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-      <SignalLoader v-if="loading" />
-      <div v-else-if="waterfall.rows.length === 0" class="empty-state">
-        <p>Trace not found.</p>
-      </div>
-      <div v-else class="waterfall-card">
-        <h2>Trace {{ traceId }}</h2>
-        <div class="waterfall">
-          <div v-for="row in waterfall.rows" :key="row.span.id" class="waterfall-row">
-            <div class="waterfall-label" :title="row.span.name">{{ row.span.name }}</div>
-            <div class="waterfall-track">
-              <div
-                class="waterfall-bar"
-                :class="{ hot: row.span.statusCode === 2 }"
-                :style="{ left: `${row.leftPct}%`, width: `${row.widthPct}%` }"
-                :title="`${row.span.name} — ${row.durationMs}ms`"
-              ></div>
-            </div>
-            <div class="waterfall-duration">{{ row.durationMs }}ms</div>
+      <ListLayout :loading="loading" :error="errorMessage" :empty="waterfall.rows.length === 0">
+        <template #empty>
+          <div class="empty-state">
+            <p>Trace not found.</p>
           </div>
+        </template>
+
+        <div class="waterfall-card">
+          <h2>Trace {{ traceId }}</h2>
+          <div class="waterfall">
+            <div v-for="row in waterfall.rows" :key="row.span.id" class="waterfall-row">
+              <div class="waterfall-label" :title="row.span.name">{{ row.span.name }}</div>
+              <div class="waterfall-track">
+                <div
+                  class="waterfall-bar"
+                  :class="{ hot: row.span.statusCode === 2 }"
+                  :style="{ left: `${row.leftPct}%`, width: `${row.widthPct}%` }"
+                  :title="`${row.span.name} — ${row.durationMs}ms`"
+                ></div>
+              </div>
+              <div class="waterfall-duration">{{ row.durationMs }}ms</div>
+            </div>
+          </div>
+          <details class="attrs">
+            <summary>Attributes (last span)</summary>
+            <pre>{{ prettyJson(waterfall.rows[waterfall.rows.length - 1]?.span.attributes ?? {}) }}</pre>
+          </details>
         </div>
-        <details class="attrs">
-          <summary>Attributes (last span)</summary>
-          <pre>{{ JSON.stringify(waterfall.rows[waterfall.rows.length - 1]?.span.attributes ?? {}, null, 2) }}</pre>
-        </details>
-      </div>
+      </ListLayout>
     </template>
 
     <ConfirmDialog
@@ -317,20 +311,6 @@ const waterfall = computed(() => {
 </template>
 
 <style scoped>
-section {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
@@ -377,37 +357,11 @@ section {
   color: var(--signal-strong);
   border-color: var(--signal);
 }
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-top: auto;
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
-  background: var(--paper);
-  padding: var(--space-3) 0;
-}
-.pagination .subtitle {
-  margin-left: 0.4rem;
-}
 .clickable {
   cursor: pointer;
 }
 .clickable:hover {
   background: var(--surface-sunken);
-}
-.mono {
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  white-space: nowrap;
-}
-.hot {
-  color: var(--breach);
-  font-weight: 600;
-}
-.error {
-  color: var(--breach);
 }
 .empty-state p {
   color: var(--text-muted);
