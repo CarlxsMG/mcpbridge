@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import { parseOptionalNumber } from "../composables/fieldParsing";
 import type { AlertRule, AlertEventType } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -12,6 +13,7 @@ import TableCard from "../components/TableCard.vue";
 import EmptyState from "../components/EmptyState.vue";
 import FormField from "../components/FormField.vue";
 import ToggleFormButton from "../components/ToggleFormButton.vue";
+import TogglePill from "../components/TogglePill.vue";
 import { BellRing } from "lucide-vue-next";
 
 const EVENT_LABELS: Record<AlertEventType, string> = {
@@ -48,7 +50,7 @@ const {
   cancel: cancelDisable,
   confirm: confirmActionDisable,
 } = useConfirmAction<AlertRule>();
-const togglingRuleId = ref<number | null>(null);
+const { rowError, toggle: toggleField, isPending } = useOptimisticToggle<AlertRule>((r) => r.id, "Failed to update rule.");
 const testingRuleId = ref<number | null>(null);
 
 const showCreate = ref(false);
@@ -119,29 +121,21 @@ async function createRule() {
   }
 }
 
-async function doToggle(rule: AlertRule, enabled: boolean) {
-  togglingRuleId.value = rule.id;
-  try {
-    await api.patch(`/admin-api/alerts/${rule.id}`, { enabled });
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to update rule.";
-  } finally {
-    togglingRuleId.value = null;
-  }
+function toggleEnabled(rule: AlertRule) {
+  return toggleField(rule, "enabled", (next) => api.patch(`/admin-api/alerts/${rule.id}`, { enabled: next }));
 }
 
 function toggle(rule: AlertRule) {
   if (rule.enabled) {
     requestDisable(rule);
   } else {
-    doToggle(rule, true);
+    toggleEnabled(rule);
   }
 }
 
 function confirmDisable() {
   return confirmActionDisable(async (rule) => {
-    await doToggle(rule, false);
+    await toggleEnabled(rule);
   });
 }
 
@@ -251,16 +245,15 @@ function confirmDelete() {
           <td class="url-cell" :title="rule.webhookUrl">{{ rule.webhookUrl }}</td>
           <td>{{ rule.lastFiredAt ? new Date(rule.lastFiredAt).toLocaleString() : "Never" }}</td>
           <td>
-            <button
-              type="button"
-              class="toggle"
-              :class="rule.enabled ? 'toggle-on' : 'toggle-off'"
+            <TogglePill
+              :on="rule.enabled"
+              on-label="Enabled"
+              off-label="Disabled"
               :aria-pressed="rule.enabled"
-              :disabled="togglingRuleId === rule.id"
+              :disabled="isPending(rule)"
               @click="toggle(rule)"
-            >
-              {{ rule.enabled ? "Enabled" : "Disabled" }}
-            </button>
+            />
+            <p v-if="rowError[rule.id]" class="row-error">{{ rowError[rule.id] }}</p>
           </td>
           <td>
             <div class="actions">
@@ -336,43 +329,10 @@ function confirmDelete() {
   align-items: center;
   gap: 0.75rem;
 }
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  border-radius: var(--radius-pill);
-  padding: 0.28rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--surface);
-  transition: background-color 0.12s ease;
-}
-.toggle::before {
-  content: "";
-  width: 0.55em;
-  height: 0.55em;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-.toggle-on {
-  border: 1px solid var(--ok);
-  color: var(--ok);
-}
-.toggle-off {
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-}
-.toggle-on:hover {
-  background: var(--ok-soft);
-}
-.toggle-off:hover {
-  background: var(--surface-sunken);
-}
-.toggle:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.row-error {
+  color: var(--breach);
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0;
 }
 .success {
   color: var(--ok);

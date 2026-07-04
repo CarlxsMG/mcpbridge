@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import { parseOptionalNumber } from "../composables/fieldParsing";
 import type { WsProxyTarget } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -10,6 +11,7 @@ import SignalLoader from "../components/SignalLoader.vue";
 import TableCard from "../components/TableCard.vue";
 import EmptyState from "../components/EmptyState.vue";
 import FormField from "../components/FormField.vue";
+import TogglePill from "../components/TogglePill.vue";
 import { Waypoints } from "lucide-vue-next";
 
 const {
@@ -35,6 +37,7 @@ const {
   confirm: confirmActionDisconnectAll,
 } = useConfirmAction<WsProxyTarget>();
 const disconnectingName = ref<string | null>(null);
+const { rowError, toggle: toggleField } = useOptimisticToggle<WsProxyTarget>((t) => t.name, "Failed to update target.");
 
 const showCreate = ref(false);
 const newName = ref("");
@@ -117,16 +120,12 @@ async function submitTarget() {
 }
 
 async function toggleEnabled(target: WsProxyTarget) {
-  const next = !target.enabled;
-  try {
-    await api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}`, {
+  await toggleField(target, "enabled", (next) =>
+    api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}`, {
       enabled: next,
       backendWsUrl: target.backendWsUrl,
-    });
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to update target.";
-  }
+    }),
+  );
 }
 
 async function confirmDisconnectAll() {
@@ -225,14 +224,8 @@ async function confirmDelete() {
           <td class="url-cell" :title="t.backendWsUrl">{{ t.backendWsUrl }}</td>
           <td>{{ t.activeConnections }} / {{ t.maxConnections }}</td>
           <td>
-            <button
-              type="button"
-              class="toggle"
-              :class="t.enabled ? 'toggle-on' : 'toggle-off'"
-              @click="toggleEnabled(t)"
-            >
-              {{ t.enabled ? "Enabled" : "Disabled" }}
-            </button>
+            <TogglePill :on="t.enabled" on-label="Enabled" off-label="Disabled" :aria-pressed="t.enabled" @click="toggleEnabled(t)" />
+            <p v-if="rowError[t.name]" class="row-error">{{ rowError[t.name] }}</p>
           </td>
           <td>
             <div class="actions">
@@ -334,39 +327,10 @@ async function confirmDelete() {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  border-radius: var(--radius-pill);
-  padding: 0.28rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--surface);
-  transition: background-color 0.12s ease;
-}
-.toggle::before {
-  content: "";
-  width: 0.55em;
-  height: 0.55em;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-.toggle-on {
-  border: 1px solid var(--ok);
-  color: var(--ok);
-}
-.toggle-off {
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-}
-.toggle-on:hover {
-  background: var(--ok-soft);
-}
-.toggle-off:hover {
-  background: var(--surface-sunken);
+.row-error {
+  color: var(--breach);
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0;
 }
 .error {
   color: var(--breach);

@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import { useClipboard } from "../composables/useClipboard";
 import { parseList } from "../composables/fieldParsing";
 import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "../types/api";
@@ -32,6 +33,8 @@ const creating = ref(false);
 // The raw secret is shown exactly once, right after minting.
 const mintedKey = ref<McpApiKeyWithSecret | null>(null);
 const { copied, copy, reset: resetCopied } = useClipboard();
+
+const { rowError, toggle: toggleField } = useOptimisticToggle<McpApiKey>((k) => k.id, "Failed to update key.");
 
 const {
   pending: pendingDelete,
@@ -121,14 +124,9 @@ async function copyKey() {
   await copy(mintedKey.value.key);
 }
 
-async function toggleEnabled(key: McpApiKey) {
+function toggleEnabled(key: McpApiKey) {
   if (key.revokedAt !== null) return;
-  try {
-    await api.patch(`/admin-api/mcp-keys/${key.id}`, { enabled: !key.enabled });
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to update key.";
-  }
+  toggleField(key, "enabled", (next) => api.patch(`/admin-api/mcp-keys/${key.id}`, { enabled: next }));
 }
 
 function confirmRevoke() {
@@ -250,6 +248,7 @@ function confirmDelete() {
               </button>
               <button type="button" class="link-btn danger" @click="requestDelete(key)">Delete</button>
             </div>
+            <p v-if="rowError[key.id]" class="row-error">{{ rowError[key.id] }}</p>
           </td>
         </tr>
       </tbody>
@@ -395,5 +394,10 @@ function confirmDelete() {
 }
 .error {
   color: var(--breach);
+}
+.row-error {
+  color: var(--breach);
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0;
 }
 </style>
