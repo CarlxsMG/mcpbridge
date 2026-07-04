@@ -16,6 +16,7 @@ import { config } from "./config.js";
 import { log } from "./logger.js";
 import { registry, TOOL_KEY_SEPARATOR } from "./registry.js";
 import { proxyToolCall } from "./proxy.js";
+import { validateBackendUrl } from "./security/ip-validator.js";
 
 export type MonitorStatus = "ok" | "fail";
 
@@ -178,7 +179,7 @@ export async function runSyntheticChecks(now: Date): Promise<number> {
 
     if (status === "fail" || drift) {
       log("warn", "Synthetic monitor flagged a tool", { tool: mcpName, status, drift });
-      notifyMonitor(m.client_name, m.tool_name, status, drift);
+      void notifyMonitor(m.client_name, m.tool_name, status, drift);
     }
     ran++;
   }
@@ -203,9 +204,19 @@ function exampleArgs(exampleId: number): Record<string, unknown> | null {
   }
 }
 
-function notifyMonitor(clientName: string, toolName: string, status: MonitorStatus, drift: boolean): void {
+async function notifyMonitor(
+  clientName: string,
+  toolName: string,
+  status: MonitorStatus,
+  drift: boolean,
+): Promise<void> {
   const url = config.monitorWebhookUrl;
   if (!url) return;
+  const validation = await validateBackendUrl(url, config.allowPrivateIps, config.allowedHosts);
+  if (!validation.valid) {
+    log("warn", "Monitor webhook URL rejected", { client: clientName, tool: toolName, reason: validation.reason });
+    return;
+  }
   void fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

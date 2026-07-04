@@ -13,6 +13,7 @@
  */
 import { getDb } from "./db/connection.js";
 import { config } from "./config.js";
+import { log } from "./logger.js";
 
 export interface TrafficRecord {
   id: number;
@@ -69,22 +70,27 @@ export function recordTraffic(input: {
     (input.result.content ?? []).map((c) => c.text ?? "").join("\n"),
     config.trafficMaxBodyBytes,
   );
-  getDb()
-    .query(
-      `INSERT INTO tool_traffic (mcp_tool_name, client_name, tool_name, key_id, args_json, preview, is_error, duration_ms, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      input.mcpToolName,
-      input.clientName,
-      input.toolName,
-      input.keyId,
-      argsJson,
-      preview,
-      input.result.isError ? 1 : 0,
-      input.durationMs,
-      Date.now(),
-    );
+  try {
+    getDb()
+      .query(
+        `INSERT INTO tool_traffic (mcp_tool_name, client_name, tool_name, key_id, args_json, preview, is_error, duration_ms, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.mcpToolName,
+        input.clientName,
+        input.toolName,
+        input.keyId,
+        argsJson,
+        preview,
+        input.result.isError ? 1 : 0,
+        input.durationMs,
+        Date.now(),
+      );
+  } catch (err) {
+    log("warn", "Failed to record traffic capture", { error: err instanceof Error ? err.message : String(err) });
+    return;
+  }
   if (Math.random() < 0.02) pruneTraffic();
 }
 
