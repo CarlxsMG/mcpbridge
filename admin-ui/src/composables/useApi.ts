@@ -17,6 +17,28 @@ function onLoginPage(): boolean {
   return window.location.pathname.replace(/\/+$/, "").endsWith("/login");
 }
 
+/**
+ * Builds the URL to bounce an unauthenticated user to the login page, preserving
+ * where they were headed as a `redirect` query param.
+ *
+ * `base` is the app's router base (e.g. Vite's `import.meta.env.BASE_URL`, which is
+ * "/admin/" in the real product build and "/<repo>/demo/" in the public demo build —
+ * see admin-ui/vite.config.ts). The post-login `router.push()` treats `redirect` as
+ * base-relative (the router is mounted with `createWebHistory(base)`), so that prefix
+ * must be stripped from `pathname` here or the post-login push doubles it up (e.g.
+ * base "/admin/" + pathname "/admin/keys" -> "/admin/admin/keys" instead of "/admin/keys").
+ *
+ * `base` always ends in "/" (Vite's convention), but the pathname prefix to strip does
+ * not (e.g. strip "/admin", not "/admin/"), so it's normalized before comparing.
+ */
+export function loginRedirectUrl(pathname: string, search: string, base: string): string {
+  const prefix = base.replace(/\/$/, "");
+  const strippedPath = prefix !== "" && pathname.startsWith(prefix) ? pathname.slice(prefix.length) || "/" : pathname;
+  const redirect = encodeURIComponent(strippedPath + search);
+  const baseWithSlash = base.endsWith("/") ? base : `${base}/`;
+  return `${baseWithSlash}login?redirect=${redirect}`;
+}
+
 async function rawFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
@@ -32,15 +54,11 @@ async function rawFetch(path: string, init: RequestInit = {}): Promise<Response>
 
   if (res.status === 401) {
     if (!onLoginPage()) {
-      // router.push() on the login page treats `redirect` as base-relative (the
-      // router is mounted with createWebHistory("/admin/")), so the "/admin"
-      // prefix must be stripped here or the post-login push doubles it up
-      // (e.g. /admin/keys -> /admin/admin/keys).
-      const pathname = window.location.pathname.startsWith("/admin")
-        ? window.location.pathname.slice("/admin".length) || "/"
-        : window.location.pathname;
-      const redirect = encodeURIComponent(pathname + window.location.search);
-      window.location.href = `/admin/login?redirect=${redirect}`;
+      window.location.href = loginRedirectUrl(
+        window.location.pathname,
+        window.location.search,
+        import.meta.env.BASE_URL,
+      );
     }
     throw new ApiError(401, "UNAUTHORIZED", "Not authenticated");
   }
