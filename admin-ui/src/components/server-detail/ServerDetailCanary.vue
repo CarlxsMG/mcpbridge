@@ -39,8 +39,12 @@ async function saveCanary() {
   }
 }
 
-const { pending: pendingClearCanary, request: requestClearCanary, cancel: cancelClearCanary, confirm: confirmClearCanaryAction } =
-  useConfirmAction<true>();
+const {
+  pending: pendingClearCanary,
+  request: requestClearCanary,
+  cancel: cancelClearCanary,
+  confirm: confirmClearCanaryAction,
+} = useConfirmAction<true>();
 
 function requestClear() {
   requestClearCanary(true);

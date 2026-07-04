@@ -239,7 +239,13 @@ async function resetBreaker() {
 
     <!-- Guard editor drawer -->
     <div v-if="tool && activeTool" class="drawer-overlay" @click="closeGuardEditor"></div>
-    <div v-if="tool && activeTool" class="drawer" role="dialog" aria-modal="true" :aria-label="`Guards — ${activeTool.name}`">
+    <div
+      v-if="tool && activeTool"
+      class="drawer"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="`Guards — ${activeTool.name}`"
+    >
       <div class="drawer-header">
         <h2>Guards — {{ activeTool.name }}</h2>
         <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">Close</button>

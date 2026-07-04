@@ -33,7 +33,9 @@ async function previewResync() {
   }
   resyncing.value = true;
   try {
-    const res = await api.post<DiscoveryPreview>("/admin-api/discovery/preview", { openapi_url: resyncUrl.value.trim() });
+    const res = await api.post<DiscoveryPreview>("/admin-api/discovery/preview", {
+      openapi_url: resyncUrl.value.trim(),
+    });
     resyncPreview.value = res.tools;
   } catch (err) {
     resyncError.value = err instanceof ApiError ? err.message : "Preview failed.";
@@ -91,7 +93,9 @@ async function rediscoverMcp() {
         {{ applyingResync ? "Discovering…" : "Re-discover from MCP server" }}
       </button>
     </div>
-    <p class="ua-status">Re-connects to <code>{{ detail.mcpUrl }}</code> and refreshes this server's tool list.</p>
+    <p class="ua-status">
+      Re-connects to <code>{{ detail.mcpUrl }}</code> and refreshes this server's tool list.
+    </p>
     <p v-if="resyncError" class="error">{{ resyncError }}</p>
   </div>
 

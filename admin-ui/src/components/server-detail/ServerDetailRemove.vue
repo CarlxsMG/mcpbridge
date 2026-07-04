@@ -38,9 +38,9 @@ function confirmRemoveServer() {
       <h2>Remove server</h2>
     </div>
     <p class="ua-status">
-      Unlike Disable above, this permanently deletes the server's registration, guards, and all per-tool
-      configuration. Connected MCP agents lose access to its tools immediately, and this can't be undone — Disable
-      above is the reversible alternative.
+      Unlike Disable above, this permanently deletes the server's registration, guards, and all per-tool configuration.
+      Connected MCP agents lose access to its tools immediately, and this can't be undone — Disable above is the
+      reversible alternative.
     </p>
     <button type="button" class="btn-danger" @click="requestRemoveServer">Remove server</button>
     <p v-if="removeError" class="error">{{ removeError }}</p>

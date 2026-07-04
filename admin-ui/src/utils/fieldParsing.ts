@@ -14,7 +14,10 @@ export interface NumberFieldResult {
   error: string | null;
 }
 
-export function parseOptionalNumber(raw: string, errorMessage = "Must be a plain number, or blank."): NumberFieldResult {
+export function parseOptionalNumber(
+  raw: string,
+  errorMessage = "Must be a plain number, or blank.",
+): NumberFieldResult {
   const trimmed = raw.trim();
   if (trimmed === "") return { value: null, error: null };
   const n = Number(trimmed);

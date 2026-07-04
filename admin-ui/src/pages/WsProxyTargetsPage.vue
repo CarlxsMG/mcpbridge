@@ -88,9 +88,18 @@ async function submitTarget() {
     createError.value = "Name and backend WebSocket URL are required.";
     return;
   }
-  const maxConnectionsResult = parseOptionalNumber(newMaxConnections.value, "Max connections must be a plain number, or blank.");
-  const maxMessageBytesResult = parseOptionalNumber(newMaxMessageBytes.value, "Max message size must be a plain number, or blank.");
-  const idleTimeoutMinutesResult = parseOptionalNumber(newIdleTimeoutMinutes.value, "Idle timeout must be a plain number, or blank.");
+  const maxConnectionsResult = parseOptionalNumber(
+    newMaxConnections.value,
+    "Max connections must be a plain number, or blank.",
+  );
+  const maxMessageBytesResult = parseOptionalNumber(
+    newMaxMessageBytes.value,
+    "Max message size must be a plain number, or blank.",
+  );
+  const idleTimeoutMinutesResult = parseOptionalNumber(
+    newIdleTimeoutMinutes.value,
+    "Idle timeout must be a plain number, or blank.",
+  );
   for (const result of [maxConnectionsResult, maxMessageBytesResult, idleTimeoutMinutesResult]) {
     if (result.error) {
       createError.value = result.error;
@@ -224,7 +233,13 @@ async function confirmDelete() {
           <td class="url-cell" :title="t.backendWsUrl">{{ t.backendWsUrl }}</td>
           <td>{{ t.activeConnections }} / {{ t.maxConnections }}</td>
           <td>
-            <TogglePill :on="t.enabled" on-label="Enabled" off-label="Disabled" :aria-pressed="t.enabled" @click="toggleEnabled(t)" />
+            <TogglePill
+              :on="t.enabled"
+              on-label="Enabled"
+              off-label="Disabled"
+              :aria-pressed="t.enabled"
+              @click="toggleEnabled(t)"
+            />
             <p v-if="rowError[t.name]" class="row-error">{{ rowError[t.name] }}</p>
           </td>
           <td>

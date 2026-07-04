@@ -50,7 +50,11 @@ const {
   cancel: cancelDisable,
   confirm: confirmActionDisable,
 } = useConfirmAction<AlertRule>();
-const { rowError, toggle: toggleField, isPending } = useOptimisticToggle<AlertRule>((r) => r.id, "Failed to update rule.");
+const {
+  rowError,
+  toggle: toggleField,
+  isPending,
+} = useOptimisticToggle<AlertRule>((r) => r.id, "Failed to update rule.");
 const testingRuleId = ref<number | null>(null);
 
 const showCreate = ref(false);

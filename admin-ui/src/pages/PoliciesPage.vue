@@ -158,8 +158,8 @@ async function confirmDelete() {
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading" />
     <EmptyState v-else-if="policies.length === 0" :icon="ShieldCheck">
-      No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each
-      one individually.
+      No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each one
+      individually.
     </EmptyState>
 
     <TableCard v-else>

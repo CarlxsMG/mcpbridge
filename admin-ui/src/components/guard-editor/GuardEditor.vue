@@ -124,7 +124,11 @@ function removeReplacementKey(index: number) {
   replacementKeys.value.splice(index, 1);
 }
 
-const { saving, error: mainError, patchField } = usePatchTool(
+const {
+  saving,
+  error: mainError,
+  patchField,
+} = usePatchTool(
   () => props.clientName ?? "",
   () => props.toolName,
 );
@@ -233,7 +237,12 @@ function confirmClear() {
       </p>
     </div>
 
-    <GuardEditorPresentation :override="override" :client-name="clientName" :tool-name="toolName" @saved="emit('toolChanged')" />
+    <GuardEditorPresentation
+      :override="override"
+      :client-name="clientName"
+      :tool-name="toolName"
+      @saved="emit('toolChanged')"
+    />
     <GuardEditorTags :tags="tags" :client-name="clientName" :tool-name="toolName" @saved="emit('toolChanged')" />
     <GuardEditorRedaction
       :redact-paths="redactPaths"
@@ -247,7 +256,12 @@ function confirmClear() {
       :tool-name="toolName"
       @saved="emit('toolChanged')"
     />
-    <GuardEditorApproval :approval="approval" :client-name="clientName" :tool-name="toolName" @saved="emit('toolChanged')" />
+    <GuardEditorApproval
+      :approval="approval"
+      :client-name="clientName"
+      :tool-name="toolName"
+      @saved="emit('toolChanged')"
+    />
     <GuardEditorQuarantine
       :quarantine="quarantine"
       :client-name="clientName"
@@ -255,8 +269,18 @@ function confirmClear() {
       @saved="emit('toolChanged')"
     />
     <GuardEditorWebSocket :ws="ws" :client-name="clientName" :tool-name="toolName" @saved="emit('toolChanged')" />
-    <GuardEditorGraphql :graphql="graphql" :client-name="clientName" :tool-name="toolName" @saved="emit('toolChanged')" />
-    <GuardEditorCoalesce :coalesce="coalesce" :client-name="clientName" :tool-name="toolName" @saved="emit('toolChanged')" />
+    <GuardEditorGraphql
+      :graphql="graphql"
+      :client-name="clientName"
+      :tool-name="toolName"
+      @saved="emit('toolChanged')"
+    />
+    <GuardEditorCoalesce
+      :coalesce="coalesce"
+      :client-name="clientName"
+      :tool-name="toolName"
+      @saved="emit('toolChanged')"
+    />
     <GuardEditorCachePurge :client-name="clientName" :tool-name="toolName" />
     <GuardEditorContextBudget
       :context-budget="contextBudget"

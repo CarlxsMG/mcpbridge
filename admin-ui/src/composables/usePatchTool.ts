@@ -25,7 +25,8 @@ export function usePatchTool(clientName: () => string, toolName: () => string | 
 
   const patchFields = (body: Record<string, unknown>, fallbackMessage: string) =>
     run((path) => api.patch(path, body), fallbackMessage);
-  const patchField = (key: string, value: unknown, fallbackMessage: string) => patchFields({ [key]: value }, fallbackMessage);
+  const patchField = (key: string, value: unknown, fallbackMessage: string) =>
+    patchFields({ [key]: value }, fallbackMessage);
   const putTags = (tags: string[], fallbackMessage: string) =>
     run((path) => api.put(`${path}/tags`, { tags }), fallbackMessage);
   const clearQuarantine = (fallbackMessage: string) =>

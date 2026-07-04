@@ -21,7 +21,8 @@ async function loadLb() {
   try {
     const res = await api.get<{ lb: LbConfig | null }>(clientPath(props.clientName, "lb"));
     lb.value = res.lb;
-    if (res.lb) lbForm.value = { strategy: res.lb.strategy, primaryWeight: res.lb.primaryWeight, enabled: res.lb.enabled };
+    if (res.lb)
+      lbForm.value = { strategy: res.lb.strategy, primaryWeight: res.lb.primaryWeight, enabled: res.lb.enabled };
   } catch {
     lb.value = null;
   }
@@ -154,12 +155,12 @@ function confirmRemoveTarget() {
     </div>
     <p class="ua-status">
       Spread calls across the primary backend plus an N-way pool of additional targets. Takes precedence over
-      canary/failover below — while an enabled pool has at least one enabled target, canary routing is skipped
-      entirely for this server.
+      canary/failover below — while an enabled pool has at least one enabled target, canary routing is skipped entirely
+      for this server.
       <template v-if="lb">
         Currently: <code>{{ lb.strategy }}</code
-        >, primary weight {{ lb.primaryWeight }}, {{ lb.enabled ? "enabled" : "disabled" }}, {{ lb.targets.length }}
-        target{{ lb.targets.length === 1 ? "" : "s" }}.</template
+        >, primary weight {{ lb.primaryWeight }}, {{ lb.enabled ? "enabled" : "disabled" }},
+        {{ lb.targets.length }} target{{ lb.targets.length === 1 ? "" : "s" }}.</template
       >
     </p>
     <form class="ua-form" @submit.prevent="saveLb">
@@ -227,7 +228,9 @@ function confirmRemoveTarget() {
       <p v-if="!lb.targets.length" class="ua-status">No pool targets yet — add one below.</p>
 
       <form class="ua-form" @submit.prevent="addTarget">
-        <label>Target base URL <input v-model="newTargetUrl" type="url" placeholder="https://api-2.example.com" /></label>
+        <label
+          >Target base URL <input v-model="newTargetUrl" type="url" placeholder="https://api-2.example.com"
+        /></label>
         <label>Weight <input v-model.number="newTargetWeight" type="number" min="1" max="1000" /></label>
         <p v-if="targetError" class="error">{{ targetError }}</p>
         <button type="submit" class="btn-secondary" :disabled="addingTarget">

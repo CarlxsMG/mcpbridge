@@ -81,7 +81,10 @@ const deleting = ref(false);
 const connectOpen = ref(false);
 const shareOpen = ref(false);
 
-const { rowError: toggleError, toggle } = useOptimisticToggle<BundleDetail>(() => "singleton", "Failed to update bundle.");
+const { rowError: toggleError, toggle } = useOptimisticToggle<BundleDetail>(
+  () => "singleton",
+  "Failed to update bundle.",
+);
 
 async function load() {
   const result = await loadDetail();

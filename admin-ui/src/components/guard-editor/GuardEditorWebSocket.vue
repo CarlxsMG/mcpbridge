@@ -68,13 +68,13 @@ async function saveWsFn() {
       <input id="ws-url" v-model="wsUrlInput" type="text" placeholder="wss://example.com/socket" />
       <p v-if="wsUrlError" class="field-error">{{ wsUrlError }}</p>
       <label class="checkline"
-        ><input v-model="wsPersistentInput" type="checkbox" /> Persistent connection — forward every message as
-        progress instead of closing after the first</label
+        ><input v-model="wsPersistentInput" type="checkbox" /> Persistent connection — forward every message as progress
+        instead of closing after the first</label
       >
       <p class="hint">
-        Non-persistent (default) opens a fresh connection per call and returns the first message. Persistent stays
-        open and resolves with the last message once the connection closes or the timeout elapses — intermediate
-        messages are forwarded as MCP progress notifications to callers that requested them.
+        Non-persistent (default) opens a fresh connection per call and returns the first message. Persistent stays open
+        and resolves with the last message once the connection closes or the timeout elapses — intermediate messages are
+        forwarded as MCP progress notifications to callers that requested them.
       </p>
     </template>
     <button

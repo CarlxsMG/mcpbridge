@@ -135,7 +135,13 @@ async function saveContextBudgetFn() {
         />
 
         <label for="cb-model">Model</label>
-        <input id="cb-model" v-model="contextBudgetLlmModelInput" type="text" placeholder="gpt-4o-mini" autocomplete="off" />
+        <input
+          id="cb-model"
+          v-model="contextBudgetLlmModelInput"
+          type="text"
+          placeholder="gpt-4o-mini"
+          autocomplete="off"
+        />
 
         <label for="cb-api-key">API key</label>
         <p class="hint">

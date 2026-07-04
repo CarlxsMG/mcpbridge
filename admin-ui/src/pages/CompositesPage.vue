@@ -97,9 +97,7 @@ async function createComposite() {
 }
 
 function toggleEnabled(c: CompositeSummary) {
-  toggle(c, "enabled", (next) =>
-    api.patch(`/admin-api/composites/${encodeURIComponent(c.name)}`, { enabled: next }),
-  );
+  toggle(c, "enabled", (next) => api.patch(`/admin-api/composites/${encodeURIComponent(c.name)}`, { enabled: next }));
 }
 
 const {

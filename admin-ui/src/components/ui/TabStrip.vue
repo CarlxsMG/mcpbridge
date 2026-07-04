@@ -40,7 +40,9 @@ const active = defineModel<T>({ required: true });
   padding: 0.55rem 0.35rem;
   margin-bottom: -1px;
   cursor: pointer;
-  transition: color 0.12s ease, border-color 0.12s ease;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
 }
 .tab-btn:hover {
   color: var(--text-primary);

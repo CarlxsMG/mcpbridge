@@ -158,7 +158,13 @@ function formatLastRun(m: number | null): string {
             <code>{{ s.cron }}</code>
           </td>
           <td>
-            <TogglePill :on="s.enabled" on-label="Enabled" off-label="Disabled" :aria-pressed="s.enabled" @click="toggle(s)" />
+            <TogglePill
+              :on="s.enabled"
+              on-label="Enabled"
+              off-label="Disabled"
+              :aria-pressed="s.enabled"
+              @click="toggle(s)"
+            />
             <p v-if="rowError[s.id]" class="row-error">{{ rowError[s.id] }}</p>
           </td>
           <td>

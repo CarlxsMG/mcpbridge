@@ -122,7 +122,12 @@ async function deleteExampleFn(ex: ToolExample) {
       </button>
       <span class="save-ex">
         <input v-model="newExampleLabel" type="text" placeholder="Save as… (label)" />
-        <button type="button" class="btn-secondary" :disabled="savingExample || !newExampleLabel.trim()" @click="saveExample">
+        <button
+          type="button"
+          class="btn-secondary"
+          :disabled="savingExample || !newExampleLabel.trim()"
+          @click="saveExample"
+        >
           Save
         </button>
       </span>

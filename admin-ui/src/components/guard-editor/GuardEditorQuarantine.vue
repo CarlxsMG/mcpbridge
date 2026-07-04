@@ -140,7 +140,13 @@ async function clearQuarantineFn() {
 
       <template v-if="quarantineRecoveryInput === 'auto'">
         <label for="q-cooldown">Cooldown (minutes)</label>
-        <input id="q-cooldown" v-model="quarantineCooldownInput" type="text" inputmode="decimal" placeholder="e.g. 15" />
+        <input
+          id="q-cooldown"
+          v-model="quarantineCooldownInput"
+          type="text"
+          inputmode="decimal"
+          placeholder="e.g. 15"
+        />
         <p v-if="quarantineCooldownError" class="field-error">{{ quarantineCooldownError }}</p>
       </template>
     </template>

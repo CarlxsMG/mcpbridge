@@ -7,7 +7,11 @@ import { Eraser } from "lucide-vue-next";
 
 const props = defineProps<{ clientName?: string; toolName?: string }>();
 
-const { saving: purgingCache, error: purgeCacheError, run } = usePatchTool(
+const {
+  saving: purgingCache,
+  error: purgeCacheError,
+  run,
+} = usePatchTool(
   () => props.clientName ?? "",
   () => props.toolName,
 );

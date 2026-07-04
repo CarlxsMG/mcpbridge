@@ -23,11 +23,7 @@ const { saving, error, patchField } = usePatchTool(
 const { flash } = useFlash();
 
 async function saveCoalesceFn() {
-  const ok = await patchField(
-    "coalesce",
-    coalesceInput.value ? { enabled: true } : null,
-    "Failed to save coalescing.",
-  );
+  const ok = await patchField("coalesce", coalesceInput.value ? { enabled: true } : null, "Failed to save coalescing.");
   if (ok) {
     flash(saved);
     emit("saved");
@@ -39,8 +35,8 @@ async function saveCoalesceFn() {
   <h3>Request coalescing</h3>
   <div class="field">
     <label class="checkline"
-      ><input v-model="coalesceInput" type="checkbox" /> Share one upstream fetch across concurrent identical calls
-      (GET tools only)</label
+      ><input v-model="coalesceInput" type="checkbox" /> Share one upstream fetch across concurrent identical calls (GET
+      tools only)</label
     >
     <p class="hint">
       Distinct from the response cache's TTL — only dedupes calls that are in flight at the same moment, so it's safe

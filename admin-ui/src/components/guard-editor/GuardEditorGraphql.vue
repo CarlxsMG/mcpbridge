@@ -54,8 +54,8 @@ async function saveGraphqlFn() {
   <h3>GraphQL backend</h3>
   <div class="field">
     <label class="checkline"
-      ><input v-model="graphqlEnabledInput" type="checkbox" /> Dispatch this tool as a GraphQL query/mutation instead
-      of a plain REST body</label
+      ><input v-model="graphqlEnabledInput" type="checkbox" /> Dispatch this tool as a GraphQL query/mutation instead of
+      a plain REST body</label
     >
     <template v-if="graphqlEnabledInput">
       <label for="graphql-query">GraphQL query/mutation</label>

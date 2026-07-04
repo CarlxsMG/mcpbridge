@@ -19,9 +19,12 @@ async function toggleToolEnabled(tool: ToolDetail) {
   tool.enabled = next; // optimistic
   delete rowError.value[tool.name];
   try {
-    await api.patch(`/admin-api/clients/${encodeURIComponent(props.clientName)}/tools/${encodeURIComponent(tool.name)}`, {
-      enabled: next,
-    });
+    await api.patch(
+      `/admin-api/clients/${encodeURIComponent(props.clientName)}/tools/${encodeURIComponent(tool.name)}`,
+      {
+        enabled: next,
+      },
+    );
   } catch (err) {
     tool.enabled = previous;
     rowError.value[tool.name] = err instanceof ApiError ? err.message : "Failed to update.";
@@ -55,9 +58,12 @@ async function toggleSensitive(tool: ToolDetail) {
   tool.sensitive = next; // optimistic
   delete rowError.value[tool.name];
   try {
-    await api.patch(`/admin-api/clients/${encodeURIComponent(props.clientName)}/tools/${encodeURIComponent(tool.name)}`, {
-      sensitive: next,
-    });
+    await api.patch(
+      `/admin-api/clients/${encodeURIComponent(props.clientName)}/tools/${encodeURIComponent(tool.name)}`,
+      {
+        sensitive: next,
+      },
+    );
   } catch (err) {
     tool.sensitive = previous;
     rowError.value[tool.name] = err instanceof ApiError ? err.message : "Failed to update sensitivity.";
@@ -82,7 +88,11 @@ async function testTool(tool: ToolDetail) {
       isError: Boolean(result.isError),
     };
   } catch (err) {
-    testResult.value = { tool: tool.name, text: err instanceof ApiError ? err.message : "Test call failed.", isError: true };
+    testResult.value = {
+      tool: tool.name,
+      text: err instanceof ApiError ? err.message : "Test call failed.",
+      isError: true,
+    };
   } finally {
     testingTool.value = null;
   }
