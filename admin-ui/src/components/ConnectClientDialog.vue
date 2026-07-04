@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
 import { api } from "../composables/useApi";
+import { useClipboard } from "../composables/useClipboard";
 import type { ClientSummary, BundleSummary, McpApiKey } from "../types/api";
 import {
   CONNECT_TEMPLATES,
@@ -29,7 +30,7 @@ const gatewayBaseUrl = ref("");
 const clients = ref<ClientSummary[]>([]);
 const bundles = ref<BundleSummary[]>([]);
 const keyCount = ref<number | null>(null);
-const copied = ref(false);
+const { copied, copy, reset } = useClipboard();
 const dialogEl = ref<HTMLElement | null>(null);
 const closeBtn = ref<HTMLButtonElement | null>(null);
 let previouslyFocused: HTMLElement | null = null;
@@ -73,7 +74,7 @@ watch(
     if (isOpen) {
       scope.value = props.presetScope;
       targetName.value = props.presetName ?? "";
-      copied.value = false;
+      reset();
       previouslyFocused = document.activeElement as HTMLElement | null;
       await loadContext();
       await nextTick();
@@ -117,12 +118,7 @@ const result = computed(() => {
 
 async function copySnippet() {
   if (!result.value) return;
-  try {
-    await navigator.clipboard.writeText(result.value.snippet);
-    copied.value = true;
-  } catch {
-    copied.value = false;
-  }
+  await copy(result.value.snippet);
 }
 
 function trapFocus(e: KeyboardEvent) {

@@ -2,6 +2,7 @@
 import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
+import { parseList } from "../composables/fieldParsing";
 import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "../types/api";
 import PageHeader from "../components/PageHeader.vue";
 import TableCard from "../components/TableCard.vue";
@@ -49,13 +50,6 @@ const previewing = ref(false);
 const previewError = ref("");
 const registering = ref(false);
 const error = ref("");
-
-function parseList(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 function parseJsonField(raw: string, label: string): unknown {
   try {

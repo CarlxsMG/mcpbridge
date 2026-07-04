@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { parseOptionalNumber } from "../composables/fieldParsing";
 import type { WsProxyTarget } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -84,22 +85,21 @@ async function submitTarget() {
     createError.value = "Name and backend WebSocket URL are required.";
     return;
   }
-  for (const [label, field] of [
-    ["Max connections", newMaxConnections],
-    ["Max message size", newMaxMessageBytes],
-    ["Idle timeout", newIdleTimeoutMinutes],
-  ] as const) {
-    if (field.value.trim() && !Number.isFinite(Number(field.value.trim()))) {
-      createError.value = `${label} must be a plain number, or blank.`;
+  const maxConnectionsResult = parseOptionalNumber(newMaxConnections.value, "Max connections must be a plain number, or blank.");
+  const maxMessageBytesResult = parseOptionalNumber(newMaxMessageBytes.value, "Max message size must be a plain number, or blank.");
+  const idleTimeoutMinutesResult = parseOptionalNumber(newIdleTimeoutMinutes.value, "Idle timeout must be a plain number, or blank.");
+  for (const result of [maxConnectionsResult, maxMessageBytesResult, idleTimeoutMinutesResult]) {
+    if (result.error) {
+      createError.value = result.error;
       return;
     }
   }
   creating.value = true;
   try {
     const body: Record<string, unknown> = { backendWsUrl: newBackendUrl.value.trim() };
-    if (newMaxConnections.value.trim()) body.maxConnections = Number(newMaxConnections.value.trim());
-    if (newMaxMessageBytes.value.trim()) body.maxMessageBytes = Number(newMaxMessageBytes.value.trim());
-    if (newIdleTimeoutMinutes.value.trim()) body.idleTimeoutMs = Number(newIdleTimeoutMinutes.value.trim()) * 60_000;
+    if (maxConnectionsResult.value !== null) body.maxConnections = maxConnectionsResult.value;
+    if (maxMessageBytesResult.value !== null) body.maxMessageBytes = maxMessageBytesResult.value;
+    if (idleTimeoutMinutesResult.value !== null) body.idleTimeoutMs = idleTimeoutMinutesResult.value * 60_000;
 
     if (editingTarget.value) {
       await api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(editingTarget.value.name)}`, body);

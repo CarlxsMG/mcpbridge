@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { parseOptionalNumber } from "../composables/fieldParsing";
 import type { AlertRule, AlertEventType } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -76,15 +77,24 @@ async function createRule() {
   if (nameError.value || urlError.value) {
     return;
   }
+  let threshold: number | null = null;
+  let minCalls: number | null = null;
   if (NUMERIC_EVENTS.has(newEvent.value)) {
-    if (!Number.isFinite(Number(newThreshold.value.trim()))) {
+    // threshold/minCalls are required (not optional) in this branch, so a blank
+    // value must be rejected too -- parseOptionalNumber treats blank as valid
+    // (value: null, error: null), so check .value rather than just .error.
+    const thresholdResult = parseOptionalNumber(newThreshold.value, "Threshold must be a plain number.");
+    if (thresholdResult.value === null) {
       createError.value = "Threshold must be a plain number.";
       return;
     }
-    if (!Number.isFinite(Number(newMinCalls.value.trim()))) {
+    const minCallsResult = parseOptionalNumber(newMinCalls.value, "Minimum calls must be a plain number.");
+    if (minCallsResult.value === null) {
       createError.value = "Minimum calls must be a plain number.";
       return;
     }
+    threshold = thresholdResult.value;
+    minCalls = minCallsResult.value;
   }
   creating.value = true;
   try {
@@ -94,8 +104,8 @@ async function createRule() {
       webhookUrl: newUrl.value.trim(),
     };
     if (NUMERIC_EVENTS.has(newEvent.value)) {
-      body.threshold = Number(newThreshold.value.trim());
-      body.minCalls = Number(newMinCalls.value.trim());
+      body.threshold = threshold;
+      body.minCalls = minCalls;
     }
     await api.post("/admin-api/alerts", body);
     newName.value = "";

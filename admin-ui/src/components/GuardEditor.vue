@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import type { ToolGuardConfig, ContextBudgetConfig, ContextBudgetLlmProvider } from "../types/api";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import { api, ApiError } from "../composables/useApi";
+import { numberRangeValidator, parseList } from "../composables/fieldParsing";
 import { KeyRound, ShieldCheck, Eraser } from "lucide-vue-next";
 
 const props = defineProps<{
@@ -253,10 +254,7 @@ watch(
 );
 
 function saveGuardrailsFn() {
-  const denyPatterns = denyPatternsInput.value
-    .split("\n")
-    .map((p) => p.trim())
-    .filter(Boolean);
+  const denyPatterns = parseList(denyPatternsInput.value, "\n");
   savingGuardrails.value = true;
   if (denyPatterns.length === 0 && !blockSecretsInput.value && !scanResponsesInput.value) {
     emit("saveGuardrails", null);
@@ -316,10 +314,11 @@ watch(
   },
 );
 
-const approvalLevelsError = computed(() => {
-  const n = Number(approvalLevelsInput.value);
-  return Number.isInteger(n) && n >= 1 && n <= 10 ? null : "Must be a whole number between 1 and 10";
-});
+const approvalLevelsError = computed(() =>
+  numberRangeValidator({ integer: true, min: 1, max: 10, message: "Must be a whole number between 1 and 10" })(
+    approvalLevelsInput.value,
+  ),
+);
 
 function saveApprovalFn() {
   if (approvalLevelsError.value) return;
@@ -345,16 +344,20 @@ watch(
   },
 );
 
-const quarantineThresholdError = computed(() => {
-  const n = Number(quarantineThresholdInput.value);
-  return Number.isInteger(n) && n >= 1 && n <= 100 ? null : "Must be a whole number between 1 and 100";
-});
+const quarantineThresholdError = computed(() =>
+  numberRangeValidator({ integer: true, min: 1, max: 100, message: "Must be a whole number between 1 and 100" })(
+    quarantineThresholdInput.value,
+  ),
+);
 
 const quarantineCooldownError = computed(() => {
   if (quarantineRecoveryInput.value !== "auto") return null;
   if (!quarantineCooldownInput.value.trim()) return "Required when recovery is automatic";
-  const n = Number(quarantineCooldownInput.value);
-  return Number.isFinite(n) && n > 0 ? null : "Must be a positive number of minutes";
+  // Number.MIN_VALUE is the smallest representable positive number, so an
+  // inclusive min of it is equivalent to the original's strict `n > 0` check.
+  return numberRangeValidator({ min: Number.MIN_VALUE, message: "Must be a positive number of minutes" })(
+    quarantineCooldownInput.value,
+  );
 });
 
 function saveQuarantineFn() {
@@ -450,8 +453,9 @@ watch(
 
 const contextBudgetBytesError = computed(() => {
   if (!contextBudgetEnabledInput.value) return null;
-  const n = Number(contextBudgetMaxBytesInput.value);
-  return Number.isInteger(n) && n >= 256 ? null : "Must be a whole number of at least 256 bytes";
+  return numberRangeValidator({ integer: true, min: 256, message: "Must be a whole number of at least 256 bytes" })(
+    contextBudgetMaxBytesInput.value,
+  );
 });
 
 const contextBudgetLlmError = computed(() => {
@@ -485,17 +489,15 @@ function saveContextBudgetFn() {
   });
 }
 
-const rateLimitError = computed(() => {
-  if (!rateLimitInput.value) return null;
-  const n = Number(rateLimitInput.value);
-  return Number.isFinite(n) && n > 0 ? null : "Must be a positive number";
-});
+// Number.MIN_VALUE is the smallest representable positive number, so an
+// inclusive min of it is equivalent to the original's strict `n > 0` check.
+const rateLimitError = computed(() =>
+  numberRangeValidator({ min: Number.MIN_VALUE, message: "Must be a positive number" })(rateLimitInput.value),
+);
 
-const timeoutError = computed(() => {
-  if (!timeoutInput.value) return null;
-  const n = Number(timeoutInput.value);
-  return Number.isFinite(n) && n > 0 ? null : "Must be a positive number";
-});
+const timeoutError = computed(() =>
+  numberRangeValidator({ min: Number.MIN_VALUE, message: "Must be a positive number" })(timeoutInput.value),
+);
 
 const isValid = computed(() => !rateLimitError.value && !timeoutError.value);
 
@@ -571,19 +573,13 @@ function saveOverrideFn() {
 }
 
 function saveTagsFn() {
-  const tags = tagsInput.value
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
+  const tags = parseList(tagsInput.value);
   savingTags.value = true;
   emit("saveTags", tags);
 }
 
 function saveRedactionFn() {
-  const paths = redactInput.value
-    .split(/[\n,]/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+  const paths = parseList(redactInput.value, /[\n,]/);
   savingRedaction.value = true;
   emit("saveRedaction", paths);
 }

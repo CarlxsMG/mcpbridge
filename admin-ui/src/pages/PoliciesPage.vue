@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { parseOptionalNumber } from "../composables/fieldParsing";
 import type { GuardPolicy, BundleSummary } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -53,33 +54,28 @@ async function load() {
 }
 onMounted(load);
 
-function numOrNull(s: string): number | null {
-  const t = s.trim();
-  if (!t) return null;
-  const n = Number(t);
-  return Number.isFinite(n) ? n : null;
-}
-
 async function createPolicy() {
   createError.value = "";
   if (!newName.value.trim()) {
     createError.value = "Name is required.";
     return;
   }
-  if (newRate.value.trim() && !Number.isFinite(Number(newRate.value.trim()))) {
-    createError.value = "Rate limit must be a plain number (no units), or blank.";
+  const rate = parseOptionalNumber(newRate.value, "Rate limit must be a plain number (no units), or blank.");
+  if (rate.error) {
+    createError.value = rate.error;
     return;
   }
-  if (newTimeout.value.trim() && !Number.isFinite(Number(newTimeout.value.trim()))) {
-    createError.value = "Timeout must be a plain number (no units), or blank.";
+  const timeout = parseOptionalNumber(newTimeout.value, "Timeout must be a plain number (no units), or blank.");
+  if (timeout.error) {
+    createError.value = timeout.error;
     return;
   }
   creating.value = true;
   try {
     await api.post("/admin-api/policies", {
       name: newName.value.trim(),
-      rateLimitPerMin: numOrNull(newRate.value),
-      timeoutMs: numOrNull(newTimeout.value),
+      rateLimitPerMin: rate.value,
+      timeoutMs: timeout.value,
     });
     newName.value = "";
     newRate.value = "";

@@ -3,6 +3,8 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useClipboard } from "../composables/useClipboard";
+import { parseList } from "../composables/fieldParsing";
 import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -29,7 +31,7 @@ const creating = ref(false);
 
 // The raw secret is shown exactly once, right after minting.
 const mintedKey = ref<McpApiKeyWithSecret | null>(null);
-const copied = ref(false);
+const { copied, copy, reset: resetCopied } = useClipboard();
 
 const {
   pending: pendingDelete,
@@ -57,13 +59,6 @@ function scopeSummary(key: McpApiKey): string {
   if (key.scopes.clients?.length) parts.push(`${key.scopes.clients.length} client(s)`);
   if (key.scopes.tools?.length) parts.push(`${key.scopes.tools.length} tool(s)`);
   return parts.length ? parts.join(", ") : "Unrestricted";
-}
-
-function parseList(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 async function load() {
@@ -105,7 +100,7 @@ async function createKey() {
       elevated: newElevated.value,
     });
     mintedKey.value = created;
-    copied.value = false;
+    resetCopied();
     newLabel.value = "";
     newClients.value = "";
     newTools.value = "";
@@ -123,12 +118,7 @@ async function createKey() {
 
 async function copyKey() {
   if (!mintedKey.value) return;
-  try {
-    await navigator.clipboard.writeText(mintedKey.value.key);
-    copied.value = true;
-  } catch {
-    copied.value = false;
-  }
+  await copy(mintedKey.value.key);
 }
 
 async function toggleEnabled(key: McpApiKey) {

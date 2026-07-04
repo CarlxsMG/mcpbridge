@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { parseOptionalNumber } from "../composables/fieldParsing";
 import type { ConsumerWithUsage, ConsumerUsage } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import QuotaBar from "../components/QuotaBar.vue";
@@ -118,24 +119,15 @@ async function submitConsumer() {
   if (!newName.value.trim()) {
     nameError.value = "Name is required.";
   }
-  let quota: number | null = null;
-  if (newQuota.value.trim()) {
-    const n = Number(newQuota.value.trim());
-    if (!Number.isFinite(n)) {
-      quotaError.value = "Monthly quota must be a plain number, or blank.";
-    } else {
-      quota = n;
-    }
-  }
-  let endUserRateLimitPerMin: number | null = null;
-  if (newEndUserLimit.value.trim()) {
-    const n = Number(newEndUserLimit.value.trim());
-    if (!Number.isFinite(n)) {
-      endUserLimitError.value = "Per-end-user rate limit must be a plain number, or blank.";
-    } else {
-      endUserRateLimitPerMin = n;
-    }
-  }
+  const quotaResult = parseOptionalNumber(newQuota.value, "Monthly quota must be a plain number, or blank.");
+  quotaError.value = quotaResult.error ?? "";
+  const quota = quotaResult.value;
+  const endUserLimitResult = parseOptionalNumber(
+    newEndUserLimit.value,
+    "Per-end-user rate limit must be a plain number, or blank.",
+  );
+  endUserLimitError.value = endUserLimitResult.error ?? "";
+  const endUserRateLimitPerMin = endUserLimitResult.value;
   if (nameError.value || quotaError.value || endUserLimitError.value) {
     return;
   }

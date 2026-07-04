@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useClipboard } from "../composables/useClipboard";
 import type { BundleInstallLink, BundleInstallLinkWithToken } from "../types/api";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import { Copy, Check } from "lucide-vue-next";
@@ -17,7 +18,7 @@ const createError = ref("");
 // The raw link is shown exactly once, right after minting — same "show once"
 // contract as the API-key create flow (see KeysPage.vue's mintedKey).
 const minted = ref<BundleInstallLinkWithToken | null>(null);
-const copied = ref(false);
+const { copied, copy, reset: resetCopied } = useClipboard();
 const gatewayBaseUrl = ref("");
 
 const pendingRevoke = ref<BundleInstallLink | null>(null);
@@ -62,7 +63,7 @@ watch(
   async (isOpen) => {
     if (isOpen) {
       minted.value = null;
-      copied.value = false;
+      resetCopied();
       createError.value = "";
       listError.value = "";
       previouslyFocused = document.activeElement as HTMLElement | null;
@@ -85,7 +86,7 @@ async function createLink() {
       {},
     );
     minted.value = created;
-    copied.value = false;
+    resetCopied();
     await load();
   } catch (err) {
     createError.value = err instanceof ApiError ? err.message : "Failed to create install link.";
@@ -96,12 +97,7 @@ async function createLink() {
 
 async function copyLink() {
   if (!minted.value) return;
-  try {
-    await navigator.clipboard.writeText(installUrl(minted.value.token));
-    copied.value = true;
-  } catch {
-    copied.value = false;
-  }
+  await copy(installUrl(minted.value.token));
 }
 
 async function confirmRevoke() {
