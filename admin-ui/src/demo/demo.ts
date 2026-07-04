@@ -219,14 +219,19 @@ function route(
     // No method gate here (unlike clients above): the pre-refactor code
     // computed & returned this detail for any method except DELETE, so this
     // call stays unconditional to keep that the same.
-    return detailWithEnabledToggle(bundles.find((x) => x.name === name), method, body, (b): BundleDetail => ({
-      name,
-      description: b?.description ?? null,
-      enabled: b?.enabled ?? true,
-      createdAt: days(9),
-      updatedAt: NOW,
-      tools: (TOOLS[clients[0].name] ?? []).slice(0, 2).map((t) => ({ client: clients[0].name, tool: t.name })),
-    }));
+    return detailWithEnabledToggle(
+      bundles.find((x) => x.name === name),
+      method,
+      body,
+      (b): BundleDetail => ({
+        name,
+        description: b?.description ?? null,
+        enabled: b?.enabled ?? true,
+        createdAt: days(9),
+        updatedAt: NOW,
+        tools: (TOOLS[clients[0].name] ?? []).slice(0, 2).map((t) => ({ client: clients[0].name, tool: t.name })),
+      }),
+    );
   }
 
   // Bundle install links
@@ -295,10 +300,16 @@ function route(
   const catalogEntryMatch = p.match(/^\/admin-api\/catalog\/([^/]+)$/);
   if (catalogEntryMatch) {
     const id = decodeURIComponent(catalogEntryMatch[1]);
-    const result = patchOrDeleteInArray(catalogEntries, (e) => e.id === id, method, body, () => ({
-      status: "deleted",
-      id,
-    }));
+    const result = patchOrDeleteInArray(
+      catalogEntries,
+      (e) => e.id === id,
+      method,
+      body,
+      () => ({
+        status: "deleted",
+        id,
+      }),
+    );
     if (result !== undefined) return result;
   }
 
@@ -330,10 +341,16 @@ function route(
   const wsProxyTargetMatch = p.match(/^\/admin-api\/ws-proxy-targets\/([^/]+)$/);
   if (wsProxyTargetMatch) {
     const name = decodeURIComponent(wsProxyTargetMatch[1]);
-    const result = patchOrDeleteInArray(wsProxyTargets, (x) => x.name === name, method, body, () => ({
-      status: "deleted",
-      name,
-    }));
+    const result = patchOrDeleteInArray(
+      wsProxyTargets,
+      (x) => x.name === name,
+      method,
+      body,
+      () => ({
+        status: "deleted",
+        name,
+      }),
+    );
     if (result !== undefined) return result;
   }
 

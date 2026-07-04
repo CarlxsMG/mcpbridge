@@ -1,4 +1,11 @@
-import type { OverviewStats, TopToolRow, UsageByKeyRow, UsageSummary, UsageTimeseries, UsageTimeseriesPoint } from "../../types/api";
+import type {
+  OverviewStats,
+  TopToolRow,
+  UsageByKeyRow,
+  UsageSummary,
+  UsageTimeseries,
+  UsageTimeseriesPoint,
+} from "../../types/api";
 import { days, NOW } from "./time";
 
 export const topTools: TopToolRow[] = [
