@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -30,8 +31,18 @@ const creating = ref(false);
 const mintedKey = ref<McpApiKeyWithSecret | null>(null);
 const copied = ref(false);
 
-const pendingDelete = ref<McpApiKey | null>(null);
-const pendingRevoke = ref<McpApiKey | null>(null);
+const {
+  pending: pendingDelete,
+  request: requestDelete,
+  cancel: cancelDelete,
+  confirm: confirmActionDelete,
+} = useConfirmAction<McpApiKey>();
+const {
+  pending: pendingRevoke,
+  request: requestRevoke,
+  cancel: cancelRevoke,
+  confirm: confirmActionRevoke,
+} = useConfirmAction<McpApiKey>();
 
 function statusOf(key: McpApiKey): string {
   if (key.revokedAt !== null) return "Revoked";
@@ -130,28 +141,26 @@ async function toggleEnabled(key: McpApiKey) {
   }
 }
 
-async function confirmRevoke() {
-  if (!pendingRevoke.value) return;
-  const key = pendingRevoke.value;
-  pendingRevoke.value = null;
-  try {
-    await api.post(`/admin-api/mcp-keys/${key.id}/revoke`);
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to revoke key.";
-  }
+function confirmRevoke() {
+  return confirmActionRevoke(async (key) => {
+    try {
+      await api.post(`/admin-api/mcp-keys/${key.id}/revoke`);
+      await load();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to revoke key.";
+    }
+  });
 }
 
-async function confirmDelete() {
-  if (!pendingDelete.value) return;
-  const key = pendingDelete.value;
-  pendingDelete.value = null;
-  try {
-    await api.delete(`/admin-api/mcp-keys/${key.id}`);
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete key.";
-  }
+function confirmDelete() {
+  return confirmActionDelete(async (key) => {
+    try {
+      await api.delete(`/admin-api/mcp-keys/${key.id}`);
+      await load();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete key.";
+    }
+  });
 }
 </script>
 
@@ -246,10 +255,10 @@ async function confirmDelete() {
               <button v-if="key.revokedAt === null" type="button" class="link-btn" @click="toggleEnabled(key)">
                 {{ key.enabled ? "Disable" : "Enable" }}
               </button>
-              <button v-if="key.revokedAt === null" type="button" class="link-btn danger" @click="pendingRevoke = key">
+              <button v-if="key.revokedAt === null" type="button" class="link-btn danger" @click="requestRevoke(key)">
                 Revoke
               </button>
-              <button type="button" class="link-btn danger" @click="pendingDelete = key">Delete</button>
+              <button type="button" class="link-btn danger" @click="requestDelete(key)">Delete</button>
             </div>
           </td>
         </tr>
@@ -265,7 +274,7 @@ async function confirmDelete() {
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.label}` : 'Delete'"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = null"
+      @cancel="cancelDelete"
     />
 
     <ConfirmDialog
@@ -277,7 +286,7 @@ async function confirmDelete() {
       :confirm-label="pendingRevoke ? `Revoke ${pendingRevoke.label}` : 'Revoke'"
       danger
       @confirm="confirmRevoke"
-      @cancel="pendingRevoke = null"
+      @cancel="cancelRevoke"
     />
   </section>
 </template>

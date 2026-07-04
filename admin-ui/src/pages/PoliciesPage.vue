@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { GuardPolicy, BundleSummary } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -16,8 +17,18 @@ const policies = ref<GuardPolicy[]>([]);
 const bundles = ref<BundleSummary[]>([]);
 const { loading, errorMessage, run } = useLoadState("Failed to load policies.");
 const notice = ref("");
-const pendingDelete = ref<GuardPolicy | null>(null);
-const pendingApply = ref<{ policy: GuardPolicy; bundle: string } | null>(null);
+const {
+  pending: pendingDelete,
+  request: requestDelete,
+  cancel: cancelDelete,
+  confirm: confirmActionDelete,
+} = useConfirmAction<GuardPolicy>();
+const {
+  pending: pendingApply,
+  request: requestApplyItem,
+  cancel: cancelApply,
+  confirm: confirmActionApply,
+} = useConfirmAction<{ policy: GuardPolicy; bundle: string }>();
 
 const showCreate = ref(false);
 const newName = ref("");
@@ -85,42 +96,40 @@ async function createPolicy() {
 function requestApply(policy: GuardPolicy) {
   const bundle = applyBundle.value[policy.id];
   if (!bundle) return;
-  pendingApply.value = { policy, bundle };
+  requestApplyItem({ policy, bundle });
 }
 
 async function confirmApply() {
-  if (!pendingApply.value) return;
-  const { policy, bundle } = pendingApply.value;
-  pendingApply.value = null;
-  notice.value = "";
-  applyingId.value = policy.id;
-  try {
-    const res = await api.post<{ applied: number; skipped: { tool: string; reason: string }[] }>(
-      `/admin-api/policies/${policy.id}/apply`,
-      { bundle },
-    );
-    let message = `Applied "${policy.name}" to ${res.applied} tool(s) in bundle "${bundle}".`;
-    if (res.skipped.length > 0) {
-      message += ` ${res.skipped.length} tool(s) were skipped because they no longer exist in the registry.`;
+  await confirmActionApply(async ({ policy, bundle }) => {
+    notice.value = "";
+    applyingId.value = policy.id;
+    try {
+      const res = await api.post<{ applied: number; skipped: { tool: string; reason: string }[] }>(
+        `/admin-api/policies/${policy.id}/apply`,
+        { bundle },
+      );
+      let message = `Applied "${policy.name}" to ${res.applied} tool(s) in bundle "${bundle}".`;
+      if (res.skipped.length > 0) {
+        message += ` ${res.skipped.length} tool(s) were skipped because they no longer exist in the registry.`;
+      }
+      notice.value = message;
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Apply failed.";
+    } finally {
+      applyingId.value = null;
     }
-    notice.value = message;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Apply failed.";
-  } finally {
-    applyingId.value = null;
-  }
+  });
 }
 
 async function confirmDelete() {
-  if (!pendingDelete.value) return;
-  const p = pendingDelete.value;
-  pendingDelete.value = null;
-  try {
-    await api.delete(`/admin-api/policies/${p.id}`);
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete policy.";
-  }
+  await confirmActionDelete(async (p) => {
+    try {
+      await api.delete(`/admin-api/policies/${p.id}`);
+      await load();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete policy.";
+    }
+  });
 }
 </script>
 
@@ -186,7 +195,7 @@ async function confirmDelete() {
               {{ applyingId === p.id ? "Applying…" : "Apply" }}
             </button>
           </td>
-          <td><button type="button" class="link-btn danger" @click="pendingDelete = p">Delete</button></td>
+          <td><button type="button" class="link-btn danger" @click="requestDelete(p)">Delete</button></td>
         </tr>
       </tbody>
     </TableCard>
@@ -202,7 +211,7 @@ async function confirmDelete() {
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = null"
+      @cancel="cancelDelete"
     />
 
     <ConfirmDialog
@@ -216,7 +225,7 @@ async function confirmDelete() {
       confirm-label="Apply policy"
       danger
       @confirm="confirmApply"
-      @cancel="pendingApply = null"
+      @cancel="cancelApply"
     />
   </section>
 </template>

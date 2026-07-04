@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { Team } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -23,7 +24,12 @@ const {
 );
 const newName = ref("");
 const creating = ref(false);
-const pendingDelete = ref<Team | null>(null);
+const {
+  pending: pendingDelete,
+  request: requestRemove,
+  cancel: cancelRemove,
+  confirm: confirmDeleteAction,
+} = useConfirmAction<Team>();
 
 onMounted(load);
 
@@ -42,20 +48,15 @@ async function create() {
   }
 }
 
-function requestRemove(t: Team) {
-  pendingDelete.value = t;
-}
-
 async function confirmRemove() {
-  if (!pendingDelete.value) return;
-  const t = pendingDelete.value;
-  pendingDelete.value = null;
-  try {
-    await api.delete(`/admin-api/teams/${t.id}`);
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete team.";
-  }
+  await confirmDeleteAction(async (t) => {
+    try {
+      await api.delete(`/admin-api/teams/${t.id}`);
+      await load();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete team.";
+    }
+  });
 }
 </script>
 
@@ -107,7 +108,7 @@ async function confirmRemove() {
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmRemove"
-      @cancel="pendingDelete = null"
+      @cancel="cancelRemove"
     />
   </section>
 </template>

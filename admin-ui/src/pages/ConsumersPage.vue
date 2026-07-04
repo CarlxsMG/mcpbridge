@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { ConsumerWithUsage, ConsumerUsage } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import QuotaBar from "../components/QuotaBar.vue";
@@ -22,7 +23,12 @@ const {
   [],
   "Failed to load consumers.",
 );
-const pendingDelete = ref<ConsumerWithUsage | null>(null);
+const {
+  pending: pendingDelete,
+  request: requestDelete,
+  cancel: cancelDelete,
+  confirm: confirmActionDelete,
+} = useConfirmAction<ConsumerWithUsage>();
 
 const showCreate = ref(false);
 const newName = ref("");
@@ -162,16 +168,15 @@ async function submitConsumer() {
   }
 }
 
-async function confirmDelete() {
-  if (!pendingDelete.value) return;
-  const c = pendingDelete.value;
-  pendingDelete.value = null;
-  try {
-    await api.delete(`/admin-api/consumers/${c.id}`);
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete consumer.";
-  }
+function confirmDelete() {
+  return confirmActionDelete(async (c) => {
+    try {
+      await api.delete(`/admin-api/consumers/${c.id}`);
+      await load();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete consumer.";
+    }
+  });
 }
 </script>
 
@@ -255,7 +260,7 @@ async function confirmDelete() {
             <td>
               <div class="actions" @click.stop>
                 <button type="button" class="link-btn" @click="openEdit(c)">Edit</button>
-                <button type="button" class="link-btn danger" @click="pendingDelete = c">Delete</button>
+                <button type="button" class="link-btn danger" @click="requestDelete(c)">Delete</button>
               </div>
             </td>
           </tr>
@@ -297,7 +302,7 @@ async function confirmDelete() {
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = null"
+      @cancel="cancelDelete"
     />
   </section>
 </template>

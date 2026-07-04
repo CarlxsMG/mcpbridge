@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useAuth } from "../composables/useAuth";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { AdminUserSummary, AdminRole, Team } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -25,8 +26,18 @@ const {
   [],
   "Failed to load users.",
 );
-const pendingDelete = ref<AdminUserSummary | null>(null);
-const pendingRoleChange = ref<{ user: AdminUserSummary; nextRole: string } | null>(null);
+const {
+  pending: pendingDelete,
+  request: requestDelete,
+  cancel: cancelDelete,
+  confirm: confirmActionDelete,
+} = useConfirmAction<AdminUserSummary>();
+const {
+  pending: pendingRoleChange,
+  request: requestRoleChangeAction,
+  cancel: cancelRoleChangeAction,
+  confirm: confirmActionRoleChange,
+} = useConfirmAction<{ user: AdminUserSummary; nextRole: string }>();
 const roleSelectResetTick = ref<Record<string, number>>({});
 
 // Teams — any admin may read the list (needed to populate the assignment dropdown),
@@ -42,7 +53,12 @@ async function loadTeams() {
     teamsError.value = err instanceof ApiError ? err.message : "Failed to load teams.";
   }
 }
-const pendingTeamChange = ref<{ user: AdminUserSummary; nextTeamId: number | null } | null>(null);
+const {
+  pending: pendingTeamChange,
+  request: requestTeamChangeAction,
+  cancel: cancelTeamChangeAction,
+  confirm: confirmActionTeamChange,
+} = useConfirmAction<{ user: AdminUserSummary; nextTeamId: number | null }>();
 const teamChangeError = ref("");
 const teamSelectResetTick = ref<Record<string, number>>({});
 
@@ -108,7 +124,7 @@ async function changeRole(user: AdminUserSummary, nextRole: string) {
 
 function requestRoleChange(user: AdminUserSummary, nextRole: string) {
   if (nextRole === user.role) return;
-  pendingRoleChange.value = { user, nextRole };
+  requestRoleChangeAction({ user, nextRole });
 }
 
 function roleChangeMessage(user: AdminUserSummary, nextRole: string): string {
@@ -118,11 +134,10 @@ function roleChangeMessage(user: AdminUserSummary, nextRole: string): string {
   return `Change '${user.username}''s role from '${user.role}' to '${nextRole}'?`;
 }
 
-async function confirmRoleChange() {
-  if (!pendingRoleChange.value) return;
-  const { user, nextRole } = pendingRoleChange.value;
-  pendingRoleChange.value = null;
-  await changeRole(user, nextRole);
+function confirmRoleChange() {
+  return confirmActionRoleChange(async ({ user, nextRole }) => {
+    await changeRole(user, nextRole);
+  });
 }
 
 // Bumping the per-user tick forces the role <select> to remount (via its :key),
@@ -133,7 +148,7 @@ function cancelRoleChange() {
     const { username } = pendingRoleChange.value.user;
     roleSelectResetTick.value[username] = (roleSelectResetTick.value[username] ?? 0) + 1;
   }
-  pendingRoleChange.value = null;
+  cancelRoleChangeAction();
 }
 
 async function changeTeam(user: AdminUserSummary, nextTeamId: number | null) {
@@ -150,7 +165,7 @@ async function changeTeam(user: AdminUserSummary, nextTeamId: number | null) {
 function requestTeamChange(user: AdminUserSummary, rawValue: string) {
   const nextTeamId = rawValue === "" ? null : Number(rawValue);
   if (nextTeamId === user.team_id) return;
-  pendingTeamChange.value = { user, nextTeamId };
+  requestTeamChangeAction({ user, nextTeamId });
 }
 
 function teamChangeMessage(user: AdminUserSummary, nextTeamId: number | null): string {
@@ -161,11 +176,10 @@ function teamChangeMessage(user: AdminUserSummary, nextTeamId: number | null): s
   return base;
 }
 
-async function confirmTeamChange() {
-  if (!pendingTeamChange.value) return;
-  const { user, nextTeamId } = pendingTeamChange.value;
-  pendingTeamChange.value = null;
-  await changeTeam(user, nextTeamId);
+function confirmTeamChange() {
+  return confirmActionTeamChange(async ({ user, nextTeamId }) => {
+    await changeTeam(user, nextTeamId);
+  });
 }
 
 // See cancelRoleChange — same reasoning, forces the team <select> to remount.
@@ -174,23 +188,18 @@ function cancelTeamChange() {
     const { username } = pendingTeamChange.value.user;
     teamSelectResetTick.value[username] = (teamSelectResetTick.value[username] ?? 0) + 1;
   }
-  pendingTeamChange.value = null;
+  cancelTeamChangeAction();
 }
 
-function requestDelete(user: AdminUserSummary) {
-  pendingDelete.value = user;
-}
-
-async function confirmDelete() {
-  if (!pendingDelete.value) return;
-  const user = pendingDelete.value;
-  pendingDelete.value = null;
-  try {
-    await api.delete(`/admin-api/users/${encodeURIComponent(user.username)}`);
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete user.";
-  }
+function confirmDelete() {
+  return confirmActionDelete(async (user) => {
+    try {
+      await api.delete(`/admin-api/users/${encodeURIComponent(user.username)}`);
+      await load();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete user.";
+    }
+  });
 }
 </script>
 
@@ -313,7 +322,7 @@ async function confirmDelete() {
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.username}` : 'Delete'"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = null"
+      @cancel="cancelDelete"
     />
 
     <ConfirmDialog
