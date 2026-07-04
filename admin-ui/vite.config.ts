@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 
@@ -19,6 +20,11 @@ const DEMO_BASE = process.env.DEMO_BASE || "/demo/";
 export default defineConfig({
   plugins: [vue()],
   base: IS_DEMO ? DEMO_BASE : "/admin/",
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   server: {
     port: UI_PORT,
     strictPort: true, // fail loudly if the port is taken instead of silently picking another (would break the proxy assumption)
