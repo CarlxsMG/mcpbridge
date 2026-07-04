@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { api, ApiError } from "../composables/useApi";
-import type { ClientDetail, DiscoveredTool, DiscoveryPreview } from "../types/api";
+import { api, ApiError } from "@/composables/useApi";
+import type { ClientDetail, DiscoveredTool, DiscoveryPreview } from "@/types/api";
 
 const props = defineProps<{ detail: ClientDetail }>();
 const emit = defineEmits<{ resynced: [] }>();

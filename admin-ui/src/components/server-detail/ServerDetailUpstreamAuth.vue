@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
-import { clientPath } from "../composables/apiPaths";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import type { UpstreamAuthInfo, UpstreamKind } from "../types/api";
+import { api, ApiError } from "@/composables/useApi";
+import { clientPath } from "@/composables/apiPaths";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import type { UpstreamAuthInfo, UpstreamKind } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 
 const props = defineProps<{ clientName: string; kind: UpstreamKind }>();

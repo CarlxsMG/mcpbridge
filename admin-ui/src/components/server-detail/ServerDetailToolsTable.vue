@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { api, ApiError } from "../composables/useApi";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import type { ToolDetail, UpstreamKind } from "../types/api";
+import { api, ApiError } from "@/composables/useApi";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import type { ToolDetail, UpstreamKind } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 
 const props = defineProps<{ tools: ToolDetail[]; kind: UpstreamKind; clientName: string }>();

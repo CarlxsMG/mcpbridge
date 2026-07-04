@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
-import { clientPath } from "../composables/apiPaths";
-import type { Team } from "../types/api";
+import { api, ApiError } from "@/composables/useApi";
+import { clientPath } from "@/composables/apiPaths";
+import type { Team } from "@/types/api";
 
 const props = defineProps<{ clientName: string; teamId: number | null }>();
 

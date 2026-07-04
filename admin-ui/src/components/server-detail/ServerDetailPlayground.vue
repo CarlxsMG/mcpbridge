@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import { api, ApiError } from "../composables/useApi";
-import SchemaForm from "./SchemaForm.vue";
-import type { ToolDetail } from "../types/api";
+import { api, ApiError } from "@/composables/useApi";
+import SchemaForm from "@/components/SchemaForm.vue";
+import type { ToolDetail } from "@/types/api";
 
 interface ToolExample {
   id: number;
