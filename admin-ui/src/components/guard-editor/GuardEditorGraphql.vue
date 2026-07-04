@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import { usePatchTool } from "../composables/usePatchTool";
-import { useFlash } from "../composables/useFlash";
+import { usePatchTool } from "@/composables/usePatchTool";
+import { useFlash } from "@/composables/useFlash";
 
 const props = defineProps<{
   graphql?: { enabled: boolean; query: string };

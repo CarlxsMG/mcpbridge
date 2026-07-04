@@ -6,7 +6,7 @@ import { useConfirmAction } from "../composables/useConfirmAction";
 import type { ClientDetail } from "../types/api";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import GuardEditor from "../components/GuardEditor.vue";
+import GuardEditor from "@/components/guard-editor/GuardEditor.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import ConnectClientDialog from "../components/ConnectClientDialog.vue";
 import ServerDetailUpstreamAuth from "../components/ServerDetailUpstreamAuth.vue";

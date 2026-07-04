@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import type { ToolGuardConfig, ContextBudgetConfig } from "../types/api";
+import type { ToolGuardConfig, ContextBudgetConfig } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import GuardEditorPresentation from "./GuardEditorPresentation.vue";
 import GuardEditorTags from "./GuardEditorTags.vue";
@@ -13,9 +13,9 @@ import GuardEditorGraphql from "./GuardEditorGraphql.vue";
 import GuardEditorCoalesce from "./GuardEditorCoalesce.vue";
 import GuardEditorCachePurge from "./GuardEditorCachePurge.vue";
 import GuardEditorContextBudget from "./GuardEditorContextBudget.vue";
-import { usePatchTool } from "../composables/usePatchTool";
-import { useFlash } from "../composables/useFlash";
-import { numberRangeValidator } from "../composables/fieldParsing";
+import { usePatchTool } from "@/composables/usePatchTool";
+import { useFlash } from "@/composables/useFlash";
+import { numberRangeValidator } from "@/composables/fieldParsing";
 import { KeyRound } from "lucide-vue-next";
 
 const props = defineProps<{

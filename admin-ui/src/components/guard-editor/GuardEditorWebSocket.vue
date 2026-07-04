@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { usePatchTool } from "../composables/usePatchTool";
-import { useFlash } from "../composables/useFlash";
+import { usePatchTool } from "@/composables/usePatchTool";
+import { useFlash } from "@/composables/useFlash";
 
 const props = defineProps<{
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };

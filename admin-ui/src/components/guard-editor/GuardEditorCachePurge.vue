@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { api } from "../composables/useApi";
-import { usePatchTool } from "../composables/usePatchTool";
-import { useFlash } from "../composables/useFlash";
+import { api } from "@/composables/useApi";
+import { usePatchTool } from "@/composables/usePatchTool";
+import { useFlash } from "@/composables/useFlash";
 import { Eraser } from "lucide-vue-next";
 
 const props = defineProps<{ clientName?: string; toolName?: string }>();

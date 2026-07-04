@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { usePatchTool } from "../composables/usePatchTool";
-import { useFlash } from "../composables/useFlash";
-import { numberRangeValidator } from "../composables/fieldParsing";
+import { usePatchTool } from "@/composables/usePatchTool";
+import { useFlash } from "@/composables/useFlash";
+import { numberRangeValidator } from "@/composables/fieldParsing";
 
 const props = defineProps<{
   approval?: { required: boolean; requiredLevels: number };

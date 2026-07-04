@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { usePatchTool } from "../composables/usePatchTool";
-import { useFlash } from "../composables/useFlash";
-import { numberRangeValidator } from "../composables/fieldParsing";
-import type { ContextBudgetConfig, ContextBudgetLlmProvider } from "../types/api";
+import { usePatchTool } from "@/composables/usePatchTool";
+import { useFlash } from "@/composables/useFlash";
+import { numberRangeValidator } from "@/composables/fieldParsing";
+import type { ContextBudgetConfig, ContextBudgetLlmProvider } from "@/types/api";
 
 const props = defineProps<{
   contextBudget?: ContextBudgetConfig;
