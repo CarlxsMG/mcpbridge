@@ -22,9 +22,10 @@ Two "signature" motifs already built, reuse them, don't invent new ones:
 ## Tokens (`admin-ui/src/style.css`)
 
 All colors/spacing/type live in `:root` as CSS custom properties. **Never hardcode a hex color, a
-border-radius px value, or a font-family in a new `<style scoped>` block** — use the token. If you
-find hardcoded hex colors in an unmigrated page (most pages still have them — see Rollout status
-below), replace them with the matching token as you touch that file.
+border-radius px value, or a font-family in a new `<style scoped>` block** — use the token. Color
+tokenization rollout is complete (see Rollout status below); if you spot a hardcoded hex color
+anywhere, it's either the one documented `.tag-chip` exception in `ServerDetailPage.vue` or a
+regression — replace it with the matching token.
 
 ```css
 /* Surfaces */
@@ -115,14 +116,21 @@ then consolidated into a clean scale.
 --text-md: 0.95rem; /* form inputs, slightly larger body copy */
 --text-lg: 1.1rem; /* dialog titles, subsection headings */
 
-/* Z-index — named layers, low to high. */
---z-drawer: 40; /* ServerDetailPage guard-editor drawer overlay */
---z-drawer-top: 41; /* the drawer panel itself, sibling of its overlay */
---z-overlay: 100; /* ConfirmDialog — blocks the whole page */
+/* Z-index — named layers, low to high. Always use the token; never a bare
+   number, or the next overlay someone adds will collide with an existing
+   one (this scale replaced 7 uncoordinated magic numbers found in the
+   wild: 49, 50, 100, 120, 150, 200, 300 used on 2 different elements).
+   --z-drawer/--z-drawer-top sit above --z-mobile-topbar so the guard-editor
+   drawer (header + Close button included) stays usable on mobile, and
+   --z-overlay sits above --z-drawer-top so an in-drawer ConfirmDialog
+   (e.g. clear-guards) still renders on top of the drawer on every viewport. */
+--z-drawer: 130; /* ServerDetailPage guard-editor drawer overlay */
+--z-drawer-top: 131; /* the drawer panel itself, sibling of its overlay */
+--z-overlay: 140; /* ConfirmDialog — blocks the whole page */
 --z-mobile-topbar: 120; /* sticky mobile header */
 --z-mobile-backdrop: 150; /* mobile nav backdrop */
 --z-mobile-nav: 200; /* mobile sidebar panel */
---z-banner: 250; /* persistent fixed banners */
+--z-banner: 250; /* persistent fixed banners (e.g. demo-mode ribbon) */
 --z-command-palette: 300; /* always reachable above everything else */
 ```
 
@@ -195,15 +203,22 @@ Library: `lucide-vue-next` (already installed). Import specific icons per file, 
 
 ## Component inventory (`admin-ui/src/components/`)
 
+`components/` is organized into subdirectories by domain — `ui/` (generic primitives), `charts/`,
+`guard-editor/` (the `GuardEditor.vue` family), `server-detail/` (the `ServerDetailPage.vue` section
+family), and `layout/` (`TheSidebar.vue`/`TheMobileTopbar.vue`/`DemoRibbon.vue`, extracted from
+`App.vue`) — plus a handful of standalone files (`CommandPalette.vue`, `SchemaForm.vue`,
+`BundleToolPicker.vue`, the dialog components) still directly under `components/`. The table below
+gives each component's subdirectory — don't assume it's a flat child of `components/`.
+
 | Component            | Use for                                                                                                                                                                                                                                                                                                                                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `StatCard.vue`       | Any "big number + label" metric tile. Props: `icon` (component), `label`, `value`, `detail?`, `tone?` (`default/danger/warning/ok`), `pulse?`. Default slot renders below the value/detail (used for `SegmentedBar`). Layout is icon+label row, then value on its own full-width row below — **don't revert to the icon-beside-value layout**, it overflows on narrow cards (see git history if curious why). |
-| `SegmentedBar.vue`   | Proportion bar from real counts. Props: `segments: {label, value, color}[]`. Never fabricate segments — only chart real fields that exist on the API response.                                                                                                                                                                                                                                                |
-| `MiniBarChart.vue`   | Ranked horizontal bars (top-N by some count). Props: `rows: {label, value, hint?, danger?}[]`. Use for any "top N by count" table that already exists (top tools, by-key, etc.) — add the chart _above_ the existing table, don't remove the table (chart = shape, table = exact numbers).                                                                                                                    |
+| `ui/StatCard.vue`    | Any "big number + label" metric tile. Props: `icon` (component), `label`, `value`, `detail?`, `tone?` (`default/danger/warning/ok`), `pulse?`. Default slot renders below the value/detail (used for `SegmentedBar`). Layout is icon+label row, then value on its own full-width row below — **don't revert to the icon-beside-value layout**, it overflows on narrow cards (see git history if curious why). |
+| `charts/SegmentedBar.vue` | Proportion bar from real counts. Props: `segments: {label, value, color}[]`. Never fabricate segments — only chart real fields that exist on the API response.                                                                                                                                                                                                                                                |
+| `charts/MiniBarChart.vue` | Ranked horizontal bars (top-N by some count). Props: `rows: {label, value, hint?, danger?}[]`. Use for any "top N by count" table that already exists (top tools, by-key, etc.) — add the chart _above_ the existing table, don't remove the table (chart = shape, table = exact numbers).                                                                                                                    |
 | `CommandPalette.vue` | Already global via `App.vue`. Don't re-instantiate elsewhere. If a new entity type should be jumpable (e.g. Policies, Consumers), add it to the `PAGES` array or a new live-fetch block in that file.                                                                                                                                                                                                         |
-| `StatusBadge.vue`    | Any `healthy/degraded/unreachable/closed/open/half_open` state pill. Already icon-based (CheckCircle2/AlertTriangle/XCircle/Circle).                                                                                                                                                                                                                                                                          |
-| `ConfirmDialog.vue`  | All destructive/risky confirmations. Fully tokenized.                                                                                                                                                                                                                                                                                                                                                         |
-| `SignalLoader.vue`   | Any inline "data is loading" state — replaces plain `<div class="loading">Loading…</div>` text. Props: `label?` (defaults to `"Loading…"`, pass a custom string like `"Loading tags…"` where the old text had one). Reuses the login page's oscilloscope-trace shape at a compact scale, animated via the same `signal-pulse` keyframe as the sidebar live-dot — don't invent a second loading animation.     |
+| `ui/StatusBadge.vue` | Any `healthy/degraded/unreachable/closed/open/half_open` state pill. Already icon-based (CheckCircle2/AlertTriangle/XCircle/Circle).                                                                                                                                                                                                                                                                          |
+| `ui/ConfirmDialog.vue` | All destructive/risky confirmations. Fully tokenized.                                                                                                                                                                                                                                                                                                                                                         |
+| `ui/SignalLoader.vue` | Any inline "data is loading" state — replaces plain `<div class="loading">Loading…</div>` text. Props: `label?` (defaults to `"Loading…"`, pass a custom string like `"Loading tags…"` where the old text had one). Reuses the login page's oscilloscope-trace shape at a compact scale, animated via the same `signal-pulse` keyframe as the sidebar live-dot — don't invent a second loading animation.     |
 
 ## CSS recipes (copy these verbatim)
 
@@ -573,6 +588,15 @@ radios instead.
 `PoliciesPage.vue`, `ConsumersPage.vue`, `UsersPage.vue`, `TeamsPage.vue`, `ConfigPage.vue`,
 `AlertsPage.vue`, `AuditLogPage.vue`, `SchedulesPage.vue`, `DonutChart.vue`, `QuotaBar.vue`,
 `TimeSeriesChart.vue`, `TrafficPage.vue`, `MonitorsPage.vue`, `ApprovalsPage.vue`.
+
+`ServerDetailPage.vue` was the last holdout with raw hex colors (test-ok/test-error banners, example
+chips, drawer background, form borders, diff add/remove) and got tokenized as part of the
+components-directory reorg (rebuild onto the shared `ui/`/`server-detail/` primitives). One
+deliberate exception remains there: `.tag-chip`'s blue tint has no matching semantic token in this
+app's palette (there's no generic "info" color — only `--signal`/`--canary`/`--breach`/`--ok`/
+`--kind-mcp`, none of which mean "tag"), so it's left as a commented hardcoded pair rather than
+forced onto an unrelated token or a new one-off token invented for a single chip — see the inline
+comment above `.tag-chip` in that file.
 
 `bun run typecheck` is clean. If you add a new page or component, follow the recipes above rather
 than starting from scratch — every visual pattern this app needs already has a home here.
