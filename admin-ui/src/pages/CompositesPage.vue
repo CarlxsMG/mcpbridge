@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { Combine } from "lucide-vue-next";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { useEntityForm } from "@/composables/useEntityForm";
+import { toErrorMessage } from "@/utils/errors";
 import type { CompositeSummary, CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -27,7 +30,6 @@ const {
 const rowError = ref<Record<string, string>>({});
 const { rowError: toggleError, toggle } = useOptimisticToggle<CompositeSummary>((c) => c.name, "Failed to update.");
 
-const showCreateForm = ref(false);
 const newName = ref("");
 const newNameTouched = ref(false);
 const newDescription = ref("");
@@ -35,10 +37,8 @@ const newSchema = ref('{\n  "type": "object",\n  "properties": {}\n}');
 const newSteps = ref(
   '[\n  { "targetClient": "docs", "targetTool": "search", "argsTemplate": { "query": "${input.query}" } },\n  { "targetClient": "docs", "targetTool": "get", "argsTemplate": { "id": { "$ref": "steps.0.json.id" } } }\n]',
 );
-const createError = ref("");
 const schemaError = ref("");
 const stepsError = ref("");
-const creating = ref(false);
 
 const newNameError = computed(() => {
   const v = newName.value.trim();
@@ -47,6 +47,14 @@ const newNameError = computed(() => {
     ? null
     : "Lowercase letters, digits, - and _ (max 63 chars); must not contain '__'.";
 });
+
+function resetForm() {
+  newName.value = "";
+  newNameTouched.value = false;
+  newDescription.value = "";
+}
+
+const { open: showCreateForm, busy: creating, error: createError, submit } = useEntityForm<void>({ reset: resetForm });
 
 onMounted(load);
 
@@ -76,24 +84,15 @@ async function createComposite() {
     stepsError.value = "steps is not valid JSON.";
     return;
   }
-  creating.value = true;
-  try {
+  const ok = await submit(async () => {
     await api.post<CompositeDetail>("/admin-api/composites", {
       name: newName.value.trim(),
       description: newDescription.value.trim() || undefined,
       inputSchema,
       steps,
     });
-    newName.value = "";
-    newDescription.value = "";
-    newNameTouched.value = false;
-    showCreateForm.value = false;
-    await load();
-  } catch (err) {
-    createError.value = err instanceof ApiError ? err.message : "Failed to create composite.";
-  } finally {
-    creating.value = false;
-  }
+  }, "Failed to create composite.");
+  if (ok) await load();
 }
 
 function toggleEnabled(c: CompositeSummary) {
@@ -114,7 +113,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/composites/${encodeURIComponent(c.name)}`);
       await load();
     } catch (err) {
-      rowError.value[c.name] = err instanceof ApiError ? err.message : "Failed to delete.";
+      rowError.value[c.name] = toErrorMessage(err, "Failed to delete.");
     }
   });
 }
@@ -122,16 +121,13 @@ function confirmDelete() {
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>Composite tools</h1>
-        <p class="subtitle">
-          Chains several existing tool calls into one, exposed on the aggregated MCP endpoint. Each step forwards to a
-          real <code>client__tool</code> through the full guard stack.
-        </p>
-      </div>
+    <PageHeader title="Composite tools">
       <ToggleFormButton v-model="showCreateForm" show-label="New composite" />
-    </header>
+    </PageHeader>
+    <p class="subtitle">
+      Chains several existing tool calls into one, exposed on the aggregated MCP endpoint. Each step forwards to a real
+      <code>client__tool</code> through the full guard stack.
+    </p>
 
     <form v-if="showCreateForm" class="create-form" @submit.prevent="createComposite">
       <FormField label="Name" for="new-composite-name">
@@ -172,47 +168,46 @@ function confirmDelete() {
       </button>
     </form>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <SignalLoader v-if="loading" />
+    <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
+      <template #empty>
+        <EmptyState :icon="Combine">
+          No composite tools yet. A composite chains several existing tool calls into one, exposed on the aggregated MCP
+          endpoint.
+        </EmptyState>
+      </template>
 
-    <template v-else-if="items.length === 0">
-      <EmptyState :icon="Combine">
-        No composite tools yet. A composite chains several existing tool calls into one, exposed on the aggregated MCP
-        endpoint.
-      </EmptyState>
-    </template>
-
-    <TableCard v-else>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Description</th>
-          <th>Steps</th>
-          <th>Enabled</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="c in items" :key="c.name">
-          <td>
-            <RouterLink :to="`/composites/${encodeURIComponent(c.name)}`">{{ c.name }}</RouterLink>
-          </td>
-          <td class="desc-cell" :title="c.description || undefined">{{ c.description || "—" }}</td>
-          <td>{{ c.stepsCount }}</td>
-          <td>
-            <TogglePill
-              :on="c.enabled"
-              on-label="Disable composite"
-              off-label="Enable composite"
-              :aria-pressed="c.enabled"
-              @click="toggleEnabled(c)"
-            />
-            <p v-if="toggleError[c.name]" class="row-error">{{ toggleError[c.name] }}</p>
-          </td>
-          <td><button type="button" class="link-btn danger" @click="requestDelete(c)">Delete</button></td>
-        </tr>
-      </tbody>
-    </TableCard>
+      <TableCard>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Steps</th>
+            <th>Enabled</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="c in items" :key="c.name">
+            <td>
+              <RouterLink :to="`/composites/${encodeURIComponent(c.name)}`">{{ c.name }}</RouterLink>
+            </td>
+            <td class="cell-truncate desc-cell" :title="c.description || undefined">{{ c.description || "—" }}</td>
+            <td>{{ c.stepsCount }}</td>
+            <td>
+              <TogglePill
+                :on="c.enabled"
+                on-label="Disable composite"
+                off-label="Enable composite"
+                :aria-pressed="c.enabled"
+                @click="toggleEnabled(c)"
+              />
+              <p v-if="toggleError[c.name]" class="row-error">{{ toggleError[c.name] }}</p>
+            </td>
+            <td><button type="button" class="link-btn danger" @click="requestDelete(c)">Delete</button></td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -231,18 +226,9 @@ function confirmDelete() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
 .subtitle {
   color: var(--text-secondary);
-  margin: 0;
+  margin: 0 0 1.25rem;
   max-width: 35rem;
 }
 .create-form {
@@ -257,16 +243,6 @@ function confirmDelete() {
   flex-direction: column;
   gap: 0.8rem;
 }
-.field input,
-.field textarea {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  box-sizing: border-box;
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-}
 .field textarea.mono-field {
   font-family: var(--font-mono);
   font-size: 0.85rem;
@@ -276,19 +252,8 @@ function confirmDelete() {
   font-size: 0.82rem;
   margin: 0 0 0.4rem;
 }
-:deep(.data-table td.desc-cell) {
+.desc-cell {
   color: var(--text-secondary);
   max-width: 20rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.row-error {
-  color: var(--breach);
-  font-size: 0.75rem;
-  margin: 0.25rem 0 0;
-}
-.link-btn.danger {
-  color: var(--breach);
 }
 </style>

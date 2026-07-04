@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
+import { toErrorMessage } from "@/utils/errors";
 import type { OidcSettings } from "../types/api";
-import { Fingerprint } from "lucide-vue-next";
+import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 
 const settings = ref<OidcSettings | null>(null);
@@ -37,7 +38,7 @@ async function load() {
     const res = await api.get<{ settings: OidcSettings | null }>("/admin-api/auth/oidc/settings");
     applySettings(res.settings);
   } catch (err) {
-    loadError.value = err instanceof ApiError ? err.message : "Failed to load SSO settings.";
+    loadError.value = toErrorMessage(err, "Failed to load SSO settings.");
   } finally {
     loading.value = false;
   }
@@ -74,7 +75,7 @@ async function save() {
     saved.value = true;
     await load();
   } catch (err) {
-    saveError.value = err instanceof ApiError ? err.message : "Failed to save SSO settings.";
+    saveError.value = toErrorMessage(err, "Failed to save SSO settings.");
   } finally {
     saving.value = false;
   }
@@ -83,16 +84,10 @@ async function save() {
 
 <template>
   <section class="page">
-    <header class="page-header">
-      <div>
-        <h1><Fingerprint :size="20" stroke-width="2" aria-hidden="true" /> Single sign-on (OIDC)</h1>
-        <p class="subtitle">
-          Let admins sign in through an external identity provider (Okta, Azure AD, Google Workspace, Auth0, or any
-          OIDC-compliant IdP) via Authorization Code + PKCE, instead of — or alongside — the built-in username/password
-          login. SAML is not supported.
-        </p>
-      </div>
-    </header>
+    <PageHeader
+      title="Single sign-on (OIDC)"
+      subtitle="Let admins sign in through an external identity provider (Okta, Azure AD, Google Workspace, Auth0, or any OIDC-compliant IdP) via Authorization Code + PKCE, instead of — or alongside — the built-in username/password login. SAML is not supported."
+    />
 
     <p v-if="loadError" class="error" role="alert">{{ loadError }}</p>
 
@@ -173,20 +168,6 @@ async function save() {
 <style scoped>
 .page {
   max-width: 40rem;
-}
-.page-header {
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.2rem;
-}
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
-  font-size: 0.9rem;
 }
 .settings-form {
   background: var(--surface);

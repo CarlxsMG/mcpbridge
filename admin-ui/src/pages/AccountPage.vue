@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useAuth } from "../composables/useAuth";
 import { useTheme } from "../composables/useTheme";
 import { useDensity } from "../composables/useDensity";
+import { toErrorMessage } from "@/utils/errors";
+import { formatDateTime } from "@/utils/format";
 import type { AdminSession } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -63,7 +65,7 @@ async function changePassword() {
     // this device — refresh the list below so it reflects that immediately.
     await loadSessions();
   } catch (err) {
-    passwordError.value = err instanceof ApiError ? err.message : "Failed to change password.";
+    passwordError.value = toErrorMessage(err, "Failed to change password.");
   } finally {
     changingPassword.value = false;
   }
@@ -101,7 +103,7 @@ async function confirmRevoke() {
       await api.delete(`/admin-api/auth/sessions/${session.id}`);
       await loadSessions();
     } catch (err) {
-      revokeError.value = err instanceof ApiError ? err.message : "Failed to revoke session.";
+      revokeError.value = toErrorMessage(err, "Failed to revoke session.");
     }
   });
 }
@@ -185,36 +187,38 @@ onMounted(loadSessions);
       </p>
 
       <p v-if="revokeError" class="error" role="alert">{{ revokeError }}</p>
-      <SignalLoader v-if="sessionsLoading" />
-      <p v-else-if="sessionsError" class="error" role="alert">{{ sessionsError }}</p>
-      <EmptyState v-else-if="sessions.length === 0" :icon="Monitor">No active sessions.</EmptyState>
+      <ListLayout :loading="sessionsLoading" :error="sessionsError" :empty="sessions.length === 0">
+        <template #empty>
+          <EmptyState :icon="Monitor">No active sessions.</EmptyState>
+        </template>
 
-      <TableCard v-else>
-        <thead>
-          <tr>
-            <th>Device</th>
-            <th>IP address</th>
-            <th>Last active</th>
-            <th>Signed in</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="session in sessions" :key="session.id">
-            <td>{{ describeUserAgent(session.userAgent) }}</td>
-            <td class="mono-cell">{{ session.ipAddress ?? "—" }}</td>
-            <td>{{ new Date(session.lastSeenAt).toLocaleString() }}</td>
-            <td>{{ new Date(session.createdAt).toLocaleString() }}</td>
-            <td>
-              <div class="actions">
-                <button type="button" class="link-btn danger" @click="requestRevoke(session)">
-                  <LogOut :size="13" stroke-width="2" aria-hidden="true" /> Sign out
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </TableCard>
+        <TableCard>
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>IP address</th>
+              <th>Last active</th>
+              <th>Signed in</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="session in sessions" :key="session.id">
+              <td>{{ describeUserAgent(session.userAgent) }}</td>
+              <td class="mono-cell">{{ session.ipAddress ?? "—" }}</td>
+              <td>{{ formatDateTime(session.lastSeenAt) }}</td>
+              <td>{{ formatDateTime(session.createdAt) }}</td>
+              <td>
+                <div class="actions">
+                  <button type="button" class="link-btn danger" @click="requestRevoke(session)">
+                    <LogOut :size="13" stroke-width="2" aria-hidden="true" /> Sign out
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </TableCard>
+      </ListLayout>
     </div>
 
     <div class="account-section">
@@ -343,10 +347,6 @@ onMounted(loadSessions);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  color: var(--breach);
-}
-.error {
-  color: var(--breach);
 }
 .success {
   color: var(--ok);

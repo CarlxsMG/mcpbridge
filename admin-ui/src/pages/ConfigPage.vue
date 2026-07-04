@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { toErrorMessage } from "@/utils/errors";
+import { formatDateTime } from "@/utils/format";
+import { downloadTextFile } from "@/utils/download";
 import type { ConfigImportResult, ConfigSnapshotSummary, ConfigDiffResult } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -47,7 +50,7 @@ async function loadSnapshots() {
     const res = await api.get<{ items: ConfigSnapshotSummary[] }>("/admin-api/config/snapshots");
     snapshots.value = res.items;
   } catch (err) {
-    snapshotsError.value = err instanceof ApiError ? err.message : "Failed to load snapshots.";
+    snapshotsError.value = toErrorMessage(err, "Failed to load snapshots.");
   }
 }
 onMounted(loadSnapshots);
@@ -61,7 +64,7 @@ async function createSnapshotFn() {
     newSnapshotLabel.value = "";
     await loadSnapshots();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to create snapshot.";
+    errorMessage.value = toErrorMessage(err, "Failed to create snapshot.");
   } finally {
     snapshotBusy.value = false;
   }
@@ -73,7 +76,7 @@ async function showDiff(s: ConfigSnapshotSummary) {
   try {
     diff.value = await api.get<ConfigDiffResult>(`/admin-api/config/snapshots/${s.id}/diff?against=current`);
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to diff.";
+    errorMessage.value = toErrorMessage(err, "Failed to diff.");
   }
 }
 
@@ -85,7 +88,7 @@ async function confirmRollback() {
       resultKind.value = "rollback";
       result.value = await api.post<ConfigImportResult>(`/admin-api/config/snapshots/${s.id}/rollback`, {});
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Rollback failed.";
+      errorMessage.value = toErrorMessage(err, "Rollback failed.");
     } finally {
       snapshotBusy.value = false;
     }
@@ -99,7 +102,7 @@ async function confirmDeleteSnapshot() {
       if (diff.value?.from.id === s.id) diff.value = null;
       await loadSnapshots();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Delete failed.";
+      errorMessage.value = toErrorMessage(err, "Delete failed.");
     }
   });
 }
@@ -118,15 +121,10 @@ async function doExport() {
     const suffix = exportFormat.value === "yaml" ? "?format=yaml" : "";
     const raw = await api.getRaw(`/admin-api/config/export${suffix}`);
     const mime = exportFormat.value === "yaml" ? "application/yaml" : "application/json";
-    const blob = new Blob([raw], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = exportFormat.value === "yaml" ? "mcp-bridge-config.yaml" : "mcp-bridge-config.json";
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = exportFormat.value === "yaml" ? "mcp-bridge-config.yaml" : "mcp-bridge-config.json";
+    downloadTextFile(filename, raw, mime);
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Export failed.";
+    errorMessage.value = toErrorMessage(err, "Export failed.");
   } finally {
     exporting.value = false;
   }
@@ -147,9 +145,7 @@ async function runImport(dryRun: boolean) {
     errorMessage.value =
       importFormat.value === "json" && err instanceof SyntaxError
         ? "Invalid JSON."
-        : err instanceof ApiError
-          ? err.message
-          : "Import failed.";
+        : toErrorMessage(err, "Import failed.");
   } finally {
     busy.value = false;
   }
@@ -251,7 +247,7 @@ async function confirmImport() {
             <tr v-for="s in snapshots" :key="s.id">
               <td>{{ s.id }}</td>
               <td>{{ s.label }}</td>
-              <td>{{ new Date(s.createdAt).toLocaleString() }}</td>
+              <td>{{ formatDateTime(s.createdAt) }}</td>
               <td>{{ s.createdBy }}</td>
               <td class="row-actions">
                 <button type="button" class="link-btn" @click="showDiff(s)">diff vs current</button>
@@ -430,9 +426,6 @@ textarea {
   margin-top: 0.75rem;
   font-size: 0.85rem;
 }
-.error {
-  color: var(--breach);
-}
 .label-input {
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--border-strong);
@@ -471,9 +464,6 @@ textarea {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
-}
-.link-btn.del {
-  color: var(--breach);
 }
 .diff {
   margin-top: 1rem;

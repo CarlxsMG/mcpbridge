@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { useEntityForm } from "@/composables/useEntityForm";
+import { toErrorMessage } from "@/utils/errors";
 import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "../types/api";
-import { LayoutGrid, Plus } from "lucide-vue-next";
+import { LayoutGrid } from "lucide-vue-next";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
+import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
 
 const router = useRouter();
 
@@ -64,7 +67,7 @@ async function preview(entry: CatalogEntry) {
     });
     previewTools.value = res.tools;
   } catch (err) {
-    previewError.value = err instanceof ApiError ? err.message : "Preview failed.";
+    previewError.value = toErrorMessage(err, "Preview failed.");
   } finally {
     previewing.value = false;
   }
@@ -81,14 +84,13 @@ async function confirmInstall(entry: CatalogEntry) {
     await api.post(`/admin-api/catalog/${encodeURIComponent(entry.id)}/install`, { name: installName.value.trim() });
     await router.push(`/servers/${encodeURIComponent(installName.value.trim())}`);
   } catch (err) {
-    installError.value = err instanceof ApiError ? err.message : "Install failed.";
+    installError.value = toErrorMessage(err, "Install failed.");
   } finally {
     installing.value = false;
   }
 }
 
 // ── Custom entry form ───────────────────────────────────────────────────────
-const showCreateForm = ref(false);
 const newSlug = ref("");
 const newName = ref("");
 const newDescription = ref("");
@@ -96,17 +98,29 @@ const newKind = ref<"rest" | "mcp">("rest");
 const newHealthUrl = ref("");
 const newOpenapiUrl = ref("");
 const newMcpUrl = ref("");
-const createError = ref("");
-const creating = ref(false);
+
+function resetCreateForm() {
+  newSlug.value = "";
+  newName.value = "";
+  newDescription.value = "";
+  newHealthUrl.value = "";
+  newOpenapiUrl.value = "";
+  newMcpUrl.value = "";
+}
+
+const {
+  open: showCreateForm,
+  busy: creating,
+  error: createError,
+  submit,
+} = useEntityForm<void>({ reset: resetCreateForm });
 
 async function createEntry() {
-  createError.value = "";
   if (!newSlug.value.trim() || !newName.value.trim()) {
     createError.value = "Slug and name are required.";
     return;
   }
-  creating.value = true;
-  try {
+  const ok = await submit(async () => {
     await api.post("/admin-api/catalog", {
       slug: newSlug.value.trim(),
       name: newName.value.trim(),
@@ -116,19 +130,8 @@ async function createEntry() {
       openapiUrl: newKind.value === "rest" ? newOpenapiUrl.value.trim() || undefined : undefined,
       mcpUrl: newKind.value === "mcp" ? newMcpUrl.value.trim() || undefined : undefined,
     });
-    newSlug.value = "";
-    newName.value = "";
-    newDescription.value = "";
-    newHealthUrl.value = "";
-    newOpenapiUrl.value = "";
-    newMcpUrl.value = "";
-    showCreateForm.value = false;
-    await load();
-  } catch (err) {
-    createError.value = err instanceof ApiError ? err.message : "Failed to save catalog entry.";
-  } finally {
-    creating.value = false;
-  }
+  }, "Failed to save catalog entry.");
+  if (ok) await load();
 }
 
 const {
@@ -148,7 +151,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/catalog/${encodeURIComponent(entry.id)}`);
       await load();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete catalog entry.";
+      errorMessage.value = toErrorMessage(err, "Failed to delete catalog entry.");
     }
   });
 }
@@ -160,13 +163,7 @@ function confirmDelete() {
       title="Catalog"
       subtitle="Browse well-known servers and install them with one click, or save your own reusable templates."
     >
-      <button
-        type="button"
-        :class="showCreateForm ? 'btn-secondary' : 'btn-primary'"
-        @click="showCreateForm = !showCreateForm"
-      >
-        <Plus :size="14" stroke-width="2.5" aria-hidden="true" /> {{ showCreateForm ? "Cancel" : "Add custom entry" }}
-      </button>
+      <ToggleFormButton v-model="showCreateForm" show-label="Add custom entry" />
     </PageHeader>
 
     <form v-if="showCreateForm" class="create-form" @submit.prevent="createEntry">
@@ -203,66 +200,67 @@ function confirmDelete() {
       <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Saving…" : "Save entry" }}</button>
     </form>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <SignalLoader v-if="loading" />
+    <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
+      <template #empty>
+        <EmptyState :icon="LayoutGrid">
+          No catalog entries yet. The catalog lists one-click installable servers -- built-in or admin-added -- so
+          registering a new backend doesn't start from a blank form.
+        </EmptyState>
+      </template>
 
-    <EmptyState v-else-if="items.length === 0" :icon="LayoutGrid">
-      No catalog entries yet. The catalog lists one-click installable servers -- built-in or admin-added -- so
-      registering a new backend doesn't start from a blank form.
-    </EmptyState>
+      <div class="catalog-grid">
+        <article
+          v-for="entry in sorted"
+          :key="entry.id"
+          class="catalog-card"
+          :class="{ 'is-open': openEntryId === entry.id }"
+        >
+          <div class="card-top">
+            <span class="kind-badge" :class="`kind-${entry.kind}`">{{ entry.kind === "mcp" ? "MCP" : "REST" }}</span>
+            <span v-if="entry.featured" class="featured-badge">Featured</span>
+            <span v-if="entry.source === 'custom'" class="custom-badge">Custom</span>
+          </div>
+          <h3>{{ entry.name }}</h3>
+          <p class="desc">{{ entry.description || "No description." }}</p>
+          <p v-if="entry.category" class="category">{{ entry.category }}</p>
+          <div v-if="entry.tags.length" class="tags">
+            <span v-for="tag in entry.tags" :key="tag" class="tag">{{ tag }}</span>
+          </div>
 
-    <div v-else class="catalog-grid">
-      <article
-        v-for="entry in sorted"
-        :key="entry.id"
-        class="catalog-card"
-        :class="{ 'is-open': openEntryId === entry.id }"
-      >
-        <div class="card-top">
-          <span class="kind-badge" :class="`kind-${entry.kind}`">{{ entry.kind === "mcp" ? "MCP" : "REST" }}</span>
-          <span v-if="entry.featured" class="featured-badge">Featured</span>
-          <span v-if="entry.source === 'custom'" class="custom-badge">Custom</span>
-        </div>
-        <h3>{{ entry.name }}</h3>
-        <p class="desc">{{ entry.description || "No description." }}</p>
-        <p v-if="entry.category" class="category">{{ entry.category }}</p>
-        <div v-if="entry.tags.length" class="tags">
-          <span v-for="tag in entry.tags" :key="tag" class="tag">{{ tag }}</span>
-        </div>
+          <div class="card-actions">
+            <button type="button" class="btn-secondary" @click="toggleInstall(entry)">
+              {{ openEntryId === entry.id ? "Cancel" : "Install" }}
+            </button>
+            <button v-if="entry.source === 'custom'" type="button" class="link-btn danger" @click="deleteEntry(entry)">
+              Delete
+            </button>
+          </div>
 
-        <div class="card-actions">
-          <button type="button" class="btn-secondary" @click="toggleInstall(entry)">
-            {{ openEntryId === entry.id ? "Cancel" : "Install" }}
-          </button>
-          <button v-if="entry.source === 'custom'" type="button" class="link-btn danger" @click="deleteEntry(entry)">
-            Delete
-          </button>
-        </div>
-
-        <div v-if="openEntryId === entry.id" class="install-panel">
-          <FormField label="Install as" :for="`install-name-${entry.id}`">
-            <input :id="`install-name-${entry.id}`" v-model="installName" type="text" />
-          </FormField>
-          <template v-if="entry.kind === 'rest' && entry.openapiUrl">
-            <div class="preview-row">
-              <button type="button" class="btn-secondary" :disabled="previewing" @click="preview(entry)">
-                {{ previewing ? "Discovering…" : "Preview tools" }}
-              </button>
-              <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
-            </div>
-            <p v-if="previewError" class="error">{{ previewError }}</p>
-          </template>
-          <p v-else class="hint">
-            The bridge connects to the MCP server and discovers its tools on install. If it requires authentication,
-            install it first, set upstream credentials on its detail page, then re-register.
-          </p>
-          <p v-if="installError" class="error">{{ installError }}</p>
-          <button type="button" class="btn-primary" :disabled="installing" @click="confirmInstall(entry)">
-            {{ installing ? "Installing…" : "Confirm install" }}
-          </button>
-        </div>
-      </article>
-    </div>
+          <div v-if="openEntryId === entry.id" class="install-panel">
+            <FormField label="Install as" :for="`install-name-${entry.id}`">
+              <input :id="`install-name-${entry.id}`" v-model="installName" type="text" />
+            </FormField>
+            <template v-if="entry.kind === 'rest' && entry.openapiUrl">
+              <div class="preview-row">
+                <button type="button" class="btn-secondary" :disabled="previewing" @click="preview(entry)">
+                  {{ previewing ? "Discovering…" : "Preview tools" }}
+                </button>
+                <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
+              </div>
+              <p v-if="previewError" class="error">{{ previewError }}</p>
+            </template>
+            <p v-else class="hint">
+              The bridge connects to the MCP server and discovers its tools on install. If it requires authentication,
+              install it first, set upstream credentials on its detail page, then re-register.
+            </p>
+            <p v-if="installError" class="error">{{ installError }}</p>
+            <button type="button" class="btn-primary" :disabled="installing" @click="confirmInstall(entry)">
+              {{ installing ? "Installing…" : "Confirm install" }}
+            </button>
+          </div>
+        </article>
+      </div>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -286,30 +284,11 @@ function confirmDelete() {
 :deep(.subtitle) {
   max-width: 35rem;
 }
-.btn-primary,
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-}
 .create-form {
-  background: var(--surface-sunken);
-  padding: 1.25rem;
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
   max-width: 30rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-}
-.field input {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
 }
 .segmented {
   display: flex;
@@ -393,9 +372,6 @@ function confirmDelete() {
   align-items: center;
   gap: 0.75rem;
 }
-.link-btn.danger {
-  color: var(--breach);
-}
 .install-panel {
   margin-top: 0.85rem;
   padding-top: 0.85rem;
@@ -417,8 +393,5 @@ function confirmDelete() {
   font-size: 0.8rem;
   color: var(--text-secondary);
   margin: 0;
-}
-.error {
-  color: var(--breach);
 }
 </style>
