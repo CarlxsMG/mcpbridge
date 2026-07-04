@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive, watch } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
+import { toErrorMessage } from "@/utils/errors";
+import { formatDateTime } from "@/utils/format";
 import type { ApprovalRecord, ApprovalStatus } from "../types/api";
 import DonutChart from "@/components/charts/DonutChart.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
@@ -89,7 +91,7 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
     delete noteDraft[a.id];
     await loadTable();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : `Failed to ${action} approval #${a.id}.`;
+    errorMessage.value = toErrorMessage(err, `Failed to ${action} approval #${a.id}.`);
   } finally {
     decidingId.value = null;
   }
@@ -127,79 +129,86 @@ async function confirmReject() {
 
     <TabStrip v-model="activeTab" :tabs="TABS" aria-label="Approval status" />
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <SignalLoader v-if="loading && !tableItems.length" />
-    <EmptyState v-else-if="tableItems.length === 0" :icon="ClipboardCheck">
-      <template v-if="activeTab === 'pending'">Nothing waiting for review right now.</template>
-      <template v-else>
-        No {{ activeTab === "all" ? "" : activeTab + " " }}approvals yet. Requests show up here once a tool is
-        configured to require approval before its upstream call runs.
+    <ListLayout :loading="loading && !tableItems.length" :error="errorMessage" :empty="tableItems.length === 0">
+      <template #empty>
+        <EmptyState :icon="ClipboardCheck">
+          <template v-if="activeTab === 'pending'">Nothing waiting for review right now.</template>
+          <template v-else>
+            No {{ activeTab === "all" ? "" : activeTab + " " }}approvals yet. Requests show up here once a tool is
+            configured to require approval before its upstream call runs.
+          </template>
+        </EmptyState>
       </template>
-    </EmptyState>
 
-    <TableCard v-else>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Client / Tool</th>
-          <th>Args</th>
-          <th>Requested</th>
-          <th>Decision</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="a in tableItems" :key="a.id">
-          <td class="mono">{{ a.id }}</td>
-          <td class="mono">{{ a.clientName }}/{{ a.toolName }}</td>
-          <td class="args" :title="prettyArgs(a.argsJson)">
-            <code>{{ prettyArgs(a.argsJson) }}</code>
-          </td>
-          <td>{{ new Date(a.createdAt).toLocaleString() }}</td>
-          <td>
-            <span v-if="a.status === 'pending'" class="status-pending">
-              Pending
-              <span v-if="a.requiredLevels > 1" class="levels-badge"
-                >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
-              >
-            </span>
-            <span v-else :class="a.status === 'approved' ? 'status-approved' : 'status-rejected'">
-              {{ a.status === "approved" ? "Approved" : "Rejected" }}
-              <template v-if="a.requiredLevels > 1 && a.status === 'approved'"
-                >({{ approvedCount(a) }}/{{ a.requiredLevels }})</template
-              >
-              by {{ a.decidedBy }}
-              <span v-if="a.note" class="note">— {{ a.note }}</span>
-            </span>
-            <ul v-if="a.decisions.length" class="decisions">
-              <li v-for="d in a.decisions" :key="d.id">
-                {{ d.decidedBy }}: {{ d.decision }}<span v-if="d.note"> — {{ d.note }}</span>
-              </li>
-            </ul>
-          </td>
-          <td>
-            <div class="actions">
-              <template v-if="a.status === 'pending'">
-                <input
-                  v-model="noteDraft[a.id]"
-                  type="text"
-                  placeholder="Note…"
-                  class="note-input"
-                  :aria-label="`Note for approval #${a.id}`"
-                  :disabled="decidingId === a.id"
-                />
-                <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
-                  <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
-                </button>
-                <button type="button" class="link-btn danger" :disabled="decidingId === a.id" @click="requestReject(a)">
-                  <X :size="13" stroke-width="2" aria-hidden="true" /> Reject
-                </button>
-              </template>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </TableCard>
+      <TableCard>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Client / Tool</th>
+            <th>Args</th>
+            <th>Requested</th>
+            <th>Decision</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="a in tableItems" :key="a.id">
+            <td class="mono">{{ a.id }}</td>
+            <td class="mono">{{ a.clientName }}/{{ a.toolName }}</td>
+            <td class="cell-truncate" :title="prettyArgs(a.argsJson)">
+              <code>{{ prettyArgs(a.argsJson) }}</code>
+            </td>
+            <td>{{ formatDateTime(a.createdAt) }}</td>
+            <td>
+              <span v-if="a.status === 'pending'" class="status-pending">
+                Pending
+                <span v-if="a.requiredLevels > 1" class="levels-badge"
+                  >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
+                >
+              </span>
+              <span v-else :class="a.status === 'approved' ? 'status-approved' : 'status-rejected'">
+                {{ a.status === "approved" ? "Approved" : "Rejected" }}
+                <template v-if="a.requiredLevels > 1 && a.status === 'approved'"
+                  >({{ approvedCount(a) }}/{{ a.requiredLevels }})</template
+                >
+                by {{ a.decidedBy }}
+                <span v-if="a.note" class="note">— {{ a.note }}</span>
+              </span>
+              <ul v-if="a.decisions.length" class="decisions">
+                <li v-for="d in a.decisions" :key="d.id">
+                  {{ d.decidedBy }}: {{ d.decision }}<span v-if="d.note"> — {{ d.note }}</span>
+                </li>
+              </ul>
+            </td>
+            <td>
+              <div class="actions">
+                <template v-if="a.status === 'pending'">
+                  <input
+                    v-model="noteDraft[a.id]"
+                    type="text"
+                    placeholder="Note…"
+                    class="note-input"
+                    :aria-label="`Note for approval #${a.id}`"
+                    :disabled="decidingId === a.id"
+                  />
+                  <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
+                    <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
+                  </button>
+                  <button
+                    type="button"
+                    class="link-btn danger"
+                    :disabled="decidingId === a.id"
+                    @click="requestReject(a)"
+                  >
+                    <X :size="13" stroke-width="2" aria-hidden="true" /> Reject
+                  </button>
+                </template>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingReject !== null"
@@ -229,24 +238,8 @@ async function confirmReject() {
   gap: 0.4rem;
   flex-shrink: 0;
 }
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.mono {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-.args {
+.cell-truncate {
   max-width: 11.875rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .status-pending {
   color: var(--canary);
@@ -293,9 +286,6 @@ async function confirmReject() {
   display: inline-flex;
   align-items: center;
   gap: 0.3em;
-}
-.error {
-  color: var(--breach);
 }
 /* Page-specific tweak on top of EmptyState.vue's own recipe: this page wants the muted text tone
    here instead of the component's default (--text-secondary). */

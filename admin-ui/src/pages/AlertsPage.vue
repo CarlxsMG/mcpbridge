@@ -4,11 +4,14 @@ import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { useEntityForm } from "@/composables/useEntityForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
+import { toErrorMessage } from "@/utils/errors";
+import { formatMaybeDate } from "@/utils/format";
 import type { AlertRule, AlertEventType } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -57,16 +60,20 @@ const {
 } = useOptimisticToggle<AlertRule>((r) => r.id, "Failed to update rule.");
 const testingRuleId = ref<number | null>(null);
 
-const showCreate = ref(false);
 const newName = ref("");
 const newEvent = ref<AlertEventType>("circuit_breaker_open");
 const newUrl = ref("");
 const newThreshold = ref("0.5");
 const newMinCalls = ref("10");
-const createError = ref("");
 const nameError = ref("");
 const urlError = ref("");
-const creating = ref(false);
+
+function resetForm() {
+  newName.value = "";
+  newUrl.value = "";
+}
+
+const { open: showCreate, busy: creating, error: createError, submit } = useEntityForm<void>({ reset: resetForm });
 
 onMounted(load);
 
@@ -102,8 +109,7 @@ async function createRule() {
     threshold = thresholdResult.value;
     minCalls = minCallsResult.value;
   }
-  creating.value = true;
-  try {
+  const ok = await submit(async () => {
     const body: Record<string, unknown> = {
       name: newName.value.trim(),
       eventType: newEvent.value,
@@ -114,15 +120,8 @@ async function createRule() {
       body.minCalls = minCalls;
     }
     await api.post("/admin-api/alerts", body);
-    newName.value = "";
-    newUrl.value = "";
-    showCreate.value = false;
-    await load();
-  } catch (err) {
-    createError.value = err instanceof ApiError ? err.message : "Failed to create rule.";
-  } finally {
-    creating.value = false;
-  }
+  }, "Failed to create rule.");
+  if (ok) await load();
 }
 
 function toggleEnabled(rule: AlertRule) {
@@ -164,7 +163,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/alerts/${rule.id}`);
       await load();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete rule.";
+      errorMessage.value = toErrorMessage(err, "Failed to delete rule.");
     }
   });
 }
@@ -223,53 +222,55 @@ function confirmDelete() {
       </button>
     </form>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <p v-if="testMessage" class="success" role="status">{{ testMessage }}</p>
-    <SignalLoader v-if="loading" />
 
-    <EmptyState v-else-if="rules.length === 0" :icon="BellRing">
-      No alert rules yet. A rule watches for an event and POSTs a JSON payload to a webhook when it fires.
-    </EmptyState>
+    <ListLayout :loading="loading" :error="errorMessage" :empty="rules.length === 0">
+      <template #empty>
+        <EmptyState :icon="BellRing">
+          No alert rules yet. A rule watches for an event and POSTs a JSON payload to a webhook when it fires.
+        </EmptyState>
+      </template>
 
-    <TableCard v-else>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Event</th>
-          <th>Webhook</th>
-          <th>Last fired</th>
-          <th>Enabled</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="rule in rules" :key="rule.id">
-          <td>{{ rule.name }}</td>
-          <td>{{ EVENT_LABELS[rule.eventType] }}</td>
-          <td class="url-cell" :title="rule.webhookUrl">{{ rule.webhookUrl }}</td>
-          <td>{{ rule.lastFiredAt ? new Date(rule.lastFiredAt).toLocaleString() : "Never" }}</td>
-          <td>
-            <TogglePill
-              :on="rule.enabled"
-              on-label="Enabled"
-              off-label="Disabled"
-              :aria-pressed="rule.enabled"
-              :disabled="isPending(rule)"
-              @click="toggle(rule)"
-            />
-            <p v-if="rowError[rule.id]" class="row-error">{{ rowError[rule.id] }}</p>
-          </td>
-          <td>
-            <div class="actions">
-              <button type="button" class="link-btn" :disabled="testingRuleId === rule.id" @click="testRule(rule)">
-                {{ testingRuleId === rule.id ? "Testing…" : "Test" }}
-              </button>
-              <button type="button" class="link-btn danger" @click="requestDelete(rule)">Delete</button>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </TableCard>
+      <TableCard>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Event</th>
+            <th>Webhook</th>
+            <th>Last fired</th>
+            <th>Enabled</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="rule in rules" :key="rule.id">
+            <td>{{ rule.name }}</td>
+            <td>{{ EVENT_LABELS[rule.eventType] }}</td>
+            <td class="cell-truncate" :title="rule.webhookUrl">{{ rule.webhookUrl }}</td>
+            <td>{{ formatMaybeDate(rule.lastFiredAt) }}</td>
+            <td>
+              <TogglePill
+                :on="rule.enabled"
+                on-label="Enabled"
+                off-label="Disabled"
+                :aria-pressed="rule.enabled"
+                :disabled="isPending(rule)"
+                @click="toggle(rule)"
+              />
+              <p v-if="rowError[rule.id]" class="row-error">{{ rowError[rule.id] }}</p>
+            </td>
+            <td>
+              <div class="actions">
+                <button type="button" class="link-btn" :disabled="testingRuleId === rule.id" @click="testRule(rule)">
+                  {{ testingRuleId === rule.id ? "Testing…" : "Test" }}
+                </button>
+                <button type="button" class="link-btn danger" @click="requestDelete(rule)">Delete</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -308,35 +309,16 @@ function confirmDelete() {
   margin-bottom: 1.5rem;
   max-width: 26.25rem;
 }
-.field input,
-.field select,
-.field textarea {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
-}
-:deep(.data-table td.url-cell) {
+.cell-truncate {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.83rem;
   max-width: 15rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-.row-error {
-  color: var(--breach);
-  font-size: 0.75rem;
-  margin: 0.25rem 0 0;
 }
 .success {
   color: var(--ok);

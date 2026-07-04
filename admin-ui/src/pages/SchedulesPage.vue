@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { toErrorMessage } from "@/utils/errors";
+import { formatMaybeDate } from "@/utils/format";
 import type { Schedule } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -62,7 +65,7 @@ async function create() {
     form.value.toolName = "";
     await load();
   } catch (err) {
-    createError.value = err instanceof ApiError ? err.message : "Failed to create schedule.";
+    createError.value = toErrorMessage(err, "Failed to create schedule.");
   } finally {
     creating.value = false;
   }
@@ -78,27 +81,23 @@ function confirmDelete() {
       await api.delete(`/admin-api/schedules/${s.id}`);
       await load();
     } catch (err) {
-      rowError.value[s.id] = err instanceof ApiError ? err.message : "Failed.";
+      rowError.value[s.id] = toErrorMessage(err, "Failed.");
     }
   });
 }
 
 function formatLastRun(m: number | null): string {
-  return m === null ? "Never" : new Date(m * 60_000).toLocaleString();
+  return formatMaybeDate(m === null ? null : m * 60_000);
 }
 </script>
 
 <template>
   <section class="page">
-    <header class="page-header">
-      <div>
-        <h1>Maintenance schedules</h1>
-        <p class="subtitle">
-          Cron-driven enable/disable of a client or a single tool. Evaluated once a minute in UTC on the leader
-          instance. Fields: <code>min hour day-of-month month day-of-week</code>.
-        </p>
-      </div>
-    </header>
+    <PageHeader title="Maintenance schedules" />
+    <p class="subtitle">
+      Cron-driven enable/disable of a client or a single tool. Evaluated once a minute in UTC on the leader instance.
+      Fields: <code>min hour day-of-month month day-of-week</code>.
+    </p>
 
     <form class="create-form" @submit.prevent="create">
       <FormField label="Type" for="sched-type">
@@ -125,55 +124,56 @@ function formatLastRun(m: number | null): string {
       <button class="btn-primary" type="submit" :disabled="creating">Add</button>
     </form>
     <p v-if="createError" class="error" role="alert">{{ createError }}</p>
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-    <SignalLoader v-if="loading" />
+    <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
+      <template #empty>
+        <EmptyState :icon="Clock">
+          No schedules yet. A schedule enables or disables a client or tool automatically on a cron interval.
+        </EmptyState>
+      </template>
 
-    <EmptyState v-else-if="items.length === 0" :icon="Clock">
-      No schedules yet. A schedule enables or disables a client or tool automatically on a cron interval.
-    </EmptyState>
-
-    <TableCard v-else>
-      <thead>
-        <tr>
-          <th>Target</th>
-          <th>Action</th>
-          <th>Cron</th>
-          <th>Enabled</th>
-          <th>Last run</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="s in items" :key="s.id">
-          <td>
-            <code>{{ s.clientName }}</code
-            ><template v-if="s.toolName">
-              → <code>{{ s.toolName }}</code></template
-            >
-            <span class="tag">{{ s.targetType }}</span>
-          </td>
-          <td>{{ s.action }}</td>
-          <td>
-            <code>{{ s.cron }}</code>
-          </td>
-          <td>
-            <TogglePill
-              :on="s.enabled"
-              on-label="Enabled"
-              off-label="Disabled"
-              :aria-pressed="s.enabled"
-              @click="toggle(s)"
-            />
-            <p v-if="rowError[s.id]" class="row-error">{{ rowError[s.id] }}</p>
-          </td>
-          <td>
-            <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>
-          </td>
-          <td><button class="link-btn danger" @click="requestDelete(s)">Delete</button></td>
-        </tr>
-      </tbody>
-    </TableCard>
+      <TableCard>
+        <thead>
+          <tr>
+            <th>Target</th>
+            <th>Action</th>
+            <th>Cron</th>
+            <th>Enabled</th>
+            <th>Last run</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="s in items" :key="s.id">
+            <td>
+              <code>{{ s.clientName }}</code
+              ><template v-if="s.toolName">
+                → <code>{{ s.toolName }}</code></template
+              >
+              <span class="tag">{{ s.targetType }}</span>
+            </td>
+            <td>{{ s.action }}</td>
+            <td>
+              <code>{{ s.cron }}</code>
+            </td>
+            <td>
+              <TogglePill
+                :on="s.enabled"
+                on-label="Enabled"
+                off-label="Disabled"
+                :aria-pressed="s.enabled"
+                @click="toggle(s)"
+              />
+              <p v-if="rowError[s.id]" class="row-error">{{ rowError[s.id] }}</p>
+            </td>
+            <td>
+              <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>
+            </td>
+            <td><button class="link-btn danger" @click="requestDelete(s)">Delete</button></td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -195,18 +195,9 @@ function formatLastRun(m: number | null): string {
 .page {
   max-width: 56.25rem;
 }
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
 .subtitle {
   color: var(--text-secondary);
-  margin: 0;
+  margin: 0 0 1.25rem;
   font-size: 0.9rem;
 }
 .create-form {
@@ -236,10 +227,5 @@ function formatLastRun(m: number | null): string {
 }
 .last-run-never {
   color: var(--text-muted);
-}
-.row-error {
-  color: var(--breach);
-  font-size: 0.75rem;
-  margin: 0.25rem 0 0;
 }
 </style>

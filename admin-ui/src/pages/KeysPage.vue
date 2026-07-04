@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import { useClipboard } from "../composables/useClipboard";
+import { useEntityForm } from "@/composables/useEntityForm";
 import { parseList } from "@/utils/fieldParsing";
+import { toErrorMessage } from "@/utils/errors";
+import { formatMaybeDate } from "@/utils/format";
+import { statusTone, toneColorVar } from "@/utils/status";
 import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -19,7 +23,6 @@ import { KeyRound } from "lucide-vue-next";
 const keys = ref<McpApiKey[]>([]);
 const { loading, errorMessage, run } = useLoadState("Failed to load API keys.");
 
-const showCreateForm = ref(false);
 const newLabel = ref("");
 const newClients = ref("");
 const newTools = ref("");
@@ -27,8 +30,17 @@ const newExpires = ref("");
 const newConsumerId = ref<number | "">("");
 const newElevated = ref(false);
 const consumers = ref<Consumer[]>([]);
-const createError = ref("");
-const creating = ref(false);
+
+function resetForm() {
+  newLabel.value = "";
+  newClients.value = "";
+  newTools.value = "";
+  newExpires.value = "";
+  newConsumerId.value = "";
+  newElevated.value = false;
+}
+
+const { open: showCreateForm, busy: creating, error: createError, submit } = useEntityForm<void>({ reset: resetForm });
 
 // The raw secret is shown exactly once, right after minting.
 const mintedKey = ref<McpApiKeyWithSecret | null>(null);
@@ -54,6 +66,10 @@ function statusOf(key: McpApiKey): string {
   if (!key.enabled) return "Disabled";
   if (key.expiresAt !== null && key.expiresAt <= Date.now()) return "Expired";
   return "Active";
+}
+
+function keyTone(key: McpApiKey) {
+  return statusTone(statusOf(key));
 }
 
 function scopeSummary(key: McpApiKey): string {
@@ -93,8 +109,7 @@ async function createKey() {
   const scopes = clients.length || tools.length ? { clients, tools } : null;
   const expiresAt = newExpires.value ? new Date(newExpires.value).getTime() : null;
 
-  creating.value = true;
-  try {
+  const ok = await submit(async () => {
     const created = await api.post<McpApiKeyWithSecret>("/admin-api/mcp-keys", {
       label: newLabel.value.trim(),
       scopes,
@@ -104,19 +119,8 @@ async function createKey() {
     });
     mintedKey.value = created;
     resetCopied();
-    newLabel.value = "";
-    newClients.value = "";
-    newTools.value = "";
-    newExpires.value = "";
-    newConsumerId.value = "";
-    newElevated.value = false;
-    showCreateForm.value = false;
-    await load();
-  } catch (err) {
-    createError.value = err instanceof ApiError ? err.message : "Failed to create API key.";
-  } finally {
-    creating.value = false;
-  }
+  }, "Failed to create API key.");
+  if (ok) await load();
 }
 
 async function copyKey() {
@@ -135,7 +139,7 @@ function confirmRevoke() {
       await api.post(`/admin-api/mcp-keys/${key.id}/revoke`);
       await load();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to revoke key.";
+      errorMessage.value = toErrorMessage(err, "Failed to revoke key.");
     }
   });
 }
@@ -146,7 +150,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/mcp-keys/${key.id}`);
       await load();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete key.";
+      errorMessage.value = toErrorMessage(err, "Failed to delete key.");
     }
   });
 }
@@ -196,63 +200,69 @@ function confirmDelete() {
       <button type="submit" class="btn-primary" :disabled="creating">{{ creating ? "Minting…" : "Mint key" }}</button>
     </form>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <SignalLoader v-if="loading" />
+    <ListLayout :loading="loading" :error="errorMessage" :empty="keys.length === 0">
+      <template #empty>
+        <EmptyState :icon="KeyRound">
+          No API keys yet. MCP clients present a key to call tools through this bridge — mint one to get started.
+        </EmptyState>
+      </template>
 
-    <EmptyState v-else-if="keys.length === 0" :icon="KeyRound">
-      No API keys yet. MCP clients present a key to call tools through this bridge — mint one to get started.
-    </EmptyState>
-
-    <TableCard v-else>
-      <thead>
-        <tr>
-          <th>Label</th>
-          <th>Prefix</th>
-          <th>Scope</th>
-          <th>Consumer</th>
-          <th>Status</th>
-          <th>Last used</th>
-          <th>Expires</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="key in keys" :key="key.id">
-          <td>{{ key.label }} <span v-if="key.elevated" class="elev-chip">elevated</span></td>
-          <td>
-            <code>{{ key.keyPrefix }}…</code>
-          </td>
-          <td>
-            {{ scopeSummary(key) }}
-            <details v-if="key.scopes" class="scope-disclosure">
-              <summary class="link-btn">View scope</summary>
-              <div class="scope-detail">
-                <div v-if="key.scopes.clients?.length">Clients: {{ key.scopes.clients.join(", ") }}</div>
-                <div v-if="key.scopes.tools?.length">Tools: {{ key.scopes.tools.join(", ") }}</div>
+      <TableCard>
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>Prefix</th>
+            <th>Scope</th>
+            <th>Consumer</th>
+            <th>Status</th>
+            <th>Last used</th>
+            <th>Expires</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="key in keys" :key="key.id">
+            <td>{{ key.label }} <span v-if="key.elevated" class="elev-chip">elevated</span></td>
+            <td>
+              <code>{{ key.keyPrefix }}…</code>
+            </td>
+            <td>
+              {{ scopeSummary(key) }}
+              <details v-if="key.scopes" class="scope-disclosure">
+                <summary class="link-btn">View scope</summary>
+                <div class="scope-detail">
+                  <div v-if="key.scopes.clients?.length">Clients: {{ key.scopes.clients.join(", ") }}</div>
+                  <div v-if="key.scopes.tools?.length">Tools: {{ key.scopes.tools.join(", ") }}</div>
+                </div>
+              </details>
+            </td>
+            <td>{{ consumerName(key.consumerId) }}</td>
+            <td>
+              <span
+                class="status"
+                :class="`tone-${keyTone(key)}`"
+                :style="{ color: `var(${toneColorVar(keyTone(key))})` }"
+                >{{ statusOf(key) }}</span
+              >
+            </td>
+            <td>{{ formatMaybeDate(key.lastUsedAt) }}</td>
+            <td>{{ formatMaybeDate(key.expiresAt, "—") }}</td>
+            <td>
+              <div class="actions">
+                <button v-if="key.revokedAt === null" type="button" class="link-btn" @click="toggleEnabled(key)">
+                  {{ key.enabled ? "Disable" : "Enable" }}
+                </button>
+                <button v-if="key.revokedAt === null" type="button" class="link-btn danger" @click="requestRevoke(key)">
+                  Revoke
+                </button>
+                <button type="button" class="link-btn danger" @click="requestDelete(key)">Delete</button>
               </div>
-            </details>
-          </td>
-          <td>{{ consumerName(key.consumerId) }}</td>
-          <td>
-            <span class="status" :class="statusOf(key).toLowerCase()">{{ statusOf(key) }}</span>
-          </td>
-          <td>{{ key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : "Never" }}</td>
-          <td>{{ key.expiresAt ? new Date(key.expiresAt).toLocaleString() : "—" }}</td>
-          <td>
-            <div class="actions">
-              <button v-if="key.revokedAt === null" type="button" class="link-btn" @click="toggleEnabled(key)">
-                {{ key.enabled ? "Disable" : "Enable" }}
-              </button>
-              <button v-if="key.revokedAt === null" type="button" class="link-btn danger" @click="requestRevoke(key)">
-                Revoke
-              </button>
-              <button type="button" class="link-btn danger" @click="requestDelete(key)">Delete</button>
-            </div>
-            <p v-if="rowError[key.id]" class="row-error">{{ rowError[key.id] }}</p>
-          </td>
-        </tr>
-      </tbody>
-    </TableCard>
+              <p v-if="rowError[key.id]" class="row-error">{{ rowError[key.id] }}</p>
+            </td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
@@ -316,22 +326,7 @@ function confirmDelete() {
   min-width: 12.5rem;
 }
 .create-form {
-  background: var(--surface-sunken);
-  padding: 1.25rem;
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
   max-width: 28.75rem;
-}
-.field input,
-.field select,
-.field textarea {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-  box-sizing: border-box;
 }
 .actions {
   display: flex;
@@ -343,21 +338,14 @@ function confirmDelete() {
   border-radius: var(--radius-pill);
   font-weight: 600;
 }
-.status.active {
+.status.tone-good {
   background: var(--ok-soft);
-  color: var(--ok);
 }
-.status.revoked,
-.status.expired {
+.status.tone-bad {
   background: var(--breach-soft);
-  color: var(--breach);
 }
-.status.disabled {
+.status.tone-neutral {
   background: var(--surface-sunken);
-  color: var(--text-secondary);
-}
-.link-btn.danger {
-  color: var(--breach);
 }
 .checkbox-field {
   display: flex;
@@ -385,9 +373,6 @@ function confirmDelete() {
   margin-top: 0.35rem;
   font-size: 0.82rem;
   color: var(--text-secondary);
-}
-.error {
-  color: var(--breach);
 }
 .row-error {
   color: var(--breach);

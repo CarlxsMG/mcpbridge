@@ -2,10 +2,11 @@
 import { onMounted, computed } from "vue";
 import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { formatMaybeDate } from "@/utils/format";
 import type { MonitorRecord } from "../types/api";
 import DonutChart from "@/components/charts/DonutChart.vue";
-import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
@@ -57,10 +58,6 @@ const segments = computed(() => {
     .map((k) => ({ label: STATE_LABEL[k], value: counts[k], color: STATE_COLOR[k] }))
     .filter((s) => s.value > 0);
 });
-
-function formatChecked(t: number | null): string {
-  return t === null ? "Never" : new Date(t).toLocaleString();
-}
 </script>
 
 <template>
@@ -75,13 +72,13 @@ function formatChecked(t: number | null): string {
       </button>
     </PageHeader>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <SignalLoader v-if="loading && !monitors.length" />
-    <EmptyState v-else-if="monitors.length === 0" :icon="Radar">
-      No tools are monitored yet. Configure a monitor from a tool's settings in Server detail.
-    </EmptyState>
+    <ListLayout :loading="loading && !monitors.length" :error="errorMessage" :empty="monitors.length === 0">
+      <template #empty>
+        <EmptyState :icon="Radar">
+          No tools are monitored yet. Configure a monitor from a tool's settings in Server detail.
+        </EmptyState>
+      </template>
 
-    <template v-else>
       <ChartCard title="Status breakdown" dotted>
         <DonutChart :segments="segments" :size="96" />
       </ChartCard>
@@ -105,12 +102,12 @@ function formatChecked(t: number | null): string {
               }}
             </td>
             <td>{{ m.intervalMinutes }}m</td>
-            <td>{{ formatChecked(m.lastCheckedAt) }}</td>
-            <td class="preview" :title="m.lastError ?? ''">{{ m.lastError ?? "—" }}</td>
+            <td>{{ formatMaybeDate(m.lastCheckedAt) }}</td>
+            <td class="cell-truncate" :title="m.lastError ?? ''">{{ m.lastError ?? "—" }}</td>
           </tr>
         </tbody>
       </TableCard>
-    </template>
+    </ListLayout>
   </section>
 </template>
 
@@ -126,19 +123,6 @@ function formatChecked(t: number | null): string {
   gap: 0.4rem;
   flex-shrink: 0;
 }
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.mono {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
 .state-dot {
   display: inline-block;
   width: 0.4375rem;
@@ -146,15 +130,9 @@ function formatChecked(t: number | null): string {
   border-radius: 50%;
   margin-right: 0.5em;
 }
-.preview {
+.cell-truncate {
   max-width: 20rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--text-secondary);
-}
-.error {
-  color: var(--breach);
 }
 /* EmptyState's own recipe colors its paragraph via --text-secondary on the
    wrapper; this page's empty copy is intentionally a step lighter. */
