@@ -13,6 +13,7 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { Boxes } from "lucide-vue-next";
 
 const {
@@ -111,8 +112,10 @@ function toggleEnabled(bundle: BundleSummary) {
             <td>
               <RouterLink :to="`/bundles/${encodeURIComponent(bundle.name)}`">{{ bundle.name }}</RouterLink>
             </td>
-            <td class="cell-truncate desc-cell" :title="bundle.description || undefined">
-              {{ bundle.description || "—" }}
+            <td>
+              <HoverPreview class="desc-cell" :text="bundle.description ?? ''">
+                {{ bundle.description || "—" }}
+              </HoverPreview>
             </td>
             <td>{{ bundle.toolsCount }}</td>
             <td>

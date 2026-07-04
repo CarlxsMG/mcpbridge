@@ -20,6 +20,7 @@ import SearchInput from "@/components/ui/SearchInput.vue";
 import PaginationBar from "@/components/ui/PaginationBar.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { Server, Tags, ChevronRight } from "lucide-vue-next";
 
 const ENABLED_FILTER_OPTIONS = [
@@ -338,7 +339,9 @@ onMounted(() => load());
             </td>
             <td><StatusBadge :status="client.status" /></td>
             <td>{{ client.toolsCount }}</td>
-            <td class="cell-truncate" :title="client.healthUrl">{{ client.healthUrl }}</td>
+            <td>
+              <HoverPreview class="cell-truncate" :text="client.healthUrl" mono>{{ client.healthUrl }}</HoverPreview>
+            </td>
             <td>
               <TogglePill
                 :on="client.enabled"

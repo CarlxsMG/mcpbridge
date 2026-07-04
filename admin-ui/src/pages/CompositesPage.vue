@@ -16,6 +16,7 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 
 const {
   data: items,
@@ -191,7 +192,9 @@ function confirmDelete() {
             <td>
               <RouterLink :to="`/composites/${encodeURIComponent(c.name)}`">{{ c.name }}</RouterLink>
             </td>
-            <td class="cell-truncate desc-cell" :title="c.description || undefined">{{ c.description || "—" }}</td>
+            <td>
+              <HoverPreview class="desc-cell" :text="c.description ?? ''">{{ c.description || "—" }}</HoverPreview>
+            </td>
             <td>{{ c.stepsCount }}</td>
             <td>
               <TogglePill

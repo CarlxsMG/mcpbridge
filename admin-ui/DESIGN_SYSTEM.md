@@ -242,6 +242,31 @@ form/save/filter/format pattern that feels generic** — it probably already exi
   `{ onKeydown }` — wire it to `@keydown` on the trapped element. **Use when:** a custom
   overlay/drawer needs Tab-cycling but isn't going through `ModalShell` (which already wires this
   internally). **Example:** see `ServerDetailPage.vue`'s guard-editor drawer (`onDrawerKeydown`).
+- **`ui/HoverPreview.vue`** — Hover-triggered (not click-triggered) floating preview panel for
+  table-cell content that's truncated or otherwise summarized, teleported to `<body>` and positioned
+  off the trigger's bounding rect (flips upward/clamps horizontally near viewport edges). Includes a
+  small copy-to-clipboard button in the panel's corner (via `useClipboard`) — the panel stays open
+  while the cursor is over it (a short close-delay bridges the gap between the trigger and the
+  teleported panel) so the button is actually reachable, and closes for real on mouseleave/blur once
+  the cursor/focus leaves both. Props: `text?: string` (plain-text panel content, ignored if the
+  `content` slot is provided; also what gets copied), `mono?: boolean` (monospace panel, for
+  URLs/JSON/code-ish values), `alwaysShow?: boolean` (show on hover even when the trigger isn't
+  visually truncated, for a short summary that always hides more detail behind it), `noTabindex?:
+boolean` (skip making the trigger span itself a tab stop — use when the default slot already wraps
+  its own focusable element, e.g. a button, so there's no redundant second tab stop for the same
+  control; the panel still opens/closes off that descendant's focusin/focusout, and the has-preview
+  dotted-underline styling is skipped too since the wrapped element already looks interactive on its
+  own). Slots: default (the trigger content — scoped with `{ panelId, visible }` so a `noTabindex`
+  caller can wire `:aria-describedby="visible ? panelId : undefined"` onto its own focusable
+  element), `content` (rich panel content, overrides `text` for both display and what the copy
+  button copies). **Use when:** any table cell whose text is (or might be) truncated by a
+  `max-width`, or any short summary/id that hides more (or is just easier to copy in full) behind it
+  — instead of a bare `title` attribute (no styling/positioning/copy control, roughly a 1 second
+  native delay) or an inline expand-on-click element that changes row height. **Example:** see
+  `KeysPage.vue` (Prefix and View scope, both plain `alwaysShow`), `TracesPage.vue` (Session badge,
+  `alwaysShow` + `noTabindex` wrapping a real filter button), `AuditLogPage.vue` (Detail JSON,
+  `alwaysShow`), `BundlesPage.vue`, `CompositesPage.vue`, `AlertsPage.vue`, `MonitorsPage.vue`,
+  `DashboardPage.vue`, `ApprovalsPage.vue`, `TrafficPage.vue`, and `WsProxyTargetsPage.vue`.
 
 ### Lists & forms
 

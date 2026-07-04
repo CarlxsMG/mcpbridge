@@ -18,6 +18,7 @@ import FormField from "@/components/ui/FormField.vue";
 import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { BellRing } from "lucide-vue-next";
 
 const EVENT_LABELS: Record<AlertEventType, string> = {
@@ -249,7 +250,9 @@ function confirmDelete() {
           <tr v-for="rule in rules" :key="rule.id">
             <td>{{ rule.name }}</td>
             <td>{{ EVENT_LABELS[rule.eventType] }}</td>
-            <td class="cell-truncate" :title="rule.webhookUrl">{{ rule.webhookUrl }}</td>
+            <td>
+              <HoverPreview class="cell-truncate" :text="rule.webhookUrl" mono>{{ rule.webhookUrl }}</HoverPreview>
+            </td>
             <td>{{ formatMaybeDate(rule.lastFiredAt) }}</td>
             <td>
               <TogglePill

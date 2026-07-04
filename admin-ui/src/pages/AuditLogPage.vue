@@ -12,6 +12,7 @@ import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import SearchInput from "@/components/ui/SearchInput.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 
 const entries = ref<AuditLogEntry[]>([]);
 const { loading, errorMessage, run } = useLoadState("Failed to load audit log.");
@@ -214,10 +215,9 @@ onMounted(() => {
           </td>
           <td>{{ entry.target }}</td>
           <td>
-            <details v-if="entry.detail" class="detail-disclosure">
-              <summary>View</summary>
-              <pre>{{ prettyJson(entry.detail) }}</pre>
-            </details>
+            <HoverPreview v-if="entry.detail" always-show mono :text="prettyJson(entry.detail)" class="detail-trigger">
+              View
+            </HoverPreview>
             <span v-else class="detail-none">—</span>
           </td>
         </tr>
@@ -281,19 +281,9 @@ onMounted(() => {
 :deep(.table-card) {
   margin-bottom: 1rem;
 }
-.detail-disclosure summary {
-  cursor: pointer;
+.detail-trigger {
   color: var(--signal-strong);
   font-size: 0.85rem;
-}
-.detail-disclosure pre {
-  margin: 0.5rem 0 0;
-  padding: 0.6rem;
-  background: var(--surface-sunken);
-  border-radius: var(--radius-sm);
-  font-size: 0.78rem;
-  max-width: 22.5rem;
-  overflow-x: auto;
 }
 .detail-none {
   color: var(--text-muted);

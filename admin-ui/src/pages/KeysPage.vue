@@ -19,6 +19,7 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import ToggleFormButton from "@/components/ui/ToggleFormButton.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { KeyRound } from "lucide-vue-next";
 
 const keys = ref<McpApiKey[]>([]);
@@ -233,17 +234,21 @@ function confirmDelete() {
           <tr v-for="key in keys" :key="key.id">
             <td>{{ key.label }} <span v-if="key.elevated" class="elev-chip">elevated</span></td>
             <td>
-              <code>{{ key.keyPrefix }}…</code>
+              <HoverPreview always-show mono :text="key.keyPrefix">
+                <code>{{ key.keyPrefix }}…</code>
+              </HoverPreview>
             </td>
             <td>
-              {{ scopeSummary(key) }}
-              <details v-if="key.scopes" class="scope-disclosure">
-                <summary class="link-btn">View scope</summary>
-                <div class="scope-detail">
-                  <div v-if="key.scopes.clients?.length">Clients: {{ key.scopes.clients.join(", ") }}</div>
-                  <div v-if="key.scopes.tools?.length">Tools: {{ key.scopes.tools.join(", ") }}</div>
-                </div>
-              </details>
+              <HoverPreview v-if="key.scopes" always-show>
+                {{ scopeSummary(key) }}
+                <template #content>
+                  <div class="scope-detail">
+                    <div v-if="key.scopes?.clients?.length">Clients: {{ key.scopes?.clients?.join(", ") }}</div>
+                    <div v-if="key.scopes?.tools?.length">Tools: {{ key.scopes?.tools?.join(", ") }}</div>
+                  </div>
+                </template>
+              </HoverPreview>
+              <template v-else>{{ scopeSummary(key) }}</template>
             </td>
             <td>{{ consumerName(key.consumerId) }}</td>
             <td>
@@ -375,13 +380,9 @@ function confirmDelete() {
   border-radius: var(--radius-pill);
   font-size: 0.7rem;
 }
-.scope-disclosure summary {
-  font-size: 0.8rem;
-}
 .scope-detail {
-  margin-top: 0.35rem;
-  font-size: 0.82rem;
-  color: var(--text-secondary);
+  display: grid;
+  gap: 0.25rem;
 }
 .row-error {
   color: var(--breach);

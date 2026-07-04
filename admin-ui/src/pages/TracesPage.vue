@@ -17,6 +17,7 @@ import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
 import PaginationBar from "@/components/ui/PaginationBar.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { Waypoints, Trash2 } from "lucide-vue-next";
 
 const props = defineProps<{ traceId?: string }>();
@@ -240,15 +241,18 @@ const waterfall = computed(() => {
               <td class="mono">{{ formatDateTime(t.startMs) }}</td>
               <td class="mono">{{ t.mcpToolName ?? "—" }}</td>
               <td class="mono">
-                <button
-                  v-if="t.sessionId"
-                  type="button"
-                  class="session-badge"
-                  :title="`Filter to session ${t.sessionId}`"
-                  @click.stop="filterBySession(t.sessionId)"
-                >
-                  {{ shortSession(t.sessionId) }}
-                </button>
+                <HoverPreview v-if="t.sessionId" always-show no-tabindex mono :text="t.sessionId">
+                  <template #default="{ panelId, visible }">
+                    <button
+                      type="button"
+                      class="session-badge"
+                      :aria-describedby="visible ? panelId : undefined"
+                      @click.stop="filterBySession(t.sessionId)"
+                    >
+                      {{ shortSession(t.sessionId) }}
+                    </button>
+                  </template>
+                </HoverPreview>
                 <span v-else>—</span>
               </td>
               <td>{{ t.spanCount }}</td>

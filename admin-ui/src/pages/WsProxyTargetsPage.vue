@@ -14,6 +14,7 @@ import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { Waypoints } from "lucide-vue-next";
 
 const {
@@ -219,7 +220,9 @@ async function confirmDelete() {
         <tbody>
           <tr v-for="t in targets" :key="t.name">
             <td>{{ t.name }}</td>
-            <td class="url-cell cell-truncate" :title="t.backendWsUrl">{{ t.backendWsUrl }}</td>
+            <td>
+              <HoverPreview class="url-cell" :text="t.backendWsUrl" mono>{{ t.backendWsUrl }}</HoverPreview>
+            </td>
             <td>{{ t.activeConnections }} / {{ t.maxConnections }}</td>
             <td>
               <TogglePill

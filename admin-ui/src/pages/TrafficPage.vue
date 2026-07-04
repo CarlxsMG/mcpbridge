@@ -16,6 +16,7 @@ import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
 import PaginationBar from "@/components/ui/PaginationBar.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 
 const route = useRoute();
@@ -192,7 +193,9 @@ function confirmReplay() {
             <td class="mono">{{ r.clientName ?? "—" }}/{{ r.toolName ?? r.mcpToolName }}</td>
             <td>{{ formatDuration(r.durationMs) }}</td>
             <td :class="{ hot: r.isError }">{{ r.isError ? "Error" : "OK" }}</td>
-            <td class="cell-truncate" :title="r.preview">{{ r.preview }}</td>
+            <td>
+              <HoverPreview class="cell-truncate" :text="r.preview">{{ r.preview }}</HoverPreview>
+            </td>
             <td>
               <div class="actions">
                 <button

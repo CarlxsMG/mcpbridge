@@ -14,6 +14,7 @@ import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
 import TabStrip from "@/components/ui/TabStrip.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { ClipboardCheck, Check, X, RefreshCw } from "lucide-vue-next";
 
 type TabKey = ApprovalStatus | "all";
@@ -155,13 +156,15 @@ async function confirmReject() {
           <tr v-for="a in tableItems" :key="a.id">
             <td class="mono">{{ a.id }}</td>
             <td class="mono">{{ a.clientName }}/{{ a.toolName }}</td>
-            <td class="cell-truncate" :title="prettyArgs(a.argsJson)">
-              <code>{{ prettyArgs(a.argsJson) }}</code>
+            <td>
+              <HoverPreview class="cell-truncate" :text="prettyArgs(a.argsJson)" mono>
+                <code>{{ prettyArgs(a.argsJson) }}</code>
+              </HoverPreview>
             </td>
             <td>{{ formatDateTime(a.createdAt) }}</td>
             <td>
               <span v-if="a.status === 'pending'" class="status-pending">
-                Pending<br>
+                Pending<br />
                 <span v-if="a.requiredLevels > 1" class="levels-badge"
                   >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
                 >

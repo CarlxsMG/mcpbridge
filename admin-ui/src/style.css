@@ -126,6 +126,7 @@
      (e.g. clear-guards) still renders on top of the drawer on every viewport. */
   --z-drawer: 130; /* ServerDetailPage guard-editor drawer overlay */
   --z-drawer-top: 131; /* the drawer panel itself, sibling of its overlay */
+  --z-tooltip: 135; /* HoverPreview panel — above drawer content, below ConfirmDialog */
   --z-overlay: 140; /* ConfirmDialog — blocks the whole page */
   --z-mobile-topbar: 120; /* sticky mobile header */
   --z-mobile-backdrop: 150; /* mobile nav backdrop */
@@ -510,16 +511,12 @@ html {
   margin: 0.25rem 0 0;
 }
 
-/* ---- Truncated table cell: promoted from 4 differently-named page-local
-   classes (.url-cell, .desc-cell, .preview, .args) that all hand-rolled the
-   same overflow-ellipsis recipe. max-width is deliberately NOT included —
-   it ranged from 11.875rem to 20rem across usages — so adopters keep
-   declaring their own max-width alongside this class. ---------------------- */
-.cell-truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* ---- Truncated table cell: the overflow-ellipsis recipe itself now lives in
+   ui/HoverPreview.vue's own scoped CSS (its trigger wraps the cell's text and
+   opens a floating panel with the full value on hover, instead of a bare
+   `title` tooltip). Pages keep their own per-cell class (.desc-cell,
+   .url-cell, etc., max-width 11.875rem-20rem depending on the column) for
+   just max-width/color/font, passed to <HoverPreview> via `class`. -------- */
 
 /* ---- Monospace table cell: promoted from 4 pages' identical (or
    effectively identical — TracesPage hardcoded 0.82rem instead of

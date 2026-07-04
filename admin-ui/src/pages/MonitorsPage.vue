@@ -10,6 +10,7 @@ import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { Radar, RefreshCw } from "lucide-vue-next";
 
 const {
@@ -103,7 +104,9 @@ const segments = computed(() => {
             </td>
             <td>{{ m.intervalMinutes }}m</td>
             <td>{{ formatMaybeDate(m.lastCheckedAt) }}</td>
-            <td class="cell-truncate" :title="m.lastError ?? ''">{{ m.lastError ?? "—" }}</td>
+            <td>
+              <HoverPreview class="cell-truncate" :text="m.lastError ?? ''">{{ m.lastError ?? "—" }}</HoverPreview>
+            </td>
           </tr>
         </tbody>
       </TableCard>
