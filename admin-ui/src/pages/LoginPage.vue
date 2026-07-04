@@ -4,7 +4,7 @@ import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { api, ApiError } from "@/composables/useApi";
 import type { OidcPublicConfig } from "@/types/api";
-import { GitBranch } from "lucide-vue-next";
+import { Activity } from "lucide-vue-next";
 
 const username = ref("");
 const password = ref("");
@@ -61,7 +61,7 @@ async function onSubmit() {
     </div>
     <div class="login-card">
       <form @submit.prevent="onSubmit">
-        <h1><GitBranch :size="20" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge</h1>
+        <h1><Activity :size="20" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge</h1>
         <p class="subtitle">Sign in to manage servers and tools</p>
 
         <div class="field">

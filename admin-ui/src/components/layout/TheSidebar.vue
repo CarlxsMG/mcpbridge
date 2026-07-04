@@ -5,13 +5,13 @@ import { useAuth } from "@/composables/useAuth";
 import { useLiveSignal } from "@/composables/useLiveSignal";
 import CommandPalette from "@/components/CommandPalette.vue";
 import { navEntries } from "@/navigation";
-import { GitBranch, ChevronRight } from "lucide-vue-next";
+import { ChevronRight, Activity } from "lucide-vue-next";
 
 defineProps<{ navOpen: boolean }>();
 
 const router = useRouter();
 const { state, logout } = useAuth();
-const { isLive, callsPerMinute } = useLiveSignal();
+const { isLive } = useLiveSignal();
 
 const NAV_GROUPS = ["Servers", "Access", "Observability", "Administration"] as const;
 const groupedNav = computed(() =>
@@ -20,16 +20,6 @@ const groupedNav = computed(() =>
     entries: navEntries.filter((e) => e.group === group && (!e.meta?.role || e.meta.role === state.user?.role)),
   })).filter((g) => g.entries.length > 0),
 );
-
-// Pulse speed scales with real recent call volume (never fabricated — callsPerMinute
-// comes straight from useLiveSignal's poll of /admin-api/usage/summary) instead of a
-// flat on/off blink, so the sidebar dot reads as an actual traffic signal.
-const pulseTier = computed<"slow" | "normal" | "fast" | null>(() => {
-  if (!isLive.value) return null;
-  if (callsPerMinute.value >= 15) return "fast";
-  if (callsPerMinute.value >= 5) return "normal";
-  return "slow";
-});
 
 const AVATAR_TONES: Array<{ soft: string; strong: string }> = [
   { soft: "var(--signal-soft)", strong: "var(--signal-strong)" },
@@ -58,13 +48,15 @@ async function onLogout() {
 <template>
   <nav id="sidebar-nav" class="sidebar" :class="{ 'sidebar-open': navOpen }">
     <div class="brand">
-      <GitBranch :size="17" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge
-      <span
-        class="live-dot"
-        :class="{ 'is-live': isLive, [`pulse-${pulseTier}`]: pulseTier }"
+      <Activity
+        class="brand-icon"
+        :class="{ 'is-live': isLive }"
+        :size="17"
+        stroke-width="2.25"
         :title="isLive ? 'Live traffic in the last minute' : 'No recent traffic'"
         aria-hidden="true"
-      ></span>
+      />
+      MCP REST Bridge
     </div>
     <CommandPalette />
     <div class="nav-groups">
@@ -124,9 +116,12 @@ async function onLogout() {
   margin-bottom: var(--space-4);
   padding: 0 var(--space-1-5);
 }
-.brand svg {
-  color: var(--signal);
+.brand-icon {
+  color: var(--text-on-dark-muted);
   flex-shrink: 0;
+}
+.brand-icon.is-live {
+  color: var(--signal);
 }
 .nav-groups {
   flex: 1;
@@ -233,24 +228,6 @@ async function onLogout() {
 }
 .role {
   color: var(--text-on-dark-muted);
-}
-.live-dot {
-  width: 0.4375rem;
-  height: 0.4375rem;
-  border-radius: 50%;
-  background: var(--text-on-dark-muted);
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.live-dot.is-live {
-  background: var(--signal);
-  animation: signal-pulse 1.6s ease-in-out infinite;
-}
-.live-dot.is-live.pulse-slow {
-  animation-duration: 2.4s;
-}
-.live-dot.is-live.pulse-fast {
-  animation-duration: 0.85s;
 }
 .sidebar-footer .link-btn {
   color: var(--text-on-dark-muted);

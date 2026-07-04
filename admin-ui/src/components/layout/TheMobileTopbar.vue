@@ -1,22 +1,11 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import { useLiveSignal } from "@/composables/useLiveSignal";
-import { GitBranch } from "lucide-vue-next";
+import { Activity } from "lucide-vue-next";
 
 defineProps<{ navOpen: boolean }>();
 const emit = defineEmits<{ "toggle-nav": [] }>();
 
-const { isLive, callsPerMinute } = useLiveSignal();
-
-// Pulse speed scales with real recent call volume (never fabricated — callsPerMinute
-// comes straight from useLiveSignal's poll of /admin-api/usage/summary) instead of a
-// flat on/off blink, so the live dot reads as an actual traffic signal.
-const pulseTier = computed<"slow" | "normal" | "fast" | null>(() => {
-  if (!isLive.value) return null;
-  if (callsPerMinute.value >= 15) return "fast";
-  if (callsPerMinute.value >= 5) return "normal";
-  return "slow";
-});
+const { isLive } = useLiveSignal();
 </script>
 
 <template>
@@ -32,13 +21,15 @@ const pulseTier = computed<"slow" | "normal" | "fast" | null>(() => {
       <span aria-hidden="true">☰</span>
     </button>
     <div class="brand">
-      <GitBranch :size="16" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge
-      <span
-        class="live-dot"
-        :class="{ 'is-live': isLive, [`pulse-${pulseTier}`]: pulseTier }"
+      <Activity
+        class="brand-icon"
+        :class="{ 'is-live': isLive }"
+        :size="16"
+        stroke-width="2.25"
         :title="isLive ? 'Live traffic in the last minute' : 'No recent traffic'"
         aria-hidden="true"
-      ></span>
+      />
+      MCP REST Bridge
     </div>
   </header>
 </template>
@@ -47,7 +38,7 @@ const pulseTier = computed<"slow" | "normal" | "fast" | null>(() => {
 .mobile-topbar {
   display: none;
 }
-/* Shared brand + live-dot look with TheSidebar.vue — duplicated here rather than
+/* Shared brand look with TheSidebar.vue — duplicated here rather than
    factored into a sub-component since each copy is only ~10 lines. */
 .brand {
   display: flex;
@@ -60,27 +51,12 @@ const pulseTier = computed<"slow" | "normal" | "fast" | null>(() => {
   margin-bottom: var(--space-4);
   padding: 0 var(--space-1-5);
 }
-.brand svg {
+.brand-icon {
+  color: var(--text-on-dark-muted);
+  flex-shrink: 0;
+}
+.brand-icon.is-live {
   color: var(--signal);
-  flex-shrink: 0;
-}
-.live-dot {
-  width: 0.4375rem;
-  height: 0.4375rem;
-  border-radius: 50%;
-  background: var(--text-on-dark-muted);
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.live-dot.is-live {
-  background: var(--signal);
-  animation: signal-pulse 1.6s ease-in-out infinite;
-}
-.live-dot.is-live.pulse-slow {
-  animation-duration: 2.4s;
-}
-.live-dot.is-live.pulse-fast {
-  animation-duration: 0.85s;
 }
 
 @media (max-width: 768px) {
