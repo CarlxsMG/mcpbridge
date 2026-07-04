@@ -29,8 +29,8 @@ import {
   MAX_APPROVAL_LEVELS,
   type ApprovalStatus,
 } from "../approvals.js";
-import { listTraffic, getTraffic } from "../traffic.js";
-import { setMonitor, deleteMonitor, listMonitors } from "../monitor.js";
+import { listTraffic, getTraffic } from "../observability/traffic.js";
+import { setMonitor, deleteMonitor, listMonitors } from "../observability/monitor.js";
 import { setToolGraphql, setToolWs } from "../proxy/backends.js";
 import { getClientOAuth, setClientOAuth, type OAuthError } from "../oauth.js";
 import {

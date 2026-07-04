@@ -8,7 +8,7 @@ import type { Server } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
 import { detectUsageSpike } from "../observability/anomaly.js";
-import { createAlertRule, evaluateAlerts, __resetAlertStateForTesting } from "../alerts.js";
+import { createAlertRule, evaluateAlerts, __resetAlertStateForTesting } from "../observability/alerts.js";
 import { __clearUsageForTesting } from "../observability/usage.js";
 
 function seed(count: number, createdAt: number): void {

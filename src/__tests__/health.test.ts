@@ -62,7 +62,7 @@ describe("health checkBatch — happy path: 2xx response", () => {
     // Mock fetch to return 200
     globalThis.fetch = (async () => new Response("ok", { status: 200 })) as unknown as typeof fetch;
 
-    const { startHealthCheckLoop } = await import("../health.js");
+    const { startHealthCheckLoop } = await import("../observability/health.js");
     const stop = startHealthCheckLoop();
     // Give the immediate check time to complete
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -89,7 +89,7 @@ describe("health checkBatch — 5xx response", () => {
 
     globalThis.fetch = (async () => new Response("error", { status: 500 })) as unknown as typeof fetch;
 
-    const { startHealthCheckLoop } = await import("../health.js");
+    const { startHealthCheckLoop } = await import("../observability/health.js");
     const stop = startHealthCheckLoop();
     await new Promise((resolve) => setTimeout(resolve, 50));
     stop();
@@ -116,7 +116,7 @@ describe("health checkBatch — eviction on threshold", () => {
 
     globalThis.fetch = (async () => new Response("error", { status: 500 })) as unknown as typeof fetch;
 
-    const { startHealthCheckLoop } = await import("../health.js");
+    const { startHealthCheckLoop } = await import("../observability/health.js");
     const stop = startHealthCheckLoop();
     await new Promise((resolve) => setTimeout(resolve, 50));
     stop();
@@ -143,7 +143,7 @@ describe("health checkBatch — recovery from unreachable", () => {
     // Now fetch succeeds
     globalThis.fetch = (async () => new Response("ok", { status: 200 })) as unknown as typeof fetch;
 
-    const { startHealthCheckLoop } = await import("../health.js");
+    const { startHealthCheckLoop } = await import("../observability/health.js");
     const stop = startHealthCheckLoop();
     await new Promise((resolve) => setTimeout(resolve, 50));
     stop();
@@ -172,7 +172,7 @@ describe("health checkBatch — fetch throws network error", () => {
       throw new TypeError("Failed to resolve DNS: ENOTFOUND");
     }) as unknown as typeof fetch;
 
-    const { startHealthCheckLoop } = await import("../health.js");
+    const { startHealthCheckLoop } = await import("../observability/health.js");
     let errorEscaped = false;
     try {
       const stop = startHealthCheckLoop();
@@ -205,7 +205,7 @@ describe("health checkBatch — metrics increment", () => {
 
     globalThis.fetch = (async () => new Response("ok", { status: 200 })) as unknown as typeof fetch;
 
-    const { startHealthCheckLoop } = await import("../health.js");
+    const { startHealthCheckLoop } = await import("../observability/health.js");
     const stop = startHealthCheckLoop();
     await new Promise((resolve) => setTimeout(resolve, 50));
     stop();

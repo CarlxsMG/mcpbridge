@@ -11,12 +11,12 @@
  * separate timer and never double-fires across HA instances.
  */
 import { createHash } from "node:crypto";
-import { getDb } from "./db/connection.js";
-import { config } from "./config.js";
-import { log } from "./logger.js";
-import { registry, TOOL_KEY_SEPARATOR } from "./mcp/registry.js";
-import { proxyToolCall } from "./proxy/proxy.js";
-import { validateBackendUrl } from "./security/ip-validator.js";
+import { getDb } from "../db/connection.js";
+import { config } from "../config.js";
+import { log } from "../logger.js";
+import { registry, TOOL_KEY_SEPARATOR } from "../mcp/registry.js";
+import { proxyToolCall } from "../proxy/proxy.js";
+import { validateBackendUrl } from "../security/ip-validator.js";
 
 export type MonitorStatus = "ok" | "fail";
 

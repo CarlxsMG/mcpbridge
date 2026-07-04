@@ -5,7 +5,7 @@ import { setupTransports, getActiveSessionCount } from "./mcp/transports.js";
 import { registerRoutes } from "./routes/register.js";
 import { introspectionRoutes } from "./routes/introspection.js";
 import { docsRoutes } from "./routes/docs.js";
-import { startHealthCheckLoop } from "./health.js";
+import { startHealthCheckLoop } from "./observability/health.js";
 import { config } from "./config.js";
 import { rateLimitGlobal, startRateLimiterCleanup } from "./middleware/rate-limiter.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
@@ -35,7 +35,7 @@ import {
 } from "./ws-proxy.js";
 import { usageRoutes } from "./routes/usage.js";
 import { alertRoutes } from "./routes/alerts.js";
-import { startAlertLoop } from "./alerts.js";
+import { startAlertLoop } from "./observability/alerts.js";
 import { configIoRoutes } from "./routes/config-io.js";
 import { backupRoutes } from "./routes/backup.js";
 import { policyRoutes } from "./routes/policies.js";

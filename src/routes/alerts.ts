@@ -11,7 +11,7 @@ import {
   sendTestAlert,
   ALERT_EVENT_TYPES,
   type AlertEventType,
-} from "../alerts.js";
+} from "../observability/alerts.js";
 import { validationError, notFound } from "./http-errors.js";
 
 function isEventType(v: unknown): v is AlertEventType {

@@ -16,7 +16,7 @@
  * `openapiUrl` below was fetched and run through the real discovery pipeline
  * (`discoverToolsFromOpenApi`) during authoring, and every `healthUrl` was
  * confirmed to return a bare HTTP 2xx with no redirect and no auth — the
- * periodic health-check loop (src/health.ts) uses `redirect: "error"` and
+ * periodic health-check loop (src/observability/health.ts) uses `redirect: "error"` and
  * auto-evicts a client after `maxConsecutiveFailures` (default 3, ~90s at the
  * default 30s interval), so a health URL that 401s or redirects will silently
  * delete the very client this catalog just installed.

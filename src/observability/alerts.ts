@@ -1,12 +1,12 @@
-import { getDb } from "./db/connection.js";
-import { config } from "./config.js";
-import { log } from "./logger.js";
-import { registry } from "./mcp/registry.js";
-import { getAllCircuitStates } from "./circuit-breaker.js";
-import { getUsageSummary } from "./observability/usage.js";
-import { detectUsageSpike } from "./observability/anomaly.js";
-import { validateBackendUrl } from "./security/ip-validator.js";
-import { isLeader } from "./db/leader-lease.js";
+import { getDb } from "../db/connection.js";
+import { config } from "../config.js";
+import { log } from "../logger.js";
+import { registry } from "../mcp/registry.js";
+import { getAllCircuitStates } from "../circuit-breaker.js";
+import { getUsageSummary } from "./usage.js";
+import { detectUsageSpike } from "./anomaly.js";
+import { validateBackendUrl } from "../security/ip-validator.js";
+import { isLeader } from "../db/leader-lease.js";
 
 export type AlertEventType =
   "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike" | "schema_drift";

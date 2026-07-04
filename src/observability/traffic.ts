@@ -11,9 +11,9 @@
  * by the inbound body limits) so a replay is faithful; only the result preview
  * is truncated.
  */
-import { getDb } from "./db/connection.js";
-import { config } from "./config.js";
-import { log } from "./logger.js";
+import { getDb } from "../db/connection.js";
+import { config } from "../config.js";
+import { log } from "../logger.js";
 
 export interface TrafficRecord {
   id: number;

@@ -43,7 +43,7 @@ import {
   notifyApproval,
   getRequiredLevels,
 } from "../approvals.js";
-import { recordTraffic } from "../traffic.js";
+import { recordTraffic } from "../observability/traffic.js";
 import { getToolGraphql, getToolWs, wsRequest, wsRequestPersistent } from "./backends.js";
 import { getOAuthBearer } from "../oauth.js";
 import { refreshPinIfStale } from "../security/ip-validator.js";

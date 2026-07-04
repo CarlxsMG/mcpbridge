@@ -5,7 +5,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
 import { createBundle, getBundleDetail } from "../bundles.js";
-import { createAlertRule, listAlertRules } from "../alerts.js";
+import { createAlertRule, listAlertRules } from "../observability/alerts.js";
 import { exportConfig, importConfig } from "../config-io.js";
 import { getGuardrails, setGuardrails } from "../guardrails.js";
 import { listConsumers, createConsumer } from "../consumers.js";

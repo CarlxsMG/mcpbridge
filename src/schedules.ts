@@ -3,7 +3,7 @@ import { registry } from "./mcp/registry.js";
 import { recordAudit } from "./admin/audit.js";
 import { isLeader } from "./db/leader-lease.js";
 import { log } from "./logger.js";
-import { runSyntheticChecks } from "./monitor.js";
+import { runSyntheticChecks } from "./observability/monitor.js";
 
 /**
  * Maintenance schedules: cron-driven enable/disable of a client or a single

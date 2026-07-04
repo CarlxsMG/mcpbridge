@@ -85,7 +85,7 @@ describe("health metrics — healthLoopErrorsTotal increments on loop body error
     };
 
     try {
-      const { startHealthCheckLoop } = await import("../health.js");
+      const { startHealthCheckLoop } = await import("../observability/health.js");
       const stop = startHealthCheckLoop();
       // Give the immediate check time to run
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -120,7 +120,7 @@ describe("health metrics — healthEvictionsTotal increments on eviction", () =>
     // Mock fetch to always return 500 → health check fails
     globalThis.fetch = (async () => new Response("error", { status: 500 })) as unknown as typeof fetch;
 
-    const { startHealthCheckLoop } = await import("../health.js");
+    const { startHealthCheckLoop } = await import("../observability/health.js");
     const stop = startHealthCheckLoop();
     await new Promise((resolve) => setTimeout(resolve, 100));
     stop();

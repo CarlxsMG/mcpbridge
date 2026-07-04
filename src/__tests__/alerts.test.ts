@@ -12,7 +12,7 @@ import {
   deleteAlertRule,
   evaluateAlerts,
   __resetAlertStateForTesting,
-} from "../alerts.js";
+} from "../observability/alerts.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const originalFetch = globalThis.fetch;
