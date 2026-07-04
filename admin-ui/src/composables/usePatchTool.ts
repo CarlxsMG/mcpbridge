@@ -31,5 +31,5 @@ export function usePatchTool(clientName: () => string, toolName: () => string | 
   const clearQuarantine = (fallbackMessage: string) =>
     run((path) => api.post(`${path}/quarantine/clear`), fallbackMessage);
 
-  return { saving, error, patchField, patchFields, putTags, clearQuarantine };
+  return { saving, error, run, patchField, patchFields, putTags, clearQuarantine };
 }
