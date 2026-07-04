@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { TrafficRecord, PaginatedResult } from "../types/api";
 import TimeSeriesChart from "../components/TimeSeriesChart.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -133,29 +134,33 @@ const chart = computed(() => {
   return { points, errorPoints };
 });
 
-const pendingReplay = ref<TrafficRecord | null>(null);
+const {
+  pending: pendingReplay,
+  request: requestReplay,
+  cancel: cancelReplay,
+  confirm: confirmActionReplay,
+} = useConfirmAction<TrafficRecord>();
 
 function replay(r: TrafficRecord) {
-  pendingReplay.value = r;
+  requestReplay(r);
 }
 
-async function confirmReplay() {
-  if (!pendingReplay.value) return;
-  const r = pendingReplay.value;
-  pendingReplay.value = null;
-  replayingId.value = r.id;
-  replayNote.value = null;
-  try {
-    const res = await api.post<{ content?: { type: string; text: string }[]; isError?: boolean }>(
-      `/admin-api/traffic/${r.id}/replay`,
-    );
-    const text = res.content?.map((c) => c.text).join(" ") ?? "(no content)";
-    replayNote.value = { id: r.id, ok: !res.isError, text: text.length > 300 ? `${text.slice(0, 300)}…` : text };
-  } catch (err) {
-    replayNote.value = { id: r.id, ok: false, text: err instanceof ApiError ? err.message : "Replay failed." };
-  } finally {
-    replayingId.value = null;
-  }
+function confirmReplay() {
+  return confirmActionReplay(async (r) => {
+    replayingId.value = r.id;
+    replayNote.value = null;
+    try {
+      const res = await api.post<{ content?: { type: string; text: string }[]; isError?: boolean }>(
+        `/admin-api/traffic/${r.id}/replay`,
+      );
+      const text = res.content?.map((c) => c.text).join(" ") ?? "(no content)";
+      replayNote.value = { id: r.id, ok: !res.isError, text: text.length > 300 ? `${text.slice(0, 300)}…` : text };
+    } catch (err) {
+      replayNote.value = { id: r.id, ok: false, text: err instanceof ApiError ? err.message : "Replay failed." };
+    } finally {
+      replayingId.value = null;
+    }
+  });
 }
 </script>
 
@@ -262,7 +267,7 @@ async function confirmReplay() {
       :confirm-label="pendingReplay ? `Replay ${pendingReplay.mcpToolName}` : 'Replay'"
       danger
       @confirm="confirmReplay"
-      @cancel="pendingReplay = null"
+      @cancel="cancelReplay"
     />
   </section>
 </template>

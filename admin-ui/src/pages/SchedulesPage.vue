@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { Schedule } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -21,7 +22,12 @@ const {
   "Failed to load schedules.",
 );
 const rowError = ref<Record<number, string>>({});
-const pendingDelete = ref<Schedule | null>(null);
+const {
+  pending: pendingDelete,
+  request: requestDelete,
+  cancel: cancelDelete,
+  confirm: confirmActionDelete,
+} = useConfirmAction<Schedule>();
 
 const form = ref({
   targetType: "client" as "client" | "tool",
@@ -73,16 +79,15 @@ async function toggle(s: Schedule) {
   }
 }
 
-async function confirmDelete() {
-  if (!pendingDelete.value) return;
-  const s = pendingDelete.value;
-  pendingDelete.value = null;
-  try {
-    await api.delete(`/admin-api/schedules/${s.id}`);
-    await load();
-  } catch (err) {
-    rowError.value[s.id] = err instanceof ApiError ? err.message : "Failed.";
-  }
+function confirmDelete() {
+  return confirmActionDelete(async (s) => {
+    try {
+      await api.delete(`/admin-api/schedules/${s.id}`);
+      await load();
+    } catch (err) {
+      rowError.value[s.id] = err instanceof ApiError ? err.message : "Failed.";
+    }
+  });
 }
 
 function formatLastRun(m: number | null): string {
@@ -174,7 +179,7 @@ function formatLastRun(m: number | null): string {
           <td>
             <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>
           </td>
-          <td><button class="link-btn danger" @click="pendingDelete = s">Delete</button></td>
+          <td><button class="link-btn danger" @click="requestDelete(s)">Delete</button></td>
         </tr>
       </tbody>
     </TableCard>
@@ -190,7 +195,7 @@ function formatLastRun(m: number | null): string {
       confirm-label="Delete"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = null"
+      @cancel="cancelDelete"
     />
   </section>
 </template>

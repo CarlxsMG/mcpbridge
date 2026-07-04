@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { ClientSummary, PaginatedResult, TagSummary, TagToolRef } from "../types/api";
 import StatusBadge from "../components/StatusBadge.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -29,11 +30,21 @@ const q = ref(typeof route.query.q === "string" ? route.query.q : "");
 const enabledFilter = ref(typeof route.query.enabled === "string" ? route.query.enabled : "");
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
 
-const pendingDisable = ref<ClientSummary | null>(null);
+const {
+  pending: pendingDisable,
+  request: requestDisableConfirm,
+  cancel: cancelDisable,
+  confirm: confirmDisableAction,
+} = useConfirmAction<ClientSummary>();
 const selected = ref<Set<string>>(new Set());
 const bulkPending = ref(false);
 const bulkError = ref("");
-const pendingBulkDisable = ref(false);
+const {
+  pending: pendingBulkDisable,
+  request: requestBulkDisableConfirm,
+  cancel: cancelBulkDisable,
+  confirm: confirmBulkDisableAction,
+} = useConfirmAction<true>();
 
 function toggleSelected(name: string) {
   if (selected.value.has(name)) selected.value.delete(name);
@@ -65,12 +76,13 @@ async function runBulk(enabled: boolean) {
 }
 
 function requestBulkDisable() {
-  pendingBulkDisable.value = true;
+  requestBulkDisableConfirm(true);
 }
 
-async function confirmBulkDisable() {
-  pendingBulkDisable.value = false;
-  await runBulk(false);
+function confirmBulkDisable() {
+  return confirmBulkDisableAction(async () => {
+    await runBulk(false);
+  });
 }
 
 function buildQuery(cursor?: string): string {
@@ -140,14 +152,13 @@ function requestDisable(client: ClientSummary) {
     toggleEnabled(client);
     return;
   }
-  pendingDisable.value = client;
+  requestDisableConfirm(client);
 }
 
-async function confirmDisable() {
-  if (!pendingDisable.value) return;
-  const client = pendingDisable.value;
-  pendingDisable.value = null;
-  await toggleEnabled(client);
+function confirmDisable() {
+  return confirmDisableAction(async (client) => {
+    await toggleEnabled(client);
+  });
 }
 
 function onToggleClick(client: ClientSummary) {
@@ -375,17 +386,17 @@ onMounted(() => load(initialCursor));
       :confirm-label="pendingDisable ? `Disable ${pendingDisable.name}` : 'Disable'"
       danger
       @confirm="confirmDisable"
-      @cancel="pendingDisable = null"
+      @cancel="cancelDisable"
     />
 
     <ConfirmDialog
-      :open="pendingBulkDisable"
+      :open="pendingBulkDisable !== null"
       title="Disable selected servers?"
       :message="`Disabling ${selected.size} server(s) will stop all of their tools for every connected MCP agent.`"
       :confirm-label="`Disable ${selected.size} server(s)`"
       danger
       @confirm="confirmBulkDisable"
-      @cancel="pendingBulkDisable = false"
+      @cancel="cancelBulkDisable"
     />
   </section>
 </template>

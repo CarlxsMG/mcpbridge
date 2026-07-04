@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, reactive, watch } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { ApprovalRecord, ApprovalStatus } from "../types/api";
 import DonutChart from "../components/DonutChart.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -94,16 +95,17 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
   }
 }
 
-const pendingReject = ref<ApprovalRecord | null>(null);
-
-function requestReject(a: ApprovalRecord) {
-  pendingReject.value = a;
-}
+const {
+  pending: pendingReject,
+  request: requestReject,
+  cancel: cancelReject,
+  confirm: confirmActionReject,
+} = useConfirmAction<ApprovalRecord>();
 
 async function confirmReject() {
-  if (!pendingReject.value) return;
-  await decide(pendingReject.value, "rejected");
-  pendingReject.value = null;
+  await confirmActionReject(async (a) => {
+    await decide(a, "rejected");
+  });
 }
 </script>
 
@@ -210,7 +212,7 @@ async function confirmReject() {
       confirm-label="Reject call"
       danger
       @confirm="confirmReject"
-      @cancel="pendingReject = null"
+      @cancel="cancelReject"
     />
   </section>
 </template>

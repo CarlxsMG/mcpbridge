@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { AlertRule, AlertEventType } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -34,8 +35,18 @@ const {
   "Failed to load alerts.",
 );
 const testMessage = ref("");
-const pendingDelete = ref<AlertRule | null>(null);
-const pendingDisable = ref<AlertRule | null>(null);
+const {
+  pending: pendingDelete,
+  request: requestDelete,
+  cancel: cancelDelete,
+  confirm: confirmActionDelete,
+} = useConfirmAction<AlertRule>();
+const {
+  pending: pendingDisable,
+  request: requestDisable,
+  cancel: cancelDisable,
+  confirm: confirmActionDisable,
+} = useConfirmAction<AlertRule>();
 const togglingRuleId = ref<number | null>(null);
 const testingRuleId = ref<number | null>(null);
 
@@ -112,17 +123,16 @@ async function doToggle(rule: AlertRule, enabled: boolean) {
 
 function toggle(rule: AlertRule) {
   if (rule.enabled) {
-    pendingDisable.value = rule;
+    requestDisable(rule);
   } else {
     doToggle(rule, true);
   }
 }
 
-async function confirmDisable() {
-  if (!pendingDisable.value) return;
-  const rule = pendingDisable.value;
-  pendingDisable.value = null;
-  await doToggle(rule, false);
+function confirmDisable() {
+  return confirmActionDisable(async (rule) => {
+    await doToggle(rule, false);
+  });
 }
 
 async function testRule(rule: AlertRule) {
@@ -140,16 +150,15 @@ async function testRule(rule: AlertRule) {
   }
 }
 
-async function confirmDelete() {
-  if (!pendingDelete.value) return;
-  const rule = pendingDelete.value;
-  pendingDelete.value = null;
-  try {
-    await api.delete(`/admin-api/alerts/${rule.id}`);
-    await load();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete rule.";
-  }
+function confirmDelete() {
+  return confirmActionDelete(async (rule) => {
+    try {
+      await api.delete(`/admin-api/alerts/${rule.id}`);
+      await load();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete rule.";
+    }
+  });
 }
 </script>
 
@@ -248,7 +257,7 @@ async function confirmDelete() {
               <button type="button" class="link-btn" :disabled="testingRuleId === rule.id" @click="testRule(rule)">
                 {{ testingRuleId === rule.id ? "Testing…" : "Test" }}
               </button>
-              <button type="button" class="link-btn danger" @click="pendingDelete = rule">Delete</button>
+              <button type="button" class="link-btn danger" @click="requestDelete(rule)">Delete</button>
             </div>
           </td>
         </tr>
@@ -262,7 +271,7 @@ async function confirmDelete() {
       :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
       danger
       @confirm="confirmDelete"
-      @cancel="pendingDelete = null"
+      @cancel="cancelDelete"
     />
 
     <ConfirmDialog
@@ -272,7 +281,7 @@ async function confirmDelete() {
       :confirm-label="pendingDisable ? `Disable ${pendingDisable.name}` : 'Disable'"
       danger
       @confirm="confirmDisable"
-      @cancel="pendingDisable = null"
+      @cancel="cancelDisable"
     />
   </section>
 </template>

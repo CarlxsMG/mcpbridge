@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
+import { useConfirmAction } from "../composables/useConfirmAction";
 import type { TraceSummary, StoredSpan, TopSessionRow, PaginatedResult } from "../types/api";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import SignalLoader from "../components/SignalLoader.vue";
@@ -26,7 +27,12 @@ const errorMessage = ref("");
 const toolFilter = ref(typeof route.query.tool === "string" ? route.query.tool : "");
 const sessionFilter = ref(typeof route.query.session_id === "string" ? route.query.session_id : "");
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
-const pendingPurge = ref(false);
+const {
+  pending: pendingPurge,
+  request: requestPurge,
+  cancel: cancelPurge,
+  confirm: confirmActionPurge,
+} = useConfirmAction<true>();
 const purging = ref(false);
 const topSessions = ref<TopSessionRow[]>([]);
 
@@ -144,19 +150,20 @@ function backToList() {
 }
 
 async function confirmPurge() {
-  pendingPurge.value = false;
-  purging.value = true;
-  try {
-    await api.delete("/admin-api/traces");
-    cursorStack.value = [];
-    currentCursor.value = undefined;
-    await loadList();
-    await loadTopSessions();
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to purge traces.";
-  } finally {
-    purging.value = false;
-  }
+  await confirmActionPurge(async () => {
+    purging.value = true;
+    try {
+      await api.delete("/admin-api/traces");
+      cursorStack.value = [];
+      currentCursor.value = undefined;
+      await loadList();
+      await loadTopSessions();
+    } catch (err) {
+      errorMessage.value = err instanceof ApiError ? err.message : "Failed to purge traces.";
+    } finally {
+      purging.value = false;
+    }
+  });
 }
 
 function fmtDuration(ms: number): string {
@@ -229,7 +236,7 @@ const waterfall = computed(() => {
           type="button"
           class="btn-secondary danger"
           :disabled="purging || traces.length === 0"
-          @click="pendingPurge = true"
+          @click="requestPurge(true)"
         >
           <Trash2 :size="14" stroke-width="2" aria-hidden="true" /> Purge all
         </button>
@@ -314,13 +321,13 @@ const waterfall = computed(() => {
     </template>
 
     <ConfirmDialog
-      :open="pendingPurge"
+      :open="pendingPurge !== null"
       title="Purge all traces?"
       message="Deletes every persisted span. This cannot be undone."
       confirm-label="Purge all"
       danger
       @confirm="confirmPurge"
-      @cancel="pendingPurge = false"
+      @cancel="cancelPurge"
     />
   </section>
 </template>
