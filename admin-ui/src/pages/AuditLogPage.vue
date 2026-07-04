@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { api, ApiError } from "../composables/useApi";
+import { useLoadState } from "../composables/useResource";
 import type { AuditLogEntry, PaginatedResult } from "../types/api";
 import { ScrollText, CheckCircle2, XCircle } from "lucide-vue-next";
 import PageHeader from "../components/PageHeader.vue";
@@ -9,8 +10,7 @@ import EmptyState from "../components/EmptyState.vue";
 import SearchInput from "../components/SearchInput.vue";
 
 const entries = ref<AuditLogEntry[]>([]);
-const loading = ref(false);
-const errorMessage = ref("");
+const { loading, errorMessage, run } = useLoadState("Failed to load audit log.");
 const nextCursor = ref<string | undefined>(undefined);
 const actorFilter = ref("");
 const actionFilter = ref("");
@@ -50,19 +50,13 @@ function buildFilterParams(): URLSearchParams {
 }
 
 async function load(cursor?: string) {
-  loading.value = true;
-  errorMessage.value = "";
-  try {
+  await run(async () => {
     const params = buildFilterParams();
     if (cursor) params.set("cursor", cursor);
     const result = await api.get<PaginatedResult<AuditLogEntry>>(`/admin-api/audit-log?${params.toString()}`);
     entries.value = cursor ? [...entries.value, ...result.items] : result.items;
     nextCursor.value = result.nextCursor;
-  } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load audit log.";
-  } finally {
-    loading.value = false;
-  }
+  });
 }
 
 function applyFilter() {
