@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 /**
  * Extracts every `app.<method>("path", ...)` registration from src/routes/*.ts
- * and writes them to admin-ui/src/composables/__tests__/real-routes.generated.json.
+ * and writes them to admin-ui/src/demo/__tests__/real-routes.generated.json.
  *
  * That JSON is the "real backend" side of admin-ui's demo-vs-real contract test
- * (admin-ui/src/composables/__tests__/demo-contract.test.ts). The test itself
+ * (admin-ui/src/demo/__tests__/demo-contract.test.ts). The test itself
  * can't import backend src/ at runtime (it's a Bun-only Express app, and the
  * test runs under Vitest/jsdom), so this script is the bridge: run it whenever
  * routes are added/removed/renamed in src/routes/*.ts, commit the regenerated
@@ -24,7 +24,7 @@ import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
 const ROUTES_DIR = join(ROOT, "src", "routes");
-const OUT_FILE = join(ROOT, "admin-ui", "src", "composables", "__tests__", "real-routes.generated.json");
+const OUT_FILE = join(ROOT, "admin-ui", "src", "demo", "__tests__", "real-routes.generated.json");
 
 type Method = "get" | "post" | "put" | "patch" | "delete";
 interface RouteEntry {

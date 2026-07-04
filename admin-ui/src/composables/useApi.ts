@@ -84,7 +84,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   // import sits in a statically-false branch in the real product build, so the
   // demo code (and its fixtures) is tree-shaken out entirely.
   if (import.meta.env.VITE_DEMO === "true") {
-    const { demoFetch } = await import("./demo");
+    const { demoFetch } = await import("../demo/demo");
     return demoFetch<T>(path, init);
   }
   const res = await rawFetch(path, init);
@@ -95,7 +95,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 /** Like apiFetch, but returns the raw response body as text (e.g. a YAML export) instead of parsing JSON. */
 export async function apiFetchRaw(path: string, init: RequestInit = {}): Promise<string> {
   if (import.meta.env.VITE_DEMO === "true") {
-    const { demoFetch } = await import("./demo");
+    const { demoFetch } = await import("../demo/demo");
     const data = await demoFetch<unknown>(path, init);
     return JSON.stringify(data, null, 2);
   }

@@ -196,10 +196,10 @@ describe("demo.ts vs real backend route coverage", () => {
       // original known-red gap this test was written against) now have
       // demo.ts mocks. Left failing (not warn-only) so any *future* drift —
       // a new admin-api route the demo never learned to fake — is a loud
-      // regression signal. Not wired into scripts/check-all.ts or
-      // .github/workflows/ci.yml (neither currently runs admin-ui's vitest
-      // suite at all), so a red run here does not block the aggregate CI
-      // gate — it only surfaces on `bun run test` in admin-ui/.
+      // regression signal. Wired in: scripts/check-all.ts's "admin-ui tests"
+      // step and .github/workflows/ci.yml's "Test (admin-ui)" step both run
+      // `bun run test` in admin-ui/ (i.e. the full Vitest suite, this test
+      // included), so a red run here does block the aggregate CI gate.
       expect.fail(`${missing.length} real admin-api route(s) have no demo.ts mock:\n${list}`);
     }
   });
