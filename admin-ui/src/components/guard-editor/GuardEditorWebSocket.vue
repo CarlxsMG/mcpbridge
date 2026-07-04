@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
+import { usePropDraft } from "@/composables/useDraftField";
+import SaveRow from "@/components/ui/SaveRow.vue";
 
 const props = defineProps<{
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
@@ -10,19 +12,10 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ saved: [] }>();
 
-const wsEnabledInput = ref(Boolean(props.ws?.enabled));
-const wsUrlInput = ref(props.ws?.wsUrl ?? "");
-const wsPersistentInput = ref(props.ws?.persistent ?? false);
+const wsEnabledInput = usePropDraft(() => Boolean(props.ws?.enabled));
+const wsUrlInput = usePropDraft(() => props.ws?.wsUrl ?? "");
+const wsPersistentInput = usePropDraft(() => props.ws?.persistent ?? false);
 const saved = ref(false);
-
-watch(
-  () => props.ws,
-  (w) => {
-    wsEnabledInput.value = Boolean(w?.enabled);
-    wsUrlInput.value = w?.wsUrl ?? "";
-    wsPersistentInput.value = w?.persistent ?? false;
-  },
-);
 
 const wsUrlError = computed(() => {
   if (!wsEnabledInput.value) return null;
@@ -77,15 +70,6 @@ async function saveWsFn() {
         forwarded as MCP progress notifications to callers that requested them.
       </p>
     </template>
-    <button
-      type="button"
-      class="btn-secondary desc-save"
-      :disabled="saving || (wsEnabledInput && Boolean(wsUrlError))"
-      @click="saveWsFn"
-    >
-      {{ saving ? "Saving…" : "Save WebSocket settings" }}
-    </button>
-    <span v-if="saved" class="save-ok">Saved</span>
-    <p v-if="error" class="field-error">{{ error }}</p>
+    <SaveRow label="Save WebSocket settings" :saving="saving" :saved="saved" :error="error" @save="saveWsFn" />
   </div>
 </template>

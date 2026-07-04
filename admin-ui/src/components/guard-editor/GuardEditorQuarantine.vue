@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
+import { usePropDraft } from "@/composables/useDraftField";
+import SaveRow from "@/components/ui/SaveRow.vue";
 import { numberRangeValidator } from "@/utils/fieldParsing";
 
 const props = defineProps<{
@@ -25,26 +27,15 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ saved: [] }>();
 
-const quarantineEnabledInput = ref(Boolean(props.quarantine));
-const quarantineThresholdInput = ref((props.quarantine?.policy.consecutiveThreshold ?? 3).toString());
-const quarantineActionInput = ref<"block" | "force_approval" | "observe">(props.quarantine?.policy.action ?? "block");
-const quarantineRecoveryInput = ref<"auto" | "manual">(props.quarantine?.policy.recoveryMode ?? "manual");
-const quarantineCooldownInput = ref(
+const quarantineEnabledInput = usePropDraft(() => Boolean(props.quarantine));
+const quarantineThresholdInput = usePropDraft(() => (props.quarantine?.policy.consecutiveThreshold ?? 3).toString());
+const quarantineActionInput = usePropDraft(() => props.quarantine?.policy.action ?? "block");
+const quarantineRecoveryInput = usePropDraft(() => props.quarantine?.policy.recoveryMode ?? "manual");
+const quarantineCooldownInput = usePropDraft(() =>
   props.quarantine?.policy.cooldownMs ? (props.quarantine.policy.cooldownMs / 60_000).toString() : "",
 );
 const saved = ref(false);
 const clearedSaved = ref(false);
-
-watch(
-  () => props.quarantine,
-  (q) => {
-    quarantineEnabledInput.value = Boolean(q);
-    quarantineThresholdInput.value = (q?.policy.consecutiveThreshold ?? 3).toString();
-    quarantineActionInput.value = q?.policy.action ?? "block";
-    quarantineRecoveryInput.value = q?.policy.recoveryMode ?? "manual";
-    quarantineCooldownInput.value = q?.policy.cooldownMs ? (q.policy.cooldownMs / 60_000).toString() : "";
-  },
-);
 
 const quarantineThresholdError = computed(() =>
   numberRangeValidator({ integer: true, min: 1, max: 100, message: "Must be a whole number between 1 and 100" })(
@@ -150,15 +141,7 @@ async function clearQuarantineFn() {
         <p v-if="quarantineCooldownError" class="field-error">{{ quarantineCooldownError }}</p>
       </template>
     </template>
-    <button
-      type="button"
-      class="btn-secondary desc-save"
-      :disabled="saving || (quarantineEnabledInput && Boolean(quarantineThresholdError || quarantineCooldownError))"
-      @click="saveQuarantineFn"
-    >
-      {{ saving ? "Saving…" : "Save quarantine settings" }}
-    </button>
-    <span v-if="saved" class="save-ok">Saved</span>
+    <SaveRow label="Save quarantine settings" :saving="saving" :saved="saved" @save="saveQuarantineFn" />
     <span v-if="clearedSaved" class="save-ok">Cleared</span>
     <p v-if="error" class="field-error">{{ error }}</p>
   </div>

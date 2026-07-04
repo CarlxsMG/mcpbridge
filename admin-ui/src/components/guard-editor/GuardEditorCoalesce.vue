@@ -1,20 +1,15 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
+import { usePropDraft } from "@/composables/useDraftField";
+import SaveRow from "@/components/ui/SaveRow.vue";
 
 const props = defineProps<{ coalesce?: { enabled: boolean }; clientName?: string; toolName?: string }>();
 const emit = defineEmits<{ saved: [] }>();
 
-const coalesceInput = ref(props.coalesce?.enabled ?? false);
+const coalesceInput = usePropDraft(() => props.coalesce?.enabled ?? false);
 const saved = ref(false);
-
-watch(
-  () => props.coalesce,
-  (c) => {
-    coalesceInput.value = c?.enabled ?? false;
-  },
-);
 
 const { saving, error, patchField } = usePatchTool(
   () => props.clientName ?? "",
@@ -42,10 +37,6 @@ async function saveCoalesceFn() {
       Distinct from the response cache's TTL — only dedupes calls that are in flight at the same moment, so it's safe
       even without caching enabled.
     </p>
-    <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveCoalesceFn">
-      {{ saving ? "Saving…" : "Save coalescing" }}
-    </button>
-    <span v-if="saved" class="save-ok">Saved</span>
-    <p v-if="error" class="field-error">{{ error }}</p>
+    <SaveRow label="Save coalescing" :saving="saving" :saved="saved" :error="error" @save="saveCoalesceFn" />
   </div>
 </template>

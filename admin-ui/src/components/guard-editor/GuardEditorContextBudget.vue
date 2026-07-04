@@ -2,6 +2,8 @@
 import { ref, computed, watch } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
+import { usePropDraft } from "@/composables/useDraftField";
+import SaveRow from "@/components/ui/SaveRow.vue";
 import { numberRangeValidator } from "@/utils/fieldParsing";
 import type { ContextBudgetConfig, ContextBudgetLlmProvider } from "@/types/api";
 
@@ -12,28 +14,24 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ saved: [] }>();
 
-const contextBudgetEnabledInput = ref(Boolean(props.contextBudget));
-const contextBudgetModeInput = ref<"truncate" | "llm_summarize">(props.contextBudget?.mode ?? "truncate");
-const contextBudgetMaxBytesInput = ref((props.contextBudget?.maxResponseBytes ?? 8_000).toString());
-const contextBudgetLlmProviderInput = ref<ContextBudgetLlmProvider>(props.contextBudget?.llm?.provider ?? "openai");
-const contextBudgetLlmBaseUrlInput = ref(props.contextBudget?.llm?.baseUrl ?? "");
-const contextBudgetLlmModelInput = ref(props.contextBudget?.llm?.model ?? "");
-// Write-only, like OAuth's client secret field — never populated from a previous save.
+const contextBudgetEnabledInput = usePropDraft(() => Boolean(props.contextBudget));
+const contextBudgetModeInput = usePropDraft(() => props.contextBudget?.mode ?? "truncate");
+const contextBudgetMaxBytesInput = usePropDraft(() => (props.contextBudget?.maxResponseBytes ?? 8_000).toString());
+const contextBudgetLlmProviderInput = usePropDraft<ContextBudgetLlmProvider>(
+  () => props.contextBudget?.llm?.provider ?? "openai",
+);
+const contextBudgetLlmBaseUrlInput = usePropDraft(() => props.contextBudget?.llm?.baseUrl ?? "");
+const contextBudgetLlmModelInput = usePropDraft(() => props.contextBudget?.llm?.model ?? "");
+// Write-only, like OAuth's client secret field — never populated from a previous save. Doesn't
+// mirror a prop value (always blank), so it keeps its own ref + watch instead of usePropDraft.
 const contextBudgetLlmApiKeyInput = ref("");
-const saved = ref(false);
-
 watch(
   () => props.contextBudget,
-  (cb) => {
-    contextBudgetEnabledInput.value = Boolean(cb);
-    contextBudgetModeInput.value = cb?.mode ?? "truncate";
-    contextBudgetMaxBytesInput.value = (cb?.maxResponseBytes ?? 8_000).toString();
-    contextBudgetLlmProviderInput.value = cb?.llm?.provider ?? "openai";
-    contextBudgetLlmBaseUrlInput.value = cb?.llm?.baseUrl ?? "";
-    contextBudgetLlmModelInput.value = cb?.llm?.model ?? "";
-    contextBudgetLlmApiKeyInput.value = ""; // never repopulated from a previous save
+  () => {
+    contextBudgetLlmApiKeyInput.value = "";
   },
 );
+const saved = ref(false);
 
 const contextBudgetBytesError = computed(() => {
   if (!contextBudgetEnabledInput.value) return null;
@@ -162,15 +160,6 @@ async function saveContextBudgetFn() {
         <p v-if="contextBudgetLlmError" class="field-error">{{ contextBudgetLlmError }}</p>
       </template>
     </template>
-    <button
-      type="button"
-      class="btn-secondary desc-save"
-      :disabled="saving || Boolean(contextBudgetBytesError || contextBudgetLlmError)"
-      @click="saveContextBudgetFn"
-    >
-      {{ saving ? "Saving…" : "Save context budget" }}
-    </button>
-    <span v-if="saved" class="save-ok">Saved</span>
-    <p v-if="error" class="field-error">{{ error }}</p>
+    <SaveRow label="Save context budget" :saving="saving" :saved="saved" :error="error" @save="saveContextBudgetFn" />
   </div>
 </template>

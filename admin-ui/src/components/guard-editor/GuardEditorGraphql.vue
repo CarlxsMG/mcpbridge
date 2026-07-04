@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
+import { usePropDraft } from "@/composables/useDraftField";
+import SaveRow from "@/components/ui/SaveRow.vue";
 
 const props = defineProps<{
   graphql?: { enabled: boolean; query: string };
@@ -10,17 +12,9 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ saved: [] }>();
 
-const graphqlEnabledInput = ref(Boolean(props.graphql?.enabled));
-const graphqlQueryInput = ref(props.graphql?.query ?? "");
+const graphqlEnabledInput = usePropDraft(() => Boolean(props.graphql?.enabled));
+const graphqlQueryInput = usePropDraft(() => props.graphql?.query ?? "");
 const saved = ref(false);
-
-watch(
-  () => props.graphql,
-  (g) => {
-    graphqlEnabledInput.value = Boolean(g?.enabled);
-    graphqlQueryInput.value = g?.query ?? "";
-  },
-);
 
 const { saving, error, patchField } = usePatchTool(
   () => props.clientName ?? "",
@@ -72,15 +66,6 @@ async function saveGraphqlFn() {
         deeper selection sets).
       </p>
     </template>
-    <button
-      type="button"
-      class="btn-secondary desc-save"
-      :disabled="saving || (graphqlEnabledInput && !graphqlQueryInput.trim())"
-      @click="saveGraphqlFn"
-    >
-      {{ saving ? "Saving…" : "Save GraphQL settings" }}
-    </button>
-    <span v-if="saved" class="save-ok">Saved</span>
-    <p v-if="error" class="field-error">{{ error }}</p>
+    <SaveRow label="Save GraphQL settings" :saving="saving" :saved="saved" :error="error" @save="saveGraphqlFn" />
   </div>
 </template>
