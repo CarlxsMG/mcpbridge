@@ -1,21 +1,16 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
+import { usePropDraft } from "@/composables/useDraftField";
+import SaveRow from "@/components/ui/SaveRow.vue";
 import { parseList } from "@/utils/fieldParsing";
 
 const props = defineProps<{ redactPaths?: string[]; clientName?: string; toolName?: string }>();
 const emit = defineEmits<{ saved: [] }>();
 
-const redactInput = ref((props.redactPaths ?? []).join("\n"));
+const redactInput = usePropDraft(() => (props.redactPaths ?? []).join("\n"));
 const saved = ref(false);
-
-watch(
-  () => props.redactPaths,
-  (p) => {
-    redactInput.value = (p ?? []).join("\n");
-  },
-);
 
 const { saving, error, patchField } = usePatchTool(
   () => props.clientName ?? "",
@@ -42,10 +37,6 @@ async function saveRedactionFn() {
       returning to the caller.
     </p>
     <textarea id="tool-redact" v-model="redactInput" rows="3" placeholder="user.password&#10;items.*.token"></textarea>
-    <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveRedactionFn">
-      {{ saving ? "Saving…" : "Save redaction" }}
-    </button>
-    <span v-if="saved" class="save-ok">Saved</span>
-    <p v-if="error" class="field-error">{{ error }}</p>
+    <SaveRow label="Save redaction" :saving="saving" :saved="saved" :error="error" @save="saveRedactionFn" />
   </div>
 </template>

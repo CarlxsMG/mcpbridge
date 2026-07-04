@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
+import { usePropDraft } from "@/composables/useDraftField";
+import SaveRow from "@/components/ui/SaveRow.vue";
 import { parseList } from "@/utils/fieldParsing";
 import { ShieldCheck } from "lucide-vue-next";
 
@@ -12,19 +14,10 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ saved: [] }>();
 
-const denyPatternsInput = ref((props.guardrails?.denyPatterns ?? []).join("\n"));
-const blockSecretsInput = ref(props.guardrails?.blockSecrets ?? false);
-const scanResponsesInput = ref(props.guardrails?.scanResponses ?? false);
+const denyPatternsInput = usePropDraft(() => (props.guardrails?.denyPatterns ?? []).join("\n"));
+const blockSecretsInput = usePropDraft(() => props.guardrails?.blockSecrets ?? false);
+const scanResponsesInput = usePropDraft(() => props.guardrails?.scanResponses ?? false);
 const saved = ref(false);
-
-watch(
-  () => props.guardrails,
-  (g) => {
-    denyPatternsInput.value = (g?.denyPatterns ?? []).join("\n");
-    blockSecretsInput.value = g?.blockSecrets ?? false;
-    scanResponsesInput.value = g?.scanResponses ?? false;
-  },
-);
 
 const { saving, error, patchField } = usePatchTool(
   () => props.clientName ?? "",
@@ -67,10 +60,6 @@ async function saveGuardrailsFn() {
       ><input v-model="scanResponsesInput" type="checkbox" /> Scan responses for prompt-injection and wrap flagged
       output</label
     >
-    <button type="button" class="btn-secondary desc-save" :disabled="saving" @click="saveGuardrailsFn">
-      {{ saving ? "Saving…" : "Save guardrails" }}
-    </button>
-    <span v-if="saved" class="save-ok">Saved</span>
-    <p v-if="error" class="field-error">{{ error }}</p>
+    <SaveRow label="Save guardrails" :saving="saving" :saved="saved" :error="error" @save="saveGuardrailsFn" />
   </div>
 </template>

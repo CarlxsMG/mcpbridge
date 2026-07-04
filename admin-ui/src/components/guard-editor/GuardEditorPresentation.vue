@@ -2,6 +2,7 @@
 import { ref, computed, watch } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
+import SaveRow from "@/components/ui/SaveRow.vue";
 
 const props = defineProps<{
   override?: { description?: string; params?: Record<string, { description?: string }>; displayName?: string };
@@ -90,15 +91,6 @@ async function saveOverrideFn() {
       rows="3"
       placeholder="Registered description is used when blank"
     ></textarea>
-    <button
-      type="button"
-      class="btn-secondary desc-save"
-      :disabled="saving || Boolean(displayNameError)"
-      @click="saveOverrideFn"
-    >
-      {{ saving ? "Saving…" : "Save presentation" }}
-    </button>
-    <span v-if="saved" class="save-ok">Saved</span>
-    <p v-if="error" class="field-error">{{ error }}</p>
+    <SaveRow label="Save presentation" :saving="saving" :saved="saved" :error="error" @save="saveOverrideFn" />
   </div>
 </template>

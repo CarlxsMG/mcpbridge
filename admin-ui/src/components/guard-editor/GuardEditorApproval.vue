@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
+import { usePropDraft } from "@/composables/useDraftField";
+import SaveRow from "@/components/ui/SaveRow.vue";
 import { numberRangeValidator } from "@/utils/fieldParsing";
 
 const props = defineProps<{
@@ -11,17 +13,9 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ saved: [] }>();
 
-const approvalRequiredInput = ref(props.approval?.required ?? false);
-const approvalLevelsInput = ref((props.approval?.requiredLevels ?? 1).toString());
+const approvalRequiredInput = usePropDraft(() => props.approval?.required ?? false);
+const approvalLevelsInput = usePropDraft(() => (props.approval?.requiredLevels ?? 1).toString());
 const saved = ref(false);
-
-watch(
-  () => props.approval,
-  (a) => {
-    approvalRequiredInput.value = a?.required ?? false;
-    approvalLevelsInput.value = (a?.requiredLevels ?? 1).toString();
-  },
-);
 
 const approvalLevelsError = computed(() =>
   numberRangeValidator({ integer: true, min: 1, max: 10, message: "Must be a whole number between 1 and 10" })(
@@ -67,15 +61,6 @@ async function saveApprovalFn() {
       :disabled="!approvalRequiredInput"
     />
     <p v-if="approvalRequiredInput && approvalLevelsError" class="field-error">{{ approvalLevelsError }}</p>
-    <button
-      type="button"
-      class="btn-secondary desc-save"
-      :disabled="saving || (approvalRequiredInput && Boolean(approvalLevelsError))"
-      @click="saveApprovalFn"
-    >
-      {{ saving ? "Saving…" : "Save approval settings" }}
-    </button>
-    <span v-if="saved" class="save-ok">Saved</span>
-    <p v-if="error" class="field-error">{{ error }}</p>
+    <SaveRow label="Save approval settings" :saving="saving" :saved="saved" :error="error" @save="saveApprovalFn" />
   </div>
 </template>
