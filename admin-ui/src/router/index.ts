@@ -1,5 +1,5 @@
 import { createRouter, createWebHashHistory, createWebHistory } from "vue-router";
-import { useAuth } from "../composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 import { navEntries } from "../navigation";
 
 // The ~24 static, param-free routes come from navEntries (shared with App.vue's

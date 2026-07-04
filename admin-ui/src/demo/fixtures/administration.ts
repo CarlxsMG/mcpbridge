@@ -5,7 +5,7 @@ import type {
   GuardPolicy,
   Schedule,
   Team,
-} from "../../types/api";
+} from "@/types/api";
 import { days, hours } from "./time";
 
 // ─── Administration section fixtures (users, teams, policies, composites, ────

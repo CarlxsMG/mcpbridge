@@ -1,4 +1,4 @@
-import type { ApprovalRecord } from "../../types/api";
+import type { ApprovalRecord } from "@/types/api";
 import { days, hex, hours } from "./time";
 
 export const approvals: ApprovalRecord[] = [

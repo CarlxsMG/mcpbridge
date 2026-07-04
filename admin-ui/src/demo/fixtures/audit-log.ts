@@ -1,4 +1,4 @@
-import type { AuditLogEntry } from "../../types/api";
+import type { AuditLogEntry } from "@/types/api";
 import { days, hex, hours } from "./time";
 
 export const auditLog: AuditLogEntry[] = [

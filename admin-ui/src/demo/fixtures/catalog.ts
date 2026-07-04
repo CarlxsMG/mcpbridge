@@ -1,4 +1,4 @@
-import type { CatalogEntry, DiscoveryPreview } from "../../types/api";
+import type { CatalogEntry, DiscoveryPreview } from "@/types/api";
 
 export const catalogEntries: CatalogEntry[] = [
   {

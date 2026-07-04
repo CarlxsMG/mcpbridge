@@ -2,10 +2,10 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch, type Component } from "vue";
 import { useRouter } from "vue-router";
 import { Search, Server, Boxes, KeyRound, CornerDownLeft } from "lucide-vue-next";
-import { api } from "../composables/useApi";
-import { useCommandPalette } from "../composables/useCommandPalette";
+import { api } from "@/composables/useApi";
+import { useCommandPalette } from "@/composables/useCommandPalette";
 import { navEntries } from "../navigation";
-import type { ClientSummary, BundleSummary, McpApiKey, PaginatedResult } from "../types/api";
+import type { ClientSummary, BundleSummary, McpApiKey, PaginatedResult } from "@/types/api";
 
 interface Entry {
   id: string;

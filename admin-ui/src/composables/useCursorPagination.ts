@@ -1,6 +1,6 @@
 import { ref, computed, type Ref } from "vue";
 import { useLoadState } from "./useResource";
-import type { PaginatedResult } from "../types/api";
+import type { PaginatedResult } from "@/types/api";
 
 /**
  * Generalizes the cursorStack/nextCursor/currentCursor trio hand-rolled the

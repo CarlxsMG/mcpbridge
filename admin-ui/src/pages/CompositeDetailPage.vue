@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { api, ApiError } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import { useOptimisticToggle } from "../composables/useOptimisticToggle";
-import { useUnsavedChangesGuard } from "../composables/useUnsavedChangesGuard";
-import { useDraftField } from "../composables/useDraftField";
+import { api, ApiError } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
+import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
+import { useDraftField } from "@/composables/useDraftField";
 import { toErrorMessage } from "@/utils/errors";
-import type { CompositeDetail, CompositeStep } from "../types/api";
+import type { CompositeDetail, CompositeStep } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";

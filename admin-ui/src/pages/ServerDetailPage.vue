@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
-import { api, ApiError } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import { useCommandPalette } from "../composables/useCommandPalette";
-import { useFocusTrap } from "../composables/useFocusTrap";
-import type { ClientDetail } from "../types/api";
+import { api, ApiError } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useCommandPalette } from "@/composables/useCommandPalette";
+import { useFocusTrap } from "@/composables/useFocusTrap";
+import type { ClientDetail } from "@/types/api";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
@@ -14,7 +14,7 @@ import TabStrip from "@/components/ui/TabStrip.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import GuardEditor from "@/components/guard-editor/GuardEditor.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
-import ConnectClientDialog from "../components/ConnectClientDialog.vue";
+import ConnectClientDialog from "@/components/ConnectClientDialog.vue";
 import ServerDetailUpstreamAuth from "@/components/server-detail/ServerDetailUpstreamAuth.vue";
 import ServerDetailOAuth from "@/components/server-detail/ServerDetailOAuth.vue";
 import ServerDetailResync from "@/components/server-detail/ServerDetailResync.vue";

@@ -1,4 +1,4 @@
-import type { StoredSpan, TopSessionRow, TraceSummary } from "../../types/api";
+import type { StoredSpan, TopSessionRow, TraceSummary } from "@/types/api";
 import { hours } from "./time";
 
 export const spansByTrace: Record<string, StoredSpan[]> = {

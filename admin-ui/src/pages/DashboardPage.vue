@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
-import { api } from "../composables/useApi";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import { useCursorPagination } from "../composables/useCursorPagination";
-import { useOptimisticToggle } from "../composables/useOptimisticToggle";
-import { useQueryFilters } from "../composables/useQueryFilters";
+import { api } from "@/composables/useApi";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useCursorPagination } from "@/composables/useCursorPagination";
+import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
+import { useQueryFilters } from "@/composables/useQueryFilters";
 import { toErrorMessage } from "@/utils/errors";
-import type { ClientSummary, PaginatedResult, TagSummary, TagToolRef } from "../types/api";
+import type { ClientSummary, PaginatedResult, TagSummary, TagToolRef } from "@/types/api";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
-import OnboardingChecklist from "../components/OnboardingChecklist.vue";
+import OnboardingChecklist from "@/components/OnboardingChecklist.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";

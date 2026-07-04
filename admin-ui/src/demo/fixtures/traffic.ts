@@ -1,4 +1,4 @@
-import type { TrafficRecord } from "../../types/api";
+import type { TrafficRecord } from "@/types/api";
 import { hours } from "./time";
 
 export const trafficRecords: TrafficRecord[] = [

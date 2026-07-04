@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { api } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import { useConfirmAction } from "../composables/useConfirmAction";
+import { api } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useEntityForm } from "@/composables/useEntityForm";
 import { toErrorMessage } from "@/utils/errors";
-import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "../types/api";
+import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "@/types/api";
 import { LayoutGrid } from "lucide-vue-next";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";

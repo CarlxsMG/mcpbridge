@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { api, ApiError } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useEntityForm } from "@/composables/useEntityForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
-import type { AlertRule, AlertEventType } from "../types/api";
+import type { AlertRule, AlertEventType } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";

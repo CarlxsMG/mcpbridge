@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { api } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useEntityForm } from "@/composables/useEntityForm";
-import type { BundleSummary, BundleDetail, BundleToolRef } from "../types/api";
-import BundleToolPicker from "../components/BundleToolPicker.vue";
+import type { BundleSummary, BundleDetail, BundleToolRef } from "@/types/api";
+import BundleToolPicker from "@/components/BundleToolPicker.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";

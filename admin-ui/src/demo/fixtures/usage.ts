@@ -5,7 +5,7 @@ import type {
   UsageSummary,
   UsageTimeseries,
   UsageTimeseriesPoint,
-} from "../../types/api";
+} from "@/types/api";
 import { days, NOW } from "./time";
 
 export const topTools: TopToolRow[] = [

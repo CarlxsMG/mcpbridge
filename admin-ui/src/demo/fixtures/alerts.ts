@@ -1,4 +1,4 @@
-import type { AlertRule } from "../../types/api";
+import type { AlertRule } from "@/types/api";
 import { days, hours } from "./time";
 
 export const alerts: AlertRule[] = [

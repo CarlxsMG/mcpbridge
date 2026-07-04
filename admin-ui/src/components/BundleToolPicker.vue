@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { api, ApiError } from "../composables/useApi";
-import type { ToolListItem, BundleToolRef } from "../types/api";
+import { api, ApiError } from "@/composables/useApi";
+import type { ToolListItem, BundleToolRef } from "@/types/api";
 import { Search } from "lucide-vue-next";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 
@@ -248,8 +248,5 @@ const groupedByClient = computed(() => {
   padding: 1rem;
   text-align: center;
   color: var(--text-secondary);
-}
-.error {
-  color: var(--breach);
 }
 </style>

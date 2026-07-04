@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api } from "../composables/useApi";
+import { api } from "@/composables/useApi";
 import { toErrorMessage } from "@/utils/errors";
-import type { OidcSettings } from "../types/api";
+import type { OidcSettings } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 

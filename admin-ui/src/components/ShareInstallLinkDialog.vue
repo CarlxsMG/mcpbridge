@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import { api, ApiError } from "../composables/useApi";
-import { useClipboard } from "../composables/useClipboard";
-import type { BundleInstallLink, BundleInstallLinkWithToken } from "../types/api";
+import { api, ApiError } from "@/composables/useApi";
+import { useClipboard } from "@/composables/useClipboard";
+import type { BundleInstallLink, BundleInstallLinkWithToken } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ModalShell from "@/components/ui/ModalShell.vue";
 import { Copy, Check } from "lucide-vue-next";
@@ -306,9 +306,6 @@ h3 {
 .status.revoked,
 .status.expired {
   background: var(--breach-soft);
-  color: var(--breach);
-}
-.link-btn.danger {
   color: var(--breach);
 }
 .row-error {

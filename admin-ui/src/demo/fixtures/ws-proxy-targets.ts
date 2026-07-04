@@ -1,4 +1,4 @@
-import type { WsProxyTarget } from "../../types/api";
+import type { WsProxyTarget } from "@/types/api";
 import { days } from "./time";
 
 export const wsProxyTargets: WsProxyTarget[] = [

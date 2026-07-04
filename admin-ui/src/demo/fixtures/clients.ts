@@ -1,4 +1,4 @@
-import type { ClientSummary } from "../../types/api";
+import type { ClientSummary } from "@/types/api";
 
 export const clients: ClientSummary[] = [
   {

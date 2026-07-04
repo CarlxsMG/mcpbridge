@@ -1,6 +1,6 @@
 import { readonly, ref } from "vue";
 import { api } from "./useApi";
-import type { UsageSummary } from "../types/api";
+import type { UsageSummary } from "@/types/api";
 
 /** Lookback window for the "any traffic recently?" check — matches the poll cadence loosely so a
  *  missed tick still overlaps the previous window. */

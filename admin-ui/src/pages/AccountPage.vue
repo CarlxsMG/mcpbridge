@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { api } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import { useAuth } from "../composables/useAuth";
-import { useTheme } from "../composables/useTheme";
-import { useDensity } from "../composables/useDensity";
+import { api } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useAuth } from "@/composables/useAuth";
+import { useTheme } from "@/composables/useTheme";
+import { useDensity } from "@/composables/useDensity";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
-import type { AdminSession } from "../types/api";
+import type { AdminSession } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";

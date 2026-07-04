@@ -1,6 +1,6 @@
 import { reactive, readonly } from "vue";
 import { api, ApiError } from "./useApi";
-import type { CurrentUser } from "../types/api";
+import type { CurrentUser } from "@/types/api";
 
 interface AuthState {
   loading: boolean;

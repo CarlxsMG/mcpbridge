@@ -1,4 +1,4 @@
-import type { ClientDetail, ClientSummary, TagSummary, TagToolRef, ToolDetail, ToolListItem } from "../../types/api";
+import type { ClientDetail, ClientSummary, TagSummary, TagToolRef, ToolDetail, ToolListItem } from "@/types/api";
 import { clients } from "./clients";
 
 // ─── Tool catalogs per client (drive the flat list + client detail) ──────────

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { api } from "../composables/useApi";
-import { useLoadState } from "../composables/useResource";
+import { api } from "@/composables/useApi";
+import { useLoadState } from "@/composables/useResource";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime, prettyJson } from "@/utils/format";
 import { downloadTextFile } from "@/utils/download";
-import type { AuditLogEntry, PaginatedResult } from "../types/api";
+import type { AuditLogEntry, PaginatedResult } from "@/types/api";
 import { ScrollText, CheckCircle2, XCircle } from "lucide-vue-next";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";

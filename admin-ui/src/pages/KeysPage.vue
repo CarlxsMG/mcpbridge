@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api } from "../composables/useApi";
-import { useLoadState } from "../composables/useResource";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import { useOptimisticToggle } from "../composables/useOptimisticToggle";
-import { useClipboard } from "../composables/useClipboard";
+import { api } from "@/composables/useApi";
+import { useLoadState } from "@/composables/useResource";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
+import { useClipboard } from "@/composables/useClipboard";
 import { useEntityForm } from "@/composables/useEntityForm";
 import { parseList } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
 import { statusTone, toneColorVar } from "@/utils/status";
-import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "../types/api";
+import type { McpApiKey, McpApiKeyWithSecret, Consumer } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";

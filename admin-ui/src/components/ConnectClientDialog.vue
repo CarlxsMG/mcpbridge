@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { api } from "../composables/useApi";
-import { useClipboard } from "../composables/useClipboard";
-import type { ClientSummary, BundleSummary, McpApiKey } from "../types/api";
+import { api } from "@/composables/useApi";
+import { useClipboard } from "@/composables/useClipboard";
+import type { ClientSummary, BundleSummary, McpApiKey } from "@/types/api";
 import {
   CONNECT_TEMPLATES,
   resolveGatewayEndpoint,

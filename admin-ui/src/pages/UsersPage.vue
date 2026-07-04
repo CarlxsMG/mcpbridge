@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { api } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import { useAuth } from "../composables/useAuth";
-import { useConfirmAction } from "../composables/useConfirmAction";
+import { api } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import { useAuth } from "@/composables/useAuth";
+import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useEntityForm } from "@/composables/useEntityForm";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
-import type { AdminUserSummary, AdminRole, Team } from "../types/api";
+import type { AdminUserSummary, AdminRole, Team } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";

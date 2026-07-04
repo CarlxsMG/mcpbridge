@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive, watch } from "vue";
-import { api } from "../composables/useApi";
-import { useLoadState } from "../composables/useResource";
-import { useConfirmAction } from "../composables/useConfirmAction";
+import { api } from "@/composables/useApi";
+import { useLoadState } from "@/composables/useResource";
+import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
-import type { ApprovalRecord, ApprovalStatus } from "../types/api";
+import type { ApprovalRecord, ApprovalStatus } from "@/types/api";
 import DonutChart from "@/components/charts/DonutChart.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { useRoute } from "vue-router";
-import { api } from "../composables/useApi";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import { useQueryFilters } from "../composables/useQueryFilters";
-import { useCursorPagination } from "../composables/useCursorPagination";
+import { api } from "@/composables/useApi";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useQueryFilters } from "@/composables/useQueryFilters";
+import { useCursorPagination } from "@/composables/useCursorPagination";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
-import type { TrafficRecord, PaginatedResult } from "../types/api";
+import type { TrafficRecord, PaginatedResult } from "@/types/api";
 import TimeSeriesChart from "@/components/charts/TimeSeriesChart.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";

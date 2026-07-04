@@ -8,8 +8,8 @@
 // endpoint that already exists, and dismissal is a localStorage flag (not
 // worth a DB migration).
 import { computed, onMounted, ref } from "vue";
-import { api } from "../composables/useApi";
-import type { OverviewStats, UsageSummary } from "../types/api";
+import { api } from "@/composables/useApi";
+import type { OverviewStats, UsageSummary } from "@/types/api";
 import { CheckCircle2, Circle } from "lucide-vue-next";
 
 const props = defineProps<{

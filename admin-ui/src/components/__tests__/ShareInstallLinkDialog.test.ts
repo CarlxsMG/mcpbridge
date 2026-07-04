@@ -11,7 +11,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import ShareInstallLinkDialog from "../ShareInstallLinkDialog.vue";
-import type { BundleInstallLink } from "../../types/api";
+import type { BundleInstallLink } from "@/types/api";
 
 const sampleLink: BundleInstallLink = {
   id: 1,

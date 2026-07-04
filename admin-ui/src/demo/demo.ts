@@ -31,7 +31,7 @@ import type {
   OidcPublicConfig,
   OidcSettings,
   WsProxyTarget,
-} from "../types/api";
+} from "@/types/api";
 import { days, NOW } from "./fixtures/time";
 import { DEMO_USER } from "./fixtures/auth";
 import { clients } from "./fixtures/clients";

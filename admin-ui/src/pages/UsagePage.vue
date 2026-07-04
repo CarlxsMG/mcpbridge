@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
-import { api } from "../composables/useApi";
-import { useLoadState } from "../composables/useResource";
+import { api } from "@/composables/useApi";
+import { useLoadState } from "@/composables/useResource";
 import { pct } from "@/utils/format";
-import type { UsageSummary, TopToolRow, UsageByKeyRow, UsageTimeseries } from "../types/api";
+import type { UsageSummary, TopToolRow, UsageByKeyRow, UsageTimeseries } from "@/types/api";
 import StatCard from "@/components/ui/StatCard.vue";
 import MiniBarChart from "@/components/charts/MiniBarChart.vue";
 import TimeSeriesChart from "@/components/charts/TimeSeriesChart.vue";

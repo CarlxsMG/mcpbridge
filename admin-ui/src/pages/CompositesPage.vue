@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { Combine } from "lucide-vue-next";
-import { api } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { api } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useEntityForm } from "@/composables/useEntityForm";
 import { toErrorMessage } from "@/utils/errors";
-import type { CompositeSummary, CompositeDetail, CompositeStep } from "../types/api";
+import type { CompositeSummary, CompositeDetail, CompositeStep } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";

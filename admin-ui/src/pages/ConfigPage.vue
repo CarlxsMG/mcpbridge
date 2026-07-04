@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api } from "../composables/useApi";
-import { useConfirmAction } from "../composables/useConfirmAction";
+import { api } from "@/composables/useApi";
+import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
 import { downloadTextFile } from "@/utils/download";
-import type { ConfigImportResult, ConfigSnapshotSummary, ConfigDiffResult } from "../types/api";
+import type { ConfigImportResult, ConfigSnapshotSummary, ConfigDiffResult } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 

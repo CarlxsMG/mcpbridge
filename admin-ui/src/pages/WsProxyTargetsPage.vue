@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import { useConfirmAction } from "../composables/useConfirmAction";
-import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { api } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useEntityForm } from "@/composables/useEntityForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
-import type { WsProxyTarget } from "../types/api";
+import type { WsProxyTarget } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";

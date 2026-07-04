@@ -1,4 +1,4 @@
-import type { ConsumerWithUsage, McpApiKey } from "../../types/api";
+import type { ConsumerWithUsage, McpApiKey } from "@/types/api";
 import { days, hours } from "./time";
 
 export const mcpKeys: McpApiKey[] = [

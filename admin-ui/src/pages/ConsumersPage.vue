@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import { useConfirmAction } from "../composables/useConfirmAction";
+import { api } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useEntityForm } from "@/composables/useEntityForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
-import type { ConsumerWithUsage, ConsumerUsage } from "../types/api";
+import type { ConsumerWithUsage, ConsumerUsage } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import QuotaBar from "@/components/charts/QuotaBar.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";

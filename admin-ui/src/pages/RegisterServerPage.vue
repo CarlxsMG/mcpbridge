@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { api, ApiError } from "../composables/useApi";
+import { api, ApiError } from "@/composables/useApi";
 import { parseList } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
-import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "../types/api";
+import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import FormField from "@/components/ui/FormField.vue";

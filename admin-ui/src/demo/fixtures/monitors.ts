@@ -1,4 +1,4 @@
-import type { MonitorRecord } from "../../types/api";
+import type { MonitorRecord } from "@/types/api";
 import { days, hours } from "./time";
 
 export const monitors: MonitorRecord[] = [

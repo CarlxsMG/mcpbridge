@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted, computed, ref, watch } from "vue";
-import { api } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
-import type { OverviewStats } from "../types/api";
+import { api } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
+import type { OverviewStats } from "@/types/api";
 import StatCard from "@/components/ui/StatCard.vue";
 import SegmentedBar from "@/components/charts/SegmentedBar.vue";
 import DonutChart from "@/components/charts/DonutChart.vue";

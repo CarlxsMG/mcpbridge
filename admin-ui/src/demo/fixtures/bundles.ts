@@ -1,4 +1,4 @@
-import type { BundleInstallLink, BundleSummary } from "../../types/api";
+import type { BundleInstallLink, BundleSummary } from "@/types/api";
 
 export const bundles: BundleSummary[] = [
   {

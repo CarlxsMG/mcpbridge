@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onMounted, computed } from "vue";
-import { api } from "../composables/useApi";
-import { useResource } from "../composables/useResource";
+import { api } from "@/composables/useApi";
+import { useResource } from "@/composables/useResource";
 import { formatMaybeDate } from "@/utils/format";
-import type { MonitorRecord } from "../types/api";
+import type { MonitorRecord } from "@/types/api";
 import DonutChart from "@/components/charts/DonutChart.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
