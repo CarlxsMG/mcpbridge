@@ -224,14 +224,6 @@ onMounted(load);
   align-items: center;
   gap: 0.4rem;
 }
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14.375rem, 1fr));
@@ -281,9 +273,6 @@ onMounted(load);
   margin: var(--space-3) 0 0;
   font-size: var(--text-sm);
   color: var(--text-muted);
-}
-.error {
-  color: var(--breach);
 }
 /* EmptyState's own recipe matches this page's padding/colors exactly, but it
    doesn't add top spacing to separate it from the cards grid above it. */

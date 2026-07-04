@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from "vue";
 import { api } from "../composables/useApi";
 import { useLoadState } from "../composables/useResource";
+import { pct } from "@/utils/format";
 import type { UsageSummary, TopToolRow, UsageByKeyRow, UsageTimeseries } from "../types/api";
 import StatCard from "@/components/ui/StatCard.vue";
 import MiniBarChart from "@/components/charts/MiniBarChart.vue";
@@ -24,10 +25,6 @@ const topTools = ref<TopToolRow[]>([]);
 const byKey = ref<UsageByKeyRow[]>([]);
 const timeseries = ref<UsageTimeseries | null>(null);
 const { loading, errorMessage, run } = useLoadState("Failed to load usage.");
-
-function pct(n: number): string {
-  return `${(n * 100).toFixed(1)}%`;
-}
 
 async function load() {
   const from = Date.now() - windowMs.value;
@@ -220,19 +217,10 @@ h2 {
   font-size: 1.05rem;
   margin: 0 0 0.75rem;
 }
-/* Page-specific error-rate highlight — not part of the shared TableCard recipe,
-   so it targets the .data-table rendered by TableCard.vue via :deep(). */
-:deep(.data-table td.hot) {
-  color: var(--breach);
-  font-weight: 600;
-}
 .hint {
   color: var(--text-muted);
   font-size: var(--text-sm);
   margin: var(--space-2) 0 0;
-}
-.error {
-  color: var(--breach);
 }
 .empty {
   color: var(--text-muted);

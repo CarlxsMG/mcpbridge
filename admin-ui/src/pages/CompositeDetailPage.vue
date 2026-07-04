@@ -7,6 +7,7 @@ import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import { useUnsavedChangesGuard } from "../composables/useUnsavedChangesGuard";
 import { useDraftField } from "../composables/useDraftField";
+import { toErrorMessage } from "@/utils/errors";
 import type { CompositeDetail, CompositeStep } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
@@ -139,7 +140,7 @@ async function confirmDelete() {
       deleted.value = true;
       router.push("/composites");
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Failed to delete composite.";
+      errorMessage.value = toErrorMessage(err, "Failed to delete composite.");
       deleting.value = false;
     }
   });

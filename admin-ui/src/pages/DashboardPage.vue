@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { useRouter, useRoute } from "vue-router";
-import { api, ApiError } from "../composables/useApi";
+import { useRoute } from "vue-router";
+import { api } from "../composables/useApi";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useCursorPagination } from "../composables/useCursorPagination";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
+import { useQueryFilters } from "../composables/useQueryFilters";
+import { toErrorMessage } from "@/utils/errors";
 import type { ClientSummary, PaginatedResult, TagSummary, TagToolRef } from "../types/api";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import OnboardingChecklist from "../components/OnboardingChecklist.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import SearchInput from "@/components/ui/SearchInput.vue";
@@ -18,13 +21,13 @@ import PaginationBar from "@/components/ui/PaginationBar.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import { Server, Tags, ChevronRight } from "lucide-vue-next";
 
-const router = useRouter();
 const route = useRoute();
 
 const { rowError, toggle } = useOptimisticToggle<ClientSummary>((c) => c.name, "Failed to update.");
 
-const q = ref(typeof route.query.q === "string" ? route.query.q : "");
-const enabledFilter = ref(typeof route.query.enabled === "string" ? route.query.enabled : "");
+const { filters, syncUrl } = useQueryFilters(["q", "enabled"] as const);
+const q = filters.q;
+const enabledFilter = filters.enabled;
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
 
 function buildQuery(cursor?: string): string {
@@ -51,17 +54,14 @@ const {
   {
     initialCursor,
     fallbackMessage: "Failed to load servers.",
-    onCursorChange: (cursor) =>
-      router.replace({
-        query: { q: q.value || undefined, enabled: enabledFilter.value || undefined, cursor },
-      }),
+    onCursorChange: (cursor) => syncUrl({ cursor }),
   },
 );
 
 // debounce-free: filters apply on explicit submit here, not on every keystroke
 function applyFilters() {
   reset();
-  router.replace({ query: { q: q.value || undefined, enabled: enabledFilter.value || undefined } });
+  syncUrl();
   load();
 }
 
@@ -108,7 +108,7 @@ async function runBulk(enabled: boolean) {
     reset();
     await load();
   } catch (err) {
-    bulkError.value = err instanceof ApiError ? err.message : "Bulk update failed.";
+    bulkError.value = toErrorMessage(err, "Bulk update failed.");
   } finally {
     bulkPending.value = false;
   }
@@ -170,7 +170,7 @@ async function loadTags() {
   try {
     tags.value = (await api.get<{ items: TagSummary[] }>("/admin-api/tags")).items;
   } catch (err) {
-    tagsError.value = err instanceof ApiError ? err.message : "Failed to load tags.";
+    tagsError.value = toErrorMessage(err, "Failed to load tags.");
   } finally {
     tagsLoading.value = false;
   }
@@ -188,7 +188,7 @@ async function selectTag(tag: string) {
   try {
     tagTools.value = (await api.get<{ items: TagToolRef[] }>(`/admin-api/tags/${encodeURIComponent(tag)}/tools`)).items;
   } catch (err) {
-    tagToolsError.value = err instanceof ApiError ? err.message : "Failed to load tools for this tag.";
+    tagToolsError.value = toErrorMessage(err, "Failed to load tools for this tag.");
   } finally {
     tagToolsLoading.value = false;
   }
@@ -203,7 +203,7 @@ onMounted(() => load());
 </script>
 
 <template>
-  <section>
+  <section class="list-shell">
     <PageHeader title="Servers" subtitle="Registered backend servers and their tools.">
       <button type="button" class="btn-secondary" :aria-expanded="showTagBrowser" @click="toggleTagBrowser">
         <Tags :size="15" stroke-width="2" aria-hidden="true" /> Browse by tag
@@ -265,8 +265,6 @@ onMounted(() => load());
       <button type="submit" class="btn-secondary">Apply</button>
     </form>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-
     <div v-if="selected.size > 0" class="bulk-bar">
       <span>{{ selected.size }} selected</span>
       <button type="button" class="btn-secondary" :disabled="bulkPending" @click="runBulk(true)">
@@ -279,79 +277,81 @@ onMounted(() => load());
       <span v-if="bulkError" class="error">{{ bulkError }}</span>
     </div>
 
-    <SignalLoader v-if="loading" />
-
-    <EmptyState v-else-if="items.length === 0" :icon="Server">
-      <template v-if="q || enabledFilter">
-        No servers match your filters.
-        <button
-          type="button"
-          class="link-btn"
-          @click="
-            q = '';
-            enabledFilter = '';
-            applyFilters();
-          "
-        >
-          Clear filters
-        </button>
+    <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
+      <template #empty>
+        <EmptyState :icon="Server">
+          <template v-if="q || enabledFilter">
+            No servers match your filters.
+            <button
+              type="button"
+              class="link-btn"
+              @click="
+                q = '';
+                enabledFilter = '';
+                applyFilters();
+              "
+            >
+              Clear filters
+            </button>
+          </template>
+          <template v-else>
+            No servers registered yet. REST backends register themselves via <code>POST /register</code>; you can also
+            <RouterLink to="/register-server">add a REST or MCP server</RouterLink> manually.
+          </template>
+        </EmptyState>
       </template>
-      <template v-else>
-        No servers registered yet. REST backends register themselves via <code>POST /register</code>; you can also
-        <RouterLink to="/register-server">add a REST or MCP server</RouterLink> manually.
-      </template>
-    </EmptyState>
 
-    <TableCard v-else>
-      <thead>
-        <tr>
-          <th class="checkbox-col">
-            <input
-              type="checkbox"
-              :checked="selected.size > 0 && selected.size === items.length"
-              aria-label="Select all servers on this page"
-              @change="toggleSelectAll"
-            />
-          </th>
-          <th>Name</th>
-          <th>Status</th>
-          <th>Tools</th>
-          <th>Health URL</th>
-          <th>Enabled</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="client in items" :key="client.name">
-          <td class="checkbox-col">
-            <input
-              type="checkbox"
-              :checked="selected.has(client.name)"
-              :aria-label="`Select ${client.name}`"
-              @change="toggleSelected(client.name)"
-            />
-          </td>
-          <td>
-            <RouterLink :to="`/servers/${encodeURIComponent(client.name)}`">{{ client.name }}</RouterLink>
-            <span v-if="client.kind === 'mcp'" class="kind-chip">MCP</span>
-          </td>
-          <td><StatusBadge :status="client.status" /></td>
-          <td>{{ client.toolsCount }}</td>
-          <td class="url-cell" :title="client.healthUrl">{{ client.healthUrl }}</td>
-          <td>
-            <TogglePill
-              :on="client.enabled"
-              on-label="Enabled"
-              off-label="Disabled"
-              :aria-pressed="client.enabled"
-              @click="onToggleClick(client)"
-            />
-            <p v-if="rowError[client.name]" class="row-error">{{ rowError[client.name] }}</p>
-          </td>
-        </tr>
-      </tbody>
-    </TableCard>
+      <TableCard>
+        <thead>
+          <tr>
+            <th class="checkbox-col">
+              <input
+                type="checkbox"
+                :checked="selected.size > 0 && selected.size === items.length"
+                aria-label="Select all servers on this page"
+                @change="toggleSelectAll"
+              />
+            </th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Tools</th>
+            <th>Health URL</th>
+            <th>Enabled</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="client in items" :key="client.name">
+            <td class="checkbox-col">
+              <input
+                type="checkbox"
+                :checked="selected.has(client.name)"
+                :aria-label="`Select ${client.name}`"
+                @change="toggleSelected(client.name)"
+              />
+            </td>
+            <td>
+              <RouterLink :to="`/servers/${encodeURIComponent(client.name)}`">{{ client.name }}</RouterLink>
+              <span v-if="client.kind === 'mcp'" class="kind-chip">MCP</span>
+            </td>
+            <td><StatusBadge :status="client.status" /></td>
+            <td>{{ client.toolsCount }}</td>
+            <td class="cell-truncate" :title="client.healthUrl">{{ client.healthUrl }}</td>
+            <td>
+              <TogglePill
+                :on="client.enabled"
+                on-label="Enabled"
+                off-label="Disabled"
+                :aria-pressed="client.enabled"
+                @click="onToggleClick(client)"
+              />
+              <p v-if="rowError[client.name]" class="row-error">{{ rowError[client.name] }}</p>
+            </td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
 
-    <div class="pagination">
+    <div class="sticky-pagination">
       <PaginationBar :has-prev="hasPrev" :has-next="hasNext" @prev="prevPage" @next="nextPage" />
       <p class="subtitle">{{ items.length }} server(s) on this page</p>
     </div>
@@ -383,11 +383,6 @@ onMounted(() => load());
 </template>
 
 <style scoped>
-section {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
@@ -477,12 +472,6 @@ section {
 .tag-tool-sep {
   color: var(--text-muted);
 }
-.filters {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.6rem;
-  margin-bottom: 1.25rem;
-}
 .filters .field label {
   display: block;
   font-size: 0.85rem;
@@ -492,12 +481,6 @@ section {
 .filters .field:first-of-type {
   flex: 1;
   max-width: 20rem;
-}
-.filters select {
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
 }
 .bulk-bar {
   display: flex;
@@ -513,19 +496,11 @@ section {
 .checkbox-col {
   width: 2rem;
 }
-.url-cell {
+.cell-truncate {
   max-width: 16.25rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 0.83rem;
-}
-.row-error {
-  color: var(--breach);
-  font-size: 0.75rem;
-  margin: 0.25rem 0 0;
 }
 .kind-chip {
   display: inline-block;
@@ -538,22 +513,5 @@ section {
   font-weight: 700;
   letter-spacing: 0.03em;
   vertical-align: middle;
-}
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-top: auto;
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
-  background: var(--paper);
-  padding: var(--space-3) 0;
-}
-.pagination .subtitle {
-  margin-left: 0.4rem;
-}
-.error {
-  color: var(--breach);
 }
 </style>

@@ -3,6 +3,7 @@ import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "../composables/useApi";
 import { parseList } from "@/utils/fieldParsing";
+import { toErrorMessage } from "@/utils/errors";
 import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "../types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
@@ -108,7 +109,7 @@ async function preview() {
     previewTools.value = res.tools;
     previewStale.value = false;
   } catch (err) {
-    previewError.value = err instanceof ApiError ? err.message : "Preview failed.";
+    previewError.value = toErrorMessage(err, "Preview failed.");
   } finally {
     previewing.value = false;
   }
@@ -146,7 +147,7 @@ async function previewGraphql() {
     });
     previewTools.value = res.tools;
   } catch (err) {
-    previewError.value = err instanceof ApiError ? err.message : "Preview failed.";
+    previewError.value = toErrorMessage(err, "Preview failed.");
   } finally {
     previewing.value = false;
   }
@@ -212,8 +213,7 @@ async function register() {
 
 <template>
   <section>
-    <p class="breadcrumb"><RouterLink to="/servers">Servers</RouterLink> / Add server</p>
-    <PageHeader title="Register a server" />
+    <PageHeader title="Register a server" :back-link="{ to: '/servers', label: 'Servers' }" />
 
     <form class="reg-form" @submit.prevent="register">
       <div class="segmented" role="radiogroup" aria-label="Server kind">
@@ -390,10 +390,6 @@ async function register() {
 </template>
 
 <style scoped>
-.breadcrumb {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
 .reg-form {
   display: flex;
   flex-direction: column;
@@ -435,8 +431,5 @@ async function register() {
 }
 :deep(.data-table .ep) {
   color: var(--text-secondary);
-}
-.error {
-  color: var(--breach);
 }
 </style>

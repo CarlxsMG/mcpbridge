@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { api, ApiError } from "../composables/useApi";
+import { api } from "../composables/useApi";
 import { useResource } from "../composables/useResource";
 import { useConfirmAction } from "../composables/useConfirmAction";
 import { useOptimisticToggle } from "../composables/useOptimisticToggle";
 import { useUnsavedChangesGuard } from "../composables/useUnsavedChangesGuard";
 import { useDraftField } from "../composables/useDraftField";
+import { toErrorMessage } from "@/utils/errors";
 import type { BundleDetail, BundleToolRef } from "../types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import BundleToolPicker from "../components/BundleToolPicker.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import ConnectClientDialog from "../components/ConnectClientDialog.vue";
 import ShareInstallLinkDialog from "../components/ShareInstallLinkDialog.vue";
@@ -119,7 +121,7 @@ function confirmDelete() {
       deleted.value = true;
       router.push("/bundles");
     } catch (err) {
-      deleteError.value = err instanceof ApiError ? err.message : "Failed to delete bundle.";
+      deleteError.value = toErrorMessage(err, "Failed to delete bundle.");
       deleting.value = false;
     }
   });
@@ -139,32 +141,29 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
 
     <template v-else-if="detail">
-      <header class="page-header">
-        <div>
-          <h1>{{ detail.name }}</h1>
+      <PageHeader :title="detail.name">
+        <template #meta>
           <p class="endpoint">
             <code>/mcp-custom/{{ detail.name }}</code>
             <button type="button" class="link-btn connect-link" @click="connectOpen = true">
               <Cable :size="13" stroke-width="2" aria-hidden="true" /> Connect client
             </button>
           </p>
-        </div>
-        <div class="header-actions">
-          <TogglePill
-            :on="detail.enabled"
-            on-label="Disable bundle"
-            off-label="Enable bundle"
-            :aria-pressed="detail.enabled"
-            @click="toggleEnabled"
-          />
-          <button type="button" class="btn-secondary share-btn" @click="shareOpen = true">
-            <Share2 :size="14" stroke-width="2" aria-hidden="true" /> Share install link
-          </button>
-          <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
-            {{ deleting ? "Deleting…" : "Delete bundle" }}
-          </button>
-        </div>
-      </header>
+        </template>
+        <TogglePill
+          :on="detail.enabled"
+          on-label="Disable bundle"
+          off-label="Enable bundle"
+          :aria-pressed="detail.enabled"
+          @click="toggleEnabled"
+        />
+        <button type="button" class="btn-secondary share-btn" @click="shareOpen = true">
+          <Share2 :size="14" stroke-width="2" aria-hidden="true" /> Share install link
+        </button>
+        <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
+          {{ deleting ? "Deleting…" : "Delete bundle" }}
+        </button>
+      </PageHeader>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
       <p v-if="deleteError" class="row-error">{{ deleteError }}</p>
@@ -225,15 +224,6 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-}
-.page-header h1 {
-  margin: 0 0 0.3rem;
-}
 .endpoint {
   margin: 0;
   color: var(--text-secondary);
@@ -252,7 +242,11 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
   align-items: center;
   gap: 0.4rem;
 }
-.header-actions {
+/* PageHeader's own recipe covers the title; this page still needs its three
+   header actions (toggle pill, share button, delete button) laid out in a row
+   (PageHeader's .header-actions wrapper is rendered by the child component,
+   so reaching it requires :deep()). */
+:deep(.header-actions) {
   display: flex;
   gap: 0.6rem;
   align-items: center;
@@ -287,13 +281,5 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
 .hint {
   font-size: 0.8rem;
   color: var(--canary);
-}
-.row-error {
-  color: var(--breach);
-  font-size: 0.75rem;
-  margin: 0.25rem 0 0;
-}
-.error {
-  color: var(--breach);
 }
 </style>
