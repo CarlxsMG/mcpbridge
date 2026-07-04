@@ -220,6 +220,127 @@ gives each component's subdirectory — don't assume it's a flat child of `compo
 | `ui/ConfirmDialog.vue`    | All destructive/risky confirmations. Fully tokenized.                                                                                                                                                                                                                                                                                                                                                         |
 | `ui/SignalLoader.vue`     | Any inline "data is loading" state — replaces plain `<div class="loading">Loading…</div>` text. Props: `label?` (defaults to `"Loading…"`, pass a custom string like `"Loading tags…"` where the old text had one). Reuses the login page's oscilloscope-trace shape at a compact scale, animated via the same `signal-pulse` keyframe as the sidebar live-dot — don't invent a second loading animation.     |
 
+## Shared primitives (composables & form/config building blocks)
+
+Added during the detail-page/guard-editor refactor to replace patterns that had been hand-rolled
+independently on 10+ pages. These live in `src/composables/` and `src/utils/`, plus a few generic
+`.vue` shells in `components/ui/` and `components/server-detail/`. **Check here before hand-rolling a
+form/save/filter/format pattern that feels generic** — it probably already exists.
+
+### Overlays & dialogs
+
+- **`ui/ModalShell.vue`** — Shared overlay + panel shell for any modal/dialog: fixed backdrop,
+  centered panel, Esc-to-close, and focus save/restore (stashes `document.activeElement` on open,
+  autofocuses the first focusable node in the panel, restores focus on close). Wires `useFocusTrap`
+  internally. Props: `open: boolean`, `ariaLabel: string`, `alert?: boolean` (renders
+  `role="alertdialog"` instead of `"dialog"`), `maxWidth?: string` (default `"40rem"`). Emits `close`.
+  Default slot = panel content. **Use when:** building any modal/dialog needing an overlay + focus
+  trap + Esc-close — don't hand-roll another `position: fixed; inset: 0` backdrop. **Example:** see
+  `ConnectClientDialog.vue` (also `ShareInstallLinkDialog.vue`, `ConfirmDialog.vue`).
+- **`useFocusTrap(container: Ref<HTMLElement | null>)`** — Cycles Tab/Shift+Tab within `container.value`
+  only (never the whole document), so multiple traps can nest without interfering. Returns
+  `{ onKeydown }` — wire it to `@keydown` on the trapped element. **Use when:** a custom
+  overlay/drawer needs Tab-cycling but isn't going through `ModalShell` (which already wires this
+  internally). **Example:** see `ServerDetailPage.vue`'s guard-editor drawer (`onDrawerKeydown`).
+
+### Lists & forms
+
+- **`ui/ListLayout.vue`** — Collapses the loading/error/empty/data branch every list page repeats.
+  Props: `loading: boolean`, `error?: string`, `empty: boolean`. Slots: default (data), `empty`
+  (empty-state markup). Renders the shared `.error` paragraph and `SignalLoader` internally. **Use
+  when:** any page fetching a collection to render as a table/grid — replaces a hand-rolled
+  `v-if="loading"` / `v-else-if="error"` / `v-else-if="empty"` chain. **Example:** see
+  `PoliciesPage.vue` (also `ConsumersPage.vue`, `KeysPage.vue`, `BundlesPage.vue`, and ~14 others).
+- **`useEntityForm<E>(options: { reset: () => void; fill?: (entity: E) => void })`** — Generalizes the
+  inline create/edit form quartet: `open`/`editing`/`busy`/`error` refs plus `openCreate()` /
+  `openEdit(entity)` / `close()` / `submit(action: (editing: E | null) => Promise<void>, fallbackMessage: string)`.
+  Deliberately doesn't own per-field validation — callers validate their own fields and return early
+  (without calling `submit`) on failure. **Use when:** any inline create/edit form with a toggle-open
+  "New X" button that shares one form for both create and edit. **Example:** see `ConsumersPage.vue`
+  (`showCreate`/`editingConsumer`/`creating`/`createError` → `openCreate`/`openEdit`/`closeForm`/
+  `submitConsumer`) — also used in `KeysPage.vue`, `PoliciesPage.vue`, `BundlesPage.vue`, and 9 others.
+- **`useQueryFilters<K extends string>(keys: readonly K[])`** — Seeds filter refs from `route.query`
+  once at creation time, and syncs them back via `router.replace`. Returns
+  `{ filters: Record<K, Ref<string>>, toQuery(extra?), syncUrl(extra?) }`. Deliberately one-way: it
+  does not re-derive from browser back/forward navigation. **Use when:** a page's filters/pagination
+  cursor should be reflected in and restorable from the URL (shareable/bookmarkable list views).
+  **Example:** see `TracesPage.vue` (`useQueryFilters(["tool", "session_id"] as const)`), also
+  `DashboardPage.vue`, `TrafficPage.vue`.
+
+### Config sections (detail-page inline save fields)
+
+- **`server-detail/ConfigSection.vue`** — Titled shell for a fieldset-like block on a detail page: a
+  heading row (`title` + optional `actions` slot) over a default slot. Props: `title: string`. Slots:
+  default, `actions`. Its CSS is deliberately **unscoped** (`.upstream-auth`/`.ua-head`/etc.) since its
+  7 consumers each render under their own scope hash. **Use when:** a titled sub-section of a detail
+  page wrapping a form/status block (upstream auth, OAuth, load balancing, canary, team, resync,
+  remove). **Example:** see `ServerDetailUpstreamAuth.vue` (also `ServerDetailOAuth.vue`,
+  `ServerDetailLb.vue`, `ServerDetailCanary.vue`, `ServerDetailTeam.vue`, `ServerDetailResync.vue`,
+  `ServerDetailRemove.vue`).
+- **`usePatchResource(resourcePath: () => string | undefined)`** — Wraps a single PATCH call with
+  `saving`/`error` refs. Returns `{ saving, error, run(action, fallbackMessage), patchField(key, value, fallbackMessage), patchFields(body, fallbackMessage) }`.
+  If `resourcePath()` returns `undefined`, `run` no-ops and resolves `false`. Callers decide
+  whether/when to reload after a successful patch (unlike the hand-rolled functions this replaces,
+  which always reloaded). **Use when:** a detail-page section PATCHes one or a few fields of a
+  resource and needs its own saving/error state, without a full draft/dirty cycle. **Example:** see
+  `ServerDetailLb.vue` (`usePatchResource(() => clientPath(props.clientName, "lb"))`) — also
+  `ServerDetailUpstreamAuth.vue`, `ServerDetailOAuth.vue`, `ServerDetailCanary.vue`,
+  `ServerDetailTeam.vue`. `usePatchTool.ts` builds a tool-scoped variant on top of it.
+- **`useDraftField<T>(source: () => T, save: (value: T) => Promise<unknown>, options?: { fallbackMessage?: string; isEqual?: (a: T, b: T) => boolean })`**
+  — Generalizes the draft/dirty/save trio: `draft` ref seeded from `source()`, `dirty` computed
+  *live* against `source()` (not a snapshot taken at construction), `saving`/`errorMessage` refs,
+  `sync()` to pull a fresh value in after a reload, `commit()` to save (no-ops if not dirty). **Use
+  when:** a field needs local edit state tracked against "changed vs. current source" plus a save
+  action (description/tools/schema/steps-style fields). **Example:** see `BundleDetailPage.vue`
+  (description field, and `useDraftField<BundleToolRef[]>` for the tools list).
+- **`usePropDraft<T>(source: () => T): Ref<T>`** — Generalizes the
+  `ref(transform(props.x)) + watch(() => props.x, v => draft.value = transform(v))` pair. No
+  dirty/save tracking of its own — pair it with a save call (e.g. `usePatchTool`) for that. **Use
+  when:** a `GuardEditorXxx.vue`-style section component needs a local editable copy of a prop that
+  must also re-sync if the prop changes externally, without needing dirty-tracking itself.
+  **Example:** see `GuardEditorTags.vue` (`usePropDraft(() => (props.tags ?? []).join(", "))`).
+- **`ui/SaveRow.vue`** — The button + "Saved" + error-message row that follows a config field. Props:
+  `label: string`, `savingLabel?: string`, `saving: boolean`, `saved: boolean`, `error?: string`.
+  Emits `save`. **Use when:** a single-field save action needs its own "Save X" button with a
+  saving/saved/error affordance. **Example:** see `GuardEditorRedaction.vue` (also `GuardEditorTags.vue`,
+  `GuardEditorQuarantine.vue`, and 8 other `GuardEditorXxx.vue`/`ServerDetailXxx.vue` files).
+
+### Formatting & error utils (`src/utils/`)
+
+- **`format.ts` → `formatDateTime(value: string | number | Date): string`** — Locale-formatted
+  date/time for any ISO string / epoch-ms / `Date` the backend sent. **Use when:** displaying a
+  timestamp guaranteed to be set.
+- **`format.ts` → `formatMaybeDate(value: string | number | Date | null | undefined, fallback = "Never"): string`**
+  — Same, tolerant of the not-set-yet null/undefined case. **Use when:** formatting a possibly-null
+  timestamp for display (e.g. `lastLoginAt`). **Example:** see `UsersPage.vue`
+  (`formatMaybeDate(user.last_login_at)`).
+- **`format.ts` → `formatDuration(ms: number): string`** — Sub-second as whole ms, otherwise seconds
+  to 2 decimal places. **Use when:** displaying a duration computed from two timestamps. **Example:**
+  see `TracesPage.vue` (`formatDuration(t.endMs - t.startMs)`).
+- **`format.ts` → `pct(value: number): string`** — Fraction (`0..1`) to a percentage string, 1 decimal
+  place. **Use when:** displaying any `0..1` rate/ratio field as a percentage. **Example:** see
+  `UsagePage.vue` (`pct(summary.errorRate)`).
+- **`format.ts` → `prettyJson(value: unknown): string`** — `JSON.stringify(value, null, 2)`. **Use
+  when:** a read-only JSON preview (config diffs, playground output). **Example:** see
+  `TracesPage.vue`, `ConfigPage.vue`.
+- **`errors.ts` → `toErrorMessage(err: unknown, fallback: string): string`** —
+  `err instanceof ApiError ? err.message : fallback`. `ApiError` messages come from the backend and
+  are safe to surface to the user; anything else falls back to a caller-supplied generic message
+  instead of leaking implementation details. **Use when:** any catch block deciding what error text
+  to show — replaces a hand-rolled `instanceof ApiError` check. **Example:** used internally by
+  `useEntityForm.ts`; called directly in `AuditLogPage.vue`, `ConfigPage.vue`.
+- **`download.ts` → `downloadTextFile(filename: string, text: string, mime = "application/json"): void`**
+  — Triggers a browser "Save As" for in-memory text via Blob → object URL → anchor click → revoke, no
+  network involved. **Use when:** an "Export"/"Download" button for client-side-generated text. Never
+  touches the network. **Example:** see `ConfigPage.vue`, `AuditLogPage.vue`.
+- **`status.ts` → `statusTone(status: string | null | undefined): StatusTone` /
+  `toneColorVar(tone: StatusTone): string`** — Canonical status-string → tone
+  (`"good"|"warn"|"bad"|"neutral"`) → CSS-custom-property-name mapping, reconciled across every page
+  that had independently encoded this. **Use when:** rendering a status-dependent color for a value
+  that isn't already going through `StatusBadge.vue` (e.g. coloring a table cell's text directly).
+  **Example:** see `KeysPage.vue` (`statusTone(statusOf(key))` piped into `toneColorVar(...)` inside a
+  `:style` binding).
+
 ## CSS recipes (copy these verbatim)
 
 **Table wrapped in a card** (any `<table>` that lists rows — clients, keys, policies, etc.):
