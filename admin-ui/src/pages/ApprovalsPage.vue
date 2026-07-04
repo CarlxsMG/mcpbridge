@@ -161,7 +161,7 @@ async function confirmReject() {
             <td>{{ formatDateTime(a.createdAt) }}</td>
             <td>
               <span v-if="a.status === 'pending'" class="status-pending">
-                Pending
+                Pending<br>
                 <span v-if="a.requiredLevels > 1" class="levels-badge"
                   >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
                 >
@@ -256,7 +256,6 @@ async function confirmReject() {
 }
 .levels-badge {
   display: inline-block;
-  margin-left: 0.4em;
   font-size: 0.75em;
   font-weight: 600;
   color: var(--text-muted);

@@ -254,6 +254,7 @@ async function onLogout() {
 }
 .sidebar-footer .link-btn {
   color: var(--text-on-dark-muted);
+  margin-left: 0.5rem;
 }
 
 @media (max-width: 768px) {

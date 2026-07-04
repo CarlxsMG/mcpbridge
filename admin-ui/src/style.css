@@ -289,6 +289,7 @@ button {
    inside `.page-header`, so 2-3 buttons themselves wrap instead of overflowing. */
 .page-header,
 .header-actions {
+  display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
 }

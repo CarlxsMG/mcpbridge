@@ -62,7 +62,7 @@ async function confirmRemove() {
 </script>
 
 <template>
-  <section class="page">
+  <section>
     <PageHeader
       title="Teams"
       subtitle="Teams own clients; a team-scoped admin only sees and manages its own team's servers. Super-admins (admin role with no team) manage teams and assign ownership. Assign a client's team from its detail page."
@@ -115,9 +115,6 @@ async function confirmRemove() {
 </template>
 
 <style scoped>
-.page {
-  max-width: 47.5rem;
-}
 .create-form {
   display: flex;
   gap: 0.5rem;

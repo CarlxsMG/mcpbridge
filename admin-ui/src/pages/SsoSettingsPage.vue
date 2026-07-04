@@ -83,7 +83,7 @@ async function save() {
 </script>
 
 <template>
-  <section class="page">
+  <section>
     <PageHeader
       title="Single sign-on (OIDC)"
       subtitle="Let admins sign in through an external identity provider (Okta, Azure AD, Google Workspace, Auth0, or any OIDC-compliant IdP) via Authorization Code + PKCE, instead of — or alongside — the built-in username/password login. SAML is not supported."
@@ -166,9 +166,6 @@ async function save() {
 </template>
 
 <style scoped>
-.page {
-  max-width: 40rem;
-}
 .settings-form {
   background: var(--surface);
   border: 1px solid var(--border);
