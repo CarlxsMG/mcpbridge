@@ -10,9 +10,9 @@
  *   5. Concurrent unregister('a') and unregister('b') both clear correctly (no leak).
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { registry, isDeleting } from "../registry.js";
+import { registry, isDeleting } from "../mcp/registry.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

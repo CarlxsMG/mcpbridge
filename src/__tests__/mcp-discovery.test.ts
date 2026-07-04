@@ -3,13 +3,13 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type { McpConnParams } from "../mcp-upstream.js";
+import type { McpConnParams } from "../mcp/mcp-upstream.js";
 import {
   normalizeToolName,
   discoverMapTools,
   discoverToolsFromMcpServer,
   type DiscoveredMcpTool,
-} from "../mcp-discovery.js";
+} from "../mcp/mcp-discovery.js";
 
 // ---------------------------------------------------------------------------
 // Direct coverage for mcp-discovery.ts (previously only exercised indirectly

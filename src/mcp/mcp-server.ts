@@ -12,13 +12,13 @@ import {
   type GetPromptResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { registry } from "./registry.js";
-import { proxyToolCall } from "./proxy.js";
+import { proxyToolCall } from "../proxy.js";
 import { mcpUpstream, type McpConnParams } from "./mcp-upstream.js";
-import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
-import { isBundleEnabled, getBundleToolKeys } from "./bundles.js";
-import { config } from "./config.js";
+import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
+import { isBundleEnabled, getBundleToolKeys } from "../bundles.js";
+import { config } from "../config.js";
 import { SEARCH_TOOL_NAME, searchToolDefinition, runSearchTool, type AdvertisedTool } from "./tool-search.js";
-import { hasComposite, listAdvertisedComposites, runComposite } from "./composites.js";
+import { hasComposite, listAdvertisedComposites, runComposite } from "../composites.js";
 // Bun parses JSON modules at bundle time (like YAML — see docs.ts), so this
 // works identically under `bun src/index.ts` and under `bun build --compile`.
 // The previous `createRequire(import.meta.url)("../package.json")` approach
@@ -26,7 +26,7 @@ import { hasComposite, listAdvertisedComposites, runComposite } from "./composit
 // the bundle graph resolves against the synthetic $bunfs root there, not a
 // real on-disk directory, so it always threw "Cannot find module" and
 // crashed startup before the server could listen.
-import pkg from "../package.json";
+import pkg from "../../package.json";
 
 const activeServers = new Set<Server>();
 

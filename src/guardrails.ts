@@ -1,5 +1,5 @@
 import { getDb } from "./db/connection.js";
-import type { ToolGuardrails } from "./types.js";
+import type { ToolGuardrails } from "./mcp/types.js";
 
 /**
  * Per-tool content guardrails, enforced inside proxyToolCall (before the

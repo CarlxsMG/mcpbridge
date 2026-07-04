@@ -8,7 +8,7 @@ import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 import {
   createTeam,
@@ -22,7 +22,7 @@ import {
 import { createUser } from "../security/user-store.js";
 import { createSession } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME } from "../security/cookies.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(): RestToolDefinition {
   return {

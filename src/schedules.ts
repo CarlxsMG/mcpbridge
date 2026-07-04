@@ -1,5 +1,5 @@
 import { getDb } from "./db/connection.js";
-import { registry } from "./registry.js";
+import { registry } from "./mcp/registry.js";
 import { recordAudit } from "./admin/audit.js";
 import { isLeader } from "./db/leader-lease.js";
 import { log } from "./logger.js";

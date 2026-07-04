@@ -1,18 +1,18 @@
 import type { Request, Response, Express } from "express";
-import { registry, validateEndpointPath } from "../registry.js";
+import { registry, validateEndpointPath } from "../mcp/registry.js";
 import { discoverToolsFromOpenApi } from "../openapi-discovery.js";
 import { config } from "../config.js";
 import { validateBackendUrl } from "../security/ip-validator.js";
 import { adminAuth } from "../middleware/auth.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { log } from "../logger.js";
-import { discoverToolsFromMcpServer } from "../mcp-discovery.js";
+import { discoverToolsFromMcpServer } from "../mcp/mcp-discovery.js";
 import { discoverToolsFromGraphQl } from "../graphql-discovery.js";
 import { parseCurlCommand, parsePostmanCollection } from "../curl-postman-discovery.js";
 import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
 import { setToolGraphql } from "../backends.js";
 import { getWsProxyTargetDetail } from "../ws-proxy.js";
-import type { McpTransport } from "../types.js";
+import type { McpTransport } from "../mcp/types.js";
 import { validationError } from "./http-errors.js";
 // Bun parses YAML modules at bundle time (native loader, same as JSON) — this
 // works identically under `bun src/index.ts` and under `bun build --compile`.

@@ -1,6 +1,6 @@
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
-import { registry } from "./registry.js";
+import { registry } from "./mcp/registry.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
 import { getCircuitBreaker } from "./circuit-breaker.js";
@@ -48,7 +48,7 @@ import { getToolGraphql, getToolWs, wsRequest, wsRequestPersistent } from "./bac
 import { getOAuthBearer } from "./oauth.js";
 import { refreshPinIfStale } from "./security/ip-validator.js";
 import type { PinnedIp } from "./security/ip-validator.js";
-import { isDeleting } from "./registry.js";
+import { isDeleting } from "./mcp/registry.js";
 import { checkToolRateLimit } from "./middleware/rate-limiter.js";
 import { checkSharedToolRateLimit } from "./db/rate-counters.js";
 import { isKeyAllowed } from "./security/key-hash.js";
@@ -63,9 +63,9 @@ import { checkQuarantine, recordGuardrailHit } from "./quarantine.js";
 import { applyContextBudget } from "./context-budget.js";
 import { getCanary, decideSecondary } from "./canary.js";
 import { tracingEnabled, startSpan, endSpan } from "./observability/tracing.js";
-import { mcpUpstream } from "./mcp-upstream.js";
-import type { McpConnParams } from "./mcp-upstream.js";
-import type { RegisteredClient, RegisteredTool } from "./types.js";
+import { mcpUpstream } from "./mcp/mcp-upstream.js";
+import type { McpConnParams } from "./mcp/mcp-upstream.js";
+import type { RegisteredClient, RegisteredTool } from "./mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls

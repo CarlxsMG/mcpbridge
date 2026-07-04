@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
   return {

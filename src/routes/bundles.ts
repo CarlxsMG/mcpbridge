@@ -2,7 +2,7 @@ import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
 import { recordAudit, actorFromRequest } from "../admin/audit.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { config } from "../config.js";
 import {
   listBundles,

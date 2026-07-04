@@ -12,10 +12,10 @@
  * We also verify the guard is conditional (fetch IS called when not deleting).
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { registry, isDeleting } from "../registry.js";
+import { registry, isDeleting } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

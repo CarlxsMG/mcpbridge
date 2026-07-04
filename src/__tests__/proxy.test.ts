@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";

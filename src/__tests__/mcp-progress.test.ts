@@ -11,11 +11,11 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprot
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker, getAllCircuitStates } from "../circuit-breaker.js";
 import { proxyToolCall } from "../proxy.js";
-import { McpUpstreamPool, mcpUpstream, buildTransport, type McpConnParams } from "../mcp-upstream.js";
-import type { DiscoveredMcpTool } from "../mcp-discovery.js";
+import { McpUpstreamPool, mcpUpstream, buildTransport, type McpConnParams } from "../mcp/mcp-upstream.js";
+import type { DiscoveredMcpTool } from "../mcp/mcp-discovery.js";
 import type { Progress } from "@modelcontextprotocol/sdk/types.js";
 
 let lastSeenProgressToken: string | number | undefined;

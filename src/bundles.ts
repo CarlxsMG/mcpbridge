@@ -1,6 +1,6 @@
 import { getDb } from "./db/connection.js";
-import { notifyToolsChanged } from "./mcp-server.js";
-import { TOOL_KEY_SEPARATOR } from "./registry.js";
+import { notifyToolsChanged } from "./mcp/mcp-server.js";
+import { TOOL_KEY_SEPARATOR } from "./mcp/registry.js";
 import { log } from "./logger.js";
 
 export interface BundleToolRef {

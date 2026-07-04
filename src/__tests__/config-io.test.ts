@@ -3,13 +3,13 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { createBundle, getBundleDetail } from "../bundles.js";
 import { createAlertRule, listAlertRules } from "../alerts.js";
 import { exportConfig, importConfig } from "../config-io.js";
 import { getGuardrails, setGuardrails } from "../guardrails.js";
 import { listConsumers, createConsumer } from "../consumers.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(name = "get-users"): RestToolDefinition {
   return {

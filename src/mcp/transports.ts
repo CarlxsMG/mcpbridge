@@ -3,14 +3,14 @@ import { randomUUID } from "crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { createMcpServer, type McpServerScope } from "./mcp-server.js";
-import { originValidator } from "./middleware/origin-validator.js";
-import { mcpAuth } from "./middleware/auth.js";
-import { rateLimitMcp } from "./middleware/rate-limiter.js";
-import { config } from "./config.js";
+import { originValidator } from "../middleware/origin-validator.js";
+import { mcpAuth } from "../middleware/auth.js";
+import { rateLimitMcp } from "../middleware/rate-limiter.js";
+import { config } from "../config.js";
 import { registry } from "./registry.js";
-import { getBundleToolKeys } from "./bundles.js";
-import { setSessionCountGetter } from "./routes/metrics.js";
-import { log } from "./logger.js";
+import { getBundleToolKeys } from "../bundles.js";
+import { setSessionCountGetter } from "../routes/metrics.js";
+import { log } from "../logger.js";
 
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 

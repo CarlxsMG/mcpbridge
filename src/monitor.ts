@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { getDb } from "./db/connection.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
-import { registry, TOOL_KEY_SEPARATOR } from "./registry.js";
+import { registry, TOOL_KEY_SEPARATOR } from "./mcp/registry.js";
 import { proxyToolCall } from "./proxy.js";
 import { validateBackendUrl } from "./security/ip-validator.js";
 

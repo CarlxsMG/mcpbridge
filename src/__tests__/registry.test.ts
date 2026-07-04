@@ -6,9 +6,9 @@ import { describe, test, expect, beforeEach, it } from "bun:test";
 // the module and re-casting, or by testing the exported singleton after clearing it.
 // The simplest approach: import the singleton and clear it between tests.
 
-import { registry, validateEndpointPath } from "../registry.js";
+import { registry, validateEndpointPath } from "../mcp/registry.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -6,7 +6,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
 import { proxyToolCall } from "../proxy.js";
 import {
@@ -20,7 +20,7 @@ import {
   listApprovals,
   getRequiredLevels,
 } from "../approvals.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "svc";
 const doTool: RestToolDefinition = {

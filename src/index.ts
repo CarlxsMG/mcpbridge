@@ -1,7 +1,7 @@
 import express, { type Request, type Response, type NextFunction } from "express";
 import { existsSync } from "fs";
 import { resolve } from "path";
-import { setupTransports, getActiveSessionCount } from "./transports.js";
+import { setupTransports, getActiveSessionCount } from "./mcp/transports.js";
 import { registerRoutes } from "./routes/register.js";
 import { introspectionRoutes } from "./routes/introspection.js";
 import { docsRoutes } from "./routes/docs.js";
@@ -50,7 +50,7 @@ import { initBundles } from "./bundles.js";
 import { initComposites } from "./composites.js";
 import { startLeaderElection } from "./db/leader-lease.js";
 import { flush as flushTraces } from "./observability/tracing.js";
-import { registry } from "./registry.js";
+import { registry } from "./mcp/registry.js";
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 // Opens the SQLite handle and applies any pending migrations before anything

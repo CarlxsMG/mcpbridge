@@ -3,9 +3,9 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { setToolTags, getToolTags, listAllTags, listToolsByTag } from "../tool-tags.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(name: string): RestToolDefinition {
   return {

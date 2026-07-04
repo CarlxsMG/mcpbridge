@@ -6,11 +6,11 @@
  *   2. healthEvictionsTotal increments when a client is evicted after threshold failures.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { refreshLeaderStatus } from "../db/leader-lease.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

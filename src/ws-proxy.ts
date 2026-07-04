@@ -21,7 +21,7 @@ import { evaluateMcpAuth } from "./middleware/auth.js";
 import { isClientInKeyScope } from "./security/mcp-key-store.js";
 import { isOriginAllowed } from "./middleware/origin-validator.js";
 import { getCircuitBreaker } from "./circuit-breaker.js";
-import { registry } from "./registry.js";
+import { registry } from "./mcp/registry.js";
 import { log } from "./logger.js";
 import { wsProxyActiveConnections, wsProxyBytesTotal } from "./observability/metrics.js";
 

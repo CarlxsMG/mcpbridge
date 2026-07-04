@@ -8,9 +8,9 @@ import type { AddressInfo } from "net";
 import type { Server as HttpServer } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
-import { createMcpServer } from "../mcp-server.js";
+import { createMcpServer } from "../mcp/mcp-server.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 import {
   initComposites,
@@ -26,7 +26,7 @@ import {
 } from "../composites.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 function tool(name: string, properties: Record<string, unknown> = {}): RestToolDefinition {
   return {

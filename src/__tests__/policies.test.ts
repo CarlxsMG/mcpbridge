@@ -3,7 +3,7 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { createBundle } from "../bundles.js";
 import {
   createGuardPolicy,
@@ -14,7 +14,7 @@ import {
   applyPolicyToBundle,
 } from "../policies.js";
 import { hashApiKey } from "../security/key-hash.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(name: string): RestToolDefinition {
   return {

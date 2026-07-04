@@ -4,7 +4,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { proxyToolCall } from "../proxy.js";
 import {
   setUpstreamAuth,
@@ -12,7 +12,7 @@ import {
   clearUpstreamAuth,
   getUpstreamAuthHeaders,
 } from "../security/upstream-auth.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 const originalKey = config.secretEncryptionKey;
 const originalFetch = globalThis.fetch;

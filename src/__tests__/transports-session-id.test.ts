@@ -22,7 +22,7 @@ let activeServer: Server | null = null;
 let cleanupFn: (() => void) | null = null;
 
 async function startApp(): Promise<void> {
-  const { setupTransports } = await import("../transports.js");
+  const { setupTransports } = await import("../mcp/transports.js");
   const app = express();
   app.use(express.json({ limit: "64kb", strict: true }));
   cleanupFn = setupTransports(app);

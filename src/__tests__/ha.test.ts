@@ -4,14 +4,14 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import {
   checkSharedRateLimit,
   checkSharedToolRateLimit,
   checkSharedEndUserRateLimit,
   __clearRateCountersForTesting,
 } from "../db/rate-counters.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(name = "get-x"): RestToolDefinition {
   return {

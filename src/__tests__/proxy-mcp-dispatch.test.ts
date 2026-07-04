@@ -4,10 +4,10 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprot
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { proxyToolCall } from "../proxy.js";
-import { mcpUpstream, buildTransport, type McpConnParams } from "../mcp-upstream.js";
-import type { DiscoveredMcpTool } from "../mcp-discovery.js";
+import { mcpUpstream, buildTransport, type McpConnParams } from "../mcp/mcp-upstream.js";
+import type { DiscoveredMcpTool } from "../mcp/mcp-discovery.js";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 

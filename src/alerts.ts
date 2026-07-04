@@ -1,7 +1,7 @@
 import { getDb } from "./db/connection.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
-import { registry } from "./registry.js";
+import { registry } from "./mcp/registry.js";
 import { getAllCircuitStates } from "./circuit-breaker.js";
 import { getUsageSummary } from "./observability/usage.js";
 import { detectUsageSpike } from "./observability/anomaly.js";

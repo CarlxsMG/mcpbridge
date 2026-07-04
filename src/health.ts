@@ -1,10 +1,10 @@
-import { registry } from "./registry.js";
-import type { ClientStatus } from "./types.js";
+import { registry } from "./mcp/registry.js";
+import type { ClientStatus } from "./mcp/types.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
-import { notifyToolsChanged } from "./mcp-server.js";
+import { notifyToolsChanged } from "./mcp/mcp-server.js";
 import { isLeader } from "./db/leader-lease.js";
-import { mcpUpstream } from "./mcp-upstream.js";
+import { mcpUpstream } from "./mcp/mcp-upstream.js";
 import { getUpstreamAuthHeaders } from "./security/upstream-auth.js";
 import {
   healthCheckDuration,

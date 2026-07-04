@@ -10,7 +10,7 @@ import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
 import { proxyToolCall } from "../proxy.js";
 import { setRedactionPaths } from "../redaction.js";
@@ -25,7 +25,7 @@ import {
   __setContextBudgetFetchForTesting,
   __resetContextBudgetForTesting,
 } from "../context-budget.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "cbsvc";
 const getTool: RestToolDefinition = {

@@ -6,11 +6,11 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
 import { proxyToolCall } from "../proxy.js";
 import { getToolCoalesce, setToolCoalesce, runCoalesced, __resetCoalesceForTesting } from "../coalesce.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 // A unique client name (not reused by any other test file) — proxy.ts's Ajv
 // validator cache is keyed by `${clientName}::${toolName}` and is never

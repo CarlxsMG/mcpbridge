@@ -8,7 +8,7 @@ import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../circuit-breaker.js";
 import { proxyToolCall } from "../proxy.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
@@ -19,7 +19,7 @@ import {
   applyResponseScan,
   responseLooksInjected,
 } from "../guardrails.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "gr-client";
 

@@ -1,5 +1,5 @@
 import type { Request, Response, Express } from "express";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { adminAuth } from "../middleware/auth.js";
 import { log } from "../logger.js";
 

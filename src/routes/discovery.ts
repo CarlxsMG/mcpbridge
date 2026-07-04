@@ -7,8 +7,8 @@ import { validateBackendUrl } from "../security/ip-validator.js";
 import { discoverToolsFromOpenApi } from "../openapi-discovery.js";
 import { discoverToolsFromGraphQl } from "../graphql-discovery.js";
 import { parseCurlCommand, parsePostmanCollection } from "../curl-postman-discovery.js";
-import { validateEndpointPath } from "../registry.js";
-import type { RestToolDefinition } from "../types.js";
+import { validateEndpointPath } from "../mcp/registry.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 import { recordAudit, actorFromRequest } from "../admin/audit.js";
 import { sendError, validationError } from "./http-errors.js";
 

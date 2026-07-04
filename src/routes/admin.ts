@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction, Express } from "express";
-import { registry, TOOL_KEY_SEPARATOR, ToolOverrideError } from "../registry.js";
+import { registry, TOOL_KEY_SEPARATOR, ToolOverrideError } from "../mcp/registry.js";
 import { proxyToolCall } from "../proxy.js";
 import { adminAuth } from "../middleware/auth.js";
 import { hashApiKey } from "../security/key-hash.js";
@@ -61,7 +61,7 @@ import {
   isAdminRole,
 } from "../security/user-store.js";
 import { revokeAllSessionsForUser } from "../security/session-store.js";
-import type { ClientGuardConfig, ToolGuardConfig, ClientStatus, ToolOverride, ToolGuardrails } from "../types.js";
+import type { ClientGuardConfig, ToolGuardConfig, ClientStatus, ToolOverride, ToolGuardrails } from "../mcp/types.js";
 import type { AdminRole } from "../security/user-store.js";
 import { sendError, validationError, notFound, forbidden } from "./http-errors.js";
 import { config } from "../config.js";

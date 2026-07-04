@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
-import { registry } from "../registry.js";
-import type { DiscoveredMcpTool } from "../mcp-discovery.js";
+import { registry } from "../mcp/registry.js";
+import type { DiscoveredMcpTool } from "../mcp/mcp-discovery.js";
 
 // Registry tests must reset the shared module-level DB in beforeEach — unregister()
 // deliberately does not purge SQLite, so state would otherwise leak across files.

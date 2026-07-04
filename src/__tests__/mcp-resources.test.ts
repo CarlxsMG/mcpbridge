@@ -14,7 +14,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { McpUpstreamPool, type McpConnParams } from "../mcp-upstream.js";
+import { McpUpstreamPool, type McpConnParams } from "../mcp/mcp-upstream.js";
 
 const PARAMS: McpConnParams = { name: "up1", url: "http://example.test/mcp", transport: "streamable-http" };
 

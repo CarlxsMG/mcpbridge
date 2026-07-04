@@ -8,7 +8,7 @@ import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 import {
   parseCron,
@@ -19,7 +19,7 @@ import {
   deleteSchedule,
   runDueSchedules,
 } from "../schedules.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(): RestToolDefinition {
   return {

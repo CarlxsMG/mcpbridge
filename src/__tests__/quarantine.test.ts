@@ -7,7 +7,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker, getAllCircuitStates } from "../circuit-breaker.js";
 import { proxyToolCall } from "../proxy.js";
 import { setGuardrails } from "../guardrails.js";
@@ -22,7 +22,7 @@ import {
   __setClockForTesting,
   type QuarantinePolicy,
 } from "../quarantine.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 // A unique client name — proxy.ts's Ajv validator cache is keyed by
 // `${clientName}::${toolName}` and never invalidated within a test run, so a

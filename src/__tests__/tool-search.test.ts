@@ -5,13 +5,13 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { registry } from "../registry.js";
-import { createMcpServer } from "../mcp-server.js";
-import { rankTools, runSearchTool, searchToolDefinition, SEARCH_TOOL_NAME } from "../tool-search.js";
+import { registry } from "../mcp/registry.js";
+import { createMcpServer } from "../mcp/mcp-server.js";
+import { rankTools, runSearchTool, searchToolDefinition, SEARCH_TOOL_NAME } from "../mcp/tool-search.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import type { RestToolDefinition } from "../types.js";
-import type { AdvertisedTool } from "../tool-search.js";
+import type { RestToolDefinition } from "../mcp/types.js";
+import type { AdvertisedTool } from "../mcp/tool-search.js";
 
 /** Connects a real SDK Client to a bridge MCP server over an in-process transport pair. */
 async function connectClient(): Promise<{ client: Client; close: () => Promise<void> }> {

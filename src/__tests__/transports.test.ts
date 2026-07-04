@@ -20,7 +20,7 @@ let baseUrl = "";
 let activeServer: Server | null = null;
 
 async function startApp(): Promise<() => void> {
-  const { setupTransports } = await import("../transports.js");
+  const { setupTransports } = await import("../mcp/transports.js");
   const app = express();
   app.use(express.json({ limit: "64kb", strict: true }));
   const cleanup = setupTransports(app);
@@ -118,7 +118,7 @@ describe("transports — unknown sessionId on POST /messages returns 404", () =>
 
 describe("transports — getActiveSessionCount is exported and numeric", () => {
   test("getActiveSessionCount() returns a non-negative integer", async () => {
-    const { getActiveSessionCount } = await import("../transports.js");
+    const { getActiveSessionCount } = await import("../mcp/transports.js");
     const count = getActiveSessionCount();
     expect(typeof count).toBe("number");
     expect(count).toBeGreaterThanOrEqual(0);
@@ -171,7 +171,7 @@ describe("transports — TTL cleanup loop does not underflow counter", () => {
     const origTtl = config.sessionTtlMs;
     (config as Record<string, unknown>).sessionTtlMs = 1; // expire immediately
 
-    const { getActiveSessionCount } = await import("../transports.js");
+    const { getActiveSessionCount } = await import("../mcp/transports.js");
     const cleanup = await startApp();
 
     // Wait long enough for the cleanup loop's 60s interval to NOT run — we are just
@@ -192,7 +192,7 @@ describe("transports — TTL cleanup loop does not underflow counter", () => {
 
 describe("transports — activeSessionCount consistency across setup/cleanup cycles", () => {
   test("activeSessionCount remains non-negative after multiple start/stop cycles", async () => {
-    const { getActiveSessionCount } = await import("../transports.js");
+    const { getActiveSessionCount } = await import("../mcp/transports.js");
 
     for (let i = 0; i < 3; i++) {
       const cleanup = await startApp();

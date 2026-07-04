@@ -1,5 +1,5 @@
 import { getDb } from "./db/connection.js";
-import { registry } from "./registry.js";
+import { registry } from "./mcp/registry.js";
 import { getBundleDetail, type BundleToolRef } from "./bundles.js";
 
 export interface GuardPolicy {

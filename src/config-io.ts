@@ -1,10 +1,10 @@
 import { getDb } from "./db/connection.js";
-import { registry, ToolOverrideError } from "./registry.js";
+import { registry, ToolOverrideError } from "./mcp/registry.js";
 import { listBundles, getBundleDetail, createBundle, updateBundle, type BundleToolRef } from "./bundles.js";
 import { listAlertRules, createAlertRule, type AlertEventType } from "./alerts.js";
 import { getGuardrailsForClient, setGuardrails } from "./guardrails.js";
 import { listConsumers, getConsumerByName, createConsumer, updateConsumer, isValidQuotaValue } from "./consumers.js";
-import type { ClientGuardConfig, ToolGuardConfig, ToolOverride, ToolGuardrails } from "./types.js";
+import type { ClientGuardConfig, ToolGuardConfig, ToolOverride, ToolGuardrails } from "./mcp/types.js";
 
 export const CONFIG_EXPORT_VERSION = 1;
 

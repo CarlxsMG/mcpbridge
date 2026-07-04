@@ -4,7 +4,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import {
   createAlertRule,
   listAlertRules,
@@ -13,7 +13,7 @@ import {
   evaluateAlerts,
   __resetAlertStateForTesting,
 } from "../alerts.js";
-import type { RestToolDefinition } from "../types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 
 const originalFetch = globalThis.fetch;
 const originalAllowPrivate = config.allowPrivateIps;

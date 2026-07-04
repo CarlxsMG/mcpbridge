@@ -11,7 +11,7 @@ import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 import { _internalsForTesting } from "../middleware/rate-limiter.js";
-import { registry } from "../registry.js";
+import { registry } from "../mcp/registry.js";
 import { createCustomEntry } from "../catalog.js";
 
 const ADMIN_KEY = "test-admin-key";

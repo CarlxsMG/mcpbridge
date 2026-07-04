@@ -3,8 +3,8 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { McpUpstreamPool, mcpResultToProxyResult, type McpConnParams } from "../mcp-upstream.js";
-import { normalizeToolName, discoverMapTools, discoverToolsFromMcpServer } from "../mcp-discovery.js";
+import { McpUpstreamPool, mcpResultToProxyResult, type McpConnParams } from "../mcp/mcp-upstream.js";
+import { normalizeToolName, discoverMapTools, discoverToolsFromMcpServer } from "../mcp/mcp-discovery.js";
 
 // A fake upstream MCP server, served over an in-process InMemoryTransport pair.
 // Tool names deliberately exercise the normalizer + collision handling.
