@@ -9,7 +9,7 @@ import { log } from "../logger.js";
 import { discoverToolsFromMcpServer } from "../mcp/mcp-discovery.js";
 import { discoverToolsFromGraphQl } from "../discovery/graphql-discovery.js";
 import { parseCurlCommand, parsePostmanCollection } from "../discovery/curl-postman-discovery.js";
-import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
+import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { setToolGraphql } from "../proxy/backends.js";
 import { getWsProxyTargetDetail } from "../ws-proxy.js";
 import type { McpTransport } from "../mcp/types.js";

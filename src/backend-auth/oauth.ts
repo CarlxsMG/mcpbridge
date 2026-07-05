@@ -10,10 +10,10 @@
  * Extends the at-rest encryption of [secret-box] + the per-client upstream-auth
  * layer. mTLS, AWS SigV4, and explicit secret rotation are follow-on sub-parts.
  */
-import { getDb } from "./db/connection.js";
-import { config } from "./config.js";
-import { getSecretsProvider } from "./secrets/index.js";
-import { validateBackendUrl } from "./security/ip-validator.js";
+import { getDb } from "../db/connection.js";
+import { config } from "../config.js";
+import { getSecretsProvider } from "../secrets/index.js";
+import { validateBackendUrl } from "../security/ip-validator.js";
 
 export interface OAuthPublic {
   tokenUrl: string;

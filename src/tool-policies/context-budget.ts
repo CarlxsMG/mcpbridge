@@ -127,7 +127,7 @@ export type ContextBudgetInput =
 
 /**
  * Persists (or clears, with `null`) a tool's context-budget config. Mirrors
- * oauth.ts's setClientOAuth one-way-encrypt-on-write pattern: a raw API key is
+ * backend-auth/oauth.ts's setClientOAuth one-way-encrypt-on-write pattern: a raw API key is
  * only ever accepted here, run through getSecretsProvider().encryptSecret(),
  * and never echoed back — there is no "keep the existing key" partial update,
  * exactly like OAuth client secrets, so every write to llm_summarize mode

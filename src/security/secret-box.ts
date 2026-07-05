@@ -26,6 +26,7 @@ export function isSecretBoxConfigured(): boolean {
   return getKey() !== null;
 }
 
+/** Raw AES-256-GCM encrypt used directly by backend-auth/upstream-auth.ts — distinct from the differently-implemented, pluggable `encryptSecret` exposed via getSecretsProvider() (src/secrets/index.ts), despite the identical name. */
 export function encryptSecret(plaintext: string): string {
   const key = getKey();
   if (!key) throw new Error("SECRET_ENCRYPTION_KEY is not configured");
@@ -36,6 +37,7 @@ export function encryptSecret(plaintext: string): string {
   return `v1.${iv.toString("base64")}.${tag.toString("base64")}.${enc.toString("base64")}`;
 }
 
+/** Raw AES-256-GCM decrypt used directly by backend-auth/upstream-auth.ts — distinct from the differently-implemented, pluggable `decryptSecret` exposed via getSecretsProvider() (src/secrets/index.ts), despite the identical name. */
 export function decryptSecret(blob: string): string {
   const key = getKey();
   if (!key) throw new Error("SECRET_ENCRYPTION_KEY is not configured");

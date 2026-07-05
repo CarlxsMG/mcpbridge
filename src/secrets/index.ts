@@ -17,6 +17,11 @@ export { VaultProviderError } from "./vault-provider.js";
  * this codebase already mutate `config.*` fields directly between cases
  * (e.g. `config.secretEncryptionKey`), so a live read keeps this consistent
  * with that convention with no extra reset-for-testing hook to remember.
+ *
+ * Note: the returned provider's `encryptSecret`/`decryptSecret` (used by
+ * oidc.ts for OIDC client secrets) are a separate, pluggable implementation —
+ * not the same-named raw functions in security/secret-box.ts that
+ * backend-auth/upstream-auth.ts calls directly.
  */
 export function getSecretsProvider(): SecretsProvider {
   return config.secretsProvider === "vault" ? vaultProvider : localProvider;

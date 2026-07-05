@@ -19,7 +19,7 @@ import { sanitizeToolName, uniqueToolName } from "./tool-naming.js";
  * Known, deliberate gap: neither cURL nor Postman headers (including the
  * Authorization header implied by `-u`/`--user`) are persisted onto the
  * returned tool — RestToolDefinition has no per-tool header field in this
- * codebase (only per-CLIENT upstream auth exists, see security/upstream-auth.ts).
+ * codebase (only per-CLIENT upstream auth exists, see backend-auth/upstream-auth.ts).
  * Header *names* (never values — a tool's description is visible to any MCP
  * client, so a secret header value must never land there) are folded into
  * `description` as a note so the operator knows to configure upstream auth

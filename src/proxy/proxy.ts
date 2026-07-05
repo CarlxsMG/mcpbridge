@@ -46,7 +46,7 @@ import {
 } from "../approvals.js";
 import { recordTraffic } from "../observability/traffic.js";
 import { getToolGraphql, getToolWs, wsRequest, wsRequestPersistent } from "./backends.js";
-import { getOAuthBearer } from "../oauth.js";
+import { getOAuthBearer } from "../backend-auth/oauth.js";
 import { refreshPinIfStale } from "../security/ip-validator.js";
 import type { PinnedIp } from "../security/ip-validator.js";
 import { isDeleting } from "../mcp/registry.js";
@@ -54,7 +54,7 @@ import { checkToolRateLimit } from "../middleware/rate-limiter.js";
 import { checkSharedToolRateLimit } from "../db/rate-counters.js";
 import { isKeyAllowed } from "../security/key-hash.js";
 import { resolveMcpKeyByToken, isToolInKeyScope } from "../security/mcp-key-store.js";
-import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
+import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { recordUsage } from "../observability/usage.js";
 import { checkConsumerQuota, checkEndUserRateLimit, getConsumer } from "../consumers.js";
 import { isToolSensitive } from "../tool-meta/tool-sensitivity.js";

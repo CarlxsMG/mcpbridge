@@ -10,7 +10,7 @@ import {
   clearUpstreamAuth,
   type UpstreamAuthType,
   type UpstreamSecret,
-} from "../security/upstream-auth.js";
+} from "../backend-auth/upstream-auth.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
 
 function clientExists(name: string): boolean {

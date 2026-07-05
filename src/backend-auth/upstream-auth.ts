@@ -1,5 +1,5 @@
 import { getDb } from "../db/connection.js";
-import { encryptSecret, decryptSecret } from "./secret-box.js";
+import { encryptSecret, decryptSecret } from "../security/secret-box.js";
 import { log } from "../logger.js";
 
 export type UpstreamAuthType = "bearer" | "basic" | "header";

@@ -14,7 +14,7 @@ import {
   getOAuthBearer,
   __setOAuthDepsForTesting,
   __resetOAuthForTesting,
-} from "../oauth.js";
+} from "../backend-auth/oauth.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "svc";

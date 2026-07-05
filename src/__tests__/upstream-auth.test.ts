@@ -11,7 +11,7 @@ import {
   getUpstreamAuthInfo,
   clearUpstreamAuth,
   getUpstreamAuthHeaders,
-} from "../security/upstream-auth.js";
+} from "../backend-auth/upstream-auth.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const originalKey = config.secretEncryptionKey;

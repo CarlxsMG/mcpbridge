@@ -39,7 +39,7 @@ import {
 import { listTraffic, getTraffic } from "../observability/traffic.js";
 import { setMonitor, deleteMonitor, listMonitors } from "../observability/monitor.js";
 import { setToolGraphql, setToolWs } from "../proxy/backends.js";
-import { getClientOAuth, setClientOAuth, type OAuthError } from "../oauth.js";
+import { getClientOAuth, setClientOAuth, type OAuthError } from "../backend-auth/oauth.js";
 import {
   setToolContextBudget,
   MIN_CONTEXT_BUDGET_BYTES,

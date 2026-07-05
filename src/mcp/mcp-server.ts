@@ -14,7 +14,7 @@ import {
 import { registry } from "./registry.js";
 import { proxyToolCall } from "../proxy/proxy.js";
 import { mcpUpstream, type McpConnParams } from "./mcp-upstream.js";
-import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
+import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { isBundleEnabled, getBundleToolKeys } from "../bundles.js";
 import { config } from "../config.js";
 import { SEARCH_TOOL_NAME, searchToolDefinition, runSearchTool, type AdvertisedTool } from "./tool-search.js";

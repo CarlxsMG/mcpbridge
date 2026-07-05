@@ -5,7 +5,7 @@ import { log } from "../logger.js";
 import { notifyToolsChanged } from "../mcp/mcp-server.js";
 import { isLeader } from "../db/leader-lease.js";
 import { mcpUpstream } from "../mcp/mcp-upstream.js";
-import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
+import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { healthCheckDuration, healthCheckRunsTotal, healthLoopErrorsTotal, healthEvictionsTotal } from "./metrics.js";
 
 async function checkBatch(clients: ReturnType<typeof registry.listClients>): Promise<void> {
