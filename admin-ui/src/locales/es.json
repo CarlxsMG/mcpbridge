@@ -76,42 +76,21 @@
       "Observability": "Observabilidad",
       "Administration": "Administración"
     },
-    "servers": {
-      "label": "Servidores",
-      "hint": "Lista y administra servidores upstream"
-    },
+    "servers": "Servidores",
     "register-server": {
       "label": "Añadir servidor",
       "hint": "Registra un nuevo upstream"
     },
-    "catalog": {
-      "label": "Catálogo",
-      "hint": "Explora e instala servidores con un clic"
-    },
-    "bundles": {
-      "label": "Bundles",
-      "hint": "Selecciones de herramientas entre clientes"
-    },
-    "composites": {
-      "label": "Compuestos",
-      "hint": "Llamadas encadenadas a herramientas"
-    },
+    "catalog": "Catálogo",
+    "bundles": "Bundles",
+    "composites": "Composites",
     "ws-proxies": {
       "label": "Proxies WS",
       "hint": "Destinos de pasarela WebSocket"
     },
-    "keys": {
-      "label": "API keys",
-      "hint": "Credenciales de cliente MCP"
-    },
-    "policies": {
-      "label": "Políticas",
-      "hint": "Plantillas reutilizables de rate-limit/timeout"
-    },
-    "consumers": {
-      "label": "Consumidores",
-      "hint": "Propietarios de keys con cuota"
-    },
+    "keys": "API keys",
+    "policies": "Políticas",
+    "consumers": "Consumers",
     "approvals": {
       "label": "Aprobaciones",
       "hint": "Cola de aprobación human-in-the-loop"
@@ -136,26 +115,14 @@
       "label": "Monitores",
       "hint": "Chequeos sintéticos de uptime y drift de schema"
     },
-    "alerts": {
-      "label": "Alertas",
-      "hint": "Reglas de alertas por webhook"
-    },
-    "schedules": {
-      "label": "Programaciones",
-      "hint": "Trabajos cron de habilitar/deshabilitar"
-    },
+    "alerts": "Alertas",
+    "schedules": "Schedules",
     "audit-log": {
       "label": "Log de auditoría",
       "hint": "Acciones admin encadenadas por hash"
     },
-    "users": {
-      "label": "Usuarios",
-      "hint": "Cuentas de administrador"
-    },
-    "teams": {
-      "label": "Equipos",
-      "hint": "Grupos de propietarios de servidores"
-    },
+    "users": "Usuarios",
+    "teams": "Teams",
     "config": {
       "label": "Configuración",
       "hint": "Exportar, importar, snapshots"
@@ -167,7 +134,8 @@
     "account": {
       "label": "Cuenta",
       "hint": "Tu perfil, contraseña y sesiones"
-    }
+    },
+    "ws_proxies": "Proxies WebSocket"
   },
   "errors": {
     "generic": "Algo salió mal. Inténtalo de nuevo.",
@@ -1079,7 +1047,8 @@
         "errors": {
           "label_required": "La etiqueta es obligatoria.",
           "create_failed": "Error al crear la API key."
-        }
+        },
+        "mint_key": "Generar key"
       }
     },
     "register_server": {
@@ -1480,11 +1449,56 @@
     },
     "bundle_detail": {
       "title": "{name}",
-      "back_to_bundles": "Bundles"
+      "back_to_bundles": "Bundles",
+      "disable_bundle": "Desactivar bundle",
+      "enable_bundle": "Activar bundle",
+      "share_link": "Compartir enlace de instalación",
+      "deleting": "Eliminando…",
+      "delete_bundle": "Eliminar bundle",
+      "description_label": "Descripción",
+      "description_placeholder": "¿Qué hace este bundle?",
+      "tools_heading": "Tools en el bundle ({count})",
+      "save_tools": "Guardar selección de tools",
+      "unsaved_tools": "Tienes cambios de tools sin guardar.",
+      "confirm": {
+        "delete_title": "¿Eliminar este bundle?",
+        "delete_message": "¿Eliminar el bundle “{name}”? Las tools siguen registradas — solo se va la selección curada.",
+        "delete_cta": "Eliminar bundle “{name}”",
+        "leave_title": "¿Descartar los cambios de tools?",
+        "leave_message": "Tienes selecciones de tools sin guardar. Si sales ahora se perderán.",
+        "leave_cta": "Descartar cambios"
+      },
+      "errors": {
+        "load_failed": "No se pudo cargar el bundle.",
+        "save_description_failed": "No se pudo guardar la descripción.",
+        "save_tools_failed": "No se pudo guardar la selección de tools.",
+        "delete_failed": "No se pudo eliminar el bundle.",
+        "toggle_failed": "No se pudo cambiar el estado del bundle."
+      }
     },
     "server_detail": {
       "title": "{name}",
-      "back_to_servers": "Servidores"
+      "back_to_servers": "Servidores",
+      "tabs": {
+        "tools": "Tools",
+        "settings": "Configuración"
+      },
+      "not_connected": "El servidor no está conectado actualmente.",
+      "resetting": "Reiniciando…",
+      "reset_breaker": "Reiniciar disyuntor",
+      "mcp_url": "URL MCP",
+      "transport": "Transporte",
+      "health_url": "URL de health",
+      "base_url": "URL base",
+      "consecutive_failures": "Fallos consecutivos",
+      "guards_aria": "Guards de tools",
+      "guards_heading": "Guards por tool",
+      "tool_not_found": "Tool no encontrada en este servidor.",
+      "confirm": {
+        "disable_title": "¿Desactivar este servidor?",
+        "disable_message": "¿Desactivar {name}? Sus tools dejarán de anunciarse hasta que lo reactives.",
+        "disable_cta": "Desactivar servidor"
+      }
     },
     "catalog": {
       "title": "Catálogo",
@@ -1869,11 +1883,11 @@
         "username": "Username",
         "role": "Rol",
         "created": "Creado",
-        "last_login": "Último login"
+        "last_login": "Último login",
+        "team": "Team",
+        "active": "Activo"
       },
-      "empty": {
-        "no_users": "Aún no hay usuarios."
-      },
+      "empty": "No hay usuarios todavía.",
       "errors": {
         "load_failed": "Error al cargar usuarios.",
         "delete_failed": "Error al eliminar el usuario."
@@ -1896,6 +1910,37 @@
           "password_too_short": "La contraseña debe tener al menos 12 caracteres.",
           "create_failed": "Error al crear el usuario."
         }
+      },
+      "add_user": "Añadir usuario",
+      "you_tag": "(tú)",
+      "yes": "Sí",
+      "no": "No",
+      "last_admin_locked": "No se puede eliminar ni degradar al último admin.",
+      "team": {
+        "none": "Sin team",
+        "create": "Crear team",
+        "change_locked": "Los cambios de team están bloqueados mientras este usuario sea el último admin."
+      },
+      "roles": {
+        "admin": "Admin",
+        "operator": "Operador",
+        "auditor": "Auditor",
+        "viewer": "Visor"
+      },
+      "confirm": {
+        "delete_title": "¿Eliminar este usuario?",
+        "delete_message": "¿Eliminar al usuario {username}? Ya no podrá iniciar sesión.",
+        "delete_cta": "Eliminar usuario",
+        "role_title": "¿Cambiar rol de {username}?",
+        "role_cta": "Cambiar rol",
+        "role_cta_default": "Cambiar rol a {role}",
+        "role_self": "Estás a punto de cambiar tu propio rol.",
+        "role_other": "Estás a punto de cambiar el rol de {username} de {current} a {next}.",
+        "team_title": "¿Cambiar team de {username}?",
+        "team_base": "¿Cambiar el team de {username}?",
+        "team_cta": "Cambiar team",
+        "team_cta_default": "Cambiar team a {team}",
+        "team_self_warning": "Estás a punto de cambiar tu propio team."
       }
     },
     "usage": {
@@ -1907,6 +1952,42 @@
       "window_30d": "Últimos 30 días",
       "errors": {
         "load_failed": "Error al cargar uso."
+      },
+      "errors_hint": "Los errores incluyen cualquier respuesta no-2xx o excepción en la capa de dispatch.",
+      "time_window_aria": "Ventana de tiempo",
+      "truncated_hint": "Mostrando las entradas principales — profundiza para ver el resto.",
+      "stat": {
+        "calls": "Llamadas",
+        "errors": "Errores",
+        "error_rate": "Tasa de error",
+        "avg_latency": "Latencia media",
+        "max_latency": "Latencia máx.",
+        "active_tools": "Tools activas"
+      },
+      "section": {
+        "top_tools": "Top tools",
+        "by_key": "Por API key"
+      },
+      "table": {
+        "client": "Cliente",
+        "tool": "Tool",
+        "calls": "Llamadas",
+        "errors": "Errores",
+        "error_rate": "Tasa de error",
+        "avg": "Media (ms)",
+        "max": "Máx (ms)",
+        "key": "API key"
+      },
+      "chart": {
+        "calls_errors": "Llamadas vs errores",
+        "calls_by_key": "Llamadas por API key",
+        "top_tools": "Top tools",
+        "primary_label": "Llamadas",
+        "secondary_label": "Errores"
+      },
+      "empty": {
+        "no_calls": "No hay llamadas en la ventana seleccionada.",
+        "no_attributed": "No hay llamadas atribuidas a una API key registrada."
       }
     },
     "traffic": {
@@ -1921,13 +2002,50 @@
         "client": "Cliente",
         "captured_at": "Capturado en",
         "duration": "Duración",
-        "actions": "Acciones"
+        "actions": "Acciones",
+        "time": "Hora",
+        "client_tool": "Cliente / tool",
+        "status": "Estado",
+        "preview": "Vista previa de respuesta",
+        "status_error": "Error",
+        "status_ok": "OK"
       },
       "empty": {
         "no_traffic": "La captura de tráfico está off — actívala con la env var TRAFFIC_CAPTURE."
       },
       "errors": {
         "load_failed": "Error al cargar tráfico."
+      },
+      "subtitle_p1": "Cada llamada de tool que llega a este gateway admin aparece aquí — exitosa o fallida.",
+      "subtitle_p2": "Filtra por cliente o tool, profundiza en un registro para ver la request/response exacta, o replícala contra el upstream actual.",
+      "errors_only": "Solo errores",
+      "filtering": "Filtrando…",
+      "filter_button": "Filtrar",
+      "empty_p1": "No hay tráfico en la ventana seleccionada.",
+      "empty_p2": "Ajusta el filtro o espera a que entre tráfico nuevo.",
+      "pagination_label": "Paginación",
+      "filters": {
+        "client_label": "Cliente",
+        "tool_label": "Tool"
+      },
+      "chart": {
+        "title": "Llamadas vs errores a lo largo del tiempo",
+        "primary_label": "Llamadas",
+        "secondary_label": "Errores"
+      },
+      "replay": {
+        "tooltip": "Re-ejecutar esta llamada contra el upstream actual",
+        "replay": "Re-ejecutar",
+        "replaying": "Re-ejecutando…",
+        "succeeded": "Replay exitoso.",
+        "failed": "Replay falló.",
+        "no_content": "El replay no devolvió contenido.",
+        "note_p1": "Esto re-ejecuta la llamada contra lo que el servidor apunte actualmente."
+      },
+      "confirm": {
+        "replay_title": "¿Re-ejecutar esta llamada?",
+        "replay_message": "Esto re-ejecutará la misma llamada contra el upstream actual.",
+        "replay_cta": "Re-ejecutar"
       }
     },
     "ws_proxy_targets": {
