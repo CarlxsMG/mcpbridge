@@ -5,6 +5,7 @@ import { useLoadState } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
+import { statusTone, toneColorVar } from "@/utils/status";
 import type { ApprovalRecord, ApprovalStatus } from "@/types/api";
 import DonutChart from "@/components/charts/DonutChart.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -132,7 +133,7 @@ async function confirmReject() {
 
     <ListLayout :loading="loading && !tableItems.length" :error="errorMessage" :empty="tableItems.length === 0">
       <template #empty>
-        <EmptyState :icon="ClipboardCheck">
+        <EmptyState :icon="ClipboardCheck" muted>
           <template v-if="activeTab === 'pending'">Nothing waiting for review right now.</template>
           <template v-else>
             No {{ activeTab === "all" ? "" : activeTab + " " }}approvals yet. Requests show up here once a tool is
@@ -163,13 +164,17 @@ async function confirmReject() {
             </td>
             <td>{{ formatDateTime(a.createdAt) }}</td>
             <td>
-              <span v-if="a.status === 'pending'" class="status-pending">
+              <span
+                v-if="a.status === 'pending'"
+                class="status-pending"
+                :style="{ color: `var(${toneColorVar(statusTone(a.status))})` }"
+              >
                 Pending<br />
                 <span v-if="a.requiredLevels > 1" class="levels-badge"
                   >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
                 >
               </span>
-              <span v-else :class="a.status === 'approved' ? 'status-approved' : 'status-rejected'">
+              <span v-else :style="{ color: `var(${toneColorVar(statusTone(a.status))})` }">
                 {{ a.status === "approved" ? "Approved" : "Rejected" }}
                 <template v-if="a.requiredLevels > 1 && a.status === 'approved'"
                   >({{ approvedCount(a) }}/{{ a.requiredLevels }})</template
@@ -245,14 +250,7 @@ async function confirmReject() {
   max-width: 11.875rem;
 }
 .status-pending {
-  color: var(--canary);
   font-weight: 600;
-}
-.status-approved {
-  color: var(--ok);
-}
-.status-rejected {
-  color: var(--breach);
 }
 .note {
   color: var(--text-muted);
@@ -288,10 +286,5 @@ async function confirmReject() {
   display: inline-flex;
   align-items: center;
   gap: 0.3em;
-}
-/* Page-specific tweak on top of EmptyState.vue's own recipe: this page wants the muted text tone
-   here instead of the component's default (--text-secondary). */
-:deep(.empty-state p) {
-  color: var(--text-muted);
 }
 </style>

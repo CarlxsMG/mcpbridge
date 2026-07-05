@@ -3,6 +3,7 @@ import { onMounted, computed } from "vue";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { formatMaybeDate } from "@/utils/format";
+import { statusTone, toneColorVar } from "@/utils/status";
 import type { MonitorRecord } from "@/types/api";
 import DonutChart from "@/components/charts/DonutChart.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -44,19 +45,11 @@ const STATE_LABEL: Record<MonitorState, string> = {
   never: "Never checked",
   disabled: "Disabled",
 };
-const STATE_COLOR: Record<MonitorState, string> = {
-  healthy: "var(--ok)",
-  drift: "var(--canary)",
-  failing: "var(--breach)",
-  never: "var(--text-muted)",
-  disabled: "var(--border-strong)",
-};
-
 const segments = computed(() => {
   const counts: Record<MonitorState, number> = { healthy: 0, drift: 0, failing: 0, never: 0, disabled: 0 };
   for (const m of monitors.value) counts[stateOf(m)]++;
   return (Object.keys(counts) as MonitorState[])
-    .map((k) => ({ label: STATE_LABEL[k], value: counts[k], color: STATE_COLOR[k] }))
+    .map((k) => ({ label: STATE_LABEL[k], value: counts[k], color: `var(${toneColorVar(statusTone(k))})` }))
     .filter((s) => s.value > 0);
 });
 </script>
@@ -75,7 +68,7 @@ const segments = computed(() => {
 
     <ListLayout :loading="loading && !monitors.length" :error="errorMessage" :empty="monitors.length === 0">
       <template #empty>
-        <EmptyState :icon="Radar">
+        <EmptyState :icon="Radar" muted>
           No tools are monitored yet. Configure a monitor from a tool's settings in Server detail.
         </EmptyState>
       </template>
@@ -98,9 +91,11 @@ const segments = computed(() => {
           <tr v-for="m in monitors" :key="`${m.clientName}/${m.toolName}`">
             <td class="mono">{{ m.clientName }}/{{ m.toolName }}</td>
             <td>
-              <span class="state-dot" :style="{ background: STATE_COLOR[stateOf(m)] }" aria-hidden="true" />{{
-                STATE_LABEL[stateOf(m)]
-              }}
+              <span
+                class="state-dot"
+                :style="{ background: `var(${toneColorVar(statusTone(stateOf(m)))})` }"
+                aria-hidden="true"
+              />{{ STATE_LABEL[stateOf(m)] }}
             </td>
             <td>{{ m.intervalMinutes }}m</td>
             <td>{{ formatMaybeDate(m.lastCheckedAt) }}</td>
@@ -136,10 +131,5 @@ const segments = computed(() => {
 .cell-truncate {
   max-width: 20rem;
   color: var(--text-secondary);
-}
-/* EmptyState's own recipe colors its paragraph via --text-secondary on the
-   wrapper; this page's empty copy is intentionally a step lighter. */
-:deep(.empty-state p) {
-  color: var(--text-muted);
 }
 </style>
