@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import ModalShell from "./ModalShell.vue";
 
 defineProps<{
@@ -10,6 +11,7 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
+const { t } = useI18n({ useScope: "global" });
 </script>
 
 <template>
@@ -20,7 +22,7 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
     <h2>{{ title }}</h2>
     <p>{{ message }}</p>
     <div class="actions">
-      <button type="button" class="btn-secondary" @click="emit('cancel')">Cancel</button>
+      <button type="button" class="btn-secondary" @click="emit('cancel')">{{ t("common.cancel") }}</button>
       <button type="button" :class="danger ? 'btn-danger' : 'btn-primary'" @click="emit('confirm')">
         {{ confirmLabel }}
       </button>

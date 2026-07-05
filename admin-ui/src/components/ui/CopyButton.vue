@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { Copy, Check } from "lucide-vue-next";
 import { useClipboard } from "@/composables/useClipboard";
 
@@ -10,6 +11,7 @@ const props = defineProps<{
 }>();
 
 const { copied, copy } = useClipboard();
+const { t } = useI18n({ useScope: "global" });
 
 function copyText() {
   copy(props.text);
@@ -20,12 +22,12 @@ function copyText() {
   <button
     type="button"
     class="btn-secondary copy-btn"
-    :aria-label="label ? undefined : copied ? 'Copied' : 'Copy'"
+    :aria-label="label ? undefined : copied ? t('common.copied') : t('common.copy')"
     @click="copyText"
   >
     <Check v-if="copied" :size="14" stroke-width="2" aria-hidden="true" />
     <Copy v-else :size="14" stroke-width="2" aria-hidden="true" />
-    <template v-if="label">{{ copied ? "Copied" : label }}</template>
+    <template v-if="label">{{ copied ? t("common.copied") : label }}</template>
   </button>
 </template>
 

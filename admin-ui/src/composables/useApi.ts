@@ -1,4 +1,5 @@
 import { readCsrfCookie } from "../utils/cookies";
+import { i18n } from "../i18n";
 
 export class ApiError extends Error {
   status: number;
@@ -8,6 +9,13 @@ export class ApiError extends Error {
     this.status = status;
     this.code = code;
   }
+}
+
+// Light-weight wrappers around the global i18n singleton: composables that
+// raise ApiError live outside Vue's setup() tree, so useI18n() is unreachable
+// from them. These helpers share the same instance main.ts installs on the app.
+function t(key: string): string {
+  return (i18n.global.t as (k: string) => string)(key);
 }
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -60,12 +68,12 @@ async function rawFetch(path: string, init: RequestInit = {}): Promise<Response>
         import.meta.env.BASE_URL,
       );
     }
-    throw new ApiError(401, "UNAUTHORIZED", "Not authenticated");
+    throw new ApiError(401, "UNAUTHORIZED", t("errors.not_authenticated"));
   }
 
   if (!res.ok) {
     let code = "UNKNOWN_ERROR";
-    let message = `Request failed with status ${res.status}`;
+    let message = t("errors.request_failed_with_status").replace("{status}", String(res.status));
     try {
       const body = (await res.clone().json()) as { error?: { code?: string; message?: string } };
       if (body.error?.code) code = body.error.code;

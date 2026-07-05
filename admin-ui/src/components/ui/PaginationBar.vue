@@ -1,12 +1,18 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 defineProps<{ hasPrev: boolean; hasNext: boolean; label?: string }>();
 const emit = defineEmits<{ prev: []; next: [] }>();
+const { t } = useI18n({ useScope: "global" });
 </script>
 
 <template>
   <div class="pagination-bar">
-    <button type="button" class="btn-secondary" :disabled="!hasPrev" @click="emit('prev')">Previous</button>
-    <button type="button" class="btn-secondary" :disabled="!hasNext" @click="emit('next')">Next</button>
+    <button type="button" class="btn-secondary" :disabled="!hasPrev" @click="emit('prev')">
+      {{ t("common.previous") }}
+    </button>
+    <button type="button" class="btn-secondary" :disabled="!hasNext" @click="emit('next')">
+      {{ t("common.next") }}
+    </button>
     <span v-if="label">{{ label }}</span>
   </div>
 </template>
