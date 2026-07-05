@@ -28,7 +28,7 @@ const format = computed(() => props.valueFormat ?? ((n: number) => String(n)));
         >{{ format(r.value) }}<span v-if="r.hint" class="bar-hint"> · {{ r.hint }}</span></span
       >
     </div>
-    <p v-if="!rows.length" class="bar-empty">{{ t('components.charts.no_data_window') }}</p>
+    <p v-if="!rows.length" class="bar-empty">{{ t("components.charts.no_data_window") }}</p>
   </div>
 </template>
 

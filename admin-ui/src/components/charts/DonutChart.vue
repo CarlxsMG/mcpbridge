@@ -85,7 +85,7 @@ const centerText = computed(() => {
       </svg>
       <ChartLegend :segments="segments" />
     </template>
-    <p v-else class="donut-empty">{{ t('components.charts.no_data') }}</p>
+    <p v-else class="donut-empty">{{ t("components.charts.no_data") }}</p>
   </div>
 </template>
 
