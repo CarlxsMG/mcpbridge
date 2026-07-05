@@ -13,7 +13,7 @@ import {
   deleteCustomEntry,
   type CustomCatalogEntryInput,
   type CatalogMutationError,
-} from "../catalog.js";
+} from "../catalog/index.js";
 import { requestId, sendError, validationError, notFound, forbidden } from "./http-errors.js";
 
 function statusForCatalogError(code: CatalogMutationError["code"]): number {

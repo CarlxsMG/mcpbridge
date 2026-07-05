@@ -1,6 +1,12 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
-import { listCatalog, getCatalogEntry, createCustomEntry, updateCustomEntry, deleteCustomEntry } from "../catalog.js";
+import {
+  listCatalog,
+  getCatalogEntry,
+  createCustomEntry,
+  updateCustomEntry,
+  deleteCustomEntry,
+} from "../catalog/index.js";
 import { BUILTIN_CATALOG } from "../catalog/builtin.js";
 
 beforeEach(() => {

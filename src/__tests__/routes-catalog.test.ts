@@ -12,7 +12,7 @@ import { __resetDbForTesting } from "../db/connection.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 import { _internalsForTesting } from "../middleware/rate-limiter.js";
 import { registry } from "../mcp/registry.js";
-import { createCustomEntry } from "../catalog.js";
+import { createCustomEntry } from "../catalog/index.js";
 
 const ADMIN_KEY = "test-admin-key";
 const originalAllowPrivate = config.allowPrivateIps;

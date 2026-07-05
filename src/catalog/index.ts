@@ -1,5 +1,5 @@
-import { getDb } from "./db/connection.js";
-import { BUILTIN_CATALOG, type BuiltinCatalogEntry } from "./catalog/builtin.js";
+import { getDb } from "../db/connection.js";
+import { BUILTIN_CATALOG, type BuiltinCatalogEntry } from "./builtin.js";
 
 const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
 
