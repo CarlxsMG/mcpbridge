@@ -56,3 +56,6 @@ data/
 .aico/*
 !.aico/docs/
 !.aico/data/
+
+# Claude Code local state — per-user, never committed
+.claude/
