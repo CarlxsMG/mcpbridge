@@ -1,11 +1,4 @@
-import type {
-  OverviewStats,
-  TopToolRow,
-  UsageByKeyRow,
-  UsageSummary,
-  UsageTimeseries,
-  UsageTimeseriesPoint,
-} from "@/types/api";
+import type { TopToolRow, UsageByKeyRow, UsageSummary, UsageTimeseries, UsageTimeseriesPoint } from "@/types/api";
 import { days, NOW } from "./time";
 
 export const topTools: TopToolRow[] = [
@@ -33,13 +26,6 @@ export const usageSummary: UsageSummary = {
   maxMs: 2210,
   tools: 39,
   keys: 6,
-};
-
-export const overview: OverviewStats = {
-  clients: { live: 5, disabled: 1, healthy: 4, degraded: 1, unreachable: 1 },
-  tools: { total: 42, disabled: 3 },
-  circuit_breakers: { open: 0, half_open: 1, closed: 4 },
-  admin_users: 3,
 };
 
 function timeseriesPoints(bucketMs: number, count: number): UsageTimeseriesPoint[] {

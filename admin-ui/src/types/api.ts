@@ -8,6 +8,8 @@ export type CircuitBreakerState = "closed" | "open" | "half_open";
 export type UpstreamKind = "rest" | "mcp";
 export type McpTransport = "streamable-http" | "sse";
 
+// ─── Clients ─────────────────────────────────────────────────────────────────
+
 export interface ClientSummary {
   name: string;
   enabled: boolean;
@@ -19,6 +21,8 @@ export interface ClientSummary {
   kind: UpstreamKind;
   teamId: number | null;
 }
+
+// ─── Tools ───────────────────────────────────────────────────────────────────
 
 export interface ToolGuardConfig {
   rateLimitPerMin?: number;
@@ -95,6 +99,8 @@ export interface ContextBudgetConfig {
   llm: { provider: ContextBudgetLlmProvider; baseUrl: string; model: string } | null;
 }
 
+// ─── Traces ──────────────────────────────────────────────────────────────────
+
 export interface TraceSummary {
   traceId: string;
   spanCount: number;
@@ -146,6 +152,8 @@ export interface ClientDetail {
   tools: ToolDetail[];
 }
 
+// ─── Composites ──────────────────────────────────────────────────────────────
+
 export interface CompositeStep {
   targetClient: string;
   targetTool: string;
@@ -169,6 +177,8 @@ export interface CompositeDetail {
   updatedAt: number;
 }
 
+// ─── Config snapshots ────────────────────────────────────────────────────────
+
 export interface ConfigSnapshotSummary {
   id: number;
   label: string;
@@ -189,12 +199,16 @@ export interface ConfigDiffResult {
   entries: ConfigDiffEntry[];
 }
 
+// ─── Teams ───────────────────────────────────────────────────────────────────
+
 export interface Team {
   id: number;
   name: string;
   createdAt: number;
   createdBy: string | null;
 }
+
+// ─── Canary ──────────────────────────────────────────────────────────────────
 
 export interface CanaryConfig {
   secondaryBaseUrl: string;
@@ -203,6 +217,8 @@ export interface CanaryConfig {
   weight: number;
   enabled: boolean;
 }
+
+// ─── Load balancing ──────────────────────────────────────────────────────────
 
 /** GET/PUT /admin-api/clients/:name/lb — N-way upstream pool (REST clients only). Takes
  *  precedence over CanaryConfig above when an enabled pool has at least one enabled target. */
@@ -223,12 +239,16 @@ export interface LbConfig {
   targets: LbTarget[];
 }
 
+// ─── Outbound OAuth ──────────────────────────────────────────────────────────
+
 /** GET /admin-api/clients/:name/oauth — outbound OAuth2 client-credentials (never carries the secret). */
 export interface ClientOAuthConfig {
   tokenUrl: string;
   clientId: string;
   scope: string | null;
 }
+
+// ─── Schedules ───────────────────────────────────────────────────────────────
 
 export interface Schedule {
   id: number;
@@ -248,6 +268,8 @@ export interface PaginatedResult<T> {
   nextCursor?: string;
 }
 
+// ─── Users ───────────────────────────────────────────────────────────────────
+
 export interface AdminUserSummary {
   username: string;
   role: AdminRole;
@@ -257,6 +279,8 @@ export interface AdminUserSummary {
   /** null = super-admin (manages teams, sees everything); set = scoped to that team. */
   team_id: number | null;
 }
+
+// ─── Audit log ───────────────────────────────────────────────────────────────
 
 export interface AuditLogEntry {
   id: number;
@@ -291,6 +315,8 @@ export interface AdminSession {
   userAgent: string | null;
 }
 
+// ─── Bundles ─────────────────────────────────────────────────────────────────
+
 export interface BundleToolRef {
   client: string;
   tool: string;
@@ -322,6 +348,8 @@ export interface ToolListItem {
   tags: string[];
 }
 
+// ─── Tags ────────────────────────────────────────────────────────────────────
+
 /** GET /admin-api/tags item — every distinct tag currently set on any tool, with its usage count. */
 export interface TagSummary {
   tag: string;
@@ -338,6 +366,8 @@ export interface ApiErrorBody {
   error: { code: string; message: string; request_id?: string | null };
 }
 
+// ─── WS proxy targets ────────────────────────────────────────────────────────
+
 /** GET /admin-api/ws-proxy-targets item — a live WebSocket passthrough target (see src/ws-proxy.ts). */
 export interface WsProxyTarget {
   name: string;
@@ -351,6 +381,8 @@ export interface WsProxyTarget {
   createdAt: number;
   updatedAt: number;
 }
+
+// ─── Catalog ─────────────────────────────────────────────────────────────────
 
 /** GET /admin-api/catalog item — merges the static builtin gallery with admin-authored custom entries. */
 export interface CatalogEntry {
@@ -378,6 +410,8 @@ export interface McpKeyScopes {
   tools?: string[];
 }
 
+// ─── Consumers ───────────────────────────────────────────────────────────────
+
 export interface Consumer {
   id: number;
   name: string;
@@ -398,6 +432,8 @@ export interface ConsumerUsage {
   used: number;
   quota: number | null;
 }
+
+// ─── API keys ────────────────────────────────────────────────────────────────
 
 /** GET /admin-api/mcp-keys item — never carries the raw secret. */
 export interface McpApiKey {
@@ -420,6 +456,8 @@ export interface McpApiKey {
 export interface McpApiKeyWithSecret extends McpApiKey {
   key: string;
 }
+
+// ─── Bundle install links ────────────────────────────────────────────────────
 
 /** GET /admin-api/bundles/:name/install-links item — prefix + timestamps only, never the raw token. */
 export interface BundleInstallLink {
@@ -460,6 +498,8 @@ export interface DiscoveryPreview {
   tools: DiscoveredTool[];
 }
 
+// ─── Usage ───────────────────────────────────────────────────────────────────
+
 export interface UsageSummary {
   from: number;
   calls: number;
@@ -499,6 +539,8 @@ export interface UsageTimeseries {
   bucketMs: number;
   points: UsageTimeseriesPoint[];
 }
+
+// ─── Traffic ─────────────────────────────────────────────────────────────────
 
 /** GET /admin-api/traffic item — only populated when TRAFFIC_CAPTURE=true is set on the server. */
 export interface TrafficRecord {
