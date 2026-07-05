@@ -10,32 +10,9 @@ import {
   registryClients,
   registryToolsTotal,
   rateLimitBuckets,
-  toolCallsTotal,
+  getLegacyMetricsSnapshot,
 } from "../observability/metrics.js";
 import { notFound } from "./http-errors.js";
-
-// ── Legacy JSON metrics (kept for backwards compatibility) ───────────────────
-
-let totalToolCalls = 0;
-let errorToolCalls = 0;
-const latencies: number[] = [];
-const MAX_LATENCY_WINDOW = 100;
-const startedAt = Date.now();
-
-export function recordToolCall(durationMs: number, isError: boolean): void {
-  totalToolCalls++;
-  if (isError) errorToolCalls++;
-  latencies.push(durationMs);
-  if (latencies.length > MAX_LATENCY_WINDOW) latencies.shift();
-  toolCallsTotal.inc({ outcome: isError ? "error" : "success" });
-}
-
-// Session count getter — will be set externally
-let getSessionCounts: () => { streamable: number; sse: number } = () => ({ streamable: 0, sse: 0 });
-
-export function setSessionCountGetter(fn: () => { streamable: number; sse: number }): void {
-  getSessionCounts = fn;
-}
 
 // ── Prometheus snapshot helpers ───────────────────────────────────────────────
 
@@ -86,21 +63,20 @@ export function metricsRoutes(app: Express): void {
   app.get("/metrics/legacy", adminAuth, (_req: Request, res: Response) => {
     const clients = registry.listClients();
     const healthy = clients.filter((c) => c.status === "healthy").length;
-    const sessions = getSessionCounts();
-    const avgLatency = latencies.length > 0 ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+    const snapshot = getLegacyMetricsSnapshot();
 
     res.json({
-      uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
-      active_sessions: sessions,
+      uptime_seconds: snapshot.uptimeSeconds,
+      active_sessions: snapshot.sessions,
       registered_clients: {
         total: clients.length,
         healthy,
         unreachable: clients.length - healthy,
       },
       tool_calls: {
-        total: totalToolCalls,
-        errors: errorToolCalls,
-        avg_latency_ms: avgLatency,
+        total: snapshot.totalToolCalls,
+        errors: snapshot.errorToolCalls,
+        avg_latency_ms: snapshot.avgLatencyMs,
       },
       circuit_breakers: getAllCircuitStates(),
     });

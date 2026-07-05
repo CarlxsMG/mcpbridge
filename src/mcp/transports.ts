@@ -9,7 +9,7 @@ import { rateLimitMcp } from "../middleware/rate-limiter.js";
 import { config } from "../config.js";
 import { registry } from "./registry.js";
 import { getBundleToolKeys } from "../admin/tool-composition/bundles.js";
-import { setSessionCountGetter } from "../routes/metrics.js";
+import { setSessionCountGetter } from "../observability/metrics.js";
 import { log } from "../logger.js";
 
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

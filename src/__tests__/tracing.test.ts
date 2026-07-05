@@ -8,8 +8,7 @@ import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../middleware/circuit-breaker.js";
 import { proxyToolCall } from "../proxy/proxy.js";
 import { tracingEnabled, startSpan, endSpan, flush, _internalsForTesting } from "../observability/tracing.js";
-import { metricsRegistry } from "../observability/metrics.js";
-import { recordToolCall } from "../routes/metrics.js";
+import { metricsRegistry, recordToolCall } from "../observability/metrics.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const originalFetch = globalThis.fetch;

@@ -6,8 +6,8 @@ import { log } from "../logger.js";
 import { isRawIpLiteral, refreshPinIfStale } from "../net/ip-validator.js";
 import type { PinnedIp } from "../net/ip-validator.js";
 import { getCircuitBreaker } from "../middleware/circuit-breaker.js";
-import { recordToolCall } from "../routes/metrics.js";
 import {
+  recordToolCall,
   proxyBodyCapRejections,
   proxyRetryAttempts,
   proxyRequestDuration,

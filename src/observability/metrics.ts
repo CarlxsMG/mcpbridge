@@ -277,3 +277,46 @@ export const wsProxyBytesTotal = metricsRegistry.register(
     "Total bytes relayed by the WebSocket passthrough proxy, by target and direction (up|down)",
   ),
 );
+
+// ── Legacy JSON metrics state (kept for backwards compatibility) ─────────────
+
+let totalToolCalls = 0;
+let errorToolCalls = 0;
+const latencies: number[] = [];
+const MAX_LATENCY_WINDOW = 100;
+const startedAt = Date.now();
+
+/** Records a completed tool call for the legacy JSON metrics endpoint and the Prometheus counter. */
+export function recordToolCall(durationMs: number, isError: boolean): void {
+  totalToolCalls++;
+  if (isError) errorToolCalls++;
+  latencies.push(durationMs);
+  if (latencies.length > MAX_LATENCY_WINDOW) latencies.shift();
+  toolCallsTotal.inc({ outcome: isError ? "error" : "success" });
+}
+
+// Session count getter — will be set externally
+let getSessionCounts: () => { streamable: number; sse: number } = () => ({ streamable: 0, sse: 0 });
+
+/** Registers the callback used to report current live-session counts. */
+export function setSessionCountGetter(fn: () => { streamable: number; sse: number }): void {
+  getSessionCounts = fn;
+}
+
+/** Snapshot of the legacy JSON metrics state, for consumption by the /metrics/legacy route. */
+export function getLegacyMetricsSnapshot(): {
+  uptimeSeconds: number;
+  sessions: { streamable: number; sse: number };
+  totalToolCalls: number;
+  errorToolCalls: number;
+  avgLatencyMs: number;
+} {
+  const avgLatencyMs = latencies.length > 0 ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+  return {
+    uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
+    sessions: getSessionCounts(),
+    totalToolCalls,
+    errorToolCalls,
+    avgLatencyMs,
+  };
+}
