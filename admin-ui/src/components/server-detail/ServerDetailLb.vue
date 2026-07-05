@@ -45,7 +45,10 @@ onMounted(loadLb);
 const { saving: lbSaving, error: lbError, run: runLb } = usePatchResource(() => clientPath(props.clientName, "lb"));
 
 async function saveLb() {
-  const ok = await runLb((path) => api.put(path, { ...lbForm.value }), tk("components.server_detail_lb.errors.save_failed"));
+  const ok = await runLb(
+    (path) => api.put(path, { ...lbForm.value }),
+    tk("components.server_detail_lb.errors.save_failed"),
+  );
   if (ok) await loadLb();
 }
 
@@ -55,7 +58,11 @@ const {
   cancelClear: cancelClearLb,
   confirmClear: confirmClearLb,
   error: clearLbError,
-} = useClearableConfig(loadLb, () => api.put(clientPath(props.clientName, "lb"), { lb: null }), tk("components.server_detail_lb.errors.clear_failed"));
+} = useClearableConfig(
+  loadLb,
+  () => api.put(clientPath(props.clientName, "lb"), { lb: null }),
+  tk("components.server_detail_lb.errors.clear_failed"),
+);
 
 const newTargetUrl = ref("");
 const newTargetWeight = ref(1);
@@ -88,12 +95,18 @@ const { error: targetRowErrorMessage, run: runTarget } = usePatchResource(() =>
 
 async function updateTargetWeight(target: LbTarget, weight: number) {
   if (!Number.isInteger(weight) || weight < 1) {
-    targetRowError.value = { ...targetRowError.value, [target.id]: t("components.server_detail_lb.errors.weight_invalid") };
+    targetRowError.value = {
+      ...targetRowError.value,
+      [target.id]: t("components.server_detail_lb.errors.weight_invalid"),
+    };
     return;
   }
   savingTargetId.value = target.id;
   targetRowError.value = { ...targetRowError.value, [target.id]: "" };
-  const ok = await runTarget((path) => api.patch(`${path}/${target.id}`, { weight }), tk("components.server_detail_lb.errors.update_target_failed"));
+  const ok = await runTarget(
+    (path) => api.patch(`${path}/${target.id}`, { weight }),
+    tk("components.server_detail_lb.errors.update_target_failed"),
+  );
   if (ok) await loadLb();
   else targetRowError.value = { ...targetRowError.value, [target.id]: targetRowErrorMessage.value };
   savingTargetId.value = null;
@@ -119,7 +132,10 @@ const {
 
 function confirmRemoveTarget() {
   return confirmRemoveTargetAction(async (target) => {
-    const ok = await runTarget((path) => api.delete(`${path}/${target.id}`), tk("components.server_detail_lb.errors.remove_failed"));
+    const ok = await runTarget(
+      (path) => api.delete(`${path}/${target.id}`),
+      tk("components.server_detail_lb.errors.remove_failed"),
+    );
     if (ok) await loadLb();
     else lbError.value = targetRowErrorMessage.value;
   });
@@ -129,28 +145,37 @@ function confirmRemoveTarget() {
 <template>
   <ConfigSection :title="t('components.server_detail_lb.title')">
     <template v-if="lb" #actions>
-      <button type="button" class="link-btn danger" @click="requestClearLb">{{ t('components.server_detail_lb.clear') }}</button>
+      <button type="button" class="link-btn danger" @click="requestClearLb">
+        {{ t("components.server_detail_lb.clear") }}
+      </button>
     </template>
     <p class="ua-status">
-      {{ t('components.server_detail_lb.hint') }}
+      {{ t("components.server_detail_lb.hint") }}
       <template v-if="lb">
-        {{ t('components.server_detail_lb.currently', {
-          strategy: lb.strategy,
-          weight: lb.primaryWeight,
-          enabled: lb.enabled ? t('components.server_detail_lb.enabled') : t('components.server_detail_lb.disabled'),
-          count: lb.targets.length
-        }) }}
+        {{
+          t("components.server_detail_lb.currently", {
+            strategy: lb.strategy,
+            weight: lb.primaryWeight,
+            enabled: lb.enabled ? t("components.server_detail_lb.enabled") : t("components.server_detail_lb.disabled"),
+            count: lb.targets.length,
+          })
+        }}
       </template>
     </p>
     <form class="ua-form" @submit.prevent="saveLb">
       <label
-        >{{ t('components.server_detail_lb.fields.strategy') }}
+        >{{ t("components.server_detail_lb.fields.strategy") }}
         <SelectMenu v-model="lbForm.strategy" :options="STRATEGY_OPTIONS" />
       </label>
-      <label>{{ t('components.server_detail_lb.fields.primary_weight') }} <input v-model.number="lbForm.primaryWeight" type="number" min="0" max="1000" /></label>
-      <label class="inline-check"><input v-model="lbForm.enabled" type="checkbox" /> {{ t('components.server_detail_lb.fields.enabled') }}</label>
+      <label
+        >{{ t("components.server_detail_lb.fields.primary_weight") }}
+        <input v-model.number="lbForm.primaryWeight" type="number" min="0" max="1000"
+      /></label>
+      <label class="inline-check"
+        ><input v-model="lbForm.enabled" type="checkbox" /> {{ t("components.server_detail_lb.fields.enabled") }}</label
+      >
       <button type="submit" class="btn-secondary" :disabled="lbSaving">
-        {{ lbSaving ? t('common.saving') : t('components.server_detail_lb.save_pool') }}
+        {{ lbSaving ? t("common.saving") : t("components.server_detail_lb.save_pool") }}
       </button>
     </form>
     <p v-if="lbError || clearLbError" class="error">{{ lbError || clearLbError }}</p>
@@ -159,9 +184,9 @@ function confirmRemoveTarget() {
       <TableCard class="lb-targets">
         <thead>
           <tr>
-            <th>{{ t('components.server_detail_lb.table.base_url') }}</th>
-            <th>{{ t('components.server_detail_lb.table.weight') }}</th>
-            <th>{{ t('components.server_detail_lb.table.enabled') }}</th>
+            <th>{{ t("components.server_detail_lb.table.base_url") }}</th>
+            <th>{{ t("components.server_detail_lb.table.weight") }}</th>
+            <th>{{ t("components.server_detail_lb.table.enabled") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -188,26 +213,32 @@ function confirmRemoveTarget() {
                 :disabled="savingTargetId === target.id"
                 @click="toggleTargetEnabled(target)"
               >
-                {{ target.enabled ? t('common.enabled') : t('common.disabled') }}
+                {{ target.enabled ? t("common.enabled") : t("common.disabled") }}
               </button>
             </td>
             <td>
-              <button type="button" class="link-btn danger" @click="requestRemoveTarget(target)">{{ t('components.server_detail_lb.remove') }}</button>
+              <button type="button" class="link-btn danger" @click="requestRemoveTarget(target)">
+                {{ t("components.server_detail_lb.remove") }}
+              </button>
               <p v-if="targetRowError[target.id]" class="row-error">{{ targetRowError[target.id] }}</p>
             </td>
           </tr>
         </tbody>
       </TableCard>
-      <p v-if="!lb.targets.length" class="ua-status">{{ t('components.server_detail_lb.empty_targets') }}</p>
+      <p v-if="!lb.targets.length" class="ua-status">{{ t("components.server_detail_lb.empty_targets") }}</p>
 
       <form class="ua-form" @submit.prevent="addTarget">
         <label
-          >{{ t('components.server_detail_lb.fields.target_url') }} <input v-model="newTargetUrl" type="url" placeholder="https://api-2.example.com"
+          >{{ t("components.server_detail_lb.fields.target_url") }}
+          <input v-model="newTargetUrl" type="url" placeholder="https://api-2.example.com"
         /></label>
-        <label>{{ t('components.server_detail_lb.fields.weight') }} <input v-model.number="newTargetWeight" type="number" min="1" max="1000" /></label>
+        <label
+          >{{ t("components.server_detail_lb.fields.weight") }}
+          <input v-model.number="newTargetWeight" type="number" min="1" max="1000"
+        /></label>
         <p v-if="targetError" class="error">{{ targetError }}</p>
         <button type="submit" class="btn-secondary" :disabled="addingTarget">
-          {{ addingTarget ? t('components.server_detail_lb.adding') : t('components.server_detail_lb.add_target') }}
+          {{ addingTarget ? t("components.server_detail_lb.adding") : t("components.server_detail_lb.add_target") }}
         </button>
       </form>
     </template>
@@ -226,7 +257,11 @@ function confirmRemoveTarget() {
   <ConfirmDialog
     :open="pendingRemoveTarget !== null"
     :title="t('components.server_detail_lb.confirm.remove_title')"
-    :message="pendingRemoveTarget ? t('components.server_detail_lb.confirm.remove_message', { url: pendingRemoveTarget.baseUrl }) : ''"
+    :message="
+      pendingRemoveTarget
+        ? t('components.server_detail_lb.confirm.remove_message', { url: pendingRemoveTarget.baseUrl })
+        : ''
+    "
     :confirm-label="t('components.server_detail_lb.confirm.remove_cta')"
     danger
     @confirm="confirmRemoveTarget"

@@ -41,9 +41,11 @@ function confirmRemoveServer() {
 <template>
   <ConfigSection :title="t('components.server_detail_remove.title')">
     <p class="ua-status">
-      {{ t('components.server_detail_remove.hint') }}
+      {{ t("components.server_detail_remove.hint") }}
     </p>
-    <button type="button" class="btn-danger" @click="requestRemoveServer">{{ t('components.server_detail_remove.button') }}</button>
+    <button type="button" class="btn-danger" @click="requestRemoveServer">
+      {{ t("components.server_detail_remove.button") }}
+    </button>
     <p v-if="removeError" class="error">{{ removeError }}</p>
   </ConfigSection>
 

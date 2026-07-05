@@ -32,13 +32,24 @@ async function saveRedactionFn() {
 </script>
 
 <template>
-  <h3>{{ t('components.guard_editor_redaction.title') }}</h3>
+  <h3>{{ t("components.guard_editor_redaction.title") }}</h3>
   <div class="field">
-    <label for="tool-redact">{{ t('components.guard_editor_redaction.label') }}</label>
+    <label for="tool-redact">{{ t("components.guard_editor_redaction.label") }}</label>
     <p class="hint">
-      {{ t('components.guard_editor_redaction.hint') }}
+      {{ t("components.guard_editor_redaction.hint") }}
     </p>
-    <textarea id="tool-redact" v-model="redactInput" rows="3" :placeholder="t('components.guard_editor_redaction.placeholder')"></textarea>
-    <SaveRow :label="t('components.guard_editor_redaction.save')" :saving="saving" :saved="saved" :error="error" @save="saveRedactionFn" />
+    <textarea
+      id="tool-redact"
+      v-model="redactInput"
+      rows="3"
+      :placeholder="t('components.guard_editor_redaction.placeholder')"
+    ></textarea>
+    <SaveRow
+      :label="t('components.guard_editor_redaction.save')"
+      :saving="saving"
+      :saved="saved"
+      :error="error"
+      @save="saveRedactionFn"
+    />
   </div>
 </template>

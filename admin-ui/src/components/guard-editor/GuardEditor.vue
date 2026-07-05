@@ -82,11 +82,15 @@ watch(
 );
 
 const rateLimitError = computed(() =>
-  numberRangeValidator({ min: Number.MIN_VALUE, message: t("components.guard_editor.positive_number") })(rateLimitInput.value),
+  numberRangeValidator({ min: Number.MIN_VALUE, message: t("components.guard_editor.positive_number") })(
+    rateLimitInput.value,
+  ),
 );
 
 const timeoutError = computed(() =>
-  numberRangeValidator({ min: Number.MIN_VALUE, message: t("components.guard_editor.positive_number") })(timeoutInput.value),
+  numberRangeValidator({ min: Number.MIN_VALUE, message: t("components.guard_editor.positive_number") })(
+    timeoutInput.value,
+  ),
 );
 
 const isValid = computed(() => !rateLimitError.value && !timeoutError.value);
@@ -176,9 +180,11 @@ function confirmClear() {
 
 <template>
   <form class="guard-editor" @submit.prevent="submit">
-    <h3><KeyRound :size="15" stroke-width="2" aria-hidden="true" /> {{ t('components.guard_editor.rate_keys_title') }}</h3>
+    <h3>
+      <KeyRound :size="15" stroke-width="2" aria-hidden="true" /> {{ t("components.guard_editor.rate_keys_title") }}
+    </h3>
     <div class="field">
-      <label for="rate-limit">{{ t('components.guard_editor.rate_label') }}</label>
+      <label for="rate-limit">{{ t("components.guard_editor.rate_label") }}</label>
       <input
         id="rate-limit"
         v-model="rateLimitInput"
@@ -191,7 +197,7 @@ function confirmClear() {
     </div>
 
     <div class="field">
-      <label for="timeout">{{ t('components.guard_editor.timeout_label') }}</label>
+      <label for="timeout">{{ t("components.guard_editor.timeout_label") }}</label>
       <input
         id="timeout"
         v-model="timeoutInput"
@@ -204,14 +210,14 @@ function confirmClear() {
     </div>
 
     <div class="field">
-      <label>{{ t('components.guard_editor.allowed_keys_label') }}</label>
+      <label>{{ t("components.guard_editor.allowed_keys_label") }}</label>
       <p class="hint">
         {{
           existingKeyCount > 0
-            ? t('components.guard_editor.existing_keys_count', { count: existingKeyCount })
-            : t('components.guard_editor.no_restriction')
+            ? t("components.guard_editor.existing_keys_count", { count: existingKeyCount })
+            : t("components.guard_editor.no_restriction")
         }}
-        {{ t('components.guard_editor.keys_hashed_hint') }}
+        {{ t("components.guard_editor.keys_hashed_hint") }}
       </p>
       <div class="key-input">
         <input
@@ -223,18 +229,20 @@ function confirmClear() {
           @keydown.enter.prevent="addKey"
         />
         <button type="button" class="btn-secondary" :aria-pressed="showApiKey" @click="showApiKey = !showApiKey">
-          {{ showApiKey ? t('components.guard_editor.hide') : t('components.guard_editor.show') }}
+          {{ showApiKey ? t("components.guard_editor.hide") : t("components.guard_editor.show") }}
         </button>
-        <button type="button" class="btn-secondary" @click="addKey">{{ t('components.guard_editor.add') }}</button>
+        <button type="button" class="btn-secondary" @click="addKey">{{ t("components.guard_editor.add") }}</button>
       </div>
       <ul v-if="replacementKeys.length" class="key-list">
         <li v-for="(k, i) in replacementKeys" :key="k.id">
-          {{ t('components.guard_editor.new_key_n', { n: i + 1 }) }}
-          <button type="button" class="link-btn danger" @click="removeReplacementKey(k.id)">{{ t('components.guard_editor.remove') }}</button>
+          {{ t("components.guard_editor.new_key_n", { n: i + 1 }) }}
+          <button type="button" class="link-btn danger" @click="removeReplacementKey(k.id)">
+            {{ t("components.guard_editor.remove") }}
+          </button>
         </li>
       </ul>
       <p v-if="replacementKeys.length" class="hint warn">
-        {{ t('components.guard_editor.replace_warning', { count: replacementKeys.length }) }}
+        {{ t("components.guard_editor.replace_warning", { count: replacementKeys.length }) }}
       </p>
     </div>
 
@@ -291,22 +299,22 @@ function confirmClear() {
     />
 
     <details class="preview">
-      <summary>{{ t('components.guard_editor.preview') }}</summary>
+      <summary>{{ t("components.guard_editor.preview") }}</summary>
       <pre>{{ previewJson }}</pre>
     </details>
 
     <div class="actions">
       <span class="action-group">
         <button type="button" class="btn-secondary" :disabled="saving" @click="requestClear">
-          {{ clearingGuards ? t('components.guard_editor.clearing') : t('components.guard_editor.clear_guards') }}
+          {{ clearingGuards ? t("components.guard_editor.clearing") : t("components.guard_editor.clear_guards") }}
         </button>
-        <span v-if="savedClear" class="save-ok">{{ t('components.guard_editor.cleared') }}</span>
+        <span v-if="savedClear" class="save-ok">{{ t("components.guard_editor.cleared") }}</span>
       </span>
       <span class="action-group">
         <button type="submit" class="btn-primary" :disabled="!isValid || saving">
-          {{ saving && !clearingGuards ? t('common.saving') : t('components.guard_editor.save_guards') }}
+          {{ saving && !clearingGuards ? t("common.saving") : t("components.guard_editor.save_guards") }}
         </button>
-        <span v-if="savedMain" class="save-ok">{{ t('components.guard_editor.saved') }}</span>
+        <span v-if="savedMain" class="save-ok">{{ t("components.guard_editor.saved") }}</span>
       </span>
     </div>
     <p v-if="mainError" class="field-error">{{ mainError }}</p>

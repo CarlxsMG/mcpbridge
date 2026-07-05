@@ -54,22 +54,30 @@ async function saveWsFn() {
 </script>
 
 <template>
-  <h3>{{ t('components.guard_editor_websocket.title') }}</h3>
+  <h3>{{ t("components.guard_editor_websocket.title") }}</h3>
   <div class="field">
     <label class="checkline"
-      ><input v-model="wsEnabledInput" type="checkbox" /> {{ t('components.guard_editor_websocket.enable_label') }}</label
+      ><input v-model="wsEnabledInput" type="checkbox" />
+      {{ t("components.guard_editor_websocket.enable_label") }}</label
     >
     <template v-if="wsEnabledInput">
-      <label for="ws-url">{{ t('components.guard_editor_websocket.url_label') }}</label>
+      <label for="ws-url">{{ t("components.guard_editor_websocket.url_label") }}</label>
       <input id="ws-url" v-model="wsUrlInput" type="text" placeholder="wss://example.com/socket" />
       <p v-if="wsUrlError" class="field-error">{{ wsUrlError }}</p>
       <label class="checkline"
-        ><input v-model="wsPersistentInput" type="checkbox" /> {{ t('components.guard_editor_websocket.persistent_label') }}</label
+        ><input v-model="wsPersistentInput" type="checkbox" />
+        {{ t("components.guard_editor_websocket.persistent_label") }}</label
       >
       <p class="hint">
-        {{ t('components.guard_editor_websocket.hint') }}
+        {{ t("components.guard_editor_websocket.hint") }}
       </p>
     </template>
-    <SaveRow :label="t('components.guard_editor_websocket.save')" :saving="saving" :saved="saved" :error="error" @save="saveWsFn" />
+    <SaveRow
+      :label="t('components.guard_editor_websocket.save')"
+      :saving="saving"
+      :saved="saved"
+      :error="error"
+      @save="saveWsFn"
+    />
   </div>
 </template>

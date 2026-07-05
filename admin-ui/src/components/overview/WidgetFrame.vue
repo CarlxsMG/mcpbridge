@@ -86,10 +86,22 @@ const rendererProps = computed(() =>
       >
         <ChevronDown :size="14" stroke-width="2" aria-hidden="true" />
       </button>
-      <button type="button" class="w-btn" :title="t('components.widget_frame.configure')" :aria-label="t('components.widget_frame.configure')" @click="emit('configure')">
+      <button
+        type="button"
+        class="w-btn"
+        :title="t('components.widget_frame.configure')"
+        :aria-label="t('components.widget_frame.configure')"
+        @click="emit('configure')"
+      >
         <Settings2 :size="14" stroke-width="2" aria-hidden="true" />
       </button>
-      <button type="button" class="w-btn w-remove" :title="t('components.widget_frame.remove')" :aria-label="t('components.widget_frame.remove')" @click="emit('remove')">
+      <button
+        type="button"
+        class="w-btn w-remove"
+        :title="t('components.widget_frame.remove')"
+        :aria-label="t('components.widget_frame.remove')"
+        @click="emit('remove')"
+      >
         <X :size="14" stroke-width="2" aria-hidden="true" />
       </button>
     </div>

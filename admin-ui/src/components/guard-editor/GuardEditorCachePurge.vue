@@ -22,16 +22,19 @@ const purgedCache = ref(false);
 const { flash } = useFlash();
 
 async function purgeCacheFn() {
-  const ok = await run((path) => api.post(`${path}/cache/purge`), tk("components.guard_editor_cache_purge.errors.purge_failed"));
+  const ok = await run(
+    (path) => api.post(`${path}/cache/purge`),
+    tk("components.guard_editor_cache_purge.errors.purge_failed"),
+  );
   if (ok) flash(purgedCache);
 }
 </script>
 
 <template>
-  <h3>{{ t('components.guard_editor_cache_purge.title') }}</h3>
+  <h3>{{ t("components.guard_editor_cache_purge.title") }}</h3>
   <div class="field">
     <p class="hint">
-      {{ t('components.guard_editor_cache_purge.hint') }}
+      {{ t("components.guard_editor_cache_purge.hint") }}
     </p>
     <button
       type="button"
@@ -40,9 +43,13 @@ async function purgeCacheFn() {
       @click="purgeCacheFn"
     >
       <Eraser :size="14" stroke-width="2" aria-hidden="true" />
-      {{ purgingCache ? t('components.guard_editor_cache_purge.purging') : t('components.guard_editor_cache_purge.button') }}
+      {{
+        purgingCache
+          ? t("components.guard_editor_cache_purge.purging")
+          : t("components.guard_editor_cache_purge.button")
+      }}
     </button>
-    <span v-if="purgedCache" class="save-ok">{{ t('components.guard_editor_cache_purge.purged') }}</span>
+    <span v-if="purgedCache" class="save-ok">{{ t("components.guard_editor_cache_purge.purged") }}</span>
     <p v-if="purgeCacheError" class="field-error">{{ purgeCacheError }}</p>
   </div>
 </template>

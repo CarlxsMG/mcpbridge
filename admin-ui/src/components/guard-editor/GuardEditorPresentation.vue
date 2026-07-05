@@ -65,14 +65,14 @@ async function saveOverrideFn() {
 </script>
 
 <template>
-  <h3>{{ t('components.guard_editor_presentation.title') }}</h3>
+  <h3>{{ t("components.guard_editor_presentation.title") }}</h3>
   <div class="field">
-    <label for="tool-display-name">{{ t('components.guard_editor_presentation.name_label') }}</label>
+    <label for="tool-display-name">{{ t("components.guard_editor_presentation.name_label") }}</label>
     <p class="hint">
-      {{ t('components.guard_editor_presentation.name_hint_p1') }}
+      {{ t("components.guard_editor_presentation.name_hint_p1") }}
       <code>{{ clientName ?? "client" }}__</code>
-      {{ t('components.guard_editor_presentation.name_hint_p2') }}
-      {{ t('components.guard_editor_presentation.advertised_as') }}: <code>{{ advertisedName }}</code>
+      {{ t("components.guard_editor_presentation.name_hint_p2") }}
+      {{ t("components.guard_editor_presentation.advertised_as") }}: <code>{{ advertisedName }}</code>
     </p>
     <input
       id="tool-display-name"
@@ -86,9 +86,9 @@ async function saveOverrideFn() {
   </div>
 
   <div class="field">
-    <label for="tool-desc">{{ t('components.guard_editor_presentation.desc_label') }}</label>
+    <label for="tool-desc">{{ t("components.guard_editor_presentation.desc_label") }}</label>
     <p class="hint">
-      {{ t('components.guard_editor_presentation.desc_hint') }}
+      {{ t("components.guard_editor_presentation.desc_hint") }}
     </p>
     <textarea
       id="tool-desc"
@@ -96,6 +96,12 @@ async function saveOverrideFn() {
       rows="3"
       :placeholder="t('components.guard_editor_presentation.desc_placeholder')"
     ></textarea>
-    <SaveRow :label="t('components.guard_editor_presentation.save')" :saving="saving" :saved="saved" :error="error" @save="saveOverrideFn" />
+    <SaveRow
+      :label="t('components.guard_editor_presentation.save')"
+      :saving="saving"
+      :saved="saved"
+      :error="error"
+      @save="saveOverrideFn"
+    />
   </div>
 </template>

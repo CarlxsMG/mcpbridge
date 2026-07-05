@@ -65,7 +65,12 @@ function confirmToolDisable() {
 }
 
 function toggleSensitive(tool: ToolDetail) {
-  return toggleToolField(tool, "sensitive", (t) => t.sensitive !== true, tk("components.server_detail_tools.errors.update_sensitivity_failed"));
+  return toggleToolField(
+    tool,
+    "sensitive",
+    (t) => t.sensitive !== true,
+    tk("components.server_detail_tools.errors.update_sensitivity_failed"),
+  );
 }
 
 function openGuardEditor(tool: ToolDetail) {
@@ -98,16 +103,16 @@ async function testTool(tool: ToolDetail) {
 </script>
 
 <template>
-  <h2>{{ t('components.server_detail_tools.heading', { count: tools.length }) }}</h2>
+  <h2>{{ t("components.server_detail_tools.heading", { count: tools.length }) }}</h2>
   <TableCard v-if="tools.length" id="tools-table">
     <thead>
       <tr>
-        <th>{{ t('components.server_detail_tools.table.name') }}</th>
-        <th>{{ t('components.server_detail_tools.table.method') }}</th>
-        <th>{{ t('components.server_detail_tools.table.endpoint') }}</th>
-        <th>{{ t('components.server_detail_tools.table.guards') }}</th>
-        <th>{{ t('components.server_detail_tools.table.sensitive') }}</th>
-        <th>{{ t('components.server_detail_tools.table.enabled') }}</th>
+        <th>{{ t("components.server_detail_tools.table.name") }}</th>
+        <th>{{ t("components.server_detail_tools.table.method") }}</th>
+        <th>{{ t("components.server_detail_tools.table.endpoint") }}</th>
+        <th>{{ t("components.server_detail_tools.table.guards") }}</th>
+        <th>{{ t("components.server_detail_tools.table.sensitive") }}</th>
+        <th>{{ t("components.server_detail_tools.table.enabled") }}</th>
         <th></th>
       </tr>
     </thead>
@@ -123,12 +128,20 @@ async function testTool(tool: ToolDetail) {
         <td class="url-cell">{{ kind === "mcp" ? tool.upstreamName : tool.endpoint }}</td>
         <td>
           <button type="button" class="link-btn" @click="openGuardEditor(tool)">
-            {{ tool.guards ? t('components.server_detail_tools.edit_guards') : t('components.server_detail_tools.add_guards') }}
+            {{
+              tool.guards
+                ? t("components.server_detail_tools.edit_guards")
+                : t("components.server_detail_tools.add_guards")
+            }}
           </button>
         </td>
         <td>
           <button type="button" class="link-btn" @click="toggleSensitive(tool)">
-            {{ tool.sensitive === true ? t('components.server_detail_tools.sensitive_marked') : t('components.server_detail_tools.mark_sensitive') }}
+            {{
+              tool.sensitive === true
+                ? t("components.server_detail_tools.sensitive_marked")
+                : t("components.server_detail_tools.mark_sensitive")
+            }}
           </button>
         </td>
         <td>
@@ -139,19 +152,23 @@ async function testTool(tool: ToolDetail) {
             :aria-pressed="tool.enabled"
             @click="onToolToggleClick(tool)"
           >
-            {{ tool.enabled ? t('common.enabled') : t('common.disabled') }}
+            {{ tool.enabled ? t("common.enabled") : t("common.disabled") }}
           </button>
           <p v-if="rowError[tool.name]" class="row-error">{{ rowError[tool.name] }}</p>
         </td>
         <td>
           <button type="button" class="btn-secondary" :disabled="testingTool === tool.name" @click="testTool(tool)">
-            {{ testingTool === tool.name ? t('components.server_detail_tools.testing') : t('components.server_detail_tools.test') }}
+            {{
+              testingTool === tool.name
+                ? t("components.server_detail_tools.testing")
+                : t("components.server_detail_tools.test")
+            }}
           </button>
         </td>
       </tr>
     </tbody>
   </TableCard>
-  <EmptyState v-else :icon="Wrench">{{ t('components.server_detail_tools.empty') }}</EmptyState>
+  <EmptyState v-else :icon="Wrench">{{ t("components.server_detail_tools.empty") }}</EmptyState>
 
   <div v-if="testResult" class="test-result" :class="testResult.isError ? 'test-error' : 'test-ok'">
     <strong>{{ testResult.tool }}</strong>
@@ -161,8 +178,16 @@ async function testTool(tool: ToolDetail) {
   <ConfirmDialog
     :open="pendingToolDisable !== null"
     :title="t('components.server_detail_tools.confirm.disable_title')"
-    :message="pendingToolDisable ? t('components.server_detail_tools.confirm.disable_message', { name: pendingToolDisable.name }) : ''"
-    :confirm-label="pendingToolDisable ? t('components.server_detail_tools.confirm.disable_cta', { name: pendingToolDisable.name }) : t('common.disable')"
+    :message="
+      pendingToolDisable
+        ? t('components.server_detail_tools.confirm.disable_message', { name: pendingToolDisable.name })
+        : ''
+    "
+    :confirm-label="
+      pendingToolDisable
+        ? t('components.server_detail_tools.confirm.disable_cta', { name: pendingToolDisable.name })
+        : t('common.disable')
+    "
     danger
     @confirm="confirmToolDisable"
     @cancel="cancelToolDisable"

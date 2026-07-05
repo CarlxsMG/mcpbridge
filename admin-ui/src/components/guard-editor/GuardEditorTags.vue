@@ -31,11 +31,23 @@ async function saveTagsFn() {
 </script>
 
 <template>
-  <h3>{{ t('components.guard_editor_tags.title') }}</h3>
+  <h3>{{ t("components.guard_editor_tags.title") }}</h3>
   <div class="field">
-    <label for="tool-tags">{{ t('components.guard_editor_tags.label') }}</label>
-    <p class="hint">{{ t('components.guard_editor_tags.hint') }}</p>
-    <input id="tool-tags" v-model="tagsInput" type="text" :placeholder="t('components.guard_editor_tags.placeholder')" @keydown.enter.prevent />
-    <SaveRow :label="t('components.guard_editor_tags.save')" :saving="saving" :saved="saved" :error="error" @save="saveTagsFn" />
+    <label for="tool-tags">{{ t("components.guard_editor_tags.label") }}</label>
+    <p class="hint">{{ t("components.guard_editor_tags.hint") }}</p>
+    <input
+      id="tool-tags"
+      v-model="tagsInput"
+      type="text"
+      :placeholder="t('components.guard_editor_tags.placeholder')"
+      @keydown.enter.prevent
+    />
+    <SaveRow
+      :label="t('components.guard_editor_tags.save')"
+      :saving="saving"
+      :saved="saved"
+      :error="error"
+      @save="saveTagsFn"
+    />
   </div>
 </template>

@@ -48,13 +48,14 @@ async function saveGraphqlFn() {
 </script>
 
 <template>
-  <h3>{{ t('components.guard_editor_graphql.title') }}</h3>
+  <h3>{{ t("components.guard_editor_graphql.title") }}</h3>
   <div class="field">
     <label class="checkline"
-      ><input v-model="graphqlEnabledInput" type="checkbox" /> {{ t('components.guard_editor_graphql.enable_label') }}</label
+      ><input v-model="graphqlEnabledInput" type="checkbox" />
+      {{ t("components.guard_editor_graphql.enable_label") }}</label
     >
     <template v-if="graphqlEnabledInput">
-      <label for="graphql-query">{{ t('components.guard_editor_graphql.query_label') }}</label>
+      <label for="graphql-query">{{ t("components.guard_editor_graphql.query_label") }}</label>
       <textarea
         id="graphql-query"
         v-model="graphqlQueryInput"
@@ -63,11 +64,17 @@ async function saveGraphqlFn() {
         placeholder="query my_tool($id: ID!) { pet(id: $id) { id name } }"
       ></textarea>
       <p class="hint">
-        {{ t('components.guard_editor_graphql.hint_p1') }}
+        {{ t("components.guard_editor_graphql.hint_p1") }}
         <code>$var: Type</code>
-        {{ t('components.guard_editor_graphql.hint_p2') }}
+        {{ t("components.guard_editor_graphql.hint_p2") }}
       </p>
     </template>
-    <SaveRow :label="t('components.guard_editor_graphql.save')" :saving="saving" :saved="saved" :error="error" @save="saveGraphqlFn" />
+    <SaveRow
+      :label="t('components.guard_editor_graphql.save')"
+      :saving="saving"
+      :saved="saved"
+      :error="error"
+      @save="saveGraphqlFn"
+    />
   </div>
 </template>

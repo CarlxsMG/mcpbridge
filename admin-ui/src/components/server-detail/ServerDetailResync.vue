@@ -94,11 +94,15 @@ async function rediscoverMcp() {
   <ConfigSection v-if="detail.kind === 'mcp'" :title="t('components.server_detail_resync.rediscover_title')">
     <template #actions>
       <button type="button" class="btn-secondary" :disabled="applyingResync" @click="rediscoverMcp">
-        {{ applyingResync ? t('components.server_detail_resync.discovering') : t('components.server_detail_resync.rediscover_button') }}
+        {{
+          applyingResync
+            ? t("components.server_detail_resync.discovering")
+            : t("components.server_detail_resync.rediscover_button")
+        }}
       </button>
     </template>
     <p class="ua-status">
-      {{ t('components.server_detail_resync.rediscover_hint', { url: detail.mcpUrl }) }}
+      {{ t("components.server_detail_resync.rediscover_hint", { url: detail.mcpUrl }) }}
     </p>
     <p v-if="resyncError" class="error">{{ resyncError }}</p>
   </ConfigSection>
@@ -106,27 +110,35 @@ async function rediscoverMcp() {
   <ConfigSection v-else :title="t('components.server_detail_resync.resync_title')">
     <template #actions>
       <button type="button" class="btn-secondary" @click="resyncOpen = !resyncOpen">
-        {{ resyncOpen ? t('common.cancel') : t('components.server_detail_resync.resync_button') }}
+        {{ resyncOpen ? t("common.cancel") : t("components.server_detail_resync.resync_button") }}
       </button>
     </template>
     <div v-if="resyncOpen" class="resync-body">
       <div class="field-inline">
         <input v-model="resyncUrl" type="url" placeholder="https://api.example.com/openapi.json" />
         <button type="button" class="btn-secondary" :disabled="resyncing" @click="previewResync">
-          {{ resyncing ? t('components.server_detail_resync.discovering') : t('components.server_detail_resync.preview_diff') }}
+          {{
+            resyncing
+              ? t("components.server_detail_resync.discovering")
+              : t("components.server_detail_resync.preview_diff")
+          }}
         </button>
       </div>
       <p v-if="resyncError" class="error">{{ resyncError }}</p>
       <div v-if="resyncDiff" class="diff">
         <p class="diff-summary">
-          <strong>{{ resyncDiff.added.length }}</strong> {{ t('components.server_detail_resync.added') }} ·
-          <strong>{{ resyncDiff.removed.length }}</strong> {{ t('components.server_detail_resync.removed') }} ·
-          <strong>{{ resyncDiff.kept.length }}</strong> {{ t('components.server_detail_resync.unchanged') }}
+          <strong>{{ resyncDiff.added.length }}</strong> {{ t("components.server_detail_resync.added") }} ·
+          <strong>{{ resyncDiff.removed.length }}</strong> {{ t("components.server_detail_resync.removed") }} ·
+          <strong>{{ resyncDiff.kept.length }}</strong> {{ t("components.server_detail_resync.unchanged") }}
         </p>
         <p v-if="resyncDiff.added.length" class="diff-add">+ {{ resyncDiff.added.join(", ") }}</p>
         <p v-if="resyncDiff.removed.length" class="diff-rem">− {{ resyncDiff.removed.join(", ") }}</p>
         <button type="button" class="btn-primary" :disabled="applyingResync" @click="applyResync">
-          {{ applyingResync ? t('components.server_detail_resync.applying') : t('components.server_detail_resync.apply_resync') }}
+          {{
+            applyingResync
+              ? t("components.server_detail_resync.applying")
+              : t("components.server_detail_resync.apply_resync")
+          }}
         </button>
       </div>
     </div>

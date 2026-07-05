@@ -43,7 +43,10 @@ onMounted(loadCanary);
 const { error: canaryError, run: runCanary } = usePatchResource(() => clientPath(props.clientName, "canary"));
 
 async function saveCanary() {
-  const ok = await runCanary((path) => api.put(path, { ...canaryForm.value }), tk("components.server_detail_canary.errors.save_failed"));
+  const ok = await runCanary(
+    (path) => api.put(path, { ...canaryForm.value }),
+    tk("components.server_detail_canary.errors.save_failed"),
+  );
   if (ok) await loadCanary();
 }
 
@@ -63,35 +66,44 @@ const {
 <template>
   <ConfigSection :title="t('components.server_detail_canary.title')">
     <template v-if="canary" #actions>
-      <button type="button" class="link-btn danger" @click="requestClear">{{ t('components.server_detail_canary.clear') }}</button>
+      <button type="button" class="link-btn danger" @click="requestClear">
+        {{ t("components.server_detail_canary.clear") }}
+      </button>
     </template>
     <p class="ua-status">
-      {{ t('components.server_detail_canary.hint') }}
+      {{ t("components.server_detail_canary.hint") }}
       <template v-if="canary">
-        {{ t('components.server_detail_canary.currently', {
-          mode: canary.mode,
-          url: canary.secondaryBaseUrl,
-          weight: canary.weight,
-          enabled: canary.enabled ? t('components.server_detail_canary.enabled') : t('components.server_detail_canary.disabled')
-        }) }}
+        {{
+          t("components.server_detail_canary.currently", {
+            mode: canary.mode,
+            url: canary.secondaryBaseUrl,
+            weight: canary.weight,
+            enabled: canary.enabled
+              ? t("components.server_detail_canary.enabled")
+              : t("components.server_detail_canary.disabled"),
+          })
+        }}
       </template>
-      {{ t('components.server_detail_canary.note') }}
+      {{ t("components.server_detail_canary.note") }}
     </p>
     <form class="ua-form" @submit.prevent="saveCanary">
       <label
-        >{{ t('components.server_detail_canary.fields.secondary_url') }}
+        >{{ t("components.server_detail_canary.fields.secondary_url") }}
         <input v-model="canaryForm.secondaryBaseUrl" type="url" placeholder="https://v2.api.example.com"
       /></label>
       <label
-        >{{ t('components.server_detail_canary.fields.mode') }}
+        >{{ t("components.server_detail_canary.fields.mode") }}
         <SelectMenu v-model="canaryForm.mode" :options="MODE_OPTIONS" />
       </label>
       <label
-        >{{ t('components.server_detail_canary.fields.weight') }}
+        >{{ t("components.server_detail_canary.fields.weight") }}
         <input v-model.number="canaryForm.weight" type="number" min="1" max="100" style="max-width: 5.625rem"
       /></label>
-      <label class="inline-check"><input v-model="canaryForm.enabled" type="checkbox" /> {{ t('components.server_detail_canary.fields.enabled') }}</label>
-      <button type="submit" class="btn-secondary">{{ t('components.server_detail_canary.save') }}</button>
+      <label class="inline-check"
+        ><input v-model="canaryForm.enabled" type="checkbox" />
+        {{ t("components.server_detail_canary.fields.enabled") }}</label
+      >
+      <button type="submit" class="btn-secondary">{{ t("components.server_detail_canary.save") }}</button>
     </form>
     <p v-if="canaryError || clearCanaryError" class="error">{{ canaryError || clearCanaryError }}</p>
   </ConfigSection>

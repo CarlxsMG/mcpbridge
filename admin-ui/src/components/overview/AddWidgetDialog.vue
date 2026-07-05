@@ -30,12 +30,12 @@ function onAdd(preset: WidgetPreset) {
 <template>
   <ModalShell :open="open" :ariaLabel="t('components.add_widget.title')" max-width="46rem" @close="emit('close')">
     <div class="add-head">
-      <h2>{{ t('components.add_widget.title') }}</h2>
+      <h2>{{ t("components.add_widget.title") }}</h2>
       <button type="button" class="icon-btn" :aria-label="t('common.close')" @click="emit('close')">
         <X :size="18" stroke-width="2" aria-hidden="true" />
       </button>
     </div>
-    <p class="add-sub">{{ t('components.add_widget.hint') }}</p>
+    <p class="add-sub">{{ t("components.add_widget.hint") }}</p>
 
     <div class="add-search">
       <SearchInput v-model="query" :placeholder="t('components.add_widget.search_placeholder')" />
@@ -54,7 +54,7 @@ function onAdd(preset: WidgetPreset) {
           </button>
         </div>
       </section>
-      <p v-if="grouped.length === 0" class="add-empty">{{ t('components.add_widget.no_match', { query }) }}</p>
+      <p v-if="grouped.length === 0" class="add-empty">{{ t("components.add_widget.no_match", { query }) }}</p>
     </div>
   </ModalShell>
 </template>

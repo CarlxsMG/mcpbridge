@@ -43,11 +43,13 @@ async function saveGuardrailsFn() {
 </script>
 
 <template>
-  <h3><ShieldCheck :size="15" stroke-width="2" aria-hidden="true" /> {{ t('components.guard_editor_guardrails.title') }}</h3>
+  <h3>
+    <ShieldCheck :size="15" stroke-width="2" aria-hidden="true" /> {{ t("components.guard_editor_guardrails.title") }}
+  </h3>
   <div class="field">
-    <label for="tool-deny">{{ t('components.guard_editor_guardrails.content_label') }}</label>
+    <label for="tool-deny">{{ t("components.guard_editor_guardrails.content_label") }}</label>
     <p class="hint">
-      {{ t('components.guard_editor_guardrails.content_hint') }}
+      {{ t("components.guard_editor_guardrails.content_hint") }}
     </p>
     <textarea
       id="tool-deny"
@@ -56,11 +58,19 @@ async function saveGuardrailsFn() {
       placeholder="\bDROP\s+TABLE\b&#10;rm\s+-rf"
     ></textarea>
     <label class="checkline"
-      ><input v-model="blockSecretsInput" type="checkbox" /> {{ t('components.guard_editor_guardrails.block_secrets') }}</label
+      ><input v-model="blockSecretsInput" type="checkbox" />
+      {{ t("components.guard_editor_guardrails.block_secrets") }}</label
     >
     <label class="checkline"
-      ><input v-model="scanResponsesInput" type="checkbox" /> {{ t('components.guard_editor_guardrails.scan_responses') }}</label
+      ><input v-model="scanResponsesInput" type="checkbox" />
+      {{ t("components.guard_editor_guardrails.scan_responses") }}</label
     >
-    <SaveRow :label="t('components.guard_editor_guardrails.save')" :saving="saving" :saved="saved" :error="error" @save="saveGuardrailsFn" />
+    <SaveRow
+      :label="t('components.guard_editor_guardrails.save')"
+      :saving="saving"
+      :saved="saved"
+      :error="error"
+      @save="saveGuardrailsFn"
+    />
   </div>
 </template>

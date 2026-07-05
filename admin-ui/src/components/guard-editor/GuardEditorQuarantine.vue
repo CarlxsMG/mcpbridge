@@ -53,17 +53,21 @@ const saved = ref(false);
 const clearedSaved = ref(false);
 
 const quarantineThresholdError = computed(() =>
-  numberRangeValidator({ integer: true, min: 1, max: 100, message: t("components.guard_editor_quarantine.threshold_error") })(
-    quarantineThresholdInput.value,
-  ),
+  numberRangeValidator({
+    integer: true,
+    min: 1,
+    max: 100,
+    message: t("components.guard_editor_quarantine.threshold_error"),
+  })(quarantineThresholdInput.value),
 );
 
 const quarantineCooldownError = computed(() => {
   if (quarantineRecoveryInput.value !== "auto") return null;
   if (!quarantineCooldownInput.value.trim()) return t("components.guard_editor_quarantine.cooldown_required");
-  return numberRangeValidator({ min: Number.MIN_VALUE, message: t("components.guard_editor_quarantine.cooldown_positive") })(
-    quarantineCooldownInput.value,
-  );
+  return numberRangeValidator({
+    min: Number.MIN_VALUE,
+    message: t("components.guard_editor_quarantine.cooldown_positive"),
+  })(quarantineCooldownInput.value);
 });
 
 const { saving, error, patchField, clearQuarantine } = usePatchTool(
@@ -112,30 +116,36 @@ async function clearQuarantineFn() {
 </script>
 
 <template>
-  <h3>{{ t('components.guard_editor_quarantine.title') }}</h3>
+  <h3>{{ t("components.guard_editor_quarantine.title") }}</h3>
   <div class="field">
     <div v-if="quarantine?.state.quarantined" class="quarantine-banner">
-      {{ t('components.guard_editor_quarantine.currently_quarantined') }}{{ quarantine.state.reason ? `: ${quarantine.state.reason}` : "" }}
+      {{ t("components.guard_editor_quarantine.currently_quarantined")
+      }}{{ quarantine.state.reason ? `: ${quarantine.state.reason}` : "" }}
       <button type="button" class="link-btn" :disabled="saving" @click="clearQuarantineFn">
-        {{ clearing ? t('components.guard_editor_quarantine.clearing') : t('components.guard_editor_quarantine.clear_now') }}
+        {{
+          clearing
+            ? t("components.guard_editor_quarantine.clearing")
+            : t("components.guard_editor_quarantine.clear_now")
+        }}
       </button>
     </div>
     <label class="checkline"
-      ><input v-model="quarantineEnabledInput" type="checkbox" /> {{ t('components.guard_editor_quarantine.enable_label') }}</label
+      ><input v-model="quarantineEnabledInput" type="checkbox" />
+      {{ t("components.guard_editor_quarantine.enable_label") }}</label
     >
     <template v-if="quarantineEnabledInput">
-      <label for="q-threshold">{{ t('components.guard_editor_quarantine.threshold_label') }}</label>
+      <label for="q-threshold">{{ t("components.guard_editor_quarantine.threshold_label") }}</label>
       <input id="q-threshold" v-model="quarantineThresholdInput" type="text" inputmode="numeric" />
       <p v-if="quarantineThresholdError" class="field-error">{{ quarantineThresholdError }}</p>
 
-      <label for="q-action">{{ t('components.guard_editor_quarantine.action_label') }}</label>
+      <label for="q-action">{{ t("components.guard_editor_quarantine.action_label") }}</label>
       <SelectMenu id="q-action" v-model="quarantineActionInput" :options="ACTION_OPTIONS" />
 
-      <label for="q-recovery">{{ t('components.guard_editor_quarantine.recovery_label') }}</label>
+      <label for="q-recovery">{{ t("components.guard_editor_quarantine.recovery_label") }}</label>
       <SelectMenu id="q-recovery" v-model="quarantineRecoveryInput" :options="RECOVERY_OPTIONS" />
 
       <template v-if="quarantineRecoveryInput === 'auto'">
-        <label for="q-cooldown">{{ t('components.guard_editor_quarantine.cooldown_label') }}</label>
+        <label for="q-cooldown">{{ t("components.guard_editor_quarantine.cooldown_label") }}</label>
         <input
           id="q-cooldown"
           v-model="quarantineCooldownInput"
@@ -146,8 +156,13 @@ async function clearQuarantineFn() {
         <p v-if="quarantineCooldownError" class="field-error">{{ quarantineCooldownError }}</p>
       </template>
     </template>
-    <SaveRow :label="t('components.guard_editor_quarantine.save')" :saving="saving" :saved="saved" @save="saveQuarantineFn" />
-    <span v-if="clearedSaved" class="save-ok">{{ t('components.guard_editor_quarantine.cleared') }}</span>
+    <SaveRow
+      :label="t('components.guard_editor_quarantine.save')"
+      :saving="saving"
+      :saved="saved"
+      @save="saveQuarantineFn"
+    />
+    <span v-if="clearedSaved" class="save-ok">{{ t("components.guard_editor_quarantine.cleared") }}</span>
     <p v-if="error" class="field-error">{{ error }}</p>
   </div>
 </template>

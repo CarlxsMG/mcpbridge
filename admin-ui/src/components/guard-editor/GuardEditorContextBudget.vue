@@ -48,9 +48,11 @@ const saved = ref(false);
 
 const contextBudgetBytesError = computed(() => {
   if (!contextBudgetEnabledInput.value) return null;
-  return numberRangeValidator({ integer: true, min: 256, message: t("components.guard_editor_context_budget.bytes_error") })(
-    contextBudgetMaxBytesInput.value,
-  );
+  return numberRangeValidator({
+    integer: true,
+    min: 256,
+    message: t("components.guard_editor_context_budget.bytes_error"),
+  })(contextBudgetMaxBytesInput.value);
 });
 
 const contextBudgetLlmError = computed(() => {
@@ -102,30 +104,31 @@ async function saveContextBudgetFn() {
 </script>
 
 <template>
-  <h3>{{ t('components.guard_editor_context_budget.title') }}</h3>
+  <h3>{{ t("components.guard_editor_context_budget.title") }}</h3>
   <div class="field">
     <label class="checkline"
-      ><input v-model="contextBudgetEnabledInput" type="checkbox" /> {{ t('components.guard_editor_context_budget.enable_label') }}</label
+      ><input v-model="contextBudgetEnabledInput" type="checkbox" />
+      {{ t("components.guard_editor_context_budget.enable_label") }}</label
     >
     <p class="hint">
-      {{ t('components.guard_editor_context_budget.hint') }}
+      {{ t("components.guard_editor_context_budget.hint") }}
     </p>
     <template v-if="contextBudgetEnabledInput">
-      <label for="cb-max-bytes">{{ t('components.guard_editor_context_budget.bytes_label') }}</label>
+      <label for="cb-max-bytes">{{ t("components.guard_editor_context_budget.bytes_label") }}</label>
       <input id="cb-max-bytes" v-model="contextBudgetMaxBytesInput" type="text" inputmode="numeric" />
       <p v-if="contextBudgetBytesError" class="field-error">{{ contextBudgetBytesError }}</p>
 
-      <label for="cb-mode">{{ t('components.guard_editor_context_budget.mode_label') }}</label>
+      <label for="cb-mode">{{ t("components.guard_editor_context_budget.mode_label") }}</label>
       <SelectMenu id="cb-mode" v-model="contextBudgetModeInput" :options="MODE_OPTIONS" />
 
       <template v-if="contextBudgetModeInput === 'llm_summarize'">
         <p class="hint">
-          {{ t('components.guard_editor_context_budget.llm_hint') }}
+          {{ t("components.guard_editor_context_budget.llm_hint") }}
         </p>
-        <label for="cb-provider">{{ t('components.guard_editor_context_budget.provider_label') }}</label>
+        <label for="cb-provider">{{ t("components.guard_editor_context_budget.provider_label") }}</label>
         <SelectMenu id="cb-provider" v-model="contextBudgetLlmProviderInput" :options="LLM_PROVIDER_OPTIONS" />
 
-        <label for="cb-base-url">{{ t('components.guard_editor_context_budget.base_url_label') }}</label>
+        <label for="cb-base-url">{{ t("components.guard_editor_context_budget.base_url_label") }}</label>
         <input
           id="cb-base-url"
           v-model="contextBudgetLlmBaseUrlInput"
@@ -134,7 +137,7 @@ async function saveContextBudgetFn() {
           autocomplete="off"
         />
 
-        <label for="cb-model">{{ t('components.guard_editor_context_budget.model_label') }}</label>
+        <label for="cb-model">{{ t("components.guard_editor_context_budget.model_label") }}</label>
         <input
           id="cb-model"
           v-model="contextBudgetLlmModelInput"
@@ -143,12 +146,12 @@ async function saveContextBudgetFn() {
           autocomplete="off"
         />
 
-        <label for="cb-api-key">{{ t('components.guard_editor_context_budget.api_key_label') }}</label>
+        <label for="cb-api-key">{{ t("components.guard_editor_context_budget.api_key_label") }}</label>
         <p class="hint">
           {{
             contextBudget?.llm
-              ? t('components.guard_editor_context_budget.api_key_hint_configured')
-              : t('components.guard_editor_context_budget.api_key_hint_new')
+              ? t("components.guard_editor_context_budget.api_key_hint_configured")
+              : t("components.guard_editor_context_budget.api_key_hint_new")
           }}
         </p>
         <input
@@ -162,6 +165,12 @@ async function saveContextBudgetFn() {
         <p v-if="contextBudgetLlmError" class="field-error">{{ contextBudgetLlmError }}</p>
       </template>
     </template>
-    <SaveRow :label="t('components.guard_editor_context_budget.save')" :saving="saving" :saved="saved" :error="error" @save="saveContextBudgetFn" />
+    <SaveRow
+      :label="t('components.guard_editor_context_budget.save')"
+      :saving="saving"
+      :saved="saved"
+      :error="error"
+      @save="saveContextBudgetFn"
+    />
   </div>
 </template>

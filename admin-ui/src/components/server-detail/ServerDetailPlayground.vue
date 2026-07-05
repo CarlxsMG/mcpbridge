@@ -61,7 +61,10 @@ async function runPlayground() {
     );
     playgroundResult.value = { text: result.content.map((c) => c.text).join("\n"), isError: Boolean(result.isError) };
   } catch (err) {
-    playgroundResult.value = { text: toErrorMessage(err, tk("components.server_detail_playground.errors.test_failed")), isError: true };
+    playgroundResult.value = {
+      text: toErrorMessage(err, tk("components.server_detail_playground.errors.test_failed")),
+      isError: true,
+    };
   } finally {
     playgroundRunning.value = false;
   }
@@ -78,7 +81,10 @@ async function saveExample() {
     newExampleLabel.value = "";
     await loadExamples(props.tool.name);
   } catch (err) {
-    playgroundResult.value = { text: toErrorMessage(err, tk("components.server_detail_playground.errors.save_failed")), isError: true };
+    playgroundResult.value = {
+      text: toErrorMessage(err, tk("components.server_detail_playground.errors.save_failed")),
+      isError: true,
+    };
   } finally {
     savingExample.value = false;
   }
@@ -96,11 +102,11 @@ async function deleteExampleFn(ex: ToolExample) {
 
 <template>
   <section class="playground">
-    <h3>{{ t('components.server_detail_playground.title') }}</h3>
-    <p class="hint">{{ t('components.server_detail_playground.hint') }}</p>
+    <h3>{{ t("components.server_detail_playground.title") }}</h3>
+    <p class="hint">{{ t("components.server_detail_playground.hint") }}</p>
 
     <div v-if="examples.length" class="examples">
-      <span class="ex-label">{{ t('components.server_detail_playground.saved_examples') }}:</span>
+      <span class="ex-label">{{ t("components.server_detail_playground.saved_examples") }}:</span>
       <span v-for="ex in examples" :key="ex.id" class="ex-chip">
         <button type="button" class="link-btn" @click="loadExampleIntoForm(ex)">{{ ex.label }}</button>
         <button
@@ -119,17 +125,25 @@ async function deleteExampleFn(ex: ToolExample) {
 
     <div class="pg-actions">
       <button type="button" class="btn-primary" :disabled="playgroundRunning" @click="runPlayground">
-        {{ playgroundRunning ? t('components.server_detail_playground.running') : t('components.server_detail_playground.run') }}
+        {{
+          playgroundRunning
+            ? t("components.server_detail_playground.running")
+            : t("components.server_detail_playground.run")
+        }}
       </button>
       <span class="save-ex">
-        <input v-model="newExampleLabel" type="text" :placeholder="t('components.server_detail_playground.save_placeholder')" />
+        <input
+          v-model="newExampleLabel"
+          type="text"
+          :placeholder="t('components.server_detail_playground.save_placeholder')"
+        />
         <button
           type="button"
           class="btn-secondary"
           :disabled="savingExample || !newExampleLabel.trim()"
           @click="saveExample"
         >
-          {{ t('common.save') }}
+          {{ t("common.save") }}
         </button>
       </span>
     </div>

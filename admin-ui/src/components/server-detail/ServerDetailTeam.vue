@@ -37,7 +37,10 @@ const { error: teamError, run: runAssignTeam } = usePatchResource(() => clientPa
 async function assignTeam(teamId: number | null) {
   const previous = currentTeamId.value;
   currentTeamId.value = teamId; // optimistic
-  const ok = await runAssignTeam((path) => api.put(path, { teamId }), tk("components.server_detail_team.errors.assign_failed"));
+  const ok = await runAssignTeam(
+    (path) => api.put(path, { teamId }),
+    tk("components.server_detail_team.errors.assign_failed"),
+  );
   if (!ok) currentTeamId.value = previous;
 }
 </script>
@@ -45,11 +48,13 @@ async function assignTeam(teamId: number | null) {
 <template>
   <ConfigSection :title="t('components.server_detail_team.title')">
     <p class="ua-status">
-      {{ t('components.server_detail_team.owning_team') }}:
+      {{ t("components.server_detail_team.owning_team") }}:
       <strong>{{
-        currentTeamId ? (teams.find((tt) => tt.id === currentTeamId)?.name ?? `#${currentTeamId}`) : t('components.server_detail_team.unowned')
+        currentTeamId
+          ? (teams.find((tt) => tt.id === currentTeamId)?.name ?? `#${currentTeamId}`)
+          : t("components.server_detail_team.unowned")
       }}</strong
-      >. {{ t('components.server_detail_team.admin_only') }}
+      >. {{ t("components.server_detail_team.admin_only") }}
     </p>
     <div class="field-inline">
       <SelectMenu

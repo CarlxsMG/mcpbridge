@@ -74,30 +74,47 @@ const {
   <ConfigSection :title="t('components.server_detail_oauth.title')">
     <template #actions>
       <button type="button" class="btn-secondary" @click="oauthEditing = !oauthEditing">
-        {{ oauthEditing ? t('common.cancel') : oauth ? t('components.server_detail_oauth.change') : t('components.server_detail_oauth.set_credentials') }}
+        {{
+          oauthEditing
+            ? t("common.cancel")
+            : oauth
+              ? t("components.server_detail_oauth.change")
+              : t("components.server_detail_oauth.set_credentials")
+        }}
       </button>
-      <button v-if="oauth" type="button" class="link-btn danger" @click="requestClearOAuth">{{ t('components.server_detail_oauth.clear') }}</button>
+      <button v-if="oauth" type="button" class="link-btn danger" @click="requestClearOAuth">
+        {{ t("components.server_detail_oauth.clear") }}
+      </button>
     </template>
     <p class="ua-status">
       <template v-if="oauth">
-        {{ t('components.server_detail_oauth.configured') }}: <code>{{ oauth.tokenUrl }}</code> · {{ t('components.server_detail_oauth.client') }} <code>{{ oauth.clientId }}</code
+        {{ t("components.server_detail_oauth.configured") }}: <code>{{ oauth.tokenUrl }}</code> ·
+        {{ t("components.server_detail_oauth.client") }} <code>{{ oauth.clientId }}</code
         ><span v-if="oauth.scope">
-          · {{ t('components.server_detail_oauth.scope') }} <code>{{ oauth.scope }}</code></span
+          · {{ t("components.server_detail_oauth.scope") }} <code>{{ oauth.scope }}</code></span
         >
       </template>
-      <template v-else>{{ t('components.server_detail_oauth.not_configured') }}</template>
+      <template v-else>{{ t("components.server_detail_oauth.not_configured") }}</template>
     </p>
     <form v-if="oauthEditing" class="ua-form" @submit.prevent="saveOAuth">
       <label
-        >{{ t('components.server_detail_oauth.fields.token_url') }}
+        >{{ t("components.server_detail_oauth.fields.token_url") }}
         <input v-model="oauthTokenUrl" type="url" placeholder="https://auth.example.com/oauth/token" autocomplete="off"
       /></label>
-      <label>{{ t('components.server_detail_oauth.fields.client_id') }} <input v-model="oauthClientId" autocomplete="off" /></label>
-      <label>{{ t('components.server_detail_oauth.fields.client_secret') }} <input v-model="oauthClientSecret" type="password" autocomplete="off" /></label>
-      <label>{{ t('components.server_detail_oauth.fields.scope') }} <input v-model="oauthScope" autocomplete="off" placeholder="read write" /></label>
+      <label
+        >{{ t("components.server_detail_oauth.fields.client_id") }} <input v-model="oauthClientId" autocomplete="off"
+      /></label>
+      <label
+        >{{ t("components.server_detail_oauth.fields.client_secret") }}
+        <input v-model="oauthClientSecret" type="password" autocomplete="off"
+      /></label>
+      <label
+        >{{ t("components.server_detail_oauth.fields.scope") }}
+        <input v-model="oauthScope" autocomplete="off" placeholder="read write"
+      /></label>
       <p v-if="oauthError || clearOAuthError" class="error">{{ oauthError || clearOAuthError }}</p>
       <button type="submit" class="btn-primary" :disabled="oauthSaving">
-        {{ oauthSaving ? t('common.saving') : t('components.server_detail_oauth.save') }}
+        {{ oauthSaving ? t("common.saving") : t("components.server_detail_oauth.save") }}
       </button>
     </form>
   </ConfigSection>

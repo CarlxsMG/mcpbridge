@@ -46,14 +46,15 @@ async function saveApprovalFn() {
 </script>
 
 <template>
-  <h3>{{ t('components.guard_editor_approval.title') }}</h3>
+  <h3>{{ t("components.guard_editor_approval.title") }}</h3>
   <div class="field">
     <label class="checkline"
-      ><input v-model="approvalRequiredInput" type="checkbox" /> {{ t('components.guard_editor_approval.require_label') }}</label
+      ><input v-model="approvalRequiredInput" type="checkbox" />
+      {{ t("components.guard_editor_approval.require_label") }}</label
     >
-    <label for="approval-levels">{{ t('components.guard_editor_approval.levels_label') }}</label>
+    <label for="approval-levels">{{ t("components.guard_editor_approval.levels_label") }}</label>
     <p class="hint">
-      {{ t('components.guard_editor_approval.levels_hint') }}
+      {{ t("components.guard_editor_approval.levels_hint") }}
     </p>
     <input
       id="approval-levels"
@@ -63,6 +64,12 @@ async function saveApprovalFn() {
       :disabled="!approvalRequiredInput"
     />
     <p v-if="approvalRequiredInput && approvalLevelsError" class="field-error">{{ approvalLevelsError }}</p>
-    <SaveRow :label="t('components.guard_editor_approval.save')" :saving="saving" :saved="saved" :error="error" @save="saveApprovalFn" />
+    <SaveRow
+      :label="t('components.guard_editor_approval.save')"
+      :saving="saving"
+      :saved="saved"
+      :error="error"
+      @save="saveApprovalFn"
+    />
   </div>
 </template>
