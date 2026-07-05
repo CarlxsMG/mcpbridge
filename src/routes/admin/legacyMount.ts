@@ -898,11 +898,5 @@ export function mountLegacy(parent: Router): void {
     },
   );
 
-  // ── Synthetic monitors ─────────────────────────────────────────────────────
-
-  parent.get("/monitors", (_req: Request, res: Response) => {
-    res.status(200).json({ items: listMonitors() });
-  });
-
   // ── Traffic explorer + replay — moved to ./traffic.ts (P0-2b cont.) ──────
 }
