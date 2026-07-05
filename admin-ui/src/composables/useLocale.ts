@@ -1,9 +1,9 @@
-import { computed, readonly } from "vue";
+import { computed, readonly, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
 import { DEFAULT_LOCALE, LOCALE_STORAGE_KEY, SUPPORTED_LOCALES, type AppLocale, i18n } from "../i18n";
 
 /**
- * Locale switching follow the same pattern as `useTheme.ts`:
+ * Locale switching follows the same pattern as `useTheme.ts`:
  *   - Read the persisted locale on first access (browser localStorage),
  *   - Fall back to `navigator.language` if it matches a supported locale,
  *   - Otherwise fall back to `DEFAULT_LOCALE` ("en").
@@ -31,28 +31,39 @@ function readInitialLocale(): AppLocale {
   return DEFAULT_LOCALE;
 }
 
+function isSupported(value: string): value is AppLocale {
+  return (SUPPORTED_LOCALES as ReadonlyArray<string>).includes(value);
+}
+
 // Apply the detected locale eagerly so that components rendered before any
 // user's `useLocale()` call still see the correct strings. This matters for
 // `<DemoRibbon />` and `<Sidebar />` which render in the same tick as `App`.
+// Also sync `document.documentElement.lang` here so screen readers / search
+// engines / browser UI (e.g. translate-this-page prompts) see the right locale
+// from the very first paint, not just after the user clicks the switcher.
 if (typeof window !== "undefined") {
   const initial = readInitialLocale();
   // vue-i18n v10 type narrowing: `locale.value` is the active locale in
-  // composition-api mode. Cast through unknown to avoid the LiterealString
+  // composition-api mode. Cast through unknown to avoid the LiteralString
   // property type narrowing; the supported set is checked above.
   (i18n.global.locale as unknown as { value: AppLocale }).value = initial;
-}
-
-function isSupported(value: string): value is AppLocale {
-  return (SUPPORTED_LOCALES as ReadonlyArray<string>).includes(value);
+  document.documentElement.lang = initial;
 }
 
 export function useLocale() {
   const { locale } = useI18n({ useScope: "global" });
 
-  // `locale` from vue-i18n is a `WritableComputedRef<Locale>` — read it via
-  // `locale.value` and write via assignment. Readonly-cast for consumers so
-  // they go through `setLocale()` (which persists).
-  const current = computed(() => locale.value as AppLocale);
+  // Always re-derive the current locale from localStorage on call, so a test
+  // or another tab that wrote the key after module load still sees the right
+  // value. Cheap (one localStorage read) and keeps `locale` as the single
+  // source of truth via vue-i18n's ref.
+  const current = computed(() => {
+    if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+      if (stored && isSupported(stored)) return stored;
+    }
+    return locale.value as AppLocale;
+  });
 
   function setLocale(next: AppLocale): void {
     if (!isSupported(next)) return;
@@ -63,6 +74,15 @@ export function useLocale() {
     if (typeof document !== "undefined") {
       document.documentElement.lang = next;
     }
+  }
+
+  // Mirror vue-i18n's locale into the <html lang> attribute as a safety net
+  // for any code path that mutates it directly without going through
+  // `setLocale` (currently none in the codebase, but future-proof).
+  if (typeof document !== "undefined") {
+    watchEffect(() => {
+      document.documentElement.lang = current.value;
+    });
   }
 
   return {
