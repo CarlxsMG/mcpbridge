@@ -1,7 +1,7 @@
 import { getDb } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { recordAudit } from "../audit/audit.js";
-import { isLeader } from "../../db/leader-lease.js";
+import { startLeaderGatedInterval } from "../../lib/leader-loop.js";
 import { log } from "../../logger.js";
 import { runSyntheticChecks } from "../../observability/monitor.js";
 
@@ -219,11 +219,8 @@ export async function runDueSchedules(now: Date): Promise<number> {
 
 /** Starts the once-a-minute, leader-only evaluator. Returns a stop function. */
 export function startScheduleLoop(): () => void {
-  const timer = setInterval(() => {
-    if (!isLeader()) return;
-    void runDueSchedules(new Date());
-    void runSyntheticChecks(new Date());
+  return startLeaderGatedInterval(async () => {
+    const now = new Date();
+    await Promise.all([runDueSchedules(now), runSyntheticChecks(now)]);
   }, 60_000);
-  if (timer.unref) timer.unref();
-  return () => clearInterval(timer);
 }

@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { rateLimitHits, rateLimitEvictions } from "../observability/metrics.js";
+import { startPeriodicSweep } from "../lib/leader-loop.js";
 
 interface Bucket {
   tokens: number[];
@@ -191,7 +192,7 @@ function evictEmpty(map: Map<string, Bucket>, tier: string): void {
  * Returns a stop function; call it during graceful shutdown.
  */
 export function startRateLimiterCleanup(): () => void {
-  const handle = setInterval(() => {
+  return startPeriodicSweep(() => {
     evictEmpty(globalBuckets, "global");
     evictEmpty(mcpBuckets, "mcp");
     evictEmpty(registerBuckets, "register");
@@ -199,8 +200,6 @@ export function startRateLimiterCleanup(): () => void {
     evictEmpty(loginBuckets, "login");
     evictEmpty(installLinkBuckets, "install_link");
   }, config.rateLimitCleanupIntervalMs);
-
-  return () => clearInterval(handle);
 }
 
 export function rateLimitRegister(maxPerMinute: number) {

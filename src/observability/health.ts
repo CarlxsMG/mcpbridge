@@ -3,7 +3,7 @@ import type { ClientStatus } from "../mcp/types.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { notifyToolsChanged } from "../mcp/mcp-server.js";
-import { isLeader } from "../db/leader-lease.js";
+import { startLeaderGatedInterval } from "../lib/leader-loop.js";
 import { mcpUpstream } from "../mcp/mcp-upstream.js";
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { healthCheckDuration, healthCheckRunsTotal, healthLoopErrorsTotal, healthEvictionsTotal } from "./metrics.js";
@@ -104,14 +104,14 @@ async function handleFailure(name: string, previousStatus: ClientStatus): Promis
 }
 
 export function startHealthCheckLoop(): () => void {
+  // Only the elected leader actually probes backends — running this loop on
+  // every horizontally-scaled instance would multiply real network load
+  // against the same backends N-fold (enforced by startLeaderGatedInterval).
+  // Circuit-breaker and rate-limiter cleanup loops are NOT gated this way
+  // since they only ever touch this process's own local, uncoordinated
+  // in-memory state.
   const check = async () => {
     try {
-      // Only the elected leader actually probes backends — running this
-      // loop on every horizontally-scaled instance would multiply real
-      // network load against the same backends N-fold. Circuit-breaker and
-      // rate-limiter cleanup loops are NOT gated this way since they only
-      // ever touch this process's own local, uncoordinated in-memory state.
-      if (!isLeader()) return;
       const clients = registry.listClients();
       await checkBatch(clients);
     } catch (err) {
@@ -122,9 +122,5 @@ export function startHealthCheckLoop(): () => void {
     }
   };
 
-  // Run immediately on start, then at interval
-  check();
-
-  const timer = setInterval(check, config.healthCheckIntervalMs);
-  return () => clearInterval(timer);
+  return startLeaderGatedInterval(check, config.healthCheckIntervalMs);
 }

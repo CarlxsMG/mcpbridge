@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { breakerStateTransitions, breakerProbeRejected } from "../observability/metrics.js";
+import { startPeriodicSweep } from "../lib/leader-loop.js";
 
 type CircuitState = "closed" | "open" | "half_open";
 
@@ -202,7 +203,7 @@ export function removeCircuitBreaker(clientName: string): void {
  * Returns a stop function; call it during graceful shutdown.
  */
 export function startCircuitBreakerCleanup(): () => void {
-  const handle = setInterval(() => {
+  return startPeriodicSweep(() => {
     const now = Date.now();
     for (const [name, breaker] of breakers) {
       if (now - breaker.getLastAccess() > BREAKER_IDLE_TTL) {
@@ -210,6 +211,4 @@ export function startCircuitBreakerCleanup(): () => void {
       }
     }
   }, BREAKER_IDLE_TTL);
-
-  return () => clearInterval(handle);
 }
