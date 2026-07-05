@@ -1,16 +1,20 @@
 import type { Request, Response, NextFunction } from "express";
 import { config } from "../config.js";
+import { matchesOriginEntry } from "../lib/origin-match.js";
 
 /**
  * Resolves whether a request `Origin` header is in the configured allowlist.
  *
- * Comparison is performed on the canonicalised form produced by
- * `parseCorsOrigins` in `config.ts`: scheme is exact, host is lowercased, port
- * is included only when non-default.  The raw `Origin` header value from the
- * browser is normalised in the same way before comparison so that casing
- * differences in the host segment do not cause false negatives.
+ * Entries in `config.corsOrigins` are already canonicalised by
+ * `parseCorsOrigins` in `config.ts`: scheme is exact, host is lowercased,
+ * port is included only when non-default. The raw `Origin` header value from
+ * the browser is compared against each entry via {@link matchesOriginEntry}
+ * (with `supportsPortWildcard: false` — this allowlist has no ":*" syntax),
+ * which parses+lowercases the same way, so casing differences in the host
+ * segment do not cause false negatives.
  *
- * @returns The normalised origin string if allowed, or `null` if not.
+ * @returns The matching entry (i.e. the canonical form of the request
+ *   origin) if allowed, or `null` if not.
  */
 function matchAllowedOrigin(requestOrigin: string): string | null {
   const origins = config.corsOrigins;
@@ -19,20 +23,7 @@ function matchAllowedOrigin(requestOrigin: string): string | null {
   // Wildcard mode — allow any origin (credentials are never sent in this mode)
   if (origins[0] === "*") return requestOrigin;
 
-  // Normalise the incoming origin for comparison
-  let normalised: URL;
-  try {
-    normalised = new URL(requestOrigin);
-  } catch {
-    return null;
-  }
-  const scheme = normalised.protocol.replace(/:$/, "");
-  if (scheme !== "http" && scheme !== "https") return null;
-  const host = normalised.hostname.toLowerCase();
-  const port = normalised.port;
-  const canonical = port ? `${scheme}://${host}:${port}` : `${scheme}://${host}`;
-
-  return origins.includes(canonical) ? canonical : null;
+  return origins.find((entry) => matchesOriginEntry(requestOrigin, entry, { supportsPortWildcard: false })) ?? null;
 }
 
 /**
