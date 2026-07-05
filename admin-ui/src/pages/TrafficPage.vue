@@ -17,6 +17,7 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
 import PaginationBar from "@/components/ui/PaginationBar.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
+import SearchInput from "@/components/ui/SearchInput.vue";
 import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 
 const route = useRoute();
@@ -141,11 +142,11 @@ function confirmReplay() {
     <form class="filter-row" @submit.prevent="applyFilters">
       <div class="filter-field">
         <span class="filter-label">Client name</span>
-        <input v-model="clientFilter" type="text" placeholder="Client name" aria-label="Filter by client" />
+        <SearchInput v-model="clientFilter" placeholder="Client name" />
       </div>
       <div class="filter-field">
         <span class="filter-label">Tool name</span>
-        <input v-model="toolFilter" type="text" placeholder="Tool name" aria-label="Filter by tool" />
+        <SearchInput v-model="toolFilter" placeholder="Tool name" />
       </div>
       <label class="errors-only"><input v-model="errorsOnly" type="checkbox" /> Errors only</label>
       <button type="submit" class="btn-secondary" :disabled="loading">
@@ -160,7 +161,7 @@ function confirmReplay() {
 
     <ListLayout :loading="loading && !records.length" :error="errorMessage" :empty="records.length === 0">
       <template #empty>
-        <EmptyState :icon="ArrowLeftRight">
+        <EmptyState :icon="ArrowLeftRight" muted>
           No traffic recorded yet. If <code>TRAFFIC_CAPTURE</code> isn't set on the server, calls aren't being recorded
           — enable it, then check back after your next request.
         </EmptyState>
@@ -215,8 +216,13 @@ function confirmReplay() {
       </TableCard>
 
       <div class="sticky-pagination">
-        <PaginationBar :has-prev="hasPrev" :has-next="hasNext" @prev="prevPage" @next="nextPage" />
-        <p class="subtitle">{{ records.length }} record(s) on this page</p>
+        <PaginationBar
+          :has-prev="hasPrev"
+          :has-next="hasNext"
+          :label="`${records.length} record(s) on this page`"
+          @prev="prevPage"
+          @next="nextPage"
+        />
       </div>
     </ListLayout>
 
@@ -254,14 +260,6 @@ function confirmReplay() {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.filter-row input[type="text"] {
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  min-width: 10rem;
-}
 .errors-only {
   display: inline-flex;
   align-items: center;
@@ -288,10 +286,5 @@ function confirmReplay() {
 }
 .success {
   color: var(--ok);
-}
-/* EmptyState's own recipe colors its paragraph via --text-secondary on the
-   wrapper; this page's empty copy is intentionally a step lighter. */
-:deep(.empty-state p) {
-  color: var(--text-muted);
 }
 </style>
