@@ -33,6 +33,7 @@ import type { DiscoveredMcpTool } from "./mcp-discovery.js";
 import { TOOL_NAME_RE, TOOL_KEY_SEPARATOR, toolKey } from "../lib/identifier.js";
 import { createKeyedMutex } from "../lib/async-lock.js";
 import { RegistryAliasIndex } from "./registry-alias-index.js";
+import { ToolIndex } from "./tool-index.js";
 
 export interface ClientSummary {
   name: string;
@@ -165,7 +166,7 @@ export function validateEndpointPath(endpoint: string): string | null {
 
 class Registry {
   private clients: Map<string, RegisteredClient> = new Map();
-  private toolIndex: Map<string, { clientName: string; toolName: string }> = new Map();
+  private toolIndex = new ToolIndex();
 /** Display-name alias index — see registry-alias-index.ts. Kept as a field on
  * `Registry` only because its lifecycle mirrors the registry's (rebuilt on
  * register, drained on teardown). The map itself lives in its own module. */
@@ -574,7 +575,7 @@ private aliasIndex = new RegistryAliasIndex();
       if (this.clients.has(name)) {
         const existing = this.clients.get(name)!;
         for (const tool of existing.tools) {
-          this.toolIndex.delete(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`);
+          this.toolIndex.deleteTool(name, tool.name);
         }
       }
 
@@ -598,10 +599,7 @@ private aliasIndex = new RegistryAliasIndex();
       this.clients.set(name, client);
 
       for (const tool of persisted.tools) {
-        this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`, {
-          clientName: name,
-          toolName: tool.name,
-        });
+        this.toolIndex.setTool(name, tool.name);
       }
       this.aliasIndex.rebuildForClient(name, persisted.tools);
 
@@ -679,7 +677,7 @@ private aliasIndex = new RegistryAliasIndex();
       if (this.clients.has(name)) {
         const existing = this.clients.get(name)!;
         for (const tool of existing.tools) {
-          this.toolIndex.delete(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`);
+          this.toolIndex.deleteTool(name, tool.name);
         }
       }
 
@@ -703,7 +701,7 @@ private aliasIndex = new RegistryAliasIndex();
 
       this.clients.set(name, client);
       for (const tool of persisted.tools) {
-        this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`, { clientName: name, toolName: tool.name });
+        this.toolIndex.setTool(name, tool.name);
       }
       this.aliasIndex.rebuildForClient(name, persisted.tools);
 
@@ -737,7 +735,7 @@ private aliasIndex = new RegistryAliasIndex();
 
       // 3. Remove all toolIndex + alias entries for this client
       for (const tool of client.tools) {
-        this.toolIndex.delete(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`);
+        this.toolIndex.deleteTool(name, tool.name);
       }
       this.aliasIndex.clearForClient(name);
 
@@ -894,7 +892,7 @@ private aliasIndex = new RegistryAliasIndex();
           if (!client) return;
           this.clients.set(name, client);
           for (const t of client.tools)
-            this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${t.name}`, { clientName: name, toolName: t.name });
+            this.toolIndex.setTool(name, t.name);
           this.aliasIndex.rebuildForClient(name, client.tools);
           added++;
         });
