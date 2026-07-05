@@ -4,6 +4,7 @@ import { adminAuth } from "../../middleware/auth.js";
 import { connectRoutes } from "./connect.js";
 import { overviewRoutes } from "./overview.js";
 import { usersRoutes } from "./users.js";
+import { auditLogRoutes } from "./audit-log.js";
 import { mountLegacy } from "./legacyMount.js";
 
 /**
@@ -34,6 +35,7 @@ export function adminRoutes(app: Express): void {
   r.use(connectRoutes);
   r.use(overviewRoutes);
   r.use(usersRoutes);
+  r.use(auditLogRoutes);
   mountLegacy(r);
 
   app.use("/admin-api", r);
