@@ -6,7 +6,6 @@ import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
-import { statusTone, toneColorVar } from "@/utils/status";
 import type { McpApiKey, Consumer } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -14,6 +13,7 @@ import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
+import StatusBadge from "@/components/ui/StatusBadge.vue";
 import { KeyRound } from "lucide-vue-next";
 
 const keys = ref<McpApiKey[]>([]);
@@ -36,14 +36,10 @@ const {
 } = useConfirmAction<McpApiKey>();
 
 function statusOf(key: McpApiKey): string {
-  if (key.revokedAt !== null) return "Revoked";
-  if (!key.enabled) return "Disabled";
-  if (key.expiresAt !== null && key.expiresAt <= Date.now()) return "Expired";
-  return "Active";
-}
-
-function keyTone(key: McpApiKey) {
-  return statusTone(statusOf(key));
+  if (key.revokedAt !== null) return "revoked";
+  if (!key.enabled) return "disabled";
+  if (key.expiresAt !== null && key.expiresAt <= Date.now()) return "expired";
+  return "active";
 }
 
 function scopeSummary(key: McpApiKey): string {
@@ -151,12 +147,7 @@ function confirmDelete() {
             </td>
             <td>{{ consumerName(key.consumerId) }}</td>
             <td>
-              <span
-                class="status"
-                :class="`tone-${keyTone(key)}`"
-                :style="{ color: `var(${toneColorVar(keyTone(key))})` }"
-                >{{ statusOf(key) }}</span
-              >
+              <StatusBadge :status="statusOf(key)" />
             </td>
             <td>{{ formatMaybeDate(key.lastUsedAt) }}</td>
             <td>{{ formatMaybeDate(key.expiresAt, "—") }}</td>
@@ -213,21 +204,6 @@ function confirmDelete() {
   display: flex;
   gap: 0.75rem;
 }
-.status {
-  font-size: 0.78rem;
-  padding: 0.1rem 0.5rem;
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-}
-.status.tone-good {
-  background: var(--ok-soft);
-}
-.status.tone-bad {
-  background: var(--breach-soft);
-}
-.status.tone-neutral {
-  background: var(--surface-sunken);
-}
 .elev-chip {
   display: inline-block;
   padding: 0.05rem 0.4rem;
@@ -239,10 +215,5 @@ function confirmDelete() {
 .scope-detail {
   display: grid;
   gap: 0.25rem;
-}
-.row-error {
-  color: var(--breach);
-  font-size: 0.75rem;
-  margin: 0.25rem 0 0;
 }
 </style>
