@@ -36,7 +36,7 @@ async function createTeam() {
     <FormPage max-width="23.75rem">
       <PageHeader title="New team" :back-link="{ to: '/teams', label: 'Teams' }" />
 
-      <form class="create-form" @submit.prevent="createTeam">
+      <form class="form-card" @submit.prevent="createTeam">
         <FormField label="Team name" for="new-team-name">
           <input id="new-team-name" v-model="name" type="text" placeholder="Team name (e.g. Payments)" required />
         </FormField>
@@ -48,16 +48,3 @@ async function createTeam() {
     </FormPage>
   </section>
 </template>
-
-<style scoped>
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-</style>

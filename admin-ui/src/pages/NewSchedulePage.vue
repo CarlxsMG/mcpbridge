@@ -117,7 +117,7 @@ async function createSchedule() {
         UTC on the leader instance.
       </p>
 
-      <form class="create-form" @submit.prevent="createSchedule">
+      <form class="form-card" @submit.prevent="createSchedule">
         <FormField label="Type" for="sched-type">
           <SelectMenu id="sched-type" v-model="targetType" :options="TARGET_TYPE_OPTIONS" />
         </FormField>
@@ -184,16 +184,6 @@ async function createSchedule() {
   color: var(--text-secondary);
   font-size: 0.85rem;
   margin-bottom: 1.25rem;
-}
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 :deep(.field .cron) {
   font-family: var(--font-mono);

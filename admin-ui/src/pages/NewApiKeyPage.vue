@@ -83,7 +83,7 @@ async function copyKey() {
         <RouterLink to="/keys" class="btn-primary done-link">Done</RouterLink>
       </div>
 
-      <form v-else class="create-form" @submit.prevent="createKey">
+      <form v-else class="form-card" @submit.prevent="createKey">
         <FormField label="Label" for="k-label">
           <input id="k-label" v-model="label" type="text" required placeholder="e.g. ci-bot" />
           <p v-if="error" class="error">{{ error }}</p>
@@ -119,16 +119,6 @@ async function copyKey() {
 </template>
 
 <style scoped>
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
 .minted {
   background: var(--ok-soft);
   border: 1px solid var(--ok);

@@ -34,11 +34,11 @@ const threshold = ref("0.5");
 const minCalls = ref("10");
 const nameError = ref("");
 const urlError = ref("");
-const createError = ref("");
+const error = ref("");
 const creating = ref(false);
 
 async function createRule() {
-  createError.value = "";
+  error.value = "";
   nameError.value = "";
   urlError.value = "";
   if (!name.value.trim()) {
@@ -58,12 +58,12 @@ async function createRule() {
     // (value: null, error: null), so check .value rather than just .error.
     const thresholdResult = parseOptionalNumber(threshold.value, "Threshold must be a plain number.");
     if (thresholdResult.value === null) {
-      createError.value = "Threshold must be a plain number.";
+      error.value = "Threshold must be a plain number.";
       return;
     }
     const minCallsResult = parseOptionalNumber(minCalls.value, "Minimum calls must be a plain number.");
     if (minCallsResult.value === null) {
-      createError.value = "Minimum calls must be a plain number.";
+      error.value = "Minimum calls must be a plain number.";
       return;
     }
     thresholdValue = thresholdResult.value;
@@ -83,7 +83,7 @@ async function createRule() {
     await api.post("/admin-api/alerts", body);
     await router.push("/alerts");
   } catch (err) {
-    createError.value = toErrorMessage(err, "Failed to create rule.");
+    error.value = toErrorMessage(err, "Failed to create rule.");
   } finally {
     creating.value = false;
   }
@@ -99,7 +99,7 @@ async function createRule() {
         true.
       </p>
 
-      <form class="create-form" @submit.prevent="createRule">
+      <form class="form-card" @submit.prevent="createRule">
         <FormField label="Name" for="alert-name">
           <input id="alert-name" v-model="name" type="text" placeholder="pager" />
           <p v-if="nameError" class="error">{{ nameError }}</p>
@@ -134,7 +134,7 @@ async function createRule() {
             />
           </FormField>
         </template>
-        <p v-if="createError" class="error">{{ createError }}</p>
+        <p v-if="error" class="error">{{ error }}</p>
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? "Creating…" : "Create rule" }}
         </button>
@@ -148,12 +148,5 @@ async function createRule() {
   color: var(--text-secondary);
   font-size: 0.85rem;
   margin-bottom: 1.25rem;
-}
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
 }
 </style>

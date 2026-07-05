@@ -19,7 +19,7 @@ const steps = ref(
 );
 const schemaError = ref("");
 const stepsError = ref("");
-const createError = ref("");
+const error = ref("");
 const creating = ref(false);
 
 const nameError = computed(() => {
@@ -31,12 +31,12 @@ const nameError = computed(() => {
 });
 
 async function createComposite() {
-  createError.value = "";
+  error.value = "";
   schemaError.value = "";
   stepsError.value = "";
   nameTouched.value = true;
   if (!name.value.trim()) {
-    createError.value = "Name is required.";
+    error.value = "Name is required.";
     return;
   }
   if (nameError.value) {
@@ -66,7 +66,7 @@ async function createComposite() {
     });
     await router.push(`/composites/${encodeURIComponent(name.value.trim())}`);
   } catch (err) {
-    createError.value = toErrorMessage(err, "Failed to create composite.");
+    error.value = toErrorMessage(err, "Failed to create composite.");
   } finally {
     creating.value = false;
   }
@@ -82,7 +82,7 @@ async function createComposite() {
         real <code>client__tool</code> through the full guard stack.
       </p>
 
-      <form class="create-form" @submit.prevent="createComposite">
+      <form class="form-card" @submit.prevent="createComposite">
         <FormField label="Name" for="new-composite-name">
           <input
             id="new-composite-name"
@@ -115,7 +115,7 @@ async function createComposite() {
           <textarea id="new-composite-steps" v-model="steps" class="mono-field" rows="6" spellcheck="false"></textarea>
           <p v-if="stepsError" class="error">{{ stepsError }}</p>
         </FormField>
-        <p v-if="createError" class="error">{{ createError }}</p>
+        <p v-if="error" class="error">{{ error }}</p>
         <button class="btn-primary" type="submit" :disabled="creating">
           {{ creating ? "Creating…" : "Create composite" }}
         </button>
@@ -129,16 +129,6 @@ async function createComposite() {
   color: var(--text-secondary);
   margin: 0 0 1.25rem;
   max-width: 35rem;
-}
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 1.25rem;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
 }
 .field textarea.mono-field {
   font-family: var(--font-mono);

@@ -51,7 +51,7 @@ async function createUser() {
     <FormPage max-width="23.75rem">
       <PageHeader title="Add user" :back-link="{ to: '/users', label: 'Users' }" />
 
-      <form class="create-form" @submit.prevent="createUser">
+      <form class="form-card" @submit.prevent="createUser">
         <FormField label="Username" for="new-username">
           <input id="new-username" v-model="username" type="text" required />
         </FormField>
@@ -69,16 +69,3 @@ async function createUser() {
     </FormPage>
   </section>
 </template>
-
-<style scoped>
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-</style>

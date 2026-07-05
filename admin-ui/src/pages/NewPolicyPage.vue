@@ -53,7 +53,7 @@ async function createPolicy() {
     <FormPage max-width="26.25rem">
       <PageHeader title="New policy" :back-link="{ to: '/policies', label: 'Guard policies' }" />
 
-      <form class="create-form" @submit.prevent="createPolicy">
+      <form class="form-card" @submit.prevent="createPolicy">
         <FormField label="Name" for="p-name">
           <input id="p-name" v-model="name" type="text" placeholder="strict" />
         </FormField>
@@ -71,16 +71,3 @@ async function createPolicy() {
     </FormPage>
   </section>
 </template>
-
-<style scoped>
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-</style>

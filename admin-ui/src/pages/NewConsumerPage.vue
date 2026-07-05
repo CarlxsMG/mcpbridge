@@ -16,12 +16,14 @@ const endUserLimit = ref("");
 const nameError = ref("");
 const quotaError = ref("");
 const endUserLimitError = ref("");
+const error = ref("");
 const creating = ref(false);
 
 async function createConsumer() {
   nameError.value = "";
   quotaError.value = "";
   endUserLimitError.value = "";
+  error.value = "";
   if (!name.value.trim()) {
     nameError.value = "Name is required.";
   }
@@ -44,7 +46,7 @@ async function createConsumer() {
     });
     await router.push("/consumers");
   } catch (err) {
-    nameError.value = toErrorMessage(err, "Failed to create consumer.");
+    error.value = toErrorMessage(err, "Failed to create consumer.");
   } finally {
     creating.value = false;
   }
@@ -56,7 +58,7 @@ async function createConsumer() {
     <FormPage max-width="23.75rem">
       <PageHeader title="New consumer" :back-link="{ to: '/consumers', label: 'Consumers' }" />
 
-      <form class="create-form" @submit.prevent="createConsumer">
+      <form class="form-card" @submit.prevent="createConsumer">
         <FormField label="Name" for="c-name">
           <input id="c-name" v-model="name" type="text" placeholder="mobile-app" />
           <p v-if="nameError" class="error">{{ nameError }}</p>
@@ -69,6 +71,7 @@ async function createConsumer() {
           <input id="c-end-user-limit" v-model="endUserLimit" type="text" inputmode="numeric" />
           <p v-if="endUserLimitError" class="error">{{ endUserLimitError }}</p>
         </FormField>
+        <p v-if="error" class="error">{{ error }}</p>
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? "Creating…" : "Create consumer" }}
         </button>
@@ -76,16 +79,3 @@ async function createConsumer() {
     </FormPage>
   </section>
 </template>
-
-<style scoped>
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-</style>

@@ -50,7 +50,7 @@ async function createEntry() {
     <FormPage max-width="30rem">
       <PageHeader title="Add custom catalog entry" :back-link="{ to: '/catalog', label: 'Catalog' }" />
 
-      <form class="create-form" @submit.prevent="createEntry">
+      <form class="form-card" @submit.prevent="createEntry">
         <FormField label="Slug" for="ce-slug">
           <input id="ce-slug" v-model="slug" type="text" placeholder="internal-crm-staging" required />
         </FormField>
@@ -85,16 +85,6 @@ async function createEntry() {
 </template>
 
 <style scoped>
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
 .segmented {
   display: flex;
   gap: 1rem;

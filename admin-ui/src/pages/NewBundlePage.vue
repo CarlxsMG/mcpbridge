@@ -47,7 +47,7 @@ async function createBundle() {
         Cross-client tool selections, each served at its own <code>/mcp-custom/&lt;name&gt;</code> endpoint.
       </p>
 
-      <form class="create-form" @submit.prevent="createBundle">
+      <form class="form-card" @submit.prevent="createBundle">
         <FormField label="Name" for="new-bundle-name">
           <input id="new-bundle-name" v-model="name" type="text" placeholder="e.g. assistant-a" required />
         </FormField>
@@ -71,16 +71,6 @@ async function createBundle() {
 .subtitle {
   color: var(--text-secondary);
   margin: 0 0 1.25rem;
-}
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 .field label {
   display: block;

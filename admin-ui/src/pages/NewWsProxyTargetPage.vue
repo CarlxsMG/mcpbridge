@@ -63,7 +63,7 @@ async function createTarget() {
     <FormPage max-width="26.25rem">
       <PageHeader title="New WS proxy target" :back-link="{ to: '/ws-proxies', label: 'WS proxies' }" />
 
-      <form class="create-form" @submit.prevent="createTarget">
+      <form class="form-card" @submit.prevent="createTarget">
         <FormField label="Name" for="wp-name">
           <input id="wp-name" v-model="name" type="text" placeholder="iot-gateway" />
         </FormField>
@@ -87,16 +87,3 @@ async function createTarget() {
     </FormPage>
   </section>
 </template>
-
-<style scoped>
-.create-form {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-</style>
