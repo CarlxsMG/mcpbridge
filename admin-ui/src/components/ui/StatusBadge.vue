@@ -13,6 +13,10 @@ const displayMap: Record<string, { label: string; icon: typeof Circle; className
   half_open: { label: "Half-open", icon: AlertTriangle, className: "badge-warn" },
   unreachable: { label: "Unreachable", icon: XCircle, className: "badge-bad" },
   open: { label: "Open", icon: XCircle, className: "badge-bad" },
+  active: { label: "Active", icon: CheckCircle2, className: "badge-good" },
+  revoked: { label: "Revoked", icon: XCircle, className: "badge-bad" },
+  expired: { label: "Expired", icon: AlertTriangle, className: "badge-warn" },
+  disabled: { label: "Disabled", icon: Circle, className: "badge-neutral" },
 };
 
 const display = computed(() => {
