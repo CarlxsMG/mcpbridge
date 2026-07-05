@@ -119,6 +119,15 @@ const esKeys = flattenBundle(es);
 // examples, not actual translation lookups) and the parity test files
 // (synthetic keys for the test runner itself).
 const tCallRe = /\bt\(\s*['"]([^'"]+)['"]/g;
+// Dynamic-key patterns: navigation.ts builds lookup keys from helper
+// functions like `l("servers")` and `GL("Servers")`, and assigns
+// `labelKey` / `hintKey` / `groupKey` fields that other components
+// then pass straight to t(). The literal-key walk above won't catch
+// these because the actual key never appears as a string literal in
+// any source file. Walk the helper invocations + label/hint/groupKey
+// assignments to surface the dynamic keys too.
+const navKeyCallRe = /\b[hl]GL?\(\s*['"]([^'"]+)['"]\s*\)/g;
+const labelHintAssignRe = /\b(labelKey|hintKey|groupKey)\s*:\s*['"]([^'"]+)['"]/g;
 // Match a line that's entirely a JSDoc / line / block comment — we
 // don't want to flag example keys mentioned in documentation.
 const commentRe = /^\s*(\/\/\/|\/\/|\*|\s*\*)/;
@@ -126,15 +135,36 @@ const placeholderRe = /^\.{3}|^…/;
 const skipFiles = /(\/|\\)i18n-keys\.ts$|(\/|\\)i18n-parity\.test\.ts$/;
 
 const referenced: { key: string; file: string }[] = [];
+function addKey(key: string, file: string) {
+  if (placeholderRe.test(key)) return;
+  referenced.push({ key, file });
+}
 for (const file of walk(SRC)) {
   if (skipFiles.test(file)) continue;
   const text = readFileSync(file, "utf8");
   for (const line of text.split("\n")) {
     if (commentRe.test(line)) continue;
     for (const m of line.matchAll(tCallRe)) {
-      const key = m[1];
-      if (placeholderRe.test(key)) continue;
-      referenced.push({ key, file });
+      addKey(m[1], file);
+    }
+    for (const m of line.matchAll(navKeyCallRe)) {
+      const arg = m[1];
+      const matched = m[0];
+      if (/^hGL?/.test(matched)) {
+        // h("foo") → nav.foo.hint (also surface .label — the helper
+        // shape is fixed at the call site, but emitting both keeps the
+        // assertion symmetric without flipping the test on each side).
+        addKey(`nav.${arg}.hint`, file);
+        addKey(`nav.${arg}.label`, file);
+      } else if (/^GL/.test(matched)) {
+        addKey(`nav.groups.${arg}`, file);
+      } else {
+        addKey(`nav.${arg}.label`, file);
+        addKey(`nav.${arg}.hint`, file);
+      }
+    }
+    for (const m of line.matchAll(labelHintAssignRe)) {
+      addKey(m[2], file);
     }
   }
 }

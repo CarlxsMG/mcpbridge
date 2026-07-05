@@ -46,7 +46,10 @@ async function createBundle() {
 <template>
   <section>
     <FormPage max-width="50rem">
-      <PageHeader :title="t('pages.bundles.new.title')" :back-link="{ to: '/bundles', label: t('nav.bundles') }" />
+      <PageHeader
+        :title="t('pages.bundles.new.title')"
+        :back-link="{ to: '/bundles', label: t('nav.bundles.label') }"
+      />
       <p class="subtitle">
         {{ t("pages.bundles.new.subtitle_p1") }} <code>/mcp-custom/&lt;name&gt;</code>
         {{ t("pages.bundles.new.subtitle_p2") }}

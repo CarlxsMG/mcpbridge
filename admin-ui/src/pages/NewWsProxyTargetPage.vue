@@ -67,7 +67,7 @@ async function createTarget() {
     <FormPage max-width="26.25rem">
       <PageHeader
         :title="t('pages.ws_proxy_targets.new.title')"
-        :back-link="{ to: '/ws-proxies', label: t('nav.ws_proxies') }"
+        :back-link="{ to: '/ws-proxies', label: t('nav.ws-proxies.label') }"
       />
 
       <form class="form-card" @submit.prevent="createTarget">

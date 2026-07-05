@@ -82,7 +82,7 @@ async function createComposite() {
     <FormPage max-width="50rem">
       <PageHeader
         :title="t('pages.composites.new.title')"
-        :back-link="{ to: '/composites', label: t('nav.composites') }"
+        :back-link="{ to: '/composites', label: t('nav.composites.label') }"
       />
       <p class="subtitle">
         {{ t("pages.composites.new.subtitle_p1") }} <code>client__tool</code>

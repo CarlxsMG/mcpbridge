@@ -62,7 +62,7 @@ async function createConsumer() {
     <FormPage max-width="23.75rem">
       <PageHeader
         :title="t('pages.consumers.new.title')"
-        :back-link="{ to: '/consumers', label: t('nav.consumers') }"
+        :back-link="{ to: '/consumers', label: t('nav.consumers.label') }"
       />
 
       <form class="form-card" @submit.prevent="createConsumer">

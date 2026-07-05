@@ -76,21 +76,42 @@
       "Observability": "Observabilidad",
       "Administration": "Administración"
     },
-    "servers": "Servidores",
+    "servers": {
+      "label": "Servidores",
+      "hint": "Servidores upstream (REST + MCP)"
+    },
     "register-server": {
       "label": "Añadir servidor",
       "hint": "Registra un nuevo upstream"
     },
-    "catalog": "Catálogo",
-    "bundles": "Bundles",
-    "composites": "Composites",
+    "catalog": {
+      "label": "Catálogo",
+      "hint": "Servidores predefinidos que puedes registrar con un clic"
+    },
+    "bundles": {
+      "label": "Bundles",
+      "hint": "Selecciones curadas de tools a exponer a los clientes"
+    },
+    "composites": {
+      "label": "Composites",
+      "hint": "Cadenas de tools multi-paso"
+    },
     "ws-proxies": {
       "label": "Proxies WS",
       "hint": "Destinos de pasarela WebSocket"
     },
-    "keys": "API keys",
-    "policies": "Políticas",
-    "consumers": "Consumers",
+    "keys": {
+      "label": "API keys",
+      "hint": "Tokens bearer MCP emitidos a los consumers"
+    },
+    "policies": {
+      "label": "Políticas",
+      "hint": "Perfiles de guard reutilizables"
+    },
+    "consumers": {
+      "label": "Consumers",
+      "hint": "Cuotas y rate limits por consumer"
+    },
     "approvals": {
       "label": "Aprobaciones",
       "hint": "Cola de aprobación human-in-the-loop"
@@ -115,14 +136,26 @@
       "label": "Monitores",
       "hint": "Chequeos sintéticos de uptime y drift de schema"
     },
-    "alerts": "Alertas",
-    "schedules": "Schedules",
+    "alerts": {
+      "label": "Alertas",
+      "hint": "Reglas de alerta por webhook"
+    },
+    "schedules": {
+      "label": "Schedules",
+      "hint": "Acciones enable/disable por cron"
+    },
     "audit-log": {
       "label": "Log de auditoría",
       "hint": "Acciones admin encadenadas por hash"
     },
-    "users": "Usuarios",
-    "teams": "Teams",
+    "users": {
+      "label": "Usuarios",
+      "hint": "Cuentas admin y roles"
+    },
+    "teams": {
+      "label": "Teams",
+      "hint": "Agrupa usuarios para acotar políticas y ownership"
+    },
     "config": {
       "label": "Configuración",
       "hint": "Exportar, importar, snapshots"
@@ -134,8 +167,7 @@
     "account": {
       "label": "Cuenta",
       "hint": "Tu perfil, contraseña y sesiones"
-    },
-    "ws_proxies": "Proxies WebSocket"
+    }
   },
   "errors": {
     "generic": "Algo salió mal. Inténtalo de nuevo.",
@@ -864,6 +896,16 @@
       "no_data_window": "Sin datos en esta ventana.",
       "primary": "Valor",
       "secondary": "Secundario"
+    },
+    "overview": {
+      "widget_groups": {
+        "overview": "Resumen",
+        "usage": "Uso",
+        "health": "Salud",
+        "access": "Acceso",
+        "activity": "Actividad",
+        "custom": "Custom"
+      }
     }
   },
   "pages": {

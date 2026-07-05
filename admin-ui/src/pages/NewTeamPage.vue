@@ -38,7 +38,7 @@ async function createTeam() {
 <template>
   <section>
     <FormPage max-width="23.75rem">
-      <PageHeader :title="t('pages.teams.new.title')" :back-link="{ to: '/teams', label: t('nav.teams') }" />
+      <PageHeader :title="t('pages.teams.new.title')" :back-link="{ to: '/teams', label: t('nav.teams.label') }" />
 
       <form class="form-card" @submit.prevent="createTeam">
         <FormField :label="t('pages.teams.new.fields.name')" for="new-team-name">

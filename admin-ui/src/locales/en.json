@@ -76,21 +76,42 @@
       "Observability": "Observability",
       "Administration": "Administration"
     },
-    "servers": "Servers",
+    "servers": {
+      "label": "Servers",
+      "hint": "Upstream servers (REST + MCP)"
+    },
     "register-server": {
       "label": "Add server",
       "hint": "Register a new upstream"
     },
-    "catalog": "Catalog",
-    "bundles": "Bundles",
-    "composites": "Composites",
+    "catalog": {
+      "label": "Catalog",
+      "hint": "Pre-built servers you can register with one click"
+    },
+    "bundles": {
+      "label": "Bundles",
+      "hint": "Curated tool selections to expose to clients"
+    },
+    "composites": {
+      "label": "Composites",
+      "hint": "Multi-step tool chains"
+    },
     "ws-proxies": {
       "label": "WS proxies",
       "hint": "Live WebSocket passthrough targets"
     },
-    "keys": "API keys",
-    "policies": "Policies",
-    "consumers": "Consumers",
+    "keys": {
+      "label": "API keys",
+      "hint": "MCP bearer tokens issued to consumers"
+    },
+    "policies": {
+      "label": "Policies",
+      "hint": "Reusable guard profiles"
+    },
+    "consumers": {
+      "label": "Consumers",
+      "hint": "Per-consumer quotas and rate limits"
+    },
     "approvals": {
       "label": "Approvals",
       "hint": "Human-in-the-loop approval queue"
@@ -115,14 +136,26 @@
       "label": "Monitors",
       "hint": "Synthetic uptime + schema-drift checks"
     },
-    "alerts": "Alerts",
-    "schedules": "Schedules",
+    "alerts": {
+      "label": "Alerts",
+      "hint": "Webhook alert rules"
+    },
+    "schedules": {
+      "label": "Schedules",
+      "hint": "Cron-driven enable/disable actions"
+    },
     "audit-log": {
       "label": "Audit log",
       "hint": "Hash-chained admin actions"
     },
-    "users": "Users",
-    "teams": "Teams",
+    "users": {
+      "label": "Users",
+      "hint": "Admin accounts and roles"
+    },
+    "teams": {
+      "label": "Teams",
+      "hint": "Group users to scope policies and ownership"
+    },
     "config": {
       "label": "Config",
       "hint": "Export, import, snapshots"
@@ -134,8 +167,7 @@
     "account": {
       "label": "Account",
       "hint": "Your profile, password, and sessions"
-    },
-    "ws_proxies": "WebSocket proxies"
+    }
   },
   "errors": {
     "generic": "Something went wrong. Try again.",
@@ -864,6 +896,16 @@
       "no_data_window": "No data in this window.",
       "primary": "Value",
       "secondary": "Secondary"
+    },
+    "overview": {
+      "widget_groups": {
+        "overview": "Overview",
+        "usage": "Usage",
+        "health": "Health",
+        "access": "Access",
+        "activity": "Activity",
+        "custom": "Custom"
+      }
     }
   },
   "pages": {

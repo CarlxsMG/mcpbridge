@@ -55,7 +55,10 @@ async function createPolicy() {
 <template>
   <section>
     <FormPage max-width="26.25rem">
-      <PageHeader :title="t('pages.policies.new.title')" :back-link="{ to: '/policies', label: t('nav.policies') }" />
+      <PageHeader
+        :title="t('pages.policies.new.title')"
+        :back-link="{ to: '/policies', label: t('nav.policies.label') }"
+      />
 
       <form class="form-card" @submit.prevent="createPolicy">
         <FormField :label="t('pages.policies.new.fields.name')" for="p-name">

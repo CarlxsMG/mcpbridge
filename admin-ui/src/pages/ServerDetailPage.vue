@@ -136,7 +136,7 @@ async function resetBreaker() {
 <template>
   <section>
     <p class="breadcrumb">
-      <RouterLink to="/servers">{{ t("nav.servers") }}</RouterLink> / {{ name }}
+      <RouterLink to="/servers">{{ t("nav.servers.label") }}</RouterLink> / {{ name }}
     </p>
 
     <SignalLoader v-if="loading && !detail" />
