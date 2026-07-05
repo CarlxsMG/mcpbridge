@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import ChartLegend from "./ChartLegend.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -79,12 +80,7 @@ const centerText = computed(() => {
           {{ centerText }}
         </text>
       </svg>
-      <ul class="donut-legend">
-        <li v-for="s in segments" :key="s.label">
-          <span class="dot" :style="{ background: s.color }" aria-hidden="true" />
-          {{ s.label }} <strong>{{ s.value }}</strong>
-        </li>
-      </ul>
+      <ChartLegend :segments="segments" />
     </template>
     <p v-else class="donut-empty">No data.</p>
   </div>
@@ -109,31 +105,21 @@ const centerText = computed(() => {
      font-size here would double-scale on large screens. */
   font-size: 20.8px;
 }
-.donut-legend {
-  list-style: none;
-  display: flex;
+/* ChartLegend's own recipe is an unspaced row; the donut's legend sits beside
+   the ring in a taller column with slightly larger gaps/dots. */
+:deep(.chart-legend) {
   flex-direction: column;
   gap: var(--space-1-5);
-  padding: 0;
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
 }
-.donut-legend li {
-  display: inline-flex;
-  align-items: center;
+:deep(.chart-legend li) {
   gap: 0.5em;
 }
-.donut-legend strong {
-  color: var(--text-primary);
-  font-weight: 600;
+:deep(.chart-legend strong) {
   font-variant-numeric: tabular-nums;
 }
-.dot {
+:deep(.dot) {
   width: 0.625em;
   height: 0.625em;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 .donut-empty {
   color: var(--text-muted);

@@ -15,7 +15,7 @@ describe("DonutChart", () => {
 
     expect(wrapper.find("svg").exists()).toBe(true);
     expect(wrapper.findAll(".donut-arc")).toHaveLength(2);
-    expect(wrapper.findAll(".donut-legend li")).toHaveLength(2);
+    expect(wrapper.findAll(".chart-legend li")).toHaveLength(2);
     expect(wrapper.find(".donut-empty").exists()).toBe(false);
   });
 

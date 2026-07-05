@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import ChartLegend from "./ChartLegend.vue";
 
 const props = defineProps<{
   segments: { label: string; value: number; color: string }[];
@@ -20,12 +21,7 @@ const withPct = computed(() => props.segments.map((s) => ({ ...s, pct: (s.value 
         :title="`${s.label}: ${s.value}`"
       />
     </div>
-    <ul class="segmented-legend">
-      <li v-for="s in segments" :key="s.label">
-        <span class="dot" :style="{ background: s.color }" aria-hidden="true" />
-        {{ s.label }} <strong>{{ s.value }}</strong>
-      </li>
-    </ul>
+    <ChartLegend :segments="segments" />
   </div>
 </template>
 
@@ -46,29 +42,18 @@ const withPct = computed(() => props.segments.map((s) => ({ ...s, pct: (s.value 
   min-width: 2px;
   transition: width 0.3s ease;
 }
-.segmented-legend {
-  list-style: none;
-  display: flex;
+/* ChartLegend's own recipe has no gap/margin; this bar's legend wraps below
+   the bar with smaller dots than the donut's column legend. */
+:deep(.chart-legend) {
   flex-wrap: wrap;
   gap: 0.15rem var(--space-4);
-  padding: 0;
   margin: var(--space-2) 0 0;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
 }
-.segmented-legend li {
-  display: inline-flex;
-  align-items: center;
+:deep(.chart-legend li) {
   gap: 0.35em;
 }
-.segmented-legend strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-.dot {
+:deep(.dot) {
   width: 0.55em;
   height: 0.55em;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 </style>
