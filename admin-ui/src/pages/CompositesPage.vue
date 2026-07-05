@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { onMounted } from "vue";
 import { Combine } from "lucide-vue-next";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
@@ -25,7 +25,6 @@ const {
   [],
   "Failed to load composites.",
 );
-const rowError = ref<Record<string, string>>({});
 const { rowError: toggleError, toggle } = useOptimisticToggle<CompositeSummary>((c) => c.name, "Failed to update.");
 
 onMounted(load);
@@ -43,12 +42,11 @@ const {
 
 function confirmDelete() {
   return confirmDeleteAction(async (c) => {
-    delete rowError.value[c.name];
     try {
       await api.delete(`/admin-api/composites/${encodeURIComponent(c.name)}`);
       await load();
     } catch (err) {
-      rowError.value[c.name] = toErrorMessage(err, "Failed to delete.");
+      errorMessage.value = toErrorMessage(err, "Failed to delete.");
     }
   });
 }
