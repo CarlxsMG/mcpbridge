@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
+import { clientPath } from "@/utils/apiPaths";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
 
@@ -25,7 +26,7 @@ function requestRemoveServer() {
 function confirmRemoveServer() {
   return confirmRemoveServerAction(async () => {
     try {
-      await api.delete(`/admin-api/clients/${encodeURIComponent(props.clientName)}`);
+      await api.delete(clientPath(props.clientName));
       router.push("/servers");
     } catch (err) {
       removeError.value = toErrorMessage(err, "Failed to remove server.");
