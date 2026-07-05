@@ -37,5 +37,17 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
+  {
+    // Build / maintenance scripts (e.g. scripts/check-i18n.mjs) live outside
+    // src/ — they need Node globals (console, process) and ESM dynamic import,
+    // but they're plain JS/TS so they don't need the Vue parser or browser
+    // globals. Separate block keeps the strict src/ rules from flagging false
+    // positives in tooling.
+    files: ["scripts/**/*.mjs", "scripts/**/*.ts"],
+    languageOptions: {
+      sourceType: "module",
+      globals: { ...globals.node, console: "readonly", process: "readonly" },
+    },
+  },
   eslintConfigPrettier,
 );

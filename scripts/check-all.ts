@@ -46,6 +46,10 @@ const steps: Step[] = [
   { label: "format check", cmd: [bunExe, "run", "format:check"], cwd: root },
   { label: "lint (root)", cmd: [bunExe, "run", "lint"], cwd: root },
   { label: "lint (admin-ui)", cmd: [bunExe, "run", "lint"], cwd: `${root}/admin-ui` },
+  // Locale parity: en.json ↔ es.json (and any future locale) must have identical
+  // key trees, or a missing translation silently falls back to the source locale
+  // at runtime. Cheaper than a typecheck, fails earlier in the pipeline.
+  { label: "i18n parity", cmd: [bunExe, "run", "lint:i18n"], cwd: `${root}/admin-ui` },
   { label: "root typecheck", cmd: [bunExe, "run", "typecheck"], cwd: root },
   // --path-ignore-patterns excludes admin-ui and e2e on purpose: a bare
   // `bun test` from the repo root also recurses into admin-ui/src/**/*.test.ts
