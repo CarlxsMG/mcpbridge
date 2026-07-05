@@ -96,7 +96,7 @@ async function testTool(tool: ToolDetail) {
 
 <template>
   <h2>Tools ({{ tools.length }})</h2>
-  <TableCard v-if="tools.length">
+  <TableCard v-if="tools.length" id="tools-table">
     <thead>
       <tr>
         <th>Name</th>

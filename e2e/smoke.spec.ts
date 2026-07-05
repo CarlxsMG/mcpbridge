@@ -95,12 +95,12 @@ test("login -> register a REST backend from OpenAPI -> call the discovered tool 
 
   await page.getByRole("button", { name: "Preview tools" }).click();
   await expect(page.getByText(/tool\(s\) discovered/)).toBeVisible();
-  await expect(page.locator(".preview-table")).toContainText("list-users");
+  await expect(page.locator("#preview-table")).toContainText("list-users");
 
   await page.getByRole("button", { name: "Register server" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/servers/${DEMO_SERVER_NAME}$`));
   await expect(page.locator("h1")).toHaveText(DEMO_SERVER_NAME);
-  await expect(page.locator("table.tools-table")).toContainText("list-users");
+  await expect(page.locator("#tools-table")).toContainText("list-users");
 
   // ── (c) Call the discovered tool via the MCP endpoint (raw JSON-RPC) ───────
   const toolName = `${DEMO_SERVER_NAME}__list-users`;

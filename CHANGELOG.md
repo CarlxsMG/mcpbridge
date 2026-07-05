@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/check-all.ts` now also strips `SECRET_ENCRYPTION_KEY` before spawning the root test
   process, mirroring the existing `SESSION_COOKIE_SECURE` handling — a contributor with that var
   set locally would otherwise see the "secret box unconfigured" tests fail with no obvious cause.
+- `e2e/smoke.spec.ts` asserted against `.preview-table` / `table.tools-table` CSS classes that
+  no longer exist after the admin-ui reusability refactor (both tables now render through the
+  shared `TableCard` component). Added stable `#preview-table` / `#tools-table` ids and updated
+  the test to match — the underlying registration flow itself was never broken.
 
 ## [1.0.0] - 2026-07-03
 

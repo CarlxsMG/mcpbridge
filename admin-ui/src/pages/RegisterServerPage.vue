@@ -344,7 +344,7 @@ async function register() {
             <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
           </div>
           <p v-if="previewError" class="error">{{ previewError }}</p>
-          <TableCard v-if="previewTools && previewTools.length">
+          <TableCard v-if="previewTools && previewTools.length" id="preview-table">
             <thead>
               <tr>
                 <th>Name</th>
