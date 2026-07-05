@@ -1,0 +1,54 @@
+# i18n drift audit — read-only Python check that mirrors what local devs run
+# manually via `scripts/audit-missing-translations.py`. The vitest
+# `i18n-parity.test.ts` covers the same invariant at unit-test time, but this
+# job catches drift that the JS test would miss (e.g. a key renamed in one
+# bundle but not the other, or a stale node_modules) and surfaces a clear
+# "where is the gap" report for translators.
+#
+# The audit is read-only — it exits non-zero when it finds drift but does NOT
+# auto-write `en.json` / `es.json` (that's `seed-missing-translations.py`,
+# intentionally not invoked here; CI never mutates locale bundles on its own).
+name: i18n-audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run audit (missing keys in es.json)
+        # Exits non-zero when keys referenced in source are absent from es.json.
+        # `audit-missing-by-file.py` annotates each entry with the file/line, so
+        # the failure log is self-explanatory.
+        run: |
+          set -euo pipefail
+          echo "── audit-missing-translations.py ────────────────────────────────"
+          python scripts/audit-missing-translations.py
+          echo "── audit-missing-by-file.py ────────────────────────────────────"
+          python scripts/audit-missing-by-file.py || true  # informational; the main audit above is the gate
+
+      - name: Compare against TS parity test
+        # Sanity: also run the JS-side parity test to catch any subtle diff
+        # (the Python audit walks the nested dict, the TS test uses the live
+        # vue-i18n resolution path — together they cover both implementations).
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install admin-ui dependencies
+        working-directory: admin-ui
+        run: bun install --frozen-lockfile
+
+      - name: Parity test (vitest)
+        working-directory: admin-ui
+        run: bun run test -- i18n-parity
