@@ -60,6 +60,7 @@
     "discard": "Descartar",
     "keep_editing": "Seguir editando",
     "current_locale": "Idioma",
+    "connect_client": "Conectar cliente",
     "done": "Listo",
     "creating": "Creando…",
     "time_windows": {
@@ -772,10 +773,89 @@
       "save_changes": "Guardar cambios",
       "saving": "Guardando…",
       "saved": "Guardado",
+      "description_label": "Descripción",
+      "description_placeholder": "Qué hace este composite",
+      "schema_label": "Input schema (JSON)",
+      "save_schema": "Guardar schema",
+      "steps_label": "Pasos (array JSON)",
+      "save_steps": "Guardar pasos",
+      "templates": { "label": "Templates:", "or": "o" },
+      "enable": "Habilitar composite",
+      "disable": "Deshabilitar composite",
+      "deleting": "Eliminando…",
+      "delete": "Eliminar composite",
+      "confirm": {
+        "delete_title": "¿Eliminar este composite?",
+        "delete_message": "Los clientes MCP que llamen a '{name}' empezarán a fallar inmediatamente. Esto no se puede deshacer.",
+        "delete_cta": "Eliminar {name}",
+        "leave_title": "¿Descartar cambios sin guardar?",
+        "leave_message": "Tienes cambios sin guardar en la descripción, schema de entrada o pasos de este composite. Si sales ahora se descartarán.",
+        "leave_cta": "Descartar cambios"
+      },
       "errors": {
         "load_failed": "Error al cargar el compuesto.",
         "save_failed": "Error al guardar los cambios.",
-        "delete_failed": "Error al eliminar el compuesto."
+        "delete_failed": "Error al eliminar el compuesto.",
+        "save_description_failed": "Error al guardar la descripción.",
+        "save_schema_failed": "Error al guardar el input schema.",
+        "save_steps_failed": "Error al guardar los pasos.",
+        "toggle_failed": "Error al actualizar.",
+        "schema_invalid": "inputSchema no es JSON válido.",
+        "steps_invalid": "steps no es JSON válido."
+      }
+    },
+    "bundle_detail": {
+      "description_label": "Descripción",
+      "description_placeholder": "Para qué sirve este bundle",
+      "tools_heading": "Tools ({count})",
+      "save_tools": "Guardar tools",
+      "unsaved_tools": "Cambios sin guardar en la selección de tools.",
+      "enable_bundle": "Habilitar bundle",
+      "disable_bundle": "Deshabilitar bundle",
+      "share_link": "Compartir link de instalación",
+      "delete_bundle": "Eliminar bundle",
+      "deleting": "Eliminando…",
+      "confirm": {
+        "delete_title": "¿Eliminar este bundle?",
+        "delete_message": "'{name}' y su endpoint /mcp-custom/{name} dejarán de funcionar inmediatamente para cualquier agente MCP conectado. Esto no se puede deshacer.",
+        "delete_cta": "Eliminar {name}",
+        "leave_title": "¿Descartar cambios sin guardar?",
+        "leave_message": "Tienes cambios sin guardar en la descripción o selección de tools de este bundle. Si sales ahora se descartarán.",
+        "leave_cta": "Descartar cambios"
+      },
+      "errors": {
+        "load_failed": "Error al cargar el bundle.",
+        "delete_failed": "Error al eliminar el bundle.",
+        "save_description_failed": "Error al guardar la descripción.",
+        "save_tools_failed": "Error al guardar los tools.",
+        "toggle_failed": "Error al actualizar el bundle."
+      }
+    },
+    "server_detail": {
+      "tabs": {
+        "tools": "Tools",
+        "settings": "Ajustes"
+      },
+      "mcp_url": "URL MCP",
+      "transport": "Transporte",
+      "health_url": "Health URL",
+      "base_url": "Base URL",
+      "consecutive_failures": "Fallos consecutivos",
+      "not_connected": "No conectado actualmente",
+      "reset_breaker": "Resetear circuit breaker",
+      "resetting": "Reseteando…",
+      "guards_aria": "Guards — {name}",
+      "guards_heading": "Guards — {name}",
+      "tool_not_found": "Tool \"{name}\" no encontrado en este servidor.",
+      "confirm": {
+        "disable_title": "¿Deshabilitar este servidor?",
+        "disable_message": "'{name}' y todos sus tools dejarán de funcionar para los agentes MCP conectados hasta que se vuelva a habilitar.",
+        "disable_cta": "Deshabilitar {name}"
+      },
+      "errors": {
+        "load_failed": "Error al cargar el servidor.",
+        "toggle_failed": "Error al actualizar.",
+        "reset_breaker_failed": "Error al resetear el circuit breaker."
       }
     },
     "catalog": {

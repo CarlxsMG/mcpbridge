@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
@@ -8,6 +9,7 @@ import { useCommandPalette } from "@/composables/useCommandPalette";
 import { useFocusTrap } from "@/composables/useFocusTrap";
 import { clientPath } from "@/utils/apiPaths";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 import type { ClientDetail } from "@/types/api";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
 import KindBadge from "@/components/ui/KindBadge.vue";
@@ -32,6 +34,7 @@ import { Wrench, Settings2, RotateCcw, Cable } from "lucide-vue-next";
 const props = defineProps<{ name: string; tool?: string }>();
 const router = useRouter();
 const { paletteOpen } = useCommandPalette();
+const { t } = useI18n({ useScope: "global" });
 
 const {
   data: detail,
@@ -41,28 +44,23 @@ const {
 } = useResource<ClientDetail | null>(
   () => api.get<ClientDetail>(clientPath(props.name)),
   null,
-  "Failed to load server.",
+  tk("pages.server_detail.errors.load_failed"),
 );
 
 const activeTab = ref<"tools" | "settings">("tools");
 const tabs = [
-  { key: "tools" as const, label: "Tools", icon: Wrench },
-  { key: "settings" as const, label: "Settings", icon: Settings2 },
+  { key: "tools" as const, label: t("pages.server_detail.tabs.tools"), icon: Wrench },
+  { key: "settings" as const, label: t("pages.server_detail.tabs.settings"), icon: Settings2 },
 ];
 const resettingBreaker = ref(false);
 const drawerCloseBtn = ref<HTMLButtonElement | null>(null);
 const drawerEl = ref<HTMLElement | null>(null);
 const connectOpen = ref(false);
 
-// Drawer's own internal Tab/Shift+Tab cycling — distinct from the window-level
-// `onKeydown` below (which only handles the palette-aware Escape-to-close).
 const { onKeydown: onDrawerKeydown } = useFocusTrap(drawerEl);
 
-const activeTool = computed(() => detail.value?.tools.find((t) => t.name === props.tool) ?? null);
+const activeTool = computed(() => detail.value?.tools.find((tt) => tt.name === props.tool) ?? null);
 
-// Drawer is route-driven (props.tool + activeTool, not a local boolean) and
-// activeTool only resolves once the async load() finishes — watch it rather
-// than props.tool alone, or focus() would fire before the drawer exists.
 watch(
   () => activeTool.value,
   async (tool) => {
@@ -77,11 +75,6 @@ function onKeydown(e: KeyboardEvent) {
   if (paletteOpen.value) return;
   if (e.key === "Escape" && props.tool) closeGuardEditor();
 }
-// Capture phase, not bubble: CommandPalette's own bubble-phase Escape handler
-// (registered on window too, but mounted earlier via App.vue) closes the
-// palette itself fast enough that a bubble-phase check here can already find
-// it gone, so this would then wrongly also close the drawer. Capture runs
-// before that handler, so the palette-open check above still sees it open.
 onMounted(() => window.addEventListener("keydown", onKeydown, true));
 onUnmounted(() => window.removeEventListener("keydown", onKeydown, true));
 
@@ -97,7 +90,7 @@ async function toggleClientEnabled() {
     await api.patch(clientPath(props.name), { enabled: next });
   } catch (err) {
     detail.value.enabled = previous;
-    errorMessage.value = toErrorMessage(err, "Failed to update.");
+    errorMessage.value = toErrorMessage(err, tk("pages.server_detail.errors.toggle_failed"));
   }
 }
 
@@ -133,7 +126,7 @@ async function resetBreaker() {
     await api.post(clientPath(props.name, "circuit-breaker", "reset"));
     await load();
   } catch (err) {
-    errorMessage.value = toErrorMessage(err, "Failed to reset circuit breaker.");
+    errorMessage.value = toErrorMessage(err, tk("pages.server_detail.errors.reset_breaker_failed"));
   } finally {
     resettingBreaker.value = false;
   }
@@ -142,7 +135,7 @@ async function resetBreaker() {
 
 <template>
   <section>
-    <p class="breadcrumb"><RouterLink to="/servers">Servers</RouterLink> / {{ name }}</p>
+    <p class="breadcrumb"><RouterLink to="/servers">{{ t('nav.servers') }}</RouterLink> / {{ name }}</p>
 
     <SignalLoader v-if="loading && !detail" />
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
@@ -153,13 +146,13 @@ async function resetBreaker() {
           <KindBadge :kind="detail.kind" />
           <StatusBadge :status="detail.status" />
           <StatusBadge v-if="detail.circuitBreakerState" :status="detail.circuitBreakerState" />
-          <KindBadge v-if="!detail.live" kind="Not currently connected" />
+          <KindBadge v-if="!detail.live" :kind="t('pages.server_detail.not_connected')" />
         </template>
 
         <TogglePill
           :on="detail.enabled"
-          on-label="Enabled"
-          off-label="Disabled"
+          :on-label="t('common.enabled')"
+          :off-label="t('common.disabled')"
           :aria-pressed="detail.enabled"
           @click="onClientToggleClick"
         />
@@ -171,11 +164,11 @@ async function resetBreaker() {
           @click="resetBreaker"
         >
           <RotateCcw :size="14" stroke-width="2" aria-hidden="true" />
-          {{ resettingBreaker ? "Resetting…" : "Reset circuit breaker" }}
+          {{ resettingBreaker ? t('pages.server_detail.resetting') : t('pages.server_detail.reset_breaker') }}
         </button>
         <button type="button" class="btn-secondary" @click="connectOpen = true">
           <Cable :size="14" stroke-width="2" aria-hidden="true" />
-          Connect client
+          {{ t('common.connect_client') }}
         </button>
       </PageHeader>
 
@@ -184,26 +177,26 @@ async function resetBreaker() {
       <dl class="meta">
         <template v-if="detail.kind === 'mcp'">
           <div>
-            <dt>MCP URL</dt>
+            <dt>{{ t('pages.server_detail.mcp_url') }}</dt>
             <dd>{{ detail.mcpUrl }}</dd>
           </div>
           <div>
-            <dt>Transport</dt>
+            <dt>{{ t('pages.server_detail.transport') }}</dt>
             <dd>{{ detail.mcpTransport }}</dd>
           </div>
         </template>
         <template v-else>
           <div>
-            <dt>Health URL</dt>
+            <dt>{{ t('pages.server_detail.health_url') }}</dt>
             <dd>{{ detail.healthUrl }}</dd>
           </div>
           <div>
-            <dt>Base URL</dt>
+            <dt>{{ t('pages.server_detail.base_url') }}</dt>
             <dd>{{ detail.baseUrl }}</dd>
           </div>
         </template>
         <div v-if="detail.consecutiveFailures !== null">
-          <dt>Consecutive failures</dt>
+          <dt>{{ t('pages.server_detail.consecutive_failures') }}</dt>
           <dd>{{ detail.consecutiveFailures }}</dd>
         </div>
       </dl>
@@ -233,12 +226,12 @@ async function resetBreaker() {
       class="drawer"
       role="dialog"
       aria-modal="true"
-      :aria-label="`Guards — ${activeTool.name}`"
+      :aria-label="t('pages.server_detail.guards_aria', { name: activeTool.name })"
       @keydown="onDrawerKeydown"
     >
       <div class="drawer-header">
-        <h2>Guards — {{ activeTool.name }}</h2>
-        <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">Close</button>
+        <h2>{{ t('pages.server_detail.guards_heading', { name: activeTool.name }) }}</h2>
+        <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">{{ t('common.close') }}</button>
       </div>
       <GuardEditor
         :guards="activeTool.guards"
@@ -259,17 +252,13 @@ async function resetBreaker() {
 
       <ServerDetailPlayground :client-name="props.name" :tool="activeTool" />
     </div>
-    <p v-else-if="tool && detail && !activeTool" class="error">Tool "{{ tool }}" not found on this server.</p>
+    <p v-else-if="tool && detail && !activeTool" class="error">{{ t('pages.server_detail.tool_not_found', { name: tool }) }}</p>
 
     <ConfirmDialog
       :open="pendingClientDisable !== null"
-      title="Disable this server?"
-      :message="
-        detail
-          ? `'${detail.name}' and all of its tools will stop working for connected MCP agents until re-enabled.`
-          : ''
-      "
-      :confirm-label="detail ? `Disable ${detail.name}` : 'Disable'"
+      :title="t('pages.server_detail.confirm.disable_title')"
+      :message="detail ? t('pages.server_detail.confirm.disable_message', { name: detail.name }) : ''"
+      :confirm-label="detail ? t('pages.server_detail.confirm.disable_cta', { name: detail.name }) : t('common.disable')"
       danger
       @confirm="confirmClientDisable"
       @cancel="cancelClientDisable"
@@ -280,11 +269,6 @@ async function resetBreaker() {
 </template>
 
 <style>
-/* Deliberately unscoped: this stylesheet is shared with the 9 extracted
-   ServerDetailXxx.vue section components, which render under their own
-   scope hash, not this file's. Verified none of these class names collide
-   with anything else in admin-ui/src (they're only ever mounted while this
-   route is active, and are distinctive enough not to leak meaningfully). */
 .breadcrumb {
   font-size: 0.85rem;
   color: var(--text-secondary);
@@ -484,10 +468,6 @@ async function resetBreaker() {
   color: var(--breach);
   margin: 0.2rem 0;
 }
-/* .tag-chip's blue tint has no existing semantic token in this app's palette
-   (there's no "info" color — only --signal/--canary/--breach/--ok/--kind-mcp,
-   none of which mean "tag"). Left as a one-off hardcoded pair rather than
-   inventing a new token or forcing it onto an unrelated existing one. */
 .tag-chip {
   display: inline-block;
   margin-left: 0.35rem;

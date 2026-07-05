@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, watch, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api, ApiError } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { useFieldDraft } from "@/composables/useFieldDraft";
 import { useDetailPageDelete, syncAfterLoad } from "@/composables/useDetailPageDelete";
+import { tk } from "@/i18n";
 import type { CompositeDetail, CompositeStep } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
@@ -14,6 +16,7 @@ import FormField from "@/components/ui/FormField.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 
 const props = defineProps<{ name: string }>();
+const { t } = useI18n({ useScope: "global" });
 
 const {
   data: detail,
@@ -23,7 +26,7 @@ const {
 } = useResource<CompositeDetail | null>(
   () => api.get<CompositeDetail>(`/admin-api/composites/${encodeURIComponent(props.name)}`),
   null,
-  "Failed to load composite.",
+  tk("pages.composite_detail.errors.load_failed"),
 );
 
 const {
@@ -39,7 +42,7 @@ const {
     await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { description: value || null });
     await load();
   },
-  { fallbackMessage: "Failed to save description." },
+  { fallbackMessage: tk("pages.composite_detail.errors.save_description_failed") },
 );
 
 const {
@@ -56,12 +59,12 @@ const {
     try {
       inputSchema = JSON.parse(value) as Record<string, unknown>;
     } catch {
-      throw new ApiError(0, "INVALID_JSON", "inputSchema is not valid JSON.");
+      throw new ApiError(0, "INVALID_JSON", t("pages.composite_detail.errors.schema_invalid"));
     }
     await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { inputSchema });
     await load();
   },
-  { fallbackMessage: "Failed to save input schema." },
+  { fallbackMessage: tk("pages.composite_detail.errors.save_schema_failed") },
 );
 
 const {
@@ -78,12 +81,12 @@ const {
     try {
       steps = JSON.parse(value) as CompositeStep[];
     } catch {
-      throw new ApiError(0, "INVALID_JSON", "steps is not valid JSON.");
+      throw new ApiError(0, "INVALID_JSON", t("pages.composite_detail.errors.steps_invalid"));
     }
     await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { steps });
     await load();
   },
-  { fallbackMessage: "Failed to save steps." },
+  { fallbackMessage: tk("pages.composite_detail.errors.save_steps_failed") },
 );
 
 const {
@@ -97,7 +100,7 @@ const {
 } = useDetailPageDelete(
   () => `/admin-api/composites/${encodeURIComponent(props.name)}`,
   "/composites",
-  "Failed to delete composite.",
+  tk("pages.composite_detail.errors.delete_failed"),
 );
 
 async function load() {
@@ -115,7 +118,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
 
 const { rowError: toggleError, toggle: toggleEnabledField } = useOptimisticToggle<CompositeDetail>(
   (c) => c.name,
-  "Failed to update.",
+  tk("pages.composite_detail.errors.toggle_failed"),
 );
 
 function toggleEnabled() {
@@ -128,7 +131,7 @@ function toggleEnabled() {
 
 <template>
   <section>
-    <p class="breadcrumb"><RouterLink to="/composites">Composites</RouterLink> / {{ name }}</p>
+    <p class="breadcrumb"><RouterLink to="/composites">{{ t('nav.composites') }}</RouterLink> / {{ name }}</p>
 
     <SignalLoader v-if="loading && !detail" />
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
@@ -137,13 +140,13 @@ function toggleEnabled() {
       <PageHeader :title="detail.name">
         <TogglePill
           :on="detail.enabled"
-          on-label="Disable composite"
-          off-label="Enable composite"
+          :on-label="t('pages.composite_detail.disable')"
+          :off-label="t('pages.composite_detail.enable')"
           :aria-pressed="detail.enabled"
           @click="toggleEnabled"
         />
         <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
-          {{ deleting ? "Deleting…" : "Delete composite" }}
+          {{ deleting ? t('pages.composite_detail.deleting') : t('pages.composite_detail.delete') }}
         </button>
       </PageHeader>
 
@@ -151,13 +154,13 @@ function toggleEnabled() {
       <p v-if="toggleError[detail.name]" class="error" role="alert">{{ toggleError[detail.name] }}</p>
       <p v-if="deleteError" class="row-error">{{ deleteError }}</p>
 
-      <FormField label="Description" for="composite-description" class="description-field">
+      <FormField :label="t('pages.composite_detail.description_label')" for="composite-description" class="description-field">
         <div class="description-row">
           <input
             id="composite-description"
             v-model="descriptionInput"
             type="text"
-            placeholder="What this composite does"
+            :placeholder="t('pages.composite_detail.description_placeholder')"
           />
           <button
             type="button"
@@ -165,31 +168,31 @@ function toggleEnabled() {
             :disabled="!descriptionDirty || savingDescription"
             @click="saveDescription"
           >
-            {{ savingDescription ? "Saving…" : "Save" }}
+            {{ savingDescription ? t('common.saving') : t('common.save') }}
           </button>
         </div>
         <p v-if="descriptionError" class="error">{{ descriptionError }}</p>
       </FormField>
 
-      <FormField label="Input schema (JSON)" for="composite-schema" class="json-field">
+      <FormField :label="t('pages.composite_detail.schema_label')" for="composite-schema" class="json-field">
         <textarea id="composite-schema" v-model="schemaInput" rows="8" spellcheck="false"></textarea>
         <div class="field-actions">
           <button type="button" class="btn-primary" :disabled="!schemaDirty || savingSchema" @click="saveSchema">
-            {{ savingSchema ? "Saving…" : "Save schema" }}
+            {{ savingSchema ? t('common.saving') : t('pages.composite_detail.save_schema') }}
           </button>
         </div>
         <p v-if="schemaError" class="error">{{ schemaError }}</p>
       </FormField>
 
-      <FormField label="Steps (JSON array)" for="composite-steps" class="json-field">
+      <FormField :label="t('pages.composite_detail.steps_label')" for="composite-steps" class="json-field">
         <p class="template-hint">
-          Templates: <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> or <code>{{ '"${input.name}"' }}</code
+          {{ t('pages.composite_detail.templates.label') }} <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> {{ t('pages.composite_detail.templates.or') }} <code>{{ '"${input.name}"' }}</code
           >.
         </p>
         <textarea id="composite-steps" v-model="stepsInput" rows="10" spellcheck="false"></textarea>
         <div class="field-actions">
           <button type="button" class="btn-primary" :disabled="!stepsDirty || savingSteps" @click="saveSteps">
-            {{ savingSteps ? "Saving…" : "Save steps" }}
+            {{ savingSteps ? t('common.saving') : t('pages.composite_detail.save_steps') }}
           </button>
         </div>
         <p v-if="stepsError" class="error">{{ stepsError }}</p>
@@ -198,9 +201,9 @@ function toggleEnabled() {
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete this composite?"
-      :message="`MCP clients calling '${name}' will start failing immediately. This cannot be undone.`"
-      :confirm-label="`Delete ${name}`"
+      :title="t('pages.composite_detail.confirm.delete_title')"
+      :message="t('pages.composite_detail.confirm.delete_message', { name })"
+      :confirm-label="t('pages.composite_detail.confirm.delete_cta', { name })"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -208,9 +211,9 @@ function toggleEnabled() {
 
     <ConfirmDialog
       :open="pendingLeave"
-      title="Discard unsaved changes?"
-      message="You have unsaved changes to the description, input schema, or steps for this composite. Leaving now will discard them."
-      confirm-label="Discard changes"
+      :title="t('pages.composite_detail.confirm.leave_title')"
+      :message="t('pages.composite_detail.confirm.leave_message')"
+      :confirm-label="t('pages.composite_detail.confirm.leave_cta')"
       danger
       @confirm="confirmLeave"
       @cancel="cancelLeave"

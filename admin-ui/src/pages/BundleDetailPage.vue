@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { useFieldDraft } from "@/composables/useFieldDraft";
 import { useDetailPageDelete, syncAfterLoad } from "@/composables/useDetailPageDelete";
+import { tk } from "@/i18n";
 import type { BundleDetail, BundleToolRef } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import BundleToolPicker from "@/components/BundleToolPicker.vue";
@@ -18,6 +20,7 @@ import FormField from "@/components/ui/FormField.vue";
 import { Cable, Share2 } from "lucide-vue-next";
 
 const props = defineProps<{ name: string }>();
+const { t } = useI18n({ useScope: "global" });
 
 const {
   data: detail,
@@ -27,7 +30,7 @@ const {
 } = useResource<BundleDetail | null>(
   () => api.get<BundleDetail>(`/admin-api/bundles/${encodeURIComponent(props.name)}`),
   null,
-  "Failed to load bundle.",
+  tk("pages.bundle_detail.errors.load_failed"),
 );
 
 const {
@@ -43,7 +46,7 @@ const {
     await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { description: value || null });
     await load();
   },
-  { fallbackMessage: "Failed to save description." },
+  { fallbackMessage: tk("pages.bundle_detail.errors.save_description_failed") },
 );
 
 const {
@@ -60,10 +63,10 @@ const {
     await load();
   },
   {
-    fallbackMessage: "Failed to save tools.",
+    fallbackMessage: tk("pages.bundle_detail.errors.save_tools_failed"),
     isEqual: (a, b) => {
-      const setA = new Set(a.map((t) => `${t.client}__${t.tool}`));
-      const setB = new Set(b.map((t) => `${t.client}__${t.tool}`));
+      const setA = new Set(a.map((tt) => `${tt.client}__${tt.tool}`));
+      const setB = new Set(b.map((tt) => `${tt.client}__${tt.tool}`));
       return setA.size === setB.size && [...setA].every((k) => setB.has(k));
     },
   },
@@ -80,14 +83,14 @@ const {
 } = useDetailPageDelete(
   () => `/admin-api/bundles/${encodeURIComponent(props.name)}`,
   "/bundles",
-  "Failed to delete bundle.",
+  tk("pages.bundle_detail.errors.delete_failed"),
 );
 const connectOpen = ref(false);
 const shareOpen = ref(false);
 
 const { rowError: toggleError, toggle } = useOptimisticToggle<BundleDetail>(
   () => "singleton",
-  "Failed to update bundle.",
+  tk("pages.bundle_detail.errors.toggle_failed"),
 );
 
 async function load() {
@@ -112,7 +115,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
 
 <template>
   <section>
-    <p class="breadcrumb"><RouterLink to="/bundles">Bundles</RouterLink> / {{ name }}</p>
+    <p class="breadcrumb"><RouterLink to="/bundles">{{ t('nav.bundles') }}</RouterLink> / {{ name }}</p>
 
     <SignalLoader v-if="loading && !detail" />
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
@@ -123,59 +126,59 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
           <p class="endpoint">
             <code>/mcp-custom/{{ detail.name }}</code>
             <button type="button" class="link-btn connect-link" @click="connectOpen = true">
-              <Cable :size="13" stroke-width="2" aria-hidden="true" /> Connect client
+              <Cable :size="13" stroke-width="2" aria-hidden="true" /> {{ t('common.connect_client') }}
             </button>
           </p>
         </template>
         <TogglePill
           :on="detail.enabled"
-          on-label="Disable bundle"
-          off-label="Enable bundle"
+          :on-label="t('pages.bundle_detail.disable_bundle')"
+          :off-label="t('pages.bundle_detail.enable_bundle')"
           :aria-pressed="detail.enabled"
           @click="toggleEnabled"
         />
         <button type="button" class="btn-secondary share-btn" @click="shareOpen = true">
-          <Share2 :size="14" stroke-width="2" aria-hidden="true" /> Share install link
+          <Share2 :size="14" stroke-width="2" aria-hidden="true" /> {{ t('pages.bundle_detail.share_link') }}
         </button>
         <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
-          {{ deleting ? "Deleting…" : "Delete bundle" }}
+          {{ deleting ? t('pages.bundle_detail.deleting') : t('pages.bundle_detail.delete_bundle') }}
         </button>
       </PageHeader>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
       <p v-if="deleteError" class="row-error">{{ deleteError }}</p>
 
-      <FormField label="Description" for="bundle-description" class="description-field">
+      <FormField :label="t('pages.bundle_detail.description_label')" for="bundle-description" class="description-field">
         <div class="description-row">
-          <input id="bundle-description" v-model="descriptionInput" type="text" placeholder="What this bundle is for" />
+          <input id="bundle-description" v-model="descriptionInput" type="text" :placeholder="t('pages.bundle_detail.description_placeholder')" />
           <button
             type="button"
             class="btn-secondary"
             :disabled="!descriptionDirty || savingDescription"
             @click="saveDescription"
           >
-            {{ savingDescription ? "Saving…" : "Save" }}
+            {{ savingDescription ? t('common.saving') : t('common.save') }}
           </button>
         </div>
         <p v-if="descriptionError" class="row-error">{{ descriptionError }}</p>
       </FormField>
 
-      <h2>Tools ({{ toolsDraft.length }})</h2>
+      <h2>{{ t('pages.bundle_detail.tools_heading', { count: toolsDraft.length }) }}</h2>
       <BundleToolPicker v-model="toolsDraft" />
       <div class="tools-actions">
         <button type="button" class="btn-primary" :disabled="!toolsDirty || savingTools" @click="saveTools">
-          {{ savingTools ? "Saving…" : "Save tools" }}
+          {{ savingTools ? t('common.saving') : t('pages.bundle_detail.save_tools') }}
         </button>
-        <span v-if="toolsDirty" class="hint">Unsaved changes to the tool selection.</span>
+        <span v-if="toolsDirty" class="hint">{{ t('pages.bundle_detail.unsaved_tools') }}</span>
       </div>
       <p v-if="toolsError" class="row-error">{{ toolsError }}</p>
     </template>
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete this bundle?"
-      :message="`'${name}' and its /mcp-custom/${name} endpoint will stop working immediately for any connected MCP agent. This cannot be undone.`"
-      :confirm-label="`Delete ${name}`"
+      :title="t('pages.bundle_detail.confirm.delete_title')"
+      :message="t('pages.bundle_detail.confirm.delete_message', { name })"
+      :confirm-label="t('pages.bundle_detail.confirm.delete_cta', { name })"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -183,9 +186,9 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
 
     <ConfirmDialog
       :open="pendingLeave"
-      title="Discard unsaved changes?"
-      message="You have unsaved changes to the description or tool selection for this bundle. Leaving now will discard them."
-      confirm-label="Discard changes"
+      :title="t('pages.bundle_detail.confirm.leave_title')"
+      :message="t('pages.bundle_detail.confirm.leave_message')"
+      :confirm-label="t('pages.bundle_detail.confirm.leave_cta')"
       danger
       @confirm="confirmLeave"
       @cancel="cancelLeave"
@@ -219,10 +222,6 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
   align-items: center;
   gap: 0.4rem;
 }
-/* PageHeader's own recipe covers the title; this page still needs its three
-   header actions (toggle pill, share button, delete button) laid out in a row
-   (PageHeader's .header-actions wrapper is rendered by the child component,
-   so reaching it requires :deep()). */
 :deep(.header-actions) {
   display: flex;
   gap: 0.6rem;

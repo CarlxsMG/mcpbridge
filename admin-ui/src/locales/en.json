@@ -60,6 +60,7 @@
     "discard": "Discard",
     "keep_editing": "Keep editing",
     "current_locale": "Language",
+    "connect_client": "Connect client",
     "done": "Done",
     "creating": "Creating…",
     "create": "Create",
@@ -704,10 +705,89 @@
       "save_changes": "Save changes",
       "saving": "Saving…",
       "saved": "Saved",
+      "description_label": "Description",
+      "description_placeholder": "What this composite does",
+      "schema_label": "Input schema (JSON)",
+      "save_schema": "Save schema",
+      "steps_label": "Steps (JSON array)",
+      "save_steps": "Save steps",
+      "templates": { "label": "Templates:", "or": "or" },
+      "enable": "Enable composite",
+      "disable": "Disable composite",
+      "deleting": "Deleting…",
+      "delete": "Delete composite",
+      "confirm": {
+        "delete_title": "Delete this composite?",
+        "delete_message": "MCP clients calling '{name}' will start failing immediately. This cannot be undone.",
+        "delete_cta": "Delete {name}",
+        "leave_title": "Discard unsaved changes?",
+        "leave_message": "You have unsaved changes to the description, input schema, or steps for this composite. Leaving now will discard them.",
+        "leave_cta": "Discard changes"
+      },
       "errors": {
         "load_failed": "Failed to load composite.",
         "save_failed": "Failed to save changes.",
-        "delete_failed": "Failed to delete composite."
+        "delete_failed": "Failed to delete composite.",
+        "save_description_failed": "Failed to save description.",
+        "save_schema_failed": "Failed to save input schema.",
+        "save_steps_failed": "Failed to save steps.",
+        "toggle_failed": "Failed to update.",
+        "schema_invalid": "inputSchema is not valid JSON.",
+        "steps_invalid": "steps is not valid JSON."
+      }
+    },
+    "bundle_detail": {
+      "description_label": "Description",
+      "description_placeholder": "What this bundle is for",
+      "tools_heading": "Tools ({count})",
+      "save_tools": "Save tools",
+      "unsaved_tools": "Unsaved changes to the tool selection.",
+      "enable_bundle": "Enable bundle",
+      "disable_bundle": "Disable bundle",
+      "share_link": "Share install link",
+      "delete_bundle": "Delete bundle",
+      "deleting": "Deleting…",
+      "confirm": {
+        "delete_title": "Delete this bundle?",
+        "delete_message": "'{name}' and its /mcp-custom/{name} endpoint will stop working immediately for any connected MCP agent. This cannot be undone.",
+        "delete_cta": "Delete {name}",
+        "leave_title": "Discard unsaved changes?",
+        "leave_message": "You have unsaved changes to the description or tool selection for this bundle. Leaving now will discard them.",
+        "leave_cta": "Discard changes"
+      },
+      "errors": {
+        "load_failed": "Failed to load bundle.",
+        "delete_failed": "Failed to delete bundle.",
+        "save_description_failed": "Failed to save description.",
+        "save_tools_failed": "Failed to save tools.",
+        "toggle_failed": "Failed to update bundle."
+      }
+    },
+    "server_detail": {
+      "tabs": {
+        "tools": "Tools",
+        "settings": "Settings"
+      },
+      "mcp_url": "MCP URL",
+      "transport": "Transport",
+      "health_url": "Health URL",
+      "base_url": "Base URL",
+      "consecutive_failures": "Consecutive failures",
+      "not_connected": "Not currently connected",
+      "reset_breaker": "Reset circuit breaker",
+      "resetting": "Resetting…",
+      "guards_aria": "Guards — {name}",
+      "guards_heading": "Guards — {name}",
+      "tool_not_found": "Tool \"{name}\" not found on this server.",
+      "confirm": {
+        "disable_title": "Disable this server?",
+        "disable_message": "'{name}' and all of its tools will stop working for connected MCP agents until re-enabled.",
+        "disable_cta": "Disable {name}"
+      },
+      "errors": {
+        "load_failed": "Failed to load server.",
+        "toggle_failed": "Failed to update.",
+        "reset_breaker_failed": "Failed to reset circuit breaker."
       }
     },
     "catalog": {
