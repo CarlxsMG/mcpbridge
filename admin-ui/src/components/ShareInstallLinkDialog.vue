@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import { api, ApiError } from "@/composables/useApi";
-import { useClipboard } from "@/composables/useClipboard";
+import { api } from "@/composables/useApi";
 import type { BundleInstallLink, BundleInstallLinkWithToken } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ModalShell from "@/components/ui/ModalShell.vue";
-import { Copy, Check } from "lucide-vue-next";
+import CopyButton from "@/components/ui/CopyButton.vue";
+import { formatDateTime, formatMaybeDate } from "@/utils/format";
+import { toErrorMessage } from "@/utils/errors";
 
 const props = defineProps<{ open: boolean; bundleName: string }>();
 const emit = defineEmits<{ close: [] }>();
@@ -19,7 +20,6 @@ const createError = ref("");
 // The raw link is shown exactly once, right after minting — same "show once"
 // contract as the API-key create flow (see KeysPage.vue's mintedKey).
 const minted = ref<BundleInstallLinkWithToken | null>(null);
-const { copied, copy, reset: resetCopied } = useClipboard();
 const gatewayBaseUrl = ref("");
 
 const pendingRevoke = ref<BundleInstallLink | null>(null);
@@ -39,7 +39,7 @@ async function load() {
     );
     links.value = res.items;
   } catch (err) {
-    listError.value = err instanceof ApiError ? err.message : "Failed to load install links.";
+    listError.value = toErrorMessage(err, "Failed to load install links.");
   } finally {
     loading.value = false;
   }
@@ -62,7 +62,6 @@ watch(
   async (isOpen) => {
     if (isOpen) {
       minted.value = null;
-      resetCopied();
       createError.value = "";
       listError.value = "";
       await Promise.all([load(), loadGatewayUrl()]);
@@ -79,18 +78,12 @@ async function createLink() {
       {},
     );
     minted.value = created;
-    resetCopied();
     await load();
   } catch (err) {
-    createError.value = err instanceof ApiError ? err.message : "Failed to create install link.";
+    createError.value = toErrorMessage(err, "Failed to create install link.");
   } finally {
     creating.value = false;
   }
-}
-
-async function copyLink() {
-  if (!minted.value) return;
-  await copy(installUrl(minted.value.token));
 }
 
 async function confirmRevoke() {
@@ -103,7 +96,7 @@ async function confirmRevoke() {
     if (minted.value?.id === link.id) minted.value = null;
     await load();
   } catch (err) {
-    revokeError.value = err instanceof ApiError ? err.message : "Failed to revoke install link.";
+    revokeError.value = toErrorMessage(err, "Failed to revoke install link.");
   }
 }
 
@@ -133,11 +126,7 @@ function statusOf(link: BundleInstallLink): string {
       <div class="minted-title">New link created — copy it now, the token won't be shown again:</div>
       <div class="minted-row">
         <code class="minted-secret">{{ installUrl(minted.token) }}</code>
-        <button type="button" class="btn-secondary copy-btn" @click="copyLink">
-          <Check v-if="copied" :size="14" stroke-width="2" aria-hidden="true" />
-          <Copy v-else :size="14" stroke-width="2" aria-hidden="true" />
-          {{ copied ? "Copied" : "Copy" }}
-        </button>
+        <CopyButton :key="minted.token" :text="installUrl(minted.token)" label="Copy" />
         <button type="button" class="link-btn" @click="minted = null">Dismiss</button>
       </div>
     </div>
@@ -170,8 +159,8 @@ function statusOf(link: BundleInstallLink): string {
             <td>
               <span class="status" :class="statusOf(link).toLowerCase()">{{ statusOf(link) }}</span>
             </td>
-            <td>{{ new Date(link.createdAt).toLocaleString() }}</td>
-            <td>{{ link.lastUsedAt ? new Date(link.lastUsedAt).toLocaleString() : "Never" }}</td>
+            <td>{{ formatDateTime(link.createdAt) }}</td>
+            <td>{{ formatMaybeDate(link.lastUsedAt) }}</td>
             <td>
               <div class="actions">
                 <button
@@ -203,23 +192,6 @@ function statusOf(link: BundleInstallLink): string {
 </template>
 
 <style scoped>
-.dialog-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
-.dialog-head h2 {
-  margin: 0;
-  font-size: var(--text-lg);
-}
-.hint {
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  margin: 0 0 var(--space-4);
-  line-height: 1.4;
-}
 .minted {
   background: var(--ok-soft);
   border: 1px solid var(--ok);
@@ -248,14 +220,6 @@ function statusOf(link: BundleInstallLink): string {
   word-break: break-all;
   flex: 1;
   min-width: 12.5rem;
-}
-.copy-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  padding: 0.3rem 0.7rem;
-  font-size: var(--text-sm);
-  white-space: nowrap;
 }
 .create-btn {
   margin-bottom: var(--space-5);

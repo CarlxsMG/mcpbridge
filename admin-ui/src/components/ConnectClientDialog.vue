@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { api } from "@/composables/useApi";
-import { useClipboard } from "@/composables/useClipboard";
 import type { ClientSummary, BundleSummary, McpApiKey } from "@/types/api";
 import {
   CONNECT_TEMPLATES,
@@ -12,7 +11,7 @@ import {
 } from "@/utils/connectTemplates";
 import ModalShell from "@/components/ui/ModalShell.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
-import { Copy, Check } from "lucide-vue-next";
+import CopyButton from "@/components/ui/CopyButton.vue";
 
 const props = defineProps<{
   open: boolean;
@@ -38,7 +37,6 @@ const gatewayBaseUrl = ref("");
 const clients = ref<ClientSummary[]>([]);
 const bundles = ref<BundleSummary[]>([]);
 const keyCount = ref<number | null>(null);
-const { copied, copy, reset } = useClipboard();
 
 async function loadContext() {
   gatewayBaseUrl.value = window.location.origin;
@@ -81,7 +79,6 @@ watch(
     if (isOpen) {
       scope.value = props.presetScope;
       targetName.value = props.presetName ?? "";
-      reset();
       await loadContext();
     }
   },
@@ -123,11 +120,6 @@ const result = computed(() => {
     apiKeyPlaceholder: API_KEY_PLACEHOLDER,
   });
 });
-
-async function copySnippet() {
-  if (!result.value) return;
-  await copy(result.value.snippet);
-}
 </script>
 
 <template>
@@ -186,11 +178,7 @@ async function copySnippet() {
     <template v-if="result">
       <div class="snippet-head">
         <span>{{ result.filename }}</span>
-        <button type="button" class="btn-secondary copy-btn" @click="copySnippet">
-          <Check v-if="copied" :size="14" stroke-width="2" aria-hidden="true" />
-          <Copy v-else :size="14" stroke-width="2" aria-hidden="true" />
-          {{ copied ? "Copied" : "Copy to clipboard" }}
-        </button>
+        <CopyButton :text="result.snippet" label="Copy to clipboard" />
       </div>
       <pre class="snippet" tabindex="0">{{ result.snippet }}</pre>
 
@@ -204,23 +192,6 @@ async function copySnippet() {
 </template>
 
 <style scoped>
-.dialog-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
-.dialog-head h2 {
-  margin: 0;
-  font-size: var(--text-lg);
-}
-.hint {
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  margin: 0 0 var(--space-4);
-  line-height: 1.4;
-}
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -265,13 +236,6 @@ async function copySnippet() {
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: var(--space-1-5);
-}
-.copy-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  padding: 0.3rem 0.7rem;
-  font-size: var(--text-sm);
 }
 .snippet {
   background: var(--surface-sunken);
