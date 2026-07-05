@@ -9,7 +9,12 @@ import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../middleware/circuit-breaker.js";
 import { proxyToolCall } from "../proxy/proxy.js";
-import { getToolCoalesce, setToolCoalesce, runCoalesced, __resetCoalesceForTesting } from "../coalesce.js";
+import {
+  getToolCoalesce,
+  setToolCoalesce,
+  runCoalesced,
+  __resetCoalesceForTesting,
+} from "../tool-policies/coalesce.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 // A unique client name (not reused by any other test file) — proxy.ts's Ajv

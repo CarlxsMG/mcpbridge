@@ -17,7 +17,7 @@ import {
   nextCursorValue,
   parseNextLink,
   withItems,
-} from "../pagination.js";
+} from "../tool-policies/pagination.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "svc";

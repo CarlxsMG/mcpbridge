@@ -17,7 +17,8 @@
  *     normally require approval.
  *   - "observe": the call proceeds; only a log line + metric mark it.
  */
-import { getDb } from "./db/connection.js";
+import { getDb } from "../db/connection.js";
+import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 export type QuarantineAction = "block" | "force_approval" | "observe";
 export type QuarantineRecoveryMode = "auto" | "manual";
@@ -106,9 +107,8 @@ export function getQuarantineState(clientName: string, toolName: string): Quaran
  * left to escalate or recover from. Returns false when the tool is unknown.
  */
 export function setQuarantinePolicy(clientName: string, toolName: string, input: QuarantinePolicy | null): boolean {
+  if (!toolExists(clientName, toolName)) return false;
   const db = getDb();
-  const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
-  if (!exists) return false;
 
   if (input === null) {
     db.query(`DELETE FROM tool_quarantine_policy WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
@@ -116,16 +116,17 @@ export function setQuarantinePolicy(clientName: string, toolName: string, input:
     return true;
   }
 
-  db.query(
-    `INSERT INTO tool_quarantine_policy (client_name, tool_name, consecutive_threshold, action, recovery_mode, cooldown_ms, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET
-       consecutive_threshold = excluded.consecutive_threshold,
-       action = excluded.action,
-       recovery_mode = excluded.recovery_mode,
-       cooldown_ms = excluded.cooldown_ms,
-       updated_at = excluded.updated_at`,
-  ).run(clientName, toolName, input.consecutiveThreshold, input.action, input.recoveryMode, input.cooldownMs, nowFn());
+  upsertConfig(
+    "tool_quarantine_policy",
+    { client_name: clientName, tool_name: toolName },
+    {
+      consecutive_threshold: input.consecutiveThreshold,
+      action: input.action,
+      recovery_mode: input.recoveryMode,
+      cooldown_ms: input.cooldownMs,
+    },
+    nowFn(),
+  );
   return true;
 }
 
@@ -214,9 +215,8 @@ export function checkQuarantine(clientName: string, toolName: string): Quarantin
 
 /** Manual (or lazy-auto) reset of a tool's quarantine state. False when the tool is unknown. */
 export function clearQuarantine(clientName: string, toolName: string): boolean {
+  if (!toolExists(clientName, toolName)) return false;
   const db = getDb();
-  const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
-  if (!exists) return false;
   db.query(
     `UPDATE tool_quarantine_state SET quarantined = 0, consecutive_hits = 0, quarantined_at = NULL, reason = NULL, cooldown_until = NULL WHERE client_name = ? AND tool_name = ?`,
   ).run(clientName, toolName);

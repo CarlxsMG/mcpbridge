@@ -2,7 +2,7 @@ import { getDb } from "./db/connection.js";
 import { registry, ToolOverrideError } from "./mcp/registry.js";
 import { listBundles, getBundleDetail, createBundle, updateBundle, type BundleToolRef } from "./bundles.js";
 import { listAlertRules, createAlertRule, type AlertEventType } from "./observability/alerts.js";
-import { getGuardrailsForClient, setGuardrails } from "./guardrails.js";
+import { getGuardrailsForClient, setGuardrails } from "./tool-policies/guardrails.js";
 import { listConsumers, getConsumerByName, createConsumer, updateConsumer, isValidQuotaValue } from "./consumers.js";
 import type { ClientGuardConfig, ToolGuardConfig, ToolOverride, ToolGuardrails } from "./mcp/types.js";
 

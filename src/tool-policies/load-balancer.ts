@@ -21,9 +21,10 @@
  * LB takes precedence over canary: when the pool is active, canary routing is
  * skipped (see proxy.ts) — the two are mutually exclusive per call.
  */
-import { getDb } from "./db/connection.js";
-import { config } from "./config.js";
-import { validateBackendUrl } from "./security/ip-validator.js";
+import { getDb } from "../db/connection.js";
+import { config } from "../config.js";
+import { validateBackendUrl } from "../security/ip-validator.js";
+import { upsertConfig } from "../lib/tool-config.js";
 
 export type LbStrategy = "round-robin" | "weighted" | "least-conn";
 
@@ -126,15 +127,12 @@ export function setLb(
   if (!Number.isInteger(input.primaryWeight) || input.primaryWeight < 0 || input.primaryWeight > 1000) {
     return { ok: false, error: "INVALID_WEIGHT" };
   }
-  db.query(
-    `INSERT INTO client_lb (client_name, strategy, primary_weight, enabled, updated_at)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(client_name) DO UPDATE SET
-       strategy = excluded.strategy,
-       primary_weight = excluded.primary_weight,
-       enabled = excluded.enabled,
-       updated_at = excluded.updated_at`,
-  ).run(clientName, input.strategy, input.primaryWeight, input.enabled ? 1 : 0, Date.now());
+  upsertConfig(
+    "client_lb",
+    { client_name: clientName },
+    { strategy: input.strategy, primary_weight: input.primaryWeight, enabled: input.enabled ? 1 : 0 },
+    Date.now(),
+  );
   return { ok: true };
 }
 

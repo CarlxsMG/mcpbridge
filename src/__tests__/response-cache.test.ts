@@ -19,7 +19,7 @@ import {
   purgeToolCache,
   __resetCacheForTesting,
   __setClockForTesting,
-} from "../response-cache.js";
+} from "../tool-policies/response-cache.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "svc";

@@ -14,6 +14,7 @@
  * parsed JSON body before redaction.
  */
 import { getDb } from "../db/connection.js";
+import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 export type TransformOp =
   | { op: "set"; path: string; value: unknown }
@@ -53,28 +54,20 @@ export function setToolTransform(
   toolName: string,
   input: { enabled: boolean; request: TransformOp[]; response: TransformOp[] } | null,
 ): boolean {
-  const db = getDb();
-  const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
-  if (!exists) return false;
+  if (!toolExists(clientName, toolName)) return false;
 
   if (input === null) {
-    db.query(`DELETE FROM tool_transforms WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+    getDb().query(`DELETE FROM tool_transforms WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
     return true;
   }
-  db.query(
-    `INSERT INTO tool_transforms (client_name, tool_name, request_json, response_json, enabled, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET
-       request_json = excluded.request_json,
-       response_json = excluded.response_json,
-       enabled = excluded.enabled,
-       updated_at = excluded.updated_at`,
-  ).run(
-    clientName,
-    toolName,
-    JSON.stringify(input.request),
-    JSON.stringify(input.response),
-    input.enabled ? 1 : 0,
+  upsertConfig(
+    "tool_transforms",
+    { client_name: clientName, tool_name: toolName },
+    {
+      request_json: JSON.stringify(input.request),
+      response_json: JSON.stringify(input.response),
+      enabled: input.enabled ? 1 : 0,
+    },
     Date.now(),
   );
   return true;

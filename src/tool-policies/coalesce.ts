@@ -12,7 +12,8 @@
  * per-caller authorization — only the actual upstream fetch (and its
  * breaker/LB bookkeeping) is shared.
  */
-import { getDb } from "./db/connection.js";
+import { getDb } from "../db/connection.js";
+import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 export interface ToolCoalesceConfig {
   enabled: boolean;
@@ -47,20 +48,12 @@ export function getCoalesceForClient(clientName: string): Record<string, ToolCoa
  * setToolCacheConfig).
  */
 export function setToolCoalesce(clientName: string, toolName: string, input: { enabled: boolean } | null): boolean {
-  const db = getDb();
-  const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
-  if (!exists) return false;
+  if (!toolExists(clientName, toolName)) return false;
 
   if (input === null || !input.enabled) {
-    db.query(`DELETE FROM tool_coalesce WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+    getDb().query(`DELETE FROM tool_coalesce WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
   } else {
-    db.query(
-      `INSERT INTO tool_coalesce (client_name, tool_name, enabled, updated_at)
-       VALUES (?, ?, 1, ?)
-       ON CONFLICT(client_name, tool_name) DO UPDATE SET
-         enabled = excluded.enabled,
-         updated_at = excluded.updated_at`,
-    ).run(clientName, toolName, Date.now());
+    upsertConfig("tool_coalesce", { client_name: clientName, tool_name: toolName }, { enabled: 1 }, Date.now());
   }
   return true;
 }

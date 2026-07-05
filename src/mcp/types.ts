@@ -1,4 +1,4 @@
-import type { ContextBudgetPublic } from "../context-budget.js";
+import type { ContextBudgetPublic } from "../tool-policies/context-budget.js";
 
 /** Canonical status values for a registered client. */
 export type ClientStatus = "healthy" | "degraded" | "unreachable";

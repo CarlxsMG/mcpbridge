@@ -1,6 +1,7 @@
-import { getDb } from "./db/connection.js";
-import { config } from "./config.js";
-import { validateBackendUrl } from "./security/ip-validator.js";
+import { getDb } from "../db/connection.js";
+import { config } from "../config.js";
+import { validateBackendUrl } from "../security/ip-validator.js";
+import { upsertConfig } from "../lib/tool-config.js";
 
 /**
  * Per-client secondary-upstream routing (REST clients only, v1). A client can
@@ -79,23 +80,16 @@ export async function setCanary(
   const check = await validateBackendUrl(input.secondaryBaseUrl, config.allowPrivateIps, config.allowedHosts);
   if (!check.valid || !check.resolvedIp) return { ok: false, error: "INVALID_URL", reason: check.reason };
 
-  db.query(
-    `INSERT INTO client_canary (client_name, secondary_base_url, secondary_resolved_ip, mode, weight, enabled, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(client_name) DO UPDATE SET
-       secondary_base_url = excluded.secondary_base_url,
-       secondary_resolved_ip = excluded.secondary_resolved_ip,
-       mode = excluded.mode,
-       weight = excluded.weight,
-       enabled = excluded.enabled,
-       updated_at = excluded.updated_at`,
-  ).run(
-    clientName,
-    input.secondaryBaseUrl,
-    check.resolvedIp,
-    input.mode,
-    input.weight,
-    input.enabled ? 1 : 0,
+  upsertConfig(
+    "client_canary",
+    { client_name: clientName },
+    {
+      secondary_base_url: input.secondaryBaseUrl,
+      secondary_resolved_ip: check.resolvedIp,
+      mode: input.mode,
+      weight: input.weight,
+      enabled: input.enabled ? 1 : 0,
+    },
     Date.now(),
   );
   return { ok: true };

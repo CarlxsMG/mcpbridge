@@ -18,7 +18,7 @@ import {
   checkInputGuardrails,
   applyResponseScan,
   responseLooksInjected,
-} from "../guardrails.js";
+} from "../tool-policies/guardrails.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "gr-client";

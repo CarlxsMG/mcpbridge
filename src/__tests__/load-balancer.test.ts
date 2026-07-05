@@ -23,7 +23,7 @@ import {
   __setLbDepsForTesting,
   type LbConfig,
   type LbTarget,
-} from "../load-balancer.js";
+} from "../tool-policies/load-balancer.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "svc";

@@ -1,7 +1,8 @@
-import { getDb } from "./db/connection.js";
-import { getSecretsProvider } from "./secrets/index.js";
-import { config } from "./config.js";
-import { log } from "./logger.js";
+import { getDb } from "../db/connection.js";
+import { getSecretsProvider } from "../secrets/index.js";
+import { config } from "../config.js";
+import { log } from "../logger.js";
+import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 /**
  * Per-tool "context budget" guardrail — an MCP-specific problem a generic API
@@ -138,7 +139,7 @@ export async function setToolContextBudget(
   input: ContextBudgetInput | null,
 ): Promise<{ ok: true } | { ok: false; error: ContextBudgetError; reason?: string }> {
   const db = getDb();
-  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) {
+  if (!toolExists(clientName, toolName)) {
     return { ok: false, error: "TOOL_NOT_FOUND" };
   }
   if (input === null) {
@@ -164,27 +165,17 @@ export async function setToolContextBudget(
     llmModel = input.llm.model;
   }
 
-  db.query(
-    `INSERT INTO tool_context_budget
-       (client_name, tool_name, mode, max_response_bytes, llm_provider, llm_base_url, llm_model, llm_api_key_ref, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET
-       mode = excluded.mode,
-       max_response_bytes = excluded.max_response_bytes,
-       llm_provider = excluded.llm_provider,
-       llm_base_url = excluded.llm_base_url,
-       llm_model = excluded.llm_model,
-       llm_api_key_ref = excluded.llm_api_key_ref,
-       updated_at = excluded.updated_at`,
-  ).run(
-    clientName,
-    toolName,
-    input.mode,
-    input.maxResponseBytes,
-    llmProvider,
-    llmBaseUrl,
-    llmModel,
-    llmApiKeyRef,
+  upsertConfig(
+    "tool_context_budget",
+    { client_name: clientName, tool_name: toolName },
+    {
+      mode: input.mode,
+      max_response_bytes: input.maxResponseBytes,
+      llm_provider: llmProvider,
+      llm_base_url: llmBaseUrl,
+      llm_model: llmModel,
+      llm_api_key_ref: llmApiKeyRef,
+    },
     Date.now(),
   );
   return { ok: true };

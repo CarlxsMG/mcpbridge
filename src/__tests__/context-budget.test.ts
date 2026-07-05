@@ -24,7 +24,7 @@ import {
   getToolContextBudgetPublic,
   __setContextBudgetFetchForTesting,
   __resetContextBudgetForTesting,
-} from "../context-budget.js";
+} from "../tool-policies/context-budget.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "cbsvc";

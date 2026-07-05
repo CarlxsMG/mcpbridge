@@ -5,19 +5,26 @@ import { adminAuth } from "../middleware/auth.js";
 import { hashApiKey } from "../security/key-hash.js";
 import { setToolSensitive } from "../tool-sensitivity.js";
 import { setRedactionPaths } from "../redaction.js";
-import { setGuardrails, MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../guardrails.js";
+import { setGuardrails, MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../tool-policies/guardrails.js";
 import { listExamples, createExample, deleteExample } from "../tool-examples.js";
-import { getCanary, setCanary } from "../canary.js";
-import { setToolCacheConfig, purgeToolCache, MAX_CACHE_TTL_SECONDS } from "../response-cache.js";
-import { setToolCoalesce } from "../coalesce.js";
+import { getCanary, setCanary } from "../tool-policies/canary.js";
+import { setToolCacheConfig, purgeToolCache, MAX_CACHE_TTL_SECONDS } from "../tool-policies/response-cache.js";
+import { setToolCoalesce } from "../tool-policies/coalesce.js";
 import {
   setQuarantinePolicy,
   clearQuarantine,
   type QuarantineAction,
   type QuarantineRecoveryMode,
-} from "../quarantine.js";
-import { getLb, setLb, addUpstream, updateUpstream, removeUpstream, type LbStrategy } from "../load-balancer.js";
-import { setPaginationConfig, MAX_PAGINATION_PAGES, type PaginationStrategy } from "../pagination.js";
+} from "../tool-policies/quarantine.js";
+import {
+  getLb,
+  setLb,
+  addUpstream,
+  updateUpstream,
+  removeUpstream,
+  type LbStrategy,
+} from "../tool-policies/load-balancer.js";
+import { setPaginationConfig, MAX_PAGINATION_PAGES, type PaginationStrategy } from "../tool-policies/pagination.js";
 import { setStreamingConfig, MAX_STREAM_EVENTS, type StreamFormat } from "../proxy/streaming.js";
 import { setToolTransform, MAX_TRANSFORM_OPS, type TransformOp } from "../proxy/transform.js";
 import { setToolMock, type MockMode } from "../mock.js";
@@ -39,7 +46,7 @@ import {
   type ContextBudgetInput,
   type ContextBudgetMode,
   type ContextBudgetLlmProvider,
-} from "../context-budget.js";
+} from "../tool-policies/context-budget.js";
 import { getClientTeam, canAccessClient } from "../teams.js";
 import {
   recordAudit,

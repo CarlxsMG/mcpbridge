@@ -10,7 +10,7 @@ import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker, getAllCircuitStates } from "../middleware/circuit-breaker.js";
 import { proxyToolCall } from "../proxy/proxy.js";
-import { setGuardrails } from "../guardrails.js";
+import { setGuardrails } from "../tool-policies/guardrails.js";
 import { listApprovals } from "../approvals.js";
 import {
   getQuarantinePolicy,
@@ -21,7 +21,7 @@ import {
   clearQuarantine,
   __setClockForTesting,
   type QuarantinePolicy,
-} from "../quarantine.js";
+} from "../tool-policies/quarantine.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 // A unique client name — proxy.ts's Ajv validator cache is keyed by

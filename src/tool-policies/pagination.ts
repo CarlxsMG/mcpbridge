@@ -16,7 +16,8 @@
  * config + the pure helpers; the fetch loop lives in proxy.ts where the pinned
  * transport is.
  */
-import { getDb } from "./db/connection.js";
+import { getDb } from "../db/connection.js";
+import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 export type PaginationStrategy = "cursor" | "page" | "link";
 
@@ -79,36 +80,24 @@ export function setPaginationConfig(
     maxPages: number;
   } | null,
 ): boolean {
-  const db = getDb();
-  const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
-  if (!exists) return false;
+  if (!toolExists(clientName, toolName)) return false;
 
   if (input === null) {
-    db.query(`DELETE FROM tool_pagination WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+    getDb().query(`DELETE FROM tool_pagination WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
     return true;
   }
-  db.query(
-    `INSERT INTO tool_pagination (client_name, tool_name, strategy, items_path, cursor_response_path, cursor_param, page_param, max_pages, enabled, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET
-       strategy = excluded.strategy,
-       items_path = excluded.items_path,
-       cursor_response_path = excluded.cursor_response_path,
-       cursor_param = excluded.cursor_param,
-       page_param = excluded.page_param,
-       max_pages = excluded.max_pages,
-       enabled = excluded.enabled,
-       updated_at = excluded.updated_at`,
-  ).run(
-    clientName,
-    toolName,
-    input.strategy,
-    input.itemsPath,
-    input.cursorResponsePath ?? null,
-    input.cursorParam ?? null,
-    input.pageParam ?? null,
-    input.maxPages,
-    input.enabled ? 1 : 0,
+  upsertConfig(
+    "tool_pagination",
+    { client_name: clientName, tool_name: toolName },
+    {
+      strategy: input.strategy,
+      items_path: input.itemsPath,
+      cursor_response_path: input.cursorResponsePath ?? null,
+      cursor_param: input.cursorParam ?? null,
+      page_param: input.pageParam ?? null,
+      max_pages: input.maxPages,
+      enabled: input.enabled ? 1 : 0,
+    },
     Date.now(),
   );
   return true;

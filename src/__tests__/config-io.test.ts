@@ -7,7 +7,7 @@ import { registry } from "../mcp/registry.js";
 import { createBundle, getBundleDetail } from "../bundles.js";
 import { createAlertRule, listAlertRules } from "../observability/alerts.js";
 import { exportConfig, importConfig } from "../config-io.js";
-import { getGuardrails, setGuardrails } from "../guardrails.js";
+import { getGuardrails, setGuardrails } from "../tool-policies/guardrails.js";
 import { listConsumers, createConsumer } from "../consumers.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 

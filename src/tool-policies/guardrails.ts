@@ -1,5 +1,6 @@
-import { getDb } from "./db/connection.js";
-import type { ToolGuardrails } from "./mcp/types.js";
+import { getDb } from "../db/connection.js";
+import { toolExists, upsertConfig } from "../lib/tool-config.js";
+import type { ToolGuardrails } from "../mcp/types.js";
 
 /**
  * Per-tool content guardrails, enforced inside proxyToolCall (before the
@@ -93,8 +94,7 @@ export function getGuardrails(clientName: string, toolName: string): ToolGuardra
  * (compilable, bounded count/length) at this boundary.
  */
 export function setGuardrails(clientName: string, toolName: string, cfg: ToolGuardrails | null): boolean {
-  const db = getDb();
-  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return false;
+  if (!toolExists(clientName, toolName)) return false;
 
   const denyPatterns = (cfg?.denyPatterns ?? [])
     .map((p) => p.trim())
@@ -104,24 +104,18 @@ export function setGuardrails(clientName: string, toolName: string, cfg: ToolGua
   const scanResponses = cfg?.scanResponses ?? false;
 
   if (denyPatterns.length === 0 && !blockSecrets && !scanResponses) {
-    db.query(`DELETE FROM tool_guardrails WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+    getDb().query(`DELETE FROM tool_guardrails WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
     return true;
   }
 
-  db.query(
-    `INSERT INTO tool_guardrails (client_name, tool_name, deny_patterns_json, block_secrets, scan_responses, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET
-       deny_patterns_json = excluded.deny_patterns_json,
-       block_secrets = excluded.block_secrets,
-       scan_responses = excluded.scan_responses,
-       updated_at = excluded.updated_at`,
-  ).run(
-    clientName,
-    toolName,
-    denyPatterns.length > 0 ? JSON.stringify(denyPatterns) : null,
-    blockSecrets ? 1 : 0,
-    scanResponses ? 1 : 0,
+  upsertConfig(
+    "tool_guardrails",
+    { client_name: clientName, tool_name: toolName },
+    {
+      deny_patterns_json: denyPatterns.length > 0 ? JSON.stringify(denyPatterns) : null,
+      block_secrets: blockSecrets ? 1 : 0,
+      scan_responses: scanResponses ? 1 : 0,
+    },
     Date.now(),
   );
   return true;

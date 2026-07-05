@@ -12,6 +12,7 @@
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { validateBackendUrl } from "../security/ip-validator.js";
+import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 // ── GraphQL ─────────────────────────────────────────────────────────────────
 
@@ -42,16 +43,17 @@ export function setToolGraphql(
   toolName: string,
   input: { enabled: boolean; query: string } | null,
 ): boolean {
-  const db = getDb();
-  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return false;
+  if (!toolExists(clientName, toolName)) return false;
   if (input === null) {
-    db.query(`DELETE FROM tool_graphql WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+    getDb().query(`DELETE FROM tool_graphql WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
     return true;
   }
-  db.query(
-    `INSERT INTO tool_graphql (client_name, tool_name, query, enabled, updated_at) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET query = excluded.query, enabled = excluded.enabled, updated_at = excluded.updated_at`,
-  ).run(clientName, toolName, input.query, input.enabled ? 1 : 0, Date.now());
+  upsertConfig(
+    "tool_graphql",
+    { client_name: clientName, tool_name: toolName },
+    { query: input.query, enabled: input.enabled ? 1 : 0 },
+    Date.now(),
+  );
   return true;
 }
 
@@ -103,11 +105,9 @@ export async function setToolWs(
   toolName: string,
   input: { enabled: boolean; wsUrl: string; persistent?: boolean } | null,
 ): Promise<{ ok: true } | { ok: false; error: WsError; reason?: string }> {
-  const db = getDb();
-  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName))
-    return { ok: false, error: "TOOL_NOT_FOUND" };
+  if (!toolExists(clientName, toolName)) return { ok: false, error: "TOOL_NOT_FOUND" };
   if (input === null) {
-    db.query(`DELETE FROM tool_ws WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+    getDb().query(`DELETE FROM tool_ws WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
     return { ok: true };
   }
   if (!/^wss?:\/\//.test(input.wsUrl)) return { ok: false, error: "INVALID_URL", reason: "must be ws:// or wss://" };
@@ -115,16 +115,15 @@ export async function setToolWs(
   const httpEquivalent = input.wsUrl.replace(/^ws/, "http");
   const check = await validateBackendUrl(httpEquivalent, config.allowPrivateIps, config.allowedHosts);
   if (!check.valid || !check.resolvedIp) return { ok: false, error: "INVALID_URL", reason: check.reason };
-  db.query(
-    `INSERT INTO tool_ws (client_name, tool_name, ws_url, resolved_ip, enabled, persistent, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET ws_url = excluded.ws_url, resolved_ip = excluded.resolved_ip, enabled = excluded.enabled, persistent = excluded.persistent, updated_at = excluded.updated_at`,
-  ).run(
-    clientName,
-    toolName,
-    input.wsUrl,
-    check.resolvedIp,
-    input.enabled ? 1 : 0,
-    input.persistent ? 1 : 0,
+  upsertConfig(
+    "tool_ws",
+    { client_name: clientName, tool_name: toolName },
+    {
+      ws_url: input.wsUrl,
+      resolved_ip: check.resolvedIp,
+      enabled: input.enabled ? 1 : 0,
+      persistent: input.persistent ? 1 : 0,
+    },
     Date.now(),
   );
   return { ok: true };

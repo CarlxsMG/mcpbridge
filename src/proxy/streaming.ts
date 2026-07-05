@@ -10,6 +10,7 @@
  * or SSE token/event streams and then close.
  */
 import { getDb } from "../db/connection.js";
+import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 export type StreamFormat = "ndjson" | "sse";
 
@@ -42,23 +43,18 @@ export function setStreamingConfig(
   toolName: string,
   input: { enabled: boolean; format: StreamFormat; maxEvents: number } | null,
 ): boolean {
-  const db = getDb();
-  const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
-  if (!exists) return false;
+  if (!toolExists(clientName, toolName)) return false;
 
   if (input === null) {
-    db.query(`DELETE FROM tool_streaming WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+    getDb().query(`DELETE FROM tool_streaming WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
     return true;
   }
-  db.query(
-    `INSERT INTO tool_streaming (client_name, tool_name, format, max_events, enabled, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET
-       format = excluded.format,
-       max_events = excluded.max_events,
-       enabled = excluded.enabled,
-       updated_at = excluded.updated_at`,
-  ).run(clientName, toolName, input.format, input.maxEvents, input.enabled ? 1 : 0, Date.now());
+  upsertConfig(
+    "tool_streaming",
+    { client_name: clientName, tool_name: toolName },
+    { format: input.format, max_events: input.maxEvents, enabled: input.enabled ? 1 : 0 },
+    Date.now(),
+  );
   return true;
 }
 

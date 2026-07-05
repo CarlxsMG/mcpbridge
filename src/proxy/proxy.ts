@@ -14,8 +14,8 @@ import {
   lbRequests,
   coalesceHits,
 } from "../observability/metrics.js";
-import { getToolCacheConfig, cacheKey, cacheGet, cacheSet } from "../response-cache.js";
-import { getToolCoalesce, runCoalesced } from "../coalesce.js";
+import { getToolCacheConfig, cacheKey, cacheGet, cacheSet } from "../tool-policies/response-cache.js";
+import { getToolCoalesce, runCoalesced } from "../tool-policies/coalesce.js";
 import {
   getLb,
   selectTarget,
@@ -24,7 +24,7 @@ import {
   incInflight,
   decInflight,
   type LbChoice,
-} from "../load-balancer.js";
+} from "../tool-policies/load-balancer.js";
 import {
   getPaginationConfig,
   extractItems,
@@ -32,7 +32,7 @@ import {
   parseNextLink,
   withItems,
   type PaginationConfig,
-} from "../pagination.js";
+} from "../tool-policies/pagination.js";
 import { getStreamingConfig, parseStream } from "./streaming.js";
 import { getToolTransform, applyOps } from "./transform.js";
 import { getToolMock } from "../mock.js";
@@ -59,10 +59,10 @@ import { recordUsage } from "../observability/usage.js";
 import { checkConsumerQuota, checkEndUserRateLimit, getConsumer } from "../consumers.js";
 import { isToolSensitive } from "../tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "../redaction.js";
-import { getGuardrails, checkInputGuardrails, applyResponseScan } from "../guardrails.js";
-import { checkQuarantine, recordGuardrailHit } from "../quarantine.js";
-import { applyContextBudget } from "../context-budget.js";
-import { getCanary, decideSecondary } from "../canary.js";
+import { getGuardrails, checkInputGuardrails, applyResponseScan } from "../tool-policies/guardrails.js";
+import { checkQuarantine, recordGuardrailHit } from "../tool-policies/quarantine.js";
+import { applyContextBudget } from "../tool-policies/context-budget.js";
+import { getCanary, decideSecondary } from "../tool-policies/canary.js";
 import { tracingEnabled, startSpan, endSpan } from "../observability/tracing.js";
 import { mcpUpstream } from "../mcp/mcp-upstream.js";
 import type { McpConnParams } from "../mcp/mcp-upstream.js";
