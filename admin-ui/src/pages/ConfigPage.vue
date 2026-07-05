@@ -1,170 +1,27 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { api } from "@/composables/useApi";
-import { useConfirmAction } from "@/composables/useConfirmAction";
-import { toErrorMessage } from "@/utils/errors";
-import { formatDateTime } from "@/utils/format";
-import { downloadTextFile } from "@/utils/download";
-import type { ConfigImportResult, ConfigSnapshotSummary, ConfigDiffResult } from "@/types/api";
-import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import { ref } from "vue";
+import type { ConfigImportResult } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
-import FormField from "@/components/ui/FormField.vue";
-import SelectMenu from "@/components/ui/SelectMenu.vue";
+import ConfigExportSection from "@/components/config/ConfigExportSection.vue";
+import ConfigImportSection from "@/components/config/ConfigImportSection.vue";
+import ConfigSnapshotsSection from "@/components/config/ConfigSnapshotsSection.vue";
 
-const FORMAT_OPTIONS: { value: "json" | "yaml"; label: string }[] = [
-  { value: "json", label: "JSON" },
-  { value: "yaml", label: "YAML" },
-];
-
-const exportingFormat = ref<"json" | "yaml" | null>(null);
-const importText = ref("");
-const importFormat = ref<"json" | "yaml">("json");
-const jsonPlaceholder = '{ "version": 1, ... }';
 const result = ref<ConfigImportResult | null>(null);
 const resultKind = ref<"import" | "rollback">("import");
-const busy = ref(false);
 const errorMessage = ref("");
-const {
-  pending: pendingImportConfirm,
-  request: requestImportConfirm,
-  cancel: cancelImportConfirm,
-  confirm: confirmImportAction,
-} = useConfirmAction<true>();
 
-// Version history
-const snapshots = ref<ConfigSnapshotSummary[]>([]);
-const newSnapshotLabel = ref("");
-const snapshotBusy = ref(false);
-const diff = ref<ConfigDiffResult | null>(null);
-const {
-  pending: pendingRollback,
-  request: requestRollback,
-  cancel: cancelRollback,
-  confirm: confirmRollbackAction,
-} = useConfirmAction<ConfigSnapshotSummary>();
-const {
-  pending: pendingDeleteSnapshot,
-  request: requestDeleteSnapshot,
-  cancel: cancelDeleteSnapshot,
-  confirm: confirmDeleteSnapshotAction,
-} = useConfirmAction<ConfigSnapshotSummary>();
-const snapshotsError = ref("");
-
-async function loadSnapshots() {
-  snapshotsError.value = "";
-  try {
-    const res = await api.get<{ items: ConfigSnapshotSummary[] }>("/admin-api/config/snapshots");
-    snapshots.value = res.items;
-  } catch (err) {
-    snapshotsError.value = toErrorMessage(err, "Failed to load snapshots.");
-  }
-}
-onMounted(loadSnapshots);
-
-async function createSnapshotFn() {
-  if (!newSnapshotLabel.value.trim()) return;
-  snapshotBusy.value = true;
-  errorMessage.value = "";
-  try {
-    await api.post("/admin-api/config/snapshots", { label: newSnapshotLabel.value.trim() });
-    newSnapshotLabel.value = "";
-    await loadSnapshots();
-  } catch (err) {
-    errorMessage.value = toErrorMessage(err, "Failed to create snapshot.");
-  } finally {
-    snapshotBusy.value = false;
-  }
+function onError(message: string) {
+  errorMessage.value = message;
 }
 
-async function showDiff(s: ConfigSnapshotSummary) {
-  errorMessage.value = "";
-  diff.value = null;
-  try {
-    diff.value = await api.get<ConfigDiffResult>(`/admin-api/config/snapshots/${s.id}/diff?against=current`);
-  } catch (err) {
-    errorMessage.value = toErrorMessage(err, "Failed to diff.");
-  }
+function onImportResult(r: ConfigImportResult | null) {
+  result.value = r;
+  resultKind.value = "import";
 }
 
-async function confirmRollback() {
-  await confirmRollbackAction(async (s) => {
-    snapshotBusy.value = true;
-    errorMessage.value = "";
-    try {
-      resultKind.value = "rollback";
-      result.value = await api.post<ConfigImportResult>(`/admin-api/config/snapshots/${s.id}/rollback`, {});
-    } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Rollback failed.");
-    } finally {
-      snapshotBusy.value = false;
-    }
-  });
-}
-
-async function confirmDeleteSnapshot() {
-  await confirmDeleteSnapshotAction(async (s) => {
-    try {
-      await api.delete(`/admin-api/config/snapshots/${s.id}`);
-      if (diff.value?.from.id === s.id) diff.value = null;
-      await loadSnapshots();
-    } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Delete failed.");
-    }
-  });
-}
-
-function fmt(v: unknown): string {
-  if (v === undefined) return "—";
-  return typeof v === "object" ? JSON.stringify(v) : String(v);
-}
-
-async function doExport(format: "json" | "yaml") {
-  exportingFormat.value = format;
-  errorMessage.value = "";
-  try {
-    // Formatting/parsing happens server-side — the admin UI never needs its
-    // own YAML dependency, it just relays the raw text the backend produced.
-    const suffix = format === "yaml" ? "?format=yaml" : "";
-    const raw = await api.getRaw(`/admin-api/config/export${suffix}`);
-    const mime = format === "yaml" ? "application/yaml" : "application/json";
-    const filename = format === "yaml" ? "mcp-bridge-config.yaml" : "mcp-bridge-config.json";
-    downloadTextFile(filename, raw, mime);
-  } catch (err) {
-    errorMessage.value = toErrorMessage(err, "Export failed.");
-  } finally {
-    exportingFormat.value = null;
-  }
-}
-
-async function runImport(dryRun: boolean) {
-  errorMessage.value = "";
-  result.value = null;
-  busy.value = true;
-  try {
-    resultKind.value = "import";
-    const body =
-      importFormat.value === "yaml"
-        ? { dryRun, format: "yaml", raw: importText.value }
-        : { dryRun, data: JSON.parse(importText.value) };
-    result.value = await api.post<ConfigImportResult>("/admin-api/config/import", body);
-  } catch (err) {
-    errorMessage.value =
-      importFormat.value === "json" && err instanceof SyntaxError
-        ? "Invalid JSON."
-        : toErrorMessage(err, "Import failed.");
-  } finally {
-    busy.value = false;
-  }
-}
-
-function requestImport() {
-  requestImportConfirm(true);
-}
-
-async function confirmImport() {
-  await confirmImportAction(async () => {
-    await runImport(false);
-  });
+function onRollbackResult(r: ConfigImportResult) {
+  result.value = r;
+  resultKind.value = "rollback";
 }
 </script>
 
@@ -175,125 +32,9 @@ async function confirmImport() {
       subtitle="Export a portable snapshot of admin-authored config (bundles, alerts, per-client guards & overrides), or import one into this instance."
     />
 
-    <div class="block">
-      <h2>Export</h2>
-      <div class="actions" role="group" aria-label="Export format">
-        <button type="button" class="btn-secondary" :disabled="exportingFormat !== null" @click="doExport('json')">
-          {{ exportingFormat === "json" ? "Exporting…" : "Download config .json" }}
-        </button>
-        <button type="button" class="btn-secondary" :disabled="exportingFormat !== null" @click="doExport('yaml')">
-          {{ exportingFormat === "yaml" ? "Exporting…" : "Download config .yaml" }}
-        </button>
-      </div>
-    </div>
-
-    <div class="block">
-      <h2>Import</h2>
-      <p class="hint">
-        Paste an exported document (policy-as-code — includes guardrails and consumer quotas). Dry-run first to preview
-        what would change — client/tool config only applies to already-registered servers.
-      </p>
-      <FormField class="format-field" label="Format" for="import-format">
-        <SelectMenu id="import-format" v-model="importFormat" :options="FORMAT_OPTIONS" />
-      </FormField>
-      <label for="import-text">Import document</label>
-      <textarea
-        id="import-text"
-        v-model="importText"
-        rows="10"
-        spellcheck="false"
-        :placeholder="importFormat === 'yaml' ? 'version: 1' : jsonPlaceholder"
-      ></textarea>
-      <div class="actions">
-        <button type="button" class="btn-secondary" :disabled="busy" @click="runImport(true)">Dry run</button>
-        <button type="button" class="btn-primary" :disabled="busy" @click="requestImport">Apply import</button>
-      </div>
-    </div>
-
-    <div class="block">
-      <h2>Version history</h2>
-      <p class="hint">Snapshot the current config, diff a snapshot against the live config, or roll back to it.</p>
-      <div class="actions">
-        <label for="snapshot-label">Snapshot label</label>
-        <input
-          id="snapshot-label"
-          v-model="newSnapshotLabel"
-          type="text"
-          placeholder="Snapshot label (e.g. before-migration)"
-          class="label-input"
-        />
-        <button
-          type="button"
-          class="btn-primary"
-          :disabled="snapshotBusy || !newSnapshotLabel.trim()"
-          @click="createSnapshotFn"
-        >
-          Snapshot now
-        </button>
-      </div>
-      <p v-if="snapshotsError" class="error" role="alert">{{ snapshotsError }}</p>
-      <div v-if="snapshots.length" class="table-scroll">
-        <table class="snap-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Label</th>
-              <th>Created</th>
-              <th>By</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="s in snapshots" :key="s.id">
-              <td>{{ s.id }}</td>
-              <td>{{ s.label }}</td>
-              <td>{{ formatDateTime(s.createdAt) }}</td>
-              <td>{{ s.createdBy }}</td>
-              <td class="row-actions">
-                <button type="button" class="link-btn" @click="showDiff(s)">diff vs current</button>
-                <button type="button" class="link-btn" @click="requestRollback(s)">rollback</button>
-                <button type="button" class="link-btn del" @click="requestDeleteSnapshot(s)">delete</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p v-else-if="!snapshotsError" class="hint">
-        No snapshots yet. A snapshot captures the full config -- bundles, guardrails, consumers, and more -- so you can
-        compare or roll back later.
-      </p>
-
-      <div v-if="diff" class="diff">
-        <h3>Diff: #{{ diff.from.id }} “{{ diff.from.label }}” → {{ diff.to }}</h3>
-        <p v-if="diff.entries.length === 0" class="hint">No differences.</p>
-        <div v-else class="table-scroll">
-          <table class="diff-table">
-            <thead>
-              <tr>
-                <th>Path</th>
-                <th>Change</th>
-                <th>Before</th>
-                <th>After</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(e, i) in diff.entries" :key="i" :class="e.kind">
-                <td>
-                  <code>{{ e.path }}</code>
-                </td>
-                <td>{{ e.kind }}</td>
-                <td>
-                  <code>{{ fmt(e.before) }}</code>
-                </td>
-                <td>
-                  <code>{{ fmt(e.after) }}</code>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <ConfigExportSection @error="onError" />
+    <ConfigImportSection @result="onImportResult" @error="onError" />
+    <ConfigSnapshotsSection @result="onRollbackResult" @error="onError" />
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
@@ -324,40 +65,6 @@ async function confirmImport() {
         </ul>
       </div>
     </div>
-
-    <ConfirmDialog
-      :open="pendingImportConfirm !== null"
-      title="Apply this import?"
-      message="This overwrites bundles, alert rules, and per-client/tool configuration on already-registered servers with the contents of the pasted document. This cannot be undone from here."
-      confirm-label="Apply import"
-      danger
-      @confirm="confirmImport"
-      @cancel="cancelImportConfirm"
-    />
-
-    <ConfirmDialog
-      :open="pendingRollback !== null"
-      title="Roll back this config?"
-      :message="
-        pendingRollback
-          ? `Roll back config to snapshot '${pendingRollback.label}'? This re-applies it to existing servers.`
-          : ''
-      "
-      confirm-label="Roll back"
-      danger
-      @confirm="confirmRollback"
-      @cancel="cancelRollback"
-    />
-
-    <ConfirmDialog
-      :open="pendingDeleteSnapshot !== null"
-      title="Delete this snapshot?"
-      :message="pendingDeleteSnapshot ? `Delete snapshot '${pendingDeleteSnapshot.label}'?` : ''"
-      :confirm-label="pendingDeleteSnapshot ? `Delete ${pendingDeleteSnapshot.label}` : 'Delete'"
-      danger
-      @confirm="confirmDeleteSnapshot"
-      @cancel="cancelDeleteSnapshot"
-    />
   </section>
 </template>
 
@@ -366,48 +73,6 @@ async function confirmImport() {
    enough to need a line-length cap that the shared component doesn't set. */
 :deep(.subtitle) {
   max-width: 40rem;
-}
-.hint {
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  max-width: 40rem;
-}
-.block {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: 1.25rem;
-  margin: 1.25rem 0;
-}
-.block h2 {
-  margin-top: 0;
-  font-size: 1.05rem;
-}
-.block > label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin: 0.5rem 0 0.35rem;
-}
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  padding: 0.6rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-}
-.actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-  align-items: center;
-}
-.actions label {
-  font-size: 0.85rem;
-  font-weight: 600;
 }
 .result {
   border-radius: var(--radius-md);
@@ -426,7 +91,58 @@ textarea {
   margin-top: 0.75rem;
   font-size: 0.85rem;
 }
-.label-input {
+</style>
+
+<style>
+/* Shared .block/.hint/.actions styling for the three extracted
+   components/config/ConfigXxxSection.vue components — deliberately unscoped
+   (those children render under their own scope hash, not this file's),
+   namespaced under .block so it doesn't leak into the rest of the app's own
+   .hint/.actions conventions elsewhere. Verified .block itself doesn't
+   collide with anything else in admin-ui/src. */
+.block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  padding: 1.25rem;
+  margin: 1.25rem 0;
+}
+.block h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+.block .hint {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  max-width: 40rem;
+}
+.block > label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.35rem;
+}
+.block textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  padding: 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+.block .actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  align-items: center;
+}
+.block .actions label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.block .label-input {
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -434,50 +150,24 @@ textarea {
   font-family: var(--font-body);
   min-width: 16.25rem;
 }
-.format-field {
+.block .format-field {
   max-width: 12rem;
 }
-.snap-table,
-.diff-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 0.8rem;
-  font-size: 0.85rem;
-}
-.snap-table th,
-.diff-table th {
-  text-align: left;
-  padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  vertical-align: top;
-}
-.snap-table td,
-.diff-table td {
-  text-align: left;
-  padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
-}
-.row-actions {
+.block .row-actions {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
 }
-.diff {
+.block .diff {
   margin-top: 1rem;
 }
-.diff-table tr.added td {
+.block .diff tr.added td {
   background: var(--ok-soft);
 }
-.diff-table tr.removed td {
+.block .diff tr.removed td {
   background: var(--breach-soft);
 }
-.diff-table tr.changed td {
+.block .diff tr.changed td {
   background: var(--canary-soft);
 }
 </style>
