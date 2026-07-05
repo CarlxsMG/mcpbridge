@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { toErrorMessage } from "@/utils/errors";
+import { usePatchResource } from "@/composables/usePatchResource";
 import type { OidcSettings } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -18,9 +19,8 @@ const redirectUri = ref("");
 const scopes = ref("openid profile email");
 const enabled = ref(false);
 
-const saving = ref(false);
-const saveError = ref("");
 const saved = ref(false);
+const { saving, error: saveError, run } = usePatchResource(() => "/admin-api/auth/oidc/settings");
 
 function applySettings(s: OidcSettings | null) {
   settings.value = s;
@@ -63,22 +63,21 @@ async function save() {
       : "Client secret is required.";
     return;
   }
-  saving.value = true;
-  try {
-    await api.put("/admin-api/auth/oidc/settings", {
-      issuer: issuer.value.trim(),
-      clientId: clientId.value.trim(),
-      clientSecret: clientSecret.value,
-      redirectUri: redirectUri.value.trim(),
-      scopes: scopes.value.trim() || "openid profile email",
-      enabled: enabled.value,
-    });
+  const ok = await run(
+    (path) =>
+      api.put(path, {
+        issuer: issuer.value.trim(),
+        clientId: clientId.value.trim(),
+        clientSecret: clientSecret.value,
+        redirectUri: redirectUri.value.trim(),
+        scopes: scopes.value.trim() || "openid profile email",
+        enabled: enabled.value,
+      }),
+    "Failed to save SSO settings.",
+  );
+  if (ok) {
     saved.value = true;
     await load();
-  } catch (err) {
-    saveError.value = toErrorMessage(err, "Failed to save SSO settings.");
-  } finally {
-    saving.value = false;
   }
 }
 </script>
