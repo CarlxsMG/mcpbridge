@@ -2094,5 +2094,212 @@
       "title": "Nuevo bundle",
       "back_to_bundles": "Bundles"
     }
+  },
+  "demo": {
+    "fixtures": {
+      "tools": {
+        "github.search_issues": {
+          "description": "Search issues and pull requests"
+        },
+        "github.create_issue": {
+          "description": "Open a new issue in a repository"
+        },
+        "github.get_repo": {
+          "description": "Fetch repository metadata"
+        },
+        "github.list_pull_requests": {
+          "description": "List pull requests for a repo"
+        },
+        "stripe.create_refund": {
+          "description": "Refund a charge"
+        },
+        "stripe.get_customer": {
+          "description": "Retrieve a customer"
+        },
+        "stripe.list_invoices": {
+          "description": "List invoices"
+        },
+        "stripe.create_payment_intent": {
+          "description": "Start a payment"
+        },
+        "slack.post_message": {
+          "description": "Send a channel message"
+        },
+        "slack.list_channels": {
+          "description": "List channels"
+        },
+        "slack.get_user": {
+          "description": "Look up a user"
+        },
+        "internal-crm.find_account": {
+          "description": "Search CRM accounts"
+        },
+        "internal-crm.update_deal": {
+          "description": "Update a deal stage"
+        },
+        "weather.current": {
+          "description": "Current conditions for a location"
+        },
+        "weather.forecast": {
+          "description": "7-day forecast"
+        },
+        "legacy-billing.get_balance": {
+          "description": "Legacy balance lookup"
+        }
+      },
+      "bundles": {
+        "support-agent": {
+          "description": "Read-only GitHub + Slack tools for the support copilot"
+        },
+        "billing-ops": {
+          "description": "Stripe refunds & invoice lookups for finance"
+        },
+        "readonly-explorer": {
+          "description": "Safe, read-only slice across every backend"
+        }
+      },
+      "catalog": {
+        "builtin:petstore": {
+          "description": "The canonical OpenAPI sample API — pets, orders, and inventory."
+        },
+        "custom:1": {
+          "description": "Reusable template for spinning up a staging CRM registration."
+        }
+      },
+      "discovery": {
+        "list_pets": {
+          "description": "Finds pets by status"
+        },
+        "get_pet": {
+          "description": "Find pet by ID"
+        },
+        "add_pet": {
+          "description": "Add a new pet to the store"
+        },
+        "update_pet": {
+          "description": "Update an existing pet"
+        },
+        "delete_pet": {
+          "description": "Deletes a pet"
+        }
+      },
+      "keys": {
+        "by_value": {
+          "Claude Desktop": {
+            "label": "Claude Desktop"
+          },
+          "Cursor IDE": {
+            "label": "Cursor IDE"
+          },
+          "CI pipeline (elevated)": {
+            "label": "CI pipeline (elevated)"
+          },
+          "Old prototype key": {
+            "label": "Old prototype key"
+          }
+        }
+      },
+      "consumers": {
+        "by_value": {
+          "Support team": {
+            "name": "Support team"
+          },
+          "Finance": {
+            "name": "Finance"
+          },
+          "Internal agents": {
+            "name": "Internal agents"
+          }
+        }
+      },
+      "usage": {
+        "by_value": {
+          "Claude Desktop": {
+            "label": "Claude Desktop"
+          },
+          "Cursor IDE": {
+            "label": "Cursor IDE"
+          },
+          "CI pipeline (elevated)": {
+            "label": "CI pipeline (elevated)"
+          }
+        }
+      },
+      "alerts": {
+        "1": {
+          "name": "CRM circuit breaker open"
+        },
+        "2": {
+          "name": "High error rate"
+        },
+        "3": {
+          "name": "Usage spike detector"
+        }
+      },
+      "teams": {
+        "by_value": {
+          "Platform": {
+            "name": "Platform"
+          },
+          "Support": {
+            "name": "Support"
+          }
+        }
+      },
+      "policies": {
+        "by_value": {
+          "Standard read": {
+            "name": "Standard read"
+          },
+          "Sensitive write": {
+            "name": "Sensitive write"
+          }
+        }
+      },
+      "composites": {
+        "triage_issue": {
+          "description": "Search GitHub, then post a Slack summary"
+        },
+        "refund_and_notify": {
+          "description": "Create a Stripe refund and DM the customer owner"
+        }
+      },
+      "snapshots": {
+        "by_value": {
+          "before rollout": {
+            "label": "before rollout"
+          },
+          "add billing-ops bundle": {
+            "label": "add billing-ops bundle"
+          },
+          "initial": {
+            "label": "initial"
+          }
+        }
+      },
+      "audit": {
+        "128": {
+          "detail": {
+            "label": {
+              "value": "CI pipeline (elevated)"
+            }
+          }
+        },
+        "122": {
+          "detail": {
+            "label": {
+              "value": "before rollout"
+            }
+          }
+        },
+        "120": {
+          "detail": {
+            "name": {
+              "value": "Support"
+            }
+          }
+        }
+      }
+    }
   }
 }

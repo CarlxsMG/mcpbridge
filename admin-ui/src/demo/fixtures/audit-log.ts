@@ -1,13 +1,20 @@
 import type { AuditLogEntry } from "@/types/api";
+import { demoDetailKey } from "../i18n-keys";
 import { days, hex, hours } from "./time";
 
-export const auditLog: AuditLogEntry[] = [
+// The audit-log entries use the `detail_<field>Key` convention: i18n keys
+// for fields nested inside `detail` (which itself has no fixed schema —
+// varies per action type) live as outer-object siblings named after the
+// inner field they translate. `demo/resolve.ts` walks these and rewrites
+// the matching `detail.<field>` in place.
+export const auditLog: Array<AuditLogEntry & Record<string, unknown>> = [
   {
     id: 128,
     actor: "demo",
     action: "mcpkey.create",
     target: "key:3",
     detail: { label: "CI pipeline (elevated)", elevated: true },
+    detail_labelKey: demoDetailKey("audit", 128, "label", "value"),
     createdAt: hours(2),
     hash: hex(128),
   },
@@ -62,6 +69,7 @@ export const auditLog: AuditLogEntry[] = [
     action: "config.snapshot",
     target: "snapshot:12",
     detail: { label: "before rollout" },
+    detail_labelKey: demoDetailKey("audit", 122, "label", "value"),
     createdAt: days(2),
     hash: hex(122),
   },
@@ -80,6 +88,7 @@ export const auditLog: AuditLogEntry[] = [
     action: "team.create",
     target: "team:2",
     detail: { name: "Support" },
+    detail_nameKey: demoDetailKey("audit", 120, "name", "value"),
     createdAt: days(4),
     hash: hex(120),
   },

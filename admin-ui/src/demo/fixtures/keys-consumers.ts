@@ -1,10 +1,12 @@
 import type { ConsumerWithUsage, McpApiKey } from "@/types/api";
+import { demoKeyByValue } from "../i18n-keys";
 import { days, hours } from "./time";
 
-export const mcpKeys: McpApiKey[] = [
+export const mcpKeys: Array<McpApiKey & { labelKey?: string }> = [
   {
     id: 1,
     label: "Claude Desktop",
+    labelKey: demoKeyByValue("keys", "Claude Desktop", "label"),
     keyPrefix: "mcp_live_a1b2",
     consumerId: 1,
     elevated: false,
@@ -20,6 +22,7 @@ export const mcpKeys: McpApiKey[] = [
   {
     id: 2,
     label: "Cursor IDE",
+    labelKey: demoKeyByValue("keys", "Cursor IDE", "label"),
     keyPrefix: "mcp_live_c3d4",
     consumerId: 2,
     elevated: false,
@@ -35,6 +38,7 @@ export const mcpKeys: McpApiKey[] = [
   {
     id: 3,
     label: "CI pipeline (elevated)",
+    labelKey: demoKeyByValue("keys", "CI pipeline (elevated)", "label"),
     keyPrefix: "mcp_live_e5f6",
     consumerId: null,
     elevated: true,
@@ -50,6 +54,7 @@ export const mcpKeys: McpApiKey[] = [
   {
     id: 4,
     label: "Old prototype key",
+    labelKey: demoKeyByValue("keys", "Old prototype key", "label"),
     keyPrefix: "mcp_live_9z8y",
     consumerId: null,
     elevated: false,
@@ -64,10 +69,11 @@ export const mcpKeys: McpApiKey[] = [
   },
 ];
 
-export const consumers: ConsumerWithUsage[] = [
+export const consumers: Array<ConsumerWithUsage & { nameKey?: string }> = [
   {
     id: 1,
     name: "Support team",
+    nameKey: demoKeyByValue("consumers", "Support team", "name"),
     monthlyQuota: 50000,
     endUserRateLimitPerMin: 20,
     usedThisMonth: 18423,
@@ -78,6 +84,7 @@ export const consumers: ConsumerWithUsage[] = [
   {
     id: 2,
     name: "Finance",
+    nameKey: demoKeyByValue("consumers", "Finance", "name"),
     monthlyQuota: 10000,
     endUserRateLimitPerMin: null,
     usedThisMonth: 2140,
@@ -88,6 +95,7 @@ export const consumers: ConsumerWithUsage[] = [
   {
     id: 3,
     name: "Internal agents",
+    nameKey: demoKeyByValue("consumers", "Internal agents", "name"),
     monthlyQuota: null,
     endUserRateLimitPerMin: null,
     usedThisMonth: 60127,

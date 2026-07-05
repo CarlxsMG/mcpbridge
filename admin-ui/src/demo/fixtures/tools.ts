@@ -1,7 +1,14 @@
 import type { ClientDetail, ClientSummary, TagSummary, TagToolRef, ToolDetail, ToolListItem } from "@/types/api";
+import { demoKey } from "../i18n-keys";
 import { clients } from "./clients";
 
 // ─── Tool catalogs per client (drive the flat list + client detail) ──────────
+//
+// Each entry pairs the literal `description` (the EN fallback the demo has
+// always shown) with an optional `descriptionKey` the `localize()` walker
+// uses to look up the localized version against the active vue-i18n locale.
+// Until the es.json entries are filled in, the walker silently falls back to
+// the literal `description` — so adding keys has zero visual impact.
 
 export const TOOLS: Record<
   string,
@@ -10,6 +17,7 @@ export const TOOLS: Record<
     method: ToolDetail["method"];
     endpoint: string;
     description: string;
+    descriptionKey?: string;
     upstream?: string;
     tags?: string[];
     sensitive?: boolean;
@@ -21,6 +29,7 @@ export const TOOLS: Record<
       method: "GET",
       endpoint: "",
       description: "Search issues and pull requests",
+      descriptionKey: demoKey("tools", "github.search_issues", "description"),
       upstream: "search_issues",
       tags: ["read"],
     },
@@ -29,6 +38,7 @@ export const TOOLS: Record<
       method: "POST",
       endpoint: "",
       description: "Open a new issue in a repository",
+      descriptionKey: demoKey("tools", "github.create_issue", "description"),
       upstream: "create_issue",
       tags: ["write"],
     },
@@ -37,6 +47,7 @@ export const TOOLS: Record<
       method: "GET",
       endpoint: "",
       description: "Fetch repository metadata",
+      descriptionKey: demoKey("tools", "github.get_repo", "description"),
       upstream: "get_repo",
       tags: ["read"],
     },
@@ -45,6 +56,7 @@ export const TOOLS: Record<
       method: "GET",
       endpoint: "",
       description: "List pull requests for a repo",
+      descriptionKey: demoKey("tools", "github.list_pull_requests", "description"),
       upstream: "list_pull_requests",
       tags: ["read"],
     },
@@ -55,6 +67,7 @@ export const TOOLS: Record<
       method: "POST",
       endpoint: "/v1/refunds",
       description: "Refund a charge",
+      descriptionKey: demoKey("tools", "stripe.create_refund", "description"),
       tags: ["write"],
       sensitive: true,
     },
@@ -63,15 +76,24 @@ export const TOOLS: Record<
       method: "GET",
       endpoint: "/v1/customers/{id}",
       description: "Retrieve a customer",
+      descriptionKey: demoKey("tools", "stripe.get_customer", "description"),
       tags: ["read"],
       sensitive: true,
     },
-    { name: "list_invoices", method: "GET", endpoint: "/v1/invoices", description: "List invoices", tags: ["read"] },
+    {
+      name: "list_invoices",
+      method: "GET",
+      endpoint: "/v1/invoices",
+      description: "List invoices",
+      descriptionKey: demoKey("tools", "stripe.list_invoices", "description"),
+      tags: ["read"],
+    },
     {
       name: "create_payment_intent",
       method: "POST",
       endpoint: "/v1/payment_intents",
       description: "Start a payment",
+      descriptionKey: demoKey("tools", "stripe.create_payment_intent", "description"),
       tags: ["write"],
       sensitive: true,
     },
@@ -82,6 +104,7 @@ export const TOOLS: Record<
       method: "POST",
       endpoint: "/chat.postMessage",
       description: "Send a channel message",
+      descriptionKey: demoKey("tools", "slack.post_message", "description"),
       tags: ["write"],
     },
     {
@@ -89,9 +112,17 @@ export const TOOLS: Record<
       method: "GET",
       endpoint: "/conversations.list",
       description: "List channels",
+      descriptionKey: demoKey("tools", "slack.list_channels", "description"),
       tags: ["read"],
     },
-    { name: "get_user", method: "GET", endpoint: "/users.info", description: "Look up a user", tags: ["read"] },
+    {
+      name: "get_user",
+      method: "GET",
+      endpoint: "/users.info",
+      description: "Look up a user",
+      descriptionKey: demoKey("tools", "slack.get_user", "description"),
+      tags: ["read"],
+    },
   ],
   "internal-crm": [
     {
@@ -99,6 +130,7 @@ export const TOOLS: Record<
       method: "GET",
       endpoint: "/accounts/search",
       description: "Search CRM accounts",
+      descriptionKey: demoKey("tools", "internal-crm.find_account", "description"),
       tags: ["read"],
       sensitive: true,
     },
@@ -107,15 +139,34 @@ export const TOOLS: Record<
       method: "PATCH",
       endpoint: "/deals/{id}",
       description: "Update a deal stage",
+      descriptionKey: demoKey("tools", "internal-crm.update_deal", "description"),
       tags: ["write"],
     },
   ],
   weather: [
-    { name: "current", method: "GET", endpoint: "/v1/current", description: "Current conditions for a location" },
-    { name: "forecast", method: "GET", endpoint: "/v1/forecast", description: "7-day forecast" },
+    {
+      name: "current",
+      method: "GET",
+      endpoint: "/v1/current",
+      description: "Current conditions for a location",
+      descriptionKey: demoKey("tools", "weather.current", "description"),
+    },
+    {
+      name: "forecast",
+      method: "GET",
+      endpoint: "/v1/forecast",
+      description: "7-day forecast",
+      descriptionKey: demoKey("tools", "weather.forecast", "description"),
+    },
   ],
   "legacy-billing": [
-    { name: "get_balance", method: "GET", endpoint: "/balance", description: "Legacy balance lookup" },
+    {
+      name: "get_balance",
+      method: "GET",
+      endpoint: "/balance",
+      description: "Legacy balance lookup",
+      descriptionKey: demoKey("tools", "legacy-billing.get_balance", "description"),
+    },
   ],
 };
 
@@ -126,6 +177,11 @@ export function toolDetail(client: ClientSummary, t: (typeof TOOLS)[string][numb
     endpoint: t.endpoint,
     upstreamName: client.kind === "mcp" ? (t.upstream ?? t.name) : undefined,
     description: t.description,
+    // Forward the i18n key so the demo response walker can rewrite
+    // `description` when the active locale has a translation. Carrying it
+    // here (rather than resolving upstream) keeps the demo's hot path
+    // synchronous and lets a locale switch take effect on the next refetch.
+    descriptionKey: t.descriptionKey,
     inputSchema: { type: "object", properties: {}, additionalProperties: true },
     enabled: true,
     guards: t.name === "create_refund" ? { rateLimitPerMin: 10, timeoutMs: 8000 } : undefined,
@@ -165,6 +221,7 @@ export const flatTools: ToolListItem[] = clients.flatMap((c) =>
     client: c.name,
     tool: t.name,
     description: t.description,
+    descriptionKey: t.descriptionKey,
     enabled: true,
     clientEnabled: c.enabled,
     tags: t.tags ?? [],
