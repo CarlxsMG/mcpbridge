@@ -34,6 +34,16 @@ import { TOOL_NAME_RE, TOOL_KEY_SEPARATOR, toolKey } from "../lib/identifier.js"
 import { createKeyedMutex } from "../lib/async-lock.js";
 import { RegistryAliasIndex } from "./registry-alias-index.js";
 import { ToolIndex } from "./tool-index.js";
+import {
+  RegistryPersistence,
+  rowToClientGuards,
+  rowToToolGuards,
+  rowToToolOverride,
+  type ClientGuardRow,
+  type ToolGuardRow,
+  type ToolOverrideRow,
+  type PersistedClient,
+} from "./registry-persistence.js";
 
 export interface ClientSummary {
   name: string;
@@ -68,64 +78,6 @@ export interface ClientDetail {
 }
 
 const VALID_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
-
-interface ClientGuardRow {
-  cb_failure_threshold: number | null;
-  cb_reset_timeout_ms: number | null;
-  cb_half_open_timeout_ms: number | null;
-  cb_window_ms: number | null;
-  extra_json: string | null;
-}
-
-interface ToolGuardRow {
-  rate_limit_per_min: number | null;
-  timeout_ms: number | null;
-  allowed_key_hashes: string | null;
-  extra_json: string | null;
-}
-
-interface ToolOverrideRow {
-  description: string | null;
-  param_overrides_json: string | null;
-  display_name: string | null;
-  drift_note: string | null;
-}
-
-function rowToClientGuards(row: ClientGuardRow | null): ClientGuardConfig | undefined {
-  if (!row) return undefined;
-  const cb: Record<string, number> = {};
-  if (row.cb_failure_threshold !== null) cb.failureThreshold = row.cb_failure_threshold;
-  if (row.cb_reset_timeout_ms !== null) cb.resetTimeoutMs = row.cb_reset_timeout_ms;
-  if (row.cb_half_open_timeout_ms !== null) cb.halfOpenTimeoutMs = row.cb_half_open_timeout_ms;
-  if (row.cb_window_ms !== null) cb.windowMs = row.cb_window_ms;
-  return {
-    circuitBreaker: Object.keys(cb).length > 0 ? (cb as ClientGuardConfig["circuitBreaker"]) : undefined,
-    extra: row.extra_json ? (JSON.parse(row.extra_json) as Record<string, unknown>) : undefined,
-  };
-}
-
-function rowToToolGuards(row: ToolGuardRow | null): ToolGuardConfig | undefined {
-  if (!row) return undefined;
-  return {
-    rateLimitPerMin: row.rate_limit_per_min ?? undefined,
-    timeoutMs: row.timeout_ms ?? undefined,
-    allowedKeyHashes: row.allowed_key_hashes ? (JSON.parse(row.allowed_key_hashes) as string[]) : undefined,
-    extra: row.extra_json ? (JSON.parse(row.extra_json) as Record<string, unknown>) : undefined,
-  };
-}
-
-function rowToToolOverride(row: ToolOverrideRow | null): ToolOverride | undefined {
-  if (!row) return undefined;
-  const params = row.param_overrides_json
-    ? (JSON.parse(row.param_overrides_json) as ToolOverride["params"])
-    : undefined;
-  const displayName = row.display_name ?? undefined;
-  const driftNote = row.drift_note ?? undefined;
-  if (!row.description && !displayName && !driftNote && (!params || Object.keys(params).length === 0)) {
-    return undefined;
-  }
-  return { description: row.description ?? undefined, params, displayName, driftNote };
-}
 
 /** Thrown by setToolOverride when a displayName alias is malformed or collides with another tool. */
 export class ToolOverrideError extends Error {
@@ -167,10 +119,13 @@ export function validateEndpointPath(endpoint: string): string | null {
 class Registry {
   private clients: Map<string, RegisteredClient> = new Map();
   private toolIndex = new ToolIndex();
-/** Display-name alias index — see registry-alias-index.ts. Kept as a field on
- * `Registry` only because its lifecycle mirrors the registry's (rebuilt on
- * register, drained on teardown). The map itself lives in its own module. */
-private aliasIndex = new RegistryAliasIndex();
+  /** Display-name alias index — see registry-alias-index.ts. Kept as a field on
+   * `Registry` only because its lifecycle mirrors the registry's (rebuilt on
+   * register, drained on teardown). The map itself lives in its own module. */
+  private aliasIndex = new RegistryAliasIndex();
+  /** SQLite-backed persistence — every SQL read/write the registry does is
+   * delegated here so the live orchestrator stays a thin layer. */
+  private persistence = new RegistryPersistence();
 
   // -------------------------------------------------------------------------
   // Async mutex — per-client name serialisation (see lib/async-lock.ts's
@@ -273,219 +228,6 @@ private aliasIndex = new RegistryAliasIndex();
     return true;
   }
 
-  // -------------------------------------------------------------------------
-  // Persistence helpers (SQLite is the source of truth for enabled/guards)
-  // -------------------------------------------------------------------------
-
-  /**
-   * Upserts the client + tool rows for a registration and returns the
-   * durable `enabled`/`guards` state to fold into the in-memory objects.
-   *
-   * The `enabled` column is deliberately omitted from every `ON CONFLICT DO
-   * UPDATE SET` clause below — re-registration (which backends do on every
-   * boot) must never silently re-enable something an admin disabled.
-   */
-  private persistRegistration(
-    name: string,
-    tools: RestToolDefinition[],
-    healthUrl: string,
-    ip: string,
-    baseUrl: string,
-    resolvedIp: string,
-    retryNonSafeMethods: boolean,
-  ): { enabled: boolean; guards?: ClientGuardConfig; tools: RegisteredTool[] } {
-    const db = getDb();
-    const now = Date.now();
-
-    const txn = db.transaction(() => {
-      const clientRow = db
-        .query(
-          `INSERT INTO clients (name, ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-           ON CONFLICT(name) DO UPDATE SET
-             ip = excluded.ip,
-             health_url = excluded.health_url,
-             base_url = excluded.base_url,
-             resolved_ip = excluded.resolved_ip,
-             retry_non_safe_methods = excluded.retry_non_safe_methods,
-             updated_at = excluded.updated_at
-           RETURNING enabled`,
-        )
-        .get(name, ip, healthUrl, baseUrl, resolvedIp, retryNonSafeMethods ? 1 : 0, now, now) as { enabled: number };
-
-      const clientGuardRow = db
-        .query(
-          `SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`,
-        )
-        .get(name) as ClientGuardRow | null;
-
-      // Full-replace semantics for tools, mirroring the in-memory toolIndex rebuild below:
-      // tools missing from this registration are deleted (cascades to tool_guards).
-      const existingToolNames = new Set(
-        (db.query(`SELECT name FROM tools WHERE client_name = ?`).all(name) as { name: string }[]).map((r) => r.name),
-      );
-      const newToolNames = new Set(tools.map((t) => t.name));
-      for (const staleName of existingToolNames) {
-        if (!newToolNames.has(staleName)) {
-          db.query(`DELETE FROM tools WHERE client_name = ? AND name = ?`).run(name, staleName);
-        }
-      }
-
-      const registeredTools: RegisteredTool[] = [];
-      for (const tool of tools) {
-        const toolRow = db
-          .query(
-            `INSERT INTO tools (client_name, name, method, endpoint, description, input_schema, enabled, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-             ON CONFLICT(client_name, name) DO UPDATE SET
-               method = excluded.method,
-               endpoint = excluded.endpoint,
-               description = excluded.description,
-               input_schema = excluded.input_schema,
-               updated_at = excluded.updated_at
-             RETURNING enabled`,
-          )
-          .get(
-            name,
-            tool.name,
-            tool.method,
-            tool.endpoint,
-            tool.description,
-            JSON.stringify(tool.inputSchema),
-            now,
-            now,
-          ) as {
-          enabled: number;
-        };
-
-        const toolGuardRow = db
-          .query(
-            `SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`,
-          )
-          .get(name, tool.name) as ToolGuardRow | null;
-
-        const toolOverrideRow = db
-          .query(
-            `SELECT description, param_overrides_json, display_name, drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
-          )
-          .get(name, tool.name) as ToolOverrideRow | null;
-
-        registeredTools.push({
-          ...tool,
-          enabled: toolRow.enabled === 1,
-          guards: rowToToolGuards(toolGuardRow),
-          override: rowToToolOverride(toolOverrideRow),
-        });
-      }
-
-      return { enabled: clientRow.enabled === 1, guards: rowToClientGuards(clientGuardRow), tools: registeredTools };
-    });
-
-    return txn();
-  }
-
-  /**
-   * MCP-upstream counterpart of persistRegistration. Writes kind='mcp' + the
-   * connection columns on `clients`, and tool rows carrying the raw
-   * `upstream_name` for dispatch plus inert method/endpoint sentinels (never
-   * read on the MCP path). Same enabled/guards/override read-back and the same
-   * "omit enabled from ON CONFLICT" rule (re-discovery must not re-enable).
-   */
-  private persistMcpRegistration(
-    name: string,
-    tools: DiscoveredMcpTool[],
-    mcpUrl: string,
-    transport: McpTransport,
-    ip: string,
-    resolvedIp: string,
-  ): { enabled: boolean; guards?: ClientGuardConfig; tools: RegisteredTool[] } {
-    const db = getDb();
-    const now = Date.now();
-
-    const txn = db.transaction(() => {
-      const clientRow = db
-        .query(
-          `INSERT INTO clients (name, ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, 0, 1, 'mcp', ?, ?, ?, ?)
-           ON CONFLICT(name) DO UPDATE SET
-             ip = excluded.ip,
-             health_url = excluded.health_url,
-             base_url = excluded.base_url,
-             resolved_ip = excluded.resolved_ip,
-             kind = excluded.kind,
-             mcp_url = excluded.mcp_url,
-             mcp_transport = excluded.mcp_transport,
-             updated_at = excluded.updated_at
-           RETURNING enabled`,
-        )
-        .get(name, ip, mcpUrl, mcpUrl, resolvedIp, mcpUrl, transport, now, now) as { enabled: number };
-
-      const existingToolNames = new Set(
-        (db.query(`SELECT name FROM tools WHERE client_name = ?`).all(name) as { name: string }[]).map((r) => r.name),
-      );
-      const newToolNames = new Set(tools.map((t) => t.name));
-      for (const staleName of existingToolNames) {
-        if (!newToolNames.has(staleName)) {
-          db.query(`DELETE FROM tools WHERE client_name = ? AND name = ?`).run(name, staleName);
-        }
-      }
-
-      const registeredTools: RegisteredTool[] = [];
-      for (const tool of tools) {
-        const toolRow = db
-          .query(
-            `INSERT INTO tools (client_name, name, method, endpoint, description, input_schema, upstream_name, enabled, created_at, updated_at)
-             VALUES (?, ?, 'POST', '', ?, ?, ?, 1, ?, ?)
-             ON CONFLICT(client_name, name) DO UPDATE SET
-               method = excluded.method,
-               endpoint = excluded.endpoint,
-               description = excluded.description,
-               input_schema = excluded.input_schema,
-               upstream_name = excluded.upstream_name,
-               updated_at = excluded.updated_at
-             RETURNING enabled`,
-          )
-          .get(name, tool.name, tool.description, JSON.stringify(tool.inputSchema), tool.upstreamName, now, now) as {
-          enabled: number;
-        };
-
-        const toolGuardRow = db
-          .query(
-            `SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`,
-          )
-          .get(name, tool.name) as ToolGuardRow | null;
-        const toolOverrideRow = db
-          .query(
-            `SELECT description, param_overrides_json, display_name, drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
-          )
-          .get(name, tool.name) as ToolOverrideRow | null;
-
-        registeredTools.push({
-          name: tool.name,
-          method: "POST",
-          endpoint: "",
-          upstreamName: tool.upstreamName,
-          description: tool.description,
-          inputSchema: tool.inputSchema,
-          enabled: toolRow.enabled === 1,
-          guards: rowToToolGuards(toolGuardRow),
-          override: rowToToolOverride(toolOverrideRow),
-        });
-      }
-
-      const clientGuardRow = db
-        .query(
-          `SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`,
-        )
-        .get(name) as ClientGuardRow | null;
-
-      return { enabled: clientRow.enabled === 1, guards: rowToClientGuards(clientGuardRow), tools: registeredTools };
-    });
-
-    return txn();
-  }
-
-  // -------------------------------------------------------------------------
   // Register / unregister
   // -------------------------------------------------------------------------
 
@@ -579,7 +321,7 @@ private aliasIndex = new RegistryAliasIndex();
         }
       }
 
-      const persisted = this.persistRegistration(name, tools, healthUrl, ip, baseUrl, resolvedIp, retryNonSafeMethods);
+      const persisted = this.persistence.persistRestRegistration(name, tools, healthUrl, ip, baseUrl, resolvedIp, retryNonSafeMethods);
 
       const client: RegisteredClient = {
         name,
@@ -681,7 +423,7 @@ private aliasIndex = new RegistryAliasIndex();
         }
       }
 
-      const persisted = this.persistMcpRegistration(name, sanitizedTools, mcpUrl, transport, ip, resolvedIp);
+      const persisted = this.persistence.persistMcpRegistration(name, sanitizedTools, mcpUrl, transport, ip, resolvedIp);
 
       const client: RegisteredClient = {
         name,
@@ -888,8 +630,14 @@ private aliasIndex = new RegistryAliasIndex();
       if (!this.clients.has(name)) {
         // A registration this instance hasn't seen — hydrate it live.
         await this.withLock(name, async () => {
-          const client = this.buildClientFromDb(name);
-          if (!client) return;
+          const persisted = this.persistence.buildPersistedClientFromDb(name);
+          if (!persisted) return;
+          const existing = this.clients.get(name);
+          const client: RegisteredClient = {
+            ...persisted,
+            status: existing?.status ?? "healthy",
+            consecutive_failures: existing?.consecutive_failures ?? 0,
+          };
           this.clients.set(name, client);
           for (const t of client.tools)
             this.toolIndex.setTool(name, t.name);
