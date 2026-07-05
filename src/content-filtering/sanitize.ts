@@ -1,4 +1,4 @@
-import { log } from "./logger.js";
+import { log } from "../logger.js";
 
 const SUSPICIOUS_PATTERNS = [
   /\bIMPORTANT\s*:/gi,

@@ -10,7 +10,7 @@ import type {
   McpTransport,
   UpstreamKind,
 } from "./types.js";
-import { sanitizeToolDescription } from "../sanitize.js";
+import { sanitizeToolDescription } from "../content-filtering/sanitize.js";
 import { abortClientRequests } from "../proxy/proxy.js";
 import {
   removeCircuitBreaker,
@@ -21,7 +21,7 @@ import { notifyToolsChanged } from "./mcp-server.js";
 import { getDb } from "../db/connection.js";
 import { getTagsForClient, getAllToolTags } from "../tool-meta/tool-tags.js";
 import { getSensitivityForClient } from "../tool-meta/tool-sensitivity.js";
-import { getRedactionForClient } from "../redaction.js";
+import { getRedactionForClient } from "../content-filtering/redaction.js";
 import { getGuardrailsForClient } from "../tool-policies/guardrails.js";
 import { getCoalesceForClient } from "../tool-policies/coalesce.js";
 import { getApprovalConfigForClient } from "../approvals.js";

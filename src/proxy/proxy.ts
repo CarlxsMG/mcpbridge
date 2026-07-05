@@ -58,7 +58,7 @@ import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
 import { recordUsage } from "../observability/usage.js";
 import { checkConsumerQuota, checkEndUserRateLimit, getConsumer } from "../consumers.js";
 import { isToolSensitive } from "../tool-meta/tool-sensitivity.js";
-import { getRedactionPaths, applyRedaction } from "../redaction.js";
+import { getRedactionPaths, applyRedaction } from "../content-filtering/redaction.js";
 import { getGuardrails, checkInputGuardrails, applyResponseScan } from "../tool-policies/guardrails.js";
 import { checkQuarantine, recordGuardrailHit } from "../tool-policies/quarantine.js";
 import { applyContextBudget } from "../tool-policies/context-budget.js";

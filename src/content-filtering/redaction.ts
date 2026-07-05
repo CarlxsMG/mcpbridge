@@ -1,4 +1,4 @@
-import { getDb } from "./db/connection.js";
+import { getDb } from "../db/connection.js";
 
 export const REDACTION_PLACEHOLDER = "[REDACTED]";
 

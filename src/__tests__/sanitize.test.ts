@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { sanitizeToolDescription } from "../sanitize.js";
+import { sanitizeToolDescription } from "../content-filtering/sanitize.js";
 
 // ---------------------------------------------------------------------------
 // Normal descriptions — should pass through unchanged (modulo whitespace trim)
