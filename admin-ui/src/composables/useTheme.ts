@@ -1,11 +1,11 @@
-import { readonly, ref } from "vue";
+import { useStoredToggle } from "./useStoredToggle";
 
 export type Theme = "light" | "dark";
 
 const THEME_STORAGE_KEY = "mcpbridge:theme";
 
-function readStoredTheme(): Theme {
-  return localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
+function isTheme(value: string | null): value is Theme {
+  return value === "dark";
 }
 
 function applyTheme(t: Theme): void {
@@ -16,16 +16,8 @@ function applyTheme(t: Theme): void {
   }
 }
 
-const theme = ref<Theme>(readStoredTheme());
-
-applyTheme(theme.value);
+const { value: theme, setValue: setTheme } = useStoredToggle<Theme>(THEME_STORAGE_KEY, isTheme, "light", applyTheme);
 
 export function useTheme() {
-  function setTheme(t: Theme): void {
-    theme.value = t;
-    localStorage.setItem(THEME_STORAGE_KEY, t);
-    applyTheme(t);
-  }
-
-  return { theme: readonly(theme), setTheme };
+  return { theme, setTheme };
 }
