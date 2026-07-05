@@ -12,6 +12,7 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
+import KindBadge from "@/components/ui/KindBadge.vue";
 
 const router = useRouter();
 
@@ -136,7 +137,7 @@ function confirmDelete() {
           :class="{ 'is-open': openEntryId === entry.id }"
         >
           <div class="card-top">
-            <span class="kind-badge" :class="`kind-${entry.kind}`">{{ entry.kind === "mcp" ? "MCP" : "REST" }}</span>
+            <KindBadge :kind="entry.kind" />
             <span v-if="entry.featured" class="featured-badge">Featured</span>
             <span v-if="entry.source === 'custom'" class="custom-badge">Custom</span>
           </div>
@@ -226,7 +227,6 @@ function confirmDelete() {
   gap: 0.4rem;
   margin-bottom: 0.5rem;
 }
-.kind-badge,
 .featured-badge,
 .custom-badge {
   font-size: 0.68rem;
@@ -235,10 +235,6 @@ function confirmDelete() {
   letter-spacing: 0.04em;
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-pill);
-}
-.kind-badge {
-  background: var(--surface-sunken);
-  color: var(--text-secondary);
 }
 .featured-badge {
   background: var(--ok-soft, var(--surface-sunken));
