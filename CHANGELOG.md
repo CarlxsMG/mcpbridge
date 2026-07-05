@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per-tool; the health-check/auto-eviction loop is leader-gated too) and updated
   `CONTRIBUTING.md`'s stale "no linter configured" section.
 
+### Fixed
+
+- The startup "Active configuration" log line no longer leaks `SECRET_ENCRYPTION_KEY` or
+  `VAULT_TOKEN` in plaintext — both are now redacted the same way admin/MCP API keys and the
+  bootstrap password already were.
+- `scripts/check-all.ts` now also strips `SECRET_ENCRYPTION_KEY` before spawning the root test
+  process, mirroring the existing `SESSION_COOKIE_SECURE` handling — a contributor with that var
+  set locally would otherwise see the "secret box unconfigured" tests fail with no obvious cause.
+
 ## [1.0.0] - 2026-07-03
 
 Initial tagged release of **MCP REST Bridge** — a self-hosted MCP gateway that turns

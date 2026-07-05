@@ -254,12 +254,18 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   res.status(status).json({ error: { code, message, request_id: requestId ?? null } });
 });
 
+// Config fields holding a raw secret value rather than a name/label/count —
+// e.g. vaultTransitKeyName and secretsProvider are NOT secrets and must stay
+// visible for operators to confirm at boot; secretEncryptionKey/vaultToken are.
+const REDACT_EXACT_KEYS = new Set(["secretEncryptionKey", "vaultToken"]);
 const redactedConfig: Record<string, unknown> = { ...(config as unknown as Record<string, unknown>) };
 for (const key of Object.keys(redactedConfig)) {
   if (/apiKeys$/i.test(key)) {
     const arr = redactedConfig[key] as unknown[];
     redactedConfig[key] = `<redacted: ${arr.length} keys>`;
   } else if (/password/i.test(key) && redactedConfig[key]) {
+    redactedConfig[key] = "<redacted>";
+  } else if (REDACT_EXACT_KEYS.has(key) && redactedConfig[key]) {
     redactedConfig[key] = "<redacted>";
   }
 }

@@ -23,8 +23,15 @@ const bunExe = process.execPath;
 // only guards a fresh shell invocation, not a bun test nested under another
 // bun process like this one). Deleting it here lets the child re-derive it
 // from .env → .env.test exactly as a fresh-shell `bun test` would.
+//
+// SECRET_ENCRYPTION_KEY gets the same treatment for the same reason: several
+// tests assert the "secret box unconfigured" error path, which only exists
+// when this var is absent. A contributor who's set it locally (e.g. to
+// exercise encrypted upstream credentials by hand) would otherwise see those
+// tests fail with no obvious link back to their own .env.
 const testEnv = { ...process.env };
 delete testEnv.SESSION_COOKIE_SECURE;
+delete testEnv.SECRET_ENCRYPTION_KEY;
 
 interface Step {
   label: string;
