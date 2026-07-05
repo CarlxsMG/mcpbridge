@@ -5,6 +5,7 @@ import { connectRoutes } from "./connect.js";
 import { overviewRoutes } from "./overview.js";
 import { usersRoutes } from "./users.js";
 import { auditLogRoutes } from "./audit-log.js";
+import { approvalsRoutes } from "./approvals.js";
 import { mountLegacy } from "./legacyMount.js";
 
 /**
@@ -36,6 +37,7 @@ export function adminRoutes(app: Express): void {
   r.use(overviewRoutes);
   r.use(usersRoutes);
   r.use(auditLogRoutes);
+  r.use(approvalsRoutes);
   mountLegacy(r);
 
   app.use("/admin-api", r);

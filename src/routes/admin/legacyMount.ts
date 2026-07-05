@@ -27,11 +27,7 @@ import { setToolTransform } from "../../proxy/transform.js";
 import { setToolMock } from "../../tool-meta/tool-mock.js";
 import {
   setApprovalRequired,
-  listApprovals,
-  getApproval,
-  decideApproval,
   MAX_APPROVAL_LEVELS,
-  type ApprovalStatus,
 } from "../../admin/entities/approvals.js";
 import { listTraffic, getTraffic } from "../../observability/traffic.js";
 import { setMonitor, deleteMonitor, listMonitors } from "../../observability/monitor.js";
@@ -849,74 +845,6 @@ export function mountLegacy(parent: Router): void {
       }
       recordAudit(actorFromRequest(req), "client.lb.upstream.remove", name, { id: Number(id) });
       res.status(200).json({ status: "removed", id: Number(id) });
-    },
-  );
-
-  // ── Approvals (human-in-the-loop queue) ────────────────────────────────────
-
-  parent.get("/approvals", (req: Request, res: Response) => {
-    const q = req.query.status;
-    const status: ApprovalStatus | undefined = q === "pending" || q === "approved" || q === "rejected" ? q : undefined;
-    res.status(200).json({ items: listApprovals(status) });
-  });
-
-  parent.post(
-    "/approvals/:id/approve",
-    requireOperator,
-    (req: Request<{ id: string }>, res: Response) => {
-      const rec = getApproval(Number(req.params.id));
-      if (!rec) {
-        notFound(res, "APPROVAL_NOT_FOUND", "Approval not found");
-        return;
-      }
-      if (!ensureClientAccess(req, res, rec.clientName)) return;
-      const note =
-        typeof (req.body as Record<string, unknown>)?.note === "string"
-          ? ((req.body as Record<string, unknown>).note as string)
-          : null;
-      const result = decideApproval(rec.id, "approved", actorFromRequest(req), note);
-      if (!result.ok) {
-        sendError(res, 409, "NOT_PENDING", result.message);
-        return;
-      }
-      recordAudit(actorFromRequest(req), "approval.approve", `${rec.clientName}${TOOL_KEY_SEPARATOR}${rec.toolName}`, {
-        id: rec.id,
-        finalStatus: result.finalStatus,
-        approvalsReceived: result.approvalsReceived,
-        requiredLevels: result.requiredLevels,
-      });
-      res.status(200).json({
-        status: result.finalStatus,
-        id: rec.id,
-        approvalsReceived: result.approvalsReceived,
-        requiredLevels: result.requiredLevels,
-      });
-    },
-  );
-
-  parent.post(
-    "/approvals/:id/reject",
-    requireOperator,
-    (req: Request<{ id: string }>, res: Response) => {
-      const rec = getApproval(Number(req.params.id));
-      if (!rec) {
-        notFound(res, "APPROVAL_NOT_FOUND", "Approval not found");
-        return;
-      }
-      if (!ensureClientAccess(req, res, rec.clientName)) return;
-      const note =
-        typeof (req.body as Record<string, unknown>)?.note === "string"
-          ? ((req.body as Record<string, unknown>).note as string)
-          : null;
-      const result = decideApproval(rec.id, "rejected", actorFromRequest(req), note);
-      if (!result.ok) {
-        sendError(res, 409, "NOT_PENDING", result.message);
-        return;
-      }
-      recordAudit(actorFromRequest(req), "approval.reject", `${rec.clientName}${TOOL_KEY_SEPARATOR}${rec.toolName}`, {
-        id: rec.id,
-      });
-      res.status(200).json({ status: result.finalStatus, id: rec.id });
     },
   );
 
