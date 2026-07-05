@@ -1,6 +1,6 @@
 import { getDb } from "../../db/connection.js";
 import { notifyToolsChanged } from "../../mcp/mcp-server.js";
-import { TOOL_KEY_SEPARATOR } from "../../mcp/registry.js";
+import { TOOL_KEY_SEPARATOR, toolKey } from "../../lib/identifier.js";
 import { log } from "../../logger.js";
 import { TOOL_NAME_RE } from "../../lib/identifier.js";
 import { createKeyedMutex, reloadLiveCache } from "../../lib/async-lock.js";
@@ -58,10 +58,6 @@ const liveBundles = new Map<string, LiveBundle>();
 // admin mutations against the same bundle serialise the same way concurrent
 // client mutations already do.
 const { withLock } = createKeyedMutex();
-
-function toolKey(client: string, tool: string): string {
-  return `${client}${TOOL_KEY_SEPARATOR}${tool}`;
-}
 
 function dedupeToolRefs(tools: BundleToolRef[]): BundleToolRef[] {
   const seen = new Set<string>();

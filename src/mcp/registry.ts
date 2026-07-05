@@ -30,8 +30,9 @@ import { getWsForClient, getGraphqlForClient } from "../proxy/backends.js";
 import { getContextBudgetForClient } from "../tool-policies/context-budget.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";
-import { TOOL_NAME_RE } from "../lib/identifier.js";
+import { TOOL_NAME_RE, TOOL_KEY_SEPARATOR, toolKey } from "../lib/identifier.js";
 import { createKeyedMutex } from "../lib/async-lock.js";
+import { RegistryAliasIndex } from "./registry-alias-index.js";
 
 export interface ClientSummary {
   name: string;
@@ -139,13 +140,10 @@ export class ToolOverrideError extends Error {
 /** Tracks clients currently being unregistered to close the proxy race window. */
 const deletingClients = new Set<string>();
 
-/** Returns true when `name` is currently being unregistered. */
+  /** Returns true when `name` is currently being unregistered. */
 export function isDeleting(name: string): boolean {
   return deletingClients.has(name);
 }
-
-/** Separator between client name and tool name in composite tool keys. */
-export const TOOL_KEY_SEPARATOR = "__";
 
 /**
  * Validates an endpoint template for path-traversal segments.
@@ -168,13 +166,10 @@ export function validateEndpointPath(endpoint: string): string | null {
 class Registry {
   private clients: Map<string, RegisteredClient> = new Map();
   private toolIndex: Map<string, { clientName: string; toolName: string }> = new Map();
-  /**
-   * Maps an advertised alias key (`clientName__displayName`) to its canonical
-   * key (`clientName__toolName`). Only populated for tools that carry a
-   * `displayName` override. Kept in lockstep with the tool list on
-   * register/unregister/setToolOverride, exactly like toolIndex.
-   */
-  private aliasIndex: Map<string, string> = new Map();
+/** Display-name alias index — see registry-alias-index.ts. Kept as a field on
+ * `Registry` only because its lifecycle mirrors the registry's (rebuilt on
+ * register, drained on teardown). The map itself lives in its own module. */
+private aliasIndex = new RegistryAliasIndex();
 
   // -------------------------------------------------------------------------
   // Async mutex — per-client name serialisation (see lib/async-lock.ts's
@@ -242,44 +237,18 @@ class Registry {
 
   // -------------------------------------------------------------------------
   // Display-name alias index (clientName__displayName -> clientName__toolName)
+  // — operations delegated to RegistryAliasIndex (registry-alias-index.ts).
   // -------------------------------------------------------------------------
-
-  /** Drops every alias entry belonging to a client (advertised keys carry the `clientName__` prefix). */
-  private clearAliasesForClient(clientName: string): void {
-    const prefix = `${clientName}${TOOL_KEY_SEPARATOR}`;
-    for (const alias of this.aliasIndex.keys()) {
-      if (alias.startsWith(prefix)) this.aliasIndex.delete(alias);
-    }
-  }
-
-  /** Removes any existing alias for one tool, then (re)adds it when a displayName is set. */
-  private setAlias(clientName: string, toolName: string, displayName: string | undefined): void {
-    const canonical = `${clientName}${TOOL_KEY_SEPARATOR}${toolName}`;
-    for (const [alias, target] of this.aliasIndex) {
-      if (target === canonical) this.aliasIndex.delete(alias);
-    }
-    if (displayName && displayName !== toolName) {
-      this.aliasIndex.set(`${clientName}${TOOL_KEY_SEPARATOR}${displayName}`, canonical);
-    }
-  }
-
-  /** Rebuilds all alias entries for a client from its freshly-registered tool list. */
-  private rebuildAliasesForClient(clientName: string, tools: RegisteredTool[]): void {
-    this.clearAliasesForClient(clientName);
-    for (const tool of tools) {
-      if (tool.override?.displayName) this.setAlias(clientName, tool.name, tool.override.displayName);
-    }
-  }
 
   /**
    * Translates an advertised tool name (possibly an alias) to its canonical
    * `clientName__toolName`. A non-alias name is returned unchanged, so callers
    * can pass either form. Used at the single MCP call entry point so every
    * downstream check (scope, bundle membership, proxyToolCall) sees the
-   * canonical identity.
+   * canonical identity. Thin wrapper over `RegistryAliasIndex.resolve`.
    */
   resolveAdvertisedName(name: string): string {
-    return this.aliasIndex.get(name) ?? name;
+    return this.aliasIndex.resolve(name);
   }
 
   /**
@@ -634,7 +603,7 @@ class Registry {
           toolName: tool.name,
         });
       }
-      this.rebuildAliasesForClient(name, persisted.tools);
+      this.aliasIndex.rebuildForClient(name, persisted.tools);
 
       // Broadcast tool-list change to all connected MCP sessions.
       notifyToolsChanged();
@@ -736,7 +705,7 @@ class Registry {
       for (const tool of persisted.tools) {
         this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`, { clientName: name, toolName: tool.name });
       }
-      this.rebuildAliasesForClient(name, persisted.tools);
+      this.aliasIndex.rebuildForClient(name, persisted.tools);
 
       notifyToolsChanged();
     });
@@ -770,7 +739,7 @@ class Registry {
       for (const tool of client.tools) {
         this.toolIndex.delete(`${name}${TOOL_KEY_SEPARATOR}${tool.name}`);
       }
-      this.clearAliasesForClient(name);
+      this.aliasIndex.clearForClient(name);
 
       // 4. Remove the client record
       this.clients.delete(name);
@@ -926,7 +895,7 @@ class Registry {
           this.clients.set(name, client);
           for (const t of client.tools)
             this.toolIndex.set(`${name}${TOOL_KEY_SEPARATOR}${t.name}`, { clientName: name, toolName: t.name });
-          this.rebuildAliasesForClient(name, client.tools);
+          this.aliasIndex.rebuildForClient(name, client.tools);
           added++;
         });
         continue;
@@ -1197,7 +1166,7 @@ class Registry {
       }
       // Keep the alias index in lockstep — resolveAdvertisedName/resolveTool
       // depend on it. Safe for a non-live client too (rebuilt on next register).
-      this.setAlias(clientName, toolName, normalized?.displayName);
+      this.aliasIndex.setAlias(clientName, toolName, normalized?.displayName);
       notifyToolsChanged();
       return true;
     });
@@ -1302,7 +1271,7 @@ class Registry {
 
   resolveTool(mcpToolName: string): ResolvedTool | undefined {
     // Accept either the canonical key or a display-name alias.
-    const canonical = this.aliasIndex.get(mcpToolName) ?? mcpToolName;
+    const canonical = this.aliasIndex.resolve(mcpToolName);
     const entry = this.toolIndex.get(canonical);
     if (!entry) {
       return undefined;

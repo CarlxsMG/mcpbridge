@@ -40,3 +40,27 @@ export const ADMIN_ENTITY_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9 _-]{0,62}$/;
 export function isValidAdminEntityName(name: string): boolean {
   return ADMIN_ENTITY_NAME_RE.test(name);
 }
+
+/**
+ * Separator between client name and tool name in the composite MCP tool
+ * key (`clientName__toolName`). Two underscores are used because: (a) a
+ * single underscore is permitted inside either segment by {@link TOOL_NAME_RE},
+ * so a one-character boundary couldn't be unambiguously distinguished from a
+ * legitimate character; (b) two underscores is visually distinctive enough to
+ * surface in logs and error messages without parsing. Adjusting this would
+ * silently migrate every persisted alias / bundle / install-link / override
+ * — there's no migration path, only a hard cutover.
+ */
+export const TOOL_KEY_SEPARATOR = "__";
+
+/** Joins `clientName` and `toolName` into the canonical MCP composite key. */
+export function toolKey(clientName: string, toolName: string): string {
+  return `${clientName}${TOOL_KEY_SEPARATOR}${toolName}`;
+}
+
+/** Splits a canonical MCP composite key back into `[clientName, toolName]`. */
+export function splitToolKey(key: string): [string, string] {
+  const idx = key.indexOf(TOOL_KEY_SEPARATOR);
+  if (idx < 0) throw new Error(`Invalid tool key (no '${TOOL_KEY_SEPARATOR}' separator): ${key}`);
+  return [key.slice(0, idx), key.slice(idx + TOOL_KEY_SEPARATOR.length)];
+}

@@ -2,7 +2,7 @@ import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
-import { TOOL_KEY_SEPARATOR } from "../mcp/registry.js";
+import { TOOL_KEY_SEPARATOR, toolKey } from "../lib/identifier.js";
 import { listAllTags, listToolsByTag, setToolTags, normalizeTag, TAG_RE } from "../tool-meta/tool-tags.js";
 import { validationError, notFound } from "./http-errors.js";
 

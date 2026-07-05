@@ -1,7 +1,7 @@
 import { getDb } from "../../db/connection.js";
 import { notifyToolsChanged } from "../../mcp/mcp-server.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
-import { TOOL_KEY_SEPARATOR } from "../../mcp/registry.js";
+import { TOOL_KEY_SEPARATOR, toolKey } from "../../lib/identifier.js";
 import { SEARCH_TOOL_NAME, type AdvertisedTool } from "../../mcp/tool-search.js";
 import { log } from "../../logger.js";
 import { TOOL_NAME_RE } from "../../lib/identifier.js";

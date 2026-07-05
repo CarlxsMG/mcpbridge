@@ -4,7 +4,7 @@ import { hashApiKey } from "../../security/key-hash.js";
 import { getSecretsProvider } from "../../secrets/index.js";
 import { createMcpKey, revokeMcpKey, type McpKeyScopes } from "../../security/mcp-key-store.js";
 import { getBundleDetail, type BundleDetail } from "./bundles.js";
-import { TOOL_KEY_SEPARATOR } from "../../mcp/registry.js";
+import { TOOL_KEY_SEPARATOR, toolKey } from "../../lib/identifier.js";
 import { log } from "../../logger.js";
 
 /**

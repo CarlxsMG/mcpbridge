@@ -1,5 +1,6 @@
 import type { Request, Response, Express } from "express";
-import { registry, TOOL_KEY_SEPARATOR, ToolOverrideError } from "../mcp/registry.js";
+import { registry, ToolOverrideError } from "../mcp/registry.js";
+import { TOOL_KEY_SEPARATOR, toolKey } from "../lib/identifier.js";
 import { proxyToolCall } from "../proxy/proxy.js";
 import { adminAuth } from "../middleware/auth.js";
 import { hashApiKey } from "../security/key-hash.js";
