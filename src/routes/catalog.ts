@@ -4,7 +4,7 @@ import { requireAdminRole } from "../middleware/authz.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { config } from "../config.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
-import { performRestRegistration, performMcpRegistration } from "./register.js";
+import { performRestRegistration, performMcpRegistration } from "../mcp/registration.js";
 import {
   listCatalog,
   getCatalogEntry,

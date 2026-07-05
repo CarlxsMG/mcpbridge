@@ -7,7 +7,7 @@ import { validateBackendUrl } from "../net/ip-validator.js";
 import { discoverToolsFromOpenApi } from "../discovery/openapi-discovery.js";
 import { discoverToolsFromGraphQl } from "../discovery/graphql-discovery.js";
 import { parseCurlCommand, parsePostmanCollection } from "../discovery/curl-postman-discovery.js";
-import { validateEndpointPath } from "../mcp/registry.js";
+import { toolsCountCapError, findToolEndpointError } from "../mcp/registration.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { sendError, validationError } from "./http-errors.js";
@@ -37,22 +37,20 @@ function sendToolsPreview(res: Response, tools: RestToolDefinition[]): void {
 /**
  * Validates a parsed/manual tools array the exact same way POST /register's
  * performRestRegistration does (endpoint path-traversal check + the
- * maxToolsPerClient cap) so the preview can never show a set of tools that
- * would then be rejected at actual registration time.
+ * maxToolsPerClient cap), via the shared helpers in mcp/registration.ts, so
+ * the preview can never show a set of tools that would then be rejected at
+ * actual registration time.
  */
 function validateManualToolsForPreview(res: Response, tools: RestToolDefinition[]): boolean {
-  if (tools.length > config.maxToolsPerClient) {
-    validationError(res, `Parsed ${tools.length} tools, exceeds maximum of ${config.maxToolsPerClient}`);
+  const capError = toolsCountCapError(tools.length, config.maxToolsPerClient);
+  if (capError) {
+    validationError(res, capError);
     return false;
   }
-  for (const t of tools) {
-    if (typeof t?.endpoint === "string") {
-      const pathError = validateEndpointPath(t.endpoint);
-      if (pathError) {
-        validationError(res, `Tool "${t.name}": ${pathError}`);
-        return false;
-      }
-    }
+  const endpointError = findToolEndpointError(tools);
+  if (endpointError) {
+    validationError(res, endpointError);
+    return false;
   }
   return true;
 }
