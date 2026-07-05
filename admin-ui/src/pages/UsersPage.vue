@@ -166,11 +166,10 @@ function confirmDelete() {
       <RouterLink to="/users/new" class="btn-primary">Add user</RouterLink>
     </PageHeader>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <p v-if="teamChangeError" class="error" role="alert">{{ teamChangeError }}</p>
     <p v-if="teamsError" class="error" role="alert">{{ teamsError }}</p>
 
-    <ListLayout :loading="loading" :empty="users.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :empty="users.length === 0">
       <template #empty>
         <EmptyState :icon="UserCog">
           No admin users yet. Every person who signs in to this panel needs their own account here -- shared logins
