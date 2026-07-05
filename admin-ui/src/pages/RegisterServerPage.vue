@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api, ApiError } from "@/composables/useApi";
 import { parseList } from "@/utils/fieldParsing";
@@ -164,6 +164,8 @@ watch([graphqlUrl, includeMutations], () => {
   previewTools.value = null;
 });
 
+const previewFn = computed(() => (kind.value === "graphql" ? previewGraphql : preview));
+
 async function register() {
   error.value = "";
   registering.value = true;
@@ -300,32 +302,6 @@ async function register() {
             <label for="r-postman-text" class="postman-paste-label">…or paste the exported collection JSON</label>
             <textarea id="r-postman-text" v-model="postmanText" rows="8" spellcheck="false"></textarea>
           </FormField>
-
-          <div class="preview-row">
-            <button type="button" class="btn-secondary" :disabled="previewing" @click="preview">
-              {{ previewing ? "Discovering…" : "Preview tools" }}
-            </button>
-            <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
-          </div>
-          <p v-if="previewError" class="error">{{ previewError }}</p>
-          <TableCard v-if="previewTools && previewTools.length">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Method</th>
-                <th>Endpoint</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="t in previewTools" :key="t.name">
-                <td>{{ t.name }}</td>
-                <td>
-                  <code>{{ t.method }}</code>
-                </td>
-                <td class="ep">{{ t.endpoint }}</td>
-              </tr>
-            </tbody>
-          </TableCard>
         </template>
 
         <template v-else-if="kind === 'graphql'">
@@ -345,8 +321,24 @@ async function register() {
             </p>
           </FormField>
           <label class="checkline"><input v-model="includeMutations" type="checkbox" /> Include mutations</label>
+        </template>
+
+        <template v-else>
+          <FormField label="MCP server URL" for="r-mcp-url">
+            <input id="r-mcp-url" v-model="mcpUrl" type="url" required placeholder="https://mcp.example.com/mcp" />
+          </FormField>
+          <FormField label="Transport" for="r-mcp-transport">
+            <SelectMenu id="r-mcp-transport" v-model="mcpTransport" :options="TRANSPORT_OPTIONS" />
+          </FormField>
+          <p class="hint">
+            The bridge connects to the MCP server and discovers its tools on registration. If the server requires
+            authentication, register it first, set upstream credentials on its detail page, then re-discover.
+          </p>
+        </template>
+
+        <template v-if="kind === 'rest' || kind === 'graphql'">
           <div class="preview-row">
-            <button type="button" class="btn-secondary" :disabled="previewing" @click="previewGraphql">
+            <button type="button" class="btn-secondary" :disabled="previewing" @click="previewFn">
               {{ previewing ? "Discovering…" : "Preview tools" }}
             </button>
             <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
@@ -370,19 +362,6 @@ async function register() {
               </tr>
             </tbody>
           </TableCard>
-        </template>
-
-        <template v-else>
-          <FormField label="MCP server URL" for="r-mcp-url">
-            <input id="r-mcp-url" v-model="mcpUrl" type="url" required placeholder="https://mcp.example.com/mcp" />
-          </FormField>
-          <FormField label="Transport" for="r-mcp-transport">
-            <SelectMenu id="r-mcp-transport" v-model="mcpTransport" :options="TRANSPORT_OPTIONS" />
-          </FormField>
-          <p class="hint">
-            The bridge connects to the MCP server and discovers its tools on registration. If the server requires
-            authentication, register it first, set upstream credentials on its detail page, then re-discover.
-          </p>
         </template>
 
         <p v-if="kind === 'rest' && !previewTools && !previewStale" class="hint">
