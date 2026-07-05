@@ -1,6 +1,6 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireOperator } from "./admin.js";
+import { requireOperator } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { listSchedules, createSchedule, setScheduleEnabled, deleteSchedule } from "../admin/entities/schedules.js";
 import { sendError, validationError, notFound } from "./http-errors.js";

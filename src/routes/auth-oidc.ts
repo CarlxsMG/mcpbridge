@@ -10,7 +10,7 @@
  */
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireSuperAdmin } from "./admin.js";
+import { requireSuperAdmin } from "../middleware/authz.js";
 import { setSessionCookies } from "./auth.js";
 import { createSession } from "../security/session-store.js";
 import { touchLastLogin } from "../security/user-store.js";

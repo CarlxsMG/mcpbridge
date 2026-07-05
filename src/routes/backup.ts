@@ -4,7 +4,7 @@ import { stat, unlink } from "fs/promises";
 import { dirname, join } from "path";
 import { randomUUID } from "crypto";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "./admin.js";
+import { requireAdminRole } from "../middleware/authz.js";
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";

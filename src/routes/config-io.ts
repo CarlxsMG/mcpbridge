@@ -1,7 +1,7 @@
 import type { Request, Response, Express } from "express";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "./admin.js";
+import { requireAdminRole } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { exportConfig, importConfig } from "../admin/config/config-io.js";
 import {

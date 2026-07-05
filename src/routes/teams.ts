@@ -1,6 +1,6 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireSuperAdmin } from "./admin.js";
+import { requireSuperAdmin } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { listTeams, createTeam, deleteTeam, setClientTeam, setUserTeam } from "../admin/entities/teams.js";
 import { sendError, validationError, notFound } from "./http-errors.js";

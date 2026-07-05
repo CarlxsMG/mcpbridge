@@ -1,6 +1,6 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "./admin.js";
+import { requireAdminRole } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { getDb } from "../db/connection.js";
 import { isSecretBoxConfigured } from "../security/secret-box.js";

@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction, Express } from "express";
+import type { Request, Response, Express } from "express";
 import { registry, TOOL_KEY_SEPARATOR, ToolOverrideError } from "../mcp/registry.js";
 import { proxyToolCall } from "../proxy/proxy.js";
 import { adminAuth } from "../middleware/auth.js";
@@ -47,7 +47,6 @@ import {
   type ContextBudgetMode,
   type ContextBudgetLlmProvider,
 } from "../tool-policies/context-budget.js";
-import { getClientTeam, canAccessClient } from "../admin/entities/teams.js";
 import {
   recordAudit,
   actorFromRequest,
@@ -70,36 +69,9 @@ import {
 import { revokeAllSessionsForUser } from "../security/session-store.js";
 import type { ClientGuardConfig, ToolGuardConfig, ClientStatus, ToolOverride, ToolGuardrails } from "../mcp/types.js";
 import type { AdminRole } from "../security/user-store.js";
-import { sendError, validationError, notFound, forbidden } from "./http-errors.js";
+import { sendError, validationError, notFound } from "./http-errors.js";
 import { config } from "../config.js";
-
-/** The caller's tenancy scope: a team id, null for a super-admin session, or undefined for a bearer caller (super-admin). */
-export function callerTeamId(req: Request): number | null | undefined {
-  return req.authContext?.method === "session" ? (req.authContext.teamId ?? null) : undefined;
-}
-
-/**
- * Tenancy guard for a single-client route. Returns true when the caller may act
- * on the client (or the client doesn't exist — the route's own 404 handles
- * that). When it returns false it has already written a 404 with the same shape
- * as "client not found", so a scoped caller can't even distinguish existence.
- */
-function ensureClientAccess(req: Request, res: Response, clientName: string): boolean {
-  const clientTeam = getClientTeam(clientName);
-  if (clientTeam === undefined) return true; // unknown client — let the handler 404 normally
-  if (canAccessClient(callerTeamId(req), clientTeam)) return true;
-  notFound(res, "CLIENT_NOT_FOUND", "Client not found");
-  return false;
-}
-
-/** Admin-only for session callers (viewer/operator/auditor are rejected). Bearer callers always pass. */
-export function requireAdminRole(req: Request, res: Response, next: NextFunction): void {
-  if (req.authContext?.method === "session" && req.authContext.role !== "admin") {
-    forbidden(res, "FORBIDDEN", "This action requires the admin role");
-    return;
-  }
-  next();
-}
+import { callerTeamId, ensureClientAccess, requireAdminRole, requireOperator } from "../middleware/authz.js";
 
 /**
  * Validates a per-tool response-cache config payload. `null` or `false` clears
@@ -381,31 +353,6 @@ function validateMockInput(
   if (typeof obj.response !== "string") return { ok: false, message: "mock.response must be a string" };
   if (obj.response.length > 1_000_000) return { ok: false, message: "mock.response too large (max 1MB)" };
   return { ok: true, value: { enabled: obj.enabled !== false, mode: obj.mode, response: obj.response } };
-}
-
-/** Tenancy administration: only a super-admin session (admin role + no team) passes. Bearer callers always pass. */
-export function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (
-    req.authContext?.method === "session" &&
-    (req.authContext.role !== "admin" || (req.authContext.teamId ?? null) !== null)
-  ) {
-    forbidden(res, "FORBIDDEN", "This action requires a super-admin (admin role, no team)");
-    return;
-  }
-  next();
-}
-
-/** Operational mutations: admin + operator sessions pass; auditor/viewer are rejected. Bearer callers always pass. */
-export function requireOperator(req: Request, res: Response, next: NextFunction): void {
-  if (
-    req.authContext?.method === "session" &&
-    req.authContext.role !== "admin" &&
-    req.authContext.role !== "operator"
-  ) {
-    forbidden(res, "FORBIDDEN", "This action requires the admin or operator role");
-    return;
-  }
-  next();
 }
 
 function validateToolGuardInput(

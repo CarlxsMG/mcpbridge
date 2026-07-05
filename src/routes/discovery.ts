@@ -1,6 +1,6 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "./admin.js";
+import { requireAdminRole } from "../middleware/authz.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { config } from "../config.js";
 import { validateBackendUrl } from "../net/ip-validator.js";
