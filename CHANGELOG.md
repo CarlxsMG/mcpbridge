@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes yet.
+### Docs
+
+- Added `CLAUDE.md` (repo guidance for AI coding agents).
+- Closed 12 documentation gaps found by a full features-vs-docs audit: bundle install links,
+  the curated install catalog, tool tags, the context-budget guard, admin-UI SSO login,
+  self-service session/password management, the on-demand DB backup endpoint, audit-log
+  export formats, dedicated WebSocket proxy targets, CORS/Origin/JSON-depth defenses, and the
+  customizable widget dashboard.
+- Fixed two inaccurate claims in `docs/guide/scaling.md` (load balancing is per-client, not
+  per-tool; the health-check/auto-eviction loop is leader-gated too) and updated
+  `CONTRIBUTING.md`'s stale "no linter configured" section.
 
 ## [1.0.0] - 2026-07-03
 

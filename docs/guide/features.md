@@ -19,13 +19,21 @@ See **[Registering backends →](/guide/registering-backends)**.
 - **Four serving modes** — aggregated `/mcp`, per-client `/mcp/:name`, curated bundles
   `/mcp-custom/:bundle`, and legacy SSE `/sse`.
 - **Tool aliases & display names** to present clean, client-friendly tool names.
+- **Tool tags** — free-form tags across every registered client, browsable and filterable by
+  tag from the admin UI.
 - **Composite / macro tools** that run several steps as one call, each step through the full
   guard stack.
 - **GraphQL & WebSocket backends** (per-tool) — wrap a call's arguments as a GraphQL
   `{ query, variables }` request, or do an ephemeral request/response over a WebSocket, reusing the
   same guard stack as REST.
+- **Dedicated WebSocket proxy targets** — register a persistent backend WS endpoint (with
+  connection-count, message-size and idle-timeout limits), and force-disconnect every active
+  connection to one in bulk.
 - **Upstream resources & prompts** — a per-client `/mcp/:name` endpoint pointed at an MCP server now
   passes through its resources and prompts, not only its tools.
+- **Bundle install links** — a shareable, revocable one-click link that mints a bundle-scoped
+  MCP API key and resolves to a ready-to-paste connection snippet, so end users never need a
+  manually provisioned key.
 
 ## Govern & secure
 
@@ -65,6 +73,8 @@ and **[Access control →](/guide/access-control)**.
 
 - **Admin UI (Vue 3 SPA)** — dashboard, servers, bundles, API keys, consumers, policies,
   usage, alerts, schedules, audit log, users, teams and config.
+- **Customizable widget dashboard** — a Grafana-style Overview grid: add, resize and configure
+  stat/chart/note widgets from a catalog, then export or import the whole layout.
 - **Config versioning + rollback**, plus import/export of the whole configuration.
 - **Maintenance schedules** via a built-in cron matcher (leader-gated, de-duplicated).
 
@@ -76,8 +86,9 @@ and **[Access control →](/guide/access-control)**.
   without falsely closing the primary breaker.
 - **Response caching** — per-tool TTL + LRU cache for idempotent `GET` responses, served after all
   guards but before the circuit breaker (a cache hit never burns a half-open probe).
-- **N-way load balancing** — spread calls across a pool of upstreams (round-robin / weighted /
-  least-connections) with a per-target health cooldown, on top of the primary circuit breaker.
+- **N-way load balancing** — spread a client's calls across a pool of upstream targets
+  (round-robin / weighted / least-connections) with a per-target health cooldown, on top of the
+  primary circuit breaker.
 
 **Data handling**
 

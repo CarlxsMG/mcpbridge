@@ -17,6 +17,12 @@ Admin users sign in to the Vue admin UI; every mutating action is role-gated and
 Programmatic/CI callers can use a static `ADMIN_API_KEYS` Bearer token instead of a session;
 Bearer calls are exempt from CSRF (they aren't cookie-based).
 
+Admins can also sign in via **SSO** (OIDC Authorization Code + PKCE) instead of a local
+password — a separate inbound-auth surface from the MCP data plane's JWT/API-key auth below.
+Auto-provisioned SSO users are always assigned the `viewer` role. Any authenticated admin can
+list and remotely revoke their own active sessions, and change their own password (which
+revokes every other session) — no superadmin needed for either.
+
 ## MCP API keys
 
 Keys are what tool callers present. They're stored hashed (never in plaintext) and the raw

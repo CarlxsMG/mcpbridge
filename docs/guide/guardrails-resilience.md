@@ -19,6 +19,9 @@ Enable any of these on a tool:
 - **Response sanitizing** — scan backend responses for prompt-injection payloads and wrap
   untrusted data in a safe envelope before it reaches the model.
 - **Field redaction** — strip sensitive fields from responses.
+- **Context-budget guard** — deterministically truncate an oversized tool response, or
+  opt in to LLM summarization via a bring-your-own-key OpenAI/Anthropic-compatible endpoint,
+  so one call can't blow an agent's context window.
 
 Guardrails run **before** the circuit breaker above, so a rejected call never consumes a
 breaker probe slot.
@@ -46,7 +49,7 @@ config time):
 
 - **Response cache** (opt-in per tool) serves identical calls from memory; bound it with
   `CACHE_MAX_ENTRIES`.
-- **N-way load balancing** spreads a tool across several backend targets, skipping a failed
+- **N-way load balancing** spreads a client across several backend targets, skipping a failed
   target for `LB_TARGET_COOLDOWN_MS`. Pairs naturally with failover.
 
 Next: **[Observability →](/guide/observability)** · **[Scaling →](/guide/scaling)**

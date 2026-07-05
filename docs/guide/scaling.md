@@ -24,14 +24,14 @@ through a shared SQLite database.
 | `RATE_LIMIT_SHARED=true` | Rate limits use SQLite fixed-window counters, so a per-tool limit is enforced across **all** instances, not per-process.                     |
 | `REGISTRY_SYNC=true`     | Each instance periodically reconciles its live registry from SQLite — a client registered (or removed) on one node propagates to the others. |
 
-Background loops that must run **once** — alert evaluation, maintenance schedules — elect a
-single leader automatically via a SQLite lease. This isn't a flag; it's always on and needs no
-configuration.
+Background loops that must run **once** — alert evaluation, maintenance schedules, and the
+health-check/auto-eviction loop — elect a single leader automatically via a SQLite lease. This
+isn't a flag; it's always on and needs no configuration.
 
 ## Load balancing your backends
 
-Separately from scaling the bridge itself, a single tool can fan out across **several
-backend targets** (N-way load balancing), configured per tool from the admin API. A
+Separately from scaling the bridge itself, a single **client** can fan out across **several
+backend targets** (N-way load balancing), configured per client from the admin API. A
 target that fails is skipped for `LB_TARGET_COOLDOWN_MS` (default 30s) before it's tried
 again. Combine with per-client **canary/failover** (see [Guardrails & resilience](/guide/guardrails-resilience))
 for graceful degradation.

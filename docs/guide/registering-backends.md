@@ -91,6 +91,13 @@ curl -X POST https://bridge.example.com/register \
 The bridge connects out, discovers the upstream's tools, and re-exposes them through the
 same guard stack. Both `streamable-http` and `sse` upstream transports are supported.
 
+## From the install catalog
+
+The admin UI also has a **catalog** page: a curated, one-click-install marketplace merging
+built-in server templates with any custom ones an admin adds. Installing a catalog entry runs
+through the exact same registration path (SSRF check, discovery, IP pinning) as a hand-typed
+`POST /register` — it's a shortcut to a prefilled form, not a separate code path.
+
 ## What happens on registration
 
 - **SSRF check + IP pinning.** The backend URL is validated and its resolved IP pinned, so

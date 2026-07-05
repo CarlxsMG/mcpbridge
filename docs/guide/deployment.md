@@ -67,6 +67,10 @@ All durable state lives in the SQLite database (`DB_PATH`, default `/app/data/mc
 in Docker). Back it up like any SQLite file; use `:memory:` only for throwaway runs. You can
 also **export/import** the full configuration as JSON from the admin UI or `/admin-api/config`.
 
+For an on-demand full-database backup without shelling into the host, `POST /admin-api/backup`
+produces a transactionally-consistent snapshot (SQLite `VACUUM INTO`) and streams it back as a
+downloadable file.
+
 ### Upgrading
 
 Schema changes ship as an ordered, append-only list of SQL migrations

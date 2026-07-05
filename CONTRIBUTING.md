@@ -63,8 +63,17 @@ worth running locally before a PR touching the UI — it catches a few things
 
 ## Code style
 
-There is no linter (ESLint/Prettier) configured in this repo yet — style is
-enforced by convention and code review rather than tooling. Until that changes:
+ESLint and Prettier are configured at the repo root and in `admin-ui/` (separate configs,
+same conventions):
+
+```bash
+bun run format          # prettier --write . (root)
+bun run lint            # eslint . (root)
+cd admin-ui && bun run lint   # eslint . (admin-ui, vue-eslint-parser + typescript-eslint)
+```
+
+`bun run check` (see above) runs `format:check` and both `lint` steps before typecheck/tests,
+so a formatting or lint error is caught first. Beyond that:
 
 - Match the formatting, naming, and file organization already present in the
   module you're editing rather than introducing a new personal style.
@@ -73,9 +82,6 @@ enforced by convention and code review rather than tooling. Until that changes:
   reasonable alternative, and prefer narrowing/guards over casts.
 - Keep modules focused: security-sensitive logic lives under `src/security/`,
   route handlers under `src/routes/`, DB access under `src/db/`.
-
-If you add a linter/formatter config in a PR, please mention it explicitly and
-update this section as part of that change.
 
 ## Database migrations
 

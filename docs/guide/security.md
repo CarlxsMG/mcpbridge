@@ -14,6 +14,16 @@ steering the model (prompt injection).
   backend to an internal host (DNS-rebinding protection).
 - DNS resolution uses Bun's resolver directly for structured, spoof-resistant results.
 
+## Browser-facing request validation
+
+- **CORS allowlisting** — the admin API rejects cross-origin requests outside an explicit
+  allowlist; wildcard origins are never combined with credentialed requests.
+- **Origin / Sec-Fetch-Site validation** — every MCP transport endpoint (including raw
+  WebSocket upgrades) enforces the MCP spec's origin checks, independently of CORS.
+- **JSON depth limiting** — incoming request bodies are checked against a configurable maximum
+  nesting depth, blocking deeply-nested-payload denial-of-service attempts before they reach
+  application code.
+
 ## Content guardrails
 
 Per-tool guardrails — input deny-rules, secret detection, response sanitizing, field
