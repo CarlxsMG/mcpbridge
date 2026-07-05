@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n({ useScope: "global" });
 
 const props = defineProps<{
   rows: { label: string; value: number; hint?: string; danger?: boolean }[];
@@ -25,7 +28,7 @@ const format = computed(() => props.valueFormat ?? ((n: number) => String(n)));
         >{{ format(r.value) }}<span v-if="r.hint" class="bar-hint"> · {{ r.hint }}</span></span
       >
     </div>
-    <p v-if="!rows.length" class="bar-empty">No data in this window.</p>
+    <p v-if="!rows.length" class="bar-empty">{{ t('components.charts.no_data_window') }}</p>
   </div>
 </template>
 

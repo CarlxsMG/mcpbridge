@@ -872,6 +872,12 @@
       "toggle_nav": "Toggle navigation menu",
       "live_traffic": "Live traffic in the last minute",
       "no_recent_traffic": "No recent traffic"
+    },
+    "charts": {
+      "no_data": "No data.",
+      "no_data_window": "No data in this window.",
+      "primary": "Value",
+      "secondary": "Secondary"
     }
   },
   "pages": {

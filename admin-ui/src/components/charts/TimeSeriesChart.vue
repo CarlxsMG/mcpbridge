@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, useId } from "vue";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n({ useScope: "global" });
 
 interface Point {
   t: number;
@@ -23,15 +26,18 @@ const props = withDefaults(
     secondaryPoints: () => [],
     color: "var(--signal)",
     secondaryColor: "var(--breach)",
-    primaryLabel: "Value",
-    secondaryLabel: "Secondary",
+    primaryLabel: "",
+    secondaryLabel: "",
     formatValue: (n: number) => String(n),
     formatSecondary: (n: number) => String(n),
-    formatTime: (t: number) =>
-      new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+    formatTime: (tt: number) =>
+      new Date(tt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
     height: 200,
   },
 );
+
+const effectivePrimaryLabel = computed(() => props.primaryLabel || t("components.charts.primary"));
+const effectiveSecondaryLabel = computed(() => props.secondaryLabel || t("components.charts.secondary"));
 
 const gradientId = `tsc-grad-${useId()}`;
 /* Geometry is authored in px at 1x zoom. The plot's CSS height is rem-based
@@ -174,14 +180,14 @@ const tooltipStyle = computed(() => {
   <div class="ts-chart">
     <div class="ts-legend">
       <span class="legend-item"
-        ><span class="dot" :style="{ background: color }" aria-hidden="true" />{{ primaryLabel }}</span
+        ><span class="dot" :style="{ background: color }" aria-hidden="true" />{{ effectivePrimaryLabel }}</span
       >
       <span v-if="hasSecondary" class="legend-item"
-        ><span class="dot dash" :style="{ background: secondaryColor }" aria-hidden="true" />{{ secondaryLabel }}</span
+        ><span class="dot dash" :style="{ background: secondaryColor }" aria-hidden="true" />{{ effectiveSecondaryLabel }}</span
       >
     </div>
 
-    <p v-if="!hasData" class="ts-empty">No data in this window.</p>
+    <p v-if="!hasData" class="ts-empty">{{ t('components.charts.no_data_window') }}</p>
 
     <div
       v-else
@@ -191,7 +197,7 @@ const tooltipStyle = computed(() => {
       @mousemove="onMove"
       @mouseleave="onLeave"
     >
-      <svg :viewBox="`0 0 ${width} ${heightPx}`" class="ts-svg" role="img" :aria-label="`${primaryLabel} over time`">
+      <svg :viewBox="`0 0 ${width} ${heightPx}`" class="ts-svg" role="img" :aria-label="`${effectivePrimaryLabel} over time`">
         <defs>
           <linearGradient :id="gradientId" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" :style="{ stopColor: color, stopOpacity: 0.28 }" />
@@ -267,11 +273,11 @@ const tooltipStyle = computed(() => {
       <div v-if="hoverPoint" class="ts-tooltip" :style="tooltipStyle">
         <div class="tt-time">{{ formatTime(hoverPoint.t) }}</div>
         <div class="tt-row">
-          <span class="tt-dot" :style="{ background: color }" aria-hidden="true" />{{ primaryLabel }}
+          <span class="tt-dot" :style="{ background: color }" aria-hidden="true" />{{ effectivePrimaryLabel }}
           <strong>{{ formatValue(hoverPoint.v) }}</strong>
         </div>
         <div v-if="hoverSecondary" class="tt-row">
-          <span class="tt-dot" :style="{ background: secondaryColor }" aria-hidden="true" />{{ secondaryLabel }}
+          <span class="tt-dot" :style="{ background: secondaryColor }" aria-hidden="true" />{{ effectiveSecondaryLabel }}
           <strong>{{ formatSecondary(hoverSecondary.v) }}</strong>
         </div>
       </div>

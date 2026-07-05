@@ -872,6 +872,12 @@
       "toggle_nav": "Alternar menú de navegación",
       "live_traffic": "Tráfico en vivo en el último minuto",
       "no_recent_traffic": "Sin tráfico reciente"
+    },
+    "charts": {
+      "no_data": "Sin datos.",
+      "no_data_window": "Sin datos en esta ventana.",
+      "primary": "Valor",
+      "secondary": "Secundario"
     }
   },
   "pages": {
