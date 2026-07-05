@@ -28,6 +28,7 @@ import { log } from "../logger.js";
 import { createUser, findUserByUsername, findUserById, type AdminUser } from "./user-store.js";
 import { createJwksFetcher, verifyJwtSignatureWithKeys, type JwtClaims, type Jwk } from "./jwt.js";
 import { sha256Hex } from "../lib/crypto.js";
+import { createTtlCache } from "../lib/ttl-cache.js";
 
 // ── WebCrypto-based PKCE (RFC 7636) ─────────────────────────────────────────
 
@@ -54,7 +55,12 @@ export async function generatePkcePair(): Promise<PkcePair> {
 
 let fetchImpl: typeof fetch = fetch;
 let nowFn: () => number = () => Date.now();
-let discoveryCache: { issuer: string; doc: OidcDiscoveryDocument; fetchedAt: number } | null = null;
+// discoveryTtlCache (declared below, alongside its fetch function) caches the
+// discovery document itself; this tracks which issuer it was last fetched
+// for, since createTtlCache's `arg` is only plumbed through to fetchFn on a
+// miss and never gates freshness itself — a *different* issuer must force a
+// reset() rather than silently reuse another issuer's still-fresh document.
+let discoveryCacheIssuer: string | null = null;
 const jwksFetchers = new Map<string, () => Promise<Jwk[]>>();
 
 export function __setOidcDepsForTesting(deps: { fetch?: typeof fetch; now?: () => number }): void {
@@ -64,7 +70,8 @@ export function __setOidcDepsForTesting(deps: { fetch?: typeof fetch; now?: () =
 export function __resetOidcForTesting(): void {
   fetchImpl = fetch;
   nowFn = () => Date.now();
-  discoveryCache = null;
+  discoveryCacheIssuer = null;
+  discoveryTtlCache.reset();
   jwksFetchers.clear();
 }
 
@@ -83,23 +90,30 @@ export interface OidcDiscoveryDocument {
   issuer?: string;
 }
 
+const discoveryTtlCache = createTtlCache<OidcDiscoveryDocument, string>(
+  async (issuer) => {
+    const base = issuer.replace(/\/+$/, "");
+    const resp = await fetchImpl(`${base}/.well-known/openid-configuration`, {
+      signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
+    });
+    if (!resp.ok) throw new Error(`OIDC discovery fetch failed: HTTP ${resp.status}`);
+    const doc = (await resp.json()) as OidcDiscoveryDocument;
+    if (!doc.authorization_endpoint || !doc.token_endpoint || !doc.jwks_uri) {
+      throw new Error("OIDC discovery document is missing a required endpoint");
+    }
+    return doc;
+  },
+  DISCOVERY_CACHE_MS,
+  { nowFn: () => nowFn() },
+);
+
 /** Fetches (and caches) `{issuer}/.well-known/openid-configuration` — never a hardcoded path guess. */
 export async function discoverOidcIssuer(issuer: string): Promise<OidcDiscoveryDocument> {
-  const now = nowFn();
-  if (discoveryCache && discoveryCache.issuer === issuer && now - discoveryCache.fetchedAt < DISCOVERY_CACHE_MS) {
-    return discoveryCache.doc;
+  if (discoveryCacheIssuer !== issuer) {
+    discoveryTtlCache.reset();
+    discoveryCacheIssuer = issuer;
   }
-  const base = issuer.replace(/\/+$/, "");
-  const resp = await fetchImpl(`${base}/.well-known/openid-configuration`, {
-    signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
-  });
-  if (!resp.ok) throw new Error(`OIDC discovery fetch failed: HTTP ${resp.status}`);
-  const doc = (await resp.json()) as OidcDiscoveryDocument;
-  if (!doc.authorization_endpoint || !doc.token_endpoint || !doc.jwks_uri) {
-    throw new Error("OIDC discovery document is missing a required endpoint");
-  }
-  discoveryCache = { issuer, doc, fetchedAt: now };
-  return doc;
+  return discoveryTtlCache.get(issuer);
 }
 
 function getJwksFetcherFor(jwksUri: string): () => Promise<Jwk[]> {
@@ -346,7 +360,8 @@ export async function setOidcConfig(
     )
     .run(issuer, clientId, clientSecretRef, redirectUri, scopes, input.enabled ? 1 : 0, now, now);
 
-  discoveryCache = null; // issuer may have changed
+  discoveryTtlCache.reset(); // issuer may have changed
+  discoveryCacheIssuer = null;
   return { ok: true };
 }
 

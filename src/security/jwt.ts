@@ -9,6 +9,7 @@
  * DB-managed keys keep working unchanged.
  */
 import { config } from "../config.js";
+import { createTtlCache } from "../lib/ttl-cache.js";
 
 export interface Jwk {
   kid?: string;
@@ -31,9 +32,19 @@ export interface JwtClaims {
   [k: string]: unknown;
 }
 
-let jwksCache: { keys: Jwk[]; fetchedAt: number } | null = null;
 let fetchImpl: typeof fetch = fetch;
 let nowFn: () => number = () => Date.now();
+
+const jwksCache = createTtlCache<Jwk[]>(
+  async () => {
+    const resp = await fetchImpl(config.jwtJwksUrl as string, { signal: AbortSignal.timeout(config.jwtJwksTimeoutMs) });
+    if (!resp.ok) throw new Error(`JWKS fetch failed: ${resp.status}`);
+    const body = (await resp.json()) as { keys?: Jwk[] };
+    return body.keys ?? [];
+  },
+  () => config.jwtJwksCacheMs,
+  { nowFn: () => nowFn() },
+);
 
 /** True when inbound JWT auth is configured. */
 export function isJwtConfigured(): boolean {
@@ -45,7 +56,7 @@ export function __setJwtDepsForTesting(deps: { fetch?: typeof fetch; now?: () =>
   if (deps.now) nowFn = deps.now;
 }
 export function __resetJwtForTesting(): void {
-  jwksCache = null;
+  jwksCache.reset();
   fetchImpl = fetch;
   nowFn = () => Date.now();
 }
@@ -62,13 +73,7 @@ function b64urlToString(s: string): string {
 }
 
 async function getJwks(): Promise<Jwk[]> {
-  const now = nowFn();
-  if (jwksCache && now - jwksCache.fetchedAt < config.jwtJwksCacheMs) return jwksCache.keys;
-  const resp = await fetchImpl(config.jwtJwksUrl as string, { signal: AbortSignal.timeout(config.jwtJwksTimeoutMs) });
-  if (!resp.ok) throw new Error(`JWKS fetch failed: ${resp.status}`);
-  const body = (await resp.json()) as { keys?: Jwk[] };
-  jwksCache = { keys: body.keys ?? [], fetchedAt: now };
-  return jwksCache.keys;
+  return jwksCache.get();
 }
 
 export function importKey(jwk: Jwk, alg: "RS256" | "ES256"): Promise<CryptoKey> {

@@ -14,6 +14,7 @@ import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { getSecretsProvider } from "../secrets/index.js";
 import { validateBackendUrl } from "../net/ip-validator.js";
+import { createTtlCache, type TtlCache } from "../lib/ttl-cache.js";
 
 export interface OAuthPublic {
   tokenUrl: string;
@@ -47,7 +48,7 @@ export async function setClientOAuth(
     return { ok: false, error: "CLIENT_NOT_FOUND" };
   if (input === null) {
     db.query(`DELETE FROM client_oauth WHERE client_name = ?`).run(clientName);
-    tokenCache.delete(clientName);
+    tokenCaches.delete(clientName);
     return { ok: true };
   }
   const secretsProvider = getSecretsProvider();
@@ -72,13 +73,14 @@ export async function setClientOAuth(
        scope = excluded.scope,
        updated_at = excluded.updated_at`,
   ).run(clientName, input.tokenUrl, input.clientId, clientSecretEnc, input.scope ?? null, Date.now());
-  tokenCache.delete(clientName);
+  tokenCaches.delete(clientName);
   return { ok: true };
 }
 
 // ── Token cache + minting ───────────────────────────────────────────────────
 
-const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+/** One independent TTL cache per client — a fresh mint for client A never evicts client B's still-valid token. */
+const tokenCaches = new Map<string, TtlCache<MintedToken, OAuthRow>>();
 const SKEW_MS = 30_000;
 let nowFn: () => number = () => Date.now();
 let fetchImpl: typeof fetch = fetch;
@@ -88,9 +90,49 @@ export function __setOAuthDepsForTesting(deps: { fetch?: typeof fetch; now?: () 
   if (deps.now) nowFn = deps.now;
 }
 export function __resetOAuthForTesting(): void {
-  tokenCache.clear();
+  tokenCaches.clear();
   nowFn = () => Date.now();
   fetchImpl = fetch;
+}
+
+interface MintedToken {
+  token: string;
+  /** Raw TTL from the token endpoint's `expires_in` (or the 3600s default) — the skew is subtracted separately below. */
+  ttlMs: number;
+}
+
+/** Lazily creates (and remembers) this client's independent token cache. */
+function getTokenTtlCache(clientName: string): TtlCache<MintedToken, OAuthRow> {
+  let cache = tokenCaches.get(clientName);
+  if (!cache) {
+    cache = createTtlCache<MintedToken, OAuthRow>(
+      async (row) => {
+        const secret = await getSecretsProvider().decryptSecret(row.client_secret_enc);
+        const body = new URLSearchParams({
+          grant_type: "client_credentials",
+          client_id: row.client_id,
+          client_secret: secret,
+        });
+        if (row.scope) body.set("scope", row.scope);
+
+        const resp = await fetchImpl(row.token_url, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: body.toString(),
+          signal: AbortSignal.timeout(config.oauthTokenTimeoutMs),
+        });
+        if (!resp.ok) throw new Error(`token endpoint HTTP ${resp.status}`);
+        const json = (await resp.json()) as { access_token?: string; expires_in?: number };
+        if (typeof json.access_token !== "string") throw new Error("token endpoint returned no access_token");
+        const ttlMs = (typeof json.expires_in === "number" ? json.expires_in : 3600) * 1000;
+        return { token: json.access_token, ttlMs };
+      },
+      (value) => value.ttlMs - SKEW_MS,
+      { nowFn: () => nowFn() },
+    );
+    tokenCaches.set(clientName, cache);
+  }
+  return cache;
 }
 
 /**
@@ -104,36 +146,9 @@ export async function getOAuthBearer(clientName: string): Promise<string | null>
     .get(clientName) as OAuthRow | null;
   if (!row) return null;
 
-  const now = nowFn();
-  const cached = tokenCache.get(clientName);
-  if (cached && cached.expiresAt - SKEW_MS > now) return cached.token;
-
-  let secret: string;
   try {
-    secret = await getSecretsProvider().decryptSecret(row.client_secret_enc);
-  } catch {
-    return null;
-  }
-  const body = new URLSearchParams({
-    grant_type: "client_credentials",
-    client_id: row.client_id,
-    client_secret: secret,
-  });
-  if (row.scope) body.set("scope", row.scope);
-
-  try {
-    const resp = await fetchImpl(row.token_url, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
-      signal: AbortSignal.timeout(config.oauthTokenTimeoutMs),
-    });
-    if (!resp.ok) return null;
-    const json = (await resp.json()) as { access_token?: string; expires_in?: number };
-    if (typeof json.access_token !== "string") return null;
-    const ttlMs = (typeof json.expires_in === "number" ? json.expires_in : 3600) * 1000;
-    tokenCache.set(clientName, { token: json.access_token, expiresAt: now + ttlMs });
-    return json.access_token;
+    const minted = await getTokenTtlCache(clientName).get(row);
+    return minted.token;
   } catch {
     return null;
   }
