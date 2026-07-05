@@ -19,8 +19,171 @@ const DESCRIPTION =
   "into secure, governed AI tools — OpenAPI-to-MCP auto-discovery, RBAC, guardrails, " +
   "circuit breaking. Single binary, no Kubernetes.";
 
+// Tiny inline ES translation table — every entry here mirrors an English
+// string from the sidebar / nav / footer / edit-link. The point is to keep
+// these labels localisable without dragging in a full i18n catalog just
+// for ~20 strings.
+const textEs = {
+  Guide: "Guía",
+  Features: "Funcionalidades",
+  "Live demo": "Demo en vivo",
+  "Why MCP REST Bridge": "Por qué MCP REST Bridge",
+  Community: "Comunidad",
+  Contributing: "Contribuir",
+  Changelog: "Registro de cambios",
+  "Security policy": "Política de seguridad",
+  "Report an issue": "Reportar un problema",
+  Introduction: "Introducción",
+  Overview: "Resumen",
+  "Getting started": "Primeros pasos",
+  Architecture: "Arquitectura",
+  "Concepts & glossary": "Conceptos y glosario",
+  Connect: "Conectar",
+  "Connecting MCP clients": "Conectar clientes MCP",
+  "Registering backends": "Registrar backends",
+  Operate: "Operar",
+  Security: "Seguridad",
+  "Access control & multi-tenancy": "Control de acceso y multi-tenancy",
+  "Guardrails & resilience": "Guardrails y resiliencia",
+  "Observability & monitoring": "Observabilidad y monitorización",
+  "Scaling & high availability": "Escalado y alta disponibilidad",
+  Deployment: "Despliegue",
+  Reference: "Referencia",
+  Configuration: "Configuración",
+  "API reference": "Referencia de API",
+  CLI: "CLI",
+  Support: "Soporte",
+  Troubleshooting: "Solución de problemas",
+  FAQ: "Preguntas frecuentes",
+  "Edit this page on GitHub": "Edita esta página en GitHub",
+  "Released under the MIT License · Built with Bun + Vue.":
+    "Distribuido bajo la licencia MIT · Construido con Bun + Vue.",
+  "Open source · ": "Código abierto · ",
+} as const;
+
+// English sidebar — kept here so the root locale's `themeConfig` block can
+// stay focused on the structural chrome only (logo, search, footer). Sidebar
+// strings get re-derived for each locale below.
+const sidebarGuideEn = [
+  {
+    text: "Introduction",
+    items: [
+      { text: "Overview", link: "/" },
+      { text: "Getting started", link: "/guide/getting-started" },
+      { text: "Why MCP REST Bridge", link: "/guide/why-mcp-rest-bridge" },
+      { text: "Architecture", link: "/guide/architecture" },
+      { text: "Concepts & glossary", link: "/guide/concepts" },
+    ],
+  },
+  {
+    text: "Connect",
+    items: [
+      { text: "Connecting MCP clients", link: "/guide/connecting-clients" },
+      { text: "Registering backends", link: "/guide/registering-backends" },
+    ],
+  },
+  {
+    text: "Operate",
+    items: [
+      { text: "Security", link: "/guide/security" },
+      { text: "Access control & multi-tenancy", link: "/guide/access-control" },
+      { text: "Guardrails & resilience", link: "/guide/guardrails-resilience" },
+      { text: "Observability & monitoring", link: "/guide/observability" },
+      { text: "Scaling & high availability", link: "/guide/scaling" },
+      { text: "Deployment", link: "/guide/deployment" },
+    ],
+  },
+  {
+    text: "Reference",
+    items: [
+      { text: "Configuration", link: "/guide/configuration" },
+      { text: "API reference", link: "/guide/api-reference" },
+      { text: "CLI", link: "/guide/cli" },
+      { text: "Features", link: "/guide/features" },
+    ],
+  },
+  {
+    text: "Support",
+    items: [
+      { text: "Troubleshooting", link: "/guide/troubleshooting" },
+      { text: "FAQ", link: "/guide/faq" },
+    ],
+  },
+  {
+    text: "Community",
+    items: [
+      { text: "Contributing", link: "/guide/contributing" },
+      { text: "Changelog", link: "/guide/changelog" },
+      { text: "Security policy", link: "/guide/security-policy" },
+    ],
+  },
+];
+
+// Spanish sidebar — keys point at `/es/guide/...` paths so VitePress routes
+// Spanish pages under the `/es/` locale root.
+const sidebarGuideEs = sidebarGuideEn.map((group) => ({
+  text: textEs[group.text as keyof typeof textEs] ?? group.text,
+  items: group.items.map((item) => ({
+    text: textEs[item.text as keyof typeof textEs] ?? item.text,
+    // Map any /guide/foo path to /es/guide/foo so the ES sidebar lives in
+    // its own locale tree. Skip the "/" entry which is the locale's home.
+    link: item.link === "/" ? "/es/" : `/es${item.link}`,
+  })),
+}));
+
 export default defineConfig({
-  lang: "en-US",
+  // VitePress's built-in i18n. The root locale keeps the existing
+  // /guide/foo URLs; the Spanish locale mounts at /es/guide/foo.
+  locales: {
+    root: {
+      label: "English",
+      lang: "en-US",
+      themeConfig: {
+        // Defaults below — `themeConfig` at the bottom of this file holds the
+        // English chrome (nav, sidebar, footer), so per-locale overrides only
+        // need to swap in the Spanish strings when `locale === 'es'`.
+      },
+    },
+    es: {
+      label: "Español",
+      lang: "es-ES",
+      link: "/es/",
+      themeConfig: {
+        nav: [
+          {
+            text: textEs["Guide"],
+            link: "/es/guide/getting-started",
+            activeMatch: "/es/guide/(?!features|why-mcp-rest-bridge)",
+          },
+          { text: textEs["Features"], link: "/es/guide/features", activeMatch: "/es/guide/features" },
+          { text: textEs["Live demo"], link: DEMO_URL },
+          {
+            text: textEs["Why MCP REST Bridge"],
+            link: "/es/guide/why-mcp-rest-bridge",
+            activeMatch: "/es/guide/why-mcp-rest-bridge",
+          },
+          {
+            text: textEs["Community"],
+            items: [
+              { text: textEs["Contributing"], link: "/es/guide/contributing" },
+              { text: textEs["Changelog"], link: "/es/guide/changelog" },
+              { text: textEs["Security policy"], link: "/es/guide/security-policy" },
+              { text: textEs["Report an issue"], link: REPO_URL + "/issues/new" },
+            ],
+          },
+        ],
+        sidebar: { "/es/guide/": sidebarGuideEs },
+        editLink: {
+          pattern: REPO_URL + "/edit/main/docs/:path",
+          text: textEs["Edit this page on GitHub"],
+        },
+        footer: {
+          message: textEs["Released under the MIT License · Built with Bun + Vue."],
+          copyright: `${textEs["Open source · "]}${REPO_URL}`,
+        },
+      },
+    },
+  },
   title: "MCP REST Bridge",
   titleTemplate: ":title · MCP REST Bridge",
   description: DESCRIPTION,
@@ -75,9 +238,6 @@ export default defineConfig({
     siteTitle: "MCP REST Bridge",
 
     nav: [
-      // `activeMatch` is a regex string. "Features" and "Why" are also under
-      // /guide/, so match every guide page EXCEPT those two (they own their own
-      // nav item) — otherwise "Guide" stays highlighted on Features/Why too.
       { text: "Guide", link: "/guide/getting-started", activeMatch: "/guide/(?!features|why-mcp-rest-bridge)" },
       { text: "Features", link: "/guide/features", activeMatch: "/guide/features" },
       { text: "Live demo", link: DEMO_URL },
@@ -87,9 +247,6 @@ export default defineConfig({
         activeMatch: "/guide/why-mcp-rest-bridge",
       },
       {
-        // Was "v1" — read as a doc-version switcher (a pattern most doc sites
-        // train users to expect), not "meta project links". Renamed so the
-        // label matches its actual contents.
         text: "Community",
         items: [
           { text: "Contributing", link: "/guide/contributing" },
@@ -101,67 +258,7 @@ export default defineConfig({
     ],
 
     sidebar: {
-      "/guide/": [
-        {
-          text: "Introduction",
-          items: [
-            // Explicit way back to the landing pitch — previously only the
-            // small header logo did this from inside /guide/.
-            { text: "Overview", link: "/" },
-            { text: "Getting started", link: "/guide/getting-started" },
-            { text: "Why MCP REST Bridge", link: "/guide/why-mcp-rest-bridge" },
-            { text: "Architecture", link: "/guide/architecture" },
-            { text: "Concepts & glossary", link: "/guide/concepts" },
-          ],
-        },
-        {
-          text: "Connect",
-          items: [
-            { text: "Connecting MCP clients", link: "/guide/connecting-clients" },
-            { text: "Registering backends", link: "/guide/registering-backends" },
-          ],
-        },
-        {
-          text: "Operate",
-          items: [
-            { text: "Security", link: "/guide/security" },
-            { text: "Access control & multi-tenancy", link: "/guide/access-control" },
-            { text: "Guardrails & resilience", link: "/guide/guardrails-resilience" },
-            { text: "Observability & monitoring", link: "/guide/observability" },
-            { text: "Scaling & high availability", link: "/guide/scaling" },
-            { text: "Deployment", link: "/guide/deployment" },
-          ],
-        },
-        {
-          text: "Reference",
-          items: [
-            { text: "Configuration", link: "/guide/configuration" },
-            { text: "API reference", link: "/guide/api-reference" },
-            { text: "CLI", link: "/guide/cli" },
-            { text: "Features", link: "/guide/features" },
-          ],
-        },
-        {
-          // Troubleshooting is diagnose-a-problem content, not lookup content
-          // like the Reference group above it — a different mental mode, so
-          // it gets its own group instead of being the odd one out in Reference.
-          text: "Support",
-          items: [
-            { text: "Troubleshooting", link: "/guide/troubleshooting" },
-            { text: "FAQ", link: "/guide/faq" },
-          ],
-        },
-        {
-          // Mirrors the nav's "Community" dropdown so these pages are reachable
-          // (and get a proper sidebar "you are here" highlight) without opening it.
-          text: "Community",
-          items: [
-            { text: "Contributing", link: "/guide/contributing" },
-            { text: "Changelog", link: "/guide/changelog" },
-            { text: "Security policy", link: "/guide/security-policy" },
-          ],
-        },
-      ],
+      "/guide/": sidebarGuideEn,
     },
 
     socialLinks: [{ icon: "github", link: REPO_URL }],
