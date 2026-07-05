@@ -78,7 +78,7 @@
     },
     "servers": {
       "label": "Servers",
-      "hint": "List and manage upstream servers"
+      "hint": "Upstream servers (REST + MCP)"
     },
     "register-server": {
       "label": "Add server",
@@ -86,15 +86,15 @@
     },
     "catalog": {
       "label": "Catalog",
-      "hint": "Browse & one-click install servers"
+      "hint": "Pre-built servers you can register with one click"
     },
     "bundles": {
       "label": "Bundles",
-      "hint": "Cross-client tool selections"
+      "hint": "Curated tool selections to expose to clients"
     },
     "composites": {
       "label": "Composites",
-      "hint": "Chained tool calls"
+      "hint": "Multi-step tool chains"
     },
     "ws-proxies": {
       "label": "WS proxies",
@@ -102,15 +102,15 @@
     },
     "keys": {
       "label": "API keys",
-      "hint": "MCP client credentials"
+      "hint": "MCP bearer tokens issued to consumers"
     },
     "policies": {
       "label": "Policies",
-      "hint": "Reusable rate-limit/timeout presets"
+      "hint": "Reusable guard profiles"
     },
     "consumers": {
       "label": "Consumers",
-      "hint": "Quota-tracked key owners"
+      "hint": "Per-consumer quotas and rate limits"
     },
     "approvals": {
       "label": "Approvals",
@@ -142,7 +142,7 @@
     },
     "schedules": {
       "label": "Schedules",
-      "hint": "Cron enable/disable jobs"
+      "hint": "Cron-driven enable/disable actions"
     },
     "audit-log": {
       "label": "Audit log",
@@ -150,11 +150,11 @@
     },
     "users": {
       "label": "Users",
-      "hint": "Admin accounts"
+      "hint": "Admin accounts and roles"
     },
     "teams": {
       "label": "Teams",
-      "hint": "Server ownership groups"
+      "hint": "Group users to scope policies and ownership"
     },
     "config": {
       "label": "Config",
@@ -896,6 +896,16 @@
       "no_data_window": "No data in this window.",
       "primary": "Value",
       "secondary": "Secondary"
+    },
+    "overview": {
+      "widget_groups": {
+        "overview": "Overview",
+        "usage": "Usage",
+        "health": "Health",
+        "access": "Access",
+        "activity": "Activity",
+        "custom": "Custom"
+      }
     }
   },
   "pages": {
@@ -1079,7 +1089,8 @@
         "errors": {
           "label_required": "A label is required.",
           "create_failed": "Failed to create API key."
-        }
+        },
+        "mint_key": "Mint key"
       }
     },
     "register_server": {
@@ -1480,11 +1491,56 @@
     },
     "bundle_detail": {
       "title": "{name}",
-      "back_to_bundles": "Bundles"
+      "back_to_bundles": "Bundles",
+      "disable_bundle": "Disable bundle",
+      "enable_bundle": "Enable bundle",
+      "share_link": "Share install link",
+      "deleting": "Deleting…",
+      "delete_bundle": "Delete bundle",
+      "description_label": "Description",
+      "description_placeholder": "What does this bundle do?",
+      "tools_heading": "Tools in bundle ({count})",
+      "save_tools": "Save tool selection",
+      "unsaved_tools": "You have unsaved tool changes.",
+      "confirm": {
+        "delete_title": "Delete this bundle?",
+        "delete_message": "Delete bundle “{name}”? Tools themselves stay registered — only the curated selection goes away.",
+        "delete_cta": "Delete bundle “{name}”",
+        "leave_title": "Discard tool changes?",
+        "leave_message": "You have unsaved tool selections. Leaving now will discard them.",
+        "leave_cta": "Discard changes"
+      },
+      "errors": {
+        "load_failed": "Failed to load bundle.",
+        "save_description_failed": "Failed to save description.",
+        "save_tools_failed": "Failed to save tool selection.",
+        "delete_failed": "Failed to delete bundle.",
+        "toggle_failed": "Failed to toggle bundle state."
+      }
     },
     "server_detail": {
       "title": "{name}",
-      "back_to_servers": "Servers"
+      "back_to_servers": "Servers",
+      "tabs": {
+        "tools": "Tools",
+        "settings": "Settings"
+      },
+      "not_connected": "Server is not currently connected.",
+      "resetting": "Resetting…",
+      "reset_breaker": "Reset circuit breaker",
+      "mcp_url": "MCP URL",
+      "transport": "Transport",
+      "health_url": "Health URL",
+      "base_url": "Base URL",
+      "consecutive_failures": "Consecutive failures",
+      "guards_aria": "Tool guards",
+      "guards_heading": "Per-tool guards",
+      "tool_not_found": "Tool not found on this server.",
+      "confirm": {
+        "disable_title": "Disable this server?",
+        "disable_message": "Disable {name}? Its tools will stop being advertised until you re-enable it.",
+        "disable_cta": "Disable server"
+      }
     },
     "catalog": {
       "title": "Catalog",
@@ -1869,11 +1925,11 @@
         "username": "Username",
         "role": "Role",
         "created": "Created",
-        "last_login": "Last login"
+        "last_login": "Last login",
+        "team": "Team",
+        "active": "Active"
       },
-      "empty": {
-        "no_users": "No users yet."
-      },
+      "empty": "No users yet.",
       "errors": {
         "load_failed": "Failed to load users.",
         "delete_failed": "Failed to delete user."
@@ -1896,6 +1952,37 @@
           "password_too_short": "Password must be at least 12 characters.",
           "create_failed": "Failed to create user."
         }
+      },
+      "add_user": "Add user",
+      "you_tag": "(you)",
+      "yes": "Yes",
+      "no": "No",
+      "last_admin_locked": "Cannot remove or demote the last admin.",
+      "team": {
+        "none": "No team",
+        "create": "Create team",
+        "change_locked": "Team changes are locked while this user is the last admin."
+      },
+      "roles": {
+        "admin": "Admin",
+        "operator": "Operator",
+        "auditor": "Auditor",
+        "viewer": "Viewer"
+      },
+      "confirm": {
+        "delete_title": "Delete this user?",
+        "delete_message": "Delete user {username}? They will no longer be able to sign in.",
+        "delete_cta": "Delete user",
+        "role_title": "Change role for {username}?",
+        "role_cta": "Change role",
+        "role_cta_default": "Change role to {role}",
+        "role_self": "You are about to change your own role.",
+        "role_other": "You are about to change {username}'s role from {current} to {next}.",
+        "team_title": "Change team for {username}?",
+        "team_base": "Change {username}'s team?",
+        "team_cta": "Change team",
+        "team_cta_default": "Change team to {team}",
+        "team_self_warning": "You are about to change your own team."
       }
     },
     "usage": {
@@ -1907,6 +1994,42 @@
       "window_30d": "Last 30 days",
       "errors": {
         "load_failed": "Failed to load usage."
+      },
+      "errors_hint": "Errors include any non-2xx response or thrown exception at the dispatch layer.",
+      "time_window_aria": "Time window",
+      "truncated_hint": "Showing the top entries — drill in to see the rest.",
+      "stat": {
+        "calls": "Calls",
+        "errors": "Errors",
+        "error_rate": "Error rate",
+        "avg_latency": "Avg latency",
+        "max_latency": "Max latency",
+        "active_tools": "Active tools"
+      },
+      "section": {
+        "top_tools": "Top tools",
+        "by_key": "By API key"
+      },
+      "table": {
+        "client": "Client",
+        "tool": "Tool",
+        "calls": "Calls",
+        "errors": "Errors",
+        "error_rate": "Error rate",
+        "avg": "Avg (ms)",
+        "max": "Max (ms)",
+        "key": "API key"
+      },
+      "chart": {
+        "calls_errors": "Calls vs errors",
+        "calls_by_key": "Calls by API key",
+        "top_tools": "Top tools",
+        "primary_label": "Calls",
+        "secondary_label": "Errors"
+      },
+      "empty": {
+        "no_calls": "No calls in the selected window.",
+        "no_attributed": "No calls attributed to a registered API key."
       }
     },
     "traffic": {
@@ -1921,13 +2044,50 @@
         "client": "Client",
         "captured_at": "Captured at",
         "duration": "Duration",
-        "actions": "Actions"
+        "actions": "Actions",
+        "time": "Time",
+        "client_tool": "Client / tool",
+        "status": "Status",
+        "preview": "Response preview",
+        "status_error": "Error",
+        "status_ok": "OK"
       },
       "empty": {
         "no_traffic": "Traffic capture is off — turn it on with the TRAFFIC_CAPTURE env var."
       },
       "errors": {
         "load_failed": "Failed to load traffic."
+      },
+      "subtitle_p1": "Every tool call that hits this admin gateway lands here — both successful and failed.",
+      "subtitle_p2": "Filter by client or tool, drill into a record to see the exact request/response, or replay it against the current upstream.",
+      "errors_only": "Errors only",
+      "filtering": "Filtering…",
+      "filter_button": "Filter",
+      "empty_p1": "No traffic in the selected window.",
+      "empty_p2": "Adjust the filter or wait for fresh traffic to roll in.",
+      "pagination_label": "Pagination",
+      "filters": {
+        "client_label": "Client",
+        "tool_label": "Tool"
+      },
+      "chart": {
+        "title": "Calls vs errors over time",
+        "primary_label": "Calls",
+        "secondary_label": "Errors"
+      },
+      "replay": {
+        "tooltip": "Replay this call against the current upstream",
+        "replay": "Replay",
+        "replaying": "Replaying…",
+        "succeeded": "Replay succeeded.",
+        "failed": "Replay failed.",
+        "no_content": "The replay returned no content.",
+        "note_p1": "This replays the call against whatever the server is currently pointing at."
+      },
+      "confirm": {
+        "replay_title": "Replay this call?",
+        "replay_message": "This will re-run the exact same call against the current upstream.",
+        "replay_cta": "Replay"
       }
     },
     "ws_proxy_targets": {
@@ -2093,6 +2253,213 @@
     "bundle_new": {
       "title": "New bundle",
       "back_to_bundles": "Bundles"
+    }
+  },
+  "demo": {
+    "fixtures": {
+      "tools": {
+        "github__search_issues": {
+          "description": "Search issues and pull requests"
+        },
+        "github__create_issue": {
+          "description": "Open a new issue in a repository"
+        },
+        "github__get_repo": {
+          "description": "Fetch repository metadata"
+        },
+        "github__list_pull_requests": {
+          "description": "List pull requests for a repo"
+        },
+        "stripe__create_refund": {
+          "description": "Refund a charge"
+        },
+        "stripe__get_customer": {
+          "description": "Retrieve a customer"
+        },
+        "stripe__list_invoices": {
+          "description": "List invoices"
+        },
+        "stripe__create_payment_intent": {
+          "description": "Start a payment"
+        },
+        "slack__post_message": {
+          "description": "Send a channel message"
+        },
+        "slack__list_channels": {
+          "description": "List channels"
+        },
+        "slack__get_user": {
+          "description": "Look up a user"
+        },
+        "internal-crm__find_account": {
+          "description": "Search CRM accounts"
+        },
+        "internal-crm__update_deal": {
+          "description": "Update a deal stage"
+        },
+        "weather__current": {
+          "description": "Current conditions for a location"
+        },
+        "weather__forecast": {
+          "description": "7-day forecast"
+        },
+        "legacy-billing__get_balance": {
+          "description": "Legacy balance lookup"
+        }
+      },
+      "bundles": {
+        "support-agent": {
+          "description": "Read-only GitHub + Slack tools for the support copilot"
+        },
+        "billing-ops": {
+          "description": "Stripe refunds & invoice lookups for finance"
+        },
+        "readonly-explorer": {
+          "description": "Safe, read-only slice across every backend"
+        }
+      },
+      "catalog": {
+        "builtin:petstore": {
+          "description": "The canonical OpenAPI sample API — pets, orders, and inventory."
+        },
+        "custom:1": {
+          "description": "Reusable template for spinning up a staging CRM registration."
+        }
+      },
+      "discovery": {
+        "list_pets": {
+          "description": "Finds pets by status"
+        },
+        "get_pet": {
+          "description": "Find pet by ID"
+        },
+        "add_pet": {
+          "description": "Add a new pet to the store"
+        },
+        "update_pet": {
+          "description": "Update an existing pet"
+        },
+        "delete_pet": {
+          "description": "Deletes a pet"
+        }
+      },
+      "keys": {
+        "by_value": {
+          "Claude Desktop": {
+            "label": "Claude Desktop"
+          },
+          "Cursor IDE": {
+            "label": "Cursor IDE"
+          },
+          "CI pipeline (elevated)": {
+            "label": "CI pipeline (elevated)"
+          },
+          "Old prototype key": {
+            "label": "Old prototype key"
+          }
+        }
+      },
+      "consumers": {
+        "by_value": {
+          "Support team": {
+            "name": "Support team"
+          },
+          "Finance": {
+            "name": "Finance"
+          },
+          "Internal agents": {
+            "name": "Internal agents"
+          }
+        }
+      },
+      "usage": {
+        "by_value": {
+          "Claude Desktop": {
+            "label": "Claude Desktop"
+          },
+          "Cursor IDE": {
+            "label": "Cursor IDE"
+          },
+          "CI pipeline (elevated)": {
+            "label": "CI pipeline (elevated)"
+          }
+        }
+      },
+      "alerts": {
+        "1": {
+          "name": "CRM circuit breaker open"
+        },
+        "2": {
+          "name": "High error rate"
+        },
+        "3": {
+          "name": "Usage spike detector"
+        }
+      },
+      "teams": {
+        "by_value": {
+          "Platform": {
+            "name": "Platform"
+          },
+          "Support": {
+            "name": "Support"
+          }
+        }
+      },
+      "policies": {
+        "by_value": {
+          "Standard read": {
+            "name": "Standard read"
+          },
+          "Sensitive write": {
+            "name": "Sensitive write"
+          }
+        }
+      },
+      "composites": {
+        "triage_issue": {
+          "description": "Search GitHub, then post a Slack summary"
+        },
+        "refund_and_notify": {
+          "description": "Create a Stripe refund and DM the customer owner"
+        }
+      },
+      "snapshots": {
+        "by_value": {
+          "before rollout": {
+            "label": "before rollout"
+          },
+          "add billing-ops bundle": {
+            "label": "add billing-ops bundle"
+          },
+          "initial": {
+            "label": "initial"
+          }
+        }
+      },
+      "audit": {
+        "128": {
+          "detail": {
+            "label": {
+              "value": "CI pipeline (elevated)"
+            }
+          }
+        },
+        "122": {
+          "detail": {
+            "label": {
+              "value": "before rollout"
+            }
+          }
+        },
+        "120": {
+          "detail": {
+            "name": {
+              "value": "Support"
+            }
+          }
+        }
+      }
     }
   }
 }

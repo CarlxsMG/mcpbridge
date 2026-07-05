@@ -53,7 +53,7 @@ async function createUser() {
 <template>
   <section>
     <FormPage max-width="23.75rem">
-      <PageHeader :title="t('pages.users.new.title')" :back-link="{ to: '/users', label: t('nav.users') }" />
+      <PageHeader :title="t('pages.users.new.title')" :back-link="{ to: '/users', label: t('nav.users.label') }" />
 
       <form class="form-card" @submit.prevent="createUser">
         <FormField :label="t('pages.users.new.fields.username')" for="new-username">

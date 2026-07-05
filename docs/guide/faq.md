@@ -59,6 +59,11 @@ rollback, so back up your SQLite database before upgrading to a new version. See
 Yes — the **[live demo](https://aico-dot-team-code.github.io/mcpbridge/demo/)** runs the real
 admin UI against mock data, right in your browser. No install, no signup.
 
+The demo is fully localized to Spanish as well — flip the locale switcher in
+**Account → Preferences → Language** and every translatable fixture string (tool descriptions,
+bundle summaries, API key labels, alert names, team / policy / composite / snapshot labels,
+catalog descriptions) updates in place without losing your tab state.
+
 ## What license is this?
 
 MIT. See [`LICENSE`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/LICENSE).

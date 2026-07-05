@@ -6,6 +6,7 @@ import type {
   Schedule,
   Team,
 } from "@/types/api";
+import { demoKey, demoKeyByValue } from "../i18n-keys";
 import { days, hours } from "./time";
 
 // ─── Administration section fixtures (users, teams, policies, composites, ────
@@ -33,15 +34,28 @@ export const users: AdminUserSummary[] = [
   },
 ];
 
-export const teams: Team[] = [
-  { id: 1, name: "Platform", createdAt: days(120), createdBy: "demo" },
-  { id: 2, name: "Support", createdAt: days(90), createdBy: "demo" },
+export const teams: Array<Team & { nameKey?: string }> = [
+  {
+    id: 1,
+    name: "Platform",
+    nameKey: demoKeyByValue("teams", "Platform", "name"),
+    createdAt: days(120),
+    createdBy: "demo",
+  },
+  {
+    id: 2,
+    name: "Support",
+    nameKey: demoKeyByValue("teams", "Support", "name"),
+    createdAt: days(90),
+    createdBy: "demo",
+  },
 ];
 
-export const policies: GuardPolicy[] = [
+export const policies: Array<GuardPolicy & { nameKey?: string }> = [
   {
     id: 1,
     name: "Standard read",
+    nameKey: demoKeyByValue("policies", "Standard read", "name"),
     rateLimitPerMin: 120,
     timeoutMs: 10000,
     createdAt: days(50),
@@ -51,6 +65,7 @@ export const policies: GuardPolicy[] = [
   {
     id: 2,
     name: "Sensitive write",
+    nameKey: demoKeyByValue("policies", "Sensitive write", "name"),
     rateLimitPerMin: 10,
     timeoutMs: 8000,
     createdAt: days(40),
@@ -59,11 +74,18 @@ export const policies: GuardPolicy[] = [
   },
 ];
 
-export const composites: CompositeSummary[] = [
-  { name: "triage_issue", description: "Search GitHub, then post a Slack summary", enabled: true, stepsCount: 2 },
+export const composites: Array<CompositeSummary & { descriptionKey?: string }> = [
+  {
+    name: "triage_issue",
+    description: "Search GitHub, then post a Slack summary",
+    descriptionKey: demoKey("composites", "triage_issue", "description"),
+    enabled: true,
+    stepsCount: 2,
+  },
   {
     name: "refund_and_notify",
     description: "Create a Stripe refund and DM the customer owner",
+    descriptionKey: demoKey("composites", "refund_and_notify", "description"),
     enabled: true,
     stepsCount: 3,
   },
@@ -96,8 +118,26 @@ export const schedules: Schedule[] = [
   },
 ];
 
-export const snapshots: ConfigSnapshotSummary[] = [
-  { id: 12, label: "before rollout", createdAt: days(2), createdBy: "demo" },
-  { id: 11, label: "add billing-ops bundle", createdAt: days(9), createdBy: "demo" },
-  { id: 10, label: "initial", createdAt: days(30), createdBy: "demo" },
+export const snapshots: Array<ConfigSnapshotSummary & { labelKey?: string }> = [
+  {
+    id: 12,
+    label: "before rollout",
+    labelKey: demoKeyByValue("snapshots", "before rollout", "label"),
+    createdAt: days(2),
+    createdBy: "demo",
+  },
+  {
+    id: 11,
+    label: "add billing-ops bundle",
+    labelKey: demoKeyByValue("snapshots", "add billing-ops bundle", "label"),
+    createdAt: days(9),
+    createdBy: "demo",
+  },
+  {
+    id: 10,
+    label: "initial",
+    labelKey: demoKeyByValue("snapshots", "initial", "label"),
+    createdAt: days(30),
+    createdBy: "demo",
+  },
 ];

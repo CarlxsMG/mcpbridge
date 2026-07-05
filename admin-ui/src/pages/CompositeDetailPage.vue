@@ -132,7 +132,7 @@ function toggleEnabled() {
 <template>
   <section>
     <p class="breadcrumb">
-      <RouterLink to="/composites">{{ t("nav.composites") }}</RouterLink> / {{ name }}
+      <RouterLink to="/composites">{{ t("nav.composites.label") }}</RouterLink> / {{ name }}
     </p>
 
     <SignalLoader v-if="loading && !detail" />

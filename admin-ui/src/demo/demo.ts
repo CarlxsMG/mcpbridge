@@ -19,6 +19,13 @@
 // verify every real admin-api route has a demo mock, so moving a matching
 // literal elsewhere would make that test blind to it even though the route
 // still works fine at runtime.
+//
+// Localization: every response returned by demoFetch() is walked through
+// `localize()` (resolve.ts), which swaps any `*Key` field on the response
+// into its corresponding text field using the active vue-i18n locale.
+// Reactivity is automatic: localize() reads the locale at call time, not at
+// module load, so a user switching locale and triggering a refetch gets the
+// new locale on the next response.
 // ─────────────────────────────────────────────────────────────────────────────
 import type {
   AdminSession,
@@ -32,6 +39,7 @@ import type {
   OidcSettings,
   WsProxyTarget,
 } from "@/types/api";
+import { localize } from "./resolve";
 import { days, NOW } from "./fixtures/time";
 import { DEMO_USER } from "./fixtures/auth";
 import { clients } from "./fixtures/clients";
@@ -229,6 +237,9 @@ function route(
       (b): BundleDetail => ({
         name,
         description: b?.description ?? null,
+        // Propagate the i18n key from the source bundle summary (if any) so
+        // the demo walker can localize the description per active locale.
+        descriptionKey: b?.descriptionKey,
         enabled: b?.enabled ?? true,
         createdAt: days(9),
         updatedAt: NOW,
@@ -537,5 +548,10 @@ export async function demoFetch<T>(path: string, init: RequestInit = {}): Promis
   const params = new URLSearchParams(search ?? "");
   // A touch of latency so spinners/skeletons behave like the real thing.
   await new Promise((r) => setTimeout(r, 90 + Math.floor(Math.random() * 120)));
-  return route(pathname, method, body, params) as T;
+  // Resolve any `*Key` fields into their localized text equivalent against
+  // the active vue-i18n locale before handing the response to the caller.
+  // The walker is reactive: it reads the locale at this call site, not at
+  // module load, so flipping locale and triggering a refetch returns the
+  // new locale on the very next response.
+  return localize(route(pathname, method, body, params)) as T;
 }

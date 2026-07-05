@@ -52,7 +52,10 @@ async function createEntry() {
 <template>
   <section>
     <FormPage max-width="30rem">
-      <PageHeader :title="t('pages.catalog.new.title')" :back-link="{ to: '/catalog', label: t('nav.catalog') }" />
+      <PageHeader
+        :title="t('pages.catalog.new.title')"
+        :back-link="{ to: '/catalog', label: t('nav.catalog.label') }"
+      />
 
       <form class="form-card" @submit.prevent="createEntry">
         <FormField :label="t('pages.catalog.new.fields.slug')" for="ce-slug">

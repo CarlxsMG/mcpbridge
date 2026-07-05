@@ -59,6 +59,15 @@ export interface ToolDetail {
   /** Raw upstream tool name for MCP-kind clients (the dispatch target). */
   upstreamName?: string;
   description: string;
+  /**
+   * i18n key the public demo uses to localize `description` per active locale.
+   * Set ONLY on demo fixtures; the real backend always emits `description`
+   * directly. The demo response walker (`demo/resolve.ts`) swaps the key
+   * into `description` when the locale has a translation, then strips the
+   * `descriptionKey` field — production code never sees it because the demo
+   * build is tree-shaken out of the real product bundle.
+   */
+  descriptionKey?: string;
   inputSchema: Record<string, unknown>;
   enabled: boolean;
   guards?: ToolGuardConfig;
@@ -163,6 +172,8 @@ export interface CompositeStep {
 export interface CompositeSummary {
   name: string;
   description: string | null;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  descriptionKey?: string;
   enabled: boolean;
   stepsCount: number;
 }
@@ -182,6 +193,8 @@ export interface CompositeDetail {
 export interface ConfigSnapshotSummary {
   id: number;
   label: string;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  labelKey?: string;
   createdAt: number;
   createdBy: string | null;
 }
@@ -204,6 +217,8 @@ export interface ConfigDiffResult {
 export interface Team {
   id: number;
   name: string;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  nameKey?: string;
   createdAt: number;
   createdBy: string | null;
 }
@@ -325,6 +340,8 @@ export interface BundleToolRef {
 export interface BundleSummary {
   name: string;
   description: string | null;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  descriptionKey?: string;
   enabled: boolean;
   toolsCount: number;
 }
@@ -332,6 +349,8 @@ export interface BundleSummary {
 export interface BundleDetail {
   name: string;
   description: string | null;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  descriptionKey?: string;
   enabled: boolean;
   createdAt: number;
   updatedAt: number;
@@ -343,6 +362,8 @@ export interface ToolListItem {
   client: string;
   tool: string;
   description: string;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  descriptionKey?: string;
   enabled: boolean;
   clientEnabled: boolean;
   tags: string[];
@@ -391,6 +412,8 @@ export interface CatalogEntry {
   slug: string;
   name: string;
   description: string | null;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  descriptionKey?: string;
   kind: "rest" | "mcp";
   category: string | null;
   tags: string[];
@@ -415,6 +438,8 @@ export interface McpKeyScopes {
 export interface Consumer {
   id: number;
   name: string;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  nameKey?: string;
   monthlyQuota: number | null;
   endUserRateLimitPerMin: number | null;
   createdAt: number;
@@ -439,6 +464,8 @@ export interface ConsumerUsage {
 export interface McpApiKey {
   id: number;
   label: string;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  labelKey?: string;
   keyPrefix: string;
   consumerId: number | null;
   elevated: boolean;
@@ -490,6 +517,8 @@ export interface DiscoveredTool {
   method: string;
   endpoint: string;
   description: string;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  descriptionKey?: string;
 }
 
 /** POST /admin-api/discovery/preview response. */
@@ -524,6 +553,8 @@ export interface TopToolRow {
 export interface UsageByKeyRow {
   keyId: number | null;
   label: string;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  labelKey?: string;
   calls: number;
   errors: number;
 }
@@ -602,6 +633,8 @@ export interface ApprovalRecord {
 export interface GuardPolicy {
   id: number;
   name: string;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  nameKey?: string;
   rateLimitPerMin: number | null;
   timeoutMs: number | null;
   createdAt: number;
@@ -628,6 +661,8 @@ export type AlertEventType =
 export interface AlertRule {
   id: number;
   name: string;
+  /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
+  nameKey?: string;
   eventType: AlertEventType;
   enabled: boolean;
   webhookUrl: string;

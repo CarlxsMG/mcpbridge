@@ -93,7 +93,7 @@ async function createRule() {
 <template>
   <section>
     <FormPage max-width="26.25rem">
-      <PageHeader :title="t('pages.alerts.new_title')" :back-link="{ to: '/alerts', label: t('nav.alerts') }" />
+      <PageHeader :title="t('pages.alerts.new_title')" :back-link="{ to: '/alerts', label: t('nav.alerts.label') }" />
       <p class="hint">
         {{ t("pages.alerts.new_subtitle") }}
       </p>

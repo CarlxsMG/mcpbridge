@@ -76,7 +76,7 @@ async function copyKey() {
 <template>
   <section>
     <FormPage max-width="32rem">
-      <PageHeader :title="t('pages.keys.new.title')" :back-link="{ to: '/keys', label: t('nav.keys') }" />
+      <PageHeader :title="t('pages.keys.new.title')" :back-link="{ to: '/keys', label: t('nav.keys.label') }" />
 
       <div v-if="mintedKey" class="minted" role="alert">
         <div class="minted-title">{{ t("pages.keys.new.minted_title", { label: mintedKey.label }) }}</div>

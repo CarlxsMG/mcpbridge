@@ -177,7 +177,7 @@ const result = computed(() => {
       {{ t("components.connect_client_dialog.key_count", { count: keyCount }) }}
       <code>{{ API_KEY_PLACEHOLDER }}</code>
       {{ t("components.connect_client_dialog.key_count_after") }}
-      <RouterLink to="/keys" @click="emit('close')">{{ t("nav.keys") }}</RouterLink
+      <RouterLink to="/keys" @click="emit('close')">{{ t("nav.keys.label") }}</RouterLink
       >.
     </p>
 

@@ -139,6 +139,57 @@ fix(admin-ui): stop the .field input recipe double-bordering child components' o
 Keep PRs scoped to one logical change. Reference the issue you discussed the approach in, if
 there was one.
 
+## Demo fixture i18n
+
+The public demo build (`VITE_DEMO=true`, served at `https://<org>.github.io/<repo>/demo/`)
+ships its own Spanish translations for every user-visible fixture string — tool descriptions,
+bundle summaries, API key labels, alert names, team/policy/composite names, snapshot labels,
+catalog descriptions, and the audit-log detail rewrites for the demo entries.
+
+The translations live under `demo.fixtures.*` in `admin-ui/src/locales/{en,es}.json`; the
+runner is `admin-ui/src/demo/resolve.ts`, wired into `demoFetch()` so every demo response
+gets localized against the active vue-i18n locale.
+
+### When adding a new translatable string to a fixture
+
+1. Add the literal English text to the fixture file alongside a sibling `*Key` field:
+
+   ```ts
+   // admin-ui/src/demo/fixtures/tools.ts
+   {
+     name: "my_new_tool",
+     method: "GET",
+     endpoint: "/new",
+     description: "My new tool's purpose",                    // EN fallback
+     descriptionKey: demoKey("tools", "myclient.my_new_tool", "description"),
+     ...
+   }
+   ```
+
+   The runtime helper `demoKey` / `demoKeyByValue` / `demoDetailKey` from
+   `admin-ui/src/demo/i18n-keys.ts` is the only way to compose fixture keys — it handles
+   the vue-i18n `dot`-as-separator escape (entity IDs use `__` instead of `.`) and the
+   bracket-notation escape for free-form values that contain spaces or parens.
+
+2. Add the English literal to `scripts/seed-demo-i18n.py` under the matching domain —
+   re-run the script to (re-)generate the `demo.fixtures.*` keys in `en.json`. The script
+   REPLACES (not merges) the demo section so the namespace stays canonical.
+
+3. Add the Spanish translation to `scripts/translate-demo-i18n.py` under the matching
+   domain — re-run the script to land the translation in `es.json`.
+
+4. Run `bun run check` — the `lint:i18n` stage fails if `en.json` and `es.json` drift,
+   so a missing translation is caught in CI, not on the demo page.
+
+### When NOT to translate
+
+- Tool names like `search_issues`, client names like `github`, and any other string
+  that flows as a URL/path identifier stays verbatim — these are real backend identifiers,
+  not user-facing labels.
+- Backend error messages and JSON-RPC payloads stay English-only (matches the backend
+  no-i18n contract documented in the repo).
+- Usernames (`demo`, `ops-oncall`, `auditor`) stay verbatim — usernames are identifiers.
+
 ## PR checklist
 
 - [ ] `bun run check` passes (this is the actual CI gate — see the root-vs-package note above)
@@ -147,5 +198,7 @@ there was one.
 - [ ] Docs updated if user-facing behavior, config, or API changed
 - [ ] Commit messages follow the `type(scope): summary` convention above
 - [ ] Screenshots included for any admin-ui visual change
+- [ ] New translatable demo fixture strings have a `*Key` field, an entry in
+      `scripts/seed-demo-i18n.py`, and a Spanish entry in `scripts/translate-demo-i18n.py`
 
 Next: **[Changelog →](/guide/changelog)** · **[Security policy →](/guide/security-policy)**

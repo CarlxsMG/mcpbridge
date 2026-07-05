@@ -842,13 +842,19 @@ export const CATALOG_PRESETS: WidgetPreset[] = [
   },
 ];
 
+// Values are i18n key paths, NOT translated strings — the consuming
+// components pass them straight to t(). Previously this was a Record
+// of plain English ("Overview", "Usage", ...), which looked like a
+// translation lookup but was actually a raw key match — the user saw
+// the literal word instead of the localized string. See
+// components.overview.widget_groups.* in en.json / es.json.
 export const GROUP_LABELS: Record<WidgetGroup, string> = {
-  overview: "Overview",
-  usage: "Usage",
-  health: "Health",
-  access: "Access",
-  activity: "Activity",
-  custom: "Custom",
+  overview: "components.overview.widget_groups.overview",
+  usage: "components.overview.widget_groups.usage",
+  health: "components.overview.widget_groups.health",
+  access: "components.overview.widget_groups.access",
+  activity: "components.overview.widget_groups.activity",
+  custom: "components.overview.widget_groups.custom",
 };
 
 export const GROUP_ORDER: WidgetGroup[] = ["overview", "usage", "health", "access", "activity", "custom"];

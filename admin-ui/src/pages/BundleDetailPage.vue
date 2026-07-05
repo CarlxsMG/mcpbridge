@@ -116,7 +116,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
 <template>
   <section>
     <p class="breadcrumb">
-      <RouterLink to="/bundles">{{ t("nav.bundles") }}</RouterLink> / {{ name }}
+      <RouterLink to="/bundles">{{ t("nav.bundles.label") }}</RouterLink> / {{ name }}
     </p>
 
     <SignalLoader v-if="loading && !detail" />

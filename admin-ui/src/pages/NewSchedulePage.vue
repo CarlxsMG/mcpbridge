@@ -123,7 +123,7 @@ async function createSchedule() {
     <FormPage max-width="28.75rem">
       <PageHeader
         :title="t('pages.schedules.new.title')"
-        :back-link="{ to: '/schedules', label: t('nav.schedules') }"
+        :back-link="{ to: '/schedules', label: t('nav.schedules.label') }"
       />
       <p class="hint">
         {{ t("pages.schedules.new.subtitle") }}

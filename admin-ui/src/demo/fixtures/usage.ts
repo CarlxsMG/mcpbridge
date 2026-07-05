@@ -1,4 +1,5 @@
 import type { TopToolRow, UsageByKeyRow, UsageSummary, UsageTimeseries, UsageTimeseriesPoint } from "@/types/api";
+import { demoKeyByValue } from "../i18n-keys";
 import { days, NOW } from "./time";
 
 export const topTools: TopToolRow[] = [
@@ -10,10 +11,28 @@ export const topTools: TopToolRow[] = [
   { client: "weather", tool: "forecast", calls: 5203, errors: 2, errorRate: 0.0004, avgMs: 72, maxMs: 410 },
 ];
 
-export const byKey: UsageByKeyRow[] = [
-  { keyId: 1, label: "Claude Desktop", calls: 8120, errors: 44 },
-  { keyId: 3, label: "CI pipeline (elevated)", calls: 6010, errors: 61 },
-  { keyId: 2, label: "Cursor IDE", calls: 3140, errors: 22 },
+export const byKey: Array<UsageByKeyRow & { labelKey?: string }> = [
+  {
+    keyId: 1,
+    label: "Claude Desktop",
+    labelKey: demoKeyByValue("usage", "Claude Desktop", "label"),
+    calls: 8120,
+    errors: 44,
+  },
+  {
+    keyId: 3,
+    label: "CI pipeline (elevated)",
+    labelKey: demoKeyByValue("usage", "CI pipeline (elevated)", "label"),
+    calls: 6010,
+    errors: 61,
+  },
+  {
+    keyId: 2,
+    label: "Cursor IDE",
+    labelKey: demoKeyByValue("usage", "Cursor IDE", "label"),
+    calls: 3140,
+    errors: 22,
+  },
   { keyId: null, label: "(no key)", calls: 1153, errors: 10 },
 ];
 

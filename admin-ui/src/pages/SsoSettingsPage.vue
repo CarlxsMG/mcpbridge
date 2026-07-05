@@ -152,7 +152,7 @@ async function save() {
           <p class="hint">
             <strong>{{ t("pages.sso_settings.provisioning.role") }}</strong>
             {{ t("pages.sso_settings.provisioning.p1") }}
-            <RouterLink to="/users">{{ t("nav.users") }}</RouterLink>
+            <RouterLink to="/users">{{ t("nav.users.label") }}</RouterLink>
             {{ t("pages.sso_settings.provisioning.p2") }}
           </p>
         </div>
