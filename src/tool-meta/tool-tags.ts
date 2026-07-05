@@ -1,4 +1,5 @@
-import { getDb } from "./db/connection.js";
+import { getDb } from "../db/connection.js";
+import { toolExists } from "../lib/tool-config.js";
 
 /** Tags are lowercase, alnum plus - and _, up to 32 chars. */
 export const TAG_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/;
@@ -17,8 +18,8 @@ export function getToolTags(clientName: string, toolName: string): string[] {
 
 /** Replace-all set of a tool's tags. Returns false if the tool doesn't exist. */
 export function setToolTags(clientName: string, toolName: string, tags: string[]): boolean {
+  if (!toolExists(clientName, toolName)) return false;
   const db = getDb();
-  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return false;
   const clean = [...new Set(tags.map(normalizeTag).filter((t) => TAG_RE.test(t)))];
   const now = Date.now();
   const txn = db.transaction(() => {

@@ -9,7 +9,7 @@ import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker } from "../middleware/circuit-breaker.js";
 import { proxyToolCall } from "../proxy/proxy.js";
-import { getToolMock, setToolMock } from "../mock.js";
+import { getToolMock, setToolMock } from "../tool-meta/tool-mock.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 const CLIENT = "svc";

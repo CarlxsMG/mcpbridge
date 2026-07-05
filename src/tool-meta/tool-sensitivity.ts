@@ -1,5 +1,6 @@
-import { getDb } from "./db/connection.js";
-import { config } from "./config.js";
+import { getDb } from "../db/connection.js";
+import { config } from "../config.js";
+import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 /**
  * Per-tool "sensitive" flag governing destructive-action gating. Tri-state:
@@ -15,16 +16,16 @@ export function getToolSensitivity(clientName: string, toolName: string): boolea
 
 /** Sets or (with null) clears the explicit sensitivity flag. Returns false if the tool doesn't exist. */
 export function setToolSensitive(clientName: string, toolName: string, sensitive: boolean | null): boolean {
-  const db = getDb();
-  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName)) return false;
+  if (!toolExists(clientName, toolName)) return false;
   if (sensitive === null) {
-    db.query(`DELETE FROM tool_sensitivity WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+    getDb().query(`DELETE FROM tool_sensitivity WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
   } else {
-    db.query(
-      `INSERT INTO tool_sensitivity (client_name, tool_name, sensitive, updated_at)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(client_name, tool_name) DO UPDATE SET sensitive = excluded.sensitive, updated_at = excluded.updated_at`,
-    ).run(clientName, toolName, sensitive ? 1 : 0, Date.now());
+    upsertConfig(
+      "tool_sensitivity",
+      { client_name: clientName, tool_name: toolName },
+      { sensitive: sensitive ? 1 : 0 },
+      Date.now(),
+    );
   }
   return true;
 }

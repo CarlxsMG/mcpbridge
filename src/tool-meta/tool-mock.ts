@@ -11,7 +11,8 @@
  * The mock body is admin-supplied text (typically JSON). Distinct from
  * `tool_examples`, which store request ARGS, not responses.
  */
-import { getDb } from "./db/connection.js";
+import { getDb } from "../db/connection.js";
+import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 export type MockMode = "always" | "fallback";
 
@@ -41,22 +42,17 @@ export function setToolMock(
   toolName: string,
   input: { enabled: boolean; mode: MockMode; response: string } | null,
 ): boolean {
-  const db = getDb();
-  const exists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName);
-  if (!exists) return false;
+  if (!toolExists(clientName, toolName)) return false;
 
   if (input === null) {
-    db.query(`DELETE FROM tool_mock WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
+    getDb().query(`DELETE FROM tool_mock WHERE client_name = ? AND tool_name = ?`).run(clientName, toolName);
     return true;
   }
-  db.query(
-    `INSERT INTO tool_mock (client_name, tool_name, mode, response, enabled, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(client_name, tool_name) DO UPDATE SET
-       mode = excluded.mode,
-       response = excluded.response,
-       enabled = excluded.enabled,
-       updated_at = excluded.updated_at`,
-  ).run(clientName, toolName, input.mode, input.response, input.enabled ? 1 : 0, Date.now());
+  upsertConfig(
+    "tool_mock",
+    { client_name: clientName, tool_name: toolName },
+    { mode: input.mode, response: input.response, enabled: input.enabled ? 1 : 0 },
+    Date.now(),
+  );
   return true;
 }

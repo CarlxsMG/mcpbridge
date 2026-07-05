@@ -3,10 +3,10 @@ import { registry, TOOL_KEY_SEPARATOR, ToolOverrideError } from "../mcp/registry
 import { proxyToolCall } from "../proxy/proxy.js";
 import { adminAuth } from "../middleware/auth.js";
 import { hashApiKey } from "../security/key-hash.js";
-import { setToolSensitive } from "../tool-sensitivity.js";
+import { setToolSensitive } from "../tool-meta/tool-sensitivity.js";
 import { setRedactionPaths } from "../redaction.js";
 import { setGuardrails, MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../tool-policies/guardrails.js";
-import { listExamples, createExample, deleteExample } from "../tool-examples.js";
+import { listExamples, createExample, deleteExample } from "../tool-meta/tool-examples.js";
 import { getCanary, setCanary } from "../tool-policies/canary.js";
 import { setToolCacheConfig, purgeToolCache, MAX_CACHE_TTL_SECONDS } from "../tool-policies/response-cache.js";
 import { setToolCoalesce } from "../tool-policies/coalesce.js";
@@ -27,7 +27,7 @@ import {
 import { setPaginationConfig, MAX_PAGINATION_PAGES, type PaginationStrategy } from "../tool-policies/pagination.js";
 import { setStreamingConfig, MAX_STREAM_EVENTS, type StreamFormat } from "../proxy/streaming.js";
 import { setToolTransform, MAX_TRANSFORM_OPS, type TransformOp } from "../proxy/transform.js";
-import { setToolMock, type MockMode } from "../mock.js";
+import { setToolMock, type MockMode } from "../tool-meta/tool-mock.js";
 import {
   setApprovalRequired,
   listApprovals,

@@ -19,8 +19,8 @@ import {
 } from "../middleware/circuit-breaker.js";
 import { notifyToolsChanged } from "./mcp-server.js";
 import { getDb } from "../db/connection.js";
-import { getTagsForClient, getAllToolTags } from "../tool-tags.js";
-import { getSensitivityForClient } from "../tool-sensitivity.js";
+import { getTagsForClient, getAllToolTags } from "../tool-meta/tool-tags.js";
+import { getSensitivityForClient } from "../tool-meta/tool-sensitivity.js";
 import { getRedactionForClient } from "../redaction.js";
 import { getGuardrailsForClient } from "../tool-policies/guardrails.js";
 import { getCoalesceForClient } from "../tool-policies/coalesce.js";

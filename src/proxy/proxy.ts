@@ -35,7 +35,7 @@ import {
 } from "../tool-policies/pagination.js";
 import { getStreamingConfig, parseStream } from "./streaming.js";
 import { getToolTransform, applyOps } from "./transform.js";
-import { getToolMock } from "../mock.js";
+import { getToolMock } from "../tool-meta/tool-mock.js";
 import {
   requiresApproval,
   approvalArgsHash,
@@ -57,7 +57,7 @@ import { resolveMcpKeyByToken, isToolInKeyScope } from "../security/mcp-key-stor
 import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
 import { recordUsage } from "../observability/usage.js";
 import { checkConsumerQuota, checkEndUserRateLimit, getConsumer } from "../consumers.js";
-import { isToolSensitive } from "../tool-sensitivity.js";
+import { isToolSensitive } from "../tool-meta/tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "../redaction.js";
 import { getGuardrails, checkInputGuardrails, applyResponseScan } from "../tool-policies/guardrails.js";
 import { checkQuarantine, recordGuardrailHit } from "../tool-policies/quarantine.js";

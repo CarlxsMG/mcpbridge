@@ -1,4 +1,5 @@
-import { getDb } from "./db/connection.js";
+import { getDb } from "../db/connection.js";
+import { toolExists } from "../lib/tool-config.js";
 
 /**
  * Saved example arguments for a tool — reusable inputs an admin can pin so the
@@ -49,15 +50,13 @@ export function createExample(
   args: unknown,
   actor: string | null,
 ): ToolExample | ExampleError {
-  const db = getDb();
-  if (!db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`).get(clientName, toolName))
-    return "TOOL_NOT_FOUND";
+  if (!toolExists(clientName, toolName)) return "TOOL_NOT_FOUND";
   if (typeof args !== "object" || args === null || Array.isArray(args)) return "INVALID_ARGS";
   const argsJson = JSON.stringify(args);
   if (argsJson.length > MAX_ARGS_BYTES) return "INVALID_ARGS";
 
   const now = Date.now();
-  const row = db
+  const row = getDb()
     .query(
       `INSERT INTO tool_examples (client_name, tool_name, label, args_json, created_at, created_by)
        VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
