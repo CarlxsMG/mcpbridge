@@ -3,13 +3,14 @@ import { ref, onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
 import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useClearableConfig } from "@/composables/useClearableConfig";
 import { useResource } from "@/composables/useResource";
 import { usePatchResource } from "@/composables/usePatchResource";
-import { toErrorMessage } from "@/utils/errors";
 import type { LbConfig, LbStrategy, LbTarget } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
+import TableCard from "@/components/ui/TableCard.vue";
 
 const props = defineProps<{ clientName: string }>();
 
@@ -46,26 +47,12 @@ async function saveLb() {
 }
 
 const {
-  pending: pendingClearLb,
-  request: requestClearLbConfirm,
-  cancel: cancelClearLb,
-  confirm: confirmClearLbAction,
-} = useConfirmAction<true>();
-
-function requestClearLb() {
-  requestClearLbConfirm(true);
-}
-
-function confirmClearLb() {
-  return confirmClearLbAction(async () => {
-    try {
-      await api.put(clientPath(props.clientName, "lb"), { lb: null });
-      lb.value = null;
-    } catch (err) {
-      lbError.value = toErrorMessage(err, "Failed to clear.");
-    }
-  });
-}
+  pendingClear: pendingClearLb,
+  requestClear: requestClearLb,
+  cancelClear: cancelClearLb,
+  confirmClear: confirmClearLb,
+  error: clearLbError,
+} = useClearableConfig(loadLb, () => api.put(clientPath(props.clientName, "lb"), { lb: null }), "Failed to clear.");
 
 const newTargetUrl = ref("");
 const newTargetWeight = ref(1);
@@ -92,6 +79,10 @@ async function addTarget() {
 
 const targetRowError = ref<Record<number, string>>({});
 const savingTargetId = ref<number | null>(null);
+const { error: targetRowErrorMessage, run: runTarget } = usePatchResource(() =>
+  clientPath(props.clientName, "lb", "upstreams"),
+);
+
 async function updateTargetWeight(t: LbTarget, weight: number) {
   if (!Number.isInteger(weight) || weight < 1) {
     targetRowError.value = { ...targetRowError.value, [t.id]: "Weight must be a whole number of at least 1." };
@@ -99,32 +90,21 @@ async function updateTargetWeight(t: LbTarget, weight: number) {
   }
   savingTargetId.value = t.id;
   targetRowError.value = { ...targetRowError.value, [t.id]: "" };
-  try {
-    await api.patch(clientPath(props.clientName, "lb", "upstreams", String(t.id)), { weight });
-    await loadLb();
-  } catch (err) {
-    targetRowError.value = {
-      ...targetRowError.value,
-      [t.id]: toErrorMessage(err, "Failed to update target."),
-    };
-  } finally {
-    savingTargetId.value = null;
-  }
+  const ok = await runTarget((path) => api.patch(`${path}/${t.id}`, { weight }), "Failed to update target.");
+  if (ok) await loadLb();
+  else targetRowError.value = { ...targetRowError.value, [t.id]: targetRowErrorMessage.value };
+  savingTargetId.value = null;
 }
 async function toggleTargetEnabled(t: LbTarget) {
   savingTargetId.value = t.id;
   targetRowError.value = { ...targetRowError.value, [t.id]: "" };
-  try {
-    await api.patch(clientPath(props.clientName, "lb", "upstreams", String(t.id)), { enabled: !t.enabled });
-    await loadLb();
-  } catch (err) {
-    targetRowError.value = {
-      ...targetRowError.value,
-      [t.id]: toErrorMessage(err, "Failed to update target."),
-    };
-  } finally {
-    savingTargetId.value = null;
-  }
+  const ok = await runTarget(
+    (path) => api.patch(`${path}/${t.id}`, { enabled: !t.enabled }),
+    "Failed to update target.",
+  );
+  if (ok) await loadLb();
+  else targetRowError.value = { ...targetRowError.value, [t.id]: targetRowErrorMessage.value };
+  savingTargetId.value = null;
 }
 
 const {
@@ -136,12 +116,9 @@ const {
 
 function confirmRemoveTarget() {
   return confirmRemoveTargetAction(async (t) => {
-    try {
-      await api.delete(clientPath(props.clientName, "lb", "upstreams", String(t.id)));
-      await loadLb();
-    } catch (err) {
-      lbError.value = toErrorMessage(err, "Failed to remove target.");
-    }
+    const ok = await runTarget((path) => api.delete(`${path}/${t.id}`), "Failed to remove target.");
+    if (ok) await loadLb();
+    else lbError.value = targetRowErrorMessage.value;
   });
 }
 </script>
@@ -172,53 +149,51 @@ function confirmRemoveTarget() {
         {{ lbSaving ? "Saving…" : "Save pool config" }}
       </button>
     </form>
-    <p v-if="lbError" class="error">{{ lbError }}</p>
+    <p v-if="lbError || clearLbError" class="error">{{ lbError || clearLbError }}</p>
 
     <template v-if="lb">
-      <div class="table-card table-scroll lb-targets">
-        <table class="lb-table">
-          <thead>
-            <tr>
-              <th>Base URL</th>
-              <th>Weight</th>
-              <th>Enabled</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="t in lb.targets" :key="t.id">
-              <td class="url-cell" :title="t.baseUrl">{{ t.baseUrl }}</td>
-              <td>
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  :value="t.weight"
-                  :disabled="savingTargetId === t.id"
-                  style="max-width: 5rem"
-                  @change="updateTargetWeight(t, Number(($event.target as HTMLInputElement).value))"
-                />
-              </td>
-              <td>
-                <button
-                  type="button"
-                  class="toggle"
-                  :class="t.enabled ? 'toggle-on' : 'toggle-off'"
-                  :aria-pressed="t.enabled"
-                  :disabled="savingTargetId === t.id"
-                  @click="toggleTargetEnabled(t)"
-                >
-                  {{ t.enabled ? "Enabled" : "Disabled" }}
-                </button>
-              </td>
-              <td>
-                <button type="button" class="link-btn danger" @click="requestRemoveTarget(t)">Remove</button>
-                <p v-if="targetRowError[t.id]" class="row-error">{{ targetRowError[t.id] }}</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <TableCard class="lb-targets">
+        <thead>
+          <tr>
+            <th>Base URL</th>
+            <th>Weight</th>
+            <th>Enabled</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="t in lb.targets" :key="t.id">
+            <td class="url-cell" :title="t.baseUrl">{{ t.baseUrl }}</td>
+            <td>
+              <input
+                type="number"
+                min="1"
+                max="1000"
+                :value="t.weight"
+                :disabled="savingTargetId === t.id"
+                style="max-width: 5rem"
+                @change="updateTargetWeight(t, Number(($event.target as HTMLInputElement).value))"
+              />
+            </td>
+            <td>
+              <button
+                type="button"
+                class="toggle"
+                :class="t.enabled ? 'toggle-on' : 'toggle-off'"
+                :aria-pressed="t.enabled"
+                :disabled="savingTargetId === t.id"
+                @click="toggleTargetEnabled(t)"
+              >
+                {{ t.enabled ? "Enabled" : "Disabled" }}
+              </button>
+            </td>
+            <td>
+              <button type="button" class="link-btn danger" @click="requestRemoveTarget(t)">Remove</button>
+              <p v-if="targetRowError[t.id]" class="row-error">{{ targetRowError[t.id] }}</p>
+            </td>
+          </tr>
+        </tbody>
+      </TableCard>
       <p v-if="!lb.targets.length" class="ua-status">No pool targets yet — add one below.</p>
 
       <form class="ua-form" @submit.prevent="addTarget">
