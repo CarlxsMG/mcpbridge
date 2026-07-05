@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
-import { api, ApiError } from "@/composables/useApi";
+import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useCommandPalette } from "@/composables/useCommandPalette";
 import { useFocusTrap } from "@/composables/useFocusTrap";
+import { clientPath } from "@/utils/apiPaths";
+import { toErrorMessage } from "@/utils/errors";
 import type { ClientDetail } from "@/types/api";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
+import KindBadge from "@/components/ui/KindBadge.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import TabStrip from "@/components/ui/TabStrip.vue";
@@ -36,7 +39,7 @@ const {
   errorMessage,
   load,
 } = useResource<ClientDetail | null>(
-  () => api.get<ClientDetail>(`/admin-api/clients/${encodeURIComponent(props.name)}`),
+  () => api.get<ClientDetail>(clientPath(props.name)),
   null,
   "Failed to load server.",
 );
@@ -91,10 +94,10 @@ async function toggleClientEnabled() {
   const previous = detail.value.enabled;
   detail.value.enabled = next;
   try {
-    await api.patch(`/admin-api/clients/${encodeURIComponent(props.name)}`, { enabled: next });
+    await api.patch(clientPath(props.name), { enabled: next });
   } catch (err) {
     detail.value.enabled = previous;
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to update.";
+    errorMessage.value = toErrorMessage(err, "Failed to update.");
   }
 }
 
@@ -127,10 +130,10 @@ function closeGuardEditor() {
 async function resetBreaker() {
   resettingBreaker.value = true;
   try {
-    await api.post(`/admin-api/clients/${encodeURIComponent(props.name)}/circuit-breaker/reset`);
+    await api.post(clientPath(props.name, "circuit-breaker", "reset"));
     await load();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to reset circuit breaker.";
+    errorMessage.value = toErrorMessage(err, "Failed to reset circuit breaker.");
   } finally {
     resettingBreaker.value = false;
   }
@@ -147,10 +150,10 @@ async function resetBreaker() {
     <template v-else-if="detail">
       <PageHeader :title="detail.name">
         <template #meta>
-          <span v-if="detail.kind === 'mcp'" class="kind-mcp">MCP</span>
+          <KindBadge :kind="detail.kind" />
           <StatusBadge :status="detail.status" />
           <StatusBadge v-if="detail.circuitBreakerState" :status="detail.circuitBreakerState" />
-          <span v-if="!detail.live" class="badge badge-neutral">Not currently connected</span>
+          <KindBadge v-if="!detail.live" kind="Not currently connected" />
         </template>
 
         <TogglePill
@@ -291,27 +294,6 @@ async function resetBreaker() {
   align-items: center;
   gap: 0.4rem;
 }
-.badge-neutral {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.15em 0.6em;
-  border-radius: var(--radius-pill);
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: var(--surface-sunken);
-  color: var(--text-secondary);
-}
-.kind-mcp {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.15em 0.6em;
-  border-radius: var(--radius-pill);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  background: var(--kind-mcp-soft);
-  color: var(--kind-mcp-text);
-}
 .meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
@@ -335,38 +317,6 @@ async function resetBreaker() {
   font-size: 0.88rem;
   font-family: var(--font-mono);
   word-break: break-all;
-}
-.table-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-}
-.tools-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.tools-table th {
-  text-align: left;
-  padding: 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.tools-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.tools-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.tools-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 .url-cell {
   color: var(--text-secondary);
@@ -410,11 +360,6 @@ async function resetBreaker() {
 }
 .toggle-off:hover {
   background: var(--surface-sunken);
-}
-.row-error {
-  color: var(--breach);
-  font-size: 0.75rem;
-  margin: 0.25rem 0 0;
 }
 .test-result {
   margin-top: 1rem;
@@ -510,9 +455,6 @@ async function resetBreaker() {
   font-size: 1.05rem;
   margin: 0;
 }
-.error {
-  color: var(--breach);
-}
 .resync-body {
   margin-top: 0.9rem;
 }
@@ -558,31 +500,5 @@ async function resetBreaker() {
 }
 .lb-targets {
   margin-top: var(--space-4);
-}
-.lb-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-base);
-}
-.lb-table th {
-  text-align: left;
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.lb-table td {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-.lb-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.lb-table tbody tr:hover {
-  background: var(--surface-sunken);
 }
 </style>
