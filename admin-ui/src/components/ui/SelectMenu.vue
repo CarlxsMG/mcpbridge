@@ -2,6 +2,7 @@
 import { ref, computed, nextTick, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { ChevronDown, Plus } from "lucide-vue-next";
+import { useFloatingPanel } from "@/composables/useFloatingPanel";
 
 interface Option<V> {
   value: V;
@@ -30,13 +31,21 @@ const model = defineModel<T>({ required: true });
 // router, purely to satisfy an injection this instance never uses.
 const router = props.createPath ? useRouter() : undefined;
 
-const open = ref(false);
 const activeIndex = ref(0);
 const triggerEl = ref<HTMLButtonElement | null>(null);
 const listboxEl = ref<HTMLUListElement | null>(null);
-const listboxStyle = ref<Record<string, string>>({});
 const uid = Math.random().toString(36).slice(2, 9);
 const listboxId = `select-menu-${uid}`;
+
+const floatingPanel = useFloatingPanel(triggerEl, listboxEl, {
+  matchTriggerWidth: true,
+  placement: (rect) => {
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < 220 && rect.top > spaceBelow;
+    return openUpward ? { bottom: window.innerHeight - rect.top } : { top: rect.bottom };
+  },
+});
+const { isOpen, style: listboxStyle } = floatingPanel;
 
 const selectableCount = computed(() => props.options.length + (props.createPath ? 1 : 0));
 // Mirrors a native <select>'s behavior of always displaying *some* option
@@ -50,48 +59,7 @@ function optionId(i: number) {
   return `${listboxId}-opt-${i}`;
 }
 const createIndex = computed(() => props.options.length);
-const activeOptionId = computed(() => (open.value ? optionId(activeIndex.value) : undefined));
-
-const POPOVER_MARGIN = 8;
-
-// Two-pass: first size the panel off the trigger alone (min-width matching
-// it, but free to grow up to 24rem for longer option/create labels), then
-// measure what it actually rendered at and slide `left` back if that grew
-// past the right edge of the viewport.
-async function updatePosition() {
-  const rect = triggerEl.value?.getBoundingClientRect();
-  if (!rect) return;
-  const spaceBelow = window.innerHeight - rect.bottom;
-  const openUpward = spaceBelow < 220 && rect.top > spaceBelow;
-  listboxStyle.value = {
-    position: "fixed",
-    left: `${rect.left}px`,
-    minWidth: `${rect.width}px`,
-    maxWidth: `min(24rem, calc(100vw - ${POPOVER_MARGIN * 2}px))`,
-    maxHeight: "16rem",
-    ...(openUpward ? { bottom: `${window.innerHeight - rect.top}px` } : { top: `${rect.bottom}px` }),
-  };
-  await nextTick();
-  const panelRect = listboxEl.value?.getBoundingClientRect();
-  if (panelRect && panelRect.right > window.innerWidth - POPOVER_MARGIN) {
-    listboxStyle.value = {
-      ...listboxStyle.value,
-      left: `${Math.max(POPOVER_MARGIN, window.innerWidth - POPOVER_MARGIN - panelRect.width)}px`,
-    };
-  }
-}
-
-function onScrollOrResize(e: Event) {
-  // Scroll events don't bubble, but a capture-phase listener on window still
-  // sees them — including the listbox's own option list scrolling internally
-  // (it has overflow-y: auto). That's normal interaction, not the page moving
-  // out from under the trigger, so don't close for it. Repositioning a
-  // teleported panel mid-scroll of an *ancestor* is fiddly to get
-  // pixel-perfect; closing (like a native select effectively does when the
-  // anchor moves) is simpler and avoids a panel that drifts from its trigger.
-  if (e.type === "scroll" && e.target instanceof Node && listboxEl.value?.contains(e.target)) return;
-  close();
-}
+const activeOptionId = computed(() => (isOpen.value ? optionId(activeIndex.value) : undefined));
 
 function onDocMousedown(e: MouseEvent) {
   const target = e.target as Node;
@@ -100,27 +68,21 @@ function onDocMousedown(e: MouseEvent) {
 }
 
 async function openMenu() {
-  if (props.disabled || open.value) return;
-  open.value = true;
+  if (props.disabled || isOpen.value) return;
   const current = props.options.findIndex((o) => o.value === model.value);
   activeIndex.value = current >= 0 ? current : 0;
-  await nextTick();
-  await updatePosition();
-  window.addEventListener("scroll", onScrollOrResize, true);
-  window.addEventListener("resize", onScrollOrResize);
+  await floatingPanel.open();
   document.addEventListener("mousedown", onDocMousedown);
 }
 
 function close() {
-  if (!open.value) return;
-  open.value = false;
-  window.removeEventListener("scroll", onScrollOrResize, true);
-  window.removeEventListener("resize", onScrollOrResize);
+  if (!isOpen.value) return;
+  floatingPanel.close();
   document.removeEventListener("mousedown", onDocMousedown);
 }
 
 function toggle() {
-  if (open.value) close();
+  if (isOpen.value) close();
   else void openMenu();
 }
 
@@ -175,7 +137,7 @@ function typeahead(key: string) {
 
 function onTriggerKeydown(e: KeyboardEvent) {
   if (props.disabled) return;
-  if (!open.value) {
+  if (!isOpen.value) {
     if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
       e.preventDefault();
       void openMenu();
@@ -231,10 +193,10 @@ onBeforeUnmount(close);
       ref="triggerEl"
       type="button"
       class="select-menu-trigger"
-      :class="{ 'is-open': open }"
+      :class="{ 'is-open': isOpen }"
       role="combobox"
       aria-haspopup="listbox"
-      :aria-expanded="open"
+      :aria-expanded="isOpen"
       :aria-controls="listboxId"
       :aria-activedescendant="activeOptionId"
       :aria-label="ariaLabel"
@@ -249,7 +211,7 @@ onBeforeUnmount(close);
 
     <Teleport to="body">
       <ul
-        v-if="open"
+        v-if="isOpen"
         :id="listboxId"
         ref="listboxEl"
         role="listbox"
