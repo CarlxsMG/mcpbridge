@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { sanitizeToolName, uniqueToolName, TOOL_NAME_RE } from "../tool-naming.js";
+import { sanitizeToolName, uniqueToolName, TOOL_NAME_RE } from "../discovery/tool-naming.js";
 
 describe("sanitizeToolName", () => {
   test("normalizes camelCase and strips invalid characters", () => {

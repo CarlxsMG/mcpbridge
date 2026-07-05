@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from "bun:test";
-import { discoverToolsFromGraphQl } from "../graphql-discovery.js";
+import { discoverToolsFromGraphQl } from "../discovery/graphql-discovery.js";
 import { config } from "../config.js";
 
 const originalFetch = globalThis.fetch;

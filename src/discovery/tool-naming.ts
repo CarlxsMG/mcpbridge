@@ -10,9 +10,15 @@
  * registry.register()) and the OpenAPI copy having a truncation bug that
  * could infinite-loop when the base name was already 63 chars (see
  * uniqueToolName below).
+ *
+ * TOOL_NAME_RE itself is defined once in lib/identifier.ts (shared with the
+ * rest of the codebase's identifier validation) and re-exported here so
+ * existing importers of this module are unaffected.
  */
 
-export const TOOL_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
+import { TOOL_NAME_RE } from "../lib/identifier.js";
+
+export { TOOL_NAME_RE };
 const MAX_LEN = 63;
 
 /** Normalizes an author-supplied identifier (often camelCase) into the registry's tool-name rule. */

@@ -63,7 +63,7 @@ function mockFetchCapture(): { captured: CapturedCall | null } {
 describe("discoverToolsFromOpenApi — DNS pin: URL hostname replaced", () => {
   test("fetched URL uses pinned IP, not original hostname", async () => {
     const state = mockFetchCapture();
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
 
     await discoverToolsFromOpenApi({
       openapiUrl: "https://example.com/openapi.json",
@@ -79,7 +79,7 @@ describe("discoverToolsFromOpenApi — DNS pin: URL hostname replaced", () => {
 
   test("Host header equals the original hostname", async () => {
     const state = mockFetchCapture();
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
 
     await discoverToolsFromOpenApi({
       openapiUrl: "https://example.com/openapi.json",
@@ -95,7 +95,7 @@ describe("discoverToolsFromOpenApi — DNS pin: URL hostname replaced", () => {
 
   test("redirect option is 'error'", async () => {
     const state = mockFetchCapture();
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
 
     await discoverToolsFromOpenApi({
       openapiUrl: "https://example.com/openapi.json",
@@ -113,7 +113,7 @@ describe("discoverToolsFromOpenApi — DNS pin: URL hostname replaced", () => {
 describe("discoverToolsFromOpenApi — DNS pin: no ipPin leaves URL unchanged", () => {
   test("URL is fetched as-is when ipPin is omitted", async () => {
     const state = mockFetchCapture();
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
 
     await discoverToolsFromOpenApi({
       openapiUrl: "https://example.com/openapi.json",
@@ -131,7 +131,7 @@ describe("discoverToolsFromOpenApi — DNS pin: no ipPin leaves URL unchanged", 
 describe("discoverToolsFromOpenApi — DNS pin: port preserved", () => {
   test("port 8443 is retained after hostname replacement", async () => {
     const state = mockFetchCapture();
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
 
     await discoverToolsFromOpenApi({
       openapiUrl: "https://example.com:8443/spec.json",
@@ -150,7 +150,7 @@ describe("discoverToolsFromOpenApi — DNS pin: port preserved", () => {
 describe("discoverToolsFromOpenApi — DNS pin: path+query preserved", () => {
   test("path and query string are retained after hostname replacement", async () => {
     const state = mockFetchCapture();
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
 
     await discoverToolsFromOpenApi({
       openapiUrl: "https://example.com/api/spec.yaml?v=2",

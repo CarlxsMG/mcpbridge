@@ -1,4 +1,4 @@
-import type { RestToolDefinition } from "./mcp/types.js";
+import type { RestToolDefinition } from "../mcp/types.js";
 import { sanitizeToolName, uniqueToolName } from "./tool-naming.js";
 
 /**

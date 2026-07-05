@@ -6,7 +6,7 @@
  * __resetDbForTesting() or app bootstrap is needed here.
  */
 import { describe, test, expect } from "bun:test";
-import { parseCurlCommand, parsePostmanCollection } from "../curl-postman-discovery.js";
+import { parseCurlCommand, parsePostmanCollection } from "../discovery/curl-postman-discovery.js";
 
 describe("parseCurlCommand", () => {
   test("parses method, endpoint, and multiple headers (folded into description, not persisted as values)", () => {

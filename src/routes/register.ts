@@ -1,14 +1,14 @@
 import type { Request, Response, Express } from "express";
 import { registry, validateEndpointPath } from "../mcp/registry.js";
-import { discoverToolsFromOpenApi } from "../openapi-discovery.js";
+import { discoverToolsFromOpenApi } from "../discovery/openapi-discovery.js";
 import { config } from "../config.js";
 import { validateBackendUrl } from "../security/ip-validator.js";
 import { adminAuth } from "../middleware/auth.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { log } from "../logger.js";
 import { discoverToolsFromMcpServer } from "../mcp/mcp-discovery.js";
-import { discoverToolsFromGraphQl } from "../graphql-discovery.js";
-import { parseCurlCommand, parsePostmanCollection } from "../curl-postman-discovery.js";
+import { discoverToolsFromGraphQl } from "../discovery/graphql-discovery.js";
+import { parseCurlCommand, parsePostmanCollection } from "../discovery/curl-postman-discovery.js";
 import { getUpstreamAuthHeaders } from "../security/upstream-auth.js";
 import { setToolGraphql } from "../proxy/backends.js";
 import { getWsProxyTargetDetail } from "../ws-proxy.js";

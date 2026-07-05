@@ -33,7 +33,7 @@ describe("discoverToolsFromOpenApi — happy path JSON", () => {
   test("returns one tool per operation from a minimal OpenAPI 3.1 JSON spec", async () => {
     mockFetch(SIMPLE_JSON_SPEC);
 
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({
       openapiUrl: "http://example.com/openapi.json",
     });
@@ -54,7 +54,7 @@ describe("discoverToolsFromOpenApi — happy path JSON", () => {
 
   test("list-users and create-user operations are both extracted", async () => {
     mockFetch(SIMPLE_JSON_SPEC);
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
 
     const names = tools.map((t) => t.name);
@@ -71,7 +71,7 @@ describe("discoverToolsFromOpenApi — YAML content type", () => {
   test("parses a YAML spec returned with text/yaml content-type", async () => {
     mockFetch(SIMPLE_YAML_SPEC, 200, "text/yaml");
 
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.yaml" });
 
     expect(Array.isArray(tools)).toBe(true);
@@ -93,7 +93,7 @@ describe("discoverToolsFromOpenApi — empty paths", () => {
     });
     mockFetch(emptySpec);
 
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
 
     expect(Array.isArray(tools)).toBe(true);
@@ -117,7 +117,7 @@ describe("discoverToolsFromOpenApi — size cap (hardcoded 5 MB)", () => {
         headers: { "content-type": "application/json" },
       })) as unknown as typeof fetch;
 
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     await expect(discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" })).rejects.toThrow(
       /too large/i,
     );
@@ -135,7 +135,7 @@ describe("discoverToolsFromOpenApi — size cap (hardcoded 5 MB)", () => {
         },
       })) as unknown as typeof fetch;
 
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     await expect(discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" })).rejects.toThrow(
       /too large/i,
     );
@@ -150,7 +150,7 @@ describe("discoverToolsFromOpenApi — non-2xx response", () => {
   test("throws when the OpenAPI spec URL returns 404", async () => {
     mockFetch("Not found", 404, "text/plain");
 
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     await expect(discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" })).rejects.toThrow(/404/);
   });
 });
@@ -185,7 +185,7 @@ describe("discoverToolsFromOpenApi — tag filtering", () => {
     });
     mockFetch(taggedSpec);
 
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({
       openapiUrl: "http://example.com/openapi.json",
       includeTags: ["users"],
@@ -225,7 +225,7 @@ describe("discoverToolsFromOpenApi — x-internal skip", () => {
     });
     mockFetch(spec);
 
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
 
     const names = tools.map((t) => t.name);
@@ -251,7 +251,7 @@ describe("discoverToolsFromOpenApi — tool name sanitization", () => {
       },
     });
     mockFetch(spec);
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
     expect(tools.map((t) => t.name)).toEqual(["update_pet"]);
     expect(tools[0].name).toMatch(/^[a-z0-9][a-z0-9_-]{0,62}$/);
@@ -267,7 +267,7 @@ describe("discoverToolsFromOpenApi — tool name sanitization", () => {
       },
     });
     mockFetch(spec);
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
     const names = tools.map((t) => t.name);
     expect(new Set(names).size).toBe(2);
@@ -285,7 +285,7 @@ describe("discoverToolsFromOpenApi — tool name sanitization", () => {
       },
     });
     mockFetch(spec);
-    const { discoverToolsFromOpenApi } = await import("../openapi-discovery.js");
+    const { discoverToolsFromOpenApi } = await import("../discovery/openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({
       openapiUrl: "http://example.com/openapi.json",
       excludeOperations: ["dropThis"],

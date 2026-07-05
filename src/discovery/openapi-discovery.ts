@@ -2,8 +2,8 @@ import { dereference } from "@scalar/openapi-parser";
 import type { ErrorObject } from "@scalar/openapi-parser";
 import { parse as parseYaml } from "yaml";
 import type { OpenAPIV3 } from "openapi-types";
-import type { RestToolDefinition } from "./mcp/types.js";
-import { config } from "./config.js";
+import type { RestToolDefinition } from "../mcp/types.js";
+import { config } from "../config.js";
 import { sanitizeToolName, uniqueToolName } from "./tool-naming.js";
 
 const VALID_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
