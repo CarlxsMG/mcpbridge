@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useAuth } from "@/composables/useAuth";
 import { useTheme } from "@/composables/useTheme";
 import { useDensity } from "@/composables/useDensity";
+import { i18n } from "../i18n";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
 import type { AdminSession } from "@/types/api";
@@ -15,13 +17,16 @@ import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
-import { Lock, Monitor, LogOut, SlidersHorizontal } from "lucide-vue-next";
+import { Lock, Monitor, LogOut, SlidersHorizontal, Languages } from "lucide-vue-next";
+import { useLocale } from "@/composables/useLocale";
+
+const { t } = useI18n({ useScope: "global" });
+const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 
 const { state: authState } = useAuth();
 const { theme, setTheme } = useTheme();
 const { density, setDensity } = useDensity();
-
-// --- Change password -------------------------------------------------------
+const { locale, locales, setLocale } = useLocale();
 
 const currentPassword = ref("");
 const newPassword = ref("");
@@ -41,15 +46,15 @@ async function changePassword() {
   passwordSuccess.value = "";
 
   if (!currentPassword.value || !newPassword.value || !confirmPassword.value) {
-    passwordError.value = "All fields are required.";
+    passwordError.value = t("pages.account.errors.all_required");
     return;
   }
   if (newPassword.value.length < 12) {
-    passwordError.value = "New password must be at least 12 characters.";
+    passwordError.value = t("pages.account.errors.password_too_short");
     return;
   }
   if (newPassword.value !== confirmPassword.value) {
-    passwordError.value = "New password and confirmation do not match.";
+    passwordError.value = t("pages.account.errors.password_mismatch");
     return;
   }
 
@@ -60,18 +65,17 @@ async function changePassword() {
       new_password: newPassword.value,
     });
     resetPasswordForm();
-    passwordSuccess.value = "Password changed. You're still signed in on this device.";
-    // Changing the password revokes every session and issues a fresh one for
-    // this device — refresh the list below so it reflects that immediately.
+    passwordSuccess.value = t("pages.account.success.password_changed");
     await loadSessions();
   } catch (err) {
-    passwordError.value = toErrorMessage(err, "Failed to change password.");
+    passwordError.value = toErrorMessage(err, tk("pages.account.errors.password_change_failed"));
   } finally {
     changingPassword.value = false;
   }
 }
 
-// --- Active sessions ---------------------------------------------------
+const sessionsLoadError = tk("pages.account.errors.sessions_load_failed");
+const revokeErrorFallback = tk("pages.account.errors.session_revoke_failed");
 
 const {
   data: sessions,
@@ -81,7 +85,7 @@ const {
 } = useResource<AdminSession[]>(
   async () => (await api.get<{ sessions: AdminSession[] }>("/admin-api/auth/sessions")).sessions,
   [],
-  "Failed to load active sessions.",
+  sessionsLoadError,
 );
 
 const {
@@ -103,35 +107,31 @@ async function confirmRevoke() {
       await api.delete(`/admin-api/auth/sessions/${session.id}`);
       await loadSessions();
     } catch (err) {
-      revokeError.value = toErrorMessage(err, "Failed to revoke session.");
+      revokeError.value = toErrorMessage(err, revokeErrorFallback);
     }
   });
 }
 
-// The session list has no field identifying "this is the session you're using
-// right now" (the API never hands the browser its own session id), so there's
-// no reliable way to badge or block revoking the current device from this
-// list. Revoking it is allowed like any other row; the confirm dialog warns
-// about the consequence instead of guessing which row is "safe."
 function describeUserAgent(ua: string | null): string {
-  if (!ua) return "Unknown device";
+  if (!ua) return t("pages.account.device.unknown_browser");
 
-  let browser = "Unknown browser";
-  if (/Edg\//.test(ua)) browser = "Edge";
-  else if (/OPR\//.test(ua)) browser = "Opera";
-  else if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) browser = "Chrome";
-  else if (/Firefox\//.test(ua)) browser = "Firefox";
-  else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = "Safari";
-  else if (/curl\//.test(ua)) browser = "curl";
+  let browser = t("pages.account.device.unknown_browser");
+  if (/Edg\//.test(ua)) browser = t("pages.account.device.edge");
+  else if (/OPR\//.test(ua)) browser = t("pages.account.device.opera");
+  else if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) browser = t("pages.account.device.chrome");
+  else if (/Firefox\//.test(ua)) browser = t("pages.account.device.firefox");
+  else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = t("pages.account.device.safari");
+  else if (/curl\//.test(ua)) browser = t("pages.account.device.curl");
 
   let os = "";
-  if (/Windows/.test(ua)) os = "Windows";
-  else if (/Mac OS X/.test(ua)) os = "macOS";
-  else if (/Android/.test(ua)) os = "Android";
-  else if (/iPhone|iPad/.test(ua)) os = "iOS";
-  else if (/Linux/.test(ua)) os = "Linux";
+  if (/Windows/.test(ua)) os = t("pages.account.device.os.windows");
+  else if (/Mac OS X/.test(ua)) os = t("pages.account.device.os.macos");
+  else if (/Android/.test(ua)) os = t("pages.account.device.os.android");
+  else if (/iPhone|iPad/.test(ua)) os = t("pages.account.device.os.ios");
+  else if (/Linux/.test(ua)) os = t("pages.account.device.os.linux");
 
-  return os ? `${browser} on ${os}` : browser;
+  const onFmt = os ? t("pages.account.device.on", { browser, os }) : browser;
+  return onFmt;
 }
 
 onMounted(loadSessions);
@@ -140,15 +140,15 @@ onMounted(loadSessions);
 <template>
   <section>
     <PageHeader
-      title="Account"
-      :subtitle="`Manage your password and active sessions for ${authState.user?.username ?? ''}.`"
+      :title="t('pages.account.title')"
+      :subtitle="t('pages.account.subtitle', { username: authState.user?.username ?? '' })"
     />
 
     <div class="account-section">
-      <h2><Lock :size="16" stroke-width="2" aria-hidden="true" /> Change password</h2>
-      <p class="hint warn">Changing your password immediately signs out every other active session.</p>
+      <h2><Lock :size="16" stroke-width="2" aria-hidden="true" /> {{ t('pages.account.change_password') }}</h2>
+      <p class="hint warn">{{ t('pages.account.change_password_warning') }}</p>
       <form class="password-form" @submit.prevent="changePassword">
-        <FormField label="Current password" for="acc-current-password">
+        <FormField :label="t('pages.account.password_current')" for="acc-current-password">
           <input
             id="acc-current-password"
             v-model="currentPassword"
@@ -157,11 +157,11 @@ onMounted(loadSessions);
             required
           />
         </FormField>
-        <FormField label="New password" for="acc-new-password">
+        <FormField :label="t('pages.account.password_new')" for="acc-new-password">
           <input id="acc-new-password" v-model="newPassword" type="password" autocomplete="new-password" required />
-          <p class="hint">At least 12 characters.</p>
+          <p class="hint">{{ t('pages.account.password_min_hint') }}</p>
         </FormField>
-        <FormField label="Confirm new password" for="acc-confirm-password">
+        <FormField :label="t('pages.account.password_confirm')" for="acc-confirm-password">
           <input
             id="acc-confirm-password"
             v-model="confirmPassword"
@@ -173,32 +173,29 @@ onMounted(loadSessions);
         <p v-if="passwordError" class="error" role="alert">{{ passwordError }}</p>
         <p v-if="passwordSuccess" class="success" role="status">{{ passwordSuccess }}</p>
         <button type="submit" class="btn-primary" :disabled="changingPassword">
-          {{ changingPassword ? "Changing…" : "Change password" }}
+          {{ changingPassword ? t('pages.account.changing') : t('pages.account.change_password_cta') }}
         </button>
       </form>
     </div>
 
     <div class="account-section">
-      <h2><Monitor :size="16" stroke-width="2" aria-hidden="true" /> Active sessions</h2>
-      <p class="subtitle">Devices and browsers currently signed in as you. Sign out any you don't recognize.</p>
-      <p class="hint warn">
-        This list doesn't indicate which session is the device you're using right now. Revoking a session may sign that
-        device out immediately.
-      </p>
+      <h2><Monitor :size="16" stroke-width="2" aria-hidden="true" /> {{ t('pages.account.active_sessions') }}</h2>
+      <p class="subtitle">{{ t('pages.account.active_sessions_subtitle') }}</p>
+      <p class="hint warn">{{ t('pages.account.active_sessions_hint') }}</p>
 
       <p v-if="revokeError" class="error" role="alert">{{ revokeError }}</p>
       <ListLayout :loading="sessionsLoading" :error="sessionsError" :empty="sessions.length === 0">
         <template #empty>
-          <EmptyState :icon="Monitor">No active sessions.</EmptyState>
+          <EmptyState :icon="Monitor">{{ t('pages.account.empty.no_sessions') }}</EmptyState>
         </template>
 
         <TableCard>
           <thead>
             <tr>
-              <th>Device</th>
-              <th>IP address</th>
-              <th>Last active</th>
-              <th>Signed in</th>
+              <th>{{ t('pages.account.table.device') }}</th>
+              <th>{{ t('pages.account.table.ip') }}</th>
+              <th>{{ t('pages.account.table.last_active') }}</th>
+              <th>{{ t('pages.account.table.signed_in') }}</th>
               <th></th>
             </tr>
           </thead>
@@ -211,7 +208,7 @@ onMounted(loadSessions);
               <td>
                 <div class="actions">
                   <button type="button" class="link-btn danger" @click="requestRevoke(session)">
-                    <LogOut :size="13" stroke-width="2" aria-hidden="true" /> Sign out
+                    <LogOut :size="13" stroke-width="2" aria-hidden="true" /> {{ t('pages.account.sign_out_device') }}
                   </button>
                 </div>
               </td>
@@ -222,14 +219,14 @@ onMounted(loadSessions);
     </div>
 
     <div class="account-section">
-      <h2><SlidersHorizontal :size="16" stroke-width="2" aria-hidden="true" /> Preferences</h2>
+      <h2><SlidersHorizontal :size="16" stroke-width="2" aria-hidden="true" /> {{ t('pages.account.preferences') }}</h2>
 
       <div class="pref-row pref-row-first">
         <div>
-          <p class="pref-label">Theme</p>
-          <p class="hint">Applies to this browser only.</p>
+          <p class="pref-label">{{ t('pages.account.theme_label') }}</p>
+          <p class="hint">{{ t('pages.account.theme_hint') }}</p>
         </div>
-        <div class="segmented" role="radiogroup" aria-label="Theme">
+        <div class="segmented" role="radiogroup" :aria-label="t('pages.account.theme_aria')">
           <label>
             <input
               type="radio"
@@ -238,21 +235,21 @@ onMounted(loadSessions);
               :checked="theme === 'light'"
               @change="setTheme('light')"
             />
-            Light
+            {{ t('pages.account.theme_light') }}
           </label>
           <label>
             <input type="radio" name="theme-pref" value="dark" :checked="theme === 'dark'" @change="setTheme('dark')" />
-            Dark
+            {{ t('pages.account.theme_dark') }}
           </label>
         </div>
       </div>
 
       <div class="pref-row">
         <div>
-          <p class="pref-label">Table density</p>
-          <p class="hint">Affects Traffic, Audit log, Traces, and API keys.</p>
+          <p class="pref-label">{{ t('pages.account.density_label') }}</p>
+          <p class="hint">{{ t('pages.account.density_hint') }}</p>
         </div>
-        <div class="segmented" role="radiogroup" aria-label="Table density">
+        <div class="segmented" role="radiogroup" :aria-label="t('pages.account.density_aria')">
           <label>
             <input
               type="radio"
@@ -261,7 +258,7 @@ onMounted(loadSessions);
               :checked="density === 'comfortable'"
               @change="setDensity('comfortable')"
             />
-            Comfortable
+            {{ t('pages.account.density_comfortable') }}
           </label>
           <label>
             <input
@@ -271,7 +268,26 @@ onMounted(loadSessions);
               :checked="density === 'compact'"
               @change="setDensity('compact')"
             />
-            Compact
+            {{ t('pages.account.density_compact') }}
+          </label>
+        </div>
+      </div>
+
+      <div class="pref-row">
+        <div>
+          <p class="pref-label"><Languages :size="14" stroke-width="2" aria-hidden="true" style="display:inline-block; vertical-align:-2px; margin-right:4px;" />{{ t('pages.account.locale_label') }}</p>
+          <p class="hint">{{ t('pages.account.locale_hint') }}</p>
+        </div>
+        <div class="segmented" role="radiogroup" :aria-label="t('common.current_locale')">
+          <label v-for="code in locales" :key="code">
+            <input
+              type="radio"
+              name="locale-pref"
+              :value="code"
+              :checked="locale === code"
+              @change="setLocale(code)"
+            />
+            {{ t(`pages.account.locale_${code}`) }}
           </label>
         </div>
       </div>
@@ -279,9 +295,9 @@ onMounted(loadSessions);
 
     <ConfirmDialog
       :open="pendingRevoke !== null"
-      title="Sign out this device?"
-      message="This immediately revokes the session. If it's the device you're using right now, you'll be signed out right away and returned to the login page."
-      confirm-label="Sign out device"
+      :title="t('pages.account.revoke_confirm.title')"
+      :message="t('pages.account.revoke_confirm.message')"
+      :confirm-label="t('pages.account.revoke_confirm.confirm')"
       danger
       @confirm="confirmRevoke"
       @cancel="cancelRevoke"

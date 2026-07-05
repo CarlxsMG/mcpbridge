@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter, useRoute } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
@@ -7,6 +8,7 @@ import { useQueryFilters } from "@/composables/useQueryFilters";
 import { useCursorPagination } from "@/composables/useCursorPagination";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime, formatDuration } from "@/utils/format";
+import { tk } from "@/i18n";
 import type { TraceSummary, TopSessionRow, PaginatedResult } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import MiniBarChart from "@/components/charts/MiniBarChart.vue";
@@ -19,6 +21,8 @@ import PaginationBar from "@/components/ui/PaginationBar.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import SearchInput from "@/components/ui/SearchInput.vue";
 import { Waypoints, Trash2 } from "lucide-vue-next";
+
+const { t } = useI18n({ useScope: "global" });
 
 const router = useRouter();
 const route = useRoute();
@@ -60,7 +64,7 @@ const {
   {
     initialCursor,
     onCursorChange: (cursor) => syncUrl({ cursor }),
-    fallbackMessage: "Failed to load traces.",
+    fallbackMessage: tk("pages.traces.errors.load_failed"),
   },
 );
 
@@ -90,8 +94,8 @@ onMounted(() => {
   loadTopSessions();
 });
 
-function openTrace(t: TraceSummary) {
-  router.push({ name: "trace-detail", params: { traceId: t.traceId } });
+function openTrace(trace: TraceSummary) {
+  router.push({ name: "trace-detail", params: { traceId: trace.traceId } });
 }
 
 async function confirmPurge() {
@@ -103,7 +107,7 @@ async function confirmPurge() {
       await loadList();
       await loadTopSessions();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to purge traces.");
+      errorMessage.value = toErrorMessage(err, tk("pages.traces.errors.purge_failed"));
     } finally {
       purging.value = false;
     }
@@ -126,70 +130,67 @@ const topSessionsChart = computed(() =>
 
 <template>
   <section class="list-shell">
-    <PageHeader title="Traces" />
+    <PageHeader :title="t('pages.traces.title')" />
     <p class="subtitle">
-      Per-call span timing for a built-in waterfall view — independent of any external OTLP collector. Opt-in (<code
-        >TRACE_STORAGE=true</code
-      >
-      on the server) — an empty list can mean either storage is off or there's genuinely nothing recent.
+      {{ t('pages.traces.subtitle_p1') }} (<code>TRACE_STORAGE=true</code>) {{ t('pages.traces.subtitle_p2') }}
     </p>
 
     <form class="filter-row" @submit.prevent="applyFilters">
-      <SearchInput v-model="toolFilter" placeholder="Tool name (e.g. github__search_issues)" />
-      <SearchInput v-model="sessionFilter" placeholder="Session id" class="session-input" />
-      <button type="submit" class="btn-secondary">Filter</button>
+      <SearchInput v-model="toolFilter" :placeholder="t('pages.traces.tool_placeholder')" />
+      <SearchInput v-model="sessionFilter" :placeholder="t('pages.traces.session_placeholder')" class="session-input" />
+      <button type="submit" class="btn-secondary">{{ t('pages.traces.filter_button') }}</button>
       <button
         type="button"
         class="btn-secondary danger"
         :disabled="purging || traces.length === 0"
         @click="requestPurge(true)"
       >
-        <Trash2 :size="14" stroke-width="2" aria-hidden="true" /> Purge all
+        <Trash2 :size="14" stroke-width="2" aria-hidden="true" /> {{ t('pages.traces.purge_all') }}
       </button>
     </form>
 
-    <ChartCard v-if="topSessionsChart.length" title="Top sessions by call volume" class="top-sessions-card">
+    <ChartCard v-if="topSessionsChart.length" :title="t('pages.traces.top_sessions')" class="top-sessions-card">
       <MiniBarChart :rows="topSessionsChart" />
     </ChartCard>
 
     <ListLayout :loading="loading && !traces.length" :error="errorMessage" :empty="traces.length === 0">
       <template #empty>
-        <EmptyState :icon="Waypoints">No traces recorded yet.</EmptyState>
+        <EmptyState :icon="Waypoints">{{ t('pages.traces.empty.no_traces') }}</EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>Started</th>
-            <th>Tool</th>
-            <th>Session</th>
-            <th>Spans</th>
-            <th>Duration</th>
-            <th>Status</th>
+            <th>{{ t('pages.traces.table.started') }}</th>
+            <th>{{ t('pages.traces.table.tool') }}</th>
+            <th>{{ t('pages.traces.table.session') }}</th>
+            <th>{{ t('pages.traces.table.spans') }}</th>
+            <th>{{ t('pages.traces.table.duration') }}</th>
+            <th>{{ t('pages.traces.table.status') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="t in traces" :key="t.traceId" class="clickable" @click="openTrace(t)">
-            <td class="mono">{{ formatDateTime(t.startMs) }}</td>
-            <td class="mono">{{ t.mcpToolName ?? "—" }}</td>
+          <tr v-for="trace in traces" :key="trace.traceId" class="clickable" @click="openTrace(trace)">
+            <td class="mono">{{ formatDateTime(trace.startMs) }}</td>
+            <td class="mono">{{ trace.mcpToolName ?? "—" }}</td>
             <td class="mono">
-              <HoverPreview v-if="t.sessionId" always-show no-tabindex mono :text="t.sessionId">
+              <HoverPreview v-if="trace.sessionId" always-show no-tabindex mono :text="trace.sessionId">
                 <template #default="{ panelId, visible }">
                   <button
                     type="button"
                     class="session-badge"
                     :aria-describedby="visible ? panelId : undefined"
-                    @click.stop="filterBySession(t.sessionId)"
+                    @click.stop="filterBySession(trace.sessionId)"
                   >
-                    {{ shortSession(t.sessionId) }}
+                    {{ shortSession(trace.sessionId) }}
                   </button>
                 </template>
               </HoverPreview>
               <span v-else>—</span>
             </td>
-            <td>{{ t.spanCount }}</td>
-            <td>{{ formatDuration(t.endMs - t.startMs) }}</td>
-            <td :class="{ hot: t.hasError }">{{ t.hasError ? "Error" : "OK" }}</td>
+            <td>{{ trace.spanCount }}</td>
+            <td>{{ formatDuration(trace.endMs - trace.startMs) }}</td>
+            <td :class="{ hot: trace.hasError }">{{ trace.hasError ? t('pages.traces.table.status_error') : t('pages.traces.table.status_ok') }}</td>
           </tr>
         </tbody>
       </TableCard>
@@ -199,7 +200,7 @@ const topSessionsChart = computed(() =>
       <PaginationBar
         :has-prev="hasPrev"
         :has-next="hasNext"
-        :label="`${traces.length} trace(s) on this page`"
+        :label="t('pages.traces.pagination_label', { count: traces.length })"
         @prev="prevPage"
         @next="nextPage"
       />
@@ -207,9 +208,9 @@ const topSessionsChart = computed(() =>
 
     <ConfirmDialog
       :open="pendingPurge !== null"
-      title="Purge all traces?"
-      message="Deletes every persisted span. This cannot be undone."
-      confirm-label="Purge all"
+      :title="t('pages.traces.confirm.purge_title')"
+      :message="t('pages.traces.confirm.purge_message')"
+      :confirm-label="t('pages.traces.confirm.purge_cta')"
       danger
       @confirm="confirmPurge"
       @cancel="cancelPurge"

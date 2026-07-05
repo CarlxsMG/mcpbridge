@@ -1,35 +1,48 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { toErrorMessage } from "@/utils/errors";
-import { describeCron, WEEKDAY_OPTIONS } from "@/utils/cron";
+import { describeCron } from "@/utils/cron";
+import { tk } from "@/i18n";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 
+const { t } = useI18n({ useScope: "global" });
+
 type Frequency = "daily" | "weekly" | "hourly" | "custom";
 
 const TARGET_TYPE_OPTIONS: { value: "client" | "tool"; label: string }[] = [
-  { value: "client", label: "Client" },
-  { value: "tool", label: "Tool" },
+  { value: "client", label: t("pages.schedules.new.target_types.client") },
+  { value: "tool", label: t("pages.schedules.new.target_types.tool") },
 ];
 const ACTION_OPTIONS: { value: "enable" | "disable"; label: string }[] = [
-  { value: "disable", label: "disable" },
-  { value: "enable", label: "enable" },
+  { value: "disable", label: t("pages.schedules.new.actions.disable") },
+  { value: "enable", label: t("pages.schedules.new.actions.enable") },
 ];
 const FREQUENCY_OPTIONS: { value: Frequency; label: string }[] = [
-  { value: "daily", label: "Every day" },
-  { value: "weekly", label: "Every week, on specific days" },
-  { value: "hourly", label: "Every hour" },
-  { value: "custom", label: "Custom (cron expression)" },
+  { value: "daily", label: t("pages.schedules.new.frequencies.daily") },
+  { value: "weekly", label: t("pages.schedules.new.frequencies.weekly") },
+  { value: "hourly", label: t("pages.schedules.new.frequencies.hourly") },
+  { value: "custom", label: t("pages.schedules.new.frequencies.custom") },
 ];
 const MINUTE_OPTIONS = [
   { value: 0, label: ":00" },
   { value: 15, label: ":15" },
   { value: 30, label: ":30" },
   { value: 45, label: ":45" },
+];
+const WEEKDAY_OPTIONS = [
+  { value: 0, label: t("pages.schedules.new.weekdays.sun") },
+  { value: 1, label: t("pages.schedules.new.weekdays.mon") },
+  { value: 2, label: t("pages.schedules.new.weekdays.tue") },
+  { value: 3, label: t("pages.schedules.new.weekdays.wed") },
+  { value: 4, label: t("pages.schedules.new.weekdays.thu") },
+  { value: 5, label: t("pages.schedules.new.weekdays.fri") },
+  { value: 6, label: t("pages.schedules.new.weekdays.sat") },
 ];
 
 const router = useRouter();
@@ -39,11 +52,9 @@ const clientName = ref("");
 const toolName = ref("");
 const action = ref<"enable" | "disable">("disable");
 
-// "When" — a plain-language recipe by default (no cron knowledge required);
-// "Custom" is the escape hatch for anyone who already knows cron syntax.
 const frequency = ref<Frequency>("daily");
-const timeOfDay = ref("03:00"); // <input type="time"> value, "HH:MM"
-const weekdays = ref<number[]>([1]); // Monday, so "weekly" never starts out empty
+const timeOfDay = ref("03:00");
+const weekdays = ref<number[]>([1]);
 const minuteOfHour = ref(0);
 const customCron = ref("0 3 * * *");
 const weekdaysError = ref("");
@@ -67,7 +78,6 @@ const computedCron = computed(() => {
     const days = [...weekdays.value].sort((a, b) => a - b);
     return `${minute} ${hour} * * ${days.length ? days.join(",") : "*"}`;
   }
-  // hourly
   return `${minuteOfHour.value} * * * *`;
 });
 const cronPreview = computed(() => describeCron(computedCron.value));
@@ -79,15 +89,15 @@ async function createSchedule() {
   error.value = "";
   weekdaysError.value = "";
   if (!clientName.value.trim()) {
-    error.value = "Client is required.";
+    error.value = t("pages.schedules.new.errors.client_required");
     return;
   }
   if (frequency.value === "weekly" && weekdays.value.length === 0) {
-    weekdaysError.value = "Select at least one day.";
+    weekdaysError.value = t("pages.schedules.new.errors.weekdays_required");
     return;
   }
   if (frequency.value === "custom" && !customCron.value.trim()) {
-    error.value = "Cron expression is required.";
+    error.value = t("pages.schedules.new.errors.cron_required");
     return;
   }
   creating.value = true;
@@ -101,7 +111,7 @@ async function createSchedule() {
     });
     await router.push("/schedules");
   } catch (err) {
-    error.value = toErrorMessage(err, "Failed to create schedule.");
+    error.value = toErrorMessage(err, tk("pages.schedules.new.errors.create_failed"));
   } finally {
     creating.value = false;
   }
@@ -111,36 +121,35 @@ async function createSchedule() {
 <template>
   <section>
     <FormPage max-width="28.75rem">
-      <PageHeader title="New schedule" :back-link="{ to: '/schedules', label: 'Schedules' }" />
+      <PageHeader :title="t('pages.schedules.new.title')" :back-link="{ to: '/schedules', label: t('nav.schedules') }" />
       <p class="hint">
-        Automatically enables or disables a client or a single tool on a recurring schedule, evaluated once a minute in
-        UTC on the leader instance.
+        {{ t('pages.schedules.new.subtitle') }}
       </p>
 
       <form class="form-card" @submit.prevent="createSchedule">
-        <FormField label="Type" for="sched-type">
+        <FormField :label="t('pages.schedules.new.fields.type')" for="sched-type">
           <SelectMenu id="sched-type" v-model="targetType" :options="TARGET_TYPE_OPTIONS" />
         </FormField>
-        <FormField label="Client" for="sched-client">
-          <input id="sched-client" v-model="clientName" type="text" placeholder="client name" />
+        <FormField :label="t('pages.schedules.new.fields.client')" for="sched-client">
+          <input id="sched-client" v-model="clientName" type="text" :placeholder="t('pages.schedules.new.placeholders.client')" />
         </FormField>
-        <FormField v-if="targetType === 'tool'" label="Tool" for="sched-tool">
-          <input id="sched-tool" v-model="toolName" type="text" placeholder="tool name" />
+        <FormField v-if="targetType === 'tool'" :label="t('pages.schedules.new.fields.tool')" for="sched-tool">
+          <input id="sched-tool" v-model="toolName" type="text" :placeholder="t('pages.schedules.new.placeholders.tool')" />
         </FormField>
-        <FormField label="Action" for="sched-action">
+        <FormField :label="t('pages.schedules.new.fields.action')" for="sched-action">
           <SelectMenu id="sched-action" v-model="action" :options="ACTION_OPTIONS" />
         </FormField>
 
-        <FormField label="Frequency" for="sched-frequency">
+        <FormField :label="t('pages.schedules.new.fields.frequency')" for="sched-frequency">
           <SelectMenu id="sched-frequency" v-model="frequency" :options="FREQUENCY_OPTIONS" />
         </FormField>
 
-        <FormField v-if="frequency === 'daily' || frequency === 'weekly'" label="Time" for="sched-time">
+        <FormField v-if="frequency === 'daily' || frequency === 'weekly'" :label="t('pages.schedules.new.fields.time')" for="sched-time">
           <input id="sched-time" v-model="timeOfDay" type="time" />
         </FormField>
 
-        <FormField v-if="frequency === 'weekly'" label="Days" for="sched-weekdays">
-          <div id="sched-weekdays" class="weekday-picker" role="group" aria-label="Days of the week">
+        <FormField v-if="frequency === 'weekly'" :label="t('pages.schedules.new.fields.days')" for="sched-weekdays">
+          <div id="sched-weekdays" class="weekday-picker" role="group" :aria-label="t('pages.schedules.new.days_aria')">
             <button
               v-for="day in WEEKDAY_OPTIONS"
               :key="day.value"
@@ -156,23 +165,23 @@ async function createSchedule() {
           <p v-if="weekdaysError" class="error">{{ weekdaysError }}</p>
         </FormField>
 
-        <FormField v-if="frequency === 'hourly'" label="At minute" for="sched-minute">
+        <FormField v-if="frequency === 'hourly'" :label="t('pages.schedules.new.fields.minute')" for="sched-minute">
           <SelectMenu id="sched-minute" v-model="minuteOfHour" :options="MINUTE_OPTIONS" />
         </FormField>
 
-        <FormField v-if="frequency === 'custom'" label="Cron expression" for="sched-cron">
+        <FormField v-if="frequency === 'custom'" :label="t('pages.schedules.new.fields.cron')" for="sched-cron">
           <input id="sched-cron" v-model="customCron" type="text" placeholder="0 3 * * *" class="cron" />
-          <p class="hint">Fields: <code>min hour day-of-month month day-of-week</code>.</p>
+          <p class="hint">{{ t('pages.schedules.new.cron_hint') }} <code>min hour day-of-month month day-of-week</code>.</p>
         </FormField>
 
         <p class="cron-preview">
-          Runs: <strong>{{ cronPreview }}</strong>
+          {{ t('pages.schedules.new.runs') }} <strong>{{ cronPreview }}</strong>
           <span v-if="frequency !== 'custom'" class="cron-raw">({{ computedCron }})</span>
         </p>
 
         <p v-if="error" class="error">{{ error }}</p>
         <button class="btn-primary" type="submit" :disabled="creating">
-          {{ creating ? "Creating…" : "Add schedule" }}
+          {{ creating ? t('common.creating') : t('pages.schedules.new.create') }}
         </button>
       </form>
     </FormPage>

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onMounted, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { formatMaybeDate } from "@/utils/format";
 import { statusTone, toneColorVar } from "@/utils/status";
+import { i18n } from "../i18n";
 import type { MonitorRecord } from "@/types/api";
 import DonutChart from "@/components/charts/DonutChart.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -14,6 +16,10 @@ import ChartCard from "@/components/charts/ChartCard.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { Radar, RefreshCw } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
+const loadFallback = tk("pages.monitors.errors.load_failed");
+
 const {
   data: monitors,
   loading,
@@ -22,15 +28,12 @@ const {
 } = useResource<MonitorRecord[]>(
   async () => (await api.get<{ items: MonitorRecord[] }>("/admin-api/monitors")).items,
   [],
-  "Failed to load monitors. Check your connection and try again.",
+  loadFallback,
 );
 onMounted(load);
 
 type MonitorState = "healthy" | "drift" | "failing" | "never" | "disabled";
 
-// Status and drift are independent axes in the data model (a monitor can be
-// "ok" and "drifted" at once) — rank failing > drift > never-checked > healthy
-// so each monitor lands in exactly one bucket for the breakdown.
 function stateOf(m: MonitorRecord): MonitorState {
   if (!m.enabled) return "disabled";
   if (m.lastStatus === "fail") return "failing";
@@ -39,11 +42,11 @@ function stateOf(m: MonitorRecord): MonitorState {
 }
 
 const STATE_LABEL: Record<MonitorState, string> = {
-  healthy: "Healthy",
-  drift: "Drift detected",
-  failing: "Failing",
-  never: "Never checked",
-  disabled: "Disabled",
+  healthy: tk("pages.monitors.state.healthy"),
+  drift: tk("pages.monitors.state.drift"),
+  failing: tk("pages.monitors.state.failing"),
+  never: tk("pages.monitors.state.never"),
+  disabled: tk("pages.monitors.state.disabled"),
 };
 const segments = computed(() => {
   const counts: Record<MonitorState, number> = { healthy: 0, drift: 0, failing: 0, never: 0, disabled: 0 };
@@ -57,34 +60,34 @@ const segments = computed(() => {
 <template>
   <section>
     <PageHeader
-      title="Monitors"
-      subtitle="Synthetic uptime + schema-drift checks, replaying saved examples on a schedule. Informational only today — failures and drift are recorded here and optionally pinged to one operator webhook, but they don't participate in the Alerts rule system."
+      :title="t('pages.monitors.title')"
+      :subtitle="t('pages.monitors.subtitle')"
     >
       <button type="button" class="btn-secondary" :disabled="loading" @click="load">
         <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
-        {{ loading ? "Refreshing…" : "Refresh" }}
+        {{ loading ? t('common.refreshing') : t('common.refresh') }}
       </button>
     </PageHeader>
 
     <ListLayout :loading="loading && !monitors.length" :error="errorMessage" :empty="monitors.length === 0">
       <template #empty>
         <EmptyState :icon="Radar" muted>
-          No tools are monitored yet. Configure a monitor from a tool's settings in Server detail.
+          {{ t('pages.monitors.empty.no_monitors') }}
         </EmptyState>
       </template>
 
-      <ChartCard title="Status breakdown" dotted>
+      <ChartCard :title="t('pages.monitors.breakdown_title')" dotted>
         <DonutChart :segments="segments" :size="96" />
       </ChartCard>
 
       <TableCard>
         <thead>
           <tr>
-            <th>Client / Tool</th>
-            <th>State</th>
-            <th>Interval</th>
-            <th>Last checked</th>
-            <th>Last error</th>
+            <th>{{ t('pages.monitors.table.client_tool') }}</th>
+            <th>{{ t('pages.monitors.table.state') }}</th>
+            <th>{{ t('pages.monitors.table.interval') }}</th>
+            <th>{{ t('pages.monitors.table.last_checked') }}</th>
+            <th>{{ t('pages.monitors.table.last_error') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -110,8 +113,6 @@ const segments = computed(() => {
 </template>
 
 <style scoped>
-/* PageHeader's own recipe covers color/margin; this page's subtitle keeps a
-   line-length cap that the shared component doesn't set. */
 :deep(.subtitle) {
   max-width: 42.5rem;
 }

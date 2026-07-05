@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
@@ -7,6 +8,7 @@ import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useEntityForm } from "@/composables/useEntityForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 import type { WsProxyTarget } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -18,6 +20,8 @@ import TogglePill from "@/components/ui/TogglePill.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { Waypoints } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+
 const {
   data: targets,
   loading,
@@ -26,7 +30,7 @@ const {
 } = useResource<WsProxyTarget[]>(
   async () => (await api.get<{ items: WsProxyTarget[] }>("/admin-api/ws-proxy-targets")).items,
   [],
-  "Failed to load WS proxy targets.",
+  tk("pages.ws_proxy_targets.errors.load_failed"),
 );
 const {
   pending: pendingDelete,
@@ -41,7 +45,10 @@ const {
   confirm: confirmActionDisconnectAll,
 } = useConfirmAction<WsProxyTarget>();
 const disconnectingName = ref<string | null>(null);
-const { rowError, toggle: toggleField } = useOptimisticToggle<WsProxyTarget>((t) => t.name, "Failed to update target.");
+const { rowError, toggle: toggleField } = useOptimisticToggle<WsProxyTarget>(
+  (tt) => tt.name,
+  tk("pages.ws_proxy_targets.errors.toggle_failed"),
+);
 
 const newName = ref("");
 const newBackendUrl = ref("");
@@ -79,20 +86,20 @@ onMounted(load);
 async function submitTarget() {
   createError.value = "";
   if (!newName.value.trim() || !newBackendUrl.value.trim()) {
-    createError.value = "Name and backend WebSocket URL are required.";
+    createError.value = t("pages.ws_proxy_targets.errors.name_and_url_required");
     return;
   }
   const maxConnectionsResult = parseOptionalNumber(
     newMaxConnections.value,
-    "Max connections must be a plain number, or blank.",
+    t("pages.ws_proxy_targets.errors.max_connections_invalid"),
   );
   const maxMessageBytesResult = parseOptionalNumber(
     newMaxMessageBytes.value,
-    "Max message size must be a plain number, or blank.",
+    t("pages.ws_proxy_targets.errors.max_message_bytes_invalid"),
   );
   const idleTimeoutMinutesResult = parseOptionalNumber(
     newIdleTimeoutMinutes.value,
-    "Idle timeout must be a plain number, or blank.",
+    t("pages.ws_proxy_targets.errors.idle_timeout_invalid"),
   );
   for (const result of [maxConnectionsResult, maxMessageBytesResult, idleTimeoutMinutesResult]) {
     if (result.error) {
@@ -107,7 +114,7 @@ async function submitTarget() {
     if (maxMessageBytesResult.value !== null) body.maxMessageBytes = maxMessageBytesResult.value;
     if (idleTimeoutMinutesResult.value !== null) body.idleTimeoutMs = idleTimeoutMinutesResult.value * 60_000;
     await api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(editing.name)}`, body);
-  }, "Failed to save target.");
+  }, tk("pages.ws_proxy_targets.errors.save_failed"));
   if (ok) await load();
 }
 
@@ -127,7 +134,7 @@ async function confirmDisconnectAll() {
       await api.post(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}/disconnect-all`, {});
       await load();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to disconnect.");
+      errorMessage.value = toErrorMessage(err, tk("pages.ws_proxy_targets.errors.disconnect_failed"));
     } finally {
       disconnectingName.value = null;
     }
@@ -140,7 +147,7 @@ async function confirmDelete() {
       await api.delete(`/admin-api/ws-proxy-targets/${encodeURIComponent(target.name)}`);
       await load();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to delete target.");
+      errorMessage.value = toErrorMessage(err, tk("pages.ws_proxy_targets.errors.delete_failed"));
     }
   });
 }
@@ -148,86 +155,86 @@ async function confirmDelete() {
 
 <template>
   <section>
-    <PageHeader title="WS proxy targets">
-      <RouterLink to="/ws-proxies/new" class="btn-primary">New target</RouterLink>
+    <PageHeader :title="t('pages.ws_proxy_targets.title')">
+      <RouterLink to="/ws-proxies/new" class="btn-primary">{{ t('pages.ws_proxy_targets.new_target') }}</RouterLink>
     </PageHeader>
     <p class="subtitle">
-      Live, bidirectional WebSocket passthrough to a raw backend service, served at
-      <code>/ws-proxy/&lt;name&gt;</code>. Distinct from a registered server — a target has no tools.
+      {{ t('pages.ws_proxy_targets.subtitle_p1') }}
+      <code>/ws-proxy/&lt;name&gt;</code>
+      {{ t('pages.ws_proxy_targets.subtitle_p2') }}
     </p>
 
     <form v-if="showEdit" class="create-form" @submit.prevent="submitTarget">
-      <FormField label="Name" for="wp-name">
+      <FormField :label="t('pages.ws_proxy_targets.fields.name')" for="wp-name">
         <input id="wp-name" v-model="newName" type="text" placeholder="iot-gateway" disabled />
       </FormField>
-      <FormField label="Backend WebSocket URL" for="wp-url">
+      <FormField :label="t('pages.ws_proxy_targets.fields.backend_url')" for="wp-url">
         <input id="wp-url" v-model="newBackendUrl" type="text" placeholder="wss://backend.example.com/socket" />
       </FormField>
-      <FormField label="Max concurrent connections (blank = default)" for="wp-max-conn">
+      <FormField :label="t('pages.ws_proxy_targets.fields.max_connections')" for="wp-max-conn">
         <input id="wp-max-conn" v-model="newMaxConnections" type="text" inputmode="numeric" />
       </FormField>
-      <FormField label="Max message size, bytes (blank = default)" for="wp-max-bytes">
+      <FormField :label="t('pages.ws_proxy_targets.fields.max_message_bytes')" for="wp-max-bytes">
         <input id="wp-max-bytes" v-model="newMaxMessageBytes" type="text" inputmode="numeric" />
       </FormField>
-      <FormField label="Idle timeout, minutes (blank = default)" for="wp-idle">
+      <FormField :label="t('pages.ws_proxy_targets.fields.idle_timeout')" for="wp-idle">
         <input id="wp-idle" v-model="newIdleTimeoutMinutes" type="text" inputmode="numeric" />
       </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
       <div class="form-actions">
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? "Saving…" : "Save changes" }}
+          {{ creating ? t('pages.ws_proxy_targets.saving') : t('pages.ws_proxy_targets.save_changes') }}
         </button>
-        <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
+        <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
       </div>
     </form>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="targets.length === 0">
       <template #empty>
         <EmptyState :icon="Waypoints">
-          No WS proxy targets yet. A target lets MCP tools dispatch over a persistent WebSocket connection to a backend
-          service instead of plain REST.
+          {{ t('pages.ws_proxy_targets.empty') }}
         </EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Backend URL</th>
-            <th>Connections</th>
-            <th>Enabled</th>
+            <th>{{ t('pages.ws_proxy_targets.table.name') }}</th>
+            <th>{{ t('pages.ws_proxy_targets.table.backend_url') }}</th>
+            <th>{{ t('pages.ws_proxy_targets.table.connections') }}</th>
+            <th>{{ t('pages.ws_proxy_targets.table.enabled') }}</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="t in targets" :key="t.name">
-            <td>{{ t.name }}</td>
+          <tr v-for="target in targets" :key="target.name">
+            <td>{{ target.name }}</td>
             <td>
-              <HoverPreview class="url-cell" :text="t.backendWsUrl" mono>{{ t.backendWsUrl }}</HoverPreview>
+              <HoverPreview class="url-cell" :text="target.backendWsUrl" mono>{{ target.backendWsUrl }}</HoverPreview>
             </td>
-            <td>{{ t.activeConnections }} / {{ t.maxConnections }}</td>
+            <td>{{ target.activeConnections }} / {{ target.maxConnections }}</td>
             <td>
               <TogglePill
-                :on="t.enabled"
-                on-label="Enabled"
-                off-label="Disabled"
-                :aria-pressed="t.enabled"
-                @click="toggleEnabled(t)"
+                :on="target.enabled"
+                :on-label="t('pages.ws_proxy_targets.enabled')"
+                :off-label="t('pages.ws_proxy_targets.disabled')"
+                :aria-pressed="target.enabled"
+                @click="toggleEnabled(target)"
               />
-              <p v-if="rowError[t.name]" class="row-error">{{ rowError[t.name] }}</p>
+              <p v-if="rowError[target.name]" class="row-error">{{ rowError[target.name] }}</p>
             </td>
             <td>
               <div class="actions">
-                <button type="button" class="link-btn" @click="openEdit(t)">Edit</button>
+                <button type="button" class="link-btn" @click="openEdit(target)">{{ t('common.edit') }}</button>
                 <button
                   type="button"
                   class="link-btn"
-                  :disabled="disconnectingName === t.name || t.activeConnections === 0"
-                  @click="requestDisconnectAll(t)"
+                  :disabled="disconnectingName === target.name || target.activeConnections === 0"
+                  @click="requestDisconnectAll(target)"
                 >
-                  {{ disconnectingName === t.name ? "Disconnecting…" : "Disconnect all" }}
+                  {{ disconnectingName === target.name ? t('pages.ws_proxy_targets.disconnecting') : t('pages.ws_proxy_targets.disconnect_all') }}
                 </button>
-                <button type="button" class="link-btn danger" @click="requestDelete(t)">Delete</button>
+                <button type="button" class="link-btn danger" @click="requestDelete(target)">{{ t('common.delete') }}</button>
               </div>
             </td>
           </tr>
@@ -237,9 +244,9 @@ async function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete this WS proxy target?"
-      :message="pendingDelete ? `'${pendingDelete.name}' will be removed and any live connections force-closed.` : ''"
-      :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
+      :title="t('pages.ws_proxy_targets.confirm.delete_title')"
+      :message="pendingDelete ? t('pages.ws_proxy_targets.confirm.delete_message', { name: pendingDelete.name }) : ''"
+      :confirm-label="pendingDelete ? t('pages.ws_proxy_targets.confirm.delete_cta', { name: pendingDelete.name }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -247,13 +254,13 @@ async function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingDisconnect !== null"
-      title="Disconnect all sessions?"
+      :title="t('pages.ws_proxy_targets.confirm.disconnect_title')"
       :message="
         pendingDisconnect
-          ? `'${pendingDisconnect.name}' has ${pendingDisconnect.activeConnections} live connection(s); disconnecting will force-close all of them and drop any in-flight messages.`
+          ? t('pages.ws_proxy_targets.confirm.disconnect_message', { name: pendingDisconnect.name, count: pendingDisconnect.activeConnections })
           : ''
       "
-      confirm-label="Disconnect all"
+      :confirm-label="t('pages.ws_proxy_targets.disconnect_all')"
       danger
       @confirm="confirmDisconnectAll"
       @cancel="cancelDisconnectAll"

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api, ApiError } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
+import { i18n } from "../i18n";
 import type { AlertRule, AlertEventType } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -16,13 +18,18 @@ import TogglePill from "@/components/ui/TogglePill.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { BellRing } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
+
 const EVENT_LABELS: Record<AlertEventType, string> = {
-  circuit_breaker_open: "Circuit breaker open",
-  client_unreachable: "Client unreachable",
-  error_rate: "Error-rate spike",
-  usage_spike: "Usage spike (anomaly)",
-  schema_drift: "Tool schema drift",
+  circuit_breaker_open: tk("pages.alerts.event.circuit_breaker_open"),
+  client_unreachable: tk("pages.alerts.event.client_unreachable"),
+  error_rate: tk("pages.alerts.event.error_rate"),
+  usage_spike: tk("pages.alerts.event.usage_spike"),
+  schema_drift: tk("pages.alerts.event.schema_drift"),
 };
+
+const loadFallback = tk("pages.alerts.errors.load_failed");
 
 const {
   data: rules,
@@ -32,7 +39,7 @@ const {
 } = useResource<AlertRule[]>(
   async () => (await api.get<{ items: AlertRule[] }>("/admin-api/alerts")).items,
   [],
-  "Failed to load alerts.",
+  loadFallback,
 );
 const testMessage = ref("");
 const {
@@ -47,11 +54,14 @@ const {
   cancel: cancelDisable,
   confirm: confirmActionDisable,
 } = useConfirmAction<AlertRule>();
+const toggleFallback = tk("pages.alerts.errors.toggle_failed");
+const deleteFallback = tk("pages.alerts.errors.delete_failed");
+
 const {
   rowError,
   toggle: toggleField,
   isPending,
-} = useOptimisticToggle<AlertRule>((r) => r.id, "Failed to update rule.");
+} = useOptimisticToggle<AlertRule>((r) => r.id, toggleFallback);
 const testingRuleId = ref<number | null>(null);
 
 onMounted(load);
@@ -80,10 +90,10 @@ async function testRule(rule: AlertRule) {
   errorMessage.value = "";
   try {
     await api.post(`/admin-api/alerts/${rule.id}/test`);
-    testMessage.value = `Test sent to '${rule.name}'.`;
+    testMessage.value = t("pages.alerts.test_sent", { name: rule.name });
     await load();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? `Test failed: ${err.message}` : "Test delivery failed.";
+    errorMessage.value = err instanceof ApiError ? t("pages.alerts.errors.test_failed", { error: err.message }) : t("pages.alerts.errors.test_delivery_failed");
   } finally {
     testingRuleId.value = null;
   }
@@ -95,7 +105,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/alerts/${rule.id}`);
       await load();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to delete rule.");
+      errorMessage.value = toErrorMessage(err, deleteFallback);
     }
   });
 }
@@ -103,31 +113,26 @@ function confirmDelete() {
 
 <template>
   <section>
-    <PageHeader title="Alerts">
-      <RouterLink to="/alerts/new" class="btn-primary">New rule</RouterLink>
+    <PageHeader :title="t('pages.alerts.title')">
+      <RouterLink to="/alerts/new" class="btn-primary">{{ t('pages.alerts.create_alert') }}</RouterLink>
     </PageHeader>
-    <p class="hint">
-      Rules are evaluated on the leader instance and POST a JSON payload to a webhook when a condition first becomes
-      true.
-    </p>
+    <p class="hint">{{ t('pages.alerts.subtitle') }}</p>
 
     <p v-if="testMessage" class="success" role="status">{{ testMessage }}</p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="rules.length === 0">
       <template #empty>
-        <EmptyState :icon="BellRing">
-          No alert rules yet. A rule watches for an event and POSTs a JSON payload to a webhook when it fires.
-        </EmptyState>
+        <EmptyState :icon="BellRing">{{ t('pages.alerts.empty.no_alerts') }}</EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Event</th>
-            <th>Webhook</th>
-            <th>Last fired</th>
-            <th>Enabled</th>
+            <th>{{ t('pages.alerts.table.name') }}</th>
+            <th>{{ t('pages.alerts.table.type') }}</th>
+            <th>{{ t('pages.alerts.table.target') }}</th>
+            <th>{{ t('pages.alerts.table.threshold') }}</th>
+            <th>{{ t('pages.alerts.table.actions') }}</th>
             <th></th>
           </tr>
         </thead>
@@ -142,8 +147,8 @@ function confirmDelete() {
             <td>
               <TogglePill
                 :on="rule.enabled"
-                on-label="Enabled"
-                off-label="Disabled"
+                :on-label="t('pages.alerts.table.enabled_label')"
+                :off-label="t('pages.alerts.table.disabled_label')"
                 :aria-pressed="rule.enabled"
                 :disabled="isPending(rule)"
                 @click="toggle(rule)"
@@ -153,9 +158,9 @@ function confirmDelete() {
             <td>
               <div class="actions">
                 <button type="button" class="link-btn" :disabled="testingRuleId === rule.id" @click="testRule(rule)">
-                  {{ testingRuleId === rule.id ? "Testing…" : "Test" }}
+                  {{ testingRuleId === rule.id ? t('pages.alerts.testing') : t('pages.alerts.test') }}
                 </button>
-                <button type="button" class="link-btn danger" @click="requestDelete(rule)">Delete</button>
+                <button type="button" class="link-btn danger" @click="requestDelete(rule)">{{ t('common.delete') }}</button>
               </div>
             </td>
           </tr>
@@ -165,9 +170,9 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete this alert rule?"
-      :message="pendingDelete ? `'${pendingDelete.name}' will stop firing.` : ''"
-      :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
+      :title="t('pages.alerts.confirm.delete_title')"
+      :message="pendingDelete ? t('pages.alerts.confirm.delete_message', { name: pendingDelete.name }) : ''"
+      :confirm-label="pendingDelete ? t('pages.alerts.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -175,9 +180,9 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingDisable !== null"
-      title="Disable this alert rule?"
-      :message="pendingDisable ? `'${pendingDisable.name}' will stop firing until re-enabled.` : ''"
-      :confirm-label="pendingDisable ? `Disable ${pendingDisable.name}` : 'Disable'"
+      :title="t('pages.alerts.confirm.disable_title')"
+      :message="pendingDisable ? t('pages.alerts.confirm.disable_message', { name: pendingDisable.name }) : ''"
+      :confirm-label="pendingDisable ? t('pages.alerts.confirm.disable_label', { name: pendingDisable.name }) : t('common.disable')"
       danger
       @confirm="confirmDisable"
       @cancel="cancelDisable"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
@@ -7,6 +8,7 @@ import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
 import { describeCron } from "@/utils/cron";
+import { i18n } from "../i18n";
 import type { Schedule } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -16,6 +18,11 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import { Clock } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
+const loadFallback = tk("pages.schedules.errors.load_failed");
+const toggleFallback = tk("pages.schedules.errors.toggle_failed");
+
 const {
   data: items,
   loading,
@@ -24,9 +31,9 @@ const {
 } = useResource<Schedule[]>(
   async () => (await api.get<{ items: Schedule[] }>("/admin-api/schedules")).items,
   [],
-  "Failed to load schedules.",
+  loadFallback,
 );
-const { rowError, toggle: toggleField } = useOptimisticToggle<Schedule>((s) => s.id, "Failed.");
+const { rowError, toggle: toggleField } = useOptimisticToggle<Schedule>((s) => s.id, toggleFallback);
 const {
   pending: pendingDelete,
   request: requestDelete,
@@ -46,7 +53,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/schedules/${s.id}`);
       await load();
     } catch (err) {
-      rowError.value[s.id] = toErrorMessage(err, "Failed.");
+      rowError.value[s.id] = toErrorMessage(err, toggleFallback);
     }
   });
 }
@@ -58,29 +65,24 @@ function formatLastRun(m: number | null): string {
 
 <template>
   <section>
-    <PageHeader title="Maintenance schedules">
-      <RouterLink to="/schedules/new" class="btn-primary">New schedule</RouterLink>
+    <PageHeader :title="t('pages.schedules.title')">
+      <RouterLink to="/schedules/new" class="btn-primary">{{ t('pages.schedules.create') }}</RouterLink>
     </PageHeader>
-    <p class="subtitle">
-      Automatically enables or disables a client or a single tool on a recurring schedule, evaluated once a minute in
-      UTC on the leader instance.
-    </p>
+    <p class="subtitle">{{ t('pages.schedules.subtitle') }}</p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
       <template #empty>
-        <EmptyState :icon="Clock">
-          No schedules yet. A schedule enables or disables a client or tool automatically on a cron interval.
-        </EmptyState>
+        <EmptyState :icon="Clock">{{ t('pages.schedules.empty.no_schedules') }}</EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>Target</th>
-            <th>Action</th>
-            <th>Schedule</th>
-            <th>Enabled</th>
-            <th>Last run</th>
+            <th>{{ t('pages.schedules.table.target') }}</th>
+            <th>{{ t('pages.schedules.table.action') }}</th>
+            <th>{{ t('pages.schedules.table.schedule') }}</th>
+            <th>{{ t('pages.schedules.table.enabled') }}</th>
+            <th>{{ t('pages.schedules.table.last_run') }}</th>
             <th></th>
           </tr>
         </thead>
@@ -103,8 +105,8 @@ function formatLastRun(m: number | null): string {
             <td>
               <TogglePill
                 :on="s.enabled"
-                on-label="Enabled"
-                off-label="Disabled"
+                :on-label="t('pages.schedules.table.disable')"
+                :off-label="t('pages.schedules.table.enable')"
                 :aria-pressed="s.enabled"
                 @click="toggle(s)"
               />
@@ -113,7 +115,7 @@ function formatLastRun(m: number | null): string {
             <td>
               <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>
             </td>
-            <td><button class="link-btn danger" @click="requestDelete(s)">Delete</button></td>
+            <td><button class="link-btn danger" @click="requestDelete(s)">{{ t('common.delete') }}</button></td>
           </tr>
         </tbody>
       </TableCard>
@@ -121,13 +123,13 @@ function formatLastRun(m: number | null): string {
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete this schedule?"
+      :title="t('pages.schedules.confirm.delete_title')"
       :message="
         pendingDelete
-          ? `This schedule (${describeCron(pendingDelete.cron)}) for ${pendingDelete.clientName}${pendingDelete.toolName ? ' → ' + pendingDelete.toolName : ''} will be removed.`
+          ? t('pages.schedules.confirm.delete_message', { cron: describeCron(pendingDelete.cron), client: pendingDelete.clientName, tool_part: pendingDelete.toolName ? ' → ' + pendingDelete.toolName : '' })
           : ''
       "
-      confirm-label="Delete"
+      :confirm-label="t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"

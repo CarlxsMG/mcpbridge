@@ -1,28 +1,31 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 import type { AlertEventType } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 
+const { t } = useI18n({ useScope: "global" });
+
 const EVENT_LABELS: Record<AlertEventType, string> = {
-  circuit_breaker_open: "Circuit breaker open",
-  client_unreachable: "Client unreachable",
-  error_rate: "Error-rate spike",
-  usage_spike: "Usage spike (anomaly)",
-  schema_drift: "Tool schema drift",
+  circuit_breaker_open: t("pages.alerts.event_types.circuit_breaker_open"),
+  client_unreachable: t("pages.alerts.event_types.client_unreachable"),
+  error_rate: t("pages.alerts.event_types.error_rate"),
+  usage_spike: t("pages.alerts.event_types.usage_spike"),
+  schema_drift: t("pages.alerts.event_types.schema_drift"),
 };
 const EVENT_OPTIONS = (Object.keys(EVENT_LABELS) as AlertEventType[]).map((value) => ({
   value,
   label: EVENT_LABELS[value],
 }));
 
-/** Event types that use the threshold + minCalls numeric inputs. */
 const NUMERIC_EVENTS = new Set<AlertEventType>(["error_rate", "usage_spike"]);
 
 const router = useRouter();
@@ -42,10 +45,10 @@ async function createRule() {
   nameError.value = "";
   urlError.value = "";
   if (!name.value.trim()) {
-    nameError.value = "Name is required.";
+    nameError.value = t("pages.alerts.errors_create.name_required");
   }
   if (!url.value.trim()) {
-    urlError.value = "Webhook URL is required.";
+    urlError.value = t("pages.alerts.errors_create.url_required");
   }
   if (nameError.value || urlError.value) {
     return;
@@ -53,17 +56,14 @@ async function createRule() {
   let thresholdValue: number | null = null;
   let minCallsValue: number | null = null;
   if (NUMERIC_EVENTS.has(event.value)) {
-    // threshold/minCalls are required (not optional) in this branch, so a blank
-    // value must be rejected too -- parseOptionalNumber treats blank as valid
-    // (value: null, error: null), so check .value rather than just .error.
-    const thresholdResult = parseOptionalNumber(threshold.value, "Threshold must be a plain number.");
+    const thresholdResult = parseOptionalNumber(threshold.value, t("pages.alerts.errors_create.threshold_invalid"));
     if (thresholdResult.value === null) {
-      error.value = "Threshold must be a plain number.";
+      error.value = t("pages.alerts.errors_create.threshold_invalid");
       return;
     }
-    const minCallsResult = parseOptionalNumber(minCalls.value, "Minimum calls must be a plain number.");
+    const minCallsResult = parseOptionalNumber(minCalls.value, t("pages.alerts.errors_create.min_calls_invalid"));
     if (minCallsResult.value === null) {
-      error.value = "Minimum calls must be a plain number.";
+      error.value = t("pages.alerts.errors_create.min_calls_invalid");
       return;
     }
     thresholdValue = thresholdResult.value;
@@ -83,7 +83,7 @@ async function createRule() {
     await api.post("/admin-api/alerts", body);
     await router.push("/alerts");
   } catch (err) {
-    error.value = toErrorMessage(err, "Failed to create rule.");
+    error.value = toErrorMessage(err, tk("pages.alerts.errors_create.create_failed"));
   } finally {
     creating.value = false;
   }
@@ -93,27 +93,26 @@ async function createRule() {
 <template>
   <section>
     <FormPage max-width="26.25rem">
-      <PageHeader title="New alert rule" :back-link="{ to: '/alerts', label: 'Alerts' }" />
+      <PageHeader :title="t('pages.alerts.new_title')" :back-link="{ to: '/alerts', label: t('nav.alerts') }" />
       <p class="hint">
-        Rules are evaluated on the leader instance and POST a JSON payload to a webhook when a condition first becomes
-        true.
+        {{ t('pages.alerts.new_subtitle') }}
       </p>
 
       <form class="form-card" @submit.prevent="createRule">
-        <FormField label="Name" for="alert-name">
+        <FormField :label="t('pages.alerts.fields.name')" for="alert-name">
           <input id="alert-name" v-model="name" type="text" placeholder="pager" />
           <p v-if="nameError" class="error">{{ nameError }}</p>
         </FormField>
-        <FormField label="Event" for="alert-event">
+        <FormField :label="t('pages.alerts.fields.event')" for="alert-event">
           <SelectMenu id="alert-event" v-model="event" :options="EVENT_OPTIONS" />
         </FormField>
-        <FormField label="Webhook URL" for="alert-url">
+        <FormField :label="t('pages.alerts.fields.url')" for="alert-url">
           <input id="alert-url" v-model="url" type="url" placeholder="https://hooks.example.com/x" />
           <p v-if="urlError" class="error">{{ urlError }}</p>
         </FormField>
         <template v-if="NUMERIC_EVENTS.has(event)">
           <FormField
-            :label="event === 'usage_spike' ? 'Spike factor (× baseline)' : 'Threshold (0–1)'"
+            :label="event === 'usage_spike' ? t('pages.alerts.fields.spike_factor') : t('pages.alerts.fields.threshold')"
             for="alert-threshold"
           >
             <input
@@ -124,7 +123,7 @@ async function createRule() {
               :placeholder="event === 'usage_spike' ? '3' : '0.5'"
             />
           </FormField>
-          <FormField label="Min calls" for="alert-mincalls">
+          <FormField :label="t('pages.alerts.fields.min_calls')" for="alert-mincalls">
             <input
               id="alert-mincalls"
               v-model="minCalls"
@@ -136,7 +135,7 @@ async function createRule() {
         </template>
         <p v-if="error" class="error">{{ error }}</p>
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? "Creating…" : "Create rule" }}
+          {{ creating ? t('pages.alerts.creating') : t('pages.alerts.create_rule') }}
         </button>
       </form>
     </FormPage>

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
+import { i18n } from "../i18n";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
 import { statusTone, toneColorVar } from "@/utils/status";
@@ -18,18 +20,22 @@ import TabStrip from "@/components/ui/TabStrip.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { ClipboardCheck, Check, X, RefreshCw } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
+
 type TabKey = ApprovalStatus | "all";
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "pending", label: "Pending" },
-  { key: "approved", label: "Approved" },
-  { key: "rejected", label: "Rejected" },
-  { key: "all", label: "All" },
-];
+const TABS = computed(() => [
+  { key: "pending" as TabKey, label: t("pages.approvals.tab.pending") },
+  { key: "approved" as TabKey, label: t("pages.approvals.tab.approved") },
+  { key: "rejected" as TabKey, label: t("pages.approvals.tab.rejected") },
+  { key: "all" as TabKey, label: t("pages.approvals.tab.all") },
+]);
 const activeTab = ref<TabKey>("pending");
 
 const summary = ref<ApprovalRecord[]>([]);
 const tableItems = ref<ApprovalRecord[]>([]);
-const { loading, errorMessage, run } = useLoadState("Failed to load approvals. Check your connection and try again.");
+const loadFallback = tk("pages.approvals.errors.load_failed");
+const { loading, errorMessage, run } = useLoadState(loadFallback);
 const decidingId = ref<number | null>(null);
 const noteDraft = reactive<Record<number, string>>({});
 
@@ -65,9 +71,9 @@ const segments = computed(() => {
   const counts: Record<ApprovalStatus, number> = { pending: 0, approved: 0, rejected: 0 };
   for (const a of summary.value) counts[a.status]++;
   return [
-    { label: "Pending", value: counts.pending, color: "var(--canary)" },
-    { label: "Approved", value: counts.approved, color: "var(--ok)" },
-    { label: "Rejected", value: counts.rejected, color: "var(--breach)" },
+    { label: t("pages.approvals.status.pending"), value: counts.pending, color: "var(--canary)" },
+    { label: t("pages.approvals.status.approved"), value: counts.approved, color: "var(--ok)" },
+    { label: t("pages.approvals.status.rejected"), value: counts.rejected, color: "var(--breach)" },
   ].filter((s) => s.value > 0);
 });
 
@@ -93,7 +99,7 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
     delete noteDraft[a.id];
     await loadTable();
   } catch (err) {
-    errorMessage.value = toErrorMessage(err, `Failed to ${action} approval #${a.id}.`);
+    errorMessage.value = toErrorMessage(err, t("pages.approvals.errors.action_failed", { action, id: a.id }));
   } finally {
     decidingId.value = null;
   }
@@ -116,28 +122,27 @@ async function confirmReject() {
 <template>
   <section>
     <PageHeader
-      title="Approvals"
-      subtitle="Human-in-the-loop queue for tools configured to require approval before their upstream call runs."
+      :title="t('pages.approvals.title')"
+      :subtitle="t('pages.approvals.subtitle')"
     >
       <button type="button" class="btn-secondary" :disabled="loading" @click="loadTable">
         <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
-        {{ loading ? "Refreshing…" : "Refresh" }}
+        {{ loading ? t('common.refreshing') : t('common.refresh') }}
       </button>
     </PageHeader>
 
-    <ChartCard title="Status breakdown" dotted>
+    <ChartCard :title="t('pages.approvals.breakdown_title')" dotted>
       <DonutChart :segments="segments" :size="88" />
     </ChartCard>
 
-    <TabStrip v-model="activeTab" :tabs="TABS" aria-label="Approval status" />
+    <TabStrip v-model="activeTab" :tabs="TABS" :aria-label="t('pages.approvals.tab_aria')" />
 
     <ListLayout :loading="loading && !tableItems.length" :error="errorMessage" :empty="tableItems.length === 0">
       <template #empty>
         <EmptyState :icon="ClipboardCheck" muted>
-          <template v-if="activeTab === 'pending'">Nothing waiting for review right now.</template>
+          <template v-if="activeTab === 'pending'">{{ t('pages.approvals.empty.nothing_pending') }}</template>
           <template v-else>
-            No {{ activeTab === "all" ? "" : activeTab + " " }}approvals yet. Requests show up here once a tool is
-            configured to require approval before its upstream call runs.
+            {{ t('pages.approvals.empty.no_items_for_tab', { tab: activeTab }) }}
           </template>
         </EmptyState>
       </template>
@@ -146,10 +151,10 @@ async function confirmReject() {
         <thead>
           <tr>
             <th>#</th>
-            <th>Client / Tool</th>
-            <th>Args</th>
-            <th>Requested</th>
-            <th>Decision</th>
+            <th>{{ t('pages.approvals.table.client_tool') }}</th>
+            <th>{{ t('pages.approvals.table.args') }}</th>
+            <th>{{ t('pages.approvals.table.requested') }}</th>
+            <th>{{ t('pages.approvals.table.decision') }}</th>
             <th></th>
           </tr>
         </thead>
@@ -169,17 +174,17 @@ async function confirmReject() {
                 class="status-pending"
                 :style="{ color: `var(${toneColorVar(statusTone(a.status))})` }"
               >
-                Pending<br />
+                {{ t('pages.approvals.status.pending') }}<br />
                 <span v-if="a.requiredLevels > 1" class="levels-badge"
                   >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
                 >
               </span>
               <span v-else :style="{ color: `var(${toneColorVar(statusTone(a.status))})` }">
-                {{ a.status === "approved" ? "Approved" : "Rejected" }}
+                {{ a.status === "approved" ? t('pages.approvals.status.approved') : t('pages.approvals.status.rejected') }}
                 <template v-if="a.requiredLevels > 1 && a.status === 'approved'"
                   >({{ approvedCount(a) }}/{{ a.requiredLevels }})</template
                 >
-                by {{ a.decidedBy }}
+                {{ t('pages.approvals.by') }} {{ a.decidedBy }}
                 <span v-if="a.note" class="note">— {{ a.note }}</span>
               </span>
               <ul v-if="a.decisions.length" class="decisions">
@@ -194,13 +199,13 @@ async function confirmReject() {
                   <input
                     v-model="noteDraft[a.id]"
                     type="text"
-                    placeholder="Note…"
+                    :placeholder="t('pages.approvals.note_placeholder')"
                     class="note-input"
-                    :aria-label="`Note for approval #${a.id}`"
+                    :aria-label="t('pages.approvals.aria.note_for_id', { id: a.id })"
                     :disabled="decidingId === a.id"
                   />
                   <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
-                    <Check :size="13" stroke-width="2" aria-hidden="true" /> Approve
+                    <Check :size="13" stroke-width="2" aria-hidden="true" /> {{ t('pages.approvals.table.approve') }}
                   </button>
                   <button
                     type="button"
@@ -208,7 +213,7 @@ async function confirmReject() {
                     :disabled="decidingId === a.id"
                     @click="requestReject(a)"
                   >
-                    <X :size="13" stroke-width="2" aria-hidden="true" /> Reject
+                    <X :size="13" stroke-width="2" aria-hidden="true" /> {{ t('pages.approvals.table.deny') }}
                   </button>
                 </template>
               </div>
@@ -220,13 +225,13 @@ async function confirmReject() {
 
     <ConfirmDialog
       :open="pendingReject !== null"
-      title="Reject this call?"
+      :title="t('pages.approvals.confirm.reject_title')"
       :message="
         pendingReject
-          ? `This will deny ${pendingReject.clientName}'s pending call to ${pendingReject.toolName}. This cannot be undone.`
+          ? t('pages.approvals.confirm.reject_message', { client: pendingReject.clientName, tool: pendingReject.toolName })
           : ''
       "
-      confirm-label="Reject call"
+      :confirm-label="t('pages.approvals.confirm.reject_cta')"
       danger
       @confirm="confirmReject"
       @cancel="cancelReject"
@@ -235,8 +240,6 @@ async function confirmReject() {
 </template>
 
 <style scoped>
-/* Page-specific tweak on top of PageHeader.vue's own recipe: a wider max-width for the subtitle
-   paragraph than the component's default (unbounded). */
 :deep(.subtitle) {
   max-width: 40rem;
 }

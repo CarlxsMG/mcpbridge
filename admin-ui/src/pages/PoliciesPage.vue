@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
+import { i18n } from "../i18n";
 import type { GuardPolicy, BundleSummary } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -13,9 +15,15 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { ShieldCheck } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
+
 const policies = ref<GuardPolicy[]>([]);
 const bundles = ref<BundleSummary[]>([]);
-const { loading, errorMessage, run } = useLoadState("Failed to load policies.");
+const loadFallback = tk("pages.policies.errors.load_failed");
+const applyFallback = tk("pages.policies.errors.apply_failed");
+const deleteFallback = tk("pages.policies.errors.delete_failed");
+const { loading, errorMessage, run } = useLoadState(loadFallback);
 const notice = ref("");
 const {
   pending: pendingDelete,
@@ -30,11 +38,10 @@ const {
   confirm: confirmActionApply,
 } = useConfirmAction<{ policy: GuardPolicy; bundle: string }>();
 
-// per-policy selected bundle to apply to
 const applyBundle = ref<Record<number, string>>({});
 const applyingId = ref<number | null>(null);
 const bundleOptions = computed(() => [
-  { value: "", label: "Select bundle…" },
+  { value: "", label: t("pages.policies.select_bundle") },
   ...bundles.value.map((b) => ({ value: b.name, label: b.name })),
 ]);
 
@@ -65,13 +72,13 @@ async function confirmApply() {
         `/admin-api/policies/${policy.id}/apply`,
         { bundle },
       );
-      let message = `Applied "${policy.name}" to ${res.applied} tool(s) in bundle "${bundle}".`;
+      let message = t("pages.policies.notice.applied", { name: policy.name, applied: res.applied, bundle });
       if (res.skipped.length > 0) {
-        message += ` ${res.skipped.length} tool(s) were skipped because they no longer exist in the registry.`;
+        message += " " + t("pages.policies.notice.skipped", { count: res.skipped.length });
       }
       notice.value = message;
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Apply failed.");
+      errorMessage.value = toErrorMessage(err, applyFallback);
     } finally {
       applyingId.value = null;
     }
@@ -84,7 +91,7 @@ async function confirmDelete() {
       await api.delete(`/admin-api/policies/${p.id}`);
       await load();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to delete policy.");
+      errorMessage.value = toErrorMessage(err, deleteFallback);
     }
   });
 }
@@ -93,29 +100,26 @@ async function confirmDelete() {
 <template>
   <section>
     <PageHeader
-      title="Guard policies"
-      subtitle="Reusable rate-limit / timeout templates. Apply one to every tool in a bundle at once — each tool's existing API-key allow-list is left untouched."
+      :title="t('pages.policies.title')"
+      :subtitle="t('pages.policies.subtitle')"
     >
-      <RouterLink to="/policies/new" class="btn-primary">New policy</RouterLink>
+      <RouterLink to="/policies/new" class="btn-primary">{{ t('pages.policies.create') }}</RouterLink>
     </PageHeader>
 
     <p v-if="notice" class="notice">{{ notice }}</p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="policies.length === 0">
       <template #empty>
-        <EmptyState :icon="ShieldCheck">
-          No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each
-          one individually.
-        </EmptyState>
+        <EmptyState :icon="ShieldCheck">{{ t('pages.policies.empty.no_policies') }}</EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Rate/min</th>
-            <th>Timeout</th>
-            <th>Apply to bundle</th>
+            <th>{{ t('pages.policies.table.name') }}</th>
+            <th>{{ t('pages.policies.table.rate_limit') }}</th>
+            <th>{{ t('pages.policies.table.timeout') }}</th>
+            <th>{{ t('pages.policies.table.apply_to_bundle') }}</th>
             <th></th>
           </tr>
         </thead>
@@ -129,7 +133,7 @@ async function confirmDelete() {
                 v-model="applyBundle[p.id]"
                 :options="bundleOptions"
                 create-path="/bundles/new"
-                create-label="Create bundle"
+                :create-label="t('pages.policies.create_bundle')"
                 :reload="load"
               />
               <button
@@ -138,10 +142,10 @@ async function confirmDelete() {
                 :disabled="!applyBundle[p.id] || applyingId === p.id"
                 @click="requestApply(p)"
               >
-                {{ applyingId === p.id ? "Applying…" : "Apply" }}
+                {{ applyingId === p.id ? t('pages.policies.applying') : t('pages.policies.apply') }}
               </button>
             </td>
-            <td><button type="button" class="link-btn danger" @click="requestDelete(p)">Delete</button></td>
+            <td><button type="button" class="link-btn danger" @click="requestDelete(p)">{{ t('common.delete') }}</button></td>
           </tr>
         </tbody>
       </TableCard>
@@ -149,13 +153,13 @@ async function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete this policy?"
+      :title="t('pages.policies.confirm.delete_title')"
       :message="
         pendingDelete
-          ? `'${pendingDelete.name}' will be removed. Already-applied guards on tools are not reverted.`
+          ? t('pages.policies.confirm.delete_message', { name: pendingDelete.name })
           : ''
       "
-      :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
+      :confirm-label="pendingDelete ? t('pages.policies.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -163,13 +167,13 @@ async function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingApply !== null"
-      title="Apply this policy?"
+      :title="t('pages.policies.confirm.apply_title')"
       :message="
         pendingApply
-          ? `Applying '${pendingApply.policy.name}' will overwrite the existing rate-limit and timeout guards on every tool in the '${pendingApply.bundle}' bundle.`
+          ? t('pages.policies.confirm.apply_message', { name: pendingApply.policy.name, bundle: pendingApply.bundle })
           : ''
       "
-      confirm-label="Apply policy"
+      :confirm-label="t('pages.policies.confirm.apply_cta')"
       danger
       @confirm="confirmApply"
       @cancel="cancelApply"

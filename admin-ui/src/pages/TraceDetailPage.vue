@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
@@ -9,9 +10,10 @@ import ListLayout from "@/components/ui/ListLayout.vue";
 
 const props = defineProps<{ traceId: string }>();
 const router = useRouter();
+const { t } = useI18n({ useScope: "global" });
 
 const spans = ref<StoredSpan[] | null>(null);
-const { loading, errorMessage, run: runDetail } = useLoadState("Failed to load trace.");
+const { loading, errorMessage, run: runDetail } = useLoadState(t("pages.traces.errors.detail_load_failed"));
 
 async function loadDetail() {
   spans.value = null;
@@ -28,7 +30,6 @@ function backToList() {
   router.push({ name: "traces" });
 }
 
-/** Waterfall bar geometry: left%/width% relative to the earliest span's start. */
 const waterfall = computed(() => {
   const rows = spans.value ?? [];
   if (rows.length === 0) return { rows: [], totalMs: 0 };
@@ -49,16 +50,16 @@ const waterfall = computed(() => {
 
 <template>
   <section>
-    <button type="button" class="link-btn back-link" @click="backToList">&larr; Back to traces</button>
+    <button type="button" class="link-btn back-link" @click="backToList">&larr; {{ t('pages.traces.back_to_list') }}</button>
     <ListLayout :loading="loading" :error="errorMessage" :empty="waterfall.rows.length === 0">
       <template #empty>
         <div class="empty-state">
-          <p>Trace not found.</p>
+          <p>{{ t('pages.traces.detail_not_found') }}</p>
         </div>
       </template>
 
       <div class="waterfall-card">
-        <h2>Trace {{ traceId }}</h2>
+        <h2>{{ t('pages.traces.detail_title', { id: traceId }) }}</h2>
         <div class="waterfall">
           <div v-for="row in waterfall.rows" :key="row.span.id" class="waterfall-row">
             <div class="waterfall-label" :title="row.span.name">{{ row.span.name }}</div>
@@ -74,7 +75,7 @@ const waterfall = computed(() => {
           </div>
         </div>
         <details class="attrs">
-          <summary>Attributes (last span)</summary>
+          <summary>{{ t('pages.traces.detail_attributes_summary') }}</summary>
           <pre>{{ prettyJson(waterfall.rows[waterfall.rows.length - 1]?.span.attributes ?? {}) }}</pre>
         </details>
       </div>

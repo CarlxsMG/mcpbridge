@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useEntityForm } from "@/composables/useEntityForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
+import { i18n } from "../i18n";
 import type { ConsumerWithUsage, ConsumerUsage } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import QuotaBar from "@/components/charts/QuotaBar.vue";
@@ -17,6 +19,14 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import { Users2, ChevronDown, ChevronRight } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
+
+const loadFallback = tk("pages.consumers.errors.load_failed");
+const updateFallback = tk("pages.consumers.errors.update_failed");
+const deleteFallback = tk("pages.consumers.errors.delete_failed");
+const usageDetailFallback = tk("pages.consumers.errors.usage_detail_failed");
+
 const {
   data: consumers,
   loading,
@@ -25,7 +35,7 @@ const {
 } = useResource<ConsumerWithUsage[]>(
   async () => (await api.get<{ items: ConsumerWithUsage[] }>("/admin-api/consumers")).items,
   [],
-  "Failed to load consumers.",
+  loadFallback,
 );
 const {
   pending: pendingDelete,
@@ -65,16 +75,13 @@ const {
   submit,
 } = useEntityForm<ConsumerWithUsage>({ reset: resetForm, fill: fillForm });
 
-// Usage drilldown — GET /admin-api/consumers/:id/usage. Fetched lazily per row (rather than
-// bundled into the list load above) since the list already carries `usedThisMonth`; expanding
-// a row hits the dedicated endpoint fresh and caches the result for the rest of the session.
 const expandedId = ref<number | null>(null);
 const usageById = ref<Record<number, ConsumerUsage>>({});
 const usageLoadingId = ref<number | null>(null);
 const usageErrorById = ref<Record<number, string>>({});
 
 function remainingLabel(usage: ConsumerUsage): string {
-  if (usage.quota === null) return "Unlimited";
+  if (usage.quota === null) return t("pages.consumers.unlimited");
   return String(Math.max(usage.quota - usage.used, 0));
 }
 
@@ -90,7 +97,7 @@ async function toggleUsage(consumer: ConsumerWithUsage) {
   try {
     usageById.value[consumer.id] = await api.get<ConsumerUsage>(`/admin-api/consumers/${consumer.id}/usage`);
   } catch (err) {
-    usageErrorById.value[consumer.id] = toErrorMessage(err, "Failed to load usage detail.");
+    usageErrorById.value[consumer.id] = toErrorMessage(err, usageDetailFallback);
   } finally {
     usageLoadingId.value = null;
   }
@@ -103,14 +110,14 @@ async function submitConsumer() {
   quotaError.value = "";
   endUserLimitError.value = "";
   if (!newName.value.trim()) {
-    nameError.value = "Name is required.";
+    nameError.value = t("pages.consumers.errors.name_required");
   }
-  const quotaResult = parseOptionalNumber(newQuota.value, "Monthly quota must be a plain number, or blank.");
+  const quotaResult = parseOptionalNumber(newQuota.value, t("pages.consumers.errors.quota_invalid"));
   quotaError.value = quotaResult.error ?? "";
   const quota = quotaResult.value;
   const endUserLimitResult = parseOptionalNumber(
     newEndUserLimit.value,
-    "Per-end-user rate limit must be a plain number, or blank.",
+    t("pages.consumers.errors.end_user_limit_invalid"),
   );
   endUserLimitError.value = endUserLimitResult.error ?? "";
   const endUserRateLimitPerMin = endUserLimitResult.value;
@@ -124,7 +131,7 @@ async function submitConsumer() {
       monthlyQuota: quota,
       endUserRateLimitPerMin,
     });
-  }, "Failed to update consumer.");
+  }, updateFallback);
   if (ok) await load();
 }
 
@@ -134,7 +141,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/consumers/${c.id}`);
       await load();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to delete consumer.");
+      errorMessage.value = toErrorMessage(err, deleteFallback);
     }
   });
 }
@@ -143,38 +150,38 @@ function confirmDelete() {
 <template>
   <section>
     <PageHeader
-      title="Consumers"
-      subtitle="Consumers (teams / apps) own API keys and can carry a monthly call quota and an optional per-end-user rate limit enforced across all their keys."
+      :title="t('pages.consumers.title')"
+      :subtitle="t('pages.consumers.subtitle')"
     >
-      <RouterLink to="/consumers/new" class="btn-primary">New consumer</RouterLink>
+      <RouterLink to="/consumers/new" class="btn-primary">{{ t('pages.consumers.create') }}</RouterLink>
     </PageHeader>
 
     <form v-if="showEdit" class="create-form" @submit.prevent="submitConsumer">
-      <FormField label="Name" for="c-name">
-        <input id="c-name" v-model="newName" type="text" placeholder="mobile-app" />
+      <FormField :label="t('common.name')" for="c-name">
+        <input id="c-name" v-model="newName" type="text" :placeholder="t('pages.consumers.name_placeholder')" />
         <p v-if="nameError" class="error">{{ nameError }}</p>
       </FormField>
-      <FormField label="Monthly quota (blank = unlimited)" for="c-quota">
+      <FormField :label="t('pages.consumers.monthly_quota_label')" for="c-quota">
         <input id="c-quota" v-model="newQuota" type="text" inputmode="numeric" />
         <p v-if="quotaError" class="error">{{ quotaError }}</p>
       </FormField>
-      <FormField label="Per-end-user rate limit (calls/min, blank = disabled)" for="c-end-user-limit">
+      <FormField :label="t('pages.consumers.end_user_limit_label')" for="c-end-user-limit">
         <input id="c-end-user-limit" v-model="newEndUserLimit" type="text" inputmode="numeric" />
         <p v-if="endUserLimitError" class="error">{{ endUserLimitError }}</p>
       </FormField>
       <p v-if="createError" class="error">{{ createError }}</p>
       <div class="form-actions">
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? "Saving…" : "Save changes" }}
+          {{ creating ? t('common.saving') : t('common.save_changes') }}
         </button>
-        <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
+        <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
       </div>
     </form>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="consumers.length === 0">
       <template #empty>
         <EmptyState :icon="Users2">
-          No consumers yet. A consumer groups one or more API keys under a shared monthly quota and rate limit.
+          {{ t('pages.consumers.empty.no_consumers') }}
         </EmptyState>
       </template>
 
@@ -182,10 +189,10 @@ function confirmDelete() {
         <thead>
           <tr>
             <th></th>
-            <th>Name</th>
-            <th>Quota</th>
-            <th>Per-end-user limit</th>
-            <th>Used this month</th>
+            <th>{{ t('common.name') }}</th>
+            <th>{{ t('pages.consumers.table.quota') }}</th>
+            <th>{{ t('pages.consumers.table.end_user_limit') }}</th>
+            <th>{{ t('pages.consumers.table.used_this_month') }}</th>
             <th></th>
           </tr>
         </thead>
@@ -197,7 +204,7 @@ function confirmDelete() {
                   type="button"
                   class="expand-btn"
                   :aria-expanded="expandedId === c.id"
-                  :aria-label="`Toggle usage detail for ${c.name}`"
+                  :aria-label="t('pages.consumers.aria.toggle_usage', { name: c.name })"
                   @click.stop="toggleUsage(c)"
                 >
                   <ChevronDown v-if="expandedId === c.id" :size="15" stroke-width="2" aria-hidden="true" />
@@ -205,8 +212,8 @@ function confirmDelete() {
                 </button>
               </td>
               <td>{{ c.name }}</td>
-              <td>{{ c.monthlyQuota ?? "Unlimited" }}</td>
-              <td>{{ c.endUserRateLimitPerMin !== null ? `${c.endUserRateLimitPerMin}/min per user` : "—" }}</td>
+              <td>{{ c.monthlyQuota ?? t('pages.consumers.unlimited') }}</td>
+              <td>{{ c.endUserRateLimitPerMin !== null ? t('pages.consumers.end_user_limit_value', { value: c.endUserRateLimitPerMin }) : "—" }}</td>
               <td :class="{ hot: c.monthlyQuota !== null && c.usedThisMonth >= c.monthlyQuota }">
                 <div class="usage-cell">
                   <span>{{ c.usedThisMonth }}</span>
@@ -215,28 +222,28 @@ function confirmDelete() {
               </td>
               <td>
                 <div class="actions" @click.stop>
-                  <button type="button" class="link-btn" @click="openEdit(c)">Edit</button>
-                  <button type="button" class="link-btn danger" @click="requestDelete(c)">Delete</button>
+                  <button type="button" class="link-btn" @click="openEdit(c)">{{ t('common.edit') }}</button>
+                  <button type="button" class="link-btn danger" @click="requestDelete(c)">{{ t('common.delete') }}</button>
                 </div>
               </td>
             </tr>
             <tr v-if="expandedId === c.id" class="usage-detail-row">
               <td colspan="6">
                 <div class="usage-detail">
-                  <SignalLoader v-if="usageLoadingId === c.id" label="Loading usage…" />
+                  <SignalLoader v-if="usageLoadingId === c.id" />
                   <p v-else-if="usageErrorById[c.id]" class="error">{{ usageErrorById[c.id] }}</p>
                   <template v-else-if="usageById[c.id]">
                     <div class="usage-detail-stats">
                       <div class="usage-stat">
-                        <span class="usage-stat-label">Used this month</span>
+                        <span class="usage-stat-label">{{ t('pages.consumers.usage.used_this_month') }}</span>
                         <span class="usage-stat-value">{{ usageById[c.id].used }}</span>
                       </div>
                       <div class="usage-stat">
-                        <span class="usage-stat-label">Monthly quota</span>
-                        <span class="usage-stat-value">{{ usageById[c.id].quota ?? "Unlimited" }}</span>
+                        <span class="usage-stat-label">{{ t('pages.consumers.usage.monthly_quota') }}</span>
+                        <span class="usage-stat-value">{{ usageById[c.id].quota ?? t('pages.consumers.unlimited') }}</span>
                       </div>
                       <div class="usage-stat">
-                        <span class="usage-stat-label">Remaining</span>
+                        <span class="usage-stat-label">{{ t('pages.consumers.usage.remaining') }}</span>
                         <span class="usage-stat-value">{{ remainingLabel(usageById[c.id]) }}</span>
                       </div>
                     </div>
@@ -252,11 +259,11 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete this consumer?"
+      :title="t('pages.consumers.confirm.delete_title')"
       :message="
-        pendingDelete ? `'${pendingDelete.name}' will be removed; its keys keep working but become unattributed.` : ''
+        pendingDelete ? t('pages.consumers.confirm.delete_message', { name: pendingDelete.name }) : ''
       "
-      :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
+      :confirm-label="pendingDelete ? t('pages.consumers.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"

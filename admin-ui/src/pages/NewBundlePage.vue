@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 import type { BundleDetail, BundleToolRef } from "@/types/api";
 import BundleToolPicker from "@/components/BundleToolPicker.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+
+const { t } = useI18n({ useScope: "global" });
 
 const router = useRouter();
 
@@ -20,7 +24,7 @@ const error = ref("");
 async function createBundle() {
   error.value = "";
   if (!name.value.trim()) {
-    error.value = "Name is required.";
+    error.value = t("pages.bundles.new.errors.name_required");
     return;
   }
   creating.value = true;
@@ -32,7 +36,7 @@ async function createBundle() {
     });
     await router.push(`/bundles/${encodeURIComponent(name.value.trim())}`);
   } catch (err) {
-    error.value = toErrorMessage(err, "Failed to create bundle.");
+    error.value = toErrorMessage(err, tk("pages.bundles.new.errors.create_failed"));
   } finally {
     creating.value = false;
   }
@@ -42,25 +46,25 @@ async function createBundle() {
 <template>
   <section>
     <FormPage max-width="50rem">
-      <PageHeader title="Create bundle" :back-link="{ to: '/bundles', label: 'Bundles' }" />
+      <PageHeader :title="t('pages.bundles.new.title')" :back-link="{ to: '/bundles', label: t('nav.bundles') }" />
       <p class="subtitle">
-        Cross-client tool selections, each served at its own <code>/mcp-custom/&lt;name&gt;</code> endpoint.
+        {{ t('pages.bundles.new.subtitle_p1') }} <code>/mcp-custom/&lt;name&gt;</code> {{ t('pages.bundles.new.subtitle_p2') }}
       </p>
 
       <form class="form-card" @submit.prevent="createBundle">
-        <FormField label="Name" for="new-bundle-name">
-          <input id="new-bundle-name" v-model="name" type="text" placeholder="e.g. assistant-a" required />
+        <FormField :label="t('pages.bundles.new.fields.name')" for="new-bundle-name">
+          <input id="new-bundle-name" v-model="name" type="text" :placeholder="t('pages.bundles.new.placeholders.name')" required />
         </FormField>
         <p v-if="error" class="error">{{ error }}</p>
-        <FormField label="Description (optional)" for="new-bundle-description">
-          <input id="new-bundle-description" v-model="description" type="text" placeholder="What this bundle is for" />
+        <FormField :label="t('pages.bundles.new.fields.description')" for="new-bundle-description">
+          <input id="new-bundle-description" v-model="description" type="text" :placeholder="t('pages.bundles.new.placeholders.description')" />
         </FormField>
         <div class="field">
-          <label>Tools</label>
+          <label>{{ t('pages.bundles.new.fields.tools') }}</label>
           <BundleToolPicker v-model="tools" />
         </div>
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? "Creating…" : "Create bundle" }}
+          {{ creating ? t('common.creating') : t('pages.bundles.create') }}
         </button>
       </form>
     </FormPage>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { toErrorMessage } from "@/utils/errors";
 import { usePatchResource } from "@/composables/usePatchResource";
@@ -7,6 +8,9 @@ import type { OidcSettings } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+import { tk } from "@/i18n";
+
+const { t } = useI18n({ useScope: "global" });
 
 const settings = ref<OidcSettings | null>(null);
 const loading = ref(true);
@@ -39,7 +43,7 @@ async function load() {
     const res = await api.get<{ settings: OidcSettings | null }>("/admin-api/auth/oidc/settings");
     applySettings(res.settings);
   } catch (err) {
-    loadError.value = toErrorMessage(err, "Failed to load SSO settings.");
+    loadError.value = toErrorMessage(err, tk("pages.sso_settings.errors.load_failed"));
   } finally {
     loading.value = false;
   }
@@ -50,7 +54,7 @@ async function save() {
   saveError.value = "";
   saved.value = false;
   if (!issuer.value.trim() || !clientId.value.trim() || !redirectUri.value.trim()) {
-    saveError.value = "Issuer, client ID, and redirect URI are required.";
+    saveError.value = t("pages.sso_settings.errors.required_fields");
     return;
   }
   // The backend never keeps the previous secret on a partial update (same
@@ -59,8 +63,8 @@ async function save() {
   // must resupply the raw client secret.
   if (!clientSecret.value.trim()) {
     saveError.value = settings.value
-      ? "Re-enter the client secret to save changes — it's never stored in a way this page can read back."
-      : "Client secret is required.";
+      ? t("pages.sso_settings.errors.secret_required_for_update")
+      : t("pages.sso_settings.errors.secret_required");
     return;
   }
   const ok = await run(
@@ -73,7 +77,7 @@ async function save() {
         scopes: scopes.value.trim() || "openid profile email",
         enabled: enabled.value,
       }),
-    "Failed to save SSO settings.",
+    tk("pages.sso_settings.errors.save_failed"),
   );
   if (ok) {
     saved.value = true;
@@ -86,14 +90,14 @@ async function save() {
   <section>
     <FormPage max-width="34rem">
       <PageHeader
-        title="Single sign-on (OIDC)"
-        subtitle="Let admins sign in through an external identity provider (Okta, Azure AD, Google Workspace, Auth0, or any OIDC-compliant IdP) via Authorization Code + PKCE, instead of — or alongside — the built-in username/password login. SAML is not supported."
+        :title="t('pages.sso_settings.title')"
+        :subtitle="t('pages.sso_settings.subtitle')"
       />
 
       <p v-if="loadError" class="error" role="alert">{{ loadError }}</p>
 
       <form v-if="!loading" class="settings-form" @submit.prevent="save">
-        <FormField label="Issuer URL" for="sso-issuer">
+        <FormField :label="t('pages.sso_settings.fields.issuer')" for="sso-issuer">
           <input
             id="sso-issuer"
             v-model="issuer"
@@ -103,30 +107,30 @@ async function save() {
             required
           />
           <p class="hint">
-            The bridge fetches <code>{issuer}/.well-known/openid-configuration</code> — no need to enter individual
-            endpoints.
+            {{ t('pages.sso_settings.hints.issuer_p1') }}
+            <code>{issuer}/.well-known/openid-configuration</code>
+            {{ t('pages.sso_settings.hints.issuer_p2') }}
           </p>
         </FormField>
 
-        <FormField label="Client ID" for="sso-client-id">
+        <FormField :label="t('pages.sso_settings.fields.client_id')" for="sso-client-id">
           <input id="sso-client-id" v-model="clientId" type="text" autocomplete="off" required />
         </FormField>
 
-        <FormField label="Client secret" for="sso-client-secret">
+        <FormField :label="t('pages.sso_settings.fields.client_secret')" for="sso-client-secret">
           <input
             id="sso-client-secret"
             v-model="clientSecret"
             type="password"
             autocomplete="off"
-            :placeholder="settings ? 'Configured — required again every time you save' : ''"
+            :placeholder="settings ? t('pages.sso_settings.placeholders.secret_configured') : ''"
           />
           <p class="hint">
-            Write-only: stored encrypted at rest and never shown again once saved — re-enter it on every save, even one
-            that only changes another field below.
+            {{ t('pages.sso_settings.hints.client_secret') }}
           </p>
         </FormField>
 
-        <FormField label="Redirect URI" for="sso-redirect-uri">
+        <FormField :label="t('pages.sso_settings.fields.redirect_uri')" for="sso-redirect-uri">
           <input
             id="sso-redirect-uri"
             v-model="redirectUri"
@@ -135,32 +139,34 @@ async function save() {
             autocomplete="off"
             required
           />
-          <p class="hint">Must exactly match a redirect URI registered with the identity provider.</p>
+          <p class="hint">{{ t('pages.sso_settings.hints.redirect_uri') }}</p>
         </FormField>
 
-        <FormField label="Scopes" for="sso-scopes">
+        <FormField :label="t('pages.sso_settings.fields.scopes')" for="sso-scopes">
           <input id="sso-scopes" v-model="scopes" type="text" placeholder="openid profile email" autocomplete="off" />
-          <p class="hint">Must include <code>openid</code>.</p>
+          <p class="hint">{{ t('pages.sso_settings.hints.scopes_p1') }} <code>openid</code>{{ t('pages.sso_settings.hints.scopes_p2') }}</p>
         </FormField>
 
         <div class="field">
-          <span class="field-label">New SSO users are provisioned as</span>
+          <span class="field-label">{{ t('pages.sso_settings.provisioning.label') }}</span>
           <p class="hint">
-            <strong>viewer</strong> — always, regardless of any other setting. An existing admin must manually promote a
-            new SSO user from the <RouterLink to="/users">Users</RouterLink> page after reviewing them.
+            <strong>{{ t('pages.sso_settings.provisioning.role') }}</strong>
+            {{ t('pages.sso_settings.provisioning.p1') }}
+            <RouterLink to="/users">{{ t('nav.users') }}</RouterLink>
+            {{ t('pages.sso_settings.provisioning.p2') }}
           </p>
         </div>
 
         <label class="inline-check">
           <input v-model="enabled" type="checkbox" />
-          Enable SSO login (shows a "Sign in with SSO" button on the login page)
+          {{ t('pages.sso_settings.enable_label') }}
         </label>
 
         <p v-if="saveError" class="error" role="alert">{{ saveError }}</p>
-        <p v-if="saved" class="success" role="status">SSO settings saved.</p>
+        <p v-if="saved" class="success" role="status">{{ t('pages.sso_settings.saved') }}</p>
 
         <button type="submit" class="btn-primary" :disabled="saving">
-          {{ saving ? "Saving…" : "Save SSO settings" }}
+          {{ saving ? t('common.saving') : t('pages.sso_settings.save') }}
         </button>
       </form>
     </FormPage>
@@ -184,11 +190,6 @@ async function save() {
   font-weight: 600;
   margin-bottom: 0.3rem;
 }
-/* .settings-form's flex `gap` already provides the 1.1rem vertical rhythm
-   between fields; FormField.vue also puts a margin-bottom on its own root,
-   which would stack on top of that gap and widen spacing only between the
-   fields that got migrated onto <FormField>. Zeroed here to keep the
-   original, uniform spacing. */
 :deep(.settings-form .field) {
   margin-bottom: 0;
 }

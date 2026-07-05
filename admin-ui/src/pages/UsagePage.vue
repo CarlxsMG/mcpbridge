@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { pct } from "@/utils/format";
+import { tk } from "@/i18n";
 import type { UsageSummary, TopToolRow, UsageByKeyRow, UsageTimeseries } from "@/types/api";
 import StatCard from "@/components/ui/StatCard.vue";
 import MiniBarChart from "@/components/charts/MiniBarChart.vue";
@@ -14,12 +16,14 @@ import ChartCard from "@/components/charts/ChartCard.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+
 const WINDOWS = [
-  { label: "24 hours", ms: 24 * 60 * 60_000 },
-  { label: "7 days", ms: 7 * 24 * 60 * 60_000 },
-  { label: "30 days", ms: 30 * 24 * 60 * 60_000 },
-];
-const WINDOW_OPTIONS = WINDOWS.map((w) => ({ value: w.ms, label: `Last ${w.label}` }));
+  { label: "24 hours", ms: 24 * 60 * 60_000, i18nKey: "last_24h" },
+  { label: "7 days", ms: 7 * 24 * 60 * 60_000, i18nKey: "last_7d" },
+  { label: "30 days", ms: 30 * 24 * 60 * 60_000, i18nKey: "last_30d" },
+] as const;
+const WINDOW_OPTIONS = WINDOWS.map((w) => ({ value: w.ms, label: t(`common.time_windows.${w.i18nKey}`, w.label) }));
 const windowMs = ref(WINDOWS[1].ms);
 
 function onWindowChange(ms: number) {
@@ -31,7 +35,7 @@ const summary = ref<UsageSummary | null>(null);
 const topTools = ref<TopToolRow[]>([]);
 const byKey = ref<UsageByKeyRow[]>([]);
 const timeseries = ref<UsageTimeseries | null>(null);
-const { loading, errorMessage, run } = useLoadState("Failed to load usage.");
+const { loading, errorMessage, run } = useLoadState(tk("pages.usage.errors.load_failed"));
 
 async function load() {
   const from = Date.now() - windowMs.value;
@@ -55,15 +59,15 @@ const tsFormatTime = computed(() => {
   const bucketMs = timeseries.value?.bucketMs ?? 0;
   const opts: Intl.DateTimeFormatOptions =
     bucketMs >= 24 * 60 * 60_000 ? { month: "short", day: "numeric" } : { hour: "numeric", minute: "2-digit" };
-  return (t: number) => new Date(t).toLocaleString([], opts);
+  return (tt: number) => new Date(tt).toLocaleString([], opts);
 });
 
 const topToolsChart = computed(() =>
-  topTools.value.slice(0, 8).map((t) => ({
-    label: `${t.client}/${t.tool}`,
-    value: t.calls,
-    hint: t.errors ? `${t.errors} err` : undefined,
-    danger: t.errorRate > 0.1,
+  topTools.value.slice(0, 8).map((tool) => ({
+    label: `${tool.client}/${tool.tool}`,
+    value: tool.calls,
+    hint: tool.errors ? t("pages.usage.errors_hint", { count: tool.errors }) : undefined,
+    danger: tool.errorRate > 0.1,
   })),
 );
 
@@ -80,15 +84,15 @@ onMounted(load);
 
 <template>
   <section>
-    <PageHeader title="Usage">
+    <PageHeader :title="t('pages.usage.title')">
       <div class="window-control">
         <SelectMenu
           :model-value="windowMs"
-          aria-label="Time window"
+          :aria-label="t('pages.usage.time_window_aria')"
           :options="WINDOW_OPTIONS"
           @update:model-value="onWindowChange"
         />
-        <span v-if="loading" class="loading-note">Loading…</span>
+        <span v-if="loading" class="loading-note">{{ t('common.loading') }}</span>
       </div>
     </PageHeader>
 
@@ -96,93 +100,93 @@ onMounted(load);
 
     <template v-if="summary">
       <div class="cards">
-        <StatCard :icon="Activity" label="Calls" :value="summary.calls" />
+        <StatCard :icon="Activity" :label="t('pages.usage.stat.calls')" :value="summary.calls" />
         <StatCard
           :icon="AlertTriangle"
-          label="Errors"
+          :label="t('pages.usage.stat.errors')"
           :value="summary.errors"
           :tone="summary.errors > 0 ? 'warning' : 'default'"
         />
         <StatCard
           :icon="Percent"
-          label="Error rate"
+          :label="t('pages.usage.stat.error_rate')"
           :value="pct(summary.errorRate)"
           :tone="summary.errorRate > 0.1 ? 'danger' : 'default'"
         />
-        <StatCard :icon="Timer" label="Avg latency" :value="`${summary.avgMs}ms`" />
-        <StatCard :icon="Gauge" label="Max latency" :value="`${summary.maxMs}ms`" />
-        <StatCard :icon="Wrench" label="Active tools" :value="summary.tools" />
+        <StatCard :icon="Timer" :label="t('pages.usage.stat.avg_latency')" :value="`${summary.avgMs}ms`" />
+        <StatCard :icon="Gauge" :label="t('pages.usage.stat.max_latency')" :value="`${summary.maxMs}ms`" />
+        <StatCard :icon="Wrench" :label="t('pages.usage.stat.active_tools')" :value="summary.tools" />
       </div>
 
-      <ChartCard title="Calls &amp; errors over time" dotted>
+      <ChartCard :title="t('pages.usage.chart.calls_errors')" dotted>
         <TimeSeriesChart
           :points="callsSeries"
           :secondary-points="errorsSeries"
-          primary-label="Calls"
-          secondary-label="Errors"
+          :primary-label="t('pages.usage.chart.primary_label')"
+          :secondary-label="t('pages.usage.chart.secondary_label')"
           :format-time="tsFormatTime"
         />
       </ChartCard>
 
       <div class="charts-row">
-        <ChartCard title="Top tools by calls" dotted>
+        <ChartCard :title="t('pages.usage.chart.top_tools')" dotted>
           <MiniBarChart :rows="topToolsChart" />
         </ChartCard>
-        <ChartCard title="Calls by API key" dotted>
+        <ChartCard :title="t('pages.usage.chart.calls_by_key')" dotted>
           <MiniBarChart :rows="byKeyChart" />
         </ChartCard>
       </div>
 
-      <h2>Top tools</h2>
+      <h2>{{ t('pages.usage.section.top_tools') }}</h2>
       <TableCard v-if="topTools.length">
         <thead>
           <tr>
-            <th>Client</th>
-            <th>Tool</th>
-            <th>Calls</th>
-            <th>Errors</th>
-            <th>Error rate</th>
-            <th>Avg</th>
-            <th>Max</th>
+            <th>{{ t('pages.usage.table.client') }}</th>
+            <th>{{ t('pages.usage.table.tool') }}</th>
+            <th>{{ t('pages.usage.table.calls') }}</th>
+            <th>{{ t('pages.usage.table.errors') }}</th>
+            <th>{{ t('pages.usage.table.error_rate') }}</th>
+            <th>{{ t('pages.usage.table.avg') }}</th>
+            <th>{{ t('pages.usage.table.max') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="t in topTools" :key="`${t.client}/${t.tool}`">
-            <td>{{ t.client }}</td>
-            <td>{{ t.tool }}</td>
-            <td>{{ t.calls }}</td>
-            <td>{{ t.errors }}</td>
-            <td :class="{ hot: t.errorRate > 0.1 }">{{ pct(t.errorRate) }}</td>
-            <td>{{ t.avgMs }}ms</td>
-            <td>{{ t.maxMs }}ms</td>
+          <tr v-for="tool in topTools" :key="`${tool.client}/${tool.tool}`">
+            <td>{{ tool.client }}</td>
+            <td>{{ tool.tool }}</td>
+            <td>{{ tool.calls }}</td>
+            <td>{{ tool.errors }}</td>
+            <td :class="{ hot: tool.errorRate > 0.1 }">{{ pct(tool.errorRate) }}</td>
+            <td>{{ tool.avgMs }}ms</td>
+            <td>{{ tool.maxMs }}ms</td>
           </tr>
         </tbody>
       </TableCard>
-      <p v-else class="empty">No calls recorded in this window.</p>
+      <p v-else class="empty">{{ t('pages.usage.empty.no_calls') }}</p>
       <p v-if="topTools.length === 20" class="hint">
-        Showing the top 20 — narrower windows or filtering may reveal others.
+        {{ t('pages.usage.truncated_hint') }}
       </p>
 
-      <h2>By API key</h2>
+      <h2>{{ t('pages.usage.section.by_key') }}</h2>
       <TableCard v-if="byKey.length">
         <thead>
           <tr>
-            <th>Key</th>
-            <th>Calls</th>
-            <th>Errors</th>
+            <th>{{ t('pages.usage.table.key') }}</th>
+            <th>{{ t('pages.usage.table.calls') }}</th>
+            <th>{{ t('pages.usage.table.errors') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="k in byKey" :key="k.keyId ?? 'none'">
-            <td>{{ k.label }}</td>
-            <td>{{ k.calls }}</td>
-            <td>{{ k.errors }}</td>
+          <tr v-for="row in byKey" :key="row.keyId ?? 'none'">
+            <td>{{ row.label }}</td>
+            <td>{{ row.calls }}</td>
+            <td>{{ row.errors }}</td>
           </tr>
         </tbody>
       </TableCard>
-      <p v-else class="empty">No attributed calls in this window.</p>
+      <p v-else class="empty">{{ t('pages.usage.empty.no_attributed') }}</p>
       <p v-if="byKey.length === 20" class="hint">
-        Showing the top 20 — narrower windows or filtering may reveal others.
+        {{ t('pages.usage.truncated_hint') }}
       </p>
     </template>
     <SignalLoader v-else-if="loading" />
@@ -211,9 +215,6 @@ onMounted(load);
   gap: 1rem;
   margin-bottom: 2rem;
 }
-/* ChartCard bakes in margin-bottom: var(--space-6), but the two charts-row cards
-   sit in a grid whose own margin-bottom already provides that spacing — zero out
-   the per-card margin here so we don't double it up. */
 .charts-row :deep(.chart-card) {
   margin-bottom: 0;
 }

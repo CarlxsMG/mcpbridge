@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useClipboard } from "@/composables/useClipboard";
 import { toErrorMessage } from "@/utils/errors";
 import { parseList } from "@/utils/fieldParsing";
+import { tk } from "@/i18n";
 import type { McpApiKeyWithSecret, Consumer } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+
+const { t } = useI18n({ useScope: "global" });
 
 const label = ref("");
 const clients = ref("");
@@ -18,7 +22,7 @@ const consumerId = ref<number | "">("");
 const elevated = ref(false);
 const consumers = ref<Consumer[]>([]);
 const consumerOptions = computed(() => [
-  { value: "" as const, label: "None" },
+  { value: "" as const, label: t("pages.keys.new.consumer_none") },
   ...consumers.value.map((c) => ({ value: c.id, label: c.name })),
 ]);
 
@@ -39,7 +43,7 @@ const { copied, copy } = useClipboard();
 async function createKey() {
   error.value = "";
   if (!label.value.trim()) {
-    error.value = "A label is required.";
+    error.value = t("pages.keys.new.errors.label_required");
     return;
   }
   const clientList = parseList(clients.value);
@@ -57,7 +61,7 @@ async function createKey() {
       elevated: elevated.value,
     });
   } catch (err) {
-    error.value = toErrorMessage(err, "Failed to create API key.");
+    error.value = toErrorMessage(err, tk("pages.keys.new.errors.create_failed"));
   } finally {
     creating.value = false;
   }
@@ -72,46 +76,46 @@ async function copyKey() {
 <template>
   <section>
     <FormPage max-width="32rem">
-      <PageHeader title="Mint API key" :back-link="{ to: '/keys', label: 'API keys' }" />
+      <PageHeader :title="t('pages.keys.new.title')" :back-link="{ to: '/keys', label: t('nav.keys') }" />
 
       <div v-if="mintedKey" class="minted" role="alert">
-        <div class="minted-title">New key "{{ mintedKey.label }}" — copy it now, it won't be shown again:</div>
+        <div class="minted-title">{{ t('pages.keys.new.minted_title', { label: mintedKey.label }) }}</div>
         <div class="minted-row">
           <code class="minted-secret">{{ mintedKey.key }}</code>
-          <button type="button" class="btn-secondary" @click="copyKey">{{ copied ? "Copied" : "Copy" }}</button>
+          <button type="button" class="btn-secondary" @click="copyKey">{{ copied ? t('common.copied') : t('common.copy') }}</button>
         </div>
-        <RouterLink to="/keys" class="btn-primary done-link">Done</RouterLink>
+        <RouterLink to="/keys" class="btn-primary done-link">{{ t('common.done') }}</RouterLink>
       </div>
 
       <form v-else class="form-card" @submit.prevent="createKey">
-        <FormField label="Label" for="k-label">
-          <input id="k-label" v-model="label" type="text" required placeholder="e.g. ci-bot" />
+        <FormField :label="t('pages.keys.new.fields.label')" for="k-label">
+          <input id="k-label" v-model="label" type="text" required :placeholder="t('pages.keys.new.placeholders.label')" />
           <p v-if="error" class="error">{{ error }}</p>
         </FormField>
-        <FormField label="Allowed clients (comma-separated, blank = all)" for="k-clients">
-          <input id="k-clients" v-model="clients" type="text" placeholder="payments-svc, inventory-svc" />
+        <FormField :label="t('pages.keys.new.fields.clients')" for="k-clients">
+          <input id="k-clients" v-model="clients" type="text" :placeholder="t('pages.keys.new.placeholders.clients')" />
         </FormField>
-        <FormField label="Allowed tools (comma-separated client__tool)" for="k-tools">
-          <input id="k-tools" v-model="tools" type="text" placeholder="payments-svc__charge" />
+        <FormField :label="t('pages.keys.new.fields.tools')" for="k-tools">
+          <input id="k-tools" v-model="tools" type="text" :placeholder="t('pages.keys.new.placeholders.tools')" />
         </FormField>
-        <FormField label="Expires (optional)" for="k-expires">
+        <FormField :label="t('pages.keys.new.fields.expires')" for="k-expires">
           <input id="k-expires" v-model="expires" type="datetime-local" />
         </FormField>
-        <FormField label="Consumer (optional)" for="k-consumer">
+        <FormField :label="t('pages.keys.new.fields.consumer')" for="k-consumer">
           <SelectMenu
             id="k-consumer"
             v-model="consumerId"
             :options="consumerOptions"
             create-path="/consumers/new"
-            create-label="Create consumer"
+            :create-label="t('pages.keys.new.create_consumer')"
             :reload="loadConsumers"
           />
         </FormField>
         <label class="checkbox-field"
-          ><input v-model="elevated" type="checkbox" /> Elevated (bypasses sensitive-tool confirmation)</label
+          ><input v-model="elevated" type="checkbox" /> {{ t('pages.keys.new.elevated_label') }}</label
         >
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? "Minting…" : "Mint key" }}
+          {{ creating ? t('pages.keys.new.minting') : t('pages.keys.new.mint_key') }}
         </button>
       </form>
     </FormPage>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
@@ -7,6 +8,7 @@ import { useQueryFilters } from "@/composables/useQueryFilters";
 import { useCursorPagination } from "@/composables/useCursorPagination";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
+import { tk } from "@/i18n";
 import type { TrafficRecord, PaginatedResult } from "@/types/api";
 import TimeSeriesChart from "@/components/charts/TimeSeriesChart.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -19,6 +21,8 @@ import PaginationBar from "@/components/ui/PaginationBar.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import SearchInput from "@/components/ui/SearchInput.vue";
 import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
+
+const { t } = useI18n({ useScope: "global" });
 
 const route = useRoute();
 
@@ -55,7 +59,7 @@ const {
   (cursor) => api.get<PaginatedResult<TrafficRecord>>(`/admin-api/traffic?${buildQuery(cursor)}`),
   {
     initialCursor,
-    fallbackMessage: "Failed to load traffic. Check your connection and try again.",
+    fallbackMessage: tk("pages.traffic.errors.load_failed"),
     onCursorChange: (cursor) => syncUrl({ errors: errorsOnly.value ? "true" : undefined, cursor }),
   },
 );
@@ -79,8 +83,6 @@ const chart = computed(() => {
   const times = rows.map((r) => r.createdAt);
   const min = Math.min(...times);
   const max = Math.max(...times);
-  // Scale bucket count to the record count so sparse traffic doesn't render as a
-  // mostly-empty, spiky chart — average a few records per bucket instead of a fixed 24.
   const bucketCount = Math.min(24, Math.max(6, Math.ceil(rows.length / 3)));
   const bucketMs = Math.max(Math.ceil((max - min) / bucketCount), 60_000);
   const buckets = new Map<number, { calls: number; errors: number }>();
@@ -108,22 +110,26 @@ const {
   confirm: confirmActionReplay,
 } = useConfirmAction<TrafficRecord>();
 
-function replay(r: TrafficRecord) {
-  requestReplay(r);
+function replay(record: TrafficRecord) {
+  requestReplay(record);
 }
 
 function confirmReplay() {
-  return confirmActionReplay(async (r) => {
-    replayingId.value = r.id;
+  return confirmActionReplay(async (record) => {
+    replayingId.value = record.id;
     replayNote.value = null;
     try {
       const res = await api.post<{ content?: { type: string; text: string }[]; isError?: boolean }>(
-        `/admin-api/traffic/${r.id}/replay`,
+        `/admin-api/traffic/${record.id}/replay`,
       );
-      const text = res.content?.map((c) => c.text).join(" ") ?? "(no content)";
-      replayNote.value = { id: r.id, ok: !res.isError, text: text.length > 300 ? `${text.slice(0, 300)}…` : text };
+      const text = res.content?.map((c) => c.text).join(" ") ?? t("pages.traffic.replay.no_content");
+      replayNote.value = {
+        id: record.id,
+        ok: !res.isError,
+        text: text.length > 300 ? `${text.slice(0, 300)}…` : text,
+      };
     } catch (err) {
-      replayNote.value = { id: r.id, ok: false, text: toErrorMessage(err, "Replay failed.") };
+      replayNote.value = { id: record.id, ok: false, text: toErrorMessage(err, tk("pages.traffic.errors.replay_failed")) };
     } finally {
       replayingId.value = null;
     }
@@ -133,46 +139,47 @@ function confirmReplay() {
 
 <template>
   <section class="list-shell">
-    <PageHeader title="Traffic" />
+    <PageHeader :title="t('pages.traffic.title')" />
     <p class="subtitle">
-      Captured request/response calls. Capture is opt-in (<code>TRAFFIC_CAPTURE=true</code> on the server) — an empty
-      list here can mean either capture is off or there's genuinely nothing recent.
+      {{ t('pages.traffic.subtitle_p1') }} (<code>TRAFFIC_CAPTURE=true</code>) {{ t('pages.traffic.subtitle_p2') }}
     </p>
 
     <form class="filter-row" @submit.prevent="applyFilters">
       <div class="filter-field">
-        <span class="filter-label">Client name</span>
-        <SearchInput v-model="clientFilter" placeholder="Client name" />
+        <span class="filter-label">{{ t('pages.traffic.filters.client_label') }}</span>
+        <SearchInput v-model="clientFilter" :placeholder="t('pages.traffic.filters.client_label')" />
       </div>
       <div class="filter-field">
-        <span class="filter-label">Tool name</span>
-        <SearchInput v-model="toolFilter" placeholder="Tool name" />
+        <span class="filter-label">{{ t('pages.traffic.filters.tool_label') }}</span>
+        <SearchInput v-model="toolFilter" :placeholder="t('pages.traffic.filters.tool_label')" />
       </div>
-      <label class="errors-only"><input v-model="errorsOnly" type="checkbox" /> Errors only</label>
+      <label class="errors-only"><input v-model="errorsOnly" type="checkbox" /> {{ t('pages.traffic.errors_only') }}</label>
       <button type="submit" class="btn-secondary" :disabled="loading">
-        <Filter :size="14" stroke-width="2" aria-hidden="true" /> {{ loading ? "Filtering…" : "Filter" }}
+        <Filter :size="14" stroke-width="2" aria-hidden="true" /> {{ loading ? t('pages.traffic.filtering') : t('pages.traffic.filter_button') }}
       </button>
     </form>
 
     <p v-if="replayNote" :class="replayNote.ok ? 'success' : 'error'" role="status">
-      Replayed call #{{ replayNote.id }} against the upstream tool — {{ replayNote.ok ? "succeeded" : "failed" }}:
+      {{ t('pages.traffic.replay.note_p1', { id: replayNote.id }) }}
+      {{ replayNote.ok ? t('pages.traffic.replay.succeeded') : t('pages.traffic.replay.failed') }}:
       {{ replayNote.text }}
     </p>
 
     <ListLayout :loading="loading && !records.length" :error="errorMessage" :empty="records.length === 0">
       <template #empty>
         <EmptyState :icon="ArrowLeftRight" muted>
-          No traffic recorded yet. If <code>TRAFFIC_CAPTURE</code> isn't set on the server, calls aren't being recorded
-          — enable it, then check back after your next request.
+          {{ t('pages.traffic.empty_p1') }}
+          <code>TRAFFIC_CAPTURE</code>
+          {{ t('pages.traffic.empty_p2') }}
         </EmptyState>
       </template>
 
-      <ChartCard title="Call volume" dotted>
+      <ChartCard :title="t('pages.traffic.chart.title')" dotted>
         <TimeSeriesChart
           :points="chart.points"
           :secondary-points="chart.errorPoints"
-          primary-label="Calls"
-          secondary-label="Errors"
+          :primary-label="t('pages.traffic.chart.primary_label')"
+          :secondary-label="t('pages.traffic.chart.secondary_label')"
           :height="160"
         />
       </ChartCard>
@@ -180,34 +187,34 @@ function confirmReplay() {
       <TableCard>
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Client / Tool</th>
-            <th>Duration</th>
-            <th>Status</th>
-            <th>Preview</th>
+            <th>{{ t('pages.traffic.table.time') }}</th>
+            <th>{{ t('pages.traffic.table.client_tool') }}</th>
+            <th>{{ t('pages.traffic.table.duration') }}</th>
+            <th>{{ t('pages.traffic.table.status') }}</th>
+            <th>{{ t('pages.traffic.table.preview') }}</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in records" :key="r.id">
-            <td class="mono">{{ formatDateTime(r.createdAt) }}</td>
-            <td class="mono">{{ r.clientName ?? "—" }}/{{ r.toolName ?? r.mcpToolName }}</td>
-            <td>{{ formatDuration(r.durationMs) }}</td>
-            <td :class="{ hot: r.isError }">{{ r.isError ? "Error" : "OK" }}</td>
+          <tr v-for="record in records" :key="record.id">
+            <td class="mono">{{ formatDateTime(record.createdAt) }}</td>
+            <td class="mono">{{ record.clientName ?? "—" }}/{{ record.toolName ?? record.mcpToolName }}</td>
+            <td>{{ formatDuration(record.durationMs) }}</td>
+            <td :class="{ hot: record.isError }">{{ record.isError ? t('pages.traffic.table.status_error') : t('pages.traffic.table.status_ok') }}</td>
             <td>
-              <HoverPreview class="cell-truncate" :text="r.preview">{{ r.preview }}</HoverPreview>
+              <HoverPreview class="cell-truncate" :text="record.preview">{{ record.preview }}</HoverPreview>
             </td>
             <td>
               <div class="actions">
                 <button
                   type="button"
                   class="link-btn"
-                  :disabled="replayingId === r.id"
-                  title="Sends this call to the upstream tool again, right now."
-                  @click="replay(r)"
+                  :disabled="replayingId === record.id"
+                  :title="t('pages.traffic.replay.tooltip')"
+                  @click="replay(record)"
                 >
                   <Repeat :size="13" stroke-width="2" aria-hidden="true" />
-                  {{ replayingId === r.id ? "Replaying…" : "Replay" }}
+                  {{ replayingId === record.id ? t('pages.traffic.replay.replaying') : t('pages.traffic.replay.replay') }}
                 </button>
               </div>
             </td>
@@ -219,7 +226,7 @@ function confirmReplay() {
         <PaginationBar
           :has-prev="hasPrev"
           :has-next="hasNext"
-          :label="`${records.length} record(s) on this page`"
+          :label="t('pages.traffic.pagination_label', { count: records.length })"
           @prev="prevPage"
           @next="nextPage"
         />
@@ -228,13 +235,13 @@ function confirmReplay() {
 
     <ConfirmDialog
       :open="pendingReplay !== null"
-      title="Replay this call?"
+      :title="t('pages.traffic.confirm.replay_title')"
       :message="
         pendingReplay
-          ? `This sends '${pendingReplay.mcpToolName}' to the live upstream again, right now, with the same arguments — including any side effects (writes, refunds, deletes) the original call had.`
+          ? t('pages.traffic.confirm.replay_message', { name: pendingReplay.mcpToolName })
           : ''
       "
-      :confirm-label="pendingReplay ? `Replay ${pendingReplay.mcpToolName}` : 'Replay'"
+      :confirm-label="pendingReplay ? t('pages.traffic.confirm.replay_cta', { name: pendingReplay.mcpToolName }) : t('pages.traffic.replay.replay')"
       danger
       @confirm="confirmReplay"
       @cancel="cancelReplay"
@@ -272,8 +279,6 @@ function confirmReplay() {
   align-items: center;
   gap: 0.4rem;
 }
-/* TableCard's global .data-table recipe doesn't set white-space on th;
-   this page needs its long "Time" header to stay on one line. */
 :deep(.data-table th) {
   white-space: nowrap;
 }

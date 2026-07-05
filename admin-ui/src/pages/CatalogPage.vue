@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
+import { i18n } from "../i18n";
 import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "@/types/api";
 import { LayoutGrid } from "lucide-vue-next";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -14,7 +16,12 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import KindBadge from "@/components/ui/KindBadge.vue";
 
+const { t } = useI18n({ useScope: "global" });
+const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
+
 const router = useRouter();
+
+const loadFallback = tk("pages.catalog.errors.load_failed");
 
 const {
   data: items,
@@ -24,7 +31,7 @@ const {
 } = useResource<CatalogEntry[]>(
   async () => (await api.get<{ items: CatalogEntry[] }>("/admin-api/catalog")).items,
   [],
-  "Failed to load catalog.",
+  loadFallback,
 );
 
 const sorted = computed(() =>
@@ -33,7 +40,6 @@ const sorted = computed(() =>
 
 onMounted(load);
 
-// ── Install flow ────────────────────────────────────────────────────────────
 const openEntryId = ref<string | null>(null);
 const installName = ref("");
 const previewTools = ref<DiscoveredTool[] | null>(null);
@@ -66,7 +72,7 @@ async function preview(entry: CatalogEntry) {
     });
     previewTools.value = res.tools;
   } catch (err) {
-    previewError.value = toErrorMessage(err, "Preview failed.");
+    previewError.value = toErrorMessage(err, tk("errors.preview_failed"));
   } finally {
     previewing.value = false;
   }
@@ -75,7 +81,7 @@ async function preview(entry: CatalogEntry) {
 async function confirmInstall(entry: CatalogEntry) {
   installError.value = "";
   if (!installName.value.trim()) {
-    installError.value = "Name is required.";
+    installError.value = t("pages.catalog.errors.name_required");
     return;
   }
   installing.value = true;
@@ -83,7 +89,7 @@ async function confirmInstall(entry: CatalogEntry) {
     await api.post(`/admin-api/catalog/${encodeURIComponent(entry.id)}/install`, { name: installName.value.trim() });
     await router.push(`/servers/${encodeURIComponent(installName.value.trim())}`);
   } catch (err) {
-    installError.value = toErrorMessage(err, "Install failed.");
+    installError.value = toErrorMessage(err, tk("pages.catalog.errors.install_failed"));
   } finally {
     installing.value = false;
   }
@@ -106,7 +112,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/catalog/${encodeURIComponent(entry.id)}`);
       await load();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to delete catalog entry.");
+      errorMessage.value = toErrorMessage(err, tk("pages.catalog.errors.delete_failed"));
     }
   });
 }
@@ -115,18 +121,15 @@ function confirmDelete() {
 <template>
   <section>
     <PageHeader
-      title="Catalog"
-      subtitle="Browse well-known servers and install them with one click, or save your own reusable templates."
+      :title="t('pages.catalog.title')"
+      :subtitle="t('pages.catalog.subtitle')"
     >
-      <RouterLink to="/catalog/new" class="btn-primary">Add custom entry</RouterLink>
+      <RouterLink to="/catalog/new" class="btn-primary">{{ t('pages.catalog.add_entry') }}</RouterLink>
     </PageHeader>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
       <template #empty>
-        <EmptyState :icon="LayoutGrid">
-          No catalog entries yet. The catalog lists one-click installable servers -- built-in or admin-added -- so
-          registering a new backend doesn't start from a blank form.
-        </EmptyState>
+        <EmptyState :icon="LayoutGrid">{{ t('pages.catalog.empty.no_entries') }}</EmptyState>
       </template>
 
       <div class="catalog-grid">
@@ -138,11 +141,11 @@ function confirmDelete() {
         >
           <div class="card-top">
             <KindBadge :kind="entry.kind" />
-            <span v-if="entry.featured" class="featured-badge">Featured</span>
-            <span v-if="entry.source === 'custom'" class="custom-badge">Custom</span>
+            <span v-if="entry.featured" class="featured-badge">{{ t('pages.catalog.featured') }}</span>
+            <span v-if="entry.source === 'custom'" class="custom-badge">{{ t('pages.catalog.custom') }}</span>
           </div>
           <h3>{{ entry.name }}</h3>
-          <p class="desc">{{ entry.description || "No description." }}</p>
+          <p class="desc">{{ entry.description || t('pages.catalog.no_description') }}</p>
           <p v-if="entry.category" class="category">{{ entry.category }}</p>
           <div v-if="entry.tags.length" class="tags">
             <span v-for="tag in entry.tags" :key="tag" class="tag">{{ tag }}</span>
@@ -150,33 +153,32 @@ function confirmDelete() {
 
           <div class="card-actions">
             <button type="button" class="btn-secondary" @click="toggleInstall(entry)">
-              {{ openEntryId === entry.id ? "Cancel" : "Install" }}
+              {{ openEntryId === entry.id ? t('common.cancel') : t('pages.catalog.table.install') }}
             </button>
             <button v-if="entry.source === 'custom'" type="button" class="link-btn danger" @click="deleteEntry(entry)">
-              Delete
+              {{ t('common.delete') }}
             </button>
           </div>
 
           <div v-if="openEntryId === entry.id" class="install-panel">
-            <FormField label="Install as" :for="`install-name-${entry.id}`">
+            <FormField :label="t('pages.catalog.install_as')" :for="`install-name-${entry.id}`">
               <input :id="`install-name-${entry.id}`" v-model="installName" type="text" />
             </FormField>
             <template v-if="entry.kind === 'rest' && entry.openapiUrl">
               <div class="preview-row">
                 <button type="button" class="btn-secondary" :disabled="previewing" @click="preview(entry)">
-                  {{ previewing ? "Discovering…" : "Preview tools" }}
+                  {{ previewing ? t('pages.register_server.discovering') : t('pages.register_server.preview_tools') }}
                 </button>
-                <span v-if="previewTools" class="preview-count">{{ previewTools.length }} tool(s) discovered</span>
+                <span v-if="previewTools" class="preview-count">{{ t('pages.register_server.preview_count', { count: previewTools.length }) }}</span>
               </div>
               <p v-if="previewError" class="error">{{ previewError }}</p>
             </template>
             <p v-else class="hint">
-              The bridge connects to the MCP server and discovers its tools on install. If it requires authentication,
-              install it first, set upstream credentials on its detail page, then re-register.
+              {{ t('pages.register_server.mcp_transport_hint') }}
             </p>
             <p v-if="installError" class="error">{{ installError }}</p>
             <button type="button" class="btn-primary" :disabled="installing" @click="confirmInstall(entry)">
-              {{ installing ? "Installing…" : "Confirm install" }}
+              {{ installing ? t('pages.catalog.installing') : t('pages.catalog.confirm_install') }}
             </button>
           </div>
         </article>
@@ -185,13 +187,13 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete catalog entry?"
+      :title="t('pages.catalog.confirm.delete_title')"
       :message="
         pendingDelete
-          ? `'${pendingDelete.name}' will be removed from the catalog. This does not affect any servers already installed from it.`
+          ? t('pages.catalog.confirm.delete_message', { name: pendingDelete.name })
           : ''
       "
-      :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
+      :confirm-label="pendingDelete ? t('pages.catalog.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -200,8 +202,6 @@ function confirmDelete() {
 </template>
 
 <style scoped>
-/* PageHeader's own recipe covers color/margin; this page's subtitle keeps a
-   line-length cap that the shared component doesn't set. */
 :deep(.subtitle) {
   max-width: 35rem;
 }

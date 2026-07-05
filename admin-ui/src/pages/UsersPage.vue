@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useAuth } from "@/composables/useAuth";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
+import { tk } from "@/i18n";
 import type { AdminUserSummary, AdminRole, Team } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -15,11 +17,13 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { UserCog } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+
 const ROLE_OPTIONS: { value: AdminRole; label: string }[] = [
-  { value: "admin", label: "admin" },
-  { value: "operator", label: "operator" },
-  { value: "auditor", label: "auditor" },
-  { value: "viewer", label: "viewer" },
+  { value: "admin", label: t("pages.users.roles.admin") },
+  { value: "operator", label: t("pages.users.roles.operator") },
+  { value: "auditor", label: t("pages.users.roles.auditor") },
+  { value: "viewer", label: t("pages.users.roles.viewer") },
 ];
 
 const { state: authState } = useAuth();
@@ -32,7 +36,7 @@ const {
 } = useResource<AdminUserSummary[]>(
   async () => (await api.get<{ users: AdminUserSummary[] }>("/admin-api/users")).users,
   [],
-  "Failed to load users.",
+  tk("pages.users.errors.load_failed"),
 );
 const {
   pending: pendingDelete,
@@ -47,9 +51,6 @@ const {
   confirm: confirmActionRoleChange,
 } = useConfirmAction<{ user: AdminUserSummary; nextRole: string }>();
 
-// Teams — any admin may read the list (needed to populate the assignment dropdown),
-// but only a super-admin (admin role, no team) can actually change a user's team;
-// non-super-admins will get a FORBIDDEN error back from the PUT below.
 const teams = ref<Team[]>([]);
 const teamsError = ref("");
 async function loadTeams() {
@@ -57,7 +58,7 @@ async function loadTeams() {
     teams.value = (await api.get<{ items: Team[] }>("/admin-api/teams")).items;
   } catch (err) {
     teams.value = [];
-    teamsError.value = toErrorMessage(err, "Failed to load teams.");
+    teamsError.value = toErrorMessage(err, tk("pages.users.errors.teams_load_failed"));
   }
 }
 const {
@@ -68,19 +69,17 @@ const {
 } = useConfirmAction<{ user: AdminUserSummary; nextTeamId: number | null }>();
 const teamChangeError = ref("");
 const teamOptions = computed(() => [
-  { value: null as number | null, label: "None (super-admin)" },
-  ...teams.value.map((t) => ({ value: t.id as number | null, label: t.name })),
+  { value: null as number | null, label: t("pages.users.team.none") },
+  ...teams.value.map((tt) => ({ value: tt.id as number | null, label: tt.name })),
 ]);
 
 function teamName(teamId: number | null): string {
-  if (teamId === null) return "None (super-admin)";
-  return teams.value.find((t) => t.id === teamId)?.name ?? `#${teamId}`;
+  if (teamId === null) return t("pages.users.team.none");
+  return teams.value.find((tt) => tt.id === teamId)?.name ?? `#${teamId}`;
 }
 
 const activeAdminCount = computed(() => users.value.filter((u) => u.role === "admin" && u.is_active).length);
 
-// Mirrors the backend's LAST_ADMIN_PROTECTED guard so the control is disabled
-// up front instead of letting the operator hit a guaranteed-to-fail request.
 function isLastActiveAdmin(user: AdminUserSummary): boolean {
   return user.role === "admin" && user.is_active && activeAdminCount.value <= 1;
 }
@@ -95,8 +94,8 @@ async function changeRole(user: AdminUserSummary, nextRole: string) {
     await api.patch(`/admin-api/users/${encodeURIComponent(user.username)}`, { role: nextRole });
     await load();
   } catch (err) {
-    errorMessage.value = toErrorMessage(err, "Failed to update role.");
-    await load(); // reset the select back to the persisted value
+    errorMessage.value = toErrorMessage(err, tk("pages.users.errors.update_role_failed"));
+    await load();
   }
 }
 
@@ -107,9 +106,9 @@ function requestRoleChange(user: AdminUserSummary, nextRole: string) {
 
 function roleChangeMessage(user: AdminUserSummary, nextRole: string): string {
   if (user.username === authState.user?.username) {
-    return `You are changing your own role from '${user.role}' to '${nextRole}'. This may immediately restrict what you can do in this admin panel.`;
+    return t("pages.users.confirm.role_self", { current: user.role, next: nextRole });
   }
-  return `Change '${user.username}''s role from '${user.role}' to '${nextRole}'?`;
+  return t("pages.users.confirm.role_other", { username: user.username, current: user.role, next: nextRole });
 }
 
 function confirmRoleChange() {
@@ -124,8 +123,8 @@ async function changeTeam(user: AdminUserSummary, nextTeamId: number | null) {
     await api.put(`/admin-api/users/${encodeURIComponent(user.username)}/team`, { teamId: nextTeamId });
     await load();
   } catch (err) {
-    teamChangeError.value = toErrorMessage(err, "Failed to assign team (super-admin only).");
-    await load(); // reset the select back to the persisted value
+    teamChangeError.value = toErrorMessage(err, tk("pages.users.errors.assign_team_failed"));
+    await load();
   }
 }
 
@@ -135,9 +134,9 @@ function requestTeamChange(user: AdminUserSummary, nextTeamId: number | null) {
 }
 
 function teamChangeMessage(user: AdminUserSummary, nextTeamId: number | null): string {
-  const base = `Assign '${user.username}' to ${teamName(nextTeamId)}?`;
+  const base = t("pages.users.confirm.team_base", { username: user.username, team: teamName(nextTeamId) });
   if (user.username === authState.user?.username && nextTeamId !== null) {
-    return `${base} You are scoping your own account — you will lose super-admin access (team management, cross-team visibility) immediately.`;
+    return `${base} ${t('pages.users.confirm.team_self_warning')}`;
   }
   return base;
 }
@@ -154,7 +153,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/users/${encodeURIComponent(user.username)}`);
       await load();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to delete user.");
+      errorMessage.value = toErrorMessage(err, tk("pages.users.errors.delete_failed"));
     }
   });
 }
@@ -162,8 +161,8 @@ function confirmDelete() {
 
 <template>
   <section>
-    <PageHeader title="Users">
-      <RouterLink to="/users/new" class="btn-primary">Add user</RouterLink>
+    <PageHeader :title="t('pages.users.title')">
+      <RouterLink to="/users/new" class="btn-primary">{{ t('pages.users.add_user') }}</RouterLink>
     </PageHeader>
 
     <p v-if="teamChangeError" class="error" role="alert">{{ teamChangeError }}</p>
@@ -172,69 +171,62 @@ function confirmDelete() {
     <ListLayout :loading="loading" :error="errorMessage" :empty="users.length === 0">
       <template #empty>
         <EmptyState :icon="UserCog">
-          No admin users yet. Every person who signs in to this panel needs their own account here -- shared logins
-          aren't supported.
+          {{ t('pages.users.empty') }}
         </EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>Username</th>
-            <th>Role</th>
-            <th>Team</th>
-            <th>Active</th>
-            <th>Last login</th>
+            <th>{{ t('pages.users.table.username') }}</th>
+            <th>{{ t('pages.users.table.role') }}</th>
+            <th>{{ t('pages.users.table.team') }}</th>
+            <th>{{ t('pages.users.table.active') }}</th>
+            <th>{{ t('pages.users.table.last_login') }}</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="user in users" :key="user.username">
             <td>
-              {{ user.username }} <span v-if="user.username === authState.user?.username" class="you-tag">(you)</span>
+              {{ user.username }} <span v-if="user.username === authState.user?.username" class="you-tag">{{ t('pages.users.you_tag') }}</span>
             </td>
             <td>
               <SelectMenu
                 :model-value="user.role"
                 :options="ROLE_OPTIONS"
                 :disabled="isLastActiveAdmin(user)"
-                :title="
-                  isLastActiveAdmin(user) ? 'Cannot change the last active admin — promote another user first.' : ''
-                "
+                :title="isLastActiveAdmin(user) ? t('pages.users.last_admin_locked') : ''"
                 @update:model-value="(v) => requestRoleChange(user, v)"
               />
               <br />
-              <span v-if="isLastActiveAdmin(user)" class="switch-hint"
-                >Cannot change the last active admin — promote another user first.</span
-              >
+              <span v-if="isLastActiveAdmin(user)" class="switch-hint">{{ t('pages.users.last_admin_locked') }}</span>
             </td>
             <td>
               <SelectMenu
                 :model-value="user.team_id"
                 :options="teamOptions"
-                title="Only super-admins can change this."
+                :title="t('pages.users.team.change_locked')"
                 create-path="/teams/new"
-                create-label="Create team"
+                :create-label="t('pages.users.team.create')"
                 :reload="loadTeams"
                 @update:model-value="(v) => requestTeamChange(user, v)"
               />
             </td>
-            <td>{{ user.is_active ? "Yes" : "No" }}</td>
+            <td>{{ user.is_active ? t('pages.users.yes') : t('pages.users.no') }}</td>
             <td>{{ formatMaybeDate(user.last_login_at) }}</td>
             <td>
               <button
                 type="button"
                 class="link-btn danger"
                 :disabled="isLastActiveAdmin(user)"
-                :title="
-                  isLastActiveAdmin(user) ? 'Cannot delete the last active admin — promote another user first.' : ''
-                "
+                :title="isLastActiveAdmin(user) ? t('pages.users.last_admin_locked') : ''"
                 @click="requestDelete(user)"
               >
-                Delete</button
+                {{ t('common.delete') }}</button
               ><br />
               <span v-if="isLastActiveAdmin(user)" class="switch-hint">
-                Cannot delete the last active admin — promote another user first.
+                {{ t('pages.users.last_admin_locked') }}
               </span>
             </td>
           </tr>
@@ -244,13 +236,9 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete this user?"
-      :message="
-        pendingDelete
-          ? `'${pendingDelete.username}' will lose access immediately and all their sessions will be revoked.`
-          : ''
-      "
-      :confirm-label="pendingDelete ? `Delete ${pendingDelete.username}` : 'Delete'"
+      :title="t('pages.users.confirm.delete_title')"
+      :message="pendingDelete ? t('pages.users.confirm.delete_message', { username: pendingDelete.username }) : ''"
+      :confirm-label="pendingDelete ? t('pages.users.confirm.delete_cta', { username: pendingDelete.username }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -258,18 +246,18 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingRoleChange !== null"
-      title="Change this user's role?"
+      :title="t('pages.users.confirm.role_title')"
       :message="pendingRoleChange ? roleChangeMessage(pendingRoleChange.user, pendingRoleChange.nextRole) : ''"
-      :confirm-label="pendingRoleChange ? `Change to ${pendingRoleChange.nextRole}` : 'Change role'"
+      :confirm-label="pendingRoleChange ? t('pages.users.confirm.role_cta', { next: pendingRoleChange.nextRole }) : t('pages.users.confirm.role_cta_default')"
       @confirm="confirmRoleChange"
       @cancel="cancelRoleChangeAction"
     />
 
     <ConfirmDialog
       :open="pendingTeamChange !== null"
-      title="Change this user's team?"
+      :title="t('pages.users.confirm.team_title')"
       :message="pendingTeamChange ? teamChangeMessage(pendingTeamChange.user, pendingTeamChange.nextTeamId) : ''"
-      :confirm-label="pendingTeamChange ? `Assign to ${teamName(pendingTeamChange.nextTeamId)}` : 'Assign team'"
+      :confirm-label="pendingTeamChange ? t('pages.users.confirm.team_cta', { team: teamName(pendingTeamChange.nextTeamId) }) : t('pages.users.confirm.team_cta_default')"
       @confirm="confirmTeamChange"
       @cancel="cancelTeamChangeAction"
     />

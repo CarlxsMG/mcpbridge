@@ -41,3 +41,23 @@ export const i18n = createI18n({
     es,
   },
 });
+
+/**
+ * Compose-time translation helper for use *outside* setup() — e.g. as a default
+ * arg to a composable, or in a top-level constant. Inside `<script setup>` or
+ * `<template>`, prefer `useI18n({ useScope: "global" })` so the call is
+ * reactive on locale change.
+ *
+ * Captures the i18n instance at module load time and resolves keys via its
+ * global `t`. Use this only when reactivity doesn't matter (fallback strings,
+ * placeholders that never change once the app boots).
+ */
+export function tk(key: string, fallback?: string): string {
+  // vue-i18n v10 exposes `t` on the global instance once created.
+  const t = (i18n as unknown as { global: { t: (k: string, fallback?: string) => string } }).global.t;
+  // `t` returns the key itself when missing, which is what we want for the
+  // "no fallback supplied" case — but we want a real fallback string when the
+  // caller passed one. vue-i18n handles this via the second arg.
+  const resolved = t(key, fallback ?? key);
+  return resolved === key && fallback !== undefined ? fallback : resolved;
+}

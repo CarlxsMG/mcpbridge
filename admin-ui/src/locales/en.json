@@ -39,6 +39,7 @@
     "create_new": "Create new",
     "page": "Page",
     "endpoint": "Endpoint",
+    "load_more": "Load more",
     "of": "of",
     "showing": "Showing",
     "results": "results",
@@ -58,7 +59,15 @@
     "unsaved_changes": "You have unsaved changes. Discard them?",
     "discard": "Discard",
     "keep_editing": "Keep editing",
-    "current_locale": "Language"
+    "current_locale": "Language",
+    "done": "Done",
+    "creating": "Creating…",
+    "create": "Create",
+    "time_windows": {
+      "last_24h": "Last 24 hours",
+      "last_7d": "Last 7 days",
+      "last_30d": "Last 30 days"
+    }
   },
   "nav": {
     "groups": {
@@ -252,6 +261,24 @@
       },
       "empty": {
         "no_bundles": "No bundles yet. A bundle lets you hand an MCP client a curated, cross-client tool selection instead of one client's full tool list."
+      },
+      "new": {
+        "title": "Create bundle",
+        "subtitle_p1": "Cross-client tool selections, each served at its own",
+        "subtitle_p2": "endpoint.",
+        "fields": {
+          "name": "Name",
+          "description": "Description (optional)",
+          "tools": "Tools"
+        },
+        "placeholders": {
+          "name": "e.g. assistant-a",
+          "description": "What this bundle is for"
+        },
+        "errors": {
+          "name_required": "Name is required.",
+          "create_failed": "Failed to create bundle."
+        }
       }
     },
     "keys": {
@@ -288,6 +315,31 @@
         "load_failed": "Failed to load API keys.",
         "revoke_failed": "Failed to revoke key.",
         "delete_failed": "Failed to delete key."
+      },
+      "new": {
+        "title": "Mint API key",
+        "minted_title": "New key \"{label}\" — copy it now, it won't be shown again:",
+        "fields": {
+          "label": "Label",
+          "clients": "Allowed clients (comma-separated, blank = all)",
+          "tools": "Allowed tools (comma-separated client__tool)",
+          "expires": "Expires (optional)",
+          "consumer": "Consumer (optional)"
+        },
+        "placeholders": {
+          "label": "e.g. ci-bot",
+          "clients": "payments-svc, inventory-svc",
+          "tools": "payments-svc__charge"
+        },
+        "consumer_none": "None",
+        "create_consumer": "Create consumer",
+        "elevated_label": "Elevated (bypasses sensitive-tool confirmation)",
+        "minted_key": "Mint key",
+        "minting": "Minting…",
+        "errors": {
+          "label_required": "A label is required.",
+          "create_failed": "Failed to create API key."
+        }
       }
     },
     "register_server": {
@@ -348,6 +400,1068 @@
         "name_and_health_required": "Name and health URL are required.",
         "registration_failed": "Registration failed."
       }
-    }
+    },
+    "account": {
+      "title": "Account",
+      "subtitle": "Manage your password and active sessions for {username}.",
+      "change_password": "Change password",
+      "change_password_warning": "Changing your password immediately signs out every other active session.",
+      "password_current": "Current password",
+      "password_new": "New password",
+      "password_confirm": "Confirm new password",
+      "password_min_hint": "At least 12 characters.",
+      "changing": "Changing…",
+      "change_password_cta": "Change password",
+      "active_sessions": "Active sessions",
+      "active_sessions_subtitle": "Devices and browsers currently signed in as you. Sign out any you don't recognize.",
+      "active_sessions_hint": "This list doesn't indicate which session is the device you're using right now. Revoking a session may sign that device out immediately.",
+      "sign_out_device": "Sign out device",
+      "preferences": "Preferences",
+      "theme_label": "Theme",
+      "theme_hint": "Applies to this browser only.",
+      "theme_aria": "Theme",
+      "theme_light": "Light",
+      "theme_dark": "Dark",
+      "density_label": "Table density",
+      "density_hint": "Affects Traffic, Audit log, Traces, and API keys.",
+      "density_aria": "Table density",
+      "density_comfortable": "Comfortable",
+      "density_compact": "Compact",
+      "locale_label": "Language",
+      "locale_hint": "Affects this admin UI only — backend errors and CLI output stay in English.",
+      "locale_en": "English",
+      "locale_es": "Español",
+      "device": {
+        "unknown_browser": "Unknown browser",
+        "edge": "Edge",
+        "opera": "Opera",
+        "chrome": "Chrome",
+        "firefox": "Firefox",
+        "safari": "Safari",
+        "curl": "curl",
+        "on": "{browser} on {os}",
+        "os": {
+          "windows": "Windows",
+          "macos": "macOS",
+          "android": "Android",
+          "ios": "iOS",
+          "linux": "Linux"
+        }
+      },
+      "table": {
+        "device": "Device",
+        "ip": "IP address",
+        "last_active": "Last active",
+        "signed_in": "Signed in"
+      },
+      "empty": {
+        "no_sessions": "No active sessions."
+      },
+      "success": {
+        "password_changed": "Password changed. You're still signed in on this device."
+      },
+      "errors": {
+        "all_required": "All fields are required.",
+        "password_too_short": "New password must be at least 12 characters.",
+        "password_mismatch": "New password and confirmation do not match.",
+        "password_change_failed": "Failed to change password.",
+        "sessions_load_failed": "Failed to load active sessions.",
+        "session_revoke_failed": "Failed to revoke session."
+      },
+      "revoke_confirm": {
+        "title": "Sign out this device?",
+        "message": "This immediately revokes the session. If it's the device you're using right now, you'll be signed out right away and returned to the login page.",
+        "confirm": "Sign out device"
+      }
+    },
+    "audit_log": {
+      "title": "Audit log",
+      "subtitle": "Who changed what, and when.",
+      "filter": {
+        "actor": "Actor",
+        "actor_placeholder": "Filter by actor…",
+        "action": "Action",
+        "action_placeholder": "Filter by action…",
+        "all_actions": "All actions",
+        "from": "From",
+        "to": "To",
+        "export_as": "Export as",
+        "clear": "Clear"
+      },
+      "export": {
+        "cta": "Export",
+        "json": "JSON",
+        "csv": "CSV",
+        "html": "HTML report"
+      },
+      "exporting": "Exporting…",
+      "verify_cta": "Verify integrity",
+      "verifying": "Verifying…",
+      "integrity_ok": "Chain intact — {count} entries verified.",
+      "integrity_broken": "Tampering detected — chain breaks at entry #{id} (after {count} valid). Escalate to security and do not trust entries after this point.",
+      "table": {
+        "when": "When",
+        "actor": "Actor",
+        "action": "Action",
+        "target": "Target",
+        "detail": "Detail",
+        "view": "View"
+      },
+      "empty": {
+        "no_match": "No entries match these filters.",
+        "no_entries": "No audit entries yet."
+      },
+      "errors": {
+        "load_failed": "Failed to load audit log.",
+        "export_failed": "Export failed.",
+        "verify_failed": "Verification failed."
+      }
+    },
+    "alerts": {
+      "title": "Alerts",
+      "subtitle": "Webhook alert rules for tool failures, traffic spikes and more.",
+      "event": {
+        "circuit_breaker_open": "Circuit breaker open",
+        "client_unreachable": "Client unreachable",
+        "error_rate": "Error-rate spike",
+        "usage_spike": "Usage spike (anomaly)",
+        "schema_drift": "Tool schema drift"
+      },
+      "test": "Test",
+      "testing": "Testing…",
+      "test_sent": "Test sent to '{name}'.",
+      "confirm": {
+        "delete_title": "Delete this alert rule?",
+        "delete_message": "'{name}' will stop firing.",
+        "delete_label": "Delete {name}",
+        "disable_title": "Disable this alert rule?",
+        "disable_message": "'{name}' will stop firing until re-enabled.",
+        "disable_label": "Disable {name}"
+      },
+      "create_alert": "New alert",
+      "filter_state": "State",
+      "state_all": "All states",
+      "state_enabled": "Enabled only",
+      "state_disabled": "Disabled only",
+      "selected_count": "{count} selected",
+      "enable_selected": "Enable selected",
+      "disable_selected": "Disable selected",
+      "clear_selection": "Clear selection",
+      "table": {
+        "name": "Name",
+        "type": "Type",
+        "target": "Target",
+        "threshold": "Threshold",
+        "actions": "Actions",
+        "enabled": "Enabled",
+        "enabled_label": "Enabled",
+        "disabled_label": "Disabled"
+      },
+      "empty": {
+        "no_alerts": "No alert rules yet.",
+        "new_alert": "Create your first alert rule",
+        "no_match": "No alerts match your filters."
+      },
+      "errors": {
+        "load_failed": "Failed to load alerts.",
+        "toggle_failed": "Failed to update.",
+        "delete_failed": "Failed to delete alert.",
+        "test_failed": "Test failed: {error}",
+        "test_delivery_failed": "Test delivery failed."
+      },
+      "event_types": {
+        "circuit_breaker_open": "Circuit breaker open",
+        "client_unreachable": "Client unreachable",
+        "error_rate": "Error-rate spike",
+        "usage_spike": "Usage spike (anomaly)",
+        "schema_drift": "Tool schema drift"
+      },
+      "new_title": "New alert rule",
+      "new_subtitle": "Rules are evaluated on the leader instance and POST a JSON payload to a webhook when a condition first becomes true.",
+      "fields": {
+        "name": "Name",
+        "event": "Event",
+        "url": "Webhook URL",
+        "spike_factor": "Spike factor (× baseline)",
+        "threshold": "Threshold (0–1)",
+        "min_calls": "Min calls"
+      },
+      "creating": "Creating…",
+      "create_rule": "Create rule",
+      "errors_create": {
+        "name_required": "Name is required.",
+        "url_required": "Webhook URL is required.",
+        "threshold_invalid": "Threshold must be a plain number.",
+        "min_calls_invalid": "Minimum calls must be a plain number.",
+        "create_failed": "Failed to create rule."
+      }
+    },
+    "approvals": {
+      "title": "Approvals",
+      "subtitle": "Tool calls awaiting human approval.",
+      "tab_aria": "Approval status",
+      "tab": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "all": "All"
+      },
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "breakdown_title": "Status breakdown",
+      "by": "by",
+      "note_placeholder": "Note…",
+      "aria": {
+        "note_for_id": "Note for approval #{id}"
+      },
+      "table": {
+        "client_tool": "Client / Tool",
+        "args": "Args",
+        "requested": "Requested",
+        "decision": "Decision",
+        "approve": "Approve",
+        "deny": "Deny"
+      },
+      "empty": {
+        "nothing_pending": "Nothing waiting for review right now.",
+        "no_items_for_tab": "No {tab} approvals yet. Requests show up here once a tool is configured to require approval before its upstream call runs."
+      },
+      "confirm": {
+        "reject_title": "Reject this call?",
+        "reject_message": "This will deny {client}'s pending call to {tool}. This cannot be undone.",
+        "reject_cta": "Reject call"
+      },
+      "errors": {
+        "load_failed": "Failed to load approvals.",
+        "action_failed": "Failed to {action} approval #{id}."
+      }
+    },
+    "composites": {
+      "title": "Composites",
+      "subtitle": "Composite tools — each one chains several tool calls into a single MCP-callable.",
+      "create": "Create composite",
+      "search": "Search by name…",
+      "table": {
+        "name": "Name",
+        "description": "Description",
+        "steps": "Steps",
+        "enabled": "Enabled",
+        "enable": "Enable",
+        "disable": "Disable"
+      },
+      "empty": {
+        "no_composites": "No composite tools yet. A composite chains multiple tool calls so a single MCP request triggers a sequence.",
+        "no_match": "No composite tools match your filters."
+      },
+      "confirm": {
+        "delete_title": "Delete this composite?",
+        "delete_message": "MCP clients calling '{name}' will start failing immediately. This cannot be undone.",
+        "delete_label": "Delete {name}"
+      },
+      "errors": {
+        "load_failed": "Failed to load composites.",
+        "update_failed": "Failed to update."
+      },
+      "new": {
+        "title": "New composite",
+        "subtitle_p1": "Chains several existing tool calls into one, exposed on the aggregated MCP endpoint. Each step forwards to a real",
+        "subtitle_p2": "through the full guard stack.",
+        "fields": {
+          "name": "Name",
+          "description": "Description",
+          "schema": "Input schema (JSON)",
+          "steps": "Steps (JSON array)"
+        },
+        "placeholders": {
+          "name": "lowercase, no '__'",
+          "description": "Optional"
+        },
+        "templates": {
+          "label": "Templates:",
+          "or": "or"
+        },
+        "create": "Create composite",
+        "errors": {
+          "name_required": "Name is required.",
+          "name_format": "Lowercase letters, digits, - and _ (max 63 chars); must not contain '__'.",
+          "schema_invalid": "inputSchema is not valid JSON.",
+          "steps_invalid": "steps is not valid JSON.",
+          "create_failed": "Failed to create composite."
+        }
+      }
+    },
+    "composite_detail": {
+      "title": "{name}",
+      "back_to_composites": "Composites",
+      "tabs": {
+        "config": "Config",
+        "steps": "Steps",
+        "settings": "Settings"
+      },
+      "save_changes": "Save changes",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "errors": {
+        "load_failed": "Failed to load composite.",
+        "save_failed": "Failed to save changes.",
+        "delete_failed": "Failed to delete composite."
+      }
+    },
+    "catalog": {
+      "title": "Catalog",
+      "subtitle": "Curated server templates you can install with one click.",
+      "add_entry": "Add catalog entry",
+      "featured": "Featured",
+      "custom": "Custom",
+      "no_description": "No description.",
+      "install_as": "Install as",
+      "installing": "Installing…",
+      "confirm_install": "Confirm install",
+      "table": {
+        "name": "Name",
+        "description": "Description",
+        "install": "Install",
+        "installed": "Installed",
+        "configure": "Configure & install"
+      },
+      "empty": {
+        "no_entries": "No catalog entries yet. The catalog lists one-click installable servers — built-in or admin-added — so registering a new backend doesn't start from a blank form.",
+        "no_match": "No catalog entries match your search."
+      },
+      "confirm": {
+        "delete_title": "Delete catalog entry?",
+        "delete_message": "'{name}' will be removed from the catalog. This does not affect any servers already installed from it.",
+        "delete_label": "Delete {name}"
+      },
+      "errors": {
+        "load_failed": "Failed to load catalog.",
+        "install_failed": "Install failed.",
+        "delete_failed": "Failed to delete catalog entry.",
+        "name_required": "Name is required."
+      },
+      "new": {
+        "title": "Add custom catalog entry",
+        "kind_aria": "Kind",
+        "kind_rest": "REST API",
+        "kind_mcp": "MCP server",
+        "fields": {
+          "slug": "Slug",
+          "name": "Name",
+          "description": "Description (optional)",
+          "health_url": "Health URL",
+          "openapi_url": "OpenAPI URL",
+          "mcp_url": "MCP server URL"
+        },
+        "placeholders": {
+          "slug": "internal-crm-staging",
+          "name": "Internal CRM (staging)",
+          "description": "What this template registers",
+          "health_url": "https://api.example.com/health",
+          "openapi_url": "https://api.example.com/openapi.json",
+          "mcp_url": "https://mcp.example.com/mcp"
+        },
+        "save": "Save entry",
+        "errors": {
+          "slug_name_required": "Slug and name are required.",
+          "create_failed": "Failed to save catalog entry."
+        }
+      }
+    },
+    "config": {
+      "title": "Config",
+      "subtitle": "Export, import and snapshot the live bridge configuration.",
+      "intro_hint": "Export a portable snapshot of admin-authored config (bundles, alerts, per-client guards & overrides), or import one into this instance.",
+      "tabs": {
+        "import_export": "Import / Export",
+        "snapshots": "Snapshots"
+      },
+      "result": {
+        "dry_run": "Dry run — nothing was changed",
+        "import_applied": "Import applied",
+        "rollback_applied": "Rollback applied",
+        "bundles": "Bundles: {count}",
+        "alert_rules": "Alert rules: {count}",
+        "clients_configured": "Clients configured: {count}",
+        "tools_configured": "Tools configured: {count}",
+        "guardrails": "Guardrails: {count}",
+        "consumers": "Consumers: {count}",
+        "skipped_heading": "Skipped ({count}):"
+      },
+      "errors": {
+        "load_failed": "Failed to load configuration."
+      }
+    },
+    "consumers": {
+      "title": "Consumers",
+      "subtitle": "Consumers (teams / apps) own API keys and can carry a monthly call quota and an optional per-end-user rate limit enforced across all their keys.",
+      "create": "New consumer",
+      "name_placeholder": "mobile-app",
+      "monthly_quota_label": "Monthly quota (blank = unlimited)",
+      "end_user_limit_label": "Per-end-user rate limit (calls/min, blank = disabled)",
+      "end_user_limit_value": "{value}/min per user",
+      "unlimited": "Unlimited",
+      "aria": {
+        "toggle_usage": "Toggle usage detail for {name}"
+      },
+      "table": {
+        "name": "Name",
+        "quota": "Quota",
+        "end_user_limit": "Per-end-user limit",
+        "used_this_month": "Used this month"
+      },
+      "usage": {
+        "used_this_month": "Used this month",
+        "monthly_quota": "Monthly quota",
+        "remaining": "Remaining"
+      },
+      "empty": {
+        "no_consumers": "No consumers yet. A consumer groups one or more API keys under a shared monthly quota and rate limit.",
+        "new_consumer": "Create your first consumer",
+        "no_match": "No consumers match your filters."
+      },
+      "confirm": {
+        "delete_title": "Delete this consumer?",
+        "delete_message": "'{name}' will be removed; its keys keep working but become unattributed.",
+        "delete_label": "Delete {name}"
+      },
+      "errors": {
+        "load_failed": "Failed to load consumers.",
+        "update_failed": "Failed to update consumer.",
+        "delete_failed": "Failed to delete consumer.",
+        "usage_detail_failed": "Failed to load usage detail.",
+        "name_required": "Name is required.",
+        "quota_invalid": "Monthly quota must be a plain number, or blank.",
+        "end_user_limit_invalid": "Per-end-user rate limit must be a plain number, or blank."
+      },
+      "new": {
+        "title": "New consumer",
+        "fields": {
+          "name": "Name",
+          "quota": "Monthly quota (blank = unlimited)",
+          "end_user_limit": "Per-end-user rate limit (calls/min, blank = disabled)"
+        },
+        "placeholders": {
+          "name": "mobile-app"
+        },
+        "create": "Create consumer",
+        "errors": {
+          "name_required": "Name is required.",
+          "quota_invalid": "Monthly quota must be a plain number, or blank.",
+          "end_user_limit_invalid": "Per-end-user rate limit must be a plain number, or blank.",
+          "create_failed": "Failed to create consumer."
+        }
+      }
+    },
+    "monitors": {
+      "title": "Monitors",
+      "subtitle": "Synthetic uptime + schema-drift checks, replaying saved examples on a schedule.",
+      "breakdown_title": "Status breakdown",
+      "state": {
+        "healthy": "Healthy",
+        "drift": "Drift detected",
+        "failing": "Failing",
+        "never": "Never checked",
+        "disabled": "Disabled"
+      },
+      "table": {
+        "client_tool": "Client / Tool",
+        "state": "State",
+        "interval": "Interval",
+        "last_checked": "Last checked",
+        "last_error": "Last error"
+      },
+      "empty": {
+        "no_monitors": "No tools are monitored yet. Configure a monitor from a tool's settings in Server detail."
+      },
+      "errors": {
+        "load_failed": "Failed to load monitors. Check your connection and try again.",
+        "toggle_failed": "Failed to update."
+      }
+    },
+    "policies": {
+      "title": "Guard policies",
+      "subtitle": "Reusable rate-limit / timeout templates. Apply one to every tool in a bundle at once — each tool's existing API-key allow-list is left untouched.",
+      "create": "New policy",
+      "create_bundle": "Create bundle",
+      "select_bundle": "Select bundle…",
+      "apply": "Apply",
+      "applying": "Applying…",
+      "notice": {
+        "applied": "Applied \"{name}\" to {applied} tool(s) in bundle \"{bundle}\".",
+        "skipped": "{count} tool(s) were skipped because they no longer exist in the registry."
+      },
+      "table": {
+        "name": "Name",
+        "rate_limit": "Rate/min",
+        "timeout": "Timeout",
+        "apply_to_bundle": "Apply to bundle"
+      },
+      "empty": {
+        "no_policies": "No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each one individually.",
+        "new_policy": "Create your first policy"
+      },
+      "confirm": {
+        "delete_title": "Delete this policy?",
+        "delete_message": "'{name}' will be removed. Already-applied guards on tools are not reverted.",
+        "delete_label": "Delete {name}",
+        "apply_title": "Apply this policy?",
+        "apply_message": "Applying '{name}' will overwrite the existing rate-limit and timeout guards on every tool in the '{bundle}' bundle.",
+        "apply_cta": "Apply policy"
+      },
+      "errors": {
+        "load_failed": "Failed to load policies.",
+        "apply_failed": "Apply failed.",
+        "delete_failed": "Failed to delete policy."
+      },
+      "new": {
+        "title": "New policy",
+        "fields": {
+          "name": "Name",
+          "rate": "Rate limit (calls/min, blank = none)",
+          "timeout": "Timeout (ms, blank = none)"
+        },
+        "placeholders": {
+          "name": "strict"
+        },
+        "create": "Create policy",
+        "errors": {
+          "name_required": "Name is required.",
+          "rate_invalid": "Rate limit must be a plain number (no units), or blank.",
+          "timeout_invalid": "Timeout must be a plain number (no units), or blank.",
+          "create_failed": "Failed to create policy."
+        }
+      }
+    },
+    "schedules": {
+      "title": "Maintenance schedules",
+      "subtitle": "Automatically enables or disables a client or a single tool on a recurring schedule, evaluated once a minute in UTC on the leader instance.",
+      "create": "New schedule",
+      "table": {
+        "target": "Target",
+        "action": "Action",
+        "schedule": "Schedule",
+        "enabled": "Enabled",
+        "enable": "Enable",
+        "disable": "Disable",
+        "last_run": "Last run"
+      },
+      "empty": {
+        "no_schedules": "No schedules yet. A schedule enables or disables a client or tool automatically on a cron interval.",
+        "new_schedule": "Create your first schedule"
+      },
+      "confirm": {
+        "delete_title": "Delete this schedule?",
+        "delete_message": "This schedule ({cron}) for {client}{tool_part} will be removed."
+      },
+      "errors": {
+        "load_failed": "Failed to load schedules.",
+        "toggle_failed": "Failed."
+      },
+      "new": {
+        "title": "New schedule",
+        "subtitle": "Automatically enables or disables a client or a single tool on a recurring schedule, evaluated once a minute in UTC on the leader instance.",
+        "target_types": {
+          "client": "Client",
+          "tool": "Tool"
+        },
+        "actions": {
+          "enable": "enable",
+          "disable": "disable"
+        },
+        "frequencies": {
+          "daily": "Every day",
+          "weekly": "Every week, on specific days",
+          "hourly": "Every hour",
+          "custom": "Custom (cron expression)"
+        },
+        "weekdays": {
+          "sun": "Sun",
+          "mon": "Mon",
+          "tue": "Tue",
+          "wed": "Wed",
+          "thu": "Thu",
+          "fri": "Fri",
+          "sat": "Sat"
+        },
+        "fields": {
+          "type": "Type",
+          "client": "Client",
+          "tool": "Tool",
+          "action": "Action",
+          "frequency": "Frequency",
+          "time": "Time",
+          "days": "Days",
+          "minute": "At minute",
+          "cron": "Cron expression"
+        },
+        "placeholders": {
+          "client": "client name",
+          "tool": "tool name"
+        },
+        "days_aria": "Days of the week",
+        "cron_hint": "Fields:",
+        "runs": "Runs:",
+        "create": "Add schedule",
+        "errors": {
+          "client_required": "Client is required.",
+          "weekdays_required": "Select at least one day.",
+          "cron_required": "Cron expression is required.",
+          "create_failed": "Failed to create schedule."
+        }
+      }
+    },
+    "sso_settings": {
+      "title": "SSO (OIDC)",
+      "subtitle": "Single sign-on configuration for the admin UI.",
+      "settings": "Settings",
+      "client_id": "Client ID",
+      "issuer": "Issuer",
+      "audience": "Audience",
+      "scopes": "Scopes",
+      "saved": "Settings saved.",
+      "errors": {
+        "load_failed": "Failed to load SSO settings.",
+        "save_failed": "Failed to save SSO settings."
+      }
+    },
+    "teams": {
+      "title": "Teams",
+      "subtitle": "Server ownership groups for multi-tenancy.",
+      "create": "New team",
+      "table": {
+        "name": "Name",
+        "description": "Description",
+        "member_count": "Members",
+        "server_count": "Servers",
+        "created": "Created"
+      },
+      "empty": {
+        "no_teams": "No teams yet."
+      },
+      "errors": {
+        "load_failed": "Failed to load teams."
+      },
+      "new": {
+        "title": "New team",
+        "fields": {
+          "name": "Team name"
+        },
+        "placeholders": {
+          "name": "Team name (e.g. Payments)"
+        },
+        "create": "Create team",
+        "errors": {
+          "name_required": "Name is required.",
+          "create_failed": "Failed to create team."
+        }
+      }
+    },
+    "teams": {
+      "title": "Teams",
+      "subtitle": "Teams own clients; a team-scoped admin only sees and manages its own team's servers. Super-admins (admin role with no team) manage teams and assign ownership. Assign a client's team from its detail page.",
+      "new_team": "New team",
+      "table": {
+        "id": "ID",
+        "name": "Name",
+        "created": "Created"
+      },
+      "empty": "No teams yet. A team groups servers under shared ownership, so operator-role admins only see and manage what's assigned to their team.",
+      "confirm": {
+        "delete_title": "Delete this team?",
+        "delete_message": "Delete team '{name}'? Its servers and users become unowned.",
+        "delete_cta": "Delete {name}"
+      },
+      "errors": {
+        "load_failed": "Failed to load teams.",
+        "delete_failed": "Failed to delete team."
+      }
+    },
+    "sso_settings": {
+      "title": "Single sign-on (OIDC)",
+      "subtitle": "Let admins sign in through an external identity provider (Okta, Azure AD, Google Workspace, Auth0, or any OIDC-compliant IdP) via Authorization Code + PKCE, instead of — or alongside — the built-in username/password login. SAML is not supported.",
+      "fields": {
+        "issuer": "Issuer URL",
+        "client_id": "Client ID",
+        "client_secret": "Client secret",
+        "redirect_uri": "Redirect URI",
+        "scopes": "Scopes"
+      },
+      "placeholders": {
+        "secret_configured": "Configured — required again every time you save"
+      },
+      "hints": {
+        "issuer_p1": "The bridge fetches",
+        "issuer_p2": "— no need to enter individual endpoints.",
+        "client_secret": "Write-only: stored encrypted at rest and never shown again once saved — re-enter it on every save, even one that only changes another field below.",
+        "redirect_uri": "Must exactly match a redirect URI registered with the identity provider.",
+        "scopes_p1": "Must include",
+        "scopes_p2": "."
+      },
+      "provisioning": {
+        "label": "New SSO users are provisioned as",
+        "role": "viewer",
+        "p1": "— always, regardless of any other setting. An existing admin must manually promote a new SSO user from the",
+        "p2": "page after reviewing them."
+      },
+      "enable_label": "Enable SSO login (shows a \"Sign in with SSO\" button on the login page)",
+      "save": "Save SSO settings",
+      "saved": "SSO settings saved.",
+      "errors": {
+        "load_failed": "Failed to load SSO settings.",
+        "save_failed": "Failed to save SSO settings.",
+        "required_fields": "Issuer, client ID, and redirect URI are required.",
+        "secret_required": "Client secret is required.",
+        "secret_required_for_update": "Re-enter the client secret to save changes — it's never stored in a way this page can read back."
+      }
+    },
+    "users": {
+      "title": "Users",
+      "add_user": "Add user",
+      "empty": "No admin users yet. Every person who signs in to this panel needs their own account here — shared logins aren't supported.",
+      "you_tag": "(you)",
+      "yes": "Yes",
+      "no": "No",
+      "roles": {
+        "admin": "admin",
+        "operator": "operator",
+        "auditor": "auditor",
+        "viewer": "viewer"
+      },
+      "team": {
+        "none": "None (super-admin)",
+        "change_locked": "Only super-admins can change this.",
+        "create": "Create team"
+      },
+      "last_admin_locked": "Cannot change the last active admin — promote another user first.",
+      "table": {
+        "username": "Username",
+        "role": "Role",
+        "team": "Team",
+        "active": "Active",
+        "last_login": "Last login"
+      },
+      "confirm": {
+        "delete_title": "Delete this user?",
+        "delete_message": "'{username}' will lose access immediately and all their sessions will be revoked.",
+        "delete_cta": "Delete {username}",
+        "role_title": "Change this user's role?",
+        "role_self": "You are changing your own role from '{current}' to '{next}'. This may immediately restrict what you can do in this admin panel.",
+        "role_other": "Change '{username}'s role from '{current}' to '{next}'?",
+        "role_cta": "Change to {next}",
+        "role_cta_default": "Change role",
+        "team_title": "Change this user's team?",
+        "team_base": "Assign '{username}' to {team}?",
+        "team_self_warning": "You are scoping your own account — you will lose super-admin access (team management, cross-team visibility) immediately.",
+        "team_cta": "Assign to {team}",
+        "team_cta_default": "Assign team"
+      },
+      "errors": {
+        "load_failed": "Failed to load users.",
+        "teams_load_failed": "Failed to load teams.",
+        "update_role_failed": "Failed to update role.",
+        "assign_team_failed": "Failed to assign team (super-admin only).",
+        "delete_failed": "Failed to delete user."
+      },
+      "new": {
+        "title": "Add user",
+        "fields": {
+          "username": "Username",
+          "password": "Password (min 12 chars)",
+          "role": "Role"
+        },
+        "roles": {
+          "admin": "Admin",
+          "operator": "Operator",
+          "auditor": "Auditor",
+          "viewer": "Viewer"
+        },
+        "create": "Create user",
+        "errors": {
+          "password_too_short": "Password must be at least 12 characters.",
+          "create_failed": "Failed to create user."
+        }
+      }
+    },
+    "usage": {
+      "title": "Usage",
+      "time_window_aria": "Time window",
+      "stat": {
+        "calls": "Calls",
+        "errors": "Errors",
+        "error_rate": "Error rate",
+        "avg_latency": "Avg latency",
+        "max_latency": "Max latency",
+        "active_tools": "Active tools"
+      },
+      "chart": {
+        "calls_errors": "Calls & errors over time",
+        "primary_label": "Calls",
+        "secondary_label": "Errors",
+        "top_tools": "Top tools by calls",
+        "calls_by_key": "Calls by API key"
+      },
+      "section": {
+        "top_tools": "Top tools",
+        "by_key": "By API key"
+      },
+      "table": {
+        "client": "Client",
+        "tool": "Tool",
+        "calls": "Calls",
+        "errors": "Errors",
+        "error_rate": "Error rate",
+        "avg": "Avg",
+        "max": "Max",
+        "key": "Key"
+      },
+      "errors_hint": "{count} err",
+      "truncated_hint": "Showing the top 20 — narrower windows or filtering may reveal others.",
+      "empty": {
+        "no_calls": "No calls recorded in this window.",
+        "no_attributed": "No attributed calls in this window."
+      },
+      "errors": {
+        "load_failed": "Failed to load usage."
+      }
+    },
+    "traffic": {
+      "title": "Traffic",
+      "subtitle_p1": "Captured request/response calls. Capture is opt-in",
+      "subtitle_p2": "on the server) — an empty list here can mean either capture is off or there's genuinely nothing recent.",
+      "filters": {
+        "client_label": "Client name",
+        "tool_label": "Tool name"
+      },
+      "errors_only": "Errors only",
+      "filter_button": "Filter",
+      "filtering": "Filtering…",
+      "pagination_label": "{count} record(s) on this page",
+      "empty_p1": "If",
+      "empty_p2": "isn't set on the server, calls aren't being recorded — enable it, then check back after your next request.",
+      "chart": {
+        "title": "Call volume",
+        "primary_label": "Calls",
+        "secondary_label": "Errors"
+      },
+      "table": {
+        "time": "Time",
+        "client_tool": "Client / Tool",
+        "duration": "Duration",
+        "status": "Status",
+        "status_ok": "OK",
+        "status_error": "Error",
+        "preview": "Preview"
+      },
+      "replay": {
+        "replay": "Replay",
+        "replaying": "Replaying…",
+        "tooltip": "Sends this call to the upstream tool again, right now.",
+        "no_content": "(no content)",
+        "note_p1": "Replayed call #{id} against the upstream tool —",
+        "succeeded": "succeeded",
+        "failed": "failed"
+      },
+      "confirm": {
+        "replay_title": "Replay this call?",
+        "replay_message": "This sends '{name}' to the live upstream again, right now, with the same arguments — including any side effects (writes, refunds, deletes) the original call had.",
+        "replay_cta": "Replay {name}"
+      },
+      "errors": {
+        "load_failed": "Failed to load traffic. Check your connection and try again.",
+        "replay_failed": "Replay failed."
+      }
+    },
+    "ws_proxy_targets": {
+      "title": "WS proxy targets",
+      "subtitle_p1": "Live, bidirectional WebSocket passthrough to a raw backend service, served at",
+      "subtitle_p2": ". Distinct from a registered server — a target has no tools.",
+      "new_target": "New target",
+      "fields": {
+        "name": "Name",
+        "backend_url": "Backend WebSocket URL",
+        "max_connections": "Max concurrent connections (blank = default)",
+        "max_message_bytes": "Max message size, bytes (blank = default)",
+        "idle_timeout": "Idle timeout, minutes (blank = default)"
+      },
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "disconnecting": "Disconnecting…",
+      "disconnect_all": "Disconnect all",
+      "save_changes": "Save changes",
+      "saving": "Saving…",
+      "table": {
+        "name": "Name",
+        "backend_url": "Backend URL",
+        "connections": "Connections",
+        "enabled": "Enabled"
+      },
+      "empty": "No WS proxy targets yet. A target lets MCP tools dispatch over a persistent WebSocket connection to a backend service instead of plain REST.",
+      "confirm": {
+        "delete_title": "Delete this WS proxy target?",
+        "delete_message": "'{name}' will be removed and any live connections force-closed.",
+        "delete_cta": "Delete {name}",
+        "disconnect_title": "Disconnect all sessions?",
+        "disconnect_message": "'{name}' has {count} live connection(s); disconnecting will force-close all of them and drop any in-flight messages."
+      },
+      "errors": {
+        "load_failed": "Failed to load WS proxy targets.",
+        "toggle_failed": "Failed to update target.",
+        "name_and_url_required": "Name and backend WebSocket URL are required.",
+        "max_connections_invalid": "Max connections must be a plain number, or blank.",
+        "max_message_bytes_invalid": "Max message size must be a plain number, or blank.",
+        "idle_timeout_invalid": "Idle timeout must be a plain number, or blank.",
+        "save_failed": "Failed to save target.",
+        "disconnect_failed": "Failed to disconnect.",
+        "delete_failed": "Failed to delete target.",
+        "create_failed": "Failed to create target."
+      },
+      "placeholders": {
+        "name": "iot-gateway",
+        "backend_url": "wss://backend.example.com/socket"
+      },
+      "new": {
+        "title": "New WS proxy target",
+        "create": "Create target"
+      }
+    },
+    "traces": {
+      "title": "Traces",
+      "subtitle_p1": "Per-call span timing for a built-in waterfall view — independent of any external OTLP collector. Opt-in",
+      "subtitle_p2": "on the server) — an empty list can mean either storage is off or there's genuinely nothing recent.",
+      "table": {
+        "started": "Started",
+        "tool": "Tool",
+        "session": "Session",
+        "spans": "Spans",
+        "duration": "Duration",
+        "status": "Status",
+        "status_ok": "OK",
+        "status_error": "Error"
+      },
+      "top_sessions": "Top sessions by call volume",
+      "tool_placeholder": "Tool name (e.g. github__search_issues)",
+      "session_placeholder": "Session id",
+      "filter_button": "Filter",
+      "purge_all": "Purge all",
+      "pagination_label": "{count} trace(s) on this page",
+      "back_to_list": "Back to traces",
+      "detail_title": "Trace {id}",
+      "detail_not_found": "Trace not found.",
+      "detail_attributes_summary": "Attributes (last span)",
+      "confirm": {
+        "purge_title": "Purge all traces?",
+        "purge_message": "Deletes every persisted span. This cannot be undone.",
+        "purge_cta": "Purge all"
+      },
+      "empty": {
+        "no_traces": "No traces recorded yet."
+      },
+      "empty": {
+        "no_traces": "No traces yet — once calls flow, they'll appear here."
+      },
+      "errors": {
+        "load_failed": "Failed to load traces.",
+        "purge_failed": "Failed to purge traces.",
+        "detail_load_failed": "Failed to load trace."
+      }
+    },
+    "not_found": {
+      "title": "Page not found",
+      "subtitle": "The URL you followed doesn't map to any view in this bridge.",
+      "go_servers": "Back to servers",
+      "go_overview": "Dashboard"
+    },
+    "traffic": {
+      "title": "Traffic",
+      "subtitle": "Captured tool call arguments and response previews.",
+      "filter_state": "Captured",
+      "state_all": "All",
+      "state_yes": "Captured only",
+      "state_no": "Not captured",
+      "table": {
+        "tool": "Tool",
+        "client": "Client",
+        "captured_at": "Captured at",
+        "duration": "Duration",
+        "actions": "Actions"
+      },
+      "empty": {
+        "no_traffic": "Traffic capture is off — turn it on with the TRAFFIC_CAPTURE env var."
+      },
+      "errors": {
+        "load_failed": "Failed to load traffic."
+      }
+    },
+    "usage": {
+      "title": "Usage",
+      "subtitle": "Call volume and latency over a window.",
+      "filter_window": "Window",
+      "window_24h": "Last 24 hours",
+      "window_7d": "Last 7 days",
+      "window_30d": "Last 30 days",
+      "errors": {
+        "load_failed": "Failed to load usage."
+      }
+    },
+    "users": {
+      "title": "Users",
+      "subtitle": "Admin users who can sign in to this bridge.",
+      "create": "New user",
+      "table": {
+        "username": "Username",
+        "role": "Role",
+        "created": "Created",
+        "last_login": "Last login"
+      },
+      "empty": {
+        "no_users": "No users yet."
+      },
+      "errors": {
+        "load_failed": "Failed to load users.",
+        "delete_failed": "Failed to delete user."
+      }
+    },
+    "ws_proxies": {
+      "title": "WebSocket proxies",
+      "subtitle": "Persistent WebSocket passthrough targets.",
+      "create": "New proxy",
+      "table": {
+        "name": "Name",
+        "url": "URL",
+        "connections": "Connections",
+        "enabled": "Enabled",
+        "actions": "Actions"
+      },
+      "empty": {
+        "no_proxies": "No WebSocket proxies yet."
+      },
+      "errors": {
+        "load_failed": "Failed to load WebSocket proxies.",
+        "toggle_failed": "Failed to update."
+      }
+    },
+    "not_found": {
+      "title": "Not found",
+      "subtitle": "The page you're looking for doesn't exist (or no longer does).",
+      "go_servers": "Go to servers",
+      "go_overview": "Go to overview"
+    },
+    "catalog_new": { "title": "New catalog entry", "back_to_catalog": "Catalog" },
+    "composite_new": { "title": "New composite", "back_to_composites": "Composites" },
+    "consumer_new": { "title": "New consumer", "back_to_consumers": "Consumers" },
+    "policy_new": { "title": "New policy", "back_to_policies": "Policies" },
+    "schedule_new": { "title": "New schedule", "back_to_schedules": "Schedules" },
+    "team_new": { "title": "New team", "back_to_teams": "Teams" },
+    "user_new": { "title": "New user", "back_to_users": "Users" },
+    "alert_new": { "title": "New alert", "back_to_alerts": "Alerts" },
+    "api_key_new": { "title": "Mint API key", "back_to_keys": "API keys" },
+    "ws_proxy_new": { "title": "New WebSocket proxy", "back_to_proxies": "WebSocket proxies" },
+    "monitor_new": { "title": "New monitor", "back_to_monitors": "Monitors" },
+    "bundle_detail": { "title": "{name}", "back_to_bundles": "Bundles" },
+    "bundle_new": { "title": "New bundle", "back_to_bundles": "Bundles" },
+    "server_detail": { "title": "{name}", "back_to_servers": "Servers" }
   }
 }

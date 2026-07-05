@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useCursorPagination } from "@/composables/useCursorPagination";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime, prettyJson } from "@/utils/format";
 import { downloadTextFile } from "@/utils/download";
+import { i18n } from "../i18n";
 import type { AuditLogEntry, PaginatedResult } from "@/types/api";
 import { ScrollText, CheckCircle2, XCircle } from "lucide-vue-next";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -15,15 +17,17 @@ import SearchInput from "@/components/ui/SearchInput.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 
+const { t } = useI18n({ useScope: "global" });
+const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
+
 const actorFilter = ref("");
 const actionFilter = ref("");
-const fromDate = ref(""); // yyyy-mm-dd, from <input type="date">
+const fromDate = ref("");
 const toDate = ref("");
 
-/** Known action values already present in the log, for the action filter's dropdown. Falls back to a free-text input if this comes back empty. */
 const knownActions = ref<string[]>([]);
 const actionOptions = computed(() => [
-  { value: "", label: "All actions" },
+  { value: "", label: t("pages.audit_log.filter.all_actions") },
   ...knownActions.value.map((a) => ({ value: a, label: a })),
 ]);
 async function loadActions() {
@@ -35,18 +39,17 @@ async function loadActions() {
   }
 }
 
-const hasActiveFilters = computed(() => !!(actorFilter.value || actionFilter.value || fromDate.value || toDate.value));
+const hasActiveFilters = computed(
+  () => !!(actorFilter.value || actionFilter.value || fromDate.value || toDate.value),
+);
 
-/** Local midnight of the given yyyy-mm-dd, inclusive lower bound. */
 function dateStartMs(dateStr: string): number {
   return new Date(`${dateStr}T00:00:00`).getTime();
 }
-/** The last instant of the given yyyy-mm-dd, inclusive upper bound. */
 function dateEndMs(dateStr: string): number {
   return new Date(`${dateStr}T23:59:59.999`).getTime();
 }
 
-/** Shared by both the list view and the export download — keeps the two filter sets from drifting apart. */
 function buildFilterParams(): URLSearchParams {
   const params = new URLSearchParams();
   if (actorFilter.value) params.set("actor", actorFilter.value);
@@ -55,6 +58,10 @@ function buildFilterParams(): URLSearchParams {
   if (toDate.value) params.set("to", String(dateEndMs(toDate.value)));
   return params;
 }
+
+const loadFallback = tk("pages.audit_log.errors.load_failed");
+const exportFallback = tk("pages.audit_log.errors.export_failed");
+const verifyFallback = tk("pages.audit_log.errors.verify_failed");
 
 const {
   items: entries,
@@ -69,7 +76,7 @@ const {
     if (cursor) params.set("cursor", cursor);
     return api.get<PaginatedResult<AuditLogEntry>>(`/admin-api/audit-log?${params.toString()}`);
   },
-  { fallbackMessage: "Failed to load audit log." },
+  { fallbackMessage: loadFallback },
 );
 
 function applyFilter() {
@@ -85,11 +92,11 @@ function clearFilters() {
 }
 
 const exportFormat = ref<"json" | "csv" | "html">("json");
-const EXPORT_FORMAT_OPTIONS: { value: "json" | "csv" | "html"; label: string }[] = [
-  { value: "json", label: "JSON" },
-  { value: "csv", label: "CSV" },
-  { value: "html", label: "HTML report" },
-];
+const EXPORT_FORMAT_OPTIONS = computed(() => [
+  { value: "json" as const, label: t("pages.audit_log.export.json") },
+  { value: "csv" as const, label: t("pages.audit_log.export.csv") },
+  { value: "html" as const, label: t("pages.audit_log.export.html") },
+]);
 const exporting = ref(false);
 const EXPORT_MIME: Record<"json" | "csv" | "html", string> = {
   json: "application/json",
@@ -103,10 +110,6 @@ async function exportLog() {
   try {
     const params = buildFilterParams();
     params.set("format", exportFormat.value);
-    // JSON keeps its original pretty-printed-items-array shape for backwards
-    // compatibility with anyone already relying on this download; CSV/HTML are
-    // opaque text the backend renders — both flow through the same
-    // getRaw-then-Blob download, just with a different format= and mime type.
     const content =
       exportFormat.value === "json"
         ? prettyJson(
@@ -115,7 +118,7 @@ async function exportLog() {
         : await api.getRaw(`/admin-api/audit-log/export?${params.toString()}`);
     downloadTextFile(`audit-log.${exportFormat.value}`, content, EXPORT_MIME[exportFormat.value]);
   } catch (err) {
-    errorMessage.value = toErrorMessage(err, "Export failed.");
+    errorMessage.value = toErrorMessage(err, exportFallback);
   } finally {
     exporting.value = false;
   }
@@ -132,7 +135,7 @@ async function verifyIntegrity() {
       "/admin-api/audit-log/verify",
     );
   } catch (err) {
-    errorMessage.value = toErrorMessage(err, "Verification failed.");
+    errorMessage.value = toErrorMessage(err, verifyFallback);
   } finally {
     verifying.value = false;
   }
@@ -146,77 +149,74 @@ onMounted(() => {
 
 <template>
   <section>
-    <PageHeader title="Audit log" subtitle="Who changed what, and when." />
+    <PageHeader :title="t('pages.audit_log.title')" :subtitle="t('pages.audit_log.subtitle')" />
 
     <form class="filters" @submit.prevent="applyFilter">
       <div class="field">
-        <label for="actor-filter">Actor</label>
-        <SearchInput v-model="actorFilter" placeholder="Filter by actor…" />
+        <label for="actor-filter">{{ t('pages.audit_log.filter.actor') }}</label>
+        <SearchInput v-model="actorFilter" :placeholder="t('pages.audit_log.filter.actor_placeholder')" />
       </div>
 
       <div class="field">
-        <label for="action-filter">Action</label>
+        <label for="action-filter">{{ t('pages.audit_log.filter.action') }}</label>
         <SelectMenu v-if="knownActions.length" id="action-filter" v-model="actionFilter" :options="actionOptions" />
-        <SearchInput v-else v-model="actionFilter" placeholder="Filter by action…" />
+        <SearchInput v-else v-model="actionFilter" :placeholder="t('pages.audit_log.filter.action_placeholder')" />
       </div>
 
       <div class="field">
-        <label for="from-filter">From</label>
+        <label for="from-filter">{{ t('pages.audit_log.filter.from') }}</label>
         <input id="from-filter" v-model="fromDate" type="date" />
       </div>
 
       <div class="field">
-        <label for="to-filter">To</label>
+        <label for="to-filter">{{ t('pages.audit_log.filter.to') }}</label>
         <input id="to-filter" v-model="toDate" type="date" />
       </div>
 
-      <button type="submit" class="btn-secondary">Apply</button>
-      <button v-if="hasActiveFilters" type="button" class="link-btn" @click="clearFilters">Clear</button>
+      <button type="submit" class="btn-secondary">{{ t('common.apply') }}</button>
+      <button v-if="hasActiveFilters" type="button" class="link-btn" @click="clearFilters">{{ t('pages.audit_log.filter.clear') }}</button>
 
       <div class="field export-field">
-        <label for="export-format">Export as</label>
+        <label for="export-format">{{ t('pages.audit_log.filter.export_as') }}</label>
         <SelectMenu id="export-format" v-model="exportFormat" :options="EXPORT_FORMAT_OPTIONS" />
       </div>
       <button type="button" class="btn-secondary" :disabled="exporting" @click="exportLog">
-        {{ exporting ? "Exporting…" : "Export" }}
+        {{ exporting ? t('pages.audit_log.exporting') : t('pages.audit_log.export.cta') }}
       </button>
     </form>
 
     <div class="integrity-actions">
       <button type="button" class="btn-secondary" :disabled="verifying" @click="verifyIntegrity">
-        {{ verifying ? "Verifying…" : "Verify integrity" }}
+        {{ verifying ? t('pages.audit_log.verifying') : t('pages.audit_log.verify_cta') }}
       </button>
     </div>
 
     <p v-if="integrity" class="integrity" :class="integrity.ok ? 'ok' : 'broken'">
       <CheckCircle2 v-if="integrity.ok" :size="16" stroke-width="2" aria-hidden="true" />
       <XCircle v-else :size="16" stroke-width="2" aria-hidden="true" />
-      <span v-if="integrity.ok">Chain intact — {{ integrity.checked }} entries verified.</span>
-      <span v-else
-        >Tampering detected — chain breaks at entry #{{ integrity.brokenAtId }} (after {{ integrity.checked }} valid).
-        Escalate to security and do not trust entries after this point.</span
-      >
+      <span v-if="integrity.ok">{{ t('pages.audit_log.integrity_ok', { count: integrity.checked }) }}</span>
+      <span v-else>{{ t('pages.audit_log.integrity_broken', { id: integrity.brokenAtId, count: integrity.checked }) }}</span>
     </p>
 
     <ListLayout :loading="loading && !entries.length" :error="errorMessage" :empty="entries.length === 0">
       <template #empty>
         <EmptyState :icon="ScrollText">
           <template v-if="hasActiveFilters">
-            No entries match these filters.
-            <button type="button" class="link-btn" @click="clearFilters">Clear filters</button>
+            {{ t('pages.audit_log.empty.no_match') }}
+            <button type="button" class="link-btn" @click="clearFilters">{{ t('pages.audit_log.filter.clear') }}</button>
           </template>
-          <template v-else>No audit entries yet.</template>
+          <template v-else>{{ t('pages.audit_log.empty.no_entries') }}</template>
         </EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>When</th>
-            <th>Actor</th>
-            <th>Action</th>
-            <th>Target</th>
-            <th>Detail</th>
+            <th>{{ t('pages.audit_log.table.when') }}</th>
+            <th>{{ t('pages.audit_log.table.actor') }}</th>
+            <th>{{ t('pages.audit_log.table.action') }}</th>
+            <th>{{ t('pages.audit_log.table.target') }}</th>
+            <th>{{ t('pages.audit_log.table.detail') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -235,7 +235,7 @@ onMounted(() => {
                 :text="prettyJson(entry.detail)"
                 class="detail-trigger"
               >
-                View
+                {{ t('pages.audit_log.table.view') }}
               </HoverPreview>
               <span v-else class="detail-none">—</span>
             </td>
@@ -245,7 +245,7 @@ onMounted(() => {
     </ListLayout>
 
     <button v-if="hasNext" type="button" class="btn-secondary" :disabled="loading" @click="loadMore">
-      {{ loading ? "Loading…" : "Load more" }}
+      {{ loading ? t('common.loading') : t('common.load_more') }}
     </button>
   </section>
 </template>
@@ -276,21 +276,15 @@ onMounted(() => {
 .export-field {
   margin-left: auto;
 }
-/* SearchInput's own recipe has no max-width; this page constrains it so the
-   two search fields don't grow unbounded in the flex filter row. */
 :deep(.search-input) {
   max-width: 16.25rem;
 }
 .integrity-actions {
   margin-bottom: 1.25rem;
 }
-/* TableCard's global .data-table recipe hardcodes font-size; this page
-   needs a slightly smaller type size. */
 :deep(.data-table) {
   font-size: 0.88rem;
 }
-/* TableCard's own recipe has no bottom margin; this page needs a gap before
-   the "Load more" button below it. */
 :deep(.table-card) {
   margin-bottom: 1rem;
 }

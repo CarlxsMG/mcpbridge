@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { Combine } from "lucide-vue-next";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
+import { i18n } from "../i18n";
 import type { CompositeSummary } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -15,6 +17,12 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 
+const { t } = useI18n({ useScope: "global" });
+const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
+
+const loadFallback = tk("pages.composites.errors.load_failed");
+const toggleFallback = tk("pages.composites.errors.update_failed");
+
 const {
   data: items,
   loading,
@@ -23,9 +31,9 @@ const {
 } = useResource<CompositeSummary[]>(
   async () => (await api.get<{ items: CompositeSummary[] }>("/admin-api/composites")).items,
   [],
-  "Failed to load composites.",
+  loadFallback,
 );
-const { rowError: toggleError, toggle } = useOptimisticToggle<CompositeSummary>((c) => c.name, "Failed to update.");
+const { rowError: toggleError, toggle } = useOptimisticToggle<CompositeSummary>((c) => c.name, toggleFallback);
 
 onMounted(load);
 
@@ -46,7 +54,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/composites/${encodeURIComponent(c.name)}`);
       await load();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to delete.");
+      errorMessage.value = toErrorMessage(err, toggleFallback);
     }
   });
 }
@@ -54,29 +62,23 @@ function confirmDelete() {
 
 <template>
   <section>
-    <PageHeader title="Composite tools">
-      <RouterLink to="/composites/new" class="btn-primary">New composite</RouterLink>
+    <PageHeader :title="t('pages.composites.title')">
+      <RouterLink to="/composites/new" class="btn-primary">{{ t('pages.composites.create') }}</RouterLink>
     </PageHeader>
-    <p class="subtitle">
-      Chains several existing tool calls into one, exposed on the aggregated MCP endpoint. Each step forwards to a real
-      <code>client__tool</code> through the full guard stack.
-    </p>
+    <p class="subtitle">{{ t('pages.composites.subtitle') }}</p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
       <template #empty>
-        <EmptyState :icon="Combine">
-          No composite tools yet. A composite chains several existing tool calls into one, exposed on the aggregated MCP
-          endpoint.
-        </EmptyState>
+        <EmptyState :icon="Combine">{{ t('pages.composites.empty.no_composites') }}</EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Steps</th>
-            <th>Enabled</th>
+            <th>{{ t('pages.composites.table.name') }}</th>
+            <th>{{ t('pages.composites.table.description') }}</th>
+            <th>{{ t('pages.composites.table.steps') }}</th>
+            <th>{{ t('pages.composites.table.enabled') }}</th>
             <th></th>
           </tr>
         </thead>
@@ -92,14 +94,14 @@ function confirmDelete() {
             <td>
               <TogglePill
                 :on="c.enabled"
-                on-label="Disable composite"
-                off-label="Enable composite"
+                :on-label="t('pages.composites.table.disable')"
+                :off-label="t('pages.composites.table.enable')"
                 :aria-pressed="c.enabled"
                 @click="toggleEnabled(c)"
               />
               <p v-if="toggleError[c.name]" class="row-error">{{ toggleError[c.name] }}</p>
             </td>
-            <td><button type="button" class="link-btn danger" @click="requestDelete(c)">Delete</button></td>
+            <td><button type="button" class="link-btn danger" @click="requestDelete(c)">{{ t('common.delete') }}</button></td>
           </tr>
         </tbody>
       </TableCard>
@@ -107,13 +109,13 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete this composite?"
+      :title="t('pages.composites.confirm.delete_title')"
       :message="
         pendingDelete
-          ? `MCP clients calling '${pendingDelete.name}' will start failing immediately. This cannot be undone.`
+          ? t('pages.composites.confirm.delete_message', { name: pendingDelete.name })
           : ''
       "
-      :confirm-label="pendingDelete ? `Delete ${pendingDelete.name}` : 'Delete'"
+      :confirm-label="pendingDelete ? t('pages.composites.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"

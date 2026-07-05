@@ -39,6 +39,7 @@
     "create_new": "Crear nuevo",
     "page": "Página",
     "endpoint": "Endpoint",
+    "load_more": "Cargar más",
     "of": "de",
     "showing": "Mostrando",
     "results": "resultados",
@@ -58,7 +59,14 @@
     "unsaved_changes": "Tienes cambios sin guardar. ¿Descartarlos?",
     "discard": "Descartar",
     "keep_editing": "Seguir editando",
-    "current_locale": "Idioma"
+    "current_locale": "Idioma",
+    "done": "Listo",
+    "creating": "Creando…",
+    "time_windows": {
+      "last_24h": "Últimas 24 horas",
+      "last_7d": "Últimos 7 días",
+      "last_30d": "Últimos 30 días"
+    }
   },
   "nav": {
     "groups": {
@@ -67,29 +75,98 @@
       "Observability": "Observabilidad",
       "Administration": "Administración"
     },
-    "servers": { "label": "Servidores", "hint": "Lista y administra servidores upstream" },
-    "register-server": { "label": "Añadir servidor", "hint": "Registra un nuevo upstream" },
-    "catalog": { "label": "Catálogo", "hint": "Explora e instala servidores con un clic" },
-    "bundles": { "label": "Bundles", "hint": "Selecciones de herramientas entre clientes" },
-    "composites": { "label": "Compuestos", "hint": "Llamadas encadenadas a herramientas" },
-    "ws-proxies": { "label": "Proxies WS", "hint": "Destinos de pasarela WebSocket" },
-    "keys": { "label": "API keys", "hint": "Credenciales de cliente MCP" },
-    "policies": { "label": "Políticas", "hint": "Plantillas reutilizables de rate-limit/timeout" },
-    "consumers": { "label": "Consumidores", "hint": "Propietarios de keys con cuota" },
-    "approvals": { "label": "Aprobaciones", "hint": "Cola de aprobación human-in-the-loop" },
-    "overview": { "label": "Resumen", "hint": "Vista rápida de la instancia del bridge" },
-    "usage": { "label": "Uso", "hint": "Volumen de llamadas y latencia" },
-    "traffic": { "label": "Tráfico", "hint": "Llamadas request/response capturadas" },
-    "traces": { "label": "Trazas", "hint": "Spans y cascadas por llamada" },
-    "monitors": { "label": "Monitores", "hint": "Chequeos sintéticos de uptime y drift de schema" },
-    "alerts": { "label": "Alertas", "hint": "Reglas de alertas por webhook" },
-    "schedules": { "label": "Programaciones", "hint": "Trabajos cron de habilitar/deshabilitar" },
-    "audit-log": { "label": "Log de auditoría", "hint": "Acciones admin encadenadas por hash" },
-    "users": { "label": "Usuarios", "hint": "Cuentas de administrador" },
-    "teams": { "label": "Equipos", "hint": "Grupos de propietarios de servidores" },
-    "config": { "label": "Configuración", "hint": "Exportar, importar, snapshots" },
-    "sso": { "label": "SSO", "hint": "Ajustes de inicio de sesión único (OIDC)" },
-    "account": { "label": "Cuenta", "hint": "Tu perfil, contraseña y sesiones" }
+    "servers": {
+      "label": "Servidores",
+      "hint": "Lista y administra servidores upstream"
+    },
+    "register-server": {
+      "label": "Añadir servidor",
+      "hint": "Registra un nuevo upstream"
+    },
+    "catalog": {
+      "label": "Catálogo",
+      "hint": "Explora e instala servidores con un clic"
+    },
+    "bundles": {
+      "label": "Bundles",
+      "hint": "Selecciones de herramientas entre clientes"
+    },
+    "composites": {
+      "label": "Compuestos",
+      "hint": "Llamadas encadenadas a herramientas"
+    },
+    "ws-proxies": {
+      "label": "Proxies WS",
+      "hint": "Destinos de pasarela WebSocket"
+    },
+    "keys": {
+      "label": "API keys",
+      "hint": "Credenciales de cliente MCP"
+    },
+    "policies": {
+      "label": "Políticas",
+      "hint": "Plantillas reutilizables de rate-limit/timeout"
+    },
+    "consumers": {
+      "label": "Consumidores",
+      "hint": "Propietarios de keys con cuota"
+    },
+    "approvals": {
+      "label": "Aprobaciones",
+      "hint": "Cola de aprobación human-in-the-loop"
+    },
+    "overview": {
+      "label": "Resumen",
+      "hint": "Vista rápida de la instancia del bridge"
+    },
+    "usage": {
+      "label": "Uso",
+      "hint": "Volumen de llamadas y latencia"
+    },
+    "traffic": {
+      "label": "Tráfico",
+      "hint": "Llamadas request/response capturadas"
+    },
+    "traces": {
+      "label": "Trazas",
+      "hint": "Spans y cascadas por llamada"
+    },
+    "monitors": {
+      "label": "Monitores",
+      "hint": "Chequeos sintéticos de uptime y drift de schema"
+    },
+    "alerts": {
+      "label": "Alertas",
+      "hint": "Reglas de alertas por webhook"
+    },
+    "schedules": {
+      "label": "Programaciones",
+      "hint": "Trabajos cron de habilitar/deshabilitar"
+    },
+    "audit-log": {
+      "label": "Log de auditoría",
+      "hint": "Acciones admin encadenadas por hash"
+    },
+    "users": {
+      "label": "Usuarios",
+      "hint": "Cuentas de administrador"
+    },
+    "teams": {
+      "label": "Equipos",
+      "hint": "Grupos de propietarios de servidores"
+    },
+    "config": {
+      "label": "Configuración",
+      "hint": "Exportar, importar, snapshots"
+    },
+    "sso": {
+      "label": "SSO",
+      "hint": "Ajustes de inicio de sesión único (OIDC)"
+    },
+    "account": {
+      "label": "Cuenta",
+      "hint": "Tu perfil, contraseña y sesiones"
+    }
   },
   "errors": {
     "generic": "Algo salió mal. Inténtalo de nuevo.",
@@ -192,7 +269,8 @@
         "bulk_update_failed": "La actualización masiva falló.",
         "tags_load_failed": "Error al cargar las etiquetas.",
         "tag_tools_load_failed": "Error al cargar herramientas para esta etiqueta."
-      }
+      },
+      "selected_count_plural": "Selección: {count}"
     },
     "login": {
       "subtitle": "Inicia sesión para gestionar servidores y herramientas",
@@ -251,6 +329,24 @@
       },
       "empty": {
         "no_bundles": "Aún no hay bundles. Un bundle permite entregar a un cliente MCP una selección de herramientas curada y entre clientes, en lugar de la lista completa de un cliente."
+      },
+      "new": {
+        "title": "Crear bundle",
+        "subtitle_p1": "Selecciones de tools cross-client, cada una servida en su propio",
+        "subtitle_p2": "endpoint.",
+        "fields": {
+          "name": "Nombre",
+          "description": "Descripción (opcional)",
+          "tools": "Tools"
+        },
+        "placeholders": {
+          "name": "p. ej. assistant-a",
+          "description": "Para qué sirve este bundle"
+        },
+        "errors": {
+          "name_required": "El nombre es obligatorio.",
+          "create_failed": "Error al crear el bundle."
+        }
       }
     },
     "keys": {
@@ -287,6 +383,31 @@
         "load_failed": "Error al cargar las API keys.",
         "revoke_failed": "Error al revocar la key.",
         "delete_failed": "Error al eliminar la key."
+      },
+      "new": {
+        "title": "Crear API key",
+        "minted_title": "Nueva key \"{label}\" — cópiala ahora, no se vuelve a mostrar:",
+        "fields": {
+          "label": "Etiqueta",
+          "clients": "Clientes permitidos (separados por coma, vacío = todos)",
+          "tools": "Tools permitidos (separados por coma, client__tool)",
+          "expires": "Caduca (opcional)",
+          "consumer": "Consumer (opcional)"
+        },
+        "placeholders": {
+          "label": "p. ej. ci-bot",
+          "clients": "payments-svc, inventory-svc",
+          "tools": "payments-svc__charge"
+        },
+        "consumer_none": "Ninguno",
+        "create_consumer": "Crear consumer",
+        "elevated_label": "Elevated (salta la confirmación de tools sensibles)",
+        "minted_key": "Crear key",
+        "minting": "Creando…",
+        "errors": {
+          "label_required": "La etiqueta es obligatoria.",
+          "create_failed": "Error al crear la API key."
+        }
       }
     },
     "register_server": {
@@ -347,6 +468,931 @@
         "name_and_health_required": "El nombre y la URL de health son obligatorios.",
         "registration_failed": "El registro falló."
       }
+    },
+    "account": {
+      "title": "Cuenta",
+      "subtitle": "Gestiona tu contraseña y sesiones activas para {username}.",
+      "change_password": "Cambiar contraseña",
+      "change_password_warning": "Cambiar tu contraseña cierra inmediatamente la sesión en cualquier otra sesión activa.",
+      "password_current": "Contraseña actual",
+      "password_new": "Nueva contraseña",
+      "password_confirm": "Confirmar nueva contraseña",
+      "password_min_hint": "Mínimo 12 caracteres.",
+      "changing": "Cambiando…",
+      "change_password_cta": "Cambiar contraseña",
+      "active_sessions": "Sesiones activas",
+      "active_sessions_subtitle": "Dispositivos y navegadores con tu sesión iniciada. Cierra las que no reconozcas.",
+      "active_sessions_hint": "Esta lista no indica qué sesión es el dispositivo que estás usando ahora. Revocar una sesión puede cerrar ese dispositivo inmediatamente.",
+      "sign_out_device": "Cerrar sesión del dispositivo",
+      "preferences": "Preferencias",
+      "theme_label": "Tema",
+      "theme_hint": "Se aplica solo a este navegador.",
+      "theme_aria": "Tema",
+      "theme_light": "Claro",
+      "theme_dark": "Oscuro",
+      "density_label": "Densidad de tablas",
+      "density_hint": "Afecta a Tráfico, Log de auditoría, Trazas y API keys.",
+      "density_aria": "Densidad de tablas",
+      "density_comfortable": "Cómoda",
+      "density_compact": "Compacta",
+      "locale_label": "Idioma",
+      "locale_hint": "Afecta solo a esta UI admin — los errores del backend y la salida del CLI quedan en inglés.",
+      "locale_en": "English",
+      "locale_es": "Español",
+      "device": {
+        "unknown_browser": "Navegador desconocido",
+        "edge": "Edge",
+        "opera": "Opera",
+        "chrome": "Chrome",
+        "firefox": "Firefox",
+        "safari": "Safari",
+        "curl": "curl",
+        "on": "{browser} en {os}",
+        "os": {
+          "windows": "Windows",
+          "macos": "macOS",
+          "android": "Android",
+          "ios": "iOS",
+          "linux": "Linux"
+        }
+      },
+      "table": {
+        "device": "Dispositivo",
+        "ip": "Dirección IP",
+        "last_active": "Última actividad",
+        "signed_in": "Sesión iniciada"
+      },
+      "empty": {
+        "no_sessions": "Sin sesiones activas."
+      },
+      "success": {
+        "password_changed": "Contraseña cambiada. Sigues con la sesión iniciada en este dispositivo."
+      },
+      "errors": {
+        "all_required": "Todos los campos son obligatorios.",
+        "password_too_short": "La nueva contraseña debe tener al menos 12 caracteres.",
+        "password_mismatch": "La nueva contraseña y su confirmación no coinciden.",
+        "password_change_failed": "Error al cambiar la contraseña.",
+        "sessions_load_failed": "Error al cargar las sesiones activas.",
+        "session_revoke_failed": "Error al revocar la sesión."
+      },
+      "revoke_confirm": {
+        "title": "¿Cerrar sesión en este dispositivo?",
+        "message": "Esto revoca la sesión inmediatamente. Si es el dispositivo que estás usando ahora, se cerrará tu sesión al instante y volverás a la página de login.",
+        "confirm": "Cerrar sesión del dispositivo"
+      }
+    },
+    "audit_log": {
+      "title": "Log de auditoría",
+      "subtitle": "Quién cambió qué, y cuándo.",
+      "filter": {
+        "actor": "Actor",
+        "actor_placeholder": "Filtrar por actor…",
+        "action": "Acción",
+        "action_placeholder": "Filtrar por acción…",
+        "all_actions": "Todas las acciones",
+        "from": "Desde",
+        "to": "Hasta",
+        "export_as": "Exportar como",
+        "clear": "Limpiar"
+      },
+      "export": {
+        "cta": "Exportar",
+        "json": "JSON",
+        "csv": "CSV",
+        "html": "Reporte HTML"
+      },
+      "exporting": "Exportando…",
+      "verify_cta": "Verificar integridad",
+      "verifying": "Verificando…",
+      "integrity_ok": "Cadena intacta — {count} entradas verificadas.",
+      "integrity_broken": "Manipulación detectada — la cadena se rompe en la entrada #{id} (tras {count} válidas). Escala a seguridad y no confíes en las entradas después de este punto.",
+      "table": {
+        "when": "Cuándo",
+        "actor": "Actor",
+        "action": "Acción",
+        "target": "Target",
+        "detail": "Detalle",
+        "view": "Ver"
+      },
+      "empty": {
+        "no_match": "Ninguna entrada coincide con estos filtros.",
+        "no_entries": "Aún no hay entradas de auditoría."
+      },
+      "errors": {
+        "load_failed": "Error al cargar el log de auditoría.",
+        "export_failed": "La exportación falló.",
+        "verify_failed": "La verificación falló."
+      }
+    },
+    "alerts": {
+      "title": "Alertas",
+      "subtitle": "Reglas de alerta vía webhook para fallos de tools, picos de tráfico y más.",
+      "event": {
+        "circuit_breaker_open": "Circuit breaker abierto",
+        "client_unreachable": "Cliente inaccesible",
+        "error_rate": "Pico de tasa de error",
+        "usage_spike": "Pico de uso (anomalía)",
+        "schema_drift": "Drift de schema en tool"
+      },
+      "test": "Test",
+      "testing": "Testeando…",
+      "test_sent": "Test enviado a '{name}'.",
+      "confirm": {
+        "delete_title": "¿Eliminar esta regla de alerta?",
+        "delete_message": "'{name}' dejará de dispararse.",
+        "delete_label": "Eliminar {name}",
+        "disable_title": "¿Deshabilitar esta regla de alerta?",
+        "disable_message": "'{name}' dejará de dispararse hasta que se vuelva a habilitar.",
+        "disable_label": "Deshabilitar {name}"
+      },
+      "create_alert": "Nueva alerta",
+      "filter_state": "Estado",
+      "state_all": "Todos los estados",
+      "state_enabled": "Solo habilitadas",
+      "state_disabled": "Solo deshabilitadas",
+      "selected_count": "{count} seleccionadas",
+      "enable_selected": "Habilitar seleccionadas",
+      "disable_selected": "Deshabilitar seleccionadas",
+      "clear_selection": "Limpiar selección",
+      "table": {
+        "name": "Nombre",
+        "type": "Tipo",
+        "target": "Target",
+        "threshold": "Umbral",
+        "actions": "Acciones",
+        "enabled": "Habilitado",
+        "enabled_label": "Habilitado",
+        "disabled_label": "Deshabilitado"
+      },
+      "empty": {
+        "no_alerts": "Aún no hay reglas de alerta.",
+        "new_alert": "Crea tu primera regla de alerta",
+        "no_match": "Ninguna alerta coincide con tus filtros."
+      },
+      "errors": {
+        "load_failed": "Error al cargar alertas.",
+        "toggle_failed": "Error al actualizar.",
+        "delete_failed": "Error al eliminar la alerta.",
+        "test_failed": "Test falló: {error}",
+        "test_delivery_failed": "La entrega del test falló."
+      },
+      "event_types": {
+        "circuit_breaker_open": "Circuit breaker abierto",
+        "client_unreachable": "Cliente inalcanzable",
+        "error_rate": "Pico de tasa de error",
+        "usage_spike": "Pico de uso (anomalía)",
+        "schema_drift": "Drift de schema en un tool"
+      },
+      "new_title": "Nueva regla de alerta",
+      "new_subtitle": "Las reglas se evalúan en la instancia leader y POSTean un payload JSON al webhook cuando una condición pasa a true por primera vez.",
+      "fields": {
+        "name": "Nombre",
+        "event": "Evento",
+        "url": "URL del webhook",
+        "spike_factor": "Factor de spike (× baseline)",
+        "threshold": "Umbral (0–1)",
+        "min_calls": "Llamadas mín."
+      },
+      "creating": "Creando…",
+      "create_rule": "Crear regla",
+      "errors_create": {
+        "name_required": "El nombre es obligatorio.",
+        "url_required": "La URL del webhook es obligatoria.",
+        "threshold_invalid": "El umbral debe ser un número plano.",
+        "min_calls_invalid": "El mínimo de llamadas debe ser un número plano.",
+        "create_failed": "Error al crear la regla."
+      }
+    },
+    "approvals": {
+      "title": "Aprobaciones",
+      "subtitle": "Llamadas de tools esperando aprobación humana.",
+      "tab_aria": "Estado de aprobación",
+      "tab": {
+        "pending": "Pendientes",
+        "approved": "Aprobadas",
+        "rejected": "Rechazadas",
+        "all": "Todas"
+      },
+      "status": {
+        "pending": "Pendientes",
+        "approved": "Aprobada",
+        "rejected": "Rechazada"
+      },
+      "breakdown_title": "Desglose por estado",
+      "by": "por",
+      "note_placeholder": "Nota…",
+      "aria": {
+        "note_for_id": "Nota para la aprobación #{id}"
+      },
+      "table": {
+        "client_tool": "Cliente / Tool",
+        "args": "Args",
+        "requested": "Solicitada",
+        "decision": "Decisión",
+        "approve": "Aprobar",
+        "deny": "Denegar"
+      },
+      "empty": {
+        "nothing_pending": "Nada esperando revisión ahora mismo.",
+        "no_items_for_tab": "Aún no hay aprobaciones {tab}. Las peticiones aparecen aquí cuando una tool se configura para requerir aprobación antes de ejecutarse."
+      },
+      "confirm": {
+        "reject_title": "¿Rechazar esta llamada?",
+        "reject_message": "Esto denegará la llamada pendiente de {client} a {tool}. No se puede deshacer.",
+        "reject_cta": "Rechazar llamada"
+      },
+      "errors": {
+        "load_failed": "Error al cargar aprobaciones.",
+        "action_failed": "Error al {action} la aprobación #{id}."
+      }
+    },
+    "composites": {
+      "title": "Compuestos",
+      "subtitle": "Tools compuestas — cada una encadena varias llamadas de tools en una única callable por MCP.",
+      "create": "Crear compuesta",
+      "search": "Buscar por nombre…",
+      "table": {
+        "name": "Nombre",
+        "description": "Descripción",
+        "steps": "Pasos",
+        "enabled": "Habilitado",
+        "enable": "Habilitar",
+        "disable": "Deshabilitar"
+      },
+      "empty": {
+        "no_composites": "Aún no hay tools compuestas. Una compuesta encadena varias llamadas de tools para que un único request MCP dispare una secuencia.",
+        "no_match": "Ninguna tool compuesta coincide con tus filtros."
+      },
+      "confirm": {
+        "delete_title": "¿Eliminar este compuesto?",
+        "delete_message": "Los clientes MCP que llamen a '{name}' empezarán a fallar inmediatamente. No se puede deshacer.",
+        "delete_label": "Eliminar {name}"
+      },
+      "errors": {
+        "load_failed": "Error al cargar compuestas.",
+        "update_failed": "Error al actualizar."
+      },
+      "new": {
+        "title": "Nuevo composite",
+        "subtitle_p1": "Encadena varias llamadas a tools existentes en una sola, expuesta en el endpoint MCP agregado. Cada paso despacha a un",
+        "subtitle_p2": "real a través de todo el pipeline de guards.",
+        "fields": {
+          "name": "Nombre",
+          "description": "Descripción",
+          "schema": "Input schema (JSON)",
+          "steps": "Steps (JSON array)"
+        },
+        "placeholders": {
+          "name": "lowercase, sin \"__\"",
+          "description": "Opcional"
+        },
+        "templates": {
+          "label": "Templates:",
+          "or": "o"
+        },
+        "create": "Crear composite",
+        "errors": {
+          "name_required": "El nombre es obligatorio.",
+          "name_format": "Letras minúsculas, dígitos, - y _ (máx. 63 chars); no debe contener \"__\".",
+          "schema_invalid": "inputSchema no es JSON válido.",
+          "steps_invalid": "steps no es JSON válido.",
+          "create_failed": "Error al crear el composite."
+        }
+      }
+    },
+    "composite_detail": {
+      "title": "{name}",
+      "back_to_composites": "Compuestos",
+      "tabs": {
+        "config": "Config",
+        "steps": "Pasos",
+        "settings": "Ajustes"
+      },
+      "save_changes": "Guardar cambios",
+      "saving": "Guardando…",
+      "saved": "Guardado",
+      "errors": {
+        "load_failed": "Error al cargar el compuesto.",
+        "save_failed": "Error al guardar los cambios.",
+        "delete_failed": "Error al eliminar el compuesto."
+      }
+    },
+    "catalog": {
+      "title": "Catálogo",
+      "subtitle": "Plantillas de servidor curadas que puedes instalar con un clic.",
+      "add_entry": "Añadir entrada al catálogo",
+      "featured": "Destacado",
+      "custom": "Personalizado",
+      "no_description": "Sin descripción.",
+      "install_as": "Instalar como",
+      "installing": "Instalando…",
+      "confirm_install": "Confirmar instalación",
+      "table": {
+        "name": "Nombre",
+        "description": "Descripción",
+        "install": "Instalar",
+        "installed": "Instalado",
+        "configure": "Configurar e instalar"
+      },
+      "empty": {
+        "no_entries": "Aún no hay entradas en el catálogo. El catálogo lista servidores instalables con un clic — integrados o añadidos por admin — para que registrar un backend nuevo no empiece desde un formulario en blanco.",
+        "no_match": "Ninguna entrada del catálogo coincide con tu búsqueda."
+      },
+      "confirm": {
+        "delete_title": "¿Eliminar entrada del catálogo?",
+        "delete_message": "'{name}' se eliminará del catálogo. Esto no afecta a los servers ya instalados desde ella.",
+        "delete_label": "Eliminar {name}"
+      },
+      "errors": {
+        "load_failed": "Error al cargar el catálogo.",
+        "install_failed": "La instalación falló.",
+        "delete_failed": "Error al eliminar la entrada del catálogo.",
+        "name_required": "El nombre es obligatorio."
+      },
+      "new": {
+        "title": "Añadir entrada al catálogo",
+        "kind_aria": "Tipo",
+        "kind_rest": "REST API",
+        "kind_mcp": "Servidor MCP",
+        "fields": {
+          "slug": "Slug",
+          "name": "Nombre",
+          "description": "Descripción (opcional)",
+          "health_url": "Health URL",
+          "openapi_url": "OpenAPI URL",
+          "mcp_url": "URL del servidor MCP"
+        },
+        "placeholders": {
+          "slug": "internal-crm-staging",
+          "name": "Internal CRM (staging)",
+          "description": "Qué registra este template",
+          "health_url": "https://api.example.com/health",
+          "openapi_url": "https://api.example.com/openapi.json",
+          "mcp_url": "https://mcp.example.com/mcp"
+        },
+        "save": "Guardar entrada",
+        "errors": {
+          "slug_name_required": "El slug y el nombre son obligatorios.",
+          "create_failed": "Error al guardar la entrada del catálogo."
+        }
+      }
+    },
+    "config": {
+      "title": "Configuración",
+      "subtitle": "Exporta, importa y haz snapshot de la configuración en vivo del bridge.",
+      "intro_hint": "Exporta un snapshot portable de la config admin (bundles, alertas, guards y overrides por cliente), o importa uno en esta instancia.",
+      "tabs": {
+        "import_export": "Importar / Exportar",
+        "snapshots": "Snapshots"
+      },
+      "result": {
+        "dry_run": "Dry run — no se cambió nada",
+        "import_applied": "Import aplicado",
+        "rollback_applied": "Rollback aplicado",
+        "bundles": "Bundles: {count}",
+        "alert_rules": "Reglas de alerta: {count}",
+        "clients_configured": "Clientes configurados: {count}",
+        "tools_configured": "Tools configuradas: {count}",
+        "guardrails": "Guardrails: {count}",
+        "consumers": "Consumidores: {count}",
+        "skipped_heading": "Saltados ({count}):"
+      },
+      "errors": {
+        "load_failed": "Error al cargar la configuración."
+      }
+    },
+    "consumers": {
+      "title": "Consumidores",
+      "subtitle": "Los consumidores (equipos / apps) son dueños de API keys y pueden llevar una cuota mensual de llamadas y un rate limit opcional por end-user, aplicado a todas sus keys.",
+      "create": "Nuevo consumidor",
+      "name_placeholder": "mobile-app",
+      "monthly_quota_label": "Cuota mensual (vacío = ilimitada)",
+      "end_user_limit_label": "Rate limit por end-user (calls/min, vacío = desactivado)",
+      "end_user_limit_value": "{value}/min por usuario",
+      "unlimited": "Ilimitado",
+      "aria": {
+        "toggle_usage": "Alternar detalle de uso para {name}"
+      },
+      "table": {
+        "name": "Nombre",
+        "quota": "Cuota",
+        "end_user_limit": "Límite por end-user",
+        "used_this_month": "Usado este mes"
+      },
+      "usage": {
+        "used_this_month": "Usado este mes",
+        "monthly_quota": "Cuota mensual",
+        "remaining": "Restante"
+      },
+      "empty": {
+        "no_consumers": "Aún no hay consumidores. Un consumidor agrupa una o más API keys bajo una cuota mensual y rate limit compartidos.",
+        "new_consumer": "Crea tu primer consumidor",
+        "no_match": "Ningún consumidor coincide con tus filtros."
+      },
+      "confirm": {
+        "delete_title": "¿Eliminar este consumidor?",
+        "delete_message": "'{name}' se eliminará; sus keys siguen funcionando pero quedan sin atribuir.",
+        "delete_label": "Eliminar {name}"
+      },
+      "errors": {
+        "load_failed": "Error al cargar consumidores.",
+        "update_failed": "Error al actualizar el consumidor.",
+        "delete_failed": "Error al eliminar el consumidor.",
+        "usage_detail_failed": "Error al cargar el detalle de uso.",
+        "name_required": "El nombre es obligatorio.",
+        "quota_invalid": "La cuota mensual debe ser un número simple, o estar vacía.",
+        "end_user_limit_invalid": "El rate limit por end-user debe ser un número simple, o estar vacío."
+      },
+      "new": {
+        "title": "Nuevo consumer",
+        "fields": {
+          "name": "Nombre",
+          "quota": "Cuota mensual (vacío = ilimitada)",
+          "end_user_limit": "Rate limit por end-user (calls/min, vacío = desactivado)"
+        },
+        "placeholders": {
+          "name": "mobile-app"
+        },
+        "create": "Crear consumer",
+        "errors": {
+          "name_required": "El nombre es obligatorio.",
+          "quota_invalid": "La cuota mensual debe ser un número plano, o vacío.",
+          "end_user_limit_invalid": "El rate limit por end-user debe ser un número plano, o vacío.",
+          "create_failed": "Error al crear el consumer."
+        }
+      }
+    },
+    "monitors": {
+      "title": "Monitores",
+      "subtitle": "Chequeos sintéticos de uptime y drift de schema, reproduciendo ejemplos guardados en un schedule.",
+      "breakdown_title": "Desglose por estado",
+      "state": {
+        "healthy": "Saludable",
+        "drift": "Drift detectado",
+        "failing": "Fallando",
+        "never": "Nunca chequeado",
+        "disabled": "Deshabilitado"
+      },
+      "table": {
+        "client_tool": "Cliente / Tool",
+        "state": "Estado",
+        "interval": "Intervalo",
+        "last_checked": "Último chequeo",
+        "last_error": "Último error"
+      },
+      "empty": {
+        "no_monitors": "Aún no hay tools monitorizadas. Configura un monitor desde los ajustes de una tool en el detalle del server."
+      },
+      "errors": {
+        "load_failed": "Error al cargar monitores. Comprueba tu conexión e inténtalo de nuevo.",
+        "toggle_failed": "Error al actualizar."
+      }
+    },
+    "policies": {
+      "title": "Políticas de guard",
+      "subtitle": "Plantillas reutilizables de rate-limit / timeout. Aplica una a todas las tools de un bundle de una vez — la allow-list de API keys existente de cada tool se deja intacta.",
+      "create": "Nueva política",
+      "create_bundle": "Crear bundle",
+      "select_bundle": "Selecciona bundle…",
+      "apply": "Aplicar",
+      "applying": "Aplicando…",
+      "notice": {
+        "applied": "Aplicada \"{name}\" a {applied} tool(s) en el bundle \"{bundle}\".",
+        "skipped": "{count} tool(s) fueron saltadas porque ya no existen en el registry."
+      },
+      "table": {
+        "name": "Nombre",
+        "rate_limit": "Rate/min",
+        "timeout": "Timeout",
+        "apply_to_bundle": "Aplicar al bundle"
+      },
+      "empty": {
+        "no_policies": "Aún no hay políticas. Una política aplica rate limit y timeout a todas las tools a la vez, en lugar de configurar cada una individualmente.",
+        "new_policy": "Crea tu primera política"
+      },
+      "confirm": {
+        "delete_title": "¿Eliminar esta política?",
+        "delete_message": "'{name}' se eliminará. Los guards ya aplicados a las tools no se revierten.",
+        "delete_label": "Eliminar {name}",
+        "apply_title": "¿Aplicar esta política?",
+        "apply_message": "Aplicar '{name}' sobrescribirá los rate-limits y timeouts existentes en cada tool del bundle '{bundle}'.",
+        "apply_cta": "Aplicar política"
+      },
+      "errors": {
+        "load_failed": "Error al cargar políticas.",
+        "apply_failed": "La aplicación falló.",
+        "delete_failed": "Error al eliminar la política."
+      },
+      "new": {
+        "title": "Nueva policy",
+        "fields": {
+          "name": "Nombre",
+          "rate": "Rate limit (calls/min, vacío = ninguno)",
+          "timeout": "Timeout (ms, vacío = ninguno)"
+        },
+        "placeholders": {
+          "name": "strict"
+        },
+        "create": "Crear policy",
+        "errors": {
+          "name_required": "El nombre es obligatorio.",
+          "rate_invalid": "El rate limit debe ser un número plano (sin unidades), o vacío.",
+          "timeout_invalid": "El timeout debe ser un número plano (sin unidades), o vacío.",
+          "create_failed": "Error al crear la policy."
+        }
+      }
+    },
+    "schedules": {
+      "title": "Programaciones de mantenimiento",
+      "subtitle": "Habilita o deshabilita automáticamente un cliente o una tool específica en un schedule recurrente, evaluado una vez por minuto en UTC en la instancia líder.",
+      "create": "Nueva programación",
+      "table": {
+        "target": "Target",
+        "action": "Acción",
+        "schedule": "Schedule",
+        "enabled": "Habilitado",
+        "enable": "Habilitar",
+        "disable": "Deshabilitar",
+        "last_run": "Última ejecución"
+      },
+      "empty": {
+        "no_schedules": "Aún no hay programaciones. Una programación habilita o deshabilita un cliente o tool automáticamente en un intervalo cron.",
+        "new_schedule": "Crea tu primera programación"
+      },
+      "confirm": {
+        "delete_title": "¿Eliminar esta programación?",
+        "delete_message": "Esta programación ({cron}) para {client}{tool_part} se eliminará."
+      },
+      "errors": {
+        "load_failed": "Error al cargar programaciones.",
+        "toggle_failed": "Falló."
+      },
+      "new": {
+        "title": "Nuevo schedule",
+        "subtitle": "Habilita o deshabilita automáticamente un cliente o un solo tool según un schedule recurrente, evaluado una vez por minuto en UTC en la instancia leader.",
+        "target_types": {
+          "client": "Cliente",
+          "tool": "Tool"
+        },
+        "actions": {
+          "enable": "enable",
+          "disable": "disable"
+        },
+        "frequencies": {
+          "daily": "Cada día",
+          "weekly": "Cada semana, en días específicos",
+          "hourly": "Cada hora",
+          "custom": "Personalizado (expresión cron)"
+        },
+        "weekdays": {
+          "sun": "Dom",
+          "mon": "Lun",
+          "tue": "Mar",
+          "wed": "Mié",
+          "thu": "Jue",
+          "fri": "Vie",
+          "sat": "Sáb"
+        },
+        "fields": {
+          "type": "Tipo",
+          "client": "Cliente",
+          "tool": "Tool",
+          "action": "Acción",
+          "frequency": "Frecuencia",
+          "time": "Hora",
+          "days": "Días",
+          "minute": "En el minuto",
+          "cron": "Expresión cron"
+        },
+        "placeholders": {
+          "client": "nombre del cliente",
+          "tool": "nombre del tool"
+        },
+        "days_aria": "Días de la semana",
+        "cron_hint": "Campos:",
+        "runs": "Corre:",
+        "create": "Añadir schedule",
+        "errors": {
+          "client_required": "El cliente es obligatorio.",
+          "weekdays_required": "Selecciona al menos un día.",
+          "cron_required": "La expresión cron es obligatoria.",
+          "create_failed": "Error al crear el schedule."
+        }
+      }
+    },
+    "sso_settings": {
+      "title": "Single sign-on (OIDC)",
+      "subtitle": "Permite a los admins iniciar sesión mediante un proveedor de identidad externo (Okta, Azure AD, Google Workspace, Auth0 o cualquier IdP compatible con OIDC) vía Authorization Code + PKCE, en lugar de — o junto con — el login usuario/contraseña nativo. SAML no está soportado.",
+      "fields": {
+        "issuer": "Issuer URL",
+        "client_id": "Client ID",
+        "client_secret": "Client secret",
+        "redirect_uri": "Redirect URI",
+        "scopes": "Scopes"
+      },
+      "placeholders": {
+        "secret_configured": "Configurado — se vuelve a pedir cada vez que guardas"
+      },
+      "hints": {
+        "issuer_p1": "El bridge descarga",
+        "issuer_p2": "— no necesitas introducir endpoints individuales.",
+        "client_secret": "Write-only: se cifra en reposo y nunca se vuelve a mostrar — vuélvelo a introducir cada guardado, incluso uno que solo cambie otro campo abajo.",
+        "redirect_uri": "Debe coincidir exactamente con un redirect URI registrado en el proveedor de identidad.",
+        "scopes_p1": "Debe incluir",
+        "scopes_p2": "."
+      },
+      "provisioning": {
+        "label": "Los nuevos usuarios SSO se aprovisionan como",
+        "role": "viewer",
+        "p1": "— siempre, sin importar otros ajustes. Un admin existente debe promover manualmente al nuevo usuario SSO desde la página de",
+        "p2": "después de revisarlo."
+      },
+      "enable_label": "Habilitar login SSO (muestra el botón \"Sign in with SSO\" en la página de login)",
+      "save": "Guardar ajustes SSO",
+      "saved": "Ajustes SSO guardados.",
+      "errors": {
+        "load_failed": "Error al cargar los ajustes SSO.",
+        "save_failed": "Error al guardar los ajustes SSO.",
+        "required_fields": "Issuer, client ID y redirect URI son obligatorios.",
+        "secret_required": "El client secret es obligatorio.",
+        "secret_required_for_update": "Vuelve a introducir el client secret para guardar — nunca se almacena de forma que esta página pueda releerlo."
+      }
+    },
+    "teams": {
+      "title": "Equipos",
+      "subtitle": "Los equipos son dueños de los clientes; un admin con scope de equipo solo ve y gestiona los servidores de su equipo. Los super-admins (rol admin sin equipo) gestionan los equipos y asignan la propiedad. Asigna el equipo de un cliente desde su página de detalle.",
+      "new_team": "Nuevo equipo",
+      "table": {
+        "id": "ID",
+        "name": "Nombre",
+        "created": "Creado"
+      },
+      "empty": "Aún no hay equipos. Un equipo agrupa servidores bajo una propiedad compartida, así los admins con rol operator solo ven y gestionan lo asignado a su equipo.",
+      "confirm": {
+        "delete_title": "¿Eliminar este equipo?",
+        "delete_message": "¿Eliminar el equipo '{name}'? Sus servidores y usuarios quedarán sin propietario.",
+        "delete_cta": "Eliminar {name}"
+      },
+      "errors": {
+        "load_failed": "Error al cargar equipos.",
+        "delete_failed": "Error al eliminar el equipo."
+      },
+      "new": {
+        "title": "Nuevo equipo",
+        "fields": {
+          "name": "Nombre del equipo"
+        },
+        "placeholders": {
+          "name": "Nombre del equipo (p. ej. Payments)"
+        },
+        "create": "Crear equipo",
+        "errors": {
+          "name_required": "El nombre es obligatorio.",
+          "create_failed": "Error al crear el equipo."
+        }
+      }
+    },
+    "users": {
+      "title": "Usuarios",
+      "subtitle": "Usuarios admin que pueden iniciar sesión en este bridge.",
+      "create": "Nuevo usuario",
+      "table": {
+        "username": "Username",
+        "role": "Rol",
+        "created": "Creado",
+        "last_login": "Último login"
+      },
+      "empty": {
+        "no_users": "Aún no hay usuarios."
+      },
+      "errors": {
+        "load_failed": "Error al cargar usuarios.",
+        "delete_failed": "Error al eliminar el usuario."
+      },
+      "new": {
+        "title": "Añadir usuario",
+        "fields": {
+          "username": "Usuario",
+          "password": "Contraseña (mín. 12 chars)",
+          "role": "Rol"
+        },
+        "roles": {
+          "admin": "Admin",
+          "operator": "Operator",
+          "auditor": "Auditor",
+          "viewer": "Viewer"
+        },
+        "create": "Crear usuario",
+        "errors": {
+          "password_too_short": "La contraseña debe tener al menos 12 caracteres.",
+          "create_failed": "Error al crear el usuario."
+        }
+      }
+    },
+    "usage": {
+      "title": "Uso",
+      "subtitle": "Volumen de llamadas y latencia en una ventana.",
+      "filter_window": "Ventana",
+      "window_24h": "Últimas 24 horas",
+      "window_7d": "Últimos 7 días",
+      "window_30d": "Últimos 30 días",
+      "errors": {
+        "load_failed": "Error al cargar uso."
+      }
+    },
+    "traffic": {
+      "title": "Tráfico",
+      "subtitle": "Argumentos y previews de respuesta de tool calls capturados.",
+      "filter_state": "Capturado",
+      "state_all": "Todo",
+      "state_yes": "Solo capturado",
+      "state_no": "No capturado",
+      "table": {
+        "tool": "Tool",
+        "client": "Cliente",
+        "captured_at": "Capturado en",
+        "duration": "Duración",
+        "actions": "Acciones"
+      },
+      "empty": {
+        "no_traffic": "La captura de tráfico está off — actívala con la env var TRAFFIC_CAPTURE."
+      },
+      "errors": {
+        "load_failed": "Error al cargar tráfico."
+      }
+    },
+    "ws_proxy_targets": {
+      "title": "Targets WS proxy",
+      "subtitle_p1": "Passthrough WebSocket bidireccional y persistente a un backend, servido en",
+      "subtitle_p2": ". Distinto de un servidor registrado — un target no expone tools.",
+      "new_target": "Nuevo target",
+      "fields": {
+        "name": "Nombre",
+        "backend_url": "URL WebSocket del backend",
+        "max_connections": "Máx. conexiones concurrentes (vacío = default)",
+        "max_message_bytes": "Tamaño máx. de mensaje, bytes (vacío = default)",
+        "idle_timeout": "Idle timeout, minutos (vacío = default)"
+      },
+      "enabled": "Habilitado",
+      "disabled": "Deshabilitado",
+      "disconnecting": "Desconectando…",
+      "disconnect_all": "Desconectar todas",
+      "save_changes": "Guardar cambios",
+      "saving": "Guardando…",
+      "table": {
+        "name": "Nombre",
+        "backend_url": "URL backend",
+        "connections": "Conexiones",
+        "enabled": "Habilitado"
+      },
+      "empty": "Aún no hay targets WS proxy. Un target permite a los tools MCP despachar sobre una conexión WebSocket persistente hacia un backend en lugar de REST plano.",
+      "confirm": {
+        "delete_title": "¿Eliminar este target WS proxy?",
+        "delete_message": "'{name}' se eliminará y cualquier conexión activa se cerrará forzada.",
+        "delete_cta": "Eliminar {name}",
+        "disconnect_title": "¿Desconectar todas las sesiones?",
+        "disconnect_message": "'{name}' tiene {count} conexión(es) activa(s); desconectar cerrará todas forzosamente y soltará cualquier mensaje en vuelo."
+      },
+      "errors": {
+        "load_failed": "Error al cargar los targets WS proxy.",
+        "toggle_failed": "Error al actualizar el target.",
+        "name_and_url_required": "El nombre y la URL WebSocket del backend son obligatorios.",
+        "max_connections_invalid": "Max connections debe ser un número plano, o vacío.",
+        "max_message_bytes_invalid": "Max message size debe ser un número plano, o vacío.",
+        "idle_timeout_invalid": "Idle timeout debe ser un número plano, o vacío.",
+        "save_failed": "Error al guardar el target.",
+        "disconnect_failed": "Error al desconectar.",
+        "delete_failed": "Error al eliminar el target.",
+        "create_failed": "Error al crear el target."
+      },
+      "placeholders": {
+        "name": "iot-gateway",
+        "backend_url": "wss://backend.example.com/socket"
+      },
+      "new": {
+        "title": "Nuevo target WS proxy",
+        "create": "Crear target"
+      }
+    },
+    "traces": {
+      "title": "Trazas",
+      "subtitle_p1": "Timing por span con un waterfall integrado — independiente de cualquier collector OTLP externo. Opt-in",
+      "subtitle_p2": "en el server) — una lista vacía puede significar que el almacenamiento está off o que no hay nada reciente.",
+      "table": {
+        "started": "Iniciada",
+        "tool": "Tool",
+        "session": "Sesión",
+        "spans": "Spans",
+        "duration": "Duración",
+        "status": "Estado",
+        "status_ok": "OK",
+        "status_error": "Error"
+      },
+      "top_sessions": "Top sesiones por volumen de llamadas",
+      "tool_placeholder": "Nombre de tool (p. ej. github__search_issues)",
+      "session_placeholder": "Session id",
+      "filter_button": "Filtrar",
+      "purge_all": "Purgar todo",
+      "pagination_label": "{count} trace(s) en esta página",
+      "back_to_list": "Volver a trazas",
+      "detail_title": "Trace {id}",
+      "detail_not_found": "Trace no encontrada.",
+      "detail_attributes_summary": "Atributos (último span)",
+      "confirm": {
+        "purge_title": "¿Purgar todas las trazas?",
+        "purge_message": "Elimina cada span persistido. Esto no se puede deshacer.",
+        "purge_cta": "Purgar todo"
+      },
+      "empty": {
+        "no_traces": "Sin trazas aún — cuando fluyan llamadas, aparecerán aquí."
+      },
+      "errors": {
+        "load_failed": "Error al cargar trazas.",
+        "purge_failed": "Error al purgar trazas.",
+        "detail_load_failed": "Error al cargar la traza."
+      }
+    },
+    "not_found": {
+      "title": "No encontrado",
+      "subtitle": "La página que buscas no existe (o ya no existe).",
+      "go_servers": "Ir a servidores",
+      "go_overview": "Ir a resumen"
+    },
+    "ws_proxies": {
+      "title": "Proxies WebSocket",
+      "subtitle": "Targets persistentes de pasarela WebSocket.",
+      "create": "Nuevo proxy",
+      "table": {
+        "name": "Nombre",
+        "url": "URL",
+        "connections": "Conexiones",
+        "enabled": "Habilitado",
+        "actions": "Acciones"
+      },
+      "empty": {
+        "no_proxies": "Aún no hay proxies WebSocket."
+      },
+      "errors": {
+        "load_failed": "Error al cargar proxies WebSocket.",
+        "toggle_failed": "Error al actualizar."
+      }
+    },
+    "catalog_new": {
+      "title": "Nueva entrada del catálogo",
+      "back_to_catalog": "Catálogo"
+    },
+    "composite_new": {
+      "title": "Nuevo compuesto",
+      "back_to_composites": "Compuestos"
+    },
+    "consumer_new": {
+      "title": "Nuevo consumidor",
+      "back_to_consumers": "Consumidores"
+    },
+    "policy_new": {
+      "title": "Nueva política",
+      "back_to_policies": "Políticas"
+    },
+    "schedule_new": {
+      "title": "Nueva programación",
+      "back_to_schedules": "Programaciones"
+    },
+    "team_new": {
+      "title": "Nuevo equipo",
+      "back_to_teams": "Equipos"
+    },
+    "user_new": {
+      "title": "Nuevo usuario",
+      "back_to_users": "Usuarios"
+    },
+    "alert_new": {
+      "title": "Nueva alerta",
+      "back_to_alerts": "Alertas"
+    },
+    "api_key_new": {
+      "title": "Crear API key",
+      "back_to_keys": "API keys"
+    },
+    "ws_proxy_new": {
+      "title": "Nuevo proxy WebSocket",
+      "back_to_proxies": "Proxies WebSocket"
+    },
+    "monitor_new": {
+      "title": "Nuevo monitor",
+      "back_to_monitors": "Monitores"
+    },
+    "bundle_detail": {
+      "title": "{name}",
+      "back_to_bundles": "Bundles"
+    },
+    "bundle_new": {
+      "title": "Nuevo bundle",
+      "back_to_bundles": "Bundles"
+    },
+    "server_detail": {
+      "title": "{name}",
+      "back_to_servers": "Servidores"
     }
   }
 }

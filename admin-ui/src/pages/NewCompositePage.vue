@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 import type { CompositeDetail, CompositeStep } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+
+const { t } = useI18n({ useScope: "global" });
 
 const router = useRouter();
 
@@ -27,7 +31,7 @@ const nameError = computed(() => {
   if (!v) return null;
   return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(v) && !v.includes("__")
     ? null
-    : "Lowercase letters, digits, - and _ (max 63 chars); must not contain '__'.";
+    : t("pages.composites.new.errors.name_format");
 });
 
 async function createComposite() {
@@ -36,7 +40,7 @@ async function createComposite() {
   stepsError.value = "";
   nameTouched.value = true;
   if (!name.value.trim()) {
-    error.value = "Name is required.";
+    error.value = t("pages.composites.new.errors.name_required");
     return;
   }
   if (nameError.value) {
@@ -47,13 +51,13 @@ async function createComposite() {
   try {
     inputSchema = JSON.parse(schema.value) as Record<string, unknown>;
   } catch {
-    schemaError.value = "inputSchema is not valid JSON.";
+    schemaError.value = t("pages.composites.new.errors.schema_invalid");
     return;
   }
   try {
     parsedSteps = JSON.parse(steps.value) as CompositeStep[];
   } catch {
-    stepsError.value = "steps is not valid JSON.";
+    stepsError.value = t("pages.composites.new.errors.steps_invalid");
     return;
   }
   creating.value = true;
@@ -66,7 +70,7 @@ async function createComposite() {
     });
     await router.push(`/composites/${encodeURIComponent(name.value.trim())}`);
   } catch (err) {
-    error.value = toErrorMessage(err, "Failed to create composite.");
+    error.value = toErrorMessage(err, tk("pages.composites.new.errors.create_failed"));
   } finally {
     creating.value = false;
   }
@@ -76,28 +80,27 @@ async function createComposite() {
 <template>
   <section>
     <FormPage max-width="50rem">
-      <PageHeader title="New composite" :back-link="{ to: '/composites', label: 'Composites' }" />
+      <PageHeader :title="t('pages.composites.new.title')" :back-link="{ to: '/composites', label: t('nav.composites') }" />
       <p class="subtitle">
-        Chains several existing tool calls into one, exposed on the aggregated MCP endpoint. Each step forwards to a
-        real <code>client__tool</code> through the full guard stack.
+        {{ t('pages.composites.new.subtitle_p1') }} <code>client__tool</code> {{ t('pages.composites.new.subtitle_p2') }}
       </p>
 
       <form class="form-card" @submit.prevent="createComposite">
-        <FormField label="Name" for="new-composite-name">
+        <FormField :label="t('pages.composites.new.fields.name')" for="new-composite-name">
           <input
             id="new-composite-name"
             v-model="name"
             type="text"
-            placeholder="lowercase, no '__'"
+            :placeholder="t('pages.composites.new.placeholders.name')"
             required
             @blur="nameTouched = true"
           />
           <p v-if="nameTouched && nameError" class="error">{{ nameError }}</p>
         </FormField>
-        <FormField label="Description" for="new-composite-description">
-          <input id="new-composite-description" v-model="description" type="text" placeholder="Optional" />
+        <FormField :label="t('pages.composites.new.fields.description')" for="new-composite-description">
+          <input id="new-composite-description" v-model="description" type="text" :placeholder="t('pages.composites.new.placeholders.description')" />
         </FormField>
-        <FormField label="Input schema (JSON)" for="new-composite-schema">
+        <FormField :label="t('pages.composites.new.fields.schema')" for="new-composite-schema">
           <textarea
             id="new-composite-schema"
             v-model="schema"
@@ -107,9 +110,9 @@ async function createComposite() {
           ></textarea>
           <p v-if="schemaError" class="error">{{ schemaError }}</p>
         </FormField>
-        <FormField label="Steps (JSON array)" for="new-composite-steps">
+        <FormField :label="t('pages.composites.new.fields.steps')" for="new-composite-steps">
           <p class="template-hint">
-            Templates: <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> or <code>{{ '"${input.query}"' }}</code
+            {{ t('pages.composites.new.templates.label') }} <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> {{ t('pages.composites.new.templates.or') }} <code>{{ '"${input.query}"' }}</code
             >.
           </p>
           <textarea id="new-composite-steps" v-model="steps" class="mono-field" rows="6" spellcheck="false"></textarea>
@@ -117,7 +120,7 @@ async function createComposite() {
         </FormField>
         <p v-if="error" class="error">{{ error }}</p>
         <button class="btn-primary" type="submit" :disabled="creating">
-          {{ creating ? "Creating…" : "Create composite" }}
+          {{ creating ? t('common.creating') : t('pages.composites.new.create') }}
         </button>
       </form>
     </FormPage>

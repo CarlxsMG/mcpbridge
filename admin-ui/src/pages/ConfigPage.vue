@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { ConfigImportResult } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ConfigExportSection from "@/components/config/ConfigExportSection.vue";
 import ConfigImportSection from "@/components/config/ConfigImportSection.vue";
 import ConfigSnapshotsSection from "@/components/config/ConfigSnapshotsSection.vue";
+
+const { t } = useI18n({ useScope: "global" });
 
 const result = ref<ConfigImportResult | null>(null);
 const resultKind = ref<"import" | "rollback">("import");
@@ -28,8 +31,8 @@ function onRollbackResult(r: ConfigImportResult) {
 <template>
   <section>
     <PageHeader
-      title="Configuration"
-      subtitle="Export a portable snapshot of admin-authored config (bundles, alerts, per-client guards & overrides), or import one into this instance."
+      :title="t('pages.config.title')"
+      :subtitle="t('pages.config.subtitle')"
     />
 
     <ConfigExportSection @error="onError" />
@@ -42,22 +45,22 @@ function onRollbackResult(r: ConfigImportResult) {
       <h3>
         {{
           result.dryRun
-            ? "Dry run — nothing was changed"
+            ? t('pages.config.result.dry_run')
             : resultKind === "rollback"
-              ? "Rollback applied"
-              : "Import applied"
+              ? t('pages.config.result.rollback_applied')
+              : t('pages.config.result.import_applied')
         }}
       </h3>
       <ul>
-        <li>Bundles: {{ result.applied.bundles }}</li>
-        <li>Alert rules: {{ result.applied.alertRules }}</li>
-        <li>Clients configured: {{ result.applied.clientsConfigured }}</li>
-        <li>Tools configured: {{ result.applied.toolsConfigured }}</li>
-        <li>Guardrails: {{ result.applied.guardrails }}</li>
-        <li>Consumers: {{ result.applied.consumers }}</li>
+        <li>{{ t('pages.config.result.bundles', { count: result.applied.bundles }) }}</li>
+        <li>{{ t('pages.config.result.alert_rules', { count: result.applied.alertRules }) }}</li>
+        <li>{{ t('pages.config.result.clients_configured', { count: result.applied.clientsConfigured }) }}</li>
+        <li>{{ t('pages.config.result.tools_configured', { count: result.applied.toolsConfigured }) }}</li>
+        <li>{{ t('pages.config.result.guardrails', { count: result.applied.guardrails }) }}</li>
+        <li>{{ t('pages.config.result.consumers', { count: result.applied.consumers }) }}</li>
       </ul>
       <div v-if="result.skipped.length" class="skipped">
-        <strong>Skipped ({{ result.skipped.length }}):</strong>
+        <strong>{{ t('pages.config.result.skipped_heading', { count: result.skipped.length }) }}</strong>
         <ul>
           <li v-for="(s, i) in result.skipped" :key="i">
             {{ s.type }} <code>{{ s.id }}</code> — {{ s.reason }}
@@ -69,8 +72,6 @@ function onRollbackResult(r: ConfigImportResult) {
 </template>
 
 <style scoped>
-/* PageHeader's own recipe covers color/margin; this page's subtitle is long
-   enough to need a line-length cap that the shared component doesn't set. */
 :deep(.subtitle) {
   max-width: 40rem;
 }
@@ -94,12 +95,6 @@ function onRollbackResult(r: ConfigImportResult) {
 </style>
 
 <style>
-/* Shared .block/.hint/.actions styling for the three extracted
-   components/config/ConfigXxxSection.vue components — deliberately unscoped
-   (those children render under their own scope hash, not this file's),
-   namespaced under .block so it doesn't leak into the rest of the app's own
-   .hint/.actions conventions elsewhere. Verified .block itself doesn't
-   collide with anything else in admin-ui/src. */
 .block {
   background: var(--surface);
   border: 1px solid var(--border);
