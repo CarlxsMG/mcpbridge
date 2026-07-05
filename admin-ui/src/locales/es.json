@@ -318,6 +318,422 @@
       "errors": {
         "load_failed": "Error al cargar los tools."
       }
+    },
+    "server_detail_upstream_auth": {
+      "title": "Autenticación upstream",
+      "types": {
+        "bearer": "Bearer token",
+        "basic": "Basic (usuario / contraseña)",
+        "header": "Header personalizado"
+      },
+      "fields": {
+        "type": "Tipo",
+        "token": "Token",
+        "username": "Usuario",
+        "password": "Contraseña",
+        "header_name": "Nombre del header",
+        "value": "Valor"
+      },
+      "change": "Cambiar",
+      "set_credentials": "Establecer credenciales",
+      "clear": "Limpiar",
+      "configured": "Configurado",
+      "not_configured": "No configurado — las peticiones a este backend se envían sin credenciales.",
+      "oauth_note": " Alternativa al Upstream OAuth de abajo — ambos pueden estar configurados a la vez, pero si lo están, el bearer token OAuth2 gana el header Authorization en las llamadas salientes.",
+      "save_credentials": "Guardar credenciales",
+      "confirm": {
+        "clear_title": "¿Limpiar las credenciales upstream?",
+        "clear_message": "Esto elimina las credenciales almacenadas para este backend. No se puede deshacer — las peticiones se enviarán sin credenciales hasta que configures unas nuevas.",
+        "clear_cta": "Limpiar credenciales"
+      },
+      "errors": {
+        "save_failed": "Error al guardar las credenciales.",
+        "clear_failed": "Error al limpiar las credenciales."
+      }
+    },
+    "server_detail_oauth": {
+      "title": "Upstream OAuth (client credentials)",
+      "configured": "Configurado",
+      "client": "cliente",
+      "scope": "scope",
+      "not_configured": "No configurado — el bridge genera un token vía client-credentials antes de cada llamada y lo inyecta como Authorization: Bearer …. El client secret es write-only y no se vuelve a mostrar tras guardarlo.",
+      "change": "Cambiar",
+      "set_credentials": "Establecer credenciales",
+      "clear": "Limpiar",
+      "fields": {
+        "token_url": "Token URL",
+        "client_id": "Client ID",
+        "client_secret": "Client secret",
+        "scope": "Scope (opcional)"
+      },
+      "save": "Guardar OAuth",
+      "confirm": {
+        "clear_title": "¿Limpiar las credenciales OAuth?",
+        "clear_message": "Esto elimina el token URL, client ID y client secret almacenados. No se puede deshacer — las llamadas salientes dejarán de inyectar el bearer token OAuth hasta que configures nuevas credenciales.",
+        "clear_cta": "Limpiar OAuth"
+      },
+      "errors": {
+        "required_fields": "Token URL, client ID y client secret son obligatorios.",
+        "save_failed": "Error al guardar la configuración OAuth.",
+        "clear_failed": "Error al limpiar la configuración OAuth."
+      }
+    },
+    "server_detail_resync": {
+      "rediscover_title": "Re-descubrir tools",
+      "rediscover_button": "Re-descubrir desde el servidor MCP",
+      "discovering": "Descubriendo…",
+      "rediscover_hint": "Reconecta a {url} y refresca la lista de tools de este servidor.",
+      "resync_title": "Re-sincronizar desde OpenAPI",
+      "resync_button": "Re-sincronizar",
+      "preview_diff": "Vista previa del diff",
+      "added": "añadidos",
+      "removed": "eliminados",
+      "unchanged": "sin cambios",
+      "applying": "Aplicando…",
+      "apply_resync": "Aplicar re-sync",
+      "errors": {
+        "url_required": "Introduce la URL de OpenAPI.",
+        "preview_failed": "Error en la vista previa.",
+        "resync_failed": "Error en la re-sincronización.",
+        "rediscovery_failed": "Error en el re-descubrimiento."
+      }
+    },
+    "server_detail_lb": {
+      "title": "Load balancing",
+      "hint": "Distribuye las llamadas entre el backend primario y un pool N-way de targets adicionales. Tiene precedencia sobre canary/failover abajo — mientras un pool habilitado tenga al menos un target habilitado, el routing canary se omite completamente para este servidor.",
+      "currently": "Actualmente: {strategy}, peso del primario {weight}, {enabled}, {count} target(s).",
+      "enabled": "habilitado",
+      "disabled": "deshabilitado",
+      "strategy": {
+        "round_robin": "round-robin",
+        "weighted": "weighted",
+        "least_conn": "least-conn"
+      },
+      "fields": {
+        "strategy": "Estrategia",
+        "primary_weight": "Peso del primario",
+        "enabled": "habilitado",
+        "target_url": "Target base URL",
+        "weight": "Peso"
+      },
+      "clear": "Limpiar",
+      "save_pool": "Guardar pool",
+      "adding": "Añadiendo…",
+      "add_target": "Añadir target",
+      "remove": "Eliminar",
+      "empty_targets": "Aún no hay targets en el pool — añade uno abajo.",
+      "confirm": {
+        "clear_title": "¿Limpiar el pool de load balancing?",
+        "clear_message": "Esto elimina la config de estrategia del pool para este servidor, pero mantiene los targets individuales almacenados — el routing vuelve al backend primario solo (y canary/failover, si están configurados) hasta que re-configures el pool.",
+        "clear_cta": "Limpiar pool",
+        "remove_title": "¿Eliminar este target del pool?",
+        "remove_message": "'{url}' dejará de recibir tráfico inmediatamente. Si está sirviendo llamadas activas, las peticiones en vuelo no se ven afectadas pero no se enrutarán nuevas.",
+        "remove_cta": "Eliminar target"
+      },
+      "table": {
+        "base_url": "Base URL",
+        "weight": "Peso",
+        "enabled": "Habilitado"
+      },
+      "errors": {
+        "save_failed": "Error al guardar.",
+        "clear_failed": "Error al limpiar.",
+        "base_url_required": "Base URL es obligatorio.",
+        "add_failed": "Error al añadir el target.",
+        "update_target_failed": "Error al actualizar el target.",
+        "remove_failed": "Error al eliminar el target.",
+        "weight_invalid": "El peso debe ser un entero de al menos 1."
+      }
+    },
+    "server_detail_canary": {
+      "title": "Canary / failover",
+      "hint": "Enruta a un backend secundario. canary: envía un % de llamadas allí; failover: enruta solo mientras el breaker del primario esté abierto.",
+      "currently": "Actualmente: {mode} → {url} ({weight}%, {enabled}).",
+      "enabled": "habilitado",
+      "disabled": "deshabilitado",
+      "clear": "Limpiar",
+      "mode": {
+        "canary": "canary",
+        "failover": "failover"
+      },
+      "fields": {
+        "secondary_url": "Secondary base URL",
+        "mode": "Modo",
+        "weight": "Porcentaje de peso",
+        "enabled": "habilitado"
+      },
+      "save": "Guardar config de canary",
+      "note": "Nota: el Load balancing de arriba tiene precedencia — cuando un pool habilitado tiene al menos un target habilitado, esta config de canary/failover se omite.",
+      "confirm": {
+        "clear_title": "¿Limpiar la config de canary / failover?",
+        "clear_message": "Esto elimina la configuración de routing al backend secundario. No se puede deshacer — tendrás que reconfigurarla para restaurar este setup.",
+        "clear_cta": "Limpiar config de canary"
+      },
+      "errors": {
+        "save_failed": "Error al guardar.",
+        "clear_failed": "Error al limpiar."
+      }
+    },
+    "server_detail_team": {
+      "title": "Propiedad del equipo",
+      "owning_team": "Equipo propietario",
+      "unowned": "— sin equipo —",
+      "admin_only": "Solo los super-admins pueden cambiar esto.",
+      "create_team": "Crear equipo",
+      "errors": {
+        "assign_failed": "Error al asignar el equipo (solo super-admin)."
+      }
+    },
+    "server_detail_remove": {
+      "title": "Eliminar servidor",
+      "hint": "A diferencia del Disable arriba, esto elimina permanentemente el registro del servidor, los guards y toda la configuración por tool. Los agentes MCP conectados pierden acceso a sus tools inmediatamente, y no se puede deshacer — Disable arriba es la alternativa reversible.",
+      "button": "Eliminar servidor",
+      "confirm": {
+        "title": "¿Eliminar este servidor?",
+        "message": "Esto elimina permanentemente el registro, los guards y toda la configuración por tool de '{name}'. Los agentes MCP conectados pierden acceso a sus tools inmediatamente. No se puede deshacer.",
+        "cta": "Eliminar {name}"
+      },
+      "errors": {
+        "remove_failed": "Error al eliminar el servidor."
+      }
+    },
+    "server_detail_tools": {
+      "heading": "Tools ({count})",
+      "empty": "Este servidor no tiene tools registrados.",
+      "edit_guards": "Editar guards",
+      "add_guards": "Añadir guards",
+      "sensitive_marked": "🔒 Sensible",
+      "mark_sensitive": "Marcar como sensible",
+      "testing": "Probando…",
+      "test": "Probar",
+      "table": {
+        "name": "Nombre",
+        "method": "Método",
+        "endpoint": "Endpoint",
+        "guards": "Guards",
+        "sensitive": "Sensible",
+        "enabled": "Habilitado"
+      },
+      "confirm": {
+        "disable_title": "¿Deshabilitar este tool?",
+        "disable_message": "'{name}' dejará de funcionar para todos los agentes MCP conectados hasta que se vuelva a habilitar.",
+        "disable_cta": "Deshabilitar {name}"
+      },
+      "errors": {
+        "update_failed": "Error al actualizar.",
+        "update_sensitivity_failed": "Error al actualizar la sensibilidad.",
+        "test_failed": "La prueba falló."
+      }
+    },
+    "server_detail_playground": {
+      "title": "Playground",
+      "hint": "Rellena los argumentos desde el schema del tool y ejecuta una llamada de prueba real a través de todo el pipeline de guards.",
+      "saved_examples": "Ejemplos guardados",
+      "delete_example": "Eliminar ejemplo",
+      "delete_example_aria": "Eliminar {label}",
+      "running": "Ejecutando…",
+      "run": "Ejecutar prueba",
+      "save_placeholder": "Guardar como… (etiqueta)",
+      "errors": {
+        "test_failed": "La prueba falló.",
+        "save_failed": "Error al guardar el ejemplo."
+      }
+    },
+    "guard_editor": {
+      "positive_number": "Debe ser un número positivo",
+      "rate_keys_title": "Rate limit y keys",
+      "rate_label": "Rate limit (llamadas / minuto)",
+      "no_limit": "Sin límite",
+      "timeout_label": "Timeout override (ms)",
+      "use_default": "Usar default del servidor",
+      "allowed_keys_label": "API keys permitidas",
+      "existing_keys_count": "{count} key(s) actualmente permitidas.",
+      "no_restriction": "Sin restricción — cualquier MCP key válida puede llamar a este tool.",
+      "keys_hashed_hint": "Las keys se hashean al guardar; las keys existentes no se pueden volver a mostrar.",
+      "add_key_placeholder": "Pega una API key raw para añadir",
+      "hide": "Ocultar",
+      "show": "Mostrar",
+      "add": "Añadir",
+      "new_key_n": "Nueva key #{n}",
+      "remove": "eliminar",
+      "replace_warning": "Al guardar se REEMPLAZARÁ toda la allow-list con estas {count} key(s).",
+      "preview": "Preview",
+      "preview_new_keys": "{count} key(s) nueva(s)",
+      "preview_existing_keys": "{count} key(s) sin cambios",
+      "clearing": "Limpiando…",
+      "clear_guards": "Limpiar guards",
+      "cleared": "Limpiado",
+      "save_guards": "Guardar guards",
+      "saved": "Guardado",
+      "confirm": {
+        "clear_title": "¿Limpiar todos los guards de este tool?",
+        "clear_message": "Esto elimina el rate limit, timeout override y allow-list de API keys. Las keys existentes están hasheadas y no se pueden restaurar — necesitarías las keys raw originales para volver a poner la misma allow-list.",
+        "clear_cta": "Limpiar guards"
+      },
+      "errors": {
+        "save_failed": "Error al guardar los guards."
+      }
+    },
+    "guard_editor_approval": {
+      "title": "Aprobación human-in-the-loop",
+      "require_label": "Requerir aprobación humana antes de que este tool se ejecute",
+      "levels_label": "Approvers distintos requeridos",
+      "levels_hint": "Una llamada solo se permite una vez que estos muchos admins/operators DISTINTOS la hayan aprobado (1 = comportamiento actual de single-approval). Cualquier rechazo bloquea la llamada inmediatamente, sin importar aprobaciones previas.",
+      "levels_error": "Debe ser un entero entre 1 y 10",
+      "save": "Guardar ajustes de aprobación",
+      "errors": {
+        "save_failed": "Error al guardar los ajustes de aprobación."
+      }
+    },
+    "guard_editor_cache_purge": {
+      "title": "Response cache",
+      "hint": "Limpia cualquier respuesta ya cacheada para este tool. No cambia la config enabled/TTL del cache — las nuevas respuestas se vuelven a cachear en la siguiente llamada coincidente.",
+      "purging": "Purgando…",
+      "button": "Purgar respuestas cacheadas",
+      "purged": "Purgado",
+      "errors": {
+        "purge_failed": "Error al purgar el cache."
+      }
+    },
+    "guard_editor_coalesce": {
+      "title": "Request coalescing",
+      "label": "Compartir un único fetch upstream entre llamadas idénticas concurrentes (solo tools GET)",
+      "hint": "Distinto del TTL del response cache — solo deduplica llamadas que estén en vuelo en el mismo momento, así que es seguro incluso sin cache habilitado.",
+      "save": "Guardar coalescing",
+      "errors": {
+        "save_failed": "Error al guardar el coalescing."
+      }
+    },
+    "guard_editor_graphql": {
+      "title": "Backend GraphQL",
+      "enable_label": "Despachar este tool como una query/mutation GraphQL en lugar de un body REST plano",
+      "query_label": "Query/mutation GraphQL",
+      "hint_p1": "Los argumentos del tool-call se envían como variables GraphQL — declara un",
+      "hint_p2": "por cada argumento que acepte el input schema de este tool. Los tools auto-descubiertos empiezan con una query sintetizada que puedes extender aquí (p. ej. selection sets más profundos).",
+      "save": "Guardar ajustes GraphQL",
+      "errors": {
+        "save_failed": "Error al guardar los ajustes GraphQL."
+      }
+    },
+    "guard_editor_guardrails": {
+      "title": "Guardrails",
+      "content_label": "Guardrails de contenido",
+      "content_hint": "Patrones de deny de input (un regex por línea). Una llamada cuyos argumentos coincidan con cualquier patrón se rechaza antes del dispatch.",
+      "block_secrets": "Bloquear argumentos que parezcan secrets (AWS keys, private keys, tokens…)",
+      "scan_responses": "Escanear responses en busca de prompt-injection y envolver el output marcado",
+      "save": "Guardar guardrails",
+      "errors": {
+        "save_failed": "Error al guardar los guardrails."
+      }
+    },
+    "guard_editor_presentation": {
+      "title": "Presentación",
+      "name_label": "Display name (alias)",
+      "name_hint_p1": "Renombra el tool para los clientes MCP. El prefijo",
+      "name_hint_p2": "se mantiene siempre. Déjalo vacío para usar el nombre registrado.",
+      "advertised_as": "Se anuncia como",
+      "name_placeholder": "p. ej. issues",
+      "name_error": "Letras minúsculas, dígitos, - y _; 1-63 chars",
+      "desc_label": "Override de descripción anunciada",
+      "desc_hint": "Reemplaza lo que los clientes MCP ven para este tool en tools/list. Déjalo vacío para usar la descripción registrada.",
+      "desc_placeholder": "Se usa la descripción registrada cuando está vacío",
+      "save": "Guardar presentación",
+      "errors": {
+        "save_failed": "Error al guardar el override de presentación."
+      }
+    },
+    "guard_editor_redaction": {
+      "title": "Redaction",
+      "label": "Rutas de redaction de la response",
+      "hint": "Una dot-path por línea (p. ej. user.ssn, items.*.secret). Los valores JSON coincidentes se reemplazan por [REDACTED] antes de devolverlos al caller.",
+      "placeholder": "user.password\nitems.*.token",
+      "save": "Guardar redaction",
+      "errors": {
+        "save_failed": "Error al guardar las rutas de redaction."
+      }
+    },
+    "guard_editor_tags": {
+      "title": "Tags",
+      "label": "Tags separados por coma",
+      "hint": "Separados por coma (letras minúsculas, dígitos, - y _). Usados para organizar y filtrar tools.",
+      "placeholder": "billing, read-only",
+      "save": "Guardar tags",
+      "errors": {
+        "save_failed": "Error al guardar los tags."
+      }
+    },
+    "guard_editor_websocket": {
+      "title": "Backend WebSocket",
+      "enable_label": "Despachar este tool sobre un WebSocket en lugar de REST",
+      "url_label": "WebSocket URL",
+      "url_error": "Debe empezar por ws:// o wss://",
+      "persistent_label": "Conexión persistente — reenviar cada mensaje como progress en lugar de cerrar tras el primero",
+      "hint": "No-persistente (default) abre una conexión nueva por llamada y devuelve el primer mensaje. Persistente se mantiene abierta y resuelve con el último mensaje cuando la conexión se cierra o expira el timeout — los mensajes intermedios se reenvían como notificaciones de progreso MCP a los callers que las pidieron.",
+      "save": "Guardar ajustes WebSocket",
+      "errors": {
+        "save_failed": "Error al guardar los ajustes WebSocket."
+      }
+    },
+    "guard_editor_context_budget": {
+      "title": "Context budget",
+      "enable_label": "Limitar el tamaño de la response de este tool para que no reviente la context window del agente",
+      "hint": "Sin budget configurado (el default), las responses se devuelven sin límite, igual que hoy. Una vez habilitado, una response por encima del límite se corta con un marcador, o — si configuras un LLM abajo — se comprime en un resumen fiel en su lugar.",
+      "bytes_label": "Tamaño máx. de response (bytes)",
+      "bytes_error": "Debe ser un entero de al menos 256 bytes",
+      "mode_label": "Modo cuando una response excede el límite",
+      "mode": {
+        "truncate": "Truncate — cortarla y anotar cuánto se omitió",
+        "llm": "Comprimir con un LLM — resumir en lugar de cortar"
+      },
+      "llm_hint": "Una llamada extra por response demasiado grande, hecha solo después de que la redaction y el escaneo de guardrails de este tool ya hayan corrido — el LLM nunca ve datos pre-redaction. Cualquier fallo (red, no-2xx, timeout) cae silenciosamente a truncation; la llamada al tool nunca falla por esto.",
+      "provider_label": "Proveedor",
+      "provider": {
+        "openai": "OpenAI-compatible (POST {base}/chat/completions)",
+        "anthropic": "Anthropic-compatible (POST {base}/v1/messages)"
+      },
+      "base_url_label": "Base URL",
+      "model_label": "Model",
+      "api_key_label": "API key",
+      "api_key_hint_configured": "Ya hay una key configurada y es write-only — no se puede volver a mostrar. Al guardar aquí, incluso solo para cambiar otro campo, se reemplaza, así que vuelve a introducir la key.",
+      "api_key_hint_new": "Trae tu propia key — almacenada cifrada, nunca se vuelve a mostrar una vez guardada.",
+      "api_key_placeholder": "Pega la API key raw",
+      "base_url_required": "Base URL es obligatorio",
+      "model_required": "Model es obligatorio",
+      "api_key_required": "API key es obligatoria",
+      "save": "Guardar context budget",
+      "errors": {
+        "save_failed": "Error al guardar el context budget."
+      }
+    },
+    "guard_editor_quarantine": {
+      "title": "Auto-quarantine",
+      "currently_quarantined": "Actualmente en cuarentena",
+      "clearing": "Limpiando…",
+      "clear_now": "Limpiar ahora",
+      "enable_label": "Auto-quarantine tras violaciones repetidas de guardrails",
+      "threshold_label": "Violaciones consecutivas antes de la cuarentena",
+      "threshold_error": "Debe ser un entero entre 1 y 100",
+      "action_label": "Acción cuando está en cuarentena",
+      "action": {
+        "block": "Block calls (igual que deshabilitar el tool)",
+        "force_approval": "Forzar cada llamada a través de aprobación humana",
+        "observe": "Solo observar — loguear y dejar pasar las llamadas"
+      },
+      "recovery_label": "Recuperación",
+      "recovery": {
+        "manual": "Solo manual — un admin debe limpiarla",
+        "auto": "Automática — se limpia tras un cooldown"
+      },
+      "cooldown_label": "Cooldown (minutos)",
+      "cooldown_placeholder": "p. ej. 15",
+      "cooldown_required": "Obligatorio cuando la recuperación es automática",
+      "cooldown_positive": "Debe ser un número positivo de minutos",
+      "cleared": "Limpiado",
+      "save": "Guardar ajustes de quarantine",
+      "errors": {
+        "save_failed": "Error al guardar los ajustes de quarantine.",
+        "clear_failed": "Error al limpiar la cuarentena."
+      }
     }
   },
   "pages": {
@@ -872,7 +1288,10 @@
       "save_schema": "Guardar schema",
       "steps_label": "Pasos (array JSON)",
       "save_steps": "Guardar pasos",
-      "templates": { "label": "Templates:", "or": "o" },
+      "templates": {
+        "label": "Templates:",
+        "or": "o"
+      },
       "enable": "Habilitar composite",
       "disable": "Deshabilitar composite",
       "deleting": "Eliminando…",
@@ -898,58 +1317,12 @@
       }
     },
     "bundle_detail": {
-      "description_label": "Descripción",
-      "description_placeholder": "Para qué sirve este bundle",
-      "tools_heading": "Tools ({count})",
-      "save_tools": "Guardar tools",
-      "unsaved_tools": "Cambios sin guardar en la selección de tools.",
-      "enable_bundle": "Habilitar bundle",
-      "disable_bundle": "Deshabilitar bundle",
-      "share_link": "Compartir link de instalación",
-      "delete_bundle": "Eliminar bundle",
-      "deleting": "Eliminando…",
-      "confirm": {
-        "delete_title": "¿Eliminar este bundle?",
-        "delete_message": "'{name}' y su endpoint /mcp-custom/{name} dejarán de funcionar inmediatamente para cualquier agente MCP conectado. Esto no se puede deshacer.",
-        "delete_cta": "Eliminar {name}",
-        "leave_title": "¿Descartar cambios sin guardar?",
-        "leave_message": "Tienes cambios sin guardar en la descripción o selección de tools de este bundle. Si sales ahora se descartarán.",
-        "leave_cta": "Descartar cambios"
-      },
-      "errors": {
-        "load_failed": "Error al cargar el bundle.",
-        "delete_failed": "Error al eliminar el bundle.",
-        "save_description_failed": "Error al guardar la descripción.",
-        "save_tools_failed": "Error al guardar los tools.",
-        "toggle_failed": "Error al actualizar el bundle."
-      }
+      "title": "{name}",
+      "back_to_bundles": "Bundles"
     },
     "server_detail": {
-      "tabs": {
-        "tools": "Tools",
-        "settings": "Ajustes"
-      },
-      "mcp_url": "URL MCP",
-      "transport": "Transporte",
-      "health_url": "Health URL",
-      "base_url": "Base URL",
-      "consecutive_failures": "Fallos consecutivos",
-      "not_connected": "No conectado actualmente",
-      "reset_breaker": "Resetear circuit breaker",
-      "resetting": "Reseteando…",
-      "guards_aria": "Guards — {name}",
-      "guards_heading": "Guards — {name}",
-      "tool_not_found": "Tool \"{name}\" no encontrado en este servidor.",
-      "confirm": {
-        "disable_title": "¿Deshabilitar este servidor?",
-        "disable_message": "'{name}' y todos sus tools dejarán de funcionar para los agentes MCP conectados hasta que se vuelva a habilitar.",
-        "disable_cta": "Deshabilitar {name}"
-      },
-      "errors": {
-        "load_failed": "Error al cargar el servidor.",
-        "toggle_failed": "Error al actualizar.",
-        "reset_breaker_failed": "Error al resetear el circuit breaker."
-      }
+      "title": "{name}",
+      "back_to_servers": "Servidores"
     },
     "catalog": {
       "title": "Catálogo",
@@ -1555,17 +1928,9 @@
       "title": "Nuevo monitor",
       "back_to_monitors": "Monitores"
     },
-    "bundle_detail": {
-      "title": "{name}",
-      "back_to_bundles": "Bundles"
-    },
     "bundle_new": {
       "title": "Nuevo bundle",
       "back_to_bundles": "Bundles"
-    },
-    "server_detail": {
-      "title": "{name}",
-      "back_to_servers": "Servidores"
     }
   }
 }

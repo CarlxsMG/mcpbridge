@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
 import { usePropDraft } from "@/composables/useFieldDraft";
 import SaveRow from "@/components/ui/SaveRow.vue";
+import { tk } from "@/i18n";
 
 const props = defineProps<{
   graphql?: { enabled: boolean; query: string };
@@ -11,6 +13,7 @@ const props = defineProps<{
   toolName?: string;
 }>();
 const emit = defineEmits<{ saved: [] }>();
+const { t } = useI18n({ useScope: "global" });
 
 const graphqlEnabledInput = usePropDraft(() => Boolean(props.graphql?.enabled));
 const graphqlQueryInput = usePropDraft(() => props.graphql?.query ?? "");
@@ -24,7 +27,7 @@ const { flash } = useFlash();
 
 async function saveGraphqlFn() {
   if (!graphqlEnabledInput.value) {
-    const ok = await patchField("graphql", null, "Failed to save GraphQL settings.");
+    const ok = await patchField("graphql", null, tk("components.guard_editor_graphql.errors.save_failed"));
     if (ok) {
       flash(saved);
       emit("saved");
@@ -35,7 +38,7 @@ async function saveGraphqlFn() {
   const ok = await patchField(
     "graphql",
     { enabled: true, query: graphqlQueryInput.value.trim() },
-    "Failed to save GraphQL settings.",
+    tk("components.guard_editor_graphql.errors.save_failed"),
   );
   if (ok) {
     flash(saved);
@@ -45,14 +48,13 @@ async function saveGraphqlFn() {
 </script>
 
 <template>
-  <h3>GraphQL backend</h3>
+  <h3>{{ t('components.guard_editor_graphql.title') }}</h3>
   <div class="field">
     <label class="checkline"
-      ><input v-model="graphqlEnabledInput" type="checkbox" /> Dispatch this tool as a GraphQL query/mutation instead of
-      a plain REST body</label
+      ><input v-model="graphqlEnabledInput" type="checkbox" /> {{ t('components.guard_editor_graphql.enable_label') }}</label
     >
     <template v-if="graphqlEnabledInput">
-      <label for="graphql-query">GraphQL query/mutation</label>
+      <label for="graphql-query">{{ t('components.guard_editor_graphql.query_label') }}</label>
       <textarea
         id="graphql-query"
         v-model="graphqlQueryInput"
@@ -61,11 +63,11 @@ async function saveGraphqlFn() {
         placeholder="query my_tool($id: ID!) { pet(id: $id) { id name } }"
       ></textarea>
       <p class="hint">
-        Tool-call arguments are sent as GraphQL variables — declare a <code>$var: Type</code> for each argument this
-        tool's input schema accepts. Auto-discovered tools start with a synthesized query you can extend here (e.g.
-        deeper selection sets).
+        {{ t('components.guard_editor_graphql.hint_p1') }}
+        <code>$var: Type</code>
+        {{ t('components.guard_editor_graphql.hint_p2') }}
       </p>
     </template>
-    <SaveRow label="Save GraphQL settings" :saving="saving" :saved="saved" :error="error" @save="saveGraphqlFn" />
+    <SaveRow :label="t('components.guard_editor_graphql.save')" :saving="saving" :saved="saved" :error="error" @save="saveGraphqlFn" />
   </div>
 </template>

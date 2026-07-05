@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toolPath } from "@/utils/apiPaths";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 import type { ToolDetail, UpstreamKind } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
@@ -12,6 +14,7 @@ import TableCard from "@/components/ui/TableCard.vue";
 import { Wrench } from "lucide-vue-next";
 
 const props = defineProps<{ tools: ToolDetail[]; kind: UpstreamKind; clientName: string }>();
+const { t } = useI18n({ useScope: "global" });
 
 const router = useRouter();
 const rowError = ref<Record<string, string>>({});
@@ -37,7 +40,7 @@ async function toggleToolField(
 }
 
 function toggleToolEnabled(tool: ToolDetail) {
-  return toggleToolField(tool, "enabled", (t) => !t.enabled, "Failed to update.");
+  return toggleToolField(tool, "enabled", (t) => !t.enabled, tk("components.server_detail_tools.errors.update_failed"));
 }
 
 const {
@@ -62,7 +65,7 @@ function confirmToolDisable() {
 }
 
 function toggleSensitive(tool: ToolDetail) {
-  return toggleToolField(tool, "sensitive", (t) => t.sensitive !== true, "Failed to update sensitivity.");
+  return toggleToolField(tool, "sensitive", (t) => t.sensitive !== true, tk("components.server_detail_tools.errors.update_sensitivity_failed"));
 }
 
 function openGuardEditor(tool: ToolDetail) {
@@ -85,7 +88,7 @@ async function testTool(tool: ToolDetail) {
   } catch (err) {
     testResult.value = {
       tool: tool.name,
-      text: toErrorMessage(err, "Test call failed."),
+      text: toErrorMessage(err, tk("components.server_detail_tools.errors.test_failed")),
       isError: true,
     };
   } finally {
@@ -95,16 +98,16 @@ async function testTool(tool: ToolDetail) {
 </script>
 
 <template>
-  <h2>Tools ({{ tools.length }})</h2>
+  <h2>{{ t('components.server_detail_tools.heading', { count: tools.length }) }}</h2>
   <TableCard v-if="tools.length" id="tools-table">
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Method</th>
-        <th>Endpoint</th>
-        <th>Guards</th>
-        <th>Sensitive</th>
-        <th>Enabled</th>
+        <th>{{ t('components.server_detail_tools.table.name') }}</th>
+        <th>{{ t('components.server_detail_tools.table.method') }}</th>
+        <th>{{ t('components.server_detail_tools.table.endpoint') }}</th>
+        <th>{{ t('components.server_detail_tools.table.guards') }}</th>
+        <th>{{ t('components.server_detail_tools.table.sensitive') }}</th>
+        <th>{{ t('components.server_detail_tools.table.enabled') }}</th>
         <th></th>
       </tr>
     </thead>
@@ -120,12 +123,12 @@ async function testTool(tool: ToolDetail) {
         <td class="url-cell">{{ kind === "mcp" ? tool.upstreamName : tool.endpoint }}</td>
         <td>
           <button type="button" class="link-btn" @click="openGuardEditor(tool)">
-            {{ tool.guards ? "Edit guards" : "Add guards" }}
+            {{ tool.guards ? t('components.server_detail_tools.edit_guards') : t('components.server_detail_tools.add_guards') }}
           </button>
         </td>
         <td>
           <button type="button" class="link-btn" @click="toggleSensitive(tool)">
-            {{ tool.sensitive === true ? "🔒 Sensitive" : "Mark sensitive" }}
+            {{ tool.sensitive === true ? t('components.server_detail_tools.sensitive_marked') : t('components.server_detail_tools.mark_sensitive') }}
           </button>
         </td>
         <td>
@@ -136,19 +139,19 @@ async function testTool(tool: ToolDetail) {
             :aria-pressed="tool.enabled"
             @click="onToolToggleClick(tool)"
           >
-            {{ tool.enabled ? "Enabled" : "Disabled" }}
+            {{ tool.enabled ? t('common.enabled') : t('common.disabled') }}
           </button>
           <p v-if="rowError[tool.name]" class="row-error">{{ rowError[tool.name] }}</p>
         </td>
         <td>
           <button type="button" class="btn-secondary" :disabled="testingTool === tool.name" @click="testTool(tool)">
-            {{ testingTool === tool.name ? "Testing…" : "Test" }}
+            {{ testingTool === tool.name ? t('components.server_detail_tools.testing') : t('components.server_detail_tools.test') }}
           </button>
         </td>
       </tr>
     </tbody>
   </TableCard>
-  <EmptyState v-else :icon="Wrench">This server has no tools registered.</EmptyState>
+  <EmptyState v-else :icon="Wrench">{{ t('components.server_detail_tools.empty') }}</EmptyState>
 
   <div v-if="testResult" class="test-result" :class="testResult.isError ? 'test-error' : 'test-ok'">
     <strong>{{ testResult.tool }}</strong>
@@ -157,13 +160,9 @@ async function testTool(tool: ToolDetail) {
 
   <ConfirmDialog
     :open="pendingToolDisable !== null"
-    title="Disable this tool?"
-    :message="
-      pendingToolDisable
-        ? `'${pendingToolDisable.name}' will stop working for all connected MCP agents until re-enabled.`
-        : ''
-    "
-    :confirm-label="pendingToolDisable ? `Disable ${pendingToolDisable.name}` : 'Disable'"
+    :title="t('components.server_detail_tools.confirm.disable_title')"
+    :message="pendingToolDisable ? t('components.server_detail_tools.confirm.disable_message', { name: pendingToolDisable.name }) : ''"
+    :confirm-label="pendingToolDisable ? t('components.server_detail_tools.confirm.disable_cta', { name: pendingToolDisable.name }) : t('common.disable')"
     danger
     @confirm="confirmToolDisable"
     @cancel="cancelToolDisable"

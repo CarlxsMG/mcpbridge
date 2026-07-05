@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
 import { usePropDraft } from "@/composables/useFieldDraft";
 import SaveRow from "@/components/ui/SaveRow.vue";
+import { tk } from "@/i18n";
 
 const props = defineProps<{
   ws?: { enabled: boolean; wsUrl: string; persistent: boolean };
@@ -11,6 +13,7 @@ const props = defineProps<{
   toolName?: string;
 }>();
 const emit = defineEmits<{ saved: [] }>();
+const { t } = useI18n({ useScope: "global" });
 
 const wsEnabledInput = usePropDraft(() => Boolean(props.ws?.enabled));
 const wsUrlInput = usePropDraft(() => props.ws?.wsUrl ?? "");
@@ -19,7 +22,7 @@ const saved = ref(false);
 
 const wsUrlError = computed(() => {
   if (!wsEnabledInput.value) return null;
-  return /^wss?:\/\//.test(wsUrlInput.value.trim()) ? null : "Must start with ws:// or wss://";
+  return /^wss?:\/\//.test(wsUrlInput.value.trim()) ? null : t("components.guard_editor_websocket.url_error");
 });
 
 const { saving, error, patchField } = usePatchTool(
@@ -30,7 +33,7 @@ const { flash } = useFlash();
 
 async function saveWsFn() {
   if (!wsEnabledInput.value) {
-    const ok = await patchField("ws", null, "Failed to save WebSocket settings.");
+    const ok = await patchField("ws", null, tk("components.guard_editor_websocket.errors.save_failed"));
     if (ok) {
       flash(saved);
       emit("saved");
@@ -41,7 +44,7 @@ async function saveWsFn() {
   const ok = await patchField(
     "ws",
     { enabled: true, wsUrl: wsUrlInput.value.trim(), persistent: wsPersistentInput.value },
-    "Failed to save WebSocket settings.",
+    tk("components.guard_editor_websocket.errors.save_failed"),
   );
   if (ok) {
     flash(saved);
@@ -51,25 +54,22 @@ async function saveWsFn() {
 </script>
 
 <template>
-  <h3>WebSocket backend</h3>
+  <h3>{{ t('components.guard_editor_websocket.title') }}</h3>
   <div class="field">
     <label class="checkline"
-      ><input v-model="wsEnabledInput" type="checkbox" /> Dispatch this tool over a WebSocket instead of REST</label
+      ><input v-model="wsEnabledInput" type="checkbox" /> {{ t('components.guard_editor_websocket.enable_label') }}</label
     >
     <template v-if="wsEnabledInput">
-      <label for="ws-url">WebSocket URL</label>
+      <label for="ws-url">{{ t('components.guard_editor_websocket.url_label') }}</label>
       <input id="ws-url" v-model="wsUrlInput" type="text" placeholder="wss://example.com/socket" />
       <p v-if="wsUrlError" class="field-error">{{ wsUrlError }}</p>
       <label class="checkline"
-        ><input v-model="wsPersistentInput" type="checkbox" /> Persistent connection — forward every message as progress
-        instead of closing after the first</label
+        ><input v-model="wsPersistentInput" type="checkbox" /> {{ t('components.guard_editor_websocket.persistent_label') }}</label
       >
       <p class="hint">
-        Non-persistent (default) opens a fresh connection per call and returns the first message. Persistent stays open
-        and resolves with the last message once the connection closes or the timeout elapses — intermediate messages are
-        forwarded as MCP progress notifications to callers that requested them.
+        {{ t('components.guard_editor_websocket.hint') }}
       </p>
     </template>
-    <SaveRow label="Save WebSocket settings" :saving="saving" :saved="saved" :error="error" @save="saveWsFn" />
+    <SaveRow :label="t('components.guard_editor_websocket.save')" :saving="saving" :saved="saved" :error="error" @save="saveWsFn" />
   </div>
 </template>

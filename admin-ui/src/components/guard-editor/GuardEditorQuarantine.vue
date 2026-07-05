@@ -1,20 +1,24 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
 import { usePropDraft } from "@/composables/useFieldDraft";
 import SaveRow from "@/components/ui/SaveRow.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { numberRangeValidator } from "@/utils/fieldParsing";
+import { tk } from "@/i18n";
+
+const { t } = useI18n({ useScope: "global" });
 
 const ACTION_OPTIONS: { value: "block" | "force_approval" | "observe"; label: string }[] = [
-  { value: "block", label: "Block calls (same as disabling the tool)" },
-  { value: "force_approval", label: "Force every call through human approval" },
-  { value: "observe", label: "Observe only — log and let calls through" },
+  { value: "block", label: t("components.guard_editor_quarantine.action.block") },
+  { value: "force_approval", label: t("components.guard_editor_quarantine.action.force_approval") },
+  { value: "observe", label: t("components.guard_editor_quarantine.action.observe") },
 ];
 const RECOVERY_OPTIONS: { value: "auto" | "manual"; label: string }[] = [
-  { value: "manual", label: "Manual only — an admin must clear it" },
-  { value: "auto", label: "Automatic — clears itself after a cooldown" },
+  { value: "manual", label: t("components.guard_editor_quarantine.recovery.manual") },
+  { value: "auto", label: t("components.guard_editor_quarantine.recovery.auto") },
 ];
 
 const props = defineProps<{
@@ -49,17 +53,15 @@ const saved = ref(false);
 const clearedSaved = ref(false);
 
 const quarantineThresholdError = computed(() =>
-  numberRangeValidator({ integer: true, min: 1, max: 100, message: "Must be a whole number between 1 and 100" })(
+  numberRangeValidator({ integer: true, min: 1, max: 100, message: t("components.guard_editor_quarantine.threshold_error") })(
     quarantineThresholdInput.value,
   ),
 );
 
 const quarantineCooldownError = computed(() => {
   if (quarantineRecoveryInput.value !== "auto") return null;
-  if (!quarantineCooldownInput.value.trim()) return "Required when recovery is automatic";
-  // Number.MIN_VALUE is the smallest representable positive number, so an
-  // inclusive min of it is equivalent to the original's strict `n > 0` check.
-  return numberRangeValidator({ min: Number.MIN_VALUE, message: "Must be a positive number of minutes" })(
+  if (!quarantineCooldownInput.value.trim()) return t("components.guard_editor_quarantine.cooldown_required");
+  return numberRangeValidator({ min: Number.MIN_VALUE, message: t("components.guard_editor_quarantine.cooldown_positive") })(
     quarantineCooldownInput.value,
   );
 });
@@ -73,7 +75,7 @@ const clearing = ref(false);
 
 async function saveQuarantineFn() {
   if (!quarantineEnabledInput.value) {
-    const ok = await patchField("quarantinePolicy", null, "Failed to save quarantine settings.");
+    const ok = await patchField("quarantinePolicy", null, tk("components.guard_editor_quarantine.errors.save_failed"));
     if (ok) {
       flash(saved);
       emit("saved");
@@ -90,7 +92,7 @@ async function saveQuarantineFn() {
       cooldownMs:
         quarantineRecoveryInput.value === "auto" ? Math.round(Number(quarantineCooldownInput.value) * 60_000) : null,
     },
-    "Failed to save quarantine settings.",
+    tk("components.guard_editor_quarantine.errors.save_failed"),
   );
   if (ok) {
     flash(saved);
@@ -100,7 +102,7 @@ async function saveQuarantineFn() {
 
 async function clearQuarantineFn() {
   clearing.value = true;
-  const ok = await clearQuarantine("Failed to clear quarantine.");
+  const ok = await clearQuarantine(tk("components.guard_editor_quarantine.errors.clear_failed"));
   clearing.value = false;
   if (ok) {
     flash(clearedSaved);
@@ -110,43 +112,42 @@ async function clearQuarantineFn() {
 </script>
 
 <template>
-  <h3>Auto-quarantine</h3>
+  <h3>{{ t('components.guard_editor_quarantine.title') }}</h3>
   <div class="field">
     <div v-if="quarantine?.state.quarantined" class="quarantine-banner">
-      Currently quarantined{{ quarantine.state.reason ? `: ${quarantine.state.reason}` : "" }}
+      {{ t('components.guard_editor_quarantine.currently_quarantined') }}{{ quarantine.state.reason ? `: ${quarantine.state.reason}` : "" }}
       <button type="button" class="link-btn" :disabled="saving" @click="clearQuarantineFn">
-        {{ clearing ? "Clearing…" : "Clear now" }}
+        {{ clearing ? t('components.guard_editor_quarantine.clearing') : t('components.guard_editor_quarantine.clear_now') }}
       </button>
     </div>
     <label class="checkline"
-      ><input v-model="quarantineEnabledInput" type="checkbox" /> Auto-quarantine after repeated guardrail
-      violations</label
+      ><input v-model="quarantineEnabledInput" type="checkbox" /> {{ t('components.guard_editor_quarantine.enable_label') }}</label
     >
     <template v-if="quarantineEnabledInput">
-      <label for="q-threshold">Consecutive violations before quarantine</label>
+      <label for="q-threshold">{{ t('components.guard_editor_quarantine.threshold_label') }}</label>
       <input id="q-threshold" v-model="quarantineThresholdInput" type="text" inputmode="numeric" />
       <p v-if="quarantineThresholdError" class="field-error">{{ quarantineThresholdError }}</p>
 
-      <label for="q-action">Action when quarantined</label>
+      <label for="q-action">{{ t('components.guard_editor_quarantine.action_label') }}</label>
       <SelectMenu id="q-action" v-model="quarantineActionInput" :options="ACTION_OPTIONS" />
 
-      <label for="q-recovery">Recovery</label>
+      <label for="q-recovery">{{ t('components.guard_editor_quarantine.recovery_label') }}</label>
       <SelectMenu id="q-recovery" v-model="quarantineRecoveryInput" :options="RECOVERY_OPTIONS" />
 
       <template v-if="quarantineRecoveryInput === 'auto'">
-        <label for="q-cooldown">Cooldown (minutes)</label>
+        <label for="q-cooldown">{{ t('components.guard_editor_quarantine.cooldown_label') }}</label>
         <input
           id="q-cooldown"
           v-model="quarantineCooldownInput"
           type="text"
           inputmode="decimal"
-          placeholder="e.g. 15"
+          :placeholder="t('components.guard_editor_quarantine.cooldown_placeholder')"
         />
         <p v-if="quarantineCooldownError" class="field-error">{{ quarantineCooldownError }}</p>
       </template>
     </template>
-    <SaveRow label="Save quarantine settings" :saving="saving" :saved="saved" @save="saveQuarantineFn" />
-    <span v-if="clearedSaved" class="save-ok">Cleared</span>
+    <SaveRow :label="t('components.guard_editor_quarantine.save')" :saving="saving" :saved="saved" @save="saveQuarantineFn" />
+    <span v-if="clearedSaved" class="save-ok">{{ t('components.guard_editor_quarantine.cleared') }}</span>
     <p v-if="error" class="field-error">{{ error }}</p>
   </div>
 </template>

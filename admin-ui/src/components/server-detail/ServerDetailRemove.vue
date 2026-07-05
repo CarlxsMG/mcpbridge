@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 import { clientPath } from "@/utils/apiPaths";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
 
 const props = defineProps<{ clientName: string }>();
 const router = useRouter();
+const { t } = useI18n({ useScope: "global" });
 const removeError = ref("");
 
 const {
@@ -29,28 +32,26 @@ function confirmRemoveServer() {
       await api.delete(clientPath(props.clientName));
       router.push("/servers");
     } catch (err) {
-      removeError.value = toErrorMessage(err, "Failed to remove server.");
+      removeError.value = toErrorMessage(err, tk("components.server_detail_remove.errors.remove_failed"));
     }
   });
 }
 </script>
 
 <template>
-  <ConfigSection title="Remove server">
+  <ConfigSection :title="t('components.server_detail_remove.title')">
     <p class="ua-status">
-      Unlike Disable above, this permanently deletes the server's registration, guards, and all per-tool configuration.
-      Connected MCP agents lose access to its tools immediately, and this can't be undone — Disable above is the
-      reversible alternative.
+      {{ t('components.server_detail_remove.hint') }}
     </p>
-    <button type="button" class="btn-danger" @click="requestRemoveServer">Remove server</button>
+    <button type="button" class="btn-danger" @click="requestRemoveServer">{{ t('components.server_detail_remove.button') }}</button>
     <p v-if="removeError" class="error">{{ removeError }}</p>
   </ConfigSection>
 
   <ConfirmDialog
     :open="pendingRemoveServer !== null"
-    title="Remove this server?"
-    :message="`This permanently deletes the registration, guards, and all per-tool configuration for '${clientName}'. Connected MCP agents lose access to its tools immediately. This can't be undone.`"
-    :confirm-label="`Remove ${clientName}`"
+    :title="t('components.server_detail_remove.confirm.title')"
+    :message="t('components.server_detail_remove.confirm.message', { name: clientName })"
+    :confirm-label="t('components.server_detail_remove.confirm.cta', { name: clientName })"
     danger
     @confirm="confirmRemoveServer"
     @cancel="cancelRemoveServer"

@@ -250,6 +250,459 @@
       "errors": {
         "load_failed": "Failed to load tools."
       }
+    },
+    "server_detail_upstream_auth": {
+      "title": "Upstream authentication",
+      "types": {
+        "bearer": "Bearer token",
+        "basic": "Basic (user / password)",
+        "header": "Custom header"
+      },
+      "fields": {
+        "type": "Type",
+        "token": "Token",
+        "username": "Username",
+        "password": "Password",
+        "header_name": "Header name",
+        "value": "Value"
+      },
+      "change": "Change",
+      "set_credentials": "Set credentials",
+      "clear": "Clear",
+      "configured": "Configured",
+      "not_configured":
+        "Not configured — requests to this backend are sent without credentials.",
+      "oauth_note":
+        " Alternative to Upstream OAuth below — both can be set at once, but if so the OAuth2 bearer token wins the Authorization header on outbound calls.",
+      "save_credentials": "Save credentials",
+      "confirm": {
+        "clear_title": "Clear upstream credentials?",
+        "clear_message":
+          "This removes the stored credentials for this backend. This can't be undone — requests will be sent without credentials until you set new ones.",
+        "clear_cta": "Clear credentials"
+      },
+      "errors": {
+        "save_failed": "Failed to save credentials.",
+        "clear_failed": "Failed to clear credentials."
+      }
+    },
+    "server_detail_oauth": {
+      "title": "Upstream OAuth (client credentials)",
+      "configured": "Configured",
+      "client": "client",
+      "scope": "scope",
+      "not_configured":
+        "Not configured — the bridge mints a token via client-credentials before each call and injects it as Authorization: Bearer …. The client secret is write-only and never shown again once saved.",
+      "change": "Change",
+      "set_credentials": "Set credentials",
+      "clear": "Clear",
+      "fields": {
+        "token_url": "Token URL",
+        "client_id": "Client ID",
+        "client_secret": "Client secret",
+        "scope": "Scope (optional)"
+      },
+      "save": "Save OAuth",
+      "confirm": {
+        "clear_title": "Clear OAuth client credentials?",
+        "clear_message":
+          "This removes the stored token URL, client ID, and client secret. This can't be undone — outbound calls will stop injecting an OAuth bearer token until you set new credentials.",
+        "clear_cta": "Clear OAuth config"
+      },
+      "errors": {
+        "required_fields": "Token URL, client ID, and client secret are required.",
+        "save_failed": "Failed to save OAuth config.",
+        "clear_failed": "Failed to clear OAuth config."
+      }
+    },
+    "server_detail_resync": {
+      "rediscover_title": "Re-discover tools",
+      "rediscover_button": "Re-discover from MCP server",
+      "discovering": "Discovering…",
+      "rediscover_hint": "Re-connects to {url} and refreshes this server's tool list.",
+      "resync_title": "Re-sync from OpenAPI",
+      "resync_button": "Re-sync",
+      "preview_diff": "Preview diff",
+      "added": "added",
+      "removed": "removed",
+      "unchanged": "unchanged",
+      "applying": "Applying…",
+      "apply_resync": "Apply re-sync",
+      "errors": {
+        "url_required": "Enter the OpenAPI URL.",
+        "preview_failed": "Preview failed.",
+        "resync_failed": "Re-sync failed.",
+        "rediscovery_failed": "Re-discovery failed."
+      }
+    },
+    "server_detail_lb": {
+      "title": "Load balancing",
+      "hint":
+        "Spread calls across the primary backend plus an N-way pool of additional targets. Takes precedence over canary/failover below — while an enabled pool has at least one enabled target, canary routing is skipped entirely for this server.",
+      "currently": "Currently: {strategy}, primary weight {weight}, {enabled}, {count} target(s).",
+      "enabled": "enabled",
+      "disabled": "disabled",
+      "strategy": {
+        "round_robin": "round-robin",
+        "weighted": "weighted",
+        "least_conn": "least-conn"
+      },
+      "fields": {
+        "strategy": "Strategy",
+        "primary_weight": "Primary weight",
+        "enabled": "enabled",
+        "target_url": "Target base URL",
+        "weight": "Weight"
+      },
+      "clear": "Clear",
+      "save_pool": "Save pool config",
+      "adding": "Adding…",
+      "add_target": "Add target",
+      "remove": "Remove",
+      "empty_targets": "No pool targets yet — add one below.",
+      "confirm": {
+        "clear_title": "Clear load-balancing pool config?",
+        "clear_message":
+          "This removes the pool strategy config for this server, but keeps the individual targets stored — routing falls back to the primary backend only (and canary/failover, if configured) until you reconfigure the pool.",
+        "clear_cta": "Clear pool config",
+        "remove_title": "Remove this pool target?",
+        "remove_message":
+          "'{url}' will stop receiving traffic immediately. If it's actively serving calls, in-flight requests to it are unaffected but no new ones will be routed there.",
+        "remove_cta": "Remove target"
+      },
+      "table": {
+        "base_url": "Base URL",
+        "weight": "Weight",
+        "enabled": "Enabled"
+      },
+      "errors": {
+        "save_failed": "Failed to save.",
+        "clear_failed": "Failed to clear.",
+        "base_url_required": "Base URL is required.",
+        "add_failed": "Failed to add target.",
+        "update_target_failed": "Failed to update target.",
+        "remove_failed": "Failed to remove target.",
+        "weight_invalid": "Weight must be a whole number of at least 1."
+      }
+    },
+    "server_detail_canary": {
+      "title": "Canary / failover",
+      "hint":
+        "Route to a secondary backend. canary: send a % of calls there; failover: route there only while the primary breaker is open.",
+      "currently": "Currently: {mode} → {url} ({weight}%, {enabled}).",
+      "enabled": "enabled",
+      "disabled": "disabled",
+      "clear": "Clear",
+      "mode": {
+        "canary": "canary",
+        "failover": "failover"
+      },
+      "fields": {
+        "secondary_url": "Secondary base URL",
+        "mode": "Mode",
+        "weight": "Weight percent",
+        "enabled": "enabled"
+      },
+      "save": "Save canary config",
+      "note":
+        "Note: Load balancing above takes precedence — when an enabled pool has at least one enabled target, this canary/failover config is bypassed.",
+      "confirm": {
+        "clear_title": "Clear canary / failover config?",
+        "clear_message":
+          "This removes the secondary backend routing configuration. This can't be undone — you'll need to reconfigure it to restore this setup.",
+        "clear_cta": "Clear canary config"
+      },
+      "errors": {
+        "save_failed": "Failed to save.",
+        "clear_failed": "Failed to clear."
+      }
+    },
+    "server_detail_team": {
+      "title": "Team ownership",
+      "owning_team": "Owning team",
+      "unowned": "— unowned —",
+      "admin_only": "Only super-admins can change this.",
+      "create_team": "Create team",
+      "errors": {
+        "assign_failed": "Failed to assign team (super-admin only)."
+      }
+    },
+    "server_detail_remove": {
+      "title": "Remove server",
+      "hint":
+        "Unlike Disable above, this permanently deletes the server's registration, guards, and all per-tool configuration. Connected MCP agents lose access to its tools immediately, and this can't be undone — Disable above is the reversible alternative.",
+      "button": "Remove server",
+      "confirm": {
+        "title": "Remove this server?",
+        "message":
+          "This permanently deletes the registration, guards, and all per-tool configuration for '{name}'. Connected MCP agents lose access to its tools immediately. This can't be undone.",
+        "cta": "Remove {name}"
+      },
+      "errors": {
+        "remove_failed": "Failed to remove server."
+      }
+    },
+    "server_detail_tools": {
+      "heading": "Tools ({count})",
+      "empty": "This server has no tools registered.",
+      "edit_guards": "Edit guards",
+      "add_guards": "Add guards",
+      "sensitive_marked": "🔒 Sensitive",
+      "mark_sensitive": "Mark sensitive",
+      "testing": "Testing…",
+      "test": "Test",
+      "table": {
+        "name": "Name",
+        "method": "Method",
+        "endpoint": "Endpoint",
+        "guards": "Guards",
+        "sensitive": "Sensitive",
+        "enabled": "Enabled"
+      },
+      "confirm": {
+        "disable_title": "Disable this tool?",
+        "disable_message":
+          "'{name}' will stop working for all connected MCP agents until re-enabled.",
+        "disable_cta": "Disable {name}"
+      },
+      "errors": {
+        "update_failed": "Failed to update.",
+        "update_sensitivity_failed": "Failed to update sensitivity.",
+        "test_failed": "Test call failed."
+      }
+    },
+    "server_detail_playground": {
+      "title": "Playground",
+      "hint":
+        "Fill arguments from the tool's schema and run a real test call through the full guard stack.",
+      "saved_examples": "Saved examples",
+      "delete_example": "Delete example",
+      "delete_example_aria": "Delete {label}",
+      "running": "Running…",
+      "run": "Run test",
+      "save_placeholder": "Save as… (label)",
+      "errors": {
+        "test_failed": "Test call failed.",
+        "save_failed": "Failed to save example."
+      }
+    },
+    "guard_editor": {
+      "positive_number": "Must be a positive number",
+      "rate_keys_title": "Rate limit & keys",
+      "rate_label": "Rate limit (calls / minute)",
+      "no_limit": "No limit",
+      "timeout_label": "Timeout override (ms)",
+      "use_default": "Use server default",
+      "allowed_keys_label": "Allowed API keys",
+      "existing_keys_count": "{count} key(s) currently allowed.",
+      "no_restriction": "No restriction — any valid MCP key may call this tool.",
+      "keys_hashed_hint":
+        "Keys are hashed on save; existing keys cannot be displayed again.",
+      "add_key_placeholder": "Paste a raw API key to add",
+      "hide": "Hide",
+      "show": "Show",
+      "add": "Add",
+      "new_key_n": "New key #{n}",
+      "remove": "remove",
+      "replace_warning":
+        "Saving will REPLACE the entire allow-list with these {count} key(s).",
+      "preview": "Preview",
+      "preview_new_keys": "{count} new key(s)",
+      "preview_existing_keys": "{count} key(s) unchanged",
+      "clearing": "Clearing…",
+      "clear_guards": "Clear guards",
+      "cleared": "Cleared",
+      "save_guards": "Save guards",
+      "saved": "Saved",
+      "confirm": {
+        "clear_title": "Clear all guards for this tool?",
+        "clear_message":
+          "This removes the rate limit, timeout override, and API key allow-list. Existing keys are hashed and cannot be restored — you'd need the original raw keys to set the same allow-list again.",
+        "clear_cta": "Clear guards"
+      },
+      "errors": {
+        "save_failed": "Failed to save guards."
+      }
+    },
+    "guard_editor_approval": {
+      "title": "Human-in-the-loop approval",
+      "require_label": "Require human approval before this tool runs",
+      "levels_label": "Distinct approvers required",
+      "levels_hint":
+        "A call is only allowed once this many DIFFERENT admins/operators have approved it (1 = today's single-approval behavior). Any single rejection blocks the call immediately, regardless of prior approvals.",
+      "levels_error": "Must be a whole number between 1 and 10",
+      "save": "Save approval settings",
+      "errors": {
+        "save_failed": "Failed to save approval settings."
+      }
+    },
+    "guard_editor_cache_purge": {
+      "title": "Response cache",
+      "hint":
+        "Clears any responses already cached for this tool. Doesn't change the cache's enabled/TTL config — new responses are cached again on the next matching call.",
+      "purging": "Purging…",
+      "button": "Purge cached responses",
+      "purged": "Purged",
+      "errors": {
+        "purge_failed": "Failed to purge cache."
+      }
+    },
+    "guard_editor_coalesce": {
+      "title": "Request coalescing",
+      "label":
+        "Share one upstream fetch across concurrent identical calls (GET tools only)",
+      "hint":
+        "Distinct from the response cache's TTL — only dedupes calls that are in flight at the same moment, so it's safe even without caching enabled.",
+      "save": "Save coalescing",
+      "errors": {
+        "save_failed": "Failed to save coalescing."
+      }
+    },
+    "guard_editor_graphql": {
+      "title": "GraphQL backend",
+      "enable_label":
+        "Dispatch this tool as a GraphQL query/mutation instead of a plain REST body",
+      "query_label": "GraphQL query/mutation",
+      "hint_p1":
+        "Tool-call arguments are sent as GraphQL variables — declare a",
+      "hint_p2":
+        "for each argument this tool's input schema accepts. Auto-discovered tools start with a synthesized query you can extend here (e.g. deeper selection sets).",
+      "save": "Save GraphQL settings",
+      "errors": {
+        "save_failed": "Failed to save GraphQL settings."
+      }
+    },
+    "guard_editor_guardrails": {
+      "title": "Guardrails",
+      "content_label": "Content guardrails",
+      "content_hint":
+        "Input deny patterns (one regex per line). A call whose arguments match any pattern is rejected before dispatch.",
+      "block_secrets":
+        "Block arguments that look like secrets (AWS keys, private keys, tokens…)",
+      "scan_responses": "Scan responses for prompt-injection and wrap flagged output",
+      "save": "Save guardrails",
+      "errors": {
+        "save_failed": "Failed to save guardrails."
+      }
+    },
+    "guard_editor_presentation": {
+      "title": "Presentation",
+      "name_label": "Display name (alias)",
+      "name_hint_p1": "Renames the tool for MCP clients. The",
+      "name_hint_p2": "prefix is always kept. Leave blank to use the registered name.",
+      "advertised_as": "Advertised as",
+      "name_placeholder": "e.g. issues",
+      "name_error": "Lowercase letters, digits, - and _; 1-63 chars",
+      "desc_label": "Advertised description override",
+      "desc_hint":
+        "Replaces what MCP clients see for this tool in tools/list. Leave blank to use the registered description.",
+      "desc_placeholder": "Registered description is used when blank",
+      "save": "Save presentation",
+      "errors": {
+        "save_failed": "Failed to save the presentation override."
+      }
+    },
+    "guard_editor_redaction": {
+      "title": "Redaction",
+      "label": "Response redaction paths",
+      "hint":
+        "One dot-path per line (e.g. user.ssn, items.*.secret). Matching JSON values are replaced with [REDACTED] before returning to the caller.",
+      "placeholder": "user.password\nitems.*.token",
+      "save": "Save redaction",
+      "errors": {
+        "save_failed": "Failed to save redaction paths."
+      }
+    },
+    "guard_editor_tags": {
+      "title": "Tags",
+      "label": "Comma-separated tags",
+      "hint":
+        "Comma-separated (lowercase letters, digits, - and _). Used to organize and filter tools.",
+      "placeholder": "billing, read-only",
+      "save": "Save tags",
+      "errors": {
+        "save_failed": "Failed to save tags."
+      }
+    },
+    "guard_editor_websocket": {
+      "title": "WebSocket backend",
+      "enable_label": "Dispatch this tool over a WebSocket instead of REST",
+      "url_label": "WebSocket URL",
+      "url_error": "Must start with ws:// or wss://",
+      "persistent_label":
+        "Persistent connection — forward every message as progress instead of closing after the first",
+      "hint":
+        "Non-persistent (default) opens a fresh connection per call and returns the first message. Persistent stays open and resolves with the last message once the connection closes or the timeout elapses — intermediate messages are forwarded as MCP progress notifications to callers that requested them.",
+      "save": "Save WebSocket settings",
+      "errors": {
+        "save_failed": "Failed to save WebSocket settings."
+      }
+    },
+    "guard_editor_context_budget": {
+      "title": "Context budget",
+      "enable_label":
+        "Cap this tool's response size so it can't blow an agent's context window",
+      "hint":
+        "No budget configured (the default) means responses are returned unbounded, exactly as today. Once enabled, a response over the limit is either cut off with a marker, or — if you configure an LLM below — compressed into a faithful summary instead.",
+      "bytes_label": "Max response size (bytes)",
+      "bytes_error": "Must be a whole number of at least 256 bytes",
+      "mode_label": "Mode when a response exceeds the limit",
+      "mode": {
+        "truncate": "Truncate — cut it off and note how much was omitted",
+        "llm": "Compress with an LLM — summarize instead of cutting off"
+      },
+      "llm_hint":
+        "One extra call per oversized response, made only after this tool's own redaction and guardrail scan have already run — the LLM never sees pre-redaction data. Any failure (network, non-2xx, timeout) silently falls back to truncation; the tool call itself never fails because of this.",
+      "provider_label": "Provider",
+      "provider": {
+        "openai": "OpenAI-compatible (POST {base}/chat/completions)",
+        "anthropic": "Anthropic-compatible (POST {base}/v1/messages)"
+      },
+      "base_url_label": "Base URL",
+      "model_label": "Model",
+      "api_key_label": "API key",
+      "api_key_hint_configured":
+        "A key is already configured and is write-only — it cannot be displayed again. Saving here, even just to change another field, replaces it, so re-enter the key.",
+      "api_key_hint_new":
+        "Bring your own key — stored encrypted, never displayed again once saved.",
+      "api_key_placeholder": "Paste the raw API key",
+      "base_url_required": "Base URL is required",
+      "model_required": "Model is required",
+      "api_key_required": "API key is required",
+      "save": "Save context budget",
+      "errors": {
+        "save_failed": "Failed to save context budget."
+      }
+    },
+    "guard_editor_quarantine": {
+      "title": "Auto-quarantine",
+      "currently_quarantined": "Currently quarantined",
+      "clearing": "Clearing…",
+      "clear_now": "Clear now",
+      "enable_label": "Auto-quarantine after repeated guardrail violations",
+      "threshold_label": "Consecutive violations before quarantine",
+      "threshold_error": "Must be a whole number between 1 and 100",
+      "action_label": "Action when quarantined",
+      "action": {
+        "block": "Block calls (same as disabling the tool)",
+        "force_approval": "Force every call through human approval",
+        "observe": "Observe only — log and let calls through"
+      },
+      "recovery_label": "Recovery",
+      "recovery": {
+        "manual": "Manual only — an admin must clear it",
+        "auto": "Automatic — clears itself after a cooldown"
+      },
+      "cooldown_label": "Cooldown (minutes)",
+      "cooldown_placeholder": "e.g. 15",
+      "cooldown_required": "Required when recovery is automatic",
+      "cooldown_positive": "Must be a positive number of minutes",
+      "cleared": "Cleared",
+      "save": "Save quarantine settings",
+      "errors": {
+        "save_failed": "Failed to save quarantine settings.",
+        "clear_failed": "Failed to clear quarantine."
+      }
     }
   },
   "pages": {

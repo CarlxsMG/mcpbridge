@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { toolPath } from "@/utils/apiPaths";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 import SchemaForm from "@/components/SchemaForm.vue";
 import type { ToolDetail } from "@/types/api";
 
@@ -15,6 +17,7 @@ interface ToolExample {
 }
 
 const props = defineProps<{ clientName: string; tool: ToolDetail }>();
+const { t } = useI18n({ useScope: "global" });
 
 const playgroundArgs = ref<Record<string, unknown>>({});
 const examples = ref<ToolExample[]>([]);
@@ -58,7 +61,7 @@ async function runPlayground() {
     );
     playgroundResult.value = { text: result.content.map((c) => c.text).join("\n"), isError: Boolean(result.isError) };
   } catch (err) {
-    playgroundResult.value = { text: toErrorMessage(err, "Test call failed."), isError: true };
+    playgroundResult.value = { text: toErrorMessage(err, tk("components.server_detail_playground.errors.test_failed")), isError: true };
   } finally {
     playgroundRunning.value = false;
   }
@@ -75,7 +78,7 @@ async function saveExample() {
     newExampleLabel.value = "";
     await loadExamples(props.tool.name);
   } catch (err) {
-    playgroundResult.value = { text: toErrorMessage(err, "Failed to save example."), isError: true };
+    playgroundResult.value = { text: toErrorMessage(err, tk("components.server_detail_playground.errors.save_failed")), isError: true };
   } finally {
     savingExample.value = false;
   }
@@ -93,18 +96,18 @@ async function deleteExampleFn(ex: ToolExample) {
 
 <template>
   <section class="playground">
-    <h3>Playground</h3>
-    <p class="hint">Fill arguments from the tool's schema and run a real test call through the full guard stack.</p>
+    <h3>{{ t('components.server_detail_playground.title') }}</h3>
+    <p class="hint">{{ t('components.server_detail_playground.hint') }}</p>
 
     <div v-if="examples.length" class="examples">
-      <span class="ex-label">Saved examples:</span>
+      <span class="ex-label">{{ t('components.server_detail_playground.saved_examples') }}:</span>
       <span v-for="ex in examples" :key="ex.id" class="ex-chip">
         <button type="button" class="link-btn" @click="loadExampleIntoForm(ex)">{{ ex.label }}</button>
         <button
           type="button"
           class="link-btn del"
-          title="Delete example"
-          :aria-label="`Delete ${ex.label}`"
+          :title="t('components.server_detail_playground.delete_example')"
+          :aria-label="t('components.server_detail_playground.delete_example_aria', { label: ex.label })"
           @click="deleteExampleFn(ex)"
         >
           ×
@@ -116,17 +119,17 @@ async function deleteExampleFn(ex: ToolExample) {
 
     <div class="pg-actions">
       <button type="button" class="btn-primary" :disabled="playgroundRunning" @click="runPlayground">
-        {{ playgroundRunning ? "Running…" : "Run test" }}
+        {{ playgroundRunning ? t('components.server_detail_playground.running') : t('components.server_detail_playground.run') }}
       </button>
       <span class="save-ex">
-        <input v-model="newExampleLabel" type="text" placeholder="Save as… (label)" />
+        <input v-model="newExampleLabel" type="text" :placeholder="t('components.server_detail_playground.save_placeholder')" />
         <button
           type="button"
           class="btn-secondary"
           :disabled="savingExample || !newExampleLabel.trim()"
           @click="saveExample"
         >
-          Save
+          {{ t('common.save') }}
         </button>
       </span>
     </div>

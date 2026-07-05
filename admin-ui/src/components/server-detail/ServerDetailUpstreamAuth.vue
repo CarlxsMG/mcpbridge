@@ -1,21 +1,24 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
 import { useClearableConfig } from "@/composables/useClearableConfig";
 import { useResource } from "@/composables/useResource";
 import { usePatchResource } from "@/composables/usePatchResource";
+import { tk } from "@/i18n";
 import type { UpstreamAuthInfo, UpstreamKind } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 
 const props = defineProps<{ clientName: string; kind: UpstreamKind }>();
+const { t } = useI18n({ useScope: "global" });
 
 const TYPE_OPTIONS: { value: "bearer" | "basic" | "header"; label: string }[] = [
-  { value: "bearer", label: "Bearer token" },
-  { value: "basic", label: "Basic (user / password)" },
-  { value: "header", label: "Custom header" },
+  { value: "bearer", label: t("components.server_detail_upstream_auth.types.bearer") },
+  { value: "basic", label: t("components.server_detail_upstream_auth.types.basic") },
+  { value: "header", label: t("components.server_detail_upstream_auth.types.header") },
 ];
 
 const { data: upstreamAuth, load: loadUpstreamAuth } = useResource<UpstreamAuthInfo | null>(
@@ -48,7 +51,7 @@ async function saveUpstreamAuth() {
     body.headerName = uaHeader.value;
     body.value = uaValue.value;
   }
-  const ok = await runUpstreamAuth((path) => api.put(path, body), "Failed to save credentials.");
+  const ok = await runUpstreamAuth((path) => api.put(path, body), tk("components.server_detail_upstream_auth.errors.save_failed"));
   if (ok) {
     uaToken.value = uaUser.value = uaPass.value = uaHeader.value = uaValue.value = "";
     uaEditing.value = false;
@@ -65,57 +68,54 @@ const {
 } = useClearableConfig(
   loadUpstreamAuth,
   () => api.delete(clientPath(props.clientName, "upstream-auth")),
-  "Failed to clear credentials.",
+  tk("components.server_detail_upstream_auth.errors.clear_failed"),
 );
 </script>
 
 <template>
-  <ConfigSection title="Upstream authentication">
+  <ConfigSection :title="t('components.server_detail_upstream_auth.title')">
     <template #actions>
       <button type="button" class="btn-secondary" @click="uaEditing = !uaEditing">
-        {{ uaEditing ? "Cancel" : upstreamAuth?.configured ? "Change" : "Set credentials" }}
+        {{ uaEditing ? t('common.cancel') : upstreamAuth?.configured ? t('components.server_detail_upstream_auth.change') : t('components.server_detail_upstream_auth.set_credentials') }}
       </button>
       <button v-if="upstreamAuth?.configured" type="button" class="link-btn danger" @click="requestClearUpstreamAuth">
-        Clear
+        {{ t('components.server_detail_upstream_auth.clear') }}
       </button>
     </template>
     <p class="ua-status">
       <template v-if="upstreamAuth?.configured">
-        Configured: <code>{{ upstreamAuth.type }}</code
+        {{ t('components.server_detail_upstream_auth.configured') }}: <code>{{ upstreamAuth.type }}</code
         ><span v-if="upstreamAuth.headerName"> · {{ upstreamAuth.headerName }}</span>
       </template>
-      <template v-else>Not configured — requests to this backend are sent without credentials.</template>
-      <template v-if="kind !== 'mcp'">
-        Alternative to Upstream OAuth below — both can be set at once, but if so the OAuth2 bearer token wins the
-        <code>Authorization</code> header on outbound calls.</template
-      >
+      <template v-else>{{ t('components.server_detail_upstream_auth.not_configured') }}</template>
+      <template v-if="kind !== 'mcp'">{{ t('components.server_detail_upstream_auth.oauth_note') }}</template>
     </p>
     <form v-if="uaEditing" class="ua-form" @submit.prevent="saveUpstreamAuth">
       <label
-        >Type
+        >{{ t('components.server_detail_upstream_auth.fields.type') }}
         <SelectMenu v-model="uaType" :options="TYPE_OPTIONS" />
       </label>
-      <label v-if="uaType === 'bearer'">Token <input v-model="uaToken" type="password" autocomplete="off" /></label>
+      <label v-if="uaType === 'bearer'">{{ t('components.server_detail_upstream_auth.fields.token') }} <input v-model="uaToken" type="password" autocomplete="off" /></label>
       <template v-else-if="uaType === 'basic'">
-        <label>Username <input v-model="uaUser" autocomplete="off" /></label>
-        <label>Password <input v-model="uaPass" type="password" autocomplete="off" /></label>
+        <label>{{ t('components.server_detail_upstream_auth.fields.username') }} <input v-model="uaUser" autocomplete="off" /></label>
+        <label>{{ t('components.server_detail_upstream_auth.fields.password') }} <input v-model="uaPass" type="password" autocomplete="off" /></label>
       </template>
       <template v-else>
-        <label>Header name <input v-model="uaHeader" placeholder="X-Api-Key" autocomplete="off" /></label>
-        <label>Value <input v-model="uaValue" type="password" autocomplete="off" /></label>
+        <label>{{ t('components.server_detail_upstream_auth.fields.header_name') }} <input v-model="uaHeader" placeholder="X-Api-Key" autocomplete="off" /></label>
+        <label>{{ t('components.server_detail_upstream_auth.fields.value') }} <input v-model="uaValue" type="password" autocomplete="off" /></label>
       </template>
       <p v-if="uaError || clearUaError" class="error">{{ uaError || clearUaError }}</p>
       <button type="submit" class="btn-primary" :disabled="uaSaving">
-        {{ uaSaving ? "Saving…" : "Save credentials" }}
+        {{ uaSaving ? t('common.saving') : t('components.server_detail_upstream_auth.save_credentials') }}
       </button>
     </form>
   </ConfigSection>
 
   <ConfirmDialog
     :open="pendingClearUpstreamAuth !== null"
-    title="Clear upstream credentials?"
-    message="This removes the stored credentials for this backend. This can't be undone — requests will be sent without credentials until you set new ones."
-    confirm-label="Clear credentials"
+    :title="t('components.server_detail_upstream_auth.confirm.clear_title')"
+    :message="t('components.server_detail_upstream_auth.confirm.clear_message')"
+    :confirm-label="t('components.server_detail_upstream_auth.confirm.clear_cta')"
     danger
     @confirm="confirmClearUpstreamAuth"
     @cancel="cancelClearUpstreamAuth"

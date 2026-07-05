@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
 import { usePropDraft } from "@/composables/useFieldDraft";
 import SaveRow from "@/components/ui/SaveRow.vue";
+import { tk } from "@/i18n";
 
 const props = defineProps<{
   override?: { description?: string; params?: Record<string, { description?: string }>; displayName?: string };
@@ -11,6 +13,7 @@ const props = defineProps<{
   toolName?: string;
 }>();
 const emit = defineEmits<{ saved: [] }>();
+const { t } = useI18n({ useScope: "global" });
 
 const descriptionInput = usePropDraft(() => props.override?.description ?? "");
 const displayNameInput = usePropDraft(() => props.override?.displayName ?? "");
@@ -28,7 +31,7 @@ watch(
 const displayNameError = computed(() => {
   const v = displayNameInput.value.trim();
   if (!v) return null;
-  return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(v) ? null : "Lowercase letters, digits, - and _; 1-63 chars";
+  return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(v) ? null : t("components.guard_editor_presentation.name_error");
 });
 
 const advertisedName = computed(() => {
@@ -53,7 +56,7 @@ async function saveOverrideFn() {
     !desc && !displayName && (!params || Object.keys(params).length === 0)
       ? null
       : { description: desc || undefined, displayName: displayName || undefined, params };
-  const ok = await patchField("overrides", payload, "Failed to save the presentation override.");
+  const ok = await patchField("overrides", payload, tk("components.guard_editor_presentation.errors.save_failed"));
   if (ok) {
     flash(saved);
     emit("saved");
@@ -62,18 +65,20 @@ async function saveOverrideFn() {
 </script>
 
 <template>
-  <h3>Presentation</h3>
+  <h3>{{ t('components.guard_editor_presentation.title') }}</h3>
   <div class="field">
-    <label for="tool-display-name">Display name (alias)</label>
+    <label for="tool-display-name">{{ t('components.guard_editor_presentation.name_label') }}</label>
     <p class="hint">
-      Renames the tool for MCP clients. The <code>{{ clientName ?? "client" }}__</code> prefix is always kept. Leave
-      blank to use the registered name. Advertised as: <code>{{ advertisedName }}</code>
+      {{ t('components.guard_editor_presentation.name_hint_p1') }}
+      <code>{{ clientName ?? "client" }}__</code>
+      {{ t('components.guard_editor_presentation.name_hint_p2') }}
+      {{ t('components.guard_editor_presentation.advertised_as') }}: <code>{{ advertisedName }}</code>
     </p>
     <input
       id="tool-display-name"
       v-model="displayNameInput"
       type="text"
-      placeholder="e.g. issues"
+      :placeholder="t('components.guard_editor_presentation.name_placeholder')"
       @keydown.enter.prevent
       @blur="displayNameTouched = true"
     />
@@ -81,16 +86,16 @@ async function saveOverrideFn() {
   </div>
 
   <div class="field">
-    <label for="tool-desc">Advertised description override</label>
+    <label for="tool-desc">{{ t('components.guard_editor_presentation.desc_label') }}</label>
     <p class="hint">
-      Replaces what MCP clients see for this tool in tools/list. Leave blank to use the registered description.
+      {{ t('components.guard_editor_presentation.desc_hint') }}
     </p>
     <textarea
       id="tool-desc"
       v-model="descriptionInput"
       rows="3"
-      placeholder="Registered description is used when blank"
+      :placeholder="t('components.guard_editor_presentation.desc_placeholder')"
     ></textarea>
-    <SaveRow label="Save presentation" :saving="saving" :saved="saved" :error="error" @save="saveOverrideFn" />
+    <SaveRow :label="t('components.guard_editor_presentation.save')" :saving="saving" :saved="saved" :error="error" @save="saveOverrideFn" />
   </div>
 </template>

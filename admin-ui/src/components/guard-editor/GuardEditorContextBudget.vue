@@ -1,20 +1,24 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
 import { usePropDraft } from "@/composables/useFieldDraft";
 import SaveRow from "@/components/ui/SaveRow.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { numberRangeValidator } from "@/utils/fieldParsing";
+import { tk } from "@/i18n";
 import type { ContextBudgetConfig, ContextBudgetLlmProvider, ContextBudgetMode } from "@/types/api";
 
+const { t } = useI18n({ useScope: "global" });
+
 const MODE_OPTIONS: { value: ContextBudgetMode; label: string }[] = [
-  { value: "truncate", label: "Truncate — cut it off and note how much was omitted" },
-  { value: "llm_summarize", label: "Compress with an LLM — summarize instead of cutting off" },
+  { value: "truncate", label: t("components.guard_editor_context_budget.mode.truncate") },
+  { value: "llm_summarize", label: t("components.guard_editor_context_budget.mode.llm") },
 ];
 const LLM_PROVIDER_OPTIONS: { value: ContextBudgetLlmProvider; label: string }[] = [
-  { value: "openai", label: "OpenAI-compatible (POST {base}/chat/completions)" },
-  { value: "anthropic", label: "Anthropic-compatible (POST {base}/v1/messages)" },
+  { value: "openai", label: t("components.guard_editor_context_budget.provider.openai") },
+  { value: "anthropic", label: t("components.guard_editor_context_budget.provider.anthropic") },
 ];
 
 const props = defineProps<{
@@ -32,8 +36,7 @@ const contextBudgetLlmProviderInput = usePropDraft<ContextBudgetLlmProvider>(
 );
 const contextBudgetLlmBaseUrlInput = usePropDraft(() => props.contextBudget?.llm?.baseUrl ?? "");
 const contextBudgetLlmModelInput = usePropDraft(() => props.contextBudget?.llm?.model ?? "");
-// Write-only, like OAuth's client secret field — never populated from a previous save. Doesn't
-// mirror a prop value (always blank), so it keeps its own ref + watch instead of usePropDraft.
+// Write-only, like OAuth's client secret field — never populated from a previous save.
 const contextBudgetLlmApiKeyInput = ref("");
 watch(
   () => props.contextBudget,
@@ -45,16 +48,16 @@ const saved = ref(false);
 
 const contextBudgetBytesError = computed(() => {
   if (!contextBudgetEnabledInput.value) return null;
-  return numberRangeValidator({ integer: true, min: 256, message: "Must be a whole number of at least 256 bytes" })(
+  return numberRangeValidator({ integer: true, min: 256, message: t("components.guard_editor_context_budget.bytes_error") })(
     contextBudgetMaxBytesInput.value,
   );
 });
 
 const contextBudgetLlmError = computed(() => {
   if (!contextBudgetEnabledInput.value || contextBudgetModeInput.value !== "llm_summarize") return null;
-  if (!contextBudgetLlmBaseUrlInput.value.trim()) return "Base URL is required";
-  if (!contextBudgetLlmModelInput.value.trim()) return "Model is required";
-  if (!contextBudgetLlmApiKeyInput.value.trim()) return "API key is required";
+  if (!contextBudgetLlmBaseUrlInput.value.trim()) return t("components.guard_editor_context_budget.base_url_required");
+  if (!contextBudgetLlmModelInput.value.trim()) return t("components.guard_editor_context_budget.model_required");
+  if (!contextBudgetLlmApiKeyInput.value.trim()) return t("components.guard_editor_context_budget.api_key_required");
   return null;
 });
 
@@ -66,7 +69,7 @@ const { flash } = useFlash();
 
 async function saveContextBudgetFn() {
   if (!contextBudgetEnabledInput.value) {
-    const ok = await patchField("contextBudget", null, "Failed to save context budget.");
+    const ok = await patchField("contextBudget", null, tk("components.guard_editor_context_budget.errors.save_failed"));
     if (ok) {
       flash(saved);
       emit("saved");
@@ -89,7 +92,7 @@ async function saveContextBudgetFn() {
             }
           : undefined,
     },
-    "Failed to save context budget.",
+    tk("components.guard_editor_context_budget.errors.save_failed"),
   );
   if (ok) {
     flash(saved);
@@ -99,35 +102,30 @@ async function saveContextBudgetFn() {
 </script>
 
 <template>
-  <h3>Context budget</h3>
+  <h3>{{ t('components.guard_editor_context_budget.title') }}</h3>
   <div class="field">
     <label class="checkline"
-      ><input v-model="contextBudgetEnabledInput" type="checkbox" /> Cap this tool's response size so it can't blow an
-      agent's context window</label
+      ><input v-model="contextBudgetEnabledInput" type="checkbox" /> {{ t('components.guard_editor_context_budget.enable_label') }}</label
     >
     <p class="hint">
-      No budget configured (the default) means responses are returned unbounded, exactly as today. Once enabled, a
-      response over the limit is either cut off with a marker, or — if you configure an LLM below — compressed into a
-      faithful summary instead.
+      {{ t('components.guard_editor_context_budget.hint') }}
     </p>
     <template v-if="contextBudgetEnabledInput">
-      <label for="cb-max-bytes">Max response size (bytes)</label>
+      <label for="cb-max-bytes">{{ t('components.guard_editor_context_budget.bytes_label') }}</label>
       <input id="cb-max-bytes" v-model="contextBudgetMaxBytesInput" type="text" inputmode="numeric" />
       <p v-if="contextBudgetBytesError" class="field-error">{{ contextBudgetBytesError }}</p>
 
-      <label for="cb-mode">Mode when a response exceeds the limit</label>
+      <label for="cb-mode">{{ t('components.guard_editor_context_budget.mode_label') }}</label>
       <SelectMenu id="cb-mode" v-model="contextBudgetModeInput" :options="MODE_OPTIONS" />
 
       <template v-if="contextBudgetModeInput === 'llm_summarize'">
         <p class="hint">
-          One extra call per oversized response, made only after this tool's own redaction and guardrail scan have
-          already run — the LLM never sees pre-redaction data. Any failure (network, non-2xx, timeout) silently falls
-          back to truncation; the tool call itself never fails because of this.
+          {{ t('components.guard_editor_context_budget.llm_hint') }}
         </p>
-        <label for="cb-provider">Provider</label>
+        <label for="cb-provider">{{ t('components.guard_editor_context_budget.provider_label') }}</label>
         <SelectMenu id="cb-provider" v-model="contextBudgetLlmProviderInput" :options="LLM_PROVIDER_OPTIONS" />
 
-        <label for="cb-base-url">Base URL</label>
+        <label for="cb-base-url">{{ t('components.guard_editor_context_budget.base_url_label') }}</label>
         <input
           id="cb-base-url"
           v-model="contextBudgetLlmBaseUrlInput"
@@ -136,7 +134,7 @@ async function saveContextBudgetFn() {
           autocomplete="off"
         />
 
-        <label for="cb-model">Model</label>
+        <label for="cb-model">{{ t('components.guard_editor_context_budget.model_label') }}</label>
         <input
           id="cb-model"
           v-model="contextBudgetLlmModelInput"
@@ -145,12 +143,12 @@ async function saveContextBudgetFn() {
           autocomplete="off"
         />
 
-        <label for="cb-api-key">API key</label>
+        <label for="cb-api-key">{{ t('components.guard_editor_context_budget.api_key_label') }}</label>
         <p class="hint">
           {{
             contextBudget?.llm
-              ? "A key is already configured and is write-only — it cannot be displayed again. Saving here, even just to change another field, replaces it, so re-enter the key."
-              : "Bring your own key — stored encrypted, never displayed again once saved."
+              ? t('components.guard_editor_context_budget.api_key_hint_configured')
+              : t('components.guard_editor_context_budget.api_key_hint_new')
           }}
         </p>
         <input
@@ -158,12 +156,12 @@ async function saveContextBudgetFn() {
           v-model="contextBudgetLlmApiKeyInput"
           class="api-key-input"
           type="password"
-          placeholder="Paste the raw API key"
+          :placeholder="t('components.guard_editor_context_budget.api_key_placeholder')"
           autocomplete="off"
         />
         <p v-if="contextBudgetLlmError" class="field-error">{{ contextBudgetLlmError }}</p>
       </template>
     </template>
-    <SaveRow label="Save context budget" :saving="saving" :saved="saved" :error="error" @save="saveContextBudgetFn" />
+    <SaveRow :label="t('components.guard_editor_context_budget.save')" :saving="saving" :saved="saved" :error="error" @save="saveContextBudgetFn" />
   </div>
 </template>

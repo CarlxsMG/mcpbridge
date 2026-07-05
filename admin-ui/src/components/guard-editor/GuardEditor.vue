@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { ToolGuardConfig, ContextBudgetConfig } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import GuardEditorPresentation from "./GuardEditorPresentation.vue";
@@ -18,6 +19,7 @@ import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useFlash } from "@/composables/useFlash";
 import { numberRangeValidator } from "@/utils/fieldParsing";
 import { KeyRound } from "lucide-vue-next";
+import { tk } from "@/i18n";
 
 const props = defineProps<{
   guards?: ToolGuardConfig;
@@ -49,10 +51,8 @@ const props = defineProps<{
   redactPaths?: string[];
 }>();
 
-// Every extracted section (and this file's own "Rate limit & keys" section) patches
-// its own field directly via usePatchTool, then emits/relays `toolChanged` so the
-// parent (ServerDetailPage) reloads the client and fresh props flow back down.
 const emit = defineEmits<{ toolChanged: [] }>();
+const { t } = useI18n({ useScope: "global" });
 
 const rateLimitInput = ref(props.guards?.rateLimitPerMin?.toString() ?? "");
 const timeoutInput = ref(props.guards?.timeoutMs?.toString() ?? "");
@@ -62,18 +62,12 @@ const newApiKey = ref("");
 const showApiKey = ref(false);
 const hasAllowedKeysGuard = ref(Boolean(props.guards?.allowedKeyHashes?.length));
 const existingKeyCount = ref(props.guards?.allowedKeyHashes?.length ?? 0);
-// { id, value } rather than a parallel id array: keeps each entry's identity
-// and payload attached to a single object, so there's no way for the two to
-// drift out of lockstep across push/splice mutations.
 let nextKeyId = 0;
 const replacementKeys = ref<{ id: number; value: string }[]>([]);
 const savedMain = ref(false);
 const savedClear = ref(false);
 const clearingGuards = ref(false);
 
-// Resets local input state when the drawer switches to a different tool (not on save —
-// a successful save resolves via the immediate patchField() return value below, no
-// prop round-trip needed).
 watch(
   () => props.guards,
   (g) => {
@@ -87,14 +81,12 @@ watch(
   },
 );
 
-// Number.MIN_VALUE is the smallest representable positive number, so an
-// inclusive min of it is equivalent to the original's strict `n > 0` check.
 const rateLimitError = computed(() =>
-  numberRangeValidator({ min: Number.MIN_VALUE, message: "Must be a positive number" })(rateLimitInput.value),
+  numberRangeValidator({ min: Number.MIN_VALUE, message: t("components.guard_editor.positive_number") })(rateLimitInput.value),
 );
 
 const timeoutError = computed(() =>
-  numberRangeValidator({ min: Number.MIN_VALUE, message: "Must be a positive number" })(timeoutInput.value),
+  numberRangeValidator({ min: Number.MIN_VALUE, message: t("components.guard_editor.positive_number") })(timeoutInput.value),
 );
 
 const isValid = computed(() => !rateLimitError.value && !timeoutError.value);
@@ -110,8 +102,8 @@ const previewJson = computed(() => {
   if (hasAllowedKeysGuard.value) {
     preview.allowedApiKeys =
       replacementKeys.value.length > 0
-        ? `${replacementKeys.value.length} new key(s)`
-        : `${existingKeyCount.value} key(s) unchanged`;
+        ? t("components.guard_editor.preview_new_keys", { count: replacementKeys.value.length })
+        : t("components.guard_editor.preview_existing_keys", { count: existingKeyCount.value });
   }
   return JSON.stringify(preview, null, 2);
 });
@@ -151,10 +143,8 @@ async function submit() {
   const payload: { rateLimitPerMin?: number; timeoutMs?: number; allowedApiKeys?: string[] } = {};
   if (rateLimitInput.value) payload.rateLimitPerMin = Number(rateLimitInput.value);
   if (timeoutInput.value) payload.timeoutMs = Number(timeoutInput.value);
-  // Only send allowedApiKeys when the operator actually typed replacement
-  // keys — otherwise leave the existing (hashed, unrecoverable) set alone.
   if (replacementKeys.value.length > 0) payload.allowedApiKeys = replacementKeys.value.map((k) => k.value);
-  const ok = await patchField("guards", payload, "Failed to save guards.");
+  const ok = await patchField("guards", payload, tk("components.guard_editor.errors.save_failed"));
   if (ok) {
     flash(savedMain);
     emit("toolChanged");
@@ -163,7 +153,7 @@ async function submit() {
 
 async function doClear() {
   clearingGuards.value = true;
-  const ok = await patchField("guards", null, "Failed to save guards.");
+  const ok = await patchField("guards", null, tk("components.guard_editor.errors.save_failed"));
   clearingGuards.value = false;
   if (ok) {
     flash(savedClear);
@@ -186,65 +176,65 @@ function confirmClear() {
 
 <template>
   <form class="guard-editor" @submit.prevent="submit">
-    <h3><KeyRound :size="15" stroke-width="2" aria-hidden="true" /> Rate limit & keys</h3>
+    <h3><KeyRound :size="15" stroke-width="2" aria-hidden="true" /> {{ t('components.guard_editor.rate_keys_title') }}</h3>
     <div class="field">
-      <label for="rate-limit">Rate limit (calls / minute)</label>
+      <label for="rate-limit">{{ t('components.guard_editor.rate_label') }}</label>
       <input
         id="rate-limit"
         v-model="rateLimitInput"
         type="text"
         inputmode="numeric"
-        placeholder="No limit"
+        :placeholder="t('components.guard_editor.no_limit')"
         @blur="rateLimitTouched = true"
       />
       <p v-if="rateLimitTouched && rateLimitError" class="field-error">{{ rateLimitError }}</p>
     </div>
 
     <div class="field">
-      <label for="timeout">Timeout override (ms)</label>
+      <label for="timeout">{{ t('components.guard_editor.timeout_label') }}</label>
       <input
         id="timeout"
         v-model="timeoutInput"
         type="text"
         inputmode="numeric"
-        placeholder="Use server default"
+        :placeholder="t('components.guard_editor.use_default')"
         @blur="timeoutTouched = true"
       />
       <p v-if="timeoutTouched && timeoutError" class="field-error">{{ timeoutError }}</p>
     </div>
 
     <div class="field">
-      <label>Allowed API keys</label>
+      <label>{{ t('components.guard_editor.allowed_keys_label') }}</label>
       <p class="hint">
         {{
           existingKeyCount > 0
-            ? `${existingKeyCount} key(s) currently allowed.`
-            : "No restriction — any valid MCP key may call this tool."
+            ? t('components.guard_editor.existing_keys_count', { count: existingKeyCount })
+            : t('components.guard_editor.no_restriction')
         }}
-        Keys are hashed on save; existing keys cannot be displayed again.
+        {{ t('components.guard_editor.keys_hashed_hint') }}
       </p>
       <div class="key-input">
         <input
           v-model="newApiKey"
           class="api-key-input"
           :type="showApiKey ? 'text' : 'password'"
-          placeholder="Paste a raw API key to add"
+          :placeholder="t('components.guard_editor.add_key_placeholder')"
           autocomplete="off"
           @keydown.enter.prevent="addKey"
         />
         <button type="button" class="btn-secondary" :aria-pressed="showApiKey" @click="showApiKey = !showApiKey">
-          {{ showApiKey ? "Hide" : "Show" }}
+          {{ showApiKey ? t('components.guard_editor.hide') : t('components.guard_editor.show') }}
         </button>
-        <button type="button" class="btn-secondary" @click="addKey">Add</button>
+        <button type="button" class="btn-secondary" @click="addKey">{{ t('components.guard_editor.add') }}</button>
       </div>
       <ul v-if="replacementKeys.length" class="key-list">
         <li v-for="(k, i) in replacementKeys" :key="k.id">
-          New key #{{ i + 1 }}
-          <button type="button" class="link-btn danger" @click="removeReplacementKey(k.id)">remove</button>
+          {{ t('components.guard_editor.new_key_n', { n: i + 1 }) }}
+          <button type="button" class="link-btn danger" @click="removeReplacementKey(k.id)">{{ t('components.guard_editor.remove') }}</button>
         </li>
       </ul>
       <p v-if="replacementKeys.length" class="hint warn">
-        Saving will REPLACE the entire allow-list with these {{ replacementKeys.length }} key(s).
+        {{ t('components.guard_editor.replace_warning', { count: replacementKeys.length }) }}
       </p>
     </div>
 
@@ -301,22 +291,22 @@ function confirmClear() {
     />
 
     <details class="preview">
-      <summary>Preview</summary>
+      <summary>{{ t('components.guard_editor.preview') }}</summary>
       <pre>{{ previewJson }}</pre>
     </details>
 
     <div class="actions">
       <span class="action-group">
         <button type="button" class="btn-secondary" :disabled="saving" @click="requestClear">
-          {{ clearingGuards ? "Clearing…" : "Clear guards" }}
+          {{ clearingGuards ? t('components.guard_editor.clearing') : t('components.guard_editor.clear_guards') }}
         </button>
-        <span v-if="savedClear" class="save-ok">Cleared</span>
+        <span v-if="savedClear" class="save-ok">{{ t('components.guard_editor.cleared') }}</span>
       </span>
       <span class="action-group">
         <button type="submit" class="btn-primary" :disabled="!isValid || saving">
-          {{ saving && !clearingGuards ? "Saving…" : "Save guards" }}
+          {{ saving && !clearingGuards ? t('common.saving') : t('components.guard_editor.save_guards') }}
         </button>
-        <span v-if="savedMain" class="save-ok">Saved</span>
+        <span v-if="savedMain" class="save-ok">{{ t('components.guard_editor.saved') }}</span>
       </span>
     </div>
     <p v-if="mainError" class="field-error">{{ mainError }}</p>
@@ -324,9 +314,9 @@ function confirmClear() {
 
   <ConfirmDialog
     :open="pendingClear !== null"
-    title="Clear all guards for this tool?"
-    message="This removes the rate limit, timeout override, and API key allow-list. Existing keys are hashed and cannot be restored — you'd need the original raw keys to set the same allow-list again."
-    confirm-label="Clear guards"
+    :title="t('components.guard_editor.confirm.clear_title')"
+    :message="t('components.guard_editor.confirm.clear_message')"
+    :confirm-label="t('components.guard_editor.confirm.clear_cta')"
     danger
     @confirm="confirmClear"
     @cancel="cancelClear"
