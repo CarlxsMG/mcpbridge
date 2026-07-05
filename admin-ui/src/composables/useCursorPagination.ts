@@ -4,7 +4,7 @@ import type { PaginatedResult } from "@/types/api";
 
 /**
  * Generalizes the cursorStack/nextCursor/currentCursor trio hand-rolled the
- * same way in DashboardPage/TracesPage/TrafficPage (prev/next pager), plus
+ * same way in ServersPage/TracesPage/TrafficPage (prev/next pager), plus
  * AuditLogPage's simpler append-only "load more" variant — both share the
  * same fetch signature, they just differ in what happens to `items` and
  * whether a stack is involved.

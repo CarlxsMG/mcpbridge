@@ -582,7 +582,7 @@ html {
 }
 
 /* ---- List-page shell + sticky pagination footer: promoted from 3 pages
-   (DashboardPage, TracesPage, TrafficPage) that each hand-rolled an
+   (ServersPage, TracesPage, TrafficPage) that each hand-rolled an
    identical bare `section { display: flex; flex-direction: column;
    min-height: 100%; }` plus a sticky `.pagination` bar wrapping
    PaginationBar.vue. Promoted under new, explicitly-namespaced class names
@@ -614,12 +614,12 @@ html {
 }
 
 /* ---- Filter-row toolbar: two page-local names (.filters on
-   DashboardPage/AuditLogPage, .filter-row on TracesPage/TrafficPage) for the
+   ServersPage/AuditLogPage, .filter-row on TracesPage/TrafficPage) for the
    same "labelled filter inputs + Apply button" row. Aliased here as one
    ruleset. Only the shared container shape + typed-input styling is
    promoted; a few sub-recipes are excluded because they aren't actually
    common to all 4:
-     - The `.field label` tightening inside DashboardPage/AuditLogPage's
+     - The `.field label` tightening inside ServersPage/AuditLogPage's
        filters is a page-specific override of FormField.vue's own `.field
        label` margin, not part of this row recipe, so it stays page-side.
      - TrafficPage's `.filter-field`/`.filter-label` (an uppercase eyebrow
@@ -630,7 +630,7 @@ html {
    0.5rem/0.7rem) — each page's own scoped copy still wins by specificity
    wherever it explicitly redeclares a property, so nothing visually changes
    for those pages until the per-page copies are deleted in a later phase.
-   One exception: DashboardPage's local copy never set flex-wrap at all, so
+   One exception: ServersPage's local copy never set flex-wrap at all, so
    this rule's flex-wrap: wrap newly takes effect there (rows wrap instead of
    overflowing on narrow viewports) — the same kind of fix already applied
    once to .page-header above. TracesPage still centers items instead of
@@ -651,4 +651,26 @@ html {
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 0.9rem;
+}
+
+/* ---- Dialog header + intro hint: promoted from ConnectClientDialog.vue and
+   ShareInstallLinkDialog.vue's byte-identical scoped `.dialog-head`/
+   `.dialog-head h2`/`.hint` copies (title + Close link-button row, plus the
+   muted intro paragraph under it). ------------------------------------------ */
+.dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.dialog-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.hint {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-4);
+  line-height: 1.4;
 }

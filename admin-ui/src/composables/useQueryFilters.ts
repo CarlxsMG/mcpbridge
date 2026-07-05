@@ -3,7 +3,7 @@ import { useRoute, useRouter } from "vue-router";
 
 /**
  * Generalizes the "seed filter refs from route.query on mount, sync back via
- * router.replace on change/pagination" trio hand-rolled in DashboardPage,
+ * router.replace on change/pagination" trio hand-rolled in ServersPage,
  * TracesPage and TrafficPage (AuditLogPage's simpler append-only "load more"
  * pager never writes filters to the URL at all — see useCursorPagination).
  *

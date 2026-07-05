@@ -43,7 +43,7 @@
 // catch — a whole resource the demo never learned to fake — is still caught
 // at the path level; it just won't distinguish "GET works, POST 404s" from
 // "totally unmocked". Known consequence: POST /admin-api/backup and the
-// bulk PATCH /admin-api/clients (DashboardPage.vue's multi-select
+// bulk PATCH /admin-api/clients (ServersPage.vue's multi-select
 // enable/disable) both resolve to a path demo.ts has *some* handler for, but
 // neither gets bespoke mock behavior — they fall through to the generic
 // `{ ok: true }` / `{ items: [] }` default. That's a real, known gap in mock

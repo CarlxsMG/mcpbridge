@@ -7,6 +7,7 @@ import { useCursorPagination } from "@/composables/useCursorPagination";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useQueryFilters } from "@/composables/useQueryFilters";
 import { toErrorMessage } from "@/utils/errors";
+import { clientPath } from "@/utils/apiPaths";
 import type { ClientSummary, PaginatedResult, TagSummary, TagToolRef } from "@/types/api";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -21,6 +22,7 @@ import PaginationBar from "@/components/ui/PaginationBar.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
+import KindBadge from "@/components/ui/KindBadge.vue";
 import { Server, Tags, ChevronRight } from "lucide-vue-next";
 
 const ENABLED_FILTER_OPTIONS = [
@@ -133,9 +135,7 @@ function confirmBulkDisable() {
 }
 
 async function toggleEnabled(client: ClientSummary) {
-  await toggle(client, "enabled", (next) =>
-    api.patch(`/admin-api/clients/${encodeURIComponent(client.name)}`, { enabled: next }),
-  );
+  await toggle(client, "enabled", (next) => api.patch(clientPath(client.name), { enabled: next }));
 }
 
 function requestDisable(client: ClientSummary) {
@@ -233,8 +233,8 @@ onMounted(() => load());
             v-for="t in tags"
             :key="t.tag"
             type="button"
-            class="tag-chip"
-            :class="{ 'tag-chip-active': selectedTag === t.tag }"
+            class="tag-filter-chip"
+            :class="{ 'tag-filter-chip-active': selectedTag === t.tag }"
             :aria-pressed="selectedTag === t.tag"
             @click="selectTag(t.tag)"
           >
@@ -335,7 +335,7 @@ onMounted(() => load());
             </td>
             <td>
               <RouterLink :to="`/servers/${encodeURIComponent(client.name)}`">{{ client.name }}</RouterLink>
-              <span v-if="client.kind === 'mcp'" class="kind-chip">MCP</span>
+              <KindBadge class="kind-chip" :kind="client.kind" />
             </td>
             <td><StatusBadge :status="client.status" /></td>
             <td>{{ client.toolsCount }}</td>
@@ -358,8 +358,13 @@ onMounted(() => load());
     </ListLayout>
 
     <div class="sticky-pagination">
-      <PaginationBar :has-prev="hasPrev" :has-next="hasNext" @prev="prevPage" @next="nextPage" />
-      <p class="subtitle">{{ items.length }} server(s) on this page</p>
+      <PaginationBar
+        :has-prev="hasPrev"
+        :has-next="hasNext"
+        :label="`${items.length} server(s) on this page`"
+        @prev="prevPage"
+        @next="nextPage"
+      />
     </div>
 
     <ConfirmDialog
@@ -419,7 +424,7 @@ onMounted(() => load());
   flex-wrap: wrap;
   gap: var(--space-2);
 }
-.tag-chip {
+.tag-filter-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1-5);
@@ -436,11 +441,11 @@ onMounted(() => load());
     color 0.12s ease,
     background-color 0.12s ease;
 }
-.tag-chip:hover {
+.tag-filter-chip:hover {
   border-color: var(--border-strong);
   color: var(--text-primary);
 }
-.tag-chip-active {
+.tag-filter-chip-active {
   background: var(--signal-soft);
   border-color: var(--signal);
   color: var(--signal-strong);
@@ -449,7 +454,7 @@ onMounted(() => load());
   color: var(--text-muted);
   font-weight: 400;
 }
-.tag-chip-active .tag-count {
+.tag-filter-chip-active .tag-count {
   color: var(--signal-strong);
 }
 .tag-tools {
@@ -509,15 +514,7 @@ onMounted(() => load());
   font-size: 0.83rem;
 }
 .kind-chip {
-  display: inline-block;
   margin-left: 0.4rem;
-  padding: 0.05rem 0.4rem;
-  background: var(--kind-mcp-soft);
-  color: var(--kind-mcp-text);
-  border-radius: var(--radius-pill);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
   vertical-align: middle;
 }
 </style>

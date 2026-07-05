@@ -13,7 +13,7 @@ import type { OverviewStats, UsageSummary } from "@/types/api";
 import { CheckCircle2, Circle } from "lucide-vue-next";
 
 const props = defineProps<{
-  /** Servers list is already fetched by DashboardPage — avoid a second /admin-api/clients call. */
+  /** Servers list is already fetched by ServersPage — avoid a second /admin-api/clients call. */
   hasServers: boolean;
 }>();
 
