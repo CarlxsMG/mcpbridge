@@ -27,4 +27,19 @@ withDefaults(defineProps<{ maxWidth?: string }>(), { maxWidth: "30rem" });
   width: 100%;
   min-width: 0;
 }
+
+/* Consumers put a `.form-card` class on the <form> they pass in as slot
+   content. :slotted() (not :deep()) is required because that <form> is
+   compiled in the consumer's own scope, not this component's. Distinct
+   from the unrelated global `.create-form` in style.css. */
+:slotted(.form-card) {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
 </style>
