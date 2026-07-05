@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
+import { i18n } from "../i18n";
 import type { McpApiKey, Consumer } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -16,11 +18,21 @@ import HoverPreview from "@/components/ui/HoverPreview.vue";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
 import { KeyRound } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+function tk(key: string): string {
+  return (i18n.global.t as (k: string) => string)(key);
+}
+
 const keys = ref<McpApiKey[]>([]);
-const { loading, errorMessage, run } = useLoadState("Failed to load API keys.");
+const loadFallback = tk("pages.keys.errors.load_failed");
+const revokeFallback = tk("pages.keys.errors.revoke_failed");
+const deleteFallback = tk("pages.keys.errors.delete_failed");
+const updateFallback = tk("errors.update_failed");
+
+const { loading, errorMessage, run } = useLoadState(loadFallback);
 const consumers = ref<Consumer[]>([]);
 
-const { rowError, toggle: toggleField } = useOptimisticToggle<McpApiKey>((k) => k.id, "Failed to update key.");
+const { rowError, toggle: toggleField } = useOptimisticToggle<McpApiKey>((k) => k.id, updateFallback);
 
 const {
   pending: pendingDelete,
@@ -43,11 +55,11 @@ function statusOf(key: McpApiKey): string {
 }
 
 function scopeSummary(key: McpApiKey): string {
-  if (!key.scopes) return "Unrestricted";
+  if (!key.scopes) return t("pages.keys.table.unrestricted");
   const parts: string[] = [];
-  if (key.scopes.clients?.length) parts.push(`${key.scopes.clients.length} client(s)`);
-  if (key.scopes.tools?.length) parts.push(`${key.scopes.tools.length} tool(s)`);
-  return parts.length ? parts.join(", ") : "Unrestricted";
+  if (key.scopes.clients?.length) parts.push(t("pages.keys.table.client_count", { count: key.scopes.clients.length }));
+  if (key.scopes.tools?.length) parts.push(t("pages.keys.table.tool_count", { count: key.scopes.tools.length }));
+  return parts.length ? parts.join(", ") : t("pages.keys.table.unrestricted");
 }
 
 async function load() {
@@ -79,7 +91,7 @@ function confirmRevoke() {
       await api.post(`/admin-api/mcp-keys/${key.id}/revoke`);
       await load();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to revoke key.");
+      errorMessage.value = toErrorMessage(err, revokeFallback);
     }
   });
 }
@@ -90,7 +102,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/mcp-keys/${key.id}`);
       await load();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to delete key.");
+      errorMessage.value = toErrorMessage(err, deleteFallback);
     }
   });
 }
@@ -98,36 +110,36 @@ function confirmDelete() {
 
 <template>
   <section>
-    <PageHeader
-      title="API keys"
-      subtitle="MCP keys authenticate clients calling the bridge. Scope a key to specific clients or tools, or leave it unrestricted. The secret is shown only once at creation."
-    >
-      <RouterLink to="/keys/new" class="btn-primary">Mint key</RouterLink>
+    <PageHeader :title="t('pages.keys.title')" :subtitle="t('pages.keys.subtitle')">
+      <RouterLink to="/keys/new" class="btn-primary">{{ t("pages.keys.mint_key") }}</RouterLink>
     </PageHeader>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="keys.length === 0">
       <template #empty>
         <EmptyState :icon="KeyRound">
-          No API keys yet. MCP clients present a key to call tools through this bridge — mint one to get started.
+          {{ t("pages.keys.empty") }}
         </EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>Label</th>
-            <th>Prefix</th>
-            <th>Scope</th>
-            <th>Consumer</th>
-            <th>Status</th>
-            <th>Last used</th>
-            <th>Expires</th>
+            <th>{{ t("pages.keys.table.label") }}</th>
+            <th>{{ t("pages.keys.table.prefix") }}</th>
+            <th>{{ t("pages.keys.table.scope") }}</th>
+            <th>{{ t("pages.keys.table.consumer") }}</th>
+            <th>{{ t("pages.keys.table.status") }}</th>
+            <th>{{ t("pages.keys.table.last_used") }}</th>
+            <th>{{ t("pages.keys.table.expires") }}</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="key in keys" :key="key.id">
-            <td>{{ key.label }} <span v-if="key.elevated" class="elev-chip">elevated</span></td>
+            <td>
+              {{ key.label }}
+              <span v-if="key.elevated" class="elev-chip">{{ t("pages.keys.table.elevated_chip") }}</span>
+            </td>
             <td>
               <HoverPreview always-show mono :text="key.keyPrefix">
                 <code>{{ key.keyPrefix }}…</code>
@@ -138,8 +150,14 @@ function confirmDelete() {
                 {{ scopeSummary(key) }}
                 <template #content>
                   <div class="scope-detail">
-                    <div v-if="key.scopes?.clients?.length">Clients: {{ key.scopes?.clients?.join(", ") }}</div>
-                    <div v-if="key.scopes?.tools?.length">Tools: {{ key.scopes?.tools?.join(", ") }}</div>
+                    <div v-if="key.scopes?.clients?.length">
+                      {{ t("pages.keys.table.client_count", { count: key.scopes.clients.length }) }}:
+                      {{ key.scopes?.clients?.join(", ") }}
+                    </div>
+                    <div v-if="key.scopes?.tools?.length">
+                      {{ t("pages.keys.table.tool_count", { count: key.scopes.tools.length }) }}:
+                      {{ key.scopes?.tools?.join(", ") }}
+                    </div>
                   </div>
                 </template>
               </HoverPreview>
@@ -154,12 +172,14 @@ function confirmDelete() {
             <td>
               <div class="actions">
                 <button v-if="key.revokedAt === null" type="button" class="link-btn" @click="toggleEnabled(key)">
-                  {{ key.enabled ? "Disable" : "Enable" }}
+                  {{ key.enabled ? t("pages.keys.table.disable_key") : t("pages.keys.table.enable_key") }}
                 </button>
                 <button v-if="key.revokedAt === null" type="button" class="link-btn danger" @click="requestRevoke(key)">
-                  Revoke
+                  {{ t("pages.keys.table.revoke_key") }}
                 </button>
-                <button type="button" class="link-btn danger" @click="requestDelete(key)">Delete</button>
+                <button type="button" class="link-btn danger" @click="requestDelete(key)">
+                  {{ t("pages.keys.table.delete_key") }}
+                </button>
               </div>
               <p v-if="rowError[key.id]" class="row-error">{{ rowError[key.id] }}</p>
             </td>
@@ -170,11 +190,11 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingDelete !== null"
-      title="Delete this API key?"
-      :message="
-        pendingDelete ? `'${pendingDelete.label}' will stop working immediately and be removed permanently.` : ''
+      :title="t('pages.keys.confirm.delete_title')"
+      :message="pendingDelete ? t('pages.keys.confirm.delete_message', { label: pendingDelete.label }) : ''"
+      :confirm-label="
+        pendingDelete ? t('pages.keys.confirm.delete_label_named', { label: pendingDelete.label }) : t('common.delete')
       "
-      :confirm-label="pendingDelete ? `Delete ${pendingDelete.label}` : 'Delete'"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -182,11 +202,13 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingRevoke !== null"
-      title="Revoke this API key?"
-      :message="
-        pendingRevoke ? `'${pendingRevoke.label}' will stop working immediately. Revoking cannot be undone.` : ''
+      :title="t('pages.keys.confirm.revoke_title')"
+      :message="pendingRevoke ? t('pages.keys.confirm.revoke_message', { label: pendingRevoke.label }) : ''"
+      :confirm-label="
+        pendingRevoke
+          ? t('pages.keys.confirm.revoke_label_named', { label: pendingRevoke.label })
+          : t('pages.keys.table.revoke_key')
       "
-      :confirm-label="pendingRevoke ? `Revoke ${pendingRevoke.label}` : 'Revoke'"
       danger
       @confirm="confirmRevoke"
       @cancel="cancelRevoke"
@@ -195,8 +217,6 @@ function confirmDelete() {
 </template>
 
 <style scoped>
-/* PageHeader's own recipe covers color/margin; this page's subtitle is long
-   enough to need a line-length cap that the shared component doesn't set. */
 :deep(.subtitle) {
   max-width: 40rem;
 }

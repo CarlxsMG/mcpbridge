@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter, useRoute } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { api, ApiError } from "@/composables/useApi";
 import type { OidcPublicConfig } from "@/types/api";
 import { Activity } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
 const username = ref("");
 const password = ref("");
 const submitting = ref(false);
@@ -15,10 +17,6 @@ const { login } = useAuth();
 const router = useRouter();
 const route = useRoute();
 
-// Does the login page need to offer an SSO button? Fetched before any
-// session exists, so this call is deliberately public (no adminAuth) —
-// see GET /admin-api/auth/oidc/config. Never alters the password-login
-// flow above; if the check itself fails, the button just doesn't appear.
 const ssoConfig = ref<OidcPublicConfig>({ enabled: false });
 onMounted(async () => {
   try {
@@ -38,11 +36,11 @@ async function onSubmit() {
   } catch (err) {
     // Never state which field was wrong — avoids helping a credential-stuffing attempt.
     if (err instanceof ApiError && (err.status === 401 || err.status === 400)) {
-      errorMessage.value = "Couldn't sign in — check your username and password.";
+      errorMessage.value = t("pages.login.invalid_credentials");
     } else if (err instanceof ApiError && err.status === 429) {
-      errorMessage.value = "Too many attempts — please wait a moment and try again.";
+      errorMessage.value = t("pages.login.too_many_attempts");
     } else {
-      errorMessage.value = "Something went wrong. Please try again.";
+      errorMessage.value = t("pages.login.generic_error");
     }
   } finally {
     submitting.value = false;
@@ -62,28 +60,30 @@ async function onSubmit() {
     <div class="login-card">
       <form @submit.prevent="onSubmit">
         <h1><Activity :size="20" stroke-width="2.25" aria-hidden="true" /> MCP REST Bridge</h1>
-        <p class="subtitle">Sign in to manage servers and tools</p>
+        <p class="subtitle">{{ t("pages.login.subtitle") }}</p>
 
         <div class="field">
-          <label for="username">Username</label>
+          <label for="username">{{ t("pages.login.username") }}</label>
           <input id="username" v-model="username" type="text" autocomplete="username" required autofocus />
         </div>
 
         <div class="field">
-          <label for="password">Password</label>
+          <label for="password">{{ t("pages.login.password") }}</label>
           <input id="password" v-model="password" type="password" autocomplete="current-password" required />
         </div>
 
         <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
         <button type="submit" class="btn-primary" :disabled="submitting">
-          {{ submitting ? "Signing in…" : "Sign in" }}
+          {{ submitting ? t("pages.login.signing_in") : t("pages.login.submit") }}
         </button>
       </form>
 
       <div v-if="ssoConfig.enabled" class="sso-section">
-        <div class="divider" role="separator"><span>or</span></div>
-        <a class="btn-secondary sso-link" href="/admin-api/auth/oidc/start">Sign in with SSO</a>
+        <div class="divider" role="separator">
+          <span>{{ t("common.or") }}</span>
+        </div>
+        <a class="btn-secondary sso-link" href="/admin-api/auth/oidc/start">{{ t("pages.login.sso_submit") }}</a>
       </div>
     </div>
   </div>

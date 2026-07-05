@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useDashboardLayout } from "@/composables/useDashboardLayout";
 import { useDashboardData } from "@/composables/useDashboardData";
 import { neededSources, type WidgetPreset, type WidgetOptions } from "@/components/overview/widgetCatalog";
@@ -22,15 +23,17 @@ import {
   LayoutDashboard,
 } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+
 const layout = useDashboardLayout();
 
-const WINDOWS = [
-  { label: "24 hours", ms: 24 * 60 * 60_000 },
-  { label: "7 days", ms: 7 * 24 * 60 * 60_000 },
-  { label: "30 days", ms: 30 * 24 * 60 * 60_000 },
+const WINDOW_VALUES = [
+  { labelKey: "pages.overview.last_24h", ms: 24 * 60 * 60_000 },
+  { labelKey: "pages.overview.last_7d", ms: 7 * 24 * 60 * 60_000 },
+  { labelKey: "pages.overview.last_30d", ms: 30 * 24 * 60 * 60_000 },
 ];
-const WINDOW_OPTIONS = WINDOWS.map((w) => ({ value: w.ms, label: `Last ${w.label}` }));
-const windowMs = ref(WINDOWS[1].ms);
+const WINDOW_OPTIONS = WINDOW_VALUES.map((w) => ({ value: w.ms, label: t(w.labelKey) }));
+const windowMs = ref(WINDOW_VALUES[1].ms);
 
 const sources = computed(() => neededSources(layout.widgets.value));
 const data = useDashboardData(sources, windowMs);
@@ -44,13 +47,11 @@ const errorMessage = ref("");
 
 const configuringWidget = computed(() => layout.widgets.value.find((w) => w.id === configuringId.value) ?? null);
 const isEmpty = computed(() => layout.widgets.value.length === 0);
-// Preserve the original page's onboarding nudge when there are no live servers.
 const showNoServers = computed(() => data.stores.overview !== null && data.stores.overview.clients.live === 0);
 
 function onAdd(preset: WidgetPreset): void {
   const id = layout.addPreset(preset);
   showAdd.value = false;
-  // "Custom" entries (e.g. Note) land blank-ish — open the builder immediately.
   if (preset.group === "custom") configuringId.value = id;
 }
 function onRemove(id: string): void {
@@ -76,13 +77,13 @@ function triggerImport(): void {
 async function onImportFile(e: Event): Promise<void> {
   const input = e.target as HTMLInputElement;
   const file = input.files?.[0];
-  input.value = ""; // allow re-importing the same file later
+  input.value = "";
   if (!file) return;
   try {
     layout.importJson(await file.text());
     errorMessage.value = "";
   } catch (err) {
-    errorMessage.value = `Import failed: ${(err as Error).message}`;
+    errorMessage.value = t("pages.overview.import_error_prefix") + (err as Error).message;
   }
 }
 
@@ -91,40 +92,37 @@ onMounted(() => data.refresh());
 
 <template>
   <section>
-    <PageHeader
-      title="Overview"
-      subtitle="A live snapshot of this bridge — build it out of the widgets you care about."
-    >
+    <PageHeader :title="t('pages.overview.title')" :subtitle="t('pages.overview.subtitle')">
       <div class="ov-actions">
-        <SelectMenu v-model="windowMs" aria-label="Time window" :options="WINDOW_OPTIONS" />
+        <SelectMenu v-model="windowMs" :aria-label="t('pages.overview.time_window_aria')" :options="WINDOW_OPTIONS" />
         <button type="button" class="btn-secondary" :disabled="data.loading.value" @click="data.refresh()">
           <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: data.loading.value }" />
-          {{ data.loading.value ? "Refreshing…" : "Refresh" }}
+          {{ data.loading.value ? t("pages.overview.refreshing") : t("common.refresh") }}
         </button>
 
         <template v-if="editing">
           <button type="button" class="btn-primary" @click="showAdd = true">
-            <Plus :size="14" stroke-width="2" aria-hidden="true" /> Add widget
+            <Plus :size="14" stroke-width="2" aria-hidden="true" /> {{ t("pages.overview.add_widget") }}
           </button>
-          <button type="button" class="btn-secondary" title="Export layout as JSON" @click="exportLayout">
-            <Download :size="14" stroke-width="2" aria-hidden="true" /> Export
+          <button type="button" class="btn-secondary" :title="t('pages.overview.export_layout')" @click="exportLayout">
+            <Download :size="14" stroke-width="2" aria-hidden="true" /> {{ t("pages.overview.export") }}
           </button>
-          <button type="button" class="btn-secondary" title="Import a layout JSON" @click="triggerImport">
-            <Upload :size="14" stroke-width="2" aria-hidden="true" /> Import
+          <button type="button" class="btn-secondary" :title="t('pages.overview.import_layout')" @click="triggerImport">
+            <Upload :size="14" stroke-width="2" aria-hidden="true" /> {{ t("pages.overview.import") }}
           </button>
           <button
             type="button"
             class="btn-secondary"
-            title="Restore the default layout"
+            :title="t('pages.overview.restore_default_layout')"
             @click="showResetConfirm = true"
           >
-            <RotateCcw :size="14" stroke-width="2" aria-hidden="true" /> Reset
+            <RotateCcw :size="14" stroke-width="2" aria-hidden="true" /> {{ t("common.reset") }}
           </button>
         </template>
 
         <button type="button" class="btn-secondary" :aria-pressed="editing" @click="editing = !editing">
           <SlidersHorizontal :size="14" stroke-width="2" aria-hidden="true" />
-          {{ editing ? "Done" : "Edit" }}
+          {{ editing ? t("pages.overview.done") : t("pages.overview.edit") }}
         </button>
         <input
           ref="importInput"
@@ -140,13 +138,13 @@ onMounted(() => data.refresh());
 
     <p v-if="showNoServers" class="onboarding-note">
       <Server :size="15" stroke-width="2" aria-hidden="true" />
-      No servers registered yet. <RouterLink to="/register-server">Add a server</RouterLink> or
-      <RouterLink to="/catalog">browse the catalog</RouterLink> — your widgets will fill in once traffic flows.
+      {{ t("pages.overview.empty.no_servers") }}
+      <RouterLink to="/register-server">{{ t("pages.overview.empty.add_server") }}</RouterLink> or
+      <RouterLink to="/catalog">{{ t("pages.overview.empty.browse_catalog") }}</RouterLink>
     </p>
 
     <p v-if="editing" class="edit-hint">
-      Drag the <strong>⠿</strong> handle to move a widget, drag its bottom-right corner to resize, or use each widget's
-      controls. Changes are saved automatically to this browser.
+      {{ t("pages.overview.empty.edit_hint") }}
     </p>
 
     <WidgetGrid
@@ -162,10 +160,14 @@ onMounted(() => data.refresh());
     />
 
     <EmptyState v-else :icon="LayoutDashboard">
-      Your dashboard is empty.
-      <button type="button" class="link-btn" @click="showAdd = true">Add a widget</button>
-      or
-      <button type="button" class="link-btn" @click="layout.resetToDefault()">reset to the default layout</button>.
+      {{ t("pages.overview.empty.dashboard_empty") }}
+      <button type="button" class="link-btn" @click="showAdd = true">
+        {{ t("pages.overview.empty.add_widget_button") }}
+      </button>
+      {{ t("common.or") }}
+      <button type="button" class="link-btn" @click="layout.resetToDefault()">
+        {{ t("pages.overview.empty.reset_to_default") }}</button
+      >.
     </EmptyState>
 
     <AddWidgetDialog :open="showAdd" @close="showAdd = false" @add="onAdd" />
@@ -177,9 +179,9 @@ onMounted(() => data.refresh());
     />
     <ConfirmDialog
       :open="showResetConfirm"
-      title="Reset dashboard?"
-      message="This replaces your current layout with the default set of widgets. Your customizations to this dashboard will be lost."
-      confirm-label="Reset to default"
+      :title="t('pages.overview.reset_confirm.title')"
+      :message="t('pages.overview.reset_confirm.message')"
+      :confirm-label="t('pages.overview.reset_confirm.confirm_label')"
       danger
       @confirm="confirmReset"
       @cancel="showResetConfirm = false"
@@ -188,8 +190,6 @@ onMounted(() => data.refresh());
 </template>
 
 <style scoped>
-/* PageHeader renders the .header-actions wrapper; reach into it to lay the
-   controls out in a wrapping row (matches the other observability pages). */
 :deep(.header-actions) {
   min-width: 0;
 }

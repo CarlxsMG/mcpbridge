@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
@@ -24,16 +25,22 @@ import SelectMenu from "@/components/ui/SelectMenu.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import KindBadge from "@/components/ui/KindBadge.vue";
 import { Server, Tags, ChevronRight } from "lucide-vue-next";
+import { i18n } from "../i18n";
 
-const ENABLED_FILTER_OPTIONS = [
-  { value: "", label: "All states" },
-  { value: "true", label: "Enabled only" },
-  { value: "false", label: "Disabled only" },
-];
+const { t } = useI18n({ useScope: "global" });
+function tk(key: string): string {
+  return (i18n.global.t as (k: string) => string)(key);
+}
+
+const ENABLED_FILTER_OPTIONS = computed(() => [
+  { value: "", label: tk("pages.servers.filter.all_states") },
+  { value: "true", label: tk("pages.servers.filter.enabled_only") },
+  { value: "false", label: tk("pages.servers.filter.disabled_only") },
+]);
 
 const route = useRoute();
 
-const { rowError, toggle } = useOptimisticToggle<ClientSummary>((c) => c.name, "Failed to update.");
+const { rowError, toggle } = useOptimisticToggle<ClientSummary>((c) => c.name, tk("errors.update_failed"));
 
 const { filters, syncUrl } = useQueryFilters(["q", "enabled"] as const);
 const q = filters.q;
@@ -63,7 +70,7 @@ const {
   (cursor) => api.get<PaginatedResult<ClientSummary>>(`/admin-api/clients?${buildQuery(cursor)}`),
   {
     initialCursor,
-    fallbackMessage: "Failed to load servers.",
+    fallbackMessage: tk("errors.load_servers_failed"),
     onCursorChange: (cursor) => syncUrl({ cursor }),
   },
 );
@@ -112,13 +119,10 @@ async function runBulk(enabled: boolean) {
   try {
     await api.patch("/admin-api/clients", { names: Array.from(selected.value), enabled });
     selected.value = new Set();
-    // Original hand-rolled `load()` (no cursor arg) fell back to `cursor === undefined`,
-    // i.e. jumped back to page 1 after a bulk action. The composable's `load()` instead
-    // defaults to the *current* cursor, so `reset()` first is required to preserve that.
     reset();
     await load();
   } catch (err) {
-    bulkError.value = toErrorMessage(err, "Bulk update failed.");
+    bulkError.value = toErrorMessage(err, t("pages.servers.errors.bulk_update_failed"));
   } finally {
     bulkPending.value = false;
   }
@@ -160,9 +164,6 @@ function onToggleClick(client: ClientSummary) {
   }
 }
 
-// Browse-by-tag — GET /admin-api/tags + GET /admin-api/tags/:tag/tools. Separate from the
-// client filters above: tags live on tools, not clients, so this is a lightweight side panel
-// rather than a filter over the clients table.
 const showTagBrowser = ref(false);
 const tags = ref<TagSummary[]>([]);
 const tagsLoading = ref(false);
@@ -178,7 +179,7 @@ async function loadTags() {
   try {
     tags.value = (await api.get<{ items: TagSummary[] }>("/admin-api/tags")).items;
   } catch (err) {
-    tagsError.value = toErrorMessage(err, "Failed to load tags.");
+    tagsError.value = toErrorMessage(err, t("pages.servers.errors.tags_load_failed"));
   } finally {
     tagsLoading.value = false;
   }
@@ -196,7 +197,7 @@ async function selectTag(tag: string) {
   try {
     tagTools.value = (await api.get<{ items: TagToolRef[] }>(`/admin-api/tags/${encodeURIComponent(tag)}/tools`)).items;
   } catch (err) {
-    tagToolsError.value = toErrorMessage(err, "Failed to load tools for this tag.");
+    tagToolsError.value = toErrorMessage(err, t("pages.servers.errors.tag_tools_load_failed"));
   } finally {
     tagToolsLoading.value = false;
   }
@@ -212,20 +213,20 @@ onMounted(() => load());
 
 <template>
   <section class="list-shell">
-    <PageHeader title="Servers" subtitle="Registered backend servers and their tools.">
+    <PageHeader :title="t('pages.servers.title')" :subtitle="t('pages.servers.subtitle')">
       <button type="button" class="btn-secondary" :aria-expanded="showTagBrowser" @click="toggleTagBrowser">
-        <Tags :size="15" stroke-width="2" aria-hidden="true" /> Browse by tag
+        <Tags :size="15" stroke-width="2" aria-hidden="true" /> {{ t("pages.servers.browse_by_tag") }}
       </button>
-      <RouterLink to="/register-server" class="btn-primary">Add server</RouterLink>
+      <RouterLink to="/register-server" class="btn-primary">{{ t("pages.servers.add_server") }}</RouterLink>
     </PageHeader>
 
     <OnboardingChecklist :has-servers="items.length > 0" />
 
     <div v-if="showTagBrowser" class="tag-browser">
-      <SignalLoader v-if="tagsLoading" label="Loading tags…" />
+      <SignalLoader v-if="tagsLoading" />
       <p v-else-if="tagsError" class="error">{{ tagsError }}</p>
       <p v-else-if="tags.length === 0" class="subtitle">
-        No tools have been tagged yet. Tag a tool from its server's Settings tab.
+        {{ t("pages.servers.empty.tags") }}
       </p>
       <template v-else>
         <div class="tag-cloud">
@@ -242,9 +243,11 @@ onMounted(() => load());
           </button>
         </div>
         <div v-if="selectedTag" class="tag-tools">
-          <SignalLoader v-if="tagToolsLoading" label="Loading tools…" />
+          <SignalLoader v-if="tagToolsLoading" />
           <p v-else-if="tagToolsError" class="error">{{ tagToolsError }}</p>
-          <p v-else-if="tagTools.length === 0" class="subtitle">No tools currently carry '{{ selectedTag }}'.</p>
+          <p v-else-if="tagTools.length === 0" class="subtitle">
+            {{ t("pages.servers.empty.tag_tools", { tag: selectedTag }) }}
+          </p>
           <ul v-else class="tag-tools-list">
             <li v-for="toolRef in tagTools" :key="`${toolRef.client}__${toolRef.tool}`">
               <ChevronRight :size="13" stroke-width="2" class="tag-tool-arrow" aria-hidden="true" />
@@ -259,25 +262,27 @@ onMounted(() => load());
 
     <form class="filters" @submit.prevent="applyFilters">
       <div class="field">
-        <label for="d-search">Search</label>
-        <SearchInput v-model="q" placeholder="Search by name…" />
+        <label for="d-search">{{ t("common.search") }}</label>
+        <SearchInput v-model="q" :placeholder="t('pages.servers.search_placeholder')" />
       </div>
       <div class="field">
-        <label for="d-state">State</label>
+        <label for="d-state">{{ t("pages.servers.state_label") }}</label>
         <SelectMenu id="d-state" v-model="enabledFilter" :options="ENABLED_FILTER_OPTIONS" />
       </div>
-      <button type="submit" class="btn-secondary">Apply</button>
+      <button type="submit" class="btn-secondary">{{ t("common.apply") }}</button>
     </form>
 
     <div v-if="selected.size > 0" class="bulk-bar">
-      <span>{{ selected.size }} selected</span>
+      <span>{{ t("pages.servers.selected_count", { count: selected.size }) }}</span>
       <button type="button" class="btn-secondary" :disabled="bulkPending" @click="runBulk(true)">
-        Enable selected
+        {{ t("pages.servers.enable_selected") }}
       </button>
       <button type="button" class="btn-danger" :disabled="bulkPending" @click="requestBulkDisable">
-        Disable selected
+        {{ t("pages.servers.disable_selected") }}
       </button>
-      <button type="button" class="link-btn" @click="selected = new Set()">Clear selection</button>
+      <button type="button" class="link-btn" @click="selected = new Set()">
+        {{ t("pages.servers.clear_selection") }}
+      </button>
       <span v-if="bulkError" class="error">{{ bulkError }}</span>
     </div>
 
@@ -285,7 +290,7 @@ onMounted(() => load());
       <template #empty>
         <EmptyState :icon="Server">
           <template v-if="q || enabledFilter">
-            No servers match your filters.
+            {{ t("pages.servers.empty.no_match") }}
             <button
               type="button"
               class="link-btn"
@@ -295,12 +300,11 @@ onMounted(() => load());
                 applyFilters();
               "
             >
-              Clear filters
+              {{ t("pages.servers.clear_filters") }}
             </button>
           </template>
           <template v-else>
-            No servers registered yet. REST backends register themselves via <code>POST /register</code>; you can also
-            <RouterLink to="/register-server">add a REST or MCP server</RouterLink> manually.
+            {{ t("pages.servers.empty.no_servers") }}
           </template>
         </EmptyState>
       </template>
@@ -312,15 +316,15 @@ onMounted(() => load());
               <input
                 type="checkbox"
                 :checked="selected.size > 0 && selected.size === items.length"
-                aria-label="Select all servers on this page"
+                :aria-label="t('pages.servers.aria.select_all')"
                 @change="toggleSelectAll"
               />
             </th>
-            <th>Name</th>
-            <th>Status</th>
-            <th>Tools</th>
-            <th>Health URL</th>
-            <th>Enabled</th>
+            <th>{{ t("common.name") }}</th>
+            <th>{{ t("common.status") }}</th>
+            <th>{{ t("pages.servers.col_tools") }}</th>
+            <th>{{ t("pages.servers.col_health_url") }}</th>
+            <th>{{ t("common.enabled") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -329,7 +333,7 @@ onMounted(() => load());
               <input
                 type="checkbox"
                 :checked="selected.has(client.name)"
-                :aria-label="`Select ${client.name}`"
+                :aria-label="t('pages.servers.aria.select_one', { name: client.name })"
                 @change="toggleSelected(client.name)"
               />
             </td>
@@ -361,7 +365,7 @@ onMounted(() => load());
       <PaginationBar
         :has-prev="hasPrev"
         :has-next="hasNext"
-        :label="`${items.length} server(s) on this page`"
+        :label="t('pages.servers.pagination_label', { count: items.length })"
         @prev="prevPage"
         @next="nextPage"
       />
@@ -369,13 +373,17 @@ onMounted(() => load());
 
     <ConfirmDialog
       :open="pendingDisable !== null"
-      title="Disable this server?"
+      :title="t('pages.servers.confirm.disable_title')"
       :message="
         pendingDisable
-          ? `Disabling '${pendingDisable.name}' will stop all ${pendingDisable.toolsCount} of its tools for every connected MCP agent.`
+          ? t('pages.servers.confirm.disable_message', { name: pendingDisable.name, tools: pendingDisable.toolsCount })
           : ''
       "
-      :confirm-label="pendingDisable ? `Disable ${pendingDisable.name}` : 'Disable'"
+      :confirm-label="
+        pendingDisable
+          ? t('pages.servers.confirm.disable_label_named', { name: pendingDisable.name })
+          : t('common.disable')
+      "
       danger
       @confirm="confirmDisable"
       @cancel="cancelDisable"
@@ -383,9 +391,9 @@ onMounted(() => load());
 
     <ConfirmDialog
       :open="pendingBulkDisable !== null"
-      title="Disable selected servers?"
-      :message="`Disabling ${selected.size} server(s) will stop all of their tools for every connected MCP agent.`"
-      :confirm-label="`Disable ${selected.size} server(s)`"
+      :title="t('pages.servers.confirm.bulk_disable_title')"
+      :message="t('pages.servers.confirm.bulk_disable_message', { count: selected.size })"
+      :confirm-label="t('pages.servers.confirm.bulk_disable_label', { count: selected.size })"
       danger
       @confirm="confirmBulkDisable"
       @cancel="cancelBulkDisable"
@@ -397,124 +405,5 @@ onMounted(() => load());
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
-}
-/* PageHeader's own recipe covers the title/subtitle; this page still needs its
-   header buttons laid out in a row (PageHeader's .header-actions wrapper is
-   rendered by the child component, so reaching it requires :deep()). */
-:deep(.header-actions) {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-.header-actions .btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
-}
-.tag-browser {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs);
-  padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-6);
-}
-.tag-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-.tag-filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  padding: 0.3rem 0.75rem;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition:
-    border-color 0.12s ease,
-    color 0.12s ease,
-    background-color 0.12s ease;
-}
-.tag-filter-chip:hover {
-  border-color: var(--border-strong);
-  color: var(--text-primary);
-}
-.tag-filter-chip-active {
-  background: var(--signal-soft);
-  border-color: var(--signal);
-  color: var(--signal-strong);
-}
-.tag-count {
-  color: var(--text-muted);
-  font-weight: 400;
-}
-.tag-filter-chip-active .tag-count {
-  color: var(--signal-strong);
-}
-.tag-tools {
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
-}
-.tag-tools-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.tag-tools-list li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  font-size: var(--text-base);
-}
-.tag-tool-arrow {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-.tag-tool-sep {
-  color: var(--text-muted);
-}
-.filters .field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-.filters .field:first-of-type {
-  flex: 1;
-  max-width: 20rem;
-}
-.bulk-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: var(--signal-soft);
-  border: 1px solid var(--signal);
-  border-radius: var(--radius-md);
-  padding: 0.6rem 1rem;
-  margin-bottom: 1rem;
-  font-size: 0.88rem;
-}
-.checkbox-col {
-  width: 2rem;
-}
-.cell-truncate {
-  max-width: 16.25rem;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 0.83rem;
-}
-.kind-chip {
-  margin-left: 0.4rem;
-  vertical-align: middle;
 }
 </style>

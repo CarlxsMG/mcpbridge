@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
+import { i18n } from "../i18n";
 import type { BundleSummary } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
@@ -12,6 +14,10 @@ import TogglePill from "@/components/ui/TogglePill.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { Boxes } from "lucide-vue-next";
 
+const { t } = useI18n({ useScope: "global" });
+const errorFallback = (i18n.global.t as (k: string) => string)("errors.update_failed");
+const loadFallback = (i18n.global.t as (k: string) => string)("pages.bundles.errors.load_failed");
+
 const {
   data: items,
   loading,
@@ -20,9 +26,9 @@ const {
 } = useResource<BundleSummary[]>(
   async () => (await api.get<{ items: BundleSummary[] }>("/admin-api/bundles")).items,
   [],
-  "Failed to load bundles.",
+  loadFallback,
 );
-const { rowError, toggle } = useOptimisticToggle<BundleSummary>((b) => b.name, "Failed to update.");
+const { rowError, toggle } = useOptimisticToggle<BundleSummary>((b) => b.name, errorFallback);
 
 onMounted(load);
 
@@ -35,28 +41,27 @@ function toggleEnabled(bundle: BundleSummary) {
 
 <template>
   <section>
-    <PageHeader title="Bundles">
-      <RouterLink to="/bundles/new" class="btn-primary">Create bundle</RouterLink>
+    <PageHeader :title="t('pages.bundles.title')">
+      <RouterLink to="/bundles/new" class="btn-primary">{{ t("pages.bundles.create") }}</RouterLink>
     </PageHeader>
     <p class="subtitle">
-      Cross-client tool selections, each served at its own <code>/mcp-custom/&lt;name&gt;</code> endpoint.
+      {{ t("pages.bundles.subtitle") }}
     </p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
       <template #empty>
         <EmptyState :icon="Boxes">
-          No bundles yet. A bundle lets you hand an MCP client a curated, cross-client tool selection instead of one
-          client's full tool list.
+          {{ t("pages.bundles.empty.no_bundles") }}
         </EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Tools</th>
-            <th>Enabled</th>
+            <th>{{ t("pages.bundles.table.name") }}</th>
+            <th>{{ t("pages.bundles.table.description") }}</th>
+            <th>{{ t("pages.bundles.table.tools") }}</th>
+            <th>{{ t("pages.bundles.table.enabled") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -73,8 +78,8 @@ function toggleEnabled(bundle: BundleSummary) {
             <td>
               <TogglePill
                 :on="bundle.enabled"
-                on-label="Disable bundle"
-                off-label="Enable bundle"
+                :on-label="t('pages.bundles.table.disable_bundle')"
+                :off-label="t('pages.bundles.table.enable_bundle')"
                 :aria-pressed="bundle.enabled"
                 @click="toggleEnabled(bundle)"
               />
