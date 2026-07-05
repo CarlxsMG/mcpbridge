@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { Search, Server, Boxes, KeyRound, CornerDownLeft } from "lucide-vue-next";
 import { api } from "@/composables/useApi";
 import { useCommandPalette } from "@/composables/useCommandPalette";
+import { useFocusTrap } from "@/composables/useFocusTrap";
 import { navEntries } from "../navigation";
 import type { ClientSummary, BundleSummary, McpApiKey, PaginatedResult } from "@/types/api";
 
@@ -36,7 +37,9 @@ const liveEntries = ref<Entry[]>([]);
 const loadedLive = ref(false);
 const inputEl = ref<HTMLInputElement | null>(null);
 const listEl = ref<HTMLDivElement | null>(null);
+const panelEl = ref<HTMLDivElement | null>(null);
 const justOpened = ref(false);
+const { onKeydown: trapKeydown } = useFocusTrap(panelEl);
 
 function onGlobalKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -151,6 +154,7 @@ function go(entry: Entry) {
 }
 
 function onKeydown(e: KeyboardEvent) {
+  trapKeydown(e);
   if (e.key === "ArrowDown") {
     e.preventDefault();
     activeIndex.value = Math.min(activeIndex.value + 1, results.value.length - 1);
@@ -184,7 +188,7 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
   </button>
 
   <div v-if="open" class="cmd-overlay" @click.self="close" @keydown="onKeydown">
-    <div class="cmd-panel" role="dialog" aria-modal="true" aria-label="Command palette">
+    <div ref="panelEl" class="cmd-panel" role="dialog" aria-modal="true" aria-label="Command palette">
       <div class="sweep-line" :class="{ 'is-sweeping': justOpened }" aria-hidden="true"></div>
       <div class="cmd-input-row">
         <Search :size="16" stroke-width="2" aria-hidden="true" class="cmd-input-icon" />
@@ -259,7 +263,7 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
 .cmd-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(14, 17, 22, 0.55);
+  background: var(--overlay-backdrop);
   display: flex;
   align-items: flex-start;
   justify-content: center;
