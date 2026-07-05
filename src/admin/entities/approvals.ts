@@ -16,6 +16,7 @@ import { getDb } from "../../db/connection.js";
 import { config } from "../../config.js";
 import { sha256Hex } from "../../lib/crypto.js";
 import { dispatchWebhook } from "../../lib/webhook.js";
+import { stableStringify } from "../../lib/stable-json.js";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -311,14 +312,4 @@ export function notifyApproval(id: number, clientName: string, toolName: string)
       logContext: { approvalId: id, client: clientName, tool: toolName },
     },
   );
-}
-
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  const obj = value as Record<string, unknown>;
-  return `{${Object.keys(obj)
-    .sort()
-    .map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`)
-    .join(",")}}`;
 }

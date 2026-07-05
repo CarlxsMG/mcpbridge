@@ -1,10 +1,12 @@
 /**
- * Pure, dependency-free structural diff over two config documents — extracted
- * out of config-versions.ts so the CLI (src/cli/) can import it without
- * dragging in getDb()/config-io.ts/registry.ts. No imports at all here on
- * purpose: this file must stay safe to load from a process that never opens
- * the SQLite DB.
+ * Pure structural diff over two config documents — extracted out of
+ * config-versions.ts so the CLI (src/cli/) can import it without dragging in
+ * getDb()/config-io.ts/registry.ts. Only pure, dependency-free imports are
+ * allowed here (currently just `lib/stable-json.ts`, which itself imports
+ * nothing) — this file must stay safe to load from a process that never
+ * opens the SQLite DB.
  */
+import { canonicalizeValue } from "../../lib/stable-json.js";
 
 export interface ConfigDiffEntry {
   path: string;
@@ -15,27 +17,22 @@ export interface ConfigDiffEntry {
 
 /**
  * Canonicalizes a config document so index/key ordering can't produce spurious
- * diffs: object keys are sorted, and arrays whose elements all carry a `name`
- * are sorted by it (clients / bundles / alertRules / tools).
+ * diffs: object keys are sorted (via the shared `canonicalizeValue`), and
+ * arrays whose elements all carry a `name` are additionally sorted by it
+ * (clients / bundles / alertRules / tools).
  */
 function canonicalize(v: unknown): unknown {
-  if (Array.isArray(v)) {
-    const arr = v.map(canonicalize);
+  return canonicalizeValue(v, (arr) => {
     if (
       arr.length > 0 &&
       arr.every((x) => x !== null && typeof x === "object" && "name" in (x as Record<string, unknown>))
     ) {
-      arr.sort((a, b) => String((a as { name: unknown }).name).localeCompare(String((b as { name: unknown }).name)));
+      return [...arr].sort((a, b) =>
+        String((a as { name: unknown }).name).localeCompare(String((b as { name: unknown }).name)),
+      );
     }
     return arr;
-  }
-  if (v !== null && typeof v === "object") {
-    const out: Record<string, unknown> = {};
-    for (const k of Object.keys(v as Record<string, unknown>).sort())
-      out[k] = canonicalize((v as Record<string, unknown>)[k]);
-    return out;
-  }
-  return v;
+  });
 }
 
 function walk(a: unknown, b: unknown, path: string[], out: ConfigDiffEntry[]): void {
