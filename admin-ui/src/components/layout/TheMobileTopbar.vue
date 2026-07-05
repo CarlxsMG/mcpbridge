@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { useLiveSignal } from "@/composables/useLiveSignal";
 import { Activity } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 
 defineProps<{ navOpen: boolean }>();
 const emit = defineEmits<{ "toggle-nav": [] }>();
+const { t } = useI18n({ useScope: "global" });
 
 const { isLive } = useLiveSignal();
 </script>
@@ -15,7 +17,7 @@ const { isLive } = useLiveSignal();
       class="mobile-nav-toggle"
       :aria-expanded="navOpen"
       aria-controls="sidebar-nav"
-      aria-label="Toggle navigation menu"
+      :aria-label="t('components.mobile_topbar.toggle_nav')"
       @click="emit('toggle-nav')"
     >
       <span aria-hidden="true">☰</span>
@@ -26,7 +28,7 @@ const { isLive } = useLiveSignal();
         :class="{ 'is-live': isLive }"
         :size="16"
         stroke-width="2.25"
-        :title="isLive ? 'Live traffic in the last minute' : 'No recent traffic'"
+        :title="isLive ? t('components.mobile_topbar.live_traffic') : t('components.mobile_topbar.no_recent_traffic')"
         aria-hidden="true"
       />
       MCP REST Bridge

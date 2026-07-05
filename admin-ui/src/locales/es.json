@@ -234,7 +234,7 @@
       "scope": {
         "client": "Un solo servidor",
         "bundle": "Un bundle curado",
-        "aggregated": "Todo (agregado /mcp)"
+        "system": "Plano de control del sistema (/mcp)"
       },
       "fields": {
         "client": "Cliente",
@@ -789,6 +789,89 @@
         "shorter": "Más bajo",
         "taller": "Más alto"
       }
+    },
+    "config_export": {
+      "title": "Exportar",
+      "aria_label": "Formato de exportación",
+      "exporting": "Exportando…",
+      "download_json": "Descargar config .json",
+      "download_yaml": "Descargar config .yaml",
+      "errors": {
+        "export_failed": "Error al exportar."
+      }
+    },
+    "config_import": {
+      "title": "Importar",
+      "hint": "Pega un documento exportado (policy-as-code — incluye guardrails y quotas de consumers). Haz primero un dry-run para previsualizar qué cambiaría — la config de client/tool solo aplica a servidores ya registrados.",
+      "fields": {
+        "format": "Formato",
+        "document": "Documento de import"
+      },
+      "dry_run": "Dry run",
+      "apply": "Aplicar import",
+      "errors": {
+        "import_failed": "Error al importar.",
+        "invalid_json": "JSON inválido."
+      },
+      "confirm": {
+        "title": "¿Aplicar este import?",
+        "message": "Esto sobreescribe bundles, reglas de alerta y configuración por client/tool en servidores ya registrados con el contenido del documento pegado. No se puede deshacer desde aquí.",
+        "cta": "Aplicar import"
+      }
+    },
+    "config_snapshots": {
+      "title": "Historial de versiones",
+      "hint": "Haz snapshot de la config actual, compara un snapshot con la config live, o haz rollback a él.",
+      "snapshot_label": "Etiqueta del snapshot",
+      "snapshot_placeholder": "Etiqueta del snapshot (p. ej. antes-de-migracion)",
+      "snapshot_now": "Snapshot ahora",
+      "empty": "Aún no hay snapshots. Un snapshot captura la config completa — bundles, guardrails, consumers y más — para que puedas comparar o hacer rollback después.",
+      "diff_vs_current": "diff vs current",
+      "rollback": "rollback",
+      "delete": "eliminar",
+      "diff_heading": "Diff: #{id} \"{label}\" → {to}",
+      "no_differences": "Sin diferencias.",
+      "table": {
+        "id": "#",
+        "label": "Etiqueta",
+        "created": "Creado",
+        "by": "Por"
+      },
+      "diff_table": {
+        "path": "Path",
+        "change": "Cambio",
+        "before": "Antes",
+        "after": "Después"
+      },
+      "errors": {
+        "load_failed": "Error al cargar los snapshots.",
+        "create_failed": "Error al crear el snapshot.",
+        "diff_failed": "Error al calcular el diff.",
+        "rollback_failed": "Error en el rollback.",
+        "delete_failed": "Error al eliminar."
+      },
+      "confirm": {
+        "rollback_title": "¿Hacer rollback de esta config?",
+        "rollback_message": "¿Hacer rollback de la config al snapshot '{label}'? Esto lo re-aplica a los servidores existentes.",
+        "rollback_cta": "Hacer rollback",
+        "delete_title": "¿Eliminar este snapshot?",
+        "delete_message": "¿Eliminar el snapshot '{label}'?",
+        "delete_cta": "Eliminar {label}"
+      }
+    },
+    "schema_form": {
+      "empty": "Este tool no toma argumentos.",
+      "unset": "—",
+      "json_placeholder": "key: value",
+      "json_invalid": "JSON inválido — se envía como string raw."
+    },
+    "demo_ribbon": {
+      "label": "Live demo — los datos son mock · Ver fuente ↗"
+    },
+    "mobile_topbar": {
+      "toggle_nav": "Alternar menú de navegación",
+      "live_traffic": "Tráfico en vivo en el último minuto",
+      "no_recent_traffic": "Sin tráfico reciente"
     }
   },
   "pages": {
@@ -1300,7 +1383,7 @@
       },
       "new": {
         "title": "Nuevo composite",
-        "subtitle_p1": "Encadena varias llamadas a tools existentes en una sola, expuesta en el endpoint MCP agregado. Cada paso despacha a un",
+        "subtitle_p1": "Encadena varias llamadas a tools existentes en una sola. No es alcanzable hasta añadirla a los composites de un bundle — cada paso despacha a un",
         "subtitle_p2": "real a través de todo el pipeline de guards.",
         "fields": {
           "name": "Nombre",

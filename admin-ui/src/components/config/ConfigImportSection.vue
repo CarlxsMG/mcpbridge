@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 import type { ConfigImportResult } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import FormField from "@/components/ui/FormField.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 
 const emit = defineEmits<{ result: [result: ConfigImportResult | null]; error: [message: string] }>();
+const { t } = useI18n({ useScope: "global" });
 
 const FORMAT_OPTIONS: { value: "json" | "yaml"; label: string }[] = [
   { value: "json", label: "JSON" },
@@ -40,8 +43,8 @@ async function runImport(dryRun: boolean) {
     emit(
       "error",
       importFormat.value === "json" && err instanceof SyntaxError
-        ? "Invalid JSON."
-        : toErrorMessage(err, "Import failed."),
+        ? t("components.config_import.errors.invalid_json")
+        : toErrorMessage(err, tk("components.config_import.errors.import_failed")),
     );
   } finally {
     busy.value = false;
@@ -61,15 +64,14 @@ async function confirmImport() {
 
 <template>
   <div class="block">
-    <h2>Import</h2>
+    <h2>{{ t('components.config_import.title') }}</h2>
     <p class="hint">
-      Paste an exported document (policy-as-code — includes guardrails and consumer quotas). Dry-run first to preview
-      what would change — client/tool config only applies to already-registered servers.
+      {{ t('components.config_import.hint') }}
     </p>
-    <FormField class="format-field" label="Format" for="import-format">
+    <FormField class="format-field" :label="t('components.config_import.fields.format')" for="import-format">
       <SelectMenu id="import-format" v-model="importFormat" :options="FORMAT_OPTIONS" />
     </FormField>
-    <label for="import-text">Import document</label>
+    <label for="import-text">{{ t('components.config_import.fields.document') }}</label>
     <textarea
       id="import-text"
       v-model="importText"
@@ -78,16 +80,16 @@ async function confirmImport() {
       :placeholder="importFormat === 'yaml' ? 'version: 1' : jsonPlaceholder"
     ></textarea>
     <div class="actions">
-      <button type="button" class="btn-secondary" :disabled="busy" @click="runImport(true)">Dry run</button>
-      <button type="button" class="btn-primary" :disabled="busy" @click="requestImport">Apply import</button>
+      <button type="button" class="btn-secondary" :disabled="busy" @click="runImport(true)">{{ t('components.config_import.dry_run') }}</button>
+      <button type="button" class="btn-primary" :disabled="busy" @click="requestImport">{{ t('components.config_import.apply') }}</button>
     </div>
   </div>
 
   <ConfirmDialog
     :open="pendingImportConfirm !== null"
-    title="Apply this import?"
-    message="This overwrites bundles, alert rules, and per-client/tool configuration on already-registered servers with the contents of the pasted document. This cannot be undone from here."
-    confirm-label="Apply import"
+    :title="t('components.config_import.confirm.title')"
+    :message="t('components.config_import.confirm.message')"
+    :confirm-label="t('components.config_import.confirm.cta')"
     danger
     @confirm="confirmImport"
     @cancel="cancelImportConfirm"

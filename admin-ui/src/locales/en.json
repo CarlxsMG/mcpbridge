@@ -234,7 +234,7 @@
       "scope": {
         "client": "A single server",
         "bundle": "A curated bundle",
-        "aggregated": "Everything (aggregated /mcp)"
+        "system": "System control plane (/mcp)"
       },
       "fields": {
         "client": "Client",
@@ -789,6 +789,89 @@
         "shorter": "Shorter",
         "taller": "Taller"
       }
+    },
+    "config_export": {
+      "title": "Export",
+      "aria_label": "Export format",
+      "exporting": "Exporting…",
+      "download_json": "Download config .json",
+      "download_yaml": "Download config .yaml",
+      "errors": {
+        "export_failed": "Export failed."
+      }
+    },
+    "config_import": {
+      "title": "Import",
+      "hint": "Paste an exported document (policy-as-code — includes guardrails and consumer quotas). Dry-run first to preview what would change — client/tool config only applies to already-registered servers.",
+      "fields": {
+        "format": "Format",
+        "document": "Import document"
+      },
+      "dry_run": "Dry run",
+      "apply": "Apply import",
+      "errors": {
+        "import_failed": "Import failed.",
+        "invalid_json": "Invalid JSON."
+      },
+      "confirm": {
+        "title": "Apply this import?",
+        "message": "This overwrites bundles, alert rules, and per-client/tool configuration on already-registered servers with the contents of the pasted document. This cannot be undone from here.",
+        "cta": "Apply import"
+      }
+    },
+    "config_snapshots": {
+      "title": "Version history",
+      "hint": "Snapshot the current config, diff a snapshot against the live config, or roll back to it.",
+      "snapshot_label": "Snapshot label",
+      "snapshot_placeholder": "Snapshot label (e.g. before-migration)",
+      "snapshot_now": "Snapshot now",
+      "empty": "No snapshots yet. A snapshot captures the full config -- bundles, guardrails, consumers, and more -- so you can compare or roll back later.",
+      "diff_vs_current": "diff vs current",
+      "rollback": "rollback",
+      "delete": "delete",
+      "diff_heading": "Diff: #{id} \"{label}\" → {to}",
+      "no_differences": "No differences.",
+      "table": {
+        "id": "#",
+        "label": "Label",
+        "created": "Created",
+        "by": "By"
+      },
+      "diff_table": {
+        "path": "Path",
+        "change": "Change",
+        "before": "Before",
+        "after": "After"
+      },
+      "errors": {
+        "load_failed": "Failed to load snapshots.",
+        "create_failed": "Failed to create snapshot.",
+        "diff_failed": "Failed to diff.",
+        "rollback_failed": "Rollback failed.",
+        "delete_failed": "Delete failed."
+      },
+      "confirm": {
+        "rollback_title": "Roll back this config?",
+        "rollback_message": "Roll back config to snapshot '{label}'? This re-applies it to existing servers.",
+        "rollback_cta": "Roll back",
+        "delete_title": "Delete this snapshot?",
+        "delete_message": "Delete snapshot '{label}'?",
+        "delete_cta": "Delete {label}"
+      }
+    },
+    "schema_form": {
+      "empty": "This tool takes no arguments.",
+      "unset": "—",
+      "json_placeholder": "key: value",
+      "json_invalid": "Invalid JSON — sent as a raw string instead."
+    },
+    "demo_ribbon": {
+      "label": "Live demo — data is mocked · View source ↗"
+    },
+    "mobile_topbar": {
+      "toggle_nav": "Toggle navigation menu",
+      "live_traffic": "Live traffic in the last minute",
+      "no_recent_traffic": "No recent traffic"
     }
   },
   "pages": {
@@ -1300,7 +1383,7 @@
       },
       "new": {
         "title": "New composite",
-        "subtitle_p1": "Chains several existing tool calls into one, exposed on the aggregated MCP endpoint. Each step forwards to a real",
+        "subtitle_p1": "Chains several existing tool calls into one. Not reachable until added to a bundle's composites — each step forwards to a real",
         "subtitle_p2": "through the full guard stack.",
         "fields": {
           "name": "Name",

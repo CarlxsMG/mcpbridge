@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { GitBranch } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 
 const isDemo = import.meta.env.VITE_DEMO === "true";
+const { t } = useI18n({ useScope: "global" });
 </script>
 
 <template>
@@ -12,7 +14,7 @@ const isDemo = import.meta.env.VITE_DEMO === "true";
     target="_blank"
     rel="noopener"
   >
-    <GitBranch :size="13" stroke-width="2.5" aria-hidden="true" /> Live demo — data is mocked · View source ↗
+    <GitBranch :size="13" stroke-width="2.5" aria-hidden="true" /> {{ t('components.demo_ribbon.label') }}
   </a>
 </template>
 

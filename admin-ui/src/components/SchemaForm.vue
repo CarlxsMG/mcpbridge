@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 
 /**
@@ -13,6 +14,7 @@ const props = defineProps<{
   schema: Record<string, unknown>;
 }>();
 const model = defineModel<Record<string, unknown>>({ required: true });
+const { t } = useI18n({ useScope: "global" });
 
 interface Field {
   name: string;
@@ -71,7 +73,7 @@ watch(
 );
 
 function enumOptions(f: Field): { value: string; label: string }[] {
-  return [{ value: "", label: "—" }, ...(f.enum ?? []).map((opt) => ({ value: opt, label: opt }))];
+  return [{ value: "", label: t("components.schema_form.unset") }, ...(f.enum ?? []).map((opt) => ({ value: opt, label: opt }))];
 }
 
 function setEnumValue(name: string, v: string) {
@@ -116,7 +118,7 @@ function emitArgs() {
 
 <template>
   <div class="schema-form">
-    <p v-if="fields.length === 0" class="hint">This tool takes no arguments.</p>
+    <p v-if="fields.length === 0" class="hint">{{ t('components.schema_form.empty') }}</p>
     <div v-for="f in fields" :key="f.name" class="sf-field">
       <label :for="`sf-${f.name}`"> {{ f.name }}<span v-if="f.required" class="req">*</span> </label>
       <p v-if="f.description" class="hint">{{ f.description }}</p>
@@ -140,9 +142,10 @@ function emitArgs() {
         v-model="values[f.name] as string"
         rows="2"
         spellcheck="false"
-        placeholder='{"key": "value"}'
+        :placeholder="t('components.schema_form.json_placeholder')"
         @input="emitArgs"
       ></textarea>
+      <!-- placeholder is intentionally not a JSON example (vue-i18n parse error on {...} templates) -->
       <input
         v-else-if="f.kind === 'number'"
         :id="`sf-${f.name}`"
@@ -152,7 +155,7 @@ function emitArgs() {
       />
       <input v-else :id="`sf-${f.name}`" v-model="values[f.name] as string" type="text" @input="emitArgs" />
       <p v-if="f.kind === 'json' && jsonInvalid[f.name]" class="field-error">
-        Invalid JSON — sent as a raw string instead.
+        {{ t('components.schema_form.json_invalid') }}
       </p>
     </div>
   </div>
