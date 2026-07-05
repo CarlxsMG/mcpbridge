@@ -4,6 +4,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { ProgressCallback } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { makePinnedFetch } from "../net/ip-validator.js";
+import { toolResult } from "../lib/mcp-result.js";
 
 // ---------------------------------------------------------------------------
 // Outbound MCP upstream connection pool + dispatcher.
@@ -44,10 +45,6 @@ export interface ProxyToolResult {
 
 const CLIENT_NAME = "mcp-rest-bridge";
 const CLIENT_VERSION = "1.0.0";
-
-function errorResult(text: string): ProxyToolResult {
-  return { isError: true, content: [{ type: "text", text }] };
-}
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -91,7 +88,7 @@ export function mcpResultToProxyResult(result: unknown, maxBytes: number): Proxy
     const text = item.type === "text" && typeof item.text === "string" ? item.text : JSON.stringify(raw);
     totalBytes += Buffer.byteLength(text, "utf8");
     if (totalBytes > maxBytes) {
-      return errorResult("Upstream MCP response exceeded MAX_RESPONSE_BYTES limit");
+      return toolResult("Upstream MCP response exceeded MAX_RESPONSE_BYTES limit", { isError: true });
     }
     // Everything is normalized to a text part so the result stays assignable to
     // proxyToolCall()'s return type; non-text items were JSON-encoded above.
@@ -162,7 +159,7 @@ export class McpUpstreamPool {
     try {
       client = await this.getClient(p);
     } catch (err) {
-      return errorResult(`Failed to connect to MCP upstream '${p.name}': ${messageOf(err)}`);
+      return toolResult(`Failed to connect to MCP upstream '${p.name}': ${messageOf(err)}`, { isError: true });
     }
 
     try {
@@ -180,7 +177,7 @@ export class McpUpstreamPool {
         return { isError: true, cancelled: true, content: [{ type: "text", text: "Tool call cancelled by caller" }] };
       }
       await this.disconnect(p.name);
-      return errorResult(`MCP tool call failed for '${p.name}': ${messageOf(err)}`);
+      return toolResult(`MCP tool call failed for '${p.name}': ${messageOf(err)}`, { isError: true });
     }
   }
 

@@ -66,6 +66,7 @@ import { tracingEnabled, startSpan, endSpan } from "../observability/tracing.js"
 import { mcpUpstream } from "../mcp/mcp-upstream.js";
 import type { McpConnParams } from "../mcp/mcp-upstream.js";
 import type { RegisteredClient, RegisteredTool } from "../mcp/types.js";
+import { toolResult } from "../lib/mcp-result.js";
 
 // ---------------------------------------------------------------------------
 // Ajv singleton — shared across all tool calls
@@ -441,19 +442,14 @@ function runApprovalGate(
     );
     notifyApproval(id, client.name, tool.name);
     log("info", "Tool call queued for approval", { tool: mcpToolName, client: client.name, approval_id: id });
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: `Tool '${mcpToolName}' requires human approval. Queued as approval #${id}. Once approved, re-call with {"__approval_id": ${id}}.`,
-        },
-      ],
-    };
+    return toolResult(
+      `Tool '${mcpToolName}' requires human approval. Queued as approval #${id}. Once approved, re-call with {"__approval_id": ${id}}.`,
+      { isError: true },
+    );
   }
   const decision = consumeApproval(approvalId, client.name, tool.name, argsHash);
   if (!decision.ok) {
-    return { isError: true, content: [{ type: "text", text: decision.message }] };
+    return toolResult(decision.message, { isError: true });
   }
   return null;
 }
@@ -467,10 +463,7 @@ async function dispatchToolCall(
   const resolved = registry.resolveTool(mcpToolName);
 
   if (resolved === undefined) {
-    return {
-      content: [{ type: "text", text: `Unknown tool: ${mcpToolName}` }],
-      isError: true,
-    };
+    return toolResult(`Unknown tool: ${mcpToolName}`, { isError: true });
   }
 
   const { client, tool } = resolved;
@@ -479,24 +472,15 @@ async function dispatchToolCall(
   // whatever tools/list a caller saw, but a stale client-side cache could
   // still attempt to call it directly.
   if (!client.enabled || !tool.enabled) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: `Tool '${mcpToolName}' is disabled` }],
-    };
+    return toolResult(`Tool '${mcpToolName}' is disabled`, { isError: true });
   }
 
   if (isDeleting(client.name)) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Client is being unregistered" }],
-    };
+    return toolResult("Client is being unregistered", { isError: true });
   }
 
   if (client.status === "unreachable") {
-    return {
-      content: [{ type: "text", text: `Client '${client.name}' is unreachable` }],
-      isError: true,
-    };
+    return toolResult(`Client '${client.name}' is unreachable`, { isError: true });
   }
 
   // Admin guards — run before the circuit breaker check below, since a
@@ -506,10 +490,7 @@ async function dispatchToolCall(
     // Fail closed: an explicit restriction must hold even when global MCP
     // auth is disabled or unconfigured — it shouldn't become a silent no-op.
     if (!isKeyAllowed(callerToken, tool.guards.allowedKeyHashes)) {
-      return {
-        isError: true,
-        content: [{ type: "text", text: `Not authorized to call tool '${mcpToolName}'` }],
-      };
+      return toolResult(`Not authorized to call tool '${mcpToolName}'`, { isError: true });
     }
   }
 
@@ -518,10 +499,7 @@ async function dispatchToolCall(
   // admin test-calls resolve to null (no scope restriction, unattributed).
   const callerKey = callerToken ? resolveMcpKeyByToken(callerToken) : null;
   if (callerKey && !isToolInKeyScope(callerKey.scopes, client.name, mcpToolName)) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: `API key is not authorized to call tool '${mcpToolName}'` }],
-    };
+    return toolResult(`API key is not authorized to call tool '${mcpToolName}'`, { isError: true });
   }
 
   // Multi-tenant monthly quota — reject once the key's consumer is at/over its cap.
@@ -531,12 +509,9 @@ async function dispatchToolCall(
     const consumer = getConsumer(callerKey.consumerId);
     const quota = checkConsumerQuota(callerKey.consumerId, consumer);
     if (quota.exceeded) {
-      return {
+      return toolResult(`Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})`, {
         isError: true,
-        content: [
-          { type: "text", text: `Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})` },
-        ],
-      };
+      });
     }
 
     // Per-end-user rate limit (optional, opt-in fairness dimension) — lets the
@@ -549,12 +524,9 @@ async function dispatchToolCall(
     if (assertedEndUserId !== null) {
       const endUserRl = checkEndUserRateLimit(callerKey.consumerId, assertedEndUserId, consumer);
       if (endUserRl.limited) {
-        return {
+        return toolResult(`End-user rate limit exceeded — retry after ${endUserRl.retryAfterSeconds}s`, {
           isError: true,
-          content: [
-            { type: "text", text: `End-user rate limit exceeded — retry after ${endUserRl.retryAfterSeconds}s` },
-          ],
-        };
+        });
       }
     }
   }
@@ -565,15 +537,10 @@ async function dispatchToolCall(
   if (isToolSensitive(client.name, tool.name, tool.method)) {
     const confirmed = (args as Record<string, unknown>).__confirm === true;
     if (!confirmed && callerKey?.elevated !== true) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: `Tool '${mcpToolName}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.`,
-          },
-        ],
-      };
+      return toolResult(
+        `Tool '${mcpToolName}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.`,
+        { isError: true },
+      );
     }
   }
 
@@ -590,15 +557,10 @@ async function dispatchToolCall(
         client: client.name,
         reason: quarantine.reason,
       });
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: `Tool '${mcpToolName}' is quarantined: ${quarantine.reason ?? "too many guardrail violations"}`,
-          },
-        ],
-      };
+      return toolResult(
+        `Tool '${mcpToolName}' is quarantined: ${quarantine.reason ?? "too many guardrail violations"}`,
+        { isError: true },
+      );
     }
     if (quarantine.action === "force_approval") {
       const gated = runApprovalGate(client, tool, args, mcpToolName, callerKey);
@@ -636,10 +598,7 @@ async function dispatchToolCall(
         client: client.name,
         reason: inputCheck.reason,
       });
-      return {
-        isError: true,
-        content: [{ type: "text", text: `Input rejected by guardrail: ${inputCheck.reason}` }],
-      };
+      return toolResult(`Input rejected by guardrail: ${inputCheck.reason}`, { isError: true });
     }
     recordGuardrailHit(client.name, tool.name, false);
   }
@@ -650,10 +609,7 @@ async function dispatchToolCall(
       ? checkSharedToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin)
       : checkToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin);
     if (!rl.allowed) {
-      return {
-        isError: true,
-        content: [{ type: "text", text: `Tool rate limit exceeded — retry after ${rl.retryAfterSeconds}s` }],
-      };
+      return toolResult(`Tool rate limit exceeded — retry after ${rl.retryAfterSeconds}s`, { isError: true });
     }
   }
 
@@ -672,7 +628,7 @@ async function dispatchToolCall(
       durationMs: 0,
     });
     log("info", "Tool call served from mock", { tool: mcpToolName, client: client.name });
-    return { content: [{ type: "text", text: mockCfg.response }] };
+    return toolResult(mockCfg.response);
   }
 
   // ── Response cache (lookup) ────────────────────────────────────────────────
@@ -740,12 +696,8 @@ async function dispatchToolCall(
     const route = decideSecondary(canary, !circuitCheck.allowed);
 
     if (!circuitCheck.allowed && !route.useSecondary) {
-      if (mockCfg?.enabled && mockCfg.mode === "fallback")
-        return { content: [{ type: "text", text: mockCfg.response }] };
-      return {
-        content: [{ type: "text", text: `Circuit breaker OPEN for client '${client.name}' — failing fast` }],
-        isError: true,
-      };
+      if (mockCfg?.enabled && mockCfg.mode === "fallback") return toolResult(mockCfg.response);
+      return toolResult(`Circuit breaker OPEN for client '${client.name}' — failing fast`, { isError: true });
     }
 
     // Use shorter timeout if half-open probe, else the tool's guard override, else the global default.
@@ -822,10 +774,7 @@ async function dispatchToolCall(
           decoded = seg;
         }
         if (decoded === ".." || decoded === ".") {
-          return {
-            content: [{ type: "text", text: "Tool endpoint resolved to invalid path" }],
-            isError: true,
-          };
+          return toolResult("Tool endpoint resolved to invalid path", { isError: true });
         }
       }
     }
@@ -837,15 +786,10 @@ async function dispatchToolCall(
       const valid = validate(remainingArgs);
       if (!valid) {
         const firstError = validate.errors?.[0];
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
-            },
-          ],
-        };
+        return toolResult(
+          `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
+          { isError: true },
+        );
       }
     }
 
@@ -891,10 +835,7 @@ async function dispatchToolCall(
           pinnedIpCache.set(client.name, pin);
         } catch (err) {
           const reason = err instanceof Error ? err.message : String(err);
-          return {
-            isError: true,
-            content: [{ type: "text", text: `Backend hostname now resolves to private IP: ${reason}` }],
-          };
+          return toolResult(`Backend hostname now resolves to private IP: ${reason}`, { isError: true });
         }
       }
       pinIp = pin.ip;
@@ -907,10 +848,7 @@ async function dispatchToolCall(
     let body: string | undefined;
 
     if (isDeleting(client.name)) {
-      return {
-        isError: true,
-        content: [{ type: "text", text: "Client is being unregistered" }],
-      };
+      return toolResult("Client is being unregistered", { isError: true });
     }
 
     const reqController = trackRequest(client.name);
@@ -1014,10 +952,7 @@ async function dispatchToolCall(
                 { client: client.name, method, status_class: "2xx" },
                 (Date.now() - startTime) / 1000,
               );
-              return {
-                isError: true,
-                content: [{ type: "text", text: "Upstream response exceeded MAX_RESPONSE_BYTES limit" }],
-              };
+              return toolResult("Upstream response exceeded MAX_RESPONSE_BYTES limit", { isError: true });
             }
 
             const durationSuccess = (Date.now() - startTime) / 1000;
@@ -1126,9 +1061,7 @@ async function dispatchToolCall(
               cacheSet(responseCacheKey, { content: [{ type: "text", text: responseText }] }, cacheCfg.ttlSeconds);
               cacheEvents.inc({ client: client.name, outcome: "store" });
             }
-            return {
-              content: [{ type: "text", text: responseText }],
-            };
+            return toolResult(responseText);
           }
 
           lastStatus = response.status;
@@ -1175,12 +1108,9 @@ async function dispatchToolCall(
           const errorBodyText =
             errorBody === null ? `[body truncated — exceeded ${config.maxResponseBytes} byte limit]` : errorBody;
           if (mockCfg?.enabled && mockCfg.mode === "fallback" && response.status >= 500) {
-            return { content: [{ type: "text", text: mockCfg.response }] };
+            return toolResult(mockCfg.response);
           }
-          return {
-            content: [{ type: "text", text: `REST API returned ${response.status}: ${errorBodyText}` }],
-            isError: true,
-          };
+          return toolResult(`REST API returned ${response.status}: ${errorBodyText}`, { isError: true });
         } catch (error) {
           lastError = error instanceof Error ? error.message : String(error);
           if (!isIdempotent || attempt >= MAX_RETRIES) {
@@ -1206,12 +1136,9 @@ async function dispatchToolCall(
               durationMs: Date.now() - startTime,
             });
             if (mockCfg?.enabled && mockCfg.mode === "fallback") {
-              return { content: [{ type: "text", text: mockCfg.response }] };
+              return toolResult(mockCfg.response);
             }
-            return {
-              content: [{ type: "text", text: `Failed to reach ${client.name}: ${lastError}` }],
-              isError: true,
-            };
+            return toolResult(`Failed to reach ${client.name}: ${lastError}`, { isError: true });
           }
           proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
         }
@@ -1242,14 +1169,11 @@ async function dispatchToolCall(
         durationMs: Date.now() - startTime,
       });
       if (mockCfg?.enabled && mockCfg.mode === "fallback") {
-        return { content: [{ type: "text", text: mockCfg.response }] };
+        return toolResult(mockCfg.response);
       }
-      return {
-        content: [
-          { type: "text", text: `Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}` },
-        ],
+      return toolResult(`Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}`, {
         isError: true,
-      };
+      });
     } finally {
       untrackRequest(client.name, reqController);
       if (lbKey) decInflight(lbKey);
@@ -1309,7 +1233,7 @@ async function dispatchWsToolCall(
       durationMs,
     });
     proxyRequestDuration.observe({ client: client.name, method: "WS", status_class: "2xx" }, durationMs / 1000);
-    return { content: [{ type: "text", text }] };
+    return toolResult(text);
   } catch (err) {
     breaker.recordFailure();
     const durationMs = Date.now() - startTime;
@@ -1323,15 +1247,10 @@ async function dispatchWsToolCall(
       durationMs,
     });
     proxyRequestDuration.observe({ client: client.name, method: "WS", status_class: "error" }, durationMs / 1000);
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: `WebSocket call failed for '${client.name}': ${err instanceof Error ? err.message : String(err)}`,
-        },
-      ],
-    };
+    return toolResult(
+      `WebSocket call failed for '${client.name}': ${err instanceof Error ? err.message : String(err)}`,
+      { isError: true },
+    );
   }
 }
 
@@ -1361,15 +1280,10 @@ async function dispatchMcpToolCall(
   const validate = getOrCompile(client.name, tool.name, tool.inputSchema);
   if (!validate(argsToSend)) {
     const firstError = validate.errors?.[0];
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
-        },
-      ],
-    };
+    return toolResult(
+      `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
+      { isError: true },
+    );
   }
 
   const params: McpConnParams = {

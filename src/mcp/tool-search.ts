@@ -9,6 +9,8 @@
  * could already see.
  */
 
+import { toolResult, type ToolCallResult } from "../lib/mcp-result.js";
+
 export const SEARCH_TOOL_NAME = "search_tools";
 
 const DEFAULT_LIMIT = 10;
@@ -95,23 +97,13 @@ export function rankTools(query: string, tools: AdvertisedTool[], limit: number)
  * Returns a standard MCP CallTool result whose text is a compact JSON object,
  * so the model can parse the ranked matches directly.
  */
-export function runSearchTool(
-  args: Record<string, unknown>,
-  scopedTools: AdvertisedTool[],
-): { content: Array<{ type: "text"; text: string }>; isError?: boolean } {
+export function runSearchTool(args: Record<string, unknown>, scopedTools: AdvertisedTool[]): ToolCallResult {
   const query = typeof args.query === "string" ? args.query : "";
   if (!query.trim()) {
-    return { isError: true, content: [{ type: "text", text: "search_tools requires a non-empty 'query' string." }] };
+    return toolResult("search_tools requires a non-empty 'query' string.", { isError: true });
   }
   const limit = typeof args.limit === "number" && Number.isFinite(args.limit) ? Math.floor(args.limit) : DEFAULT_LIMIT;
   const matches = rankTools(query, scopedTools, limit).map((m) => ({ name: m.name, description: m.description }));
 
-  return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify({ query, count: matches.length, matches }, null, 2),
-      },
-    ],
-  };
+  return toolResult(JSON.stringify({ query, count: matches.length, matches }, null, 2));
 }
