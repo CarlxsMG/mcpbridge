@@ -13,8 +13,9 @@ import {
 } from "../security/mcp-key-store.js";
 import { getConsumer } from "../admin/entities/consumers.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
+import type { ValidationResult } from "./validation.js";
 
-function validateConsumerId(v: unknown): { ok: true; value: number | null } | { ok: false; message: string } {
+function validateConsumerId(v: unknown): ValidationResult<number | null> {
   if (v === undefined || v === null) return { ok: true, value: null };
   if (typeof v !== "number" || !Number.isInteger(v))
     return { ok: false, message: "consumerId must be an integer or null" };
@@ -22,7 +23,7 @@ function validateConsumerId(v: unknown): { ok: true; value: number | null } | { 
   return { ok: true, value: v };
 }
 
-function validateScopes(input: unknown): { ok: true; value: McpKeyScopes | null } | { ok: false; message: string } {
+function validateScopes(input: unknown): ValidationResult<McpKeyScopes | null> {
   if (input === undefined || input === null) return { ok: true, value: null };
   if (typeof input !== "object" || Array.isArray(input)) {
     return { ok: false, message: "scopes must be an object or null" };
@@ -40,7 +41,7 @@ function validateScopes(input: unknown): { ok: true; value: McpKeyScopes | null 
   return { ok: true, value };
 }
 
-function validateExpiresAt(input: unknown): { ok: true; value: number | null } | { ok: false; message: string } {
+function validateExpiresAt(input: unknown): ValidationResult<number | null> {
   if (input === undefined || input === null) return { ok: true, value: null };
   if (typeof input !== "number" || !Number.isFinite(input) || input <= 0) {
     return { ok: false, message: "expiresAt must be a positive epoch-ms number or null" };
@@ -48,7 +49,7 @@ function validateExpiresAt(input: unknown): { ok: true; value: number | null } |
   return { ok: true, value: input };
 }
 
-function validateLabel(input: unknown): { ok: true; value: string } | { ok: false; message: string } {
+function validateLabel(input: unknown): ValidationResult<string> {
   if (typeof input !== "string" || input.trim().length === 0 || input.trim().length > 128) {
     return { ok: false, message: "label is required and must be 1-128 characters" };
   }

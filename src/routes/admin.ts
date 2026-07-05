@@ -70,6 +70,7 @@ import { revokeAllSessionsForUser } from "../security/session-store.js";
 import type { ClientGuardConfig, ToolGuardConfig, ClientStatus, ToolOverride, ToolGuardrails } from "../mcp/types.js";
 import type { AdminRole } from "../security/user-store.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
+import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
 import { config } from "../config.js";
 import { callerTeamId, ensureClientAccess, requireAdminRole, requireOperator } from "../middleware/authz.js";
 
@@ -78,9 +79,7 @@ import { callerTeamId, ensureClientAccess, requireAdminRole, requireOperator } f
  * the config; an object opts the tool in (defaulting enabled:true) with a
  * bounded integer TTL in seconds.
  */
-function validateCacheInput(
-  raw: unknown,
-): { ok: true; value: { enabled: boolean; ttlSeconds: number } | null } | { ok: false; message: string } {
+function validateCacheInput(raw: unknown): ValidationResult<{ enabled: boolean; ttlSeconds: number } | null> {
   if (raw === null || raw === false) return { ok: true, value: null };
   if (typeof raw !== "object") return { ok: false, message: "cache must be an object, null, or false" };
   const obj = raw as Record<string, unknown>;
@@ -93,9 +92,7 @@ function validateCacheInput(
 }
 
 /** `null`/`false` clears; an object opts the tool in (defaulting enabled:true). */
-function validateCoalesceInput(
-  raw: unknown,
-): { ok: true; value: { enabled: boolean } | null } | { ok: false; message: string } {
+function validateCoalesceInput(raw: unknown): ValidationResult<{ enabled: boolean } | null> {
   if (raw === null || raw === false) return { ok: true, value: null };
   if (typeof raw !== "object") return { ok: false, message: "coalesce must be an object, null, or false" };
   const obj = raw as Record<string, unknown>;
@@ -107,17 +104,12 @@ const QUARANTINE_ACTIONS: QuarantineAction[] = ["block", "force_approval", "obse
 const QUARANTINE_RECOVERY_MODES: QuarantineRecoveryMode[] = ["auto", "manual"];
 
 /** `null`/`false` clears the policy (and any accumulated state). */
-function validateQuarantinePolicyInput(raw: unknown):
-  | {
-      ok: true;
-      value: {
-        consecutiveThreshold: number;
-        action: QuarantineAction;
-        recoveryMode: QuarantineRecoveryMode;
-        cooldownMs: number | null;
-      } | null;
-    }
-  | { ok: false; message: string } {
+function validateQuarantinePolicyInput(raw: unknown): ValidationResult<{
+  consecutiveThreshold: number;
+  action: QuarantineAction;
+  recoveryMode: QuarantineRecoveryMode;
+  cooldownMs: number | null;
+} | null> {
   if (raw === null || raw === false) return { ok: true, value: null };
   if (typeof raw !== "object") return { ok: false, message: "quarantinePolicy must be an object, null, or false" };
   const obj = raw as Record<string, unknown>;
@@ -165,9 +157,7 @@ const CONTEXT_BUDGET_LLM_PROVIDERS: ContextBudgetLlmProvider[] = ["openai", "ant
  * `llm` object carrying the provider/baseUrl/model and a raw `apiKey` (never
  * stored raw; setToolContextBudget encrypts it via getSecretsProvider()).
  */
-function validateContextBudgetInput(
-  raw: unknown,
-): { ok: true; value: ContextBudgetInput | null } | { ok: false; message: string } {
+function validateContextBudgetInput(raw: unknown): ValidationResult<ContextBudgetInput | null> {
   if (raw === null || raw === false) return { ok: true, value: null };
   if (typeof raw !== "object") return { ok: false, message: "contextBudget must be an object, null, or false" };
   const obj = raw as Record<string, unknown>;
@@ -245,9 +235,7 @@ interface PaginationInput {
  * strategy has its own required fields (cursor: response-path + query param;
  * page: page param; link: none).
  */
-function validatePaginationInput(
-  raw: unknown,
-): { ok: true; value: PaginationInput | null } | { ok: false; message: string } {
+function validatePaginationInput(raw: unknown): ValidationResult<PaginationInput | null> {
   if (raw === null || raw === false) return { ok: true, value: null };
   if (typeof raw !== "object") return { ok: false, message: "pagination must be an object, null, or false" };
   const obj = raw as Record<string, unknown>;
@@ -282,9 +270,7 @@ function validatePaginationInput(
 /** Validates a per-tool streaming-normalization payload. `null`/`false` clears it. */
 function validateStreamingInput(
   raw: unknown,
-):
-  | { ok: true; value: { enabled: boolean; format: StreamFormat; maxEvents: number } | null }
-  | { ok: false; message: string } {
+): ValidationResult<{ enabled: boolean; format: StreamFormat; maxEvents: number } | null> {
   if (raw === null || raw === false) return { ok: true, value: null };
   if (typeof raw !== "object") return { ok: false, message: "streaming must be an object, null, or false" };
   const obj = raw as Record<string, unknown>;
@@ -298,7 +284,7 @@ function validateStreamingInput(
 }
 
 /** Validates an ordered transform op list (set/remove/rename/copy). */
-function validateOps(raw: unknown, label: string): { ok: true; value: TransformOp[] } | { ok: false; message: string } {
+function validateOps(raw: unknown, label: string): ValidationResult<TransformOp[]> {
   if (raw === undefined) return { ok: true, value: [] };
   if (!Array.isArray(raw)) return { ok: false, message: `${label} must be an array of ops` };
   if (raw.length > MAX_TRANSFORM_OPS) return { ok: false, message: `${label} exceeds ${MAX_TRANSFORM_OPS} ops` };
@@ -328,9 +314,7 @@ function validateOps(raw: unknown, label: string): { ok: true; value: TransformO
 /** Validates a per-tool transform payload. `null`/`false` clears it. */
 function validateTransformInput(
   raw: unknown,
-):
-  | { ok: true; value: { enabled: boolean; request: TransformOp[]; response: TransformOp[] } | null }
-  | { ok: false; message: string } {
+): ValidationResult<{ enabled: boolean; request: TransformOp[]; response: TransformOp[] } | null> {
   if (raw === null || raw === false) return { ok: true, value: null };
   if (typeof raw !== "object") return { ok: false, message: "transform must be an object, null, or false" };
   const obj = raw as Record<string, unknown>;
@@ -344,7 +328,7 @@ function validateTransformInput(
 /** Validates a per-tool mock payload. `null`/`false` clears it. */
 function validateMockInput(
   raw: unknown,
-): { ok: true; value: { enabled: boolean; mode: MockMode; response: string } | null } | { ok: false; message: string } {
+): ValidationResult<{ enabled: boolean; mode: MockMode; response: string } | null> {
   if (raw === null || raw === false) return { ok: true, value: null };
   if (typeof raw !== "object") return { ok: false, message: "mock must be an object, null, or false" };
   const obj = raw as Record<string, unknown>;
@@ -355,9 +339,7 @@ function validateMockInput(
   return { ok: true, value: { enabled: obj.enabled !== false, mode: obj.mode, response: obj.response } };
 }
 
-function validateToolGuardInput(
-  input: unknown,
-): { ok: true; value: ToolGuardConfig | null } | { ok: false; message: string } {
+function validateToolGuardInput(input: unknown): ValidationResult<ToolGuardConfig | null> {
   if (input === null) return { ok: true, value: null };
   if (typeof input !== "object" || Array.isArray(input)) {
     return { ok: false, message: "guards must be an object or null" };
@@ -387,9 +369,7 @@ function validateToolGuardInput(
   return { ok: true, value };
 }
 
-function validateToolOverrideInput(
-  input: unknown,
-): { ok: true; value: ToolOverride | null } | { ok: false; message: string } {
+function validateToolOverrideInput(input: unknown): ValidationResult<ToolOverride | null> {
   if (input === null) return { ok: true, value: null };
   if (typeof input !== "object" || Array.isArray(input)) {
     return { ok: false, message: "overrides must be an object or null" };
@@ -438,9 +418,7 @@ function validateToolOverrideInput(
   return { ok: true, value };
 }
 
-function validateGuardrailsInput(
-  input: unknown,
-): { ok: true; value: ToolGuardrails | null } | { ok: false; message: string } {
+function validateGuardrailsInput(input: unknown): ValidationResult<ToolGuardrails | null> {
   if (input === null) return { ok: true, value: null };
   if (typeof input !== "object" || Array.isArray(input)) {
     return { ok: false, message: "guardrails must be an object or null" };
@@ -481,9 +459,7 @@ function validateGuardrailsInput(
   return { ok: true, value };
 }
 
-function validateClientGuardInput(
-  input: unknown,
-): { ok: true; value: ClientGuardConfig | null } | { ok: false; message: string } {
+function validateClientGuardInput(input: unknown): ValidationResult<ClientGuardConfig | null> {
   if (input === null) return { ok: true, value: null };
   if (typeof input !== "object" || Array.isArray(input)) {
     return { ok: false, message: "guards must be an object or null" };
@@ -1386,17 +1362,12 @@ export function adminRoutes(app: Express): void {
   // ── Outbound OAuth2 client-credentials ─────────────────────────────────────
 
   /** SECRETS_PROVIDER_ERROR -> 502 (external KMS/secrets-manager dependency failure), not a client input error. */
-  function statusForOAuthError(error: OAuthError): number {
-    switch (error) {
-      case "CLIENT_NOT_FOUND":
-        return 404;
-      case "SECRETS_PROVIDER_ERROR":
-        return 502;
-      case "SECRET_BOX_UNCONFIGURED":
-      case "INVALID_URL":
-        return 400;
-    }
-  }
+  const OAUTH_ERROR_STATUS: Record<OAuthError, number> = {
+    CLIENT_NOT_FOUND: 404,
+    SECRETS_PROVIDER_ERROR: 502,
+    SECRET_BOX_UNCONFIGURED: 400,
+    INVALID_URL: 400,
+  };
 
   app.get("/admin-api/clients/:name/oauth", adminAuth, (req: Request<{ name: string }>, res: Response) => {
     if (!ensureClientAccess(req, res, req.params.name)) return;
@@ -1426,7 +1397,12 @@ export function adminRoutes(app: Express): void {
       }
       const result = await setClientOAuth(name, input);
       if (!result.ok) {
-        sendError(res, statusForOAuthError(result.error), result.error, result.reason ?? result.error);
+        sendError(
+          res,
+          mutationErrorToStatus(result.error, OAUTH_ERROR_STATUS),
+          result.error,
+          result.reason ?? result.error,
+        );
         return;
       }
       recordAudit(actorFromRequest(req), input ? "client.oauth.set" : "client.oauth.clear", name);

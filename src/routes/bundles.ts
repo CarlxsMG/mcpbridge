@@ -21,37 +21,26 @@ import {
   type InstallLinkMutationError,
 } from "../admin/tool-composition/bundle-install-links.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
+import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
 
-function statusForBundleError(code: BundleMutationError["code"]): number {
-  switch (code) {
-    case "INVALID_NAME":
-    case "UNKNOWN_TOOL":
-      return 400;
-    case "ALREADY_EXISTS":
-      return 409;
-    case "NOT_FOUND":
-      return 404;
-  }
-}
+const BUNDLE_ERROR_STATUS: Record<BundleMutationError["code"], number> = {
+  INVALID_NAME: 400,
+  UNKNOWN_TOOL: 400,
+  ALREADY_EXISTS: 409,
+  NOT_FOUND: 404,
+};
 
-function statusForInstallLinkError(code: InstallLinkMutationError["code"]): number {
-  switch (code) {
-    case "BUNDLE_NOT_FOUND":
-    case "NOT_FOUND":
-      return 404;
-    case "EMPTY_BUNDLE":
-      return 400;
-    case "SECRET_BOX_NOT_CONFIGURED":
-      return 501;
-    case "SECRETS_PROVIDER_ERROR":
-      return 502;
-    case "ALREADY_REVOKED":
-      return 409;
-  }
-}
+const INSTALL_LINK_ERROR_STATUS: Record<InstallLinkMutationError["code"], number> = {
+  BUNDLE_NOT_FOUND: 404,
+  NOT_FOUND: 404,
+  EMPTY_BUNDLE: 400,
+  SECRET_BOX_NOT_CONFIGURED: 501,
+  SECRETS_PROVIDER_ERROR: 502,
+  ALREADY_REVOKED: 409,
+};
 
 /** expiresAt is optional and, when present, must be a positive epoch-ms number — same shape as mcp-keys' validateExpiresAt. */
-function validateExpiresAt(input: unknown): { ok: true; value: number | null } | { ok: false; message: string } {
+function validateExpiresAt(input: unknown): ValidationResult<number | null> {
   if (input === undefined || input === null) return { ok: true, value: null };
   if (typeof input !== "number" || !Number.isFinite(input) || input <= 0) {
     return { ok: false, message: "expiresAt must be a positive epoch-ms number or null" };
@@ -60,7 +49,7 @@ function validateExpiresAt(input: unknown): { ok: true; value: number | null } |
 }
 
 /** Same maxToolsPerClient cap /register applies to a client's tools[] — a bundle's tools[] is bounded the same way. */
-function validateToolRefs(input: unknown): { ok: true; value: BundleToolRef[] } | { ok: false; message: string } {
+function validateToolRefs(input: unknown): ValidationResult<BundleToolRef[]> {
   if (!Array.isArray(input)) {
     return { ok: false, message: "tools must be an array" };
   }
@@ -115,7 +104,12 @@ export function bundleRoutes(app: Express): void {
     const actor = actorFromRequest(req);
     const result = await createBundle(name, description, toolsResult.value, actor);
     if (!result.ok) {
-      sendError(res, statusForBundleError(result.error.code), result.error.code, result.error.message);
+      sendError(
+        res,
+        mutationErrorToStatus(result.error.code, BUNDLE_ERROR_STATUS),
+        result.error.code,
+        result.error.message,
+      );
       return;
     }
     recordAudit(actor, "bundle.create", name, { tools_count: toolsResult.value.length });
@@ -160,7 +154,12 @@ export function bundleRoutes(app: Express): void {
 
       const result = await updateBundle(name, updates);
       if (!result.ok) {
-        sendError(res, statusForBundleError(result.error.code), result.error.code, result.error.message);
+        sendError(
+          res,
+          mutationErrorToStatus(result.error.code, BUNDLE_ERROR_STATUS),
+          result.error.code,
+          result.error.message,
+        );
         return;
       }
       recordAudit(actor, "bundle.update", name, { fields: Object.keys(updates) });
@@ -214,7 +213,12 @@ export function bundleRoutes(app: Express): void {
       const actor = actorFromRequest(req);
       const result = await createInstallLink(name, exp.value, actor);
       if (!result.ok) {
-        sendError(res, statusForInstallLinkError(result.error.code), result.error.code, result.error.message);
+        sendError(
+          res,
+          mutationErrorToStatus(result.error.code, INSTALL_LINK_ERROR_STATUS),
+          result.error.code,
+          result.error.message,
+        );
         return;
       }
       recordAudit(actor, "bundle.install_link.create", name, { installLinkId: result.record.id });
@@ -241,7 +245,12 @@ export function bundleRoutes(app: Express): void {
       const id = Number(req.params.id);
       const result = revokeInstallLink(name, id);
       if (!result.ok) {
-        sendError(res, statusForInstallLinkError(result.error.code), result.error.code, result.error.message);
+        sendError(
+          res,
+          mutationErrorToStatus(result.error.code, INSTALL_LINK_ERROR_STATUS),
+          result.error.code,
+          result.error.message,
+        );
         return;
       }
       recordAudit(actorFromRequest(req), "bundle.install_link.revoke", name, { installLinkId: id });

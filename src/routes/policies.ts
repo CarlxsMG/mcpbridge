@@ -14,15 +14,16 @@ import {
 } from "../admin/entities/policies.js";
 import type { BundleToolRef } from "../admin/tool-composition/bundles.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
+import type { LooseValidationResult } from "./validation.js";
 
 /** Accepts a positive number, or null (clears the guard). Rejects anything else. */
-function optPositiveOrNull(v: unknown): { ok: true; value: number | null } | { ok: false } {
+function optPositiveOrNull(v: unknown): LooseValidationResult<number | null> {
   if (v === undefined || v === null) return { ok: true, value: null };
   if (typeof v === "number" && Number.isFinite(v) && v > 0) return { ok: true, value: v };
   return { ok: false };
 }
 
-function validateToolRefs(input: unknown): { ok: true; value: BundleToolRef[] } | { ok: false } {
+function validateToolRefs(input: unknown): LooseValidationResult<BundleToolRef[]> {
   if (!Array.isArray(input)) return { ok: false };
   const value: BundleToolRef[] = [];
   for (const item of input) {

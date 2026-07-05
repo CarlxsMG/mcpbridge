@@ -12,6 +12,7 @@ import {
   type UpstreamSecret,
 } from "../backend-auth/upstream-auth.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
+import type { ValidationResult } from "./validation.js";
 
 function clientExists(name: string): boolean {
   return getDb().query(`SELECT 1 FROM clients WHERE name = ?`).get(name) != null;
@@ -20,18 +21,16 @@ function clientExists(name: string): boolean {
 // These would either break the pinned-Host SSRF protection or the JSON body framing.
 const FORBIDDEN_HEADERS = new Set(["host", "content-length", "content-type"]);
 
-type ValidatedAuth =
-  | { ok: true; type: UpstreamAuthType; secret: UpstreamSecret; headerName: string | null }
-  | { ok: false; message: string };
+type ValidatedAuth = { type: UpstreamAuthType; secret: UpstreamSecret; headerName: string | null };
 
-function validateBody(input: unknown): ValidatedAuth {
+function validateBody(input: unknown): ValidationResult<ValidatedAuth> {
   if (typeof input !== "object" || input === null) return { ok: false, message: "body must be an object" };
   const b = input as Record<string, unknown>;
   switch (b.type) {
     case "bearer":
       if (typeof b.token !== "string" || b.token.length === 0)
         return { ok: false, message: "token is required for bearer auth" };
-      return { ok: true, type: "bearer", secret: { token: b.token }, headerName: null };
+      return { ok: true, value: { type: "bearer", secret: { token: b.token }, headerName: null } };
     case "basic":
       if (
         typeof b.username !== "string" ||
@@ -41,7 +40,10 @@ function validateBody(input: unknown): ValidatedAuth {
       ) {
         return { ok: false, message: "username and password are required for basic auth" };
       }
-      return { ok: true, type: "basic", secret: { username: b.username, password: b.password }, headerName: null };
+      return {
+        ok: true,
+        value: { type: "basic", secret: { username: b.username, password: b.password }, headerName: null },
+      };
     case "header": {
       if (typeof b.headerName !== "string" || b.headerName.length === 0)
         return { ok: false, message: "headerName is required for header auth" };
@@ -51,7 +53,7 @@ function validateBody(input: unknown): ValidatedAuth {
         return { ok: false, message: `headerName '${b.headerName}' is not allowed` };
       if (typeof b.value !== "string" || b.value.length === 0)
         return { ok: false, message: "value is required for header auth" };
-      return { ok: true, type: "header", secret: { value: b.value }, headerName: b.headerName };
+      return { ok: true, value: { type: "header", secret: { value: b.value }, headerName: b.headerName } };
     }
     default:
       return { ok: false, message: "type must be one of: bearer, basic, header" };
@@ -86,8 +88,8 @@ export function upstreamAuthRoutes(app: Express): void {
         validationError(res, parsed.message);
         return;
       }
-      setUpstreamAuth(name, parsed.type, parsed.secret, parsed.headerName);
-      recordAudit(actorFromRequest(req), "client.upstream_auth.set", name, { type: parsed.type });
+      setUpstreamAuth(name, parsed.value.type, parsed.value.secret, parsed.value.headerName);
+      recordAudit(actorFromRequest(req), "client.upstream_auth.set", name, { type: parsed.value.type });
       res.status(200).json({ status: "updated", name, ...getUpstreamAuthInfo(name) });
     },
   );

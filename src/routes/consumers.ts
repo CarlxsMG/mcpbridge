@@ -13,8 +13,9 @@ import {
   isValidQuotaValue,
 } from "../admin/entities/consumers.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
+import type { LooseValidationResult } from "./validation.js";
 
-function optPositiveIntOrNull(v: unknown): { ok: true; value: number | null } | { ok: false } {
+function optPositiveIntOrNull(v: unknown): LooseValidationResult<number | null> {
   if (!isValidQuotaValue(v)) return { ok: false };
   return { ok: true, value: v ?? null };
 }

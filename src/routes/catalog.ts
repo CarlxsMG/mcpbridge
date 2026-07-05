@@ -15,19 +15,14 @@ import {
   type CatalogMutationError,
 } from "../catalog/index.js";
 import { requestId, sendError, validationError, notFound, forbidden } from "./http-errors.js";
+import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
 
-function statusForCatalogError(code: CatalogMutationError["code"]): number {
-  switch (code) {
-    case "INVALID_SLUG":
-      return 400;
-    case "ALREADY_EXISTS":
-      return 409;
-    case "NOT_FOUND":
-      return 404;
-    case "IMMUTABLE_ENTRY":
-      return 403;
-  }
-}
+const CATALOG_ERROR_STATUS: Record<CatalogMutationError["code"], number> = {
+  INVALID_SLUG: 400,
+  ALREADY_EXISTS: 409,
+  NOT_FOUND: 404,
+  IMMUTABLE_ENTRY: 403,
+};
 
 function stringArrayOrUndefined(v: unknown): string[] | undefined {
   if (v === undefined) return undefined;
@@ -39,7 +34,7 @@ function stringArrayOrUndefined(v: unknown): string[] | undefined {
 function parseCustomEntryInput(
   body: Record<string, unknown>,
   requireSlug: boolean,
-): { ok: true; value: Partial<CustomCatalogEntryInput> } | { ok: false; message: string } {
+): ValidationResult<Partial<CustomCatalogEntryInput>> {
   const value: Partial<CustomCatalogEntryInput> = {};
   if (requireSlug || body.slug !== undefined) {
     if (typeof body.slug !== "string" || !body.slug) return { ok: false, message: "slug is required" };
@@ -97,7 +92,12 @@ export function catalogRoutes(app: Express): void {
     const actor = actorFromRequest(req);
     const result = createCustomEntry(parsed.value as CustomCatalogEntryInput, actor);
     if (!result.ok) {
-      sendError(res, statusForCatalogError(result.error.code), result.error.code, result.error.message);
+      sendError(
+        res,
+        mutationErrorToStatus(result.error.code, CATALOG_ERROR_STATUS),
+        result.error.code,
+        result.error.message,
+      );
       return;
     }
     recordAudit(actor, "catalog.entry.create", result.entry.slug, { kind: result.entry.kind });
@@ -123,7 +123,12 @@ export function catalogRoutes(app: Express): void {
     }
     const result = updateCustomEntry(rowId, parsed.value);
     if (!result.ok) {
-      sendError(res, statusForCatalogError(result.error.code), result.error.code, result.error.message);
+      sendError(
+        res,
+        mutationErrorToStatus(result.error.code, CATALOG_ERROR_STATUS),
+        result.error.code,
+        result.error.message,
+      );
       return;
     }
     recordAudit(actorFromRequest(req), "catalog.entry.update", result.entry.slug, {

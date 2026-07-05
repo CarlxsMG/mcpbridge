@@ -13,6 +13,7 @@ import {
   type AlertEventType,
 } from "../observability/alerts.js";
 import { validationError, notFound } from "./http-errors.js";
+import type { LooseValidationResult } from "./validation.js";
 
 function isEventType(v: unknown): v is AlertEventType {
   return typeof v === "string" && (ALERT_EVENT_TYPES as string[]).includes(v);
@@ -22,7 +23,7 @@ function isHttpUrl(v: unknown): v is string {
   return typeof v === "string" && (v.startsWith("http://") || v.startsWith("https://"));
 }
 
-function optNumber(v: unknown): { ok: true; value: number | null } | { ok: false } {
+function optNumber(v: unknown): LooseValidationResult<number | null> {
   if (v === undefined || v === null) return { ok: true, value: null };
   if (typeof v === "number" && Number.isFinite(v)) return { ok: true, value: v };
   return { ok: false };

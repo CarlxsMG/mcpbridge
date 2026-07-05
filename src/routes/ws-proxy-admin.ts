@@ -12,20 +12,15 @@ import {
   type WsProxyTargetInput,
 } from "../ws-proxy.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
+import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
 
-function statusForWsProxyError(code: WsProxyTargetError["code"]): number {
-  switch (code) {
-    case "INVALID_NAME":
-    case "INVALID_URL":
-      return 400;
-    case "NAME_COLLISION":
-      return 409;
-  }
-}
+const WS_PROXY_ERROR_STATUS: Record<WsProxyTargetError["code"], number> = {
+  INVALID_NAME: 400,
+  INVALID_URL: 400,
+  NAME_COLLISION: 409,
+};
 
-function parseTargetInput(
-  body: Record<string, unknown>,
-): { ok: true; value: WsProxyTargetInput } | { ok: false; message: string } {
+function parseTargetInput(body: Record<string, unknown>): ValidationResult<WsProxyTargetInput> {
   if (typeof body.backendWsUrl !== "string" || !body.backendWsUrl) {
     return { ok: false, message: "backendWsUrl is required" };
   }
@@ -90,7 +85,12 @@ export function wsProxyAdminRoutes(app: Express): void {
     }
     const result = await upsertWsProxyTarget(name, parsed.value);
     if (!result.ok) {
-      sendError(res, statusForWsProxyError(result.error.code), result.error.code, result.error.message);
+      sendError(
+        res,
+        mutationErrorToStatus(result.error.code, WS_PROXY_ERROR_STATUS),
+        result.error.code,
+        result.error.message,
+      );
       return;
     }
     recordAudit(actorFromRequest(req), "ws_proxy_target.create", name, { backendWsUrl: parsed.value.backendWsUrl });
@@ -124,7 +124,12 @@ export function wsProxyAdminRoutes(app: Express): void {
       }
       const result = await upsertWsProxyTarget(name, parsed.value);
       if (!result.ok) {
-        sendError(res, statusForWsProxyError(result.error.code), result.error.code, result.error.message);
+        sendError(
+          res,
+          mutationErrorToStatus(result.error.code, WS_PROXY_ERROR_STATUS),
+          result.error.code,
+          result.error.message,
+        );
         return;
       }
       recordAudit(actorFromRequest(req), "ws_proxy_target.update", name, { fields: Object.keys(body) });

@@ -12,24 +12,20 @@ import {
   type CompositeMutationError,
 } from "../admin/tool-composition/composites.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
+import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
 
 const MAX_STEPS = 10;
 
-function statusForError(code: CompositeMutationError["code"]): number {
-  switch (code) {
-    case "INVALID_NAME":
-    case "INVALID_SCHEMA":
-    case "INVALID_STEPS":
-    case "UNKNOWN_TOOL":
-      return 400;
-    case "ALREADY_EXISTS":
-      return 409;
-    case "NOT_FOUND":
-      return 404;
-  }
-}
+const COMPOSITE_ERROR_STATUS: Record<CompositeMutationError["code"], number> = {
+  INVALID_NAME: 400,
+  INVALID_SCHEMA: 400,
+  INVALID_STEPS: 400,
+  UNKNOWN_TOOL: 400,
+  ALREADY_EXISTS: 409,
+  NOT_FOUND: 404,
+};
 
-function validateSteps(input: unknown): { ok: true; value: CompositeStep[] } | { ok: false; message: string } {
+function validateSteps(input: unknown): ValidationResult<CompositeStep[]> {
   if (!Array.isArray(input)) return { ok: false, message: "steps must be an array" };
   if (input.length === 0) return { ok: false, message: "a composite needs at least one step" };
   if (input.length > MAX_STEPS) return { ok: false, message: `steps exceeds maximum of ${MAX_STEPS}` };
@@ -91,7 +87,12 @@ export function compositeRoutes(app: Express): void {
     const actor = actorFromRequest(req);
     const result = await createComposite(name, description, inputSchema, stepsResult.value, actor);
     if (!result.ok) {
-      sendError(res, statusForError(result.error.code), result.error.code, result.error.message);
+      sendError(
+        res,
+        mutationErrorToStatus(result.error.code, COMPOSITE_ERROR_STATUS),
+        result.error.code,
+        result.error.message,
+      );
       return;
     }
     recordAudit(actor, "composite.create", name, { steps: stepsResult.value.length });
@@ -144,7 +145,12 @@ export function compositeRoutes(app: Express): void {
 
       const result = await updateComposite(name, updates);
       if (!result.ok) {
-        sendError(res, statusForError(result.error.code), result.error.code, result.error.message);
+        sendError(
+          res,
+          mutationErrorToStatus(result.error.code, COMPOSITE_ERROR_STATUS),
+          result.error.code,
+          result.error.message,
+        );
         return;
       }
       recordAudit(actorFromRequest(req), "composite.update", name, { fields: Object.keys(updates) });
