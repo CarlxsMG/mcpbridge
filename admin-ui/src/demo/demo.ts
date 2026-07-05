@@ -43,7 +43,8 @@ import { consumers, mcpKeys } from "./fixtures/keys-consumers";
 import { alerts } from "./fixtures/alerts";
 import { auditLog } from "./fixtures/audit-log";
 import { composites, policies, schedules, snapshots, teams, users } from "./fixtures/administration";
-import { byKey, overview, topTools, usageSummary, usageTimeseries } from "./fixtures/usage";
+import { byKey, topTools, usageSummary, usageTimeseries } from "./fixtures/usage";
+import { overview } from "./fixtures/overview";
 import { trafficRecords } from "./fixtures/traffic";
 import { spansByTrace, topSessions, traces } from "./fixtures/traces";
 import { monitors } from "./fixtures/monitors";
@@ -198,6 +199,8 @@ function route(
   }
   if (/^\/admin-api\/clients\/[^/]+\/canary$/.test(p)) return ok({ canary: null });
   if (/^\/admin-api\/clients\/[^/]+\/upstream-auth$/.test(p)) return ok({ configured: false });
+  if (/^\/admin-api\/clients\/[^/]+\/lb$/.test(p)) return ok({ lb: null });
+  if (/^\/admin-api\/clients\/[^/]+\/oauth$/.test(p)) return ok({ oauth: null });
   if (/^\/admin-api\/clients\//.test(p)) return ok({}); // any other per-client mutation
 
   // Bundles
