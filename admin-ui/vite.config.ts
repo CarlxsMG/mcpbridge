@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
+import VueI18nPlugin from "@intlify/unplugin-vue-i18n/vite";
 
 // Uncommon/high ports so they don't clash with 3000/5173/8080. Overridable via
 // env (dev:all passes them); the defaults must match PORT in the root .env.
@@ -18,13 +19,28 @@ const DEMO_BASE = process.env.DEMO_BASE || "/demo/";
 // special handling, and frontend code stays identical between dev and prod
 // (always relative /admin-api/... paths).
 export default defineConfig({
-  plugins: [vue()],
-  base: IS_DEMO ? DEMO_BASE : "/admin/",
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  plugins: [
+    vue(),
+    VueI18nPlugin({
+      // All messages live in JSON files under src/locales/. SFC <i18n> blocks
+      // are intentionally NOT used — they scatter strings across .vue files
+      // and break the per-locale JSON review workflow. The plugin is included
+      // here so future contributors can opt in via a per-block override
+      // without further config, but currently no .vue file matches.
+      include: ["src/locales/**"],
+      // Source of truth for runtime locale composition + type-safe keys. We use
+      // a global `t()` injection (configured in `src/i18n.ts`), so the
+      // `compositionApi` mode matches vue-i18n v10's default install.
+      compositionApi: true,
+      runtimeOnly: false,
+    }),
+  ],
+  base: IS_DEMO ? DEMO_BASE : "/admin/",
   server: {
     port: UI_PORT,
     strictPort: true, // fail loudly if the port is taken instead of silently picking another (would break the proxy assumption)

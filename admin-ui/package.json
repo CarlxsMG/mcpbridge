@@ -17,8 +17,10 @@
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@fontsource/ibm-plex-sans": "^5.2.8",
     "@fontsource/space-grotesk": "^5.2.10",
+    "@intlify/unplugin-vue-i18n": "^11.2.4",
     "lucide-vue-next": "^1.0.0",
     "vue": "^3.5.0",
+    "vue-i18n": "^10",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {

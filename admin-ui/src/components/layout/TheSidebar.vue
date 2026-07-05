@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { useLiveSignal } from "@/composables/useLiveSignal";
+import { useNavEntries } from "@/composables/useNavEntries";
 import CommandPalette from "@/components/CommandPalette.vue";
-import { navEntries } from "@/navigation";
 import { ChevronRight, Activity } from "lucide-vue-next";
 
 defineProps<{ navOpen: boolean }>();
@@ -12,12 +13,19 @@ defineProps<{ navOpen: boolean }>();
 const router = useRouter();
 const { state, logout } = useAuth();
 const { isLive } = useLiveSignal();
+const { t } = useI18n({ useScope: "global" });
 
-const NAV_GROUPS = ["Servers", "Access", "Observability", "Administration"] as const;
+const { entries: navItems, groupLabel } = useNavEntries({ role: state.user?.role });
+
+// Group ordering drives the visual sidebar order. Hard-coded (kept in sync
+// with the group header translations through NAV_GROUP_KEYS).
+const NAV_GROUP_ORDER = ["Servers", "Access", "Observability", "Administration"] as const;
+
 const groupedNav = computed(() =>
-  NAV_GROUPS.map((group) => ({
+  NAV_GROUP_ORDER.map((group) => ({
     group,
-    entries: navEntries.filter((e) => e.group === group && (!e.meta?.role || e.meta.role === state.user?.role)),
+    label: groupLabel(group),
+    entries: navItems.value.filter((e) => e.group === group),
   })).filter((g) => g.entries.length > 0),
 );
 
@@ -53,7 +61,7 @@ async function onLogout() {
         :class="{ 'is-live': isLive }"
         :size="17"
         stroke-width="2.25"
-        :title="isLive ? 'Live traffic in the last minute' : 'No recent traffic'"
+        :title="isLive ? t('sidebar.brand_live_title') : t('sidebar.brand_idle_title')"
         aria-hidden="true"
       />
       MCP REST Bridge
@@ -61,7 +69,7 @@ async function onLogout() {
     <CommandPalette />
     <div class="nav-groups">
       <template v-for="g in groupedNav" :key="g.group">
-        <div class="nav-label">{{ g.group }}</div>
+        <div class="nav-label">{{ g.label }}</div>
         <ul>
           <li v-for="entry in g.entries" :key="entry.path">
             <RouterLink :to="entry.path"
@@ -75,8 +83,8 @@ async function onLogout() {
       <RouterLink
         to="/account"
         class="current-user"
-        title="Account settings"
-        :aria-label="`Account settings — ${state.user?.username} (${state.user?.role})`"
+        :title="t('sidebar.account_title')"
+        :aria-label="`${t('sidebar.account_title')} — ${state.user?.username} (${state.user?.role})`"
       >
         <span
           class="user-avatar"
@@ -89,7 +97,7 @@ async function onLogout() {
         >
         <ChevronRight class="current-user-chevron" :size="14" stroke-width="2" aria-hidden="true" />
       </RouterLink>
-      <button type="button" class="link-btn" @click="onLogout">Sign out</button>
+      <button type="button" class="link-btn" @click="onLogout">{{ t("sidebar.sign_out") }}</button>
     </div>
   </nav>
 </template>

@@ -39,14 +39,19 @@ import {
  * Observability/Administration/none). CommandPalette.vue ignores it and
  * buckets every entry here under a single "Pages" group instead, to stay
  * distinct from its live-fetched "Servers"/"Bundles"/"API keys" groups.
+ *
+ * i18n: `labelKey`/`hintKey` resolve through vue-i18n at render time via
+ * `useNavEntries()` in `composables/useNavEntries.ts`. The router consumes
+ * this module too but only reads path/name/component/meta — translations
+ * are irrelevant there.
  */
 export type NavGroup = "Servers" | "Access" | "Observability" | "Administration" | null;
 
 export interface NavEntry {
   path: string;
   name: string;
-  label: string;
-  hint: string;
+  labelKey: string;
+  hintKey: string;
   group: NavGroup;
   icon: Component;
   component: () => Promise<{ default: Component }>;
@@ -56,13 +61,24 @@ export interface NavEntry {
   newPage?: { name: string; component: () => Promise<{ default: Component }> };
 }
 
+// Stable label/hint key prefixes — entry.name is the canonical slug, so the
+// resolvable key is always `nav.${entry.name}.label` / `.hint`. Group labels
+// resolve to `nav.groups.${group}`.
+function l(name: string) {
+  return `nav.${name}.label`;
+}
+function h(name: string) {
+  return `nav.${name}.hint`;
+}
+const GL = (g: Exclude<NavGroup, null>) => `nav.groups.${g}`;
+
 export const navEntries: NavEntry[] = [
   // Servers
   {
     path: "/servers",
     name: "servers",
-    label: "Servers",
-    hint: "List and manage upstream servers",
+    labelKey: l("servers"),
+    hintKey: h("servers"),
     group: "Servers",
     icon: Server,
     component: () => import("./pages/ServersPage.vue"),
@@ -70,8 +86,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/register-server",
     name: "register-server",
-    label: "Add server",
-    hint: "Register a new upstream",
+    labelKey: l("register-server"),
+    hintKey: h("register-server"),
     group: "Servers",
     icon: Server,
     component: () => import("./pages/RegisterServerPage.vue"),
@@ -79,8 +95,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/catalog",
     name: "catalog",
-    label: "Catalog",
-    hint: "Browse & one-click install servers",
+    labelKey: l("catalog"),
+    hintKey: h("catalog"),
     group: "Servers",
     icon: LayoutGrid,
     component: () => import("./pages/CatalogPage.vue"),
@@ -89,8 +105,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/bundles",
     name: "bundles",
-    label: "Bundles",
-    hint: "Cross-client tool selections",
+    labelKey: l("bundles"),
+    hintKey: h("bundles"),
     group: "Servers",
     icon: Boxes,
     component: () => import("./pages/BundlesPage.vue"),
@@ -99,8 +115,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/composites",
     name: "composites",
-    label: "Composites",
-    hint: "Chained tool calls",
+    labelKey: l("composites"),
+    hintKey: h("composites"),
     group: "Servers",
     icon: Combine,
     component: () => import("./pages/CompositesPage.vue"),
@@ -109,8 +125,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/ws-proxies",
     name: "ws-proxies",
-    label: "WS proxies",
-    hint: "Live WebSocket passthrough targets",
+    labelKey: l("ws-proxies"),
+    hintKey: h("ws-proxies"),
     group: "Servers",
     icon: Cable,
     component: () => import("./pages/WsProxyTargetsPage.vue"),
@@ -120,8 +136,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/keys",
     name: "keys",
-    label: "API keys",
-    hint: "MCP client credentials",
+    labelKey: l("keys"),
+    hintKey: h("keys"),
     group: "Access",
     icon: KeyRound,
     component: () => import("./pages/KeysPage.vue"),
@@ -130,8 +146,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/policies",
     name: "policies",
-    label: "Policies",
-    hint: "Reusable rate-limit/timeout presets",
+    labelKey: l("policies"),
+    hintKey: h("policies"),
     group: "Access",
     icon: ShieldCheck,
     component: () => import("./pages/PoliciesPage.vue"),
@@ -140,8 +156,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/consumers",
     name: "consumers",
-    label: "Consumers",
-    hint: "Quota-tracked key owners",
+    labelKey: l("consumers"),
+    hintKey: h("consumers"),
     group: "Access",
     icon: Users2,
     component: () => import("./pages/ConsumersPage.vue"),
@@ -150,8 +166,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/approvals",
     name: "approvals",
-    label: "Approvals",
-    hint: "Human-in-the-loop approval queue",
+    labelKey: l("approvals"),
+    hintKey: h("approvals"),
     group: "Access",
     icon: ClipboardCheck,
     component: () => import("./pages/ApprovalsPage.vue"),
@@ -160,8 +176,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/overview",
     name: "overview",
-    label: "Overview",
-    hint: "Bridge instance snapshot",
+    labelKey: l("overview"),
+    hintKey: h("overview"),
     group: "Observability",
     icon: LayoutDashboard,
     component: () => import("./pages/OverviewPage.vue"),
@@ -169,8 +185,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/usage",
     name: "usage",
-    label: "Usage",
-    hint: "Call volume and latency",
+    labelKey: l("usage"),
+    hintKey: h("usage"),
     group: "Observability",
     icon: Activity,
     component: () => import("./pages/UsagePage.vue"),
@@ -178,8 +194,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/traffic",
     name: "traffic",
-    label: "Traffic",
-    hint: "Captured request/response calls",
+    labelKey: l("traffic"),
+    hintKey: h("traffic"),
     group: "Observability",
     icon: ArrowLeftRight,
     component: () => import("./pages/TrafficPage.vue"),
@@ -187,8 +203,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/traces",
     name: "traces",
-    label: "Traces",
-    hint: "Per-call spans and waterfalls",
+    labelKey: l("traces"),
+    hintKey: h("traces"),
     group: "Observability",
     icon: Waypoints,
     component: () => import("./pages/TracesPage.vue"),
@@ -196,8 +212,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/monitors",
     name: "monitors",
-    label: "Monitors",
-    hint: "Synthetic uptime + schema-drift checks",
+    labelKey: l("monitors"),
+    hintKey: h("monitors"),
     group: "Observability",
     icon: Radar,
     component: () => import("./pages/MonitorsPage.vue"),
@@ -205,8 +221,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/alerts",
     name: "alerts",
-    label: "Alerts",
-    hint: "Webhook alert rules",
+    labelKey: l("alerts"),
+    hintKey: h("alerts"),
     group: "Observability",
     icon: BellRing,
     component: () => import("./pages/AlertsPage.vue"),
@@ -215,8 +231,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/schedules",
     name: "schedules",
-    label: "Schedules",
-    hint: "Cron enable/disable jobs",
+    labelKey: l("schedules"),
+    hintKey: h("schedules"),
     group: "Observability",
     icon: Clock,
     component: () => import("./pages/SchedulesPage.vue"),
@@ -225,8 +241,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/audit-log",
     name: "audit-log",
-    label: "Audit log",
-    hint: "Hash-chained admin actions",
+    labelKey: l("audit-log"),
+    hintKey: h("audit-log"),
     group: "Observability",
     icon: ScrollText,
     component: () => import("./pages/AuditLogPage.vue"),
@@ -235,8 +251,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/users",
     name: "users",
-    label: "Users",
-    hint: "Admin accounts",
+    labelKey: l("users"),
+    hintKey: h("users"),
     group: "Administration",
     icon: UserCog,
     component: () => import("./pages/UsersPage.vue"),
@@ -246,8 +262,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/teams",
     name: "teams",
-    label: "Teams",
-    hint: "Server ownership groups",
+    labelKey: l("teams"),
+    hintKey: h("teams"),
     group: "Administration",
     icon: UsersRound,
     component: () => import("./pages/TeamsPage.vue"),
@@ -257,8 +273,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/config",
     name: "config",
-    label: "Config",
-    hint: "Export, import, snapshots",
+    labelKey: l("config"),
+    hintKey: h("config"),
     group: "Administration",
     icon: Settings2,
     component: () => import("./pages/ConfigPage.vue"),
@@ -267,8 +283,8 @@ export const navEntries: NavEntry[] = [
   {
     path: "/sso",
     name: "sso",
-    label: "SSO",
-    hint: "OIDC single sign-on settings",
+    labelKey: l("sso"),
+    hintKey: h("sso"),
     group: "Administration",
     icon: Fingerprint,
     component: () => import("./pages/SsoSettingsPage.vue"),
@@ -278,10 +294,17 @@ export const navEntries: NavEntry[] = [
   {
     path: "/account",
     name: "account",
-    label: "Account",
-    hint: "Your profile, password, and sessions",
+    labelKey: l("account"),
+    hintKey: h("account"),
     group: null,
     icon: UserCircle,
     component: () => import("./pages/AccountPage.vue"),
   },
 ];
+
+export const NAV_GROUP_KEYS: Record<Exclude<NavGroup, null>, string> = {
+  Servers: GL("Servers"),
+  Access: GL("Access"),
+  Observability: GL("Observability"),
+  Administration: GL("Administration"),
+};

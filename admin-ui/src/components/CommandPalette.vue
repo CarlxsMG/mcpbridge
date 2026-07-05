@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch, type Component } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { Search, Server, Boxes, KeyRound, CornerDownLeft } from "lucide-vue-next";
 import { api } from "@/composables/useApi";
 import { useCommandPalette } from "@/composables/useCommandPalette";
 import { useFocusTrap } from "@/composables/useFocusTrap";
-import { navEntries } from "../navigation";
+import { useNavEntries } from "@/composables/useNavEntries";
+import { useAuth } from "@/composables/useAuth";
 import type { ClientSummary, BundleSummary, McpApiKey, PaginatedResult } from "@/types/api";
 
 interface Entry {
@@ -17,20 +19,28 @@ interface Entry {
   to: string;
 }
 
-// One flat "Pages" bucket for every static route, regardless of which sidebar
-// section (if any) it belongs to in App.vue — distinct from the live-fetched
-// "Servers"/"Bundles"/"API keys" groups below.
-const PAGES: Entry[] = navEntries.map((entry) => ({
-  id: `p-${entry.name}`,
-  label: entry.label,
-  hint: entry.hint,
-  group: "Pages",
-  icon: entry.icon,
-  to: entry.path,
-}));
-
 const router = useRouter();
+const { state } = useAuth();
 const { paletteOpen: open } = useCommandPalette();
+const { t } = useI18n({ useScope: "global" });
+
+// `Pages` bucket for every static route — distinct from the live-fetched
+// "Servers"/"Bundles"/"API keys" groups below. We resolve labels/hints through
+// vue-i18n inside a computed so they update on locale switch without any extra
+// wiring.
+const { entries: navItems } = useNavEntries({ role: state.user?.role });
+
+const PAGES = computed<Entry[]>(() =>
+  navItems.value.map((entry) => ({
+    id: `p-${entry.name}`,
+    label: entry.label,
+    hint: entry.hint,
+    group: t("command_palette.group_pages"),
+    icon: entry.icon,
+    to: entry.path,
+  })),
+);
+
 const query = ref("");
 const activeIndex = ref(0);
 const liveEntries = ref<Entry[]>([]);
@@ -81,20 +91,26 @@ async function loadLive() {
       api.get<{ items: BundleSummary[] }>("/admin-api/bundles").catch(() => ({ items: [] as BundleSummary[] })),
       api.get<{ items: McpApiKey[] }>("/admin-api/mcp-keys").catch(() => ({ items: [] as McpApiKey[] })),
     ]);
+    const groupServers = t("command_palette.group_servers");
+    const groupBundles = t("command_palette.group_bundles");
+    const groupKeys = t("command_palette.group_keys");
     liveEntries.value = [
       ...clients.items.map((c) => ({
         id: `c-${c.name}`,
         label: c.name,
         hint: c.healthUrl,
-        group: "Servers",
+        group: groupServers,
         icon: Server,
         to: `/servers/${encodeURIComponent(c.name)}`,
       })),
       ...bundles.items.map((b) => ({
         id: `b-${b.name}`,
         label: b.name,
-        hint: `${b.toolsCount} tool(s)`,
-        group: "Bundles",
+        // Singular/plural bundle tool count — vue-i18n handles Spanish's
+        // two-form plural rule (one/other) via `t(key, count)` with the `|`
+        // separator in the message JSON.
+        hint: t("command_palette.tools_count", b.toolsCount),
+        group: groupBundles,
         icon: Boxes,
         to: `/bundles/${encodeURIComponent(b.name)}`,
       })),
@@ -102,7 +118,7 @@ async function loadLive() {
         id: `k-${k.id}`,
         label: k.label,
         hint: k.keyPrefix,
-        group: "API keys",
+        group: groupKeys,
         icon: KeyRound,
         to: "/keys",
       })),
@@ -125,8 +141,8 @@ function score(label: string, q: string): number {
 
 const results = computed<Entry[]>(() => {
   const q = query.value.trim().toLowerCase();
-  const all = [...PAGES, ...liveEntries.value];
-  if (!q) return PAGES.slice(0, 8);
+  const all = [...PAGES.value, ...liveEntries.value];
+  if (!q) return PAGES.value.slice(0, 8);
   return all
     .map((e) => ({ e, s: score(e.label, q) }))
     .filter((r) => r.s >= 0)
@@ -181,14 +197,14 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
 </script>
 
 <template>
-  <button type="button" class="cmd-trigger" aria-label="Open command palette" @click="show">
+  <button type="button" class="cmd-trigger" :aria-label="t('command_palette.open_aria')" @click="show">
     <Search :size="14" stroke-width="2" aria-hidden="true" />
-    <span>Jump to…</span>
+    <span>{{ t("command_palette.trigger_label") }}</span>
     <kbd>⌘K</kbd>
   </button>
 
   <div v-if="open" class="cmd-overlay" @click.self="close" @keydown="onKeydown">
-    <div ref="panelEl" class="cmd-panel" role="dialog" aria-modal="true" aria-label="Command palette">
+    <div ref="panelEl" class="cmd-panel" role="dialog" aria-modal="true" :aria-label="t('command_palette.dialog_aria')">
       <div class="sweep-line" :class="{ 'is-sweeping': justOpened }" aria-hidden="true"></div>
       <div class="cmd-input-row">
         <Search :size="16" stroke-width="2" aria-hidden="true" class="cmd-input-icon" />
@@ -196,8 +212,8 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
           ref="inputEl"
           v-model="query"
           type="text"
-          placeholder="Search servers, bundles, keys, pages…"
-          aria-label="Search"
+          :placeholder="t('command_palette.search_placeholder')"
+          :aria-label="t('common.search')"
         />
         <kbd>Esc</kbd>
       </div>
@@ -221,7 +237,7 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
             </button>
           </div>
         </template>
-        <p v-else class="cmd-empty">No matches for "{{ query }}".</p>
+        <p v-else class="cmd-empty">{{ t("command_palette.empty", { query }) }}</p>
       </div>
     </div>
   </div>

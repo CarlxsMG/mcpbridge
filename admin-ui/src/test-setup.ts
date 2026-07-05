@@ -26,3 +26,42 @@ if (typeof URL.createObjectURL === "undefined") {
     objectUrls.delete(url);
   }) as typeof URL.revokeObjectURL;
 }
+
+// Make vue-i18n available to component tests. We register the messages
+// directly (avoiding the ESM json-import dance) and force the active locale
+// to EN so tests can assert against English source strings — what component
+// snapshots / `getByText` look for.
+//
+// `globalInjection: true` + `legacy: false` makes `t()` available globally
+// inside templates, but `useI18n()` still requires the i18n instance to be
+// installed via `app.use(i18n)`. We install it as a default plugin on every
+// @vue/test-utils mount via the library's `config.global.plugins` API, so
+// existing tests don't need to change their mount calls. Components are
+// loaded by Vitest in alphabetical order; this setup file runs as a
+// `setupFiles` entry BEFORE any test file, so the registration is in place
+// before the first mount happens.
+import { createI18n } from "vue-i18n";
+import { config as vtuConfig } from "@vue/test-utils";
+import en from "./locales/en.json";
+import es from "./locales/es.json";
+
+const testI18n = createI18n({
+  legacy: false,
+  globalInjection: true,
+  locale: "en",
+  fallbackLocale: "en",
+  silentFallbackWarn: true,
+  silentTranslationWarn: true,
+  messages: { en, es },
+});
+
+// Install on the global mount config. vtuConfig is the same object that
+// vue-test-utils' mount() reads each call — mutating `global.plugins` once
+// here applies to every subsequent mount in the test run.
+const existingGlobal = vtuConfig.global.plugins ?? [];
+vtuConfig.global.plugins = [...existingGlobal, testI18n];
+
+// Also expose on globalThis so any test that wants to access the instance
+// directly (e.g. for locale-switching assertions) can do so without an
+// extra import.
+(globalThis as Record<string, unknown>).__testI18n = testI18n;
