@@ -2,8 +2,8 @@ import type { Request, Response, Express } from "express";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
-import { recordAudit, actorFromRequest } from "../admin/audit.js";
-import { exportConfig, importConfig } from "../config-io.js";
+import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
+import { exportConfig, importConfig } from "../admin/config/config-io.js";
 import {
   createSnapshot,
   listSnapshots,
@@ -11,7 +11,7 @@ import {
   deleteSnapshot,
   diffSnapshot,
   rollbackToSnapshot,
-} from "../config-versions.js";
+} from "../admin/config/config-versions.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
 
 export function configIoRoutes(app: Express): void {

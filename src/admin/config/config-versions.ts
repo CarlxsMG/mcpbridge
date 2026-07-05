@@ -1,4 +1,4 @@
-import { getDb } from "./db/connection.js";
+import { getDb } from "../../db/connection.js";
 import { exportConfig, importConfig, type ConfigExport, type ImportResult } from "./config-io.js";
 import { diffConfigs, type ConfigDiffEntry } from "./config-diff.js";
 

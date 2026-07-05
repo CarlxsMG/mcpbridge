@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { registry } from "../mcp/registry.js";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
-import { createBundle, getBundleDetail } from "../bundles.js";
+import { createBundle, getBundleDetail } from "../admin/tool-composition/bundles.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {

@@ -11,7 +11,7 @@ import { registry } from "../mcp/registry.js";
 import { removeCircuitBreaker, getAllCircuitStates } from "../middleware/circuit-breaker.js";
 import { proxyToolCall } from "../proxy/proxy.js";
 import { setGuardrails } from "../tool-policies/guardrails.js";
-import { listApprovals } from "../approvals.js";
+import { listApprovals } from "../admin/entities/approvals.js";
 import {
   getQuarantinePolicy,
   setQuarantinePolicy,

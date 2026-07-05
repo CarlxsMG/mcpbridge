@@ -9,7 +9,7 @@ import { discoverToolsFromGraphQl } from "../discovery/graphql-discovery.js";
 import { parseCurlCommand, parsePostmanCollection } from "../discovery/curl-postman-discovery.js";
 import { validateEndpointPath } from "../mcp/registry.js";
 import type { RestToolDefinition } from "../mcp/types.js";
-import { recordAudit, actorFromRequest } from "../admin/audit.js";
+import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { sendError, validationError } from "./http-errors.js";
 
 function stringArray(input: unknown): string[] | undefined {

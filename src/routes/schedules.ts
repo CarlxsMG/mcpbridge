@@ -1,8 +1,8 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireOperator } from "./admin.js";
-import { recordAudit, actorFromRequest } from "../admin/audit.js";
-import { listSchedules, createSchedule, setScheduleEnabled, deleteSchedule } from "../schedules.js";
+import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
+import { listSchedules, createSchedule, setScheduleEnabled, deleteSchedule } from "../admin/entities/schedules.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
 
 export function scheduleRoutes(app: Express): void {

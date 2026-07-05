@@ -1,8 +1,9 @@
-import { getDb } from "./db/connection.js";
-import { notifyToolsChanged } from "./mcp/mcp-server.js";
-import { TOOL_KEY_SEPARATOR } from "./mcp/registry.js";
-import { log } from "./logger.js";
-import { TOOL_NAME_RE } from "./lib/identifier.js";
+import { getDb } from "../../db/connection.js";
+import { notifyToolsChanged } from "../../mcp/mcp-server.js";
+import { TOOL_KEY_SEPARATOR } from "../../mcp/registry.js";
+import { log } from "../../logger.js";
+import { TOOL_NAME_RE } from "../../lib/identifier.js";
+import { createKeyedMutex, reloadLiveCache } from "../../lib/async-lock.js";
 
 export interface BundleToolRef {
   client: string;
@@ -48,29 +49,11 @@ interface LiveBundle {
  */
 const liveBundles = new Map<string, LiveBundle>();
 
-// Per-bundle-name async mutex — mirrors registry.ts's withLock exactly, so
-// concurrent admin mutations against the same bundle serialise the same way
-// concurrent client mutations already do.
-const locks = new Map<string, Promise<unknown>>();
-
-async function withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
-  const prev = locks.get(name) ?? Promise.resolve();
-  let release!: () => void;
-  const next = new Promise<void>((r) => {
-    release = r;
-  });
-  const lockEntry = prev.then(() => next);
-  locks.set(name, lockEntry);
-  try {
-    await prev;
-    return await fn();
-  } finally {
-    release();
-    if (locks.get(name) === lockEntry) {
-      locks.delete(name);
-    }
-  }
-}
+// Per-bundle-name async mutex (see lib/async-lock.ts's createKeyedMutex,
+// which shares this exact shape with registry.ts's withLock), so concurrent
+// admin mutations against the same bundle serialise the same way concurrent
+// client mutations already do.
+const { withLock } = createKeyedMutex();
 
 function toolKey(client: string, tool: string): string {
   return `${client}${TOOL_KEY_SEPARATOR}${tool}`;
@@ -107,20 +90,21 @@ function findUnknownTool(db: ReturnType<typeof getDb>, tools: BundleToolRef[]): 
 /** Loads every bundle from SQLite into the hot-path cache. Call once at boot, after migrations have run. */
 export function initBundles(): void {
   const db = getDb();
-  liveBundles.clear();
   const bundleRows = db.query(`SELECT name, enabled FROM mcp_bundles`).all() as { name: string; enabled: number }[];
-  for (const row of bundleRows) {
-    liveBundles.set(row.name, { enabled: row.enabled === 1, toolKeys: new Set() });
-  }
   const toolRows = db.query(`SELECT bundle_name, client_name, tool_name FROM mcp_bundle_tools`).all() as {
     bundle_name: string;
     client_name: string;
     tool_name: string;
   }[];
-  for (const row of toolRows) {
-    liveBundles.get(row.bundle_name)?.toolKeys.add(toolKey(row.client_name, row.tool_name));
-  }
-  log("info", "Loaded MCP bundles", { count: liveBundles.size });
+  const count = reloadLiveCache(liveBundles, (cache) => {
+    for (const row of bundleRows) {
+      cache.set(row.name, { enabled: row.enabled === 1, toolKeys: new Set() });
+    }
+    for (const row of toolRows) {
+      cache.get(row.bundle_name)?.toolKeys.add(toolKey(row.client_name, row.tool_name));
+    }
+  });
+  log("info", "Loaded MCP bundles", { count });
 }
 
 /** Whether an enabled bundle named `name` exists. False for both "unknown" and "disabled". */

@@ -4,7 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { parseFlags } from "../cli/args.js";
 import { loadGatewayFile, saveGatewayFile, type GatewayFile } from "../cli/config-file.js";
-import { diffConfigs } from "../config-diff.js";
+import { diffConfigs } from "../admin/config/config-diff.js";
 
 describe("parseFlags", () => {
   test("parses --flag value, --flag=value, and boolean flags", () => {

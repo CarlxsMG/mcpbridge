@@ -19,7 +19,7 @@ import type { Server } from "http";
 import { config } from "../config.js";
 import { registry } from "../mcp/registry.js";
 import { __resetDbForTesting } from "../db/connection.js";
-import { initBundles, createBundle, updateBundle } from "../bundles.js";
+import { initBundles, createBundle, updateBundle } from "../admin/tool-composition/bundles.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 let baseUrl = "";

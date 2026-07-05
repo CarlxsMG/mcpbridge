@@ -10,7 +10,7 @@ import {
   getBundleDetail,
   isBundleEnabled,
   getBundleToolKeys,
-} from "../bundles.js";
+} from "../admin/tool-composition/bundles.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {

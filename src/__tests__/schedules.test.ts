@@ -18,7 +18,7 @@ import {
   setScheduleEnabled,
   deleteSchedule,
   runDueSchedules,
-} from "../schedules.js";
+} from "../admin/entities/schedules.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(): RestToolDefinition {

@@ -23,7 +23,7 @@ import {
   resolveRef,
   resolveTemplate,
   hasComposite,
-} from "../composites.js";
+} from "../admin/tool-composition/composites.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { RestToolDefinition } from "../mcp/types.js";

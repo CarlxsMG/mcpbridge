@@ -35,7 +35,7 @@ import {
   decideApproval,
   MAX_APPROVAL_LEVELS,
   type ApprovalStatus,
-} from "../approvals.js";
+} from "../admin/entities/approvals.js";
 import { listTraffic, getTraffic } from "../observability/traffic.js";
 import { setMonitor, deleteMonitor, listMonitors } from "../observability/monitor.js";
 import { setToolGraphql, setToolWs } from "../proxy/backends.js";
@@ -47,7 +47,7 @@ import {
   type ContextBudgetMode,
   type ContextBudgetLlmProvider,
 } from "../tool-policies/context-budget.js";
-import { getClientTeam, canAccessClient } from "../teams.js";
+import { getClientTeam, canAccessClient } from "../admin/entities/teams.js";
 import {
   recordAudit,
   actorFromRequest,
@@ -55,8 +55,8 @@ import {
   exportAuditLog,
   verifyAuditChain,
   listAuditActions,
-} from "../admin/audit.js";
-import { auditLogToCsv, auditLogToHtml } from "../admin/audit-export.js";
+} from "../admin/audit/audit.js";
+import { auditLogToCsv, auditLogToHtml } from "../admin/audit/audit-export.js";
 import { getAllCircuitStates } from "../middleware/circuit-breaker.js";
 import {
   listUsers,

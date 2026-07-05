@@ -24,13 +24,14 @@ import { getSensitivityForClient } from "../tool-meta/tool-sensitivity.js";
 import { getRedactionForClient } from "../content-filtering/redaction.js";
 import { getGuardrailsForClient } from "../tool-policies/guardrails.js";
 import { getCoalesceForClient } from "../tool-policies/coalesce.js";
-import { getApprovalConfigForClient } from "../approvals.js";
+import { getApprovalConfigForClient } from "../admin/entities/approvals.js";
 import { getQuarantineForClient } from "../tool-policies/quarantine.js";
 import { getWsForClient, getGraphqlForClient } from "../proxy/backends.js";
 import { getContextBudgetForClient } from "../tool-policies/context-budget.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";
 import { TOOL_NAME_RE } from "../lib/identifier.js";
+import { createKeyedMutex } from "../lib/async-lock.js";
 
 export interface ClientSummary {
   name: string;
@@ -176,29 +177,15 @@ class Registry {
   private aliasIndex: Map<string, string> = new Map();
 
   // -------------------------------------------------------------------------
-  // Async mutex — per-client name serialisation
+  // Async mutex — per-client name serialisation (see lib/async-lock.ts's
+  // createKeyedMutex, which shares this exact shape with
+  // admin/tool-composition/bundles.ts and composites.ts's withLock)
   // -------------------------------------------------------------------------
 
-  private locks = new Map<string, Promise<unknown>>();
+  private readonly mutex = createKeyedMutex();
 
-  private async withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
-    const prev = this.locks.get(name) ?? Promise.resolve();
-    let release!: () => void;
-    const next = new Promise<void>((r) => {
-      release = r;
-    });
-    const lockEntry = prev.then(() => next);
-    this.locks.set(name, lockEntry);
-    try {
-      await prev;
-      return await fn();
-    } finally {
-      release();
-      // Only delete when no later waiter has replaced the entry
-      if (this.locks.get(name) === lockEntry) {
-        this.locks.delete(name);
-      }
-    }
+  private withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
+    return this.mutex.withLock(name, fn);
   }
 
   // -------------------------------------------------------------------------

@@ -1,5 +1,5 @@
-import { getDb } from "./db/connection.js";
-import { ADMIN_ENTITY_NAME_RE } from "./lib/identifier.js";
+import { getDb } from "../../db/connection.js";
+import { ADMIN_ENTITY_NAME_RE } from "../../lib/identifier.js";
 
 /**
  * Team multi-tenancy: teams own clients, and admin users belong to a team.

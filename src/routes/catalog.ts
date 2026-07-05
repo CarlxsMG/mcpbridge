@@ -3,7 +3,7 @@ import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { config } from "../config.js";
-import { recordAudit, actorFromRequest } from "../admin/audit.js";
+import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { performRestRegistration, performMcpRegistration } from "./register.js";
 import {
   listCatalog,

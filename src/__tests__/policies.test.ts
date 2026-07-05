@@ -4,7 +4,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
-import { createBundle } from "../bundles.js";
+import { createBundle } from "../admin/tool-composition/bundles.js";
 import {
   createGuardPolicy,
   listGuardPolicies,
@@ -12,7 +12,7 @@ import {
   deleteGuardPolicy,
   applyPolicyToTools,
   applyPolicyToBundle,
-} from "../policies.js";
+} from "../admin/entities/policies.js";
 import { hashApiKey } from "../security/key-hash.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 

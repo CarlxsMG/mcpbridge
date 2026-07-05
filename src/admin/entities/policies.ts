@@ -1,6 +1,6 @@
-import { getDb } from "./db/connection.js";
-import { registry } from "./mcp/registry.js";
-import { getBundleDetail, type BundleToolRef } from "./bundles.js";
+import { getDb } from "../../db/connection.js";
+import { registry } from "../../mcp/registry.js";
+import { getBundleDetail, type BundleToolRef } from "../tool-composition/bundles.js";
 
 export interface GuardPolicy {
   id: number;

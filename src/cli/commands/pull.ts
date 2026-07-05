@@ -1,7 +1,7 @@
 import { parseFlags } from "../args.js";
 import { makeClient } from "../client.js";
 import { saveGatewayFile, loadGatewayFile, type GatewayFile } from "../config-file.js";
-import type { ConfigExport } from "../../config-io.js";
+import type { ConfigExport } from "../../admin/config/config-io.js";
 
 /** Writes the live config export into gateway.yaml's "config:" section, preserving any existing "servers:" list untouched (that section is hand-authored, not derived from the live gateway). */
 export async function pullCommand(argv: string[]): Promise<number> {

@@ -1,7 +1,7 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
-import { recordAudit, actorFromRequest } from "../admin/audit.js";
+import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import {
   listConsumers,
   getConsumer,
@@ -11,7 +11,7 @@ import {
   deleteConsumer,
   getConsumerUsageThisMonth,
   isValidQuotaValue,
-} from "../consumers.js";
+} from "../admin/entities/consumers.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
 
 function optPositiveIntOrNull(v: unknown): { ok: true; value: number | null } | { ok: false } {

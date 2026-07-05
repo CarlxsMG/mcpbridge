@@ -1,7 +1,7 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
-import { recordAudit, actorFromRequest } from "../admin/audit.js";
+import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import {
   listGuardPolicies,
   getGuardPolicy,
@@ -11,8 +11,8 @@ import {
   policyNameExists,
   applyPolicyToTools,
   applyPolicyToBundle,
-} from "../policies.js";
-import type { BundleToolRef } from "../bundles.js";
+} from "../admin/entities/policies.js";
+import type { BundleToolRef } from "../admin/tool-composition/bundles.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
 
 /** Accepts a positive number, or null (clears the guard). Rejects anything else. */

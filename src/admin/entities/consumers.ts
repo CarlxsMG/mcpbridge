@@ -1,5 +1,5 @@
-import { getDb } from "./db/connection.js";
-import { checkSharedEndUserRateLimit } from "./db/rate-counters.js";
+import { getDb } from "../../db/connection.js";
+import { checkSharedEndUserRateLimit } from "../../db/rate-counters.js";
 
 /** Shared validity check for monthlyQuota/endUserRateLimitPerMin — both must be a positive integer or null (unlimited/disabled). Used by both the admin-api route and config-io's import path so a hand-edited gateway.yaml can't sneak in a value (e.g. 0 or -1) that the normal API would reject. */
 export function isValidQuotaValue(v: unknown): v is number | null {

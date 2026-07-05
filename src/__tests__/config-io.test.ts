@@ -4,11 +4,11 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
-import { createBundle, getBundleDetail } from "../bundles.js";
+import { createBundle, getBundleDetail } from "../admin/tool-composition/bundles.js";
 import { createAlertRule, listAlertRules } from "../observability/alerts.js";
-import { exportConfig, importConfig } from "../config-io.js";
+import { exportConfig, importConfig } from "../admin/config/config-io.js";
 import { getGuardrails, setGuardrails } from "../tool-policies/guardrails.js";
-import { listConsumers, createConsumer } from "../consumers.js";
+import { listConsumers, createConsumer } from "../admin/entities/consumers.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(name = "get-users"): RestToolDefinition {

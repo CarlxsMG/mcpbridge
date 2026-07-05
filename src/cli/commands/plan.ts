@@ -1,8 +1,8 @@
 import { parseFlags } from "../args.js";
 import { makeClient, clientExists } from "../client.js";
 import { loadGatewayFile } from "../config-file.js";
-import { diffConfigs } from "../../config-diff.js";
-import type { ConfigExport } from "../../config-io.js";
+import { diffConfigs } from "../../admin/config/config-diff.js";
+import type { ConfigExport } from "../../admin/config/config-io.js";
 
 /** Drops fields that legitimately differ between any two exports (a fresh timestamp) so they never register as config drift. */
 function stripVolatile(c: ConfigExport): Omit<ConfigExport, "exportedAt"> {

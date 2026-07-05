@@ -1,7 +1,7 @@
-import { getDb } from "../db/connection.js";
-import { config } from "../config.js";
-import { log } from "../logger.js";
-import { sha256Hex } from "../lib/crypto.js";
+import { getDb } from "../../db/connection.js";
+import { config } from "../../config.js";
+import { log } from "../../logger.js";
+import { sha256Hex } from "../../lib/crypto.js";
 import type { Request } from "express";
 
 export interface AuditLogEntry {

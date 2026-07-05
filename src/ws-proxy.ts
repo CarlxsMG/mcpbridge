@@ -25,6 +25,7 @@ import { registry } from "./mcp/registry.js";
 import { log } from "./logger.js";
 import { wsProxyActiveConnections, wsProxyBytesTotal } from "./observability/metrics.js";
 import { TOOL_NAME_RE } from "./lib/identifier.js";
+import { reloadLiveCache } from "./lib/async-lock.js";
 
 export interface WsProxyTarget {
   name: string;
@@ -96,9 +97,10 @@ export function isRawIpLiteral(hostname: string): boolean {
 /** Loads every ws-proxy target from SQLite into the hot-path map. Call once at boot, after migrations have run. */
 export function loadWsProxyTargets(): void {
   const rows = getDb().query(`SELECT ${COLS} FROM ws_proxy_targets`).all() as WsProxyTargetRow[];
-  targets.clear();
-  for (const row of rows) targets.set(row.name, rowToTarget(row));
-  log("info", "Loaded WS proxy targets", { count: targets.size });
+  const count = reloadLiveCache(targets, (cache) => {
+    for (const row of rows) cache.set(row.name, rowToTarget(row));
+  });
+  log("info", "Loaded WS proxy targets", { count });
 }
 
 export function listWsProxyTargets(): (WsProxyTarget & { activeConnections: number })[] {

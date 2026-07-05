@@ -1,10 +1,11 @@
-import { getDb } from "./db/connection.js";
-import { notifyToolsChanged } from "./mcp/mcp-server.js";
-import { proxyToolCall } from "./proxy/proxy.js";
-import { TOOL_KEY_SEPARATOR } from "./mcp/registry.js";
-import { SEARCH_TOOL_NAME, type AdvertisedTool } from "./mcp/tool-search.js";
-import { log } from "./logger.js";
-import { TOOL_NAME_RE } from "./lib/identifier.js";
+import { getDb } from "../../db/connection.js";
+import { notifyToolsChanged } from "../../mcp/mcp-server.js";
+import { proxyToolCall } from "../../proxy/proxy.js";
+import { TOOL_KEY_SEPARATOR } from "../../mcp/registry.js";
+import { SEARCH_TOOL_NAME, type AdvertisedTool } from "../../mcp/tool-search.js";
+import { log } from "../../logger.js";
+import { TOOL_NAME_RE } from "../../lib/identifier.js";
+import { createKeyedMutex, reloadLiveCache } from "../../lib/async-lock.js";
 
 /**
  * Composite (a.k.a. virtual/macro) tools: an admin-authored tool that chains
@@ -69,23 +70,9 @@ interface LiveComposite {
 /** Hot-path cache (name -> composite), loaded once at boot and kept in sync on every mutation — mirrors bundles.ts. */
 const liveComposites = new Map<string, LiveComposite>();
 
-const locks = new Map<string, Promise<unknown>>();
-async function withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
-  const prev = locks.get(name) ?? Promise.resolve();
-  let release!: () => void;
-  const next = new Promise<void>((r) => {
-    release = r;
-  });
-  const lockEntry = prev.then(() => next);
-  locks.set(name, lockEntry);
-  try {
-    await prev;
-    return await fn();
-  } finally {
-    release();
-    if (locks.get(name) === lockEntry) locks.delete(name);
-  }
-}
+// Per-composite-name async mutex — same shape as bundles.ts's (see
+// lib/async-lock.ts's createKeyedMutex).
+const { withLock } = createKeyedMutex();
 
 // ---------------------------------------------------------------------------
 // Validation helpers
@@ -122,7 +109,6 @@ function validateSteps(db: ReturnType<typeof getDb>, steps: CompositeStep[]): Co
 /** Loads every composite (and its steps) from SQLite into the cache. Call once at boot after migrations. */
 export function initComposites(): void {
   const db = getDb();
-  liveComposites.clear();
   const rows = db.query(`SELECT name, description, enabled, input_schema_json FROM composite_tools`).all() as {
     name: string;
     description: string | null;
@@ -132,22 +118,24 @@ export function initComposites(): void {
   const stepStmt = db.query(
     `SELECT target_client, target_tool, args_template_json FROM composite_tool_steps WHERE composite_name = ? ORDER BY step_order`,
   );
-  for (const r of rows) {
-    const steps = (
-      stepStmt.all(r.name) as { target_client: string; target_tool: string; args_template_json: string }[]
-    ).map((s) => ({
-      targetClient: s.target_client,
-      targetTool: s.target_tool,
-      argsTemplate: JSON.parse(s.args_template_json) as Record<string, unknown>,
-    }));
-    liveComposites.set(r.name, {
-      enabled: r.enabled === 1,
-      description: r.description,
-      inputSchema: JSON.parse(r.input_schema_json) as Record<string, unknown>,
-      steps,
-    });
-  }
-  log("info", "Loaded composite tools", { count: liveComposites.size });
+  const count = reloadLiveCache(liveComposites, (cache) => {
+    for (const r of rows) {
+      const steps = (
+        stepStmt.all(r.name) as { target_client: string; target_tool: string; args_template_json: string }[]
+      ).map((s) => ({
+        targetClient: s.target_client,
+        targetTool: s.target_tool,
+        argsTemplate: JSON.parse(s.args_template_json) as Record<string, unknown>,
+      }));
+      cache.set(r.name, {
+        enabled: r.enabled === 1,
+        description: r.description,
+        inputSchema: JSON.parse(r.input_schema_json) as Record<string, unknown>,
+        steps,
+      });
+    }
+  });
+  log("info", "Loaded composite tools", { count });
 }
 
 /** Whether `name` is a known composite (enabled or not). Used to route tools/call. */

@@ -1,7 +1,7 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
-import { recordAudit, actorFromRequest } from "../admin/audit.js";
+import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { registry } from "../mcp/registry.js";
 import { config } from "../config.js";
 import {
@@ -12,14 +12,14 @@ import {
   deleteBundle,
   type BundleToolRef,
   type BundleMutationError,
-} from "../bundles.js";
+} from "../admin/tool-composition/bundles.js";
 import {
   createInstallLink,
   listInstallLinks,
   revokeInstallLink,
   revokeAllInstallLinksForBundle,
   type InstallLinkMutationError,
-} from "../bundle-install-links.js";
+} from "../admin/tool-composition/bundle-install-links.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
 
 function statusForBundleError(code: BundleMutationError["code"]): number {

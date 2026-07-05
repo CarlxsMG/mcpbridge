@@ -13,7 +13,7 @@ import {
   diffConfigs,
   diffSnapshot,
   rollbackToSnapshot,
-} from "../config-versions.js";
+} from "../admin/config/config-versions.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
 function makeTool(): RestToolDefinition {

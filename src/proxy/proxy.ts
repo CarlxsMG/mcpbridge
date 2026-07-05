@@ -43,7 +43,7 @@ import {
   consumeApproval,
   notifyApproval,
   getRequiredLevels,
-} from "../approvals.js";
+} from "../admin/entities/approvals.js";
 import { recordTraffic } from "../observability/traffic.js";
 import { getToolGraphql, getToolWs, wsRequest, wsRequestPersistent } from "./backends.js";
 import { getOAuthBearer } from "../backend-auth/oauth.js";
@@ -56,7 +56,7 @@ import { isKeyAllowed } from "../security/key-hash.js";
 import { resolveMcpKeyByToken, isToolInKeyScope } from "../security/mcp-key-store.js";
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { recordUsage } from "../observability/usage.js";
-import { checkConsumerQuota, checkEndUserRateLimit, getConsumer } from "../consumers.js";
+import { checkConsumerQuota, checkEndUserRateLimit, getConsumer } from "../admin/entities/consumers.js";
 import { isToolSensitive } from "../tool-meta/tool-sensitivity.js";
 import { getRedactionPaths, applyRedaction } from "../content-filtering/redaction.js";
 import { getGuardrails, checkInputGuardrails, applyResponseScan } from "../tool-policies/guardrails.js";

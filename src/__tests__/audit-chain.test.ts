@@ -7,7 +7,7 @@ import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
-import { recordAudit, verifyAuditChain, listAuditLog } from "../admin/audit.js";
+import { recordAudit, verifyAuditChain, listAuditLog } from "../admin/audit/audit.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 
 beforeEach(() => {

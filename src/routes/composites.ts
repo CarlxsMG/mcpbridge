@@ -1,7 +1,7 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
-import { recordAudit, actorFromRequest } from "../admin/audit.js";
+import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import {
   listComposites,
   getCompositeDetail,
@@ -10,7 +10,7 @@ import {
   deleteComposite,
   type CompositeStep,
   type CompositeMutationError,
-} from "../composites.js";
+} from "../admin/tool-composition/composites.js";
 import { sendError, validationError, notFound } from "./http-errors.js";
 
 const MAX_STEPS = 10;

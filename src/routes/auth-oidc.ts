@@ -15,7 +15,7 @@ import { setSessionCookies } from "./auth.js";
 import { createSession } from "../security/session-store.js";
 import { touchLastLogin } from "../security/user-store.js";
 import { getSecretsProvider } from "../secrets/index.js";
-import { recordAudit, actorFromRequest } from "../admin/audit.js";
+import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { log } from "../logger.js";
 import { sendError, validationError, requestId } from "./http-errors.js";
 import {

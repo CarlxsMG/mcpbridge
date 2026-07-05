@@ -18,7 +18,7 @@ import {
   getClientTeam,
   setUserTeam,
   canAccessClient,
-} from "../teams.js";
+} from "../admin/entities/teams.js";
 import { createUser } from "../security/user-store.js";
 import { createSession } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME } from "../security/cookies.js";

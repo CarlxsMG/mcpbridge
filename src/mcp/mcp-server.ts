@@ -15,10 +15,10 @@ import { registry } from "./registry.js";
 import { proxyToolCall } from "../proxy/proxy.js";
 import { mcpUpstream, type McpConnParams } from "./mcp-upstream.js";
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
-import { isBundleEnabled, getBundleToolKeys } from "../bundles.js";
+import { isBundleEnabled, getBundleToolKeys } from "../admin/tool-composition/bundles.js";
 import { config } from "../config.js";
 import { SEARCH_TOOL_NAME, searchToolDefinition, runSearchTool, type AdvertisedTool } from "./tool-search.js";
-import { hasComposite, listAdvertisedComposites, runComposite } from "../composites.js";
+import { hasComposite, listAdvertisedComposites, runComposite } from "../admin/tool-composition/composites.js";
 // Bun parses JSON modules at bundle time (like YAML — see docs.ts), so this
 // works identically under `bun src/index.ts` and under `bun build --compile`.
 // The previous `createRequire(import.meta.url)("../package.json")` approach

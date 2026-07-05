@@ -12,7 +12,7 @@ import {
   listConsumers,
   checkConsumerQuota,
   checkEndUserRateLimit,
-} from "../consumers.js";
+} from "../admin/entities/consumers.js";
 import { createMcpKey, getMcpKey } from "../security/mcp-key-store.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 

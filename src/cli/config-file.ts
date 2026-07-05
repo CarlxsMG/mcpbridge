@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "fs/promises";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import type { ConfigExport } from "../config-io.js";
+import type { ConfigExport } from "../admin/config/config-io.js";
 
 /**
  * "servers:" entries are CLI-only — they aren't part of ConfigExport (which

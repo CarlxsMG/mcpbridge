@@ -7,7 +7,7 @@ import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
-import { recordAudit, actorFromRequest } from "../admin/audit.js";
+import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { sendError } from "./http-errors.js";
 import { log } from "../logger.js";
 

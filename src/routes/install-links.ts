@@ -1,7 +1,7 @@
 import type { Request, Response, Express } from "express";
 import { config } from "../config.js";
 import { rateLimitInstallLink } from "../middleware/rate-limiter.js";
-import { resolveInstallLinkToken } from "../bundle-install-links.js";
+import { resolveInstallLinkToken } from "../admin/tool-composition/bundle-install-links.js";
 import { registry } from "../mcp/registry.js";
 import { generateConnectSnippet, resolveGatewayEndpoint } from "../cli/connect-templates.js";
 import { sendError } from "./http-errors.js";

@@ -12,9 +12,9 @@
  * Extends the destructive-gating idea of `tool-sensitivity` (which uses an inline
  * `__confirm`); approval adds an out-of-band human decision on top.
  */
-import { getDb } from "./db/connection.js";
-import { config } from "./config.js";
-import { sha256Hex } from "./lib/crypto.js";
+import { getDb } from "../../db/connection.js";
+import { config } from "../../config.js";
+import { sha256Hex } from "../../lib/crypto.js";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 

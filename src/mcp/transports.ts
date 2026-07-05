@@ -8,7 +8,7 @@ import { mcpAuth } from "../middleware/auth.js";
 import { rateLimitMcp } from "../middleware/rate-limiter.js";
 import { config } from "../config.js";
 import { registry } from "./registry.js";
-import { getBundleToolKeys } from "../bundles.js";
+import { getBundleToolKeys } from "../admin/tool-composition/bundles.js";
 import { setSessionCountGetter } from "../routes/metrics.js";
 import { log } from "../logger.js";
 
