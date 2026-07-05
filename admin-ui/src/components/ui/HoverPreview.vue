@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onBeforeUnmount, useSlots } from "vue";
-import { Copy, Check } from "lucide-vue-next";
-import { useClipboard } from "@/composables/useClipboard";
+import { ref, computed, onMounted, onBeforeUnmount, useSlots } from "vue";
+import { useFloatingPanel, FLOATING_PANEL_MARGIN } from "@/composables/useFloatingPanel";
+import CopyButton from "@/components/ui/CopyButton.vue";
 
 const props = defineProps<{
   /** Plain-text panel content. Ignored when the `content` slot is provided. */
@@ -19,21 +19,18 @@ const props = defineProps<{
 }>();
 
 const slots = useSlots();
-const { copied, copy: copyToClipboard, reset: resetCopied } = useClipboard();
 
 const triggerEl = ref<HTMLElement | null>(null);
 const panelEl = ref<HTMLElement | null>(null);
 const contentEl = ref<HTMLElement | null>(null);
-const visible = ref(false);
 const hasOverflow = ref(false);
-const panelStyle = ref<Record<string, string>>({});
+const previewText = ref("");
 const uid = Math.random().toString(36).slice(2, 9);
 const panelId = `hover-preview-${uid}`;
 
 const shouldPreview = computed(() => props.alwaysShow || hasOverflow.value);
 const hasContent = computed(() => !!slots.content || !!props.text);
 
-const MARGIN = 8;
 const SHOW_DELAY = 120;
 // The trigger and panel are disjoint in the DOM (Teleport moves the panel to
 // <body>), so moving the mouse from one to the other crosses a gap that
@@ -64,64 +61,42 @@ onMounted(() => {
 
 const GAP = 6;
 
-function baseStyle(left: number): Record<string, string> {
-  return {
-    position: "fixed",
-    left: `${left}px`,
-    maxWidth: `min(24rem, calc(100vw - ${MARGIN * 2}px))`,
-    maxHeight: "16rem",
-  };
-}
-
-// Two-pass, mirroring SelectMenu.vue: render below the trigger first purely
-// to measure the real height (max-height: 16rem is a cap, not the actual
-// height — short content renders far smaller, so guessing a side up front
-// from available space alone isn't reliable), then decide the real side from
-// that measurement and re-render. Vertically: use below whenever it fits
-// (the natural default), flip above when below doesn't fit but above does,
-// or clamp fully on-screen (may then overlap the trigger) if neither side
-// has room for the real height. Horizontally: slide `left` back if it ran
-// past the right edge — mirrors SelectMenu.vue's own clamp.
-async function updatePosition() {
-  const rect = triggerEl.value?.getBoundingClientRect();
-  if (!rect) return;
-
-  panelStyle.value = { ...baseStyle(rect.left), top: `${rect.bottom + GAP}px` };
-  await nextTick();
-
-  const panelRect = panelEl.value?.getBoundingClientRect();
-  if (!panelRect) return;
-
-  const fitsBelow = rect.bottom + GAP + panelRect.height <= window.innerHeight - MARGIN;
-  const fitsAbove = rect.top - GAP - panelRect.height >= MARGIN;
-
-  let verticalStyle: Record<string, string>;
-  if (fitsBelow || !fitsAbove) {
-    // Prefer below when it fits; when neither side fits, clamp below's top
-    // so the bottom edge stays on-screen instead of running past it.
-    const top = fitsBelow ? rect.bottom + GAP : Math.max(MARGIN, window.innerHeight - MARGIN - panelRect.height);
-    verticalStyle = { top: `${top}px` };
-  } else {
-    verticalStyle = { bottom: `${window.innerHeight - rect.top + GAP}px` };
-  }
-
-  const left =
-    panelRect.right > window.innerWidth - MARGIN
-      ? Math.max(MARGIN, window.innerWidth - MARGIN - panelRect.width)
-      : rect.left;
-
-  panelStyle.value = { ...baseStyle(left), ...verticalStyle };
-}
-
-function onScrollOrResize(e: Event) {
-  // Ignore the panel's own internal scrolling (long content, overflow-y: auto)
-  // — only close for the page moving out from under the trigger.
-  if (e.type === "scroll" && e.target instanceof Node && panelEl.value?.contains(e.target)) return;
-  close();
-}
+// Decide the real side only after measuring the panel's rendered height
+// (max-height: 16rem is a cap, not the actual height — short content renders
+// far smaller, so guessing a side up front from available space alone isn't
+// reliable): use below whenever it fits (the natural default), flip above
+// when below doesn't fit but above does, or clamp fully on-screen (may then
+// overlap the trigger) if neither side has room for the real height.
+// useFloatingPanel calls this once before the panel has rendered (panelRect
+// null) to place it for measuring, then again against the real panelRect.
+const floatingPanel = useFloatingPanel(triggerEl, panelEl, {
+  placement: (rect, panelRect) => {
+    if (!panelRect) return { top: rect.bottom + GAP };
+    const fitsBelow = rect.bottom + GAP + panelRect.height <= window.innerHeight - FLOATING_PANEL_MARGIN;
+    const fitsAbove = rect.top - GAP - panelRect.height >= FLOATING_PANEL_MARGIN;
+    if (fitsBelow || !fitsAbove) {
+      // Prefer below when it fits; when neither side fits, clamp below's top
+      // so the bottom edge stays on-screen instead of running past it.
+      const top = fitsBelow
+        ? rect.bottom + GAP
+        : Math.max(FLOATING_PANEL_MARGIN, window.innerHeight - FLOATING_PANEL_MARGIN - panelRect.height);
+      return { top };
+    }
+    return { bottom: window.innerHeight - rect.top + GAP };
+  },
+});
+const { isOpen, style: panelStyle } = floatingPanel;
 
 function cancelHide() {
   clearTimeout(hideTimer);
+}
+
+// textContent, not innerText — innerText is layout-dependent (and jsdom
+// doesn't compute layout, so it'd always read back empty in tests), and
+// this panel's content is always plain text/simple markup with nothing
+// hidden, so the two would read identically in a real browser anyway.
+function updatePreviewText() {
+  previewText.value = slots.content ? (contentEl.value?.textContent ?? "") : (props.text ?? "");
 }
 
 function scheduleShow() {
@@ -129,11 +104,8 @@ function scheduleShow() {
   if (!shouldPreview.value || !hasContent.value) return;
   clearTimeout(showTimer);
   showTimer = setTimeout(async () => {
-    visible.value = true;
-    await nextTick();
-    await updatePosition();
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
+    await floatingPanel.open();
+    updatePreviewText();
   }, SHOW_DELAY);
 }
 
@@ -163,20 +135,7 @@ function onPanelFocusOut(e: FocusEvent) {
 function close() {
   clearTimeout(showTimer);
   clearTimeout(hideTimer);
-  if (!visible.value) return;
-  visible.value = false;
-  resetCopied();
-  window.removeEventListener("scroll", onScrollOrResize, true);
-  window.removeEventListener("resize", onScrollOrResize);
-}
-
-async function copyPanelText() {
-  // textContent, not innerText — innerText is layout-dependent (and jsdom
-  // doesn't compute layout, so it'd always read back empty in tests), and
-  // this panel's content is always plain text/simple markup with nothing
-  // hidden, so the two would read identically in a real browser anyway.
-  const value = slots.content ? (contentEl.value?.textContent ?? "") : (props.text ?? "");
-  await copyToClipboard(value);
+  floatingPanel.close();
 }
 
 onBeforeUnmount(() => {
@@ -191,7 +150,7 @@ onBeforeUnmount(() => {
     class="hover-preview-trigger"
     :class="{ 'has-preview': !noTabindex && shouldPreview && hasContent }"
     :tabindex="!noTabindex && shouldPreview && hasContent ? 0 : undefined"
-    :aria-describedby="!noTabindex && visible ? panelId : undefined"
+    :aria-describedby="!noTabindex && isOpen ? panelId : undefined"
     @mouseenter="scheduleShow"
     @mouseleave="scheduleHide"
     @focusin="scheduleShow"
@@ -200,7 +159,7 @@ onBeforeUnmount(() => {
     <!-- panelId/visible are exposed for callers wrapping their own focusable
          element (noTabindex) to wire aria-describedby onto that real control
          instead of this non-focusable span. -->
-    <slot :panel-id="panelId" :visible="visible" />
+    <slot :panel-id="panelId" :visible="isOpen" />
     <!-- Teleport nested here (rather than as a sibling root) keeps this
          component single-root, so a parent's scoped class (e.g. desc-cell,
          cell-truncate) landing on this span via Vue's fallthrough-attrs also
@@ -210,7 +169,7 @@ onBeforeUnmount(() => {
          still renders its content into <body>, unaffected by this nesting. -->
     <Teleport to="body">
       <div
-        v-if="visible"
+        v-if="isOpen"
         :id="panelId"
         ref="panelEl"
         class="hover-preview-panel"
@@ -223,16 +182,7 @@ onBeforeUnmount(() => {
         <div ref="contentEl">
           <slot name="content">{{ text }}</slot>
         </div>
-        <button
-          type="button"
-          class="hover-preview-copy"
-          :aria-label="copied ? 'Copied' : 'Copy'"
-          :title="copied ? 'Copied' : 'Copy'"
-          @click="copyPanelText"
-        >
-          <Check v-if="copied" :size="13" stroke-width="2" aria-hidden="true" />
-          <Copy v-else :size="13" stroke-width="2" aria-hidden="true" />
-        </button>
+        <CopyButton class="hover-preview-copy" :text="previewText" />
       </div>
     </Teleport>
   </span>
@@ -270,7 +220,7 @@ onBeforeUnmount(() => {
   z-index: var(--z-tooltip);
   /* Extra right padding reserves a gutter for the absolutely-positioned copy
      button below, so wrapped text never runs under it. */
-  padding: 0.55rem 1.9rem 0.55rem 0.75rem;
+  padding: 0.55rem 2.9rem 0.55rem 0.75rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -289,24 +239,5 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 0.4rem;
   right: 0.4rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.hover-preview-copy:hover {
-  background: var(--surface-sunken);
-  color: var(--text-primary);
-}
-.hover-preview-copy:focus-visible {
-  outline: 2px solid var(--signal);
-  outline-offset: 1px;
 }
 </style>
