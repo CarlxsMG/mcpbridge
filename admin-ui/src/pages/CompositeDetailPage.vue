@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { computed, watch, onMounted } from "vue";
 import { api, ApiError } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
-import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
-import { useDraftField } from "@/composables/useDraftField";
-import { toErrorMessage } from "@/utils/errors";
+import { useFieldDraft } from "@/composables/useFieldDraft";
+import { useDetailPageDelete, syncAfterLoad } from "@/composables/useDetailPageDelete";
 import type { CompositeDetail, CompositeStep } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
@@ -16,7 +14,6 @@ import FormField from "@/components/ui/FormField.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 
 const props = defineProps<{ name: string }>();
-const router = useRouter();
 
 const {
   data: detail,
@@ -36,7 +33,7 @@ const {
   errorMessage: descriptionError,
   sync: syncDescription,
   commit: saveDescription,
-} = useDraftField(
+} = useFieldDraft(
   () => detail.value?.description ?? "",
   async (value) => {
     await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { description: value || null });
@@ -52,7 +49,7 @@ const {
   errorMessage: schemaError,
   sync: syncSchema,
   commit: saveSchema,
-} = useDraftField(
+} = useFieldDraft(
   () => JSON.stringify(detail.value?.inputSchema ?? {}, null, 2),
   async (value) => {
     let inputSchema: Record<string, unknown>;
@@ -74,7 +71,7 @@ const {
   errorMessage: stepsError,
   sync: syncSteps,
   commit: saveSteps,
-} = useDraftField(
+} = useFieldDraft(
   () => JSON.stringify(detail.value?.steps ?? [], null, 2),
   async (value) => {
     let steps: CompositeStep[];
@@ -90,21 +87,21 @@ const {
 );
 
 const {
-  pending: pendingDelete,
-  request: requestPendingDelete,
-  cancel: cancelDelete,
-  confirm: confirmPendingDelete,
-} = useConfirmAction<true>();
-const deleting = ref(false);
-const deleted = ref(false);
+  pendingDelete,
+  requestDelete,
+  cancelDelete,
+  confirmDelete,
+  deleting,
+  deleted,
+  error: deleteError,
+} = useDetailPageDelete(
+  () => `/admin-api/composites/${encodeURIComponent(props.name)}`,
+  "/composites",
+  "Failed to delete composite.",
+);
 
 async function load() {
-  const result = await loadDetail();
-  if (result) {
-    syncDescription();
-    syncSchema();
-    syncSteps();
-  }
+  await syncAfterLoad(loadDetail, syncDescription, syncSchema, syncSteps);
 }
 watch(() => props.name, load);
 onMounted(load);
@@ -126,24 +123,6 @@ function toggleEnabled() {
   toggleEnabledField(detail.value, "enabled", (next) =>
     api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { enabled: next }),
   );
-}
-
-function requestDelete() {
-  requestPendingDelete(true);
-}
-
-async function confirmDelete() {
-  await confirmPendingDelete(async () => {
-    deleting.value = true;
-    try {
-      await api.delete(`/admin-api/composites/${encodeURIComponent(props.name)}`);
-      deleted.value = true;
-      router.push("/composites");
-    } catch (err) {
-      errorMessage.value = toErrorMessage(err, "Failed to delete composite.");
-      deleting.value = false;
-    }
-  });
 }
 </script>
 
@@ -170,6 +149,7 @@ async function confirmDelete() {
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
       <p v-if="toggleError[detail.name]" class="error" role="alert">{{ toggleError[detail.name] }}</p>
+      <p v-if="deleteError" class="row-error">{{ deleteError }}</p>
 
       <FormField label="Description" for="composite-description" class="description-field">
         <div class="description-row">

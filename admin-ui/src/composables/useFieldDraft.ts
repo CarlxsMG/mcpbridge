@@ -1,5 +1,5 @@
 import { ref, computed, watch, type Ref } from "vue";
-import { ApiError } from "./useApi";
+import { toErrorMessage } from "@/utils/errors";
 
 /**
  * Generalizes the draft/dirty/save trio hand-rolled per-field in
@@ -9,7 +9,7 @@ import { ApiError } from "./useApi";
  * an untouched draft. Call `sync()` after a successful reload to pull a
  * fresh value in explicitly instead.
  */
-export function useDraftField<T>(
+export function useFieldDraft<T>(
   source: () => T,
   save: (value: T) => Promise<unknown>,
   options?: { fallbackMessage?: string; isEqual?: (a: T, b: T) => boolean },
@@ -31,7 +31,7 @@ export function useDraftField<T>(
     try {
       await save(draft.value);
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : (options?.fallbackMessage ?? "Failed to save.");
+      errorMessage.value = toErrorMessage(err, options?.fallbackMessage ?? "Failed to save.");
     } finally {
       saving.value = false;
     }
@@ -45,7 +45,7 @@ export function useDraftField<T>(
  * = transform(v))` pair repeated across the GuardEditorXxx.vue section components.
  * The transform lives inside the `source` getter the caller passes (e.g.
  * `usePropDraft(() => (props.redactPaths ?? []).join("\n"))`), so this stays generic.
- * Unlike `useDraftField`, there's no dirty/save tracking here — callers that need
+ * Unlike `useFieldDraft`, there's no dirty/save tracking here — callers that need
  * that pair this with their own save call (e.g. `usePatchTool`).
  */
 export function usePropDraft<T>(source: () => T): Ref<T> {

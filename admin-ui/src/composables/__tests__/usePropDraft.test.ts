@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { reactive, nextTick } from "vue";
-import { usePropDraft } from "../useDraftField";
+import { usePropDraft } from "../useFieldDraft";
 
 describe("usePropDraft", () => {
   it("seeds the draft from source() at creation time", () => {

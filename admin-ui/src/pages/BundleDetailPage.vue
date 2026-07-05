@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
-import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
-import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
-import { useDraftField } from "@/composables/useDraftField";
-import { toErrorMessage } from "@/utils/errors";
+import { useFieldDraft } from "@/composables/useFieldDraft";
+import { useDetailPageDelete, syncAfterLoad } from "@/composables/useDetailPageDelete";
 import type { BundleDetail, BundleToolRef } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import BundleToolPicker from "@/components/BundleToolPicker.vue";
@@ -20,7 +18,6 @@ import FormField from "@/components/ui/FormField.vue";
 import { Cable, Share2 } from "lucide-vue-next";
 
 const props = defineProps<{ name: string }>();
-const router = useRouter();
 
 const {
   data: detail,
@@ -32,7 +29,6 @@ const {
   null,
   "Failed to load bundle.",
 );
-const deleteError = ref("");
 
 const {
   draft: descriptionInput,
@@ -41,7 +37,7 @@ const {
   errorMessage: descriptionError,
   sync: syncDescription,
   commit: saveDescription,
-} = useDraftField(
+} = useFieldDraft(
   () => detail.value?.description ?? "",
   async (value) => {
     await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { description: value || null });
@@ -57,7 +53,7 @@ const {
   errorMessage: toolsError,
   sync: syncTools,
   commit: saveTools,
-} = useDraftField<BundleToolRef[]>(
+} = useFieldDraft<BundleToolRef[]>(
   () => detail.value?.tools ?? [],
   async (value) => {
     await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { tools: value });
@@ -74,12 +70,18 @@ const {
 );
 
 const {
-  pending: pendingDelete,
-  request: requestDeleteConfirm,
-  cancel: cancelDelete,
-  confirm: confirmDeleteAction,
-} = useConfirmAction<true>();
-const deleting = ref(false);
+  pendingDelete,
+  requestDelete,
+  cancelDelete,
+  confirmDelete,
+  deleting,
+  deleted,
+  error: deleteError,
+} = useDetailPageDelete(
+  () => `/admin-api/bundles/${encodeURIComponent(props.name)}`,
+  "/bundles",
+  "Failed to delete bundle.",
+);
 const connectOpen = ref(false);
 const shareOpen = ref(false);
 
@@ -89,11 +91,7 @@ const { rowError: toggleError, toggle } = useOptimisticToggle<BundleDetail>(
 );
 
 async function load() {
-  const result = await loadDetail();
-  if (result) {
-    syncDescription();
-    syncTools();
-  }
+  await syncAfterLoad(loadDetail, syncDescription, syncTools);
 }
 watch(() => props.name, load);
 onMounted(load);
@@ -104,27 +102,6 @@ async function toggleEnabled() {
     api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { enabled: next }),
   );
   errorMessage.value = toggleError.value.singleton ?? "";
-}
-
-function requestDelete() {
-  requestDeleteConfirm(true);
-}
-
-const deleted = ref(false);
-
-function confirmDelete() {
-  return confirmDeleteAction(async () => {
-    deleteError.value = "";
-    deleting.value = true;
-    try {
-      await api.delete(`/admin-api/bundles/${encodeURIComponent(props.name)}`);
-      deleted.value = true;
-      router.push("/bundles");
-    } catch (err) {
-      deleteError.value = toErrorMessage(err, "Failed to delete bundle.");
-      deleting.value = false;
-    }
-  });
 }
 
 const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(

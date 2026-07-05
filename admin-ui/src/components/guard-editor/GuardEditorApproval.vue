@@ -2,7 +2,7 @@
 import { ref, computed } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
-import { usePropDraft } from "@/composables/useDraftField";
+import { usePropDraft } from "@/composables/useFieldDraft";
 import SaveRow from "@/components/ui/SaveRow.vue";
 import { numberRangeValidator } from "@/utils/fieldParsing";
 
