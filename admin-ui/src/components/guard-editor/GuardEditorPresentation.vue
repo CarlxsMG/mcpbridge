@@ -2,6 +2,7 @@
 import { ref, computed, watch } from "vue";
 import { usePatchTool } from "@/composables/usePatchTool";
 import { useFlash } from "@/composables/useFlash";
+import { usePropDraft } from "@/composables/useFieldDraft";
 import SaveRow from "@/components/ui/SaveRow.vue";
 
 const props = defineProps<{
@@ -11,16 +12,15 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ saved: [] }>();
 
-const descriptionInput = ref(props.override?.description ?? "");
-const displayNameInput = ref(props.override?.displayName ?? "");
+const descriptionInput = usePropDraft(() => props.override?.description ?? "");
+const displayNameInput = usePropDraft(() => props.override?.displayName ?? "");
 const displayNameTouched = ref(false);
 const saved = ref(false);
 
+// Drawer isn't remounted on tool switch, so the touched flag needs its own reset here.
 watch(
   () => props.override,
-  (o) => {
-    descriptionInput.value = o?.description ?? "";
-    displayNameInput.value = o?.displayName ?? "";
+  () => {
     displayNameTouched.value = false;
   },
 );
