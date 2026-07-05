@@ -9,6 +9,7 @@ import { approvalsRoutes } from "./approvals.js";
 import { trafficRoutes } from "./traffic.js";
 import { monitorsRoutes } from "./monitors.js";
 import { oauthRoutes } from "./oauth.js";
+import { canaryRoutes } from "./canary.js";
 import { mountLegacy } from "./legacyMount.js";
 
 /**
@@ -44,6 +45,7 @@ export function adminRoutes(app: Express): void {
   r.use(trafficRoutes);
   r.use(monitorsRoutes);
   r.use(oauthRoutes);
+  r.use(canaryRoutes);
   mountLegacy(r);
 
   app.use("/admin-api", r);
