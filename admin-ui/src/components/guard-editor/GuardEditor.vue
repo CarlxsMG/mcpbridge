@@ -14,6 +14,7 @@ import GuardEditorCoalesce from "./GuardEditorCoalesce.vue";
 import GuardEditorCachePurge from "./GuardEditorCachePurge.vue";
 import GuardEditorContextBudget from "./GuardEditorContextBudget.vue";
 import { usePatchTool } from "@/composables/usePatchTool";
+import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useFlash } from "@/composables/useFlash";
 import { numberRangeValidator } from "@/utils/fieldParsing";
 import { KeyRound } from "lucide-vue-next";
@@ -66,7 +67,6 @@ const existingKeyCount = ref(props.guards?.allowedKeyHashes?.length ?? 0);
 // drift out of lockstep across push/splice mutations.
 let nextKeyId = 0;
 const replacementKeys = ref<{ id: number; value: string }[]>([]);
-const pendingClear = ref(false);
 const savedMain = ref(false);
 const savedClear = ref(false);
 const clearingGuards = ref(false);
@@ -139,6 +139,13 @@ const {
 );
 const { flash } = useFlash();
 
+const {
+  pending: pendingClear,
+  request: requestClearConfirm,
+  cancel: cancelClear,
+  confirm: confirmClearAction,
+} = useConfirmAction<true>();
+
 async function submit() {
   if (!isValid.value) return;
   const payload: { rateLimitPerMin?: number; timeoutMs?: number; allowedApiKeys?: string[] } = {};
@@ -169,12 +176,11 @@ function requestClear() {
     doClear();
     return;
   }
-  pendingClear.value = true;
+  requestClearConfirm(true);
 }
 
 function confirmClear() {
-  pendingClear.value = false;
-  doClear();
+  return confirmClearAction(doClear);
 }
 </script>
 
@@ -317,13 +323,13 @@ function confirmClear() {
   </form>
 
   <ConfirmDialog
-    :open="pendingClear"
+    :open="pendingClear !== null"
     title="Clear all guards for this tool?"
     message="This removes the rate limit, timeout override, and API key allow-list. Existing keys are hashed and cannot be restored — you'd need the original raw keys to set the same allow-list again."
     confirm-label="Clear guards"
     danger
     @confirm="confirmClear"
-    @cancel="pendingClear = false"
+    @cancel="cancelClear"
   />
 </template>
 
