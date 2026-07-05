@@ -1,5 +1,5 @@
 import { ref, type Ref } from "vue";
-import { ApiError } from "./useApi";
+import { toErrorMessage } from "@/utils/errors";
 
 /**
  * Generalizes the "click -> pending item -> ConfirmDialog -> run API call"
@@ -29,7 +29,7 @@ export function useConfirmAction<T = true>() {
     try {
       await action(item);
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : "Action failed.";
+      errorMessage.value = toErrorMessage(err, "Action failed.");
     } finally {
       busy.value = false;
     }

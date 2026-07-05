@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { ApiError } from "./useApi";
+import { toErrorMessage } from "@/utils/errors";
 
 /**
  * Generalizes the optimistic enable/disable toggle hand-rolled across
@@ -26,7 +26,7 @@ export function useOptimisticToggle<T>(keyOf: (item: T) => PropertyKey, fallback
       await patch(next);
     } catch (err) {
       (item[field] as boolean) = previous; // revert on failure
-      rowError.value[key] = err instanceof ApiError ? err.message : fallbackMessage;
+      rowError.value[key] = toErrorMessage(err, fallbackMessage);
     } finally {
       pendingKeys.delete(key);
     }

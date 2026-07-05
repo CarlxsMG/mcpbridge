@@ -1,5 +1,6 @@
 import { ref } from "vue";
-import { api, ApiError } from "./useApi";
+import { api } from "./useApi";
+import { toErrorMessage } from "@/utils/errors";
 
 /** Callers decide whether/when to reload after a successful patch — unlike the hand-rolled functions this replaces, which always reloaded. */
 export function usePatchResource(resourcePath: () => string | undefined) {
@@ -15,7 +16,7 @@ export function usePatchResource(resourcePath: () => string | undefined) {
       await action(path);
       return true;
     } catch (err) {
-      error.value = err instanceof ApiError ? err.message : fallbackMessage;
+      error.value = toErrorMessage(err, fallbackMessage);
       return false;
     } finally {
       saving.value = false;

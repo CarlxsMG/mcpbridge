@@ -1,5 +1,5 @@
 import { ref, type Ref } from "vue";
-import { ApiError } from "./useApi";
+import { toErrorMessage } from "@/utils/errors";
 
 /**
  * Lowest-level building block: wraps the loading/error-message boilerplate
@@ -22,7 +22,7 @@ export function useLoadState(fallbackMessage = "Failed to load.") {
     try {
       return await fn();
     } catch (err) {
-      errorMessage.value = err instanceof ApiError ? err.message : fallbackMessage;
+      errorMessage.value = toErrorMessage(err, fallbackMessage);
       return undefined;
     } finally {
       loading.value = false;
