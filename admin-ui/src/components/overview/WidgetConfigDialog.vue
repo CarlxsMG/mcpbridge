@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import ModalShell from "@/components/ui/ModalShell.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { Minus, Plus } from "lucide-vue-next";
@@ -23,6 +24,7 @@ const emit = defineEmits<{
   close: [];
   save: [payload: { id: string; options: WidgetOptions; w: number; h: number }];
 }>();
+const { t } = useI18n({ useScope: "global" });
 
 const draft = reactive({
   title: "",
@@ -65,7 +67,7 @@ watch(
 );
 
 const toGroupedOptions = <T extends { id: string; label: string; group: keyof typeof GROUP_LABELS }>(defs: T[]) =>
-  defs.map((d) => ({ value: d.id, label: `${GROUP_LABELS[d.group]} · ${d.label}` }));
+  defs.map((d) => ({ value: d.id, label: `${t(GROUP_LABELS[d.group])} · ${d.label}` }));
 
 const metricOptions = toGroupedOptions(STAT_METRICS);
 const seriesOptions = toGroupedOptions(TIMESERIES_SERIES);
@@ -73,11 +75,11 @@ const breakdownOptions = toGroupedOptions(DONUT_BREAKDOWNS);
 const rankingOptions = toGroupedOptions(BARS_RANKINGS);
 const feedOptions = toGroupedOptions(LIST_FEEDS);
 const toneOptions: { value: WidgetTone; label: string }[] = [
-  { value: "auto", label: "Automatic (by thresholds)" },
-  { value: "default", label: "Neutral" },
-  { value: "ok", label: "OK · green" },
-  { value: "warning", label: "Warning · amber" },
-  { value: "danger", label: "Danger · red" },
+  { value: "auto", label: t("components.widget_config.tone.auto") },
+  { value: "default", label: t("components.widget_config.tone.default") },
+  { value: "ok", label: t("components.widget_config.tone.ok") },
+  { value: "warning", label: t("components.widget_config.tone.warning") },
+  { value: "danger", label: t("components.widget_config.tone.danger") },
 ];
 
 function numOrUndef(s: string): number | undefined {
@@ -95,7 +97,7 @@ function stepH(delta: number): void {
 function save(): void {
   if (!props.widget) return;
   const type = props.widget.type;
-  const options: WidgetOptions = { title: draft.title.trim() || "Widget" };
+  const options: WidgetOptions = { title: draft.title.trim() || t("components.widget_config.widget_default_title") };
   if (type === "stat") {
     options.metric = draft.metric;
     options.icon = STAT_BY_ID.get(draft.metric)?.icon;
@@ -116,97 +118,94 @@ function save(): void {
 </script>
 
 <template>
-  <!-- :ariaLabel kept camelCase (not :aria-label): vue-tsc treats the hyphenated form as the
-       built-in ARIA passthrough attribute rather than resolving it to ModalShell's ariaLabel prop -->
-  <!-- eslint-disable-next-line vue/attribute-hyphenation -->
-  <ModalShell v-if="widget" :open="open" :ariaLabel="'Configure widget'" max-width="32rem" @close="emit('close')">
-    <h2 class="cfg-title">Configure widget</h2>
+  <ModalShell v-if="widget" :open="open" :ariaLabel="t('components.widget_config.title')" max-width="32rem" @close="emit('close')">
+    <h2 class="cfg-title">{{ t('components.widget_config.title') }}</h2>
 
     <form @submit.prevent="save">
       <div class="field">
-        <label for="cfg-title">Title</label>
+        <label for="cfg-title">{{ t('components.widget_config.fields.title') }}</label>
         <input id="cfg-title" v-model="draft.title" type="text" maxlength="60" />
       </div>
 
       <template v-if="widget.type === 'stat'">
         <div class="field">
-          <label for="cfg-metric">Metric</label>
+          <label for="cfg-metric">{{ t('components.widget_config.fields.metric') }}</label>
           <SelectMenu id="cfg-metric" v-model="draft.metric" :options="metricOptions" />
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="cfg-unit">Unit suffix</label>
-            <input id="cfg-unit" v-model="draft.unit" type="text" maxlength="8" placeholder="e.g. ms, %" />
+            <label for="cfg-unit">{{ t('components.widget_config.fields.unit') }}</label>
+            <input id="cfg-unit" v-model="draft.unit" type="text" maxlength="8" :placeholder="t('components.widget_config.placeholders.unit')" />
           </div>
           <div class="field">
-            <label for="cfg-tone">Color</label>
+            <label for="cfg-tone">{{ t('components.widget_config.fields.color') }}</label>
             <SelectMenu id="cfg-tone" v-model="draft.tone" :options="toneOptions" />
           </div>
         </div>
         <div v-if="draft.tone === 'auto'" class="field-row">
           <div class="field">
-            <label for="cfg-warn">Warn at ≥</label>
-            <input id="cfg-warn" v-model="draft.warn" type="number" step="any" placeholder="(none)" />
+            <label for="cfg-warn">{{ t('components.widget_config.fields.warn_at') }}</label>
+            <input id="cfg-warn" v-model="draft.warn" type="number" step="any" :placeholder="t('components.widget_config.placeholders.none')" />
           </div>
           <div class="field">
-            <label for="cfg-danger">Danger at ≥</label>
-            <input id="cfg-danger" v-model="draft.danger" type="number" step="any" placeholder="(none)" />
+            <label for="cfg-danger">{{ t('components.widget_config.fields.danger_at') }}</label>
+            <input id="cfg-danger" v-model="draft.danger" type="number" step="any" :placeholder="t('components.widget_config.placeholders.none')" />
           </div>
         </div>
       </template>
 
       <div v-else-if="widget.type === 'timeseries'" class="field">
-        <label for="cfg-series">Series</label>
+        <label for="cfg-series">{{ t('components.widget_config.fields.series') }}</label>
         <SelectMenu id="cfg-series" v-model="draft.series" :options="seriesOptions" />
       </div>
 
       <div v-else-if="widget.type === 'donut'" class="field">
-        <label for="cfg-breakdown">Breakdown</label>
+        <label for="cfg-breakdown">{{ t('components.widget_config.fields.breakdown') }}</label>
         <SelectMenu id="cfg-breakdown" v-model="draft.breakdown" :options="breakdownOptions" />
       </div>
 
       <div v-else-if="widget.type === 'bars'" class="field">
-        <label for="cfg-ranking">Ranking</label>
+        <label for="cfg-ranking">{{ t('components.widget_config.fields.ranking') }}</label>
         <SelectMenu id="cfg-ranking" v-model="draft.ranking" :options="rankingOptions" />
       </div>
 
       <div v-else-if="widget.type === 'list'" class="field">
-        <label for="cfg-feed">Feed</label>
+        <label for="cfg-feed">{{ t('components.widget_config.fields.feed') }}</label>
         <SelectMenu id="cfg-feed" v-model="draft.feed" :options="feedOptions" />
       </div>
 
       <div v-else-if="widget.type === 'note'" class="field">
-        <label for="cfg-text">Text (Markdown)</label>
-        <textarea id="cfg-text" v-model="draft.text" rows="6" placeholder="# Heading&#10;- bullet&#10;**bold**" />
+        <label for="cfg-text">{{ t('components.widget_config.fields.text') }}</label>
+        <textarea id="cfg-text" v-model="draft.text" rows="6" :placeholder="t('components.widget_config.placeholders.markdown')" />
       </div>
 
       <div class="size-fields">
-        <span class="size-label">Size</span>
-        <div class="stepper" role="group" aria-label="Width in columns">
-          <span class="stepper-name">Width</span>
-          <button type="button" aria-label="Narrower" :disabled="draft.w <= 1" @click="stepW(-1)">
+        <span class="size-label">{{ t('components.widget_config.size.label') }}</span>
+        <div class="stepper" role="group" :aria-label="t('components.widget_config.size.width_aria')">
+          <span class="stepper-name">{{ t('components.widget_config.size.width') }}</span>
+          <button type="button" :aria-label="t('components.widget_config.size.narrower')" :disabled="draft.w <= 1" @click="stepW(-1)">
             <Minus :size="13" stroke-width="2" aria-hidden="true" />
           </button>
           <span class="stepper-value">{{ draft.w }}/{{ GRID_COLUMNS }}</span>
-          <button type="button" aria-label="Wider" :disabled="draft.w >= GRID_COLUMNS" @click="stepW(1)">
+          <button type="button" :aria-label="t('components.widget_config.size.wider')" :disabled="draft.w >= GRID_COLUMNS" @click="stepW(1)">
             <Plus :size="13" stroke-width="2" aria-hidden="true" />
           </button>
         </div>
-        <div class="stepper" role="group" aria-label="Height in rows">
-          <span class="stepper-name">Height</span>
-          <button type="button" aria-label="Shorter" :disabled="draft.h <= 1" @click="stepH(-1)">
+        <div class="stepper" role="group" :aria-label="t('components.widget_config.size.height_aria')">
+          <span class="stepper-name">{{ t('components.widget_config.size.height') }}</span>
+          <button type="button" :aria-label="t('components.widget_config.size.shorter')" :disabled="draft.h <= 1" @click="stepH(-1)">
             <Minus :size="13" stroke-width="2" aria-hidden="true" />
           </button>
           <span class="stepper-value">{{ draft.h }}/{{ MAX_H }}</span>
-          <button type="button" aria-label="Taller" :disabled="draft.h >= MAX_H" @click="stepH(1)">
+          <button type="button" :aria-label="t('components.widget_config.size.taller')" :disabled="draft.h >= MAX_H" @click="stepH(1)">
             <Plus :size="13" stroke-width="2" aria-hidden="true" />
           </button>
         </div>
       </div>
 
       <div class="cfg-actions">
-        <button type="button" class="btn-secondary" @click="emit('close')">Cancel</button>
-        <button type="submit" class="btn-primary">Save</button>
+        <button type="button" class="btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
+        <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
       </div>
     </form>
   </ModalShell>
@@ -240,7 +239,6 @@ function save(): void {
   resize: vertical;
   font-family: var(--font-mono);
 }
-/* SelectMenu is inline-block by default; make it fill the field. */
 .field :deep(.select-menu) {
   display: block;
   width: 100%;

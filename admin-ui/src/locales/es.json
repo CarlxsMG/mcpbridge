@@ -734,6 +734,61 @@
         "save_failed": "Error al guardar los ajustes de quarantine.",
         "clear_failed": "Error al limpiar la cuarentena."
       }
+    },
+    "add_widget": {
+      "title": "Añadir widget",
+      "hint": "Elige una métrica para añadirla a tu dashboard. Todo lo que añadas se puede redimensionar, mover o eliminar.",
+      "search_placeholder": "Buscar widgets…",
+      "no_match": "Ningún widget coincide con \"{query}\"."
+    },
+    "widget_frame": {
+      "drag_to_move": "Arrastrar para mover",
+      "move_earlier": "Mover antes",
+      "move_later": "Mover después",
+      "configure": "Configurar widget",
+      "remove": "Eliminar widget",
+      "resize": "Arrastrar para redimensionar",
+      "resize_aria": "Redimensionar widget (usa Configurar para redimensionar con teclado)"
+    },
+    "widget_config": {
+      "title": "Configurar widget",
+      "widget_default_title": "Widget",
+      "fields": {
+        "title": "Título",
+        "metric": "Métrica",
+        "unit": "Sufijo de unidad",
+        "color": "Color",
+        "warn_at": "Aviso en ≥",
+        "danger_at": "Peligro en ≥",
+        "series": "Serie",
+        "breakdown": "Desglose",
+        "ranking": "Ranking",
+        "feed": "Feed",
+        "text": "Texto (Markdown)"
+      },
+      "placeholders": {
+        "unit": "p. ej. ms, %",
+        "none": "(ninguno)",
+        "markdown": "# Encabezado\n- bullet\n**bold**"
+      },
+      "tone": {
+        "auto": "Automático (por umbrales)",
+        "default": "Neutral",
+        "ok": "OK · verde",
+        "warning": "Aviso · ámbar",
+        "danger": "Peligro · rojo"
+      },
+      "size": {
+        "label": "Tamaño",
+        "width": "Ancho",
+        "height": "Alto",
+        "width_aria": "Ancho en columnas",
+        "height_aria": "Alto en filas",
+        "narrower": "Más estrecho",
+        "wider": "Más ancho",
+        "shorter": "Más bajo",
+        "taller": "Más alto"
+      }
     }
   },
   "pages": {

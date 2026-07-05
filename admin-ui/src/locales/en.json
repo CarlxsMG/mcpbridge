@@ -63,7 +63,6 @@
     "connect_client": "Connect client",
     "done": "Done",
     "creating": "Creating…",
-    "create": "Create",
     "time_windows": {
       "last_24h": "Last 24 hours",
       "last_7d": "Last 7 days",
@@ -77,29 +76,98 @@
       "Observability": "Observability",
       "Administration": "Administration"
     },
-    "servers": { "label": "Servers", "hint": "List and manage upstream servers" },
-    "register-server": { "label": "Add server", "hint": "Register a new upstream" },
-    "catalog": { "label": "Catalog", "hint": "Browse & one-click install servers" },
-    "bundles": { "label": "Bundles", "hint": "Cross-client tool selections" },
-    "composites": { "label": "Composites", "hint": "Chained tool calls" },
-    "ws-proxies": { "label": "WS proxies", "hint": "Live WebSocket passthrough targets" },
-    "keys": { "label": "API keys", "hint": "MCP client credentials" },
-    "policies": { "label": "Policies", "hint": "Reusable rate-limit/timeout presets" },
-    "consumers": { "label": "Consumers", "hint": "Quota-tracked key owners" },
-    "approvals": { "label": "Approvals", "hint": "Human-in-the-loop approval queue" },
-    "overview": { "label": "Overview", "hint": "Bridge instance snapshot" },
-    "usage": { "label": "Usage", "hint": "Call volume and latency" },
-    "traffic": { "label": "Traffic", "hint": "Captured request/response calls" },
-    "traces": { "label": "Traces", "hint": "Per-call spans and waterfalls" },
-    "monitors": { "label": "Monitors", "hint": "Synthetic uptime + schema-drift checks" },
-    "alerts": { "label": "Alerts", "hint": "Webhook alert rules" },
-    "schedules": { "label": "Schedules", "hint": "Cron enable/disable jobs" },
-    "audit-log": { "label": "Audit log", "hint": "Hash-chained admin actions" },
-    "users": { "label": "Users", "hint": "Admin accounts" },
-    "teams": { "label": "Teams", "hint": "Server ownership groups" },
-    "config": { "label": "Config", "hint": "Export, import, snapshots" },
-    "sso": { "label": "SSO", "hint": "OIDC single sign-on settings" },
-    "account": { "label": "Account", "hint": "Your profile, password, and sessions" }
+    "servers": {
+      "label": "Servers",
+      "hint": "List and manage upstream servers"
+    },
+    "register-server": {
+      "label": "Add server",
+      "hint": "Register a new upstream"
+    },
+    "catalog": {
+      "label": "Catalog",
+      "hint": "Browse & one-click install servers"
+    },
+    "bundles": {
+      "label": "Bundles",
+      "hint": "Cross-client tool selections"
+    },
+    "composites": {
+      "label": "Composites",
+      "hint": "Chained tool calls"
+    },
+    "ws-proxies": {
+      "label": "WS proxies",
+      "hint": "Live WebSocket passthrough targets"
+    },
+    "keys": {
+      "label": "API keys",
+      "hint": "MCP client credentials"
+    },
+    "policies": {
+      "label": "Policies",
+      "hint": "Reusable rate-limit/timeout presets"
+    },
+    "consumers": {
+      "label": "Consumers",
+      "hint": "Quota-tracked key owners"
+    },
+    "approvals": {
+      "label": "Approvals",
+      "hint": "Human-in-the-loop approval queue"
+    },
+    "overview": {
+      "label": "Overview",
+      "hint": "Bridge instance snapshot"
+    },
+    "usage": {
+      "label": "Usage",
+      "hint": "Call volume and latency"
+    },
+    "traffic": {
+      "label": "Traffic",
+      "hint": "Captured request/response calls"
+    },
+    "traces": {
+      "label": "Traces",
+      "hint": "Per-call spans and waterfalls"
+    },
+    "monitors": {
+      "label": "Monitors",
+      "hint": "Synthetic uptime + schema-drift checks"
+    },
+    "alerts": {
+      "label": "Alerts",
+      "hint": "Webhook alert rules"
+    },
+    "schedules": {
+      "label": "Schedules",
+      "hint": "Cron enable/disable jobs"
+    },
+    "audit-log": {
+      "label": "Audit log",
+      "hint": "Hash-chained admin actions"
+    },
+    "users": {
+      "label": "Users",
+      "hint": "Admin accounts"
+    },
+    "teams": {
+      "label": "Teams",
+      "hint": "Server ownership groups"
+    },
+    "config": {
+      "label": "Config",
+      "hint": "Export, import, snapshots"
+    },
+    "sso": {
+      "label": "SSO",
+      "hint": "OIDC single sign-on settings"
+    },
+    "account": {
+      "label": "Account",
+      "hint": "Your profile, password, and sessions"
+    }
   },
   "errors": {
     "generic": "Something went wrong. Try again.",
@@ -270,15 +338,12 @@
       "set_credentials": "Set credentials",
       "clear": "Clear",
       "configured": "Configured",
-      "not_configured":
-        "Not configured — requests to this backend are sent without credentials.",
-      "oauth_note":
-        " Alternative to Upstream OAuth below — both can be set at once, but if so the OAuth2 bearer token wins the Authorization header on outbound calls.",
+      "not_configured": "Not configured — requests to this backend are sent without credentials.",
+      "oauth_note": " Alternative to Upstream OAuth below — both can be set at once, but if so the OAuth2 bearer token wins the Authorization header on outbound calls.",
       "save_credentials": "Save credentials",
       "confirm": {
         "clear_title": "Clear upstream credentials?",
-        "clear_message":
-          "This removes the stored credentials for this backend. This can't be undone — requests will be sent without credentials until you set new ones.",
+        "clear_message": "This removes the stored credentials for this backend. This can't be undone — requests will be sent without credentials until you set new ones.",
         "clear_cta": "Clear credentials"
       },
       "errors": {
@@ -291,8 +356,7 @@
       "configured": "Configured",
       "client": "client",
       "scope": "scope",
-      "not_configured":
-        "Not configured — the bridge mints a token via client-credentials before each call and injects it as Authorization: Bearer …. The client secret is write-only and never shown again once saved.",
+      "not_configured": "Not configured — the bridge mints a token via client-credentials before each call and injects it as Authorization: Bearer …. The client secret is write-only and never shown again once saved.",
       "change": "Change",
       "set_credentials": "Set credentials",
       "clear": "Clear",
@@ -305,8 +369,7 @@
       "save": "Save OAuth",
       "confirm": {
         "clear_title": "Clear OAuth client credentials?",
-        "clear_message":
-          "This removes the stored token URL, client ID, and client secret. This can't be undone — outbound calls will stop injecting an OAuth bearer token until you set new credentials.",
+        "clear_message": "This removes the stored token URL, client ID, and client secret. This can't be undone — outbound calls will stop injecting an OAuth bearer token until you set new credentials.",
         "clear_cta": "Clear OAuth config"
       },
       "errors": {
@@ -337,8 +400,7 @@
     },
     "server_detail_lb": {
       "title": "Load balancing",
-      "hint":
-        "Spread calls across the primary backend plus an N-way pool of additional targets. Takes precedence over canary/failover below — while an enabled pool has at least one enabled target, canary routing is skipped entirely for this server.",
+      "hint": "Spread calls across the primary backend plus an N-way pool of additional targets. Takes precedence over canary/failover below — while an enabled pool has at least one enabled target, canary routing is skipped entirely for this server.",
       "currently": "Currently: {strategy}, primary weight {weight}, {enabled}, {count} target(s).",
       "enabled": "enabled",
       "disabled": "disabled",
@@ -362,12 +424,10 @@
       "empty_targets": "No pool targets yet — add one below.",
       "confirm": {
         "clear_title": "Clear load-balancing pool config?",
-        "clear_message":
-          "This removes the pool strategy config for this server, but keeps the individual targets stored — routing falls back to the primary backend only (and canary/failover, if configured) until you reconfigure the pool.",
+        "clear_message": "This removes the pool strategy config for this server, but keeps the individual targets stored — routing falls back to the primary backend only (and canary/failover, if configured) until you reconfigure the pool.",
         "clear_cta": "Clear pool config",
         "remove_title": "Remove this pool target?",
-        "remove_message":
-          "'{url}' will stop receiving traffic immediately. If it's actively serving calls, in-flight requests to it are unaffected but no new ones will be routed there.",
+        "remove_message": "'{url}' will stop receiving traffic immediately. If it's actively serving calls, in-flight requests to it are unaffected but no new ones will be routed there.",
         "remove_cta": "Remove target"
       },
       "table": {
@@ -387,8 +447,7 @@
     },
     "server_detail_canary": {
       "title": "Canary / failover",
-      "hint":
-        "Route to a secondary backend. canary: send a % of calls there; failover: route there only while the primary breaker is open.",
+      "hint": "Route to a secondary backend. canary: send a % of calls there; failover: route there only while the primary breaker is open.",
       "currently": "Currently: {mode} → {url} ({weight}%, {enabled}).",
       "enabled": "enabled",
       "disabled": "disabled",
@@ -404,12 +463,10 @@
         "enabled": "enabled"
       },
       "save": "Save canary config",
-      "note":
-        "Note: Load balancing above takes precedence — when an enabled pool has at least one enabled target, this canary/failover config is bypassed.",
+      "note": "Note: Load balancing above takes precedence — when an enabled pool has at least one enabled target, this canary/failover config is bypassed.",
       "confirm": {
         "clear_title": "Clear canary / failover config?",
-        "clear_message":
-          "This removes the secondary backend routing configuration. This can't be undone — you'll need to reconfigure it to restore this setup.",
+        "clear_message": "This removes the secondary backend routing configuration. This can't be undone — you'll need to reconfigure it to restore this setup.",
         "clear_cta": "Clear canary config"
       },
       "errors": {
@@ -429,13 +486,11 @@
     },
     "server_detail_remove": {
       "title": "Remove server",
-      "hint":
-        "Unlike Disable above, this permanently deletes the server's registration, guards, and all per-tool configuration. Connected MCP agents lose access to its tools immediately, and this can't be undone — Disable above is the reversible alternative.",
+      "hint": "Unlike Disable above, this permanently deletes the server's registration, guards, and all per-tool configuration. Connected MCP agents lose access to its tools immediately, and this can't be undone — Disable above is the reversible alternative.",
       "button": "Remove server",
       "confirm": {
         "title": "Remove this server?",
-        "message":
-          "This permanently deletes the registration, guards, and all per-tool configuration for '{name}'. Connected MCP agents lose access to its tools immediately. This can't be undone.",
+        "message": "This permanently deletes the registration, guards, and all per-tool configuration for '{name}'. Connected MCP agents lose access to its tools immediately. This can't be undone.",
         "cta": "Remove {name}"
       },
       "errors": {
@@ -461,8 +516,7 @@
       },
       "confirm": {
         "disable_title": "Disable this tool?",
-        "disable_message":
-          "'{name}' will stop working for all connected MCP agents until re-enabled.",
+        "disable_message": "'{name}' will stop working for all connected MCP agents until re-enabled.",
         "disable_cta": "Disable {name}"
       },
       "errors": {
@@ -473,8 +527,7 @@
     },
     "server_detail_playground": {
       "title": "Playground",
-      "hint":
-        "Fill arguments from the tool's schema and run a real test call through the full guard stack.",
+      "hint": "Fill arguments from the tool's schema and run a real test call through the full guard stack.",
       "saved_examples": "Saved examples",
       "delete_example": "Delete example",
       "delete_example_aria": "Delete {label}",
@@ -496,16 +549,14 @@
       "allowed_keys_label": "Allowed API keys",
       "existing_keys_count": "{count} key(s) currently allowed.",
       "no_restriction": "No restriction — any valid MCP key may call this tool.",
-      "keys_hashed_hint":
-        "Keys are hashed on save; existing keys cannot be displayed again.",
+      "keys_hashed_hint": "Keys are hashed on save; existing keys cannot be displayed again.",
       "add_key_placeholder": "Paste a raw API key to add",
       "hide": "Hide",
       "show": "Show",
       "add": "Add",
       "new_key_n": "New key #{n}",
       "remove": "remove",
-      "replace_warning":
-        "Saving will REPLACE the entire allow-list with these {count} key(s).",
+      "replace_warning": "Saving will REPLACE the entire allow-list with these {count} key(s).",
       "preview": "Preview",
       "preview_new_keys": "{count} new key(s)",
       "preview_existing_keys": "{count} key(s) unchanged",
@@ -516,8 +567,7 @@
       "saved": "Saved",
       "confirm": {
         "clear_title": "Clear all guards for this tool?",
-        "clear_message":
-          "This removes the rate limit, timeout override, and API key allow-list. Existing keys are hashed and cannot be restored — you'd need the original raw keys to set the same allow-list again.",
+        "clear_message": "This removes the rate limit, timeout override, and API key allow-list. Existing keys are hashed and cannot be restored — you'd need the original raw keys to set the same allow-list again.",
         "clear_cta": "Clear guards"
       },
       "errors": {
@@ -528,8 +578,7 @@
       "title": "Human-in-the-loop approval",
       "require_label": "Require human approval before this tool runs",
       "levels_label": "Distinct approvers required",
-      "levels_hint":
-        "A call is only allowed once this many DIFFERENT admins/operators have approved it (1 = today's single-approval behavior). Any single rejection blocks the call immediately, regardless of prior approvals.",
+      "levels_hint": "A call is only allowed once this many DIFFERENT admins/operators have approved it (1 = today's single-approval behavior). Any single rejection blocks the call immediately, regardless of prior approvals.",
       "levels_error": "Must be a whole number between 1 and 10",
       "save": "Save approval settings",
       "errors": {
@@ -538,8 +587,7 @@
     },
     "guard_editor_cache_purge": {
       "title": "Response cache",
-      "hint":
-        "Clears any responses already cached for this tool. Doesn't change the cache's enabled/TTL config — new responses are cached again on the next matching call.",
+      "hint": "Clears any responses already cached for this tool. Doesn't change the cache's enabled/TTL config — new responses are cached again on the next matching call.",
       "purging": "Purging…",
       "button": "Purge cached responses",
       "purged": "Purged",
@@ -549,10 +597,8 @@
     },
     "guard_editor_coalesce": {
       "title": "Request coalescing",
-      "label":
-        "Share one upstream fetch across concurrent identical calls (GET tools only)",
-      "hint":
-        "Distinct from the response cache's TTL — only dedupes calls that are in flight at the same moment, so it's safe even without caching enabled.",
+      "label": "Share one upstream fetch across concurrent identical calls (GET tools only)",
+      "hint": "Distinct from the response cache's TTL — only dedupes calls that are in flight at the same moment, so it's safe even without caching enabled.",
       "save": "Save coalescing",
       "errors": {
         "save_failed": "Failed to save coalescing."
@@ -560,13 +606,10 @@
     },
     "guard_editor_graphql": {
       "title": "GraphQL backend",
-      "enable_label":
-        "Dispatch this tool as a GraphQL query/mutation instead of a plain REST body",
+      "enable_label": "Dispatch this tool as a GraphQL query/mutation instead of a plain REST body",
       "query_label": "GraphQL query/mutation",
-      "hint_p1":
-        "Tool-call arguments are sent as GraphQL variables — declare a",
-      "hint_p2":
-        "for each argument this tool's input schema accepts. Auto-discovered tools start with a synthesized query you can extend here (e.g. deeper selection sets).",
+      "hint_p1": "Tool-call arguments are sent as GraphQL variables — declare a",
+      "hint_p2": "for each argument this tool's input schema accepts. Auto-discovered tools start with a synthesized query you can extend here (e.g. deeper selection sets).",
       "save": "Save GraphQL settings",
       "errors": {
         "save_failed": "Failed to save GraphQL settings."
@@ -575,10 +618,8 @@
     "guard_editor_guardrails": {
       "title": "Guardrails",
       "content_label": "Content guardrails",
-      "content_hint":
-        "Input deny patterns (one regex per line). A call whose arguments match any pattern is rejected before dispatch.",
-      "block_secrets":
-        "Block arguments that look like secrets (AWS keys, private keys, tokens…)",
+      "content_hint": "Input deny patterns (one regex per line). A call whose arguments match any pattern is rejected before dispatch.",
+      "block_secrets": "Block arguments that look like secrets (AWS keys, private keys, tokens…)",
       "scan_responses": "Scan responses for prompt-injection and wrap flagged output",
       "save": "Save guardrails",
       "errors": {
@@ -594,8 +635,7 @@
       "name_placeholder": "e.g. issues",
       "name_error": "Lowercase letters, digits, - and _; 1-63 chars",
       "desc_label": "Advertised description override",
-      "desc_hint":
-        "Replaces what MCP clients see for this tool in tools/list. Leave blank to use the registered description.",
+      "desc_hint": "Replaces what MCP clients see for this tool in tools/list. Leave blank to use the registered description.",
       "desc_placeholder": "Registered description is used when blank",
       "save": "Save presentation",
       "errors": {
@@ -605,8 +645,7 @@
     "guard_editor_redaction": {
       "title": "Redaction",
       "label": "Response redaction paths",
-      "hint":
-        "One dot-path per line (e.g. user.ssn, items.*.secret). Matching JSON values are replaced with [REDACTED] before returning to the caller.",
+      "hint": "One dot-path per line (e.g. user.ssn, items.*.secret). Matching JSON values are replaced with [REDACTED] before returning to the caller.",
       "placeholder": "user.password\nitems.*.token",
       "save": "Save redaction",
       "errors": {
@@ -616,8 +655,7 @@
     "guard_editor_tags": {
       "title": "Tags",
       "label": "Comma-separated tags",
-      "hint":
-        "Comma-separated (lowercase letters, digits, - and _). Used to organize and filter tools.",
+      "hint": "Comma-separated (lowercase letters, digits, - and _). Used to organize and filter tools.",
       "placeholder": "billing, read-only",
       "save": "Save tags",
       "errors": {
@@ -629,10 +667,8 @@
       "enable_label": "Dispatch this tool over a WebSocket instead of REST",
       "url_label": "WebSocket URL",
       "url_error": "Must start with ws:// or wss://",
-      "persistent_label":
-        "Persistent connection — forward every message as progress instead of closing after the first",
-      "hint":
-        "Non-persistent (default) opens a fresh connection per call and returns the first message. Persistent stays open and resolves with the last message once the connection closes or the timeout elapses — intermediate messages are forwarded as MCP progress notifications to callers that requested them.",
+      "persistent_label": "Persistent connection — forward every message as progress instead of closing after the first",
+      "hint": "Non-persistent (default) opens a fresh connection per call and returns the first message. Persistent stays open and resolves with the last message once the connection closes or the timeout elapses — intermediate messages are forwarded as MCP progress notifications to callers that requested them.",
       "save": "Save WebSocket settings",
       "errors": {
         "save_failed": "Failed to save WebSocket settings."
@@ -640,10 +676,8 @@
     },
     "guard_editor_context_budget": {
       "title": "Context budget",
-      "enable_label":
-        "Cap this tool's response size so it can't blow an agent's context window",
-      "hint":
-        "No budget configured (the default) means responses are returned unbounded, exactly as today. Once enabled, a response over the limit is either cut off with a marker, or — if you configure an LLM below — compressed into a faithful summary instead.",
+      "enable_label": "Cap this tool's response size so it can't blow an agent's context window",
+      "hint": "No budget configured (the default) means responses are returned unbounded, exactly as today. Once enabled, a response over the limit is either cut off with a marker, or — if you configure an LLM below — compressed into a faithful summary instead.",
       "bytes_label": "Max response size (bytes)",
       "bytes_error": "Must be a whole number of at least 256 bytes",
       "mode_label": "Mode when a response exceeds the limit",
@@ -651,8 +685,7 @@
         "truncate": "Truncate — cut it off and note how much was omitted",
         "llm": "Compress with an LLM — summarize instead of cutting off"
       },
-      "llm_hint":
-        "One extra call per oversized response, made only after this tool's own redaction and guardrail scan have already run — the LLM never sees pre-redaction data. Any failure (network, non-2xx, timeout) silently falls back to truncation; the tool call itself never fails because of this.",
+      "llm_hint": "One extra call per oversized response, made only after this tool's own redaction and guardrail scan have already run — the LLM never sees pre-redaction data. Any failure (network, non-2xx, timeout) silently falls back to truncation; the tool call itself never fails because of this.",
       "provider_label": "Provider",
       "provider": {
         "openai": "OpenAI-compatible (POST {base}/chat/completions)",
@@ -661,10 +694,8 @@
       "base_url_label": "Base URL",
       "model_label": "Model",
       "api_key_label": "API key",
-      "api_key_hint_configured":
-        "A key is already configured and is write-only — it cannot be displayed again. Saving here, even just to change another field, replaces it, so re-enter the key.",
-      "api_key_hint_new":
-        "Bring your own key — stored encrypted, never displayed again once saved.",
+      "api_key_hint_configured": "A key is already configured and is write-only — it cannot be displayed again. Saving here, even just to change another field, replaces it, so re-enter the key.",
+      "api_key_hint_new": "Bring your own key — stored encrypted, never displayed again once saved.",
       "api_key_placeholder": "Paste the raw API key",
       "base_url_required": "Base URL is required",
       "model_required": "Model is required",
@@ -702,6 +733,61 @@
       "errors": {
         "save_failed": "Failed to save quarantine settings.",
         "clear_failed": "Failed to clear quarantine."
+      }
+    },
+    "add_widget": {
+      "title": "Add a widget",
+      "hint": "Pick a metric to add to your dashboard. Everything you add can be resized, moved, or removed.",
+      "search_placeholder": "Search widgets…",
+      "no_match": "No widgets match \"{query}\"."
+    },
+    "widget_frame": {
+      "drag_to_move": "Drag to move",
+      "move_earlier": "Move earlier",
+      "move_later": "Move later",
+      "configure": "Configure widget",
+      "remove": "Remove widget",
+      "resize": "Drag to resize",
+      "resize_aria": "Resize widget (use Configure for keyboard sizing)"
+    },
+    "widget_config": {
+      "title": "Configure widget",
+      "widget_default_title": "Widget",
+      "fields": {
+        "title": "Title",
+        "metric": "Metric",
+        "unit": "Unit suffix",
+        "color": "Color",
+        "warn_at": "Warn at ≥",
+        "danger_at": "Danger at ≥",
+        "series": "Series",
+        "breakdown": "Breakdown",
+        "ranking": "Ranking",
+        "feed": "Feed",
+        "text": "Text (Markdown)"
+      },
+      "placeholders": {
+        "unit": "e.g. ms, %",
+        "none": "(none)",
+        "markdown": "# Heading\n- bullet\n**bold**"
+      },
+      "tone": {
+        "auto": "Automatic (by thresholds)",
+        "default": "Neutral",
+        "ok": "OK · green",
+        "warning": "Warning · amber",
+        "danger": "Danger · red"
+      },
+      "size": {
+        "label": "Size",
+        "width": "Width",
+        "height": "Height",
+        "width_aria": "Width in columns",
+        "height_aria": "Height in rows",
+        "narrower": "Narrower",
+        "wider": "Wider",
+        "shorter": "Shorter",
+        "taller": "Taller"
       }
     }
   },
@@ -1257,7 +1343,10 @@
       "save_schema": "Save schema",
       "steps_label": "Steps (JSON array)",
       "save_steps": "Save steps",
-      "templates": { "label": "Templates:", "or": "or" },
+      "templates": {
+        "label": "Templates:",
+        "or": "or"
+      },
       "enable": "Enable composite",
       "disable": "Disable composite",
       "deleting": "Deleting…",
@@ -1283,58 +1372,12 @@
       }
     },
     "bundle_detail": {
-      "description_label": "Description",
-      "description_placeholder": "What this bundle is for",
-      "tools_heading": "Tools ({count})",
-      "save_tools": "Save tools",
-      "unsaved_tools": "Unsaved changes to the tool selection.",
-      "enable_bundle": "Enable bundle",
-      "disable_bundle": "Disable bundle",
-      "share_link": "Share install link",
-      "delete_bundle": "Delete bundle",
-      "deleting": "Deleting…",
-      "confirm": {
-        "delete_title": "Delete this bundle?",
-        "delete_message": "'{name}' and its /mcp-custom/{name} endpoint will stop working immediately for any connected MCP agent. This cannot be undone.",
-        "delete_cta": "Delete {name}",
-        "leave_title": "Discard unsaved changes?",
-        "leave_message": "You have unsaved changes to the description or tool selection for this bundle. Leaving now will discard them.",
-        "leave_cta": "Discard changes"
-      },
-      "errors": {
-        "load_failed": "Failed to load bundle.",
-        "delete_failed": "Failed to delete bundle.",
-        "save_description_failed": "Failed to save description.",
-        "save_tools_failed": "Failed to save tools.",
-        "toggle_failed": "Failed to update bundle."
-      }
+      "title": "{name}",
+      "back_to_bundles": "Bundles"
     },
     "server_detail": {
-      "tabs": {
-        "tools": "Tools",
-        "settings": "Settings"
-      },
-      "mcp_url": "MCP URL",
-      "transport": "Transport",
-      "health_url": "Health URL",
-      "base_url": "Base URL",
-      "consecutive_failures": "Consecutive failures",
-      "not_connected": "Not currently connected",
-      "reset_breaker": "Reset circuit breaker",
-      "resetting": "Resetting…",
-      "guards_aria": "Guards — {name}",
-      "guards_heading": "Guards — {name}",
-      "tool_not_found": "Tool \"{name}\" not found on this server.",
-      "confirm": {
-        "disable_title": "Disable this server?",
-        "disable_message": "'{name}' and all of its tools will stop working for connected MCP agents until re-enabled.",
-        "disable_cta": "Disable {name}"
-      },
-      "errors": {
-        "load_failed": "Failed to load server.",
-        "toggle_failed": "Failed to update.",
-        "reset_breaker_failed": "Failed to reset circuit breaker."
-      }
+      "title": "{name}",
+      "back_to_servers": "Servers"
     },
     "catalog": {
       "title": "Catalog",
@@ -1640,72 +1683,6 @@
       }
     },
     "sso_settings": {
-      "title": "SSO (OIDC)",
-      "subtitle": "Single sign-on configuration for the admin UI.",
-      "settings": "Settings",
-      "client_id": "Client ID",
-      "issuer": "Issuer",
-      "audience": "Audience",
-      "scopes": "Scopes",
-      "saved": "Settings saved.",
-      "errors": {
-        "load_failed": "Failed to load SSO settings.",
-        "save_failed": "Failed to save SSO settings."
-      }
-    },
-    "teams": {
-      "title": "Teams",
-      "subtitle": "Server ownership groups for multi-tenancy.",
-      "create": "New team",
-      "table": {
-        "name": "Name",
-        "description": "Description",
-        "member_count": "Members",
-        "server_count": "Servers",
-        "created": "Created"
-      },
-      "empty": {
-        "no_teams": "No teams yet."
-      },
-      "errors": {
-        "load_failed": "Failed to load teams."
-      },
-      "new": {
-        "title": "New team",
-        "fields": {
-          "name": "Team name"
-        },
-        "placeholders": {
-          "name": "Team name (e.g. Payments)"
-        },
-        "create": "Create team",
-        "errors": {
-          "name_required": "Name is required.",
-          "create_failed": "Failed to create team."
-        }
-      }
-    },
-    "teams": {
-      "title": "Teams",
-      "subtitle": "Teams own clients; a team-scoped admin only sees and manages its own team's servers. Super-admins (admin role with no team) manage teams and assign ownership. Assign a client's team from its detail page.",
-      "new_team": "New team",
-      "table": {
-        "id": "ID",
-        "name": "Name",
-        "created": "Created"
-      },
-      "empty": "No teams yet. A team groups servers under shared ownership, so operator-role admins only see and manage what's assigned to their team.",
-      "confirm": {
-        "delete_title": "Delete this team?",
-        "delete_message": "Delete team '{name}'? Its servers and users become unowned.",
-        "delete_cta": "Delete {name}"
-      },
-      "errors": {
-        "load_failed": "Failed to load teams.",
-        "delete_failed": "Failed to delete team."
-      }
-    },
-    "sso_settings": {
       "title": "Single sign-on (OIDC)",
       "subtitle": "Let admins sign in through an external identity provider (Okta, Azure AD, Google Workspace, Auth0, or any OIDC-compliant IdP) via Authorization Code + PKCE, instead of — or alongside — the built-in username/password login. SAML is not supported.",
       "fields": {
@@ -1743,161 +1720,74 @@
         "secret_required_for_update": "Re-enter the client secret to save changes — it's never stored in a way this page can read back."
       }
     },
+    "teams": {
+      "title": "Teams",
+      "subtitle": "Teams own clients; a team-scoped admin only sees and manages its own team's servers. Super-admins (admin role with no team) manage teams and assign ownership. Assign a client's team from its detail page.",
+      "new_team": "New team",
+      "table": {
+        "id": "ID",
+        "name": "Name",
+        "created": "Created"
+      },
+      "empty": "No teams yet. A team groups servers under shared ownership, so operator-role admins only see and manage what's assigned to their team.",
+      "confirm": {
+        "delete_title": "Delete this team?",
+        "delete_message": "Delete team '{name}'? Its servers and users become unowned.",
+        "delete_cta": "Delete {name}"
+      },
+      "errors": {
+        "load_failed": "Failed to load teams.",
+        "delete_failed": "Failed to delete team."
+      }
+    },
     "users": {
       "title": "Users",
-      "add_user": "Add user",
-      "empty": "No admin users yet. Every person who signs in to this panel needs their own account here — shared logins aren't supported.",
-      "you_tag": "(you)",
-      "yes": "Yes",
-      "no": "No",
-      "roles": {
-        "admin": "admin",
-        "operator": "operator",
-        "auditor": "auditor",
-        "viewer": "viewer"
-      },
-      "team": {
-        "none": "None (super-admin)",
-        "change_locked": "Only super-admins can change this.",
-        "create": "Create team"
-      },
-      "last_admin_locked": "Cannot change the last active admin — promote another user first.",
+      "subtitle": "Admin users who can sign in to this bridge.",
+      "create": "New user",
       "table": {
         "username": "Username",
         "role": "Role",
-        "team": "Team",
-        "active": "Active",
+        "created": "Created",
         "last_login": "Last login"
       },
-      "confirm": {
-        "delete_title": "Delete this user?",
-        "delete_message": "'{username}' will lose access immediately and all their sessions will be revoked.",
-        "delete_cta": "Delete {username}",
-        "role_title": "Change this user's role?",
-        "role_self": "You are changing your own role from '{current}' to '{next}'. This may immediately restrict what you can do in this admin panel.",
-        "role_other": "Change '{username}'s role from '{current}' to '{next}'?",
-        "role_cta": "Change to {next}",
-        "role_cta_default": "Change role",
-        "team_title": "Change this user's team?",
-        "team_base": "Assign '{username}' to {team}?",
-        "team_self_warning": "You are scoping your own account — you will lose super-admin access (team management, cross-team visibility) immediately.",
-        "team_cta": "Assign to {team}",
-        "team_cta_default": "Assign team"
+      "empty": {
+        "no_users": "No users yet."
       },
       "errors": {
         "load_failed": "Failed to load users.",
-        "teams_load_failed": "Failed to load teams.",
-        "update_role_failed": "Failed to update role.",
-        "assign_team_failed": "Failed to assign team (super-admin only).",
         "delete_failed": "Failed to delete user."
-      },
-      "new": {
-        "title": "Add user",
-        "fields": {
-          "username": "Username",
-          "password": "Password (min 12 chars)",
-          "role": "Role"
-        },
-        "roles": {
-          "admin": "Admin",
-          "operator": "Operator",
-          "auditor": "Auditor",
-          "viewer": "Viewer"
-        },
-        "create": "Create user",
-        "errors": {
-          "password_too_short": "Password must be at least 12 characters.",
-          "create_failed": "Failed to create user."
-        }
       }
     },
     "usage": {
       "title": "Usage",
-      "time_window_aria": "Time window",
-      "stat": {
-        "calls": "Calls",
-        "errors": "Errors",
-        "error_rate": "Error rate",
-        "avg_latency": "Avg latency",
-        "max_latency": "Max latency",
-        "active_tools": "Active tools"
-      },
-      "chart": {
-        "calls_errors": "Calls & errors over time",
-        "primary_label": "Calls",
-        "secondary_label": "Errors",
-        "top_tools": "Top tools by calls",
-        "calls_by_key": "Calls by API key"
-      },
-      "section": {
-        "top_tools": "Top tools",
-        "by_key": "By API key"
-      },
-      "table": {
-        "client": "Client",
-        "tool": "Tool",
-        "calls": "Calls",
-        "errors": "Errors",
-        "error_rate": "Error rate",
-        "avg": "Avg",
-        "max": "Max",
-        "key": "Key"
-      },
-      "errors_hint": "{count} err",
-      "truncated_hint": "Showing the top 20 — narrower windows or filtering may reveal others.",
-      "empty": {
-        "no_calls": "No calls recorded in this window.",
-        "no_attributed": "No attributed calls in this window."
-      },
+      "subtitle": "Call volume and latency over a window.",
+      "filter_window": "Window",
+      "window_24h": "Last 24 hours",
+      "window_7d": "Last 7 days",
+      "window_30d": "Last 30 days",
       "errors": {
         "load_failed": "Failed to load usage."
       }
     },
     "traffic": {
       "title": "Traffic",
-      "subtitle_p1": "Captured request/response calls. Capture is opt-in",
-      "subtitle_p2": "on the server) — an empty list here can mean either capture is off or there's genuinely nothing recent.",
-      "filters": {
-        "client_label": "Client name",
-        "tool_label": "Tool name"
-      },
-      "errors_only": "Errors only",
-      "filter_button": "Filter",
-      "filtering": "Filtering…",
-      "pagination_label": "{count} record(s) on this page",
-      "empty_p1": "If",
-      "empty_p2": "isn't set on the server, calls aren't being recorded — enable it, then check back after your next request.",
-      "chart": {
-        "title": "Call volume",
-        "primary_label": "Calls",
-        "secondary_label": "Errors"
-      },
+      "subtitle": "Captured tool call arguments and response previews.",
+      "filter_state": "Captured",
+      "state_all": "All",
+      "state_yes": "Captured only",
+      "state_no": "Not captured",
       "table": {
-        "time": "Time",
-        "client_tool": "Client / Tool",
+        "tool": "Tool",
+        "client": "Client",
+        "captured_at": "Captured at",
         "duration": "Duration",
-        "status": "Status",
-        "status_ok": "OK",
-        "status_error": "Error",
-        "preview": "Preview"
+        "actions": "Actions"
       },
-      "replay": {
-        "replay": "Replay",
-        "replaying": "Replaying…",
-        "tooltip": "Sends this call to the upstream tool again, right now.",
-        "no_content": "(no content)",
-        "note_p1": "Replayed call #{id} against the upstream tool —",
-        "succeeded": "succeeded",
-        "failed": "failed"
-      },
-      "confirm": {
-        "replay_title": "Replay this call?",
-        "replay_message": "This sends '{name}' to the live upstream again, right now, with the same arguments — including any side effects (writes, refunds, deletes) the original call had.",
-        "replay_cta": "Replay {name}"
+      "empty": {
+        "no_traffic": "Traffic capture is off — turn it on with the TRAFFIC_CAPTURE env var."
       },
       "errors": {
-        "load_failed": "Failed to load traffic. Check your connection and try again.",
-        "replay_failed": "Replay failed."
+        "load_failed": "Failed to load traffic."
       }
     },
     "ws_proxy_targets": {
@@ -1983,9 +1873,6 @@
         "purge_cta": "Purge all"
       },
       "empty": {
-        "no_traces": "No traces recorded yet."
-      },
-      "empty": {
         "no_traces": "No traces yet — once calls flow, they'll appear here."
       },
       "errors": {
@@ -1995,60 +1882,10 @@
       }
     },
     "not_found": {
-      "title": "Page not found",
-      "subtitle": "The URL you followed doesn't map to any view in this bridge.",
-      "go_servers": "Back to servers",
-      "go_overview": "Dashboard"
-    },
-    "traffic": {
-      "title": "Traffic",
-      "subtitle": "Captured tool call arguments and response previews.",
-      "filter_state": "Captured",
-      "state_all": "All",
-      "state_yes": "Captured only",
-      "state_no": "Not captured",
-      "table": {
-        "tool": "Tool",
-        "client": "Client",
-        "captured_at": "Captured at",
-        "duration": "Duration",
-        "actions": "Actions"
-      },
-      "empty": {
-        "no_traffic": "Traffic capture is off — turn it on with the TRAFFIC_CAPTURE env var."
-      },
-      "errors": {
-        "load_failed": "Failed to load traffic."
-      }
-    },
-    "usage": {
-      "title": "Usage",
-      "subtitle": "Call volume and latency over a window.",
-      "filter_window": "Window",
-      "window_24h": "Last 24 hours",
-      "window_7d": "Last 7 days",
-      "window_30d": "Last 30 days",
-      "errors": {
-        "load_failed": "Failed to load usage."
-      }
-    },
-    "users": {
-      "title": "Users",
-      "subtitle": "Admin users who can sign in to this bridge.",
-      "create": "New user",
-      "table": {
-        "username": "Username",
-        "role": "Role",
-        "created": "Created",
-        "last_login": "Last login"
-      },
-      "empty": {
-        "no_users": "No users yet."
-      },
-      "errors": {
-        "load_failed": "Failed to load users.",
-        "delete_failed": "Failed to delete user."
-      }
+      "title": "Not found",
+      "subtitle": "The page you're looking for doesn't exist (or no longer does).",
+      "go_servers": "Go to servers",
+      "go_overview": "Go to overview"
     },
     "ws_proxies": {
       "title": "WebSocket proxies",
@@ -2069,25 +1906,53 @@
         "toggle_failed": "Failed to update."
       }
     },
-    "not_found": {
-      "title": "Not found",
-      "subtitle": "The page you're looking for doesn't exist (or no longer does).",
-      "go_servers": "Go to servers",
-      "go_overview": "Go to overview"
+    "catalog_new": {
+      "title": "New catalog entry",
+      "back_to_catalog": "Catalog"
     },
-    "catalog_new": { "title": "New catalog entry", "back_to_catalog": "Catalog" },
-    "composite_new": { "title": "New composite", "back_to_composites": "Composites" },
-    "consumer_new": { "title": "New consumer", "back_to_consumers": "Consumers" },
-    "policy_new": { "title": "New policy", "back_to_policies": "Policies" },
-    "schedule_new": { "title": "New schedule", "back_to_schedules": "Schedules" },
-    "team_new": { "title": "New team", "back_to_teams": "Teams" },
-    "user_new": { "title": "New user", "back_to_users": "Users" },
-    "alert_new": { "title": "New alert", "back_to_alerts": "Alerts" },
-    "api_key_new": { "title": "Mint API key", "back_to_keys": "API keys" },
-    "ws_proxy_new": { "title": "New WebSocket proxy", "back_to_proxies": "WebSocket proxies" },
-    "monitor_new": { "title": "New monitor", "back_to_monitors": "Monitors" },
-    "bundle_detail": { "title": "{name}", "back_to_bundles": "Bundles" },
-    "bundle_new": { "title": "New bundle", "back_to_bundles": "Bundles" },
-    "server_detail": { "title": "{name}", "back_to_servers": "Servers" }
+    "composite_new": {
+      "title": "New composite",
+      "back_to_composites": "Composites"
+    },
+    "consumer_new": {
+      "title": "New consumer",
+      "back_to_consumers": "Consumers"
+    },
+    "policy_new": {
+      "title": "New policy",
+      "back_to_policies": "Policies"
+    },
+    "schedule_new": {
+      "title": "New schedule",
+      "back_to_schedules": "Schedules"
+    },
+    "team_new": {
+      "title": "New team",
+      "back_to_teams": "Teams"
+    },
+    "user_new": {
+      "title": "New user",
+      "back_to_users": "Users"
+    },
+    "alert_new": {
+      "title": "New alert",
+      "back_to_alerts": "Alerts"
+    },
+    "api_key_new": {
+      "title": "Mint API key",
+      "back_to_keys": "API keys"
+    },
+    "ws_proxy_new": {
+      "title": "New WebSocket proxy",
+      "back_to_proxies": "WebSocket proxies"
+    },
+    "monitor_new": {
+      "title": "New monitor",
+      "back_to_monitors": "Monitors"
+    },
+    "bundle_new": {
+      "title": "New bundle",
+      "back_to_bundles": "Bundles"
+    }
   }
 }

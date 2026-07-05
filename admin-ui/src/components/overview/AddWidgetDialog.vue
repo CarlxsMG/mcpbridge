@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import ModalShell from "@/components/ui/ModalShell.vue";
 import SearchInput from "@/components/ui/SearchInput.vue";
 import { X } from "lucide-vue-next";
@@ -7,6 +8,7 @@ import { CATALOG_PRESETS, GROUP_LABELS, GROUP_ORDER, type WidgetPreset } from ".
 
 defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: []; add: [preset: WidgetPreset] }>();
+const { t } = useI18n({ useScope: "global" });
 
 const query = ref("");
 
@@ -15,32 +17,28 @@ const grouped = computed(() => {
   const match = (p: WidgetPreset) => !q || p.label.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
   return GROUP_ORDER.map((group) => ({
     group,
-    label: GROUP_LABELS[group],
+    label: t(GROUP_LABELS[group]),
     presets: CATALOG_PRESETS.filter((p) => p.group === group && match(p)),
   })).filter((g) => g.presets.length > 0);
 });
 
-// Reset the filter whenever the dialog is reopened.
 function onAdd(preset: WidgetPreset) {
   emit("add", preset);
 }
 </script>
 
 <template>
-  <!-- :ariaLabel kept camelCase (not :aria-label): vue-tsc treats the hyphenated form as the
-       built-in ARIA passthrough attribute rather than resolving it to ModalShell's ariaLabel prop -->
-  <!-- eslint-disable-next-line vue/attribute-hyphenation -->
-  <ModalShell :open="open" :ariaLabel="'Add a widget'" max-width="46rem" @close="emit('close')">
+  <ModalShell :open="open" :ariaLabel="t('components.add_widget.title')" max-width="46rem" @close="emit('close')">
     <div class="add-head">
-      <h2>Add a widget</h2>
-      <button type="button" class="icon-btn" aria-label="Close" @click="emit('close')">
+      <h2>{{ t('components.add_widget.title') }}</h2>
+      <button type="button" class="icon-btn" :aria-label="t('common.close')" @click="emit('close')">
         <X :size="18" stroke-width="2" aria-hidden="true" />
       </button>
     </div>
-    <p class="add-sub">Pick a metric to add to your dashboard. Everything you add can be resized, moved, or removed.</p>
+    <p class="add-sub">{{ t('components.add_widget.hint') }}</p>
 
     <div class="add-search">
-      <SearchInput v-model="query" placeholder="Search widgets…" />
+      <SearchInput v-model="query" :placeholder="t('components.add_widget.search_placeholder')" />
     </div>
 
     <div class="add-scroll">
@@ -56,7 +54,7 @@ function onAdd(preset: WidgetPreset) {
           </button>
         </div>
       </section>
-      <p v-if="grouped.length === 0" class="add-empty">No widgets match “{{ query }}”.</p>
+      <p v-if="grouped.length === 0" class="add-empty">{{ t('components.add_widget.no_match', { query }) }}</p>
     </div>
   </ModalShell>
 </template>
