@@ -5,7 +5,7 @@ import { registry } from "../mcp/registry.js";
 import { getAllCircuitStates } from "../middleware/circuit-breaker.js";
 import { getUsageSummary } from "./usage.js";
 import { detectUsageSpike } from "./anomaly.js";
-import { validateBackendUrl } from "../net/ip-validator.js";
+import { dispatchWebhook } from "../lib/webhook.js";
 import { isLeader } from "../db/leader-lease.js";
 
 export type AlertEventType =
@@ -196,28 +196,17 @@ function evaluateCondition(rule: AlertRule): ConditionResult {
   }
 }
 
-async function dispatchWebhook(rule: AlertRule, detail: Record<string, unknown>): Promise<boolean> {
-  const validation = await validateBackendUrl(rule.webhookUrl, config.allowPrivateIps, config.allowedHosts);
-  if (!validation.valid) {
-    log("warn", "Alert webhook URL rejected", { rule: rule.name, reason: validation.reason });
-    return false;
-  }
-  try {
-    await fetch(rule.webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event: rule.eventType, rule: rule.name, detail, timestamp: Date.now() }),
-      redirect: "error",
-      signal: AbortSignal.timeout(config.alertWebhookTimeoutMs),
-    });
-    return true;
-  } catch (err) {
-    log("warn", "Alert webhook delivery failed", {
-      rule: rule.name,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return false;
-  }
+async function dispatchAlertWebhook(rule: AlertRule, detail: Record<string, unknown>): Promise<boolean> {
+  return dispatchWebhook(
+    rule.webhookUrl,
+    { event: rule.eventType, rule: rule.name, detail, timestamp: Date.now() },
+    {
+      timeoutMs: config.alertWebhookTimeoutMs,
+      rejectedLogMessage: "Alert webhook URL rejected",
+      failedLogMessage: "Alert webhook delivery failed",
+      logContext: { rule: rule.name },
+    },
+  );
 }
 
 function markFired(id: number): void {
@@ -239,7 +228,7 @@ export async function evaluateAlerts(): Promise<void> {
     const was = lastState.get(rule.id) ?? false;
     if (active && !was) {
       lastState.set(rule.id, true);
-      await dispatchWebhook(rule, detail);
+      await dispatchAlertWebhook(rule, detail);
       markFired(rule.id);
     } else if (!active && was) {
       lastState.set(rule.id, false);
@@ -251,7 +240,7 @@ export async function evaluateAlerts(): Promise<void> {
 export async function sendTestAlert(id: number): Promise<{ ok: boolean; reason?: string }> {
   const rule = getAlertRule(id);
   if (!rule) return { ok: false, reason: "not found" };
-  const ok = await dispatchWebhook(rule, { test: true });
+  const ok = await dispatchAlertWebhook(rule, { test: true });
   return { ok };
 }
 

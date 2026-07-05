@@ -1,7 +1,7 @@
 import { getDb } from "../../db/connection.js";
 import { config } from "../../config.js";
-import { log } from "../../logger.js";
 import { sha256Hex } from "../../lib/crypto.js";
+import { dispatchWebhook } from "../../lib/webhook.js";
 import type { Request } from "express";
 
 export interface AuditLogEntry {
@@ -45,14 +45,10 @@ function streamAuditEvent(event: {
 }): void {
   const url = config.auditSinkUrl;
   if (!url) return;
-  void fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(event),
-    redirect: "error",
-    signal: AbortSignal.timeout(config.auditSinkTimeoutMs),
-  }).catch((err) => {
-    log("warn", "Audit sink delivery failed", { error: err instanceof Error ? err.message : String(err) });
+  void dispatchWebhook(url, event, {
+    timeoutMs: config.auditSinkTimeoutMs,
+    rejectedLogMessage: "Audit sink URL rejected",
+    failedLogMessage: "Audit sink delivery failed",
   });
 }
 

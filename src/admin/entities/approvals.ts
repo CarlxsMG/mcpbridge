@@ -15,6 +15,7 @@
 import { getDb } from "../../db/connection.js";
 import { config } from "../../config.js";
 import { sha256Hex } from "../../lib/crypto.js";
+import { dispatchWebhook } from "../../lib/webhook.js";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -300,12 +301,16 @@ export function consumeApproval(
 export function notifyApproval(id: number, clientName: string, toolName: string): void {
   const url = config.approvalWebhookUrl;
   if (!url) return;
-  void fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "approval_requested", id, client: clientName, tool: toolName }),
-    signal: AbortSignal.timeout(config.approvalWebhookTimeoutMs),
-  }).catch(() => {});
+  void dispatchWebhook(
+    url,
+    { type: "approval_requested", id, client: clientName, tool: toolName },
+    {
+      timeoutMs: config.approvalWebhookTimeoutMs,
+      rejectedLogMessage: "Approval webhook URL rejected",
+      failedLogMessage: "Approval webhook delivery failed",
+      logContext: { approvalId: id, client: clientName, tool: toolName },
+    },
+  );
 }
 
 function stableStringify(value: unknown): string {

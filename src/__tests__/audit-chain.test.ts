@@ -75,7 +75,15 @@ describe("audit hash chain", () => {
 
 describe("audit SIEM streaming", () => {
   let server: Server | null = null;
+  const originalAllowPrivate = config.allowPrivateIps;
+  beforeEach(() => {
+    // The sink under test is a real 127.0.0.1 listener — allow private IPs so
+    // streamAuditEvent's SSRF validation (shared with every other webhook
+    // dispatch site) doesn't reject the loopback destination.
+    (config as Record<string, unknown>).allowPrivateIps = true;
+  });
   afterEach(async () => {
+    (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
     await new Promise<void>((resolve) => {
       if (server)
         server.close(() => {

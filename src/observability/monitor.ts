@@ -16,7 +16,7 @@ import { config } from "../config.js";
 import { log } from "../logger.js";
 import { registry, TOOL_KEY_SEPARATOR } from "../mcp/registry.js";
 import { proxyToolCall } from "../proxy/proxy.js";
-import { validateBackendUrl } from "../net/ip-validator.js";
+import { dispatchWebhook } from "../lib/webhook.js";
 
 export type MonitorStatus = "ok" | "fail";
 
@@ -212,17 +212,16 @@ async function notifyMonitor(
 ): Promise<void> {
   const url = config.monitorWebhookUrl;
   if (!url) return;
-  const validation = await validateBackendUrl(url, config.allowPrivateIps, config.allowedHosts);
-  if (!validation.valid) {
-    log("warn", "Monitor webhook URL rejected", { client: clientName, tool: toolName, reason: validation.reason });
-    return;
-  }
-  void fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "synthetic_monitor", client: clientName, tool: toolName, status, drift }),
-    signal: AbortSignal.timeout(config.monitorWebhookTimeoutMs),
-  }).catch(() => {});
+  await dispatchWebhook(
+    url,
+    { type: "synthetic_monitor", client: clientName, tool: toolName, status, drift },
+    {
+      timeoutMs: config.monitorWebhookTimeoutMs,
+      rejectedLogMessage: "Monitor webhook URL rejected",
+      failedLogMessage: "Monitor webhook delivery failed",
+      logContext: { client: clientName, tool: toolName },
+    },
+  );
 }
 
 function stableStringify(value: unknown): string {
