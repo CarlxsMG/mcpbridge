@@ -65,10 +65,4 @@ const feed = computed(() => def.value?.get(props.stores) ?? null);
   font-family: var(--font-mono);
   color: var(--text-primary);
 }
-.w-muted {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  margin: 0;
-  text-align: center;
-}
 </style>

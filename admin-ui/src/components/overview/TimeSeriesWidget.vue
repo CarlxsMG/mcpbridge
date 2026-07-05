@@ -36,12 +36,3 @@ const formatTime = computed(() => {
     <p v-else class="w-muted">No data.</p>
   </WidgetCard>
 </template>
-
-<style scoped>
-.w-muted {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  margin: 0;
-  text-align: center;
-}
-</style>

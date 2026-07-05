@@ -47,3 +47,15 @@ defineProps<{ title: string; center?: boolean }>();
   justify-content: center;
 }
 </style>
+
+<style>
+/* Deliberately unscoped: shared with ListWidget.vue and TimeSeriesWidget.vue,
+   which render their "no data" fallback under their own scope hash, not this
+   file's. */
+.w-muted {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  margin: 0;
+  text-align: center;
+}
+</style>
