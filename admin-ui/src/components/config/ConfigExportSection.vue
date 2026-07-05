@@ -32,13 +32,21 @@ async function doExport(format: "json" | "yaml") {
 
 <template>
   <div class="block">
-    <h2>{{ t('components.config_export.title') }}</h2>
+    <h2>{{ t("components.config_export.title") }}</h2>
     <div class="actions" role="group" :aria-label="t('components.config_export.aria_label')">
       <button type="button" class="btn-secondary" :disabled="exportingFormat !== null" @click="doExport('json')">
-        {{ exportingFormat === "json" ? t('components.config_export.exporting') : t('components.config_export.download_json') }}
+        {{
+          exportingFormat === "json"
+            ? t("components.config_export.exporting")
+            : t("components.config_export.download_json")
+        }}
       </button>
       <button type="button" class="btn-secondary" :disabled="exportingFormat !== null" @click="doExport('yaml')">
-        {{ exportingFormat === "yaml" ? t('components.config_export.exporting') : t('components.config_export.download_yaml') }}
+        {{
+          exportingFormat === "yaml"
+            ? t("components.config_export.exporting")
+            : t("components.config_export.download_yaml")
+        }}
       </button>
     </div>
   </div>

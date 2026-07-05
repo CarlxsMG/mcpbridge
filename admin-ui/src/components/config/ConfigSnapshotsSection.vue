@@ -101,10 +101,10 @@ function fmt(v: unknown): string {
 
 <template>
   <div class="block">
-    <h2>{{ t('components.config_snapshots.title') }}</h2>
-    <p class="hint">{{ t('components.config_snapshots.hint') }}</p>
+    <h2>{{ t("components.config_snapshots.title") }}</h2>
+    <p class="hint">{{ t("components.config_snapshots.hint") }}</p>
     <div class="actions">
-      <label for="snapshot-label">{{ t('components.config_snapshots.snapshot_label') }}</label>
+      <label for="snapshot-label">{{ t("components.config_snapshots.snapshot_label") }}</label>
       <input
         id="snapshot-label"
         v-model="newSnapshotLabel"
@@ -118,17 +118,17 @@ function fmt(v: unknown): string {
         :disabled="snapshotBusy || !newSnapshotLabel.trim()"
         @click="createSnapshotFn"
       >
-        {{ t('components.config_snapshots.snapshot_now') }}
+        {{ t("components.config_snapshots.snapshot_now") }}
       </button>
     </div>
     <p v-if="snapshotsError" class="error" role="alert">{{ snapshotsError }}</p>
     <TableCard v-if="snapshots.length">
       <thead>
         <tr>
-          <th>{{ t('components.config_snapshots.table.id') }}</th>
-          <th>{{ t('components.config_snapshots.table.label') }}</th>
-          <th>{{ t('components.config_snapshots.table.created') }}</th>
-          <th>{{ t('components.config_snapshots.table.by') }}</th>
+          <th>{{ t("components.config_snapshots.table.id") }}</th>
+          <th>{{ t("components.config_snapshots.table.label") }}</th>
+          <th>{{ t("components.config_snapshots.table.created") }}</th>
+          <th>{{ t("components.config_snapshots.table.by") }}</th>
           <th></th>
         </tr>
       </thead>
@@ -139,27 +139,36 @@ function fmt(v: unknown): string {
           <td>{{ formatDateTime(s.createdAt) }}</td>
           <td>{{ s.createdBy }}</td>
           <td class="row-actions">
-            <button type="button" class="link-btn" @click="showDiff(s)">{{ t('components.config_snapshots.diff_vs_current') }}</button>
-            <button type="button" class="link-btn" @click="requestRollback(s)">{{ t('components.config_snapshots.rollback') }}</button>
-            <button type="button" class="link-btn del" @click="requestDeleteSnapshot(s)">{{ t('common.delete') }}</button>
+            <button type="button" class="link-btn" @click="showDiff(s)">
+              {{ t("components.config_snapshots.diff_vs_current") }}
+            </button>
+            <button type="button" class="link-btn" @click="requestRollback(s)">
+              {{ t("components.config_snapshots.rollback") }}
+            </button>
+            <button type="button" class="link-btn del" @click="requestDeleteSnapshot(s)">
+              {{ t("common.delete") }}
+            </button>
           </td>
         </tr>
       </tbody>
     </TableCard>
     <p v-else-if="!snapshotsError" class="hint">
-      {{ t('components.config_snapshots.empty') }}
+      {{ t("components.config_snapshots.empty") }}
     </p>
 
     <div v-if="diff" class="diff">
-      <h3>{{ t('components.config_snapshots.diff_heading', { id: diff.from.id, label: diff.from.label }) }} → {{ diff.to }}</h3>
-      <p v-if="diff.entries.length === 0" class="hint">{{ t('components.config_snapshots.no_differences') }}</p>
+      <h3>
+        {{ t("components.config_snapshots.diff_heading", { id: diff.from.id, label: diff.from.label }) }} →
+        {{ diff.to }}
+      </h3>
+      <p v-if="diff.entries.length === 0" class="hint">{{ t("components.config_snapshots.no_differences") }}</p>
       <TableCard v-else>
         <thead>
           <tr>
-            <th>{{ t('components.config_snapshots.diff_table.path') }}</th>
-            <th>{{ t('components.config_snapshots.diff_table.change') }}</th>
-            <th>{{ t('components.config_snapshots.diff_table.before') }}</th>
-            <th>{{ t('components.config_snapshots.diff_table.after') }}</th>
+            <th>{{ t("components.config_snapshots.diff_table.path") }}</th>
+            <th>{{ t("components.config_snapshots.diff_table.change") }}</th>
+            <th>{{ t("components.config_snapshots.diff_table.before") }}</th>
+            <th>{{ t("components.config_snapshots.diff_table.after") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -183,7 +192,9 @@ function fmt(v: unknown): string {
   <ConfirmDialog
     :open="pendingRollback !== null"
     :title="t('components.config_snapshots.confirm.rollback_title')"
-    :message="pendingRollback ? t('components.config_snapshots.confirm.rollback_message', { label: pendingRollback.label }) : ''"
+    :message="
+      pendingRollback ? t('components.config_snapshots.confirm.rollback_message', { label: pendingRollback.label }) : ''
+    "
     :confirm-label="t('components.config_snapshots.confirm.rollback_cta')"
     danger
     @confirm="confirmRollback"
@@ -193,8 +204,16 @@ function fmt(v: unknown): string {
   <ConfirmDialog
     :open="pendingDeleteSnapshot !== null"
     :title="t('components.config_snapshots.confirm.delete_title')"
-    :message="pendingDeleteSnapshot ? t('components.config_snapshots.confirm.delete_message', { label: pendingDeleteSnapshot.label }) : ''"
-    :confirm-label="pendingDeleteSnapshot ? t('components.config_snapshots.confirm.delete_cta', { label: pendingDeleteSnapshot.label }) : t('common.delete')"
+    :message="
+      pendingDeleteSnapshot
+        ? t('components.config_snapshots.confirm.delete_message', { label: pendingDeleteSnapshot.label })
+        : ''
+    "
+    :confirm-label="
+      pendingDeleteSnapshot
+        ? t('components.config_snapshots.confirm.delete_cta', { label: pendingDeleteSnapshot.label })
+        : t('common.delete')
+    "
     danger
     @confirm="confirmDeleteSnapshot"
     @cancel="cancelDeleteSnapshot"

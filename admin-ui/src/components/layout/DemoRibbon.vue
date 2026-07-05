@@ -14,7 +14,7 @@ const { t } = useI18n({ useScope: "global" });
     target="_blank"
     rel="noopener"
   >
-    <GitBranch :size="13" stroke-width="2.5" aria-hidden="true" /> {{ t('components.demo_ribbon.label') }}
+    <GitBranch :size="13" stroke-width="2.5" aria-hidden="true" /> {{ t("components.demo_ribbon.label") }}
   </a>
 </template>
 

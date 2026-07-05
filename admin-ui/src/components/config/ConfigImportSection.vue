@@ -64,14 +64,14 @@ async function confirmImport() {
 
 <template>
   <div class="block">
-    <h2>{{ t('components.config_import.title') }}</h2>
+    <h2>{{ t("components.config_import.title") }}</h2>
     <p class="hint">
-      {{ t('components.config_import.hint') }}
+      {{ t("components.config_import.hint") }}
     </p>
     <FormField class="format-field" :label="t('components.config_import.fields.format')" for="import-format">
       <SelectMenu id="import-format" v-model="importFormat" :options="FORMAT_OPTIONS" />
     </FormField>
-    <label for="import-text">{{ t('components.config_import.fields.document') }}</label>
+    <label for="import-text">{{ t("components.config_import.fields.document") }}</label>
     <textarea
       id="import-text"
       v-model="importText"
@@ -80,8 +80,12 @@ async function confirmImport() {
       :placeholder="importFormat === 'yaml' ? 'version: 1' : jsonPlaceholder"
     ></textarea>
     <div class="actions">
-      <button type="button" class="btn-secondary" :disabled="busy" @click="runImport(true)">{{ t('components.config_import.dry_run') }}</button>
-      <button type="button" class="btn-primary" :disabled="busy" @click="requestImport">{{ t('components.config_import.apply') }}</button>
+      <button type="button" class="btn-secondary" :disabled="busy" @click="runImport(true)">
+        {{ t("components.config_import.dry_run") }}
+      </button>
+      <button type="button" class="btn-primary" :disabled="busy" @click="requestImport">
+        {{ t("components.config_import.apply") }}
+      </button>
     </div>
   </div>
 

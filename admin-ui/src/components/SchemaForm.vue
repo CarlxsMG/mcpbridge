@@ -73,7 +73,10 @@ watch(
 );
 
 function enumOptions(f: Field): { value: string; label: string }[] {
-  return [{ value: "", label: t("components.schema_form.unset") }, ...(f.enum ?? []).map((opt) => ({ value: opt, label: opt }))];
+  return [
+    { value: "", label: t("components.schema_form.unset") },
+    ...(f.enum ?? []).map((opt) => ({ value: opt, label: opt })),
+  ];
 }
 
 function setEnumValue(name: string, v: string) {
@@ -118,7 +121,7 @@ function emitArgs() {
 
 <template>
   <div class="schema-form">
-    <p v-if="fields.length === 0" class="hint">{{ t('components.schema_form.empty') }}</p>
+    <p v-if="fields.length === 0" class="hint">{{ t("components.schema_form.empty") }}</p>
     <div v-for="f in fields" :key="f.name" class="sf-field">
       <label :for="`sf-${f.name}`"> {{ f.name }}<span v-if="f.required" class="req">*</span> </label>
       <p v-if="f.description" class="hint">{{ f.description }}</p>
@@ -155,7 +158,7 @@ function emitArgs() {
       />
       <input v-else :id="`sf-${f.name}`" v-model="values[f.name] as string" type="text" @input="emitArgs" />
       <p v-if="f.kind === 'json' && jsonInvalid[f.name]" class="field-error">
-        {{ t('components.schema_form.json_invalid') }}
+        {{ t("components.schema_form.json_invalid") }}
       </p>
     </div>
   </div>
