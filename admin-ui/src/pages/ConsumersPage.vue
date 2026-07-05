@@ -149,11 +149,8 @@ function confirmDelete() {
 
 <template>
   <section>
-    <PageHeader
-      :title="t('pages.consumers.title')"
-      :subtitle="t('pages.consumers.subtitle')"
-    >
-      <RouterLink to="/consumers/new" class="btn-primary">{{ t('pages.consumers.create') }}</RouterLink>
+    <PageHeader :title="t('pages.consumers.title')" :subtitle="t('pages.consumers.subtitle')">
+      <RouterLink to="/consumers/new" class="btn-primary">{{ t("pages.consumers.create") }}</RouterLink>
     </PageHeader>
 
     <form v-if="showEdit" class="create-form" @submit.prevent="submitConsumer">
@@ -172,16 +169,16 @@ function confirmDelete() {
       <p v-if="createError" class="error">{{ createError }}</p>
       <div class="form-actions">
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t('common.saving') : t('common.save_changes') }}
+          {{ creating ? t("common.saving") : t("common.save_changes") }}
         </button>
-        <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
+        <button type="button" class="btn-secondary" @click="closeForm">{{ t("common.cancel") }}</button>
       </div>
     </form>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="consumers.length === 0">
       <template #empty>
         <EmptyState :icon="Users2">
-          {{ t('pages.consumers.empty.no_consumers') }}
+          {{ t("pages.consumers.empty.no_consumers") }}
         </EmptyState>
       </template>
 
@@ -189,10 +186,10 @@ function confirmDelete() {
         <thead>
           <tr>
             <th></th>
-            <th>{{ t('common.name') }}</th>
-            <th>{{ t('pages.consumers.table.quota') }}</th>
-            <th>{{ t('pages.consumers.table.end_user_limit') }}</th>
-            <th>{{ t('pages.consumers.table.used_this_month') }}</th>
+            <th>{{ t("common.name") }}</th>
+            <th>{{ t("pages.consumers.table.quota") }}</th>
+            <th>{{ t("pages.consumers.table.end_user_limit") }}</th>
+            <th>{{ t("pages.consumers.table.used_this_month") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -212,8 +209,14 @@ function confirmDelete() {
                 </button>
               </td>
               <td>{{ c.name }}</td>
-              <td>{{ c.monthlyQuota ?? t('pages.consumers.unlimited') }}</td>
-              <td>{{ c.endUserRateLimitPerMin !== null ? t('pages.consumers.end_user_limit_value', { value: c.endUserRateLimitPerMin }) : "—" }}</td>
+              <td>{{ c.monthlyQuota ?? t("pages.consumers.unlimited") }}</td>
+              <td>
+                {{
+                  c.endUserRateLimitPerMin !== null
+                    ? t("pages.consumers.end_user_limit_value", { value: c.endUserRateLimitPerMin })
+                    : "—"
+                }}
+              </td>
               <td :class="{ hot: c.monthlyQuota !== null && c.usedThisMonth >= c.monthlyQuota }">
                 <div class="usage-cell">
                   <span>{{ c.usedThisMonth }}</span>
@@ -222,8 +225,10 @@ function confirmDelete() {
               </td>
               <td>
                 <div class="actions" @click.stop>
-                  <button type="button" class="link-btn" @click="openEdit(c)">{{ t('common.edit') }}</button>
-                  <button type="button" class="link-btn danger" @click="requestDelete(c)">{{ t('common.delete') }}</button>
+                  <button type="button" class="link-btn" @click="openEdit(c)">{{ t("common.edit") }}</button>
+                  <button type="button" class="link-btn danger" @click="requestDelete(c)">
+                    {{ t("common.delete") }}
+                  </button>
                 </div>
               </td>
             </tr>
@@ -235,15 +240,17 @@ function confirmDelete() {
                   <template v-else-if="usageById[c.id]">
                     <div class="usage-detail-stats">
                       <div class="usage-stat">
-                        <span class="usage-stat-label">{{ t('pages.consumers.usage.used_this_month') }}</span>
+                        <span class="usage-stat-label">{{ t("pages.consumers.usage.used_this_month") }}</span>
                         <span class="usage-stat-value">{{ usageById[c.id].used }}</span>
                       </div>
                       <div class="usage-stat">
-                        <span class="usage-stat-label">{{ t('pages.consumers.usage.monthly_quota') }}</span>
-                        <span class="usage-stat-value">{{ usageById[c.id].quota ?? t('pages.consumers.unlimited') }}</span>
+                        <span class="usage-stat-label">{{ t("pages.consumers.usage.monthly_quota") }}</span>
+                        <span class="usage-stat-value">{{
+                          usageById[c.id].quota ?? t("pages.consumers.unlimited")
+                        }}</span>
                       </div>
                       <div class="usage-stat">
-                        <span class="usage-stat-label">{{ t('pages.consumers.usage.remaining') }}</span>
+                        <span class="usage-stat-label">{{ t("pages.consumers.usage.remaining") }}</span>
                         <span class="usage-stat-value">{{ remainingLabel(usageById[c.id]) }}</span>
                       </div>
                     </div>
@@ -260,10 +267,10 @@ function confirmDelete() {
     <ConfirmDialog
       :open="pendingDelete !== null"
       :title="t('pages.consumers.confirm.delete_title')"
-      :message="
-        pendingDelete ? t('pages.consumers.confirm.delete_message', { name: pendingDelete.name }) : ''
+      :message="pendingDelete ? t('pages.consumers.confirm.delete_message', { name: pendingDelete.name }) : ''"
+      :confirm-label="
+        pendingDelete ? t('pages.consumers.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')
       "
-      :confirm-label="pendingDelete ? t('pages.consumers.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"

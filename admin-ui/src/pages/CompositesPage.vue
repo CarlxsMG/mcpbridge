@@ -63,22 +63,22 @@ function confirmDelete() {
 <template>
   <section>
     <PageHeader :title="t('pages.composites.title')">
-      <RouterLink to="/composites/new" class="btn-primary">{{ t('pages.composites.create') }}</RouterLink>
+      <RouterLink to="/composites/new" class="btn-primary">{{ t("pages.composites.create") }}</RouterLink>
     </PageHeader>
-    <p class="subtitle">{{ t('pages.composites.subtitle') }}</p>
+    <p class="subtitle">{{ t("pages.composites.subtitle") }}</p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
       <template #empty>
-        <EmptyState :icon="Combine">{{ t('pages.composites.empty.no_composites') }}</EmptyState>
+        <EmptyState :icon="Combine">{{ t("pages.composites.empty.no_composites") }}</EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.composites.table.name') }}</th>
-            <th>{{ t('pages.composites.table.description') }}</th>
-            <th>{{ t('pages.composites.table.steps') }}</th>
-            <th>{{ t('pages.composites.table.enabled') }}</th>
+            <th>{{ t("pages.composites.table.name") }}</th>
+            <th>{{ t("pages.composites.table.description") }}</th>
+            <th>{{ t("pages.composites.table.steps") }}</th>
+            <th>{{ t("pages.composites.table.enabled") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -101,7 +101,9 @@ function confirmDelete() {
               />
               <p v-if="toggleError[c.name]" class="row-error">{{ toggleError[c.name] }}</p>
             </td>
-            <td><button type="button" class="link-btn danger" @click="requestDelete(c)">{{ t('common.delete') }}</button></td>
+            <td>
+              <button type="button" class="link-btn danger" @click="requestDelete(c)">{{ t("common.delete") }}</button>
+            </td>
           </tr>
         </tbody>
       </TableCard>
@@ -110,12 +112,10 @@ function confirmDelete() {
     <ConfirmDialog
       :open="pendingDelete !== null"
       :title="t('pages.composites.confirm.delete_title')"
-      :message="
-        pendingDelete
-          ? t('pages.composites.confirm.delete_message', { name: pendingDelete.name })
-          : ''
+      :message="pendingDelete ? t('pages.composites.confirm.delete_message', { name: pendingDelete.name }) : ''"
+      :confirm-label="
+        pendingDelete ? t('pages.composites.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')
       "
-      :confirm-label="pendingDelete ? t('pages.composites.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"

@@ -92,7 +92,7 @@ onMounted(load);
           :options="WINDOW_OPTIONS"
           @update:model-value="onWindowChange"
         />
-        <span v-if="loading" class="loading-note">{{ t('common.loading') }}</span>
+        <span v-if="loading" class="loading-note">{{ t("common.loading") }}</span>
       </div>
     </PageHeader>
 
@@ -137,17 +137,17 @@ onMounted(load);
         </ChartCard>
       </div>
 
-      <h2>{{ t('pages.usage.section.top_tools') }}</h2>
+      <h2>{{ t("pages.usage.section.top_tools") }}</h2>
       <TableCard v-if="topTools.length">
         <thead>
           <tr>
-            <th>{{ t('pages.usage.table.client') }}</th>
-            <th>{{ t('pages.usage.table.tool') }}</th>
-            <th>{{ t('pages.usage.table.calls') }}</th>
-            <th>{{ t('pages.usage.table.errors') }}</th>
-            <th>{{ t('pages.usage.table.error_rate') }}</th>
-            <th>{{ t('pages.usage.table.avg') }}</th>
-            <th>{{ t('pages.usage.table.max') }}</th>
+            <th>{{ t("pages.usage.table.client") }}</th>
+            <th>{{ t("pages.usage.table.tool") }}</th>
+            <th>{{ t("pages.usage.table.calls") }}</th>
+            <th>{{ t("pages.usage.table.errors") }}</th>
+            <th>{{ t("pages.usage.table.error_rate") }}</th>
+            <th>{{ t("pages.usage.table.avg") }}</th>
+            <th>{{ t("pages.usage.table.max") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -162,18 +162,18 @@ onMounted(load);
           </tr>
         </tbody>
       </TableCard>
-      <p v-else class="empty">{{ t('pages.usage.empty.no_calls') }}</p>
+      <p v-else class="empty">{{ t("pages.usage.empty.no_calls") }}</p>
       <p v-if="topTools.length === 20" class="hint">
-        {{ t('pages.usage.truncated_hint') }}
+        {{ t("pages.usage.truncated_hint") }}
       </p>
 
-      <h2>{{ t('pages.usage.section.by_key') }}</h2>
+      <h2>{{ t("pages.usage.section.by_key") }}</h2>
       <TableCard v-if="byKey.length">
         <thead>
           <tr>
-            <th>{{ t('pages.usage.table.key') }}</th>
-            <th>{{ t('pages.usage.table.calls') }}</th>
-            <th>{{ t('pages.usage.table.errors') }}</th>
+            <th>{{ t("pages.usage.table.key") }}</th>
+            <th>{{ t("pages.usage.table.calls") }}</th>
+            <th>{{ t("pages.usage.table.errors") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -184,9 +184,9 @@ onMounted(load);
           </tr>
         </tbody>
       </TableCard>
-      <p v-else class="empty">{{ t('pages.usage.empty.no_attributed') }}</p>
+      <p v-else class="empty">{{ t("pages.usage.empty.no_attributed") }}</p>
       <p v-if="byKey.length === 20" class="hint">
-        {{ t('pages.usage.truncated_hint') }}
+        {{ t("pages.usage.truncated_hint") }}
       </p>
     </template>
     <SignalLoader v-else-if="loading" />

@@ -50,22 +50,22 @@ async function confirmRemove() {
 <template>
   <section>
     <PageHeader :title="t('pages.teams.title')" :subtitle="t('pages.teams.subtitle')">
-      <RouterLink to="/teams/new" class="btn-primary">{{ t('pages.teams.new_team') }}</RouterLink>
+      <RouterLink to="/teams/new" class="btn-primary">{{ t("pages.teams.new_team") }}</RouterLink>
     </PageHeader>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="teams.length === 0">
       <template #empty>
         <EmptyState :icon="UsersRound">
-          {{ t('pages.teams.empty') }}
+          {{ t("pages.teams.empty") }}
         </EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.teams.table.id') }}</th>
-            <th>{{ t('pages.teams.table.name') }}</th>
-            <th>{{ t('pages.teams.table.created') }}</th>
+            <th>{{ t("pages.teams.table.id") }}</th>
+            <th>{{ t("pages.teams.table.name") }}</th>
+            <th>{{ t("pages.teams.table.created") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -74,7 +74,9 @@ async function confirmRemove() {
             <td>{{ team.id }}</td>
             <td>{{ team.name }}</td>
             <td>{{ new Date(team.createdAt).toLocaleDateString() }}</td>
-            <td><button class="link-btn danger" @click="requestRemove(team)">{{ t('common.delete') }}</button></td>
+            <td>
+              <button class="link-btn danger" @click="requestRemove(team)">{{ t("common.delete") }}</button>
+            </td>
           </tr>
         </tbody>
       </TableCard>
@@ -84,7 +86,9 @@ async function confirmRemove() {
       :open="pendingDelete !== null"
       :title="t('pages.teams.confirm.delete_title')"
       :message="pendingDelete ? t('pages.teams.confirm.delete_message', { name: pendingDelete.name }) : ''"
-      :confirm-label="pendingDelete ? t('pages.teams.confirm.delete_cta', { name: pendingDelete.name }) : t('common.delete')"
+      :confirm-label="
+        pendingDelete ? t('pages.teams.confirm.delete_cta', { name: pendingDelete.name }) : t('common.delete')
+      "
       danger
       @confirm="confirmRemove"
       @cancel="cancelRemove"

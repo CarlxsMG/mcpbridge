@@ -1,9 +1,10 @@
-# Deployment
+# Despliegue
 
-MCP REST Bridge is a single Bun process with a SQLite file. There's no external database and
-no Kubernetes requirement — though it runs fine in a container orchestrator if you want one.
+MCP REST Bridge es un único proceso Bun con un fichero SQLite. No hay base de datos
+externa ni requisito de Kubernetes — aunque funciona bien en un orquestador de contenedores
+si quieres uno.
 
-## Docker (recommended)
+## Docker (recomendado)
 
 ```bash
 docker build -t mcpbridge .
@@ -11,19 +12,20 @@ docker build -t mcpbridge .
 docker run -d --name mcpbridge -p 3000:3000 \
   -e SESSION_COOKIE_SECURE=true \
   -e BOOTSTRAP_ADMIN_USERNAME=admin \
-  -e BOOTSTRAP_ADMIN_PASSWORD='<a strong 12+ char password>' \
+  -e BOOTSTRAP_ADMIN_PASSWORD='<una contraseña fuerte de 12+ chars>' \
   -e MCP_API_KEYS='<key1,key2>' \
   -v mcpbridge-data:/app/data \
   mcpbridge
 ```
 
-- The image runs on port **3000** and stores its SQLite database at **`/app/data`** — mount
-  a volume there so config survives restarts.
-- A `HEALTHCHECK` hits `/health`; the process shuts down gracefully on `SIGTERM`.
+- La imagen corre en el puerto **3000** y almacena su base de datos SQLite en **`/app/data`**
+  — monta un volumen ahí para que la config sobreviva a restarts.
+- Un `HEALTHCHECK` pega a `/health`; el proceso se apaga con gracia en `SIGTERM`.
 
-Tagged releases (`vX.Y.Z`) are also published to GHCR at `ghcr.io/aico-dot-team-code/mcpbridge`
-(adjust the owner/repo if you forked this project — see the note atop the README), so you can
-skip the local build entirely:
+Las releases taggeadas (`vX.Y.Z`) también se publican a GHCR en
+`ghcr.io/aico-dot-team-code/mcpbridge` (ajusta el owner/repo si forkaste este proyecto —
+consulta la nota al inicio del README), así que puedes saltarte el build local por
+completo:
 
 ```bash
 docker pull ghcr.io/aico-dot-team-code/mcpbridge:latest
@@ -31,78 +33,84 @@ docker pull ghcr.io/aico-dot-team-code/mcpbridge:latest
 docker run -d --name mcpbridge -p 3000:3000 \
   -e SESSION_COOKIE_SECURE=true \
   -e BOOTSTRAP_ADMIN_USERNAME=admin \
-  -e BOOTSTRAP_ADMIN_PASSWORD='<a strong 12+ char password>' \
+  -e BOOTSTRAP_ADMIN_PASSWORD='<una contraseña fuerte de 12+ chars>' \
   -e MCP_API_KEYS='<key1,key2>' \
   -v mcpbridge-data:/app/data \
   ghcr.io/aico-dot-team-code/mcpbridge:latest
 ```
 
-Same env vars as the local-build example above — only the image differs. Without
-`BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD`, the container starts with an empty
-`admin_users` table and no way to log in.
+Las mismas env vars que el ejemplo de build local de arriba — solo cambia la imagen. Sin
+`BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD`, el contenedor arranca con la tabla
+`admin_users` vacía y sin forma de iniciar sesión.
 
-## Behind a reverse proxy (HTTPS)
+## Detrás de un reverse proxy (HTTPS)
 
-Terminate TLS at your proxy (nginx, Caddy, Traefik, a cloud LB) and forward to the bridge.
-In production:
+Termina TLS en tu proxy (nginx, Caddy, Traefik, un LB en la nube) y reenvía al bridge.
+En producción:
 
-- Keep **`SESSION_COOKIE_SECURE=true`** so the admin session cookie is `__Host-`/Secure.
-- Set **`TRUST_PROXY=true`** _only_ when the bridge is genuinely behind a trusted proxy, so
-  it reads the real client IP from `X-Forwarded-For` correctly.
-- Forward the `X-Forwarded-Proto` header so HSTS and secure-cookie logic behave.
+- Mantén **`SESSION_COOKIE_SECURE=true`** para que la cookie de sesión admin sea
+  `__Host-`/Secure.
+- Define **`TRUST_PROXY=true`** _solo_ cuando el bridge esté genuinamente detrás de un
+  proxy de confianza, para que lea la IP real del cliente desde `X-Forwarded-For`
+  correctamente.
+- Reenvía el header `X-Forwarded-Proto` para que la lógica de HSTS y secure-cookie
+  funcione.
 
 ## Bun (bare metal / VM)
 
 ```bash
 bun install
-cd admin-ui && bun install && bun run build && cd ..   # build the admin UI once
-bun run start                                          # or: bun src/index.ts
+cd admin-ui && bun install && bun run build && cd ..   # build del admin UI una vez
+bun run start                                          # o: bun src/index.ts
 ```
 
-The backend serves the built admin UI from `admin-ui/dist` at `/admin` when present.
+El backend sirve el admin UI buildeado desde `admin-ui/dist` en `/admin` cuando está
+presente.
 
-## Persistence & backups
+## Persistencia y backups
 
-All durable state lives in the SQLite database (`DB_PATH`, default `/app/data/mcp-bridge.db`
-in Docker). Back it up like any SQLite file; use `:memory:` only for throwaway runs. You can
-also **export/import** the full configuration as JSON from the admin UI or `/admin-api/config`.
+Todo el estado durable vive en la base de datos SQLite (`DB_PATH`, por defecto
+`/app/data/mcp-bridge.db` en Docker). Haz backup como cualquier fichero SQLite; usa
+`:memory:` solo para runs throwaway. También puedes **export/import** la configuración
+completa como JSON desde la UI de admin o `/admin-api/config`.
 
-For an on-demand full-database backup without shelling into the host, `POST /admin-api/backup`
-produces a transactionally-consistent snapshot (SQLite `VACUUM INTO`) and streams it back as a
-downloadable file.
+Para un backup full-database on-demand sin tener que entrar al host, `POST /admin-api/backup`
+produce un snapshot transaccionalmente consistente (SQLite `VACUUM INTO`) y lo streamea
+como fichero descargable.
 
-### Upgrading
+### Actualizar
 
-Schema changes ship as an ordered, append-only list of SQL migrations
-(`src/db/migrations.ts`) that run **automatically on every startup**, before the server
-starts accepting requests. There is **no downgrade path** — migrations are forward-only
-and irreversible.
+Los cambios de schema vienen como una lista ordenada y append-only de migraciones SQL
+(`src/db/migrations.ts`) que corren **automáticamente en cada arranque**, antes de que el
+servidor empiece a aceptar requests. **No hay path de downgrade** — las migraciones son
+solo forward e irreversibles.
 
-Because of that:
+Por eso:
 
-- **Back up `data/mcp-bridge.db` (or your `DB_PATH`) before upgrading** to a new version,
-  the same way you'd snapshot any production database before a schema change. If a new
-  version's migration does something unexpected, restoring the pre-upgrade file is the
-  only way back — there's no automated rollback.
-- Migrations run inside a transaction each, so a mid-migration failure can't leave the
-  schema half-applied — but it _can_ leave the process refusing to start until the
-  underlying issue (e.g. disk full, permissions) is fixed.
-- You can check which migrations have already been applied with the SQLite CLI:
+- **Haz backup de `data/mcp-bridge.db` (o tu `DB_PATH`) antes de actualizar** a una nueva
+  versión, igual que harías snapshot de cualquier base de producción antes de un cambio
+  de schema. Si una migración de la nueva versión hace algo inesperado, restaurar el
+  fichero pre-actualización es la única vuelta atrás — no hay rollback automatizado.
+- Las migraciones corren cada una dentro de su transacción, así que un fallo a mitad de
+  migración no puede dejar el schema a medias — pero _sí_ puede dejar el proceso
+  negándose a arrancar hasta que se arregle el problema subyacente (p. ej. disco lleno,
+  permisos).
+- Puedes comprobar qué migraciones se han aplicado ya con el CLI de SQLite:
 
   ```bash
   sqlite3 data/mcp-bridge.db "SELECT id, name, applied_at FROM _migrations ORDER BY id;"
   ```
 
-## High availability (opt-in)
+## Alta disponibilidad (opt-in)
 
-Run several instances behind a load balancer, sharing one SQLite database — see
-**[Scaling & high availability →](/guide/scaling)** for the HA flags, sticky-session guidance,
-and the caveats around shared SQLite.
+Ejecuta varias instancias tras un load balancer, compartiendo una base de datos SQLite —
+consulta **[Escalado y alta disponibilidad →](/es/guide/scaling)** para las flags de HA,
+guía de sticky-session y las caveats alrededor de SQLite compartido.
 
-## Observability
+## Observabilidad
 
-Metrics, tracing, usage analytics and alerting all ship in the same process — see
-**[Observability & monitoring →](/guide/observability)** for what's available and how to wire
-each one up.
+Métricas, tracing, analytics de uso y alertas vienen en el mismo proceso — consulta
+**[Observabilidad y monitorización →](/es/guide/observability)** para qué hay disponible
+y cómo wirear cada uno.
 
-Next: **[Configuration →](/guide/configuration)** · **[Troubleshooting →](/guide/troubleshooting)**
+Siguiente: **[Configuración →](/es/guide/configuration)** · **[Solución de problemas →](/es/guide/troubleshooting)**

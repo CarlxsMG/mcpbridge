@@ -1,69 +1,74 @@
-# Scaling & high availability
+# Escalado y alta disponibilidad
 
-MCP REST Bridge runs happily as a single process — one Bun instance with a local
-SQLite file handles a lot. When you need redundancy or more throughput, it scales
-horizontally: run several identical instances behind a load balancer, coordinated
-through a shared SQLite database.
+MCP REST Bridge corre feliz como un único proceso — una instancia Bun con un fichero
+SQLite local maneja mucho. Cuando necesitas redundancia o más throughput, escala
+horizontalmente: ejecuta varias instancias idénticas tras un load balancer, coordinadas
+a través de una base de datos SQLite compartida.
 
-## The model
+## El modelo
 
-- **Stateless request handling.** Each tool call is self-contained; any instance can
-  serve any REST call.
-- **SQLite is the coordination layer.** Admin config, guards, keys, audit, usage and
-  the HA primitives all live in the database. Point every instance at the **same**
-  `DB_PATH` (shared storage / a shared volume) so they see one config.
-- **Opt-in HA flags** turn on cross-instance behaviour (below) — they're off by default
-  so a single node stays simple.
+- **Manejo de requests stateless.** Cada llamada de tool es autocontenida; cualquier
+  instancia puede servir cualquier llamada REST.
+- **SQLite es la capa de coordinación.** Config admin, guards, keys, audit, uso y las
+  primitivas HA viven todas en la base de datos. Apunta cada instancia al **mismo**
+  `DB_PATH` (almacenamiento compartido / un volumen compartido) para que vean una sola
+  config.
+- **Flags de HA opt-in** activan comportamiento cross-instancia (abajo) — están off por
+  defecto para que un único nodo se mantenga simple.
 
 <ScaleOut />
 
-## Turn on the HA primitives
+## Activar las primitivas HA
 
-| Setting                  | Effect                                                                                                                                       |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RATE_LIMIT_SHARED=true` | Rate limits use SQLite fixed-window counters, so a per-tool limit is enforced across **all** instances, not per-process.                     |
-| `REGISTRY_SYNC=true`     | Each instance periodically reconciles its live registry from SQLite — a client registered (or removed) on one node propagates to the others. |
+| Setting                  | Efecto                                                                                                                                             |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RATE_LIMIT_SHARED=true` | Los rate limits usan contadores fixed-window en SQLite, de modo que un límite por tool se aplica cross-**all**-instancias, no por proceso.         |
+| `REGISTRY_SYNC=true`     | Cada instancia reconcilia periódicamente su registry en vivo desde SQLite — un cliente registrado (o eliminado) en un nodo se propaga a los otros. |
 
-Background loops that must run **once** — alert evaluation, maintenance schedules, and the
-health-check/auto-eviction loop — elect a single leader automatically via a SQLite lease. This
-isn't a flag; it's always on and needs no configuration.
+Los loops en background que deben correr **una vez** — evaluación de alertas, schedules de
+mantenimiento y el loop de health-check/auto-eliminación — eligen un único líder
+automáticamente vía un lease en SQLite. Esto no es una flag; siempre está activo y no
+requiere configuración.
 
-## Load balancing your backends
+## Load balancing de tus backends
 
-Separately from scaling the bridge itself, a single **client** can fan out across **several
-backend targets** (N-way load balancing), configured per client from the admin API. A
-target that fails is skipped for `LB_TARGET_COOLDOWN_MS` (default 30s) before it's tried
-again. Combine with per-client **canary/failover** (see [Guardrails & resilience](/guide/guardrails-resilience))
-for graceful degradation.
+Separado de escalar el bridge mismo, un único **cliente** puede fan-out entre **varios
+targets de backend** (load balancing N-way), configurado por cliente desde la admin API.
+Un target que falla se salta durante `LB_TARGET_COOLDOWN_MS` (por defecto 30s) antes de
+probarlo de nuevo. Combina con **canary/failover** por cliente (consulta [Guardrails y
+resiliencia](/es/guide/guardrails-resilience)) para degradación con gracia.
 
-## MCP sessions & sticky routing
+## Sesiones MCP y sticky routing
 
-The **Streamable HTTP** and **SSE** transports keep per-session state **in memory** on
-the instance that opened the session. Two options:
+Los transportes **Streamable HTTP** y **SSE** mantienen estado por sesión **en memoria**
+en la instancia que abrió la sesión. Dos opciones:
 
-- **Sticky sessions** — enable session affinity on your load balancer for `/mcp`, `/sse`
-  and `/messages` so a session stays on one instance. Recommended for streaming clients.
-- **Stateless calls** — clients that open a fresh request per call don't need affinity and
-  balance freely.
+- **Sticky sessions** — habilita afinidad de sesión en tu load balancer para `/mcp`,
+  `/sse` y `/messages` para que una sesión se quede en una instancia. Recomendado para
+  clientes streaming.
+- **Llamadas stateless** — los clientes que abren un request fresco por llamada no
+  necesitan afinidad y se balancean libremente.
 
-REST proxying and the admin API need no affinity.
+El proxy REST y la admin API no necesitan afinidad.
 
-## Caveats to know
+## Caveats que debes conocer
 
-- **Shared SQLite requires shared storage.** SQLite over a network filesystem has locking
-  quirks; prefer a volume all instances mount locally, or keep writes modest. For very high
-  write volume, run fewer, larger instances.
-- **The audit hash-chain is per-instance.** Its tamper-evidence (`verifyAuditChain`) assumes
-  one writer; cross-instance chain integrity is out of scope — stream to a SIEM
-  (`AUDIT_SINK_URL`) for a consolidated, ordered record instead.
+- **SQLite compartido requiere almacenamiento compartido.** SQLite sobre un filesystem de
+  red tiene quirks de locking; prefiere un volumen que todas las instancias monten
+  localmente, o mantén las escrituras modestas. Para volumen de escritura muy alto,
+  ejecuta menos instancias, más grandes.
+- **La cadena de hash del audit es por instancia.** Su tamper-evidence (`verifyAuditChain`)
+  asume un único escritor; la integridad de la cadena cross-instancia está fuera de scope
+  — streamea a un SIEM (`AUDIT_SINK_URL`) para un registro consolidado y ordenado en su
+  lugar.
 
 ## Checklist
 
-- [ ] All instances share one `DB_PATH`
-- [ ] `RATE_LIMIT_SHARED=true` and `REGISTRY_SYNC=true`
-- [ ] Load balancer health-checks `/health`
-- [ ] Sticky sessions for `/mcp` · `/sse` · `/messages` (if you use streaming)
-- [ ] `AUDIT_SINK_URL` set for a consolidated audit trail
+- [ ] Todas las instancias comparten un `DB_PATH`
+- [ ] `RATE_LIMIT_SHARED=true` y `REGISTRY_SYNC=true`
+- [ ] El load balancer chequea `/health`
+- [ ] Sticky sessions para `/mcp` · `/sse` · `/messages` (si usas streaming)
+- [ ] `AUDIT_SINK_URL` configurado para un audit trail consolidado
 
-See **[Deployment →](/guide/deployment)** for the container setup and
-**[Configuration →](/guide/configuration)** for every flag.
+Consulta **[Despliegue →](/es/guide/deployment)** para el setup del contenedor y
+**[Configuración →](/es/guide/configuration)** para cada flag.

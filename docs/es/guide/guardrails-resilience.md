@@ -1,55 +1,60 @@
-# Guardrails & resilience
+# Guardrails y resiliencia
 
-Every tool call runs through a uniform stack at the dispatch point (`proxyToolCall`) — see
-the [request path](/guide/architecture#the-request-path). This page covers the knobs you set
-per tool or per client.
+Cada llamada de tool corre a través de una pila uniforme en el punto de dispatch
+(`proxyToolCall`) — consulta el [camino de la request](/es/guide/architecture#el-camino-de-la-request).
+Esta página cubre los knobs que se configuran por tool o por cliente.
 
 ## Circuit breakers
 
-Each tool has a breaker that trips after repeated failures (`closed → open → half_open`).
-While open, calls fail fast; a single probe in `half_open` tests recovery. Tune the failure
-threshold and reset window per client, or reset a breaker manually from a server's detail page.
+Cada tool tiene un breaker que se dispara tras fallos repetidos
+(`closed → open → half_open`). Mientras está abierto, las llamadas fallan rápido; un único
+probe en `half_open` testa la recuperación. Ajusta el umbral de fallos y la ventana de
+reset por cliente, o resetea un breaker manualmente desde la página de detalle de un server.
 
-## Content guardrails
+## Guardrails de contenido
 
-Enable any of these on a tool:
+Habilita cualquiera de estos en una tool:
 
-- **Input deny-rules** — reject calls whose arguments match configured patterns.
-- **Secret detection** — block requests that appear to carry credentials or tokens.
-- **Response sanitizing** — scan backend responses for prompt-injection payloads and wrap
-  untrusted data in a safe envelope before it reaches the model.
-- **Field redaction** — strip sensitive fields from responses.
-- **Context-budget guard** — deterministically truncate an oversized tool response, or
-  opt in to LLM summarization via a bring-your-own-key OpenAI/Anthropic-compatible endpoint,
-  so one call can't blow an agent's context window.
+- **Reglas de denegación de inputs** — rechaza llamadas cuyos argumentos coincidan con
+  patrones configurados.
+- **Detección de secretos** — bloquea requests que parezcan llevar credenciales o tokens.
+- **Sanitización de responses** — escanea las responses del backend en busca de payloads
+  de prompt-injection y envuelve los datos no confiables en un sobre seguro antes de que
+  lleguen al modelo.
+- **Redacción de campos** — strip de campos sensibles de las responses.
+- **Context-budget guard** — trunca deterministamente una tool response demasiado grande,
+  u opta por summarization LLM vía un endpoint compatible con OpenAI/Anthropic bring-your-own-key,
+  para que una llamada no pueda reventar la context window de un agente.
 
-Guardrails run **before** the circuit breaker above, so a rejected call never consumes a
-breaker probe slot.
+Los guardrails corren **antes** del circuit breaker de arriba, de modo que una llamada
+rechazada nunca consume un slot de probe del breaker.
 
-## Per-tool overrides
+## Overrides por tool
 
-Set a **rate limit**, **timeout**, **circuit-breaker override** or **allowed-key**
-restriction on any single tool.
+Define un **rate limit**, **timeout**, **override de circuit-breaker** o restricción
+**allowed-key** en cualquier tool individual.
 
-## Reusable guard policies
+## Políticas de guard reusables
 
-To avoid repeating the same rate limit + timeout on every tool in a bundle, define a reusable
-**guard policy** (rate + timeout only) once and apply it across the whole bundle.
+Para evitar repetir el mismo rate limit + timeout en cada tool de un bundle, define una
+**guard policy** reusable (solo rate + timeout) una vez y aplícala a todo el bundle.
 
-## Canary & failover
+## Canary y failover
 
-Give a REST client a validated **secondary** backend URL (SSRF-checked and IP-pinned at
-config time):
+Dale a un cliente REST una URL de backend **secundaria** validada (SSRF-chequeada y
+IP-anclada en tiempo de config):
 
-- **canary** — send a weighted slice of traffic to the secondary.
-- **failover** — route to the secondary when the primary's breaker is open, **without**
-  falsely closing the primary breaker (a secondary success must not mask a primary outage).
+- **canary** — envía un slice ponderado del tráfico al secundario.
+- **failover** — enruta al secundario cuando el breaker del primario está abierto,
+  **sin** cerrar falsamente el breaker del primario (un éxito del secundario no debe
+  enmascarar un outage del primario).
 
-## Response cache & load balancing
+## Caché de responses y load balancing
 
-- **Response cache** (opt-in per tool) serves identical calls from memory; bound it with
-  `CACHE_MAX_ENTRIES`.
-- **N-way load balancing** spreads a client across several backend targets, skipping a failed
-  target for `LB_TARGET_COOLDOWN_MS`. Pairs naturally with failover.
+- **Caché de responses** (opt-in por tool) sirve llamadas idénticas desde memoria;
+  delimítalo con `CACHE_MAX_ENTRIES`.
+- **Load balancing N-way** reparte un cliente entre varios targets de backend,
+  saltándose un target que falló durante `LB_TARGET_COOLDOWN_MS`. Se empareja de forma
+  natural con failover.
 
-Next: **[Observability →](/guide/observability)** · **[Scaling →](/guide/scaling)**
+Siguiente: **[Observabilidad →](/es/guide/observability)** · **[Escalado →](/es/guide/scaling)**

@@ -57,11 +57,7 @@ const {
 const toggleFallback = tk("pages.alerts.errors.toggle_failed");
 const deleteFallback = tk("pages.alerts.errors.delete_failed");
 
-const {
-  rowError,
-  toggle: toggleField,
-  isPending,
-} = useOptimisticToggle<AlertRule>((r) => r.id, toggleFallback);
+const { rowError, toggle: toggleField, isPending } = useOptimisticToggle<AlertRule>((r) => r.id, toggleFallback);
 const testingRuleId = ref<number | null>(null);
 
 onMounted(load);
@@ -93,7 +89,10 @@ async function testRule(rule: AlertRule) {
     testMessage.value = t("pages.alerts.test_sent", { name: rule.name });
     await load();
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? t("pages.alerts.errors.test_failed", { error: err.message }) : t("pages.alerts.errors.test_delivery_failed");
+    errorMessage.value =
+      err instanceof ApiError
+        ? t("pages.alerts.errors.test_failed", { error: err.message })
+        : t("pages.alerts.errors.test_delivery_failed");
   } finally {
     testingRuleId.value = null;
   }
@@ -114,25 +113,25 @@ function confirmDelete() {
 <template>
   <section>
     <PageHeader :title="t('pages.alerts.title')">
-      <RouterLink to="/alerts/new" class="btn-primary">{{ t('pages.alerts.create_alert') }}</RouterLink>
+      <RouterLink to="/alerts/new" class="btn-primary">{{ t("pages.alerts.create_alert") }}</RouterLink>
     </PageHeader>
-    <p class="hint">{{ t('pages.alerts.subtitle') }}</p>
+    <p class="hint">{{ t("pages.alerts.subtitle") }}</p>
 
     <p v-if="testMessage" class="success" role="status">{{ testMessage }}</p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="rules.length === 0">
       <template #empty>
-        <EmptyState :icon="BellRing">{{ t('pages.alerts.empty.no_alerts') }}</EmptyState>
+        <EmptyState :icon="BellRing">{{ t("pages.alerts.empty.no_alerts") }}</EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.alerts.table.name') }}</th>
-            <th>{{ t('pages.alerts.table.type') }}</th>
-            <th>{{ t('pages.alerts.table.target') }}</th>
-            <th>{{ t('pages.alerts.table.threshold') }}</th>
-            <th>{{ t('pages.alerts.table.actions') }}</th>
+            <th>{{ t("pages.alerts.table.name") }}</th>
+            <th>{{ t("pages.alerts.table.type") }}</th>
+            <th>{{ t("pages.alerts.table.target") }}</th>
+            <th>{{ t("pages.alerts.table.threshold") }}</th>
+            <th>{{ t("pages.alerts.table.actions") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -158,9 +157,11 @@ function confirmDelete() {
             <td>
               <div class="actions">
                 <button type="button" class="link-btn" :disabled="testingRuleId === rule.id" @click="testRule(rule)">
-                  {{ testingRuleId === rule.id ? t('pages.alerts.testing') : t('pages.alerts.test') }}
+                  {{ testingRuleId === rule.id ? t("pages.alerts.testing") : t("pages.alerts.test") }}
                 </button>
-                <button type="button" class="link-btn danger" @click="requestDelete(rule)">{{ t('common.delete') }}</button>
+                <button type="button" class="link-btn danger" @click="requestDelete(rule)">
+                  {{ t("common.delete") }}
+                </button>
               </div>
             </td>
           </tr>
@@ -172,7 +173,9 @@ function confirmDelete() {
       :open="pendingDelete !== null"
       :title="t('pages.alerts.confirm.delete_title')"
       :message="pendingDelete ? t('pages.alerts.confirm.delete_message', { name: pendingDelete.name }) : ''"
-      :confirm-label="pendingDelete ? t('pages.alerts.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')"
+      :confirm-label="
+        pendingDelete ? t('pages.alerts.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')
+      "
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -182,7 +185,9 @@ function confirmDelete() {
       :open="pendingDisable !== null"
       :title="t('pages.alerts.confirm.disable_title')"
       :message="pendingDisable ? t('pages.alerts.confirm.disable_message', { name: pendingDisable.name }) : ''"
-      :confirm-label="pendingDisable ? t('pages.alerts.confirm.disable_label', { name: pendingDisable.name }) : t('common.disable')"
+      :confirm-label="
+        pendingDisable ? t('pages.alerts.confirm.disable_label', { name: pendingDisable.name }) : t('common.disable')
+      "
       danger
       @confirm="confirmDisable"
       @cancel="cancelDisable"

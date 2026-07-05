@@ -120,28 +120,37 @@ const result = computed(() => {
 </script>
 
 <template>
-  <ModalShell :open="open" :ariaLabel="t('components.connect_client_dialog.title')" :max-width="'40rem'" @close="emit('close')">
+  <ModalShell
+    :open="open"
+    :ariaLabel="t('components.connect_client_dialog.title')"
+    :max-width="'40rem'"
+    @close="emit('close')"
+  >
     <div class="dialog-head">
-      <h2>{{ t('components.connect_client_dialog.title') }}</h2>
-      <button type="button" class="link-btn" @click="emit('close')">{{ t('common.close') }}</button>
+      <h2>{{ t("components.connect_client_dialog.title") }}</h2>
+      <button type="button" class="link-btn" @click="emit('close')">{{ t("common.close") }}</button>
     </div>
     <p class="hint">
-      {{ t('components.connect_client_dialog.hint') }}
+      {{ t("components.connect_client_dialog.hint") }}
     </p>
 
     <div class="form-grid">
       <label
-        >{{ t('components.connect_client_dialog.fields.client') }}
+        >{{ t("components.connect_client_dialog.fields.client") }}
         <SelectMenu v-model="clientId" :options="CLIENT_OPTIONS" />
       </label>
 
       <label
-        >{{ t('components.connect_client_dialog.fields.connect_to') }}
+        >{{ t("components.connect_client_dialog.fields.connect_to") }}
         <SelectMenu v-model="scope" :options="SCOPE_OPTIONS" />
       </label>
 
       <label v-if="scope !== 'aggregated'"
-        >{{ scope === "client" ? t('components.connect_client_dialog.fields.server') : t('components.connect_client_dialog.fields.bundle') }}
+        >{{
+          scope === "client"
+            ? t("components.connect_client_dialog.fields.server")
+            : t("components.connect_client_dialog.fields.bundle")
+        }}
         <SelectMenu
           v-model="targetName"
           :options="targetSelectOptions"
@@ -152,21 +161,24 @@ const result = computed(() => {
       </label>
 
       <label
-        >{{ t('components.connect_client_dialog.fields.gateway_url') }}
+        >{{ t("components.connect_client_dialog.fields.gateway_url") }}
         <input v-model="gatewayBaseUrl" type="url" placeholder="https://gateway.example.com" />
       </label>
     </div>
 
     <p v-if="keyCount === 0" class="key-warning">
-      {{ t('components.connect_client_dialog.key_warning') }}
-      <RouterLink to="/keys/new" @click="emit('close')">{{ t('components.connect_client_dialog.create_one') }}</RouterLink>
-      {{ t('components.connect_client_dialog.key_warning_after') }}
+      {{ t("components.connect_client_dialog.key_warning") }}
+      <RouterLink to="/keys/new" @click="emit('close')">{{
+        t("components.connect_client_dialog.create_one")
+      }}</RouterLink>
+      {{ t("components.connect_client_dialog.key_warning_after") }}
     </p>
     <p v-else-if="keyCount !== null" class="key-hint">
-      {{ t('components.connect_client_dialog.key_count', { count: keyCount }) }}
+      {{ t("components.connect_client_dialog.key_count", { count: keyCount }) }}
       <code>{{ API_KEY_PLACEHOLDER }}</code>
-      {{ t('components.connect_client_dialog.key_count_after') }}
-      <RouterLink to="/keys" @click="emit('close')">{{ t('nav.keys') }}</RouterLink>.
+      {{ t("components.connect_client_dialog.key_count_after") }}
+      <RouterLink to="/keys" @click="emit('close')">{{ t("nav.keys") }}</RouterLink
+      >.
     </p>
 
     <template v-if="result">
@@ -176,13 +188,20 @@ const result = computed(() => {
       </div>
       <pre class="snippet" tabindex="0">{{ result.snippet }}</pre>
 
-      <h3>{{ t('components.connect_client_dialog.setup') }}</h3>
+      <h3>{{ t("components.connect_client_dialog.setup") }}</h3>
       <ol class="instructions">
         <li v-for="(line, i) in result.instructions" :key="i">{{ line }}</li>
       </ol>
     </template>
     <p v-else class="hint">
-      {{ t('components.connect_client_dialog.choose_target', { kind: scope === "bundle" ? t('components.connect_client_dialog.fields.bundle') : t('components.connect_client_dialog.fields.server') }) }}
+      {{
+        t("components.connect_client_dialog.choose_target", {
+          kind:
+            scope === "bundle"
+              ? t("components.connect_client_dialog.fields.bundle")
+              : t("components.connect_client_dialog.fields.server"),
+        })
+      }}
     </p>
   </ModalShell>
 </template>

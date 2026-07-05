@@ -136,7 +136,7 @@ function requestTeamChange(user: AdminUserSummary, nextTeamId: number | null) {
 function teamChangeMessage(user: AdminUserSummary, nextTeamId: number | null): string {
   const base = t("pages.users.confirm.team_base", { username: user.username, team: teamName(nextTeamId) });
   if (user.username === authState.user?.username && nextTeamId !== null) {
-    return `${base} ${t('pages.users.confirm.team_self_warning')}`;
+    return `${base} ${t("pages.users.confirm.team_self_warning")}`;
   }
   return base;
 }
@@ -162,7 +162,7 @@ function confirmDelete() {
 <template>
   <section>
     <PageHeader :title="t('pages.users.title')">
-      <RouterLink to="/users/new" class="btn-primary">{{ t('pages.users.add_user') }}</RouterLink>
+      <RouterLink to="/users/new" class="btn-primary">{{ t("pages.users.add_user") }}</RouterLink>
     </PageHeader>
 
     <p v-if="teamChangeError" class="error" role="alert">{{ teamChangeError }}</p>
@@ -171,25 +171,28 @@ function confirmDelete() {
     <ListLayout :loading="loading" :error="errorMessage" :empty="users.length === 0">
       <template #empty>
         <EmptyState :icon="UserCog">
-          {{ t('pages.users.empty') }}
+          {{ t("pages.users.empty") }}
         </EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.users.table.username') }}</th>
-            <th>{{ t('pages.users.table.role') }}</th>
-            <th>{{ t('pages.users.table.team') }}</th>
-            <th>{{ t('pages.users.table.active') }}</th>
-            <th>{{ t('pages.users.table.last_login') }}</th>
+            <th>{{ t("pages.users.table.username") }}</th>
+            <th>{{ t("pages.users.table.role") }}</th>
+            <th>{{ t("pages.users.table.team") }}</th>
+            <th>{{ t("pages.users.table.active") }}</th>
+            <th>{{ t("pages.users.table.last_login") }}</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="user in users" :key="user.username">
             <td>
-              {{ user.username }} <span v-if="user.username === authState.user?.username" class="you-tag">{{ t('pages.users.you_tag') }}</span>
+              {{ user.username }}
+              <span v-if="user.username === authState.user?.username" class="you-tag">{{
+                t("pages.users.you_tag")
+              }}</span>
             </td>
             <td>
               <SelectMenu
@@ -200,7 +203,7 @@ function confirmDelete() {
                 @update:model-value="(v) => requestRoleChange(user, v)"
               />
               <br />
-              <span v-if="isLastActiveAdmin(user)" class="switch-hint">{{ t('pages.users.last_admin_locked') }}</span>
+              <span v-if="isLastActiveAdmin(user)" class="switch-hint">{{ t("pages.users.last_admin_locked") }}</span>
             </td>
             <td>
               <SelectMenu
@@ -213,7 +216,7 @@ function confirmDelete() {
                 @update:model-value="(v) => requestTeamChange(user, v)"
               />
             </td>
-            <td>{{ user.is_active ? t('pages.users.yes') : t('pages.users.no') }}</td>
+            <td>{{ user.is_active ? t("pages.users.yes") : t("pages.users.no") }}</td>
             <td>{{ formatMaybeDate(user.last_login_at) }}</td>
             <td>
               <button
@@ -223,10 +226,10 @@ function confirmDelete() {
                 :title="isLastActiveAdmin(user) ? t('pages.users.last_admin_locked') : ''"
                 @click="requestDelete(user)"
               >
-                {{ t('common.delete') }}</button
+                {{ t("common.delete") }}</button
               ><br />
               <span v-if="isLastActiveAdmin(user)" class="switch-hint">
-                {{ t('pages.users.last_admin_locked') }}
+                {{ t("pages.users.last_admin_locked") }}
               </span>
             </td>
           </tr>
@@ -238,7 +241,9 @@ function confirmDelete() {
       :open="pendingDelete !== null"
       :title="t('pages.users.confirm.delete_title')"
       :message="pendingDelete ? t('pages.users.confirm.delete_message', { username: pendingDelete.username }) : ''"
-      :confirm-label="pendingDelete ? t('pages.users.confirm.delete_cta', { username: pendingDelete.username }) : t('common.delete')"
+      :confirm-label="
+        pendingDelete ? t('pages.users.confirm.delete_cta', { username: pendingDelete.username }) : t('common.delete')
+      "
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -248,7 +253,11 @@ function confirmDelete() {
       :open="pendingRoleChange !== null"
       :title="t('pages.users.confirm.role_title')"
       :message="pendingRoleChange ? roleChangeMessage(pendingRoleChange.user, pendingRoleChange.nextRole) : ''"
-      :confirm-label="pendingRoleChange ? t('pages.users.confirm.role_cta', { next: pendingRoleChange.nextRole }) : t('pages.users.confirm.role_cta_default')"
+      :confirm-label="
+        pendingRoleChange
+          ? t('pages.users.confirm.role_cta', { next: pendingRoleChange.nextRole })
+          : t('pages.users.confirm.role_cta_default')
+      "
       @confirm="confirmRoleChange"
       @cancel="cancelRoleChangeAction"
     />
@@ -257,7 +266,11 @@ function confirmDelete() {
       :open="pendingTeamChange !== null"
       :title="t('pages.users.confirm.team_title')"
       :message="pendingTeamChange ? teamChangeMessage(pendingTeamChange.user, pendingTeamChange.nextTeamId) : ''"
-      :confirm-label="pendingTeamChange ? t('pages.users.confirm.team_cta', { team: teamName(pendingTeamChange.nextTeamId) }) : t('pages.users.confirm.team_cta_default')"
+      :confirm-label="
+        pendingTeamChange
+          ? t('pages.users.confirm.team_cta', { team: teamName(pendingTeamChange.nextTeamId) })
+          : t('pages.users.confirm.team_cta_default')
+      "
       @confirm="confirmTeamChange"
       @cancel="cancelTeamChangeAction"
     />

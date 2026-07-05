@@ -1,151 +1,161 @@
-# Contributing
+# Contribuir
 
-Root [`CONTRIBUTING.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CONTRIBUTING.md)
-is the canonical, GitHub-native reference (it's what GitHub links from the "new PR" banner and
-the repo's Community Standards). This page is the searchable, cross-linked version for readers
-already in the docs site — a superset that links out to Architecture/Configuration/Security
-rather than re-explaining them, so keep both in sync if you change either.
+El [`CONTRIBUTING.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CONTRIBUTING.md)
+raíz es la referencia canónica estilo GitHub (es a la que enlaza GitHub desde el banner de
+"new PR" y los Estándares de Comunidad del repo). Esta página es la versión buscable y
+cross-linked para lectores ya dentro del sitio de docs — un superset que enlaza fuera a
+Arquitectura/Configuración/Seguridad en vez de re-explicarlos, así que mantén ambos
+sincronizados si cambias cualquiera.
 
-## Before you start
+## Antes de empezar
 
-Read **[Architecture →](/guide/architecture)** and **[Concepts & glossary →](/guide/concepts)**
-first — the request-path mental model (every policy enforced at dispatch, never as HTTP
-middleware) explains a lot of decisions you'll otherwise have to re-derive from the code. For
-anything beyond a small fix, open an issue to discuss the approach before writing code — it
-saves rework on both sides.
+Lee **[Arquitectura →](/es/guide/architecture)** y
+**[Conceptos y glosario →](/es/guide/concepts)** primero — el modelo mental del camino de
+la request (cada política aplicada en el dispatch, nunca como middleware HTTP) explica
+muchas decisiones que de otro modo tendrías que re-derivar desde el código. Para
+cualquier cosa más allá de un fix pequeño, abre un issue para discutir el enfoque antes
+de escribir código — ahorra retrabajo a ambas partes.
 
-## Dev environment setup
+## Setup del entorno de desarrollo
 
-### Prerequisites
+### Requisitos
 
-- [Bun](https://bun.sh) `1.x` — the gateway uses Bun's built-ins (`bun:sqlite`, `Bun.dns`,
-  `Bun.password`) directly, so Node.js is not a substitute.
+- [Bun](https://bun.sh) `1.x` — el gateway usa los built-ins de Bun (`bun:sqlite`,
+  `Bun.dns`, `Bun.password`) directamente, así que Node.js no es un sustituto.
 
-### Clone, install, configure
+### Clonar, instalar, configurar
 
 ```bash
 git clone https://github.com/aico-dot-team-code/mcpbridge.git
 cd mcpbridge
 bun install
-cp .env.example .env                 # then set BOOTSTRAP_ADMIN_PASSWORD (min 12 chars)
+cp .env.example .env                 # luego configura BOOTSTRAP_ADMIN_PASSWORD (mín 12 chars)
 
 cd admin-ui && bun install && cd ..
 ```
 
-Set `ADMIN_API_KEYS` in `.env` too if you'll be scripting against `/register` or `/admin-api`
-directly rather than only using the UI — see [Getting started →](/guide/getting-started) for
-the full first-run walkthrough (including the exact env vars each local option needs).
+Define también `ADMIN_API_KEYS` en `.env` si vas a scriptar contra `/register` o
+`/admin-api` directamente en lugar de usar solo la UI — consulta [Primeros pasos →](/es/guide/getting-started)
+para el tutorial completo de primer arranque (incluyendo las env vars exactas que cada
+opción local necesita).
 
-### Run the full stack
+### Ejecutar el stack completo
 
 ```bash
-bun run dev:all      # backend :8790 + admin UI :8791, both with hot reload
+bun run dev:all      # backend :8790 + admin UI :8791, ambos con hot reload
 ```
 
-## Running tests, typecheck & lint
+## Ejecutar tests, typecheck y lint
 
-| Command                            | What it runs                                                                                        |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `bun test`                         | Backend test suite (`src/**/__tests__/`). Should be 100% green.                                     |
-| `bun run typecheck`                | Backend typecheck (`tsc --noEmit`)                                                                  |
-| `cd admin-ui && bun run test`      | Admin UI component/unit tests (Vitest)                                                              |
-| `cd admin-ui && bun run typecheck` | Admin UI typecheck (`vue-tsc -b --noEmit`)                                                          |
-| `cd admin-ui && bun run build`     | Admin UI production build — catches a few things typecheck alone doesn't (e.g. unused Vite imports) |
-| `bun run test:e2e`                 | Playwright end-to-end smoke test (`e2e/`)                                                           |
+| Comando                            | Qué ejecuta                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `bun test`                         | Suite de tests del backend (`src/**/__tests__/`). Debería estar 100% verde.                             |
+| `bun run typecheck`                | Typecheck del backend (`tsc --noEmit`)                                                                  |
+| `cd admin-ui && bun run test`      | Tests de componente/unidad del admin UI (Vitest)                                                        |
+| `cd admin-ui && bun run typecheck` | Typecheck del admin UI (`vue-tsc -b --noEmit`)                                                          |
+| `cd admin-ui && bun run build`     | Build de producción del admin UI — atrapa cosas que el typecheck solo no (p. ej. imports Vite sin usar) |
+| `bun run test:e2e`                 | Test smoke e2e con Playwright (`e2e/`)                                                                  |
 
-### The root-vs-package gotcha
+### El gotcha root-vs-package
 
-Backend and admin UI are **separate TypeScript projects** with their own `lint`/`typecheck`
-scripts — running only the package you touched is not the same as the repo's actual CI gate.
-In particular, **`bun run format:check` (Prettier) is a root-level script only** — admin-ui's
-own `package.json` has no `format`/`format:check` of its own. It's easy to run
-`cd admin-ui && bun run lint && bun run typecheck && bun run test && bun run build`, see
-everything pass, and still have formatting drift that only the root check catches.
+Backend y admin UI son **proyectos TypeScript separados** con sus propios scripts
+`lint`/`typecheck` — ejecutar solo el paquete que tocaste no es lo mismo que el CI gate
+real del repo. En particular, **`bun run format:check` (Prettier) es un script solo de
+nivel raíz** — el propio `package.json` del admin-ui no tiene `format`/`format:check`.
+Es fácil ejecutar `cd admin-ui && bun run lint && bun run typecheck && bun run test && bun run build`,
+ver todo pasar, y aún tener drift de formato que solo el chequeo raíz atrapa.
 
-### One command before you push
+### Un comando antes de pushear
 
 ```bash
 bun run check
 ```
 
-Runs the full gate in order — format check → root lint → admin-ui lint → root typecheck →
-root tests → admin-ui typecheck → admin-ui tests → admin-ui build — stopping at the first
-failure. This is what CI runs; treat a clean `bun run check` as the actual bar for "ready to
-open a PR," not just a green package-scoped run.
+Ejecuta el gate completo en orden — check de formato → root lint → admin-ui lint →
+root typecheck → root tests → admin-ui typecheck → admin-ui tests → admin-ui build —
+deteniéndose en el primer fallo. Esto es lo que corre CI; trata un `bun run check`
+limpio como la barra real para "listo para abrir un PR", no solo un run package-scoped
+verde.
 
-## Code style & conventions
+## Estilo de código y convenciones
 
-- No enforced personal style beyond ESLint + Prettier — match the formatting, naming, and file
-  organization already present in the module you're editing.
-- TypeScript is **strict** on both projects — don't work around type errors with `any` or
-  non-null assertions unless there's no reasonable alternative; prefer narrowing/guards over
-  casts.
-- Keep modules focused: security-sensitive logic lives under `src/security/`, route handlers
-  under `src/routes/`, DB access under `src/db/`. Admin UI components live under
-  `admin-ui/src/components/{ui,charts,guard-editor,server-detail,layout}/` by role.
-- **Every policy is enforced at the dispatch point (`proxyToolCall`), never as HTTP
-  middleware** — MCP multiplexes many tools over one `POST /mcp` route, so the bridge has to
-  know which tool is being called before it can apply per-tool rules. Don't add a new guard as
-  Express middleware; wire it into the dispatch pipeline instead.
+- Sin estilo personal forzado más allá de ESLint + Prettier — respeta el formato, naming
+  y organización de ficheros ya presentes en el módulo que estés editando.
+- TypeScript es **strict** en ambos proyectos — no esquives errores de tipo con `any` o
+  non-null assertions a menos que no haya alternativa razonable; prefiere
+  narrowing/guards sobre casts.
+- Mantén los módulos enfocados: la lógica security-sensitive vive bajo `src/security/`,
+  los route handlers bajo `src/routes/`, el acceso a DB bajo `src/db/`. Los componentes
+  del admin UI viven bajo `admin-ui/src/components/{ui,charts,guard-editor,
+server-detail,layout}/` por rol.
+- **Cada política se aplica en el punto de dispatch (`proxyToolCall`), nunca como
+  middleware HTTP** — MCP multiplexa muchas tools sobre una única ruta `POST /mcp`,
+  así que el bridge tiene que saber qué tool se está llamando antes de poder aplicar
+  reglas por tool. No añadas un nuevo guard como middleware de Express; cablealo en el
+  pipeline de dispatch en su lugar.
 
-### A known gotcha worth not rediscovering
+### Un gotcha conocido que vale la pena no redescubrir
 
-Don't set `display` (`flex`/`grid`/etc.) directly on a `<td>` in an admin-ui table — it
-overrides the default `table-cell` display and visually breaks the row layout (column sizing
-and alignment collapse). Wrap the cell's content in a child `<div>` and apply the
-display-changing class to that instead; the `<td>` itself stays bare.
+No pongas `display` (`flex`/`grid`/etc.) directamente en un `<td>` de una tabla del
+admin-ui — sobrescribe el display `table-cell` por defecto y rompe visualmente el layout
+de la fila (colapso de sizing y alineación de columnas). Envuelve el contenido de la
+celda en un `<div>` hijo y aplica la clase que cambia el display a ese en su lugar; el
+`<td>` se queda sin clase.
 
-## Database migrations
+## Migraciones de base de datos
 
-Schema changes live in `src/db/migrations.ts`, exported as an **append-only, ordered array**
-of `{ id, name, sql }` objects.
+Los cambios de schema viven en `src/db/migrations.ts`, exportados como un **array
+append-only y ordenado** de objetos `{ id, name, sql }`.
 
-- **Never edit or renumber an existing migration.** Once merged to `main`, its `id` and `sql`
-  are frozen — fix a mistake with a new migration that alters/repairs the schema.
-- **Migrations are forward-only.** There's no down-migration mechanism — write the SQL
-  defensively (`CREATE TABLE IF NOT EXISTS`, additive `ALTER TABLE`) and think about what
-  happens to existing rows/databases when it runs.
-- **IDs are sequential integers**, applied in ascending order at startup, each inside its own
-  transaction. Check the tail of `src/db/migrations.ts` for the current highest `id` before
-  adding a new one.
-- Test a new migration locally against a throwaway DB (`DB_PATH=:memory:` or a scratch file)
-  before committing — see [Deployment →](/guide/deployment) for the upgrade/backup story this
-  feeds into in production.
+- **Nunca edites ni renumeres una migración existente.** Una vez mergeada a `main`, su
+  `id` y `sql` quedan congelados — arregla un error con una nueva migración que
+  altere/repare el schema.
+- **Las migraciones son solo forward.** No hay mecanismo de down-migration — escribe el
+  SQL defensivamente (`CREATE TABLE IF NOT EXISTS`, `ALTER TABLE` aditivo) y piensa qué
+  pasa con las filas/bases de datos existentes cuando se ejecute.
+- **Los IDs son enteros secuenciales**, aplicados en orden ascendente al arrancar, cada
+  uno dentro de su propia transacción. Mira el tail de `src/db/migrations.ts` para
+  conocer el `id` más alto actual antes de añadir uno nuevo.
+- Testea una nueva migración localmente contra una DB throwaway (`DB_PATH=:memory:` o
+  un fichero de scratch) antes de hacer commit — consulta [Despliegue →](/es/guide/deployment)
+  para la historia de upgrade/backup en la que esto encaja en producción.
 
-## Branch, commit & PR conventions
+## Convenciones de branch, commit y PR
 
-Commits follow a `type(scope): summary` convention (the `(scope)` is optional):
+Los commits siguen la convención `type(scope): summary` (el `(scope)` es opcional):
 
-- `feat:` / `feat(scope):` — new functionality
-- `fix:` / `fix(scope):` — bug fixes, including hardening passes
-- `docs:` — documentation-only changes
-- `chore:` — tooling/config changes with no runtime behavior change
-- `refactor:` — internal restructuring with no behavior change
-- `test:` — test-only additions/changes
+- `feat:` / `feat(scope):` — nueva funcionalidad
+- `fix:` / `fix(scope):` — bug fixes, incluidas pasadas de hardening
+- `docs:` — cambios solo de documentación
+- `chore:` — cambios de tooling/config sin cambio de comportamiento en runtime
+- `refactor:` — reestructuración interna sin cambio de comportamiento
+- `test:` — adiciones/cambios solo de tests
 
-**Feat-then-harden.** Larger changes frequently land as a `feat` commit followed by one or more
-`fix` commits that harden it (edge cases found on review) — rather than one giant diff, or
-folding hardening back into the feature commit after the fact.
+**Feat y luego endurece.** Los cambios grandes suelen aterrizar como un commit `feat`
+seguido de uno o más commits `fix` que lo endurecen (edge cases encontrados en review) —
+en lugar de un diff gigante, o de doblar el hardening de vuelta al commit de feature
+después.
 
-**Priority tiers.** PR descriptions and hardening commits in this repo often use
-`[P0]`/`[P1]`/`[P2]` suffixes — P0 = correctness/security-critical, P1 = important robustness,
-P2 = polish. Not required, but consistent with the project's history if you want to signal
-urgency:
+**Tiers de prioridad.** Las descripciones de PR y los commits de hardening en este repo
+suelen usar sufijos `[P0]`/`[P1]`/`[P2]` — P0 = corrección/seguridad críticos, P1 =
+robustez importante, P2 = pulido. No es obligatorio, pero consistente con la historia
+del proyecto si quieres señalar urgencia:
 
 ```
 fix(admin-ui): stop the .field input recipe double-bordering child components' own inputs [P2]
 ```
 
-Keep PRs scoped to one logical change. Reference the issue you discussed the approach in, if
-there was one.
+Mantén los PRs con scope a un cambio lógico. Referencia el issue en el que discutiste el
+enfoque, si lo hubo.
 
-## PR checklist
+## Checklist de PR
 
-- [ ] `bun run check` passes (this is the actual CI gate — see the root-vs-package note above)
-- [ ] New/changed schema is a new, appended `src/db/migrations.ts` entry, tested against a
-      fresh DB — never an edit to an existing one
-- [ ] Docs updated if user-facing behavior, config, or API changed
-- [ ] Commit messages follow the `type(scope): summary` convention above
-- [ ] Screenshots included for any admin-ui visual change
+- [ ] `bun run check` pasa (este es el CI gate real — mira la nota root-vs-package arriba)
+- [ ] El schema nuevo/cambiado es una entrada nueva y appendeada en `src/db/migrations.ts`,
+      testeada contra una DB fresca — nunca una edición de una existente
+- [ ] Docs actualizadas si cambió el comportamiento user-facing, config o API
+- [ ] Los mensajes de commit siguen la convención `type(scope): summary` arriba
+- [ ] Screenshots incluidos para cualquier cambio visual en admin-ui
 
-Next: **[Changelog →](/guide/changelog)** · **[Security policy →](/guide/security-policy)**
+Siguiente: **[Changelog →](/es/guide/changelog)** ·
+**[Política de seguridad →](/es/guide/security-policy)**

@@ -121,13 +121,10 @@ async function confirmReject() {
 
 <template>
   <section>
-    <PageHeader
-      :title="t('pages.approvals.title')"
-      :subtitle="t('pages.approvals.subtitle')"
-    >
+    <PageHeader :title="t('pages.approvals.title')" :subtitle="t('pages.approvals.subtitle')">
       <button type="button" class="btn-secondary" :disabled="loading" @click="loadTable">
         <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
-        {{ loading ? t('common.refreshing') : t('common.refresh') }}
+        {{ loading ? t("common.refreshing") : t("common.refresh") }}
       </button>
     </PageHeader>
 
@@ -140,9 +137,9 @@ async function confirmReject() {
     <ListLayout :loading="loading && !tableItems.length" :error="errorMessage" :empty="tableItems.length === 0">
       <template #empty>
         <EmptyState :icon="ClipboardCheck" muted>
-          <template v-if="activeTab === 'pending'">{{ t('pages.approvals.empty.nothing_pending') }}</template>
+          <template v-if="activeTab === 'pending'">{{ t("pages.approvals.empty.nothing_pending") }}</template>
           <template v-else>
-            {{ t('pages.approvals.empty.no_items_for_tab', { tab: activeTab }) }}
+            {{ t("pages.approvals.empty.no_items_for_tab", { tab: activeTab }) }}
           </template>
         </EmptyState>
       </template>
@@ -151,10 +148,10 @@ async function confirmReject() {
         <thead>
           <tr>
             <th>#</th>
-            <th>{{ t('pages.approvals.table.client_tool') }}</th>
-            <th>{{ t('pages.approvals.table.args') }}</th>
-            <th>{{ t('pages.approvals.table.requested') }}</th>
-            <th>{{ t('pages.approvals.table.decision') }}</th>
+            <th>{{ t("pages.approvals.table.client_tool") }}</th>
+            <th>{{ t("pages.approvals.table.args") }}</th>
+            <th>{{ t("pages.approvals.table.requested") }}</th>
+            <th>{{ t("pages.approvals.table.decision") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -174,17 +171,19 @@ async function confirmReject() {
                 class="status-pending"
                 :style="{ color: `var(${toneColorVar(statusTone(a.status))})` }"
               >
-                {{ t('pages.approvals.status.pending') }}<br />
+                {{ t("pages.approvals.status.pending") }}<br />
                 <span v-if="a.requiredLevels > 1" class="levels-badge"
                   >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
                 >
               </span>
               <span v-else :style="{ color: `var(${toneColorVar(statusTone(a.status))})` }">
-                {{ a.status === "approved" ? t('pages.approvals.status.approved') : t('pages.approvals.status.rejected') }}
+                {{
+                  a.status === "approved" ? t("pages.approvals.status.approved") : t("pages.approvals.status.rejected")
+                }}
                 <template v-if="a.requiredLevels > 1 && a.status === 'approved'"
                   >({{ approvedCount(a) }}/{{ a.requiredLevels }})</template
                 >
-                {{ t('pages.approvals.by') }} {{ a.decidedBy }}
+                {{ t("pages.approvals.by") }} {{ a.decidedBy }}
                 <span v-if="a.note" class="note">— {{ a.note }}</span>
               </span>
               <ul v-if="a.decisions.length" class="decisions">
@@ -205,7 +204,7 @@ async function confirmReject() {
                     :disabled="decidingId === a.id"
                   />
                   <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
-                    <Check :size="13" stroke-width="2" aria-hidden="true" /> {{ t('pages.approvals.table.approve') }}
+                    <Check :size="13" stroke-width="2" aria-hidden="true" /> {{ t("pages.approvals.table.approve") }}
                   </button>
                   <button
                     type="button"
@@ -213,7 +212,7 @@ async function confirmReject() {
                     :disabled="decidingId === a.id"
                     @click="requestReject(a)"
                   >
-                    <X :size="13" stroke-width="2" aria-hidden="true" /> {{ t('pages.approvals.table.deny') }}
+                    <X :size="13" stroke-width="2" aria-hidden="true" /> {{ t("pages.approvals.table.deny") }}
                   </button>
                 </template>
               </div>
@@ -228,7 +227,10 @@ async function confirmReject() {
       :title="t('pages.approvals.confirm.reject_title')"
       :message="
         pendingReject
-          ? t('pages.approvals.confirm.reject_message', { client: pendingReject.clientName, tool: pendingReject.toolName })
+          ? t('pages.approvals.confirm.reject_message', {
+              client: pendingReject.clientName,
+              tool: pendingReject.toolName,
+            })
           : ''
       "
       :confirm-label="t('pages.approvals.confirm.reject_cta')"

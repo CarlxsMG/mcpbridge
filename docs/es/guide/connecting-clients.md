@@ -1,36 +1,38 @@
-# Connecting MCP clients
+# Conectar clientes MCP
 
-Any MCP client — Claude Desktop, Cursor, an IDE extension, or your own agent — connects
-to the bridge over the Model Context Protocol. Point it at one of the four endpoints and
-it sees a unified tool list.
+Cualquier cliente MCP — Claude Desktop, Cursor, una extensión de IDE o tu propio agente —
+se conecta al bridge a través del Model Context Protocol. Apúntalo a uno de los cuatro
+endpoints y verá una lista unificada de tools.
 
-::: tip Supported protocol version
-The bridge implements **MCP protocol version `2025-06-18`**. Clients that negotiate an
-older or newer version during initialization should still interoperate (the SDK handles
-version negotiation), but `2025-06-18` is the version this gateway is built and tested
-against — worth knowing if you hit a client-specific quirk.
+::: tip Versión de protocolo soportada
+El bridge implementa la **versión `2025-06-18` del protocolo MCP**. Los clientes que
+negocien una versión anterior o posterior durante el init aún deberían interoperar (el
+SDK maneja la negociación de versiones), pero `2025-06-18` es la versión contra la que
+este gateway está construido y probado — vale la pena saberlo si te encuentras con una
+rareza específica del cliente.
 :::
 
-## Choose an endpoint
+## Elige un endpoint
 
-| Endpoint                      | Gives the client                       | Use when                                        |
-| ----------------------------- | -------------------------------------- | ----------------------------------------------- |
-| `POST /mcp`                   | Every enabled tool, from every backend | One assistant should reach everything           |
-| `/mcp/:clientName`            | Only that one backend's tools          | You want to isolate a single backend            |
-| `/mcp-custom/:bundleName`     | A hand-picked cross-backend subset     | You've curated exactly the tools an agent needs |
-| `GET /sse` + `POST /messages` | The same tools over legacy SSE         | The client only speaks the older transport      |
+| Endpoint                      | Le da al cliente                      | Úsalo cuando                                            |
+| ----------------------------- | ------------------------------------- | ------------------------------------------------------- |
+| `POST /mcp`                   | Cada tool habilitada, de cada backend | Un assistant debe alcanzar todo                         |
+| `/mcp/:clientName`            | Solo las tools de ese backend         | Quieres aislar un solo backend                          |
+| `/mcp-custom/:bundleName`     | Un subconjunto entre backends curado  | Has curado exactamente las tools que un agente necesita |
+| `GET /sse` + `POST /messages` | Las mismas tools sobre SSE legacy     | El cliente solo habla el transporte antiguo             |
 
-Prefer **Streamable HTTP** (`/mcp`, `/mcp/:name`, `/mcp-custom/:bundle`) unless a client
-requires SSE.
+Prefiere **Streamable HTTP** (`/mcp`, `/mcp/:name`, `/mcp-custom/:bundle`) salvo que un
+cliente requiera SSE.
 
-> **Note:** "client" is overloaded on this page — `:clientName` in a URL is the name you gave
-> a **backend** at registration (e.g. `petstore`), not the app connecting to the bridge
-> (Claude Desktop, Cursor, …). This doc uses "client" for both; check context. See
-> [Concepts & glossary](/guide/concepts) for the full vocabulary.
+> **Nota:** "client" está sobrecargado en esta página — `:clientName` en una URL es el
+> nombre que diste a un **backend** en el registro (p. ej. `petstore`), no a la app que se
+> conecta al bridge (Claude Desktop, Cursor, …). Este doc usa "client" para ambos; mira
+> el contexto. Consulta [Conceptos y glosario](/es/guide/concepts) para el vocabulario
+> completo.
 
-## Point a client at it
+## Apuntar un cliente
 
-Most clients take a remote MCP server URL:
+La mayoría de los clientes aceptan una URL remota de servidor MCP:
 
 ```json
 {
@@ -40,33 +42,35 @@ Most clients take a remote MCP server URL:
 }
 ```
 
-For a curated bundle, swap the URL for `https://bridge.example.com/mcp-custom/support-agent`.
+Para un bundle curado, cambia la URL a `https://bridge.example.com/mcp-custom/support-agent`.
 
-Prefer not to hand-edit that JSON? `gateway connect --client cursor --scope client --name petstore`
-(and friends for Claude Desktop, Windsurf, Continue) generates the same snippet from the CLI —
-see [CLI reference →](/guide/cli).
+¿Prefieres no editar ese JSON a mano? `gateway connect --client cursor --scope client --name petstore`
+(y amigos para Claude Desktop, Windsurf, Continue) genera el mismo snippet desde el CLI —
+consulta [Referencia CLI →](/es/guide/cli).
 
-## Authentication
+## Autenticación
 
-If you've set `MCP_API_KEYS` (recommended in production), the client must present a key as
-a Bearer token:
+Si configuraste `MCP_API_KEYS` (recomendado en producción), el cliente debe presentar
+una key como token Bearer:
 
 ```
 Authorization: Bearer <mcp-api-key>
 ```
 
-Clients that support custom headers can set this directly; for others, put the bridge
-behind a proxy that injects it. Keys can be **scoped** to specific clients/tools and given
-an expiry — see [Access control](/guide/access-control). The bridge can also accept
-**OAuth2/OIDC JWTs** as the credential when `JWT_JWKS_URL` is configured.
+Los clientes que soportan headers custom pueden configurarlo directamente; para otros, pon
+el bridge detrás de un proxy que lo inyecte. Las keys pueden tener **scope** a
+clientes/tools específicos y recibir una expiración — consulta [Control de acceso](/es/guide/access-control).
+El bridge también puede aceptar **JWTs OAuth2/OIDC** como credencial cuando
+`JWT_JWKS_URL` está configurado.
 
-## Verify the connection
+## Verificar la conexión
 
-- `GET /health` should return `{ "status": "ok" }`.
-- The client's tool list should populate after connecting; if it's empty, the client/tool
-  may be disabled or the key out of scope.
-- `GET /metrics` (admin-authenticated) exposes `mcp_tool_calls_total{outcome}` once calls
-  start flowing.
+- `GET /health` debe devolver `{ "status": "ok" }`.
+- La lista de tools del cliente debe poblarse después de conectar; si está vacía, el
+  cliente/tool puede estar deshabilitado o la key fuera de scope.
+- `GET /metrics` (admin autenticado) expone `mcp_tool_calls_total{outcome}` una vez que las
+  llamadas empiezan a fluir.
 
-Next: **[Registering backends →](/guide/registering-backends)** to give clients something
-to call, or **[Access control →](/guide/access-control)** to scope who can call what.
+Siguiente: **[Registrar backends →](/es/guide/registering-backends)** para darles algo
+a los clientes, o **[Control de acceso →](/es/guide/access-control)** para hacer scope de
+quién puede llamar a qué.

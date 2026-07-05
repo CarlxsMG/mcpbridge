@@ -115,7 +115,9 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
 
 <template>
   <section>
-    <p class="breadcrumb"><RouterLink to="/bundles">{{ t('nav.bundles') }}</RouterLink> / {{ name }}</p>
+    <p class="breadcrumb">
+      <RouterLink to="/bundles">{{ t("nav.bundles") }}</RouterLink> / {{ name }}
+    </p>
 
     <SignalLoader v-if="loading && !detail" />
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
@@ -126,7 +128,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
           <p class="endpoint">
             <code>/mcp-custom/{{ detail.name }}</code>
             <button type="button" class="link-btn connect-link" @click="connectOpen = true">
-              <Cable :size="13" stroke-width="2" aria-hidden="true" /> {{ t('common.connect_client') }}
+              <Cable :size="13" stroke-width="2" aria-hidden="true" /> {{ t("common.connect_client") }}
             </button>
           </p>
         </template>
@@ -138,10 +140,10 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
           @click="toggleEnabled"
         />
         <button type="button" class="btn-secondary share-btn" @click="shareOpen = true">
-          <Share2 :size="14" stroke-width="2" aria-hidden="true" /> {{ t('pages.bundle_detail.share_link') }}
+          <Share2 :size="14" stroke-width="2" aria-hidden="true" /> {{ t("pages.bundle_detail.share_link") }}
         </button>
         <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
-          {{ deleting ? t('pages.bundle_detail.deleting') : t('pages.bundle_detail.delete_bundle') }}
+          {{ deleting ? t("pages.bundle_detail.deleting") : t("pages.bundle_detail.delete_bundle") }}
         </button>
       </PageHeader>
 
@@ -150,26 +152,31 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
 
       <FormField :label="t('pages.bundle_detail.description_label')" for="bundle-description" class="description-field">
         <div class="description-row">
-          <input id="bundle-description" v-model="descriptionInput" type="text" :placeholder="t('pages.bundle_detail.description_placeholder')" />
+          <input
+            id="bundle-description"
+            v-model="descriptionInput"
+            type="text"
+            :placeholder="t('pages.bundle_detail.description_placeholder')"
+          />
           <button
             type="button"
             class="btn-secondary"
             :disabled="!descriptionDirty || savingDescription"
             @click="saveDescription"
           >
-            {{ savingDescription ? t('common.saving') : t('common.save') }}
+            {{ savingDescription ? t("common.saving") : t("common.save") }}
           </button>
         </div>
         <p v-if="descriptionError" class="row-error">{{ descriptionError }}</p>
       </FormField>
 
-      <h2>{{ t('pages.bundle_detail.tools_heading', { count: toolsDraft.length }) }}</h2>
+      <h2>{{ t("pages.bundle_detail.tools_heading", { count: toolsDraft.length }) }}</h2>
       <BundleToolPicker v-model="toolsDraft" />
       <div class="tools-actions">
         <button type="button" class="btn-primary" :disabled="!toolsDirty || savingTools" @click="saveTools">
-          {{ savingTools ? t('common.saving') : t('pages.bundle_detail.save_tools') }}
+          {{ savingTools ? t("common.saving") : t("pages.bundle_detail.save_tools") }}
         </button>
-        <span v-if="toolsDirty" class="hint">{{ t('pages.bundle_detail.unsaved_tools') }}</span>
+        <span v-if="toolsDirty" class="hint">{{ t("pages.bundle_detail.unsaved_tools") }}</span>
       </div>
       <p v-if="toolsError" class="row-error">{{ toolsError }}</p>
     </template>

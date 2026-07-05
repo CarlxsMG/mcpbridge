@@ -79,17 +79,25 @@ async function copyKey() {
       <PageHeader :title="t('pages.keys.new.title')" :back-link="{ to: '/keys', label: t('nav.keys') }" />
 
       <div v-if="mintedKey" class="minted" role="alert">
-        <div class="minted-title">{{ t('pages.keys.new.minted_title', { label: mintedKey.label }) }}</div>
+        <div class="minted-title">{{ t("pages.keys.new.minted_title", { label: mintedKey.label }) }}</div>
         <div class="minted-row">
           <code class="minted-secret">{{ mintedKey.key }}</code>
-          <button type="button" class="btn-secondary" @click="copyKey">{{ copied ? t('common.copied') : t('common.copy') }}</button>
+          <button type="button" class="btn-secondary" @click="copyKey">
+            {{ copied ? t("common.copied") : t("common.copy") }}
+          </button>
         </div>
-        <RouterLink to="/keys" class="btn-primary done-link">{{ t('common.done') }}</RouterLink>
+        <RouterLink to="/keys" class="btn-primary done-link">{{ t("common.done") }}</RouterLink>
       </div>
 
       <form v-else class="form-card" @submit.prevent="createKey">
         <FormField :label="t('pages.keys.new.fields.label')" for="k-label">
-          <input id="k-label" v-model="label" type="text" required :placeholder="t('pages.keys.new.placeholders.label')" />
+          <input
+            id="k-label"
+            v-model="label"
+            type="text"
+            required
+            :placeholder="t('pages.keys.new.placeholders.label')"
+          />
           <p v-if="error" class="error">{{ error }}</p>
         </FormField>
         <FormField :label="t('pages.keys.new.fields.clients')" for="k-clients">
@@ -112,10 +120,10 @@ async function copyKey() {
           />
         </FormField>
         <label class="checkbox-field"
-          ><input v-model="elevated" type="checkbox" /> {{ t('pages.keys.new.elevated_label') }}</label
+          ><input v-model="elevated" type="checkbox" /> {{ t("pages.keys.new.elevated_label") }}</label
         >
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t('pages.keys.new.minting') : t('pages.keys.new.mint_key') }}
+          {{ creating ? t("pages.keys.new.minting") : t("pages.keys.new.mint_key") }}
         </button>
       </form>
     </FormPage>

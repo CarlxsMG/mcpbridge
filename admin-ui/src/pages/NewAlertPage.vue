@@ -95,7 +95,7 @@ async function createRule() {
     <FormPage max-width="26.25rem">
       <PageHeader :title="t('pages.alerts.new_title')" :back-link="{ to: '/alerts', label: t('nav.alerts') }" />
       <p class="hint">
-        {{ t('pages.alerts.new_subtitle') }}
+        {{ t("pages.alerts.new_subtitle") }}
       </p>
 
       <form class="form-card" @submit.prevent="createRule">
@@ -112,7 +112,9 @@ async function createRule() {
         </FormField>
         <template v-if="NUMERIC_EVENTS.has(event)">
           <FormField
-            :label="event === 'usage_spike' ? t('pages.alerts.fields.spike_factor') : t('pages.alerts.fields.threshold')"
+            :label="
+              event === 'usage_spike' ? t('pages.alerts.fields.spike_factor') : t('pages.alerts.fields.threshold')
+            "
             for="alert-threshold"
           >
             <input
@@ -135,7 +137,7 @@ async function createRule() {
         </template>
         <p v-if="error" class="error">{{ error }}</p>
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t('pages.alerts.creating') : t('pages.alerts.create_rule') }}
+          {{ creating ? t("pages.alerts.creating") : t("pages.alerts.create_rule") }}
         </button>
       </form>
     </FormPage>

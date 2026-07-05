@@ -156,12 +156,12 @@ async function confirmDelete() {
 <template>
   <section>
     <PageHeader :title="t('pages.ws_proxy_targets.title')">
-      <RouterLink to="/ws-proxies/new" class="btn-primary">{{ t('pages.ws_proxy_targets.new_target') }}</RouterLink>
+      <RouterLink to="/ws-proxies/new" class="btn-primary">{{ t("pages.ws_proxy_targets.new_target") }}</RouterLink>
     </PageHeader>
     <p class="subtitle">
-      {{ t('pages.ws_proxy_targets.subtitle_p1') }}
+      {{ t("pages.ws_proxy_targets.subtitle_p1") }}
       <code>/ws-proxy/&lt;name&gt;</code>
-      {{ t('pages.ws_proxy_targets.subtitle_p2') }}
+      {{ t("pages.ws_proxy_targets.subtitle_p2") }}
     </p>
 
     <form v-if="showEdit" class="create-form" @submit.prevent="submitTarget">
@@ -183,26 +183,26 @@ async function confirmDelete() {
       <p v-if="createError" class="error">{{ createError }}</p>
       <div class="form-actions">
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t('pages.ws_proxy_targets.saving') : t('pages.ws_proxy_targets.save_changes') }}
+          {{ creating ? t("pages.ws_proxy_targets.saving") : t("pages.ws_proxy_targets.save_changes") }}
         </button>
-        <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
+        <button type="button" class="btn-secondary" @click="closeForm">{{ t("common.cancel") }}</button>
       </div>
     </form>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="targets.length === 0">
       <template #empty>
         <EmptyState :icon="Waypoints">
-          {{ t('pages.ws_proxy_targets.empty') }}
+          {{ t("pages.ws_proxy_targets.empty") }}
         </EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.ws_proxy_targets.table.name') }}</th>
-            <th>{{ t('pages.ws_proxy_targets.table.backend_url') }}</th>
-            <th>{{ t('pages.ws_proxy_targets.table.connections') }}</th>
-            <th>{{ t('pages.ws_proxy_targets.table.enabled') }}</th>
+            <th>{{ t("pages.ws_proxy_targets.table.name") }}</th>
+            <th>{{ t("pages.ws_proxy_targets.table.backend_url") }}</th>
+            <th>{{ t("pages.ws_proxy_targets.table.connections") }}</th>
+            <th>{{ t("pages.ws_proxy_targets.table.enabled") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -225,16 +225,22 @@ async function confirmDelete() {
             </td>
             <td>
               <div class="actions">
-                <button type="button" class="link-btn" @click="openEdit(target)">{{ t('common.edit') }}</button>
+                <button type="button" class="link-btn" @click="openEdit(target)">{{ t("common.edit") }}</button>
                 <button
                   type="button"
                   class="link-btn"
                   :disabled="disconnectingName === target.name || target.activeConnections === 0"
                   @click="requestDisconnectAll(target)"
                 >
-                  {{ disconnectingName === target.name ? t('pages.ws_proxy_targets.disconnecting') : t('pages.ws_proxy_targets.disconnect_all') }}
+                  {{
+                    disconnectingName === target.name
+                      ? t("pages.ws_proxy_targets.disconnecting")
+                      : t("pages.ws_proxy_targets.disconnect_all")
+                  }}
                 </button>
-                <button type="button" class="link-btn danger" @click="requestDelete(target)">{{ t('common.delete') }}</button>
+                <button type="button" class="link-btn danger" @click="requestDelete(target)">
+                  {{ t("common.delete") }}
+                </button>
               </div>
             </td>
           </tr>
@@ -246,7 +252,11 @@ async function confirmDelete() {
       :open="pendingDelete !== null"
       :title="t('pages.ws_proxy_targets.confirm.delete_title')"
       :message="pendingDelete ? t('pages.ws_proxy_targets.confirm.delete_message', { name: pendingDelete.name }) : ''"
-      :confirm-label="pendingDelete ? t('pages.ws_proxy_targets.confirm.delete_cta', { name: pendingDelete.name }) : t('common.delete')"
+      :confirm-label="
+        pendingDelete
+          ? t('pages.ws_proxy_targets.confirm.delete_cta', { name: pendingDelete.name })
+          : t('common.delete')
+      "
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"
@@ -257,7 +267,10 @@ async function confirmDelete() {
       :title="t('pages.ws_proxy_targets.confirm.disconnect_title')"
       :message="
         pendingDisconnect
-          ? t('pages.ws_proxy_targets.confirm.disconnect_message', { name: pendingDisconnect.name, count: pendingDisconnect.activeConnections })
+          ? t('pages.ws_proxy_targets.confirm.disconnect_message', {
+              name: pendingDisconnect.name,
+              count: pendingDisconnect.activeConnections,
+            })
           : ''
       "
       :confirm-label="t('pages.ws_proxy_targets.disconnect_all')"

@@ -107,42 +107,49 @@ function statusOf(link: BundleInstallLink): string {
 </script>
 
 <template>
-  <ModalShell :open="open" :ariaLabel="t('components.share_install_link.title')" :max-width="'40rem'" @close="emit('close')">
+  <ModalShell
+    :open="open"
+    :ariaLabel="t('components.share_install_link.title')"
+    :max-width="'40rem'"
+    @close="emit('close')"
+  >
     <div class="dialog-head">
-      <h2>{{ t('components.share_install_link.title') }}</h2>
-      <button type="button" class="link-btn" @click="emit('close')">{{ t('common.close') }}</button>
+      <h2>{{ t("components.share_install_link.title") }}</h2>
+      <button type="button" class="link-btn" @click="emit('close')">{{ t("common.close") }}</button>
     </div>
     <p class="hint">
-      {{ t('components.share_install_link.hint_p1', { name: bundleName }) }}
-      {{ t('components.share_install_link.hint_p2') }}
+      {{ t("components.share_install_link.hint_p1", { name: bundleName }) }}
+      {{ t("components.share_install_link.hint_p2") }}
     </p>
 
     <div v-if="minted" class="minted" role="alert">
-      <div class="minted-title">{{ t('components.share_install_link.minted_title') }}</div>
+      <div class="minted-title">{{ t("components.share_install_link.minted_title") }}</div>
       <div class="minted-row">
         <code class="minted-secret">{{ installUrl(minted.token) }}</code>
         <CopyButton :key="minted.token" :text="installUrl(minted.token)" :label="t('common.copy')" />
-        <button type="button" class="link-btn" @click="minted = null">{{ t('components.share_install_link.dismiss') }}</button>
+        <button type="button" class="link-btn" @click="minted = null">
+          {{ t("components.share_install_link.dismiss") }}
+        </button>
       </div>
     </div>
 
     <button type="button" class="btn-primary create-btn" :disabled="creating" @click="createLink">
-      {{ creating ? t('common.creating') : t('components.share_install_link.create_new') }}
+      {{ creating ? t("common.creating") : t("components.share_install_link.create_new") }}
     </button>
     <p v-if="createError" class="row-error">{{ createError }}</p>
 
-    <h3>{{ t('components.share_install_link.existing_heading') }}</h3>
+    <h3>{{ t("components.share_install_link.existing_heading") }}</h3>
     <p v-if="listError" class="row-error">{{ listError }}</p>
-    <p v-else-if="loading" class="hint">{{ t('common.loading') }}</p>
-    <p v-else-if="links.length === 0" class="hint">{{ t('components.share_install_link.empty') }}</p>
+    <p v-else-if="loading" class="hint">{{ t("common.loading") }}</p>
+    <p v-else-if="links.length === 0" class="hint">{{ t("components.share_install_link.empty") }}</p>
     <div v-else class="table-wrap">
       <table class="links-table">
         <thead>
           <tr>
-            <th>{{ t('components.share_install_link.table.token') }}</th>
-            <th>{{ t('components.share_install_link.table.status') }}</th>
-            <th>{{ t('components.share_install_link.table.created') }}</th>
-            <th>{{ t('components.share_install_link.table.last_used') }}</th>
+            <th>{{ t("components.share_install_link.table.token") }}</th>
+            <th>{{ t("components.share_install_link.table.status") }}</th>
+            <th>{{ t("components.share_install_link.table.created") }}</th>
+            <th>{{ t("components.share_install_link.table.last_used") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -164,7 +171,7 @@ function statusOf(link: BundleInstallLink): string {
                   class="link-btn danger"
                   @click="pendingRevoke = link"
                 >
-                  {{ t('components.share_install_link.revoke') }}
+                  {{ t("components.share_install_link.revoke") }}
                 </button>
               </div>
             </td>
@@ -178,7 +185,11 @@ function statusOf(link: BundleInstallLink): string {
       :open="pendingRevoke !== null"
       :title="t('components.share_install_link.confirm.revoke_title')"
       :message="t('components.share_install_link.confirm.revoke_message')"
-      :confirm-label="pendingRevoke ? t('components.share_install_link.confirm.revoke_cta', { token: pendingRevoke.tokenPrefix }) : t('components.share_install_link.revoke')"
+      :confirm-label="
+        pendingRevoke
+          ? t('components.share_install_link.confirm.revoke_cta', { token: pendingRevoke.tokenPrefix })
+          : t('components.share_install_link.revoke')
+      "
       danger
       @confirm="confirmRevoke"
       @cancel="pendingRevoke = null"

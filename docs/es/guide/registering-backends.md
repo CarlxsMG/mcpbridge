@@ -1,13 +1,13 @@
-# Registering backends
+# Registrar backends
 
-A backend is a **REST API**, a **GraphQL API**, or an existing **MCP server** — each turned
-into (or re-exposing) MCP tools through the same guard stack. Register from the admin UI
-(**Add server**) or the `POST /register` API. Registration requires admin auth — a session,
-or an `ADMIN_API_KEYS` Bearer token.
+Un backend es una **API REST**, una **API GraphQL**, o un **servidor MCP** existente —
+cada uno se convierte en (o re-expone) tools MCP a través de la misma pila de guards.
+Registra desde la UI de admin (**Añadir servidor**) o la API `POST /register`. El registro
+requiere auth admin — una sesión, o un token Bearer `ADMIN_API_KEYS`.
 
-## REST from an OpenAPI spec
+## REST desde un spec OpenAPI
 
-Point at the spec and the bridge generates one tool per operation:
+Apunta al spec y el bridge genera una tool por operación:
 
 ```bash
 curl -X POST https://bridge.example.com/register \
@@ -20,25 +20,25 @@ curl -X POST https://bridge.example.com/register \
   }'
 ```
 
-Useful fields:
+Campos útiles:
 
-| Field                                 | Purpose                                                                                          |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `openapi_url`                         | Discover tools from a spec (mutually exclusive with `tools`, `curl_input`, `postman_collection`) |
-| `tools`                               | Provide tool definitions manually when there's no spec                                           |
-| `curl_input`                          | Derive one tool from a pasted `curl` command (below)                                             |
-| `postman_collection`                  | Derive tools from a Postman Collection v2.1 export (below)                                       |
-| `base_url`                            | Override the API base (defaults to the host of `health_url`)                                     |
-| `include_tags` / `exclude_operations` | Select exactly which operations become tools (OpenAPI discovery only)                            |
-| `retry_non_safe_methods`              | Allow retries on non-idempotent methods (off by default)                                         |
+| Campo                                 | Propósito                                                                                           |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `openapi_url`                         | Descubre tools desde un spec (mutuamente exclusivo con `tools`, `curl_input`, `postman_collection`) |
+| `tools`                               | Provee definiciones de tools manualmente cuando no hay spec                                         |
+| `curl_input`                          | Deriva una tool de un comando `curl` pegado (más abajo)                                             |
+| `postman_collection`                  | Deriva tools de una exportación Postman Collection v2.1 (más abajo)                                 |
+| `base_url`                            | Sobrescribe el base de la API (por defecto el host de `health_url`)                                 |
+| `include_tags` / `exclude_operations` | Selecciona exactamente qué operaciones se convierten en tools (solo discovery OpenAPI)              |
+| `retry_non_safe_methods`              | Permite reintentos en métodos no idempotentes (off por defecto)                                     |
 
-`tools`, `openapi_url`, `curl_input` and `postman_collection` are **mutually exclusive** —
-provide exactly one.
+`tools`, `openapi_url`, `curl_input` y `postman_collection` son **mutuamente exclusivos** —
+provee exactamente uno.
 
-## From a cURL command or Postman collection
+## Desde un comando cURL o colección Postman
 
-No OpenAPI spec? Paste a working `curl` invocation and the bridge derives a single tool from
-its method, URL, headers and body:
+¿Sin spec OpenAPI? Pega una invocación `curl` funcional y el bridge deriva una sola tool de
+su método, URL, headers y body:
 
 ```bash
 curl -X POST https://bridge.example.com/register \
@@ -51,11 +51,11 @@ curl -X POST https://bridge.example.com/register \
   }'
 ```
 
-Or point `postman_collection` at a Postman Collection v2.1 export (as a JSON string) to derive
-one tool per request in the collection — useful when a team already maintains one instead of
-an OpenAPI spec.
+O apunta `postman_collection` a una exportación Postman Collection v2.1 (como string JSON)
+para derivar una tool por request de la colección — útil cuando un equipo ya mantiene una en
+lugar de un spec OpenAPI.
 
-## A GraphQL API
+## Una API GraphQL
 
 ```bash
 curl -X POST https://bridge.example.com/register \
@@ -68,13 +68,13 @@ curl -X POST https://bridge.example.com/register \
   }'
 ```
 
-The bridge introspects the schema and generates one tool per query and mutation
-(`include_mutations: false` to expose queries only). `health_url` is optional — it defaults to
-`graphql_url`, but many GraphQL servers reject a bare `GET` on the operation endpoint, so
-supplying a dedicated liveness endpoint avoids false-positive health failures and auto-eviction
-(the response includes a `warnings` array if you skip it).
+El bridge introspecciona el schema y genera una tool por query y mutation (`include_mutations: false`
+para exponer solo queries). `health_url` es opcional — por defecto es `graphql_url`, pero
+muchos servidores GraphQL rechazan un `GET` desnudo en el endpoint de operaciones, así que
+proveer un endpoint de liveness dedicado evita fallos de health positivos falsos y
+auto-eliminación (la response incluye un array `warnings` si te lo saltas).
 
-## An existing MCP server (upstream)
+## Un servidor MCP existente (upstream)
 
 ```bash
 curl -X POST https://bridge.example.com/register \
@@ -88,36 +88,39 @@ curl -X POST https://bridge.example.com/register \
   }'
 ```
 
-The bridge connects out, discovers the upstream's tools, and re-exposes them through the
-same guard stack. Both `streamable-http` and `sse` upstream transports are supported.
+El bridge se conecta hacia fuera, descubre las tools del upstream y las re-expone a través
+de la misma pila de guards. Se soportan tanto `streamable-http` como `sse` como transportes
+upstream.
 
-## From the install catalog
+## Desde el catálogo de instalación
 
-The admin UI also has a **catalog** page: a curated, one-click-install marketplace merging
-built-in server templates with any custom ones an admin adds. Installing a catalog entry runs
-through the exact same registration path (SSRF check, discovery, IP pinning) as a hand-typed
-`POST /register` — it's a shortcut to a prefilled form, not a separate code path.
+La UI de admin también tiene una página de **catálogo**: un marketplace curado de
+instalación con un clic que combina plantillas de servidor integradas con las personalizadas
+que añada un admin. Instalar una entrada del catálogo pasa por el mismo camino de registro
+(check SSRF, discovery, IP pinning) que un `POST /register` escrito a mano — es un atajo
+a un formulario pre-rellenado, no un code path separado.
 
-## What happens on registration
+## Qué pasa en el registro
 
-- **SSRF check + IP pinning.** The backend URL is validated and its resolved IP pinned, so
-  a later DNS change can't redirect it. Loopback/private addresses are rejected unless
-  `ALLOW_PRIVATE_IPS=true` (local dev only).
-- **Health monitoring.** A background loop checks each backend and auto-evicts unhealthy
-  ones (a `ping` probe for MCP upstreams). Eviction never destroys admin config.
-- **Tools go live** across all four serving modes immediately.
+- **Check SSRF + anclaje de IP.** La URL del backend se valida y su IP resuelta se ancla,
+  para que un cambio posterior de DNS no pueda redirigirlo. Direcciones loopback/privadas
+  se rechazan salvo que `ALLOW_PRIVATE_IPS=true` (solo dev local).
+- **Monitorización de salud.** Un loop en background chequea cada backend y auto-elimina los
+  no saludables (un probe `ping` para upstreams MCP). La eliminación nunca destruye config
+  admin.
+- **Las tools se activan** en los cuatro modos de servir inmediatamente.
 
-## Keeping tools current
+## Mantener las tools al día
 
-Re-run discovery any time (the **Re-discover tools** action on a server's detail page, or
-re-`POST /register`) after the backend's spec changes. Per-tool config — guards, aliases,
-enable flags — survives re-discovery.
+Re-ejecuta el discovery en cualquier momento (la acción **Re-descubrir tools** en la página
+de detalle de un server, o re-`POST /register`) después de que cambie el spec del backend.
+La config por tool — guards, aliases, enable flags — sobrevive al re-descubrimiento.
 
-## Removing a backend
+## Eliminar un backend
 
-`DELETE /clients/:name` (admin auth) unregisters a backend — the registry handles in-flight
-request cleanup, circuit-breaker state, and tool-index removal for you. The admin UI exposes
-the same action from a server's detail page.
+`DELETE /clients/:name` (auth admin) da de baja un backend — el registro se encarga de la
+limpieza de requests en vuelo, el estado del circuit-breaker y la eliminación del índice de
+tools por ti. La UI de admin expone la misma acción desde la página de detalle del server.
 
-Next: **[Connecting MCP clients →](/guide/connecting-clients)** ·
-**[Guardrails & resilience →](/guide/guardrails-resilience)**
+Siguiente: **[Conectar clientes MCP →](/es/guide/connecting-clients)** ·
+**[Guardrails y resiliencia →](/es/guide/guardrails-resilience)**

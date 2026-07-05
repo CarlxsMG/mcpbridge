@@ -60,7 +60,10 @@ async function createConsumer() {
 <template>
   <section>
     <FormPage max-width="23.75rem">
-      <PageHeader :title="t('pages.consumers.new.title')" :back-link="{ to: '/consumers', label: t('nav.consumers') }" />
+      <PageHeader
+        :title="t('pages.consumers.new.title')"
+        :back-link="{ to: '/consumers', label: t('nav.consumers') }"
+      />
 
       <form class="form-card" @submit.prevent="createConsumer">
         <FormField :label="t('pages.consumers.new.fields.name')" for="c-name">
@@ -77,7 +80,7 @@ async function createConsumer() {
         </FormField>
         <p v-if="error" class="error">{{ error }}</p>
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t('common.creating') : t('pages.consumers.new.create') }}
+          {{ creating ? t("common.creating") : t("pages.consumers.new.create") }}
         </button>
       </form>
     </FormPage>

@@ -121,9 +121,12 @@ async function createSchedule() {
 <template>
   <section>
     <FormPage max-width="28.75rem">
-      <PageHeader :title="t('pages.schedules.new.title')" :back-link="{ to: '/schedules', label: t('nav.schedules') }" />
+      <PageHeader
+        :title="t('pages.schedules.new.title')"
+        :back-link="{ to: '/schedules', label: t('nav.schedules') }"
+      />
       <p class="hint">
-        {{ t('pages.schedules.new.subtitle') }}
+        {{ t("pages.schedules.new.subtitle") }}
       </p>
 
       <form class="form-card" @submit.prevent="createSchedule">
@@ -131,10 +134,20 @@ async function createSchedule() {
           <SelectMenu id="sched-type" v-model="targetType" :options="TARGET_TYPE_OPTIONS" />
         </FormField>
         <FormField :label="t('pages.schedules.new.fields.client')" for="sched-client">
-          <input id="sched-client" v-model="clientName" type="text" :placeholder="t('pages.schedules.new.placeholders.client')" />
+          <input
+            id="sched-client"
+            v-model="clientName"
+            type="text"
+            :placeholder="t('pages.schedules.new.placeholders.client')"
+          />
         </FormField>
         <FormField v-if="targetType === 'tool'" :label="t('pages.schedules.new.fields.tool')" for="sched-tool">
-          <input id="sched-tool" v-model="toolName" type="text" :placeholder="t('pages.schedules.new.placeholders.tool')" />
+          <input
+            id="sched-tool"
+            v-model="toolName"
+            type="text"
+            :placeholder="t('pages.schedules.new.placeholders.tool')"
+          />
         </FormField>
         <FormField :label="t('pages.schedules.new.fields.action')" for="sched-action">
           <SelectMenu id="sched-action" v-model="action" :options="ACTION_OPTIONS" />
@@ -144,7 +157,11 @@ async function createSchedule() {
           <SelectMenu id="sched-frequency" v-model="frequency" :options="FREQUENCY_OPTIONS" />
         </FormField>
 
-        <FormField v-if="frequency === 'daily' || frequency === 'weekly'" :label="t('pages.schedules.new.fields.time')" for="sched-time">
+        <FormField
+          v-if="frequency === 'daily' || frequency === 'weekly'"
+          :label="t('pages.schedules.new.fields.time')"
+          for="sched-time"
+        >
           <input id="sched-time" v-model="timeOfDay" type="time" />
         </FormField>
 
@@ -171,17 +188,19 @@ async function createSchedule() {
 
         <FormField v-if="frequency === 'custom'" :label="t('pages.schedules.new.fields.cron')" for="sched-cron">
           <input id="sched-cron" v-model="customCron" type="text" placeholder="0 3 * * *" class="cron" />
-          <p class="hint">{{ t('pages.schedules.new.cron_hint') }} <code>min hour day-of-month month day-of-week</code>.</p>
+          <p class="hint">
+            {{ t("pages.schedules.new.cron_hint") }} <code>min hour day-of-month month day-of-week</code>.
+          </p>
         </FormField>
 
         <p class="cron-preview">
-          {{ t('pages.schedules.new.runs') }} <strong>{{ cronPreview }}</strong>
+          {{ t("pages.schedules.new.runs") }} <strong>{{ cronPreview }}</strong>
           <span v-if="frequency !== 'custom'" class="cron-raw">({{ computedCron }})</span>
         </p>
 
         <p v-if="error" class="error">{{ error }}</p>
         <button class="btn-primary" type="submit" :disabled="creating">
-          {{ creating ? t('common.creating') : t('pages.schedules.new.create') }}
+          {{ creating ? t("common.creating") : t("pages.schedules.new.create") }}
         </button>
       </form>
     </FormPage>

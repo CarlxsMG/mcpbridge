@@ -50,16 +50,18 @@ const waterfall = computed(() => {
 
 <template>
   <section>
-    <button type="button" class="link-btn back-link" @click="backToList">&larr; {{ t('pages.traces.back_to_list') }}</button>
+    <button type="button" class="link-btn back-link" @click="backToList">
+      &larr; {{ t("pages.traces.back_to_list") }}
+    </button>
     <ListLayout :loading="loading" :error="errorMessage" :empty="waterfall.rows.length === 0">
       <template #empty>
         <div class="empty-state">
-          <p>{{ t('pages.traces.detail_not_found') }}</p>
+          <p>{{ t("pages.traces.detail_not_found") }}</p>
         </div>
       </template>
 
       <div class="waterfall-card">
-        <h2>{{ t('pages.traces.detail_title', { id: traceId }) }}</h2>
+        <h2>{{ t("pages.traces.detail_title", { id: traceId }) }}</h2>
         <div class="waterfall">
           <div v-for="row in waterfall.rows" :key="row.span.id" class="waterfall-row">
             <div class="waterfall-label" :title="row.span.name">{{ row.span.name }}</div>
@@ -75,7 +77,7 @@ const waterfall = computed(() => {
           </div>
         </div>
         <details class="attrs">
-          <summary>{{ t('pages.traces.detail_attributes_summary') }}</summary>
+          <summary>{{ t("pages.traces.detail_attributes_summary") }}</summary>
           <pre>{{ prettyJson(waterfall.rows[waterfall.rows.length - 1]?.span.attributes ?? {}) }}</pre>
         </details>
       </div>

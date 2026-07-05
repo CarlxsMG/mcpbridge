@@ -1,37 +1,38 @@
-# API reference
+# Referencia de API
 
-The bridge exposes a few distinct HTTP surfaces. The backend also serves an **interactive
-OpenAPI explorer at `/docs`** (Swagger UI, generated from `src/openapi.yaml`) — open in
-development, behind admin auth in production.
+El bridge expone unas pocas superficies HTTP distintas. El backend también sirve un
+**explorador OpenAPI interactivo en `/docs`** (Swagger UI, generado desde `src/openapi.yaml`)
+— abierto en desarrollo, detrás de auth admin en producción.
 
-## MCP endpoints (for tool callers)
+## Endpoints MCP (para callers de tools)
 
-Where MCP clients connect. Auth: `MCP_API_KEYS` Bearer, or a JWT when `JWT_JWKS_URL` is set.
+Donde se conectan los clientes MCP. Auth: `MCP_API_KEYS` Bearer, o un JWT cuando
+`JWT_JWKS_URL` está configurado.
 
-| Endpoint                           | Purpose                                         |
+| Endpoint                           | Propósito                                       |
 | ---------------------------------- | ----------------------------------------------- |
-| `POST /mcp`                        | Aggregated Streamable HTTP — every enabled tool |
-| `GET/POST /mcp/:clientName`        | One backend's tools (sharded)                   |
-| `GET/POST /mcp-custom/:bundleName` | A curated bundle                                |
-| `GET /sse` + `POST /messages`      | Legacy SSE transport                            |
+| `POST /mcp`                        | Streamable HTTP agregado — cada tool habilitada |
+| `GET/POST /mcp/:clientName`        | Tools de un solo backend (shardeado)            |
+| `GET/POST /mcp-custom/:bundleName` | Un bundle curado                                |
+| `GET /sse` + `POST /messages`      | Transporte SSE legacy                           |
 
-## Registration
+## Registro
 
-Register or re-discover backends. Auth: admin session **or** `ADMIN_API_KEYS` Bearer.
+Registra o re-descubre backends. Auth: sesión admin **o** `ADMIN_API_KEYS` Bearer.
 
-| Endpoint               | Purpose                                                                                                                                                                                  |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /register`       | Register a REST backend (`openapi_url`, `tools`, `curl_input`, or `postman_collection`), an MCP upstream (`kind: "mcp"`, `mcp_url`), or a GraphQL API (`kind: "graphql"`, `graphql_url`) |
-| `GET /register/schema` | JSON Schema for the registration payload                                                                                                                                                 |
+| Endpoint               | Propósito                                                                                                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /register`       | Registra un backend REST (`openapi_url`, `tools`, `curl_input`, o `postman_collection`), un upstream MCP (`kind: "mcp"`, `mcp_url`), o una API GraphQL (`kind: "graphql"`, `graphql_url`) |
+| `GET /register/schema` | JSON Schema para el payload de registro                                                                                                                                                   |
 
-See [Registering backends](/guide/registering-backends) for the payload fields.
+Consulta [Registrar backends](/es/guide/registering-backends) para los campos del payload.
 
 ## Admin API — `/admin-api/*`
 
-The JSON management API behind the Vue admin UI. Auth: session cookie (with CSRF on
-mutations) **or** `ADMIN_API_KEYS` Bearer. Role-gated; every mutation is audited.
+La API JSON de gestión detrás de la UI de admin Vue. Auth: cookie de sesión (con CSRF en
+mutaciones) **o** `ADMIN_API_KEYS` Bearer. Role-gated; cada mutación se audita.
 
-| Group           | Examples                                                                                                                                             |
+| Grupo           | Ejemplos                                                                                                                                             |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth            | `POST /admin-api/auth/login`, `/logout`, `GET /auth/me`                                                                                              |
 | Servers & tools | `GET/POST /admin-api/clients`, `GET/PATCH/DELETE /admin-api/clients/:name`, `PATCH /admin-api/clients` (bulk enable/disable), `GET /admin-api/tools` |
@@ -40,20 +41,20 @@ mutations) **or** `ADMIN_API_KEYS` Bearer. Role-gated; every mutation is audited
 | Observability   | `/admin-api/overview`, `/usage/*`, `/alerts*`, `/audit-log*`                                                                                         |
 | Config & ops    | `/admin-api/config/*` (export/import, snapshots, rollback), `/schedules*`, `/discovery/preview`                                                      |
 
-The full request/response shapes are in the Swagger UI at **`/docs`**.
+Las formas completas request/response están en el Swagger UI en **`/docs`**.
 
-## Operations
+## Operaciones
 
-| Endpoint       | Auth                              | Purpose                                                                         |
-| -------------- | --------------------------------- | ------------------------------------------------------------------------------- |
-| `GET /health`  | none                              | Liveness probe (`{ "status": "ok", "uptime_seconds": <n> }`) for load balancers |
-| `GET /metrics` | admin session or `ADMIN_API_KEYS` | Prometheus metrics (incl. `mcp_tool_calls_total{outcome}`)                      |
-| `GET /admin`   | UI login                          | The Vue admin SPA                                                               |
-| `GET /docs`    | dev-open / admin                  | Interactive OpenAPI explorer (Swagger UI)                                       |
+| Endpoint       | Auth                            | Propósito                                                                        |
+| -------------- | ------------------------------- | -------------------------------------------------------------------------------- |
+| `GET /health`  | ninguna                         | Liveness probe (`{ "status": "ok", "uptime_seconds": <n> }`) para load balancers |
+| `GET /metrics` | sesión admin o `ADMIN_API_KEYS` | Métricas Prometheus (incl. `mcp_tool_calls_total{outcome}`)                      |
+| `GET /admin`   | login de UI                     | El SPA Vue de admin                                                              |
+| `GET /docs`    | dev-open / admin                | Explorador OpenAPI interactivo (Swagger UI)                                      |
 
-## Errors
+## Errores
 
-Errors are JSON: `{ "error": { "code", "message", "request_id" } }`. The `request_id` ties
-a failure to the structured server log — quote it when reporting issues.
+Los errores son JSON: `{ "error": { "code", "message", "request_id" } }`. El `request_id`
+vincula un fallo al log estructurado del servidor — cítalo al reportar issues.
 
-Next: **[Concepts & glossary →](/guide/concepts)** · **[Configuration →](/guide/configuration)**
+Siguiente: **[Conceptos y glosario →](/es/guide/concepts)** · **[Configuración →](/es/guide/configuration)**

@@ -132,20 +132,20 @@ const topSessionsChart = computed(() =>
   <section class="list-shell">
     <PageHeader :title="t('pages.traces.title')" />
     <p class="subtitle">
-      {{ t('pages.traces.subtitle_p1') }} (<code>TRACE_STORAGE=true</code>) {{ t('pages.traces.subtitle_p2') }}
+      {{ t("pages.traces.subtitle_p1") }} (<code>TRACE_STORAGE=true</code>) {{ t("pages.traces.subtitle_p2") }}
     </p>
 
     <form class="filter-row" @submit.prevent="applyFilters">
       <SearchInput v-model="toolFilter" :placeholder="t('pages.traces.tool_placeholder')" />
       <SearchInput v-model="sessionFilter" :placeholder="t('pages.traces.session_placeholder')" class="session-input" />
-      <button type="submit" class="btn-secondary">{{ t('pages.traces.filter_button') }}</button>
+      <button type="submit" class="btn-secondary">{{ t("pages.traces.filter_button") }}</button>
       <button
         type="button"
         class="btn-secondary danger"
         :disabled="purging || traces.length === 0"
         @click="requestPurge(true)"
       >
-        <Trash2 :size="14" stroke-width="2" aria-hidden="true" /> {{ t('pages.traces.purge_all') }}
+        <Trash2 :size="14" stroke-width="2" aria-hidden="true" /> {{ t("pages.traces.purge_all") }}
       </button>
     </form>
 
@@ -155,18 +155,18 @@ const topSessionsChart = computed(() =>
 
     <ListLayout :loading="loading && !traces.length" :error="errorMessage" :empty="traces.length === 0">
       <template #empty>
-        <EmptyState :icon="Waypoints">{{ t('pages.traces.empty.no_traces') }}</EmptyState>
+        <EmptyState :icon="Waypoints">{{ t("pages.traces.empty.no_traces") }}</EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.traces.table.started') }}</th>
-            <th>{{ t('pages.traces.table.tool') }}</th>
-            <th>{{ t('pages.traces.table.session') }}</th>
-            <th>{{ t('pages.traces.table.spans') }}</th>
-            <th>{{ t('pages.traces.table.duration') }}</th>
-            <th>{{ t('pages.traces.table.status') }}</th>
+            <th>{{ t("pages.traces.table.started") }}</th>
+            <th>{{ t("pages.traces.table.tool") }}</th>
+            <th>{{ t("pages.traces.table.session") }}</th>
+            <th>{{ t("pages.traces.table.spans") }}</th>
+            <th>{{ t("pages.traces.table.duration") }}</th>
+            <th>{{ t("pages.traces.table.status") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -190,7 +190,9 @@ const topSessionsChart = computed(() =>
             </td>
             <td>{{ trace.spanCount }}</td>
             <td>{{ formatDuration(trace.endMs - trace.startMs) }}</td>
-            <td :class="{ hot: trace.hasError }">{{ trace.hasError ? t('pages.traces.table.status_error') : t('pages.traces.table.status_ok') }}</td>
+            <td :class="{ hot: trace.hasError }">
+              {{ trace.hasError ? t("pages.traces.table.status_error") : t("pages.traces.table.status_ok") }}
+            </td>
           </tr>
         </tbody>
       </TableCard>

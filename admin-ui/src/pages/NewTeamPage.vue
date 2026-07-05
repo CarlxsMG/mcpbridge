@@ -42,11 +42,17 @@ async function createTeam() {
 
       <form class="form-card" @submit.prevent="createTeam">
         <FormField :label="t('pages.teams.new.fields.name')" for="new-team-name">
-          <input id="new-team-name" v-model="name" type="text" :placeholder="t('pages.teams.new.placeholders.name')" required />
+          <input
+            id="new-team-name"
+            v-model="name"
+            type="text"
+            :placeholder="t('pages.teams.new.placeholders.name')"
+            required
+          />
         </FormField>
         <p v-if="error" class="error">{{ error }}</p>
         <button class="btn-primary" type="submit" :disabled="creating">
-          {{ creating ? t('common.creating') : t('pages.teams.new.create') }}
+          {{ creating ? t("common.creating") : t("pages.teams.new.create") }}
         </button>
       </form>
     </FormPage>

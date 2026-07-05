@@ -129,7 +129,11 @@ function confirmReplay() {
         text: text.length > 300 ? `${text.slice(0, 300)}…` : text,
       };
     } catch (err) {
-      replayNote.value = { id: record.id, ok: false, text: toErrorMessage(err, tk("pages.traffic.errors.replay_failed")) };
+      replayNote.value = {
+        id: record.id,
+        ok: false,
+        text: toErrorMessage(err, tk("pages.traffic.errors.replay_failed")),
+      };
     } finally {
       replayingId.value = null;
     }
@@ -141,36 +145,39 @@ function confirmReplay() {
   <section class="list-shell">
     <PageHeader :title="t('pages.traffic.title')" />
     <p class="subtitle">
-      {{ t('pages.traffic.subtitle_p1') }} (<code>TRAFFIC_CAPTURE=true</code>) {{ t('pages.traffic.subtitle_p2') }}
+      {{ t("pages.traffic.subtitle_p1") }} (<code>TRAFFIC_CAPTURE=true</code>) {{ t("pages.traffic.subtitle_p2") }}
     </p>
 
     <form class="filter-row" @submit.prevent="applyFilters">
       <div class="filter-field">
-        <span class="filter-label">{{ t('pages.traffic.filters.client_label') }}</span>
+        <span class="filter-label">{{ t("pages.traffic.filters.client_label") }}</span>
         <SearchInput v-model="clientFilter" :placeholder="t('pages.traffic.filters.client_label')" />
       </div>
       <div class="filter-field">
-        <span class="filter-label">{{ t('pages.traffic.filters.tool_label') }}</span>
+        <span class="filter-label">{{ t("pages.traffic.filters.tool_label") }}</span>
         <SearchInput v-model="toolFilter" :placeholder="t('pages.traffic.filters.tool_label')" />
       </div>
-      <label class="errors-only"><input v-model="errorsOnly" type="checkbox" /> {{ t('pages.traffic.errors_only') }}</label>
+      <label class="errors-only"
+        ><input v-model="errorsOnly" type="checkbox" /> {{ t("pages.traffic.errors_only") }}</label
+      >
       <button type="submit" class="btn-secondary" :disabled="loading">
-        <Filter :size="14" stroke-width="2" aria-hidden="true" /> {{ loading ? t('pages.traffic.filtering') : t('pages.traffic.filter_button') }}
+        <Filter :size="14" stroke-width="2" aria-hidden="true" />
+        {{ loading ? t("pages.traffic.filtering") : t("pages.traffic.filter_button") }}
       </button>
     </form>
 
     <p v-if="replayNote" :class="replayNote.ok ? 'success' : 'error'" role="status">
-      {{ t('pages.traffic.replay.note_p1', { id: replayNote.id }) }}
-      {{ replayNote.ok ? t('pages.traffic.replay.succeeded') : t('pages.traffic.replay.failed') }}:
+      {{ t("pages.traffic.replay.note_p1", { id: replayNote.id }) }}
+      {{ replayNote.ok ? t("pages.traffic.replay.succeeded") : t("pages.traffic.replay.failed") }}:
       {{ replayNote.text }}
     </p>
 
     <ListLayout :loading="loading && !records.length" :error="errorMessage" :empty="records.length === 0">
       <template #empty>
         <EmptyState :icon="ArrowLeftRight" muted>
-          {{ t('pages.traffic.empty_p1') }}
+          {{ t("pages.traffic.empty_p1") }}
           <code>TRAFFIC_CAPTURE</code>
-          {{ t('pages.traffic.empty_p2') }}
+          {{ t("pages.traffic.empty_p2") }}
         </EmptyState>
       </template>
 
@@ -187,11 +194,11 @@ function confirmReplay() {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.traffic.table.time') }}</th>
-            <th>{{ t('pages.traffic.table.client_tool') }}</th>
-            <th>{{ t('pages.traffic.table.duration') }}</th>
-            <th>{{ t('pages.traffic.table.status') }}</th>
-            <th>{{ t('pages.traffic.table.preview') }}</th>
+            <th>{{ t("pages.traffic.table.time") }}</th>
+            <th>{{ t("pages.traffic.table.client_tool") }}</th>
+            <th>{{ t("pages.traffic.table.duration") }}</th>
+            <th>{{ t("pages.traffic.table.status") }}</th>
+            <th>{{ t("pages.traffic.table.preview") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -200,7 +207,9 @@ function confirmReplay() {
             <td class="mono">{{ formatDateTime(record.createdAt) }}</td>
             <td class="mono">{{ record.clientName ?? "—" }}/{{ record.toolName ?? record.mcpToolName }}</td>
             <td>{{ formatDuration(record.durationMs) }}</td>
-            <td :class="{ hot: record.isError }">{{ record.isError ? t('pages.traffic.table.status_error') : t('pages.traffic.table.status_ok') }}</td>
+            <td :class="{ hot: record.isError }">
+              {{ record.isError ? t("pages.traffic.table.status_error") : t("pages.traffic.table.status_ok") }}
+            </td>
             <td>
               <HoverPreview class="cell-truncate" :text="record.preview">{{ record.preview }}</HoverPreview>
             </td>
@@ -214,7 +223,9 @@ function confirmReplay() {
                   @click="replay(record)"
                 >
                   <Repeat :size="13" stroke-width="2" aria-hidden="true" />
-                  {{ replayingId === record.id ? t('pages.traffic.replay.replaying') : t('pages.traffic.replay.replay') }}
+                  {{
+                    replayingId === record.id ? t("pages.traffic.replay.replaying") : t("pages.traffic.replay.replay")
+                  }}
                 </button>
               </div>
             </td>
@@ -236,12 +247,12 @@ function confirmReplay() {
     <ConfirmDialog
       :open="pendingReplay !== null"
       :title="t('pages.traffic.confirm.replay_title')"
-      :message="
+      :message="pendingReplay ? t('pages.traffic.confirm.replay_message', { name: pendingReplay.mcpToolName }) : ''"
+      :confirm-label="
         pendingReplay
-          ? t('pages.traffic.confirm.replay_message', { name: pendingReplay.mcpToolName })
-          : ''
+          ? t('pages.traffic.confirm.replay_cta', { name: pendingReplay.mcpToolName })
+          : t('pages.traffic.replay.replay')
       "
-      :confirm-label="pendingReplay ? t('pages.traffic.confirm.replay_cta', { name: pendingReplay.mcpToolName }) : t('pages.traffic.replay.replay')"
       danger
       @confirm="confirmReplay"
       @cancel="cancelReplay"

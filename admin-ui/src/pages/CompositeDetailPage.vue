@@ -131,7 +131,9 @@ function toggleEnabled() {
 
 <template>
   <section>
-    <p class="breadcrumb"><RouterLink to="/composites">{{ t('nav.composites') }}</RouterLink> / {{ name }}</p>
+    <p class="breadcrumb">
+      <RouterLink to="/composites">{{ t("nav.composites") }}</RouterLink> / {{ name }}
+    </p>
 
     <SignalLoader v-if="loading && !detail" />
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
@@ -146,7 +148,7 @@ function toggleEnabled() {
           @click="toggleEnabled"
         />
         <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">
-          {{ deleting ? t('pages.composite_detail.deleting') : t('pages.composite_detail.delete') }}
+          {{ deleting ? t("pages.composite_detail.deleting") : t("pages.composite_detail.delete") }}
         </button>
       </PageHeader>
 
@@ -154,7 +156,11 @@ function toggleEnabled() {
       <p v-if="toggleError[detail.name]" class="error" role="alert">{{ toggleError[detail.name] }}</p>
       <p v-if="deleteError" class="row-error">{{ deleteError }}</p>
 
-      <FormField :label="t('pages.composite_detail.description_label')" for="composite-description" class="description-field">
+      <FormField
+        :label="t('pages.composite_detail.description_label')"
+        for="composite-description"
+        class="description-field"
+      >
         <div class="description-row">
           <input
             id="composite-description"
@@ -168,7 +174,7 @@ function toggleEnabled() {
             :disabled="!descriptionDirty || savingDescription"
             @click="saveDescription"
           >
-            {{ savingDescription ? t('common.saving') : t('common.save') }}
+            {{ savingDescription ? t("common.saving") : t("common.save") }}
           </button>
         </div>
         <p v-if="descriptionError" class="error">{{ descriptionError }}</p>
@@ -178,7 +184,7 @@ function toggleEnabled() {
         <textarea id="composite-schema" v-model="schemaInput" rows="8" spellcheck="false"></textarea>
         <div class="field-actions">
           <button type="button" class="btn-primary" :disabled="!schemaDirty || savingSchema" @click="saveSchema">
-            {{ savingSchema ? t('common.saving') : t('pages.composite_detail.save_schema') }}
+            {{ savingSchema ? t("common.saving") : t("pages.composite_detail.save_schema") }}
           </button>
         </div>
         <p v-if="schemaError" class="error">{{ schemaError }}</p>
@@ -186,13 +192,14 @@ function toggleEnabled() {
 
       <FormField :label="t('pages.composite_detail.steps_label')" for="composite-steps" class="json-field">
         <p class="template-hint">
-          {{ t('pages.composite_detail.templates.label') }} <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> {{ t('pages.composite_detail.templates.or') }} <code>{{ '"${input.name}"' }}</code
+          {{ t("pages.composite_detail.templates.label") }} <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code>
+          {{ t("pages.composite_detail.templates.or") }} <code>{{ '"${input.name}"' }}</code
           >.
         </p>
         <textarea id="composite-steps" v-model="stepsInput" rows="10" spellcheck="false"></textarea>
         <div class="field-actions">
           <button type="button" class="btn-primary" :disabled="!stepsDirty || savingSteps" @click="saveSteps">
-            {{ savingSteps ? t('common.saving') : t('pages.composite_detail.save_steps') }}
+            {{ savingSteps ? t("common.saving") : t("pages.composite_detail.save_steps") }}
           </button>
         </div>
         <p v-if="stepsError" class="error">{{ stepsError }}</p>

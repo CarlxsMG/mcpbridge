@@ -1,76 +1,82 @@
-# Security policy
+# Política de seguridad
 
-This is the project's vulnerability-reporting policy — how to report a security issue and
-what's already hardened. For configuring the bridge's built-in security features (SSRF
-protection, guardrails, RBAC), see **[Security →](/guide/security)** instead.
+Esta es la política de reporte de vulnerabilidades del proyecto — cómo reportar un
+issue de seguridad y qué está ya endurecido. Para configurar las features de seguridad
+integradas del bridge (protección SSRF, guardrails, RBAC), consulta **[Seguridad →](/es/guide/security)**
+en su lugar.
 
-Mirrors the repo's root [`SECURITY.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/SECURITY.md).
+Refleja el [`SECURITY.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/SECURITY.md)
+raíz del repo.
 
-## Supported versions
+## Versiones soportadas
 
-MCP REST Bridge is currently released as a single version line. Security fixes are made
-against the latest release only.
+MCP REST Bridge se publica actualmente como una sola línea de versiones. Los fixes de
+seguridad se hacen contra la última release solo.
 
-| Version | Supported |
+| Versión | Soportada |
 | ------- | --------- |
 | 1.0.0   | ✅        |
 | < 1.0.0 | ❌        |
 
-As the project matures past 1.0, this table will be expanded to reflect which major versions
-receive backported security fixes.
+A medida que el proyecto madure más allá de 1.0, esta tabla se expandirá para reflejar
+qué versiones mayores reciben fixes de seguridad backportados.
 
-## Reporting a vulnerability
+## Reportar una vulnerabilidad
 
-**Please do not open a public GitHub issue for security vulnerabilities.**
+**Por favor no abras un issue público de GitHub para vulnerabilidades de seguridad.**
 
-Preferred: use [GitHub's private vulnerability reporting](https://github.com/aico-dot-team-code/mcpbridge/security/advisories/new)
-for this repository ("Security" tab → "Report a vulnerability"). This opens a private advisory
-thread with maintainers only.
+Preferido: usa el [reporte privado de vulnerabilidades de GitHub](https://github.com/aico-dot-team-code/mcpbridge/security/advisories/new)
+para este repositorio (pestaña "Security" → "Report a vulnerability"). Esto abre un hilo
+de advisory privado solo con los maintainers.
 
-Alternatively, email **security@aico.team**.
+Alternativamente, envía un email a **security@aico.team**.
 
-When reporting, please include:
+Al reportar, por favor incluye:
 
-- A description of the vulnerability and its potential impact
-- Steps to reproduce (a minimal repro is ideal — this is a proxy/gateway, so request/response
-  traces are especially useful)
-- The version/commit you tested against
-- Whether you believe it's exploitable pre-auth or requires an authenticated admin/session
+- Una descripción de la vulnerabilidad y su potencial impacto
+- Pasos para reproducir (un repro mínimo es ideal — esto es un proxy/gateway, así que
+  los traces de request/response son especialmente útiles)
+- La versión/commit contra la que testaste
+- Si crees que es explotable pre-auth o requiere un admin/sesión autenticado
 
-We aim to acknowledge reports within a few business days and to keep you updated as we
-investigate and fix the issue. Please give us reasonable time to ship a fix before any public
-disclosure.
+Nuestro objetivo es acusar recibo de los reportes en pocos días laborables y mantenerte
+informado mientras investigamos y arreglamos el issue. Por favor, danos tiempo razonable
+para shippear un fix antes de cualquier divulgación pública.
 
-## What's already handled vs. what to flag
+## Qué está ya manejado vs. qué reportar
 
-MCP REST Bridge has built-in defenses for a number of gateway-specific attack classes.
-Familiarity with these helps you tell "expected hardening" from an actual bypass:
+MCP REST Bridge tiene defensas integradas para varias clases de ataques específicas de
+gateway. Familiarizarte con ellas te ayuda a distinguir "hardening esperado" de un bypass
+real:
 
-- **SSRF / DNS-rebinding protection.** Upstream registration resolves and _pins_ the target IP
-  (including checks for IPv4-mapped IPv6, CGNAT ranges, and IPv6 unspecified/loopback
-  addresses), so a bypass of this pinning is a high-priority report.
-- **Secret encryption.** Upstream credentials (API keys, OAuth client secrets, etc.) are
-  encrypted at rest (see `src/security/secret-box.ts`), not stored as plaintext config.
-- **Tamper-evident audit log.** Admin and proxy actions are recorded in a hash-chained audit
-  log; a way to break or silently rewrite that chain is a valid finding.
-- **Session/auth hardening.** Session identifiers and auth comparisons use
-  constant-time/hashed comparisons, refuse-to-start guards prevent booting with unsafe config
-  (e.g. auth disabled outside development, wildcard CORS in production), and cookies are
-  named/scoped based on the effective transport security.
-- **Per-tool guardrails.** Rate limiting, circuit breaking, and RBAC are enforced per
-  client/tool — a way to bypass these guards for a specific tool or client is worth reporting.
+- **Protección SSRF / DNS-rebinding.** El registro de upstreams resuelve y _ancla_ la IP
+  target (incluyendo checks para IPv4-mapped IPv6, rangos CGNAT y direcciones IPv6
+  unspecified/loopback), así que un bypass de este anclaje es un reporte de alta prioridad.
+- **Cifrado de secretos.** Las credenciales upstream (API keys, OAuth client secrets,
+  etc.) se cifran en reposo (consulta `src/security/secret-box.ts`), no se almacenan
+  como config en plaintext.
+- **Log de auditoría a prueba de manipulaciones.** Las acciones admin y de proxy se
+  registran en un log encadenado por hash; una forma de romper o reescribir
+  silenciosamente esa cadena es un hallazgo válido.
+- **Hardening de sesión/auth.** Los identificadores de sesión y las comparaciones de
+  auth usan comparaciones constant-time/hashed, las guardas refuse-to-start evitan arrancar
+  con config insegura (p. ej. auth deshabilitada fuera de desarrollo, CORS wildcard en
+  producción), y las cookies se nombran/limitan según la seguridad de transporte efectiva.
+- **Guardrails por herramienta.** Rate limiting, circuit breaking y RBAC se aplican por
+  cliente/tool — una forma de saltarse estos guards para una herramienta o cliente
+  específico merece reporte.
 
-Things that are **not** yet hardened and are generally _not_ useful as security reports unless
-they lead to a concrete exploit: missing linter/CI gates, best-practice nits without a
-demonstrated impact, or denial-of-service via arbitrarily large self-inflicted load (unless it
-crosses a trust boundary, e.g. an unauthenticated client exhausting resources meant to be
-per-tenant-isolated).
+Cosas que **no** están endurecidas aún y generalmente _no_ son útiles como reportes de
+seguridad salvo que lleven a un exploit concreto: gates faltantes de linter/CI, nits de
+best-practice sin impacto demostrado, o denegación de servicio vía carga auto-infligida
+arbitrariamente grande (salvo que cruce un límite de confianza, p. ej. un cliente no
+autenticado agotando recursos pensados para ser aislados por tenant).
 
 ## Scope
 
-This policy covers the code in this repository (the gateway, the CLI, the admin UI, and the
-database migration/persistence layer). Vulnerabilities in upstream dependencies should
-generally be reported to those projects directly, but please let us know too if we're using
-them in a way that's exploitable.
+Esta política cubre el código en este repositorio (el gateway, el CLI, el admin UI y la
+capa de migración/persistencia de base de datos). Las vulnerabilidades en dependencias
+upstream deberían reportarse generalmente a esos proyectos directamente, pero por favor
+haznos saber también si las estamos usando de una forma que es explotable.
 
-Next: **[Contributing →](/guide/contributing)** · **[Changelog →](/guide/changelog)**
+Siguiente: **[Contribuir →](/es/guide/contributing)** · **[Changelog →](/es/guide/changelog)**

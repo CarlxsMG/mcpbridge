@@ -145,8 +145,8 @@ onMounted(loadSessions);
     />
 
     <div class="account-section">
-      <h2><Lock :size="16" stroke-width="2" aria-hidden="true" /> {{ t('pages.account.change_password') }}</h2>
-      <p class="hint warn">{{ t('pages.account.change_password_warning') }}</p>
+      <h2><Lock :size="16" stroke-width="2" aria-hidden="true" /> {{ t("pages.account.change_password") }}</h2>
+      <p class="hint warn">{{ t("pages.account.change_password_warning") }}</p>
       <form class="password-form" @submit.prevent="changePassword">
         <FormField :label="t('pages.account.password_current')" for="acc-current-password">
           <input
@@ -159,7 +159,7 @@ onMounted(loadSessions);
         </FormField>
         <FormField :label="t('pages.account.password_new')" for="acc-new-password">
           <input id="acc-new-password" v-model="newPassword" type="password" autocomplete="new-password" required />
-          <p class="hint">{{ t('pages.account.password_min_hint') }}</p>
+          <p class="hint">{{ t("pages.account.password_min_hint") }}</p>
         </FormField>
         <FormField :label="t('pages.account.password_confirm')" for="acc-confirm-password">
           <input
@@ -173,29 +173,29 @@ onMounted(loadSessions);
         <p v-if="passwordError" class="error" role="alert">{{ passwordError }}</p>
         <p v-if="passwordSuccess" class="success" role="status">{{ passwordSuccess }}</p>
         <button type="submit" class="btn-primary" :disabled="changingPassword">
-          {{ changingPassword ? t('pages.account.changing') : t('pages.account.change_password_cta') }}
+          {{ changingPassword ? t("pages.account.changing") : t("pages.account.change_password_cta") }}
         </button>
       </form>
     </div>
 
     <div class="account-section">
-      <h2><Monitor :size="16" stroke-width="2" aria-hidden="true" /> {{ t('pages.account.active_sessions') }}</h2>
-      <p class="subtitle">{{ t('pages.account.active_sessions_subtitle') }}</p>
-      <p class="hint warn">{{ t('pages.account.active_sessions_hint') }}</p>
+      <h2><Monitor :size="16" stroke-width="2" aria-hidden="true" /> {{ t("pages.account.active_sessions") }}</h2>
+      <p class="subtitle">{{ t("pages.account.active_sessions_subtitle") }}</p>
+      <p class="hint warn">{{ t("pages.account.active_sessions_hint") }}</p>
 
       <p v-if="revokeError" class="error" role="alert">{{ revokeError }}</p>
       <ListLayout :loading="sessionsLoading" :error="sessionsError" :empty="sessions.length === 0">
         <template #empty>
-          <EmptyState :icon="Monitor">{{ t('pages.account.empty.no_sessions') }}</EmptyState>
+          <EmptyState :icon="Monitor">{{ t("pages.account.empty.no_sessions") }}</EmptyState>
         </template>
 
         <TableCard>
           <thead>
             <tr>
-              <th>{{ t('pages.account.table.device') }}</th>
-              <th>{{ t('pages.account.table.ip') }}</th>
-              <th>{{ t('pages.account.table.last_active') }}</th>
-              <th>{{ t('pages.account.table.signed_in') }}</th>
+              <th>{{ t("pages.account.table.device") }}</th>
+              <th>{{ t("pages.account.table.ip") }}</th>
+              <th>{{ t("pages.account.table.last_active") }}</th>
+              <th>{{ t("pages.account.table.signed_in") }}</th>
               <th></th>
             </tr>
           </thead>
@@ -208,7 +208,7 @@ onMounted(loadSessions);
               <td>
                 <div class="actions">
                   <button type="button" class="link-btn danger" @click="requestRevoke(session)">
-                    <LogOut :size="13" stroke-width="2" aria-hidden="true" /> {{ t('pages.account.sign_out_device') }}
+                    <LogOut :size="13" stroke-width="2" aria-hidden="true" /> {{ t("pages.account.sign_out_device") }}
                   </button>
                 </div>
               </td>
@@ -219,12 +219,12 @@ onMounted(loadSessions);
     </div>
 
     <div class="account-section">
-      <h2><SlidersHorizontal :size="16" stroke-width="2" aria-hidden="true" /> {{ t('pages.account.preferences') }}</h2>
+      <h2><SlidersHorizontal :size="16" stroke-width="2" aria-hidden="true" /> {{ t("pages.account.preferences") }}</h2>
 
       <div class="pref-row pref-row-first">
         <div>
-          <p class="pref-label">{{ t('pages.account.theme_label') }}</p>
-          <p class="hint">{{ t('pages.account.theme_hint') }}</p>
+          <p class="pref-label">{{ t("pages.account.theme_label") }}</p>
+          <p class="hint">{{ t("pages.account.theme_hint") }}</p>
         </div>
         <div class="segmented" role="radiogroup" :aria-label="t('pages.account.theme_aria')">
           <label>
@@ -235,19 +235,19 @@ onMounted(loadSessions);
               :checked="theme === 'light'"
               @change="setTheme('light')"
             />
-            {{ t('pages.account.theme_light') }}
+            {{ t("pages.account.theme_light") }}
           </label>
           <label>
             <input type="radio" name="theme-pref" value="dark" :checked="theme === 'dark'" @change="setTheme('dark')" />
-            {{ t('pages.account.theme_dark') }}
+            {{ t("pages.account.theme_dark") }}
           </label>
         </div>
       </div>
 
       <div class="pref-row">
         <div>
-          <p class="pref-label">{{ t('pages.account.density_label') }}</p>
-          <p class="hint">{{ t('pages.account.density_hint') }}</p>
+          <p class="pref-label">{{ t("pages.account.density_label") }}</p>
+          <p class="hint">{{ t("pages.account.density_hint") }}</p>
         </div>
         <div class="segmented" role="radiogroup" :aria-label="t('pages.account.density_aria')">
           <label>
@@ -258,7 +258,7 @@ onMounted(loadSessions);
               :checked="density === 'comfortable'"
               @change="setDensity('comfortable')"
             />
-            {{ t('pages.account.density_comfortable') }}
+            {{ t("pages.account.density_comfortable") }}
           </label>
           <label>
             <input
@@ -268,25 +268,26 @@ onMounted(loadSessions);
               :checked="density === 'compact'"
               @change="setDensity('compact')"
             />
-            {{ t('pages.account.density_compact') }}
+            {{ t("pages.account.density_compact") }}
           </label>
         </div>
       </div>
 
       <div class="pref-row">
         <div>
-          <p class="pref-label"><Languages :size="14" stroke-width="2" aria-hidden="true" style="display:inline-block; vertical-align:-2px; margin-right:4px;" />{{ t('pages.account.locale_label') }}</p>
-          <p class="hint">{{ t('pages.account.locale_hint') }}</p>
+          <p class="pref-label">
+            <Languages
+              :size="14"
+              stroke-width="2"
+              aria-hidden="true"
+              style="display: inline-block; vertical-align: -2px; margin-right: 4px"
+            />{{ t("pages.account.locale_label") }}
+          </p>
+          <p class="hint">{{ t("pages.account.locale_hint") }}</p>
         </div>
         <div class="segmented" role="radiogroup" :aria-label="t('common.current_locale')">
           <label v-for="code in locales" :key="code">
-            <input
-              type="radio"
-              name="locale-pref"
-              :value="code"
-              :checked="locale === code"
-              @change="setLocale(code)"
-            />
+            <input type="radio" name="locale-pref" :value="code" :checked="locale === code" @change="setLocale(code)" />
             {{ t(`pages.account.locale_${code}`) }}
           </label>
         </div>

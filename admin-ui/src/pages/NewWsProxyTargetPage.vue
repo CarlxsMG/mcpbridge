@@ -65,14 +65,22 @@ async function createTarget() {
 <template>
   <section>
     <FormPage max-width="26.25rem">
-      <PageHeader :title="t('pages.ws_proxy_targets.new.title')" :back-link="{ to: '/ws-proxies', label: t('nav.ws_proxies') }" />
+      <PageHeader
+        :title="t('pages.ws_proxy_targets.new.title')"
+        :back-link="{ to: '/ws-proxies', label: t('nav.ws_proxies') }"
+      />
 
       <form class="form-card" @submit.prevent="createTarget">
         <FormField :label="t('pages.ws_proxy_targets.fields.name')" for="wp-name">
           <input id="wp-name" v-model="name" type="text" :placeholder="t('pages.ws_proxy_targets.placeholders.name')" />
         </FormField>
         <FormField :label="t('pages.ws_proxy_targets.fields.backend_url')" for="wp-url">
-          <input id="wp-url" v-model="backendUrl" type="text" :placeholder="t('pages.ws_proxy_targets.placeholders.backend_url')" />
+          <input
+            id="wp-url"
+            v-model="backendUrl"
+            type="text"
+            :placeholder="t('pages.ws_proxy_targets.placeholders.backend_url')"
+          />
         </FormField>
         <FormField :label="t('pages.ws_proxy_targets.fields.max_connections')" for="wp-max-conn">
           <input id="wp-max-conn" v-model="maxConnections" type="text" inputmode="numeric" />
@@ -85,7 +93,7 @@ async function createTarget() {
         </FormField>
         <p v-if="error" class="error">{{ error }}</p>
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t('common.creating') : t('pages.ws_proxy_targets.new.create') }}
+          {{ creating ? t("common.creating") : t("pages.ws_proxy_targets.new.create") }}
         </button>
       </form>
     </FormPage>

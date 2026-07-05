@@ -135,7 +135,9 @@ async function resetBreaker() {
 
 <template>
   <section>
-    <p class="breadcrumb"><RouterLink to="/servers">{{ t('nav.servers') }}</RouterLink> / {{ name }}</p>
+    <p class="breadcrumb">
+      <RouterLink to="/servers">{{ t("nav.servers") }}</RouterLink> / {{ name }}
+    </p>
 
     <SignalLoader v-if="loading && !detail" />
     <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
@@ -164,11 +166,11 @@ async function resetBreaker() {
           @click="resetBreaker"
         >
           <RotateCcw :size="14" stroke-width="2" aria-hidden="true" />
-          {{ resettingBreaker ? t('pages.server_detail.resetting') : t('pages.server_detail.reset_breaker') }}
+          {{ resettingBreaker ? t("pages.server_detail.resetting") : t("pages.server_detail.reset_breaker") }}
         </button>
         <button type="button" class="btn-secondary" @click="connectOpen = true">
           <Cable :size="14" stroke-width="2" aria-hidden="true" />
-          {{ t('common.connect_client') }}
+          {{ t("common.connect_client") }}
         </button>
       </PageHeader>
 
@@ -177,26 +179,26 @@ async function resetBreaker() {
       <dl class="meta">
         <template v-if="detail.kind === 'mcp'">
           <div>
-            <dt>{{ t('pages.server_detail.mcp_url') }}</dt>
+            <dt>{{ t("pages.server_detail.mcp_url") }}</dt>
             <dd>{{ detail.mcpUrl }}</dd>
           </div>
           <div>
-            <dt>{{ t('pages.server_detail.transport') }}</dt>
+            <dt>{{ t("pages.server_detail.transport") }}</dt>
             <dd>{{ detail.mcpTransport }}</dd>
           </div>
         </template>
         <template v-else>
           <div>
-            <dt>{{ t('pages.server_detail.health_url') }}</dt>
+            <dt>{{ t("pages.server_detail.health_url") }}</dt>
             <dd>{{ detail.healthUrl }}</dd>
           </div>
           <div>
-            <dt>{{ t('pages.server_detail.base_url') }}</dt>
+            <dt>{{ t("pages.server_detail.base_url") }}</dt>
             <dd>{{ detail.baseUrl }}</dd>
           </div>
         </template>
         <div v-if="detail.consecutiveFailures !== null">
-          <dt>{{ t('pages.server_detail.consecutive_failures') }}</dt>
+          <dt>{{ t("pages.server_detail.consecutive_failures") }}</dt>
           <dd>{{ detail.consecutiveFailures }}</dd>
         </div>
       </dl>
@@ -230,8 +232,10 @@ async function resetBreaker() {
       @keydown="onDrawerKeydown"
     >
       <div class="drawer-header">
-        <h2>{{ t('pages.server_detail.guards_heading', { name: activeTool.name }) }}</h2>
-        <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">{{ t('common.close') }}</button>
+        <h2>{{ t("pages.server_detail.guards_heading", { name: activeTool.name }) }}</h2>
+        <button ref="drawerCloseBtn" type="button" class="link-btn" @click="closeGuardEditor">
+          {{ t("common.close") }}
+        </button>
       </div>
       <GuardEditor
         :guards="activeTool.guards"
@@ -252,13 +256,17 @@ async function resetBreaker() {
 
       <ServerDetailPlayground :client-name="props.name" :tool="activeTool" />
     </div>
-    <p v-else-if="tool && detail && !activeTool" class="error">{{ t('pages.server_detail.tool_not_found', { name: tool }) }}</p>
+    <p v-else-if="tool && detail && !activeTool" class="error">
+      {{ t("pages.server_detail.tool_not_found", { name: tool }) }}
+    </p>
 
     <ConfirmDialog
       :open="pendingClientDisable !== null"
       :title="t('pages.server_detail.confirm.disable_title')"
       :message="detail ? t('pages.server_detail.confirm.disable_message', { name: detail.name }) : ''"
-      :confirm-label="detail ? t('pages.server_detail.confirm.disable_cta', { name: detail.name }) : t('common.disable')"
+      :confirm-label="
+        detail ? t('pages.server_detail.confirm.disable_cta', { name: detail.name }) : t('common.disable')
+      "
       danger
       @confirm="confirmClientDisable"
       @cancel="cancelClientDisable"

@@ -80,9 +80,13 @@ async function createComposite() {
 <template>
   <section>
     <FormPage max-width="50rem">
-      <PageHeader :title="t('pages.composites.new.title')" :back-link="{ to: '/composites', label: t('nav.composites') }" />
+      <PageHeader
+        :title="t('pages.composites.new.title')"
+        :back-link="{ to: '/composites', label: t('nav.composites') }"
+      />
       <p class="subtitle">
-        {{ t('pages.composites.new.subtitle_p1') }} <code>client__tool</code> {{ t('pages.composites.new.subtitle_p2') }}
+        {{ t("pages.composites.new.subtitle_p1") }} <code>client__tool</code>
+        {{ t("pages.composites.new.subtitle_p2") }}
       </p>
 
       <form class="form-card" @submit.prevent="createComposite">
@@ -98,7 +102,12 @@ async function createComposite() {
           <p v-if="nameTouched && nameError" class="error">{{ nameError }}</p>
         </FormField>
         <FormField :label="t('pages.composites.new.fields.description')" for="new-composite-description">
-          <input id="new-composite-description" v-model="description" type="text" :placeholder="t('pages.composites.new.placeholders.description')" />
+          <input
+            id="new-composite-description"
+            v-model="description"
+            type="text"
+            :placeholder="t('pages.composites.new.placeholders.description')"
+          />
         </FormField>
         <FormField :label="t('pages.composites.new.fields.schema')" for="new-composite-schema">
           <textarea
@@ -112,7 +121,8 @@ async function createComposite() {
         </FormField>
         <FormField :label="t('pages.composites.new.fields.steps')" for="new-composite-steps">
           <p class="template-hint">
-            {{ t('pages.composites.new.templates.label') }} <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code> {{ t('pages.composites.new.templates.or') }} <code>{{ '"${input.query}"' }}</code
+            {{ t("pages.composites.new.templates.label") }} <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code>
+            {{ t("pages.composites.new.templates.or") }} <code>{{ '"${input.query}"' }}</code
             >.
           </p>
           <textarea id="new-composite-steps" v-model="steps" class="mono-field" rows="6" spellcheck="false"></textarea>
@@ -120,7 +130,7 @@ async function createComposite() {
         </FormField>
         <p v-if="error" class="error">{{ error }}</p>
         <button class="btn-primary" type="submit" :disabled="creating">
-          {{ creating ? t('common.creating') : t('pages.composites.new.create') }}
+          {{ creating ? t("common.creating") : t("pages.composites.new.create") }}
         </button>
       </form>
     </FormPage>

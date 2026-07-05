@@ -66,23 +66,23 @@ function formatLastRun(m: number | null): string {
 <template>
   <section>
     <PageHeader :title="t('pages.schedules.title')">
-      <RouterLink to="/schedules/new" class="btn-primary">{{ t('pages.schedules.create') }}</RouterLink>
+      <RouterLink to="/schedules/new" class="btn-primary">{{ t("pages.schedules.create") }}</RouterLink>
     </PageHeader>
-    <p class="subtitle">{{ t('pages.schedules.subtitle') }}</p>
+    <p class="subtitle">{{ t("pages.schedules.subtitle") }}</p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
       <template #empty>
-        <EmptyState :icon="Clock">{{ t('pages.schedules.empty.no_schedules') }}</EmptyState>
+        <EmptyState :icon="Clock">{{ t("pages.schedules.empty.no_schedules") }}</EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.schedules.table.target') }}</th>
-            <th>{{ t('pages.schedules.table.action') }}</th>
-            <th>{{ t('pages.schedules.table.schedule') }}</th>
-            <th>{{ t('pages.schedules.table.enabled') }}</th>
-            <th>{{ t('pages.schedules.table.last_run') }}</th>
+            <th>{{ t("pages.schedules.table.target") }}</th>
+            <th>{{ t("pages.schedules.table.action") }}</th>
+            <th>{{ t("pages.schedules.table.schedule") }}</th>
+            <th>{{ t("pages.schedules.table.enabled") }}</th>
+            <th>{{ t("pages.schedules.table.last_run") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -115,7 +115,9 @@ function formatLastRun(m: number | null): string {
             <td>
               <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>
             </td>
-            <td><button class="link-btn danger" @click="requestDelete(s)">{{ t('common.delete') }}</button></td>
+            <td>
+              <button class="link-btn danger" @click="requestDelete(s)">{{ t("common.delete") }}</button>
+            </td>
           </tr>
         </tbody>
       </TableCard>
@@ -126,7 +128,11 @@ function formatLastRun(m: number | null): string {
       :title="t('pages.schedules.confirm.delete_title')"
       :message="
         pendingDelete
-          ? t('pages.schedules.confirm.delete_message', { cron: describeCron(pendingDelete.cron), client: pendingDelete.clientName, tool_part: pendingDelete.toolName ? ' → ' + pendingDelete.toolName : '' })
+          ? t('pages.schedules.confirm.delete_message', {
+              cron: describeCron(pendingDelete.cron),
+              client: pendingDelete.clientName,
+              tool_part: pendingDelete.toolName ? ' → ' + pendingDelete.toolName : '',
+            })
           : ''
       "
       :confirm-label="t('common.delete')"

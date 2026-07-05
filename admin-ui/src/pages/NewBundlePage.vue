@@ -48,23 +48,35 @@ async function createBundle() {
     <FormPage max-width="50rem">
       <PageHeader :title="t('pages.bundles.new.title')" :back-link="{ to: '/bundles', label: t('nav.bundles') }" />
       <p class="subtitle">
-        {{ t('pages.bundles.new.subtitle_p1') }} <code>/mcp-custom/&lt;name&gt;</code> {{ t('pages.bundles.new.subtitle_p2') }}
+        {{ t("pages.bundles.new.subtitle_p1") }} <code>/mcp-custom/&lt;name&gt;</code>
+        {{ t("pages.bundles.new.subtitle_p2") }}
       </p>
 
       <form class="form-card" @submit.prevent="createBundle">
         <FormField :label="t('pages.bundles.new.fields.name')" for="new-bundle-name">
-          <input id="new-bundle-name" v-model="name" type="text" :placeholder="t('pages.bundles.new.placeholders.name')" required />
+          <input
+            id="new-bundle-name"
+            v-model="name"
+            type="text"
+            :placeholder="t('pages.bundles.new.placeholders.name')"
+            required
+          />
         </FormField>
         <p v-if="error" class="error">{{ error }}</p>
         <FormField :label="t('pages.bundles.new.fields.description')" for="new-bundle-description">
-          <input id="new-bundle-description" v-model="description" type="text" :placeholder="t('pages.bundles.new.placeholders.description')" />
+          <input
+            id="new-bundle-description"
+            v-model="description"
+            type="text"
+            :placeholder="t('pages.bundles.new.placeholders.description')"
+          />
         </FormField>
         <div class="field">
-          <label>{{ t('pages.bundles.new.fields.tools') }}</label>
+          <label>{{ t("pages.bundles.new.fields.tools") }}</label>
           <BundleToolPicker v-model="tools" />
         </div>
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t('common.creating') : t('pages.bundles.create') }}
+          {{ creating ? t("common.creating") : t("pages.bundles.create") }}
         </button>
       </form>
     </FormPage>

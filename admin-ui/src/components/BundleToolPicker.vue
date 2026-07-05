@@ -61,7 +61,9 @@ const filteredTools = computed(() => {
   if (!q) return tools;
   return tools.filter(
     (tt) =>
-      tt.client.toLowerCase().includes(q) || tt.tool.toLowerCase().includes(q) || tt.description.toLowerCase().includes(q),
+      tt.client.toLowerCase().includes(q) ||
+      tt.tool.toLowerCase().includes(q) ||
+      tt.description.toLowerCase().includes(q),
   );
 });
 
@@ -78,7 +80,7 @@ const groupedByClient = computed(() => {
 <template>
   <div class="tool-picker">
     <div class="picker-header">
-      <label for="tool-filter" class="visually-hidden">{{ t('components.bundle_tool_picker.filter_label') }}</label>
+      <label for="tool-filter" class="visually-hidden">{{ t("components.bundle_tool_picker.filter_label") }}</label>
       <div class="search-input">
         <Search :size="15" stroke-width="2" aria-hidden="true" />
         <input
@@ -91,27 +93,31 @@ const groupedByClient = computed(() => {
       </div>
       <label class="show-selected">
         <input v-model="showSelectedOnly" type="checkbox" />
-        {{ t('components.bundle_tool_picker.show_selected_only') }}
+        {{ t("components.bundle_tool_picker.show_selected_only") }}
       </label>
-      <span class="selected-count">{{ t('components.bundle_tool_picker.selected_count', { count: model.length }) }}</span>
+      <span class="selected-count">{{
+        t("components.bundle_tool_picker.selected_count", { count: model.length })
+      }}</span>
     </div>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
     <SignalLoader v-if="loading" :label="t('components.bundle_tool_picker.loading')" />
 
     <template v-else-if="allTools.length === 0">
-      <p class="empty-state">{{ t('components.bundle_tool_picker.empty.no_tools') }}</p>
+      <p class="empty-state">{{ t("components.bundle_tool_picker.empty.no_tools") }}</p>
     </template>
     <template v-else-if="groupedByClient.length === 0">
-      <p class="empty-state">{{ t('components.bundle_tool_picker.empty.no_match', { search }) }}</p>
+      <p class="empty-state">{{ t("components.bundle_tool_picker.empty.no_match", { search }) }}</p>
     </template>
 
     <details v-for="[clientName, tools] in groupedByClient" :key="clientName" class="client-group" open>
       <summary>
         {{ clientName }}
-        <span v-if="!tools[0].clientEnabled" class="hint-tag">{{ t('components.bundle_tool_picker.client_disabled') }}</span>
+        <span v-if="!tools[0].clientEnabled" class="hint-tag">{{
+          t("components.bundle_tool_picker.client_disabled")
+        }}</span>
         <button type="button" class="link-btn select-all-btn" @click.stop.prevent="selectAllInGroup(tools)">
-          {{ t('components.bundle_tool_picker.select_all') }}
+          {{ t("components.bundle_tool_picker.select_all") }}
         </button>
       </summary>
       <ul>
@@ -119,7 +125,7 @@ const groupedByClient = computed(() => {
           <label>
             <input type="checkbox" :checked="isSelected(tool)" @change="toggle(tool)" />
             <span class="tool-name">{{ tool.tool }}</span>
-            <span v-if="!tool.enabled" class="hint-tag">{{ t('components.bundle_tool_picker.tool_disabled') }}</span>
+            <span v-if="!tool.enabled" class="hint-tag">{{ t("components.bundle_tool_picker.tool_disabled") }}</span>
             <span class="tool-desc" :title="tool.description">{{ tool.description }}</span>
           </label>
         </li>

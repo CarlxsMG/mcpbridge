@@ -1,53 +1,57 @@
-# Architecture
+# Arquitectura
 
-MCP REST Bridge sits between MCP clients and your backends. It keeps a dynamic registry of
-clients and their tools, advertises a unified tool list to MCP clients, and proxies each
-call to the right backend through a single, uniform guard pipeline.
+MCP REST Bridge se sitúa entre clientes MCP y tus backends. Mantiene un registro dinámico
+de clientes y sus tools, anuncia una lista unificada de tools a los clientes MCP, y redirige
+cada llamada al backend correcto a través de un pipeline de guards único y uniforme.
 
-## The request path
+## El camino de la request
 
 <RequestPath />
 
-Every policy is enforced at the **dispatch point** (`proxyToolCall`), never as HTTP
-middleware — MCP multiplexes many tools over one `POST /mcp` route, so the bridge must know
-_which_ tool is being called before it can apply per-tool rules.
+Cada política se aplica en el **punto de dispatch** (`proxyToolCall`), nunca como middleware
+HTTP — MCP multiplexa muchas tools por una única ruta `POST /mcp`, así que el bridge debe
+saber _qué_ tool se está llamando antes de poder aplicar reglas por herramienta.
 
-## Four ways to serve tools
+## Cuatro formas de servir tools
 
-| Mode                 | Endpoint                      | What it exposes                              |
-| -------------------- | ----------------------------- | -------------------------------------------- |
-| **Aggregated**       | `POST /mcp`                   | Every enabled tool from every enabled client |
-| **Per-client shard** | `/mcp/:clientName`            | Only one client's tools                      |
-| **Curated bundle**   | `/mcp-custom/:bundleName`     | A hand-picked cross-client subset            |
-| **Legacy SSE**       | `GET /sse` + `POST /messages` | The same tools for older MCP clients         |
+| Modo                  | Endpoint                      | Qué expone                                        |
+| --------------------- | ----------------------------- | ------------------------------------------------- |
+| **Agregado**          | `POST /mcp`                   | Cada tool habilitada de cada cliente habilitado   |
+| **Shard por cliente** | `/mcp/:clientName`            | Solo las tools de un cliente                      |
+| **Bundle curado**     | `/mcp-custom/:bundleName`     | Un subconjunto entre clientes seleccionado a mano |
+| **SSE legacy**        | `GET /sse` + `POST /messages` | Las mismas tools para clientes MCP antiguos       |
 
-Bundles are a pure narrowing filter applied _before_ dispatch — all guards, breakers and
-SSRF checks behave identically regardless of which mode a call came through.
+Los bundles son un filtro puramente de narrowing aplicado _antes_ del dispatch — todos los
+guards, breakers y chequeos SSRF se comportan idénticamente sin importar por qué modo
+llegó la llamada.
 
-## Two kinds of backend
+## Dos tipos de backend
 
-- **REST clients** — registered from an OpenAPI/Swagger spec (auto-discovery) or a manual
-  tool list. Each tool maps to an HTTP method + path on the backend's base URL.
-- **MCP upstreams** — existing MCP servers (Streamable HTTP or SSE) registered as
-  `kind: "mcp"`. The bridge connects out, discovers their tools, and re-exposes them.
+- **Clientes REST** — registrados desde un spec OpenAPI/Swagger (auto-descubrimiento) o
+  una lista manual de tools. Cada tool mapea a un método + path HTTP sobre la URL base
+  del backend.
+- **Upstreams MCP** — servidores MCP existentes (Streamable HTTP o SSE) registrados como
+  `kind: "mcp"`. El bridge se conecta hacia fuera, descubre sus tools y las re-expone.
 
-Both are keyed by the same abstract `client__tool` identity, so every governance
-feature — guards, guardrails, RBAC, bundles, usage, audit — applies to both unchanged.
+Ambos se identifican por la misma identidad abstracta `client__tool`, así que toda
+funcionalidad de governance — guards, guardrails, RBAC, bundles, uso, auditoría — se
+aplica a ambos sin cambios.
 
-## Storage & runtime
+## Almacenamiento y runtime
 
-- **Runtime:** a single [Bun](https://bun.sh) process (Express 5 + `@modelcontextprotocol/sdk`).
-- **Persistence:** `bun:sqlite` — one file, no external database, no ORM. Admin config
-  (enable flags, guards, bundles, keys, audit, users, teams) lives here; the live registry
-  is hydrated from it at boot.
-- **Admin UI:** a separate Vue 3 + Vite SPA served at `/admin`, talking to the JSON admin
-  API at `/admin-api/*`.
+- **Runtime:** un único proceso [Bun](https://bun.sh) (Express 5 + `@modelcontextprotocol/sdk`).
+- **Persistencia:** `bun:sqlite` — un fichero, sin base de datos externa, sin ORM. La
+  config de admin (enable flags, guards, bundles, keys, audit, users, teams) vive aquí;
+  el registro en vivo se hidrata desde ella al arrancar.
+- **UI de admin:** un SPA Vue 3 + Vite separado, servido en `/admin`, hablando con la
+  API admin JSON en `/admin-api/*`.
 
-## Health & resilience
+## Salud y resiliencia
 
-A background loop health-checks each client and auto-evicts unhealthy ones (with a `ping`
-probe for MCP upstreams). Per-tool **circuit breakers** trip on repeated failures, and an
-optional **canary/failover** secondary can take over when a primary breaker opens — without
-falsely closing the primary's breaker.
+Un loop en background chequea la salud de cada cliente y auto-elimina los no saludables
+(con un `ping` probe para upstreams MCP). Los **circuit breakers** por herramienta se
+disparan ante fallos repetidos, y un **canary/failover** secundario opcional puede tomar
+el relevo cuando se abre el breaker primario — sin cerrar falsamente el breaker primario.
 
-Next: **[Security →](/guide/security)** · **[Deployment →](/guide/deployment)**
+Siguiente: **[Seguridad →](/es/guide/security)** ·
+**[Despliegue →](/es/guide/deployment)**

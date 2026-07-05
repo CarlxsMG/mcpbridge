@@ -39,9 +39,7 @@ async function loadActions() {
   }
 }
 
-const hasActiveFilters = computed(
-  () => !!(actorFilter.value || actionFilter.value || fromDate.value || toDate.value),
-);
+const hasActiveFilters = computed(() => !!(actorFilter.value || actionFilter.value || fromDate.value || toDate.value));
 
 function dateStartMs(dateStr: string): number {
   return new Date(`${dateStr}T00:00:00`).getTime();
@@ -153,70 +151,76 @@ onMounted(() => {
 
     <form class="filters" @submit.prevent="applyFilter">
       <div class="field">
-        <label for="actor-filter">{{ t('pages.audit_log.filter.actor') }}</label>
+        <label for="actor-filter">{{ t("pages.audit_log.filter.actor") }}</label>
         <SearchInput v-model="actorFilter" :placeholder="t('pages.audit_log.filter.actor_placeholder')" />
       </div>
 
       <div class="field">
-        <label for="action-filter">{{ t('pages.audit_log.filter.action') }}</label>
+        <label for="action-filter">{{ t("pages.audit_log.filter.action") }}</label>
         <SelectMenu v-if="knownActions.length" id="action-filter" v-model="actionFilter" :options="actionOptions" />
         <SearchInput v-else v-model="actionFilter" :placeholder="t('pages.audit_log.filter.action_placeholder')" />
       </div>
 
       <div class="field">
-        <label for="from-filter">{{ t('pages.audit_log.filter.from') }}</label>
+        <label for="from-filter">{{ t("pages.audit_log.filter.from") }}</label>
         <input id="from-filter" v-model="fromDate" type="date" />
       </div>
 
       <div class="field">
-        <label for="to-filter">{{ t('pages.audit_log.filter.to') }}</label>
+        <label for="to-filter">{{ t("pages.audit_log.filter.to") }}</label>
         <input id="to-filter" v-model="toDate" type="date" />
       </div>
 
-      <button type="submit" class="btn-secondary">{{ t('common.apply') }}</button>
-      <button v-if="hasActiveFilters" type="button" class="link-btn" @click="clearFilters">{{ t('pages.audit_log.filter.clear') }}</button>
+      <button type="submit" class="btn-secondary">{{ t("common.apply") }}</button>
+      <button v-if="hasActiveFilters" type="button" class="link-btn" @click="clearFilters">
+        {{ t("pages.audit_log.filter.clear") }}
+      </button>
 
       <div class="field export-field">
-        <label for="export-format">{{ t('pages.audit_log.filter.export_as') }}</label>
+        <label for="export-format">{{ t("pages.audit_log.filter.export_as") }}</label>
         <SelectMenu id="export-format" v-model="exportFormat" :options="EXPORT_FORMAT_OPTIONS" />
       </div>
       <button type="button" class="btn-secondary" :disabled="exporting" @click="exportLog">
-        {{ exporting ? t('pages.audit_log.exporting') : t('pages.audit_log.export.cta') }}
+        {{ exporting ? t("pages.audit_log.exporting") : t("pages.audit_log.export.cta") }}
       </button>
     </form>
 
     <div class="integrity-actions">
       <button type="button" class="btn-secondary" :disabled="verifying" @click="verifyIntegrity">
-        {{ verifying ? t('pages.audit_log.verifying') : t('pages.audit_log.verify_cta') }}
+        {{ verifying ? t("pages.audit_log.verifying") : t("pages.audit_log.verify_cta") }}
       </button>
     </div>
 
     <p v-if="integrity" class="integrity" :class="integrity.ok ? 'ok' : 'broken'">
       <CheckCircle2 v-if="integrity.ok" :size="16" stroke-width="2" aria-hidden="true" />
       <XCircle v-else :size="16" stroke-width="2" aria-hidden="true" />
-      <span v-if="integrity.ok">{{ t('pages.audit_log.integrity_ok', { count: integrity.checked }) }}</span>
-      <span v-else>{{ t('pages.audit_log.integrity_broken', { id: integrity.brokenAtId, count: integrity.checked }) }}</span>
+      <span v-if="integrity.ok">{{ t("pages.audit_log.integrity_ok", { count: integrity.checked }) }}</span>
+      <span v-else>{{
+        t("pages.audit_log.integrity_broken", { id: integrity.brokenAtId, count: integrity.checked })
+      }}</span>
     </p>
 
     <ListLayout :loading="loading && !entries.length" :error="errorMessage" :empty="entries.length === 0">
       <template #empty>
         <EmptyState :icon="ScrollText">
           <template v-if="hasActiveFilters">
-            {{ t('pages.audit_log.empty.no_match') }}
-            <button type="button" class="link-btn" @click="clearFilters">{{ t('pages.audit_log.filter.clear') }}</button>
+            {{ t("pages.audit_log.empty.no_match") }}
+            <button type="button" class="link-btn" @click="clearFilters">
+              {{ t("pages.audit_log.filter.clear") }}
+            </button>
           </template>
-          <template v-else>{{ t('pages.audit_log.empty.no_entries') }}</template>
+          <template v-else>{{ t("pages.audit_log.empty.no_entries") }}</template>
         </EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.audit_log.table.when') }}</th>
-            <th>{{ t('pages.audit_log.table.actor') }}</th>
-            <th>{{ t('pages.audit_log.table.action') }}</th>
-            <th>{{ t('pages.audit_log.table.target') }}</th>
-            <th>{{ t('pages.audit_log.table.detail') }}</th>
+            <th>{{ t("pages.audit_log.table.when") }}</th>
+            <th>{{ t("pages.audit_log.table.actor") }}</th>
+            <th>{{ t("pages.audit_log.table.action") }}</th>
+            <th>{{ t("pages.audit_log.table.target") }}</th>
+            <th>{{ t("pages.audit_log.table.detail") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -235,7 +239,7 @@ onMounted(() => {
                 :text="prettyJson(entry.detail)"
                 class="detail-trigger"
               >
-                {{ t('pages.audit_log.table.view') }}
+                {{ t("pages.audit_log.table.view") }}
               </HoverPreview>
               <span v-else class="detail-none">—</span>
             </td>
@@ -245,7 +249,7 @@ onMounted(() => {
     </ListLayout>
 
     <button v-if="hasNext" type="button" class="btn-secondary" :disabled="loading" @click="loadMore">
-      {{ loading ? t('common.loading') : t('common.load_more') }}
+      {{ loading ? t("common.loading") : t("common.load_more") }}
     </button>
   </section>
 </template>

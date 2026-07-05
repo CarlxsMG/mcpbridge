@@ -99,27 +99,24 @@ async function confirmDelete() {
 
 <template>
   <section>
-    <PageHeader
-      :title="t('pages.policies.title')"
-      :subtitle="t('pages.policies.subtitle')"
-    >
-      <RouterLink to="/policies/new" class="btn-primary">{{ t('pages.policies.create') }}</RouterLink>
+    <PageHeader :title="t('pages.policies.title')" :subtitle="t('pages.policies.subtitle')">
+      <RouterLink to="/policies/new" class="btn-primary">{{ t("pages.policies.create") }}</RouterLink>
     </PageHeader>
 
     <p v-if="notice" class="notice">{{ notice }}</p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="policies.length === 0">
       <template #empty>
-        <EmptyState :icon="ShieldCheck">{{ t('pages.policies.empty.no_policies') }}</EmptyState>
+        <EmptyState :icon="ShieldCheck">{{ t("pages.policies.empty.no_policies") }}</EmptyState>
       </template>
 
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.policies.table.name') }}</th>
-            <th>{{ t('pages.policies.table.rate_limit') }}</th>
-            <th>{{ t('pages.policies.table.timeout') }}</th>
-            <th>{{ t('pages.policies.table.apply_to_bundle') }}</th>
+            <th>{{ t("pages.policies.table.name") }}</th>
+            <th>{{ t("pages.policies.table.rate_limit") }}</th>
+            <th>{{ t("pages.policies.table.timeout") }}</th>
+            <th>{{ t("pages.policies.table.apply_to_bundle") }}</th>
             <th></th>
           </tr>
         </thead>
@@ -142,10 +139,12 @@ async function confirmDelete() {
                 :disabled="!applyBundle[p.id] || applyingId === p.id"
                 @click="requestApply(p)"
               >
-                {{ applyingId === p.id ? t('pages.policies.applying') : t('pages.policies.apply') }}
+                {{ applyingId === p.id ? t("pages.policies.applying") : t("pages.policies.apply") }}
               </button>
             </td>
-            <td><button type="button" class="link-btn danger" @click="requestDelete(p)">{{ t('common.delete') }}</button></td>
+            <td>
+              <button type="button" class="link-btn danger" @click="requestDelete(p)">{{ t("common.delete") }}</button>
+            </td>
           </tr>
         </tbody>
       </TableCard>
@@ -154,12 +153,10 @@ async function confirmDelete() {
     <ConfirmDialog
       :open="pendingDelete !== null"
       :title="t('pages.policies.confirm.delete_title')"
-      :message="
-        pendingDelete
-          ? t('pages.policies.confirm.delete_message', { name: pendingDelete.name })
-          : ''
+      :message="pendingDelete ? t('pages.policies.confirm.delete_message', { name: pendingDelete.name }) : ''"
+      :confirm-label="
+        pendingDelete ? t('pages.policies.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')
       "
-      :confirm-label="pendingDelete ? t('pages.policies.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"

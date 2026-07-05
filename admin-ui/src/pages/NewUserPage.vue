@@ -67,7 +67,7 @@ async function createUser() {
         </FormField>
         <p v-if="error" class="error">{{ error }}</p>
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t('common.creating') : t('pages.users.new.create') }}
+          {{ creating ? t("common.creating") : t("pages.users.new.create") }}
         </button>
       </form>
     </FormPage>

@@ -59,20 +59,17 @@ const segments = computed(() => {
 
 <template>
   <section>
-    <PageHeader
-      :title="t('pages.monitors.title')"
-      :subtitle="t('pages.monitors.subtitle')"
-    >
+    <PageHeader :title="t('pages.monitors.title')" :subtitle="t('pages.monitors.subtitle')">
       <button type="button" class="btn-secondary" :disabled="loading" @click="load">
         <RefreshCw :size="14" stroke-width="2" aria-hidden="true" :class="{ spin: loading }" />
-        {{ loading ? t('common.refreshing') : t('common.refresh') }}
+        {{ loading ? t("common.refreshing") : t("common.refresh") }}
       </button>
     </PageHeader>
 
     <ListLayout :loading="loading && !monitors.length" :error="errorMessage" :empty="monitors.length === 0">
       <template #empty>
         <EmptyState :icon="Radar" muted>
-          {{ t('pages.monitors.empty.no_monitors') }}
+          {{ t("pages.monitors.empty.no_monitors") }}
         </EmptyState>
       </template>
 
@@ -83,11 +80,11 @@ const segments = computed(() => {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t('pages.monitors.table.client_tool') }}</th>
-            <th>{{ t('pages.monitors.table.state') }}</th>
-            <th>{{ t('pages.monitors.table.interval') }}</th>
-            <th>{{ t('pages.monitors.table.last_checked') }}</th>
-            <th>{{ t('pages.monitors.table.last_error') }}</th>
+            <th>{{ t("pages.monitors.table.client_tool") }}</th>
+            <th>{{ t("pages.monitors.table.state") }}</th>
+            <th>{{ t("pages.monitors.table.interval") }}</th>
+            <th>{{ t("pages.monitors.table.last_checked") }}</th>
+            <th>{{ t("pages.monitors.table.last_error") }}</th>
           </tr>
         </thead>
         <tbody>

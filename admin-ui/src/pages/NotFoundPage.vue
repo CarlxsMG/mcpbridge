@@ -7,11 +7,11 @@ const { t } = useI18n({ useScope: "global" });
 <template>
   <section class="not-found">
     <Waypoints :size="28" stroke-width="1.5" color="var(--text-muted)" aria-hidden="true" class="not-found-icon" />
-    <h1>{{ t('pages.not_found.title') }}</h1>
-    <p class="subtitle">{{ t('pages.not_found.subtitle') }}</p>
+    <h1>{{ t("pages.not_found.title") }}</h1>
+    <p class="subtitle">{{ t("pages.not_found.subtitle") }}</p>
     <p>
-      <RouterLink to="/servers" class="btn-secondary">{{ t('pages.not_found.go_servers') }}</RouterLink>
-      <RouterLink to="/overview" class="btn-secondary">{{ t('pages.not_found.go_overview') }}</RouterLink>
+      <RouterLink to="/servers" class="btn-secondary">{{ t("pages.not_found.go_servers") }}</RouterLink>
+      <RouterLink to="/overview" class="btn-secondary">{{ t("pages.not_found.go_overview") }}</RouterLink>
     </p>
   </section>
 </template>

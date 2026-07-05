@@ -1,56 +1,62 @@
-# Access control & multi-tenancy
+# Control de acceso y multi-tenancy
 
-The bridge separates **who administers it** (admin users, roles) from **who calls tools**
-(MCP API keys / JWTs, scoped to consumers and teams).
+El bridge separa **quién lo administra** (usuarios admin, roles) de **quién llama a las
+tools** (API keys MCP / JWTs, con scope a consumidores y equipos).
 
-## Admin roles (RBAC)
+## Roles de admin (RBAC)
 
-Admin users sign in to the Vue admin UI; every mutating action is role-gated and audited.
+Los usuarios admin inician sesión en la UI de admin Vue; cada acción mutante está restringida
+por rol y auditada.
 
-| Role       | Can do                                                                     |
-| ---------- | -------------------------------------------------------------------------- |
-| `admin`    | Everything, including managing users, teams and global config              |
-| `operator` | Register/configure backends, guards, bundles, keys — day-to-day operations |
-| `auditor`  | Read-only plus the audit log and its integrity check                       |
-| `viewer`   | Read-only dashboards                                                       |
+| Rol        | Puede hacer                                                                      |
+| ---------- | -------------------------------------------------------------------------------- |
+| `admin`    | Todo, incluida la gestión de usuarios, equipos y config global                   |
+| `operator` | Registrar/configurar backends, guards, bundles, keys — operaciones del día a día |
+| `auditor`  | Solo lectura más el log de auditoría y su verificación de integridad             |
+| `viewer`   | Dashboards de solo lectura                                                       |
 
-Programmatic/CI callers can use a static `ADMIN_API_KEYS` Bearer token instead of a session;
-Bearer calls are exempt from CSRF (they aren't cookie-based).
+Los callers programáticos/CI pueden usar un token Bearer estático `ADMIN_API_KEYS` en lugar
+de una sesión; las llamadas Bearer están exentas de CSRF (no son cookie-based).
 
-Admins can also sign in via **SSO** (OIDC Authorization Code + PKCE) instead of a local
-password — a separate inbound-auth surface from the MCP data plane's JWT/API-key auth below.
-Auto-provisioned SSO users are always assigned the `viewer` role. Any authenticated admin can
-list and remotely revoke their own active sessions, and change their own password (which
-revokes every other session) — no superadmin needed for either.
+Los admins también pueden iniciar sesión vía **SSO** (OIDC Authorization Code + PKCE) en
+lugar de una contraseña local — una superficie de auth entrante separada de la auth del
+plano de datos MCP (JWT/API-key) de abajo. Los usuarios SSO auto-provisionados siempre
+reciben el rol `viewer`. Cualquier admin autenticado puede listar y revocar remotamente
+sus propias sesiones activas, y cambiar su propia contraseña (lo que revoca cualquier otra
+sesión) — sin superadmin para ninguna de las dos.
 
-## MCP API keys
+## API keys MCP
 
-Keys are what tool callers present. They're stored hashed (never in plaintext) and the raw
-value is shown exactly once at creation.
+Las keys son lo que los callers de tools presentan. Se almacenan hasheadas (nunca en
+plaintext) y el valor crudo se muestra exactamente una vez al crearse.
 
-- **Scoped** — restrict a key to specific clients and/or tools.
-- **Elevated** — mark a key as allowed to call tools flagged sensitive/elevated.
-- **Lifecycle** — set an expiry, revoke instantly, see last-used timestamps.
-- **Fail-closed** — a per-tool allowed-key restriction is enforced even if global auth is
-  disabled: configuring one clearly signals intent.
+- **Con scope** — restringe una key a clientes y/o herramientas específicas.
+- **Elevadas** — marca una key como permitida para llamar a tools marcadas como
+  sensitive/elevated.
+- **Lifecycle** — define expiración, revoca al instante, ve timestamps de último uso.
+- **Fail-closed** — una restricción de allowed-key por herramienta se aplica incluso si la
+  auth global está deshabilitada: configurarla señaliza claramente la intención.
 
-## Consumers & quotas
+## Consumidores y cuotas
 
-Group keys under a **consumer** (a team, product, or tenant) and give it a **monthly quota**.
-Usage is tracked per consumer so you can see who's spending calls and cap them.
+Agrupa keys bajo un **consumidor** (equipo, producto o tenant) y dale una **cuota mensual**.
+El uso se trackea por consumidor para que puedas ver quién está gastando llamadas y
+limitarlo.
 
-## Teams (multi-tenancy)
+## Equipos (multi-tenancy)
 
-**Teams** scope clients so tenants only see and manage their own backends. A bearer
-super-admin sees everything; a session user with no team is a super-admin; a team-scoped
-user is limited to their team. Cross-team access returns the same "not found" response as a
-missing resource, so team membership never leaks through error shapes.
+Los **equipos** scoping a clientes para que los tenants solo vean y gestionen sus propios
+backends. Un super-admin con bearer lo ve todo; un usuario de sesión sin equipo es
+super-admin; un usuario scoped a un equipo está limitado a su equipo. El acceso
+cross-team devuelve la misma respuesta "no encontrado" que un recurso inexistente, para
+que la pertenencia a equipos nunca se filtre por la forma de los errores.
 
-## Inbound JWT / OAuth
+## JWT / OAuth entrante
 
-Set `JWT_JWKS_URL` to accept OAuth2/OIDC access tokens as an MCP credential, verified against
-a JWKS endpoint (RS256/ES256 via WebCrypto — no extra dependency). Optionally pin `JWT_ISSUER`
-and `JWT_AUDIENCE`. This is additive to `MCP_API_KEYS` and DB-managed keys.
+Configura `JWT_JWKS_URL` para aceptar tokens de acceso OAuth2/OIDC como credencial MCP,
+verificados contra un endpoint JWKS (RS256/ES256 vía WebCrypto — sin dependencia extra).
+Opcionalmente fija `JWT_ISSUER` y `JWT_AUDIENCE`. Esto se añade a `MCP_API_KEYS` y a keys
+gestionadas en DB.
 
-Next: **[Guardrails & resilience →](/guide/guardrails-resilience)** ·
-**[Security →](/guide/security)**
+Siguiente: **[Guardrails y resiliencia →](/es/guide/guardrails-resilience)** ·
+**[Seguridad →](/es/guide/security)**

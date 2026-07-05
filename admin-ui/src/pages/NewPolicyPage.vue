@@ -69,7 +69,7 @@ async function createPolicy() {
         </FormField>
         <p v-if="error" class="error">{{ error }}</p>
         <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t('common.creating') : t('pages.policies.new.create') }}
+          {{ creating ? t("common.creating") : t("pages.policies.new.create") }}
         </button>
       </form>
     </FormPage>

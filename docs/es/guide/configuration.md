@@ -1,98 +1,100 @@
-# Configuration
+# Configuración
 
-MCP REST Bridge is configured with environment variables (Bun auto-loads a `.env` file in
-development). The repository's **`.env.example`** is the authoritative, commented list — the
-tables below cover the settings you'll reach for most often.
+MCP REST Bridge se configura con variables de entorno (Bun auto-carga un fichero `.env`
+en desarrollo). El **`.env.example`** del repo es la lista autoritativa y comentada — las
+tablas de abajo cubren la configuración a la que recurrirás más a menudo.
 
-## First-boot & authentication
+## Primer arranque y autenticación
 
-| Variable                   | Description                                                                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `BOOTSTRAP_ADMIN_USERNAME` | Username for the first admin user. Applied **only once**, while the users table is empty.                                        |
-| `BOOTSTRAP_ADMIN_PASSWORD` | Password for that first admin (min 12 chars). Remove after the user exists.                                                      |
-| `ADMIN_API_KEYS`           | Comma-separated static Bearer keys for the JSON admin API (`/admin-api`, `/register`). Optional — the Vue UI uses session login. |
-| `MCP_API_KEYS`             | Comma-separated keys MCP clients present to call tools. Empty = no key required (combine with per-tool guards as needed).        |
+| Variable                   | Descripción                                                                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BOOTSTRAP_ADMIN_USERNAME` | Username del primer usuario admin. Se aplica **solo una vez**, mientras la tabla users esté vacía.                                                   |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Contraseña de ese primer admin (mín 12 chars). Eliminar después de que el usuario exista.                                                            |
+| `ADMIN_API_KEYS`           | Claves Bearer estáticas separadas por comas para la admin API JSON (`/admin-api`, `/register`). Opcional — la UI Vue usa login de sesión.            |
+| `MCP_API_KEYS`             | Claves separadas por comas que los clientes MCP presentan para llamar tools. Vacío = no requiere key (combinar con guards por tool según necesidad). |
 
-## Runtime & networking
+## Runtime y networking
 
-| Variable                | Default                        | Description                                                                               |
-| ----------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
-| `PORT`                  | `3000` (Docker) / `8790` (dev) | Backend listen port.                                                                      |
-| `SESSION_COOKIE_SECURE` | `true`                         | Keep `true` in production (HTTPS). Set `false` only for local plain-HTTP dev.             |
-| `NODE_ENV`              | —                              | `development` relaxes startup guards for local dev. **Never** in production.              |
-| `TRUST_PROXY`           | `false`                        | Enable **only** when behind a trusted reverse proxy (affects client-IP trust).            |
-| `ALLOW_PRIVATE_IPS`     | `false`                        | Allow registering backends on loopback/private IPs. Local dev only — never in production. |
+| Variable                | Default                        | Descripción                                                                                    |
+| ----------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `PORT`                  | `3000` (Docker) / `8790` (dev) | Puerto de escucha del backend.                                                                 |
+| `SESSION_COOKIE_SECURE` | `true`                         | Mantener `true` en producción (HTTPS). Poner `false` solo para dev HTTP plano local.           |
+| `NODE_ENV`              | —                              | `development` relaja las guardas de arranque para dev local. **Nunca** en producción.          |
+| `TRUST_PROXY`           | `false`                        | Habilitar **solo** detrás de un reverse proxy de confianza (afecta la confianza en client-IP). |
+| `ALLOW_PRIVATE_IPS`     | `false`                        | Permitir registrar backends en loopback/IPs privadas. Solo dev local — nunca en producción.    |
 
-## Persistence
+## Persistencia
 
-| Variable                | Description                                                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `DB_PATH`               | SQLite file path (Docker default `/app/data/mcp-bridge.db`). Use `:memory:` for an ephemeral store.                            |
-| `SECRET_ENCRYPTION_KEY` | Enables encrypting per-client upstream credentials at rest (AES-256-GCM). Base64 32 bytes, or any string (hashed to 32 bytes). |
+| Variable                | Descripción                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `DB_PATH`               | Ruta del fichero SQLite (Docker por defecto `/app/data/mcp-bridge.db`). Usa `:memory:` para un store efímero.                   |
+| `SECRET_ENCRYPTION_KEY` | Habilita cifrar credenciales upstream por cliente en reposo (AES-256-GCM). Base64 32 bytes, o cualquier string (hasheada a 32). |
 
-### External secrets manager (optional)
+### Gestor de secretos externo (opcional)
 
-Secrets at rest (OAuth2 client-credentials secrets, auto-provisioned MCP install-link keys) go
-through a pluggable `SecretsProvider` (`src/secrets/`), not `SECRET_ENCRYPTION_KEY` directly. Two
-backends are available:
+Los secretos en reposo (secretos OAuth2 client-credentials, keys auto-provisionadas de
+install-link MCP) pasan por un `SecretsProvider` pluggable (`src/secrets/`), no
+directamente por `SECRET_ENCRYPTION_KEY`. Hay dos backends disponibles:
 
-- **`local`** (default) — the built-in secret-box above. Zero extra infrastructure; this is what
-  `SECRET_ENCRYPTION_KEY` configures.
-- **`vault`** — HashiCorp Vault's [Transit secrets engine](https://developer.hashicorp.com/vault/docs/secrets/transit)
-  does the encrypt/decrypt instead, for operators required by policy to keep secret material in an
-  external KMS. `SECRET_ENCRYPTION_KEY` is ignored in this mode.
+- **`local`** (por defecto) — el secret-box integrado de arriba. Cero infra extra; esto es
+  lo que configura `SECRET_ENCRYPTION_KEY`.
+- **`vault`** — el [Transit secrets engine](https://developer.hashicorp.com/vault/docs/secrets/transit)
+  de HashiCorp Vault hace el encrypt/decrypt, para operadores que por política deben
+  mantener el material secreto en un KMS externo. `SECRET_ENCRYPTION_KEY` se ignora en
+  este modo.
 
-| Variable                 | Default           | Description                                                                         |
-| ------------------------ | ----------------- | ----------------------------------------------------------------------------------- |
-| `SECRETS_PROVIDER`       | `local`           | `local` or `vault`. Any other value fails fast at startup.                          |
-| `VAULT_ADDR`             | —                 | Vault server address (e.g. `https://vault.example.com:8200`). Required for `vault`. |
-| `VAULT_TOKEN`            | —                 | Vault token sent as `X-Vault-Token`. Required for `vault`.                          |
-| `VAULT_TRANSIT_KEY_NAME` | `mcp-rest-bridge` | Name of the Vault Transit key used for encrypt/decrypt.                             |
+| Variable                 | Default           | Descripción                                                                                     |
+| ------------------------ | ----------------- | ----------------------------------------------------------------------------------------------- |
+| `SECRETS_PROVIDER`       | `local`           | `local` o `vault`. Cualquier otro valor falla rápido al arrancar.                               |
+| `VAULT_ADDR`             | —                 | Dirección del servidor Vault (p. ej. `https://vault.example.com:8200`). Requerida para `vault`. |
+| `VAULT_TOKEN`            | —                 | Token Vault enviado como `X-Vault-Token`. Requerido para `vault`.                               |
+| `VAULT_TRANSIT_KEY_NAME` | `mcp-rest-bridge` | Nombre de la clave Transit de Vault usada para encrypt/decrypt.                                 |
 
-If Vault is unreachable or returns an error, the operation fails with a clear error — it never
-silently falls back to storing a secret in plaintext.
+Si Vault no está accesible o devuelve un error, la operación falla con un error claro —
+nunca cae silenciosamente a almacenar el secreto en plaintext.
 
-## Feature flags & integrations
+## Feature flags e integraciones
 
-| Variable                      | Description                                                        |
-| ----------------------------- | ------------------------------------------------------------------ |
-| `ENABLE_SEARCH_TOOL`          | Toggle the synthetic `search_tools` meta-tool (default on).        |
-| `AUDIT_SINK_URL`              | Stream every audit event to a SIEM/HTTP sink.                      |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Export a trace span per tool call (OTLP/HTTP).                     |
-| `RATE_LIMIT_SHARED`           | `true` = SQLite-backed cross-instance rate counters (HA).          |
-| `REGISTRY_SYNC`               | `true` = reconcile the registry from SQLite across instances (HA). |
+| Variable                      | Descripción                                                              |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `ENABLE_SEARCH_TOOL`          | Toggle de la meta-tool sintética `search_tools` (por defecto activada).  |
+| `AUDIT_SINK_URL`              | Streamea cada evento de auditoría a un sink SIEM/HTTP.                   |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Exporta un trace span por llamada de tool (OTLP/HTTP).                   |
+| `RATE_LIMIT_SHARED`           | `true` = contadores de rate cross-instancia respaldados por SQLite (HA). |
+| `REGISTRY_SYNC`               | `true` = reconcilia el registry desde SQLite entre instancias (HA).      |
 
-## Proxy behavior
+## Comportamiento del proxy
 
-These tune the newer per-tool proxy features (caching, load balancing, traffic capture, approvals,
-synthetic monitoring). Each feature is opt-in per tool/client from the admin API; these are just the
-global knobs.
+Estos afinan las nuevas features de proxy por tool (caching, load balancing, captura de
+tráfico, approvals, monitoring sintético). Cada feature es opt-in por tool/cliente desde la
+admin API; estos son solo los knobs globales.
 
-| Variable                | Default | Description                                                            |
-| ----------------------- | ------- | ---------------------------------------------------------------------- |
-| `CACHE_MAX_ENTRIES`     | `10000` | Max in-memory cached tool responses (LRU-evicted).                     |
-| `LB_TARGET_COOLDOWN_MS` | `30000` | How long a load-balanced target is skipped after a failed call.        |
-| `TRAFFIC_CAPTURE`       | `false` | Capture per-call args + result preview for the admin traffic explorer. |
-| `TRAFFIC_RETENTION_MS`  | 7 days  | Retention window for captured traffic before pruning.                  |
-| `APPROVAL_WEBHOOK_URL`  | —       | Fire-and-forget notification when a call is queued for human approval. |
-| `MONITOR_WEBHOOK_URL`   | —       | Notification when a synthetic monitor fails or detects schema drift.   |
+| Variable                | Default | Descripción                                                                |
+| ----------------------- | ------- | -------------------------------------------------------------------------- |
+| `CACHE_MAX_ENTRIES`     | `10000` | Máximo de respuestas cacheadas en memoria (evicted por LRU).               |
+| `LB_TARGET_COOLDOWN_MS` | `30000` | Cuánto tiempo se salta un target balanceado tras una llamada fallida.      |
+| `TRAFFIC_CAPTURE`       | `false` | Captura args + preview de resultado por llamada para el traffic explorer.  |
+| `TRAFFIC_RETENTION_MS`  | 7 días  | Ventana de retención para el tráfico capturado antes de podar.             |
+| `APPROVAL_WEBHOOK_URL`  | —       | Notificación fire-and-forget cuando una llamada entra en cola de approval. |
+| `MONITOR_WEBHOOK_URL`   | —       | Notificación cuando un monitor sintético falla o detecta drift de schema.  |
 
-## Inbound JWT auth (optional)
+## Auth JWT entrante (opcional)
 
-Accept OAuth2/OIDC access tokens as an MCP credential, verified against a JWKS endpoint (RS256/ES256,
-via WebCrypto — no extra dependency). Additive to `MCP_API_KEYS` and DB-managed keys; setting
-`JWT_JWKS_URL` also locks the surface down (like minting a managed key).
+Acepta tokens de acceso OAuth2/OIDC como credencial MCP, verificados contra un endpoint
+JWKS (RS256/ES256, vía WebCrypto — sin dependencia extra). Aditivo a `MCP_API_KEYS` y a keys
+gestionadas en DB; configurar `JWT_JWKS_URL` también cierra la superficie (como mintear una
+key gestionada).
 
-| Variable       | Description                                                                    |
-| -------------- | ------------------------------------------------------------------------------ |
-| `JWT_JWKS_URL` | JWKS endpoint. When set, MCP auth also accepts a valid RS256/ES256 JWT bearer. |
-| `JWT_ISSUER`   | Required `iss` claim (optional — rejected on mismatch when set).               |
-| `JWT_AUDIENCE` | Required `aud` claim (optional — token must list it when set).                 |
+| Variable       | Descripción                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| `JWT_JWKS_URL` | Endpoint JWKS. Cuando se configura, la auth MCP también acepta un bearer JWT RS256/ES256 válido. |
+| `JWT_ISSUER`   | Claim `iss` requerido (opcional — se rechaza si hay mismatch cuando se define).                  |
+| `JWT_AUDIENCE` | Claim `aud` requerido (opcional — el token debe listarlo cuando se define).                      |
 
 ::: tip
-Generate keys/secrets with, e.g., `openssl rand -hex 24` (API keys) or
-`openssl rand -base64 32` (`SECRET_ENCRYPTION_KEY`). See `.env.example` in the repo for the
-complete, commented reference — including CORS, rate-limit, and timeout tuning.
+Genera claves/secretos con, p. ej., `openssl rand -hex 24` (API keys) o `openssl rand -base64 32`
+(`SECRET_ENCRYPTION_KEY`). Consulta `.env.example` en el repo para la referencia completa y
+comentada — incluyendo tuning de CORS, rate-limit y timeouts.
 :::
 
-Next: **[Deployment →](/guide/deployment)** · **[Security →](/guide/security)**
+Siguiente: **[Despliegue →](/es/guide/deployment)** · **[Seguridad →](/es/guide/security)**

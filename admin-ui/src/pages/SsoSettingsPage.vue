@@ -89,10 +89,7 @@ async function save() {
 <template>
   <section>
     <FormPage max-width="34rem">
-      <PageHeader
-        :title="t('pages.sso_settings.title')"
-        :subtitle="t('pages.sso_settings.subtitle')"
-      />
+      <PageHeader :title="t('pages.sso_settings.title')" :subtitle="t('pages.sso_settings.subtitle')" />
 
       <p v-if="loadError" class="error" role="alert">{{ loadError }}</p>
 
@@ -107,9 +104,9 @@ async function save() {
             required
           />
           <p class="hint">
-            {{ t('pages.sso_settings.hints.issuer_p1') }}
+            {{ t("pages.sso_settings.hints.issuer_p1") }}
             <code>{issuer}/.well-known/openid-configuration</code>
-            {{ t('pages.sso_settings.hints.issuer_p2') }}
+            {{ t("pages.sso_settings.hints.issuer_p2") }}
           </p>
         </FormField>
 
@@ -126,7 +123,7 @@ async function save() {
             :placeholder="settings ? t('pages.sso_settings.placeholders.secret_configured') : ''"
           />
           <p class="hint">
-            {{ t('pages.sso_settings.hints.client_secret') }}
+            {{ t("pages.sso_settings.hints.client_secret") }}
           </p>
         </FormField>
 
@@ -139,34 +136,37 @@ async function save() {
             autocomplete="off"
             required
           />
-          <p class="hint">{{ t('pages.sso_settings.hints.redirect_uri') }}</p>
+          <p class="hint">{{ t("pages.sso_settings.hints.redirect_uri") }}</p>
         </FormField>
 
         <FormField :label="t('pages.sso_settings.fields.scopes')" for="sso-scopes">
           <input id="sso-scopes" v-model="scopes" type="text" placeholder="openid profile email" autocomplete="off" />
-          <p class="hint">{{ t('pages.sso_settings.hints.scopes_p1') }} <code>openid</code>{{ t('pages.sso_settings.hints.scopes_p2') }}</p>
+          <p class="hint">
+            {{ t("pages.sso_settings.hints.scopes_p1") }} <code>openid</code
+            >{{ t("pages.sso_settings.hints.scopes_p2") }}
+          </p>
         </FormField>
 
         <div class="field">
-          <span class="field-label">{{ t('pages.sso_settings.provisioning.label') }}</span>
+          <span class="field-label">{{ t("pages.sso_settings.provisioning.label") }}</span>
           <p class="hint">
-            <strong>{{ t('pages.sso_settings.provisioning.role') }}</strong>
-            {{ t('pages.sso_settings.provisioning.p1') }}
-            <RouterLink to="/users">{{ t('nav.users') }}</RouterLink>
-            {{ t('pages.sso_settings.provisioning.p2') }}
+            <strong>{{ t("pages.sso_settings.provisioning.role") }}</strong>
+            {{ t("pages.sso_settings.provisioning.p1") }}
+            <RouterLink to="/users">{{ t("nav.users") }}</RouterLink>
+            {{ t("pages.sso_settings.provisioning.p2") }}
           </p>
         </div>
 
         <label class="inline-check">
           <input v-model="enabled" type="checkbox" />
-          {{ t('pages.sso_settings.enable_label') }}
+          {{ t("pages.sso_settings.enable_label") }}
         </label>
 
         <p v-if="saveError" class="error" role="alert">{{ saveError }}</p>
-        <p v-if="saved" class="success" role="status">{{ t('pages.sso_settings.saved') }}</p>
+        <p v-if="saved" class="success" role="status">{{ t("pages.sso_settings.saved") }}</p>
 
         <button type="submit" class="btn-primary" :disabled="saving">
-          {{ saving ? t('common.saving') : t('pages.sso_settings.save') }}
+          {{ saving ? t("common.saving") : t("pages.sso_settings.save") }}
         </button>
       </form>
     </FormPage>

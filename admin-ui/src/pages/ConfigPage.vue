@@ -30,10 +30,7 @@ function onRollbackResult(r: ConfigImportResult) {
 
 <template>
   <section>
-    <PageHeader
-      :title="t('pages.config.title')"
-      :subtitle="t('pages.config.subtitle')"
-    />
+    <PageHeader :title="t('pages.config.title')" :subtitle="t('pages.config.subtitle')" />
 
     <ConfigExportSection @error="onError" />
     <ConfigImportSection @result="onImportResult" @error="onError" />
@@ -45,22 +42,22 @@ function onRollbackResult(r: ConfigImportResult) {
       <h3>
         {{
           result.dryRun
-            ? t('pages.config.result.dry_run')
+            ? t("pages.config.result.dry_run")
             : resultKind === "rollback"
-              ? t('pages.config.result.rollback_applied')
-              : t('pages.config.result.import_applied')
+              ? t("pages.config.result.rollback_applied")
+              : t("pages.config.result.import_applied")
         }}
       </h3>
       <ul>
-        <li>{{ t('pages.config.result.bundles', { count: result.applied.bundles }) }}</li>
-        <li>{{ t('pages.config.result.alert_rules', { count: result.applied.alertRules }) }}</li>
-        <li>{{ t('pages.config.result.clients_configured', { count: result.applied.clientsConfigured }) }}</li>
-        <li>{{ t('pages.config.result.tools_configured', { count: result.applied.toolsConfigured }) }}</li>
-        <li>{{ t('pages.config.result.guardrails', { count: result.applied.guardrails }) }}</li>
-        <li>{{ t('pages.config.result.consumers', { count: result.applied.consumers }) }}</li>
+        <li>{{ t("pages.config.result.bundles", { count: result.applied.bundles }) }}</li>
+        <li>{{ t("pages.config.result.alert_rules", { count: result.applied.alertRules }) }}</li>
+        <li>{{ t("pages.config.result.clients_configured", { count: result.applied.clientsConfigured }) }}</li>
+        <li>{{ t("pages.config.result.tools_configured", { count: result.applied.toolsConfigured }) }}</li>
+        <li>{{ t("pages.config.result.guardrails", { count: result.applied.guardrails }) }}</li>
+        <li>{{ t("pages.config.result.consumers", { count: result.applied.consumers }) }}</li>
       </ul>
       <div v-if="result.skipped.length" class="skipped">
-        <strong>{{ t('pages.config.result.skipped_heading', { count: result.skipped.length }) }}</strong>
+        <strong>{{ t("pages.config.result.skipped_heading", { count: result.skipped.length }) }}</strong>
         <ul>
           <li v-for="(s, i) in result.skipped" :key="i">
             {{ s.type }} <code>{{ s.id }}</code> — {{ s.reason }}

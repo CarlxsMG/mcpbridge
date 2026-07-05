@@ -80,12 +80,16 @@ const allDone = computed(() => doneCount.value === steps.value.length);
   <div v-if="!dismissed" class="onboarding-card">
     <div class="onboarding-head">
       <div>
-        <h2>{{ t('components.onboarding.title') }}</h2>
+        <h2>{{ t("components.onboarding.title") }}</h2>
         <p class="subtitle">
-          {{ allDone ? t('components.onboarding.all_done') : t('components.onboarding.progress', { done: doneCount, total: steps.length }) }}
+          {{
+            allDone
+              ? t("components.onboarding.all_done")
+              : t("components.onboarding.progress", { done: doneCount, total: steps.length })
+          }}
         </p>
       </div>
-      <button type="button" class="link-btn" @click="dismiss">{{ t('components.onboarding.dismiss') }}</button>
+      <button type="button" class="link-btn" @click="dismiss">{{ t("components.onboarding.dismiss") }}</button>
     </div>
     <ul class="onboarding-steps">
       <li v-for="step in steps" :key="step.id" :class="{ 'step-done': step.done }">
@@ -107,9 +111,11 @@ const allDone = computed(() => doneCount.value === steps.value.length);
         </span>
 
         <RouterLink v-if="step.id === 'server' && !step.done" to="/register-server" class="step-cta">
-          {{ t('components.onboarding.cta.add_server') }}
+          {{ t("components.onboarding.cta.add_server") }}
         </RouterLink>
-        <RouterLink v-if="step.id === 'teammate' && !step.done" to="/users/new" class="step-cta">{{ t('components.onboarding.cta.invite') }}</RouterLink>
+        <RouterLink v-if="step.id === 'teammate' && !step.done" to="/users/new" class="step-cta">{{
+          t("components.onboarding.cta.invite")
+        }}</RouterLink>
       </li>
     </ul>
   </div>

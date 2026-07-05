@@ -120,16 +120,13 @@ function confirmDelete() {
 
 <template>
   <section>
-    <PageHeader
-      :title="t('pages.catalog.title')"
-      :subtitle="t('pages.catalog.subtitle')"
-    >
-      <RouterLink to="/catalog/new" class="btn-primary">{{ t('pages.catalog.add_entry') }}</RouterLink>
+    <PageHeader :title="t('pages.catalog.title')" :subtitle="t('pages.catalog.subtitle')">
+      <RouterLink to="/catalog/new" class="btn-primary">{{ t("pages.catalog.add_entry") }}</RouterLink>
     </PageHeader>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
       <template #empty>
-        <EmptyState :icon="LayoutGrid">{{ t('pages.catalog.empty.no_entries') }}</EmptyState>
+        <EmptyState :icon="LayoutGrid">{{ t("pages.catalog.empty.no_entries") }}</EmptyState>
       </template>
 
       <div class="catalog-grid">
@@ -141,11 +138,11 @@ function confirmDelete() {
         >
           <div class="card-top">
             <KindBadge :kind="entry.kind" />
-            <span v-if="entry.featured" class="featured-badge">{{ t('pages.catalog.featured') }}</span>
-            <span v-if="entry.source === 'custom'" class="custom-badge">{{ t('pages.catalog.custom') }}</span>
+            <span v-if="entry.featured" class="featured-badge">{{ t("pages.catalog.featured") }}</span>
+            <span v-if="entry.source === 'custom'" class="custom-badge">{{ t("pages.catalog.custom") }}</span>
           </div>
           <h3>{{ entry.name }}</h3>
-          <p class="desc">{{ entry.description || t('pages.catalog.no_description') }}</p>
+          <p class="desc">{{ entry.description || t("pages.catalog.no_description") }}</p>
           <p v-if="entry.category" class="category">{{ entry.category }}</p>
           <div v-if="entry.tags.length" class="tags">
             <span v-for="tag in entry.tags" :key="tag" class="tag">{{ tag }}</span>
@@ -153,10 +150,10 @@ function confirmDelete() {
 
           <div class="card-actions">
             <button type="button" class="btn-secondary" @click="toggleInstall(entry)">
-              {{ openEntryId === entry.id ? t('common.cancel') : t('pages.catalog.table.install') }}
+              {{ openEntryId === entry.id ? t("common.cancel") : t("pages.catalog.table.install") }}
             </button>
             <button v-if="entry.source === 'custom'" type="button" class="link-btn danger" @click="deleteEntry(entry)">
-              {{ t('common.delete') }}
+              {{ t("common.delete") }}
             </button>
           </div>
 
@@ -167,18 +164,20 @@ function confirmDelete() {
             <template v-if="entry.kind === 'rest' && entry.openapiUrl">
               <div class="preview-row">
                 <button type="button" class="btn-secondary" :disabled="previewing" @click="preview(entry)">
-                  {{ previewing ? t('pages.register_server.discovering') : t('pages.register_server.preview_tools') }}
+                  {{ previewing ? t("pages.register_server.discovering") : t("pages.register_server.preview_tools") }}
                 </button>
-                <span v-if="previewTools" class="preview-count">{{ t('pages.register_server.preview_count', { count: previewTools.length }) }}</span>
+                <span v-if="previewTools" class="preview-count">{{
+                  t("pages.register_server.preview_count", { count: previewTools.length })
+                }}</span>
               </div>
               <p v-if="previewError" class="error">{{ previewError }}</p>
             </template>
             <p v-else class="hint">
-              {{ t('pages.register_server.mcp_transport_hint') }}
+              {{ t("pages.register_server.mcp_transport_hint") }}
             </p>
             <p v-if="installError" class="error">{{ installError }}</p>
             <button type="button" class="btn-primary" :disabled="installing" @click="confirmInstall(entry)">
-              {{ installing ? t('pages.catalog.installing') : t('pages.catalog.confirm_install') }}
+              {{ installing ? t("pages.catalog.installing") : t("pages.catalog.confirm_install") }}
             </button>
           </div>
         </article>
@@ -188,12 +187,10 @@ function confirmDelete() {
     <ConfirmDialog
       :open="pendingDelete !== null"
       :title="t('pages.catalog.confirm.delete_title')"
-      :message="
-        pendingDelete
-          ? t('pages.catalog.confirm.delete_message', { name: pendingDelete.name })
-          : ''
+      :message="pendingDelete ? t('pages.catalog.confirm.delete_message', { name: pendingDelete.name }) : ''"
+      :confirm-label="
+        pendingDelete ? t('pages.catalog.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')
       "
-      :confirm-label="pendingDelete ? t('pages.catalog.confirm.delete_label', { name: pendingDelete.name }) : t('common.delete')"
       danger
       @confirm="confirmDelete"
       @cancel="cancelDelete"

@@ -1,75 +1,76 @@
-# Why MCP REST Bridge
+# Por qué MCP REST Bridge
 
-The [Model Context Protocol](https://modelcontextprotocol.io) ecosystem is moving fast, and
-the gateway/aggregator space is crowded. Here's where MCP REST Bridge fits and why you might
-pick it.
+El ecosistema del [Model Context Protocol](https://modelcontextprotocol.io) se mueve
+rápido, y el espacio de gateway/agregador está concurrido. Aquí es donde encaja MCP REST
+Bridge y por qué podrías elegirlo.
 
-> **Who this is for:** teams exposing REST APIs or aggregating MCP servers for AI agents, who
-> want an admin UI and governance (RBAC, guardrails, audit) without standing up Kubernetes or
-> a database. See "When it's a good fit" further down for the full picture, or the
-> [FAQ →](/guide/faq) for specific questions.
+> **Para quién es esto:** equipos que exponen APIs REST o agregan servidores MCP para
+> agentes AI, que quieren una UI de admin y governance (RBAC, guardrails, audit) sin
+> tener que levantar Kubernetes o una base de datos. Consulta "Cuando encaja bien" más
+> abajo para la imagen completa, o el [FAQ →](/es/guide/faq) para preguntas específicas.
 
-## The problem
+## El problema
 
-As soon as you have more than one MCP server — or a REST API you want an AI agent to use —
-you hit the same questions:
+En cuanto tienes más de un servidor MCP — o una API REST que quieres que un agente AI
+use — te encuentras con las mismas preguntas:
 
-- How do I expose a REST/OpenAPI API to MCP clients **without hand-writing a server**?
-- How do I put **many backends behind one endpoint** and hand each client only the tools it
-  needs?
-- How do I stop a tool call from hitting my **internal network** (SSRF), leaking **secrets**,
-  or being steered by **prompt injection**?
-- How do I get **rate limits, RBAC, audit and observability** — without standing up
-  Kubernetes and a database?
+- ¿Cómo expongo una API REST/OpenAPI a clientes MCP **sin escribir un server a mano**?
+- ¿Cómo pongo **muchos backends detrás de un endpoint** y le entrego a cada cliente solo
+  las tools que necesita?
+- ¿Cómo evito que una tool call golpee mi **red interna** (SSRF), filtre **secretos** o
+  sea manipulada por **prompt injection**?
+- ¿Cómo consigo **rate limits, RBAC, audit y observabilidad** — sin levantar Kubernetes y
+  una base de datos?
 
-## The approach
+## El enfoque
 
-MCP REST Bridge is a single, self-hosted gateway that does all of the above and is **managed
-from a real admin UI, or as version-controlled YAML via the `gateway` CLI** — not by scripting
-a bare admin API by hand.
+MCP REST Bridge es un único gateway auto-hospedado que hace todo lo anterior y se
+**gestiona desde una UI de admin real, o como YAML versionado vía el CLI `gateway`** — no
+scripteando una admin API raw a mano.
 
-- **Bidirectional.** REST/OpenAPI → MCP **and** MCP → MCP, in one process.
-- **Secure by default.** SSRF/DNS-rebinding protection, IP pinning, prompt-injection
-  sanitizing and secret detection are always on.
-- **Batteries included.** Per-tool guardrails, RBAC, teams, canary/failover, config
-  versioning, OpenTelemetry tracing and a hash-chained audit log.
-- **Lightweight.** Bun + SQLite. No external DB, no Kubernetes.
+- **Bidireccional.** REST/OpenAPI → MCP **y** MCP → MCP, en un único proceso.
+- **Seguro por defecto.** Protección SSRF/DNS-rebinding, anclaje de IP, sanitización de
+  prompt-injection y detección de secretos siempre activas.
+- **Baterías incluidas.** Guardrails por tool, RBAC, equipos, canary/failover, versionado
+  de config, tracing OpenTelemetry y un log de auditoría encadenado por hash.
+- **Ligero.** Bun + SQLite. Sin DB externa, sin Kubernetes.
 
-## How it compares
+## Cómo se compara
 
-Most tools in this space fall into three buckets:
+La mayoría de herramientas en este espacio caen en tres categorías:
 
-|                                              | OpenAPI→MCP CLIs | Heavy gateways (k8s) | **MCP REST Bridge** |
-| -------------------------------------------- | :--------------: | :------------------: | :-----------------: |
-| REST / OpenAPI → MCP                         |        ✅        |       partial        |         ✅          |
-| MCP → MCP gateway                            |        ❌        |          ✅          |         ✅          |
-| Admin UI                                     |        ❌        |         some         |     ✅ Vue SPA      |
-| Built-in security (SSRF, injection, secrets) |        ❌        |         some         |         ✅          |
-| RBAC + audit + teams                         |        ❌        |          ✅          |         ✅          |
-| Runs without Kubernetes                      |        ✅        |          ❌          |         ✅          |
-| No external database                         |        ✅        |          ❌          |  ✅ (Bun + SQLite)  |
+|                                                 | CLIs OpenAPI→MCP | Gateways pesados (k8s) | **MCP REST Bridge** |
+| ----------------------------------------------- | :--------------: | :--------------------: | :-----------------: |
+| REST / OpenAPI → MCP                            |        ✅        |        parcial         |         ✅          |
+| Gateway MCP → MCP                               |        ❌        |           ✅           |         ✅          |
+| UI de admin                                     |        ❌        |        algunos         |     ✅ Vue SPA      |
+| Seguridad integrada (SSRF, inyección, secretos) |        ❌        |        algunos         |         ✅          |
+| RBAC + audit + equipos                          |        ❌        |           ✅           |         ✅          |
+| Ejecuta sin Kubernetes                          |        ✅        |           ❌           |         ✅          |
+| Sin base de datos externa                       |        ✅        |           ❌           |  ✅ (Bun + SQLite)  |
 
-- **OpenAPI→MCP converters/CLIs** are great for a one-shot translation, but they don't manage
-  a running fleet — no UI, no per-tool policy, no audit.
-- **Heavy/enterprise gateways** are powerful but assume containers, Kubernetes and often a
-  database and cloud identity provider.
+- **Conversores/CLIs OpenAPI→MCP** son geniales para una traducción única, pero no
+  gestionan una flota en ejecución — sin UI, sin policy por tool, sin audit.
+- **Gateways pesados/enterprise** son potentes pero asumen contenedores, Kubernetes y
+  a menudo una base de datos y un identity provider cloud.
 
-MCP REST Bridge aims for the middle: **the governance of an enterprise gateway with the
-footprint of a single binary**, plus a UI you'd actually hand to a teammate.
+MCP REST Bridge apunta al medio: **el governance de un gateway enterprise con el footprint
+de un único binario**, más una UI que realmente le pasarías a un compañero.
 
-_Capabilities of other projects vary and evolve quickly — this is general positioning, not a
-scorecard of any specific tool. Check each project for its current feature set._
+_Las capacidades de otros proyectos varían y evolucionan rápido — esto es posicionamiento
+general, no un scorecard de ninguna herramienta específica. Comprueba cada proyecto para
+su feature set actual._
 
-## When it's a good fit
+## Cuando encaja bien
 
-- You want to expose internal REST APIs to AI agents **safely and quickly**.
-- You're aggregating several MCP servers and need **one governed endpoint** with access
-  control.
-- You want **self-hosted** control and an audit trail, without operating heavy infra.
+- Quieres exponer APIs REST internas a agentes AI **de forma segura y rápida**.
+- Estás agregando varios servidores MCP y necesitas **un endpoint gobernado** con control
+  de acceso.
+- Quieres control **auto-hospedado** y un audit trail, sin operar infra pesada.
 
-## When it might not be
+## Cuando podría no encajar
 
-- You need managed SaaS with an SLA (this is self-hosted, MIT-licensed open source).
-- You require Kubernetes-native, multi-cluster routing as a hard requirement today.
+- Necesitas SaaS gestionado con SLA (esto es open source auto-hospedado con licencia MIT).
+- Requieres Kubernetes-nativo, routing multi-cluster como un hard requirement hoy.
 
-Ready? **[Get started →](/guide/getting-started)**
+¿Listo? **[Primeros pasos →](/es/guide/getting-started)**

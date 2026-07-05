@@ -1,50 +1,53 @@
-# Observability & monitoring
+# Observabilidad y monitorización
 
-The bridge is built to be watched: metrics, traces, usage analytics, alerts and a
-tamper-evident audit trail, all from the same instance.
+El bridge está construido para ser observado: métricas, traces, analytics de uso,
+alertas y un log de auditoría a prueba de manipulaciones, todo desde la misma instancia.
 
-## Metrics (Prometheus)
+## Métricas (Prometheus)
 
-Scrape `GET /metrics` for Prometheus-format metrics, including
-`mcp_tool_calls_total{outcome}` alongside process and HTTP metrics. Wire it into your usual
-dashboards and alerting.
+Scrape `GET /metrics` para métricas en formato Prometheus, incluyendo
+`mcp_tool_calls_total{outcome}` junto con métricas de proceso y HTTP. Cablea en tus
+dashboards y alertas habituales.
 
 ## Tracing (OpenTelemetry)
 
-Set `OTEL_EXPORTER_OTLP_ENDPOINT` and the bridge exports one OTLP/HTTP span **per tool call**
-— dependency-free, so you can send spans to any OTLP collector (Jaeger, Tempo, Honeycomb, …).
+Define `OTEL_EXPORTER_OTLP_ENDPOINT` y el bridge exporta un span OTLP/HTTP
+**por cada llamada de tool** — sin dependencias, así que puedes enviar spans a cualquier
+collector OTLP (Jaeger, Tempo, Honeycomb, …).
 
-## Usage analytics & anomaly detection
+## Analytics de uso y detección de anomalías
 
-The admin UI's **Usage** view shows calls, error rate, latency, top tools and per-key
-breakdowns over a window — the same window the `usage_spike` alert below watches.
+La vista **Usage** de la UI de admin muestra llamadas, tasa de error, latencia, top
+tools y breakdowns por key en una ventana — la misma ventana que la alerta `usage_spike`
+de abajo monitoriza.
 
-## Alerts
+## Alertas
 
-Create alert rules that POST to a webhook on:
+Crea reglas de alerta que POSTean a un webhook en:
 
-| Event                  | Fires when                                          |
-| ---------------------- | --------------------------------------------------- |
-| `circuit_breaker_open` | A tool's breaker trips open                         |
-| `client_unreachable`   | A backend fails health checks                       |
-| `error_rate`           | Errors exceed a threshold over a minimum call count |
-| `usage_spike`          | Traffic spikes vs. baseline                         |
+| Evento                 | Se dispara cuando                                            |
+| ---------------------- | ------------------------------------------------------------ |
+| `circuit_breaker_open` | El breaker de una tool se dispara y abre                     |
+| `client_unreachable`   | Un backend falla los chequeos de salud                       |
+| `error_rate`           | Los errores superan un threshold sobre un mínimo de llamadas |
+| `usage_spike`          | Picos de tráfico vs. baseline                                |
 
-**Synthetic monitors** can additionally probe tools on a schedule and notify
-`MONITOR_WEBHOOK_URL` on failure or schema drift.
+Los **monitores sintéticos** pueden adicionalmente probar tools en schedule y notificar a
+`MONITOR_WEBHOOK_URL` ante fallo o drift de schema.
 
-## Audit trail
+## Log de auditoría
 
-Every admin mutation is written to a **hash-chained** audit log
-(`hash = SHA256(prev | actor | action | target | detail | created_at)`). Any retroactive
-edit breaks the chain and is caught by the verify endpoint. Stream events to a SIEM in real
-time with `AUDIT_SINK_URL`. Export the log as JSON, CSV, or a self-contained HTML compliance
-report that embeds the hash-chain verification verdict.
+Cada mutación admin se escribe en un **log de auditoría encadenado por hash**
+(`hash = SHA256(prev | actor | action | target | detail | created_at)`). Cualquier
+edición retroactiva rompe la cadena y se detecta por el endpoint de verificación.
+Streamea eventos a un SIEM en tiempo real con `AUDIT_SINK_URL`. Exporta el log como
+JSON, CSV, o un reporte de compliance HTML autocontenido que embebe el veredicto de
+verificación de la cadena de hashes.
 
-## Health
+## Salud
 
-`GET /health` is a cheap liveness check for load balancers. Per-backend health is monitored
-continuously, with automatic eviction of unhealthy backends and a `ping` probe for MCP
-upstreams.
+`GET /health` es un chequeo de liveness barato para load balancers. La salud de cada
+backend se monitoriza continuamente, con auto-eliminación de backends no saludables y
+un probe `ping` para upstreams MCP.
 
-Next: **[Scaling →](/guide/scaling)** · **[Troubleshooting →](/guide/troubleshooting)**
+Siguiente: **[Escalado →](/es/guide/scaling)** · **[Solución de problemas →](/es/guide/troubleshooting)**
