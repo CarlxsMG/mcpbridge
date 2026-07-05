@@ -159,6 +159,99 @@
     "status_expired": "Expired",
     "status_disabled": "Disabled"
   },
+  "components": {
+    "connect_client_dialog": {
+      "title": "Connect a client",
+      "hint": "Generate a ready-to-paste MCP connection config for this gateway. Nothing here is saved or sent anywhere — it's assembled entirely in your browser.",
+      "scope": {
+        "client": "A single server",
+        "bundle": "A curated bundle",
+        "aggregated": "Everything (aggregated /mcp)"
+      },
+      "fields": {
+        "client": "Client",
+        "connect_to": "Connect to",
+        "server": "Server",
+        "bundle": "Bundle",
+        "gateway_url": "Gateway URL"
+      },
+      "choose_one": "— choose one —",
+      "create_server": "Add server",
+      "create_bundle": "Create bundle",
+      "key_warning": "You don't have an active MCP API key yet.",
+      "create_one": "Create one",
+      "key_warning_after": "first, then come back and paste it in below.",
+      "key_count": "You have {count} active MCP API key(s) — paste one in place of",
+      "key_count_after": "below. Manage them under",
+      "setup": "Setup",
+      "choose_target": "Choose a {kind} above to generate its config."
+    },
+    "share_install_link": {
+      "title": "Share install link",
+      "hint_p1": "Anyone with this link can connect to",
+      "hint_p2": "immediately — no admin login required. It carries a fresh MCP API key scoped ONLY to this bundle's tools, never your own credentials. Revoke a link at any time to cut off access instantly.",
+      "minted_title": "New link created — copy it now, the token won't be shown again:",
+      "dismiss": "Dismiss",
+      "create_new": "Create new link",
+      "existing_heading": "Existing links",
+      "empty": "No install links yet for this bundle.",
+      "table": {
+        "token": "Token",
+        "status": "Status",
+        "created": "Created",
+        "last_used": "Last used"
+      },
+      "status": {
+        "revoked": "Revoked",
+        "expired": "Expired",
+        "active": "Active"
+      },
+      "revoke": "Revoke",
+      "confirm": {
+        "revoke_title": "Revoke this install link?",
+        "revoke_message": "Anyone using this link (or its embedded key) will lose access immediately. This cannot be undone.",
+        "revoke_cta": "Revoke {token}…"
+      },
+      "errors": {
+        "load_failed": "Failed to load install links.",
+        "create_failed": "Failed to create install link.",
+        "revoke_failed": "Failed to revoke install link."
+      }
+    },
+    "onboarding": {
+      "title": "Get started",
+      "all_done": "All steps complete — nice work.",
+      "progress": "{done} of {total} done",
+      "dismiss": "Dismiss",
+      "steps": {
+        "register_server": "Register your first server",
+        "test_tool": "Test a tool",
+        "connect_client": "Connect a client",
+        "invite_teammate": "Invite a teammate"
+      },
+      "cta": {
+        "add_server": "Add a server",
+        "invite": "Invite"
+      }
+    },
+    "bundle_tool_picker": {
+      "filter_label": "Filter tools",
+      "filter_placeholder": "Filter by client, tool, or description…",
+      "show_selected_only": "Show selected only",
+      "selected_count": "{count} selected",
+      "loading": "Loading tools…",
+      "select_all": "Select all",
+      "client_disabled": "client disabled",
+      "tool_disabled": "disabled",
+      "empty": {
+        "no_tools": "No tools available yet — register a client first.",
+        "no_match": "No tools match \"{search}\"."
+      },
+      "errors": {
+        "load_failed": "Failed to load tools."
+      }
+    }
+  },
   "pages": {
     "servers": {
       "title": "Servers",

@@ -227,6 +227,99 @@
     "status_expired": "Caducado",
     "status_disabled": "Deshabilitado"
   },
+  "components": {
+    "connect_client_dialog": {
+      "title": "Conectar un cliente",
+      "hint": "Genera una config MCP lista para pegar para este gateway. Nada se guarda ni se envía — se ensambla completamente en tu navegador.",
+      "scope": {
+        "client": "Un solo servidor",
+        "bundle": "Un bundle curado",
+        "aggregated": "Todo (agregado /mcp)"
+      },
+      "fields": {
+        "client": "Cliente",
+        "connect_to": "Conectar a",
+        "server": "Servidor",
+        "bundle": "Bundle",
+        "gateway_url": "URL del gateway"
+      },
+      "choose_one": "— elige uno —",
+      "create_server": "Añadir servidor",
+      "create_bundle": "Crear bundle",
+      "key_warning": "Aún no tienes una MCP API key activa.",
+      "create_one": "Crea una",
+      "key_warning_after": "primero, y vuelve para pegarla abajo.",
+      "key_count": "Tienes {count} MCP API key(s) activa(s) — pega una en lugar de",
+      "key_count_after": "abajo. Gestionadas en",
+      "setup": "Setup",
+      "choose_target": "Elige un {kind} arriba para generar su config."
+    },
+    "share_install_link": {
+      "title": "Compartir link de instalación",
+      "hint_p1": "Cualquiera con este link puede conectarse a",
+      "hint_p2": "inmediatamente — sin login admin. Lleva una MCP API key fresca scoped SOLO a los tools de este bundle, nunca tus credenciales. Revoca un link en cualquier momento para cortar el acceso al instante.",
+      "minted_title": "Nuevo link creado — cópialo ahora, el token no se vuelve a mostrar:",
+      "dismiss": "Descartar",
+      "create_new": "Crear nuevo link",
+      "existing_heading": "Links existentes",
+      "empty": "Aún no hay links de instalación para este bundle.",
+      "table": {
+        "token": "Token",
+        "status": "Estado",
+        "created": "Creado",
+        "last_used": "Último uso"
+      },
+      "status": {
+        "revoked": "Revocado",
+        "expired": "Caducado",
+        "active": "Activo"
+      },
+      "revoke": "Revocar",
+      "confirm": {
+        "revoke_title": "¿Revocar este link de instalación?",
+        "revoke_message": "Cualquiera que use este link (o su key embebida) perderá el acceso inmediatamente. Esto no se puede deshacer.",
+        "revoke_cta": "Revocar {token}…"
+      },
+      "errors": {
+        "load_failed": "Error al cargar los links de instalación.",
+        "create_failed": "Error al crear el link de instalación.",
+        "revoke_failed": "Error al revocar el link de instalación."
+      }
+    },
+    "onboarding": {
+      "title": "Empezar",
+      "all_done": "Todos los pasos completos — bien hecho.",
+      "progress": "{done} de {total} completados",
+      "dismiss": "Descartar",
+      "steps": {
+        "register_server": "Registra tu primer servidor",
+        "test_tool": "Prueba un tool",
+        "connect_client": "Conecta un cliente",
+        "invite_teammate": "Invita a un compañero"
+      },
+      "cta": {
+        "add_server": "Añadir un servidor",
+        "invite": "Invitar"
+      }
+    },
+    "bundle_tool_picker": {
+      "filter_label": "Filtrar tools",
+      "filter_placeholder": "Filtrar por cliente, tool o descripción…",
+      "show_selected_only": "Solo seleccionados",
+      "selected_count": "{count} seleccionados",
+      "loading": "Cargando tools…",
+      "select_all": "Seleccionar todos",
+      "client_disabled": "cliente deshabilitado",
+      "tool_disabled": "deshabilitado",
+      "empty": {
+        "no_tools": "Aún no hay tools disponibles — registra un cliente primero.",
+        "no_match": "Ningún tool coincide con \"{search}\"."
+      },
+      "errors": {
+        "load_failed": "Error al cargar los tools."
+      }
+    }
+  },
   "pages": {
     "servers": {
       "title": "Servidores",

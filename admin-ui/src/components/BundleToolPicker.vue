@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import type { ToolListItem, BundleToolRef } from "@/types/api";
 import { Search } from "lucide-vue-next";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 
 const model = defineModel<BundleToolRef[]>({ required: true });
+const { t } = useI18n({ useScope: "global" });
 
 const allTools = ref<ToolListItem[]>([]);
 const loading = ref(false);
@@ -21,7 +24,7 @@ async function load() {
     const res = await api.get<{ items: ToolListItem[] }>("/admin-api/tools");
     allTools.value = res.items;
   } catch (err) {
-    errorMessage.value = toErrorMessage(err, "Failed to load tools.");
+    errorMessage.value = toErrorMessage(err, tk("components.bundle_tool_picker.errors.load_failed"));
   } finally {
     loading.value = false;
   }
@@ -40,25 +43,25 @@ function isSelected(item: ToolListItem): boolean {
 
 function toggle(item: ToolListItem) {
   if (isSelected(item)) {
-    model.value = model.value.filter((t) => refKey(t) !== refKey(item));
+    model.value = model.value.filter((tt) => refKey(tt) !== refKey(item));
   } else {
     model.value = [...model.value, { client: item.client, tool: item.tool }];
   }
 }
 
 function selectAllInGroup(tools: ToolListItem[]) {
-  const additions = tools.filter((t) => !isSelected(t)).map((t) => ({ client: t.client, tool: t.tool }));
+  const additions = tools.filter((tt) => !isSelected(tt)).map((tt) => ({ client: tt.client, tool: tt.tool }));
   if (additions.length) model.value = [...model.value, ...additions];
 }
 
 const filteredTools = computed(() => {
   const q = search.value.trim().toLowerCase();
   let tools = allTools.value;
-  if (showSelectedOnly.value) tools = tools.filter((t) => isSelected(t));
+  if (showSelectedOnly.value) tools = tools.filter((tt) => isSelected(tt));
   if (!q) return tools;
   return tools.filter(
-    (t) =>
-      t.client.toLowerCase().includes(q) || t.tool.toLowerCase().includes(q) || t.description.toLowerCase().includes(q),
+    (tt) =>
+      tt.client.toLowerCase().includes(q) || tt.tool.toLowerCase().includes(q) || tt.description.toLowerCase().includes(q),
   );
 });
 
@@ -75,40 +78,40 @@ const groupedByClient = computed(() => {
 <template>
   <div class="tool-picker">
     <div class="picker-header">
-      <label for="tool-filter" class="visually-hidden">Filter tools</label>
+      <label for="tool-filter" class="visually-hidden">{{ t('components.bundle_tool_picker.filter_label') }}</label>
       <div class="search-input">
         <Search :size="15" stroke-width="2" aria-hidden="true" />
         <input
           id="tool-filter"
           v-model="search"
           type="search"
-          placeholder="Filter by client, tool, or description…"
-          aria-label="Filter tools"
+          :placeholder="t('components.bundle_tool_picker.filter_placeholder')"
+          :aria-label="t('components.bundle_tool_picker.filter_label')"
         />
       </div>
       <label class="show-selected">
         <input v-model="showSelectedOnly" type="checkbox" />
-        Show selected only
+        {{ t('components.bundle_tool_picker.show_selected_only') }}
       </label>
-      <span class="selected-count">{{ model.length }} selected</span>
+      <span class="selected-count">{{ t('components.bundle_tool_picker.selected_count', { count: model.length }) }}</span>
     </div>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-    <SignalLoader v-if="loading" label="Loading tools…" />
+    <SignalLoader v-if="loading" :label="t('components.bundle_tool_picker.loading')" />
 
     <template v-else-if="allTools.length === 0">
-      <p class="empty-state">No tools available yet — register a client first.</p>
+      <p class="empty-state">{{ t('components.bundle_tool_picker.empty.no_tools') }}</p>
     </template>
     <template v-else-if="groupedByClient.length === 0">
-      <p class="empty-state">No tools match "{{ search }}".</p>
+      <p class="empty-state">{{ t('components.bundle_tool_picker.empty.no_match', { search }) }}</p>
     </template>
 
     <details v-for="[clientName, tools] in groupedByClient" :key="clientName" class="client-group" open>
       <summary>
         {{ clientName }}
-        <span v-if="!tools[0].clientEnabled" class="hint-tag">client disabled</span>
+        <span v-if="!tools[0].clientEnabled" class="hint-tag">{{ t('components.bundle_tool_picker.client_disabled') }}</span>
         <button type="button" class="link-btn select-all-btn" @click.stop.prevent="selectAllInGroup(tools)">
-          Select all
+          {{ t('components.bundle_tool_picker.select_all') }}
         </button>
       </summary>
       <ul>
@@ -116,7 +119,7 @@ const groupedByClient = computed(() => {
           <label>
             <input type="checkbox" :checked="isSelected(tool)" @change="toggle(tool)" />
             <span class="tool-name">{{ tool.tool }}</span>
-            <span v-if="!tool.enabled" class="hint-tag">disabled</span>
+            <span v-if="!tool.enabled" class="hint-tag">{{ t('components.bundle_tool_picker.tool_disabled') }}</span>
             <span class="tool-desc" :title="tool.description">{{ tool.description }}</span>
           </label>
         </li>

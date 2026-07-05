@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import type { BundleInstallLink, BundleInstallLinkWithToken } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -7,9 +8,11 @@ import ModalShell from "@/components/ui/ModalShell.vue";
 import CopyButton from "@/components/ui/CopyButton.vue";
 import { formatDateTime, formatMaybeDate } from "@/utils/format";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 
 const props = defineProps<{ open: boolean; bundleName: string }>();
 const emit = defineEmits<{ close: [] }>();
+const { t } = useI18n({ useScope: "global" });
 
 const links = ref<BundleInstallLink[]>([]);
 const loading = ref(false);
@@ -17,8 +20,6 @@ const listError = ref("");
 const creating = ref(false);
 const createError = ref("");
 
-// The raw link is shown exactly once, right after minting — same "show once"
-// contract as the API-key create flow (see KeysPage.vue's mintedKey).
 const minted = ref<BundleInstallLinkWithToken | null>(null);
 const gatewayBaseUrl = ref("");
 
@@ -39,7 +40,7 @@ async function load() {
     );
     links.value = res.items;
   } catch (err) {
-    listError.value = toErrorMessage(err, "Failed to load install links.");
+    listError.value = toErrorMessage(err, tk("components.share_install_link.errors.load_failed"));
   } finally {
     loading.value = false;
   }
@@ -55,8 +56,6 @@ async function loadGatewayUrl() {
   }
 }
 
-// Data-loading side effect only — ModalShell owns focus management (initial
-// focus into the panel on open, focus-restore on close) for this dialog now.
 watch(
   () => props.open,
   async (isOpen) => {
@@ -80,7 +79,7 @@ async function createLink() {
     minted.value = created;
     await load();
   } catch (err) {
-    createError.value = toErrorMessage(err, "Failed to create install link.");
+    createError.value = toErrorMessage(err, tk("components.share_install_link.errors.create_failed"));
   } finally {
     creating.value = false;
   }
@@ -96,58 +95,54 @@ async function confirmRevoke() {
     if (minted.value?.id === link.id) minted.value = null;
     await load();
   } catch (err) {
-    revokeError.value = toErrorMessage(err, "Failed to revoke install link.");
+    revokeError.value = toErrorMessage(err, tk("components.share_install_link.errors.revoke_failed"));
   }
 }
 
 function statusOf(link: BundleInstallLink): string {
-  if (link.revokedAt !== null) return "Revoked";
-  if (link.expiresAt !== null && link.expiresAt <= Date.now()) return "Expired";
-  return "Active";
+  if (link.revokedAt !== null) return t("components.share_install_link.status.revoked");
+  if (link.expiresAt !== null && link.expiresAt <= Date.now()) return t("components.share_install_link.status.expired");
+  return t("components.share_install_link.status.active");
 }
 </script>
 
 <template>
-  <!-- :ariaLabel kept camelCase (not :aria-label): vue-tsc treats the hyphenated form as the
-       built-in ARIA passthrough attribute rather than resolving it to ModalShell's ariaLabel prop -->
-  <!-- eslint-disable-next-line vue/attribute-hyphenation -->
-  <ModalShell :open="open" :ariaLabel="'Share install link'" :max-width="'40rem'" @close="emit('close')">
+  <ModalShell :open="open" :ariaLabel="t('components.share_install_link.title')" :max-width="'40rem'" @close="emit('close')">
     <div class="dialog-head">
-      <h2>Share install link</h2>
-      <button type="button" class="link-btn" @click="emit('close')">Close</button>
+      <h2>{{ t('components.share_install_link.title') }}</h2>
+      <button type="button" class="link-btn" @click="emit('close')">{{ t('common.close') }}</button>
     </div>
     <p class="hint">
-      Anyone with this link can connect to <strong>{{ bundleName }}</strong> immediately — no admin login required. It
-      carries a fresh MCP API key scoped ONLY to this bundle's tools, never your own credentials. Revoke a link at any
-      time to cut off access instantly.
+      {{ t('components.share_install_link.hint_p1', { name: bundleName }) }}
+      {{ t('components.share_install_link.hint_p2') }}
     </p>
 
     <div v-if="minted" class="minted" role="alert">
-      <div class="minted-title">New link created — copy it now, the token won't be shown again:</div>
+      <div class="minted-title">{{ t('components.share_install_link.minted_title') }}</div>
       <div class="minted-row">
         <code class="minted-secret">{{ installUrl(minted.token) }}</code>
-        <CopyButton :key="minted.token" :text="installUrl(minted.token)" label="Copy" />
-        <button type="button" class="link-btn" @click="minted = null">Dismiss</button>
+        <CopyButton :key="minted.token" :text="installUrl(minted.token)" :label="t('common.copy')" />
+        <button type="button" class="link-btn" @click="minted = null">{{ t('components.share_install_link.dismiss') }}</button>
       </div>
     </div>
 
     <button type="button" class="btn-primary create-btn" :disabled="creating" @click="createLink">
-      {{ creating ? "Creating…" : "Create new link" }}
+      {{ creating ? t('common.creating') : t('components.share_install_link.create_new') }}
     </button>
     <p v-if="createError" class="row-error">{{ createError }}</p>
 
-    <h3>Existing links</h3>
+    <h3>{{ t('components.share_install_link.existing_heading') }}</h3>
     <p v-if="listError" class="row-error">{{ listError }}</p>
-    <p v-else-if="loading" class="hint">Loading…</p>
-    <p v-else-if="links.length === 0" class="hint">No install links yet for this bundle.</p>
+    <p v-else-if="loading" class="hint">{{ t('common.loading') }}</p>
+    <p v-else-if="links.length === 0" class="hint">{{ t('components.share_install_link.empty') }}</p>
     <div v-else class="table-wrap">
       <table class="links-table">
         <thead>
           <tr>
-            <th>Token</th>
-            <th>Status</th>
-            <th>Created</th>
-            <th>Last used</th>
+            <th>{{ t('components.share_install_link.table.token') }}</th>
+            <th>{{ t('components.share_install_link.table.status') }}</th>
+            <th>{{ t('components.share_install_link.table.created') }}</th>
+            <th>{{ t('components.share_install_link.table.last_used') }}</th>
             <th></th>
           </tr>
         </thead>
@@ -169,7 +164,7 @@ function statusOf(link: BundleInstallLink): string {
                   class="link-btn danger"
                   @click="pendingRevoke = link"
                 >
-                  Revoke
+                  {{ t('components.share_install_link.revoke') }}
                 </button>
               </div>
             </td>
@@ -181,9 +176,9 @@ function statusOf(link: BundleInstallLink): string {
 
     <ConfirmDialog
       :open="pendingRevoke !== null"
-      title="Revoke this install link?"
-      message="Anyone using this link (or its embedded key) will lose access immediately. This cannot be undone."
-      :confirm-label="pendingRevoke ? `Revoke ${pendingRevoke.tokenPrefix}…` : 'Revoke'"
+      :title="t('components.share_install_link.confirm.revoke_title')"
+      :message="t('components.share_install_link.confirm.revoke_message')"
+      :confirm-label="pendingRevoke ? t('components.share_install_link.confirm.revoke_cta', { token: pendingRevoke.tokenPrefix }) : t('components.share_install_link.revoke')"
       danger
       @confirm="confirmRevoke"
       @cancel="pendingRevoke = null"

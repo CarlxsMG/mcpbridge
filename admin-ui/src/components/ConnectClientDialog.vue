@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import type { ClientSummary, BundleSummary, McpApiKey } from "@/types/api";
 import {
@@ -15,18 +16,18 @@ import CopyButton from "@/components/ui/CopyButton.vue";
 
 const props = defineProps<{
   open: boolean;
-  /** Preselects the scope + target when opened from a specific server/bundle page. */
   presetScope: ConnectScope;
   presetName?: string;
 }>();
 const emit = defineEmits<{ close: [] }>();
+const { t } = useI18n({ useScope: "global" });
 
-const CLIENT_OPTIONS = Object.values(CONNECT_TEMPLATES).map((t) => ({ value: t.id, label: t.label }));
+const CLIENT_OPTIONS = Object.values(CONNECT_TEMPLATES).map((tmpl) => ({ value: tmpl.id, label: tmpl.label }));
 
 const SCOPE_OPTIONS: { value: ConnectScope; label: string }[] = [
-  { value: "client", label: "A single server" },
-  { value: "bundle", label: "A curated bundle" },
-  { value: "aggregated", label: "Everything (aggregated /mcp)" },
+  { value: "client", label: t("components.connect_client_dialog.scope.client") },
+  { value: "bundle", label: t("components.connect_client_dialog.scope.bundle") },
+  { value: "aggregated", label: t("components.connect_client_dialog.scope.aggregated") },
 ];
 
 const clientId = ref<ConnectClientId>("claude-desktop");
@@ -40,11 +41,6 @@ const keyCount = ref<number | null>(null);
 
 async function loadContext() {
   gatewayBaseUrl.value = window.location.origin;
-  // Best-effort — an operator-declared public URL (GATEWAY_PUBLIC_URL) takes
-  // priority over window.location.origin when set (e.g. the admin UI and the
-  // gateway's externally-reachable URL differ behind a reverse proxy); the
-  // field stays editable either way, so a failure here just falls back to
-  // window.location.origin already set above.
   try {
     const res = await api.get<{ publicUrl: string | null }>("/admin-api/connect/gateway-url");
     if (res.publicUrl) gatewayBaseUrl.value = res.publicUrl;
@@ -71,8 +67,6 @@ async function loadContext() {
   }
 }
 
-// Data-loading side effect only — ModalShell owns focus management (initial
-// focus into the panel on open, focus-restore on close) for this dialog now.
 watch(
   () => props.open,
   async (isOpen) => {
@@ -91,16 +85,19 @@ const targetSelectOptions = computed(() => {
       : scope.value === "bundle"
         ? bundles.value.map((b) => b.name)
         : [];
-  return [{ value: "", label: "— choose one —", disabled: true }, ...names.map((n) => ({ value: n, label: n }))];
+  return [
+    { value: "", label: t("components.connect_client_dialog.choose_one"), disabled: true },
+    ...names.map((n) => ({ value: n, label: n })),
+  ];
 });
 
-// Target create destination follows scope: a "server" here is a registered
-// upstream client (see clients.value above), not an MCP client app.
 const targetCreatePath = computed(() => (scope.value === "client" ? "/register-server" : "/bundles/new"));
-const targetCreateLabel = computed(() => (scope.value === "client" ? "Add server" : "Create bundle"));
+const targetCreateLabel = computed(() =>
+  scope.value === "client"
+    ? t("components.connect_client_dialog.create_server")
+    : t("components.connect_client_dialog.create_bundle"),
+);
 
-// Snippets never carry a real key — always a clearly-marked placeholder the
-// user swaps out by hand (see the module doc comment in connectTemplates.ts).
 const API_KEY_PLACEHOLDER = "<YOUR_MCP_API_KEY>";
 
 const result = computed(() => {
@@ -123,32 +120,28 @@ const result = computed(() => {
 </script>
 
 <template>
-  <!-- :ariaLabel kept camelCase (not :aria-label): vue-tsc treats the hyphenated form as the
-       built-in ARIA passthrough attribute rather than resolving it to ModalShell's ariaLabel prop -->
-  <!-- eslint-disable-next-line vue/attribute-hyphenation -->
-  <ModalShell :open="open" :ariaLabel="'Connect a client'" :max-width="'40rem'" @close="emit('close')">
+  <ModalShell :open="open" :ariaLabel="t('components.connect_client_dialog.title')" :max-width="'40rem'" @close="emit('close')">
     <div class="dialog-head">
-      <h2>Connect a client</h2>
-      <button type="button" class="link-btn" @click="emit('close')">Close</button>
+      <h2>{{ t('components.connect_client_dialog.title') }}</h2>
+      <button type="button" class="link-btn" @click="emit('close')">{{ t('common.close') }}</button>
     </div>
     <p class="hint">
-      Generate a ready-to-paste MCP connection config for this gateway. Nothing here is saved or sent anywhere — it's
-      assembled entirely in your browser.
+      {{ t('components.connect_client_dialog.hint') }}
     </p>
 
     <div class="form-grid">
       <label
-        >Client
+        >{{ t('components.connect_client_dialog.fields.client') }}
         <SelectMenu v-model="clientId" :options="CLIENT_OPTIONS" />
       </label>
 
       <label
-        >Connect to
+        >{{ t('components.connect_client_dialog.fields.connect_to') }}
         <SelectMenu v-model="scope" :options="SCOPE_OPTIONS" />
       </label>
 
       <label v-if="scope !== 'aggregated'"
-        >{{ scope === "client" ? "Server" : "Bundle" }}
+        >{{ scope === "client" ? t('components.connect_client_dialog.fields.server') : t('components.connect_client_dialog.fields.bundle') }}
         <SelectMenu
           v-model="targetName"
           :options="targetSelectOptions"
@@ -159,35 +152,38 @@ const result = computed(() => {
       </label>
 
       <label
-        >Gateway URL
+        >{{ t('components.connect_client_dialog.fields.gateway_url') }}
         <input v-model="gatewayBaseUrl" type="url" placeholder="https://gateway.example.com" />
       </label>
     </div>
 
     <p v-if="keyCount === 0" class="key-warning">
-      You don't have an active MCP API key yet.
-      <RouterLink to="/keys/new" @click="emit('close')">Create one</RouterLink>
-      first, then come back and paste it in below.
+      {{ t('components.connect_client_dialog.key_warning') }}
+      <RouterLink to="/keys/new" @click="emit('close')">{{ t('components.connect_client_dialog.create_one') }}</RouterLink>
+      {{ t('components.connect_client_dialog.key_warning_after') }}
     </p>
     <p v-else-if="keyCount !== null" class="key-hint">
-      You have {{ keyCount }} active MCP API key{{ keyCount === 1 ? "" : "s" }} — paste one in place of
-      <code>{{ API_KEY_PLACEHOLDER }}</code> below. Manage them under
-      <RouterLink to="/keys" @click="emit('close')">API keys</RouterLink>.
+      {{ t('components.connect_client_dialog.key_count', { count: keyCount }) }}
+      <code>{{ API_KEY_PLACEHOLDER }}</code>
+      {{ t('components.connect_client_dialog.key_count_after') }}
+      <RouterLink to="/keys" @click="emit('close')">{{ t('nav.keys') }}</RouterLink>.
     </p>
 
     <template v-if="result">
       <div class="snippet-head">
         <span>{{ result.filename }}</span>
-        <CopyButton :text="result.snippet" label="Copy to clipboard" />
+        <CopyButton :text="result.snippet" :label="t('common.copy_to_clipboard')" />
       </div>
       <pre class="snippet" tabindex="0">{{ result.snippet }}</pre>
 
-      <h3>Setup</h3>
+      <h3>{{ t('components.connect_client_dialog.setup') }}</h3>
       <ol class="instructions">
         <li v-for="(line, i) in result.instructions" :key="i">{{ line }}</li>
       </ol>
     </template>
-    <p v-else class="hint">Choose a {{ scope === "bundle" ? "bundle" : "server" }} above to generate its config.</p>
+    <p v-else class="hint">
+      {{ t('components.connect_client_dialog.choose_target', { kind: scope === "bundle" ? t('components.connect_client_dialog.fields.bundle') : t('components.connect_client_dialog.fields.server') }) }}
+    </p>
   </ModalShell>
 </template>
 

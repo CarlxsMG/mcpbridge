@@ -8,6 +8,7 @@
 // endpoint that already exists, and dismissal is a localStorage flag (not
 // worth a DB migration).
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import type { OverviewStats, UsageSummary } from "@/types/api";
 import { CheckCircle2, Circle } from "lucide-vue-next";
@@ -16,26 +17,19 @@ const props = defineProps<{
   /** Servers list is already fetched by ServersPage — avoid a second /admin-api/clients call. */
   hasServers: boolean;
 }>();
+const { t } = useI18n({ useScope: "global" });
 
 const DISMISSED_KEY = "mcpbridge.onboarding.dismissed";
-// No client-config-generator feature exists yet to hook into (see task notes) — this is a
-// plain manual toggle for now. If/when that feature lands, prefer reusing this same key over
-// inventing a second one, so a user who already checked this off by hand isn't asked again.
 const CLIENT_CONNECTED_KEY = "mcpbridge.onboarding.clientConnected";
 
 const dismissed = ref(localStorage.getItem(DISMISSED_KEY) === "1");
 const clientConnected = ref(localStorage.getItem(CLIENT_CONNECTED_KEY) === "1");
 
-// Best-effort signals — a failed fetch just leaves the step unchecked rather than
-// surfacing a second error banner on top of the dashboard's own.
 const toolTested = ref(false);
 const teammateInvited = ref(false);
 
 async function loadSignals(): Promise<void> {
   try {
-    // from=0 (epoch) turns the usual rolling default window into an all-time total —
-    // the cheapest accurate "has any tool ever been called" signal this endpoint can give
-    // without a new backend route.
     const usage = await api.get<UsageSummary>("/admin-api/usage/summary?from=0");
     toolTested.value = usage.calls > 0;
   } catch {
@@ -72,10 +66,10 @@ interface Step {
 }
 
 const steps = computed<Step[]>(() => [
-  { id: "server", label: "Register your first server", done: props.hasServers },
-  { id: "tool", label: "Test a tool", done: toolTested.value },
-  { id: "client", label: "Connect a client", done: clientConnected.value, manual: true },
-  { id: "teammate", label: "Invite a teammate", done: teammateInvited.value },
+  { id: "server", label: t("components.onboarding.steps.register_server"), done: props.hasServers },
+  { id: "tool", label: t("components.onboarding.steps.test_tool"), done: toolTested.value },
+  { id: "client", label: t("components.onboarding.steps.connect_client"), done: clientConnected.value, manual: true },
+  { id: "teammate", label: t("components.onboarding.steps.invite_teammate"), done: teammateInvited.value },
 ]);
 
 const doneCount = computed(() => steps.value.filter((s) => s.done).length);
@@ -86,12 +80,12 @@ const allDone = computed(() => doneCount.value === steps.value.length);
   <div v-if="!dismissed" class="onboarding-card">
     <div class="onboarding-head">
       <div>
-        <h2>Get started</h2>
+        <h2>{{ t('components.onboarding.title') }}</h2>
         <p class="subtitle">
-          {{ allDone ? "All steps complete — nice work." : `${doneCount} of ${steps.length} done` }}
+          {{ allDone ? t('components.onboarding.all_done') : t('components.onboarding.progress', { done: doneCount, total: steps.length }) }}
         </p>
       </div>
-      <button type="button" class="link-btn" @click="dismiss">Dismiss</button>
+      <button type="button" class="link-btn" @click="dismiss">{{ t('components.onboarding.dismiss') }}</button>
     </div>
     <ul class="onboarding-steps">
       <li v-for="step in steps" :key="step.id" :class="{ 'step-done': step.done }">
@@ -113,16 +107,15 @@ const allDone = computed(() => doneCount.value === steps.value.length);
         </span>
 
         <RouterLink v-if="step.id === 'server' && !step.done" to="/register-server" class="step-cta">
-          Add a server
+          {{ t('components.onboarding.cta.add_server') }}
         </RouterLink>
-        <RouterLink v-if="step.id === 'teammate' && !step.done" to="/users/new" class="step-cta">Invite</RouterLink>
+        <RouterLink v-if="step.id === 'teammate' && !step.done" to="/users/new" class="step-cta">{{ t('components.onboarding.cta.invite') }}</RouterLink>
       </li>
     </ul>
   </div>
 </template>
 
 <style scoped>
-/* Same card recipe as .tag-browser / .chart-card (DESIGN_SYSTEM.md) — reused verbatim. */
 .onboarding-card {
   background: var(--surface);
   border: 1px solid var(--border);
