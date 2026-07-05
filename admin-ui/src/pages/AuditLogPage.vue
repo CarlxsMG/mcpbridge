@@ -1,22 +1,20 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { api } from "@/composables/useApi";
-import { useLoadState } from "@/composables/useResource";
+import { useCursorPagination } from "@/composables/useCursorPagination";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime, prettyJson } from "@/utils/format";
 import { downloadTextFile } from "@/utils/download";
 import type { AuditLogEntry, PaginatedResult } from "@/types/api";
 import { ScrollText, CheckCircle2, XCircle } from "lucide-vue-next";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import SearchInput from "@/components/ui/SearchInput.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 
-const entries = ref<AuditLogEntry[]>([]);
-const { loading, errorMessage, run } = useLoadState("Failed to load audit log.");
-const nextCursor = ref<string | undefined>(undefined);
 const actorFilter = ref("");
 const actionFilter = ref("");
 const fromDate = ref(""); // yyyy-mm-dd, from <input type="date">
@@ -58,15 +56,21 @@ function buildFilterParams(): URLSearchParams {
   return params;
 }
 
-async function load(cursor?: string) {
-  await run(async () => {
+const {
+  items: entries,
+  loading,
+  errorMessage,
+  load,
+  loadMore,
+  hasNext,
+} = useCursorPagination<AuditLogEntry>(
+  (cursor) => {
     const params = buildFilterParams();
     if (cursor) params.set("cursor", cursor);
-    const result = await api.get<PaginatedResult<AuditLogEntry>>(`/admin-api/audit-log?${params.toString()}`);
-    entries.value = cursor ? [...entries.value, ...result.items] : result.items;
-    nextCursor.value = result.nextCursor;
-  });
-}
+    return api.get<PaginatedResult<AuditLogEntry>>(`/admin-api/audit-log?${params.toString()}`);
+  },
+  { fallbackMessage: "Failed to load audit log." },
+);
 
 function applyFilter() {
   load();
@@ -194,44 +198,53 @@ onMounted(() => {
       >
     </p>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-
-    <TableCard v-if="entries.length">
-      <thead>
-        <tr>
-          <th>When</th>
-          <th>Actor</th>
-          <th>Action</th>
-          <th>Target</th>
-          <th>Detail</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="entry in entries" :key="entry.id">
-          <td>{{ formatDateTime(entry.createdAt) }}</td>
-          <td>{{ entry.actor }}</td>
-          <td>
-            <code>{{ entry.action }}</code>
-          </td>
-          <td>{{ entry.target }}</td>
-          <td>
-            <HoverPreview v-if="entry.detail" always-show mono :text="prettyJson(entry.detail)" class="detail-trigger">
-              View
-            </HoverPreview>
-            <span v-else class="detail-none">—</span>
-          </td>
-        </tr>
-      </tbody>
-    </TableCard>
-    <EmptyState v-else-if="!loading" :icon="ScrollText">
-      <template v-if="hasActiveFilters">
-        No entries match these filters.
-        <button type="button" class="link-btn" @click="clearFilters">Clear filters</button>
+    <ListLayout :loading="loading && !entries.length" :error="errorMessage" :empty="entries.length === 0">
+      <template #empty>
+        <EmptyState :icon="ScrollText">
+          <template v-if="hasActiveFilters">
+            No entries match these filters.
+            <button type="button" class="link-btn" @click="clearFilters">Clear filters</button>
+          </template>
+          <template v-else>No audit entries yet.</template>
+        </EmptyState>
       </template>
-      <template v-else>No audit entries yet.</template>
-    </EmptyState>
 
-    <button v-if="nextCursor" type="button" class="btn-secondary" :disabled="loading" @click="load(nextCursor)">
+      <TableCard>
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Actor</th>
+            <th>Action</th>
+            <th>Target</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="entry in entries" :key="entry.id">
+            <td>{{ formatDateTime(entry.createdAt) }}</td>
+            <td>{{ entry.actor }}</td>
+            <td>
+              <code>{{ entry.action }}</code>
+            </td>
+            <td>{{ entry.target }}</td>
+            <td>
+              <HoverPreview
+                v-if="entry.detail"
+                always-show
+                mono
+                :text="prettyJson(entry.detail)"
+                class="detail-trigger"
+              >
+                View
+              </HoverPreview>
+              <span v-else class="detail-none">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </TableCard>
+    </ListLayout>
+
+    <button v-if="hasNext" type="button" class="btn-secondary" :disabled="loading" @click="loadMore">
       {{ loading ? "Loading…" : "Load more" }}
     </button>
   </section>
