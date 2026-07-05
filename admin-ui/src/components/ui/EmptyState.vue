@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 
-defineProps<{ icon: Component }>();
+defineProps<{ icon: Component; muted?: boolean }>();
 </script>
 
 <template>
   <div class="empty-state">
     <component :is="icon" :size="26" stroke-width="1.5" aria-hidden="true" class="empty-icon" />
-    <p><slot /></p>
+    <p :class="{ 'is-muted': muted }"><slot /></p>
   </div>
 </template>
 
@@ -23,5 +23,8 @@ defineProps<{ icon: Component }>();
 .empty-icon {
   color: var(--text-muted);
   margin-bottom: 0.75rem;
+}
+.is-muted {
+  color: var(--text-muted);
 }
 </style>
