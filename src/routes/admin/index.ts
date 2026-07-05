@@ -12,6 +12,7 @@ import { oauthRoutes } from "./oauth.js";
 import { canaryRoutes } from "./canary.js";
 import { lbRoutes } from "./lb.js";
 import { clientsRoutes } from "./clients.js";
+import { toolsRoutes } from "./tools.js";
 import { mountLegacy } from "./legacyMount.js";
 
 /**
@@ -50,6 +51,7 @@ export function adminRoutes(app: Express): void {
   r.use(canaryRoutes);
   r.use(lbRoutes);
   r.use(clientsRoutes);
+  r.use(toolsRoutes);
   mountLegacy(r);
 
   app.use("/admin-api", r);

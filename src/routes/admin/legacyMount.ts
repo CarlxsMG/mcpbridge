@@ -1,17 +1,14 @@
 import type { Request, Response, Router } from "express";
 import { registry, ToolOverrideError } from "../../mcp/registry.js";
 import { TOOL_KEY_SEPARATOR, toolKey } from "../../lib/identifier.js";
-import { proxyToolCall } from "../../proxy/proxy.js";
 import { setToolSensitive } from "../../tool-meta/tool-sensitivity.js";
 import { setRedactionPaths } from "../../content-filtering/redaction.js";
 import { setGuardrails } from "../../tool-policies/guardrails.js";
-import { listExamples, createExample, deleteExample } from "../../tool-meta/tool-examples.js";
+import { setToolCacheConfig } from "../../tool-policies/response-cache.js";
 
-import { setToolCacheConfig, purgeToolCache } from "../../tool-policies/response-cache.js";
 import { setToolCoalesce } from "../../tool-policies/coalesce.js";
 import {
   setQuarantinePolicy,
-  clearQuarantine,
 } from "../../tool-policies/quarantine.js";
 
 import { setPaginationConfig } from "../../tool-policies/pagination.js";
@@ -39,8 +36,7 @@ import {
 } from "../../admin/audit/audit.js";
 import { auditLogToCsv, auditLogToHtml } from "../../admin/audit/audit-export.js";
 import { getAllCircuitStates } from "../../middleware/circuit-breaker.js";
-import type { ClientGuardConfig, ToolGuardConfig, ClientStatus, ToolOverride, ToolGuardrails } from "../../mcp/types.js";
-import type { AdminRole } from "../../security/user-store.js";
+import type { ClientGuardConfig, ToolGuardConfig, ToolOverride, ToolGuardrails } from "../../mcp/types.js";
 import { sendError, validationError, notFound } from "../http-errors.js";
 import { config } from "../../config.js";
 import { callerTeamId, ensureClientAccess, requireAdminRole, requireOperator } from "../../middleware/authz.js";
@@ -437,155 +433,8 @@ export function mountLegacy(parent: Router): void {
     },
   );
 
-  parent.patch(
-    "/clients/:name/tools",
-    requireOperator,
-    async (req: Request<{ name: string }>, res: Response) => {
-      const { name } = req.params;
-      const body = (req.body as Record<string, unknown>) ?? {};
-      const toolNames = body.tool_names;
-      const enabled = body.enabled;
-      if (!Array.isArray(toolNames) || toolNames.some((n) => typeof n !== "string") || typeof enabled !== "boolean") {
-        validationError(res, "tool_names (string[]) and enabled (boolean) are required");
-        return;
-      }
-      const actor = actorFromRequest(req);
-      const results: Record<string, boolean> = {};
-      for (const toolName of toolNames as string[]) {
-        results[toolName] = await registry.setToolEnabled(name, toolName, enabled);
-        if (results[toolName])
-          recordAudit(actor, enabled ? "tool.enable" : "tool.disable", `${name}${TOOL_KEY_SEPARATOR}${toolName}`, {
-            bulk: true,
-          });
-      }
-      res.status(200).json({ results });
-    },
-  );
-
-  parent.post(
-    "/clients/:name/tools/:tool/test",
-    requireOperator,
-    async (req: Request<{ name: string; tool: string }>, res: Response) => {
-      const { name, tool } = req.params;
-      if (!ensureClientAccess(req, res, name)) return;
-      const mcpToolName = `${name}${TOOL_KEY_SEPARATOR}${tool}`;
-      if (!registry.resolveTool(mcpToolName)) {
-        notFound(res, "TOOL_NOT_FOUND", "Client or tool not found");
-        return;
-      }
-      const args = (req.body as Record<string, unknown>) ?? {};
-      const result = await proxyToolCall(mcpToolName, args);
-      recordAudit(actorFromRequest(req), "tool.test", mcpToolName);
-      res.status(200).json(result);
-    },
-  );
-
-  // ── Saved examples (playground) ───────────────────────────────────────────
-
-  parent.get(
-    "/clients/:name/tools/:tool/examples",
-    (req: Request<{ name: string; tool: string }>, res: Response) => {
-      if (!ensureClientAccess(req, res, req.params.name)) return;
-      res.status(200).json({ items: listExamples(req.params.name, req.params.tool) });
-    },
-  );
-
-  parent.post(
-    "/clients/:name/tools/:tool/examples",
-    requireOperator,
-    (req: Request<{ name: string; tool: string }>, res: Response) => {
-      const { name, tool } = req.params;
-      if (!ensureClientAccess(req, res, name)) return;
-      const body = (req.body as Record<string, unknown>) ?? {};
-      const label = typeof body.label === "string" ? body.label.trim() : "";
-      if (!label || label.length > 100) {
-        validationError(res, "label is required (<= 100 chars)");
-        return;
-      }
-      const result = createExample(name, tool, label, body.args ?? {}, actorFromRequest(req));
-      if (result === "TOOL_NOT_FOUND") {
-        notFound(res, "TOOL_NOT_FOUND", "Client or tool not found");
-        return;
-      }
-      if (result === "INVALID_ARGS") {
-        validationError(res, "args must be an object (<= 16KB)");
-        return;
-      }
-      recordAudit(actorFromRequest(req), "tool.example.create", `${name}${TOOL_KEY_SEPARATOR}${tool}`, { label });
-      res.status(201).json(result);
-    },
-  );
-
-  parent.delete(
-    "/clients/:name/tools/:tool/examples/:id",
-    requireOperator,
-    (req: Request<{ name: string; tool: string; id: string }>, res: Response) => {
-      const { name, tool, id } = req.params;
-      if (!ensureClientAccess(req, res, name)) return;
-      const ok = deleteExample(name, tool, Number(id));
-      if (!ok) {
-        notFound(res, "EXAMPLE_NOT_FOUND", "Example not found");
-        return;
-      }
-      recordAudit(actorFromRequest(req), "tool.example.delete", `${name}${TOOL_KEY_SEPARATOR}${tool}`, {
-        id: Number(id),
-      });
-      res.status(200).json({ status: "deleted", id: Number(id) });
-    },
-  );
-
-  parent.post(
-    "/clients/:name/circuit-breaker/reset",
-    requireOperator,
-    (req: Request<{ name: string }>, res: Response) => {
-      if (!ensureClientAccess(req, res, req.params.name)) return;
-      const ok = registry.resetCircuitBreaker(req.params.name);
-      if (!ok) {
-        notFound(res, "CLIENT_NOT_FOUND", "Client is not currently live");
-        return;
-      }
-      recordAudit(actorFromRequest(req), "client.circuit_breaker.reset", req.params.name);
-      res.status(200).json({ status: "reset", name: req.params.name });
-    },
-  );
-
-  // ── Response cache ─────────────────────────────────────────────────────────
-
-  parent.post(
-    "/clients/:name/tools/:tool/cache/purge",
-    requireOperator,
-    (req: Request<{ name: string; tool: string }>, res: Response) => {
-      const { name, tool } = req.params;
-      if (!ensureClientAccess(req, res, name)) return;
-      if (!registry.resolveTool(`${name}${TOOL_KEY_SEPARATOR}${tool}`)) {
-        notFound(res, "TOOL_NOT_FOUND", "Client or tool not found");
-        return;
-      }
-      purgeToolCache(name, tool);
-      recordAudit(actorFromRequest(req), "tool.cache.purge", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
-      res.status(200).json({ status: "purged", name, tool });
-    },
-  );
-
-  // ── Auto-quarantine ─────────────────────────────────────────────────────────
-
-  parent.post(
-    "/clients/:name/tools/:tool/quarantine/clear",
-    requireOperator,
-    (req: Request<{ name: string; tool: string }>, res: Response) => {
-      const { name, tool } = req.params;
-      if (!ensureClientAccess(req, res, name)) return;
-      const ok = clearQuarantine(name, tool);
-      if (!ok) {
-        notFound(res, "TOOL_NOT_FOUND", "Client or tool not found");
-        return;
-      }
-      recordAudit(actorFromRequest(req), "tool.quarantine.clear", `${name}${TOOL_KEY_SEPARATOR}${tool}`);
-      res.status(200).json({ status: "cleared", name, tool });
-    },
-  );
-
-  // ── Canary / failover (secondary upstream) ────────────────────────────────
+  // ── Tools (admin endpoints) lives in ./tools.ts (P0-2b cont.); only the
+  // per-tool PATCH mutations mega-handler remains here until split by feature.
 
   // ── Traffic explorer + replay — moved to ./traffic.ts (P0-2b cont.) ──────
 }
