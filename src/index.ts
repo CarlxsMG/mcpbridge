@@ -14,6 +14,7 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { metricsRoutes } from "./routes/metrics.js";
 import { startCircuitBreakerCleanup } from "./middleware/circuit-breaker.js";
 import { checkStartupGuards } from "./security/startup-guards.js";
+import { validateEnvOrWarn } from "./config-schema.js";
 import { enforceJsonDepth } from "./middleware/json-depth.js";
 import { getDb } from "./db/connection.js";
 import { bootstrapAdminUser } from "./security/bootstrap-admin.js";
@@ -269,6 +270,9 @@ for (const key of Object.keys(redactedConfig)) {
     redactedConfig[key] = "<redacted>";
   }
 }
+// Env validation — surface typos and out-of-range values at boot. Warn-only by
+// default (dev ergonomic); production can promote via STRICT_CONFIG=production.
+validateEnvOrWarn();
 log("info", "Active configuration", redactedConfig);
 const server = app.listen(config.port, () => {
   log("info", "MCP REST Bridge started", { port: config.port });
