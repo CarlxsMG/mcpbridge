@@ -109,13 +109,11 @@ export interface PersistedClient {
   tools: RegisteredTool[];
 }
 
-export interface PersistedRestRegistration {
+export interface PersistedRegistration {
   enabled: boolean;
   guards?: ClientGuardConfig;
   tools: RegisteredTool[];
 }
-
-export interface PersistedMcpRegistration extends PersistedRestRegistration {}
 
 export class RegistryPersistence {
   /**
@@ -135,7 +133,7 @@ export class RegistryPersistence {
     baseUrl: string,
     resolvedIp: string,
     retryNonSafeMethods: boolean,
-  ): PersistedRestRegistration {
+  ): PersistedRegistration {
     const db = getDb();
     const now = Date.now();
 
@@ -240,7 +238,7 @@ export class RegistryPersistence {
     transport: McpTransport,
     ip: string,
     resolvedIp: string,
-  ): PersistedMcpRegistration {
+  ): PersistedRegistration {
     const db = getDb();
     const now = Date.now();
 

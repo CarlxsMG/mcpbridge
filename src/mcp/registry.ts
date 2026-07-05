@@ -30,7 +30,7 @@ import { getWsForClient, getGraphqlForClient } from "../proxy/backends.js";
 import { getContextBudgetForClient } from "../tool-policies/context-budget.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";
-import { TOOL_NAME_RE, TOOL_KEY_SEPARATOR, toolKey } from "../lib/identifier.js";
+import { TOOL_NAME_RE, TOOL_KEY_SEPARATOR } from "../lib/identifier.js";
 import { createKeyedMutex } from "../lib/async-lock.js";
 import { RegistryAliasIndex } from "./registry-alias-index.js";
 import { ToolIndex } from "./tool-index.js";
@@ -42,7 +42,6 @@ import {
   type ClientGuardRow,
   type ToolGuardRow,
   type ToolOverrideRow,
-  type PersistedClient,
 } from "./registry-persistence.js";
 
 export interface ClientSummary {
