@@ -317,6 +317,24 @@
       },
       "errors": {
         "load_failed": "Error al cargar los tools."
+      },
+      "new": {
+        "title": "Crear bundle",
+        "subtitle_p1": "Selecciones de tools cross-client, cada una servida en su propio",
+        "subtitle_p2": "endpoint.",
+        "fields": {
+          "name": "Nombre",
+          "description": "Descripción (opcional)",
+          "tools": "Tools"
+        },
+        "placeholders": {
+          "name": "p. ej. assistant-a",
+          "description": "Para qué sirve este bundle"
+        },
+        "errors": {
+          "name_required": "El nombre es obligatorio.",
+          "create_failed": "Error al crear el bundle."
+        }
       }
     },
     "server_detail_upstream_auth": {

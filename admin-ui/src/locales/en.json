@@ -316,7 +316,25 @@
         "no_match": "No tools match \"{search}\"."
       },
       "errors": {
-        "load_failed": "Failed to load tools."
+        "load_failed": "Failed to load teams."
+      },
+      "new": {
+        "title": "Create bundle",
+        "subtitle_p1": "Cross-client tool selections, each served at its own",
+        "subtitle_p2": "endpoint.",
+        "fields": {
+          "name": "Name",
+          "description": "Description (optional)",
+          "tools": "Tools"
+        },
+        "placeholders": {
+          "name": "e.g. assistant-a",
+          "description": "What this bundle is for"
+        },
+        "errors": {
+          "name_required": "Name is required.",
+          "create_failed": "Failed to create bundle."
+        }
       }
     },
     "server_detail_upstream_auth": {
@@ -1827,6 +1845,20 @@
       "errors": {
         "load_failed": "Failed to load teams.",
         "delete_failed": "Failed to delete team."
+      },
+      "new": {
+        "title": "New team",
+        "fields": {
+          "name": "Team name"
+        },
+        "placeholders": {
+          "name": "Team name (e.g. Payments)"
+        },
+        "create": "Create team",
+        "errors": {
+          "name_required": "Name is required.",
+          "create_failed": "Failed to create team."
+        }
       }
     },
     "users": {
@@ -1845,6 +1877,25 @@
       "errors": {
         "load_failed": "Failed to load users.",
         "delete_failed": "Failed to delete user."
+      },
+      "new": {
+        "title": "Add user",
+        "fields": {
+          "username": "Username",
+          "password": "Password (min 12 chars)",
+          "role": "Role"
+        },
+        "roles": {
+          "admin": "Admin",
+          "operator": "Operator",
+          "auditor": "Auditor",
+          "viewer": "Viewer"
+        },
+        "create": "Create user",
+        "errors": {
+          "password_too_short": "Password must be at least 12 characters.",
+          "create_failed": "Failed to create user."
+        }
       }
     },
     "usage": {
