@@ -9,20 +9,29 @@ call to the right backend through a single, uniform guard pipeline.
 <RequestPath />
 
 Every policy is enforced at the **dispatch point** (`proxyToolCall`), never as HTTP
-middleware — MCP multiplexes many tools over one `POST /mcp` route, so the bridge must know
-_which_ tool is being called before it can apply per-tool rules.
+middleware — MCP multiplexes many tools over one JSON-RPC route per scope, so the bridge
+must know _which_ tool is being called before it can apply per-tool rules.
 
-## Four ways to serve tools
+## Two planes, three endpoints
 
-| Mode                 | Endpoint                      | What it exposes                              |
-| -------------------- | ----------------------------- | -------------------------------------------- |
-| **Aggregated**       | `POST /mcp`                   | Every enabled tool from every enabled client |
-| **Per-client shard** | `/mcp/:clientName`            | Only one client's tools                      |
-| **Curated bundle**   | `/mcp-custom/:bundleName`     | A hand-picked cross-client subset            |
-| **Legacy SSE**       | `GET /sse` + `POST /messages` | The same tools for older MCP clients         |
+| Plane       | Endpoint                  | What it exposes                                                           |
+| ----------- | ------------------------- | ------------------------------------------------------------------------- |
+| **Control** | `POST /mcp`               | Gateway management + data retrieval (`sys_*` tools) — never backend tools |
+| **Data**    | `/mcp/:clientName`        | One client's backend tools                                                |
+| **Data**    | `/mcp-custom/:bundleName` | A hand-picked cross-client subset (tools and/or composite macros)         |
 
-Bundles are a pure narrowing filter applied _before_ dispatch — all guards, breakers and
-SSRF checks behave identically regardless of which mode a call came through.
+`/mcp` is not a flattened view of every backend tool — that redundant "aggregated" mode was
+removed. If you want cross-client backend tools in one session, curate a bundle. `/mcp`
+itself is the control plane: an LLM client connects there to inspect and operate the gateway
+(list/register/enable clients, mint keys, tail the audit log, ...), gated by its own
+fail-closed auth (`RootMcpAuth` — no "unconfigured means open" fallback, unlike the two data
+endpoints) and a per-tool role tier (read/operate/admin) plus step-up confirmation for
+sensitive actions. See `src/mcp/system-tools.ts`.
+
+Bundle tool/composite selection is a pure narrowing filter applied _before_ dispatch — all
+guards, breakers and SSRF checks behave identically regardless of which data endpoint a call
+came through. The legacy SSE transport (`GET /sse` + `POST /messages`) was removed alongside
+aggregation; Streamable HTTP is the only inbound MCP transport now.
 
 ## Two kinds of backend
 

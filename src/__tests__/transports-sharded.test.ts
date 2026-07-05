@@ -101,6 +101,7 @@ async function initSession(path: string, extraHeaders: Record<string, string> = 
 async function toolsList(
   path: string,
   sessionId: string,
+  extraHeaders: Record<string, string> = {},
 ): Promise<{ status: number; body?: { tools: { name: string }[] } }> {
   const res = await fetch(`${baseUrl}${path}`, {
     method: "POST",
@@ -108,6 +109,7 @@ async function toolsList(
       "content-type": "application/json",
       accept: "application/json, text/event-stream",
       "mcp-session-id": sessionId,
+      ...extraHeaders,
     },
     body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 2 }),
   });
@@ -116,8 +118,6 @@ async function toolsList(
   return { status: res.status, body: parsed.result as { tools: { name: string }[] } };
 }
 
-const originalEnableAggregated = config.enableAggregatedMcp;
-
 beforeEach(async () => {
   for (const c of registry.listClients()) {
     await registry.unregister(c.name);
@@ -125,7 +125,6 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  (config as Record<string, unknown>).enableAggregatedMcp = originalEnableAggregated;
   for (const c of registry.listClients()) {
     await registry.unregister(c.name);
   }
@@ -223,38 +222,35 @@ describe("Confused-deputy defense — a session bound to one client is rejected 
   });
 });
 
-describe("ENABLE_AGGREGATED_MCP toggle", () => {
-  test("when disabled, POST /mcp 404s (route not mounted) while /mcp/:clientName keeps working", async () => {
-    (config as Record<string, unknown>).enableAggregatedMcp = false;
-    await startApp();
-    await reg("client-a");
+describe("/mcp — system control plane, not a data aggregator", () => {
+  const originalAdminApiKeys = config.adminApiKeys;
 
-    const aggregatedRes = await fetch(`${baseUrl}/mcp`, {
+  afterEach(() => {
+    (config as Record<string, unknown>).adminApiKeys = originalAdminApiKeys;
+  });
+
+  test("POST /mcp without a system-role credential is rejected outright (no 'unconfigured means open' fallback)", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", method: "initialize", id: 1 }),
     });
-    expect(aggregatedRes.status).toBe(404);
-
-    const sessionId = await initSession("/mcp/client-a");
-    expect(sessionId).not.toBeNull();
+    expect([401, 403]).toContain(res.status);
   });
 
-  test("when enabled (default), both /mcp and /mcp/:clientName work side by side", async () => {
+  test("POST /mcp with the env admin Bearer serves system tools, never backend tools, while /mcp/:clientName keeps serving that client's tools", async () => {
+    (config as Record<string, unknown>).adminApiKeys = ["test-root-admin-key"];
+    const authHeader = { Authorization: "Bearer test-root-admin-key" };
     await startApp();
     await reg("client-a", [makeTool({ name: "tool-a" })]);
-    await reg("client-b", [makeTool({ name: "tool-b" })]);
 
-    const aggregatedSession = await initSession("/mcp");
-    expect(aggregatedSession).not.toBeNull();
-    const aggregatedList = await toolsList("/mcp", aggregatedSession!);
-    // Aggregated session sees BOTH clients' tools.
-    expect(
-      aggregatedList.body?.tools
-        .map((t) => t.name)
-        .filter((n) => n !== "search_tools")
-        .sort(),
-    ).toEqual(["client-a__tool-a", "client-b__tool-b"]);
+    const systemSession = await initSession("/mcp", authHeader);
+    expect(systemSession).not.toBeNull();
+    const systemList = await toolsList("/mcp", systemSession!, authHeader);
+    const systemNames = systemList.body?.tools.map((t) => t.name) ?? [];
+    expect(systemNames).toContain("sys_list_clients");
+    expect(systemNames.some((n) => n.startsWith("client-a__"))).toBe(false);
 
     const shardedSession = await initSession("/mcp/client-a");
     const shardedList = await toolsList("/mcp/client-a", shardedSession!);

@@ -57,17 +57,20 @@ en respuesta a una condición de breaker abierto.
 
 ## Modos de servir
 
-**Aggregated `/mcp`** — Una endpoint con todas las tools de todos los backends registrados
-y habilitados. El modo por defecto.
+**Control `/mcp`** — El plano de control del propio gateway: tools `sys_*` de gestión y
+obtención de datos (listar/registrar/habilitar clientes, emitir keys, audit log...). Nunca
+sirve tools de backend — para eso están los dos modos de datos de abajo. Auth fail-closed
+(`RootMcpAuth`, sin el fallback "sin configurar implica abierto") + nivel de rol por tool.
 
 **Sharded `/mcp/:clientName`** — Una endpoint por upstream backend — útil para aislar
 clientes o limitar blast radius.
 
-**Curated `/mcp-custom/:bundleName`** — Una endpoint por bundle — herramientas
-seleccionadas a mano, expuestas a un cliente.
+**Curated `/mcp-custom/:bundleName`** — Una endpoint por bundle — herramientas (y/o
+composites) seleccionadas a mano, expuestas a un cliente.
 
-**Legacy SSE `GET /sse` + `POST /messages`** — Compat con clientes MCP antiguos que solo
-soportan SSE. El bridge conserva este modo por compatibilidad.
+El modo "Aggregated" (todas las tools de todos los backends aplanadas en `/mcp`) y el
+transporte SSE legacy (`GET /sse` + `POST /messages`) fueron eliminados: `/mcp` es ahora
+el plano de control, y Streamable HTTP es el único transporte MCP entrante.
 
 ## Audit, RBAC, equipos
 

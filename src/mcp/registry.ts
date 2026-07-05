@@ -1354,7 +1354,12 @@ class Registry {
     return { name, description, inputSchema };
   }
 
-  /** All servable (enabled) tools across every enabled client, for the aggregated MCP endpoint. */
+  /**
+   * All servable (enabled) tools across every enabled client. Not used by any
+   * MCP-serving endpoint any more (there is no flattened "every client" scope
+   * — see McpServerScope) — kept as a general registry query for admin
+   * read-models and the `sys_list_tools`-adjacent tooling in system-tools.ts.
+   */
   getAllMcpTools(): { name: string; description: string; inputSchema: Record<string, unknown> }[] {
     const result: { name: string; description: string; inputSchema: Record<string, unknown> }[] = [];
 

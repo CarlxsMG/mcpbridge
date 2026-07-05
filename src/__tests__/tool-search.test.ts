@@ -6,17 +6,24 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
-import { createMcpServer } from "../mcp/mcp-server.js";
+import { createMcpServer, type McpServerScope } from "../mcp/mcp-server.js";
 import { rankTools, runSearchTool, searchToolDefinition, SEARCH_TOOL_NAME } from "../mcp/tool-search.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 import type { AdvertisedTool } from "../mcp/tool-search.js";
 
-/** Connects a real SDK Client to a bridge MCP server over an in-process transport pair. */
-async function connectClient(): Promise<{ client: Client; close: () => Promise<void> }> {
+/**
+ * Connects a real SDK Client to a bridge MCP server over an in-process transport pair.
+ * Defaults to the sharded scope for the "github" client every test below registers
+ * (or deliberately leaves unregistered, for the "scope has no tools" case) — there is
+ * no aggregated "every client's tools" scope any more.
+ */
+async function connectClient(
+  scope: McpServerScope = { kind: "client", name: "github" },
+): Promise<{ client: Client; close: () => Promise<void> }> {
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
-  const server = createMcpServer();
+  const server = createMcpServer(scope);
   const client = new Client({ name: "test", version: "1.0.0" }, { capabilities: {} });
   await Promise.all([server.connect(serverT), client.connect(clientT)]);
   return {

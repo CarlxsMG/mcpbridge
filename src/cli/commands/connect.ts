@@ -9,7 +9,7 @@ import {
   type ConnectScope,
 } from "../connect-templates.js";
 
-const USAGE = `Usage: gateway connect --client <${CONNECT_CLIENT_IDS.join("|")}> --scope <client|bundle|aggregated> [--name <clientOrBundleName>] [--out <file>]`;
+const USAGE = `Usage: gateway connect --client <${CONNECT_CLIENT_IDS.join("|")}> --scope <client|bundle|system> [--name <clientOrBundleName>] [--out <file>]`;
 
 interface ClientDetailLike {
   enabled: boolean;
@@ -21,7 +21,7 @@ interface BundleDetailLike {
 /**
  * Generates a ready-to-paste MCP client connection config (claude_desktop_config.json /
  * .cursor/mcp.json / etc. — see ../connect-templates.ts) for a registered
- * client, a curated bundle, or the full aggregated /mcp endpoint. Confirms
+ * client, a curated bundle, or the /mcp system control plane. Confirms
  * the target actually exists (and is enabled) via the real admin API rather
  * than trusting the name blindly — see the 404/disabled handling below.
  */
@@ -36,7 +36,7 @@ export async function connectCommand(argv: string[]): Promise<number> {
     console.error(`Unknown or missing --client "${clientFlag}".\n${USAGE}`);
     return 1;
   }
-  if (scopeFlag !== "client" && scopeFlag !== "bundle" && scopeFlag !== "aggregated") {
+  if (scopeFlag !== "client" && scopeFlag !== "bundle" && scopeFlag !== "system") {
     console.error(`Unknown or missing --scope "${scopeFlag}".\n${USAGE}`);
     return 1;
   }
@@ -86,7 +86,7 @@ export async function connectCommand(argv: string[]): Promise<number> {
   }
 
   // Every scope this gateway exposes (sharded per-client/-bundle, and the
-  // legacy aggregated /mcp) is Streamable HTTP only — see the file-level
+  // /mcp system control plane) is Streamable HTTP only — see the file-level
   // comment in ../connect-templates.ts for why this is fixed rather than
   // fetched per client.
   const transport = "streamable-http" as const;

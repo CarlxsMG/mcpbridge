@@ -11,25 +11,26 @@ the vocabulary that shows up across these docs and the admin UI.
 
 ## Glossary
 
-| Term                  | What it means                                                                                                                                            |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Client** (backend)  | A registered backend — a **REST** API (tools discovered from OpenAPI) or an **MCP upstream** (`kind: "mcp"`).                                            |
-| **Tool**              | A single callable operation, namespaced as `clientName__toolName`.                                                                                       |
-| **Serving mode**      | How a client reaches tools: **aggregated** (`/mcp`), **per-client shard** (`/mcp/:name`), **curated bundle** (`/mcp-custom/:bundle`), or **legacy SSE**. |
-| **Bundle**            | An admin-curated, cross-client subset of tools behind one endpoint.                                                                                      |
-| **Guard**             | A per-tool **policy**: rate limit, timeout, circuit-breaker override, allowed-key restriction.                                                           |
-| **Guardrail**         | A per-tool **content** control: input deny-rules, secret detection, prompt-injection response scanning, field redaction.                                 |
-| **Circuit breaker**   | Per-tool failure protection (`closed → open → half_open`) that fails fast while a backend is unhealthy.                                                  |
-| **Canary / failover** | Route some or all traffic to a validated **secondary** backend (weighted canary, or failover when the primary breaker opens).                            |
-| **Consumer**          | A tenant/team/product that groups API keys and carries a monthly **quota**.                                                                              |
-| **MCP API key**       | The credential a tool caller presents; can be **scoped** (to clients/tools), **elevated** (for sensitive tools), expiring, revocable. Stored hashed.     |
-| **Admin user / role** | Who administers the bridge, gated by RBAC: `admin` / `operator` / `auditor` / `viewer`.                                                                  |
-| **Team**              | A multi-tenancy boundary that scopes clients so tenants see only their own.                                                                              |
-| **Registry**          | The live, in-memory view of clients + tools, hydrated from SQLite and health-monitored.                                                                  |
-| **Audit log**         | A tamper-evident, **hash-chained** record of every admin mutation; optionally streamed to a SIEM.                                                        |
-| **Leader**            | The single instance (elected via a SQLite lease) that runs background loops — alerts, schedules — in a multi-instance deployment.                        |
-| **Composite tool**    | A macro that runs several tool steps as one call, each step through the full guard stack.                                                                |
-| **`search_tools`**    | A synthetic meta-tool that lets a client search its own tool list.                                                                                       |
+| Term                  | What it means                                                                                                                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Client** (backend)  | A registered backend — a **REST** API (tools discovered from OpenAPI) or an **MCP upstream** (`kind: "mcp"`).                                                                                |
+| **Tool**              | A single callable operation, namespaced as `clientName__toolName`.                                                                                                                           |
+| **Serving mode**      | How a client reaches _backend_ tools: **per-client shard** (`/mcp/:name`) or **curated bundle** (`/mcp-custom/:bundle`). `/mcp` itself is the control plane, not a serving mode — see below. |
+| **System tool**       | A `sys_*` tool over the gateway itself (management + data retrieval), served only at the `/mcp` control-plane root — never a backend tool.                                                   |
+| **Bundle**            | An admin-curated, cross-client subset of tools (and/or composite macros) behind one endpoint.                                                                                                |
+| **Guard**             | A per-tool **policy**: rate limit, timeout, circuit-breaker override, allowed-key restriction.                                                                                               |
+| **Guardrail**         | A per-tool **content** control: input deny-rules, secret detection, prompt-injection response scanning, field redaction.                                                                     |
+| **Circuit breaker**   | Per-tool failure protection (`closed → open → half_open`) that fails fast while a backend is unhealthy.                                                                                      |
+| **Canary / failover** | Route some or all traffic to a validated **secondary** backend (weighted canary, or failover when the primary breaker opens).                                                                |
+| **Consumer**          | A tenant/team/product that groups API keys and carries a monthly **quota**.                                                                                                                  |
+| **MCP API key**       | The credential a tool caller presents; can be **scoped** (to clients/tools), **elevated** (for sensitive tools), expiring, revocable. Stored hashed.                                         |
+| **Admin user / role** | Who administers the bridge, gated by RBAC: `admin` / `operator` / `auditor` / `viewer`.                                                                                                      |
+| **Team**              | A multi-tenancy boundary that scopes clients so tenants see only their own.                                                                                                                  |
+| **Registry**          | The live, in-memory view of clients + tools, hydrated from SQLite and health-monitored.                                                                                                      |
+| **Audit log**         | A tamper-evident, **hash-chained** record of every admin mutation; optionally streamed to a SIEM.                                                                                            |
+| **Leader**            | The single instance (elected via a SQLite lease) that runs background loops — alerts, schedules — in a multi-instance deployment.                                                            |
+| **Composite tool**    | A macro that runs several tool steps as one call, each step through the full guard stack.                                                                                                    |
+| **`search_tools`**    | A synthetic meta-tool that lets a client search its own tool list.                                                                                                                           |
 
 ## How the pieces fit
 

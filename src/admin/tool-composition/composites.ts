@@ -9,14 +9,17 @@ import { createKeyedMutex, reloadLiveCache } from "../../lib/async-lock.js";
 
 /**
  * Composite (a.k.a. virtual/macro) tools: an admin-authored tool that chains
- * several *existing* tool calls into one, exposed on the aggregated /mcp
- * endpoint. Each step forwards to a real `clientName__toolName` through the
- * unchanged proxyToolCall() — so every guard, quota, sensitivity gate, circuit
- * breaker, SSRF pin and guardrail applies to each step exactly as if the caller
- * had invoked it directly. A composite therefore grants no new capability; it
+ * several *existing* tool calls into one. Not reachable anywhere by default —
+ * a composite must be added to a bundle's `composites[]` (see bundles.ts) to
+ * be advertised/callable, at that bundle's /mcp-custom/:bundleName endpoint.
+ * Each step forwards to a real `clientName__toolName` through the unchanged
+ * proxyToolCall() — so every guard, quota, sensitivity gate, circuit breaker,
+ * SSRF pin and guardrail applies to each step exactly as if the caller had
+ * invoked it directly. A composite therefore grants no new capability; it
  * only orchestrates. Composites are never registry tools (they carry no `__`
  * separator in their name, so they can't collide with a real tool), never
- * reference other composites (no recursion), and are aggregated-only in v1.
+ * reference other composites (no recursion), and can't be exposed on a
+ * sharded /mcp/:clientName endpoint (client-scoped, not cross-client).
  *
  * Step arguments are built from a JSON template that can reference the
  * composite's own input and any prior step's output:
@@ -151,6 +154,13 @@ export function listAdvertisedComposites(): AdvertisedTool[] {
       out.push({ name, description: c.description ?? `Composite tool: ${name}`, inputSchema: c.inputSchema });
   }
   return out;
+}
+
+/** Single-name lookup for a bundle's tools/list — undefined for unknown OR disabled (same "don't advertise" rule as listAdvertisedComposites). */
+export function getAdvertisedComposite(name: string): AdvertisedTool | undefined {
+  const c = liveComposites.get(name);
+  if (!c?.enabled) return undefined;
+  return { name, description: c.description ?? `Composite tool: ${name}`, inputSchema: c.inputSchema };
 }
 
 // ---------------------------------------------------------------------------

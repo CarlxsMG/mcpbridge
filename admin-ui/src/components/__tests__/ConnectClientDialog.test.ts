@@ -24,7 +24,7 @@ let activeWrapper: VueWrapper | null = null;
 
 function mountDialog(open: boolean) {
   activeWrapper = mount(ConnectClientDialog, {
-    props: { open, presetScope: "aggregated" },
+    props: { open, presetScope: "system" },
     global: { stubs: { RouterLink: RouterLinkStub } },
     attachTo: document.body,
   });

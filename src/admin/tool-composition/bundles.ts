@@ -4,6 +4,7 @@ import { TOOL_KEY_SEPARATOR } from "../../mcp/registry.js";
 import { log } from "../../logger.js";
 import { TOOL_NAME_RE } from "../../lib/identifier.js";
 import { createKeyedMutex, reloadLiveCache } from "../../lib/async-lock.js";
+import { hasComposite } from "./composites.js";
 
 export interface BundleToolRef {
   client: string;
@@ -24,6 +25,8 @@ export interface BundleDetail {
   createdAt: number;
   updatedAt: number;
   tools: BundleToolRef[];
+  /** Names of composite (macro) tools this bundle also exposes — see admin/tool-composition/composites.ts. */
+  composites: string[];
 }
 
 export type BundleMutationError =
@@ -37,6 +40,7 @@ export type BundleMutationResult = { ok: true } | { ok: false; error: BundleMuta
 interface LiveBundle {
   enabled: boolean;
   toolKeys: Set<string>;
+  composites: Set<string>;
 }
 
 /**
@@ -83,6 +87,11 @@ function findUnknownTool(db: ReturnType<typeof getDb>, tools: BundleToolRef[]): 
   return tools.find((t) => !exists.get(t.client, t.tool));
 }
 
+/** Existence check against the in-memory composite cache (composites.ts) — mirrors findUnknownTool's contract. */
+function findUnknownComposite(names: string[]): string | undefined {
+  return names.find((name) => !hasComposite(name));
+}
+
 // ---------------------------------------------------------------------------
 // Boot + hot-path reads (used by mcp-server.ts / transports.ts)
 // ---------------------------------------------------------------------------
@@ -96,12 +105,19 @@ export function initBundles(): void {
     client_name: string;
     tool_name: string;
   }[];
+  const compositeRows = db.query(`SELECT bundle_name, composite_name FROM mcp_bundle_composites`).all() as {
+    bundle_name: string;
+    composite_name: string;
+  }[];
   const count = reloadLiveCache(liveBundles, (cache) => {
     for (const row of bundleRows) {
-      cache.set(row.name, { enabled: row.enabled === 1, toolKeys: new Set() });
+      cache.set(row.name, { enabled: row.enabled === 1, toolKeys: new Set(), composites: new Set() });
     }
     for (const row of toolRows) {
       cache.get(row.bundle_name)?.toolKeys.add(toolKey(row.client_name, row.tool_name));
+    }
+    for (const row of compositeRows) {
+      cache.get(row.bundle_name)?.composites.add(row.composite_name);
     }
   });
   log("info", "Loaded MCP bundles", { count });
@@ -122,6 +138,11 @@ export function isBundleEnabled(name: string): boolean {
  */
 export function getBundleToolKeys(name: string): Set<string> | undefined {
   return liveBundles.get(name)?.toolKeys;
+}
+
+/** Returns the bundle's composite (macro) tool name set, or undefined when the bundle doesn't exist. Same existence contract as getBundleToolKeys. */
+export function getBundleComposites(name: string): Set<string> | undefined {
+  return liveBundles.get(name)?.composites;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +185,10 @@ export function getBundleDetail(name: string): BundleDetail | undefined {
     .query(`SELECT client_name, tool_name FROM mcp_bundle_tools WHERE bundle_name = ? ORDER BY client_name, tool_name`)
     .all(name) as { client_name: string; tool_name: string }[];
 
+  const compositeRows = db
+    .query(`SELECT composite_name FROM mcp_bundle_composites WHERE bundle_name = ? ORDER BY composite_name`)
+    .all(name) as { composite_name: string }[];
+
   return {
     name: row.name,
     description: row.description,
@@ -171,6 +196,7 @@ export function getBundleDetail(name: string): BundleDetail | undefined {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     tools: toolRows.map((t) => ({ client: t.client_name, tool: t.tool_name })),
+    composites: compositeRows.map((c) => c.composite_name),
   };
 }
 
@@ -179,6 +205,7 @@ export async function createBundle(
   description: string | undefined,
   tools: BundleToolRef[],
   actor: string,
+  composites: string[] = [],
 ): Promise<BundleMutationResult> {
   if (!TOOL_NAME_RE.test(name)) {
     return {
@@ -187,6 +214,7 @@ export async function createBundle(
     };
   }
   const deduped = dedupeToolRefs(tools);
+  const dedupedComposites = [...new Set(composites)];
 
   return withLock(name, async () => {
     const db = getDb();
@@ -201,6 +229,10 @@ export async function createBundle(
         error: { code: "UNKNOWN_TOOL", message: `Unknown tool "${toolKey(unknown.client, unknown.tool)}"` },
       };
     }
+    const unknownComposite = findUnknownComposite(dedupedComposites);
+    if (unknownComposite) {
+      return { ok: false, error: { code: "UNKNOWN_TOOL", message: `Unknown composite tool "${unknownComposite}"` } };
+    }
 
     const now = Date.now();
     const txn = db.transaction(() => {
@@ -211,10 +243,18 @@ export async function createBundle(
         `INSERT INTO mcp_bundle_tools (bundle_name, client_name, tool_name, created_at) VALUES (?, ?, ?, ?)`,
       );
       for (const t of deduped) insertTool.run(name, t.client, t.tool, now);
+      const insertComposite = db.query(
+        `INSERT INTO mcp_bundle_composites (bundle_name, composite_name, created_at) VALUES (?, ?, ?)`,
+      );
+      for (const c of dedupedComposites) insertComposite.run(name, c, now);
     });
     txn();
 
-    liveBundles.set(name, { enabled: true, toolKeys: new Set(deduped.map((t) => toolKey(t.client, t.tool))) });
+    liveBundles.set(name, {
+      enabled: true,
+      toolKeys: new Set(deduped.map((t) => toolKey(t.client, t.tool))),
+      composites: new Set(dedupedComposites),
+    });
     notifyToolsChanged();
     return { ok: true };
   });
@@ -222,7 +262,7 @@ export async function createBundle(
 
 export async function updateBundle(
   name: string,
-  updates: { description?: string | null; enabled?: boolean; tools?: BundleToolRef[] },
+  updates: { description?: string | null; enabled?: boolean; tools?: BundleToolRef[]; composites?: string[] },
 ): Promise<BundleMutationResult> {
   return withLock(name, async () => {
     const db = getDb();
@@ -240,6 +280,15 @@ export async function updateBundle(
           ok: false,
           error: { code: "UNKNOWN_TOOL", message: `Unknown tool "${toolKey(unknown.client, unknown.tool)}"` },
         };
+      }
+    }
+
+    let dedupedComposites: string[] | undefined;
+    if (updates.composites !== undefined) {
+      dedupedComposites = [...new Set(updates.composites)];
+      const unknownComposite = findUnknownComposite(dedupedComposites);
+      if (unknownComposite) {
+        return { ok: false, error: { code: "UNKNOWN_TOOL", message: `Unknown composite tool "${unknownComposite}"` } };
       }
     }
 
@@ -265,9 +314,20 @@ export async function updateBundle(
           `INSERT INTO mcp_bundle_tools (bundle_name, client_name, tool_name, created_at) VALUES (?, ?, ?, ?)`,
         );
         for (const t of deduped) insertTool.run(name, t.client, t.tool, now);
-        if (updates.description === undefined && updates.enabled === undefined) {
-          db.query(`UPDATE mcp_bundles SET updated_at = ? WHERE name = ?`).run(now, name);
-        }
+      }
+      if (dedupedComposites !== undefined) {
+        db.query(`DELETE FROM mcp_bundle_composites WHERE bundle_name = ?`).run(name);
+        const insertComposite = db.query(
+          `INSERT INTO mcp_bundle_composites (bundle_name, composite_name, created_at) VALUES (?, ?, ?)`,
+        );
+        for (const c of dedupedComposites) insertComposite.run(name, c, now);
+      }
+      if (
+        (deduped !== undefined || dedupedComposites !== undefined) &&
+        updates.description === undefined &&
+        updates.enabled === undefined
+      ) {
+        db.query(`UPDATE mcp_bundles SET updated_at = ? WHERE name = ?`).run(now, name);
       }
     });
     txn();
@@ -275,11 +335,12 @@ export async function updateBundle(
     // Only re-notify connected MCP sessions when visible scope actually
     // changed — description-only edits don't affect tools/list, mirroring
     // why registry.ts's guard setters never call notifyToolsChanged either.
-    const scopeChanged = updates.enabled !== undefined || deduped !== undefined;
+    const scopeChanged = updates.enabled !== undefined || deduped !== undefined || dedupedComposites !== undefined;
     const live = liveBundles.get(name);
     if (live) {
       if (updates.enabled !== undefined) live.enabled = updates.enabled;
       if (deduped !== undefined) live.toolKeys = new Set(deduped.map((t) => toolKey(t.client, t.tool)));
+      if (dedupedComposites !== undefined) live.composites = new Set(dedupedComposites);
     }
     if (scopeChanged) notifyToolsChanged();
     return { ok: true };

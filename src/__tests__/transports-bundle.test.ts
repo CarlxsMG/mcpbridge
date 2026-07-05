@@ -333,30 +333,48 @@ describe("Confused-deputy defense", () => {
   });
 });
 
-describe("side-by-side with /mcp/:clientName and aggregated /mcp", () => {
-  test("a bundle session, a sharded session, and the aggregated session all see correctly-scoped tool lists", async () => {
-    await startApp();
-    await reg("client-a", [makeTool({ name: "tool-a" })]);
-    await reg("client-b", [makeTool({ name: "tool-b" })]);
-    await createBundle("mix", undefined, [{ client: "client-b", tool: "tool-b" }], "test");
+describe("side-by-side with /mcp/:clientName and the /mcp system control plane", () => {
+  test("a bundle session and a sharded session see only their own backend tools, never the system control plane's", async () => {
+    const rootKey = "test-root-admin-key";
+    const originalAdminApiKeys = config.adminApiKeys;
+    (config as Record<string, unknown>).adminApiKeys = [rootKey];
+    try {
+      await startApp();
+      await reg("client-a", [makeTool({ name: "tool-a" })]);
+      await reg("client-b", [makeTool({ name: "tool-b" })]);
+      await createBundle("mix", undefined, [{ client: "client-b", tool: "tool-b" }], "test");
 
-    const bundleSession = await initSession("/mcp-custom/mix");
-    const bundleList = await toolsList("/mcp-custom/mix", bundleSession!);
-    expect(bundleList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual(["client-b__tool-b"]);
+      const bundleSession = await initSession("/mcp-custom/mix");
+      const bundleList = await toolsList("/mcp-custom/mix", bundleSession!);
+      expect(bundleList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual([
+        "client-b__tool-b",
+      ]);
 
-    const shardedSession = await initSession("/mcp/client-a");
-    const shardedList = await toolsList("/mcp/client-a", shardedSession!);
-    expect(shardedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual([
-      "client-a__tool-a",
-    ]);
+      const shardedSession = await initSession("/mcp/client-a");
+      const shardedList = await toolsList("/mcp/client-a", shardedSession!);
+      expect(shardedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual([
+        "client-a__tool-a",
+      ]);
 
-    const aggregatedSession = await initSession("/mcp");
-    const aggregatedList = await toolsList("/mcp", aggregatedSession!);
-    expect(
-      aggregatedList.body?.tools
-        .map((t) => t.name)
-        .filter((n) => n !== "search_tools")
-        .sort(),
-    ).toEqual(["client-a__tool-a", "client-b__tool-b"]);
+      // /mcp itself is the system control plane — a totally different tool
+      // catalog (sys_*), never a flattened view of client-a/client-b's tools.
+      const systemSession = await initSession("/mcp", { Authorization: `Bearer ${rootKey}` });
+      const res = await fetch(`${baseUrl}/mcp`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          "mcp-session-id": systemSession!,
+          Authorization: `Bearer ${rootKey}`,
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 2 }),
+      });
+      const parsed = parseSseJson(await res.text());
+      const systemNames = (parsed.result as { tools: { name: string }[] }).tools.map((t) => t.name);
+      expect(systemNames).toContain("sys_list_clients");
+      expect(systemNames.some((n) => n.startsWith("client-a__") || n.startsWith("client-b__"))).toBe(false);
+    } finally {
+      (config as Record<string, unknown>).adminApiKeys = originalAdminApiKeys;
+    }
   });
 });

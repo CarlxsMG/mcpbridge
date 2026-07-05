@@ -30,12 +30,17 @@ export function requireAdminRole(req: Request, res: Response, next: NextFunction
   next();
 }
 
+/** True for a bearer caller or a super-admin session (admin role + no team) — false for any other session. */
+export function isSuperAdminCaller(req: Request): boolean {
+  return (
+    req.authContext?.method !== "session" ||
+    (req.authContext.role === "admin" && (req.authContext.teamId ?? null) === null)
+  );
+}
+
 /** Tenancy administration: only a super-admin session (admin role + no team) passes. Bearer callers always pass. */
 export function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (
-    req.authContext?.method === "session" &&
-    (req.authContext.role !== "admin" || (req.authContext.teamId ?? null) !== null)
-  ) {
+  if (!isSuperAdminCaller(req)) {
     forbidden(res, "FORBIDDEN", "This action requires a super-admin (admin role, no team)");
     return;
   }

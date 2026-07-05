@@ -16,13 +16,21 @@ See **[Registering backends →](/guide/registering-backends)**.
 - **MCP → MCP gateway / aggregator.** Register existing MCP servers (Streamable HTTP or SSE)
   as upstreams and re-expose their tools through the same pipeline.
 - **Manual tool definitions** when a backend has no spec.
-- **Four serving modes** — aggregated `/mcp`, per-client `/mcp/:name`, curated bundles
-  `/mcp-custom/:bundle`, and legacy SSE `/sse`.
+- **Two data-plane serving modes** — per-client `/mcp/:name` and curated bundles
+  `/mcp-custom/:bundle` (which may also include composite macros). `/mcp` itself is the
+  control plane (system management + data retrieval), not a third data-serving mode — see
+  [Architecture](/guide/architecture).
 - **Tool aliases & display names** to present clean, client-friendly tool names.
 - **Tool tags** — free-form tags across every registered client, browsable and filterable by
   tag from the admin UI.
 - **Composite / macro tools** that run several steps as one call, each step through the full
-  guard stack.
+  guard stack. Not reachable by default — add a composite to a bundle's `composites[]` to
+  serve it at that bundle's `/mcp-custom/:bundle` endpoint.
+- **System control plane (`/mcp`)** — an LLM client connects here (not to a backend shard) to
+  manage the gateway itself: list/register/enable clients, mint or revoke MCP keys, tail the
+  audit log, reset a circuit breaker, and more. Fail-closed auth (no "unconfigured means
+  open" fallback) plus a per-tool role tier (read/operate/admin) and step-up confirmation for
+  sensitive actions. See [Architecture](/guide/architecture).
 - **GraphQL & WebSocket backends** (per-tool) — wrap a call's arguments as a GraphQL
   `{ query, variables }` request, or do an ephemeral request/response over a WebSocket, reusing the
   same guard stack as REST.

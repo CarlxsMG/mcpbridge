@@ -27,7 +27,7 @@ const CLIENT_OPTIONS = Object.values(CONNECT_TEMPLATES).map((tmpl) => ({ value: 
 const SCOPE_OPTIONS: { value: ConnectScope; label: string }[] = [
   { value: "client", label: t("components.connect_client_dialog.scope.client") },
   { value: "bundle", label: t("components.connect_client_dialog.scope.bundle") },
-  { value: "aggregated", label: t("components.connect_client_dialog.scope.aggregated") },
+  { value: "system", label: t("components.connect_client_dialog.scope.system") },
 ];
 
 const clientId = ref<ConnectClientId>("claude-desktop");
@@ -145,7 +145,7 @@ const result = computed(() => {
         <SelectMenu v-model="scope" :options="SCOPE_OPTIONS" />
       </label>
 
-      <label v-if="scope !== 'aggregated'"
+      <label v-if="scope !== 'system'"
         >{{
           scope === "client"
             ? t("components.connect_client_dialog.fields.server")

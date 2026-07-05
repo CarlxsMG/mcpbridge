@@ -1,6 +1,6 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "../middleware/authz.js";
+import { requireAdminRole, isSuperAdminCaller } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import {
   listMcpKeys,
@@ -11,8 +11,9 @@ import {
   deleteMcpKey,
   type McpKeyScopes,
 } from "../security/mcp-key-store.js";
+import { isAdminRole, type AdminRole } from "../security/user-store.js";
 import { getConsumer } from "../admin/entities/consumers.js";
-import { sendError, validationError, notFound } from "./http-errors.js";
+import { sendError, validationError, notFound, forbidden } from "./http-errors.js";
 import type { ValidationResult } from "./validation.js";
 
 function validateConsumerId(v: unknown): ValidationResult<number | null> {
@@ -56,6 +57,14 @@ function validateLabel(input: unknown): ValidationResult<string> {
   return { ok: true, value: input.trim() };
 }
 
+/** The role this key carries on the /mcp system endpoint. Absent/null = no system access (fail-closed default). */
+function validateAdminRole(input: unknown): ValidationResult<AdminRole | null> {
+  if (input === undefined || input === null) return { ok: true, value: null };
+  if (!isAdminRole(input))
+    return { ok: false, message: "adminRole must be one of admin, operator, auditor, viewer, or null" };
+  return { ok: true, value: input };
+}
+
 export function mcpKeyRoutes(app: Express): void {
   app.get("/admin-api/mcp-keys", adminAuth, (_req: Request, res: Response) => {
     res.status(200).json({ items: listMcpKeys() });
@@ -85,13 +94,44 @@ export function mcpKeyRoutes(app: Express): void {
       return;
     }
 
-    const actor = actorFromRequest(req);
+    const adminRole = validateAdminRole(body.adminRole);
+    if (!adminRole.ok) {
+      validationError(res, adminRole.message);
+      return;
+    }
+    // Granting system-endpoint access is equivalent to minting a new
+    // globally-scoped admin credential — a team-scoped admin (who otherwise
+    // only administers their own team's clients) must not be able to do that.
+    if (adminRole.value !== null && !isSuperAdminCaller(req)) {
+      forbidden(res, "FORBIDDEN", "Setting adminRole requires a super-admin (admin role, no team)");
+      return;
+    }
+
     const elevated = body.elevated === true;
-    const { record, rawKey } = createMcpKey(label.value, scopes.value, exp.value, actor, consumer.value, elevated);
+    // `elevated` is the same step-up bypass adminRole depends on (it skips
+    // the sensitive-tool __confirm gate for both backend tools in
+    // proxy.ts and system tools in mcp/system-tools.ts) — granting it is
+    // just as much a privilege escalation as adminRole and gets the same bar.
+    if (elevated && !isSuperAdminCaller(req)) {
+      forbidden(res, "FORBIDDEN", "Setting elevated requires a super-admin (admin role, no team)");
+      return;
+    }
+
+    const actor = actorFromRequest(req);
+    const { record, rawKey } = createMcpKey(
+      label.value,
+      scopes.value,
+      exp.value,
+      actor,
+      consumer.value,
+      elevated,
+      adminRole.value,
+    );
     recordAudit(actor, "mcp_key.create", String(record.id), {
       label: label.value,
       scopes: scopes.value ?? undefined,
       consumerId: consumer.value ?? undefined,
+      adminRole: adminRole.value ?? undefined,
     });
     // The raw key is returned exactly once, here — it is never persisted or retrievable again.
     res.status(201).json({ ...record, key: rawKey });
@@ -121,6 +161,7 @@ export function mcpKeyRoutes(app: Express): void {
       scopes?: McpKeyScopes | null;
       consumerId?: number | null;
       elevated?: boolean;
+      adminRole?: AdminRole | null;
     } = {};
 
     if (body.label !== undefined) {
@@ -167,7 +208,31 @@ export function mcpKeyRoutes(app: Express): void {
         validationError(res, "elevated must be a boolean");
         return;
       }
+      // Same super-admin bar as adminRole: elevated skips the sensitive-tool
+      // __confirm gate for both backend tools (proxy.ts) and system tools
+      // (mcp/system-tools.ts) on THIS key, whoever holds it and whatever
+      // team issued it — a team-scoped admin must not be able to grant that
+      // to a key it doesn't otherwise control any more than it could via
+      // adminRole.
+      if (body.elevated && !isSuperAdminCaller(req)) {
+        forbidden(res, "FORBIDDEN", "Setting elevated requires a super-admin (admin role, no team)");
+        return;
+      }
       updates.elevated = body.elevated;
+    }
+    if (body.adminRole !== undefined) {
+      const adminRole = validateAdminRole(body.adminRole);
+      if (!adminRole.ok) {
+        validationError(res, adminRole.message);
+        return;
+      }
+      // Same super-admin bar as create: this field is the only way to grant
+      // (or change) control-plane access on an existing key.
+      if (adminRole.value !== null && !isSuperAdminCaller(req)) {
+        forbidden(res, "FORBIDDEN", "Setting adminRole requires a super-admin (admin role, no team)");
+        return;
+      }
+      updates.adminRole = adminRole.value;
     }
 
     const rec = updateMcpKey(id, updates);

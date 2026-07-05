@@ -1,12 +1,13 @@
 /**
  * `search_tools` — a synthetic MCP meta-tool that helps LLM clients discover the
- * right tool when many upstreams are aggregated behind one endpoint. It is not a
- * registered tool: it carries no `clientName__` prefix (so it can never collide
- * with a real tool, which always has the `__` separator), it is advertised in
- * tools/list, and it is handled directly in mcp-server.ts — it never enters
- * proxyToolCall. It always ranks over the *caller's current scope* (aggregated,
- * a single sharded client, or a bundle), so it can only surface tools the caller
- * could already see.
+ * right tool when a bundle exposes many tools behind one endpoint (or the /mcp
+ * system root exposes many `sys_*` tools). It is not a registered tool: it
+ * carries no `clientName__` prefix (so it can never collide with a real tool,
+ * which always has the `__` separator), it is advertised in tools/list, and
+ * it is handled directly in mcp-server.ts — it never enters proxyToolCall. It
+ * always ranks over the *caller's current scope* (a single sharded client, a
+ * bundle, or the system root), so it can only surface tools the caller could
+ * already see.
  */
 
 import { toolResult, type ToolCallResult } from "../lib/mcp-result.js";

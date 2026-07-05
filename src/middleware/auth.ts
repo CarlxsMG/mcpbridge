@@ -13,6 +13,7 @@ import {
   type McpKeyScopes,
 } from "../security/mcp-key-store.js";
 import { verifyJwt, isJwtConfigured } from "../security/jwt.js";
+import { resolveSystemRole } from "../security/system-role.js";
 import { sendError, forbidden } from "../routes/http-errors.js";
 
 export interface AuthContext {
@@ -174,5 +175,33 @@ export async function mcpAuth(req: Request, res: Response, next: NextFunction): 
   }
   if (verdict.mcpKeyId !== undefined) req.mcpKeyId = verdict.mcpKeyId;
   if (verdict.jwtSubject !== undefined) req.jwtSubject = verdict.jwtSubject;
+  next();
+}
+
+/**
+ * Auth for the /mcp control-plane root (system management + data tools — see
+ * mcp/system-tools.ts). Unlike mcpAuth's data-plane check, this NEVER falls
+ * back to "no auth material configured => allow all": a caller must resolve
+ * to a real system role (the env admin Bearer, or a managed key with
+ * `adminRole` set) via resolveSystemRole, or the request is rejected
+ * outright. Every request handled by this router re-runs it (it's mounted
+ * with app.use, not just on session-initialize), so a session cannot outlive
+ * the credential that opened it.
+ */
+export function rootMcpAuth(req: Request, res: Response, next: NextFunction): void {
+  const token = extractBearerToken(req);
+  const result = resolveSystemRole(token ?? undefined);
+  if (!result) {
+    // token === null means no "Bearer " prefix was present at all (no
+    // credential offered); an empty-but-present token (e.g. "Bearer ") is a
+    // credential that was offered and rejected, not a missing one — checking
+    // the raw `token` string for truthiness would conflate the two.
+    if (token === null) {
+      sendError(res, 401, "UNAUTHORIZED", "Missing Authorization header");
+    } else {
+      forbidden(res, "FORBIDDEN", "This credential has no system role on /mcp");
+    }
+    return;
+  }
   next();
 }

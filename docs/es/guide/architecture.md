@@ -9,21 +9,31 @@ cada llamada al backend correcto a través de un pipeline de guards único y uni
 <RequestPath />
 
 Cada política se aplica en el **punto de dispatch** (`proxyToolCall`), nunca como middleware
-HTTP — MCP multiplexa muchas tools por una única ruta `POST /mcp`, así que el bridge debe
-saber _qué_ tool se está llamando antes de poder aplicar reglas por herramienta.
+HTTP — MCP multiplexa muchas tools por una única ruta JSON-RPC por scope, así que el bridge
+debe saber _qué_ tool se está llamando antes de poder aplicar reglas por herramienta.
 
-## Cuatro formas de servir tools
+## Dos planos, tres endpoints
 
-| Modo                  | Endpoint                      | Qué expone                                        |
-| --------------------- | ----------------------------- | ------------------------------------------------- |
-| **Agregado**          | `POST /mcp`                   | Cada tool habilitada de cada cliente habilitado   |
-| **Shard por cliente** | `/mcp/:clientName`            | Solo las tools de un cliente                      |
-| **Bundle curado**     | `/mcp-custom/:bundleName`     | Un subconjunto entre clientes seleccionado a mano |
-| **SSE legacy**        | `GET /sse` + `POST /messages` | Las mismas tools para clientes MCP antiguos       |
+| Plano       | Endpoint                  | Qué expone                                                                        |
+| ----------- | ------------------------- | --------------------------------------------------------------------------------- |
+| **Control** | `POST /mcp`               | Gestión del gateway + obtención de datos (tools `sys_*`) — nunca tools de backend |
+| **Datos**   | `/mcp/:clientName`        | Las tools de un solo cliente                                                      |
+| **Datos**   | `/mcp-custom/:bundleName` | Un subconjunto entre clientes seleccionado a mano (tools y/o macros compuestas)   |
 
-Los bundles son un filtro puramente de narrowing aplicado _antes_ del dispatch — todos los
-guards, breakers y chequeos SSRF se comportan idénticamente sin importar por qué modo
-llegó la llamada.
+`/mcp` ya no es una vista aplanada de todas las tools de backend — ese modo "agregado"
+redundante se eliminó. Si necesitas tools de backend cross-cliente en una sola sesión, cura
+un bundle. `/mcp` es el plano de control: un cliente LLM se conecta ahí para inspeccionar y
+operar el gateway (listar/registrar/habilitar clientes, emitir keys, leer el audit log, ...),
+protegido por su propia auth fail-closed (`RootMcpAuth` — sin el fallback "sin configurar
+implica abierto" que sí tienen los dos endpoints de datos) y un nivel de rol por tool
+(read/operate/admin) más confirmación explícita para acciones sensibles. Ver
+`src/mcp/system-tools.ts`.
+
+La selección de tools/composites de un bundle es un filtro puramente de narrowing aplicado
+_antes_ del dispatch — todos los guards, breakers y chequeos SSRF se comportan idénticamente
+sin importar por qué endpoint de datos llegó la llamada. El transporte SSE legacy
+(`GET /sse` y `POST /messages`) se eliminó junto con la agregación; Streamable HTTP es ahora
+el único transporte MCP entrante.
 
 ## Dos tipos de backend
 

@@ -15,10 +15,12 @@ import { registry } from "./registry.js";
 import { proxyToolCall } from "../proxy/proxy.js";
 import { mcpUpstream, type McpConnParams } from "./mcp-upstream.js";
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
-import { isBundleEnabled, getBundleToolKeys } from "../admin/tool-composition/bundles.js";
+import { isBundleEnabled, getBundleToolKeys, getBundleComposites } from "../admin/tool-composition/bundles.js";
 import { config } from "../config.js";
 import { SEARCH_TOOL_NAME, searchToolDefinition, runSearchTool, type AdvertisedTool } from "./tool-search.js";
-import { hasComposite, listAdvertisedComposites, runComposite } from "../admin/tool-composition/composites.js";
+import { hasComposite, getAdvertisedComposite, runComposite } from "../admin/tool-composition/composites.js";
+import { resolveSystemRole } from "../security/system-role.js";
+import { listSystemTools, runSystemTool } from "./system-tools.js";
 // Bun parses JSON modules at bundle time (like YAML — see docs.ts), so this
 // works identically under `bun src/index.ts` and under `bun build --compile`.
 // The previous `createRequire(import.meta.url)("../package.json")` approach
@@ -32,21 +34,13 @@ const activeServers = new Set<Server>();
 
 /**
  * Which subset of the registry a server instance's session can see and call.
- * Undefined (the aggregated /mcp endpoint) means every enabled client's
- * tools flattened together — the legacy behaviour.
+ * There is no "aggregated, every backend tool flattened" scope any more —
+ * that's what /mcp/:clientName (single client) and /mcp-custom/:bundleName
+ * (curated cross-client) are for. `"system"` is the /mcp root itself:
+ * gateway management + data retrieval (src/mcp/system-tools.ts), never
+ * backend tools — see docs/guide/architecture.md for the full split.
  */
-export type McpServerScope = { kind: "client"; name: string } | { kind: "bundle"; name: string };
-
-/** The tools a session can see for its scope — the single source shared by tools/list and search_tools. */
-function scopedToolList(scope?: McpServerScope): AdvertisedTool[] {
-  if (scope?.kind === "client") return registry.getMcpToolsForClient(scope.name);
-  if (scope?.kind === "bundle") {
-    if (!isBundleEnabled(scope.name)) return [];
-    const keys = getBundleToolKeys(scope.name);
-    return keys ? registry.getMcpToolsForKeys(keys) : [];
-  }
-  return registry.getAllMcpTools();
-}
+export type McpServerScope = { kind: "client"; name: string } | { kind: "bundle"; name: string } | { kind: "system" };
 
 /** Extracts a bearer token from a raw (possibly multi-value) Authorization header value. */
 function extractBearerFromHeader(value: unknown): string | undefined {
@@ -61,14 +55,49 @@ function extractEndUserId(value: unknown): string | undefined {
   return typeof header === "string" ? header : undefined;
 }
 
+type RequestHeaders = Record<string, unknown> | undefined;
+
+/** Reads the raw per-request headers a handler's `extra` carries — the one place every scope reads them from. */
+function extraHeaders(extra: { requestInfo?: { headers?: Record<string, unknown> } }): RequestHeaders {
+  return extra.requestInfo?.headers;
+}
+
+/** Pulls the caller's bearer token out of a request handler's `extra.requestInfo.headers`. */
+function callerTokenFromExtra(extra: { requestInfo?: { headers?: Record<string, unknown> } }): string | undefined {
+  return extractBearerFromHeader(extraHeaders(extra)?.authorization);
+}
+
+/**
+ * The tools a session can see for its scope — the single source shared by
+ * tools/list and search_tools. For "system" this is role-filtered from
+ * `callerToken`, resolved fresh on every call (never cached at session
+ * creation), the same "never trust a stale grant" posture proxy.ts already
+ * applies to isToolInKeyScope.
+ */
+function scopedToolList(scope: McpServerScope, callerToken?: string): AdvertisedTool[] {
+  if (scope.kind === "client") return registry.getMcpToolsForClient(scope.name);
+  if (scope.kind === "bundle") {
+    if (!isBundleEnabled(scope.name)) return [];
+    const keys = getBundleToolKeys(scope.name);
+    const tools = keys ? registry.getMcpToolsForKeys(keys) : [];
+    for (const compositeName of getBundleComposites(scope.name) ?? []) {
+      const def = getAdvertisedComposite(compositeName);
+      if (def) tools.push(def);
+    }
+    return tools;
+  }
+  const auth = resolveSystemRole(callerToken);
+  return auth ? listSystemTools(auth.role) : [];
+}
+
 /**
  * McpConnParams for a client-scoped MCP upstream, or null when the scope isn't a
  * single live MCP-kind client. Resources/prompts are passthrough only for a
- * sharded /mcp/:clientName session pointed at an MCP upstream — aggregated/bundle
+ * sharded /mcp/:clientName session pointed at an MCP upstream — bundle/system
  * scopes stay tools-only (cross-client resource-URI namespacing is a later design).
  */
-function mcpParamsForScope(scope?: McpServerScope): McpConnParams | null {
-  if (scope?.kind !== "client") return null;
+function mcpParamsForScope(scope: McpServerScope): McpConnParams | null {
+  if (scope.kind !== "client") return null;
   const client = registry.listClients().find((c) => c.name === scope.name);
   if (!client || client.kind !== "mcp" || !client.enabled) return null;
   return {
@@ -81,23 +110,24 @@ function mcpParamsForScope(scope?: McpServerScope): McpConnParams | null {
 }
 
 /**
- * Creates an MCP server instance. When `scope` is set, the server is bound
- * to a single registered client (sharded /mcp/:clientName) or a single
- * admin-curated bundle (/mcp-custom/:bundleName) — a session only ever sees
- * (and can call) that scope's tools. Bundle-scope resolution is a pure
- * narrowing filter in front of the unchanged proxyToolCall() authorization
- * chain (guards, circuit breaker, SSRF-safe fetch) — never a bypass.
+ * Creates an MCP server instance bound to exactly one scope: a single
+ * registered client (sharded /mcp/:clientName), a single admin-curated
+ * bundle (/mcp-custom/:bundleName), or the system control-plane (/mcp root).
+ * Client/bundle scope resolution is a pure narrowing filter in front of the
+ * unchanged proxyToolCall() authorization chain (guards, circuit breaker,
+ * SSRF-safe fetch) — never a bypass. System-scope calls never reach
+ * proxyToolCall at all; they dispatch through runSystemTool()'s own
+ * role/step-up gate instead (see system-tools.ts).
  */
-export function createMcpServer(scope?: McpServerScope): Server {
+export function createMcpServer(scope: McpServerScope): Server {
   const server = new Server(
     { name: "mcp-rest-bridge", version: pkg.version },
     { capabilities: { tools: { listChanged: true }, resources: {}, prompts: {} } },
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const tools = scopedToolList(scope);
-    // Composite (macro) tools are aggregated-only in v1.
-    if (!scope) tools.push(...listAdvertisedComposites());
+  server.setRequestHandler(ListToolsRequestSchema, async (_request, extra) => {
+    const callerToken = callerTokenFromExtra(extra);
+    const tools = scopedToolList(scope, callerToken);
     // Advertise the discovery meta-tool alongside the real tools (only when
     // there is something to search).
     if (config.enableSearchTool && tools.length > 0) tools.push(searchToolDefinition());
@@ -111,23 +141,31 @@ export function createMcpServer(scope?: McpServerScope): Server {
     // proxyToolCall) operates on the canonical identity. A non-alias name is
     // returned unchanged.
     const name = registry.resolveAdvertisedName(advertisedName);
+    const callerToken = callerTokenFromExtra(extra);
 
     // The discovery meta-tool is handled directly (never enters proxyToolCall)
     // and ranks only over the caller's current scope.
     if (config.enableSearchTool && name === SEARCH_TOOL_NAME) {
-      return runSearchTool((args ?? {}) as Record<string, unknown>, scopedToolList(scope));
+      return runSearchTool((args ?? {}) as Record<string, unknown>, scopedToolList(scope, callerToken));
     }
 
-    if (scope?.kind === "client" && !name.startsWith(`${scope.name}__`)) {
-      return {
-        isError: true,
-        content: [{ type: "text", text: `Unknown tool: ${name}` }],
-      };
+    if (scope.kind === "system") {
+      const auth = resolveSystemRole(callerToken);
+      if (!auth) {
+        return { isError: true, content: [{ type: "text", text: "This credential has no system role" }] };
+      }
+      return runSystemTool(name, (args ?? {}) as Record<string, unknown>, auth);
     }
 
-    if (scope?.kind === "bundle") {
-      const keys = getBundleToolKeys(scope.name);
-      if (!isBundleEnabled(scope.name) || !keys?.has(name)) {
+    if (scope.kind === "client") {
+      // Exact membership, not a name-prefix test: a `startsWith` check would
+      // wrongly admit a *different* client whose name happens to extend this
+      // one across the `__` separator (e.g. scope "acme" and an unrelated,
+      // independently-registered client "acme__evil" both satisfy
+      // `name.startsWith("acme__")`) — the same confused-deputy class the
+      // bundle branch below already closes via exact Set membership.
+      const resolved = registry.resolveTool(name);
+      if (!resolved || resolved.client.name !== scope.name) {
         return {
           isError: true,
           content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -135,18 +173,26 @@ export function createMcpServer(scope?: McpServerScope): Server {
       }
     }
 
-    const requestHeaders = (extra as { requestInfo?: { headers?: Record<string, unknown> } } | undefined)?.requestInfo
-      ?.headers;
-    const callerToken = extractBearerFromHeader(requestHeaders?.authorization);
-    const endUserId = extractEndUserId(requestHeaders?.["x-end-user-id"]);
-
-    // Composite (macro) dispatch — aggregated scope only. A composite name never
-    // matches a sharded/bundle scope check above, so this is unreachable for
-    // scoped sessions. Each step runs through proxyToolCall under the caller's
-    // token, so the full guard stack applies per step (no privilege escalation).
-    if (!scope && hasComposite(name)) {
-      return runComposite(name, (args ?? {}) as Record<string, unknown>, callerToken);
+    if (scope.kind === "bundle") {
+      const keys = getBundleToolKeys(scope.name);
+      const isBundleComposite = hasComposite(name) && (getBundleComposites(scope.name)?.has(name) ?? false);
+      if (!isBundleEnabled(scope.name) || (!keys?.has(name) && !isBundleComposite)) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Unknown tool: ${name}` }],
+        };
+      }
+      // Composite (macro) dispatch — each step runs through proxyToolCall
+      // under the caller's own token, so the full guard stack applies per
+      // step exactly as if the caller had invoked it directly. A composite
+      // therefore grants no new capability beyond what the caller's
+      // credential already has; it only orchestrates.
+      if (isBundleComposite) {
+        return runComposite(name, (args ?? {}) as Record<string, unknown>, callerToken);
+      }
     }
+
+    const endUserId = extractEndUserId(extraHeaders(extra)?.["x-end-user-id"]);
 
     // Progress/cancellation bridging (MCP-to-MCP upstreams only — a no-op for
     // REST/WS-backed tools, which never read `onProgress`). `signal` is

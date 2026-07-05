@@ -36,9 +36,15 @@ tags:
       the audit log. Every endpoint accepts either a Bearer admin API key or
       an authenticated admin-UI session (see AdminAuth/SessionAuth).
   - name: Bundles
-    description: Admin-curated cross-client tool bundles, each served on its own MCP endpoint at /mcp-custom/{bundleName}.
+    description: >
+      Admin-curated cross-client tool (and composite) bundles, each served on
+      its own MCP endpoint at /mcp-custom/{bundleName}.
   - name: Composites
-    description: Admin-authored composite ("macro") tools that chain several existing tool calls into one, served on the aggregated /mcp endpoint.
+    description: >
+      Admin-authored composite ("macro") tools that chain several existing
+      tool calls into one. Not served anywhere by default — a composite must
+      be added to a bundle's `composites[]` to become reachable, at that
+      bundle's /mcp-custom/{bundleName} endpoint.
   - name: MCP Keys
     description: Managed MCP API keys — scoped, revocable, optionally consumer-attributed credentials for calling /mcp* endpoints (distinct from the static MCP_API_KEYS env var).
   - name: Consumers
@@ -514,19 +520,31 @@ paths:
   /mcp:
     post:
       operationId: mcpStreamablePost
-      summary: Streamable HTTP transport — initiate or resume a session
+      summary: System control-plane — initiate or resume a session
       description: >
-        Primary MCP transport endpoint (MCP Streamable HTTP specification).
-        Without an `mcp-session-id` header this request is treated as a new
-        session initialisation; the bridge creates a transport, connects a fresh
-        MCP server instance, and returns the assigned session ID. With a valid
+        The gateway's own control plane (MCP Streamable HTTP specification):
+        management + data-retrieval tools over the gateway itself
+        (`sys_list_clients`, `sys_register_client`, `sys_mint_key`, ...) —
+        never backend tools. For backend tools use /mcp/{clientName} (a
+        single registered client) or /mcp-custom/{bundleName} (an
+        admin-curated cross-client selection) instead. Without an
+        `mcp-session-id` header this request is treated as a new session
+        initialisation; the bridge creates a transport, connects a fresh MCP
+        server instance, and returns the assigned session ID. With a valid
         `mcp-session-id` the request is dispatched to the existing session's
-        transport. An unrecognised session ID returns a JSON-RPC 2.0 error with
-        HTTP 404. The request body must be a JSON-RPC 2.0 message object.
+        transport. An unrecognised session ID returns a JSON-RPC 2.0 error
+        with HTTP 404. The request body must be a JSON-RPC 2.0 message
+        object. Unlike the two backend-tool endpoints, this path has no
+        "no auth material configured => allow all" fallback: the caller must
+        resolve to a real system role (the env admin Bearer, or a managed MCP
+        key with `adminRole` set) via every single request, or it is rejected
+        outright — see RootMcpAuth. Each tool additionally has its own role
+        tier (read/operate/admin) and may require step-up confirmation
+        (`{"__confirm": true}`) or an elevated credential.
       tags:
         - MCP Transport
       security:
-        - McpAuth: []
+        - RootMcpAuth: []
       x-internal: true
       parameters:
         - $ref: "#/components/parameters/McpSessionId"
@@ -596,7 +614,7 @@ paths:
       tags:
         - MCP Transport
       security:
-        - McpAuth: []
+        - RootMcpAuth: []
       x-internal: true
       parameters:
         - $ref: "#/components/parameters/McpSessionId"
@@ -637,7 +655,7 @@ paths:
       tags:
         - MCP Transport
       security:
-        - McpAuth: []
+        - RootMcpAuth: []
       x-internal: true
       parameters:
         - $ref: "#/components/parameters/McpSessionId"
@@ -659,9 +677,8 @@ paths:
 
   # ---------------------------------------------------------------------------
   # Sharded Streamable HTTP transport — one endpoint per registered client.
-  # Always mounted (not gated by ENABLE_AGGREGATED_MCP). Recommended at scale:
-  # keeps each session's tool list bounded to a single client instead of every
-  # registered client's tools flattened together on /mcp.
+  # The only place a client's backend tools are served; /mcp itself is the
+  # system control-plane, not a flattened view of every client's tools.
   # ---------------------------------------------------------------------------
   /mcp/{clientName}:
     post:
@@ -795,8 +812,7 @@ paths:
   # Bundle Streamable HTTP transport — one endpoint per admin-curated bundle
   # (see /admin-api/bundles). A deliberate sibling top-level path rather than
   # nested under /mcp, so its origin/auth/rate-limit middleware chain doesn't
-  # double-run against /mcp/:clientName's. Always mounted (not gated by
-  # ENABLE_AGGREGATED_MCP).
+  # double-run against /mcp/:clientName's.
   # ---------------------------------------------------------------------------
   /mcp-custom/{bundleName}:
     post:
@@ -923,121 +939,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JsonRpcError"
-
-  # ---------------------------------------------------------------------------
-  # GET /sse — Legacy SSE transport
-  # ---------------------------------------------------------------------------
-  /sse:
-    get:
-      operationId: mcpLegacySse
-      summary: Legacy SSE transport — open a new SSE session
-      description: >
-        Legacy MCP SSE transport endpoint for older MCP clients that do not
-        support Streamable HTTP. Opening this endpoint creates a new SSE
-        session and streams MCP messages as Server-Sent Events. The session ID
-        assigned by the transport must be passed as the `sessionId` query
-        parameter in all subsequent POST /messages calls. This transport is
-        provided for backwards compatibility; new integrations should prefer
-        the Streamable HTTP transport at /mcp.
-      tags:
-        - MCP Transport
-      security:
-        - McpAuth: []
-      x-internal: true
-      responses:
-        "200":
-          description: SSE stream — connection kept open for the lifetime of the MCP session.
-          content:
-            text/event-stream:
-              schema:
-                type: string
-                description: >
-                  Newline-delimited Server-Sent Events carrying JSON-RPC 2.0
-                  messages from the MCP server.
-        "403":
-          description: Origin not allowed or invalid API key.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JsonRpcError"
-        "503":
-          description: Server at capacity (maximum sessions reached).
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JsonRpcError"
-              example:
-                jsonrpc: "2.0"
-                error:
-                  code: -32000
-                  message: Server at capacity, retry later
-                id: null
-
-  # ---------------------------------------------------------------------------
-  # POST /messages — Legacy SSE message endpoint
-  # ---------------------------------------------------------------------------
-  /messages:
-    post:
-      operationId: mcpLegacyMessages
-      summary: Legacy SSE transport — send a JSON-RPC message to an existing SSE session
-      description: >
-        Companion POST endpoint for the legacy GET /sse transport. The client
-        must supply the `sessionId` query parameter (assigned when the SSE
-        connection was opened). The bridge looks up the corresponding SSE
-        transport and forwards the JSON-RPC 2.0 body to the MCP server. If the
-        session is not found (e.g. the SSE connection was dropped) the bridge
-        returns a JSON-RPC 2.0 error with HTTP 404.
-      tags:
-        - MCP Transport
-      security:
-        - McpAuth: []
-      x-internal: true
-      parameters:
-        - name: sessionId
-          in: query
-          required: true
-          description: >
-            The session identifier assigned by the SSE transport when the GET
-            /sse connection was established.
-          schema:
-            type: string
-            example: a3f7c12e-84b1-4d2a-9f3e-1234567890ab
-      requestBody:
-        required: true
-        description: A JSON-RPC 2.0 request or notification directed at the MCP server.
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/JsonRpcMessage"
-            example:
-              jsonrpc: "2.0"
-              id: 2
-              method: tools/call
-              params:
-                name: get_customer
-                arguments:
-                  id: "cust_001"
-      responses:
-        "200":
-          description: Message accepted and forwarded to the MCP session.
-        "403":
-          description: Origin not allowed or invalid API key.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JsonRpcError"
-        "404":
-          description: The supplied `sessionId` does not correspond to an open SSE session.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JsonRpcError"
-              example:
-                jsonrpc: "2.0"
-                error:
-                  code: -32000
-                  message: Session not found
-                id: null
 
   # ---------------------------------------------------------------------------
   # GET /metrics
@@ -2640,12 +2541,18 @@ paths:
                     items: { $ref: "#/components/schemas/BundleToolRef" },
                     description: "Each entry {client, tool} must reference an existing, resolvable tool.",
                   }
+                composites:
+                  {
+                    type: array,
+                    items: { type: string },
+                    description: "Names of existing composite (macro) tools this bundle also exposes.",
+                  }
       responses:
         "201":
           description: Created.
           content: { application/json: { schema: { $ref: "#/components/schemas/BundleDetail" } } }
         "400":
-          description: Invalid name, tools[] shape, or a tools[] entry references an unknown client/tool.
+          description: Invalid name, tools[]/composites[] shape, or an entry references an unknown client/tool/composite.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
         "409":
           description: A bundle with that name already exists.
@@ -2668,7 +2575,7 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
     patch:
       operationId: updateBundle
-      summary: Update a bundle's description, enabled state, and/or tool list
+      summary: Update a bundle's description, enabled state, tool list, and/or composite list
       description: Requires the admin role for session callers.
       tags: [Bundles]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
@@ -2683,6 +2590,7 @@ paths:
                 description: { type: [string, "null"] }
                 enabled: { type: boolean }
                 tools: { type: array, items: { $ref: "#/components/schemas/BundleToolRef" } }
+                composites: { type: array, items: { type: string } }
       responses:
         "200":
           description: Updated.
@@ -2692,7 +2600,7 @@ paths:
                 { schema: { type: object, properties: { status: { type: string }, name: { type: string } } } },
             }
         "400":
-          description: Invalid tools[] shape, or a tools[] entry references an unknown client/tool.
+          description: Invalid tools[]/composites[] shape, or an entry references an unknown client/tool/composite.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
         "404":
           description: No such bundle.
@@ -2779,9 +2687,11 @@ paths:
         Each step forwards to a real `client__tool` through the unchanged
         proxyToolCall() path, so every guard/quota/guardrail applies exactly
         as if invoked directly — a composite grants no new capability, only
-        orchestration. Composites are aggregated-`/mcp`-only (not exposed on
-        sharded or bundle endpoints) and cannot reference other composites.
-        Requires the admin role for session callers.
+        orchestration. A composite is not reachable anywhere until it's added
+        to a bundle's `composites[]` (see PATCH /admin-api/bundles/{name});
+        it cannot be exposed on a sharded /mcp/{clientName} endpoint or
+        reference another composite. Requires the admin role for session
+        callers.
       tags: [Composites]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       requestBody:
@@ -3016,6 +2926,12 @@ paths:
                 expiresAt: { type: [number, "null"], description: Epoch ms. }
                 consumerId: { type: [integer, "null"], description: Must reference an existing consumer. }
                 elevated: { type: boolean, default: false }
+                adminRole:
+                  {
+                    type: [string, "null"],
+                    enum: [admin, operator, auditor, viewer, null],
+                    description: "Grants this key control-plane access on /mcp (see RootMcpAuth). null (default) = no system access. Setting a non-null value requires a super-admin (admin role, no team) for session callers.",
+                  }
       responses:
         "201":
           description: Created — includes the one-time raw key.
@@ -3028,7 +2944,10 @@ paths:
                     properties:
                       key: { type: string, description: "The raw key. Shown once, here, only." }
         "400":
-          description: Invalid label/scopes/expiresAt/consumerId.
+          description: Invalid label/scopes/expiresAt/consumerId/adminRole.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "403":
+          description: Setting a non-null adminRole was attempted by a non-super-admin session.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /admin-api/mcp-keys/{id}:
@@ -3069,6 +2988,7 @@ paths:
                     - type: "null"
                 consumerId: { type: [integer, "null"] }
                 elevated: { type: boolean }
+                adminRole: { type: [string, "null"], enum: [admin, operator, auditor, viewer, null] }
       responses:
         "200":
           description: Updated.
@@ -4533,8 +4453,22 @@ components:
       type: http
       scheme: bearer
       description: >
-        API key for MCP transport endpoints. Set via MCP_API_KEYS env var.
-        Disabled when AUTH_DISABLED=true or when no keys are configured.
+        API key for the backend-tool MCP transport endpoints
+        (/mcp/{clientName}, /mcp-custom/{bundleName}). Set via MCP_API_KEYS
+        env var, or a managed key (see MCP Keys). Disabled when
+        AUTH_DISABLED=true or when no keys are configured at all.
+    RootMcpAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Credential for the /mcp system control-plane. Either the env admin
+        Bearer key (ADMIN_API_KEYS) or a managed MCP key with `adminRole`
+        set (see MCP Keys). Unlike McpAuth, there is no "no auth material
+        configured => allow all" fallback — a caller must resolve to a real
+        system role or the request is rejected outright, even on a fresh
+        install with zero keys minted. Still bypassed entirely when
+        AUTH_DISABLED=true (the same global dev/test escape hatch every
+        other auth path in this API respects).
     SessionAuth:
       type: apiKey
       in: cookie
@@ -5158,6 +5092,12 @@ components:
         createdAt: { type: integer, description: Unix ms epoch }
         updatedAt: { type: integer, description: Unix ms epoch }
         tools: { type: array, items: { $ref: "#/components/schemas/BundleToolRef" } }
+        composites:
+          {
+            type: array,
+            items: { type: string },
+            description: "Names of composite (macro) tools this bundle also exposes.",
+          }
 
     # -------------------------------------------------------------------------
     # Composites
@@ -5224,6 +5164,12 @@ components:
           oneOf:
             - $ref: "#/components/schemas/McpKeyScopes"
             - type: "null"
+        adminRole:
+          {
+            type: [string, "null"],
+            enum: [admin, operator, auditor, viewer, null],
+            description: "Control-plane role this key carries on /mcp (see RootMcpAuth). null = no system access.",
+          }
         enabled: { type: boolean }
         expiresAt: { type: [number, "null"], description: Epoch ms. }
         revokedAt: { type: [number, "null"], description: Epoch ms. }

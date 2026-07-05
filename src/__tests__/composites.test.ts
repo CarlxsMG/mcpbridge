@@ -24,6 +24,7 @@ import {
   resolveTemplate,
   hasComposite,
 } from "../admin/tool-composition/composites.js";
+import { initBundles, createBundle } from "../admin/tool-composition/bundles.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { RestToolDefinition } from "../mcp/types.js";
@@ -57,6 +58,7 @@ beforeEach(async () => {
   for (const c of registry.listClients()) await registry.unregister(c.name);
   __resetDbForTesting();
   initComposites();
+  initBundles();
   removeCircuitBreaker("svc");
   globalThis.fetch = originalFetch;
 });
@@ -64,6 +66,7 @@ afterEach(async () => {
   for (const c of registry.listClients()) await registry.unregister(c.name);
   __resetDbForTesting();
   initComposites();
+  initBundles();
   globalThis.fetch = originalFetch;
 });
 
@@ -237,10 +240,13 @@ describe("composites — runComposite", () => {
   });
 });
 
-describe("composites — MCP integration (aggregated only)", () => {
-  async function connect(): Promise<{ client: Client; close: () => Promise<void> }> {
+describe("composites — MCP integration (bundle-gated only)", () => {
+  async function connect(scope: Parameters<typeof createMcpServer>[0]): Promise<{
+    client: Client;
+    close: () => Promise<void>;
+  }> {
     const [ct, st] = InMemoryTransport.createLinkedPair();
-    const server = createMcpServer();
+    const server = createMcpServer(scope);
     const client = new Client({ name: "t", version: "1.0.0" }, { capabilities: {} });
     await Promise.all([server.connect(st), client.connect(ct)]);
     return {
@@ -252,7 +258,7 @@ describe("composites — MCP integration (aggregated only)", () => {
     };
   }
 
-  test("advertised in aggregated tools/list, callable through it", async () => {
+  test("advertised in a bundle's tools/list once added to composites[], callable through it", async () => {
     await regSvc();
     globalThis.fetch = (async (url: string) =>
       String(url).includes("/first")
@@ -265,8 +271,9 @@ describe("composites — MCP integration (aggregated only)", () => {
       [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }],
       "t",
     );
+    await createBundle("bun1", undefined, [], "t", ["flow"]);
 
-    const { client, close } = await connect();
+    const { client, close } = await connect({ kind: "bundle", name: "bun1" });
     try {
       const { tools } = await client.listTools();
       expect(tools.map((t) => t.name)).toContain("flow");
@@ -286,16 +293,31 @@ describe("composites — MCP integration (aggregated only)", () => {
       [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }],
       "t",
     );
-    const [ct, st] = InMemoryTransport.createLinkedPair();
-    const server = createMcpServer({ kind: "client", name: "svc" });
-    const client = new Client({ name: "t", version: "1.0.0" }, { capabilities: {} });
-    await Promise.all([server.connect(st), client.connect(ct)]);
+    const { client, close } = await connect({ kind: "client", name: "svc" });
     try {
       const { tools } = await client.listTools();
       expect(tools.map((t) => t.name)).not.toContain("flow");
     } finally {
-      await client.close();
-      await server.close();
+      await close();
+    }
+  });
+
+  test("not advertised on a bundle that hasn't been given this composite", async () => {
+    await regSvc();
+    await createComposite(
+      "flow",
+      "desc",
+      OBJ_SCHEMA,
+      [{ targetClient: "svc", targetTool: "first", argsTemplate: {} }],
+      "t",
+    );
+    await createBundle("bun2", undefined, [], "t", []);
+    const { client, close } = await connect({ kind: "bundle", name: "bun2" });
+    try {
+      const { tools } = await client.listTools();
+      expect(tools.map((t) => t.name)).not.toContain("flow");
+    } finally {
+      await close();
     }
   });
 });

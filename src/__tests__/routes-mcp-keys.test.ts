@@ -12,6 +12,21 @@ import { requestIdMiddleware } from "../middleware/request-id.js";
 import { createUser } from "../security/user-store.js";
 import { createSession } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "../security/cookies.js";
+import { createTeam, setUserTeam } from "../admin/entities/teams.js";
+
+/** Creates an admin-role session scoped to a real team (not a super-admin) — for adminRole-grant gating tests. */
+function teamAdminSessionHeaders(username: string): Record<string, string> {
+  const team = createTeam(`team-${username}`, "test");
+  if (typeof team === "string") throw new Error(`createTeam failed: ${team}`);
+  const user = createUser(username, "irrelevant-hash", "admin", null);
+  setUserTeam(user.username, team.id);
+  const session = createSession(user.id, "127.0.0.1", "test-agent");
+  return {
+    "Content-Type": "application/json",
+    Cookie: `${SESSION_COOKIE_NAME}=${session.token}; ${CSRF_COOKIE_NAME}=${session.csrfToken}`,
+    "X-CSRF-Token": session.csrfToken,
+  };
+}
 
 let baseUrl = "";
 let activeServer: Server | null = null;
@@ -187,4 +202,69 @@ describe("Role gating", () => {
     });
     expect(res.status).toBe(403);
   });
+});
+
+describe("adminRole — /mcp system control-plane grants", () => {
+  test("the env Bearer (always a super-admin) can mint a key with adminRole set", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ label: "ops-bot", adminRole: "operator" }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { adminRole: string | null };
+    expect(body.adminRole).toBe("operator");
+  });
+
+  test("400 for an invalid adminRole value", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ label: "k", adminRole: "superuser" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("a team-scoped admin session cannot grant adminRole, even though it can otherwise mint keys", async () => {
+    await startApp();
+    const headers = teamAdminSessionHeaders("team-admin");
+
+    const withRole = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ label: "escalate", adminRole: "admin" }),
+    });
+    expect(withRole.status).toBe(403);
+
+    const withoutRole = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ label: "plain" }),
+    });
+    expect(withoutRole.status).toBe(201);
+  });
+
+  test("PATCH also requires a super-admin to set adminRole", async () => {
+    await startApp();
+    const { id } = await mintViaFetch();
+    const headers = teamAdminSessionHeaders("team-admin-2");
+
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ adminRole: "admin" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  async function mintViaFetch(): Promise<{ id: number }> {
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({ label: "target" }),
+    });
+    return (await res.json()) as { id: number };
+  }
 });

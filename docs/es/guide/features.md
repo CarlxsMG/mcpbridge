@@ -16,13 +16,23 @@ Consulta **[Registrar backends →](/es/guide/registering-backends)**.
 - **MCP → gateway / agregador MCP.** Registra servidores MCP existentes (Streamable HTTP o
   SSE) como upstreams y re-expón sus herramientas a través del mismo pipeline.
 - **Definiciones manuales de tools** cuando un backend no tiene spec.
-- **Cuatro modos de servir** — agregado `/mcp`, por cliente `/mcp/:name`, bundles curados
-  `/mcp-custom/:bundle`, y SSE legacy `/sse`.
+- **Dos modos de servir en el plano de datos** — por cliente `/mcp/:name` y bundles curados
+  `/mcp-custom/:bundle` (que también pueden incluir macros compuestas). `/mcp` en sí es el
+  plano de control (gestión del sistema + obtención de datos), no un tercer modo de servir
+  datos — ver [Arquitectura](/es/guide/architecture).
 - **Aliases y nombres visibles de tools** para presentar nombres limpios y amigables al cliente.
 - **Tags de tools** — tags libres en cada cliente registrado, navegables y filtrables por
   tag desde la UI de admin.
 - **Tools compuestas / macro** que ejecutan varios pasos como una llamada, cada paso a
-  través de la pila completa de guards.
+  través de la pila completa de guards. No son alcanzables por defecto — hay que añadir la
+  composite al `composites[]` de un bundle para servirla en el endpoint de ese bundle
+  (`/mcp-custom/:bundle`).
+- **Plano de control del sistema (`/mcp`)** — un cliente LLM se conecta aquí (no a un shard de
+  backend) para administrar el propio gateway: listar/registrar/habilitar clientes, emitir o
+  revocar keys MCP, leer el audit log, resetear un circuit breaker, y más. Auth fail-closed
+  (sin el fallback "sin configurar implica abierto") más un nivel de rol por tool
+  (read/operate/admin) y confirmación explícita para acciones sensibles. Ver
+  [Arquitectura](/es/guide/architecture).
 - **Backends GraphQL y WebSocket** (por tool) — envuelve los argumentos de una llamada como
   request GraphQL `{ query, variables }`, o haz un request/response efímero sobre WebSocket,
   reutilizando la misma pila de guards que REST.

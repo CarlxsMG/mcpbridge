@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { getDb } from "../db/connection.js";
 import { hashApiKey } from "./key-hash.js";
+import type { AdminRole } from "./user-store.js";
 
 /**
  * Key-centric access scoping. `null` means unrestricted (the key may call any
@@ -23,6 +24,8 @@ export interface McpApiKeyRecord {
   consumerId: number | null;
   elevated: boolean;
   scopes: McpKeyScopes | null;
+  /** Control-plane role this key carries on the /mcp system endpoint. Null = no system access at all (fail-closed default). */
+  adminRole: AdminRole | null;
   enabled: boolean;
   expiresAt: number | null;
   revokedAt: number | null;
@@ -39,6 +42,7 @@ interface KeyRow {
   consumer_id: number | null;
   elevated: number;
   scopes_json: string | null;
+  admin_role: string | null;
   enabled: number;
   expires_at: number | null;
   revoked_at: number | null;
@@ -49,7 +53,7 @@ interface KeyRow {
 }
 
 const SELECT_COLS =
-  "id, label, key_prefix, consumer_id, elevated, scopes_json, enabled, expires_at, revoked_at, last_used_at, created_at, updated_at, created_by";
+  "id, label, key_prefix, consumer_id, elevated, scopes_json, admin_role, enabled, expires_at, revoked_at, last_used_at, created_at, updated_at, created_by";
 
 function rowToRecord(row: KeyRow): McpApiKeyRecord {
   return {
@@ -59,6 +63,7 @@ function rowToRecord(row: KeyRow): McpApiKeyRecord {
     consumerId: row.consumer_id,
     elevated: row.elevated === 1,
     scopes: row.scopes_json ? (JSON.parse(row.scopes_json) as McpKeyScopes) : null,
+    adminRole: row.admin_role as AdminRole | null,
     enabled: row.enabled === 1,
     expiresAt: row.expires_at,
     revokedAt: row.revoked_at,
@@ -90,6 +95,7 @@ export function createMcpKey(
   actor: string | null,
   consumerId: number | null = null,
   elevated = false,
+  adminRole: AdminRole | null = null,
 ): { record: McpApiKeyRecord; rawKey: string } {
   const rawKey = generateRawKey();
   const keyHash = hashApiKey(rawKey);
@@ -98,8 +104,8 @@ export function createMcpKey(
   const norm = normalizeScopes(scopes);
   const row = getDb()
     .query(
-      `INSERT INTO mcp_api_keys (label, key_hash, key_prefix, consumer_id, elevated, scopes_json, enabled, expires_at, revoked_at, last_used_at, created_at, updated_at, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, NULL, NULL, ?, ?, ?)
+      `INSERT INTO mcp_api_keys (label, key_hash, key_prefix, consumer_id, elevated, scopes_json, admin_role, enabled, expires_at, revoked_at, last_used_at, created_at, updated_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, NULL, NULL, ?, ?, ?)
        RETURNING ${SELECT_COLS}`,
     )
     .get(
@@ -109,6 +115,7 @@ export function createMcpKey(
       consumerId,
       elevated ? 1 : 0,
       norm ? JSON.stringify(norm) : null,
+      adminRole,
       expiresAt,
       now,
       now,
@@ -137,6 +144,7 @@ export function updateMcpKey(
     scopes?: McpKeyScopes | null;
     consumerId?: number | null;
     elevated?: boolean;
+    adminRole?: AdminRole | null;
   },
 ): McpApiKeyRecord | null {
   const existing = getMcpKey(id);
@@ -147,9 +155,10 @@ export function updateMcpKey(
   const scopes = updates.scopes !== undefined ? normalizeScopes(updates.scopes) : existing.scopes;
   const consumerId = updates.consumerId !== undefined ? updates.consumerId : existing.consumerId;
   const elevated = updates.elevated ?? existing.elevated;
+  const adminRole = updates.adminRole !== undefined ? updates.adminRole : existing.adminRole;
   getDb()
     .query(
-      `UPDATE mcp_api_keys SET label = ?, enabled = ?, expires_at = ?, scopes_json = ?, consumer_id = ?, elevated = ?, updated_at = ? WHERE id = ?`,
+      `UPDATE mcp_api_keys SET label = ?, enabled = ?, expires_at = ?, scopes_json = ?, consumer_id = ?, elevated = ?, admin_role = ?, updated_at = ? WHERE id = ?`,
     )
     .run(
       label,
@@ -158,6 +167,7 @@ export function updateMcpKey(
       scopes ? JSON.stringify(scopes) : null,
       consumerId,
       elevated ? 1 : 0,
+      adminRole,
       Date.now(),
       id,
     );

@@ -149,10 +149,8 @@ describe("resolveGatewayEndpoint", () => {
     );
   });
 
-  test("builds the aggregated endpoint, ignoring name", () => {
-    expect(resolveGatewayEndpoint("https://gw.example.com", "aggregated", undefined)).toBe(
-      "https://gw.example.com/mcp",
-    );
+  test("builds the system control-plane endpoint, ignoring name", () => {
+    expect(resolveGatewayEndpoint("https://gw.example.com", "system", undefined)).toBe("https://gw.example.com/mcp");
   });
 
   test("strips a trailing slash on the base URL", () => {

@@ -966,6 +966,36 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 51,
+    name: "mcp_key_admin_role",
+    sql: `
+      -- The control-plane role a managed MCP key carries on the /mcp root
+      -- endpoint (see src/mcp/system-tools.ts). NULL (the default for every
+      -- existing and newly-minted key unless explicitly set) means "no
+      -- system access at all" — fail-closed by construction, so minting a
+      -- plain data-plane key never accidentally grants control-plane reach.
+      -- CHECK allows NULL implicitly (an IN-expression over NULL evaluates to
+      -- NULL, not false, so SQLite's CHECK never rejects it) and otherwise
+      -- constrains the value to the same AdminRole union session users use.
+      ALTER TABLE mcp_api_keys ADD COLUMN admin_role TEXT CHECK (admin_role IN ('admin', 'operator', 'auditor', 'viewer'));
+    `,
+  },
+  {
+    id: 52,
+    name: "mcp_bundle_composites",
+    sql: `
+      -- Cross-client composite (macro) tools are exposed only through an
+      -- explicit bundle membership, the same "admin curates what's visible"
+      -- model mcp_bundle_tools already applies to plain (client, tool) pairs.
+      CREATE TABLE IF NOT EXISTS mcp_bundle_composites (
+        bundle_name     TEXT NOT NULL REFERENCES mcp_bundles(name) ON DELETE CASCADE,
+        composite_name  TEXT NOT NULL REFERENCES composite_tools(name) ON DELETE CASCADE,
+        created_at      INTEGER NOT NULL,
+        PRIMARY KEY (bundle_name, composite_name)
+      ) STRICT;
+    `,
+  },
 ];
 
 /**

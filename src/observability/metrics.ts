@@ -296,17 +296,17 @@ export function recordToolCall(durationMs: number, isError: boolean): void {
 }
 
 // Session count getter — will be set externally
-let getSessionCounts: () => { streamable: number; sse: number } = () => ({ streamable: 0, sse: 0 });
+let getSessionCounts: () => { streamable: number } = () => ({ streamable: 0 });
 
 /** Registers the callback used to report current live-session counts. */
-export function setSessionCountGetter(fn: () => { streamable: number; sse: number }): void {
+export function setSessionCountGetter(fn: () => { streamable: number }): void {
   getSessionCounts = fn;
 }
 
 /** Snapshot of the legacy JSON metrics state, for consumption by the /metrics/legacy route. */
 export function getLegacyMetricsSnapshot(): {
   uptimeSeconds: number;
-  sessions: { streamable: number; sse: number };
+  sessions: { streamable: number };
   totalToolCalls: number;
   errorToolCalls: number;
   avgLatencyMs: number;

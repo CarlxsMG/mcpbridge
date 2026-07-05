@@ -24,7 +24,7 @@ async function main(): Promise<number> {
   const fn = cmd ? COMMANDS[cmd] : undefined;
   if (!fn) {
     console.error(
-      `Usage: gateway <command> [...args]\n\nCommands:\n  login --url <gateway-url> --token <admin-api-key>\n  pull [--file gateway.yaml]\n  plan [--file gateway.yaml]\n  apply [--file gateway.yaml] [--dry-run]\n  connect --client <claude-desktop|cursor|windsurf|continue|generic-json> --scope <client|bundle|aggregated> [--name <clientOrBundleName>] [--out <file>]`,
+      `Usage: gateway <command> [...args]\n\nCommands:\n  login --url <gateway-url> --token <admin-api-key>\n  pull [--file gateway.yaml]\n  plan [--file gateway.yaml]\n  apply [--file gateway.yaml] [--dry-run]\n  connect --client <claude-desktop|cursor|windsurf|continue|generic-json> --scope <client|bundle|system> [--name <clientOrBundleName>] [--out <file>]`,
     );
     return cmd ? 1 : 0;
   }

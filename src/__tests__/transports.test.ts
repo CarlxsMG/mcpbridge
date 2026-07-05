@@ -1,10 +1,13 @@
 /**
- * Tests for src/transports.ts
+ * Tests for src/mcp/transports.ts
  *
  * Strategy:
  * - Spin up a minimal Express app using setupTransports and hit it with raw fetch.
+ * - /mcp is the system control plane (rootMcpAuth) — every request needs a
+ *   resolved system-role credential; tests set config.adminApiKeys and send
+ *   the matching Authorization header.
  * - activeSessionCount / double-decrement regression: tested via getActiveSessionCount().
- * - maxSessions cap: exercised through config mutation + GET /sse route hit.
+ * - maxSessions cap: exercised through config mutation + POST /mcp.
  * - TTL cleanup: verified via short TTL config + cleanup interval.
  * - Session not found: missing/unknown session IDs return 404.
  * - getActiveSessionCount export: numeric and non-negative.
@@ -18,6 +21,10 @@ import { config } from "../config.js";
 
 let baseUrl = "";
 let activeServer: Server | null = null;
+
+const ROOT_KEY = "test-root-admin-key";
+const AUTH_HEADER = { Authorization: `Bearer ${ROOT_KEY}` };
+const originalAdminApiKeys = config.adminApiKeys;
 
 async function startApp(): Promise<() => void> {
   const { setupTransports } = await import("../mcp/transports.js");
@@ -50,6 +57,35 @@ function stopServer(cleanup: () => void): Promise<void> {
   });
 }
 
+beforeEach(() => {
+  (config as Record<string, unknown>).adminApiKeys = [ROOT_KEY];
+});
+
+afterEach(() => {
+  (config as Record<string, unknown>).adminApiKeys = originalAdminApiKeys;
+});
+
+// ---------------------------------------------------------------------------
+// TEST 0: No system-role credential is rejected outright (no data-plane-style
+// "unconfigured means open" fallback on the /mcp control plane).
+// ---------------------------------------------------------------------------
+
+describe("transports — /mcp requires a resolved system role", () => {
+  test("POST /mcp without Authorization is rejected (401/403), not treated as open", async () => {
+    const cleanup = await startApp();
+    try {
+      const res = await fetch(`${baseUrl}/mcp`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "initialize", id: 1 }),
+      });
+      expect([401, 403]).toContain(res.status);
+    } finally {
+      await stopServer(cleanup);
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------
 // TEST 1: Unknown session on GET /mcp returns 404
 // ---------------------------------------------------------------------------
@@ -62,6 +98,7 @@ describe("transports — unknown session ID on GET /mcp returns 404", () => {
         method: "GET",
         headers: {
           "mcp-session-id": "00000000-0000-4000-8000-000000000000",
+          ...AUTH_HEADER,
         },
       });
       expect(res.status).toBe(404);
@@ -83,6 +120,7 @@ describe("transports — unknown session ID on DELETE /mcp returns 404", () => {
         method: "DELETE",
         headers: {
           "mcp-session-id": "00000000-0000-4000-8000-000000000001",
+          ...AUTH_HEADER,
         },
       });
       expect(res.status).toBe(404);
@@ -93,27 +131,7 @@ describe("transports — unknown session ID on DELETE /mcp returns 404", () => {
 });
 
 // ---------------------------------------------------------------------------
-// TEST 3: Unknown sessionId on POST /messages returns 404
-// ---------------------------------------------------------------------------
-
-describe("transports — unknown sessionId on POST /messages returns 404", () => {
-  test("POST /messages with unknown sessionId returns 404", async () => {
-    const cleanup = await startApp();
-    try {
-      const res = await fetch(`${baseUrl}/messages?sessionId=00000000-0000-4000-8000-000000000002`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 }),
-      });
-      expect(res.status).toBe(404);
-    } finally {
-      await stopServer(cleanup);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// TEST 4: getActiveSessionCount is exported and returns a non-negative integer
+// TEST 3: getActiveSessionCount is exported and returns a non-negative integer
 // ---------------------------------------------------------------------------
 
 describe("transports — getActiveSessionCount is exported and numeric", () => {
@@ -127,43 +145,7 @@ describe("transports — getActiveSessionCount is exported and numeric", () => {
 });
 
 // ---------------------------------------------------------------------------
-// TEST 5: maxSessions cap — GET /sse returns 503 when at capacity
-// ---------------------------------------------------------------------------
-
-describe("transports — maxSessions cap on GET /sse", () => {
-  test("GET /sse returns 503 when activeSessionCount >= maxSessions", async () => {
-    const origMax = config.maxSessions;
-    (config as Record<string, unknown>).maxSessions = 0;
-
-    const cleanup = await startApp();
-    try {
-      // Use AbortController to avoid hanging on the SSE stream
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 1000);
-      let status: number;
-      try {
-        const res = await fetch(`${baseUrl}/sse`, {
-          method: "GET",
-          signal: controller.signal,
-        });
-        status = res.status;
-      } catch {
-        // If the request was aborted mid-stream (200 SSE), it means the cap wasn't hit.
-        // But since maxSessions=0, we expect 503 before any SSE is established.
-        status = 503; // aborted because response body is streaming — treat as pass
-      } finally {
-        clearTimeout(timer);
-      }
-      expect(status).toBe(503);
-    } finally {
-      (config as Record<string, unknown>).maxSessions = origMax;
-      await stopServer(cleanup);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// TEST 6: TTL cleanup — counter remains non-negative after stale session purge
+// TEST 4: TTL cleanup — counter remains non-negative after stale session purge
 // ---------------------------------------------------------------------------
 
 describe("transports — TTL cleanup loop does not underflow counter", () => {
@@ -187,7 +169,7 @@ describe("transports — TTL cleanup loop does not underflow counter", () => {
 });
 
 // ---------------------------------------------------------------------------
-// TEST 7: activeSessionCount consistency — no double-decrement over multiple cycles
+// TEST 5: activeSessionCount consistency — no double-decrement over multiple cycles
 // ---------------------------------------------------------------------------
 
 describe("transports — activeSessionCount consistency across setup/cleanup cycles", () => {
@@ -204,7 +186,7 @@ describe("transports — activeSessionCount consistency across setup/cleanup cyc
 });
 
 // ---------------------------------------------------------------------------
-// TEST 8: POST /mcp without session ID returns 503 when at capacity
+// TEST 6: POST /mcp without session ID returns 503 when at capacity
 // ---------------------------------------------------------------------------
 
 describe("transports — POST /mcp new session respects maxSessions cap", () => {
@@ -216,7 +198,7 @@ describe("transports — POST /mcp new session respects maxSessions cap", () => 
     try {
       const res = await fetch(`${baseUrl}/mcp`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...AUTH_HEADER },
         body: JSON.stringify({ jsonrpc: "2.0", method: "initialize", id: 1 }),
       });
       expect(res.status).toBe(503);

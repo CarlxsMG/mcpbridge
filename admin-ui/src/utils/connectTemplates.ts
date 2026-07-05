@@ -52,28 +52,26 @@
  *
  * ── This gateway's own transport, for context ───────────────────────────────
  * Every endpoint this generator points at — the sharded /mcp/:clientName and
- * /mcp-custom/:bundleName endpoints, and the legacy aggregated /mcp — is
- * Streamable HTTP only (see src/transports.ts's route mounts: none of them
- * have a per-scope SSE alternative; only the separate, deliberately-legacy
- * aggregated /sse+/messages pair uses the old SSE transport, and nothing in
- * this generator points at it). So `transport` below is always
- * "streamable-http" in practice today; the field stays part of the shared
- * shape (rather than being dropped) because Continue's template needs an
- * explicit discriminator and a future SSE-fallback endpoint on this gateway
- * would only require changing the one call site that resolves it, not this
- * registry.
+ * /mcp-custom/:bundleName data endpoints, and the /mcp system control plane —
+ * is Streamable HTTP only (see src/mcp/transports.ts's route mounts: none of
+ * them have a per-scope SSE alternative; the legacy /sse+/messages pair was
+ * removed entirely alongside the old "aggregated" data mode). So `transport`
+ * below is always "streamable-http" in practice today; the field stays part
+ * of the shared shape (rather than being dropped) because Continue's template
+ * needs an explicit discriminator.
  */
 
 export type ConnectTransport = "streamable-http" | "sse";
 
-export type ConnectScope = "client" | "bundle" | "aggregated";
+/** "system" points at the /mcp control plane (sys_* tools) — NOT a flattened view of every backend's tools; use "bundle" for that. */
+export type ConnectScope = "client" | "bundle" | "system";
 
 export const CONNECT_CLIENT_IDS = ["claude-desktop", "cursor", "windsurf", "continue", "generic-json"] as const;
 
 export type ConnectClientId = (typeof CONNECT_CLIENT_IDS)[number];
 
 export interface ConnectTemplateInput {
-  /** mcpServers key / display name for this connection — the client or bundle name (or "gateway" for the aggregated scope). */
+  /** mcpServers key / display name for this connection — the client or bundle name (or "gateway" for the system scope). */
   name: string;
   /** Fully-resolved gateway URL for the chosen scope, e.g. https://gw.example.com/mcp/acme-crm */
   url: string;
@@ -263,8 +261,8 @@ export function generateConnectSnippet(clientId: ConnectClientId, input: Connect
 /**
  * Resolves the gateway URL a generated config should point at, given a base
  * gateway URL and the chosen connection target. Scope "client"/"bundle"
- * require `name` (the registered client name or bundle name); "aggregated"
- * ignores it.
+ * require `name` (the registered client name or bundle name); "system"
+ * ignores it and always resolves to the /mcp control plane.
  */
 export function resolveGatewayEndpoint(baseUrl: string, scope: ConnectScope, name: string | undefined): string {
   const base = baseUrl.replace(/\/+$/, "");

@@ -328,10 +328,6 @@ export const config = {
   /** Maximum number of LRU buckets for the per-tool guard rate limiter. */
   rateLimitMaxBucketsTool: Number(process.env.RATE_LIMIT_MAX_BUCKETS_TOOL) || 20_000,
 
-  // ─── MCP sharding ───────────────────────────────────────────────────────────
-  /** Whether the legacy aggregated /mcp, /sse, /messages endpoints stay mounted. Disable at scale. */
-  enableAggregatedMcp: process.env.ENABLE_AGGREGATED_MCP !== "false",
-
   // ─── Public gateway URL (client-connection config generator) ────────────────
   /**
    * Operator-declared externally-reachable base URL for this gateway (e.g.

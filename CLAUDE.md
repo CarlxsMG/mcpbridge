@@ -87,15 +87,28 @@ collide):
 Every governance feature (guards, guardrails, RBAC, bundles, usage, audit) applies to both kinds
 unchanged because they share this identity.
 
-**Four ways to serve tools**, a pure narrowing filter applied _before_ dispatch (guards/breakers/
-SSRF behave identically regardless of mode): aggregated `POST /mcp` (every enabled tool from every
-enabled client), per-client shard `/mcp/:clientName`, curated bundle `/mcp-custom/:bundleName`
-(admin-curated cross-client subset), legacy SSE `GET /sse` + `POST /messages`.
+**Two planes, three endpoints.** `POST /mcp` is the **control plane**: gateway management +
+data retrieval over the gateway itself (`sys_*` tools — `src/mcp/system-tools.ts`), never
+backend tools. There is no "everything flattened together" data mode any more — that
+redundant aggregation (plus the legacy SSE transport, `GET /sse` + `POST /messages`, tied to
+it) was removed. The **data plane** is two narrowing filters applied _before_ dispatch
+(guards/breakers/SSRF behave identically regardless of which one a call came through):
+per-client shard `/mcp/:clientName`, and curated bundle `/mcp-custom/:bundleName`
+(admin-curated cross-client subset of tools and/or composite macros).
+
+`/mcp` has its own fail-closed auth (`rootMcpAuth`/`resolveSystemRole` in
+`src/security/system-role.ts`) — unlike the data plane's `mcpAuth`, there is **no**
+"no auth material configured => allow all" fallback; a caller must resolve to a real system
+role (the env admin Bearer, or a managed `mcp_api_keys` row with `adminRole` set) or the
+request is rejected outright. Each system tool additionally carries its own role tier
+(read/operate/admin, mirroring `requireOperator`/`requireAdminRole`'s REST semantics) and may
+require step-up (`{"__confirm": true}` or an elevated/env-bearer credential) — the same
+mechanism `proxyToolCall`'s sensitive-tool gate already uses.
 
 **Storage.** `bun:sqlite`, one file, no ORM, no external database. Admin config (enable flags,
 guards, bundles, keys, audit, users, teams, policies, schedules...) lives here; the live registry
 (`src/mcp/registry.ts`) is hydrated from it at boot. Schema changes are an **append-only** array
-in `src/db/migrations.ts` (currently up to id 50) — never edit or renumber a shipped migration;
+in `src/db/migrations.ts` (currently up to id 52) — never edit or renumber a shipped migration;
 add a new one with the next sequential integer, written defensively (`CREATE TABLE IF NOT EXISTS`,
 additive `ALTER TABLE`) since there's no down-migration mechanism.
 

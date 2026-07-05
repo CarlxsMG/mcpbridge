@@ -74,6 +74,20 @@ function validateToolRefs(input: unknown): ValidationResult<BundleToolRef[]> {
   return { ok: true, value };
 }
 
+/** Same shape/cap discipline as validateToolRefs — existence against composite_tools is checked downstream by createBundle/updateBundle. */
+function validateCompositeRefs(input: unknown): ValidationResult<string[]> {
+  if (!Array.isArray(input)) {
+    return { ok: false, message: "composites must be an array" };
+  }
+  if (input.length > config.maxToolsPerClient) {
+    return { ok: false, message: `composites exceeds maximum of ${config.maxToolsPerClient}` };
+  }
+  if (!input.every((x) => typeof x === "string" && x.length > 0)) {
+    return { ok: false, message: "each composites[] entry must be a non-empty string" };
+  }
+  return { ok: true, value: input as string[] };
+}
+
 export function bundleRoutes(app: Express): void {
   // ── Bundles ─────────────────────────────────────────────────────────────
 
@@ -101,8 +115,14 @@ export function bundleRoutes(app: Express): void {
       return;
     }
 
+    const compositesResult = validateCompositeRefs(body.composites ?? []);
+    if (!compositesResult.ok) {
+      validationError(res, compositesResult.message);
+      return;
+    }
+
     const actor = actorFromRequest(req);
-    const result = await createBundle(name, description, toolsResult.value, actor);
+    const result = await createBundle(name, description, toolsResult.value, actor, compositesResult.value);
     if (!result.ok) {
       sendError(
         res,
@@ -112,7 +132,10 @@ export function bundleRoutes(app: Express): void {
       );
       return;
     }
-    recordAudit(actor, "bundle.create", name, { tools_count: toolsResult.value.length });
+    recordAudit(actor, "bundle.create", name, {
+      tools_count: toolsResult.value.length,
+      composites_count: compositesResult.value.length,
+    });
     res.status(201).json(getBundleDetail(name));
   });
 
@@ -125,7 +148,12 @@ export function bundleRoutes(app: Express): void {
       const body = (req.body as Record<string, unknown>) ?? {};
       const actor = actorFromRequest(req);
 
-      const updates: { description?: string | null; enabled?: boolean; tools?: BundleToolRef[] } = {};
+      const updates: {
+        description?: string | null;
+        enabled?: boolean;
+        tools?: BundleToolRef[];
+        composites?: string[];
+      } = {};
 
       if (body.description !== undefined) {
         if (body.description !== null && typeof body.description !== "string") {
@@ -150,6 +178,15 @@ export function bundleRoutes(app: Express): void {
           return;
         }
         updates.tools = toolsResult.value;
+      }
+
+      if (body.composites !== undefined) {
+        const compositesResult = validateCompositeRefs(body.composites);
+        if (!compositesResult.ok) {
+          validationError(res, compositesResult.message);
+          return;
+        }
+        updates.composites = compositesResult.value;
       }
 
       const result = await updateBundle(name, updates);
