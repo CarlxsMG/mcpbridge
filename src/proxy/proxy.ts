@@ -47,8 +47,8 @@ import {
 import { recordTraffic } from "../observability/traffic.js";
 import { getToolGraphql, getToolWs, wsRequest, wsRequestPersistent } from "./backends.js";
 import { getOAuthBearer } from "../backend-auth/oauth.js";
-import { refreshPinIfStale } from "../security/ip-validator.js";
-import type { PinnedIp } from "../security/ip-validator.js";
+import { refreshPinIfStale } from "../net/ip-validator.js";
+import type { PinnedIp } from "../net/ip-validator.js";
 import { isDeleting } from "../mcp/registry.js";
 import { checkToolRateLimit } from "../middleware/rate-limiter.js";
 import { checkSharedToolRateLimit } from "../db/rate-counters.js";

@@ -16,7 +16,7 @@ import { config } from "../config.js";
 import { log } from "../logger.js";
 import { registry, TOOL_KEY_SEPARATOR } from "../mcp/registry.js";
 import { proxyToolCall } from "../proxy/proxy.js";
-import { validateBackendUrl } from "../security/ip-validator.js";
+import { validateBackendUrl } from "../net/ip-validator.js";
 
 export type MonitorStatus = "ok" | "fail";
 

@@ -17,7 +17,7 @@ import {
 //
 // Note on SSRF/validation: discoverToolsFromMcpServer performs NO SSRF/IP
 // validation itself — it only opens a Client against whatever transport the
-// factory hands it. The SSRF check (src/security/ip-validator.ts's
+// factory hands it. The SSRF check (src/net/ip-validator.ts's
 // validateBackendUrl) is performed by the CALLER, src/routes/register.ts's
 // performMcpRegistration(), *before* discoverToolsFromMcpServer is ever
 // invoked (see register.ts around the `validateBackendUrl(mcpUrl, ...)`

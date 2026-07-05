@@ -1,6 +1,6 @@
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
-import { validateBackendUrl } from "../security/ip-validator.js";
+import { validateBackendUrl } from "../net/ip-validator.js";
 import { upsertConfig } from "../lib/tool-config.js";
 
 /**

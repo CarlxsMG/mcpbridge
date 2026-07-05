@@ -2,7 +2,7 @@ import type { Request, Response, Express } from "express";
 import { registry, validateEndpointPath } from "../mcp/registry.js";
 import { discoverToolsFromOpenApi } from "../discovery/openapi-discovery.js";
 import { config } from "../config.js";
-import { validateBackendUrl } from "../security/ip-validator.js";
+import { validateBackendUrl } from "../net/ip-validator.js";
 import { adminAuth } from "../middleware/auth.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { log } from "../logger.js";

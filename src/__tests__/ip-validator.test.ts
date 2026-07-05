@@ -1,6 +1,6 @@
 import { describe, test, expect, mock, spyOn } from "bun:test";
-import { validateBackendUrl, refreshPinIfStale, IP_PIN_TTL_MS } from "../security/ip-validator.js";
-import type { PinnedIp } from "../security/ip-validator.js";
+import { validateBackendUrl, refreshPinIfStale, IP_PIN_TTL_MS } from "../net/ip-validator.js";
+import type { PinnedIp } from "../net/ip-validator.js";
 
 // ---------------------------------------------------------------------------
 // SSRF — IPv4-mapped IPv6 and other blocked ranges

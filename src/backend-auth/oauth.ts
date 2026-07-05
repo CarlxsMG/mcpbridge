@@ -13,7 +13,7 @@
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { getSecretsProvider } from "../secrets/index.js";
-import { validateBackendUrl } from "../security/ip-validator.js";
+import { validateBackendUrl } from "../net/ip-validator.js";
 
 export interface OAuthPublic {
   tokenUrl: string;

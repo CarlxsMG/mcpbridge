@@ -16,7 +16,7 @@ import type { IncomingMessage } from "http";
 import type { Duplex } from "stream";
 import { getDb } from "./db/connection.js";
 import { config } from "./config.js";
-import { validateBackendUrl } from "./security/ip-validator.js";
+import { validateBackendUrl } from "./net/ip-validator.js";
 import { evaluateMcpAuth } from "./middleware/auth.js";
 import { isClientInKeyScope } from "./security/mcp-key-store.js";
 import { isOriginAllowed } from "./middleware/origin-validator.js";

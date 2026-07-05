@@ -5,7 +5,7 @@ import { registry } from "../mcp/registry.js";
 import { getAllCircuitStates } from "../middleware/circuit-breaker.js";
 import { getUsageSummary } from "./usage.js";
 import { detectUsageSpike } from "./anomaly.js";
-import { validateBackendUrl } from "../security/ip-validator.js";
+import { validateBackendUrl } from "../net/ip-validator.js";
 import { isLeader } from "../db/leader-lease.js";
 
 export type AlertEventType =

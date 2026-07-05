@@ -3,7 +3,7 @@ import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "./admin.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { config } from "../config.js";
-import { validateBackendUrl } from "../security/ip-validator.js";
+import { validateBackendUrl } from "../net/ip-validator.js";
 import { discoverToolsFromOpenApi } from "../discovery/openapi-discovery.js";
 import { discoverToolsFromGraphQl } from "../discovery/graphql-discovery.js";
 import { parseCurlCommand, parsePostmanCollection } from "../discovery/curl-postman-discovery.js";
