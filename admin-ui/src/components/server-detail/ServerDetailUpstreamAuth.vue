@@ -2,10 +2,9 @@
 import { ref, onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
-import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useClearableConfig } from "@/composables/useClearableConfig";
 import { useResource } from "@/composables/useResource";
 import { usePatchResource } from "@/composables/usePatchResource";
-import { toErrorMessage } from "@/utils/errors";
 import type { UpstreamAuthInfo, UpstreamKind } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
@@ -58,26 +57,16 @@ async function saveUpstreamAuth() {
 }
 
 const {
-  pending: pendingClearUpstreamAuth,
-  request: requestClearUpstreamAuthConfirm,
-  cancel: cancelClearUpstreamAuth,
-  confirm: confirmClearUpstreamAuthAction,
-} = useConfirmAction<true>();
-
-function requestClearUpstreamAuth() {
-  requestClearUpstreamAuthConfirm(true);
-}
-
-function confirmClearUpstreamAuth() {
-  return confirmClearUpstreamAuthAction(async () => {
-    try {
-      await api.delete(clientPath(props.clientName, "upstream-auth"));
-      await loadUpstreamAuth();
-    } catch (err) {
-      uaError.value = toErrorMessage(err, "Failed to clear credentials.");
-    }
-  });
-}
+  pendingClear: pendingClearUpstreamAuth,
+  requestClear: requestClearUpstreamAuth,
+  cancelClear: cancelClearUpstreamAuth,
+  confirmClear: confirmClearUpstreamAuth,
+  error: clearUaError,
+} = useClearableConfig(
+  loadUpstreamAuth,
+  () => api.delete(clientPath(props.clientName, "upstream-auth")),
+  "Failed to clear credentials.",
+);
 </script>
 
 <template>
@@ -115,7 +104,7 @@ function confirmClearUpstreamAuth() {
         <label>Header name <input v-model="uaHeader" placeholder="X-Api-Key" autocomplete="off" /></label>
         <label>Value <input v-model="uaValue" type="password" autocomplete="off" /></label>
       </template>
-      <p v-if="uaError" class="error">{{ uaError }}</p>
+      <p v-if="uaError || clearUaError" class="error">{{ uaError || clearUaError }}</p>
       <button type="submit" class="btn-primary" :disabled="uaSaving">
         {{ uaSaving ? "Saving…" : "Save credentials" }}
       </button>

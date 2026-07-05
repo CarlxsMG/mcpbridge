@@ -2,7 +2,7 @@
 import { ref, onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
-import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useClearableConfig } from "@/composables/useClearableConfig";
 import { useResource } from "@/composables/useResource";
 import { usePatchResource } from "@/composables/usePatchResource";
 import type { CanaryConfig } from "@/types/api";
@@ -45,22 +45,16 @@ async function saveCanary() {
 }
 
 const {
-  pending: pendingClearCanary,
-  request: requestClearCanary,
-  cancel: cancelClearCanary,
-  confirm: confirmClearCanaryAction,
-} = useConfirmAction<true>();
-
-function requestClear() {
-  requestClearCanary(true);
-}
-
-function confirmClear() {
-  return confirmClearCanaryAction(async () => {
-    const ok = await runCanary((path) => api.put(path, { canary: null }), "Failed to clear.");
-    if (ok) canary.value = null;
-  });
-}
+  pendingClear: pendingClearCanary,
+  requestClear,
+  cancelClear: cancelClearCanary,
+  confirmClear,
+  error: clearCanaryError,
+} = useClearableConfig(
+  loadCanary,
+  () => api.put(clientPath(props.clientName, "canary"), { canary: null }),
+  "Failed to clear.",
+);
 </script>
 
 <template>
@@ -94,7 +88,7 @@ function confirmClear() {
       <label class="inline-check"><input v-model="canaryForm.enabled" type="checkbox" /> enabled</label>
       <button type="submit" class="btn-secondary">Save canary config</button>
     </form>
-    <p v-if="canaryError" class="error">{{ canaryError }}</p>
+    <p v-if="canaryError || clearCanaryError" class="error">{{ canaryError || clearCanaryError }}</p>
   </ConfigSection>
 
   <ConfirmDialog

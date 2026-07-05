@@ -2,10 +2,9 @@
 import { ref, onMounted } from "vue";
 import { api } from "@/composables/useApi";
 import { clientPath } from "@/utils/apiPaths";
-import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useClearableConfig } from "@/composables/useClearableConfig";
 import { useResource } from "@/composables/useResource";
 import { usePatchResource } from "@/composables/usePatchResource";
-import { toErrorMessage } from "@/utils/errors";
 import type { ClientOAuthConfig } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
@@ -56,26 +55,16 @@ async function saveOAuth() {
 }
 
 const {
-  pending: pendingClearOAuth,
-  request: requestClearOAuthConfirm,
-  cancel: cancelClearOAuth,
-  confirm: confirmClearOAuthAction,
-} = useConfirmAction<true>();
-
-function requestClearOAuth() {
-  requestClearOAuthConfirm(true);
-}
-
-function confirmClearOAuth() {
-  return confirmClearOAuthAction(async () => {
-    try {
-      await api.put(clientPath(props.clientName, "oauth"), { oauth: null });
-      oauth.value = null;
-    } catch (err) {
-      oauthError.value = toErrorMessage(err, "Failed to clear OAuth config.");
-    }
-  });
-}
+  pendingClear: pendingClearOAuth,
+  requestClear: requestClearOAuth,
+  cancelClear: cancelClearOAuth,
+  confirmClear: confirmClearOAuth,
+  error: clearOAuthError,
+} = useClearableConfig(
+  loadOAuth,
+  () => api.put(clientPath(props.clientName, "oauth"), { oauth: null }),
+  "Failed to clear OAuth config.",
+);
 </script>
 
 <template>
@@ -107,7 +96,7 @@ function confirmClearOAuth() {
       <label>Client ID <input v-model="oauthClientId" autocomplete="off" /></label>
       <label>Client secret <input v-model="oauthClientSecret" type="password" autocomplete="off" /></label>
       <label>Scope (optional) <input v-model="oauthScope" autocomplete="off" placeholder="read write" /></label>
-      <p v-if="oauthError" class="error">{{ oauthError }}</p>
+      <p v-if="oauthError || clearOAuthError" class="error">{{ oauthError || clearOAuthError }}</p>
       <button type="submit" class="btn-primary" :disabled="oauthSaving">
         {{ oauthSaving ? "Saving…" : "Save OAuth config" }}
       </button>
