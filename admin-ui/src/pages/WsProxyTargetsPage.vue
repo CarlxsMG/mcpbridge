@@ -9,6 +9,7 @@ import { parseOptionalNumber } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
 import type { WsProxyTarget } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
@@ -147,16 +148,13 @@ async function confirmDelete() {
 
 <template>
   <section>
-    <header class="page-header">
-      <div>
-        <h1>WS proxy targets</h1>
-        <p class="subtitle">
-          Live, bidirectional WebSocket passthrough to a raw backend service, served at
-          <code>/ws-proxy/&lt;name&gt;</code>. Distinct from a registered server — a target has no tools.
-        </p>
-      </div>
+    <PageHeader title="WS proxy targets">
       <RouterLink to="/ws-proxies/new" class="btn-primary">New target</RouterLink>
-    </header>
+    </PageHeader>
+    <p class="subtitle">
+      Live, bidirectional WebSocket passthrough to a raw backend service, served at
+      <code>/ws-proxy/&lt;name&gt;</code>. Distinct from a registered server — a target has no tools.
+    </p>
 
     <form v-if="showEdit" class="create-form" @submit.prevent="submitTarget">
       <FormField label="Name" for="wp-name">
@@ -264,15 +262,6 @@ async function confirmDelete() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-.page-header h1 {
-  margin: 0 0 0.2rem;
-}
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
