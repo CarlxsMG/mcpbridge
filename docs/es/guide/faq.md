@@ -62,6 +62,12 @@ una nueva versión. Consulta [Despliegue → Actualizar](/es/guide/deployment#up
 Sí — la **[demo en vivo](https://aico-dot-team-code.github.io/mcpbridge/demo/)** ejecuta
 la UI de admin real con datos mock, directamente en tu navegador. Sin instalación, sin registro.
 
+La demo también está localizada al español — cambia el selector de idioma en
+**Account → Preferences → Language** y cada string traducible del fixture (descripciones
+de tools, resúmenes de bundles, labels de API keys, nombres de alertas, labels de
+teams / policies / composites / snapshots, descripciones del catálogo) se actualiza
+en el sitio sin perder el estado de tu pestaña.
+
 ## ¿Qué licencia tiene?
 
 MIT. Consulta [`LICENSE`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/LICENSE).
