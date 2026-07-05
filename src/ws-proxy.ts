@@ -16,7 +16,7 @@ import type { IncomingMessage } from "http";
 import type { Duplex } from "stream";
 import { getDb } from "./db/connection.js";
 import { config } from "./config.js";
-import { validateBackendUrl } from "./net/ip-validator.js";
+import { validateBackendUrl, isRawIpLiteral, makePinnedLookup } from "./net/ip-validator.js";
 import { evaluateMcpAuth } from "./middleware/auth.js";
 import { isClientInKeyScope } from "./security/mcp-key-store.js";
 import { isOriginAllowed } from "./middleware/origin-validator.js";
@@ -87,11 +87,6 @@ function totalActiveConnections(): number {
   let total = 0;
   for (const set of connsByTarget.values()) total += set.size;
   return total;
-}
-
-/** Whether hostname is already an IP literal (vs. a DNS name) — an IP-literal backend has no hostname to re-pin via the `lookup` override, and its trust was already established once at registration time. */
-export function isRawIpLiteral(hostname: string): boolean {
-  return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
 }
 
 /** Loads every ws-proxy target from SQLite into the hot-path map. Call once at boot, after migrations have run. */
@@ -359,12 +354,7 @@ function dialBackendAndPipe(
     // original hostname for the Host header / TLS SNI — same intent as the
     // fetch-side pinning proxy.ts does for REST, achieved differently since a
     // WS upgrade handshake can't rewrite the URL host the way fetch does.
-    ...(isRawIp
-      ? {}
-      : {
-          lookup: (_h: string, _o: unknown, cb: (err: Error | null, address: string, family: number) => void) =>
-            cb(null, target.resolvedIp, 4),
-        }),
+    ...(isRawIp ? {} : { lookup: makePinnedLookup(target.resolvedIp) }),
   });
 
   const conn: ProxiedConn = { clientWs, backendWs, lastActivity: Date.now(), targetName: target.name, hostname };

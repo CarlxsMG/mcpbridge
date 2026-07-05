@@ -121,6 +121,18 @@ function isPrivateIp(ip: string): boolean {
   return isBlockedIpv4(ip);
 }
 
+/**
+ * True when `hostname` is already an IP literal (dotted-quad IPv4, or IPv6 —
+ * bracketed `[::1]` or bare `::1`) rather than a DNS name. This is the single
+ * canonical check shared by `validateBackendUrl` below (to decide whether to
+ * skip DNS resolution) and by every pinning call site that needs to skip
+ * DNS resolution / TTL re-pinning for a literal whose trust was already
+ * established once, at validation time (proxy.ts, ws-proxy.ts).
+ */
+export function isRawIpLiteral(hostname: string): boolean {
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
+}
+
 export async function validateBackendUrl(
   url: string,
   allowPrivateIps: boolean,
@@ -144,10 +156,9 @@ export async function validateBackendUrl(
   }
 
   // Always resolve DNS to pin the IP, unless it is already a raw IP address.
-  const isRawIpv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
   const isRawIpv6 = hostname.startsWith("[") || hostname.includes(":");
 
-  if (isRawIpv4 || isRawIpv6) {
+  if (isRawIpLiteral(hostname)) {
     // Already an IP literal — use it directly as the pinned address.
     const rawIp = isRawIpv6 ? hostname.replace(/^\[|\]$/g, "") : hostname;
     if (!allowPrivateIps && isPrivateIp(rawIp)) {
@@ -219,4 +230,54 @@ export async function refreshPinIfStale(
   }
 
   return { ip: result.resolvedIp, resolvedAt: now };
+}
+
+// ---------------------------------------------------------------------------
+// Pin-preserving transport helpers — swap the connection target to a
+// validated IP while keeping the original hostname visible to the upstream
+// (Host header / TLS SNI), for the two distinct transport mechanisms used by
+// call sites across the codebase: a wrapped `fetch` (mcp-upstream.ts's MCP-SDK
+// client transports) and a `dns.lookup`-shaped override (ws-proxy.ts's raw
+// WebSocket dial, which can't rewrite the request URL the way fetch does).
+// ---------------------------------------------------------------------------
+
+type PinnedFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
+
+/**
+ * Builds a fetch that pins `originalHostname` to `ip` while preserving the
+ * original Host header — the same DNS-rebinding mitigation applied at every
+ * other pinned call site, adapted for callers that hand a transport its own
+ * `fetch` implementation (e.g. the MCP SDK's HTTP/SSE transports) instead of
+ * building the request URL themselves.
+ */
+export function makePinnedFetch(originalHostname: string, ip: string): PinnedFetch {
+  return async (input, init) => {
+    const u = new URL(typeof input === "string" ? input : input.toString());
+    const host = u.host; // host:port, preserved as the Host header
+    if (u.hostname === originalHostname) {
+      u.hostname = ip;
+    }
+    const headers = new Headers(init?.headers);
+    headers.set("Host", host);
+    return fetch(u, { ...init, headers, redirect: "error" });
+  };
+}
+
+type PinnedDnsLookup = (
+  hostname: string,
+  options: unknown,
+  callback: (err: Error | null, address: string, family: number) => void,
+) => void;
+
+/**
+ * Builds a Node `dns.lookup`-shaped override that always resolves to the
+ * pinned `ip`, regardless of the hostname it's asked to look up — the
+ * socket-layer equivalent of `makePinnedFetch`'s URL-host swap, for
+ * transports (e.g. a raw WebSocket dial) that pin via a lookup callback
+ * instead of rewriting the request URL. The original hostname is left
+ * untouched everywhere else (Host header / TLS SNI); only the actual TCP
+ * connect target is pinned.
+ */
+export function makePinnedLookup(ip: string): PinnedDnsLookup {
+  return (_hostname, _options, callback) => callback(null, ip, 4);
 }

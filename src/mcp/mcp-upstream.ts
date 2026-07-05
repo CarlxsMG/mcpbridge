@@ -3,6 +3,7 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { ProgressCallback } from "@modelcontextprotocol/sdk/shared/protocol.js";
+import { makePinnedFetch } from "../net/ip-validator.js";
 
 // ---------------------------------------------------------------------------
 // Outbound MCP upstream connection pool + dispatcher.
@@ -50,26 +51,6 @@ function errorResult(text: string): ProxyToolResult {
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
-}
-
-type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
-
-/**
- * Builds a fetch that pins the upstream hostname to a validated IP while
- * preserving the original Host header — the same DNS-rebinding mitigation
- * proxy.ts applies per REST call, adapted for the transport's own fetch.
- */
-function makePinnedFetch(originalHostname: string, ip: string): FetchLike {
-  return async (input, init) => {
-    const u = new URL(typeof input === "string" ? input : input.toString());
-    const host = u.host; // host:port, preserved as the Host header
-    if (u.hostname === originalHostname) {
-      u.hostname = ip;
-    }
-    const headers = new Headers(init?.headers);
-    headers.set("Host", host);
-    return fetch(u, { ...init, headers, redirect: "error" });
-  };
 }
 
 /** Default transport factory — real network transports. Overridable for tests. */
