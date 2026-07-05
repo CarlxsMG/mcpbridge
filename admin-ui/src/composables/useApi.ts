@@ -1,4 +1,4 @@
-import { readCsrfCookie } from "./useCsrf";
+import { readCsrfCookie } from "../utils/cookies";
 
 export class ApiError extends Error {
   status: number;
