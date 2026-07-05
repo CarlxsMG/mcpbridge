@@ -2098,52 +2098,52 @@
   "demo": {
     "fixtures": {
       "tools": {
-        "github.search_issues": {
+        "github__search_issues": {
           "description": "Search issues and pull requests"
         },
-        "github.create_issue": {
+        "github__create_issue": {
           "description": "Open a new issue in a repository"
         },
-        "github.get_repo": {
+        "github__get_repo": {
           "description": "Fetch repository metadata"
         },
-        "github.list_pull_requests": {
+        "github__list_pull_requests": {
           "description": "List pull requests for a repo"
         },
-        "stripe.create_refund": {
+        "stripe__create_refund": {
           "description": "Refund a charge"
         },
-        "stripe.get_customer": {
+        "stripe__get_customer": {
           "description": "Retrieve a customer"
         },
-        "stripe.list_invoices": {
+        "stripe__list_invoices": {
           "description": "List invoices"
         },
-        "stripe.create_payment_intent": {
+        "stripe__create_payment_intent": {
           "description": "Start a payment"
         },
-        "slack.post_message": {
+        "slack__post_message": {
           "description": "Send a channel message"
         },
-        "slack.list_channels": {
+        "slack__list_channels": {
           "description": "List channels"
         },
-        "slack.get_user": {
+        "slack__get_user": {
           "description": "Look up a user"
         },
-        "internal-crm.find_account": {
+        "internal-crm__find_account": {
           "description": "Search CRM accounts"
         },
-        "internal-crm.update_deal": {
+        "internal-crm__update_deal": {
           "description": "Update a deal stage"
         },
-        "weather.current": {
+        "weather__current": {
           "description": "Current conditions for a location"
         },
-        "weather.forecast": {
+        "weather__forecast": {
           "description": "7-day forecast"
         },
-        "legacy-billing.get_balance": {
+        "legacy-billing__get_balance": {
           "description": "Legacy balance lookup"
         }
       },

@@ -21,26 +21,37 @@ ES = os.path.join(ROOT, "admin-ui/src/locales/es.json")
 # Each leaf value is a dict mapping field -> English literal (the same text
 # already present in the fixture files — this is the canonical EN source).
 # PR 2 will override the ES values with proper translations.
+#
+# Entity-id keys mirror the dot-escape the runtime helper applies — see
+# admin-ui/src/demo/i18n-keys.ts: any `.` in an entity identifier becomes
+# `__` so vue-i18n's nested-path walker can find the literal JSON key.
+# E.g. `tools.github.search_issues` here becomes the JSON key
+# `tools.github__search_issues` so a `t("demo.fixtures.tools.github__search_issues.description")`
+# lookup resolves cleanly.
+def safe(s: str) -> str:
+    return s.replace(".", "__")
+
+
 CATALOG: dict = {
     "demo": {
         "fixtures": {
             "tools": {
-                "github.search_issues": {"description": "Search issues and pull requests"},
-                "github.create_issue": {"description": "Open a new issue in a repository"},
-                "github.get_repo": {"description": "Fetch repository metadata"},
-                "github.list_pull_requests": {"description": "List pull requests for a repo"},
-                "stripe.create_refund": {"description": "Refund a charge"},
-                "stripe.get_customer": {"description": "Retrieve a customer"},
-                "stripe.list_invoices": {"description": "List invoices"},
-                "stripe.create_payment_intent": {"description": "Start a payment"},
-                "slack.post_message": {"description": "Send a channel message"},
-                "slack.list_channels": {"description": "List channels"},
-                "slack.get_user": {"description": "Look up a user"},
-                "internal-crm.find_account": {"description": "Search CRM accounts"},
-                "internal-crm.update_deal": {"description": "Update a deal stage"},
-                "weather.current": {"description": "Current conditions for a location"},
-                "weather.forecast": {"description": "7-day forecast"},
-                "legacy-billing.get_balance": {"description": "Legacy balance lookup"},
+                safe("github.search_issues"): {"description": "Search issues and pull requests"},
+                safe("github.create_issue"): {"description": "Open a new issue in a repository"},
+                safe("github.get_repo"): {"description": "Fetch repository metadata"},
+                safe("github.list_pull_requests"): {"description": "List pull requests for a repo"},
+                safe("stripe.create_refund"): {"description": "Refund a charge"},
+                safe("stripe.get_customer"): {"description": "Retrieve a customer"},
+                safe("stripe.list_invoices"): {"description": "List invoices"},
+                safe("stripe.create_payment_intent"): {"description": "Start a payment"},
+                safe("slack.post_message"): {"description": "Send a channel message"},
+                safe("slack.list_channels"): {"description": "List channels"},
+                safe("slack.get_user"): {"description": "Look up a user"},
+                safe("internal-crm.find_account"): {"description": "Search CRM accounts"},
+                safe("internal-crm.update_deal"): {"description": "Update a deal stage"},
+                safe("weather.current"): {"description": "Current conditions for a location"},
+                safe("weather.forecast"): {"description": "7-day forecast"},
+                safe("legacy-billing.get_balance"): {"description": "Legacy balance lookup"},
             },
             "bundles": {
                 "support-agent": {"description": "Read-only GitHub + Slack tools for the support copilot"},
@@ -132,6 +143,14 @@ def main():
     for path in (EN, ES):
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
+        # REPLACE the demo.fixtures.* section rather than deep-merging:
+        # the seed script is the canonical source of the fixture key
+        # namespace, and a deep merge would leave stale keys behind when
+        # the namespace pattern changes (e.g. when entity IDs started
+        # escaping dots to `__`). Anything OUTSIDE demo.fixtures.* stays
+        # untouched.
+        if "demo" in data and "fixtures" in data["demo"]:
+            del data["demo"]["fixtures"]
         deep_merge(data, CATALOG)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)

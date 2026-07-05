@@ -2098,89 +2098,89 @@
   "demo": {
     "fixtures": {
       "tools": {
-        "github.search_issues": {
-          "description": "Search issues and pull requests"
+        "github__search_issues": {
+          "description": "Buscar issues y pull requests"
         },
-        "github.create_issue": {
-          "description": "Open a new issue in a repository"
+        "github__create_issue": {
+          "description": "Abrir un nuevo issue en un repositorio"
         },
-        "github.get_repo": {
-          "description": "Fetch repository metadata"
+        "github__get_repo": {
+          "description": "Obtener metadatos del repositorio"
         },
-        "github.list_pull_requests": {
-          "description": "List pull requests for a repo"
+        "github__list_pull_requests": {
+          "description": "Listar pull requests de un repositorio"
         },
-        "stripe.create_refund": {
-          "description": "Refund a charge"
+        "stripe__create_refund": {
+          "description": "Reembolsar un cargo"
         },
-        "stripe.get_customer": {
-          "description": "Retrieve a customer"
+        "stripe__get_customer": {
+          "description": "Consultar un cliente"
         },
-        "stripe.list_invoices": {
-          "description": "List invoices"
+        "stripe__list_invoices": {
+          "description": "Listar facturas"
         },
-        "stripe.create_payment_intent": {
-          "description": "Start a payment"
+        "stripe__create_payment_intent": {
+          "description": "Iniciar un pago"
         },
-        "slack.post_message": {
-          "description": "Send a channel message"
+        "slack__post_message": {
+          "description": "Enviar un mensaje a un canal"
         },
-        "slack.list_channels": {
-          "description": "List channels"
+        "slack__list_channels": {
+          "description": "Listar canales"
         },
-        "slack.get_user": {
-          "description": "Look up a user"
+        "slack__get_user": {
+          "description": "Buscar un usuario"
         },
-        "internal-crm.find_account": {
-          "description": "Search CRM accounts"
+        "internal-crm__find_account": {
+          "description": "Buscar cuentas en el CRM"
         },
-        "internal-crm.update_deal": {
-          "description": "Update a deal stage"
+        "internal-crm__update_deal": {
+          "description": "Actualizar la etapa de una oportunidad"
         },
-        "weather.current": {
-          "description": "Current conditions for a location"
+        "weather__current": {
+          "description": "Clima actual en una ubicación"
         },
-        "weather.forecast": {
-          "description": "7-day forecast"
+        "weather__forecast": {
+          "description": "Pronóstico a 7 días"
         },
-        "legacy-billing.get_balance": {
-          "description": "Legacy balance lookup"
+        "legacy-billing__get_balance": {
+          "description": "Consulta de saldo heredada"
         }
       },
       "bundles": {
         "support-agent": {
-          "description": "Read-only GitHub + Slack tools for the support copilot"
+          "description": "Herramientas de GitHub y Slack de solo lectura para el copiloto de soporte"
         },
         "billing-ops": {
-          "description": "Stripe refunds & invoice lookups for finance"
+          "description": "Reembolsos de Stripe y consultas de facturas para finanzas"
         },
         "readonly-explorer": {
-          "description": "Safe, read-only slice across every backend"
+          "description": "Vista segura y de solo lectura sobre todos los backends"
         }
       },
       "catalog": {
         "builtin:petstore": {
-          "description": "The canonical OpenAPI sample API — pets, orders, and inventory."
+          "description": "La API de ejemplo canónica de OpenAPI — mascotas, pedidos e inventario."
         },
         "custom:1": {
-          "description": "Reusable template for spinning up a staging CRM registration."
+          "description": "Plantilla reutilizable para crear un registro de CRM en staging."
         }
       },
       "discovery": {
         "list_pets": {
-          "description": "Finds pets by status"
+          "description": "Busca mascotas por estado"
         },
         "get_pet": {
-          "description": "Find pet by ID"
+          "description": "Buscar mascota por ID"
         },
         "add_pet": {
-          "description": "Add a new pet to the store"
+          "description": "Añadir una mascota nueva a la tienda"
         },
         "update_pet": {
-          "description": "Update an existing pet"
+          "description": "Actualizar una mascota existente"
         },
         "delete_pet": {
-          "description": "Deletes a pet"
+          "description": "Eliminar una mascota"
         }
       },
       "keys": {
@@ -2192,23 +2192,23 @@
             "label": "Cursor IDE"
           },
           "CI pipeline (elevated)": {
-            "label": "CI pipeline (elevated)"
+            "label": "Pipeline de CI (elevado)"
           },
           "Old prototype key": {
-            "label": "Old prototype key"
+            "label": "Llave prototipo antigua"
           }
         }
       },
       "consumers": {
         "by_value": {
           "Support team": {
-            "name": "Support team"
+            "name": "Equipo de soporte"
           },
           "Finance": {
-            "name": "Finance"
+            "name": "Finanzas"
           },
           "Internal agents": {
-            "name": "Internal agents"
+            "name": "Agentes internos"
           }
         }
       },
@@ -2221,59 +2221,59 @@
             "label": "Cursor IDE"
           },
           "CI pipeline (elevated)": {
-            "label": "CI pipeline (elevated)"
+            "label": "Pipeline de CI (elevado)"
           }
         }
       },
       "alerts": {
         "1": {
-          "name": "CRM circuit breaker open"
+          "name": "Disyuntor del CRM abierto"
         },
         "2": {
-          "name": "High error rate"
+          "name": "Tasa de error alta"
         },
         "3": {
-          "name": "Usage spike detector"
+          "name": "Detector de picos de uso"
         }
       },
       "teams": {
         "by_value": {
           "Platform": {
-            "name": "Platform"
+            "name": "Plataforma"
           },
           "Support": {
-            "name": "Support"
+            "name": "Soporte"
           }
         }
       },
       "policies": {
         "by_value": {
           "Standard read": {
-            "name": "Standard read"
+            "name": "Lectura estándar"
           },
           "Sensitive write": {
-            "name": "Sensitive write"
+            "name": "Escritura sensible"
           }
         }
       },
       "composites": {
         "triage_issue": {
-          "description": "Search GitHub, then post a Slack summary"
+          "description": "Buscar en GitHub y luego publicar un resumen en Slack"
         },
         "refund_and_notify": {
-          "description": "Create a Stripe refund and DM the customer owner"
+          "description": "Crear un reembolso en Stripe y enviar un DM al responsable del cliente"
         }
       },
       "snapshots": {
         "by_value": {
           "before rollout": {
-            "label": "before rollout"
+            "label": "antes del despliegue"
           },
           "add billing-ops bundle": {
-            "label": "add billing-ops bundle"
+            "label": "añadir bundle billing-ops"
           },
           "initial": {
-            "label": "initial"
+            "label": "inicial"
           }
         }
       },
@@ -2281,21 +2281,21 @@
         "128": {
           "detail": {
             "label": {
-              "value": "CI pipeline (elevated)"
+              "value": "Pipeline de CI (elevado)"
             }
           }
         },
         "122": {
           "detail": {
             "label": {
-              "value": "before rollout"
+              "value": "antes del despliegue"
             }
           }
         },
         "120": {
           "detail": {
             "name": {
-              "value": "Support"
+              "value": "Soporte"
             }
           }
         }

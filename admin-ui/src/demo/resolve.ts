@@ -16,6 +16,14 @@
 //     at call time (NOT at module load), so a user switching the locale via
 //     AccountPage and triggering a refetch gets the new locale automatically.
 //
+// Immutability:
+//   - The walker returns a NEW tree — it never mutates the input. The demo
+//     fixtures are module-level singletons that pages hold references to via
+//     `flatTools`, `clients`, etc.; mutating them in place would corrupt
+//     the source data on the first ES fetch and the next EN fetch would
+//     return stale ES text. The copy cost is negligible (demo data is
+//     small) and keeps the fixtures pristine across locale flips.
+//
 // Field map:
 //   - `descriptionKey` → `description` (and any other `*Key` siblings that
 //     shadow a plain text field by stripping the `Key` suffix).
@@ -38,8 +46,12 @@ function keyToField(keyField: string): string | null {
  * the demo degrades gracefully to EN even before translations land.
  */
 function resolveKey(key: string): string | undefined {
-  const t = (i18n.global as unknown as { t: (k: string) => string }).t;
-  const translated = t(key);
+  // vue-i18n v10's `i18n.global.t` reads the current locale + messages
+  // bundle on every call. We deliberately re-read it here (instead of
+  // capturing at module load) so test-only `setLocaleMessage` calls and
+  // runtime locale flips both pick up the new state without needing to
+  // re-import this module.
+  const translated = (i18n.global as unknown as { t: (k: string) => string }).t(key);
   // vue-i18n returns the key itself when missing (with silentTranslationWarn
   // suppressing the console noise). Treat that as "no translation" so we
   // fall through to the EN text the fixture ships as a fallback.
@@ -47,76 +59,89 @@ function resolveKey(key: string): string | undefined {
 }
 
 /**
- * Recursively walks `value`, mutating it in place to swap any `*Key` field
- * with the resolved text when a translation exists in the active locale.
+ * Recursively walks `value` and returns a new tree with any `*Key` field
+ * swapped into the matching text field when a translation exists in the
+ * active locale.
  *
- * Returns the (possibly mutated) value for ergonomic chaining. Safe to call
- * on primitives (returns as-is) and on the empty/null cases the demo router
- * emits (returns as-is, since there's nothing to walk).
+ * The output shares no references with the input: arrays and objects are
+ * rebuilt; primitives and untouched objects are returned as-is (so the
+ * recursion bottoms out cheaply when there are no keys to resolve).
  *
- * The walker is intentionally narrow:
- *   - It only touches objects/arrays. Strings/numbers/booleans/null pass
- *     through unchanged.
- *   - It handles `detail_*Key` (audit-log detail) by rewriting the inner
- *     `detail.<field>` instead of the outer object — see `audit-log.ts`
- *     for the exact convention used to encode the keys.
- *   - It does NOT descend into items that already look resolved (no `*Key`
- *     child fields left, no array of items to recurse into). That's an
- *     optimization, not a correctness guarantee — the recursion would be
- *     safe to keep going, but the demo fixtures only need one level deep.
+ * Field-order pitfall: fixtures carry BOTH `description` (EN fallback) AND
+ * `descriptionKey` (i18n key) on the same record. A naive walk in
+ * insertion order would emit the translated value first, then overwrite
+ * it with the plain field. The walker therefore scans the input twice:
+ *   1. Collect every successfully-resolved *Key field name.
+ *   2. Build the output, dropping both the *Key fields AND the plain
+ *      text fields they shadow.
  */
 export function localize<T>(value: T): T {
   if (value === null || value === undefined) return value;
-  if (Array.isArray(value)) {
-    for (let i = 0; i < value.length; i++) value[i] = localize(value[i]);
-    return value;
-  }
   if (typeof value !== "object") return value;
 
-  const obj = value as Record<string, unknown>;
+  if (Array.isArray(value)) {
+    return value.map((item) => localize(item)) as unknown as T;
+  }
 
-  // Audit-log detail rewrite: `{ detail_labelKey, detail_nameKey, detail }`
-  // pattern. When we see a `<field>Key` and the matching inner detail field
-  // exists, replace the detail field. Otherwise leave it for the generic
-  // pass below (which will swap the outer sibling when present).
-  for (const k of Object.keys(obj)) {
+  const input = value as Record<string, unknown>;
+
+  // Pass 1: figure out which *Key fields resolve AND what plain text
+  // field each one shadows. The plain-field name lets us skip it in
+  // pass 2 so the translation isn't clobbered by the EN fallback.
+  const resolvedTextFields = new Set<string>();
+  const resolvedDetailFields = new Map<string, string>(); // detailField → translation
+  for (const k of Object.keys(input)) {
+    const v = input[k];
+    if (typeof v !== "string") continue;
+
     if (k.startsWith("detail_") && k.endsWith("Key")) {
       const detailField = k.slice("detail_".length, -"Key".length);
-      const detail = obj["detail"];
-      if (detail && typeof detail === "object" && typeof obj[k] === "string") {
-        const translated = resolveKey(obj[k] as string);
-        if (translated !== undefined) {
-          (detail as Record<string, unknown>)[detailField] = translated;
-        }
-      }
-      // Audit-log keys live on the outer object but only mutate `detail`,
-      // so we don't strip them from the response — pages don't read them
-      // and the walker never touches them again.
+      const translated = resolveKey(v);
+      if (translated !== undefined) resolvedDetailFields.set(detailField, translated);
+      continue;
+    }
+
+    const field = keyToField(k);
+    if (field) {
+      const translated = resolveKey(v);
+      if (translated !== undefined) resolvedTextFields.add(field);
     }
   }
 
-  // Generic pass: for each `*Key` field, swap with `t(<key>)` when present.
-  // We iterate a snapshot of the keys because we mutate the object's field
-  // names (delete + set) inside the loop.
-  for (const k of Object.keys(obj)) {
-    if (k.startsWith("detail_") && k.endsWith("Key")) continue; // handled above
+  // Pass 2: build the output.
+  const output: Record<string, unknown> = {};
+  for (const k of Object.keys(input)) {
+    const v = input[k];
+
+    // Skip *Key fields entirely — their translation already lives in
+    // the matching plain field (or was dropped if it didn't resolve).
+    if (k.startsWith("detail_") && k.endsWith("Key")) continue;
     const field = keyToField(k);
-    if (!field) continue;
-    if (typeof obj[k] !== "string") continue;
-    const translated = resolveKey(obj[k] as string);
-    if (translated === undefined) continue;
-    obj[field] = translated;
-    delete obj[k];
+    if (field && resolvedTextFields.has(field)) {
+      // Emit the translation we pre-computed in pass 1. `v` is a string
+      // here by construction — the pre-scan only adds a field to
+      // `resolvedTextFields` when the *Key sibling's value was a string.
+      output[field] = resolveKey(v as string);
+      continue;
+    }
+
+    // Plain text field that was NOT shadowed by a *Key sibling — keep
+    // the literal EN fallback the fixture ships.
+    if (resolvedTextFields.has(k)) continue; // belt + suspenders (shouldn't fire)
+
+    // Audit-log detail rewrite: rebuild `detail` with any translated
+    // inner fields merged in. Only mutate if at least one detail field
+    // resolved; otherwise keep the original detail reference to preserve
+    // its identity.
+    if (k === "detail" && v && typeof v === "object" && resolvedDetailFields.size > 0) {
+      output["detail"] = { ...(v as Record<string, unknown>), ...Object.fromEntries(resolvedDetailFields) };
+      continue;
+    }
+
+    // Plain copy — recurse into nested objects/arrays so deeply nested
+    // *Key fields also get resolved.
+    output[k] = v && typeof v === "object" ? localize(v) : v;
   }
 
-  // Recurse into known nested shapes: items arrays (list endpoints), tools
-  // arrays (client detail), and nested objects on a case-by-case basis.
-  // Cheap and safe — the walker short-circuits on primitives — but bounded
-  // to keep the demo hot path tight.
-  for (const k of Object.keys(obj)) {
-    const v = obj[k];
-    if (v && typeof v === "object") localize(v);
-  }
-
-  return value;
+  return output as unknown as T;
 }

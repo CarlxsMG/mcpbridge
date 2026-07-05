@@ -26,18 +26,42 @@
  * files. Keys are composed at module load from the fixture's stable
  * identifiers (client name, tool name, bundle name, ...) which never
  * change, so the lookup is purely declarative.
+ *
+ * Important: vue-i18n treats `.` as the nested-object-path separator inside
+ * `t()`. The `entityId` for tools is `<client>.<toolName>` (e.g.
+ * `github.search_issues`) which would normally confuse the lookup
+ * (`t("...github.search_issues.description")` would resolve into a
+ * `search_issues` nested key, not a literal entity name). To dodge that
+ * without forcing every fixture caller to manually escape dots, the helper
+ * internally swaps any `.` in `entityId` for `__` before composing the key.
+ * The JSON files therefore live under e.g. `tools.github__search_issues`.
  */
 export function demoKey(domain: string, entityId: string | number, field: string): string {
-  return `demo.fixtures.${domain}.${entityId}.${field}`;
+  const safeId = String(entityId).replace(/\./g, "__");
+  return `demo.fixtures.${domain}.${safeId}.${field}`;
 }
 
 /**
  * Variant for entities whose identifier is itself a localized string (team
  * names, API key labels, ...). The original EN value goes in the path so the
  * lookup is stable across locales even when translations collide.
+ *
+ * Free-form values often contain spaces, parens, or hyphens — vue-i18n's
+ * dot-walking syntax would split these on `.` and walk into a `Claude`
+ * sub-key that doesn't exist. The helper therefore emits vue-i18n's
+ * bracket notation (`['Claude Desktop']`) for any value with characters
+ * outside `[A-Za-z0-9_]`, which vue-i18n v9+ supports as a literal
+ * sub-key access regardless of the embedded spaces or punctuation.
+ *
+ * Syntax note: vue-i18n's bracket notation attaches to the preceding
+ * path segment with NO dot — i.e. `by_value['Claude Desktop']`, NOT
+ * `by_value.['Claude Desktop']`. The helper therefore emits
+ * `${prefix}${bracket}` (no separating dot) for the bracket case.
  */
 export function demoKeyByValue(domain: string, value: string, field: string): string {
-  return `demo.fixtures.${domain}.by_value.${value}.${field}`;
+  const br = bracket(value);
+  const sep = br.startsWith("[") ? "" : ".";
+  return `demo.fixtures.${domain}.by_value${sep}${br}.${field}`;
 }
 
 /**
@@ -46,5 +70,18 @@ export function demoKeyByValue(domain: string, value: string, field: string): st
  * labels don't collide.
  */
 export function demoDetailKey(domain: string, recordId: number | string, detailField: string, field: string): string {
-  return `demo.fixtures.${domain}.${recordId}.detail.${detailField}.${field}`;
+  const safeId = String(recordId).replace(/\./g, "__");
+  return `demo.fixtures.${domain}.${safeId}.detail.${detailField}.${field}`;
+}
+
+/**
+ * Wrap a free-form value in vue-i18n bracket notation when it contains any
+ * character vue-i18n's dot-walker would misread (spaces, parens, hyphens,
+ * anything outside the safe `[A-Za-z0-9_]` set). Always wrapping — even for
+ * already-safe values — would also work but bloats every key by 8 chars, so
+ * we only pay the bracket cost when we have to.
+ */
+function bracket(value: string): string {
+  if (/^[A-Za-z0-9_]+$/.test(value)) return value;
+  return `['${value.replace(/'/g, "\\'")}']`;
 }

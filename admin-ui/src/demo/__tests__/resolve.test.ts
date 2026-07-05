@@ -68,9 +68,11 @@ describe("demo/resolve.ts — localize()", () => {
         detail: { label: "CI pipeline (elevated)" },
       });
       expect((out as { detail: { label: string } }).detail.label).toBe("CI (elevated)");
-      // detail_*Key stays on the outer object — pages never read it and
-      // the walker mutates detail, not the outer field.
-      expect("detail_labelKey" in (out as object)).toBe(true);
+      // detail_*Key gets dropped from the outer object — pages don't
+      // read it and keeping it would leak demo-specific fields into the
+      // response shape. The translated text already lives in
+      // detail.label from the rewrite above.
+      expect("detail_labelKey" in (out as object)).toBe(false);
     } finally {
       (i18n.global.locale as unknown as { value: string }).value = prevLocale;
     }
