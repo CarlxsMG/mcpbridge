@@ -14,6 +14,7 @@
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
+import { clampLimit, keysetPaginate } from "../lib/pagination-cursor.js";
 
 export interface TrafficRecord {
   id: number;
@@ -118,14 +119,9 @@ export function listTraffic(
     params.push(filter.toolName);
   }
   if (filter.errorsOnly) where.push("is_error = 1");
-  const limit = Math.min(Math.max(filter.limit ?? 100, 1), 1000);
-  const sql = `SELECT * FROM tool_traffic ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY id DESC LIMIT ?`;
-  const rows = getDb()
-    .query(sql)
-    .all(...params, limit + 1) as TrafficRow[];
-  const hasMore = rows.length > limit;
-  const page = hasMore ? rows.slice(0, limit) : rows;
-  return { items: page.map(rowTo), nextCursor: hasMore ? String(page[page.length - 1].id) : undefined };
+  const limit = clampLimit(filter.limit, 100, 1000);
+  const sql = `SELECT * FROM tool_traffic ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY id DESC`;
+  return keysetPaginate<TrafficRow, TrafficRecord>(getDb(), sql, params, limit, rowTo, (r) => r.id);
 }
 
 export function getTraffic(id: number): TrafficRecord | null {

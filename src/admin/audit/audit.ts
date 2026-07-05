@@ -2,6 +2,7 @@ import { getDb } from "../../db/connection.js";
 import { config } from "../../config.js";
 import { sha256Hex } from "../../lib/crypto.js";
 import { dispatchWebhook } from "../../lib/webhook.js";
+import { clampLimit, keysetPaginate } from "../../lib/pagination-cursor.js";
 import type { Request } from "express";
 
 export interface AuditLogEntry {
@@ -131,7 +132,7 @@ export function listAuditLog(
   nextCursor?: string;
 } {
   const db = getDb();
-  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  const limit = clampLimit(opts.limit, 50, 200);
 
   const conditions: string[] = [];
   const params: (string | number)[] = [];
@@ -158,34 +159,35 @@ export function listAuditLog(
   }
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const rows = db
-    .query(
-      `SELECT id, actor, action, target, detail_json, created_at, hash FROM admin_audit_log ${whereClause} ORDER BY id DESC LIMIT ?`,
-    )
-    .all(...params, limit + 1) as {
-    id: number;
-    actor: string;
-    action: string;
-    target: string;
-    detail_json: string | null;
-    created_at: number;
-    hash: string | null;
-  }[];
+  const sql = `SELECT id, actor, action, target, detail_json, created_at, hash FROM admin_audit_log ${whereClause} ORDER BY id DESC`;
 
-  const hasMore = rows.length > limit;
-  const page = hasMore ? rows.slice(0, limit) : rows;
-
-  const items: AuditLogEntry[] = page.map((r) => ({
-    id: r.id,
-    actor: r.actor,
-    action: r.action,
-    target: r.target,
-    detail: r.detail_json ? (JSON.parse(r.detail_json) as Record<string, unknown>) : null,
-    createdAt: r.created_at,
-    hash: r.hash,
-  }));
-
-  return { items, nextCursor: hasMore ? String(page[page.length - 1].id) : undefined };
+  return keysetPaginate<
+    {
+      id: number;
+      actor: string;
+      action: string;
+      target: string;
+      detail_json: string | null;
+      created_at: number;
+      hash: string | null;
+    },
+    AuditLogEntry
+  >(
+    db,
+    sql,
+    params,
+    limit,
+    (r) => ({
+      id: r.id,
+      actor: r.actor,
+      action: r.action,
+      target: r.target,
+      detail: r.detail_json ? (JSON.parse(r.detail_json) as Record<string, unknown>) : null,
+      createdAt: r.created_at,
+      hash: r.hash,
+    }),
+    (r) => r.id,
+  );
 }
 
 /**
@@ -230,7 +232,7 @@ export function exportAuditLog(
     .query(
       `SELECT id, actor, action, target, detail_json, created_at, hash FROM admin_audit_log ${whereClause} ORDER BY id DESC LIMIT ?`,
     )
-    .all(...params, Math.min(Math.max(maxRows, 1), 100000)) as {
+    .all(...params, clampLimit(maxRows, 10000, 100000)) as {
     id: number;
     actor: string;
     action: string;

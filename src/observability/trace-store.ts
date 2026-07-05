@@ -13,6 +13,7 @@
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
+import { clampLimit, keysetPaginate } from "../lib/pagination-cursor.js";
 import type { FinishedSpan, AttrValue } from "./tracing.js";
 
 export interface StoredSpan {
@@ -135,7 +136,7 @@ export function listTraces(
   }
   const having = filter.cursor ? "HAVING MAX(id) < ?" : "";
   if (filter.cursor) params.push(Number(filter.cursor));
-  const limit = Math.min(Math.max(filter.limit ?? 50, 1), 500);
+  const limit = clampLimit(filter.limit, 50, 500);
   const sql = `
     SELECT trace_id, COUNT(*) as span_count, MIN(start_ms) as start_ms, MAX(end_ms) as end_ms,
            MAX(status_code) as status_code, MAX(mcp_tool_name) as mcp_tool_name, MAX(session_id) as session_id,
@@ -145,32 +146,35 @@ export function listTraces(
     GROUP BY trace_id
     ${having}
     ORDER BY last_id DESC
-    LIMIT ?
   `;
-  const rows = getDb()
-    .query(sql)
-    .all(...params, limit + 1) as {
-    trace_id: string;
-    span_count: number;
-    start_ms: number;
-    end_ms: number;
-    status_code: number;
-    mcp_tool_name: string | null;
-    session_id: string | null;
-    last_id: number;
-  }[];
-  const hasMore = rows.length > limit;
-  const page = hasMore ? rows.slice(0, limit) : rows;
-  const items: TraceSummary[] = page.map((r) => ({
-    traceId: r.trace_id,
-    spanCount: r.span_count,
-    startMs: r.start_ms,
-    endMs: r.end_ms,
-    mcpToolName: r.mcp_tool_name,
-    sessionId: r.session_id,
-    hasError: r.status_code === 2,
-  }));
-  return { items, nextCursor: hasMore ? String(page[page.length - 1].last_id) : undefined };
+  return keysetPaginate<
+    {
+      trace_id: string;
+      span_count: number;
+      start_ms: number;
+      end_ms: number;
+      status_code: number;
+      mcp_tool_name: string | null;
+      session_id: string | null;
+      last_id: number;
+    },
+    TraceSummary
+  >(
+    getDb(),
+    sql,
+    params,
+    limit,
+    (r) => ({
+      traceId: r.trace_id,
+      spanCount: r.span_count,
+      startMs: r.start_ms,
+      endMs: r.end_ms,
+      mcpToolName: r.mcp_tool_name,
+      sessionId: r.session_id,
+      hasError: r.status_code === 2,
+    }),
+    (r) => r.last_id,
+  );
 }
 
 export interface TopSessionRow {
