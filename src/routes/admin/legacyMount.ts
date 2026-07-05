@@ -29,7 +29,7 @@ import {
   setApprovalRequired,
   MAX_APPROVAL_LEVELS,
 } from "../../admin/entities/approvals.js";
-import { listTraffic, getTraffic } from "../../observability/traffic.js";
+import { listTraffic } from "../../observability/traffic.js";
 import { setMonitor, deleteMonitor, listMonitors } from "../../observability/monitor.js";
 import { setToolGraphql, setToolWs } from "../../proxy/backends.js";
 import { getClientOAuth, setClientOAuth, type OAuthError } from "../../backend-auth/oauth.js";
@@ -904,45 +904,5 @@ export function mountLegacy(parent: Router): void {
     res.status(200).json({ items: listMonitors() });
   });
 
-  // ── Traffic explorer + replay ──────────────────────────────────────────────
-
-  parent.get("/traffic", (req: Request, res: Response) => {
-    const clientName = typeof req.query.client === "string" ? req.query.client : undefined;
-    const toolName = typeof req.query.tool === "string" ? req.query.tool : undefined;
-    const errorsOnly = req.query.errors === "true";
-    const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
-    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
-    res.status(200).json(listTraffic({ clientName, toolName, errorsOnly, cursor, limit }));
-  });
-
-  parent.get("/traffic/:id", (req: Request<{ id: string }>, res: Response) => {
-    const rec = getTraffic(Number(req.params.id));
-    if (!rec) {
-      notFound(res, "TRAFFIC_NOT_FOUND", "Traffic record not found");
-      return;
-    }
-    res.status(200).json(rec);
-  });
-
-  parent.post(
-    "/traffic/:id/replay",
-    requireOperator,
-    async (req: Request<{ id: string }>, res: Response) => {
-      const rec = getTraffic(Number(req.params.id));
-      if (!rec) {
-        notFound(res, "TRAFFIC_NOT_FOUND", "Traffic record not found");
-        return;
-      }
-      if (rec.clientName && !ensureClientAccess(req, res, rec.clientName)) return;
-      let args: Record<string, unknown>;
-      try {
-        args = JSON.parse(rec.argsJson) as Record<string, unknown>;
-      } catch {
-        args = {};
-      }
-      const result = await proxyToolCall(rec.mcpToolName, args);
-      recordAudit(actorFromRequest(req), "traffic.replay", rec.mcpToolName, { id: rec.id });
-      res.status(200).json(result);
-    },
-  );
+  // ── Traffic explorer + replay — moved to ./traffic.ts (P0-2b cont.) ──────
 }

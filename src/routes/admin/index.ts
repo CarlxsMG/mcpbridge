@@ -6,6 +6,7 @@ import { overviewRoutes } from "./overview.js";
 import { usersRoutes } from "./users.js";
 import { auditLogRoutes } from "./audit-log.js";
 import { approvalsRoutes } from "./approvals.js";
+import { trafficRoutes } from "./traffic.js";
 import { mountLegacy } from "./legacyMount.js";
 
 /**
@@ -38,6 +39,7 @@ export function adminRoutes(app: Express): void {
   r.use(usersRoutes);
   r.use(auditLogRoutes);
   r.use(approvalsRoutes);
+  r.use(trafficRoutes);
   mountLegacy(r);
 
   app.use("/admin-api", r);
