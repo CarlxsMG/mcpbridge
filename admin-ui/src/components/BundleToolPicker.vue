@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { api, ApiError } from "@/composables/useApi";
+import { api } from "@/composables/useApi";
 import type { ToolListItem, BundleToolRef } from "@/types/api";
 import { Search } from "lucide-vue-next";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
+import { toErrorMessage } from "@/utils/errors";
 
 const model = defineModel<BundleToolRef[]>({ required: true });
 
@@ -20,7 +21,7 @@ async function load() {
     const res = await api.get<{ items: ToolListItem[] }>("/admin-api/tools");
     allTools.value = res.items;
   } catch (err) {
-    errorMessage.value = err instanceof ApiError ? err.message : "Failed to load tools.";
+    errorMessage.value = toErrorMessage(err, "Failed to load tools.");
   } finally {
     loading.value = false;
   }
