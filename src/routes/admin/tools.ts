@@ -7,25 +7,49 @@ import { purgeToolCache } from "../../tool-policies/response-cache.js";
 import { clearQuarantine } from "../../tool-policies/quarantine.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
-import { TOOL_KEY_SEPARATOR, toolKey } from "../../lib/identifier.js";
+import { toolKey } from "../../lib/identifier.js";
+import { dispatchToolMutations } from "../../admin/tool-policies/mutations/index.js";
 
 /**
  * Admin endpoints for the per-tool lifecycle on an already-registered
  * client:
  *   - bulk enable / disable across a list of tools in one client
+ *   - per-tool policy PATCH (cache, coalesce, mock, transform, pagination,
+ *     streaming, guardrails, quarantine, context-budget, sensitivity,
+ *     redaction, override, monitor, graphql, ws, approval) — delegates to
+ *     the dispatcher in `src/admin/tool-policies/mutations/index.ts`
  *   - synthetic test call against the live proxy pipeline
  *   - saved-example CRUD (playground)
  *   - circuit-breaker manual reset
  *   - per-tool response-cache purge
  *   - per-tool quarantine manual clear
- *
- * The big PATCH /clients/:name/tools/:tool (policy mutations: cache,
- * coalesce, mock, transform, pagination, streaming, guardrails,
- * quarantine, context-budget, sensitivity, redaction, override)
- * stays in legacyMount — splitting it means splitting one endpoint
- * into a per-feature sub-handler tree, which is a separate refactor.
  */
 export const toolsRoutes = Router();
+
+// Per-tool policy PATCH — the big multi-key handler. Each body key is
+// dispatched to its own `ToolMutation` in
+// `src/admin/tool-policies/mutations/<key>.ts`, in declaration order,
+// which is the audit-event order for multi-key PATCHes.
+toolsRoutes.patch(
+  "/clients/:name/tools/:tool",
+  requireOperator,
+  async (req: Request<{ name: string; tool: string }>, res: Response) => {
+    const { name, tool } = req.params;
+    if (!ensureClientAccess(req, res, name)) return;
+    const body = (req.body as Record<string, unknown>) ?? {};
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      validationError(res, "request body must be a JSON object");
+      return;
+    }
+    const outcome = await dispatchToolMutations(
+      body,
+      { actor: actorFromRequest(req), clientName: name, toolName: tool },
+      res,
+    );
+    if (outcome !== null) return; // dispatcher already wrote the error response
+    res.status(200).json({ status: "updated", name, tool });
+  },
+);
 
 // Bulk enable/disable across all listed tools of one client.
 toolsRoutes.patch(

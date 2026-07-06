@@ -13,24 +13,18 @@ import { canaryRoutes } from "./canary.js";
 import { lbRoutes } from "./lb.js";
 import { clientsRoutes } from "./clients.js";
 import { toolsRoutes } from "./tools.js";
-import { mountLegacy } from "./legacyMount.js";
 
 /**
  * Top-level admin router. Mounts every per-entity sub-router under
  * `/admin-api` and threads the shared `adminAuth` middleware in one place,
  * so individual sub-routers don't repeat the auth guard on every handler.
  *
- * Sub-routers write their own paths RELATIVE to `/admin-api` (e.g. a router
+ * Sub-routers write their own paths RELATIVE TO `/admin-api` (e.g. a router
  * calling `r.get("/overview", ...)` ends up at `GET /admin-api/overview`).
  *
  * Each per-entity router (clients / bundles / approvals / users / …) lives in
  * its own file in this directory. Adding a new entity means adding one file
  * and one `mount + r.use` line here — not editing a 1200-line monolith.
- *
- * Until individual per-entity routers replace it, `legacyMount` covers the
- * not-yet-migrated routes (clients, users, audit-log, etc.) so the transition
- * is incremental and bisectable. Legacy never re-adds `adminAuth` because the
- * parent router already enforces it before reaching the legacy router.
  */
 export function adminRoutes(app: Express): void {
   const r = Router();
@@ -52,7 +46,6 @@ export function adminRoutes(app: Express): void {
   r.use(lbRoutes);
   r.use(clientsRoutes);
   r.use(toolsRoutes);
-  mountLegacy(r);
 
   app.use("/admin-api", r);
 }
