@@ -29,6 +29,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per-request AsyncLocalStorage context, with-safe `enterWith` for the current
   span) and is plumbed through `requestIdMiddleware`. OTLP spans now emit
   `parentSpanId` when present.
+- E2E coverage expansion (P1-3, partial). The Playwright suite now exercises
+  two more flows beyond the existing smoke test:
+  - `e2e/auth-fail-closed.spec.ts` — the MCP data plane starts in open mode
+    (no auth material), then locks down the moment a managed MCP key is
+    minted via the admin API: no Authorization → 401, bogus Bearer → 403,
+    the right key → 200, and a revoked key → 403. Five tests in one spec.
+  - `e2e/mcp-protocol.spec.ts` — protocol-contract assertions on
+    `/mcp/:clientName`: `initialize` returns a real serverInfo,
+    `tools/list` advertises the discovered client__tool with the
+    OpenAPI-derived name/description/inputSchema, `tools/call` for a
+    known tool returns the upstream payload, and three error paths
+    (unknown tool, invalid args, upstream 404) all surface as
+    `isError: true` rather than dropping the session.
+  The smoke test was also updated to use `/mcp/:clientName` (the data
+  plane) instead of the post-`/mcp` refactor control plane, and each
+  spec mints its own managed MCP key so the suite is order-independent
+  and the data plane is in a known auth-required state.
 - Closed 12 documentation gaps found by a full features-vs-docs audit: bundle install links,
   the curated install catalog, tool tags, the context-budget guard, admin-UI SSO login,
   self-service session/password management, the on-demand DB backup endpoint, audit-log
