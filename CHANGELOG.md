@@ -16,6 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Prometheus metric names from `src/observability/metrics.ts`. Includes the standard
   4-window burn-rate alert formulation so operators can wire it into Prometheus/Grafana.
 - Added `CLAUDE.md` (repo guidance for AI coding agents).
+- Added 4 ADRs in `docs/architecture/decisions/`:
+  - `0001-two-planes-three-endpoints.md` — the /mcp split that separates the
+    control plane (sys_* tools, rootMcpAuth fail-closed) from the data plane
+    shards (`/mcp/:clientName`, `/mcp-custom/:bundleName`). Commits the
+    rationale behind commit `69fd8eb` so future contributors don't re-propose
+    flattening /mcp.
+  - `0002-w3c-traceparent-propagation.md` — the W3C trace context propagation
+    through the proxy pipeline (P1-6), implemented via `AsyncLocalStorage` so
+    signature churn stays at zero. Commits the rationale behind `aebe04b`.
+  - `0003-slos-public-contract.md` — the six SLOs in
+    `docs/architecture/slos.md`, percentage-window for throughput, binary for
+    invariants like audit chain integrity, with the standard 4-window burn-rate
+    alert template. Commits the rationale behind `d2e491f`.
+  - `0004-e2e-as-ci-gate.md` — the auth-fail-closed and mcp-protocol e2e
+    specs as hard CI gates (order-independent, each mints its own key),
+    with the smoke spec updated for the /mcp split. Commits the rationale
+    behind `d58fd30` + `d5ed472`.
 
 ### Added
 
@@ -28,6 +45,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   occurrences in `beforeEach`/`afterEach` save/restore blocks, helper functions
   (`resetAll`, `pointAt`), and tests that re-assign the same field with different
   values mid-body are still flagged for manual migration in a follow-up.
+- **Partial (reverted) — P1-4 co-localización de tests.** A migration script
+  (`scripts/co_locate_tests.py` con una tabla de mapeo de 121 entradas)
+  mueve `src/__tests__/*.test.ts` a `src/<feat>/__tests__/*.test.ts` y reescribe
+  imports al depth correcto. Resultado medido: 1215/1216 tests pass (99.92 %).
+  **Revertido** por exceder el budget de 2 h del autonomous mode y por un mystery
+  test failure que bun:test reporta solo como "1 fail / 1 error" en el resumen
+  final sin un stack identificable en los logs (output de 14 MB dominado por
+  "Applied database migration"). Documentado como follow-up en REVIEW.md §8.
+- Follow-up notes in `docs/REVIEW.md` §8 — P1-9 partial closure, P1-4 revert,
+  P1-3 remaining flows (canary failover + bundle install e2e).
 - W3C `traceparent` propagation (P1-6). The gateway now honors an incoming
   `traceparent` on MCP requests — the bridge's own OTLP span inherits the caller's
   trace-id and records the upstream's span-id as its parent — and injects a

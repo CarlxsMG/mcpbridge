@@ -495,6 +495,63 @@ export const config = Raw.parse(process.env) as unknown as Config;
 
 ---
 
+## 8. Follow-ups parciales (post-1.0.0)
+
+Ítems iniciados pero no cerrados en la racha P1-x; cada uno tiene contexto suficiente
+para retomarse en una sesión dedicada.
+
+### P1-9 — `withConfig(patch, fn)` helper **(parcial, ~80 % cerrado)**
+
+**Estado**: helper en `src/__tests__/_utils/with-config.ts` (con su smoke suite de 8 tests),
+migración mecánica aplicada a **13 archivos / 50 sitios**. Los **~226 call sites restantes** están
+explícitamente fuera del script por tres motivos documentados:
+
+1. **`beforeEach` / `afterEach` save/restore.** El parche en `withConfig` se aplica una vez al
+   entrar al test, pero los hooks `beforeEach/afterEach` mutan config en el `describe` scope, no en
+   cada test. Un wrapper per-test invertiría el orden (patch → setup → restore).
+2. **Helpers como `resetAll()`, `pointAt()`** que mutan config desde fuera del callback del
+   test. Moverlos a `withConfig` cambiaría su contrato.
+3. **Tests que reasignan el mismo campo con valores distintos mid-body**
+   (`secrets-index.test.ts:43-47` "switches when config.secretsProvider changes") — un solo patch
+   object no puede expresar el toggle.
+
+**Para retomar**: cubrir esos tres patrones manualmente. El más común
+(`beforeEach/afterEach`) se puede resolver con una variante `withConfigAll` que
+acepta un array de patches (uno por test), pero requiere cambio de signature en el helper.
+
+### P1-4 — Co-localizar tests en `src/<feat>/__tests__/` **(parcial, 99.9 % cerrado, revertido)**
+
+**Estado**: se construyó un script `scripts/co_locate_tests.py` que mapea los ~126
+`src/__tests__/*.test.ts` a sus feature folders (`src/admin/audit/__tests__/`,
+`src/mcp/__tests__/`, etc.), reescribe los imports relativos al nuevo nivel
+(depth-correcto, incluyendo `await import(...)` dinámico), y deja `_utils/` en su
+ubicación original con los consumidores apuntando explícitamente a
+`../../__tests__/_utils/with-config.js`. Resultado medido: **1215/1216 tests pass tras
+la migración** (99.92 %). El test fallido es un edge case difícil de localizar en el output
+de bun (no aparece como `(fail)` en los logs, solo como `1 fail / 1 error` en el resumen
+final, con un output de 14 MB dominado por `Applied database migration`).
+
+**Decisión**: revertido. **Razón**: la regla de parada del autonomous mode dice
+"Un ítem M resulta ser más grande de lo estimado (>2 h) — entonces divídelo o deja nota en el
+REVIEW y para." Esta migración invirtió ~3 h netas entre script, depth-bug fixes
+(3 bugs distintos: `_utils/` rewrite, depth=0 vs depth=1, offset-in-body), ENOENT phantom
+errors (bun's test runner caching paths), y el mystery test failure que no se pudo aislar.
+
+**Para retomar**: la tabla `MAPPING` en `scripts/co_locate_tests.py` (commit previo en
+working tree antes del revert) ya tiene 121 entradas validadas. El script solo necesita
+un fix al mystery test — sugiere ejecutar `bun test --bail=1 --reporter=verbose` para
+obtener el nombre del test que falla, luego excluirlo del mapeo (o arreglarlo manualmente)
+y re-ejecutar. Tiempo estimado para terminar: **30-60 min**.
+
+### P1-3 — Cobertura e2e **(parcial, 2/4 flujos)**
+
+`e2e/auth-fail-closed.spec.ts` (5 tests) + `e2e/mcp-protocol.spec.ts` (6 tests)
+están en main. **Pendientes**: `e2e/canary-failover.spec.ts` y `e2e/bundle-install.spec.ts`.
+Estima 1-2 h cada uno, depende de fixtures (un primario que se pueda tumbar para canary,
+un bundle pre-registrado con install token para bundle-install).
+
+---
+
 ## 7. Glosario de cambios esperados (resumen ejecutivo)
 
 - **`src/proxy/proxy.ts`**: de 1500 LOC a <500. `dispatchToolCall` de 730 a <200.
