@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Docs
 
+- Added `docs/architecture/slos.md` (and `docs/es/architecture/slos.md`) — initial
+  public reliability contract: 4 percentage-window SLOs (tool call availability 99.5%,
+  tool call latency p95/p99, discovery latency p99, admin API availability) and 2 binary
+  SLOs (audit chain integrity, health probe coverage), each grounded in the real
+  Prometheus metric names from `src/observability/metrics.ts`. Includes the standard
+  4-window burn-rate alert formulation so operators can wire it into Prometheus/Grafana.
 - Added `CLAUDE.md` (repo guidance for AI coding agents).
 - Closed 12 documentation gaps found by a full features-vs-docs audit: bundle install links,
   the curated install catalog, tool tags, the context-budget guard, admin-UI SSO login,
