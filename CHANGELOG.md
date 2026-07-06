@@ -30,6 +30,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`safeCompare("short", "verylong…")` → 403, no throw). New `compare.test.ts`
   cases are needed: `(a, a) === true`, and a hex-error path that verifies
   the catch returns `false`. Run with `bun run test:mutate`.
+- **P2-2 — closed the two surviving `compare.ts` mutants**. Added
+  `src/security/__tests__/compare.test.ts` with 9 cases: equal-inputs
+  return `true` (kills Mutant 4 — strict `.toBe(true)` rejects the
+  `undefined` returned when the try-block is emptied), different-inputs
+  return `false` (length + content + empty-vs-non-empty variants), and
+  three defensive-catch cases that pass `null` / `undefined` to force
+  the digest to throw (kills Mutant 5 — the catch MUST return `false`
+  on the error path; flipping it to `true` would silently authorize
+  mismatches on the error path, a real security hole since `safeCompare`
+  is the gate for API keys, session tokens, CSRF tokens, and
+  guard-restricted API key hashes). Re-run on 2026-07-06: **6/6 mutants
+  killed (100.00% mutation score)** in 3m 29s. Test suite grows from
+  1227 to 1236 cases.
 
 ### Docs
 
