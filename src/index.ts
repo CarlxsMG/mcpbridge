@@ -12,6 +12,7 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { log } from "./logger.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { metricsRoutes } from "./routes/metrics.js";
+import { healthRoutes } from "./routes/health.js";
 import { startCircuitBreakerCleanup } from "./middleware/circuit-breaker.js";
 import { checkStartupGuards } from "./security/startup-guards.js";
 import { validateEnvOrWarn } from "./config-schema.js";
@@ -168,6 +169,7 @@ registerRoutes(app);
 introspectionRoutes(app);
 docsRoutes(app);
 metricsRoutes(app);
+healthRoutes(app);
 authRoutes(app);
 authOidcRoutes(app);
 adminRoutes(app);
@@ -212,15 +214,6 @@ tracesRoutes(app);
     log("warn", "admin-ui/dist not found — the admin UI is not being served. Run `bun run build` in admin-ui/ first.");
   }
 }
-
-// Self-health endpoint
-const startedAt = Date.now();
-app.get("/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
-  });
-});
 
 // Leader election (must start before the health-check loop, which consults isLeader())
 const stopLeaderElection = startLeaderElection();

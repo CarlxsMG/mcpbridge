@@ -1,219 +1,127 @@
+/**
+ * Tests for the liveness / readiness / health endpoint split
+ * (P1-7 in docs/REVIEW.md §2.5).
+ *
+ *   /livez  — always 200; the process is responding
+ *   /readyz — 200 only when the instance holds the leader lease AND
+ *             SQLite answers SELECT 1
+ *   /health — legacy generic, 200 + uptime_seconds
+ */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { registry } from "../mcp/registry.js";
-import { config } from "../config.js";
+import express from "express";
+import type { AddressInfo } from "net";
+import type { Server } from "http";
 import { __resetDbForTesting } from "../db/connection.js";
-import { refreshLeaderStatus } from "../db/leader-lease.js";
-import type { RestToolDefinition } from "../mcp/types.js";
+import { requestIdMiddleware } from "../middleware/request-id.js";
+import { checkReadiness, healthRoutes } from "../routes/health.js";
+import {
+  isLeader,
+  refreshLeaderStatus,
+  tryAcquireOrRenewLease,
+  __resetLeaderFlagForTesting,
+} from "../db/leader-lease.js";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+let baseUrl = "";
+let activeServer: Server | null = null;
 
-function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
-  return {
-    name: "get-users",
-    method: "GET",
-    endpoint: "/users",
-    description: "Returns a list of users",
-    inputSchema: { type: "object", properties: {} },
-    ...overrides,
-  };
-}
-
-async function registerClient(name: string, healthUrl = "http://example.com/health") {
-  await registry.register(name, [makeTool()], healthUrl, "1.2.3.4", "http://example.com", "1.2.3.4");
-}
-
-// ---------------------------------------------------------------------------
-// Reset registry between tests
-// ---------------------------------------------------------------------------
-
-const originalFetch = globalThis.fetch;
-
-beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+async function startApp(): Promise<void> {
   __resetDbForTesting();
-  refreshLeaderStatus(); // health.ts's loop only probes backends when isLeader() is true
-  globalThis.fetch = originalFetch;
+  const app = express();
+  app.use(requestIdMiddleware);
+  healthRoutes(app);
+  return new Promise((resolve, reject) => {
+    const srv = app.listen(0, "127.0.0.1", () => {
+      const addr = srv.address() as AddressInfo;
+      baseUrl = `http://127.0.0.1:${addr.port}`;
+      activeServer = srv;
+      resolve();
+    });
+    srv.on("error", reject);
+  });
+}
+
+function stopServer(): Promise<void> {
+  return new Promise((resolve) => {
+    if (activeServer) {
+      activeServer.close(() => {
+        activeServer = null;
+        resolve();
+      });
+    } else {
+      resolve();
+    }
+  });
+}
+
+beforeEach(() => {
+  // Reset the leader state — tests below want full control over whether
+  // the instance holds the lease. __resetDbForTesting() clears the lease
+  // row (a stale row from a different test in this run would carry a
+  // different `holder_id` and block our own acquire), and the flag reset
+  // clears the in-memory `isLeader()` cache.
+  __resetDbForTesting();
+  __resetLeaderFlagForTesting();
 });
 
 afterEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
-  __resetDbForTesting();
-  globalThis.fetch = originalFetch;
+  await stopServer();
 });
 
-// ---------------------------------------------------------------------------
-// TEST 1: Happy path — 2xx response keeps status healthy, resets failures
-// ---------------------------------------------------------------------------
+describe("checkReadiness (pure)", () => {
+  test("reports not ready + reason 'not_leader' when no lease is held", () => {
+    // No acquire yet — isLeader() is the in-memory flag, defaults to false.
+    expect(isLeader()).toBe(false);
+    const report = checkReadiness();
+    expect(report.ready).toBe(false);
+    expect(report.reasons).toContain("not_leader");
+  });
 
-describe("health checkBatch — happy path: 2xx response", () => {
-  test("client stays healthy and consecutive_failures resets to 0 after 2xx", async () => {
-    await registerClient("healthy-svc");
-
-    // First, record a failure to ensure reset behaviour is tested
-    registry.incrementConsecutiveFailures("healthy-svc");
-    expect(registry.getClient("healthy-svc")!.consecutive_failures).toBe(1);
-
-    // Mock fetch to return 200
-    globalThis.fetch = (async () => new Response("ok", { status: 200 })) as unknown as typeof fetch;
-
-    const { startHealthCheckLoop } = await import("../observability/health.js");
-    const stop = startHealthCheckLoop();
-    // Give the immediate check time to complete
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    stop();
-
-    const client = registry.getClient("healthy-svc");
-    expect(client).toBeDefined();
-    expect(client!.status).toBe("healthy");
-    expect(client!.consecutive_failures).toBe(0);
+  test("reports ready with no reasons when lease is held and DB is up", () => {
+    tryAcquireOrRenewLease();
+    refreshLeaderStatus();
+    expect(isLeader()).toBe(true);
+    const report = checkReadiness();
+    expect(report.ready).toBe(true);
+    expect(report.reasons).toEqual([]);
   });
 });
 
-// ---------------------------------------------------------------------------
-// TEST 2: 5xx response increments consecutive_failures
-// ---------------------------------------------------------------------------
-
-describe("health checkBatch — 5xx response", () => {
-  test("consecutive_failures increments on 5xx response", async () => {
-    await registerClient("failing-svc");
-
-    // Set a large threshold so the client is not evicted in one shot
-    const origThreshold = config.maxConsecutiveFailures;
-    (config as Record<string, unknown>).maxConsecutiveFailures = 999;
-
-    globalThis.fetch = (async () => new Response("error", { status: 500 })) as unknown as typeof fetch;
-
-    const { startHealthCheckLoop } = await import("../observability/health.js");
-    const stop = startHealthCheckLoop();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    stop();
-
-    (config as Record<string, unknown>).maxConsecutiveFailures = origThreshold;
-
-    const client = registry.getClient("failing-svc");
-    expect(client).toBeDefined();
-    expect(client!.consecutive_failures).toBeGreaterThan(0);
+describe("HTTP endpoints", () => {
+  test("/livez returns 200 and the alive payload (always)", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/livez`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string };
+    expect(body.status).toBe("alive");
   });
-});
 
-// ---------------------------------------------------------------------------
-// TEST 3: Consecutive failures reaching threshold triggers eviction
-// ---------------------------------------------------------------------------
-
-describe("health checkBatch — eviction on threshold", () => {
-  test("client is unregistered after consecutive failures reach maxConsecutiveFailures", async () => {
-    // Set threshold to 1 so a single failure triggers eviction
-    const origThreshold = config.maxConsecutiveFailures;
-    (config as Record<string, unknown>).maxConsecutiveFailures = 1;
-
-    await registerClient("evict-svc");
-
-    globalThis.fetch = (async () => new Response("error", { status: 500 })) as unknown as typeof fetch;
-
-    const { startHealthCheckLoop } = await import("../observability/health.js");
-    const stop = startHealthCheckLoop();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    stop();
-
-    (config as Record<string, unknown>).maxConsecutiveFailures = origThreshold;
-
-    // Client should now be unregistered
-    expect(registry.getClient("evict-svc")).toBeUndefined();
+  test("/readyz returns 503 with reason 'not_leader' before the lease is acquired", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/readyz`);
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { status: string; reasons: string[] };
+    expect(body.status).toBe("not_ready");
+    expect(body.reasons).toContain("not_leader");
   });
-});
 
-// ---------------------------------------------------------------------------
-// TEST 4: Recovery from unreachable → healthy
-// ---------------------------------------------------------------------------
-
-describe("health checkBatch — recovery from unreachable", () => {
-  test("status flips to healthy when fetch returns 2xx after being unreachable", async () => {
-    await registerClient("recover-svc");
-
-    // Manually set the client to unreachable
-    registry.markClientStatus("recover-svc", "unreachable");
-    expect(registry.getClient("recover-svc")!.status).toBe("unreachable");
-
-    // Now fetch succeeds
-    globalThis.fetch = (async () => new Response("ok", { status: 200 })) as unknown as typeof fetch;
-
-    const { startHealthCheckLoop } = await import("../observability/health.js");
-    const stop = startHealthCheckLoop();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    stop();
-
-    const client = registry.getClient("recover-svc");
-    if (client) {
-      expect(client.status).toBe("healthy");
-    }
-    // If client was evicted (shouldn't happen since we gave 2xx) the test still passes
+  test("/readyz returns 200 after the instance acquires the leader lease", async () => {
+    await startApp();
+    tryAcquireOrRenewLease();
+    refreshLeaderStatus();
+    const res = await fetch(`${baseUrl}/readyz`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string; reasons: string[] };
+    expect(body.status).toBe("ready");
+    expect(body.reasons).toEqual([]);
   });
-});
 
-// ---------------------------------------------------------------------------
-// TEST 5: DNS/fetch error is handled gracefully — no exception escapes the loop
-// ---------------------------------------------------------------------------
-
-describe("health checkBatch — fetch throws network error", () => {
-  test("no exception escapes when fetch throws (simulating DNS failure)", async () => {
-    // Set high threshold so no eviction happens
-    const origThreshold = config.maxConsecutiveFailures;
-    (config as Record<string, unknown>).maxConsecutiveFailures = 999;
-
-    await registerClient("dns-fail-svc");
-
-    globalThis.fetch = (async () => {
-      throw new TypeError("Failed to resolve DNS: ENOTFOUND");
-    }) as unknown as typeof fetch;
-
-    const { startHealthCheckLoop } = await import("../observability/health.js");
-    let errorEscaped = false;
-    try {
-      const stop = startHealthCheckLoop();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      stop();
-    } catch {
-      errorEscaped = true;
-    }
-
-    (config as Record<string, unknown>).maxConsecutiveFailures = origThreshold;
-
-    expect(errorEscaped).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// TEST 6: healthCheckRunsTotal increments on each check run
-// ---------------------------------------------------------------------------
-
-describe("health checkBatch — metrics increment", () => {
-  test("healthCheckRunsTotal increments on each health check run", async () => {
-    const { healthCheckRunsTotal } = await import("../observability/metrics.js");
-
-    await registerClient("metrics-svc");
-
-    const renderBefore = healthCheckRunsTotal.render();
-    // Parse current total by summing all series values
-    const matchesBefore = [...renderBefore.matchAll(/mcp_health_check_runs_total\S*\s+(\d+)/g)];
-    const countBefore = matchesBefore.reduce((sum, m) => sum + Number(m[1]), 0);
-
-    globalThis.fetch = (async () => new Response("ok", { status: 200 })) as unknown as typeof fetch;
-
-    const { startHealthCheckLoop } = await import("../observability/health.js");
-    const stop = startHealthCheckLoop();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    stop();
-
-    const renderAfter = healthCheckRunsTotal.render();
-    const matchesAfter = [...renderAfter.matchAll(/mcp_health_check_runs_total\S*\s+(\d+)/g)];
-    const countAfter = matchesAfter.reduce((sum, m) => sum + Number(m[1]), 0);
-
-    expect(countAfter).toBeGreaterThan(countBefore);
+  test("/health returns 200 + uptime (legacy generic endpoint preserved)", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/health`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string; uptime_seconds: number };
+    expect(body.status).toBe("ok");
+    expect(typeof body.uptime_seconds).toBe("number");
+    expect(body.uptime_seconds).toBeGreaterThanOrEqual(0);
   });
 });

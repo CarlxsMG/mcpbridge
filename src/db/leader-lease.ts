@@ -60,3 +60,13 @@ export function startLeaderElection(): () => void {
 
   return () => clearInterval(timer);
 }
+
+/**
+ * Test-only escape hatch — resets the in-memory `isLeader()` flag without
+ * touching the lease row. Use in tests that need a deterministic "not
+ * leader" baseline; pair with `__resetDbForTesting` to also clear the
+ * persisted lease row.
+ */
+export function __resetLeaderFlagForTesting(): void {
+  currentlyLeader = false;
+}
