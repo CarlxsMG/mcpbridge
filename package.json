@@ -14,6 +14,7 @@
     "test": "bun test \"--path-ignore-patterns={admin-ui,e2e}/**\"",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
+    "test:mutate": "stryker run",
     "check": "bun scripts/check-all.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -36,6 +37,8 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.61.1",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/typescript-checker": "^9.6.1",
     "@types/express": "^5.0.0",
     "@types/swagger-ui-express": "^4.1.8",
     "@types/ws": "^8.18.1",

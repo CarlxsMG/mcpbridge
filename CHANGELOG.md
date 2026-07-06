@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **P2-1 — Stryker mutation testing baseline** for `src/security/compare.ts`
+  (the constant-time string-compare primitive used by every secret check in
+  the codebase — API keys, session tokens, CSRF tokens, guard-restricted API
+  key hashes). The wrapper at `scripts/stryker-test-runner.ts` runs the test
+  suite from inside the per-mutant sandbox and streams its ~7 MB of output
+  to a file via `Bun.spawn` instead of `child_process.exec`, working around
+  Node's hard-coded 1 MB `maxBuffer` that would otherwise kill the child
+  with SIGTERM and surface as `ConfigError: There were failed tests in the
+  initial test run` despite a green 1227/0 suite. Initial run on
+  2026-07-06: **4/6 mutants killed (66.67% mutation score)**, completed in
+  3m 26s on a single worker. The two surviving mutants are real coverage
+  gaps and are tracked as P2-2 follow-up work:
+  - `BlockStatement` (line 16, replacement `{}`) — if the try-block is
+    emptied, equal-true inputs return `undefined` instead of `true`.
+  - `BooleanLiteral` (line 17, replacement `true`) — if the catch returns
+    `true` instead of `false`, any error path returns "match" — a security
+    hole.
+  Both survive because the existing test only exercises the catch path
+  (`safeCompare("short", "verylong…")` → 403, no throw). New `compare.test.ts`
+  cases are needed: `(a, a) === true`, and a hex-error path that verifies
+  the catch returns `false`. Run with `bun run test:mutate`.
+
 ### Docs
 
 - Added `docs/architecture/slos.md` (and `docs/es/architecture/slos.md`) — initial
