@@ -20,39 +20,35 @@ canaryRoutes.get("/clients/:name/canary", (req: Request<{ name: string }>, res: 
   res.status(200).json({ canary: getCanary(req.params.name) });
 });
 
-canaryRoutes.put(
-  "/clients/:name/canary",
-  requireOperator,
-  async (req: Request<{ name: string }>, res: Response) => {
-    const { name } = req.params;
-    if (!ensureClientAccess(req, res, name)) return;
-    const body = (req.body as Record<string, unknown>) ?? {};
-    let input: { secondaryBaseUrl: string; mode: "canary" | "failover"; weight: number; enabled: boolean } | null;
-    if (body.canary === null) {
-      input = null;
-    } else {
-      const secondaryBaseUrl = typeof body.secondaryBaseUrl === "string" ? body.secondaryBaseUrl : "";
-      const mode = body.mode === "failover" ? "failover" : "canary";
-      const weight = typeof body.weight === "number" ? body.weight : 0;
-      const enabled = body.enabled !== false;
-      if (!secondaryBaseUrl) {
-        validationError(res, "secondaryBaseUrl is required (or send { canary: null } to clear)");
-        return;
-      }
-      input = { secondaryBaseUrl, mode, weight, enabled };
-    }
-
-    const result = await setCanary(name, input);
-    if (!result.ok) {
-      sendError(res, result.error === "CLIENT_NOT_FOUND" ? 404 : 400, result.error, result.reason ?? result.error);
+canaryRoutes.put("/clients/:name/canary", requireOperator, async (req: Request<{ name: string }>, res: Response) => {
+  const { name } = req.params;
+  if (!ensureClientAccess(req, res, name)) return;
+  const body = (req.body as Record<string, unknown>) ?? {};
+  let input: { secondaryBaseUrl: string; mode: "canary" | "failover"; weight: number; enabled: boolean } | null;
+  if (body.canary === null) {
+    input = null;
+  } else {
+    const secondaryBaseUrl = typeof body.secondaryBaseUrl === "string" ? body.secondaryBaseUrl : "";
+    const mode = body.mode === "failover" ? "failover" : "canary";
+    const weight = typeof body.weight === "number" ? body.weight : 0;
+    const enabled = body.enabled !== false;
+    if (!secondaryBaseUrl) {
+      validationError(res, "secondaryBaseUrl is required (or send { canary: null } to clear)");
       return;
     }
-    recordAudit(
-      actorFromRequest(req),
-      input ? "client.canary.set" : "client.canary.clear",
-      name,
-      input ? { mode: input.mode, weight: input.weight, enabled: input.enabled } : undefined,
-    );
-    res.status(200).json({ status: "updated", name });
-  },
-);
+    input = { secondaryBaseUrl, mode, weight, enabled };
+  }
+
+  const result = await setCanary(name, input);
+  if (!result.ok) {
+    sendError(res, result.error === "CLIENT_NOT_FOUND" ? 404 : 400, result.error, result.reason ?? result.error);
+    return;
+  }
+  recordAudit(
+    actorFromRequest(req),
+    input ? "client.canary.set" : "client.canary.clear",
+    name,
+    input ? { mode: input.mode, weight: input.weight, enabled: input.enabled } : undefined,
+  );
+  res.status(200).json({ status: "updated", name });
+});

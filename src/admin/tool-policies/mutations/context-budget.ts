@@ -33,9 +33,7 @@ export const contextBudgetMutation: ToolMutation = {
     return { kind: "ok" };
   },
   audit: (_raw, parsed) => {
-    const v = parsed as
-      | { mode: string; maxResponseBytes: number; llm?: { provider: string } }
-      | null;
+    const v = parsed as { mode: string; maxResponseBytes: number; llm?: { provider: string } } | null;
     return {
       action: v ? "tool.context_budget.set" : "tool.context_budget.clear",
       meta: v

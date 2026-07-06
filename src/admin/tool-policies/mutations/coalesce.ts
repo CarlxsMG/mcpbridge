@@ -11,11 +11,7 @@ export const coalesceMutation: ToolMutation = {
   key: "coalesce",
   validate: (raw) => validateCoalesceInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
-    const ok = setToolCoalesce(
-      ctx.clientName,
-      ctx.toolName,
-      parsed as Parameters<typeof setToolCoalesce>[2],
-    );
+    const ok = setToolCoalesce(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setToolCoalesce>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
   audit: (_raw, parsed) => {

@@ -12,11 +12,7 @@ export const mockMutation: ToolMutation = {
   key: "mock",
   validate: (raw) => validateMockInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
-    const ok = setToolMock(
-      ctx.clientName,
-      ctx.toolName,
-      parsed as Parameters<typeof setToolMock>[2],
-    );
+    const ok = setToolMock(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setToolMock>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
   audit: (_raw, parsed) => {

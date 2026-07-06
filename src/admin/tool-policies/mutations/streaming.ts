@@ -11,11 +11,7 @@ export const streamingMutation: ToolMutation = {
   key: "streaming",
   validate: (raw) => validateStreamingInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
-    const ok = setStreamingConfig(
-      ctx.clientName,
-      ctx.toolName,
-      parsed as Parameters<typeof setStreamingConfig>[2],
-    );
+    const ok = setStreamingConfig(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setStreamingConfig>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
   audit: (_raw, parsed) => {

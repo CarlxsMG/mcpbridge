@@ -1,0 +1,433 @@
+import { describe, test, expect, beforeEach } from "bun:test";
+import type { Request, Response, NextFunction } from "express";
+
+// ---------------------------------------------------------------------------
+// Config mutation strategy
+//
+// `auth.ts` imports `config` as a live object reference:
+//   import { config } from "../../config.js"
+//
+// Because ESM imports are live bindings to the *same* object, mutating
+// the `config` object's properties here affects the same reference used
+// inside auth.ts without needing a mock framework.
+// ---------------------------------------------------------------------------
+
+import { config } from "../../config.js";
+import { adminAuth, mcpAuth } from "../../middleware/auth.js";
+import { __resetDbForTesting } from "../../db/connection.js";
+import { createUser } from "../../security/user-store.js";
+import { createSession } from "../../security/session-store.js";
+import { SESSION_COOKIE_NAME } from "../../security/cookies.js";
+
+import { withConfig } from "../../__tests__/_utils/with-config.js";
+// ---------------------------------------------------------------------------
+// Mock helpers
+// ---------------------------------------------------------------------------
+
+function makeReq(headers: Record<string, string> = {}, method = "GET"): Request {
+  return { headers, method } as unknown as Request;
+}
+
+type MockRes = {
+  _status: number | undefined;
+  _body: unknown;
+  status: (code: number) => MockRes;
+  json: (body: unknown) => MockRes;
+  setHeader: (name: string, value: string) => void;
+};
+
+function makeRes(): MockRes {
+  const res: MockRes = {
+    _status: undefined,
+    _body: undefined,
+    status(code) {
+      this._status = code;
+      return this;
+    },
+    json(body) {
+      this._body = body;
+      return this;
+    },
+    setHeader() {},
+  };
+  return res;
+}
+
+function makeNext(): { fn: NextFunction; called: boolean } {
+  const state = { fn: null as unknown as NextFunction, called: false };
+  state.fn = () => {
+    state.called = true;
+  };
+  return state;
+}
+
+// ---------------------------------------------------------------------------
+// Store original config values so we can restore after each test
+// ---------------------------------------------------------------------------
+
+let originalAuthDisabled: boolean;
+let originalAdminApiKeys: string[];
+let originalMcpApiKeys: string[];
+
+beforeEach(() => {
+  originalAuthDisabled = config.authDisabled;
+  originalAdminApiKeys = config.adminApiKeys;
+  originalMcpApiKeys = config.mcpApiKeys;
+});
+
+function restoreConfig() {
+  config.authDisabled = originalAuthDisabled;
+  (config as Record<string, unknown>).adminApiKeys = originalAdminApiKeys;
+  (config as Record<string, unknown>).mcpApiKeys = originalMcpApiKeys;
+}
+
+// ---------------------------------------------------------------------------
+// adminAuth tests
+// ---------------------------------------------------------------------------
+
+describe("adminAuth — valid Bearer token", () => {
+  test("calls next() when token matches an admin key", async () => {
+    await withConfig({ adminApiKeys: ["secret-key"] }, async () => {
+      config.authDisabled = false;
+
+      const req = makeReq({ authorization: "Bearer secret-key" });
+      const res = makeRes();
+      const next = makeNext();
+
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
+
+      expect(next.called).toBe(true);
+      expect(res._status).toBeUndefined();
+    });
+  });
+});
+
+describe("adminAuth — missing Authorization header", () => {
+  test("responds 401 when Authorization header is absent", async () => {
+    await withConfig({ adminApiKeys: ["secret-key"] }, async () => {
+      config.authDisabled = false;
+
+      const req = makeReq();
+      const res = makeRes();
+      const next = makeNext();
+
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
+
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(401);
+      expect((res._body as Record<string, Record<string, string>>).error.code).toBe("UNAUTHORIZED");
+    });
+  });
+
+  test("responds 401 when Authorization header is not a Bearer token", async () => {
+    await withConfig({ adminApiKeys: ["secret-key"] }, async () => {
+      config.authDisabled = false;
+
+      const req = makeReq({ authorization: "Basic dXNlcjpwYXNz" });
+      const res = makeRes();
+      const next = makeNext();
+
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
+
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(401);
+    });
+  });
+});
+
+describe("adminAuth — invalid token", () => {
+  test("responds 403 when token does not match any admin key", async () => {
+    await withConfig({ adminApiKeys: ["correct-key"] }, async () => {
+      config.authDisabled = false;
+
+      const req = makeReq({ authorization: "Bearer wrong-key" });
+      const res = makeRes();
+      const next = makeNext();
+
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
+
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(403);
+      expect((res._body as Record<string, Record<string, string>>).error.code).toBe("FORBIDDEN");
+    });
+  });
+});
+
+describe("adminAuth — AUTH_DISABLED bypass", () => {
+  test("calls next() without checking token when authDisabled is true", () => {
+    config.authDisabled = true;
+    (config as Record<string, unknown>).adminApiKeys = ["secret-key"];
+
+    // No Authorization header at all
+    const req = makeReq();
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(true);
+    expect(res._status).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mcpAuth tests
+// ---------------------------------------------------------------------------
+
+describe("mcpAuth — valid Bearer token", () => {
+  test("calls next() when token matches an MCP key", async () => {
+    await withConfig({ mcpApiKeys: ["mcp-key"] }, async () => {
+      config.authDisabled = false;
+
+      const req = makeReq({ authorization: "Bearer mcp-key" });
+      const res = makeRes();
+      const next = makeNext();
+
+      await mcpAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
+
+      expect(next.called).toBe(true);
+    });
+  });
+});
+
+describe("mcpAuth — no MCP keys configured (backward compat)", () => {
+  test("calls next() when mcpApiKeys is empty regardless of token", async () => {
+    await withConfig({ mcpApiKeys: [] }, async () => {
+      config.authDisabled = false;
+
+      const req = makeReq(); // no token
+      const res = makeRes();
+      const next = makeNext();
+
+      await mcpAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
+
+      expect(next.called).toBe(true);
+    });
+  });
+});
+
+describe("mcpAuth — missing Authorization header", () => {
+  test("responds 401 when header is absent and MCP keys are configured", async () => {
+    await withConfig({ mcpApiKeys: ["mcp-key"] }, async () => {
+      config.authDisabled = false;
+
+      const req = makeReq();
+      const res = makeRes();
+      const next = makeNext();
+
+      await mcpAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
+
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(401);
+    });
+  });
+});
+
+describe("mcpAuth — invalid token", () => {
+  test("responds 403 when token does not match any MCP key", async () => {
+    await withConfig({ mcpApiKeys: ["real-mcp-key"] }, async () => {
+      config.authDisabled = false;
+
+      const req = makeReq({ authorization: "Bearer fake-mcp-key" });
+      const res = makeRes();
+      const next = makeNext();
+
+      await mcpAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
+
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(403);
+    });
+  });
+});
+
+describe("mcpAuth — AUTH_DISABLED bypass", () => {
+  test("calls next() without checking token when authDisabled is true", async () => {
+    config.authDisabled = true;
+    (config as Record<string, unknown>).mcpApiKeys = ["mcp-key"];
+
+    const req = makeReq(); // no token
+    const res = makeRes();
+    const next = makeNext();
+
+    await mcpAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(true);
+    expect(res._status).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// adminAuth — session cookie authentication (unified auth, Phase 4)
+// ---------------------------------------------------------------------------
+
+describe("adminAuth — session cookie authentication", () => {
+  beforeEach(() => {
+    __resetDbForTesting();
+  });
+
+  function setupUserAndSession() {
+    const user = createUser("alice", "irrelevant-hash", "admin", null);
+    const session = createSession(user.id, "127.0.0.1", "test-agent");
+    return { user, session };
+  }
+
+  test("valid session cookie on a GET request calls next() without requiring CSRF", () => {
+    config.authDisabled = false;
+    const { session } = setupUserAndSession();
+
+    const req = makeReq({ cookie: `${SESSION_COOKIE_NAME}=${session.token}` }, "GET");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(true);
+    expect(res._status).toBeUndefined();
+    expect(req.authContext?.method).toBe("session");
+  });
+
+  test("missing session cookie and no Bearer header responds 401", () => {
+    config.authDisabled = false;
+    const req = makeReq({}, "GET");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(false);
+    expect(res._status).toBe(401);
+  });
+
+  test("invalid/unknown session token responds 401", () => {
+    config.authDisabled = false;
+    const req = makeReq({ cookie: `${SESSION_COOKIE_NAME}=totally-bogus-token` }, "GET");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(false);
+    expect(res._status).toBe(401);
+  });
+
+  test("a mutating request with a valid session but missing CSRF header responds 403", () => {
+    config.authDisabled = false;
+    const { session } = setupUserAndSession();
+
+    const req = makeReq({ cookie: `${SESSION_COOKIE_NAME}=${session.token}` }, "POST");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(false);
+    expect(res._status).toBe(403);
+    expect((res._body as Record<string, Record<string, string>>).error.code).toBe("CSRF_VALIDATION_FAILED");
+  });
+
+  test("a mutating request with a valid session and matching CSRF header calls next()", () => {
+    config.authDisabled = false;
+    const { session } = setupUserAndSession();
+
+    const req = makeReq(
+      { cookie: `${SESSION_COOKIE_NAME}=${session.token}`, "x-csrf-token": session.csrfToken },
+      "POST",
+    );
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(true);
+  });
+
+  test("a mutating request with a wrong CSRF token responds 403", () => {
+    config.authDisabled = false;
+    const { session } = setupUserAndSession();
+
+    const req = makeReq({ cookie: `${SESSION_COOKIE_NAME}=${session.token}`, "x-csrf-token": "wrong-token" }, "POST");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(false);
+    expect(res._status).toBe(403);
+  });
+
+  test("Bearer header takes precedence over a present session cookie, even on a mutating method with no CSRF header", async () => {
+    await withConfig({ adminApiKeys: ["bearer-key"] }, async () => {
+      config.authDisabled = false;
+      const { session } = setupUserAndSession();
+
+      const req = makeReq(
+        { authorization: "Bearer bearer-key", cookie: `${SESSION_COOKIE_NAME}=${session.token}` },
+        "POST",
+      );
+      const res = makeRes();
+      const next = makeNext();
+
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
+
+      expect(next.called).toBe(true);
+      expect(req.authContext?.method).toBe("bearer");
+    });
+  });
+
+  test("authDisabled still bypasses everything even with a session cookie present", () => {
+    config.authDisabled = true;
+    const req = makeReq({ cookie: `${SESSION_COOKIE_NAME}=nonsense` }, "POST");
+    const res = makeRes();
+    const next = makeNext();
+
+    adminAuth(req as Request, res as unknown as Response, next.fn);
+    restoreConfig();
+
+    expect(next.called).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// safeCompare — timing-safe length-leak prevention
+// ---------------------------------------------------------------------------
+
+describe("safeCompare — hash-before-compare (via adminAuth)", () => {
+  test("returns false without throwing when comparing short vs long strings", async () => {
+    await withConfig({ adminApiKeys: ["verylongverylongverylong"] }, async () => {
+      // Verifies both sides are hashed to fixed 32-byte digests before timingSafeEqual;
+      // a length-leaking implementation would have returned false early but here we
+      // confirm the function completes without error and produces the correct result.
+      config.authDisabled = false;
+
+      // "short" !== "verylongverylongverylong" — must be 403, not a throw
+      const req = makeReq({ authorization: "Bearer short" });
+      const res = makeRes();
+      const next = makeNext();
+
+      expect(() => {
+        adminAuth(req as Request, res as unknown as Response, next.fn);
+      }).not.toThrow();
+      restoreConfig();
+
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(403);
+    });
+  });
+});

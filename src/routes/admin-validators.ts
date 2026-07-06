@@ -25,7 +25,11 @@ import type { StreamFormat } from "../proxy/streaming.js";
 import type { TransformOp } from "../proxy/transform.js";
 import type { PaginationStrategy } from "../tool-policies/pagination.js";
 import type { QuarantineAction, QuarantineRecoveryMode } from "../tool-policies/quarantine.js";
-import type { ContextBudgetInput, ContextBudgetMode, ContextBudgetLlmProvider } from "../tool-policies/context-budget.js";
+import type {
+  ContextBudgetInput,
+  ContextBudgetMode,
+  ContextBudgetLlmProvider,
+} from "../tool-policies/context-budget.js";
 import { MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../tool-policies/guardrails.js";
 import { MAX_CACHE_TTL_SECONDS } from "../tool-policies/response-cache.js";
 import { MAX_PAGINATION_PAGES } from "../tool-policies/pagination.js";
@@ -38,9 +42,7 @@ import { hashApiKey } from "../security/key-hash.js";
 // ─── Per-tool policy inputs ─────────────────────────────────────────────────
 
 /** Per-tool response cache — `null`/`false` clears, an object opts the tool in. */
-export function validateCacheInput(
-  raw: unknown,
-): ValidationResult<{ enabled: boolean; ttlSeconds: number } | null> {
+export function validateCacheInput(raw: unknown): ValidationResult<{ enabled: boolean; ttlSeconds: number } | null> {
   if (raw === null || raw === false) return { ok: true, value: null };
   if (typeof raw !== "object") return { ok: false, message: "cache must be an object, null, or false" };
   const obj = raw as Record<string, unknown>;
@@ -65,9 +67,7 @@ const QUARANTINE_ACTIONS: readonly QuarantineAction[] = ["block", "force_approva
 const QUARANTINE_RECOVERY_MODES: readonly QuarantineRecoveryMode[] = ["auto", "manual"];
 
 /** Per-tool quarantine policy — `null`/`false` clears. */
-export function validateQuarantinePolicyInput(
-  raw: unknown,
-): ValidationResult<{
+export function validateQuarantinePolicyInput(raw: unknown): ValidationResult<{
   consecutiveThreshold: number;
   action: QuarantineAction;
   recoveryMode: QuarantineRecoveryMode;

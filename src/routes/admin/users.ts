@@ -61,53 +61,45 @@ usersRoutes.post("/users", requireAdminRole, async (req: Request, res: Response)
   res.status(201).json({ username: user.username, role: user.role, is_active: user.isActive });
 });
 
-usersRoutes.patch(
-  "/users/:username",
-  requireAdminRole,
-  (req: Request<{ username: string }>, res: Response) => {
-    const { username } = req.params;
-    const body = (req.body as Record<string, unknown>) ?? {};
-    const existing = findUserByUsername(username);
-    if (!existing) {
-      notFound(res, "USER_NOT_FOUND", "User not found");
-      return;
-    }
+usersRoutes.patch("/users/:username", requireAdminRole, (req: Request<{ username: string }>, res: Response) => {
+  const { username } = req.params;
+  const body = (req.body as Record<string, unknown>) ?? {};
+  const existing = findUserByUsername(username);
+  if (!existing) {
+    notFound(res, "USER_NOT_FOUND", "User not found");
+    return;
+  }
 
-    const nextRole: AdminRole | undefined = isAdminRole(body.role) ? body.role : undefined;
-    const nextActive: boolean | undefined = typeof body.is_active === "boolean" ? body.is_active : undefined;
+  const nextRole: AdminRole | undefined = isAdminRole(body.role) ? body.role : undefined;
+  const nextActive: boolean | undefined = typeof body.is_active === "boolean" ? body.is_active : undefined;
 
-    const wouldLoseAdminStatus =
-      existing.role === "admin" &&
-      existing.isActive &&
-      ((nextRole !== undefined && nextRole !== "admin") || nextActive === false);
-    if (wouldLoseAdminStatus && countActiveAdmins() <= 1) {
-      sendError(res, 409, "LAST_ADMIN_PROTECTED", "Cannot demote or deactivate the last active admin");
-      return;
-    }
+  const wouldLoseAdminStatus =
+    existing.role === "admin" &&
+    existing.isActive &&
+    ((nextRole !== undefined && nextRole !== "admin") || nextActive === false);
+  if (wouldLoseAdminStatus && countActiveAdmins() <= 1) {
+    sendError(res, 409, "LAST_ADMIN_PROTECTED", "Cannot demote or deactivate the last active admin");
+    return;
+  }
 
-    updateUser(username, { role: nextRole, isActive: nextActive });
-    if (nextActive === false) revokeAllSessionsForUser(existing.id);
-    recordAudit(actorFromRequest(req), "user.update", username, { role: nextRole, is_active: nextActive });
-    res.status(200).json({ status: "updated", username });
-  },
-);
+  updateUser(username, { role: nextRole, isActive: nextActive });
+  if (nextActive === false) revokeAllSessionsForUser(existing.id);
+  recordAudit(actorFromRequest(req), "user.update", username, { role: nextRole, is_active: nextActive });
+  res.status(200).json({ status: "updated", username });
+});
 
-usersRoutes.delete(
-  "/users/:username",
-  requireAdminRole,
-  (req: Request<{ username: string }>, res: Response) => {
-    const { username } = req.params;
-    const existing = findUserByUsername(username);
-    if (!existing) {
-      notFound(res, "USER_NOT_FOUND", "User not found");
-      return;
-    }
-    if (existing.role === "admin" && existing.isActive && countActiveAdmins() <= 1) {
-      sendError(res, 409, "LAST_ADMIN_PROTECTED", "Cannot delete the last active admin");
-      return;
-    }
-    deleteUser(username); // cascades admin_sessions via FK
-    recordAudit(actorFromRequest(req), "user.delete", username);
-    res.status(200).json({ status: "deleted", username });
-  },
-);
+usersRoutes.delete("/users/:username", requireAdminRole, (req: Request<{ username: string }>, res: Response) => {
+  const { username } = req.params;
+  const existing = findUserByUsername(username);
+  if (!existing) {
+    notFound(res, "USER_NOT_FOUND", "User not found");
+    return;
+  }
+  if (existing.role === "admin" && existing.isActive && countActiveAdmins() <= 1) {
+    sendError(res, 409, "LAST_ADMIN_PROTECTED", "Cannot delete the last active admin");
+    return;
+  }
+  deleteUser(username); // cascades admin_sessions via FK
+  recordAudit(actorFromRequest(req), "user.delete", username);
+  res.status(200).json({ status: "deleted", username });
+});

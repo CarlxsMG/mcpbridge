@@ -16,11 +16,7 @@ export const guardrailsMutation: ToolMutation = {
   key: "guardrails",
   validate: (raw) => validateGuardrailsInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
-    const ok = setGuardrails(
-      ctx.clientName,
-      ctx.toolName,
-      parsed as Parameters<typeof setGuardrails>[2],
-    );
+    const ok = setGuardrails(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setGuardrails>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
   audit: (_raw, parsed) => {

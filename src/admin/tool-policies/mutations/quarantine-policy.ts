@@ -12,11 +12,7 @@ export const quarantinePolicyMutation: ToolMutation = {
   key: "quarantinePolicy",
   validate: (raw) => validateQuarantinePolicyInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
-    const ok = setQuarantinePolicy(
-      ctx.clientName,
-      ctx.toolName,
-      parsed as Parameters<typeof setQuarantinePolicy>[2],
-    );
+    const ok = setQuarantinePolicy(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setQuarantinePolicy>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
   audit: (_raw, parsed) => {

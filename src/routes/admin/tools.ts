@@ -52,29 +52,25 @@ toolsRoutes.patch(
 );
 
 // Bulk enable/disable across all listed tools of one client.
-toolsRoutes.patch(
-  "/clients/:name/tools",
-  requireOperator,
-  async (req: Request<{ name: string }>, res: Response) => {
-    const { name } = req.params;
-    const body = (req.body as Record<string, unknown>) ?? {};
-    const toolNames = body.tool_names;
-    const enabled = body.enabled;
-    if (!Array.isArray(toolNames) || toolNames.some((n) => typeof n !== "string") || typeof enabled !== "boolean") {
-      validationError(res, "tool_names (string[]) and enabled (boolean) are required");
-      return;
+toolsRoutes.patch("/clients/:name/tools", requireOperator, async (req: Request<{ name: string }>, res: Response) => {
+  const { name } = req.params;
+  const body = (req.body as Record<string, unknown>) ?? {};
+  const toolNames = body.tool_names;
+  const enabled = body.enabled;
+  if (!Array.isArray(toolNames) || toolNames.some((n) => typeof n !== "string") || typeof enabled !== "boolean") {
+    validationError(res, "tool_names (string[]) and enabled (boolean) are required");
+    return;
+  }
+  const actor = actorFromRequest(req);
+  const results: Record<string, boolean> = {};
+  for (const toolName of toolNames as string[]) {
+    results[toolName] = await registry.setToolEnabled(name, toolName, enabled);
+    if (results[toolName]) {
+      recordAudit(actor, enabled ? "tool.enable" : "tool.disable", toolKey(name, toolName), { bulk: true });
     }
-    const actor = actorFromRequest(req);
-    const results: Record<string, boolean> = {};
-    for (const toolName of toolNames as string[]) {
-      results[toolName] = await registry.setToolEnabled(name, toolName, enabled);
-      if (results[toolName]) {
-        recordAudit(actor, enabled ? "tool.enable" : "tool.disable", toolKey(name, toolName), { bulk: true });
-      }
-    }
-    res.status(200).json({ results });
-  },
-);
+  }
+  res.status(200).json({ results });
+});
 
 // Synthetic test call — runs the live proxy pipeline against a real
 // upstream so admins can exercise a tool without going through an MCP

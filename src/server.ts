@@ -172,7 +172,11 @@ export function createApp(): CreateAppResult {
     });
     const errObj = err as Record<string, unknown>;
     const rawStatus =
-      typeof errObj.status === "number" ? errObj.status : typeof errObj.statusCode === "number" ? errObj.statusCode : 500;
+      typeof errObj.status === "number"
+        ? errObj.status
+        : typeof errObj.statusCode === "number"
+          ? errObj.statusCode
+          : 500;
     const status = rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
     const is5xx = status >= 500;
     const code: string = typeof errObj.code === "string" ? errObj.code : is5xx ? "INTERNAL_ERROR" : "BAD_REQUEST";

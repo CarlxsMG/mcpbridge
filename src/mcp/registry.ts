@@ -92,7 +92,7 @@ export class ToolOverrideError extends Error {
 /** Tracks clients currently being unregistered to close the proxy race window. */
 const deletingClients = new Set<string>();
 
-  /** Returns true when `name` is currently being unregistered. */
+/** Returns true when `name` is currently being unregistered. */
 export function isDeleting(name: string): boolean {
   return deletingClients.has(name);
 }
@@ -320,7 +320,15 @@ class Registry {
         }
       }
 
-      const persisted = this.persistence.persistRestRegistration(name, tools, healthUrl, ip, baseUrl, resolvedIp, retryNonSafeMethods);
+      const persisted = this.persistence.persistRestRegistration(
+        name,
+        tools,
+        healthUrl,
+        ip,
+        baseUrl,
+        resolvedIp,
+        retryNonSafeMethods,
+      );
 
       const client: RegisteredClient = {
         name,
@@ -422,7 +430,14 @@ class Registry {
         }
       }
 
-      const persisted = this.persistence.persistMcpRegistration(name, sanitizedTools, mcpUrl, transport, ip, resolvedIp);
+      const persisted = this.persistence.persistMcpRegistration(
+        name,
+        sanitizedTools,
+        mcpUrl,
+        transport,
+        ip,
+        resolvedIp,
+      );
 
       const client: RegisteredClient = {
         name,
@@ -512,7 +527,6 @@ class Registry {
     });
   }
 
-
   /**
    * Reconciles the in-memory registry against SQLite so mutations made by other
    * instances propagate: clients present in the DB but not live are added,
@@ -549,8 +563,7 @@ class Registry {
             consecutive_failures: existing?.consecutive_failures ?? 0,
           };
           this.clients.set(name, client);
-          for (const t of client.tools)
-            this.toolIndex.setTool(name, t.name);
+          for (const t of client.tools) this.toolIndex.setTool(name, t.name);
           this.aliasIndex.rebuildForClient(name, client.tools);
           added++;
         });

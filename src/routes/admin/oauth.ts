@@ -32,37 +32,33 @@ oauthRoutes.get("/clients/:name/oauth", (req: Request<{ name: string }>, res: Re
   res.status(200).json({ oauth: getClientOAuth(req.params.name) });
 });
 
-oauthRoutes.put(
-  "/clients/:name/oauth",
-  requireOperator,
-  async (req: Request<{ name: string }>, res: Response) => {
-    const { name } = req.params;
-    if (!ensureClientAccess(req, res, name)) return;
-    const body = (req.body as Record<string, unknown>) ?? {};
-    let input: { tokenUrl: string; clientId: string; clientSecret: string; scope?: string } | null;
-    if (body.oauth === null) {
-      input = null;
-    } else {
-      const tokenUrl = typeof body.tokenUrl === "string" ? body.tokenUrl : "";
-      const clientId = typeof body.clientId === "string" ? body.clientId : "";
-      const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret : "";
-      if (!tokenUrl || !clientId || !clientSecret) {
-        validationError(res, "tokenUrl, clientId, and clientSecret are required (or send { oauth: null } to clear)");
-        return;
-      }
-      input = { tokenUrl, clientId, clientSecret, scope: typeof body.scope === "string" ? body.scope : undefined };
-    }
-    const result = await setClientOAuth(name, input);
-    if (!result.ok) {
-      sendError(
-        res,
-        mutationErrorToStatus(result.error, OAUTH_ERROR_STATUS),
-        result.error,
-        result.reason ?? result.error,
-      );
+oauthRoutes.put("/clients/:name/oauth", requireOperator, async (req: Request<{ name: string }>, res: Response) => {
+  const { name } = req.params;
+  if (!ensureClientAccess(req, res, name)) return;
+  const body = (req.body as Record<string, unknown>) ?? {};
+  let input: { tokenUrl: string; clientId: string; clientSecret: string; scope?: string } | null;
+  if (body.oauth === null) {
+    input = null;
+  } else {
+    const tokenUrl = typeof body.tokenUrl === "string" ? body.tokenUrl : "";
+    const clientId = typeof body.clientId === "string" ? body.clientId : "";
+    const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret : "";
+    if (!tokenUrl || !clientId || !clientSecret) {
+      validationError(res, "tokenUrl, clientId, and clientSecret are required (or send { oauth: null } to clear)");
       return;
     }
-    recordAudit(actorFromRequest(req), input ? "client.oauth.set" : "client.oauth.clear", name);
-    res.status(200).json({ status: "updated", name });
-  },
-);
+    input = { tokenUrl, clientId, clientSecret, scope: typeof body.scope === "string" ? body.scope : undefined };
+  }
+  const result = await setClientOAuth(name, input);
+  if (!result.ok) {
+    sendError(
+      res,
+      mutationErrorToStatus(result.error, OAUTH_ERROR_STATUS),
+      result.error,
+      result.reason ?? result.error,
+    );
+    return;
+  }
+  recordAudit(actorFromRequest(req), input ? "client.oauth.set" : "client.oauth.clear", name);
+  res.status(200).json({ status: "updated", name });
+});

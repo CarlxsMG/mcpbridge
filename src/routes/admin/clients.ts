@@ -49,62 +49,54 @@ clientsRoutes.get("/clients/:name", (req: Request<{ name: string }>, res: Respon
 
 // ── Per-client mutations (operator-tier) ─────────────────────────────────────
 
-clientsRoutes.patch(
-  "/clients/:name",
-  requireOperator,
-  async (req: Request<{ name: string }>, res: Response) => {
-    const { name } = req.params;
-    if (!ensureClientAccess(req, res, name)) return;
-    const body = (req.body as Record<string, unknown>) ?? {};
-    const actor = actorFromRequest(req);
+clientsRoutes.patch("/clients/:name", requireOperator, async (req: Request<{ name: string }>, res: Response) => {
+  const { name } = req.params;
+  if (!ensureClientAccess(req, res, name)) return;
+  const body = (req.body as Record<string, unknown>) ?? {};
+  const actor = actorFromRequest(req);
 
-    if (body.enabled !== undefined) {
-      if (typeof body.enabled !== "boolean") {
-        validationError(res, "enabled must be a boolean");
-        return;
-      }
-      const ok = await registry.setClientEnabled(name, body.enabled);
-      if (!ok) {
-        notFound(res, "CLIENT_NOT_FOUND", "Client not found");
-        return;
-      }
-      recordAudit(actor, body.enabled ? "client.enable" : "client.disable", name);
+  if (body.enabled !== undefined) {
+    if (typeof body.enabled !== "boolean") {
+      validationError(res, "enabled must be a boolean");
+      return;
     }
-
-    if (body.guards !== undefined) {
-      const parsed = validateClientGuardInput(body.guards);
-      if (!parsed.ok) {
-        validationError(res, parsed.message);
-        return;
-      }
-      const ok = await registry.setClientGuards(name, parsed.value);
-      if (!ok) {
-        notFound(res, "CLIENT_NOT_FOUND", "Client not found");
-        return;
-      }
-      recordAudit(actor, "client.guards.update", name, { guards: parsed.value });
-    }
-
-    res.status(200).json({ status: "updated", name });
-  },
-);
-
-clientsRoutes.delete(
-  "/clients/:name",
-  requireOperator,
-  async (req: Request<{ name: string }>, res: Response) => {
-    const { name } = req.params;
-    if (!ensureClientAccess(req, res, name)) return;
-    const actor = actorFromRequest(req);
-    const removed = await registry.forgetClient(name);
-    if (!removed) {
+    const ok = await registry.setClientEnabled(name, body.enabled);
+    if (!ok) {
       notFound(res, "CLIENT_NOT_FOUND", "Client not found");
       return;
     }
-    recordAudit(actor, "client.delete", name);
-    res.status(200).json({ status: "deleted", name });
-  },
-);
+    recordAudit(actor, body.enabled ? "client.enable" : "client.disable", name);
+  }
+
+  if (body.guards !== undefined) {
+    const parsed = validateClientGuardInput(body.guards);
+    if (!parsed.ok) {
+      validationError(res, parsed.message);
+      return;
+    }
+    const ok = await registry.setClientGuards(name, parsed.value);
+    if (!ok) {
+      notFound(res, "CLIENT_NOT_FOUND", "Client not found");
+      return;
+    }
+    recordAudit(actor, "client.guards.update", name, { guards: parsed.value });
+  }
+
+  res.status(200).json({ status: "updated", name });
+});
+
+clientsRoutes.delete("/clients/:name", requireOperator, async (req: Request<{ name: string }>, res: Response) => {
+  const { name } = req.params;
+  if (!ensureClientAccess(req, res, name)) return;
+  const actor = actorFromRequest(req);
+  const removed = await registry.forgetClient(name);
+  if (!removed) {
+    notFound(res, "CLIENT_NOT_FOUND", "Client not found");
+    return;
+  }
+  recordAudit(actor, "client.delete", name);
+  res.status(200).json({ status: "deleted", name });
+});
 
 // Bulk enable/disable across a list of client names. Single endpoint,
 // one transaction per name — partial successes are reported in the

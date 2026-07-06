@@ -26,9 +26,7 @@ import type { ValidationResult } from "../../../routes/validation.js";
  *     standard error envelope.
  */
 export type MutationApplyResult =
-  | { kind: "ok" }
-  | { kind: "tool_not_found" }
-  | { kind: "error"; status: number; code: string; reason?: string };
+  { kind: "ok" } | { kind: "tool_not_found" } | { kind: "error"; status: number; code: string; reason?: string };
 
 /**
  * Per-call context threaded through every mutation. Carries the target
@@ -72,11 +70,7 @@ export interface ToolMutation {
 }
 
 /** Sentinel result types returned by the dispatcher for the route handler. */
-export type DispatchOutcome =
-  | "validation_error"
-  | "tool_not_found"
-  | "downstream_error"
-  | null;
+export type DispatchOutcome = "validation_error" | "tool_not_found" | "downstream_error" | null;
 
 /** Marker export so the dispatcher module can take a `Response` without re-typing it. */
 export type DispatcherResponse = Response;

@@ -45,7 +45,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   occurrences in `beforeEach`/`afterEach` save/restore blocks, helper functions
   (`resetAll`, `pointAt`), and tests that re-assign the same field with different
   values mid-body are still flagged for manual migration in a follow-up.
-- **Partial (reverted) — P1-4 co-localización de tests.** A migration script
+- P1-4 co-localización de tests **cerrada**. Los 113 tests no-raíz se
+  mueven de `src/__tests__/` a `src/<feat>/__tests__/` (p.ej.
+  `src/__tests__/audit-chain.test.ts` → `src/admin/audit/__tests__/audit-chain.test.ts`)
+  siguiendo la estructura de carpetas existente. Imports reescritos al
+  depth correcto (estático, dinámico, sibling `_utils/`, y `import.meta.dir`
+  paths) para que cada archivo siga resolviendo los mismos módulos desde su
+  nueva ubicación. 13 tests raíz (catalog, config-*, etc.) permanecen en
+  `src/__tests__/`. `_utils/with-config.ts` también se queda en
+  `src/__tests__/_utils/` — los consumidores referencian la ruta larga
+  explícita. Mystery test del intento previo (`openapi-discovery.test.ts`
+  con `import.meta.dir, "../../tests/fixtures"`) resuelto con rewrite
+  depth-aware del path. **Verified**: bunx tsc --noEmit 0 errors;
+  1227/1227 backend pass; 12/12 e2e pass.
   (`scripts/co_locate_tests.py` con una tabla de mapeo de 121 entradas)
   mueve `src/__tests__/*.test.ts` a `src/<feat>/__tests__/*.test.ts` y reescribe
   imports al depth correcto. Resultado medido: 1215/1216 tests pass (99.92 %).

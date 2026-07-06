@@ -11,11 +11,7 @@ export const paginationMutation: ToolMutation = {
   key: "pagination",
   validate: (raw) => validatePaginationInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
-    const ok = setPaginationConfig(
-      ctx.clientName,
-      ctx.toolName,
-      parsed as Parameters<typeof setPaginationConfig>[2],
-    );
+    const ok = setPaginationConfig(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setPaginationConfig>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
   audit: (_raw, parsed) => {

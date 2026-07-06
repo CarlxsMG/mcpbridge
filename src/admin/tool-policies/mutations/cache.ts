@@ -11,11 +11,7 @@ export const cacheMutation: ToolMutation = {
   key: "cache",
   validate: (raw) => validateCacheInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
-    const ok = setToolCacheConfig(
-      ctx.clientName,
-      ctx.toolName,
-      parsed as Parameters<typeof setToolCacheConfig>[2],
-    );
+    const ok = setToolCacheConfig(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setToolCacheConfig>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
   audit: (_raw, parsed) => {

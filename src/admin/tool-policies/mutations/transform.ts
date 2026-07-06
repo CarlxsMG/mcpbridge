@@ -11,11 +11,7 @@ export const transformMutation: ToolMutation = {
   key: "transform",
   validate: (raw) => validateTransformInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
-    const ok = setToolTransform(
-      ctx.clientName,
-      ctx.toolName,
-      parsed as Parameters<typeof setToolTransform>[2],
-    );
+    const ok = setToolTransform(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setToolTransform>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
   audit: (_raw, parsed) => {

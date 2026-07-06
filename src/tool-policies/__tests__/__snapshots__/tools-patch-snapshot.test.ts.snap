@@ -1,0 +1,976 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: enabled:false 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.disable",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: enabled:true 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.enable",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: guards:rateLimit 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.guards.update",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: guards:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.guards.update",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: overrides:description 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.override.update",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: overrides:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.override.update",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: sensitive:true 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.sensitive.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "sensitive": true,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: sensitive:null 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.sensitive.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "sensitive": null,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: redactPaths:2 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.redaction.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "count": 2,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: guardrails:set 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.guardrails.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "blockSecrets": true,
+        "denyPatterns": 2,
+        "scanResponses": true,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: guardrails:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.guardrails.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "blockSecrets": false,
+        "denyPatterns": 0,
+        "scanResponses": false,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: cache:set 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.cache.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "enabled": true,
+        "ttlSeconds": 60,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: cache:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.cache.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: coalesce:set 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.coalesce.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "enabled": true,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: coalesce:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.coalesce.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: quarantinePolicy:set 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.quarantine.policy.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "action": "block",
+        "consecutiveThreshold": 5,
+        "cooldownMs": null,
+        "recoveryMode": "auto",
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: quarantinePolicy:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.quarantine.policy.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: pagination:cursor 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.pagination.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "maxPages": 5,
+        "strategy": "cursor",
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: pagination:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.pagination.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: streaming:ndjson 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.streaming.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "format": "ndjson",
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: streaming:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.streaming.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: transform:set 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.transform.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "request": 1,
+        "response": 0,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: transform:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.transform.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: mock:always 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.mock.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "mode": "always",
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: mock:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.mock.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: requiresApproval:true 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.approval.enable",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: requiresApproval:false 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.approval.disable",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: requiresApproval:true+levels:2 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.approval.enable",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "approvalLevels": 2,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: monitor:object 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.monitor.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "exampleId": 1,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: monitor:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.monitor.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: graphql:set 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.graphql.set",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: graphql:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.graphql.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: ws:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.ws.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: contextBudget:truncate 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.context_budget.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "maxResponseBytes": 10000,
+        "mode": "truncate",
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: contextBudget:clear 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.context_budget.clear",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: combo:enabled+guards 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.disable",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+    {
+      "action": "tool.guards.update",
+      "actor": "bearer:admin-api-key",
+      "detail": null,
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: combo:cache+coalesce 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.cache.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "enabled": true,
+        "ttlSeconds": 60,
+      },
+      "target": "svc__get-users",
+    },
+    {
+      "action": "tool.coalesce.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "enabled": true,
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: combo:pagination+streaming+transform+mock 1`] = `
+{
+  "audit": [
+    {
+      "action": "tool.pagination.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "maxPages": 3,
+        "strategy": "link",
+      },
+      "target": "svc__get-users",
+    },
+    {
+      "action": "tool.streaming.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "format": "sse",
+      },
+      "target": "svc__get-users",
+    },
+    {
+      "action": "tool.transform.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "request": 0,
+        "response": 0,
+      },
+      "target": "svc__get-users",
+    },
+    {
+      "action": "tool.mock.set",
+      "actor": "bearer:admin-api-key",
+      "detail": {
+        "mode": "fallback",
+      },
+      "target": "svc__get-users",
+    },
+  ],
+  "body": {
+    "name": "svc",
+    "status": "updated",
+    "tool": "get-users",
+  },
+  "status": 200,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:guards:invalid 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "guards.rateLimitPerMin must be a positive number",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:enabled:not-bool 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "enabled must be a boolean",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:sensitive:not-bool-not-null 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "sensitive must be a boolean or null",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:redactPaths:not-array 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "redactPaths must be an array of strings",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:cache:bad-ttl 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "cache.ttlSeconds must be an integer between 1 and 86400",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:graphql:missing-query 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "graphql.query (non-empty string) is required",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:ws:missing-url 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "ws.wsUrl (ws:// or wss://) is required",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:monitor:missing-exampleId 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "monitor.exampleId (number) is required",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:requiresApproval:not-bool 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "requiresApproval must be a boolean",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:approvalLevels:out-of-range 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "approvalLevels must be an integer between 1 and 10",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot response + audit-log for every body key and combination: 400:overrides:bad-displayName 1`] = `
+{
+  "audit": [],
+  "body": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "overrides.displayName must be lowercase alphanumeric with hyphens/underscores, 1-63 chars",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`PATCH /clients/:name/tools/:tool — behaviour snapshot 404 for unknown tool: 404:unknown-tool 1`] = `
+{
+  "body": {
+    "error": {
+      "code": "TOOL_NOT_FOUND",
+      "message": "Client or tool not found",
+      "request_id": "snapshot-req",
+    },
+  },
+  "status": 404,
+}
+`;

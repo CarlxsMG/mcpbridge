@@ -1,10 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import {
-  listAuditLog,
-  exportAuditLog,
-  verifyAuditChain,
-  listAuditActions,
-} from "../../admin/audit/audit.js";
+import { listAuditLog, exportAuditLog, verifyAuditChain, listAuditActions } from "../../admin/audit/audit.js";
 import { auditLogToCsv, auditLogToHtml } from "../../admin/audit/audit-export.js";
 
 /**

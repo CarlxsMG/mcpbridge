@@ -36,24 +36,20 @@ trafficRoutes.get("/traffic/:id", (req: Request<{ id: string }>, res: Response) 
   res.status(200).json(rec);
 });
 
-trafficRoutes.post(
-  "/traffic/:id/replay",
-  requireOperator,
-  async (req: Request<{ id: string }>, res: Response) => {
-    const rec = getTraffic(Number(req.params.id));
-    if (!rec) {
-      notFound(res, "TRAFFIC_NOT_FOUND", "Traffic record not found");
-      return;
-    }
-    if (rec.clientName && !ensureClientAccess(req, res, rec.clientName)) return;
-    let args: Record<string, unknown>;
-    try {
-      args = JSON.parse(rec.argsJson) as Record<string, unknown>;
-    } catch {
-      args = {};
-    }
-    const result = await proxyToolCall(rec.mcpToolName, args);
-    recordAudit(actorFromRequest(req), "traffic.replay", rec.mcpToolName, { id: rec.id });
-    res.status(200).json(result);
-  },
-);
+trafficRoutes.post("/traffic/:id/replay", requireOperator, async (req: Request<{ id: string }>, res: Response) => {
+  const rec = getTraffic(Number(req.params.id));
+  if (!rec) {
+    notFound(res, "TRAFFIC_NOT_FOUND", "Traffic record not found");
+    return;
+  }
+  if (rec.clientName && !ensureClientAccess(req, res, rec.clientName)) return;
+  let args: Record<string, unknown>;
+  try {
+    args = JSON.parse(rec.argsJson) as Record<string, unknown>;
+  } catch {
+    args = {};
+  }
+  const result = await proxyToolCall(rec.mcpToolName, args);
+  recordAudit(actorFromRequest(req), "traffic.replay", rec.mcpToolName, { id: rec.id });
+  res.status(200).json(result);
+});

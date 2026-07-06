@@ -29,9 +29,7 @@ export const wsMutation: ToolMutation = {
     };
   },
   apply: async (ctx, parsed) => {
-    const v = parsed as
-      | { kind: "clear" }
-      | { kind: "set"; enabled: boolean; wsUrl: string; persistent: boolean };
+    const v = parsed as { kind: "clear" } | { kind: "set"; enabled: boolean; wsUrl: string; persistent: boolean };
     if (v.kind === "clear") {
       await setToolWs(ctx.clientName, ctx.toolName, null);
       return { kind: "ok" };

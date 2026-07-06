@@ -35,8 +35,7 @@ export const monitorMutation: ToolMutation = {
   },
   apply: async (ctx, parsed) => {
     const v = parsed as
-      | { kind: "clear" }
-      | { kind: "set"; exampleId: number; intervalMinutes: number; enabled: boolean };
+      { kind: "clear" } | { kind: "set"; exampleId: number; intervalMinutes: number; enabled: boolean };
     if (v.kind === "clear") {
       await deleteMonitor(ctx.clientName, ctx.toolName);
       return { kind: "ok" };
