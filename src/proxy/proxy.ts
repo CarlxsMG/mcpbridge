@@ -46,6 +46,7 @@ import {
   getRequiredLevels,
 } from "../admin/entities/approvals.js";
 import { recordTraffic } from "../observability/traffic.js";
+import { outboundTraceHeaders } from "../observability/trace-context.js";
 import { getToolGraphql, getToolWs, wsRequest, wsRequestPersistent } from "./backends.js";
 import { getOAuthBearer } from "../backend-auth/oauth.js";
 import { isDeleting } from "../mcp/registry.js";
@@ -912,14 +913,22 @@ async function dispatchToolCall(
           body !== undefined
             ? {
                 method,
-                headers: { ...upstreamAuthHeaders, "Content-Type": "application/json", Host: originalHost },
+                headers: outboundTraceHeaders(undefined, {
+                  ...upstreamAuthHeaders,
+                  "Content-Type": "application/json",
+                  Host: originalHost,
+                }),
                 body,
                 redirect: "error" as RequestRedirect,
                 signal: attemptSignal,
               }
             : {
                 method,
-                headers: { ...upstreamAuthHeaders, "Content-Type": "application/json", Host: originalHost },
+                headers: outboundTraceHeaders(undefined, {
+                  ...upstreamAuthHeaders,
+                  "Content-Type": "application/json",
+                  Host: originalHost,
+                }),
                 redirect: "error" as RequestRedirect,
                 signal: attemptSignal,
               };

@@ -5,6 +5,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { ProgressCallback } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { makePinnedFetch } from "../net/ip-validator.js";
 import { toolResult } from "../lib/mcp-result.js";
+import { outboundTraceHeaders } from "../observability/trace-context.js";
 
 // ---------------------------------------------------------------------------
 // Outbound MCP upstream connection pool + dispatcher.
@@ -55,17 +56,35 @@ export function buildTransport(p: McpConnParams): Transport {
   const url = new URL(p.url);
   const requestInit: RequestInit | undefined = p.authHeaders ? { headers: p.authHeaders } : undefined;
   const pinnedFetch = p.resolvedIp && p.resolvedIp.length > 0 ? makePinnedFetch(url.hostname, p.resolvedIp) : undefined;
+  // W3C trace propagation: every JSON-RPC call the SDK makes through this
+  // transport goes through `tracingFetch`, which adds traceparent/tracestate
+  // derived from the current request's trace context. Each call gets a
+  // fresh spanId so individual upstream spans are distinguishable, but the
+  // traceId (and thus the trace tree) stays stitched to the caller's.
+  const tracingFetch: typeof fetch | undefined = (() => {
+    if (!pinnedFetch) return undefined;
+    // The MCP SDK types `opts.fetch` as `typeof fetch`, but makePinnedFetch
+    // narrows `input` to `string | URL` (no Request). The cast at the
+    // boundary matches the pattern the rest of the file already uses for
+    // `pinnedFetch` itself; runtime behavior is identical.
+    type PinnedFetchFn = (input: string | URL, init: RequestInit) => Promise<Response>;
+    const inner = pinnedFetch as unknown as PinnedFetchFn;
+    return ((input, init) => {
+      const url = typeof input === "string" || input instanceof URL ? input : String(input);
+      return inner(url, { ...(init ?? {}), headers: outboundTraceHeaders(undefined, init?.headers) });
+    }) as typeof fetch;
+  })();
 
   if (p.transport === "sse") {
     const opts: NonNullable<ConstructorParameters<typeof SSEClientTransport>[1]> = {};
     if (requestInit) opts.requestInit = requestInit;
-    if (pinnedFetch) opts.fetch = pinnedFetch as typeof opts.fetch;
+    if (tracingFetch) opts.fetch = tracingFetch;
     return new SSEClientTransport(url, opts);
   }
 
   const opts: NonNullable<ConstructorParameters<typeof StreamableHTTPClientTransport>[1]> = {};
   if (requestInit) opts.requestInit = requestInit;
-  if (pinnedFetch) opts.fetch = pinnedFetch as typeof opts.fetch;
+  if (tracingFetch) opts.fetch = tracingFetch;
   return new StreamableHTTPClientTransport(url, opts);
 }
 

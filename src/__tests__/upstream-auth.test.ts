@@ -40,7 +40,14 @@ function captureFetch(): void {
   }) as unknown as typeof fetch;
 }
 function capturedHeaders(): Record<string, string> {
-  return (captured?.headers ?? {}) as Record<string, string>;
+  // The proxy may now pass either a plain object or a Headers instance
+  // (the W3C trace-context path uses Headers; the untraced path keeps the
+  // legacy plain-object shape so existing call sites don't churn). Normalize
+  // to a plain object here so tests can use simple property access. Keys
+  // are lowercased (Headers' normal form), so lookups in the tests below
+  // are also lowercase.
+  if (!captured?.headers) return {};
+  return Object.fromEntries(new Headers(captured.headers));
 }
 
 beforeEach(async () => {
@@ -84,8 +91,8 @@ describe("proxy upstream-auth injection", () => {
     const res = await proxyToolCall("svc__get-users", {});
     expect(res.isError).toBeUndefined();
     const h = capturedHeaders();
-    expect(h.Authorization).toBe("Bearer up-secret");
-    expect(h.Host).toBe("example.com");
+    expect(h.authorization).toBe("Bearer up-secret");
+    expect(h.host).toBe("example.com");
   });
 
   test("injects basic auth", async () => {
@@ -93,7 +100,7 @@ describe("proxy upstream-auth injection", () => {
     setUpstreamAuth("svc", "basic", { username: "u", password: "p" }, null);
     captureFetch();
     await proxyToolCall("svc__get-users", {});
-    expect(capturedHeaders().Authorization).toBe(`Basic ${Buffer.from("u:p").toString("base64")}`);
+    expect(capturedHeaders().authorization).toBe(`Basic ${Buffer.from("u:p").toString("base64")}`);
   });
 
   test("injects a custom header", async () => {
@@ -101,7 +108,7 @@ describe("proxy upstream-auth injection", () => {
     setUpstreamAuth("svc", "header", { value: "abc123" }, "X-Api-Key");
     captureFetch();
     await proxyToolCall("svc__get-users", {});
-    expect(capturedHeaders()["X-Api-Key"]).toBe("abc123");
+    expect(capturedHeaders()["x-api-key"]).toBe("abc123");
   });
 
   test("no injection when the credential can't be decrypted (wrong key)", async () => {
@@ -112,6 +119,6 @@ describe("proxy upstream-auth injection", () => {
     captureFetch();
     const res = await proxyToolCall("svc__get-users", {});
     expect(res.isError).toBeUndefined();
-    expect(capturedHeaders().Authorization).toBeUndefined();
+    expect(capturedHeaders().authorization).toBeUndefined();
   });
 });

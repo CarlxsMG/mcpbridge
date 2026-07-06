@@ -16,6 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Prometheus metric names from `src/observability/metrics.ts`. Includes the standard
   4-window burn-rate alert formulation so operators can wire it into Prometheus/Grafana.
 - Added `CLAUDE.md` (repo guidance for AI coding agents).
+
+### Added
+
+- W3C `traceparent` propagation (P1-6). The gateway now honors an incoming
+  `traceparent` on MCP requests — the bridge's own OTLP span inherits the caller's
+  trace-id and records the upstream's span-id as its parent — and injects a
+  matching `traceparent` (plus `tracestate` pass-through) on every outbound call
+  to backends, both REST (`src/proxy/proxy.ts`) and MCP upstreams
+  (`src/mcp/mcp-upstream.ts`'s transport-level fetch wrapper). Implementation
+  lives in `src/observability/trace-context.ts` (strict W3C parser/serializer,
+  per-request AsyncLocalStorage context, with-safe `enterWith` for the current
+  span) and is plumbed through `requestIdMiddleware`. OTLP spans now emit
+  `parentSpanId` when present.
 - Closed 12 documentation gaps found by a full features-vs-docs audit: bundle install links,
   the curated install catalog, tool tags, the context-budget guard, admin-UI SSO login,
   self-service session/password management, the on-demand DB backup endpoint, audit-log

@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { persistSpan } from "./trace-store.js";
+import { getCurrentTraceContext, newSpanId, newTraceId, setCurrentSpan } from "./trace-context.js";
 
 /**
  * Dependency-free OpenTelemetry span export over OTLP/HTTP (JSON). When
@@ -19,6 +20,12 @@ export interface Span {
   name: string;
   startMs: number;
   attributes: Record<string, AttrValue>;
+  /**
+   * W3C parent-span identifier when this span is a child of an upstream span
+   * (the bridge honored an incoming `traceparent` header). Absent for root
+   * spans — OTLP export omits the field in that case, matching the spec.
+   */
+  parentSpanId?: string;
 }
 
 export interface FinishedSpan extends Span {
@@ -35,10 +42,37 @@ function genId(bytes: number): string {
   return randomBytes(bytes).toString("hex");
 }
 
-/** Starts a span. Cheap; the export cost is deferred to the batched flush. */
+/**
+ * Starts a span. Cheap; the export cost is deferred to the batched flush.
+ *
+ * If the calling request carried a valid W3C `traceparent` header (the
+ * `requestIdMiddleware` parsed it into the async-local context), this span
+ * inherits the upstream's trace-id and records the upstream's span-id as
+ * its parent. Otherwise it starts a fresh trace as before.
+ *
+ * Side effect: registers this span as the request's "current span" so
+ * outbound fetches can build a child `traceparent` header. The registration
+ * is a no-op when no request context is active (bare tests).
+ */
 export function startSpan(name: string, attributes: Record<string, AttrValue> = {}): Span {
-  return { traceId: genId(16), spanId: genId(8), name, startMs: Date.now(), attributes };
+  const ctx = getCurrentTraceContext();
+  const span: Span = ctx.traceparent
+    ? {
+        traceId: ctx.traceparent.traceId,
+        spanId: newSpanId(),
+        parentSpanId: ctx.traceparent.parentSpanId,
+        name,
+        startMs: Date.now(),
+        attributes,
+      }
+    : { traceId: newTraceId(), spanId: newSpanId(), name, startMs: Date.now(), attributes };
+  setCurrentSpan(span);
+  return span;
 }
+
+// genId is kept for any future call site that needs a raw id (currentSpan
+// uses the W3C-compliant newSpanId() / newTraceId() helpers instead).
+void genId;
 
 const buffer: FinishedSpan[] = [];
 let flushScheduled = false;
@@ -60,9 +94,17 @@ export function endSpan(span: Span, extraAttributes: Record<string, AttrValue> =
   };
 
   if (config.traceStorageEnabled) persistSpan(finished);
-  if (!config.otelEndpoint) return;
+  if (!config.otelEndpoint) {
+    // Trace storage path doesn't need ALS cleanup, but the OTLP-disabled case
+    // still leaves the span as the "current" one in the request context.
+    // Clear it so a subsequent span in the same request doesn't accidentally
+    // use this one as its parent.
+    setCurrentSpan(null);
+    return;
+  }
 
   buffer.push(finished);
+  setCurrentSpan(null);
   if (buffer.length >= config.otelMaxBatch) {
     void flush();
   } else if (!flushScheduled) {
@@ -98,6 +140,7 @@ export function buildOtlpPayload(spans: FinishedSpan[], serviceName: string): Re
             spans: spans.map((s) => ({
               traceId: s.traceId,
               spanId: s.spanId,
+              ...(s.parentSpanId ? { parentSpanId: s.parentSpanId } : {}),
               name: s.name,
               kind: 3, // SPAN_KIND_CLIENT
               startTimeUnixNano: msToNano(s.startMs),
