@@ -123,6 +123,34 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  // Content-Security-Policy — a single policy applied to every response. The
+  // admin UI (Vue 3 SPA) needs 'self' for script/connect/img, plus
+  // 'unsafe-inline' for style because Vue components emit dynamic inline
+  // styles; the admin API only ever returns JSON, so CSP doesn't constrain
+  // it in practice. Tightening further would mean coordinating nonces with
+  // the admin-ui build, which is out of scope for now.
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'none'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data:",
+      "font-src 'self'",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "base-uri 'none'",
+      "object-src 'none'",
+    ].join("; "),
+  );
+  // Permissions-Policy — turn off every powerful feature the admin UI
+  // doesn't legitimately need. The list is the OWASP "secure default" set:
+  // a future feature that does need one of these can re-enable it locally.
+  res.setHeader(
+    "Permissions-Policy",
+    "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+  );
   // HSTS only if request was HTTPS (trust proxy aware)
   if (req.secure || req.headers["x-forwarded-proto"] === "https") {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");

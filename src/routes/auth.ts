@@ -28,9 +28,11 @@ export function setSessionCookies(res: Response, token: string, csrfToken: strin
   res.cookie(CSRF_COOKIE_NAME, csrfToken, { ...shared, httpOnly: false });
 }
 
+/** Same attributes as {@link setSessionCookies} — a Set-Cookie that omits any attribute the original set will not actually delete the cookie in some browsers (Chrome is the strictest). */
 function clearSessionCookies(res: Response): void {
-  res.clearCookie(SESSION_COOKIE_NAME, { path: "/" });
-  res.clearCookie(CSRF_COOKIE_NAME, { path: "/" });
+  const shared = { secure: config.sessionCookieSecure, sameSite: "lax" as const, path: "/" };
+  res.clearCookie(SESSION_COOKIE_NAME, shared);
+  res.clearCookie(CSRF_COOKIE_NAME, shared);
 }
 
 export function authRoutes(app: Express): void {
