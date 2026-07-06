@@ -502,7 +502,7 @@ para retomarse en una sesión dedicada.
 
 ### P1-4 — Co-localizar tests en `src/<feat>/__tests__/` **cerrada** ✓
 
-Cerrado en commit tras la sesión. El mystery test del intento previo
+Cerrado en commit `036358f`. El mystery test del intento previo
 (`openapi-discovery.test.ts:6` con `import.meta.dir, "../../tests/fixtures"`) fue
 identificado post-mortem como la única causa del fallo, y el script se
 endureció con rewrite depth-aware del path `import.meta.dir`. Resultado final:

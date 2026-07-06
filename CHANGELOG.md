@@ -58,15 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   con `import.meta.dir, "../../tests/fixtures"`) resuelto con rewrite
   depth-aware del path. **Verified**: bunx tsc --noEmit 0 errors;
   1227/1227 backend pass; 12/12 e2e pass.
-  (`scripts/co_locate_tests.py` con una tabla de mapeo de 121 entradas)
-  mueve `src/__tests__/*.test.ts` a `src/<feat>/__tests__/*.test.ts` y reescribe
-  imports al depth correcto. Resultado medido: 1215/1216 tests pass (99.92 %).
-  **Revertido** por exceder el budget de 2 h del autonomous mode y por un mystery
-  test failure que bun:test reporta solo como "1 fail / 1 error" en el resumen
-  final sin un stack identificable en los logs (output de 14 MB dominado por
-  "Applied database migration"). Documentado como follow-up en REVIEW.md §8.
-- Follow-up notes in `docs/REVIEW.md` §8 — P1-9 partial closure, P1-4 revert,
-  P1-3 remaining flows (canary failover + bundle install e2e).
+- Follow-up notes in `docs/REVIEW.md` §8 — P1-9 partial closure (226 call sites
+  remain manual), P1-3 remaining flows (canary failover + bundle install e2e).
 - W3C `traceparent` propagation (P1-6). The gateway now honors an incoming
   `traceparent` on MCP requests — the bridge's own OTLP span inherits the caller's
   trace-id and records the upstream's span-id as its parent — and injects a
