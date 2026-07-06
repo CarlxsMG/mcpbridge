@@ -3,13 +3,13 @@
  *
  * This single test captures the CURRENT response + audit-log shape for every
  * body field the endpoint accepts (and a handful of negative cases), so the
- * upcoming dispatcher refactor in `src/admin/tool-policies/tool-mutations.ts`
- * can be verified byte-equal against it.
+ * dispatcher in `src/admin/tool-policies/mutations/index.ts` (and any future
+ * refactor that touches it) can be verified byte-equal against it.
  *
  * What the snapshot includes (and excludes) is deliberate:
  *   - status, response body, and stable audit-log fields (actor / action /
  *     target / detail) — these are the contract.
- *   - NOT id, createdAt, or hash — these are per-run / per-chain noise that
+ *   - NOT id, createdAt, or hash-chain — these are per-run / per-chain noise that
  *     changes every time the test runs and has no bearing on behaviour.
  *
  * First run writes the snapshot; subsequent runs compare. Run with:
