@@ -134,3 +134,29 @@ to delete outright.
 
 The snapshot is the contract. Without it, this is a refactor that
 can quietly change audit-action strings or log ordering.
+
+## Status: P0-2b closed (2026-07-06)
+
+The six-step plan above was executed in three commits on `main`:
+
+- `138078f` — `test(admin): snapshot fixture for PATCH /clients/:name/tools/:tool`
+  Step 1: the snapshot fixture (`src/__tests__/tools-patch-snapshot.test.ts`
+  + 50 snapshots). Generated against the live legacy handler, byte-equal
+  to it.
+- `9512e1f` — `refactor(admin): dispatcher-based PATCH handler`
+  Steps 2-4: `TOOL_MUTATIONS` registry + `dispatchToolMutations` in
+  `src/admin/tool-policies/tool-mutations.ts`, handler reduced from
+  370 LOC to ~25. Snapshot fixture passes byte-equal.
+- `7007607` — `refactor(admin): split tool-mutations into per-key files + close P0-2b`
+  Steps 5-6: each `ToolMutation` lives in its own file under
+  `src/admin/tool-policies/mutations/<key>.ts`, `legacyMount.ts` deleted,
+  `mountLegacy(r)` removed from `src/routes/admin/index.ts`, PATCH
+  handler migrated to `src/routes/admin/tools.ts` (its natural home
+  alongside the other per-tool admin endpoints). Snapshot fixture
+  still byte-equal.
+
+Final shape: `src/routes/admin/legacyMount.ts` no longer exists, the
+PATCH endpoint is mounted by `toolsRoutes`, and adding a new body key
+means dropping a new file in `mutations/` + appending one entry to
+`TOOL_MUTATIONS` in `mutations/index.ts`. The P0-2b saga that started
+with the 1207-LOC `src/routes/admin.ts` monolith is done.
