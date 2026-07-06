@@ -4,6 +4,7 @@ import { config } from "../config.js";
 import { bootstrapAdminUser } from "../security/bootstrap-admin.js";
 import { countUsers, findUserByUsername, createUser } from "../security/user-store.js";
 
+import { withConfig } from "./_utils/with-config.js";
 let originalUsername: string | undefined;
 let originalPassword: string | undefined;
 
@@ -20,46 +21,45 @@ afterEach(() => {
 
 describe("bootstrapAdminUser — empty admin_users table", () => {
   test("creates the admin user when both env vars are set with a strong password", async () => {
-    (config as Record<string, unknown>).bootstrapAdminUsername = "root";
-    (config as Record<string, unknown>).bootstrapAdminPassword = "correct-horse-battery-staple";
+    await withConfig(
+      { bootstrapAdminUsername: "root", bootstrapAdminPassword: "correct-horse-battery-staple" },
+      async () => {
+        await bootstrapAdminUser();
 
-    await bootstrapAdminUser();
-
-    expect(countUsers()).toBe(1);
-    const user = findUserByUsername("root");
-    expect(user).not.toBeNull();
-    expect(user?.role).toBe("admin");
-    expect(user?.isActive).toBe(true);
-    // The hash must not be the raw password, and must be verifiable.
-    expect(user?.passwordHash).not.toBe("correct-horse-battery-staple");
-    expect(await Bun.password.verify("correct-horse-battery-staple", user!.passwordHash)).toBe(true);
+        expect(countUsers()).toBe(1);
+        const user = findUserByUsername("root");
+        expect(user).not.toBeNull();
+        expect(user?.role).toBe("admin");
+        expect(user?.isActive).toBe(true);
+        // The hash must not be the raw password, and must be verifiable.
+        expect(user?.passwordHash).not.toBe("correct-horse-battery-staple");
+        expect(await Bun.password.verify("correct-horse-battery-staple", user!.passwordHash)).toBe(true);
+      },
+    );
   });
 
   test("does nothing when neither env var is set", async () => {
-    (config as Record<string, unknown>).bootstrapAdminUsername = undefined;
-    (config as Record<string, unknown>).bootstrapAdminPassword = undefined;
+    await withConfig({ bootstrapAdminUsername: undefined, bootstrapAdminPassword: undefined }, async () => {
+      await bootstrapAdminUser();
 
-    await bootstrapAdminUser();
-
-    expect(countUsers()).toBe(0);
+      expect(countUsers()).toBe(0);
+    });
   });
 
   test("does nothing when only the username is set", async () => {
-    (config as Record<string, unknown>).bootstrapAdminUsername = "root";
-    (config as Record<string, unknown>).bootstrapAdminPassword = undefined;
+    await withConfig({ bootstrapAdminUsername: "root", bootstrapAdminPassword: undefined }, async () => {
+      await bootstrapAdminUser();
 
-    await bootstrapAdminUser();
-
-    expect(countUsers()).toBe(0);
+      expect(countUsers()).toBe(0);
+    });
   });
 
   test("refuses to bootstrap with a password shorter than 12 characters", async () => {
-    (config as Record<string, unknown>).bootstrapAdminUsername = "root";
-    (config as Record<string, unknown>).bootstrapAdminPassword = "tooshort";
+    await withConfig({ bootstrapAdminUsername: "root", bootstrapAdminPassword: "tooshort" }, async () => {
+      await bootstrapAdminUser();
 
-    await bootstrapAdminUser();
-
-    expect(countUsers()).toBe(0);
+      expect(countUsers()).toBe(0);
+    });
   });
 });
 

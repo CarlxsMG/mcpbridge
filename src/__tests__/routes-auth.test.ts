@@ -14,6 +14,7 @@ import { createUser } from "../security/user-store.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "../security/cookies.js";
 
+import { withConfig } from "./_utils/with-config.js";
 let baseUrl = "";
 let activeServer: Server | null = null;
 
@@ -139,21 +140,22 @@ describe("POST /admin-api/auth/login", () => {
   });
 
   test("is rate-limited per IP after the configured cap", async () => {
-    (config as Record<string, unknown>).rateLimitLogin = 2;
-    await startApp();
-    await seedUser("alice", "correct-horse-battery-staple");
+    await withConfig({ rateLimitLogin: 2 }, async () => {
+      await startApp();
+      await seedUser("alice", "correct-horse-battery-staple");
 
-    const attempt = () =>
-      fetch(`${baseUrl}/admin-api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: "alice", password: "wrong" }),
-      });
+      const attempt = () =>
+        fetch(`${baseUrl}/admin-api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: "alice", password: "wrong" }),
+        });
 
-    await attempt();
-    await attempt();
-    const third = await attempt();
-    expect(third.status).toBe(429);
+      await attempt();
+      await attempt();
+      const third = await attempt();
+      expect(third.status).toBe(429);
+    });
   });
 });
 

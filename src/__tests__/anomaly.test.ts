@@ -11,6 +11,7 @@ import { detectUsageSpike } from "../observability/anomaly.js";
 import { createAlertRule, evaluateAlerts, __resetAlertStateForTesting } from "../observability/alerts.js";
 import { __clearUsageForTesting } from "../observability/usage.js";
 
+import { withConfig } from "./_utils/with-config.js";
 function seed(count: number, createdAt: number): void {
   const db = getDb();
   const stmt = db.query(
@@ -78,42 +79,43 @@ describe("usage_spike alert integration", () => {
   });
 
   test("fires the webhook when a spike is detected", async () => {
-    (config as Record<string, unknown>).allowPrivateIps = true; // allow the 127.0.0.1 capture webhook
-    let received: Record<string, unknown> | null = null;
-    let resolveGot!: () => void;
-    const got = new Promise<void>((r) => {
-      resolveGot = r;
-    });
-
-    const app = express();
-    app.use(express.json());
-    app.post("/hook", (req, res) => {
-      received = req.body as Record<string, unknown>;
-      res.status(200).end();
-      resolveGot();
-    });
-    await new Promise<void>((resolve) => {
-      const srv = app.listen(0, "127.0.0.1", () => {
-        server = srv;
-        resolve();
+    await withConfig({ allowPrivateIps: true }, async () => {
+      let received: Record<string, unknown> | null = null;
+      let resolveGot!: () => void;
+      const got = new Promise<void>((r) => {
+        resolveGot = r;
       });
+
+      const app = express();
+      app.use(express.json());
+      app.post("/hook", (req, res) => {
+        received = req.body as Record<string, unknown>;
+        res.status(200).end();
+        resolveGot();
+      });
+      await new Promise<void>((resolve) => {
+        const srv = app.listen(0, "127.0.0.1", () => {
+          server = srv;
+          resolve();
+        });
+      });
+      const url = `http://127.0.0.1:${(server!.address() as AddressInfo).port}/hook`;
+
+      createAlertRule({
+        name: "spike",
+        eventType: "usage_spike",
+        webhookUrl: url,
+        threshold: 3,
+        minCalls: 20,
+        actor: "t",
+      });
+      seed(40, Date.now() - 1 * MIN); // burst against a silent baseline
+
+      await evaluateAlerts();
+      await Promise.race([got, new Promise((_r, rej) => setTimeout(() => rej(new Error("webhook not called")), 3000))]);
+
+      expect(received).not.toBeNull();
+      expect(received!.event).toBe("usage_spike");
     });
-    const url = `http://127.0.0.1:${(server!.address() as AddressInfo).port}/hook`;
-
-    createAlertRule({
-      name: "spike",
-      eventType: "usage_spike",
-      webhookUrl: url,
-      threshold: 3,
-      minCalls: 20,
-      actor: "t",
-    });
-    seed(40, Date.now() - 1 * MIN); // burst against a silent baseline
-
-    await evaluateAlerts();
-    await Promise.race([got, new Promise((_r, rej) => setTimeout(() => rej(new Error("webhook not called")), 3000))]);
-
-    expect(received).not.toBeNull();
-    expect(received!.event).toBe("usage_spike");
   });
 });

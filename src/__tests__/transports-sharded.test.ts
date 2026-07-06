@@ -14,6 +14,7 @@ import { config } from "../config.js";
 import { registry } from "../mcp/registry.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
+import { withConfig } from "./_utils/with-config.js";
 let baseUrl = "";
 let activeServer: Server | null = null;
 let cleanupFn: (() => void) | null = null;
@@ -240,22 +241,23 @@ describe("/mcp — system control plane, not a data aggregator", () => {
   });
 
   test("POST /mcp with the env admin Bearer serves system tools, never backend tools, while /mcp/:clientName keeps serving that client's tools", async () => {
-    (config as Record<string, unknown>).adminApiKeys = ["test-root-admin-key"];
-    const authHeader = { Authorization: "Bearer test-root-admin-key" };
-    await startApp();
-    await reg("client-a", [makeTool({ name: "tool-a" })]);
+    await withConfig({ adminApiKeys: ["test-root-admin-key"] }, async () => {
+      const authHeader = { Authorization: "Bearer test-root-admin-key" };
+      await startApp();
+      await reg("client-a", [makeTool({ name: "tool-a" })]);
 
-    const systemSession = await initSession("/mcp", authHeader);
-    expect(systemSession).not.toBeNull();
-    const systemList = await toolsList("/mcp", systemSession!, authHeader);
-    const systemNames = systemList.body?.tools.map((t) => t.name) ?? [];
-    expect(systemNames).toContain("sys_list_clients");
-    expect(systemNames.some((n) => n.startsWith("client-a__"))).toBe(false);
+      const systemSession = await initSession("/mcp", authHeader);
+      expect(systemSession).not.toBeNull();
+      const systemList = await toolsList("/mcp", systemSession!, authHeader);
+      const systemNames = systemList.body?.tools.map((t) => t.name) ?? [];
+      expect(systemNames).toContain("sys_list_clients");
+      expect(systemNames.some((n) => n.startsWith("client-a__"))).toBe(false);
 
-    const shardedSession = await initSession("/mcp/client-a");
-    const shardedList = await toolsList("/mcp/client-a", shardedSession!);
-    expect(shardedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual([
-      "client-a__tool-a",
-    ]);
+      const shardedSession = await initSession("/mcp/client-a");
+      const shardedList = await toolsList("/mcp/client-a", shardedSession!);
+      expect(shardedList.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual([
+        "client-a__tool-a",
+      ]);
+    });
   });
 });

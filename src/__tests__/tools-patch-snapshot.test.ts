@@ -90,14 +90,7 @@ function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefiniti
 }
 
 async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]) {
-  await registry.register(
-    name,
-    tools,
-    "http://example.com/health",
-    "1.2.3.4",
-    "http://example.com",
-    "1.2.3.4",
-  );
+  await registry.register(name, tools, "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
 }
 
 beforeEach(async () => {
@@ -167,7 +160,13 @@ const CASES: CaseSpec[] = [
   {
     name: "pagination:cursor",
     body: {
-      pagination: { strategy: "cursor", itemsPath: "data", cursorResponsePath: "next", cursorParam: "cursor", maxPages: 5 },
+      pagination: {
+        strategy: "cursor",
+        itemsPath: "data",
+        cursorResponsePath: "next",
+        cursorParam: "cursor",
+        maxPages: 5,
+      },
     },
   },
   { name: "pagination:clear", body: { pagination: null } },

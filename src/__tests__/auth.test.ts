@@ -19,6 +19,7 @@ import { createUser } from "../security/user-store.js";
 import { createSession } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME } from "../security/cookies.js";
 
+import { withConfig } from "./_utils/with-config.js";
 // ---------------------------------------------------------------------------
 // Mock helpers
 // ---------------------------------------------------------------------------
@@ -85,70 +86,74 @@ function restoreConfig() {
 // ---------------------------------------------------------------------------
 
 describe("adminAuth — valid Bearer token", () => {
-  test("calls next() when token matches an admin key", () => {
-    (config as Record<string, unknown>).adminApiKeys = ["secret-key"];
-    config.authDisabled = false;
+  test("calls next() when token matches an admin key", async () => {
+    await withConfig({ adminApiKeys: ["secret-key"] }, async () => {
+      config.authDisabled = false;
 
-    const req = makeReq({ authorization: "Bearer secret-key" });
-    const res = makeRes();
-    const next = makeNext();
+      const req = makeReq({ authorization: "Bearer secret-key" });
+      const res = makeRes();
+      const next = makeNext();
 
-    adminAuth(req as Request, res as unknown as Response, next.fn);
-    restoreConfig();
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
 
-    expect(next.called).toBe(true);
-    expect(res._status).toBeUndefined();
+      expect(next.called).toBe(true);
+      expect(res._status).toBeUndefined();
+    });
   });
 });
 
 describe("adminAuth — missing Authorization header", () => {
-  test("responds 401 when Authorization header is absent", () => {
-    (config as Record<string, unknown>).adminApiKeys = ["secret-key"];
-    config.authDisabled = false;
+  test("responds 401 when Authorization header is absent", async () => {
+    await withConfig({ adminApiKeys: ["secret-key"] }, async () => {
+      config.authDisabled = false;
 
-    const req = makeReq();
-    const res = makeRes();
-    const next = makeNext();
+      const req = makeReq();
+      const res = makeRes();
+      const next = makeNext();
 
-    adminAuth(req as Request, res as unknown as Response, next.fn);
-    restoreConfig();
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
 
-    expect(next.called).toBe(false);
-    expect(res._status).toBe(401);
-    expect((res._body as Record<string, Record<string, string>>).error.code).toBe("UNAUTHORIZED");
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(401);
+      expect((res._body as Record<string, Record<string, string>>).error.code).toBe("UNAUTHORIZED");
+    });
   });
 
-  test("responds 401 when Authorization header is not a Bearer token", () => {
-    (config as Record<string, unknown>).adminApiKeys = ["secret-key"];
-    config.authDisabled = false;
+  test("responds 401 when Authorization header is not a Bearer token", async () => {
+    await withConfig({ adminApiKeys: ["secret-key"] }, async () => {
+      config.authDisabled = false;
 
-    const req = makeReq({ authorization: "Basic dXNlcjpwYXNz" });
-    const res = makeRes();
-    const next = makeNext();
+      const req = makeReq({ authorization: "Basic dXNlcjpwYXNz" });
+      const res = makeRes();
+      const next = makeNext();
 
-    adminAuth(req as Request, res as unknown as Response, next.fn);
-    restoreConfig();
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
 
-    expect(next.called).toBe(false);
-    expect(res._status).toBe(401);
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(401);
+    });
   });
 });
 
 describe("adminAuth — invalid token", () => {
-  test("responds 403 when token does not match any admin key", () => {
-    (config as Record<string, unknown>).adminApiKeys = ["correct-key"];
-    config.authDisabled = false;
+  test("responds 403 when token does not match any admin key", async () => {
+    await withConfig({ adminApiKeys: ["correct-key"] }, async () => {
+      config.authDisabled = false;
 
-    const req = makeReq({ authorization: "Bearer wrong-key" });
-    const res = makeRes();
-    const next = makeNext();
+      const req = makeReq({ authorization: "Bearer wrong-key" });
+      const res = makeRes();
+      const next = makeNext();
 
-    adminAuth(req as Request, res as unknown as Response, next.fn);
-    restoreConfig();
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
 
-    expect(next.called).toBe(false);
-    expect(res._status).toBe(403);
-    expect((res._body as Record<string, Record<string, string>>).error.code).toBe("FORBIDDEN");
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(403);
+      expect((res._body as Record<string, Record<string, string>>).error.code).toBe("FORBIDDEN");
+    });
   });
 });
 
@@ -176,67 +181,71 @@ describe("adminAuth — AUTH_DISABLED bypass", () => {
 
 describe("mcpAuth — valid Bearer token", () => {
   test("calls next() when token matches an MCP key", async () => {
-    (config as Record<string, unknown>).mcpApiKeys = ["mcp-key"];
-    config.authDisabled = false;
+    await withConfig({ mcpApiKeys: ["mcp-key"] }, async () => {
+      config.authDisabled = false;
 
-    const req = makeReq({ authorization: "Bearer mcp-key" });
-    const res = makeRes();
-    const next = makeNext();
+      const req = makeReq({ authorization: "Bearer mcp-key" });
+      const res = makeRes();
+      const next = makeNext();
 
-    await mcpAuth(req as Request, res as unknown as Response, next.fn);
-    restoreConfig();
+      await mcpAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
 
-    expect(next.called).toBe(true);
+      expect(next.called).toBe(true);
+    });
   });
 });
 
 describe("mcpAuth — no MCP keys configured (backward compat)", () => {
   test("calls next() when mcpApiKeys is empty regardless of token", async () => {
-    (config as Record<string, unknown>).mcpApiKeys = [];
-    config.authDisabled = false;
+    await withConfig({ mcpApiKeys: [] }, async () => {
+      config.authDisabled = false;
 
-    const req = makeReq(); // no token
-    const res = makeRes();
-    const next = makeNext();
+      const req = makeReq(); // no token
+      const res = makeRes();
+      const next = makeNext();
 
-    await mcpAuth(req as Request, res as unknown as Response, next.fn);
-    restoreConfig();
+      await mcpAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
 
-    expect(next.called).toBe(true);
+      expect(next.called).toBe(true);
+    });
   });
 });
 
 describe("mcpAuth — missing Authorization header", () => {
   test("responds 401 when header is absent and MCP keys are configured", async () => {
-    (config as Record<string, unknown>).mcpApiKeys = ["mcp-key"];
-    config.authDisabled = false;
+    await withConfig({ mcpApiKeys: ["mcp-key"] }, async () => {
+      config.authDisabled = false;
 
-    const req = makeReq();
-    const res = makeRes();
-    const next = makeNext();
+      const req = makeReq();
+      const res = makeRes();
+      const next = makeNext();
 
-    await mcpAuth(req as Request, res as unknown as Response, next.fn);
-    restoreConfig();
+      await mcpAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
 
-    expect(next.called).toBe(false);
-    expect(res._status).toBe(401);
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(401);
+    });
   });
 });
 
 describe("mcpAuth — invalid token", () => {
   test("responds 403 when token does not match any MCP key", async () => {
-    (config as Record<string, unknown>).mcpApiKeys = ["real-mcp-key"];
-    config.authDisabled = false;
+    await withConfig({ mcpApiKeys: ["real-mcp-key"] }, async () => {
+      config.authDisabled = false;
 
-    const req = makeReq({ authorization: "Bearer fake-mcp-key" });
-    const res = makeRes();
-    const next = makeNext();
+      const req = makeReq({ authorization: "Bearer fake-mcp-key" });
+      const res = makeRes();
+      const next = makeNext();
 
-    await mcpAuth(req as Request, res as unknown as Response, next.fn);
-    restoreConfig();
+      await mcpAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
 
-    expect(next.called).toBe(false);
-    expect(res._status).toBe(403);
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(403);
+    });
   });
 });
 
@@ -362,23 +371,24 @@ describe("adminAuth — session cookie authentication", () => {
     expect(res._status).toBe(403);
   });
 
-  test("Bearer header takes precedence over a present session cookie, even on a mutating method with no CSRF header", () => {
-    (config as Record<string, unknown>).adminApiKeys = ["bearer-key"];
-    config.authDisabled = false;
-    const { session } = setupUserAndSession();
+  test("Bearer header takes precedence over a present session cookie, even on a mutating method with no CSRF header", async () => {
+    await withConfig({ adminApiKeys: ["bearer-key"] }, async () => {
+      config.authDisabled = false;
+      const { session } = setupUserAndSession();
 
-    const req = makeReq(
-      { authorization: "Bearer bearer-key", cookie: `${SESSION_COOKIE_NAME}=${session.token}` },
-      "POST",
-    );
-    const res = makeRes();
-    const next = makeNext();
+      const req = makeReq(
+        { authorization: "Bearer bearer-key", cookie: `${SESSION_COOKIE_NAME}=${session.token}` },
+        "POST",
+      );
+      const res = makeRes();
+      const next = makeNext();
 
-    adminAuth(req as Request, res as unknown as Response, next.fn);
-    restoreConfig();
+      adminAuth(req as Request, res as unknown as Response, next.fn);
+      restoreConfig();
 
-    expect(next.called).toBe(true);
-    expect(req.authContext?.method).toBe("bearer");
+      expect(next.called).toBe(true);
+      expect(req.authContext?.method).toBe("bearer");
+    });
   });
 
   test("authDisabled still bypasses everything even with a session cookie present", () => {
@@ -399,24 +409,25 @@ describe("adminAuth — session cookie authentication", () => {
 // ---------------------------------------------------------------------------
 
 describe("safeCompare — hash-before-compare (via adminAuth)", () => {
-  test("returns false without throwing when comparing short vs long strings", () => {
-    // Verifies both sides are hashed to fixed 32-byte digests before timingSafeEqual;
-    // a length-leaking implementation would have returned false early but here we
-    // confirm the function completes without error and produces the correct result.
-    (config as Record<string, unknown>).adminApiKeys = ["verylongverylongverylong"];
-    config.authDisabled = false;
+  test("returns false without throwing when comparing short vs long strings", async () => {
+    await withConfig({ adminApiKeys: ["verylongverylongverylong"] }, async () => {
+      // Verifies both sides are hashed to fixed 32-byte digests before timingSafeEqual;
+      // a length-leaking implementation would have returned false early but here we
+      // confirm the function completes without error and produces the correct result.
+      config.authDisabled = false;
 
-    // "short" !== "verylongverylongverylong" — must be 403, not a throw
-    const req = makeReq({ authorization: "Bearer short" });
-    const res = makeRes();
-    const next = makeNext();
+      // "short" !== "verylongverylongverylong" — must be 403, not a throw
+      const req = makeReq({ authorization: "Bearer short" });
+      const res = makeRes();
+      const next = makeNext();
 
-    expect(() => {
-      adminAuth(req as Request, res as unknown as Response, next.fn);
-    }).not.toThrow();
-    restoreConfig();
+      expect(() => {
+        adminAuth(req as Request, res as unknown as Response, next.fn);
+      }).not.toThrow();
+      restoreConfig();
 
-    expect(next.called).toBe(false);
-    expect(res._status).toBe(403);
+      expect(next.called).toBe(false);
+      expect(res._status).toBe(403);
+    });
   });
 });

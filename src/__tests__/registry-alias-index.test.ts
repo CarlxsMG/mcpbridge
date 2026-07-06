@@ -50,10 +50,7 @@ describe("RegistryAliasIndex — rebuildForClient", () => {
   test("replaces prior aliases for that client only", () => {
     const i = new RegistryAliasIndex();
     i.setAlias("acme", "old", "old-alias");
-    i.rebuildForClient(
-      "acme",
-      [makeTool("new1"), makeTool("new2", "new-alias")],
-    );
+    i.rebuildForClient("acme", [makeTool("new1"), makeTool("new2", "new-alias")]);
     // Old alias gone
     expect(i.size()).toBe(1);
     expect(i.resolve(`acme${TOOL_KEY_SEPARATOR}old-alias`)).toBe(`acme${TOOL_KEY_SEPARATOR}old-alias`);

@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `withConfig(patch, fn)` test helper (P1-9) at `src/__tests__/_utils/with-config.ts`.
+  Snapshots the listed fields on the live `config` singleton, applies the patch,
+  runs `fn` (sync or async), and restores the originals — even when `fn` throws
+  or rejects. Replaces the repeated `(config as Record<string, unknown>).X = Y`
+  pattern in 50 test call sites across 13 files, removing the un-typed cast and
+  guaranteeing no config mutation leaks into the next test. The remaining ~226
+  occurrences in `beforeEach`/`afterEach` save/restore blocks, helper functions
+  (`resetAll`, `pointAt`), and tests that re-assign the same field with different
+  values mid-body are still flagged for manual migration in a follow-up.
 - W3C `traceparent` propagation (P1-6). The gateway now honors an incoming
   `traceparent` on MCP requests — the bridge's own OTLP span inherits the caller's
   trace-id and records the upstream's span-id as its parent — and injects a
@@ -43,10 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     known tool returns the upstream payload, and three error paths
     (unknown tool, invalid args, upstream 404) all surface as
     `isError: true` rather than dropping the session.
-  The smoke test was also updated to use `/mcp/:clientName` (the data
-  plane) instead of the post-`/mcp` refactor control plane, and each
-  spec mints its own managed MCP key so the suite is order-independent
-  and the data plane is in a known auth-required state.
+    The smoke test was also updated to use `/mcp/:clientName` (the data
+    plane) instead of the post-`/mcp` refactor control plane, and each
+    spec mints its own managed MCP key so the suite is order-independent
+    and the data plane is in a known auth-required state.
 - A new `e2e` job in `.github/workflows/ci.yml` runs the full Playwright
   suite on every PR and push to `main` (12 specs, ~22s). Caches
   Playwright browsers across runs via `actions/cache`, installs

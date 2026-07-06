@@ -27,6 +27,7 @@ import {
 } from "../tool-policies/context-budget.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 
+import { withConfig } from "./_utils/with-config.js";
 const CLIENT = "cbsvc";
 const getTool: RestToolDefinition = {
   name: "get-thing",
@@ -330,21 +331,22 @@ describe("applyContextBudget — falls back to truncate on LLM failure", () => {
   });
 
   test("a slow LLM call times out and falls back to truncate rather than hanging the tool call", async () => {
-    (config as Record<string, unknown>).contextBudgetLlmTimeoutMs = 50;
-    await configureLlmBudget(10);
-    __setContextBudgetFetchForTesting((async (_url: string, init: RequestInit) => {
-      return new Promise<Response>((resolve, reject) => {
-        const t = setTimeout(() => resolve(new Response("{}", { status: 200 })), 5_000);
-        init.signal?.addEventListener("abort", () => {
-          clearTimeout(t);
-          reject(new Error("aborted"));
+    await withConfig({ contextBudgetLlmTimeoutMs: 50 }, async () => {
+      await configureLlmBudget(10);
+      __setContextBudgetFetchForTesting((async (_url: string, init: RequestInit) => {
+        return new Promise<Response>((resolve, reject) => {
+          const t = setTimeout(() => resolve(new Response("{}", { status: 200 })), 5_000);
+          init.signal?.addEventListener("abort", () => {
+            clearTimeout(t);
+            reject(new Error("aborted"));
+          });
         });
-      });
-    }) as unknown as typeof fetch);
-    const start = Date.now();
-    const result = await applyContextBudget(CLIENT, getTool.name, `${CLIENT}__${getTool.name}`, "0123456789ABCDEF");
-    expect(Date.now() - start).toBeLessThan(4_000);
-    expect(result.applied).toBe("llm_summarize_fallback_truncate");
+      }) as unknown as typeof fetch);
+      const start = Date.now();
+      const result = await applyContextBudget(CLIENT, getTool.name, `${CLIENT}__${getTool.name}`, "0123456789ABCDEF");
+      expect(Date.now() - start).toBeLessThan(4_000);
+      expect(result.applied).toBe("llm_summarize_fallback_truncate");
+    });
   });
 });
 

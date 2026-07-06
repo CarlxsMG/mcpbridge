@@ -6,6 +6,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../config.js";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
+import { withConfig } from "./_utils/with-config.js";
 import {
   tracingEnabled,
   startSpan,
@@ -56,67 +57,70 @@ describe("opt-in write behavior", () => {
     expect(tracingEnabled()).toBe(false);
   });
 
-  test("a span is persisted when TRACE_STORAGE is on, regardless of whether otelEndpoint is set", () => {
-    (config as Record<string, unknown>).traceStorageEnabled = true;
-    expect(tracingEnabled()).toBe(true);
-    const span = startSpan("tool_call svc__do-x", { "mcp.tool": "svc__do-x" });
-    endSpan(span, {}, 1);
-    expect(spanRowCount()).toBe(1);
+  test("a span is persisted when TRACE_STORAGE is on, regardless of whether otelEndpoint is set", async () => {
+    await withConfig({ traceStorageEnabled: true }, async () => {
+      expect(tracingEnabled()).toBe(true);
+      const span = startSpan("tool_call svc__do-x", { "mcp.tool": "svc__do-x" });
+      endSpan(span, {}, 1);
+      expect(spanRowCount()).toBe(1);
 
-    const trace = getTrace(span.traceId);
-    expect(trace).toHaveLength(1);
-    expect(trace[0]).toMatchObject({
-      traceId: span.traceId,
-      spanId: span.spanId,
-      mcpToolName: "svc__do-x",
-      statusCode: 1,
+      const trace = getTrace(span.traceId);
+      expect(trace).toHaveLength(1);
+      expect(trace[0]).toMatchObject({
+        traceId: span.traceId,
+        spanId: span.spanId,
+        mcpToolName: "svc__do-x",
+        statusCode: 1,
+      });
     });
   });
 
-  test("mcp.session_id in the finished span's attributes is extracted into the dedicated session_id column", () => {
-    (config as Record<string, unknown>).traceStorageEnabled = true;
-    const span = startSpan("tool_call svc__do-x", { "mcp.tool": "svc__do-x" });
-    endSpan(span, { "mcp.session_id": "session-abc" }, 1);
+  test("mcp.session_id in the finished span's attributes is extracted into the dedicated session_id column", async () => {
+    await withConfig({ traceStorageEnabled: true }, async () => {
+      const span = startSpan("tool_call svc__do-x", { "mcp.tool": "svc__do-x" });
+      endSpan(span, { "mcp.session_id": "session-abc" }, 1);
 
-    const trace = getTrace(span.traceId);
-    expect(trace).toHaveLength(1);
-    expect(trace[0].sessionId).toBe("session-abc");
-    // Still present in the full attributes blob too — the column is an index,
-    // not a replacement for the JSON detail view.
-    expect(trace[0].attributes["mcp.session_id"]).toBe("session-abc");
+      const trace = getTrace(span.traceId);
+      expect(trace).toHaveLength(1);
+      expect(trace[0].sessionId).toBe("session-abc");
+      // Still present in the full attributes blob too — the column is an index,
+      // not a replacement for the JSON detail view.
+      expect(trace[0].attributes["mcp.session_id"]).toBe("session-abc");
+    });
   });
 
-  test("session_id is null when the call had no live MCP session (e.g. composite steps, admin test-calls)", () => {
-    (config as Record<string, unknown>).traceStorageEnabled = true;
-    const span = startSpan("tool_call svc__do-x", { "mcp.tool": "svc__do-x" });
-    endSpan(span, {}, 1);
+  test("session_id is null when the call had no live MCP session (e.g. composite steps, admin test-calls)", async () => {
+    await withConfig({ traceStorageEnabled: true }, async () => {
+      const span = startSpan("tool_call svc__do-x", { "mcp.tool": "svc__do-x" });
+      endSpan(span, {}, 1);
 
-    const trace = getTrace(span.traceId);
-    expect(trace[0].sessionId).toBeNull();
+      const trace = getTrace(span.traceId);
+      expect(trace[0].sessionId).toBeNull();
+    });
   });
 
   test("storage and OTLP export are independent — storage-only mode never calls fetch", async () => {
-    (config as Record<string, unknown>).traceStorageEnabled = true;
-    (config as Record<string, unknown>).otelEndpoint = undefined;
-    let fetchCalls = 0;
-    globalThis.fetch = (async () => {
-      fetchCalls++;
-      return new Response("{}");
-    }) as unknown as typeof fetch;
+    await withConfig({ traceStorageEnabled: true, otelEndpoint: undefined }, async () => {
+      let fetchCalls = 0;
+      globalThis.fetch = (async () => {
+        fetchCalls++;
+        return new Response("{}");
+      }) as unknown as typeof fetch;
 
-    const span = startSpan("tool_call svc__do-x", {});
-    endSpan(span, {}, 0);
-    expect(spanRowCount()).toBe(1);
-    expect(fetchCalls).toBe(0); // no OTLP endpoint configured -> flush is never scheduled
+      const span = startSpan("tool_call svc__do-x", {});
+      endSpan(span, {}, 0);
+      expect(spanRowCount()).toBe(1);
+      expect(fetchCalls).toBe(0); // no OTLP endpoint configured -> flush is never scheduled
+    });
   });
 
-  test("both storage and OTLP can be enabled together", () => {
-    (config as Record<string, unknown>).traceStorageEnabled = true;
-    (config as Record<string, unknown>).otelEndpoint = "http://collector.test/v1/traces";
-    const span = startSpan("tool_call svc__do-x", {});
-    endSpan(span, {}, 0);
-    expect(spanRowCount()).toBe(1);
-    expect(tracingInternals.bufferLength()).toBe(1); // queued for OTLP export too
+  test("both storage and OTLP can be enabled together", async () => {
+    await withConfig({ traceStorageEnabled: true, otelEndpoint: "http://collector.test/v1/traces" }, async () => {
+      const span = startSpan("tool_call svc__do-x", {});
+      endSpan(span, {}, 0);
+      expect(spanRowCount()).toBe(1);
+      expect(tracingInternals.bufferLength()).toBe(1); // queued for OTLP export too
+    });
   });
 });
 
@@ -228,15 +232,16 @@ describe("retention", () => {
     (config as Record<string, unknown>).traceStorageEnabled = true;
   });
 
-  test("pruneSpans deletes rows older than the retention window", () => {
-    (config as Record<string, unknown>).traceRetentionMs = 1000;
-    const span = startSpan("tool_call svc__old", {});
-    endSpan(span, {}, 0);
-    expect(spanRowCount()).toBe(1);
+  test("pruneSpans deletes rows older than the retention window", async () => {
+    await withConfig({ traceRetentionMs: 1000 }, async () => {
+      const span = startSpan("tool_call svc__old", {});
+      endSpan(span, {}, 0);
+      expect(spanRowCount()).toBe(1);
 
-    const removed = pruneSpans(Date.now() + 5000); // simulate "later"
-    expect(removed).toBe(1);
-    expect(spanRowCount()).toBe(0);
+      const removed = pruneSpans(Date.now() + 5000); // simulate "later"
+      expect(removed).toBe(1);
+      expect(spanRowCount()).toBe(0);
+    });
   });
 
   test("purgeAllSpans deletes everything regardless of age", () => {

@@ -11,6 +11,7 @@ import { getSecretsProvider } from "../secrets/index.js";
 import { localProvider } from "../secrets/local-provider.js";
 import { vaultProvider } from "../secrets/vault-provider.js";
 
+import { withConfig } from "./_utils/with-config.js";
 const orig = {
   secretsProvider: config.secretsProvider,
   secretEncryptionKey: config.secretEncryptionKey,
@@ -23,18 +24,20 @@ afterEach(() => {
 });
 
 describe("getSecretsProvider — selection", () => {
-  test("'local' (default) selects the local provider", () => {
-    (config as Record<string, unknown>).secretsProvider = "local";
-    const provider = getSecretsProvider();
-    expect(provider).toBe(localProvider);
-    expect(provider.name).toBe("local");
+  test("'local' (default) selects the local provider", async () => {
+    await withConfig({ secretsProvider: "local" }, async () => {
+      const provider = getSecretsProvider();
+      expect(provider).toBe(localProvider);
+      expect(provider.name).toBe("local");
+    });
   });
 
-  test("'vault' selects the vault provider", () => {
-    (config as Record<string, unknown>).secretsProvider = "vault";
-    const provider = getSecretsProvider();
-    expect(provider).toBe(vaultProvider);
-    expect(provider.name).toBe("vault");
+  test("'vault' selects the vault provider", async () => {
+    await withConfig({ secretsProvider: "vault" }, async () => {
+      const provider = getSecretsProvider();
+      expect(provider).toBe(vaultProvider);
+      expect(provider.name).toBe("vault");
+    });
   });
 
   test("switches when config.secretsProvider changes (no stale singleton cached)", () => {

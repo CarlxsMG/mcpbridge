@@ -5,6 +5,7 @@ import type { Server } from "http";
 import { corsMiddleware } from "../middleware/cors.js";
 import { config } from "../config.js";
 
+import { withConfig } from "./_utils/with-config.js";
 // ---------------------------------------------------------------------------
 // Direct coverage for src/middleware/cors.ts (previously only exercised
 // indirectly through routes mounted behind it in index.ts).
@@ -89,16 +90,17 @@ describe("corsMiddleware — allowed origin", () => {
   });
 
   test("a non-default port must match exactly to be allowed", async () => {
-    (config as Record<string, unknown>).corsOrigins = ["https://allowed.example.com:8443"];
-    const matching = await fetch(`${baseUrl}/test`, {
-      headers: { Origin: "https://allowed.example.com:8443" },
-    });
-    expect(matching.headers.get("access-control-allow-origin")).toBe("https://allowed.example.com:8443");
+    await withConfig({ corsOrigins: ["https://allowed.example.com:8443"] }, async () => {
+      const matching = await fetch(`${baseUrl}/test`, {
+        headers: { Origin: "https://allowed.example.com:8443" },
+      });
+      expect(matching.headers.get("access-control-allow-origin")).toBe("https://allowed.example.com:8443");
 
-    const mismatched = await fetch(`${baseUrl}/test`, {
-      headers: { Origin: "https://allowed.example.com" },
+      const mismatched = await fetch(`${baseUrl}/test`, {
+        headers: { Origin: "https://allowed.example.com" },
+      });
+      expect(mismatched.headers.get("access-control-allow-origin")).toBeNull();
     });
-    expect(mismatched.headers.get("access-control-allow-origin")).toBeNull();
   });
 });
 
@@ -127,11 +129,12 @@ describe("corsMiddleware — disallowed origin", () => {
   });
 
   test("empty allowlist rejects every origin", async () => {
-    (config as Record<string, unknown>).corsOrigins = [];
-    const res = await fetch(`${baseUrl}/test`, {
-      headers: { Origin: "https://allowed.example.com" },
+    await withConfig({ corsOrigins: [] }, async () => {
+      const res = await fetch(`${baseUrl}/test`, {
+        headers: { Origin: "https://allowed.example.com" },
+      });
+      expect(res.headers.get("access-control-allow-origin")).toBeNull();
     });
-    expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
 });
 
@@ -190,24 +193,26 @@ describe("corsMiddleware — no Origin header", () => {
 
 describe("corsMiddleware — credentials", () => {
   test("credentials header is sent only when corsAllowCredentials=true AND origin is allowed", async () => {
-    (config as Record<string, unknown>).corsAllowCredentials = true;
-    const allowed = await fetch(`${baseUrl}/test`, {
-      headers: { Origin: "https://allowed.example.com" },
-    });
-    expect(allowed.headers.get("access-control-allow-credentials")).toBe("true");
+    await withConfig({ corsAllowCredentials: true }, async () => {
+      const allowed = await fetch(`${baseUrl}/test`, {
+        headers: { Origin: "https://allowed.example.com" },
+      });
+      expect(allowed.headers.get("access-control-allow-credentials")).toBe("true");
 
-    const disallowed = await fetch(`${baseUrl}/test`, {
-      headers: { Origin: "https://evil.example.com" },
+      const disallowed = await fetch(`${baseUrl}/test`, {
+        headers: { Origin: "https://evil.example.com" },
+      });
+      expect(disallowed.headers.get("access-control-allow-credentials")).toBeNull();
     });
-    expect(disallowed.headers.get("access-control-allow-credentials")).toBeNull();
   });
 
   test("credentials header is omitted when corsAllowCredentials=false even for an allowed origin", async () => {
-    (config as Record<string, unknown>).corsAllowCredentials = false;
-    const res = await fetch(`${baseUrl}/test`, {
-      headers: { Origin: "https://allowed.example.com" },
+    await withConfig({ corsAllowCredentials: false }, async () => {
+      const res = await fetch(`${baseUrl}/test`, {
+        headers: { Origin: "https://allowed.example.com" },
+      });
+      expect(res.headers.get("access-control-allow-credentials")).toBeNull();
     });
-    expect(res.headers.get("access-control-allow-credentials")).toBeNull();
   });
 });
 
@@ -217,34 +222,36 @@ describe("corsMiddleware — credentials", () => {
 
 describe("corsMiddleware — wildcard mode", () => {
   test("wildcard mode reflects the request origin verbatim (not '*') for any origin", async () => {
-    (config as Record<string, unknown>).corsOrigins = ["*"];
-    const res = await fetch(`${baseUrl}/test`, {
-      headers: { Origin: "https://anything.example.net" },
+    await withConfig({ corsOrigins: ["*"] }, async () => {
+      const res = await fetch(`${baseUrl}/test`, {
+        headers: { Origin: "https://anything.example.net" },
+      });
+      expect(res.status).toBe(200);
+      expect(res.headers.get("access-control-allow-origin")).toBe("https://anything.example.net");
+      expect(res.headers.get("vary")).toBe("Origin");
     });
-    expect(res.status).toBe(200);
-    expect(res.headers.get("access-control-allow-origin")).toBe("https://anything.example.net");
-    expect(res.headers.get("vary")).toBe("Origin");
   });
 
   test("wildcard mode never sends credentials, even when corsAllowCredentials=true", async () => {
-    (config as Record<string, unknown>).corsOrigins = ["*"];
-    (config as Record<string, unknown>).corsAllowCredentials = true;
-    const res = await fetch(`${baseUrl}/test`, {
-      headers: { Origin: "https://anything.example.net" },
+    await withConfig({ corsOrigins: ["*"], corsAllowCredentials: true }, async () => {
+      const res = await fetch(`${baseUrl}/test`, {
+        headers: { Origin: "https://anything.example.net" },
+      });
+      expect(res.headers.get("access-control-allow-credentials")).toBeNull();
     });
-    expect(res.headers.get("access-control-allow-credentials")).toBeNull();
   });
 
   test("wildcard mode preflight also short-circuits with 204", async () => {
-    (config as Record<string, unknown>).corsOrigins = ["*"];
-    const res = await fetch(`${baseUrl}/test`, {
-      method: "OPTIONS",
-      headers: {
-        Origin: "https://anything.example.net",
-        "Access-Control-Request-Method": "POST",
-      },
+    await withConfig({ corsOrigins: ["*"] }, async () => {
+      const res = await fetch(`${baseUrl}/test`, {
+        method: "OPTIONS",
+        headers: {
+          Origin: "https://anything.example.net",
+          "Access-Control-Request-Method": "POST",
+        },
+      });
+      expect(res.status).toBe(204);
+      expect(res.headers.get("access-control-allow-origin")).toBe("https://anything.example.net");
     });
-    expect(res.status).toBe(204);
-    expect(res.headers.get("access-control-allow-origin")).toBe("https://anything.example.net");
   });
 });
