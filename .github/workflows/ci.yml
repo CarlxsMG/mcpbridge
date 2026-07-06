@@ -42,3 +42,59 @@ jobs:
       - name: Build (admin-ui)
         working-directory: admin-ui
         run: bun run build
+
+  e2e:
+    # Boots the real stack (admin-ui served as static files by the backend
+    # at /admin, see src/index.ts) against a throwaway SQLite DB on a
+    # dedicated test port, then runs the Playwright suite. The smoke test
+    # alone was the only e2e gate for months; this job runs the full set
+    # (12 specs: 1 smoke + 5 auth-fail-closed + 6 mcp-protocol — see
+    # e2e/README in your head). The webServer in playwright.config.ts
+    # builds admin-ui itself; the explicit build step here is a fast
+    # no-op that pre-warms the artifact so the test step doesn't pay
+    # for the build inside its own 120s timeout.
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install root dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install admin-ui dependencies
+        working-directory: admin-ui
+        run: bun install --frozen-lockfile
+
+      - name: Build admin-ui
+        working-directory: admin-ui
+        run: bun run build
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        # WebServer in playwright.config.ts boots the backend on port 8793
+        # and the fixture HTTP server on 8794 (see e2e/env.ts). ALLOW_PRIVATE_IPS
+        # is set there so the loopback fixture is allowed past the SSRF guard.
+        run: bun run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7

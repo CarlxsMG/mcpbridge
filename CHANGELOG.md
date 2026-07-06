@@ -30,7 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   span) and is plumbed through `requestIdMiddleware`. OTLP spans now emit
   `parentSpanId` when present.
 - E2E coverage expansion (P1-3, partial). The Playwright suite now exercises
-  two more flows beyond the existing smoke test:
+  two more flows beyond the existing smoke test, and the new specs are
+  wired into CI:
   - `e2e/auth-fail-closed.spec.ts` — the MCP data plane starts in open mode
     (no auth material), then locks down the moment a managed MCP key is
     minted via the admin API: no Authorization → 401, bogus Bearer → 403,
@@ -46,6 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plane) instead of the post-`/mcp` refactor control plane, and each
   spec mints its own managed MCP key so the suite is order-independent
   and the data plane is in a known auth-required state.
+- A new `e2e` job in `.github/workflows/ci.yml` runs the full Playwright
+  suite on every PR and push to `main` (12 specs, ~22s). Caches
+  Playwright browsers across runs via `actions/cache`, installs
+  Chromium with `--with-deps` on cache miss, and uploads the
+  `test-results/` + `playwright-report/` artifact on failure for
+  debugging. The job depends on `test` so a broken lint/typecheck
+  fails the PR before the slower browser step runs.
 - Closed 12 documentation gaps found by a full features-vs-docs audit: bundle install links,
   the curated install catalog, tool tags, the context-budget guard, admin-UI SSO login,
   self-service session/password management, the on-demand DB backup endpoint, audit-log
