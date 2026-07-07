@@ -34,6 +34,12 @@
 //         updateUser L111 `>=0`/`→true` (guarded by if(!existing), changes
 //         always 1). First run scoped via STRYKER_TEST_SCOPE=src/security/
 //         __tests__ (~24x faster: 3m28s vs ~84m; scoped-run commit 18052c4).
+//   P2-6  jwt                              237 mutants  96.20% (228/237)
+//         Densest file; 3 iterations (63.71→92.41→94.94→96.20). The 9
+//         survivors are all equivalent/effectively-equivalent (atob padding,
+//         OOB Uint8Array write, extractable flag, exp/nbf typeof guards, aud
+//         [], default Date.now() clocks) — see jwt.test.ts header. Added RS256
+//         coverage, nbf, exact reasons, aud-array, JWKS fetch/cache/timeout.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -96,10 +102,9 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // P2-5: see SCOPE HISTORY. Run scoped for ~11x speed:
+    // P2-6: see SCOPE HISTORY. Run scoped:
     //   STRYKER_TEST_SCOPE=src/security/__tests__ bun run test:mutate
-    "src/security/session-store.ts",
-    "src/security/user-store.ts",
+    "src/security/jwt.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

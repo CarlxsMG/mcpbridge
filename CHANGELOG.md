@@ -108,6 +108,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so one guard can't mask another; the user tests kill the `changes > 0` line via
   unknown-user cases on the un-guarded `updatePassword` / `deleteUser`. Run with
   `bun run test:mutate`.
+- **P2-6 — mutation backstop for `jwt.ts`** (inbound JWT verification via JWKS),
+  the densest file so far (237 mutants), driven from a 63.71% baseline to
+  **96.20% (228/237)** over three iterations. Added RS256 coverage (the base
+  tests only exercised ES256), the `nbf` check, exact reason strings for every
+  rejection, array-audience, `isJwtConfigured`, JWKS fetch-error / cache TTL /
+  request-timeout-signal, and exp/nbf boundaries via an injectable clock.
+  `jwt.test.ts` grows 8 → 36 tests; suite 1297 → 1325. The 9 remaining survivors
+  are all equivalent or effectively so (documented in the test header): Bun's
+  `atob` tolerating missing base64 padding, an ignored out-of-bounds
+  `Uint8Array` write, the `extractable` flag not affecting `verify()`, the
+  `typeof exp/nbf === "number"` guards (every token has numeric claims), aud
+  `[]`, and the default `() => Date.now()` clock initializers the
+  injectable-clock design never asserts. Run with `bun run test:mutate`.
 
 ### Docs
 
