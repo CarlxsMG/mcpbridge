@@ -65,6 +65,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   commit, keeping the P2-1/P2-2 incremental file-by-file pattern; the larger
   files (`oidc`, `mcp-key-store`, `jwt`, …) are dedicated follow-ups, largest
   last. Run with `bun run test:mutate`.
+- **P2-4 — mutation backstop for `bootstrap-admin.ts` + `startup-guards.ts`**,
+  both driven to a clean **100%** (101/101 mutants, 0 survivors) in 49m 4s, from
+  a 75.25% baseline (25 survivors). Added `bootstrap-admin.test.ts` (7 cases) and
+  5 message-content cases in `startup-guards.test.ts`; suite grows 1262 → 1274.
+  The interesting file was `bootstrap-admin`: 15 of its 16 baseline survivors
+  were `log()`-call StringLiterals (level, message chunks) and the `{ username }`
+  meta — side effects with no return value, killable only by SPYING the logger.
+  The test spies `log` (`spyOn(logger, "log")`, empirically confirmed to
+  intercept the module's internal call) and asserts the level, every message
+  chunk, and the meta per call, alongside the DB effect
+  (`countUsers`/`findUserByUsername`); the password-length guard is pinned by a
+  boundary case (exactly 12 chars → created, killing `<` → `<=`).
+  `startup-guards` was at 86.76%: its `reason` strings are 2-3 concatenated
+  literals and the base tests asserted only one chunk, so the other chunks'
+  `→ ""` mutants survived — fixed by asserting a substring from every chunk,
+  plus a bare-string `corsOrigins='*'` to exercise the `[env.corsOrigins]` wrap
+  (killing `ArrayDeclaration → []`). Run with `bun run test:mutate`.
 
 ### Docs
 

@@ -181,3 +181,58 @@ describe("checkStartupGuards — guard ordering", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Reason-message content + string-form CORS (mutation backstop)
+//
+// Each `reason` is 2-3 concatenated string literals; the base tests above only
+// assert one substring, so the OTHER chunks' `StringLiteral -> ""` mutants
+// survive. Assert a substring from every chunk of every reason. Plus a bare
+// (non-array) corsOrigins to exercise the `[env.corsOrigins]` wrap.
+// ---------------------------------------------------------------------------
+
+describe("checkStartupGuards — reason content + string CORS", () => {
+  test("AUTH_DISABLED reason includes both chunks (kills L37+L38)", () => {
+    const r = checkStartupGuards(safeEnv({ authDisabled: true, nodeEnv: "production" }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toContain("all endpoints unauthenticated");
+      expect(r.reason).toContain("Refusing to start unless ALLOW_UNSAFE_AUTH_DISABLED=true");
+    }
+  });
+
+  test("CORS reason includes all three chunks (kills L49+L50+L51)", () => {
+    const r = checkStartupGuards(safeEnv({ corsOrigins: ["*"], nodeEnv: "production" }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toContain("is active outside the development environment");
+      expect(r.reason).toContain("All cross-origin requests will be permitted");
+      expect(r.reason).toContain("Restrict CORS_ORIGINS to explicit origins");
+    }
+  });
+
+  test("TRUST_PROXY reason includes the remediation chunk (kills L61)", () => {
+    const r = checkStartupGuards(safeEnv({ trustProxy: true, nodeEnv: "production" }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toContain("named preset");
+      expect(r.reason).toContain("numeric hop count");
+    }
+  });
+
+  test("SESSION_COOKIE reason includes both chunks (kills L72+L73)", () => {
+    const r = checkStartupGuards(safeEnv({ sessionCookieSecure: false, nodeEnv: "production" }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toContain("admin session cookies would be sent over");
+      expect(r.reason).toContain("plain HTTP");
+    }
+  });
+
+  test("a bare-string corsOrigins='*' still fires the CORS guard (kills L44 ArrayDeclaration->[])", () => {
+    // The `[env.corsOrigins]` wrap only runs for a non-array corsOrigins; the
+    // `-> []` mutant makes origins empty so the wildcard check never fires.
+    const r = checkStartupGuards(safeEnv({ corsOrigins: "*", nodeEnv: "production" }));
+    expect(r.ok).toBe(false);
+  });
+});

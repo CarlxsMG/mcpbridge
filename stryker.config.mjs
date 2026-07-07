@@ -22,6 +22,11 @@
 //         L20 `length === 0` (redundant with `[].some() === false`) and
 //         secret-box L35 `"utf8"` (Bun treats `""` as the utf8 default).
 //         cookies.ts and system-role.ts both reached a clean 100%.
+//   P2-4  bootstrap-admin + startup-guards  101 mutants  100.00% (101/101)
+//         bootstrap-admin needed a logger SPY (spyOn) — 15 of its 16 survivors
+//         were log() level/message/meta literals, killable only by asserting
+//         the log call. startup-guards needed each reason chunk asserted + a
+//         bare-string corsOrigins to hit the `[env.corsOrigins]` wrap.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -84,12 +89,10 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // 4 smallest security-critical files — see SCOPE HISTORY (P2-3).
-    // Remaining src/security/*.ts files: dedicated follow-up tickets.
-    "src/security/key-hash.ts",
-    "src/security/system-role.ts",
-    "src/security/cookies.ts",
-    "src/security/secret-box.ts",
+    // P2-4: the next 2 smallest security files — see SCOPE HISTORY.
+    // (P2-3's 4 files are done at 98.21%.) Remaining files: later tickets.
+    "src/security/bootstrap-admin.ts",
+    "src/security/startup-guards.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
