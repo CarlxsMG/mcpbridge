@@ -43,6 +43,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   guard-restricted API key hashes). Re-run on 2026-07-06: **6/6 mutants
   killed (100.00% mutation score)** in 3m 29s. Test suite grows from
   1227 to 1236 cases.
+- **P2-3 — extended the Stryker mutation backstop to 4 more `src/security`
+  files**: `key-hash.ts` (API-key hashing + allow-list check), `system-role.ts`
+  (the `/mcp` control-plane fail-closed auth), `cookies.ts` (session/CSRF cookie
+  naming + parsing), and `secret-box.ts` (AES-256-GCM secrets-at-rest). Added
+  `key-hash.test.ts`, `system-role.test.ts`, `secret-box.test.ts`, plus 8
+  `parseCookies` edge-case cases in the existing `cookies.test.ts` — 26 new
+  cases, each naming the mutant it kills by line + replacement. Suite grows
+  1236 → 1262. Re-run on 2026-07-07: **98.21% (110/112 killed)**, up from a
+  75.00% baseline (28 survivors), in 52m 59s on a single worker. `cookies.ts`
+  and `system-role.ts` reached a clean **100%** (the latter seeds a real
+  `mcp_api_keys` row via `createMcpKey` to exercise the managed-key `&&`→`||`
+  path that only a scope-less-but-resolvable key can reach). The 2 remaining
+  survivors are **proven-equivalent mutants** (unkillable, so the effective
+  score is 100% — 110/110 non-equivalent killed): `key-hash` L20
+  `allowedHashes.length === 0` → `false` (redundant with `[].some() === false`)
+  and `secret-box` L35 `"utf8"` → `""` (byte-identical in Bun, where `""` is the
+  utf8 default). Both verified empirically and documented in the respective
+  `__tests__` headers. Scope note: mutating all of `src/security/*.ts` at once
+  (12 files / 946 mutants / ~8h) was aborted at 48.7% as too coarse for a single
+  commit, keeping the P2-1/P2-2 incremental file-by-file pattern; the larger
+  files (`oidc`, `mcp-key-store`, `jwt`, …) are dedicated follow-ups, largest
+  last. Run with `bun run test:mutate`.
 
 ### Docs
 

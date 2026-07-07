@@ -1,29 +1,46 @@
 //
-// Stryker mutation testing config — P2-1 baseline.
+// Stryker mutation testing config — P2-3 expanded security scope.
 //
 // Uses the command test runner with coverage analysis OFF because the bun
 // test runner doesn't emit a coverage report Stryker can parse natively.
 // Without coverage analysis, every mutant triggers a full `bun run test`
 // run, so the per-test-suite runtime dominates.
 //
-// SCOPE NOTE (2026-07-06): the initial P2-1 run is scoped to ONE file —
-// `src/security/compare.ts` — for the first smoke. The original scope
-// was wider (security + proxy + registry) but turned out to be 5548
-// mutants × ~30s each at concurrency=1 = ~46h, far too slow for an
-// actionable baseline. Smoke-then-expand:
+// SCOPE HISTORY:
 //
-//   smoke  — compare.ts (single security primitive, the constant-time
-//            string compare that protects API-key/session/CSRF checks).
-//            ~30 mutants × 30s ≈ 15 min. Goal: validate the pipeline
-//            end-to-end and get a real score for the most
-//            security-critical primitive.
-//   expand — after smoke succeeds, re-run with `src/security/**/*.ts`
-//            (~500-800 mutants, ~5-8h).
-//   expand — re-run with `src/proxy/**/*.ts` too if budget allows.
+//   P2-1  compare.ts only                 6 mutants   3m26s   66.67% (baseline)
+//   P2-2  compare.ts only (with new tests) 6 mutants   3m29s  100.00% (closed)
+//   P2-3a src/security/*.ts (12 files)   946 mutants  ABORTED @ 48.7%
+//         461/946 tested, 140 survived -> ~284 projected. Too many to
+//         kill in one commit; and with no incremental JSON a mid-run
+//         abort yields ZERO data (the json/html reports only flush on
+//         completion), so the 12-file / ~8h scope was over-sized.
+//         Reverted to the P2-1/P2-2 incremental pattern below.
+//   P2-3  4 small critical files          112 mutants  98.21% (110/112)
+//         The 2 survivors are proven-equivalent mutants (unkillable), so the
+//         effective score is 100% (110/110 non-equivalent killed): key-hash
+//         L20 `length === 0` (redundant with `[].some() === false`) and
+//         secret-box L35 `"utf8"` (Bun treats `""` as the utf8 default).
+//         cookies.ts and system-role.ts both reached a clean 100%.
+//
+// P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
+// end-to-end. P2-3 keeps that incremental pattern rather than mutating
+// all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
+// ~284 survivors — too coarse for a single commit): we scope to the 4
+// smallest security-critical files and drive each to 100%. Stryker's
+// default `mutate` excludes `__tests__/`, `__snapshots__/`, and
+// `*.test.*` from the mutant set, so test files are never mutated
+// regardless of what we list here.
+//
+// Remaining src/security/ files → dedicated follow-up tickets, largest
+// last: oidc.ts (429 LOC), mcp-key-store.ts (242), jwt.ts (229),
+// session-store.ts (140), user-store.ts (124), startup-guards.ts (79),
+// bootstrap-admin.ts (53). Then src/proxy (pipeline), src/mcp/registry.
 //
 // (Note: glob patterns intentionally NOT shown inline — a `**` followed by
 // `/` inside a `/* */` block comment would close the comment early, which
-// is why we use plain `compare.ts` paths.)
+// is why we use `src/security/*.ts` and refer to `src/proxy/...` as plain
+// paths in the comments above.)
 //
 // CONCURRENCY (2026-07-06): MUST be 1. Reproduced failure: with
 // `concurrency: 8`, Stryker's command-test-runner spawns 8 parallel
@@ -36,10 +53,10 @@
 // dry-run executor then turns into `ConfigError: There were failed
 // tests in the initial test run`. To use concurrency>1 here we'd need
 // perTest coverage analysis + sandbox isolation per worker — out of
-// scope for P2-1.
+// scope for P2-3.
 //
 // To run:                 bun run test:mutate
-// To run a single mutant: bunx stryker run --mutate src/security/compare.ts
+// To run a single file:   bunx stryker run --mutate src/security/compare.ts
 //
 export default {
   commandRunner: {
@@ -67,7 +84,12 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    "src/security/compare.ts",
+    // 4 smallest security-critical files — see SCOPE HISTORY (P2-3).
+    // Remaining src/security/*.ts files: dedicated follow-up tickets.
+    "src/security/key-hash.ts",
+    "src/security/system-role.ts",
+    "src/security/cookies.ts",
+    "src/security/secret-box.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
@@ -84,9 +106,9 @@ export default {
   concurrency: 1,
   jsonReporter: { fileName: "reports/mutation/result.json" },
   htmlReporter: { fileName: "reports/mutation/index.html" },
-  // Don't mutate test files (Stryker's default `mutate` already excludes
+  // Don't run snapshot files (Stryker's default `mutate` already excludes
   // `**/__tests__/**` and `**/__snapshots__/**` from the set of files to
-  // mutate), and don't run snapshot files either.
+  // mutate).
   //
   // Note: do NOT put `**/__tests__/**` here as a "defensive" ignore. With
   // `coverageAnalysis: "off"` Stryker copies only the files it knows about
