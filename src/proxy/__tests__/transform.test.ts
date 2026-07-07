@@ -5,7 +5,7 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../../config.js";
-import { __resetDbForTesting } from "../../db/connection.js";
+import { __resetDbForTesting, getDb } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
@@ -63,6 +63,42 @@ describe("applyOps", () => {
   test("array / non-object inputs pass through unchanged", () => {
     expect(applyOps([1, 2], [{ op: "remove", path: "0" }])).toEqual([1, 2]);
     expect(applyOps("hi", [{ op: "set", path: "x", value: 1 }])).toBe("hi");
+  });
+
+  // ── Mutation backstop: path-helper guards through null / number / array ──
+  test("set through a null / number / array intermediate replaces it with {} (kills L102 sub-guards)", () => {
+    expect(applyOps({ a: 5 }, [{ op: "set", path: "a.b", value: 1 }])).toEqual({ a: { b: 1 } }); // number
+    expect(applyOps({ a: null }, [{ op: "set", path: "a.b", value: 2 }])).toEqual({ a: { b: 2 } }); // null
+    expect(applyOps({ a: [1] }, [{ op: "set", path: "a.b", value: 3 }])).toEqual({ a: { b: 3 } }); // array
+  });
+
+  test("get / remove through a non-object intermediate is a safe no-op (kills L90/L113 guards)", () => {
+    expect(applyOps({ a: 5, x: 1 }, [{ op: "rename", from: "a.b", to: "moved" }])).toEqual({ a: 5, x: 1 });
+    expect(applyOps({ a: 5 }, [{ op: "remove", path: "a.b.c" }])).toEqual({ a: 5 });
+  });
+
+  test("rename / copy from a missing source do not create the target (kills L136/L142)", () => {
+    expect(applyOps({ a: 1 }, [{ op: "rename", from: "nope", to: "t" }])).toEqual({ a: 1 });
+    expect(applyOps({ a: 1 }, [{ op: "copy", from: "nope", to: "t" }])).toEqual({ a: 1 });
+  });
+});
+
+describe("getToolTransform — enabled + safeParseOps fallback (mutation backstop)", () => {
+  test("maps a disabled config to enabled:false (kills L45)", async () => {
+    await reg();
+    setToolTransform(CLIENT, "get-x", { enabled: false, request: [], response: [] });
+    expect(getToolTransform(CLIENT, "get-x")?.enabled).toBe(false);
+  });
+
+  test("a non-array or invalid-JSON stored op list falls back to [] (kills L79/L81 safeParseOps)", async () => {
+    await reg();
+    setToolTransform(CLIENT, "get-x", { enabled: true, request: [], response: [] });
+    getDb()
+      .query(`UPDATE tool_transforms SET request_json = ?, response_json = ? WHERE client_name = ? AND tool_name = ?`)
+      .run('{"not":"an array"}', "not valid json", CLIENT, "get-x");
+    const t = getToolTransform(CLIENT, "get-x");
+    expect(t?.request).toEqual([]); // non-array JSON → []
+    expect(t?.response).toEqual([]); // parse error → []
   });
 });
 

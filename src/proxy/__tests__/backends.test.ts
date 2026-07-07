@@ -10,8 +10,10 @@ import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
 import {
   getToolGraphql,
+  getGraphqlForClient,
   setToolGraphql,
   getToolWs,
+  getWsForClient,
   setToolWs,
   wsRequest,
   wsRequestPersistent,
@@ -201,5 +203,99 @@ describe("WebSocket", () => {
         server.stop(true);
       }
     });
+  });
+});
+
+// ===========================================================================
+// Mutation backstop: the config getters' enabled/persistent mapping, the
+// batched getters, setToolWs's delete + exact validation reasons, and
+// wsRequest's over-cap / early-close rejections.
+// ===========================================================================
+
+describe("backends — config getter mappings", () => {
+  test("getToolGraphql / getGraphqlForClient map enabled=false (kills L28/L37)", async () => {
+    await reg();
+    setToolGraphql(CLIENT, "gql", { enabled: false, query: "{y}" });
+    expect(getToolGraphql(CLIENT, "gql")?.enabled).toBe(false);
+    expect(getGraphqlForClient(CLIENT)).toEqual({ gql: { enabled: false, query: "{y}" } });
+  });
+
+  test("getToolWs / getWsForClient map enabled=false + persistent=false (kills L75/L93/L96)", async () => {
+    await reg();
+    (config as Record<string, unknown>).allowPrivateIps = true;
+    await setToolWs(CLIENT, "wst", { enabled: false, wsUrl: "ws://5.6.7.8", persistent: false });
+    const ws = getToolWs(CLIENT, "wst");
+    expect(ws?.enabled).toBe(false);
+    expect(ws?.persistent).toBe(false);
+    expect(getWsForClient(CLIENT).wst).toMatchObject({ enabled: false, persistent: false, resolvedIp: "5.6.7.8" });
+  });
+});
+
+describe("backends — setToolWs delete + validation reasons", () => {
+  test("a non-ws:// scheme returns the exact reason (kills L113 reason)", async () => {
+    await reg();
+    (config as Record<string, unknown>).allowPrivateIps = true;
+    expect(await setToolWs(CLIENT, "wst", { enabled: true, wsUrl: "http://5.6.7.8" })).toMatchObject({
+      ok: false,
+      error: "INVALID_URL",
+      reason: "must be ws:// or wss://",
+    });
+  });
+
+  test("an SSRF-blocked ws URL surfaces the validator's reason (kills L117)", async () => {
+    await reg();
+    (config as Record<string, unknown>).allowPrivateIps = false; // loopback must be blocked
+    const blocked = await setToolWs(CLIENT, "wst", { enabled: true, wsUrl: "ws://127.0.0.1" });
+    expect(blocked).toMatchObject({ ok: false, error: "INVALID_URL" });
+    if (!blocked.ok) expect(typeof blocked.reason).toBe("string");
+  });
+
+  test("passing null deletes the row (kills L109/L110)", async () => {
+    await reg();
+    (config as Record<string, unknown>).allowPrivateIps = true;
+    await setToolWs(CLIENT, "wst", { enabled: true, wsUrl: "ws://5.6.7.8" });
+    expect(await setToolWs(CLIENT, "wst", null)).toEqual({ ok: true });
+    expect(getToolWs(CLIENT, "wst")).toBeNull();
+  });
+});
+
+describe("backends — wsRequest cap + early close", () => {
+  test("rejects a message larger than maxBytes (kills L164 maxBytes check)", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: (req, s) => (s.upgrade(req) ? undefined : new Response("no")),
+      websocket: {
+        message(ws) {
+          ws.send("x".repeat(50));
+        },
+      },
+    });
+    try {
+      await expect(wsRequest(`ws://localhost:${server.port}`, "hi", 2000, 10)).rejects.toThrow("MAX_RESPONSE_BYTES");
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("rejects when the socket closes before any message (kills L171 close handler)", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: (req, s) => (s.upgrade(req) ? undefined : new Response("no")),
+      websocket: {
+        message() {
+          /* never sends — the connection is closed on open */
+        },
+        open(ws) {
+          ws.close();
+        },
+      },
+    });
+    try {
+      await expect(wsRequest(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000)).rejects.toThrow(
+        "closed before a response",
+      );
+    } finally {
+      server.stop(true);
+    }
   });
 });

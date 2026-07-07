@@ -51,8 +51,14 @@
 //         expiry, scope-split regex, identity-reuse guards, fetch/cache infra)
 //         — see oidc.test.ts header. Covered discovery, token exchange, config
 //         CRUD + validation, verifyIdToken claims, username derivation.
-//   ── Series COMPLETE: every src/security/*.ts file now has a mutation
-//      backstop (P2-1..P2-8). ──
+//   ── src/security/ series COMPLETE (P2-1..P2-8). ──
+//
+// DOMAIN 2 — src/proxy/ (scope STRYKER_TEST_SCOPE=src/proxy/__tests__):
+//   PX-1  backends + transform + streaming  344 mutants  81.98% (282/344)
+//         First pass (69.19→81.98). streaming 97%, transform 85%, backends 74%.
+//         Remaining survivors concentrated in backends' wsRequest/Persistent
+//         event-handler internals (error/close/settled paths) — a 2nd pass
+//         with more WS-server variants is a follow-up. proxy.ts (1382 LOC) TBD.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -115,9 +121,12 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // P2-8 (last file): see SCOPE HISTORY. Run scoped + concurrency:8:
-    //   STRYKER_TEST_SCOPE=src/security/__tests__ bun run test:mutate
-    "src/security/oidc.ts",
+    // Domain 2 = src/proxy/ (the dispatch pipeline). Scope to the proxy tests
+    // + concurrency:8 (validated identical to 1 on streaming.ts):
+    //   STRYKER_TEST_SCOPE=src/proxy/__tests__ bun run test:mutate
+    "src/proxy/backends.ts",
+    "src/proxy/transform.ts",
+    "src/proxy/streaming.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

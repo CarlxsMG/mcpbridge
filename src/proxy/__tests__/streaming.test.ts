@@ -53,6 +53,24 @@ describe("parseStream", () => {
   test("sse: multi-line data joins before parsing", () => {
     expect(parseStream('data: {"x":\ndata: 1}\n', "sse", 100)).toEqual([{ x: 1 }]);
   });
+
+  // Mutation backstop: enabled mapping + the sse join char + the sse event cap.
+  test("sse multi-line NON-JSON data joins with a newline before being kept raw (kills L92)", () => {
+    // Two non-JSON data lines: the join char is observable in the raw kept string.
+    expect(parseStream("data: a\ndata: b", "sse", 100)).toEqual(["a\nb"]);
+  });
+
+  test("sse respects the event cap (kills L99)", () => {
+    expect(parseStream("data: 1\n\ndata: 2\n\ndata: 3", "sse", 2)).toEqual([1, 2]);
+  });
+});
+
+describe("getStreamingConfig — enabled mapping (mutation backstop)", () => {
+  test("maps a disabled config to enabled:false (kills L37)", async () => {
+    await reg();
+    setStreamingConfig(CLIENT, "get-stream", { enabled: false, format: "sse", maxEvents: 10 });
+    expect(getStreamingConfig(CLIENT, "get-stream")).toEqual({ enabled: false, format: "sse", maxEvents: 10 });
+  });
 });
 
 describe("config persistence", () => {

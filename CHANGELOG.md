@@ -149,6 +149,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   14 remaining survivors are equivalent or deep non-security infra (documented
   in the test header). **This completes the P2 series — every `src/security/*.ts`
   file now has a mutation-testing backstop.** Run with `bun run test:mutate`.
+- **Mutation testing — domain 2 (`src/proxy/`), first pass** for `backends.ts`,
+  `transform.ts`, and `streaming.ts` (the extra-backend config + declarative
+  transform + streaming-normalization helpers). Scoped to `src/proxy/__tests__`
+  with `concurrency:8` (re-validated identical to `1` on `streaming.ts` before
+  trusting it in this new domain). Score **81.98% (282/344)**, up from a 69.19%
+  baseline: `streaming` 97%, `transform` 85%, `backends` 74%. Added coverage for
+  the config getters' `enabled`/`persistent` mappings + batched getters,
+  `setToolWs`'s delete + exact validation reasons, the `applyOps` path-helper
+  guards (set/get/remove through null/number/array intermediates, rename/copy
+  from a missing source), `safeParseOps`' non-array/invalid-JSON fallback, the
+  SSE event cap + multi-line join, and `wsRequest`'s over-cap / early-close
+  rejections. The remaining survivors are concentrated in `wsRequest` /
+  `wsRequestPersistent`'s event-handler internals (a second pass with more
+  WebSocket-server variants is a follow-up); `proxy.ts` (1382 LOC) is not yet
+  covered. Run with `bun run test:mutate`.
 
 ### Docs
 
