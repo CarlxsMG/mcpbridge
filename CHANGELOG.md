@@ -82,6 +82,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `→ ""` mutants survived — fixed by asserting a substring from every chunk,
   plus a bare-string `corsOrigins='*'` to exercise the `[env.corsOrigins]` wrap
   (killing `ArrayDeclaration → []`). Run with `bun run test:mutate`.
+- **Stryker speedup — optional `STRYKER_TEST_SCOPE`** in
+  `scripts/stryker-test-runner.ts`. With `coverageAnalysis: "off"` every mutant
+  re-runs the whole suite; when this env var is set (space-separated test
+  paths), the wrapper runs only those tests instead. Scoping the security
+  mutation series to `src/security/__tests__` (149 tests / ~1.9s vs the full
+  1274 / ~26s) cuts per-mutant time ~11x — validated on `key-hash` (14 mutants
+  in 33s vs ~7 min, identical 13/14 score). Safe by construction: running fewer
+  tests can only leave a mutant undetected (a survivor), never falsely mark it
+  killed, so the score stays conservative. Unset → full suite (unchanged
+  default for any other caller).
 
 ### Docs
 

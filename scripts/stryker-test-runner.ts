@@ -42,7 +42,18 @@
 // package.json `test` script relies on. See .env.test's comment for the full
 // rationale (it pins SESSION_COOKIE_SECURE=true so contributor .env's
 // SESSION_COOKIE_SECURE=false escape hatch doesn't leak into the test env).
-const TEST_ARGS = ["test", "--path-ignore-patterns={admin-ui,e2e}/**"];
+// Optional test scope: when STRYKER_TEST_SCOPE is set (space-separated test
+// paths, e.g. "src/security/__tests__"), run ONLY those tests instead of the
+// whole suite. The P2 security mutation-testing series uses this to cut
+// per-mutant time ~14x (149 security tests / ~1.9s vs the full 1274 / ~26s).
+// Scoping is safe for mutation scoring: running FEWER tests can only leave a
+// mutant *undetected* (a survivor), never falsely mark it killed — so the
+// score is conservative, and any real gap still surfaces as a survivor. Unset
+// → full suite (unchanged default for any other caller).
+const scope = process.env.STRYKER_TEST_SCOPE?.trim();
+const TEST_ARGS = scope
+  ? ["test", ...scope.split(/\s+/), "--path-ignore-patterns={admin-ui,e2e}/**"]
+  : ["test", "--path-ignore-patterns={admin-ui,e2e}/**"];
 const LOG_FILE = ".stryker-test-output.log";
 
 // Build the child env. The wrapper bun process loaded .env into its own
