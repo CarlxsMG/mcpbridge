@@ -134,6 +134,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   100%): redundant guards where a non-integer id / empty token / empty result
   already yields the same value without the check (documented in the test
   header). Run with `bun run test:mutate`.
+- **P2-8 — mutation backstop for `oidc.ts`** (OIDC SSO: PKCE, ID-token
+  verification, token exchange, discovery, config CRUD, auto-provisioning), the
+  largest and most complex file in the series (429 LOC / 262 mutants), driven
+  from a 30.53% baseline to **94.66% (248/262)** over three iterations on the
+  concurrency:8 fast path (~3 min/run). Added coverage for discovery (fetch,
+  required-endpoint validation, issuer cache, trailing-slash stripping, timeout
+  signal), the authorization-code token exchange, the full `oidc_config` CRUD +
+  `setOidcConfig` validation (https/http URL-scheme anchors, `openid` scope,
+  secrets provider), `verifyIdToken`'s nbf / exp-boundary / array-audience /
+  jwks-error paths, username derivation (email slugify, `sso-<hash>` fallback,
+  collision suffix), the exact state-TTL boundary + expired-row cleanup, and the
+  auto-provision log. `oidc.test.ts` grows 15 → 53 tests; suite 1333 → 1371. The
+  14 remaining survivors are equivalent or deep non-security infra (documented
+  in the test header). **This completes the P2 series — every `src/security/*.ts`
+  file now has a mutation-testing backstop.** Run with `bun run test:mutate`.
 
 ### Docs
 

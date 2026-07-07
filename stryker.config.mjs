@@ -45,6 +45,14 @@
 //         Effective 100% — 3 equivalent survivors, all redundant guards
 //         (getMcpKey non-integer id, resolveMcpKeyByToken empty token,
 //         hasAnyMcpKeys row!==null). ~1m20s at concurrency:8.
+//   P2-8  oidc (last file)               262 mutants  94.66% (248/262)
+//         Largest/most-complex file; 3 iterations (30.53→84.35→91.60→94.66).
+//         14 equivalent/deep-infra survivors (nbf/aud like jwt, cleanup-masked
+//         expiry, scope-split regex, identity-reuse guards, fetch/cache infra)
+//         — see oidc.test.ts header. Covered discovery, token exchange, config
+//         CRUD + validation, verifyIdToken claims, username derivation.
+//   ── Series COMPLETE: every src/security/*.ts file now has a mutation
+//      backstop (P2-1..P2-8). ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -107,9 +115,9 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // P2-7: see SCOPE HISTORY. Run scoped + concurrency:8:
+    // P2-8 (last file): see SCOPE HISTORY. Run scoped + concurrency:8:
     //   STRYKER_TEST_SCOPE=src/security/__tests__ bun run test:mutate
-    "src/security/mcp-key-store.ts",
+    "src/security/oidc.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
