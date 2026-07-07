@@ -27,6 +27,13 @@
 //         were log() level/message/meta literals, killable only by asserting
 //         the log call. startup-guards needed each reason chunk asserted + a
 //         bare-string corsOrigins to hit the `[env.corsOrigins]` wrap.
+//   P2-5  session-store + user-store        99 mutants  95.96% (95/99; 4 equiv)
+//         Effective 100% — 4 proven-equivalent survivors: session-store L77
+//         (safeCompare on a row fetched by that same hash is unreachable),
+//         user-store L8 (typeof guard redundant with ADMIN_ROLES.includes), and
+//         updateUser L111 `>=0`/`→true` (guarded by if(!existing), changes
+//         always 1). First run scoped via STRYKER_TEST_SCOPE=src/security/
+//         __tests__ (~24x faster: 3m28s vs ~84m; scoped-run commit 18052c4).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -89,10 +96,10 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // P2-4: the next 2 smallest security files — see SCOPE HISTORY.
-    // (P2-3's 4 files are done at 98.21%.) Remaining files: later tickets.
-    "src/security/bootstrap-admin.ts",
-    "src/security/startup-guards.ts",
+    // P2-5: see SCOPE HISTORY. Run scoped for ~11x speed:
+    //   STRYKER_TEST_SCOPE=src/security/__tests__ bun run test:mutate
+    "src/security/session-store.ts",
+    "src/security/user-store.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

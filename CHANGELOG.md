@@ -92,6 +92,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tests can only leave a mutant undetected (a survivor), never falsely mark it
   killed, so the score stays conservative. Unset → full suite (unchanged
   default for any other caller).
+- **P2-5 — mutation backstop for `session-store.ts` + `user-store.ts`**, the
+  first series run using the `STRYKER_TEST_SCOPE` speedup (99 mutants in ~3.5 min
+  vs ~84 min unscoped, ~24x). Added `user-store.test.ts` (19 cases — the module
+  had no direct test) and 4 expiry/idle boundary cases in `session-store.test.ts`;
+  suite grows 1274 → 1297. Score **95.96% (95/99)**, up from a 58.59% baseline
+  (41 survivors). All 4 remaining survivors are **proven-equivalent mutants**
+  (effective 100% — 95/95 non-equivalent killed): `session-store` L77
+  `!safeCompare(row.token_hash, hash)` is unreachable (the row was just fetched
+  by that hash, so the compare is always true); `user-store` L8
+  `typeof v === "string"` → `true` is redundant with `ADMIN_ROLES.includes(v)`
+  (verified empirically); and `user-store` L111 `changes > 0` → `>= 0` / `→ true`
+  are guarded by `if (!existing)`, so `changes` is always 1 when reached. The
+  session tests pin the expiry/idle boundaries by setting `last_seen_at` directly
+  so one guard can't mask another; the user tests kill the `changes > 0` line via
+  unknown-user cases on the un-guarded `updatePassword` / `deleteUser`. Run with
+  `bun run test:mutate`.
 
 ### Docs
 

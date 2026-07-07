@@ -156,3 +156,58 @@ describe("listActiveSessionsForUser / revokeSessionById", () => {
     expect(revokeSessionById(user.id, 999999)).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Persistence + expiry/idle boundaries (mutation backstop)
+//
+// The base tests use `idleTimeout + 1000` / `absoluteTtl + 1000`, which never
+// hit the exact `<`/`>` boundaries and let one guard mask another, so several
+// mutants survive. These pin the userAgent write and each boundary in
+// isolation (last_seen_at is set explicitly so the idle check can't mask the
+// expiry check and vice-versa).
+//
+// NOTE: the L77 `if (!safeCompare(row.token_hash, hash))` guard is an EQUIVALENT
+// mutant — the row was just fetched by `WHERE token_hash = hash`, so the compare
+// is always true and the branch is unreachable; `→ false` can't change behaviour.
+// ---------------------------------------------------------------------------
+
+describe("session persistence + expiry/idle boundaries", () => {
+  test("createSession persists the userAgent verbatim (kills L58 `?? null` → `&& null`)", () => {
+    const user = makeUser();
+    createSession(user.id, "9.9.9.9", "my-user-agent");
+    const [s] = listActiveSessionsForUser(user.id);
+    // `userAgent ?? null` keeps the string; `userAgent && null` would store null.
+    expect(s.userAgent).toBe("my-user-agent");
+  });
+
+  test("still valid at the exact absolute-expiry instant (kills L81 `<` → `<=`)", () => {
+    const user = makeUser();
+    const session = createSession(user.id, undefined, undefined);
+    // Keep last_seen fresh so the idle check can't mask the expiry check.
+    getDb().query(`UPDATE admin_sessions SET last_seen_at = ? WHERE user_id = ?`).run(session.expiresAt - 1, user.id);
+    Date.now = () => session.expiresAt;
+    // `expires_at < now` is false at equality → still valid; `<=` expires it.
+    expect(validateSession(session.token)).not.toBeNull();
+  });
+
+  test("the expiry guard rejects a stale-but-recently-seen session (kills L81 Conditional→false)", () => {
+    const user = makeUser();
+    const session = createSession(user.id, undefined, undefined);
+    const past = session.expiresAt + 1000;
+    getDb().query(`UPDATE admin_sessions SET last_seen_at = ? WHERE user_id = ?`).run(past - 1, user.id);
+    Date.now = () => past;
+    // Idle window is fine (seen 1ms ago); ONLY the expiry guard rejects. The
+    // `if(false)` mutant skips it and would validate an expired session.
+    expect(validateSession(session.token)).toBeNull();
+  });
+
+  test("still valid at exactly the idle timeout (kills L82 `>` → `>=`)", () => {
+    const user = makeUser();
+    const session = createSession(user.id, undefined, undefined);
+    const anchor = realNow();
+    getDb().query(`UPDATE admin_sessions SET last_seen_at = ? WHERE user_id = ?`).run(anchor, user.id);
+    Date.now = () => anchor + config.sessionIdleTimeoutMs; // now - last_seen === idle timeout exactly
+    // `now - last_seen > idle` is false at equality → still valid; `>=` rejects.
+    expect(validateSession(session.token)).not.toBeNull();
+  });
+});
