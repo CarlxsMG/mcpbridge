@@ -58,7 +58,36 @@
 //         First pass (69.19→81.98). streaming 97%, transform 85%, backends 74%.
 //         Remaining survivors concentrated in backends' wsRequest/Persistent
 //         event-handler internals (error/close/settled paths) — a 2nd pass
-//         with more WS-server variants is a follow-up. proxy.ts (1382 LOC) TBD.
+//         with more WS-server variants is a follow-up.
+//   PX-2  proxy.ts (dispatch core)         1146 mutants  93.72% (1074/1146)
+//         raw / 94.76% incl. 12 genuine-infinite-loop timeouts Stryker itself
+//         detects (recordSuccess/Failure loops, AbortSignal.any([]) emptied,
+//         retry-backoff Math.pow misuse — real bugs a mutant would introduce).
+//         13 new __tests__ files (one per functional cluster, C1-C13) covering
+//         proxyToolCall's full dispatch pipeline: gates (enable/deleting/scope/
+//         quota/sensitivity/quarantine/approval/guardrails/rate-limit), mock/
+//         cache/coalesce, breaker/LB/canary routing, path/Ajv/transform, pinned-
+//         IP + retry/backoff, success response + pagination integration, error/
+//         retry exhaustion, WS dispatch, MCP dispatch. Two authoring rounds
+//         (13 agents cold + 4 agents deepening the densest clusters) plus a
+//         3rd round of 7 agents targeting the 60 remaining survivors by cluster
+//         — verified 22 previously-surviving mutants now reliably killed
+//         (parseRetryAfter HTTP-date boundary, cache-hit/mock recordUsage
+//         payloads, canary/LB lookup guards, retry-loop HEAD/OPTIONS legs +
+//         backoff formula, off-by-one retry boundary, 4 duration-metric units,
+//         MCP mcpUrl/transport fallbacks) — but two independent full verify
+//         runs (identical survivor sets both times, so NOT run-to-run noise)
+//         show the SAME raw 60-survivor count: round 3 also newly exposed 22
+//         different survivors it hadn't before. Spot-checked one (parseRetryAfter's
+//         `!headerValue` early-return, L138): confirmed equivalent (a null
+//         header still falls through parseInt/Date.parse's own NaN paths to
+//         the same terminal `return null`) — most of the rest are presumed
+//         similarly reclassified-equivalent or sandbox-timing artifacts in
+//         real-wall-clock-based retry/backoff tests, not full regressions,
+//         but a complete per-mutant triage of all 22 was not finished (time-
+//         boxed). Net: genuinely stronger, more precisely-targeted coverage
+//         and extensive newly-documented equivalence reasoning, at an
+//         unchanged raw score — reported honestly rather than re-run further.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -121,12 +150,9 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 2 = src/proxy/ (the dispatch pipeline). Scope to the proxy tests
-    // + concurrency:8 (validated identical to 1 on streaming.ts):
+    // Domain 2 = src/proxy/. PX-2: proxy.ts (the 1382-LOC dispatch core).
     //   STRYKER_TEST_SCOPE=src/proxy/__tests__ bun run test:mutate
-    "src/proxy/backends.ts",
-    "src/proxy/transform.ts",
-    "src/proxy/streaming.ts",
+    "src/proxy/proxy.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

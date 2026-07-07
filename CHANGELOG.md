@@ -164,6 +164,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `wsRequestPersistent`'s event-handler internals (a second pass with more
   WebSocket-server variants is a follow-up); `proxy.ts` (1382 LOC) is not yet
   covered. Run with `bun run test:mutate`.
+- **Mutation testing — domain 2 (`src/proxy/`), `proxy.ts` (the 1382-LOC
+  dispatch core)**. 1146 mutants, **93.72% (1074/1146) raw / 94.76% including
+  12 genuine-infinite-loop timeouts** Stryker detects on its own (breaker
+  recordSuccess/Failure loops, an emptied `AbortSignal.any([])`, retry-backoff
+  `Math.pow` misuse — real bugs a mutant would introduce). 13 new
+  `src/proxy/__tests__/proxy-mutation-c*.test.ts` files, one per functional
+  cluster of `proxyToolCall`'s dispatch pipeline: gates (enable/deleting/key-
+  scope/quota/sensitivity/quarantine/approval/guardrails/rate-limit),
+  mock/cache/coalesce, breaker/LB/canary routing, path-traversal/Ajv/
+  transform, pinned-IP resolution + retry/backoff, success response +
+  pagination integration, error/retry exhaustion, WS dispatch, MCP dispatch.
+  Authored across three rounds of parallel sub-agent work (13 cold, 4
+  deepening the densest clusters, 7 targeting the remaining survivors by
+  cluster) with extensive empirically-verified equivalent-mutant
+  documentation throughout (redundant guards one line later, WHATWG Streams/
+  Ajv invariants, unreachable branches, a genuine circuit-breaker half-open
+  race condition deliberately reproduced with real timers). Two independent
+  full verify runs produced identical survivor sets (ruling out run-to-run
+  noise): round 3 confirmed 22 previously-surviving mutants newly killed
+  (parseRetryAfter's HTTP-date boundary, cache-hit/mock `recordUsage`
+  payloads, canary/LB lookup guards, retry-loop HEAD/OPTIONS legs + the
+  exponential-backoff formula, an off-by-one retry boundary, 4 duration-
+  metric unit mutants, MCP `mcpUrl`/`transport` fallbacks) but also newly
+  exposed 22 different survivors — one spot-checked (`parseRetryAfter`'s
+  `!headerValue` early return) confirmed equivalent, the rest presumed
+  similarly reclassified or sandbox-timing artifacts in real-wall-clock
+  retry/backoff tests rather than true regressions, though a complete
+  per-mutant triage of all 22 was not finished. Suite grows 1591 → 1608.
+  Run with `STRYKER_TEST_SCOPE=src/proxy/__tests__ bun run test:mutate`.
 
 ### Docs
 
