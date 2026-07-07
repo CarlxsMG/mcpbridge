@@ -40,6 +40,11 @@
 //         OOB Uint8Array write, extractable flag, exp/nbf typeof guards, aud
 //         [], default Date.now() clocks) — see jwt.test.ts header. Added RS256
 //         coverage, nbf, exact reasons, aud-array, JWKS fetch/cache/timeout.
+//         (concurrency raised 1→8 here — validated identical score on user-store.)
+//   P2-7  mcp-key-store                    129 mutants  97.67% (126/129)
+//         Effective 100% — 3 equivalent survivors, all redundant guards
+//         (getMcpKey non-integer id, resolveMcpKeyByToken empty token,
+//         hasAnyMcpKeys row!==null). ~1m20s at concurrency:8.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -102,9 +107,9 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // P2-6: see SCOPE HISTORY. Run scoped:
+    // P2-7: see SCOPE HISTORY. Run scoped + concurrency:8:
     //   STRYKER_TEST_SCOPE=src/security/__tests__ bun run test:mutate
-    "src/security/jwt.ts",
+    "src/security/mcp-key-store.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
@@ -117,8 +122,12 @@ export default {
   coverageAnalysis: "off",
   // Console + JSON + HTML.
   reporters: ["progress-append-only", "json", "html"],
-  // MUST be 1: see CONCURRENCY note above.
-  concurrency: 1,
+  // MUST be 1 with the FULL suite (fixed-port / DB-file tests collide between
+  // workers). Safe at >1 when scoped to src/security/__tests__ — none of those
+  // tests bind a fixed port (the one server test uses listen(0)) or a shared
+  // DB file (all :memory:), and none use snapshots. See CONCURRENCY note above.
+  // Validated empirically: user-store scores identically at 1 and 8.
+  concurrency: 8,
   jsonReporter: { fileName: "reports/mutation/result.json" },
   htmlReporter: { fileName: "reports/mutation/index.html" },
   // Don't run snapshot files (Stryker's default `mutate` already excludes

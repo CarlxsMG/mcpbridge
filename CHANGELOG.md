@@ -121,6 +121,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `typeof exp/nbf === "number"` guards (every token has numeric claims), aud
   `[]`, and the default `() => Date.now()` clock initializers the
   injectable-clock design never asserts. Run with `bun run test:mutate`.
+- **P2-7 — mutation backstop for `mcp-key-store.ts`** (managed MCP API keys),
+  **97.67% (126/129)** from a 77.52% baseline — the first ticket on the
+  **concurrency:8 fast path** (129 mutants in ~1m20s vs ~5 min at concurrency:1;
+  the scoped security tests bind no fixed port and share no DB file, so parallel
+  workers don't collide — validated by an identical score on `user-store`).
+  Added field-by-field `updateMcpKey` merge coverage, the `rowToRecord` elevated
+  mapping + `createMcpKey` elevated default, the `getMcpKey` integer guard,
+  `touchMcpKeyLastUsed`, `isClientInKeyScope` (previously untested), and the
+  resolve guards for a revoked-then-re-enabled key and the exact expiry instant.
+  Suite grows 1325 → 1333. The 3 remaining survivors are equivalent (effective
+  100%): redundant guards where a non-integer id / empty token / empty result
+  already yields the same value without the check (documented in the test
+  header). Run with `bun run test:mutate`.
 
 ### Docs
 
