@@ -380,6 +380,11 @@
 //   before .filter(Boolean)" are all mathematically unreachable given how
 //   the two operations are defined; a 3rd is `Number.isFinite()`'s own
 //   spec-mandated non-coercion making a `typeof` pre-check redundant.
+//   registry-alias-index.ts (96 LOC — RegistryAliasIndex, the display-name
+//   alias map kept in lockstep with the registry)  28 mutants  **100.00%
+//   (28/28) baseline, clean already** — the existing dedicated
+//   registry-alias-index.test.ts already fully covered it; no new test
+//   file needed at all.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -444,12 +449,12 @@ export default {
   mutate: [
     // Domain 3 = src/mcp/. registry/registration/system-tools/registry-
     // persistence/transports/mcp-upstream/mcp-server/mcp-discovery/
-    // tool-search done (see SCOPE HISTORY). types.ts (169 LOC) evaluated
-    // and SKIPPED — pure interface/type-alias declarations, no runtime
-    // logic for Stryker to mutate. Next: registry-alias-index.ts (96 LOC),
-    // then tool-index.ts (78) — likely the last two files in this domain.
+    // tool-search/registry-alias-index done (see SCOPE HISTORY). types.ts
+    // (169 LOC) evaluated and SKIPPED — pure interface/type-alias
+    // declarations, no runtime logic for Stryker to mutate. Next (and
+    // LAST file in this domain): tool-index.ts (78 LOC).
     //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/registry-alias-index.ts",
+    "src/mcp/tool-index.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

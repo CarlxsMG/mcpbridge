@@ -447,6 +447,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Number.isFinite()`'s own spec-mandated non-coercion. Suite grows
   2248 → 2263. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run
   test:mutate`.
+- **Mutation testing — domain 3 (`src/mcp/`), `registry-alias-index.ts`**
+  (96 LOC — `RegistryAliasIndex`, the display-name alias map kept in
+  lockstep with the registry). 28 mutants, **100.00% (28/28) baseline,
+  already clean** — the existing dedicated `registry-alias-index.test.ts`
+  already fully covered it; no new test file needed.
 
 ### Docs
 
