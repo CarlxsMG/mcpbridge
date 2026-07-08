@@ -127,6 +127,26 @@
 //   instead verified via a standalone `bun -e` simulation proving the exact
 //   divergence, plus direct test execution against the real, unmutated
 //   source) — time-boxed given 3 already-run full verifies on this file.
+//   registration.ts (667 LOC, discovery-to-registry glue: performRest/Mcp/
+//   GraphqlRegistration, no prior unit-test file at all — only indirect
+//   route-level coverage)  552 mutants  37.86% baseline (209/552) -> 99.09%
+//   raw (547/552), effectively 100%. 6 new `registration-mutation-
+//   rg1..rg5b.test.ts` files: shared helpers (module-load-only $ref
+//   resolver + tools-count/endpoint-traversal checks), the REST path split
+//   across 2 files (its validation gauntlet vs. tool-resolution+register,
+//   since it's the single densest function), the MCP-upstream path, and the
+//   GraphQL path split across 2 files (validation vs. discovery+register).
+//   Round 1 (6 agents cold) drove 37.86% -> 97.64% (13 survivors); a final
+//   manual pass closed 3 genuine gaps a round-1 prompt's line numbers had
+//   missed (the discoverToolsFromGraphQl options object's ipPin/
+//   includeMutations fields, and the success log call's exact args) leaving
+//   5 documented-equivalent survivors — all inside resolveRefs's
+//   module-load-only $ref resolver (which only ever runs once against the
+//   fixed, valid, bundled openapi.yaml and is not exported, so no test can
+//   supply a different input to observe a mutant there) plus one already-
+//   proven-equivalent `pathname || "/graphql"` fallback (`new URL(...)
+//   .pathname` is never falsy for any valid URL). Effective score: 100%
+//   (547/547 non-equivalent mutants killed).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -189,10 +209,10 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 3 = src/mcp/. registry.ts done (see SCOPE HISTORY). Next:
-    // registration.ts (667 LOC, discovery-to-registry glue).
+    // Domain 3 = src/mcp/. registry.ts + registration.ts done (see SCOPE
+    // HISTORY). Next: system-tools.ts (427 LOC, sys_* control-plane tools).
     //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/registration.ts",
+    "src/mcp/system-tools.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

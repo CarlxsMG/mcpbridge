@@ -231,6 +231,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   observe, an unpinned error message, a truthy-non-string discriminator, and a
   placeholder-substitution edge case). Suite grows 1627 → 1870. Run with
   `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate`.
+- **Mutation testing — domain 3 (`src/mcp/`), `registration.ts`** (667 LOC,
+  the discovery-to-registry glue behind `POST /register`: REST/OpenAPI/cURL/
+  Postman, MCP-upstream, and GraphQL registration — previously had NO
+  dedicated unit-test file, only indirect route-level coverage). 552
+  mutants, **99.09% raw (547/552)**, up from a 37.86% baseline (209/552),
+  **effectively 100%**. 6 new `src/mcp/__tests__/registration-mutation-
+  rg1..rg5b.test.ts` files: shared helpers, the REST path (split across two
+  files — its validation gauntlet vs. tool-resolution+register, since it's
+  the single densest function in the file), the MCP-upstream path, and the
+  GraphQL path (split across two files — validation vs. discovery+register).
+  All 5 remaining raw survivors are documented-equivalent: 4 sit inside the
+  module-load-only `$ref` schema resolver (runs once against the fixed,
+  valid, bundled `openapi.yaml`; not exported, so no test can supply a
+  different input to observe a mutant there), and 1 is a `pathname ||
+  "/graphql"` fallback that's provably dead code (`new URL(...).pathname`
+  is never falsy for any valid URL). Authored across a cold round (6 agents,
+  one per cluster) plus a final manual pass closing 3 genuine gaps a
+  cluster's line-number references had drifted past (the GraphQL discovery
+  call's `ipPin`/`includeMutations` fields, and the success log call's exact
+  arguments). Suite grows 1870 → 1991. Run with
+  `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate`.
 
 ### Docs
 
