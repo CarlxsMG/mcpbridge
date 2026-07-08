@@ -352,6 +352,34 @@
 //   loop edge case in the real code first — not something to build test
 //   infrastructure around; flagged as a latent out-of-scope limitation for
 //   any future long-name hardening work.
+//   tool-search.ts (110 LOC — the search_tools meta-tool: static schema
+//   definition, pure ranking algorithm, runSearchTool dispatch) 90
+//   mutants  80.00% baseline (72/90) -> 96.67% raw (87/90) across 3
+//   verify rounds / effectively 100% (all 3 raw survivors documented
+//   equivalent). One new `tool-search-mutation.test.ts` file, authored
+//   directly — a pure, side-effect-free module tested purely via direct
+//   function calls, no transport/harness needed at all. Closed: the
+//   bulk-schema-toEqual technique for the static tool definition; a
+//   description-fallback placeholder-string gap (a tool with NO
+//   description at all must not accidentally match via an injected
+//   Stryker placeholder); a per-token name-match gap whose "obvious" test
+//   was itself accidentally satisfied by the SEPARATE whole-query-
+//   substring boost (same code, different line) rather than the mechanism
+//   under test — caught by checking the exact `score` value, not just
+//   presence; a boost-vs-tie-break gap needing two tools engineered to an
+//   EXACT equal per-token score, with only one alphabetically-later one
+//   eligible for the boost, to prove the tie-break wouldn't otherwise flip
+//   the winner; a punctuation-only-query gap (non-empty after trim, but
+//   tokenizes to zero real tokens — the boost check isn't gated by token
+//   count, so it can still wrongly fire); and query-coercion gaps for a
+//   whitespace-only query and each non-number/non-finite `limit` shape.
+//   All 3 equivalents trace to the SAME root cause: `.trim()` and
+//   `tokenize()`'s `/[^a-z0-9]+/` split fully overlap on what counts as
+//   whitespace/non-content for any realistic input, so "q empty but
+//   tokens non-empty" (and vice versa) and "regex quantifier removed
+//   before .filter(Boolean)" are all mathematically unreachable given how
+//   the two operations are defined; a 3rd is `Number.isFinite()`'s own
+//   spec-mandated non-coercion making a `typeof` pre-check redundant.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -415,13 +443,13 @@ export default {
   },
   mutate: [
     // Domain 3 = src/mcp/. registry/registration/system-tools/registry-
-    // persistence/transports/mcp-upstream/mcp-server/mcp-discovery done
-    // (see SCOPE HISTORY). types.ts (169 LOC) evaluated and SKIPPED — pure
-    // interface/type-alias declarations, no runtime logic for Stryker to
-    // mutate. Next: tool-search.ts (110 LOC), then registry-alias-index.ts
-    // (96), tool-index.ts (78) — all small enough for direct authoring.
+    // persistence/transports/mcp-upstream/mcp-server/mcp-discovery/
+    // tool-search done (see SCOPE HISTORY). types.ts (169 LOC) evaluated
+    // and SKIPPED — pure interface/type-alias declarations, no runtime
+    // logic for Stryker to mutate. Next: registry-alias-index.ts (96 LOC),
+    // then tool-index.ts (78) — likely the last two files in this domain.
     //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/tool-search.ts",
+    "src/mcp/registry-alias-index.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

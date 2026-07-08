@@ -424,6 +424,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evaluated and **skipped** — pure interface/type-alias declarations, no
   runtime logic for Stryker to mutate. Suite grows 2241 → 2248. Run with
   `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate`.
+- **Mutation testing — domain 3 (`src/mcp/`), `tool-search.ts`** (110 LOC
+  — the `search_tools` meta-tool: static schema definition, pure ranking
+  algorithm, `runSearchTool` dispatch). 90 mutants, 80.00% baseline
+  (72/90) → 96.67% raw (87/90) across 3 verify rounds → **effectively
+  100%**: all 3 raw survivors documented equivalent. One new
+  `tool-search-mutation.test.ts` file, authored directly — a pure,
+  side-effect-free module tested purely via direct function calls, no
+  transport/harness needed. Closed: the bulk-schema-toEqual technique for
+  the static tool definition; a description-fallback placeholder-string
+  gap; a per-token name-match gap whose "obvious" test was itself
+  accidentally satisfied by the separate whole-query-substring boost
+  (same code, different line) rather than the mechanism under test —
+  caught by checking the exact `score` value, not just presence; a
+  boost-vs-tie-break gap needing two tools engineered to an exact equal
+  per-token score; a punctuation-only-query gap (non-empty after trim,
+  but zero real tokens — the boost check isn't gated by token count); and
+  query-coercion gaps for whitespace-only queries and non-number/
+  non-finite `limit` values. All 3 equivalents trace back to `.trim()`
+  and the tokenizer's regex fully overlapping on what counts as
+  whitespace/non-content for any realistic input, plus
+  `Number.isFinite()`'s own spec-mandated non-coercion. Suite grows
+  2248 → 2263. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run
+  test:mutate`.
 
 ### Docs
 
