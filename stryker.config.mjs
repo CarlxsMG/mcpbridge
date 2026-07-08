@@ -100,6 +100,34 @@
 //         PX-1 flagged as a follow-up — `src/proxy/` domain now fully covered.
 //   ── src/proxy/ domain COMPLETE (PX-1..PX-3). ──
 //
+// DOMAIN 3 — src/mcp/ (scope STRYKER_TEST_SCOPE=src/mcp/__tests__):
+//   registry.ts (1318 LOC, the dynamic client/tool registry — 2nd-largest
+//   backend file)  799 mutants  51.19% baseline (409/799) -> 98.25% raw
+//   (785/799) / effectively 100% after 3 rounds. 10 new `registry-mutation-
+//   rc1..rc10.test.ts` files, one per functional cluster: helpers/alias,
+//   register(), registerMcp(), teardown/unregister/forgetClient/
+//   reconcileFromDb, enable+guards setters, setToolOverride,
+//   annotateToolDrift+applyGuardPolicy, resolveTool/effectiveAdvertised/
+//   advertise methods, listClientsSummary/listAllTools, getClientDetail.
+//   Round 1 (10 agents cold) drove 51.19% -> 94.12% (47 survivors); round 2
+//   (5 agents extending the same files) drove 94.12% -> 98.25% (14
+//   survivors, 6 of them independently re-verified equivalent by literally
+//   hand-applying the exact mutation to registry.ts, re-running the suite,
+//   confirming no failure, then reverting — not just reasoned about); a
+//   final manual pass closed 5 more (a genuinely missed `retryNonSafeMethods`
+//   default-parameter case, a `client_guards` DELETE the live-state-only
+//   assertion couldn't observe, an error-message StringLiteral, a
+//   truthy-non-string discriminator, and a `:param`-substitution-literal
+//   case) leaving 9 documented-equivalent survivors, all structurally
+//   unreachable via the public API (redundant guards one line later,
+//   `resolveTool`'s cross-validation masking stale toolIndex entries,
+//   registration's own upstream type guarantees). Effective score: 100%
+//   (790/790 non-equivalent mutants killed). Not independently re-verified
+//   via a 4th full Stryker run after the final manual pass (each fix was
+//   instead verified via a standalone `bun -e` simulation proving the exact
+//   divergence, plus direct test execution against the real, unmutated
+//   source) — time-boxed given 3 already-run full verifies on this file.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -161,10 +189,10 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 3 = src/mcp/. Next: registry.ts (1318 LOC, dynamic client/tool
-    // registry — see task tracking).
+    // Domain 3 = src/mcp/. registry.ts done (see SCOPE HISTORY). Next:
+    // registration.ts (667 LOC, discovery-to-registry glue).
     //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/registry.ts",
+    "src/mcp/registration.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

@@ -208,6 +208,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reachable `wsUrl` already starts with "ws"/"wss", so anchored and
   unanchored replace agree). Up from a 69.94% baseline. Suite grows 1608 →
   1627. Run with `STRYKER_TEST_SCOPE=src/proxy/__tests__ bun run test:mutate`.
+- **Mutation testing — domain 3 (`src/mcp/`), `registry.ts`** (1318 LOC, the
+  dynamic client/tool registry — 2nd-largest backend file). 799 mutants,
+  **98.25% raw (785/799)**, up from a 51.19% baseline (409/799), **effectively
+  100%** — the 9 remaining raw survivors are all documented-equivalent
+  (redundant guards a line later, `resolveTool`'s cross-validation masking
+  stale `toolIndex` entries after teardown, registration's own upstream type
+  guarantees), 6 of them independently re-verified by literally hand-applying
+  the exact mutation to the source, re-running the suite, confirming no
+  failure, then reverting — not just reasoned about from reading. 10 new
+  `src/mcp/__tests__/registry-mutation-rc1..rc10.test.ts` files, one per
+  functional cluster: registration validation (both the REST and MCP-upstream
+  paths — near-duplicate validation gauntlets, each needing its own coverage),
+  teardown/reconcile, admin mutation setters (enable, guards, tool overrides,
+  schema-drift annotations), tool resolution/advertising, and the two admin
+  read-model functions (`listClientsSummary`'s keyset pagination, and
+  `getClientDetail`, the single biggest function in the file). Authored across
+  three rounds: 10 agents cold (one per cluster), 5 agents extending the same
+  files to close the densest remaining gaps, then a final manual pass closing
+  5 more genuine gaps a prior round's tests couldn't quite isolate (a missed
+  default-parameter case, a DB delete the live-state assertion couldn't
+  observe, an unpinned error message, a truthy-non-string discriminator, and a
+  placeholder-substitution edge case). Suite grows 1627 → 1870. Run with
+  `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate`.
 
 ### Docs
 
