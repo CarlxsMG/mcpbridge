@@ -174,6 +174,24 @@
 //   surviving again with zero test changes in between, and the relevant
 //   test passes reliably (3/3) run directly. Not chased with a 4th full
 //   verify given 3 already run on this file.
+//   registry-persistence.ts (410 LOC, every SQLite interaction the
+//   registry does — 3 row->DTO converters + RegistryPersistence's 3
+//   methods)  113 mutants  82.30% baseline (93/113) -> **100.00% (113/113),
+//   clean**. One new `registry-persistence-mutation.test.ts` file, authored
+//   directly (no agent round needed — small enough for one pass) driving
+//   the exported converters/class methods straight, bypassing the full
+//   Registry/lock layer. 3 verify rounds: the first closed 18 of 20
+//   baseline survivors (2 genuinely missed: a `cb_half_open_timeout_ms`
+//   null-check twin to two already-covered siblings, and the `circuit
+//   Breaker: {} -> undefined` empty-object collapse); the second closed
+//   those 2 but exposed 2 DIFFERENT new ones (an empty-but-parsed `params:
+//   {}` object not collapsing a tool-override row to `undefined`, and the
+//   CLIENT-level `enabled` field on `buildPersistedClientFromDb`'s return,
+//   distinct from the already-covered per-TOOL `enabled` field) — the same
+//   kind of round-to-round non-equivalent-survivor swap seen on other files
+//   in this series (see [[px2_proxy_verification_noise]]), not chased
+//   further since both were genuine, closable gaps rather than noise; the
+//   third verify came back perfectly clean.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -236,10 +254,10 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 3 = src/mcp/. registry.ts + registration.ts + system-tools.ts
-    // done (see SCOPE HISTORY). Next: registry-persistence.ts (410 LOC).
+    // Domain 3 = src/mcp/. registry/registration/system-tools/registry-
+    // persistence done (see SCOPE HISTORY). Next: transports.ts (358 LOC).
     //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/registry-persistence.ts",
+    "src/mcp/transports.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

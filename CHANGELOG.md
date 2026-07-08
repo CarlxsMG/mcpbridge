@@ -278,6 +278,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in between, and the relevant test passes reliably standalone. Suite grows
   1991 → 2093. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run
   test:mutate`.
+- **Mutation testing — domain 3 (`src/mcp/`), `registry-persistence.ts`**
+  (410 LOC, every SQLite interaction the registry does — 3 row-to-DTO
+  converters plus `RegistryPersistence`'s REST/MCP registration and
+  read-hydration methods). 113 mutants, **100.00% (113/113), clean** — up
+  from an 82.30% baseline (93/113). One new
+  `registry-persistence-mutation.test.ts` file, driving the exported
+  converters and class methods directly rather than through the full
+  `Registry`/lock layer. Three verify rounds, each closing a genuine gap
+  the previous one exposed (a `cb_half_open_timeout_ms` null-check twin to
+  two already-covered siblings; an empty-object `circuitBreaker: {} ->
+  undefined` collapse; an empty-but-parsed `params: {}` object not
+  collapsing a tool-override row to `undefined`; the client-level `enabled`
+  field on the read-hydration path, distinct from the already-covered
+  per-tool one) — the same round-to-round survivor churn seen on other
+  files in this series, resolved by simply fixing each newly-exposed gap
+  rather than assuming noise. Suite grows 2093 → 2112. Run with
+  `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate`.
 
 ### Docs
 
