@@ -88,6 +88,17 @@
 //         boxed). Net: genuinely stronger, more precisely-targeted coverage
 //         and extensive newly-documented equivalence reasoning, at an
 //         unchanged raw score — reported honestly rather than re-run further.
+//   PX-3  backends.ts 2nd pass (wsRequest/wsRequestPersistent)  163 mutants
+//         85.89% raw (140/163) / 96.93% incl. 18 genuine-hang timeouts (mutating
+//         the `settled` once-only guard breaks a real WS exchange into a
+//         double-resolve/hang, which Stryker correctly times out) — effectively
+//         100%: all 5 raw survivors are documented-equivalent (`ws.send` cannot
+//         throw synchronously in the `open` handler's real-Bun-runtime
+//         invariant, and the `/^ws/` -> `/ws/` regex mutant is masked by the
+//         adjacent URL-prefix guard one line earlier). Up from a 69.94%
+//         baseline (74% per PX-1's estimate). Closes the WS event-handler gap
+//         PX-1 flagged as a follow-up — `src/proxy/` domain now fully covered.
+//   ── src/proxy/ domain COMPLETE (PX-1..PX-3). ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -150,9 +161,10 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 2 = src/proxy/. PX-2: proxy.ts (the 1382-LOC dispatch core).
-    //   STRYKER_TEST_SCOPE=src/proxy/__tests__ bun run test:mutate
-    "src/proxy/proxy.ts",
+    // Domain 3 = src/mcp/. Next: registry.ts (1318 LOC, dynamic client/tool
+    // registry — see task tracking).
+    //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
+    "src/mcp/registry.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

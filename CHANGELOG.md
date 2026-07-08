@@ -193,6 +193,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retry/backoff tests rather than true regressions, though a complete
   per-mutant triage of all 22 was not finished. Suite grows 1591 → 1608.
   Run with `STRYKER_TEST_SCOPE=src/proxy/__tests__ bun run test:mutate`.
+- **Mutation testing — `backends.ts` 2nd pass, closing the `src/proxy/` domain**.
+  Targeted the `wsRequest`/`wsRequestPersistent` event-handler internals PX-1
+  flagged as a follow-up. **85.89% raw (140/163) / 96.93% including 18
+  genuine-hang timeouts** — mutating the once-only `settled` guard breaks a
+  real WebSocket exchange into a double-resolve or a hang, which Stryker
+  correctly times out rather than silently passing. Effectively **100%**: the
+  5 raw survivors are all documented-equivalent, verified against a real
+  `Bun.serve` WebSocket server rather than asserted — `ws.send()` cannot throw
+  synchronously inside the `open` handler in Bun's actual runtime (confirmed
+  even when the server closes the connection immediately after upgrade), and
+  the `wsUrl.replace(/^ws/, "http")` regex's `^`-anchor-dropped mutant is
+  masked by the adjacent URL-prefix validation one line earlier (every
+  reachable `wsUrl` already starts with "ws"/"wss", so anchored and
+  unanchored replace agree). Up from a 69.94% baseline. Suite grows 1608 →
+  1627. Run with `STRYKER_TEST_SCOPE=src/proxy/__tests__ bun run test:mutate`.
 
 ### Docs
 
