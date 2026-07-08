@@ -575,9 +575,57 @@
 //   strips it (`now - "Stryker was here"` is `NaN`, and `NaN < WINDOW_MS`
 //   is always `false`), so the junk entry is unobservable via any call path.
 //   ── DOMAIN 4 sizeable files COMPLETE (ip-validator.ts, auth.ts,
-//   circuit-breaker.ts, rate-limiter.ts). Small remaining files (all
-//   <100 LOC): request-id.ts, origin-validator.ts, connection.ts,
-//   json-depth.ts, authz.ts, leader-lease.ts, rate-counters.ts, cors.ts. ──
+//   circuit-breaker.ts, rate-limiter.ts). ──
+//   8 small remaining files (request-id.ts, origin-validator.ts,
+//   connection.ts, json-depth.ts, authz.ts, leader-lease.ts,
+//   rate-counters.ts, cors.ts — all <100 LOC, 295 mutants combined),
+//   batched into ONE Stryker run rather than one-file-at-a-time.
+//   95.25% baseline (278/295 raw + 3 accepted timeouts) -> effectively
+//   100% across 5 verify rounds. 6 new test files (no agent round —
+//   small enough for direct authoring): origin-validator-mutation,
+//   json-depth-mutation, authz-mutation, leader-lease-mutation,
+//   rate-counters-mutation, cors-mutation. connection.ts was already
+//   100% clean at baseline. Accepted timeouts: request-id.ts (2, its
+//   whole middleware body + the withTraceContext callback), json-depth.ts
+//   (1, exceedsDepth's whole body), cors.ts (1, corsMiddleware's whole
+//   body past the Origin-present branch) — all the same route-handler-
+//   body-emptied pattern used throughout this program. Key findings:
+//   - **A duplicated test-only reimplementation can hide that the REAL
+//     function is untested.** origin-validator.test.ts tests its own
+//     hand-copied `matchOrigin`, never the real `isOriginAllowed`/
+//     `matchesOriginEntry` — so the real port-wildcard option
+//     (`{ supportsPortWildcard: true }`) being silently dropped went
+//     undetected. Always check whether a "covers this logic" test file
+//     actually imports the real exported function.
+//   - **`typeof null === "object"` in JS** — a naive `&&`-flip on
+//     `root === null || typeof root !== "object"` looks equivalent for
+//     every primitive (they all funnel through `Object.values()` to the
+//     same final answer) EXCEPT `null` itself, where the flip skips the
+//     short-circuit and `Object.values(null)` throws. Verified the
+//     REMAINING sub-mutant (the `typeof` check alone, forced false) IS
+//     equivalent precisely because the one input that would diverge
+//     (`undefined` as root) can never reach this function at all — the
+//     middleware wrapper filters it one layer up, and it can never
+//     appear as a recursive child either (the same child-type check that
+//     filters primitives also excludes it).
+//   - **An unexported counter observable only via a modulo check can make
+//     `++`/`--` a genuine equivalent pair** — `rate-counters.ts`'s
+//     `opCount` has no getter, and any 200 consecutive integers (counted
+//     up OR down) contain exactly one multiple of 200, so the prune
+//     fires with identical frequency regardless of direction. Confirmed
+//     via a `bun -e` simulation across multiple arbitrary starting
+//     offsets before accepting, not just reasoned about.
+//   - **`cors.ts`'s wildcard fast-path accumulated 4 equivalent variants
+//     across verify rounds** (ConditionalExpression and StringLiteral
+//     mutants on `origins[0] === "*"`, `origins.length === 0`, and
+//     `if (isWildcard)` one level up) — all structurally redundant with
+//     `matchesOriginEntry`'s own unconditional `entry === "*"` match plus
+//     a SEPARATE, independently-computed `isWildcard` flag downstream
+//     that reads the identical config value. Once one variant in a
+//     cluster is proven equivalent, expect siblings on the same
+//     underlying check to keep resurfacing across rounds — re-verify
+//     each with the same empirical technique rather than assuming.
+//   ── DOMAIN 4 (src/db + src/middleware + src/net) COMPLETE. ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -640,13 +688,13 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 4 continues (see SCOPE HISTORY) — ip-validator.ts, auth.ts,
-    // circuit-breaker.ts, rate-limiter.ts done (all sizeable files closed).
-    // Next: the small remaining files, smallest first: request-id.ts (27),
-    // origin-validator.ts (31), connection.ts (45), json-depth.ts (49),
-    // authz.ts (61), leader-lease.ts (72), rate-counters.ts (88), cors.ts (98).
-    // Scope: STRYKER_TEST_SCOPE="src/db/__tests__ src/middleware/__tests__"
-    "src/middleware/request-id.ts",
+    // DOMAIN 4 COMPLETE (see SCOPE HISTORY). DOMAIN 5 starts here:
+    // src/tool-policies + src/tool-meta + src/content-filtering +
+    // src/backend-auth (16 files, ~2311 LOC). Starting with the largest,
+    // context-budget.ts (368 LOC). Test dir layout not yet verified for
+    // this domain — check each subdir's own __tests__ before assuming it
+    // mirrors domain 3/4's conventions.
+    "src/tool-policies/context-budget.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

@@ -559,6 +559,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prune filter unconditionally strips via `NaN` comparison semantics).
   **This closes out domain 4's sizeable files** — remaining small files
   (all <100 LOC) are next. Run with the same `STRYKER_TEST_SCOPE`.
+- **Mutation testing — domain 4, the 8 remaining small files** (all
+  <100 LOC, batched into one Stryker run: `request-id.ts`,
+  `origin-validator.ts`, `connection.ts`, `json-depth.ts`, `authz.ts`,
+  `leader-lease.ts`, `rate-counters.ts`, `cors.ts` — 295 mutants total).
+  95.25% baseline (278/295 raw + 3 accepted timeouts) → **effectively
+  100%** across 5 verify rounds: every genuine gap closed, plus several
+  confirmed-equivalent survivors. New test files:
+  `origin-validator-mutation.test.ts`, `json-depth-mutation.test.ts`,
+  `authz-mutation.test.ts`, `leader-lease-mutation.test.ts`,
+  `rate-counters-mutation.test.ts`, `cors-mutation.test.ts`.
+  `connection.ts` was already 100% clean at baseline; `request-id.ts` and
+  `cors.ts` each carry one accepted route-handler-body-emptied timeout
+  (the same pattern used throughout this program); `json-depth.ts` carries
+  one for `exceedsDepth`'s whole body. Closed: `isOriginAllowed`'s
+  `some`/`every` and port-wildcard-option gaps (the real function's
+  port-wildcard support had only ever been tested via a duplicated
+  reimplementation, never the real code path); every distinct-message
+  assertion across `originValidator`'s three response branches;
+  `exceedsDepth`'s BFS actually queuing nested nodes and pruning
+  primitives (plus a `null`-body edge case: `typeof null === "object"` in
+  JS, so a naive `&&`-flip would call `Object.values(null)` and throw);
+  `authz.ts`'s full `callerTeamId`/`ensureClientAccess`/`requireOperator`
+  surface (optional-chaining bearer-caller guards, the "unknown client
+  waved through" boolean, genuine-access-granted and admin-role paths);
+  `leader-lease.ts`'s failure-path log assertions and the stop-function's
+  actual `clearInterval` call (via `spyOn(globalThis, "clearInterval"/
+  "setInterval")`); `rate-counters.ts`'s prune-boundary arithmetic (using
+  directly-injectable `now` rather than mocking `Date.now`), per-key/
+  per-tool/per-end-user counter isolation, and the exact-shape returns of
+  all three public functions; and `cors.ts`'s port-wildcard-flag
+  enforcement. Several equivalents confirmed via standalone `bun -e`
+  simulations rather than assumed: `cors.ts`'s wildcard fast-path (4
+  variants across rounds, all structurally redundant with
+  `matchesOriginEntry`'s own `"*"` handling plus a separately-computed
+  `isWildcard` flag downstream); `json-depth.ts`'s `typeof root !==
+  "object"` check (every JS primitive funnels through `Object.values()`
+  to the same final result; the one input that WOULD diverge, `undefined`
+  as the root, is unreachable — the middleware guards against it one
+  layer up); and `rate-counters.ts`'s `++`/`--opCount` (an unexported
+  counter observable only via `% 200 === 0`, which fires with identical
+  frequency regardless of direction). Run with the same
+  `STRYKER_TEST_SCOPE`. **This closes domain 4 (`src/db`+`src/middleware`
+  +`src/net`) entirely.**
 
 ### Docs
 
