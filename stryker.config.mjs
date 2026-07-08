@@ -267,6 +267,67 @@
 //   SDK's transport CLASS exports to inspect the raw options object before
 //   construction doesn't work — confirmed empirically that bun:test's
 //   spyOn breaks `new` semantics on a class export.
+//   mcp-server.ts (264 LOC, the security-critical core: createMcpServer()
+//   builds a per-scope MCP Server binding tools/list + tools/call's full
+//   authorization gate — system-role check, exact client-membership
+//   confused-deputy defense, bundle-membership + composite-macro dispatch
+//   — plus resources/prompts passthrough for a client-scoped MCP upstream)
+//   181 mutants  61.33% baseline (111/181, ALL from indirect coverage via
+//   transports.ts's own suite — this file had zero dedicated tests) ->
+//   97.79% raw (177/181) across 5 verify rounds (171->173->174->176->177,
+//   steadily improving, each round closing 1-3 genuine gaps rather than
+//   plateauing) / effectively 100% (both remaining raw survivors
+//   documented-equivalent). 5 new `mcp-server-mutation-s1..s5.test.ts`
+//   files from a parallel Workflow cold round (61.33% -> 94.48%, 8
+//   survivors), then a manual closing pass across 4 more verify rounds.
+//   Key harness finding (discovered by the cold round, load-bearing for
+//   every later fix): a lightweight InMemoryTransport Client<->Server
+//   connection CANNOT carry `extra.requestInfo.headers` (the SDK's
+//   InMemoryTransport only forwards `authInfo`, never `requestInfo`), so
+//   anything reading a real Authorization/X-End-User-Id header value
+//   needs a real-HTTP harness instead — but `setupTransports(app)` itself
+//   cannot reach mcp-server.ts's OWN system-role gate in isolation, since
+//   `rootMcpAuth` (mounted in front of `/mcp`) runs the identical
+//   Bearer-extraction/resolveSystemRole check one layer up and rejects
+//   first with a different message — so a bare `StreamableHTTPServerTransport`
+//   wired directly to `createMcpServer({kind:"system"})`, deliberately
+//   WITHOUT `rootMcpAuth`, was needed to isolate this file's own redundant
+//   gate (see mcp-server-mutation-s2.test.ts's header). Genuine gaps
+//   closed in the manual pass: a Bearer-prefix-bypass (crafting a non-
+//   "Bearer "-prefixed header whose blind `.slice(7)` would have
+//   accidentally landed on the real configured admin key); a SEPARATE
+//   `.slice(7)` vs `.slice(7).trim()` mutant one column-range over
+//   (needed a token with a stray internal space Node's own HTTP parser
+//   doesn't strip, since edge whitespace on the whole header value IS
+//   stripped before the app ever sees it — verified empirically); a
+//   bundle/client NAME-COLLISION confused-deputy gap in
+//   `mcpParamsForScope` (a bundle-scoped session must never resolve
+//   through a same-NAMED client); a client `.find()` "always match the
+//   first" direction masked by earlier tests' incidental registration
+//   order (the wrong-but-first-registered client needs to ALSO be a live,
+//   enabled MCP-kind one to be selectable at all); the Server's own
+//   self-identification (`getServerVersion()`, the SDK-side mirror of
+//   mcp-upstream.ts's `getClientVersion()` technique); a
+//   `progressToken`-forced-true gap where the "obvious" fix (wait for a
+//   notification to arrive) was itself masked by the SAME schema-
+//   validation-drops-malformed-notifications behavior on BOTH the real
+//   and mutant paths — the reliable signal turned out to be one layer
+//   earlier (whether the SDK auto-generates an outbound progressToken at
+//   all, observed directly on the fake upstream's own incoming request);
+//   and a `scopedToolList` system-scope `?? []`-shaped no-credential
+//   tools/list gap (same rootMcpAuth-bypass harness as the tools/call
+//   gate). Final 2 raw survivors are both real, traced-not-assumed
+//   equivalents: `isBundleEnabled`/`getBundleToolKeys`/`getBundleComposites`
+//   all read the SAME `liveBundles` cache entry, so once `isBundleEnabled`
+//   is true (a precondition — direct or via `||`/`if` short-circuit — of
+//   every call site that consumes the other two), that entry is
+//   GUARANTEED to already exist with real (possibly empty, but always
+//   truthy) `Set` objects; the `?? []`/`?? false`/`?.` fallbacks for the
+//   `| undefined` case Stryker mutates are dead code given how every
+//   caller in this codebase is structured (see
+//   mcp-server-mutation-s1.test.ts's header for the full 3-mutant writeup,
+//   including why a hard `deleteBundle()` mid-session doesn't reach them
+//   either — the outer gates independently reject for the same reason).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -330,13 +391,15 @@ export default {
   },
   mutate: [
     // Domain 3 = src/mcp/. registry/registration/system-tools/registry-
-    // persistence/transports/mcp-upstream done (see SCOPE HISTORY). Next:
-    // mcp-server.ts (264 LOC) — likely the last big file in this domain;
-    // remaining small files (types.ts 169, mcp-discovery.ts 117,
-    // tool-search.ts 110, registry-alias-index.ts 96, tool-index.ts 78) to
-    // be evaluated afterward for dedicated coverage vs. skip/bundle.
+    // persistence/transports/mcp-upstream/mcp-server done (see SCOPE
+    // HISTORY). types.ts (169 LOC) evaluated and SKIPPED — pure interface/
+    // type-alias declarations, no runtime logic for Stryker to mutate.
+    // Next: mcp-discovery.ts (117 LOC), then tool-search.ts (110),
+    // registry-alias-index.ts (96), tool-index.ts (78) — all small enough
+    // that a combined pass may make sense once mcp-discovery.ts's own
+    // scale is known.
     //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/mcp-server.ts",
+    "src/mcp/mcp-discovery.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

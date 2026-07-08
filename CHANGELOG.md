@@ -357,6 +357,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   arguments (breaks `new` semantics on the SDK's transport classes).
   Suite grows 2168 → 2192. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__
   bun run test:mutate`.
+- **Mutation testing — domain 3 (`src/mcp/`), `mcp-server.ts`** (264 LOC,
+  the security-critical core: `createMcpServer()` builds a per-scope MCP
+  `Server` binding tools/list + tools/call's full authorization gate —
+  system-role check, exact client-membership confused-deputy defense,
+  bundle-membership + composite-macro dispatch — plus resources/prompts
+  passthrough for a client-scoped MCP upstream). 181 mutants, 61.33%
+  baseline (111/181, entirely from indirect coverage via `transports.ts`'s
+  own suite — this file had zero dedicated tests) → 97.79% raw (177/181)
+  across 5 verify rounds, steadily improving each round → **effectively
+  100%**: both remaining raw survivors documented equivalent. Five new
+  `mcp-server-mutation-s1..s5.test.ts` files from a parallel Workflow cold
+  round (61.33% → 94.48%), then a manual closing pass across 4 more verify
+  rounds. Key harness finding: a lightweight InMemoryTransport
+  `Client`↔`Server` connection cannot carry `extra.requestInfo.headers`
+  (the SDK only forwards `authInfo`), so anything reading a real
+  Authorization/X-End-User-Id header needs a real-HTTP harness — but
+  `setupTransports(app)` itself can't reach this file's OWN system-role
+  gate in isolation, since `rootMcpAuth` (mounted in front of `/mcp`) runs
+  an identical check one layer up and rejects first with a different
+  message. A bare `StreamableHTTPServerTransport` wired directly to
+  `createMcpServer({kind:"system"})`, deliberately without `rootMcpAuth`,
+  isolates the file's own redundant gate instead. Genuine gaps closed:
+  a Bearer-prefix-bypass (a non-`"Bearer "`-prefixed header whose blind
+  `.slice(7)` would have accidentally landed on the real configured admin
+  key); a separate `.slice(7)` vs `.slice(7).trim()` mutant (needed a
+  token with a stray *internal* space, since Node's own HTTP parser
+  strips edge whitespace on the whole header value before the app ever
+  sees it); a bundle/client name-collision confused-deputy gap in
+  `mcpParamsForScope`; a client `.find()` "always match the first"
+  direction masked by earlier tests' incidental registration order; the
+  `Server`'s own self-identification (`getServerVersion()`, the SDK-side
+  mirror of `mcp-upstream.ts`'s `getClientVersion()` technique); a
+  `progressToken`-forced-true gap where the obvious fix (wait for a
+  notification) was itself masked by schema validation dropping malformed
+  notifications on *both* the real and mutant paths — the reliable signal
+  turned out one layer earlier, observing whether the SDK auto-generates
+  an outbound progress token at all; and a system-scope no-credential
+  tools/list gap. The 2 final equivalents: `isBundleEnabled`/
+  `getBundleToolKeys`/`getBundleComposites` all read the same
+  `liveBundles` cache entry, so once `isBundleEnabled` is true — a
+  precondition of every call site consuming the other two — that entry is
+  guaranteed to already exist with real (possibly empty, but always
+  truthy) `Set` objects, making the `?? []`/`?.` fallbacks dead code.
+  Suite grows 2192 → 2241. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__
+  bun run test:mutate`.
 
 ### Docs
 
