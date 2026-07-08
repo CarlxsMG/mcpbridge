@@ -452,6 +452,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lockstep with the registry). 28 mutants, **100.00% (28/28) baseline,
   already clean** — the existing dedicated `registry-alias-index.test.ts`
   already fully covered it; no new test file needed.
+- **Mutation testing — domain 3 (`src/mcp/`), `tool-index.ts`** (78 LOC —
+  `ToolIndex`, the canonical-key → (client, tool) lookup map). 16
+  mutants, **100.00% (16/16) baseline, already clean** — the existing
+  dedicated `tool-index.test.ts` already fully covered it; no new test
+  file needed. **This was the last file in domain 3 — `src/mcp/` is now
+  fully covered** (registry, registration, system-tools, registry-
+  persistence, transports, mcp-upstream, mcp-server, mcp-discovery,
+  tool-search, registry-alias-index, tool-index — all effectively 100%;
+  `types.ts` skipped as pure type declarations). Domain 4
+  (`src/db`/`src/middleware`/`src/net`) starts next.
 
 ### Docs
 

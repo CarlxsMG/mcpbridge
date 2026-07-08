@@ -385,6 +385,11 @@
 //   (28/28) baseline, clean already** — the existing dedicated
 //   registry-alias-index.test.ts already fully covered it; no new test
 //   file needed at all.
+//   tool-index.ts (78 LOC — ToolIndex, the canonical-key -> (client,tool)
+//   lookup map)  16 mutants  **100.00% (16/16) baseline, clean already**
+//   — the existing dedicated tool-index.test.ts already fully covered it;
+//   no new test file needed. This was the LAST file in domain 3 —
+//   ── src/mcp/ domain COMPLETE. ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -447,14 +452,21 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 3 = src/mcp/. registry/registration/system-tools/registry-
-    // persistence/transports/mcp-upstream/mcp-server/mcp-discovery/
-    // tool-search/registry-alias-index done (see SCOPE HISTORY). types.ts
-    // (169 LOC) evaluated and SKIPPED — pure interface/type-alias
-    // declarations, no runtime logic for Stryker to mutate. Next (and
-    // LAST file in this domain): tool-index.ts (78 LOC).
-    //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/tool-index.ts",
+    // ── src/mcp/ domain (domain 3) COMPLETE — see SCOPE HISTORY. ──
+    // Domain 4 = src/db + src/middleware + src/net (core infra). Starting
+    // with the security-critical SSRF/DNS-rebinding guard, ip-validator.ts
+    // (283 LOC — see CLAUDE.md's "Security-critical invariants"). Skipped:
+    // src/db/migrations.ts (1024 LOC) — an append-only array of static SQL
+    // template strings plus one small runMigrations() runner; almost
+    // entirely non-logic data, low value for Stryker (same reasoning as
+    // src/mcp/types.ts). IMPORTANT: despite living at src/net/ip-validator.ts,
+    // its test file is src/middleware/__tests__/ip-validator.test.ts (test
+    // dirs do NOT mirror source dirs 1:1 in this domain, unlike src/mcp/) —
+    // confirmed there is no src/net/__tests__ at all. Scope for this
+    // domain: STRYKER_TEST_SCOPE=src/db/__tests__ src/middleware/__tests__
+    // (both, space-separated) — re-verify per file which dir its test
+    // actually lives in before assuming.
+    "src/net/ip-validator.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
