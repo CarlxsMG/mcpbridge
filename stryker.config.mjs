@@ -328,6 +328,30 @@
 //   mcp-server-mutation-s1.test.ts's header for the full 3-mutant writeup,
 //   including why a hard `deleteBundle()` mid-session doesn't reach them
 //   either — the outer gates independently reject for the same reason).
+//   mcp-discovery.ts (117 LOC — MCP upstream tool discovery: name
+//   normalization, collision de-dup, description fallback, paginated
+//   tools/list connect flow)  53 mutants  77.36% baseline (41/53, from
+//   mcp-upstream.test.ts's own "discovery" describe block, which only
+//   exercised a two-way collision and a single-page response) -> 94.34%
+//   raw (50/53) / effectively 100% (both raw survivors documented, plus
+//   1 genuine-timeout survivor). One new `mcp-discovery-mutation.test.ts`
+//   file, authored directly. Closed: a 3-way name-collision test (proving
+//   the while-loop genuinely re-checks and increments past `_2`, not just
+//   a single retry); a whitespace-only-description edge case (`"   "` is
+//   truthy as a raw string but must still trigger the fallback once
+//   trimmed); `getClientVersion()` for the CLIENT_NAME/CLIENT_VERSION
+//   constants (same technique as mcp-upstream.ts); the `delayMethod()`
+//   timeout-propagation technique applied to BOTH the connect phase and
+//   each tools/list page (2 separate `{timeout}` object literals); and a
+//   genuine multi-page pagination test (existing coverage never had a
+//   `nextCursor`). One survivor (capabilities object literal) is the same
+//   SDK-default-subsumes-it equivalence documented twice already this
+//   domain. The other (collision-check's `.slice(0,63)` on the untruncated
+//   candidate) was investigated in real depth: the only construction that
+//   would distinguish it hits a PRE-EXISTING, mutant-independent infinite-
+//   loop edge case in the real code first — not something to build test
+//   infrastructure around; flagged as a latent out-of-scope limitation for
+//   any future long-name hardening work.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -391,15 +415,13 @@ export default {
   },
   mutate: [
     // Domain 3 = src/mcp/. registry/registration/system-tools/registry-
-    // persistence/transports/mcp-upstream/mcp-server done (see SCOPE
-    // HISTORY). types.ts (169 LOC) evaluated and SKIPPED — pure interface/
-    // type-alias declarations, no runtime logic for Stryker to mutate.
-    // Next: mcp-discovery.ts (117 LOC), then tool-search.ts (110),
-    // registry-alias-index.ts (96), tool-index.ts (78) — all small enough
-    // that a combined pass may make sense once mcp-discovery.ts's own
-    // scale is known.
+    // persistence/transports/mcp-upstream/mcp-server/mcp-discovery done
+    // (see SCOPE HISTORY). types.ts (169 LOC) evaluated and SKIPPED — pure
+    // interface/type-alias declarations, no runtime logic for Stryker to
+    // mutate. Next: tool-search.ts (110 LOC), then registry-alias-index.ts
+    // (96), tool-index.ts (78) — all small enough for direct authoring.
     //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/mcp-discovery.ts",
+    "src/mcp/tool-search.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

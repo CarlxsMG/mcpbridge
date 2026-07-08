@@ -402,6 +402,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   truthy) `Set` objects, making the `?? []`/`?.` fallbacks dead code.
   Suite grows 2192 → 2241. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__
   bun run test:mutate`.
+- **Mutation testing — domain 3 (`src/mcp/`), `mcp-discovery.ts`** (117
+  LOC — MCP upstream tool discovery: name normalization, collision
+  de-dup, description fallback, paginated tools/list connect flow). 53
+  mutants, 77.36% baseline (41/53, from `mcp-upstream.test.ts`'s own
+  "discovery" describe block, which only exercised a two-way collision
+  and a single-page response) → 94.34% raw (50/53) → **effectively
+  100%**. One new `mcp-discovery-mutation.test.ts` file, authored
+  directly. Closed: a 3-way name-collision test (proving the while-loop
+  genuinely re-checks and increments past `_2`); a whitespace-only-
+  description edge case; `getClientVersion()` for the self-identification
+  constants; the `delayMethod()` timeout-propagation technique applied to
+  both the connect phase and each tools/list page; and a genuine
+  multi-page pagination test. Two remaining raw survivors: one is the
+  same SDK-default-subsumes-it capabilities-object equivalence documented
+  twice already this domain; the other (an untruncated-candidate
+  collision check) was investigated in depth but the only construction
+  that would distinguish it hits a pre-existing, mutant-independent
+  infinite-loop edge case in the real code first — flagged as a latent
+  out-of-scope limitation rather than built around. `types.ts` (169 LOC)
+  evaluated and **skipped** — pure interface/type-alias declarations, no
+  runtime logic for Stryker to mutate. Suite grows 2241 → 2248. Run with
+  `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate`.
 
 ### Docs
 
