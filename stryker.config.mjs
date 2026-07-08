@@ -192,6 +192,48 @@
 //   in this series (see [[px2_proxy_verification_noise]]), not chased
 //   further since both were genuine, closable gaps rather than noise; the
 //   third verify came back perfectly clean.
+//   transports.ts (358 LOC, the Streamable-HTTP transport layer: sharded
+//   /mcp/:clientName, curated /mcp-custom/:bundleName, and the system-root
+//   /mcp, all sharing handleStreamablePost/Get/Delete + a 60s TTL-eviction
+//   timer)  286 mutants  48.25% baseline (138/286) -> 87.06%-87.76% raw
+//   across 3 stable verify rounds (249-251/286, the range itself being this
+//   file's own instance of the [[px2_proxy_verification_noise]] pattern —
+//   net score stable, individual survivor IDs swap between otherwise-
+//   identical runs) / effectively 100%: every raw survivor in the final
+//   verify run is a documented-equivalent with concrete reasoning in one of
+//   5 new `transports-mutation-t1..t5.test.ts` files (one per functional
+//   cluster: helpers+TTL-cleanup-timer, handleStreamablePost's guard+reuse+
+//   new-session path, its else-branch+catch-block, handleStreamableGet+
+//   Delete, and setupTransports' route-wiring+graceful-shutdown), plus a
+//   stable 13 genuine-timeout survivors (route-handler-body-emptied mutants
+//   that correctly hang a real HTTP request against a real Express app,
+//   the same "Stryker itself detects it via timeout" pattern documented for
+//   PX-2/PX-3). Round 1 (5 agents cold, parallel Workflow) drove 48.25% ->
+//   ~90.6% raw (27 survivors); a manual closing pass across 4 more verify
+//   rounds fixed 5 genuine gaps the cold round's own equivalence reasoning
+//   had gotten wrong or missed — most from one root cause the agents didn't
+//   anticipate: `req.body` is `undefined` (not `{}`) when a request carries
+//   no content-type at all, so `req.body?.id` vs `req.body.id` only
+//   diverges on a BODYLESS request, not merely one missing an `id` key (5
+//   OptionalChaining survivors across the POST scope-mismatch/maxSessions/
+//   unknown-session/catch-block sites, all fixed the same way); a TTL
+//   boundary `>` vs `>=` gap (fixed via `Date.now()` stubbing for an exact-
+//   equality tick, avoiding real-clock flakiness); a mislabeled equivalence
+//   note (T1 described `scopeKey`'s ternary RETURN-VALUE "system" literal
+//   but cited the COMPARISON-TARGET literal's location — both are on the
+//   same line and both are genuinely equivalent, just needed correcting to
+//   the right column ranges); a missed `streamable.close()` mutant (map
+//   entries are deleted regardless of whether `.close()` runs, so proving
+//   it fires needs a REAL open SSE stream that must actually end — adapted
+//   from T5's identical technique for the graceful-shutdown path); and a
+//   second regex-anchor test (Stryker's regex mutator alternates between
+//   dropping the leading `^` and the trailing `$` across runs — T1 only had
+//   the `^` case covered). See transports-mutation-t1.test.ts's header for
+//   the full isValidSessionId/scopeKey equivalence writeup and
+//   transports-mutation-t2/t3.test.ts's headers for the
+//   createMcpServer()/registry.getClient()-throw dependency-injection
+//   technique used to reach handleStreamablePost's catch block at all (the
+//   SDK absorbs every other failure mode internally and never rethrows).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -255,9 +297,10 @@ export default {
   },
   mutate: [
     // Domain 3 = src/mcp/. registry/registration/system-tools/registry-
-    // persistence done (see SCOPE HISTORY). Next: transports.ts (358 LOC).
+    // persistence/transports done (see SCOPE HISTORY). Next: mcp-upstream.ts
+    // (286 LOC), then mcp-server.ts (264 LOC).
     //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/transports.ts",
+    "src/mcp/mcp-upstream.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

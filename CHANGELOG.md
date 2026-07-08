@@ -295,6 +295,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   files in this series, resolved by simply fixing each newly-exposed gap
   rather than assuming noise. Suite grows 2093 → 2112. Run with
   `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate`.
+- **Mutation testing — domain 3 (`src/mcp/`), `transports.ts`** (358 LOC,
+  the Streamable-HTTP transport layer: sharded `/mcp/:clientName`, curated
+  `/mcp-custom/:bundleName`, and the system-root `/mcp`, all sharing
+  `handleStreamablePost/Get/Delete` plus a 60s TTL-eviction timer). 286
+  mutants, 48.25% baseline (138/286) → 87–88% raw across 3 stable verify
+  rounds (249–251/286, killed-count itself fluctuating run-to-run — this
+  file's own instance of the known Stryker measurement-noise pattern) →
+  **effectively 100%**: every raw survivor in the final run is a
+  documented equivalent with concrete reasoning. Five new
+  `transports-mutation-t1..t5.test.ts` files (one per functional cluster,
+  parallel Workflow round) plus a manual closing pass across 4 more verify
+  rounds that fixed 5 genuine gaps: `req.body` is `undefined` (not `{}`)
+  on a request with no content-type at all, so `req.body?.id` only
+  diverges from `req.body.id` on a truly bodyless request, not merely one
+  missing an `id` key (5 OptionalChaining survivors, all fixed the same
+  way); a TTL eviction boundary `>` vs `>=` gap (fixed via `Date.now()`
+  stubbing for an exact-equality tick instead of a flaky real-clock race);
+  a mislabeled equivalence note (two distinct `"system"` string literals
+  on the same `scopeKey` line, originally conflated under one location);
+  a missed `streamable.close()` mutant (proven only by a real open SSE
+  stream that must actually end, not just by checking the routing maps);
+  and a second regex-anchor test (Stryker's regex mutator alternates
+  between dropping the leading `^` and the trailing `$` across runs).
+  Reaching `handleStreamablePost`'s catch block at all required a
+  dependency-injection technique (spying `createMcpServer`/
+  `registry.getClient` to throw) since the MCP SDK absorbs every other
+  failure mode internally and never rethrows to the caller. Suite grows
+  2112 → 2168. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run
+  test:mutate`.
 
 ### Docs
 
