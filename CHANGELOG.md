@@ -324,6 +324,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failure mode internally and never rethrows to the caller. Suite grows
   2112 → 2168. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run
   test:mutate`.
+- **Mutation testing — domain 3 (`src/mcp/`), `mcp-upstream.ts`** (the
+  outbound MCP upstream connection pool + dispatcher: `buildTransport`,
+  `mcpResultToProxyResult`, `McpUpstreamPool`'s
+  call/listResources/readResource/listPrompts/getPrompt/ping/disconnect).
+  131 mutants, 81.68% baseline (106/131) → 96.18% raw (126/131) across 3
+  verify rounds (124 → 124 → 126, stable/improving) → **effectively
+  100%**: all 5 raw survivors documented equivalent. One new
+  `mcp-upstream-mutation.test.ts` file, authored directly. The existing
+  sibling test file always injects a custom `transportFactory`, so
+  `buildTransport` itself (the real network-transport builder) was
+  completely untested — closed via direct calls plus reading the SDK's
+  internal `_requestInit`/`_fetch` fields off the constructed transport.
+  Also closed: a `connectTimeoutMs`/per-call-timeout family of gaps (`??`
+  vs `&&`, and 4 separate `{timeout: ...}` options objects across
+  connect/ping/readResource/getPrompt) via a reusable `delayMethod()`
+  helper that monkey-patches a real transport's `send()` to delay one
+  JSON-RPC method, proving a small custom timeout actually fires before a
+  large default would; a `getClient()` in-flight-connection-dedup gap
+  (two concurrent calls to the same not-yet-connected upstream must share
+  one connect attempt); and a `getPrompt()` catch-block gap. The 5
+  equivalents lean on deeper SDK-internals reasoning than usual: two
+  `?? []` fallbacks (`listResources`/`listPrompts`) are unreachable
+  because the SDK's own zod response schema requires those array fields,
+  so a malformed response throws before the fallback line ever runs; a
+  capabilities object literal is subsumed by the SDK's own default; a
+  `Buffer.byteLength(text, "utf8")` → `""` swap matches the encoding
+  equivalence already documented for `secret-box.ts`; and 4
+  `if (x) opts.y = x` guards turned out unobservable since the only
+  inspection point reads `opts?.y` either way — confirmed empirically
+  that `spyOn` cannot intercept a class export's raw constructor
+  arguments (breaks `new` semantics on the SDK's transport classes).
+  Suite grows 2168 → 2192. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__
+  bun run test:mutate`.
 
 ### Docs
 

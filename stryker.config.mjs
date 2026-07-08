@@ -234,6 +234,39 @@
 //   createMcpServer()/registry.getClient()-throw dependency-injection
 //   technique used to reach handleStreamablePost's catch block at all (the
 //   SDK absorbs every other failure mode internally and never rethrows).
+//   mcp-upstream.ts (the outbound MCP upstream connection pool +
+//   dispatcher: buildTransport, mcpResultToProxyResult, McpUpstreamPool's
+//   call/listResources/readResource/listPrompts/getPrompt/ping/disconnect)
+//   131 mutants  81.68% baseline (106/131) -> 96.18% raw (126/131) across
+//   3 verify rounds (124->124->126, stable/improving, not chased with a
+//   4th run) / effectively 100% (all 5 raw survivors documented-
+//   equivalent). One new `mcp-upstream-mutation.test.ts` file, authored
+//   directly (no agent round — small survivor count). The existing sibling
+//   test file always injects a custom transportFactory, so `buildTransport`
+//   itself (the real network-transport builder) was completely untested —
+//   closed via direct calls plus reading the SDK's internal
+//   `_requestInit`/`_fetch` fields off the constructed transport instance.
+//   Also closed: a `connectTimeoutMs`/per-call-timeout family of gaps
+//   (`??` vs `&&`, and 4 separate `{timeout: ...}` options objects on
+//   connect/ping/readResource/getPrompt) via a reusable `delayMethod()`
+//   helper that monkey-patches a real transport's `send()` to delay one
+//   JSON-RPC method, proving a small custom timeout fires before a large
+//   default would; a `getClient()` in-flight-connection-dedup gap (two
+//   concurrent calls to the same unconnected upstream must share one
+//   connect attempt, not race); and a `getPrompt()` catch-block gap.
+//   5 documented equivalents, most with deeper structural reasoning than
+//   usual: two `ListResourcesResultSchema`/`ListPromptsResultSchema`
+//   `?? []` fallbacks are unreachable because the SDK's own zod schema
+//   requires those array fields, so a malformed response throws before the
+//   fallback line ever runs; a `Client` capabilities object literal is
+//   subsumed by the SDK's own `?? {}` default; a `Buffer.byteLength(text,
+//   "utf8")` -> `""` swap is the same encoding-equivalence already
+//   documented for secret-box.ts; and 4 `if (x) opts.y = x` guards turned
+//   out unobservable because the only inspection point (the constructed
+//   transport's own field) reads `opts?.y` either way, and spying on the
+//   SDK's transport CLASS exports to inspect the raw options object before
+//   construction doesn't work — confirmed empirically that bun:test's
+//   spyOn breaks `new` semantics on a class export.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -297,10 +330,13 @@ export default {
   },
   mutate: [
     // Domain 3 = src/mcp/. registry/registration/system-tools/registry-
-    // persistence/transports done (see SCOPE HISTORY). Next: mcp-upstream.ts
-    // (286 LOC), then mcp-server.ts (264 LOC).
+    // persistence/transports/mcp-upstream done (see SCOPE HISTORY). Next:
+    // mcp-server.ts (264 LOC) — likely the last big file in this domain;
+    // remaining small files (types.ts 169, mcp-discovery.ts 117,
+    // tool-search.ts 110, registry-alias-index.ts 96, tool-index.ts 78) to
+    // be evaluated afterward for dedicated coverage vs. skip/bundle.
     //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/mcp-upstream.ts",
+    "src/mcp/mcp-server.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
