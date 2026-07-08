@@ -536,6 +536,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `windowMs` age-out `<`) needing precise `Date.now()` stubbing to the
   internal timestamp actually used, not an approximated offset. Run with
   the same `STRYKER_TEST_SCOPE`.
+- **Mutation testing — domain 4, `rate-limiter.ts`** (267 LOC,
+  `src/middleware/` — the sliding-window rate limiter: 6 tiers, LRU-bounded
+  bucket maps, and the idle-bucket eviction sweep). 164 mutants, 90.85%
+  baseline (149/164 — the pure `checkRateLimit`/`checkLimit` functions and
+  LRU primitives were well covered, but the 6 Express-wrapped middleware
+  factories and the eviction sweep had never been driven directly) →
+  **100.00% (164/164), clean** across 7 verify rounds. One new
+  `rate-limiter-mutation.test.ts` file. Closed: the sampled (1%) LRU
+  eviction log, needing `spyOn(Math, "random")` to force both branches; an
+  exact `retryAfterSeconds` computation (`> 0` doesn't distinguish a `-`
+  from a `+` typo, since the flipped version is still a large positive
+  number); a dedicated tier-string assertion per middleware factory (6
+  near-identical call sites, each its own AST literal); the `req.ip ?? req.socket?.remoteAddress`
+  fallback's `??`-vs-`&&` divergence (only observable when `req.ip` is
+  truthy — a "both absent" no-throw test doesn't catch it); a literal
+  bucket-key assertion (a single happy-path call can't tell a real string
+  key from an emptied one); and the entire idle-eviction sweep, which had
+  zero coverage at baseline, via the same captured-callback technique
+  introduced for `circuit-breaker.ts`. 1 documented equivalent (an injected
+  array literal on a freshly-created bucket that the very next line's
+  prune filter unconditionally strips via `NaN` comparison semantics).
+  **This closes out domain 4's sizeable files** — remaining small files
+  (all <100 LOC) are next. Run with the same `STRYKER_TEST_SCOPE`.
 
 ### Docs
 

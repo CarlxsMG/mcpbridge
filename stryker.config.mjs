@@ -523,6 +523,61 @@
 //   both needed exact `Date.now()` stubbing to the boundary value itself
 //   (captured via the internal timestamp actually used, not an
 //   approximated wall-clock offset) to avoid a few-ms race.
+//   rate-limiter.ts (267 LOC, src/middleware/ — the sliding-window rate
+//   limiter: 6 tiers (global/mcp/register/tool/login/install_link), LRU-
+//   bounded bucket maps, and the idle-bucket eviction sweep)  164 mutants
+//   90.85% baseline (149/164 — checkRateLimit/checkLimit and the LRU
+//   primitives were thoroughly covered by 3 existing test files, but the
+//   Express-wrapped middleware factories and the eviction sweep had never
+//   been driven directly) -> **100.00% (164/164), clean** across 7 verify
+//   rounds (155->162->163->163->162->161->164 — a longer tail than
+//   circuit-breaker.ts's, following the SAME [[px2_proxy_verification_noise]]
+//   pattern of each round surfacing a different, non-overlapping tier's
+//   equivalent gap rather than plateauing on one). One new
+//   `rate-limiter-mutation.test.ts` file, authored directly. Key findings:
+//   - **The `lruSet` eviction log is SAMPLED (`Math.random() < 0.01`), not
+//     unconditional** — needed `spyOn(Math, "random")` to deterministically
+//     force both the "not sampled" (must NOT log) and "sampled" (must log
+//     the exact level/message/meta) branches; an unconditional-log test
+//     would have missed the ConditionalExpression-forced-true mutant.
+//   - **`retryAfterSeconds > 0` doesn't distinguish `-` from `+`** on
+//     `oldestInWindow + WINDOW_MS - now` — a `+`-flipped mutant still
+//     produces a large POSITIVE number, so only an exact expected value
+//     (computed by hand from controlled `Date.now()` inputs) catches it.
+//   - **Six near-identical middleware factories (rateLimitRegister/Login/
+//     InstallLink/Mcp/Global) each needed their OWN dedicated tier-string
+//     assertion** via `rateLimitHits.render()` — a shared helper pattern
+//     doesn't eliminate the need for one assertion per call site, since
+//     each factory's `"tier"` argument is an independent AST literal.
+//   - **`req.ip ?? req.socket?.remoteAddress` only diverges from a `&&`
+//     mutant when `req.ip` is TRUTHY** — both operators short-circuit
+//     identically when the left side is falsy/nullish, so a "both absent"
+//     no-throw test (which kills the adjacent OptionalChaining mutant)
+//     does NOT kill the LogicalOperator mutant. Needed a truthy `req.ip`
+//     paired with a DIFFERENT `req.socket.remoteAddress` value and an
+//     assertion on which one actually became the bucket key — present in
+//     both rateLimitInstallLink and rateLimitMcp's identical fallback.
+//   - **A single-request happy-path test can't distinguish a real string
+//     key from a mutated one** — `const key = "global"` collapsed to `""`
+//     still produces `next()` called / no 429 on the very first call
+//     either way; needed a direct `globalBuckets.has("global")` /
+//     `.has("")` check.
+//   - **evictEmpty had ZERO coverage at baseline** (its whole body was an
+//     unreached survivor) — closed via the SAME `spyOn(leaderLoopMod,
+//     "startPeriodicSweep")`-captures-the-callback technique introduced
+//     for circuit-breaker.ts, seeding all SIX tier maps at once with a
+//     token exactly `WINDOW_MS` old (must prune to empty and evict) and a
+//     fresh token (must survive), which also kills the `<`/`<=` boundary
+//     and `=== 0`/`!== 0` pair in one shot.
+//   1 documented equivalent: 97:24-97:26 ArrayDeclaration (an injected
+//   `["Stryker was here"]` on a freshly-created bucket) — verified
+//   empirically (`bun -e`) that the very next line's prune filter always
+//   strips it (`now - "Stryker was here"` is `NaN`, and `NaN < WINDOW_MS`
+//   is always `false`), so the junk entry is unobservable via any call path.
+//   ── DOMAIN 4 sizeable files COMPLETE (ip-validator.ts, auth.ts,
+//   circuit-breaker.ts, rate-limiter.ts). Small remaining files (all
+//   <100 LOC): request-id.ts, origin-validator.ts, connection.ts,
+//   json-depth.ts, authz.ts, leader-lease.ts, rate-counters.ts, cors.ts. ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -586,10 +641,12 @@ export default {
   },
   mutate: [
     // Domain 4 continues (see SCOPE HISTORY) — ip-validator.ts, auth.ts,
-    // circuit-breaker.ts done. Next: rate-limiter.ts (267 LOC,
-    // src/middleware/ — the last sizeable file in this domain).
+    // circuit-breaker.ts, rate-limiter.ts done (all sizeable files closed).
+    // Next: the small remaining files, smallest first: request-id.ts (27),
+    // origin-validator.ts (31), connection.ts (45), json-depth.ts (49),
+    // authz.ts (61), leader-lease.ts (72), rate-counters.ts (88), cors.ts (98).
     // Scope: STRYKER_TEST_SCOPE="src/db/__tests__ src/middleware/__tests__"
-    "src/middleware/rate-limiter.ts",
+    "src/middleware/request-id.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
