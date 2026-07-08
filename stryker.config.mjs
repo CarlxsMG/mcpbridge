@@ -391,6 +391,55 @@
 //   no new test file needed. This was the LAST file in domain 3 —
 //   ── src/mcp/ domain COMPLETE. ──
 //
+// DOMAIN 4 — src/db + src/middleware + src/net (core infra). Test dirs do
+// NOT mirror source dirs 1:1 here (unlike domain 3) — confirmed
+// src/net/ip-validator.ts's test lives in src/middleware/__tests__/, and
+// there is no src/net/__tests__ at all. Scope:
+// STRYKER_TEST_SCOPE="src/db/__tests__ src/middleware/__tests__"
+// (space-separated, both dirs — verify per file which dir actually holds
+// its test before assuming). src/db/migrations.ts (1024 LOC) evaluated
+// and SKIPPED — an append-only array of static SQL template strings plus
+// one small runMigrations() runner; almost entirely non-logic data, same
+// reasoning as src/mcp/types.ts.
+//   ip-validator.ts (283 LOC, src/net/ — the centralised SSRF/DNS-
+//   rebinding defence: IPv4/IPv6 blocked-range checks, validateBackendUrl's
+//   dual-stack DNS resolution, TTL re-pinning, pinned-fetch/pinned-lookup
+//   transport helpers)  193 mutants  94.30% baseline (182/193, decent
+//   existing IP-literal coverage, but zero real-DNS-path or
+//   makePinnedFetch/makePinnedLookup coverage) -> 99.48% raw (192/193)
+//   across 2 verify rounds / effectively 100% (the one raw survivor is a
+//   genuine equivalent). One new `ip-validator-mutation.test.ts` file,
+//   authored directly. New technique for this file: `Bun.dns.lookup` is a
+//   real global `spyOn` can mock directly
+//   (`spyOn(Bun.dns, "lookup").mockImplementation(...)`), letting
+//   validateBackendUrl's dual-stack DNS branch be driven deterministically
+//   per-family (success/reject) with zero real network access — reusable
+//   for any future file that calls Bun.dns.lookup directly. Closed: a
+//   6to4-false-positive gap (a PUBLIC IPv6 address whose bit pattern would
+//   decode to a private IPv4 if the 6to4 extractor were wrongly applied to
+//   it); isRawIpLiteral's exported behavior directly; the IP-literal fast
+//   path's actual skip-DNS-entirely guarantee (proven via the dns spy
+//   asserting zero calls, not just the right answer); the v4/v6-partial-
+//   failure fallback arrays (a poisoned fallback masquerading as a real
+//   DNS record would crash downstream on `.address` of a bare string);
+//   both directions of the all-records-empty check; allowPrivateIps
+//   actually gating the private-range rejection (tested both ways); the
+//   IPv4-preference tie-break when both families resolve; a malformed-URL
+//   catch path; non-http(s) protocol rejection; a bracketed-IPv6 URL
+//   through the FULL validateBackendUrl path (not just isRawIpLiteral in
+//   isolation); refreshPinIfStale's thrown-message reason-vs-hostname
+//   distinction (the existing sibling test's regex assertion matched the
+//   message's STATIC prefix text regardless of the mutation, masking the
+//   gap — fixed by using a hostname textually distinct from the resolved
+//   blocked IP so the two interpolation candidates are unambiguous); and
+//   makePinnedLookup, previously untested at all. 2 documented equivalents
+//   (an unreachable defensive catch given ipaddr.js's own guarantees after
+//   a successful parse; a `||`-vs-`&&` pair only distinguishable by
+//   hostname shapes the WHATWG URL parser never actually produces) plus a
+//   3rd found on verify2 (`.toString()` on an already-string input is a
+//   no-op, and a URL-object input already takes the same branch in both
+//   real and mutant code, since `typeof` on an object is never "string").
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -452,21 +501,10 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // ── src/mcp/ domain (domain 3) COMPLETE — see SCOPE HISTORY. ──
-    // Domain 4 = src/db + src/middleware + src/net (core infra). Starting
-    // with the security-critical SSRF/DNS-rebinding guard, ip-validator.ts
-    // (283 LOC — see CLAUDE.md's "Security-critical invariants"). Skipped:
-    // src/db/migrations.ts (1024 LOC) — an append-only array of static SQL
-    // template strings plus one small runMigrations() runner; almost
-    // entirely non-logic data, low value for Stryker (same reasoning as
-    // src/mcp/types.ts). IMPORTANT: despite living at src/net/ip-validator.ts,
-    // its test file is src/middleware/__tests__/ip-validator.test.ts (test
-    // dirs do NOT mirror source dirs 1:1 in this domain, unlike src/mcp/) —
-    // confirmed there is no src/net/__tests__ at all. Scope for this
-    // domain: STRYKER_TEST_SCOPE=src/db/__tests__ src/middleware/__tests__
-    // (both, space-separated) — re-verify per file which dir its test
-    // actually lives in before assuming.
-    "src/net/ip-validator.ts",
+    // Domain 4 continues (see SCOPE HISTORY) — ip-validator.ts done. Next:
+    // auth.ts (207 LOC, src/middleware/ — admin auth, security-critical).
+    // Scope: STRYKER_TEST_SCOPE="src/db/__tests__ src/middleware/__tests__"
+    "src/middleware/auth.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

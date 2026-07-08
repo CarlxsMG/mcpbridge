@@ -462,6 +462,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tool-search, registry-alias-index, tool-index — all effectively 100%;
   `types.ts` skipped as pure type declarations). Domain 4
   (`src/db`/`src/middleware`/`src/net`) starts next.
+- **Mutation testing — domain 4 (`src/db`+`src/middleware`+`src/net`),
+  `ip-validator.ts`** (283 LOC, `src/net/` — the centralised SSRF/DNS-
+  rebinding defence: IPv4/IPv6 blocked-range checks, `validateBackendUrl`'s
+  dual-stack DNS resolution, TTL re-pinning, pinned-fetch/pinned-lookup
+  transport helpers). 193 mutants, 94.30% baseline (182/193) → 99.48% raw
+  (192/193) across 2 verify rounds → **effectively 100%** (the one raw
+  survivor is a genuine equivalent). One new `ip-validator-mutation.test.ts`
+  file. New technique: `Bun.dns.lookup` is a real global `spyOn` can mock
+  directly, letting `validateBackendUrl`'s dual-stack DNS branch be driven
+  deterministically per-family with zero real network access — reusable
+  for any future file calling `Bun.dns.lookup`. Closed: a 6to4-false-
+  positive gap (a public IPv6 address whose bits would decode to a private
+  IPv4 if the 6to4 extractor were wrongly applied); the IP-literal fast
+  path's actual skip-DNS guarantee (proven via the spy seeing zero calls);
+  poisoned DNS-fallback arrays; both directions of the all-records-empty
+  check; `allowPrivateIps` actually gating rejection both ways; the IPv4-
+  preference tie-break; malformed-URL and non-http(s)-protocol rejection;
+  a bracketed-IPv6 URL through the full path; `refreshPinIfStale`'s
+  thrown-message reason-vs-hostname distinction (the sibling test's regex
+  matched the message's static prefix regardless of the mutation, masking
+  the gap); and `makePinnedLookup`, previously untested. 3 documented
+  equivalents (an unreachable defensive catch, a `||`-vs-`&&` pair only
+  distinguishable by hostname shapes the URL parser never produces, and a
+  redundant `.toString()` branch). `src/db/migrations.ts` (1024 LOC)
+  evaluated and **skipped** — static SQL data, same reasoning as
+  `types.ts`. Run with `STRYKER_TEST_SCOPE="src/db/__tests__
+  src/middleware/__tests__"`.
 
 ### Docs
 
