@@ -147,6 +147,33 @@
 //   proven-equivalent `pathname || "/graphql"` fallback (`new URL(...)
 //   .pathname` is never falsy for any valid URL). Effective score: 100%
 //   (547/547 non-equivalent mutants killed).
+//   system-tools.ts (427 LOC, the /mcp root's sys_* control-plane catalog —
+//   thin adapters + the two-axis authz model: role tier + sensitive/
+//   __confirm step-up)  490 mutants  39.39% baseline (193/490) -> 99.80%
+//   raw (489/490), effectively 100%. 5 new `system-tools-mutation-
+//   st1..st5.test.ts` files: helpers+dispatch/auth (the security-critical
+//   part — tier gating, sensitive step-up, envBearerOnly, catch-all error
+//   handling), read-tier tools, operate-tier simple tools, sys_register_
+//   client (densest single tool), admin-tier mint/revoke. Most of this
+//   file's mutants sit in each tool's static inputSchema/description object
+//   literals — closed in bulk by one exact toEqual per tool against a hand-
+//   transcribed schema, rather than one test per literal. Round 1 (5 agents
+//   cold) drove 39.39% -> 98.98%; a manual pass then found and fixed a
+//   genuine coordination gap between two agents (ST1 tested runSystemTool's
+//   GENERIC sensitive/__confirm gate via one example tool; ST5 assumed that
+//   covered it, but each tool's OWN `sensitive: true` literal is an
+//   independent AST node ST1 never actually exercised for sys_mint_key/
+//   sys_revoke_key specifically — a real, if narrow, security-test gap, now
+//   closed) plus a genuine agent mislabeling (a `str()`/`num()` non-string/
+//   non-number pass-through bug an agent attributed to the wrong helper
+//   function by line-number confusion) and one missed handler-logic test
+//   (sys_list_keys). One final survivor (L74, num()'s forced-true
+//   condition) is believed to be Stryker measurement noise rather than a
+//   real gap — see [[px2_proxy_verification_noise]]-pattern: an
+//   intermediate verify run confirmed it killed, a later one showed it
+//   surviving again with zero test changes in between, and the relevant
+//   test passes reliably (3/3) run directly. Not chased with a 4th full
+//   verify given 3 already run on this file.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -209,10 +236,10 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 3 = src/mcp/. registry.ts + registration.ts done (see SCOPE
-    // HISTORY). Next: system-tools.ts (427 LOC, sys_* control-plane tools).
+    // Domain 3 = src/mcp/. registry.ts + registration.ts + system-tools.ts
+    // done (see SCOPE HISTORY). Next: registry-persistence.ts (410 LOC).
     //   STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate
-    "src/mcp/system-tools.ts",
+    "src/mcp/registry-persistence.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

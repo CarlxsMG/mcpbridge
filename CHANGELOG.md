@@ -252,6 +252,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   call's `ipPin`/`includeMutations` fields, and the success log call's exact
   arguments). Suite grows 1870 → 1991. Run with
   `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run test:mutate`.
+- **Mutation testing — domain 3 (`src/mcp/`), `system-tools.ts`** (427 LOC,
+  the `/mcp` root's `sys_*` control-plane tool catalog — thin adapters over
+  already-tested domain functions, dispatched under a two-axis
+  authorization model: role tier + sensitive/`__confirm` step-up). 490
+  mutants, **99.80% raw (489/490)**, up from a 39.39% baseline (193/490),
+  **effectively 100%**. 5 new `src/mcp/__tests__/system-tools-mutation-
+  st1..st5.test.ts` files: helpers + the dispatch/auth logic (the
+  security-critical part), read-tier tools, operate-tier simple tools,
+  `sys_register_client` (the densest single tool), and admin-tier
+  mint/revoke. Most survivors sat in each tool's static `inputSchema`/
+  `description` object literals — closed in bulk via one exact `toEqual`
+  per tool against a hand-transcribed schema, rather than one test per
+  literal field. A manual pass after the cold round found and fixed a real
+  coordination gap between two agents (one tested `runSystemTool`'s
+  *generic* sensitive/`__confirm` gate via a single example tool; a sibling
+  assumed that covered it, but each tool's own `sensitive: true` literal is
+  an independent AST node never actually exercised for `sys_mint_key`/
+  `sys_revoke_key` specifically) plus a genuine mislabeling (a `str()`/
+  `num()` non-string/non-number pass-through bug attributed to the wrong
+  helper by line-number confusion) and one missed handler test
+  (`sys_list_keys`). The one remaining survivor is believed to be Stryker
+  measurement noise, not a real gap — an intermediate verify run confirmed
+  it killed, a later one showed it surviving again with zero test changes
+  in between, and the relevant test passes reliably standalone. Suite grows
+  1991 → 2093. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run
+  test:mutate`.
 
 ### Docs
 
