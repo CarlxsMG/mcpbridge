@@ -439,6 +439,52 @@
 //   3rd found on verify2 (`.toString()` on an already-string input is a
 //   no-op, and a URL-object input already takes the same branch in both
 //   real and mutant code, since `typeof` on an object is never "string").
+//   auth.ts (207 LOC, src/middleware/ — admin auth (Bearer OR session+CSRF),
+//   MCP data-plane auth (env keys / DB-managed keys / JWT / "no auth
+//   material => allow all" fallback), and the /mcp control-plane's fail-
+//   closed rootMcpAuth)  152 mutants  94.08% baseline (143/152, ALL
+//   indirect — no dedicated test file existed at all; real coverage for
+//   rootMcpAuth in particular lives in src/mcp/__tests__/transports*.test.ts,
+//   OUTSIDE this domain's STRYKER_TEST_SCOPE) -> 100% effective (151/152
+//   killed, 1 stable Timeout on the same `adminAuth`-body-emptied
+//   BlockStatement pattern seen on transports.ts/mcp-server.ts — accepted
+//   per this program's established "genuine Stryker timeout = detected"
+//   convention, not chased further). One new `auth-mutation.test.ts` file,
+//   authored directly (small enough for one pass, no agent round needed).
+//   Rather than widen STRYKER_TEST_SCOPE to include src/mcp/__tests__
+//   (slower, permanent cross-domain coupling), made this file's own
+//   coverage self-sufficient: every branch driven directly via lightweight
+//   mock Express req/res objects (same idiom as
+//   origin-validator-envelope.test.ts) plus `spyOn` on system-role.js/
+//   jwt.js/mcp-key-store.js/session-store.js/user-store.js. 4 verify
+//   rounds (baseline -> 1 survivor+1 timeout -> 3 survivors+timeout -> 5
+//   DIFFERENT survivors, 0 timeout -> clean but for the 1 stable timeout);
+//   round 3's survivor-set change vs round 2 was a genuine consequence of
+//   the fixes just applied shifting which branches got freshly exercised,
+//   not [[px2_proxy_verification_noise]]-style flakiness. Genuine gaps
+//   closed across the rounds: rootMcpAuth's 3 outcomes (missing header,
+//   present-but-rejected token with the exact message, resolved role);
+//   evaluateMcpAuth's JWT branch (isJwtConfigured forced-true only
+//   detectable with hasAnyMcpKeys=true so the unrelated "no auth material"
+//   fallback doesn't short-circuit first and mask it); the `if (token)`
+//   guard (resolveMcpKeyByToken must never even be called with no header);
+//   an env-key-match exact-object assertion; the env-configured-but-non-
+//   matching-token case (an `&&`-vs-`||` gap: merely HAVING env keys
+//   configured must not itself grant access to a token that doesn't match
+//   any of them); the "no auth material" fallback both ways; the
+//   `config.authDisabled` early-return in evaluateMcpAuth (needed
+//   mcpApiKeys non-empty so the real fallthrough would otherwise land on
+//   401, isolating this one line from the same fallback); mcpAuth's
+//   mcpKeyId/jwtSubject request-mutation guards (the jwtSubject one needed
+//   `hasOwnProperty` rather than an equality check, since the mutant
+//   assigns literal `undefined` rather than skipping the assignment
+//   entirely — an equality check can't tell the two apart); mcpAuth's
+//   rejected-verdict short-circuit (a `sendError(...); return;` block
+//   emptied would otherwise silently call next() anyway); and adminAuth's
+//   session-path optional chaining on `findUserById(session.userId)?.teamId`
+//   (a deleted/missing user must resolve teamId to null, not throw a
+//   TypeError — required mocking validateSession+findUserById directly and
+//   using a safe GET method to isolate this line from the CSRF branch).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -501,10 +547,10 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 4 continues (see SCOPE HISTORY) — ip-validator.ts done. Next:
-    // auth.ts (207 LOC, src/middleware/ — admin auth, security-critical).
+    // Domain 4 continues (see SCOPE HISTORY) — ip-validator.ts, auth.ts done.
+    // Next: circuit-breaker.ts (214 LOC, src/middleware/ — resilience).
     // Scope: STRYKER_TEST_SCOPE="src/db/__tests__ src/middleware/__tests__"
-    "src/middleware/auth.ts",
+    "src/middleware/circuit-breaker.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

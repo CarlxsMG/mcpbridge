@@ -489,6 +489,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evaluated and **skipped** — static SQL data, same reasoning as
   `types.ts`. Run with `STRYKER_TEST_SCOPE="src/db/__tests__
   src/middleware/__tests__"`.
+- **Mutation testing — domain 4, `auth.ts`** (207 LOC, `src/middleware/` —
+  admin auth (Bearer OR session+CSRF), MCP data-plane auth (env keys / DB-
+  managed keys / JWT / "no auth material → allow all" fallback), and the
+  `/mcp` control-plane's fail-closed `rootMcpAuth`). 152 mutants, 94.08%
+  baseline (143/152, entirely indirect coverage — no dedicated test file
+  existed) → **100% effective** (151/152 killed, 1 stable Timeout on the
+  same "handler body emptied" pattern already accepted elsewhere in this
+  program). One new `auth-mutation.test.ts` file, authored directly, using
+  lightweight mock Express req/res objects plus `spyOn` on
+  system-role.js/jwt.js/mcp-key-store.js/session-store.js/user-store.js —
+  made self-sufficient rather than widening `STRYKER_TEST_SCOPE` to include
+  `src/mcp/__tests__` (where `rootMcpAuth`'s real indirect coverage lives).
+  Closed across 4 verify rounds: all 3 `rootMcpAuth` outcomes; the JWT
+  branch's `isJwtConfigured` guard; the `if (token)` guard; an env-key-match
+  exact-object assertion; an `&&`-vs-`||` gap where merely having env keys
+  configured must not itself grant access to a non-matching token; the "no
+  auth material" fallback both ways; `evaluateMcpAuth`'s `authDisabled`
+  early-return; `mcpAuth`'s `mcpKeyId`/`jwtSubject` request-mutation guards
+  (the latter needed a `hasOwnProperty` check, since the mutant assigns
+  literal `undefined` rather than skipping the assignment); `mcpAuth`'s
+  rejected-verdict short-circuit; and `adminAuth`'s session-path optional
+  chaining on a since-deleted user (`findUserById(...)?.teamId` resolving
+  to `null` instead of throwing). Run with the same
+  `STRYKER_TEST_SCOPE="src/db/__tests__ src/middleware/__tests__"`.
 
 ### Docs
 
