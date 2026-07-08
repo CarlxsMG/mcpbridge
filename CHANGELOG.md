@@ -513,6 +513,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chaining on a since-deleted user (`findUserById(...)?.teamId` resolving
   to `null` instead of throwing). Run with the same
   `STRYKER_TEST_SCOPE="src/db/__tests__ src/middleware/__tests__"`.
+- **Mutation testing — domain 4, `circuit-breaker.ts`** (214 LOC,
+  `src/middleware/` — the CircuitBreaker closed/open/half_open state
+  machine plus its module-level singleton registry). 132 mutants, 93.18%
+  baseline (123/132 — the state machine itself was already thoroughly
+  covered by the existing `circuit-breaker.test.ts`; every survivor was in
+  a module-level function or a metric/log side effect) → **100.00%
+  (132/132), clean** across 5 verify rounds. One new
+  `circuit-breaker-mutation.test.ts` file. Closed: 3 `breakerStateTransitions`
+  metric-label assertions verified via the Counter's own `.render()`
+  output (a simpler alternative to spying, when a metrics primitive
+  already exposes a readable dump); 2 `log()` call-content assertions via
+  `spyOn`; the thundering-herd probe rejection's exact `reason: "Probing"`
+  string; the unexported `BREAKER_IDLE_TTL` constant's value, observed by
+  spying `startPeriodicSweep` to capture the real interval argument;
+  `updateCircuitBreakerConfig`'s no-op-on-missing-client guard **and**
+  that it actually applies to an existing breaker (found only on the 4th
+  verify round — the original test only proved the no-op half);
+  `getAllCircuitStates`/`getAllBreakerStateGauges`/`removeCircuitBreaker`,
+  none of which had any prior test at all; and two exact-boundary ticks
+  (`getState`'s `resetTimeoutMs` `>=`, and the sliding-window prune's
+  `windowMs` age-out `<`) needing precise `Date.now()` stubbing to the
+  internal timestamp actually used, not an approximated offset. Run with
+  the same `STRYKER_TEST_SCOPE`.
 
 ### Docs
 

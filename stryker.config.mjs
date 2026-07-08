@@ -485,6 +485,44 @@
 //   (a deleted/missing user must resolve teamId to null, not throw a
 //   TypeError — required mocking validateSession+findUserById directly and
 //   using a safe GET method to isolate this line from the CSRF branch).
+//   circuit-breaker.ts (214 LOC, src/middleware/ — CircuitBreaker's
+//   closed/open/half_open state machine + its module-level singleton
+//   registry: getCircuitBreaker/updateCircuitBreakerConfig/
+//   getAllCircuitStates/getAllBreakerStateGauges/removeCircuitBreaker/
+//   startCircuitBreakerCleanup)  132 mutants  93.18% baseline (123/132,
+//   the class's own state-machine logic was already thoroughly covered by
+//   the existing circuit-breaker.test.ts — every survivor was in a
+//   module-level function or a metric/log side effect that test file never
+//   touched) -> **100.00% (132/132), clean** across 5 verify rounds
+//   (128->128->131->131->132 — 4 consecutive rounds each surfacing a
+//   DIFFERENT non-overlapping survivor set at the same net-131/132 score
+//   before the final clean run, this file's own instance of
+//   [[px2_proxy_verification_noise]]; each new survivor was investigated
+//   and confirmed a genuine, closable gap rather than assumed noise, per
+//   the registry-persistence.ts precedent). One new
+//   `circuit-breaker-mutation.test.ts` file, authored directly. Closed:
+//   three breakerStateTransitions metric-label assertions (half_open-
+//   >closed, half_open->open, closed->open) verified via the Counter's
+//   own `.render()` output rather than a spy
+//   (`expect(breakerStateTransitions.render()).toContain('client="x",
+//   from_state="a",to_state="b"')`) — a new, simpler alternative to
+//   spying when a metrics primitive already exposes a readable dump; two
+//   log() call-content assertions (half_open->closed/half_open->open) via
+//   the established `spyOn(logger, "log")` technique; the thundering-herd
+//   probe rejection's exact `reason: "Probing"` string (existing tests
+//   only checked the `allowed` boolean); the BREAKER_IDLE_TTL constant's
+//   `5 * 60_000` value, unexported but observed indirectly by spying
+//   `startPeriodicSweep` (from `lib/leader-loop.js`) to capture the real
+//   intervalMs argument passed at call time; updateCircuitBreakerConfig's
+//   `?.` no-op-on-missing-client guard AND (found only on verify4) that it
+//   actually applies to an EXISTING breaker — the original test only
+//   proved the no-op half; getAllCircuitStates/getAllBreakerStateGauges/
+//   removeCircuitBreaker, none of which had ANY prior test touching them
+//   at all; getState's `>=` (not `>`) resetTimeoutMs boundary tick, and
+//   the sliding-window prune's `<` (not `<=`) windowMs age-out boundary —
+//   both needed exact `Date.now()` stubbing to the boundary value itself
+//   (captured via the internal timestamp actually used, not an
+//   approximated wall-clock offset) to avoid a few-ms race.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -547,10 +585,11 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 4 continues (see SCOPE HISTORY) — ip-validator.ts, auth.ts done.
-    // Next: circuit-breaker.ts (214 LOC, src/middleware/ — resilience).
+    // Domain 4 continues (see SCOPE HISTORY) — ip-validator.ts, auth.ts,
+    // circuit-breaker.ts done. Next: rate-limiter.ts (267 LOC,
+    // src/middleware/ — the last sizeable file in this domain).
     // Scope: STRYKER_TEST_SCOPE="src/db/__tests__ src/middleware/__tests__"
-    "src/middleware/circuit-breaker.ts",
+    "src/middleware/rate-limiter.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
