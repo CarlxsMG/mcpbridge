@@ -602,6 +602,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   frequency regardless of direction). Run with the same
   `STRYKER_TEST_SCOPE`. **This closes domain 4 (`src/db`+`src/middleware`
   +`src/net`) entirely.**
+- **Mutation testing — domain 5, `context-budget.ts`** (368 LOC,
+  `src/tool-policies/` — the per-tool "context budget" guardrail:
+  deterministic byte truncation plus opt-in LLM summarization via
+  admin-configured OpenAI/Anthropic-compatible endpoints, falling back to
+  truncation on any LLM failure). 197 mutants, 69.5% baseline (137/197) →
+  97.97% raw (193/197) across 2 verify rounds → **effectively 100%** (1
+  documented equivalent + 3 accepted timeouts). Given the large survivor
+  count (57 across 7 distinct functional clusters), used a 7-agent
+  parallel workflow — one agent per cluster (row-parsing guard, secrets
+  encryption failure, truncation boundary, prompt text, OpenAI request
+  shape, Anthropic request shape, main enforcement entry point) — each
+  authoring its own test file, followed by one manual closing pass for
+  gaps the cold round missed (request method/Content-Type assertions,
+  the test-only fetch-reset helper's own body, and the truncate-mode
+  mirror of an llm-mode/config DB-mismatch case). One real bug found and
+  fixed mid-review: a leaked, never-restored `spyOn` on the shared logger
+  export in one agent's file broke unrelated LATER test files in the same
+  process (a sibling test expecting exactly 1 logged call instead saw
+  418, since `bun test` runs all files in one process and ES module
+  exports are singletons) — always pair `spyOn` with
+  `finally { spy.mockRestore(); }`, not just `mockClear()` between tests
+  in the same file. Run with `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
 
 ### Docs
 

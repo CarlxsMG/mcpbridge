@@ -627,6 +627,73 @@
 //     each with the same empirical technique rather than assuming.
 //   ── DOMAIN 4 (src/db + src/middleware + src/net) COMPLETE. ──
 //
+// DOMAIN 5 — src/tool-policies + src/tool-meta + src/content-filtering +
+// src/backend-auth (16 files, ~2311 LOC). Test dirs mirror source dirs
+// 1:1 (src/tool-policies/__tests__, src/tool-meta/__tests__,
+// src/content-filtering/__tests__), EXCEPT backend-auth's two files
+// (oauth.ts, upstream-auth.ts), whose tests live at
+// src/security/__tests__/oauth.test.ts and upstream-auth.test.ts — a
+// leftover from before those source files moved out of src/security/
+// (see [[backend_structure_audit]]). Scope per file/batch accordingly.
+//   context-budget.ts (368 LOC, the largest file in this domain — per-tool
+//   "context budget" guardrail: deterministic byte truncation + opt-in
+//   LLM summarization via admin-configured OpenAI/Anthropic-compatible
+//   endpoints, with any LLM failure falling back to truncation)  197
+//   mutants  69.5% baseline (137/197, decent existing coverage of the
+//   happy paths but the LLM request-shape/error-handling internals were
+//   thin) -> 97.97% raw (193/197) across 2 verify rounds / effectively
+//   100% (the 4 remaining are 1 documented equivalent + 3 accepted
+//   timeouts). Given the LARGE survivor count (57 across 7 distinct
+//   functional clusters — comparable in scale to registry.ts/proxy.ts),
+//   used a 7-agent parallel Workflow (one agent per cluster, each writing
+//   its own `context-budget-mutation-cb1..cb7.test.ts`), followed by one
+//   manual closing pass (`cb8.test.ts`) for gaps the cold round missed.
+//   Scope: STRYKER_TEST_SCOPE="src/tool-policies/__tests__".
+//   Key findings:
+//   - **A leaked, unrestored `spyOn` on a shared logger export breaks
+//     UNRELATED sibling test files, not just later tests in the same
+//     file.** One agent's cluster (callAnthropic) called
+//     `spyOn(loggerMod, "log")` six times across six tests but never
+//     `.mockRestore()`'d any of them — since ES module exports are
+//     singletons, this permanently left `logger.log` mocked for every
+//     test file that ran afterward in the same process (`bun test` runs
+//     all files in one process). The symptom was bizarre and easy to
+//     misdiagnose: a LATER, unrelated cluster's test expecting exactly 1
+//     logged call instead saw 418 (every migration-log and registry-event
+//     call from every file executed since the leak, funneled through the
+//     same never-restored mock). Always pair every `spyOn` with a
+//     `finally { spy.mockRestore(); }` — a bare `mockClear()` between
+//     tests in the SAME file (which the leaking agent used, believing it
+//     was sufficient) does not prevent the leak from crossing file
+//     boundaries.
+//   - **A ConditionalExpression forced-true on one half of an `&&` can be
+//     unreachable via the norm write path but still a real gap** — both
+//     `cfg.mode === "llm_summarize" && cfg.llm` (only reachable with a
+//     "llm_summarize"-mode row with null llm fields) and its mirror image
+//     (a "truncate"-mode row with llm fields populated) needed the same
+//     schema-permits-it-but-the-app-never-writes-it direct-INSERT
+//     technique already established for domain-3's registry.ts-adjacent
+//     work — the `tool_context_budget` table's CHECK constraint only
+//     validates `mode`'s enum values, never mode/llm-column consistency.
+//   - **`end > 0` vs `end >= 0` on a UTF-8 boundary-backoff loop is a
+//     genuine equivalent**, verified empirically across 9 cases (ASCII,
+//     multi-byte, zero-maxBytes, all-multi-byte-backing-off-to-zero):
+//     `end` only ever reaches exactly 0 via either `maxBytes <= 0` (loop
+//     never runs, real code) or every boundary from the initial `end`
+//     down to 1 throwing (loop exits via the false condition either way).
+//     The mutant's one extra `end === 0` iteration decodes a zero-length
+//     slice, which always succeeds and always returns `""` — a genuine
+//     no-op either way.
+//   - **The Workflow's own cost**: 757k subagent tokens / 134 tool calls
+//     across 7 agents (~8 minutes wall-clock, parallel) to go from 69.5%
+//     to 97.97%, then one manual pass to close the last 6 real gaps the
+//     cold round missed (all traceable to specific per-agent oversights:
+//     request method/Content-Type never asserted, the test-only fetch
+//     reset helper's own body never exercised, and the truncate-mode
+//     mirror of the llm-mismatch case). Consistent with domain 3's
+//     registry.ts/proxy.ts experience: a cold parallel round gets most of
+//     the way there fast, but always budget a manual closing pass.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -688,13 +755,10 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // DOMAIN 4 COMPLETE (see SCOPE HISTORY). DOMAIN 5 starts here:
-    // src/tool-policies + src/tool-meta + src/content-filtering +
-    // src/backend-auth (16 files, ~2311 LOC). Starting with the largest,
-    // context-budget.ts (368 LOC). Test dir layout not yet verified for
-    // this domain — check each subdir's own __tests__ before assuming it
-    // mirrors domain 3/4's conventions.
-    "src/tool-policies/context-budget.ts",
+    // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts done.
+    // Next: load-balancer.ts (313 LOC, src/tool-policies/).
+    // Scope: STRYKER_TEST_SCOPE="src/tool-policies/__tests__"
+    "src/tool-policies/load-balancer.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
