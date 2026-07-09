@@ -1615,7 +1615,88 @@
 //   baselineRate genuinely is 0, `recentRate` is always a non-negative
 //   finite number, making `recentRate >= 0` (the mutant's recomputed
 //   check) unconditionally true too, same as the real code's direct
-//   `true`. Next: monitor.ts (227 LOC, no existing dedicated test).
+//   `true`. Next: monitor.ts (227 LOC — turned out to have an existing
+//   dedicated test too, same cross-directory gotcha as anomaly.ts; see
+//   its own entry below).
+//   monitor.ts (227 LOC — synthetic monitoring + schema-drift detection:
+//   setMonitor/deleteMonitor/listMonitors CRUD, runSyntheticChecks'
+//   replay+drift-check+notify loop, notifyMonitor's webhook dispatch)
+//   121 mutants, 60.33% baseline (73/121) -> 97.52% raw (118/121) across
+//   2 verify rounds -> effectively 100% (3 documented equivalents). Test
+//   dir is CROSS-DIRECTORY (same gotcha class as anomaly.ts): the
+//   dedicated test lives at
+//   `src/admin/entities/__tests__/monitor.test.ts`, not
+//   `src/observability/__tests__/` — the new
+//   `monitor-mutation.test.ts` was added to that SAME location. Scope:
+//   `STRYKER_TEST_SCOPE="src/observability/__tests__
+//   src/admin/entities/__tests__"`. One new test file, authored directly
+//   (48 baseline survivors across many small clusters, still solo-sized
+//   given the file's moderate scope — no agent round). Key findings:
+//   - **`rowTo`'s boolean-flag mapping and `setMonitor`'s interval
+//     boundary were both completely unasserted** despite existing tests
+//     exercising the surrounding CRUD — the existing test never checked
+//     `.enabled` on a returned record, nor the exact 1/1440 boundary
+//     values (only 0, already-invalid).
+//   - **The whole `error` field (as opposed to `status`) was never
+//     asserted at all** — closed an 8-mutant cluster (ConditionalExpression
+//     x2, EqualityOperator, BooleanLiteral, LogicalOperator, MethodExpression,
+//     plus 2 genuine equivalents) with 3 new tests: an exact short-body
+//     error string, a >500-char body proving `.slice(0, 500)` actually
+//     truncates (a short body can't distinguish a dropped slice from a
+//     real one), and a successful check clearing `lastError` to `null`.
+//   - **New equivalence-reasoning pattern: a helper's own return-shape
+//     guarantee can make a `?.`/`?? fallback` pair fully unreachable,
+//     the same class already seen on mcp-upstream.ts and
+//     openapi-discovery.ts.** `result.content[0]?.text ?? "error"` looks
+//     defensive, but EVERY `isError: true` result reaching this line was
+//     built through `toolResult()` (src/lib/mcp-result.ts), which always
+//     returns a single-element content array with a real `.text` string
+//     — `result.content[0]` can never actually be nullish on any
+//     reachable proxyToolCall output, so neither the `?.` nor the `??`
+//     fallback ever fires.
+//   - **A "does it throw" assumption about a null-guard mutant turned
+//     out wrong once actually traced through the surrounding code.**
+//     `if (!row) return null;`'s forced-false mutant looked like it
+//     should throw on `row.args_json` (row is null) instead of
+//     returning early — but that property access sits INSIDE the very
+//     next `try { return JSON.parse(row.args_json) ... } catch { return
+//     null; }` block, so the TypeError is caught by the SAME catch that
+//     handles a malformed-JSON body, converging on the identical
+//     `return null` either way. Verified empirically (a hand-simulated
+//     copy) before accepting — a reminder that "this looks like it
+//     should throw uncaught" is a hypothesis to check against the
+//     ACTUAL surrounding try/catch structure, not a conclusion.
+//   - **A no-op guard (`if (deleted) sideEffect()`) needs a fixture
+//     where the side effect would be OBSERVABLE if wrongly fired, not
+//     just "delete something that doesn't exist."** The first attempt
+//     at testing `deleteMonitor`'s `if (deleted) await
+//     annotateToolDrift(...)` guard (delete a monitor that was never
+//     created) didn't kill the forced-true mutant, because clearing a
+//     drift note that was never set is a no-op regardless of whether
+//     the guard fires. Needed a monitor with an ACTIVE drift note whose
+//     underlying row was then removed via a raw SQL DELETE (bypassing
+//     `deleteMonitor` itself, so nothing ever calls
+//     `annotateToolDrift(null)` under real code) — proving the guard is
+//     genuinely load-bearing: real code leaves the dangling note alone
+//     (`deleted` is false), the forced-true mutant would incorrectly
+//     clear it.
+//   - **Spying directly on a collaborator (`dispatchWebhook`,
+//     `log`) is far simpler than standing up a real HTTP server for a
+//     webhook-payload assertion.** `notifyMonitor`'s entire guard +
+//     exact payload/options cluster (9 survivors: the `if (!url)`
+//     guard's 3 variants, the payload object literal, the options
+//     object, and 2 log-message literals) closed with 2 tests using
+//     `spyOn(webhookMod, "dispatchWebhook").mockResolvedValue(true)` —
+//     one proving the guard skips the call with no URL configured, one
+//     asserting the exact call args with a URL configured — no SSRF
+//     config dance or real Express server needed, since `void
+//     notifyMonitor(...)`'s fire-and-forget call still invokes the
+//     (mocked) `dispatchWebhook` SYNCHRONOUSLY before its own first
+//     `await`, so the spy's call is already recorded by the time
+//     `runSyntheticChecks` returns.
+//   Next: alerts.ts (261 LOC — the last domain-7 file with no existing
+//   dedicated test at all; confirm test dir location, same
+//   cross-directory risk seen on both anomaly.ts and monitor.ts).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1679,21 +1760,21 @@ export default {
   },
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 = src/observability/
-    // (10 files) is IN PROGRESS: anomaly.ts DONE (see SCOPE HISTORY,
-    // effectively 100%, test dir CROSS-DIRECTORY at
-    // src/admin/entities/__tests__/anomaly-mutation.test.ts). Next:
-    // monitor.ts (227 LOC — no existing dedicated test; confirm test dir
-    // before assuming src/observability/__tests__/1:1, same gotcha class
-    // as anomaly.ts). Scope:
-    // STRYKER_TEST_SCOPE="src/observability/__tests__" (widen if
-    // monitor.ts's own test turns out cross-directory too). After
-    // monitor.ts: alerts.ts (261 LOC, also no existing dedicated test),
-    // then the 7 files with existing test files (health.ts, traffic.ts,
-    // tracing.ts, trace-context.ts, trace-store.ts, usage.ts,
-    // metrics.ts) — always run baseline first per file since some may
-    // already be clean (see registry-alias-index.ts/tool-index.ts
-    // precedent in domain 3).
-    "src/observability/monitor.ts",
+    // (10 files) is IN PROGRESS: anomaly.ts and monitor.ts DONE (see
+    // SCOPE HISTORY, both effectively 100%, both test dirs
+    // CROSS-DIRECTORY at src/admin/entities/__tests__/ rather than
+    // src/observability/__tests__/). Next: alerts.ts (261 LOC) — ALSO
+    // has a dedicated test at src/admin/entities/__tests__/alerts.test.ts
+    // (confirmed via grep before assuming), same cross-directory
+    // pattern as the previous two files. Scope:
+    // STRYKER_TEST_SCOPE="src/observability/__tests__
+    // src/admin/entities/__tests__". After alerts.ts: the 7 files with
+    // existing test files directly under src/observability/__tests__/
+    // (health.ts, traffic.ts, tracing.ts, trace-context.ts,
+    // trace-store.ts, usage.ts, metrics.ts) — always run baseline first
+    // per file since some may already be clean (see
+    // registry-alias-index.ts/tool-index.ts precedent in domain 3).
+    "src/observability/alerts.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

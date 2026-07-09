@@ -1102,6 +1102,41 @@ tool-tags.test.ts`) — unlike `tool-examples.ts`'s cross-directory
   genuinely 0, the recomputed comparison is unconditionally true too.
   Run with `STRYKER_TEST_SCOPE="src/observability/__tests__
 src/admin/entities/__tests__"`.
+- **Mutation testing — domain 7, `monitor.ts`** (227 LOC,
+  `src/observability/` — synthetic monitoring + schema-drift detection:
+  `setMonitor`/`deleteMonitor`/`listMonitors` CRUD, `runSyntheticChecks`'
+  replay+drift-check+notify loop, `notifyMonitor`'s webhook dispatch).
+  121 mutants, 60.33% baseline (73/121) → 97.52% raw (118/121) across 2
+  verify rounds → **effectively 100%** (3 documented equivalents). Test
+  dir is cross-directory: the dedicated test lives at
+  `src/admin/entities/__tests__/monitor.test.ts`, not
+  `src/observability/__tests__/` — the new `monitor-mutation.test.ts`
+  was added alongside it. One new test file, authored directly (48
+  baseline survivors across many small clusters). Closed: `rowTo`'s
+  `enabled` boolean mapping and `setMonitor`'s exact interval boundary
+  (1/1440), both completely unasserted despite existing CRUD tests; the
+  entire `error`-field cluster on a failed check (exact short-body error
+  text, a >500-char body proving `.slice(0, 500)` actually truncates,
+  and a successful check clearing `lastError` back to `null`) — none of
+  which the existing tests had ever checked (only `status`, never
+  `error`); and a no-op-guard mutant (`if (deleted) annotateToolDrift(...)`
+  forced unconditional) that needed a monitor with an ACTIVE drift note
+  whose row was then removed via a raw SQL `DELETE` bypassing
+  `deleteMonitor` itself, since deleting an already-nonexistent monitor
+  is otherwise indistinguishable regardless of whether the guard fires.
+  Two documented equivalents share one root cause: `result.content[0]?.text
+?? "error"` is defensive code the dispatch pipeline's own
+  `toolResult()` helper makes unreachable, since every `isError: true`
+  result it can produce always has a real single-element content array
+  — the same "helper's own guarantee is stronger than the optional type
+  suggests" pattern already seen on `mcp-upstream.ts` and
+  `openapi-discovery.ts`. A third: `if (!row) return null;`'s
+  forced-false mutant looked like it should throw instead of returning
+  early, but the resulting `row.args_json` access sits inside the very
+  next `try`/`catch`, so the same catch swallows it and returns `null`
+  either way — verified empirically before accepting rather than assumed.
+  Run with `STRYKER_TEST_SCOPE="src/observability/__tests__
+src/admin/entities/__tests__"`.
 
 ### Docs
 
