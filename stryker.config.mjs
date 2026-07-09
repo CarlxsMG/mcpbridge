@@ -1829,18 +1829,69 @@
 //   including exact multiples, singletons, and the empty-clients case,
 //   confirming byte-identical batch sequences between both operators in
 //   every case.
+//   traffic.ts (152 LOC — per-call traffic capture for the admin traffic
+//   explorer + replay: recordTraffic/listTraffic/getTraffic/pruneTraffic
+//   CRUD, opt-in globally + time-bounded by retention) 65 mutants,
+//   58.46% baseline (38/65) -> 98.46% raw (64/65) across 2 verify
+//   rounds -> effectively 100% (1 documented equivalent). Test dir
+//   mirrors 1:1 (`src/observability/__tests__/`). Scope:
+//   `STRYKER_TEST_SCOPE="src/observability/__tests__"`. 27 baseline
+//   survivors, small enough for direct authoring (no agent round) — one
+//   new `traffic-mutation.test.ts`. Key findings:
+//   - **`rowTo`'s `isError` boolean mapping was untested despite an
+//     `errorsOnly` FILTER test existing** — the filter test only
+//     checked the SQL-level row COUNT, never asserted `.isError` on a
+//     returned record directly (same "half the fields are tested"
+//     pattern as monitor.ts's `lastError` gap).
+//   - **New equivalence class, a variant of the "downstream step
+//     erases a fallback's own content" pattern**: `input.result.content
+//     ?? []`'s fallback array mutated to Stryker's sentinel
+//     `["Stryker was here"]` is unobservable, because the very next
+//     step (`.map((c) => c.text ?? "")`) reads `.text` off each
+//     element — a bare STRING has no `.text` property, so it maps to
+//     `""` exactly like an empty array does, and `[""].join("\n")` is
+//     `""` just like `[].join("\n")`. No downstream assertion on the
+//     resulting preview text can ever distinguish the two fallback
+//     values. Verified via a standalone scratch script across both
+//     nullish inputs (undefined and null) before accepting.
+//   - **A probabilistic-sampling boundary (`Math.random() < 0.02`)
+//     needs the EXACT threshold value itself, not just one value on
+//     each side.** An initial test used 0.5 (clearly not-sampled) and
+//     0.01 (clearly sampled) — both agree with a `<=` mutant away from
+//     the boundary, so neither distinguishes `<` from `<=`. Needed
+//     `Math.random() === 0.02` exactly: real `<` excludes it (must NOT
+//     fire), the `<=` mutant includes it (would wrongly fire). Same
+//     "N-way boundary combination" lesson as rate-limiter.ts's sampled
+//     log, generalized to a plain probabilistic-trigger guard.
+//   - **`pruneTraffic()` is called as a same-module internal reference
+//     from `recordTraffic`, so `spyOn` on the exported binding cannot
+//     intercept the call** (ES module internal references bind
+//     directly, not through the namespace object) — observed the
+//     `Math.random()` gate's effect indirectly instead, by seeding a
+//     stale row and checking whether it survives or gets deleted.
+//   - **A cutoff-direction arithmetic mutant (`now - retentionMs` ->
+//     `now + retentionMs`) needs the DEFAULT `now` value, not a
+//     deliberately-extreme one.** The existing test forced `now` so far
+//     into the future (to "prune everything") that BOTH the real
+//     subtraction and the mutant's addition produced a cutoff far past
+//     every row's timestamp — converging on the identical "prune
+//     everything" result regardless of operator. Needed the real
+//     current time as `now` instead: the real subtraction produces a
+//     PAST cutoff (a just-inserted row survives), while the addition
+//     mutant produces a FUTURE cutoff (would wrongly prune it) —
+//     divergence only appears with a realistic, non-extreme `now`.
+//   - **A test-only helper (`__clearTrafficForTesting`) had ZERO
+//     coverage of its own**, despite being used throughout the existing
+//     test suite's `beforeEach`/`afterEach` — its own correctness was
+//     never itself verified.
 //
-// ── DOMAIN 7 (src/observability, 4 of 10 files: anomaly.ts, monitor.ts,
-// alerts.ts, health.ts) IN PROGRESS. The first 3 files all turned out
-// cross-directory (tests at src/admin/entities/__tests__/); health.ts
-// is the first to mirror 1:1 (src/observability/__tests__/) — still
-// worth checking every remaining domain-7 file the same way before
-// assuming. Remaining 6 files (all WITH existing dedicated tests
-// directly under src/observability/__tests__/): traffic.ts (152 LOC),
-// tracing.ts (185), trace-context.ts (188), trace-store.ts (224),
-// usage.ts (224), metrics.ts (322) — always run baseline first per
-// file since some may already be clean (see
-// registry-alias-index.ts/tool-index.ts precedent in domain 3). ──
+// ── DOMAIN 7 (src/observability, 5 of 10 files: anomaly.ts, monitor.ts,
+// alerts.ts, health.ts, traffic.ts) IN PROGRESS. Remaining 5 files (all
+// WITH existing dedicated tests directly under
+// src/observability/__tests__/): tracing.ts (185 LOC), trace-context.ts
+// (188), trace-store.ts (224), usage.ts (224), metrics.ts (322) —
+// always run baseline first per file since some may already be clean
+// (see registry-alias-index.ts/tool-index.ts precedent in domain 3). ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1905,19 +1956,18 @@ export default {
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 = src/observability/
     // (10 files) is IN PROGRESS: anomaly.ts, monitor.ts, alerts.ts,
-    // health.ts DONE (see SCOPE HISTORY, all effectively 100%; the
-    // first 3 test dirs are CROSS-DIRECTORY at
-    // src/admin/entities/__tests__/, health.ts's mirrors 1:1). Next:
-    // traffic.ts (152 LOC) — dedicated test at
-    // src/observability/__tests__/traffic.test.ts (confirmed via ls).
-    // Scope: STRYKER_TEST_SCOPE="src/observability/__tests__". Run
-    // baseline first — may already be partially/fully clean (see
+    // health.ts, traffic.ts DONE (see SCOPE HISTORY, all effectively
+    // 100%). Next: tracing.ts (185 LOC) — dedicated test at
+    // src/observability/__tests__/tracing.test.ts (confirmed via ls
+    // when this domain was first surveyed). Scope:
+    // STRYKER_TEST_SCOPE="src/observability/__tests__". Run baseline
+    // first — may already be partially/fully clean (see
     // registry-alias-index.ts/tool-index.ts precedent in domain 3).
-    // After traffic.ts: tracing.ts (185), trace-context.ts (188),
-    // trace-store.ts (224), usage.ts (224), metrics.ts (322, largest of
-    // the remaining 6 — note health-metrics.test.ts likely covers PART
-    // of metrics.ts too, given its shared file name).
-    "src/observability/traffic.ts",
+    // After tracing.ts: trace-context.ts (188), trace-store.ts (224),
+    // usage.ts (224), metrics.ts (322, largest of the remaining 4 —
+    // note health-metrics.test.ts likely covers PART of metrics.ts too,
+    // given its shared file name).
+    "src/observability/tracing.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

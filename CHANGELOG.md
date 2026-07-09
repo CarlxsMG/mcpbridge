@@ -1213,6 +1213,33 @@ src/admin/entities/__tests__"`. **This closes anomaly.ts + monitor.ts
   `clients.slice(i, i+concurrency)` is provably `[]`, making that extra
   iteration a total no-op. Run with
   `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
+- **Mutation testing — domain 7, `traffic.ts`** (152 LOC,
+  `src/observability/` — per-call traffic capture for the admin traffic
+  explorer + replay: `recordTraffic`/`listTraffic`/`getTraffic`/
+  `pruneTraffic` CRUD, opt-in globally and time-bounded by retention).
+  65 mutants, 58.46% baseline (38/65) → 98.46% raw (64/65) across 2
+  verify rounds → **effectively 100%** (1 documented equivalent). Test
+  dir mirrors 1:1 (`src/observability/__tests__/`). One new test file,
+  authored directly (27 baseline survivors, small enough for one pass).
+  Closed: `rowTo`'s `isError` boolean mapping, untested despite an
+  `errorsOnly` FILTER test existing (the filter only checked the SQL
+  row count, never asserted `.isError` on a returned record); a
+  probabilistic-sampling boundary (`Math.random() < 0.02`) needing the
+  exact threshold value itself, not just one value on each side; a
+  cutoff-direction arithmetic mutant (`now - retentionMs` → `now +
+retentionMs`) needing the DEFAULT `now`, since the existing test
+  forced `now` so far into the future that both directions converged
+  on "prune everything" regardless of operator; and a test-only helper
+  (`__clearTrafficForTesting`) that had zero coverage of its own
+  despite being used throughout the existing suite's own
+  `beforeEach`/`afterEach`. One documented equivalent, a new variant of
+  the "downstream step erases a fallback's own content" pattern:
+  `input.result.content ?? []`'s fallback mutated to Stryker's sentinel
+  `["Stryker was here"]` is unobservable, because the very next step
+  reads `.text` off each element — a bare string has no `.text`
+  property, so it maps to `""` exactly like an empty array does, and
+  both `[""].join("\n")` and `[].join("\n")` are `""`. Run with
+  `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
 
 ### Docs
 
