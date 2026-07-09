@@ -669,6 +669,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   genuinely-null `cooldownUntil` would otherwise auto-clear immediately;
   and `getQuarantineForClient`, which had zero prior coverage. Run with
   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
+- **Mutation testing — domain 5, `guardrails.ts`** (195 LOC,
+  `src/tool-policies/` — content guardrails: 7 `SECRET_PATTERNS` + 10
+  `INJECTION_PATTERNS` regexes, cached deny-pattern compilation,
+  input-side blocking, and response-side spotlighting/scanning). 189
+  mutants, an unusually low 51.85% baseline (98/189 — Stryker's regex
+  mutator generates 5-8 variants per literal across 17 regexes) →
+  99.47% raw (188/189) across 2 verify rounds → **effectively 100%** (1
+  documented equivalent). Given the large survivor count (91, dominated
+  by per-regex boundary variants), used a 4-agent parallel workflow —
+  one agent per cluster (`SECRET_PATTERNS`, `INJECTION_PATTERNS`,
+  compile/row/per-client read paths, `setGuardrails`+input-gate) — each
+  authoring its own test file, followed by one manual closing pass for
+  5 gaps the cold round left (see below). New files:
+  `guardrails-mutation-{secrets,injection,compile-row,setguardrails,final}.test.ts`.
+  Key finding — **regex mutants split into two families needing opposite
+  techniques**: character-class-negation and whitespace-family flips
+  (`[A-Za-z0-9]`→`[^…]`, `\s+`→`\S+`) are killed by an ordinary positive
+  match test, but quantifier-reduction mutants (`{16}`→`{1}`, `{8,}`→
+  none, `\s+`→`\s`) need the opposite — a negative near-miss proving the
+  larger original minimum is enforced — since a string satisfying the
+  stronger real requirement trivially also satisfies the weaker mutant
+  one. The manual closing pass fixed: `compileDenyPattern`'s catch block
+  (documented equivalent — cache-hit's `?? null` normalizes the mutant's
+  leftover `undefined` back to `null`, and `if (re && …)` treats both as
+  falsy, verified via `bun -e`); `setGuardrails`' `.slice(0,
+  MAX_DENY_PATTERNS)` cap being silently dropped from the end of the
+  trim/filter chain (the agent's pipeline test only fed 4 entries, never
+  the 20-item cap); the "clear when empty" path only *looking* like a
+  DELETE via `getGuardrails` (`rowToGuardrails`'s own null-collapse
+  returns `null` for a fallen-through empty upsert too — needed a raw
+  `SELECT COUNT(*)` against `tool_guardrails` to prove the row is
+  actually gone); and `checkInputGuardrails`'s own catch block, where
+  `RegExp.prototype.test(undefined)` coerces to the literal string
+  `"undefined"`, so a circular-reference test needed a deny pattern
+  specifically targeting that word to distinguish the real
+  `String(args)` fallback (`"[object Object]"`) from the mutant's
+  leftover `undefined`. Run with
+  `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
 
 ### Docs
 

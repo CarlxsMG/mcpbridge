@@ -788,6 +788,74 @@
 //     IMMEDIATELY under the mutant, rather than never auto-clearing as
 //     intended. Worth checking for on any future `x !== null && y >=
 //     x`-shaped guard.
+//   guardrails.ts (195 LOC, src/tool-policies/ — content guardrails: input
+//   deny-pattern/secret-shape blocking, output prompt-injection scanning)
+//   189 mutants  51.85% baseline (98/189, by FAR the lowest baseline this
+//   whole program has seen — driven almost entirely by Stryker's regex
+//   mutator generating ~5-8 boundary variants EACH across 7 SECRET_PATTERNS
+//   and 10 INJECTION_PATTERNS regex literals) -> 99.47% raw (188/189)
+//   across 2 verify rounds / effectively 100% (the 1 remaining raw
+//   survivor is a documented equivalent). Given the scale (91 survivors,
+//   comparable to context-budget.ts's 57), used a 4-agent parallel
+//   Workflow split by functional area — secrets, injection patterns,
+//   compile-cache+row-collapse+client-aggregation, setGuardrails+input-
+//   gate — followed by one manual closing pass (4 real gaps the cold
+//   round's tests didn't quite distinguish). Scope:
+//   STRYKER_TEST_SCOPE="src/tool-policies/__tests__". Key findings:
+//   - **Regex boundary mutants split into TWO distinct testing
+//     techniques, and conflating them wastes effort.** Character-class
+//     negation (`[A-Za-z0-9]` -> `[^A-Za-z0-9]`) and whitespace-charclass
+//     flips (`\s+` -> `\S+`) are killed by an ordinary REALISTIC positive
+//     match (a real secret/injection phrase already uses the "right side"
+//     of the negation). But QUANTIFIER-REDUCTION mutants (`{16}` -> `{1}`,
+//     `{8,}` -> no quantifier, `\s+` -> `\s` exactly-one) need the OPPOSITE:
+//     a NEGATIVE near-miss test proving the ORIGINAL (larger) minimum is
+//     genuinely enforced — a string satisfying the mutant's weaker
+//     requirement but NOT the real one. For length quantifiers, the
+//     reliable construction is exactly ONE valid character in the
+//     quantified run immediately followed by a delimiter (space, `.`, end
+//     of string) — verified empirically before committing to it, since a
+//     naive "one full character short" approach can accidentally also fail
+//     to match under the MUTANT too (e.g. via an unrelated `\b` boundary
+//     landing wrong), producing a false sense of a killing test. For `\s+`
+//     patterns, a DOUBLED whitespace character between the relevant words
+//     serves the same role (matches real `\s+`, fails a reduced-to-exactly-
+//     one mutant).
+//   - **A cache-hit code path's own `?? null` normalization can make an
+//     upstream catch-block's specific null-assignment fully equivalent.**
+//     `compileDenyPattern`'s catch (`compiled = null`) emptied leaves
+//     `compiled` as `undefined` instead — but BOTH the immediate
+//     `if (re && ...)` consumer AND the cache's own read-side `?? null`
+//     fallback treat `undefined`/`null` identically, so no exported
+//     function can ever observe the difference. Confirmed via a
+//     standalone `bun -e` trace of both branches before accepting.
+//   - **A regex-argument coercion quirk turned a seemingly-redundant
+//     "does it throw" test into a genuine miss.** `RegExp.prototype.test`
+//     coerces its argument via `ToString`, so an EMPTIED catch block
+//     leaving a variable at JS `undefined` (not a compile error, since TS's
+//     static "definitely assigned" check doesn't model try/catch-with-a-
+//     throwing-assignment) gets silently stringified to the literal text
+//     `"undefined"` at the call site — neither throwing NOR producing an
+//     obviously-wrong result for an arbitrary deny pattern. The
+//     distinguishing test needed a deny pattern that specifically targets
+//     the WORD "undefined", not just any pattern plus a circular-reference
+//     input.
+//   - **A "does getGuardrails return null" test can't distinguish a real
+//     DELETE from a fallen-through upsert with all-empty values**, because
+//     `rowToGuardrails`'s OWN "nothing enabled" collapse-to-null logic
+//     (a SEPARATE, already-tested check) re-derives `null` from an
+//     all-empty row read back just as readily as from a genuinely absent
+//     row. Needed a raw `SELECT COUNT(*)` against the table directly to
+//     prove zero rows remain — the same "public-API return value alone
+//     isn't enough, inspect the raw DB state" lesson as quarantine.ts's
+//     orphaned-state-row technique, applied in the opposite direction
+//     (proving absence rather than proving an orphan's presence).
+//   - **A method-chain-collapse mutant can drop just the LAST call in a
+//     chain, not the whole chain** — `.map(...).filter(...).slice(...)`
+//     losing only `.slice(0, MAX_DENY_PATTERNS)` still passes any test
+//     that never supplies MORE than the cap's worth of input. When a
+//     pipeline ends in a bounding/capping operation, always test the
+//     over-the-cap case explicitly, not just the transform/filter steps.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -851,11 +919,13 @@ export default {
   },
   mutate: [
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
-    // load-balancer.ts, quarantine.ts done. Next: guardrails.ts (195 LOC,
-    // src/tool-policies/). Scope: verify per-file which __tests__ dir
-    // actually holds the test (domain 5 has at least one cross-directory
-    // gotcha already — see load-balancer.ts's entry above).
-    "src/tool-policies/guardrails.ts",
+    // load-balancer.ts, quarantine.ts, guardrails.ts done. Next:
+    // pagination.ts (159 LOC, src/tool-policies/ — tied with
+    // response-cache.ts at 159 LOC, picked first alphabetically/by original
+    // wc -l ordering). Scope: verify per-file which __tests__ dir actually
+    // holds the test (domain 5 has at least one cross-directory gotcha
+    // already — see load-balancer.ts's entry above).
+    "src/tool-policies/pagination.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
