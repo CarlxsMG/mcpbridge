@@ -993,6 +993,87 @@
 //   had ever configured an unrecognized auth_type at all). No new
 //   equivalence classes — every baseline survivor was a genuine,
 //   closable gap.
+//   redaction.ts (86 LOC, src/content-filtering/ — response-side dot-path
+//   field redaction: wildcard-over-array/object, nested descent, store
+//   CRUD)  72 mutants  69.44% baseline (50/72, the existing
+//   redaction.test.ts covers top-level/nested-path redaction, wildcard
+//   over ARRAY elements only, missing-path no-ops, non-JSON input, store
+//   CRUD, proxy integration, and the admin route, but never wildcard
+//   over OBJECT keys at all) -> 93.06% raw (67/72) across 2 verify
+//   rounds -> effectively 100% (3 documented equivalents + 2 accepted
+//   timeouts). Test dir is CROSS-DIRECTORY:
+//   `src/tool-policies/__tests__/redaction.test.ts` — yet another case
+//   of this domain's recurring gotcha (now 4: load-balancer.ts, auth.ts,
+//   oauth.ts/upstream-auth.ts, redaction.ts). One new
+//   `redaction-mutation.test.ts` in that SAME directory, authored
+//   directly (22 baseline survivors). Scope:
+//   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`. Closed: a null
+//   and a primitive intermediate value (isolating the top guard's two
+//   halves — the primitive case needed a STRING intermediate with a
+//   NUMERIC-STRING leaf specifically, since a NUMBER intermediate with a
+//   non-numeric leaf coincidentally no-ops the same way real code does,
+//   via `hasOwnProperty` naturally returning false either way — see key
+//   findings below); wildcard over OBJECT keys, both leaf and nested
+//   (the entire `else`-branch of the wildcard handler had ZERO
+//   coverage — only the array branch was ever tested); a named
+//   (non-wildcard) segment applied to an array intermediate (needed a
+//   NUMERIC-STRING segment specifically, since a real array's
+//   `hasOwnProperty("0")` is true, unlike any non-numeric name); a
+//   missing LEAF key on an otherwise-present intermediate (isolated from
+//   the existing "missing paths are a no-op" test, which only ever hit
+//   the EARLIER missing-INTERMEDIATE guard, never actually reaching the
+//   leaf-set guard at all); setRedactionPaths' trim/filter-empty
+//   pipeline; and a genuine DELETE-vs-empty-UPSERT distinction when
+//   clearing (verified via raw SQL, same technique as guardrails.ts's
+//   getGuardrails()===null case). Key findings:
+//   - **A `bun -e` inline eval does NOT reflect real ES-module strict-mode
+//     semantics.** An initial attempt to kill the top guard's
+//     `typeof node !== "object"` half used a NUMBER intermediate (`{a:
+//     5}`, path `"a.b"`) reasoning it would throw when the mutant
+//     bypassed the guard and tried to assign a property to a primitive.
+//     `Object.prototype.hasOwnProperty.call(5, "b")` is simply `false`
+//     (numbers have no "b" property), so the assignment never even
+//     happens — the mutant silently no-ops identically to real code,
+//     and the test survived unkilled on the first verify round. A
+//     STRING intermediate with a NUMERIC-STRING leaf (`{a: "hello"}`,
+//     path `"a.0"`) was needed instead — strings DO expose character
+//     indices as real own properties (`hasOwnProperty("hello","0")` is
+//     true), so the mutant's bypassed guard reaches a genuine assignment
+//     attempt on an immutable string primitive. A quick `bun -e` check
+//     of this exact assignment reported "no-throw" (misleadingly),
+//     while a standalone `.mjs` script (real ES-module strict-mode
+//     context) correctly threw "Attempted to assign to readonly
+//     property" — `bun -e`'s inline eval runs in a DIFFERENT (non-
+//     strict-equivalent) mode than a real compiled ES module. Any future
+//     equivalence check involving strict-mode-only behavior (property
+//     assignment to primitives/frozen objects, etc.) needs a real
+//     module-context script, not a `bun -e` one-liner, to trust the
+//     result.
+//   - **New equivalence class: an `Array.isArray(node)` guard is
+//     unobservable when EVERY value reaching it originates from
+//     `JSON.parse`.** Bypassing the array/object branch split and always
+//     falling through to `Object.keys(node)`-based iteration produces
+//     BYTE-IDENTICAL output to the array-specific `for` loop for any
+//     JSON-sourced array, since JSON arrays only ever contain dense,
+//     numeric-string own-enumerable keys enumerated in the same
+//     ascending order either way. Verified via a direct `bun -e`
+//     comparison of both iteration strategies (this one, unlike the
+//     strict-mode case above, is a pure enumeration-order question with
+//     no strict-mode dependency, so `bun -e` was trustworthy here).
+//     Worth checking on any future file that branches on
+//     `Array.isArray` purely to choose an iteration strategy over
+//     JSON-sourced data with no other array-specific behavior (sort
+//     order, sparse-hole handling, etc.) layered on top.
+//   - **New equivalence class: recursing into `undefined` is
+//     unobservable when the SAME function's own top guard already
+//     filters non-object values.** `obj[head] !== undefined` forced
+//     always-true makes a missing property recurse instead of
+//     short-circuiting, but `redactInPlace(undefined, rest)` immediately
+//     hits this file's OWN `typeof node !== "object"` guard and returns
+//     with zero side effects — identical to never recursing at all.
+//     Reusable for any future `if (x !== undefined) recurse(x)`-shaped
+//     guard whose recursive target ALREADY has its own top-level
+//     undefined/null/non-object filter.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1057,14 +1138,14 @@ export default {
   mutate: [
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
     // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts,
-    // response-cache.ts, oauth.ts, upstream-auth.ts done. Next:
-    // redaction.ts (86 LOC, src/content-filtering/ — response-side field
-    // redaction). CONFIRMED test-dir gotcha: its dedicated test lives at
-    // `src/tool-policies/__tests__/redaction.test.ts`, NOT
-    // `src/content-filtering/__tests__/` — yet another cross-directory
-    // case, same class as load-balancer.ts/auth.ts/oauth.ts. Scope:
+    // response-cache.ts, oauth.ts, upstream-auth.ts, redaction.ts done.
+    // Next: tool-examples.ts (74 LOC, src/tool-meta/ — per-tool usage
+    // examples). CONFIRMED test-dir gotcha (yet another one): its
+    // dedicated test lives at
+    // `src/tool-policies/__tests__/tool-examples.test.ts`, NOT
+    // `src/tool-meta/__tests__/`. Scope:
     // STRYKER_TEST_SCOPE="src/tool-policies/__tests__".
-    "src/content-filtering/redaction.ts",
+    "src/tool-meta/tool-examples.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

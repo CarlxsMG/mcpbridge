@@ -821,6 +821,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (no existing test had ever configured an unrecognized `auth_type` at
   all). No new equivalence classes. Run with
   `STRYKER_TEST_SCOPE="src/security/__tests__"`.
+- **Mutation testing — domain 5, `redaction.ts`** (86 LOC,
+  `src/content-filtering/` — response-side dot-path field redaction:
+  wildcard-over-array/object, nested descent, store CRUD). 72 mutants,
+  69.44% baseline (50/72) → 93.06% raw (67/72) across 2 verify rounds →
+  **effectively 100%** (3 documented equivalents + 2 accepted timeouts).
+  Test file is cross-directory
+  (`src/tool-policies/__tests__/redaction.test.ts`) — the 4th instance
+  of this domain's recurring gotcha. One new `redaction-mutation.test.ts`
+  in that same directory, authored directly (22 baseline survivors).
+  Closed: a null and a primitive intermediate value (the primitive case
+  needed a STRING with a NUMERIC-STRING leaf specifically — a NUMBER
+  with a non-numeric leaf coincidentally no-ops the same way real code
+  does); wildcard over OBJECT keys, both leaf and nested (the entire
+  `else`-branch of the wildcard handler had zero coverage — only arrays
+  were ever tested); a named (non-wildcard) segment applied to an array
+  intermediate (needed a numeric-string segment, since a real array's
+  `hasOwnProperty("0")` is true); a missing LEAF key on an
+  otherwise-present intermediate; `setRedactionPaths`' trim/filter-empty
+  pipeline; and a genuine DELETE-vs-empty-UPSERT distinction when
+  clearing (verified via raw SQL). Two new equivalence classes found:
+  `Array.isArray(node)` is unobservable when every value originates from
+  `JSON.parse` (iterating via `Object.keys` produces byte-identical
+  output to the array-specific loop, since JSON arrays only ever have
+  dense numeric-string keys); and recursing into `undefined` is
+  unobservable when the same function's own top guard already filters
+  non-object values. Also worth noting: a `bun -e` inline eval does NOT
+  reflect real ES-module strict-mode semantics — an assignment to a
+  primitive that should throw in strict mode silently no-op'd under
+  `bun -e` but correctly threw in a standalone `.mjs` script, which is
+  what ultimately confirmed the right test construction. Run with
+  `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
 
 ### Docs
 
