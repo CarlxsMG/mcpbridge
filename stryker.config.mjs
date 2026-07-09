@@ -1074,6 +1074,28 @@
 //     Reusable for any future `if (x !== undefined) recurse(x)`-shaped
 //     guard whose recursive target ALREADY has its own top-level
 //     undefined/null/non-object filter.
+//   tool-examples.ts (74 LOC, src/tool-meta/ — saved per-tool playground
+//   example args: CRUD + MAX_ARGS_BYTES validation)  31 mutants  77.42%
+//   baseline (24/31, the existing tool-examples.test.ts covers the
+//   create/list/delete round-trip, an unknown tool, a non-object ARRAY
+//   args rejection, cascade-delete, tool-scoped delete, and the admin
+//   route, but never a null args value, a non-array PRIMITIVE args
+//   value, or either side of the MAX_ARGS_BYTES boundary) ->
+//   **100.00% (31/31), clean** in a single verify round. One new
+//   `tool-examples-mutation.test.ts` in the SAME cross-directory
+//   location as its sibling
+//   (`src/tool-policies/__tests__/tool-examples.test.ts`), authored
+//   directly (7 baseline survivors). Scope:
+//   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`. Closed: a null
+//   args value (isolates `args===null`, since `typeof null==="object"`
+//   in JS makes the first sub-condition false too); a genuine PRIMITIVE
+//   non-array args value (the existing "non-object args" test only ever
+//   used an ARRAY, which is `typeof "object"` in JS and never isolates
+//   the `typeof!=="object"` half at all); an oversized-args rejection;
+//   and the exact MAX_ARGS_BYTES (16384) boundary — constructed via
+//   `"x".repeat(16384-8)` wrapped in `{a:...}` to hit exactly 16384
+//   stringified bytes, proving the check is exclusive (`>`) rather than
+//   inclusive (`>=`) of the max. No new equivalence classes.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1138,14 +1160,15 @@ export default {
   mutate: [
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
     // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts,
-    // response-cache.ts, oauth.ts, upstream-auth.ts, redaction.ts done.
-    // Next: tool-examples.ts (74 LOC, src/tool-meta/ — per-tool usage
-    // examples). CONFIRMED test-dir gotcha (yet another one): its
-    // dedicated test lives at
-    // `src/tool-policies/__tests__/tool-examples.test.ts`, NOT
-    // `src/tool-meta/__tests__/`. Scope:
-    // STRYKER_TEST_SCOPE="src/tool-policies/__tests__".
-    "src/tool-meta/tool-examples.ts",
+    // response-cache.ts, oauth.ts, upstream-auth.ts, redaction.ts,
+    // tool-examples.ts done. Next: tool-tags.ts (71 LOC, src/tool-meta/
+    // — per-tool tag CRUD). NOTE: this one actually mirrors 1:1 — its
+    // test lives at `src/tool-meta/__tests__/tool-tags.test.ts` (NOT
+    // src/tool-policies/__tests__ like its siblings) — don't assume
+    // every src/tool-meta/ file shares tool-examples.ts's
+    // cross-directory location; verify per file. Scope:
+    // STRYKER_TEST_SCOPE="src/tool-meta/__tests__".
+    "src/tool-meta/tool-tags.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

@@ -852,6 +852,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `bun -e` but correctly threw in a standalone `.mjs` script, which is
   what ultimately confirmed the right test construction. Run with
   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
+- **Mutation testing — domain 5, `tool-examples.ts`** (74 LOC,
+  `src/tool-meta/` — saved per-tool playground example args: CRUD plus
+  `MAX_ARGS_BYTES` validation). 31 mutants, 77.42% baseline (24/31) →
+  **100.00% (31/31), clean** in a single verify round. Test file is
+  cross-directory (`src/tool-policies/__tests__/tool-examples.test.ts`).
+  One new `tool-examples-mutation.test.ts` in that same directory,
+  authored directly (7 baseline survivors). Closed: a `null` args value
+  (isolates `args === null`, since `typeof null === "object"` in JS
+  makes the sibling check false too); a genuine PRIMITIVE non-array args
+  value (the existing "non-object args" test only ever used an ARRAY,
+  which is `typeof "object"` in JS and never isolates the
+  `typeof !== "object"` half); an oversized-args rejection; and the
+  exact `MAX_ARGS_BYTES` (16384) boundary, constructed to land exactly
+  on the byte count to prove the check is exclusive (`>`) rather than
+  inclusive (`>=`). No new equivalence classes. Run with
+  `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
 
 ### Docs
 
