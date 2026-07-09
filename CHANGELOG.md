@@ -1401,6 +1401,17 @@ retentionMs`) needing the DEFAULT `now`, since the existing test
   `/docs` (an unrelated path 404s); and a real round-trip resolving at
   all (rather than hanging) proves the dev-mode passthrough actually
   calls `next()`. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `validation.ts`** (34 LOC,
+  `src/routes/` — almost entirely type declarations
+  (`ValidationResult`/`LooseValidationResult`) plus one tiny lookup
+  function, `mutationErrorToStatus`). 1 mutant → **100.00% (1/1),
+  already clean at baseline** — the single `mutationErrorToStatus`
+  mutant is killed indirectly by the many route test files (oauth.ts,
+  alerts.ts, bundles.ts, catalog.ts, and others) that exercise its call
+  sites through their own error-handling paths. No new test file
+  needed, no fix cycle — same "not every file needs new work, always
+  run baseline first" precedent as domain 3's
+  registry-alias-index.ts/tool-index.ts.
 
 ### Docs
 
