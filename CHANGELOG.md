@@ -1448,6 +1448,14 @@ null` fallback and `validationError`'s exact `"VALIDATION_ERROR"`
   the GET-list handler's own whole-body-emptied mutant (same "genuine
   Stryker timeout = detected" convention as elsewhere in this program).
   Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/connect.ts`** (15 LOC,
+  `src/routes/admin/` — single `GET /connect/gateway-url` read-only
+  helper). 4 mutants → **100.00% (4/4), already clean at baseline** —
+  the pre-existing `routes-connect.test.ts` (73 LOC) already killed
+  every mutant. No new test file needed, no fix cycle — same
+  "not every file needs new work, always run baseline first" precedent
+  as `validation.ts`. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

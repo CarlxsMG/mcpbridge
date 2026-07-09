@@ -2208,6 +2208,14 @@
 //   traceId than page 1's. The 1 accepted timeout is the GET-list
 //   handler's own whole-body-emptied mutant (same "genuine Stryker
 //   timeout = detected" convention as elsewhere in this program).
+//   admin/connect.ts (15 LOC — single GET /connect/gateway-url
+//   read-only helper reading config.gatewayPublicUrl ?? null) 4
+//   mutants -> **100.00% (4/4), ALREADY clean at baseline** — the
+//   pre-existing routes-connect.test.ts (73 LOC: requires-auth, unset
+//   URL returns null, configured URL returned verbatim) already killed
+//   every mutant. No new test file needed, no fix cycle — same
+//   "not every file needs new work, always run baseline first"
+//   precedent as validation.ts.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2272,18 +2280,17 @@ export default {
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 (src/observability,
     // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
-    // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts
-    // DONE (see SCOPE HISTORY). Remaining domain-8 files ordered
-    // smallest-LOC-first (both src/routes/ and src/routes/admin/ pooled
-    // together): connect.ts (15) < admin/monitors.ts (16) <
+    // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
+    // admin/connect.ts DONE (see SCOPE HISTORY). Remaining domain-8
+    // files ordered smallest-LOC-first (both src/routes/ and
+    // src/routes/admin/ pooled together): admin/monitors.ts (16) <
     // admin/overview.ts (39) < introspection.ts/usage.ts (41) <
     // tags.ts (44) < admin/index.ts (51) < ... < admin-validators.ts
-    // (457, largest, last). Next: admin/connect.ts (15 LOC — single
-    // GET /connect/gateway-url read-only helper). Existing test file
-    // `routes-connect.test.ts` (73 LOC) already covers it — run baseline
-    // before assuming a rewrite is needed. Scope:
-    // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/connect.ts",
+    // (457, largest, last). Next: admin/monitors.ts (16 LOC — single
+    // GET /monitors read-only dashboard-snapshot endpoint wrapping
+    // listMonitors()). No existing dedicated test file (confirmed via
+    // ls). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/admin/monitors.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
