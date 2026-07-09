@@ -1884,14 +1884,68 @@
 //     coverage of its own**, despite being used throughout the existing
 //     test suite's `beforeEach`/`afterEach` — its own correctness was
 //     never itself verified.
+//   tracing.ts (185 LOC — dependency-free OTLP/HTTP span export:
+//   startSpan/endSpan, batching + deferred-flush scheduling, OTLP
+//   payload construction, best-effort export via flush()) 92 mutants,
+//   54.35% baseline (50/92) -> 94.57% raw (87/92) across 2 verify
+//   rounds -> effectively 100% (5 documented equivalents). Test dir
+//   mirrors 1:1 (`src/observability/__tests__/`). Scope:
+//   `STRYKER_TEST_SCOPE="src/observability/__tests__"`. 42 baseline
+//   survivors, authored directly (no agent round). Key findings:
+//   - **`setCurrentSpan`/`getCurrentSpan` are no-ops outside a real
+//     `AsyncLocalStorage` run — a "bare" test call is silently vacuous
+//     regardless of any mutation on the code that calls them.** An
+//     initial attempt at testing endSpan's `if (!tracingEnabled())
+//     return;` early-return (checking whether the current span stays
+//     set vs. gets cleared) failed against REAL code because
+//     `setCurrentSpan` no-ops when there's no ALS store — the whole
+//     mechanism needed wrapping in `withTraceContext(...)` to actually
+//     observe anything. Reusable lesson for any future test of
+//     ALS-backed request-context state: a bare call proves nothing,
+//     wrap it.
+//   - **A `ConditionalExpression` mutant on an ALWAYS-true real-world
+//     condition is a genuine equivalent for ONE direction only, not
+//     both.** `if (t.unref) t.unref();` — a real Node/Bun `setTimeout`
+//     return value always has a callable `.unref`, so forcing the
+//     condition to always-`true` changes nothing (equivalent); forcing
+//     it to always-`false` IS a real, killable gap (suppresses the
+//     call entirely). Killed the `false` direction by spying directly
+//     on the real timer's own `.unref` method (captured via a
+//     `setTimeout` mock that still calls through to the real
+//     implementation) rather than inferring it from process-lifecycle
+//     side effects, which are otherwise unobservable inside a
+//     synchronous test.
+//   - **A same-line compound-boolean guard's TWO halves each need their
+//     OWN distinguishing scenario, even when one test already flips
+//     the `||`/`&&` operator itself.** `if (!endpoint || buffer.length
+//     === 0) return;` — an "endpoint unset, buffer non-empty" test
+//     kills the operator flip AND the first half's own
+//     ConditionalExpression, but does NOT kill the SECOND half's own
+//     ConditionalExpression-forced-false (`buffer.length === 0` forced
+//     to never fire): with a configured endpoint and a genuinely EMPTY
+//     buffer, that mutant would wrongly let `flush()` proceed to fetch
+//     with nothing queued. Needed a distinct, complementary fixture
+//     (endpoint SET + buffer EMPTY) to isolate it — verified this
+//     precisely on the SECOND verify round after the first round's
+//     dual-purpose test left this specific half unkilled.
+//   5 documented equivalents: `genId` (a module-private helper with
+//   ZERO real call sites anywhere in the codebase — confirmed via a
+//   repo-wide grep — so its body is unreachable by construction); the
+//   module-level `buffer`/`flushScheduled` initial values (the SAME
+//   "DI-helper initial value unreachable once a resetting beforeEach
+//   exists" class already seen on load-balancer.ts/quarantine.ts —
+//   `_internalsForTesting.clear()`, called in every test file's own
+//   beforeEach, truncates/reassigns both before the first assertion of
+//   the first test ever runs); and the `t.unref` always-true direction
+//   above.
 //
-// ── DOMAIN 7 (src/observability, 5 of 10 files: anomaly.ts, monitor.ts,
-// alerts.ts, health.ts, traffic.ts) IN PROGRESS. Remaining 5 files (all
-// WITH existing dedicated tests directly under
-// src/observability/__tests__/): tracing.ts (185 LOC), trace-context.ts
-// (188), trace-store.ts (224), usage.ts (224), metrics.ts (322) —
-// always run baseline first per file since some may already be clean
-// (see registry-alias-index.ts/tool-index.ts precedent in domain 3). ──
+// ── DOMAIN 7 (src/observability, 6 of 10 files: anomaly.ts, monitor.ts,
+// alerts.ts, health.ts, traffic.ts, tracing.ts) IN PROGRESS. Remaining
+// 4 files (all WITH existing dedicated tests directly under
+// src/observability/__tests__/): trace-context.ts (188 LOC),
+// trace-store.ts (224), usage.ts (224), metrics.ts (322) — always run
+// baseline first per file since some may already be clean (see
+// registry-alias-index.ts/tool-index.ts precedent in domain 3). ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1956,18 +2010,18 @@ export default {
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 = src/observability/
     // (10 files) is IN PROGRESS: anomaly.ts, monitor.ts, alerts.ts,
-    // health.ts, traffic.ts DONE (see SCOPE HISTORY, all effectively
-    // 100%). Next: tracing.ts (185 LOC) — dedicated test at
-    // src/observability/__tests__/tracing.test.ts (confirmed via ls
-    // when this domain was first surveyed). Scope:
+    // health.ts, traffic.ts, tracing.ts DONE (see SCOPE HISTORY, all
+    // effectively 100%). Next: trace-context.ts (188 LOC) — dedicated
+    // test at src/observability/__tests__/trace-context.test.ts
+    // (confirmed via ls when this domain was first surveyed). Scope:
     // STRYKER_TEST_SCOPE="src/observability/__tests__". Run baseline
     // first — may already be partially/fully clean (see
     // registry-alias-index.ts/tool-index.ts precedent in domain 3).
-    // After tracing.ts: trace-context.ts (188), trace-store.ts (224),
-    // usage.ts (224), metrics.ts (322, largest of the remaining 4 —
-    // note health-metrics.test.ts likely covers PART of metrics.ts too,
+    // After trace-context.ts: trace-store.ts (224), usage.ts (224),
+    // metrics.ts (322, largest of the remaining 3 — note
+    // health-metrics.test.ts likely covers PART of metrics.ts too,
     // given its shared file name).
-    "src/observability/tracing.ts",
+    "src/observability/trace-context.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

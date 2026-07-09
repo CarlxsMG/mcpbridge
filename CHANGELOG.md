@@ -1240,6 +1240,40 @@ retentionMs`) needing the DEFAULT `now`, since the existing test
   property, so it maps to `""` exactly like an empty array does, and
   both `[""].join("\n")` and `[].join("\n")` are `""`. Run with
   `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
+- **Mutation testing — domain 7, `tracing.ts`** (185 LOC,
+  `src/observability/` — dependency-free OTLP/HTTP span export:
+  `startSpan`/`endSpan`, batching + deferred-flush scheduling, OTLP
+  payload construction, best-effort export via `flush()`). 92 mutants,
+  54.35% baseline (50/92) → 94.57% raw (87/92) across 2 verify rounds →
+  **effectively 100%** (5 documented equivalents). Test dir mirrors 1:1
+  (`src/observability/__tests__/`). One new test file, authored
+  directly (42 baseline survivors). Closed: the exact request shape of
+  the OTLP export (method/headers/redirect, previously only the body
+  was checked), the OTLP attribute-value mapping for booleans and
+  numbers (an existing test happened to pass a boolean attribute but
+  never asserted its mapped shape), the nanosecond timestamp encoding's
+  exact value (only `typeof === "string"` was checked before), and the
+  full deferred-flush timer lifecycle (scheduling, re-arming, and the
+  captured callback's own effects, driven directly via a `setTimeout`
+  spy rather than waiting out the real 2-second delay). Key findings: a
+  bare test call to `setCurrentSpan`/`getCurrentSpan` is silently
+  vacuous outside a real `AsyncLocalStorage` run, since both no-op
+  without one — needed wrapping in `withTraceContext(...)` to observe
+  anything; a `ConditionalExpression` mutant on an always-true
+  real-world condition (`if (t.unref) t.unref();`, since a real timer
+  object always has `.unref`) is a genuine equivalent for ONE direction
+  only, not both — the opposite (forced-false) direction is a real,
+  killable gap; and a same-line compound-boolean guard's two halves
+  each needed their own distinguishing scenario, discovered only on a
+  second verify round after the first round's dual-purpose test left
+  one half unkilled. 5 documented equivalents: a module-private helper
+  (`genId`) with zero real call sites anywhere in the codebase
+  (confirmed via a repo-wide grep), the module-level `buffer`/
+  `flushScheduled` initial values (the same "DI-helper initial value
+  unreachable once a resetting beforeEach exists" class already seen on
+  load-balancer.ts/quarantine.ts), and the `t.unref` always-true
+  direction above. Run with
+  `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
 
 ### Docs
 
