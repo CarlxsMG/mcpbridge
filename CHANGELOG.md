@@ -1539,6 +1539,21 @@ typeof t === "string")` validation guard had FIVE distinct survivor
   `/admin-api/...` path already exercise both mutants indirectly. No
   new test file needed, no fix cycle. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/canary.ts`** (54 LOC,
+  `src/routes/admin/` — `GET`/`PUT /clients/:name/canary`, per-client
+  secondary-upstream canary/failover config). 56 mutants, 0% baseline
+  (zero test coverage of any kind existed before this) →
+  **effectively 100%** (55/56, 1 accepted equivalent) after 2 verify
+  rounds. New file `routes-canary-mutation.test.ts`. One genuine
+  equivalent, verified empirically: the weight parser's `typeof
+body.weight === "number"` guard forced always-true — since
+  `JSON.parse` always deserializes a JSON numeric literal to a genuine
+  JS `number`, any non-number `body.weight` fails `Number.isInteger`
+  identically whether or not the guard defaults it to 0 first. First
+  verify round missed the `PUT` handler's own independent copy of the
+  `!ensureClientAccess(...)` cross-team-denial guard (only the `GET`
+  handler's copy was tested) — fixed with a second cross-team-denied
+  PUT test. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

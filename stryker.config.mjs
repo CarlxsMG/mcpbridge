@@ -2319,6 +2319,30 @@
 //   BlockStatement and the "/admin-api" StringLiteral indirectly. No
 //   new test file needed, no fix cycle — same "not every file needs
 //   new work" precedent as validation.ts/admin/connect.ts.
+//   admin/canary.ts (54 LOC — GET/PUT /clients/:name/canary, per-client
+//   secondary-upstream canary/failover config) 56 mutants, 0% baseline
+//   (zero coverage existed) -> effectively 100% (55/56, 1 accepted
+//   equivalent) after 2 verify rounds. Test dir mirrors 1:1
+//   (`src/routes/__tests__/`), new file `routes-canary-mutation.test.ts`.
+//   One genuine equivalent, verified empirically: the weight parser's
+//   `typeof body.weight === "number"` guard forced always-true. Since
+//   JSON.parse always deserializes a JSON numeric literal to a genuine
+//   JS `number` (confirmed empirically), any non-number `body.weight`
+//   fails `Number.isInteger(...)` identically whether or not the
+//   typeof-guard defaults it to 0 first — both paths land on the same
+//   INVALID_WEIGHT 400. First verify round missed the PUT handler's
+//   OWN copy of the `!ensureClientAccess(...)` cross-team-denial guard
+//   (the GET handler's copy was tested, but PUT has an independent
+//   instance of the same guard on a different line) — fixed with a
+//   second cross-team-denied-PUT test, closing to effectively 100% on
+//   the second verify round. Heaviest reasoning of the file: several
+//   `typeof x === "y" ? x : default` ternaries (secondaryBaseUrl, mode)
+//   each needed TWO tests (a genuine value + an omitted/default value)
+//   to cover both the "wrongly-defaults" and "wrongly-overrides"
+//   directions; the `result.reason ?? result.error` fallback needed
+//   both a no-reason error (CLIENT_NOT_FOUND) and a with-reason error
+//   (INVALID_URL, via a syntactically-malformed URL string) to
+//   distinguish `??` from a flipped `&&`.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2385,14 +2409,14 @@ export default {
     // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
-    // introspection.ts, usage.ts, tags.ts, admin/index.ts DONE (see
-    // SCOPE HISTORY). Remaining domain-8 files ordered
-    // smallest-LOC-first (both src/routes/ and src/routes/admin/
-    // pooled together): admin/canary.ts (54) < ... <
-    // admin-validators.ts (457, largest, last). Next: admin/canary.ts
-    // (54 LOC). No existing dedicated test file (confirmed via ls).
+    // introspection.ts, usage.ts, tags.ts, admin/index.ts,
+    // admin/canary.ts DONE (see SCOPE HISTORY). Remaining domain-8
+    // files ordered smallest-LOC-first (both src/routes/ and
+    // src/routes/admin/ pooled together): admin/traffic.ts (55) < ... <
+    // admin-validators.ts (457, largest, last). Next: admin/traffic.ts
+    // (55 LOC). No existing dedicated test file (confirmed via ls).
     // Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/canary.ts",
+    "src/routes/admin/traffic.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
