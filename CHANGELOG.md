@@ -868,6 +868,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on the byte count to prove the check is exclusive (`>`) rather than
   inclusive (`>=`). No new equivalence classes. Run with
   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
+- **Mutation testing — domain 5, `tool-tags.ts`** (71 LOC,
+  `src/tool-meta/` — per-tool tag CRUD: normalize/dedupe,
+  listAllTags/listToolsByTag, getTagsForClient/getAllToolTags). 33
+  mutants, 96.97% baseline (32/33 — already very high, since
+  `getTagsForClient`/`getAllToolTags` are exercised indirectly via
+  `registry.ts`'s own `getClientDetail`/`listAllTools` integration
+  tests) → **100.00% (33/33), clean** in a single verify round. Test
+  file is at the same directory as its source (`src/tool-meta/__tests__/
+  tool-tags.test.ts`) — unlike `tool-examples.ts`'s cross-directory
+  location, this one mirrors 1:1. One new `tool-tags-mutation.test.ts`,
+  authored directly (1 baseline survivor). Closed: `normalizeTag`'s
+  dropped `.trim()` — every tag in the existing suite was already
+  whitespace-free, so trimming was never observed; one direct call to
+  the exported `normalizeTag("  Billing  ")` closed it. No new
+  equivalence classes. Run with
+  `STRYKER_TEST_SCOPE="src/tool-meta/__tests__"`.
 
 ### Docs
 

@@ -1096,6 +1096,25 @@
 //   `"x".repeat(16384-8)` wrapped in `{a:...}` to hit exactly 16384
 //   stringified bytes, proving the check is exclusive (`>`) rather than
 //   inclusive (`>=`) of the max. No new equivalence classes.
+//   tool-tags.ts (71 LOC, src/tool-meta/ — per-tool tag CRUD:
+//   normalize/dedupe, listAllTags/listToolsByTag, getTagsForClient/
+//   getAllToolTags)  33 mutants  96.97% baseline (32/33, ALREADY very
+//   high — getTagsForClient/getAllToolTags have no dedicated test at
+//   all but are exercised indirectly via registry.ts's own
+//   getClientDetail/listAllTools integration tests in the same file) ->
+//   **100.00% (33/33), clean** in a single verify round. One new
+//   `tool-tags-mutation.test.ts`, in the SAME directory as its sibling
+//   — this file actually mirrors 1:1
+//   (`src/tool-meta/__tests__/tool-tags.test.ts`), UNLIKE
+//   tool-examples.ts's cross-directory location; don't over-generalize
+//   either pattern within src/tool-meta/. Authored directly (1 baseline
+//   survivor — the smallest gap count all session). Scope:
+//   `STRYKER_TEST_SCOPE="src/tool-meta/__tests__"`. Closed: `normalizeTag`'s
+//   dropped `.trim()` (every tag in the existing test suite was already
+//   whitespace-free, so trimming was never observed — one direct call
+//   to the exported `normalizeTag("  Billing  ")` closed it). No new
+//   equivalence classes. Fastest baseline+verify cycle all session
+//   (12s + 11s, thanks to the 2-file `src/tool-meta/__tests__` scope).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1161,14 +1180,11 @@ export default {
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
     // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts,
     // response-cache.ts, oauth.ts, upstream-auth.ts, redaction.ts,
-    // tool-examples.ts done. Next: tool-tags.ts (71 LOC, src/tool-meta/
-    // — per-tool tag CRUD). NOTE: this one actually mirrors 1:1 — its
-    // test lives at `src/tool-meta/__tests__/tool-tags.test.ts` (NOT
-    // src/tool-policies/__tests__ like its siblings) — don't assume
-    // every src/tool-meta/ file shares tool-examples.ts's
-    // cross-directory location; verify per file. Scope:
-    // STRYKER_TEST_SCOPE="src/tool-meta/__tests__".
-    "src/tool-meta/tool-tags.ts",
+    // tool-examples.ts, tool-tags.ts done. Next: sanitize.ts (64 LOC,
+    // src/content-filtering/ — response sanitization). Confirmed 1:1
+    // test dir: `src/content-filtering/__tests__/sanitize.test.ts`.
+    // Scope: STRYKER_TEST_SCOPE="src/content-filtering/__tests__".
+    "src/content-filtering/sanitize.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
