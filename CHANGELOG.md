@@ -1178,6 +1178,41 @@ src/admin/entities/__tests__"`. **This closes anomaly.ts + monitor.ts
     remaining files (health.ts, traffic.ts, tracing.ts, trace-context.ts,
     trace-store.ts, usage.ts, metrics.ts) all have dedicated tests
     directly under `src/observability/__tests__/`.
+- **Mutation testing — domain 7, `health.ts`** (126 LOC,
+  `src/observability/` — the leader-gated background health-check
+  loop: per-client REST/MCP probing via `checkBatch`, consecutive-
+  failure tracking + auto-eviction via `handleFailure`, and Prometheus
+  metrics for every outcome, all wrapped by `startHealthCheckLoop`).
+  89 mutants, an unusually low 22.47% baseline (20/89 — the existing
+  dedicated test only checked 2 Prometheus counters via the real
+  background loop, almost everything else was untested) → 98.88% raw
+  (87/89) across 2 verify rounds → **effectively 100%** (1 documented
+  equivalent + 1 accepted timeout). Test dir mirrors 1:1
+  (`src/observability/__tests__/`), the first domain-7 file to do so.
+  Given the large survivor count (68, comparable to `alerts.ts`'s 91),
+  used a **4-agent parallel workflow** — one agent per cluster — each
+  authoring its own test file (17 tests total across
+  `health-mutation-hc1..hc4.test.ts`). All 4 agents completed cleanly.
+  A single verify round drove 22.47% → 97.75%; one manual fix closed
+  the last real gap. Key findings: `checkBatch`/`handleFailure` are
+  both module-private, so every test drives them indirectly through
+  the sole exported `startHealthCheckLoop()` (start the loop, await a
+  short real delay, stop() in a finally block); `refreshLeaderStatus()`
+  is a load-bearing `beforeEach` call easy to miss, since the loop only
+  probes backends when the process believes itself the elected leader;
+  and a near-instantly-resolving `fetch` mock made an elapsed-time
+  arithmetic mutant (`÷1000` → `×1000`) genuinely unobservable by
+  accident, not by any real equivalence — with a same-microtask-tick
+  mock, `Date.now() - hcStart` is exactly `0`, and `0 / 1000 === 0 *
+1000 === 0` regardless of the operator, discovered by hand-applying
+  the mutation and confirming the test still passed unmodified; fixed
+  by making the mock resolve after a real 20ms delay instead. One
+  documented equivalent: the batching loop's `i < clients.length`
+  bound widened to `i <= clients.length` only ever adds one iteration
+  where `i` lands exactly on `clients.length`, at which point
+  `clients.slice(i, i+concurrency)` is provably `[]`, making that extra
+  iteration a total no-op. Run with
+  `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
 
 ### Docs
 

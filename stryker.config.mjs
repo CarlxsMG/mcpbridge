@@ -1751,13 +1751,92 @@
 //   other compound-condition clusters (rate-limiter.ts,
 //   quarantine.ts).
 //
-// ── DOMAIN 7 (src/observability, 3 of 10 files: anomaly.ts, monitor.ts,
-// alerts.ts) IN PROGRESS. All 3 files done so far turned out
-// cross-directory (tests at src/admin/entities/__tests__/, not
-// src/observability/__tests__/) — worth checking every remaining
-// domain-7 file the same way before assuming. Remaining 7 files (all
-// WITH existing dedicated tests directly under
-// src/observability/__tests__/): health.ts (126 LOC), traffic.ts (152),
+//   health.ts (126 LOC — the leader-gated background health-check loop:
+//   per-client REST/MCP probing via checkBatch, consecutive-failure
+//   tracking + auto-eviction via handleFailure, and Prometheus metrics
+//   for every outcome, all wrapped by startHealthCheckLoop) 89 mutants,
+//   an unusually low 22.47% baseline (20/89 — the existing dedicated
+//   test only checked 2 Prometheus counters via the real background
+//   loop + a short setTimeout wait; almost everything else was
+//   untested) -> 98.88% raw (87/89) across 2 verify rounds ->
+//   effectively 100% (1 documented equivalent + 1 accepted timeout).
+//   Test dir mirrors 1:1 (`src/observability/__tests__/`), unlike its 3
+//   domain-7 predecessors. Scope:
+//   `STRYKER_TEST_SCOPE="src/observability/__tests__"`. Given the large
+//   survivor count (68, comparable to alerts.ts's 91), used a
+//   **4-agent parallel Workflow** (hc1: batching loop + MCP-kind
+//   client branch; hc2: REST-kind client branch + success-path
+//   handling; hc3: failure-path handling + the per-client catch block;
+//   hc4: handleFailure in full + startHealthCheckLoop in full) — each
+//   authoring its own `health-mutation-{hc1..hc4}.test.ts` (17 tests
+//   total). All 4 agents completed cleanly (no server errors this
+//   round). A single verify round drove 22.47% -> 97.75% (2
+//   survivors); a manual fix closed the 1 real remaining gap, leaving
+//   only the 1 already-documented equivalent + 1 accepted timeout.
+//   Key findings:
+//   - **checkBatch/handleFailure are BOTH module-private** — every
+//     test drives them indirectly through the sole exported
+//     `startHealthCheckLoop()`: register client(s), start the loop,
+//     await a short real delay for its immediately-invoked check tick,
+//     call the returned stop() in a try/finally so no interval leaks
+//     into a later test file (bun:test runs every file in one
+//     process).
+//   - **`refreshLeaderStatus()` is a load-bearing beforeEach call, easy
+//     to miss** — `startHealthCheckLoop`'s inner check only actually
+//     probes backends when the current process believes itself the
+//     elected leader (gated by `startLeaderGatedInterval`); a test
+//     that forgets this call silently sees the health-check body never
+//     execute at all, with no error to signal the mistake.
+//   - **A `??` fallback mutated to `&&` on an MCP client's optional
+//     fields (mcpUrl/mcpTransport) needed the LIVE registry object's
+//     fields cleared directly** — `registerMcp` (or whatever the real
+//     registration helper is called) always populates both fields, so
+//     the only way to force the `??` fallback arm at all was mutating
+//     the already-registered client object's fields to `undefined`
+//     directly on the live registry, then configuring a real upstream
+//     credential (via `setUpstreamAuth`) so `getUpstreamAuthHeaders`
+//     returns a truthy object — needed to distinguish `??` from `&&`
+//     (both agree when the left side is falsy).
+//   - **A near-instantly-resolving fetch mock makes an
+//     elapsed-time-based arithmetic mutant genuinely unobservable by
+//     ACCIDENT, not by any real equivalence.** The hc2 agent's cold-round
+//     test asserted `duration.sum < 60` to catch a `÷1000 -> ×1000` mutant
+//     on `(Date.now() - hcStart) / 1000` — but a verify round showed it
+//     surviving anyway. Hand-applying the real mutation and re-running
+//     the test confirmed it STILL passed unmodified: with a mocked
+//     `fetch` resolving on the same microtask tick, `Date.now() - hcStart`
+//     is genuinely `0` within the same millisecond, and `0 / 1000 === 0
+//     * 1000 === 0` — mathematically indistinguishable regardless of the
+//     operator, no matter how tight the surrounding assertion bound is.
+//     Fixed by making the mock resolve after a REAL, measurable
+//     `setTimeout` delay (20ms) instead of instantly, guaranteeing a
+//     non-zero elapsed gap, then tightening the assertion bound to (0.01,
+//     5) seconds (the mutant would produce ~20000 or ~3.4e12 depending on
+//     which of the two arithmetic mutants at that span fired). General
+//     lesson: whenever a test's kill strategy depends on a REAL elapsed
+//     `Date.now()` difference and the surrounding I/O is mocked to
+//     resolve instantly, verify empirically (hand-apply the mutation,
+//     don't just trust the assertion's apparent logic) — a same-tick
+//     mock can make timing-based arithmetic invisible no matter how the
+//     bound is written.
+//   1 documented equivalent (found by the hc1 agent, verified via a
+//   standalone scratch script): `i < clients.length` (the batching
+//   loop's bound) widened to `i <= clients.length` only ever adds one
+//   extra iteration when `i` lands exactly on `clients.length`, at
+//   which point `clients.slice(i, i+concurrency)` is provably `[]` (per
+//   `Array.prototype.slice`'s spec), so `Promise.allSettled([].map(...))`
+//   is a total no-op — checked across 7 (length, concurrency) pairs
+//   including exact multiples, singletons, and the empty-clients case,
+//   confirming byte-identical batch sequences between both operators in
+//   every case.
+//
+// ── DOMAIN 7 (src/observability, 4 of 10 files: anomaly.ts, monitor.ts,
+// alerts.ts, health.ts) IN PROGRESS. The first 3 files all turned out
+// cross-directory (tests at src/admin/entities/__tests__/); health.ts
+// is the first to mirror 1:1 (src/observability/__tests__/) — still
+// worth checking every remaining domain-7 file the same way before
+// assuming. Remaining 6 files (all WITH existing dedicated tests
+// directly under src/observability/__tests__/): traffic.ts (152 LOC),
 // tracing.ts (185), trace-context.ts (188), trace-store.ts (224),
 // usage.ts (224), metrics.ts (322) — always run baseline first per
 // file since some may already be clean (see
@@ -1825,21 +1904,20 @@ export default {
   },
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 = src/observability/
-    // (10 files) is IN PROGRESS: anomaly.ts, monitor.ts, alerts.ts DONE
-    // (see SCOPE HISTORY, all effectively 100%, all 3 test dirs
-    // CROSS-DIRECTORY at src/admin/entities/__tests__/ rather than
-    // src/observability/__tests__/). Next: health.ts (126 LOC, the
-    // smallest of the remaining 7 files) — its dedicated test IS
-    // directly under src/observability/__tests__/ (health-metrics.test.ts,
-    // shared with metrics.ts), unlike the 3 files just closed. Scope:
-    // STRYKER_TEST_SCOPE="src/observability/__tests__". Run baseline
-    // first — may already be partially/fully clean (see
+    // (10 files) is IN PROGRESS: anomaly.ts, monitor.ts, alerts.ts,
+    // health.ts DONE (see SCOPE HISTORY, all effectively 100%; the
+    // first 3 test dirs are CROSS-DIRECTORY at
+    // src/admin/entities/__tests__/, health.ts's mirrors 1:1). Next:
+    // traffic.ts (152 LOC) — dedicated test at
+    // src/observability/__tests__/traffic.test.ts (confirmed via ls).
+    // Scope: STRYKER_TEST_SCOPE="src/observability/__tests__". Run
+    // baseline first — may already be partially/fully clean (see
     // registry-alias-index.ts/tool-index.ts precedent in domain 3).
-    // After health.ts: traffic.ts (152), tracing.ts (185),
-    // trace-context.ts (188), trace-store.ts (224), usage.ts (224),
-    // metrics.ts (322, largest of the 7 — note health-metrics.test.ts
-    // likely covers PART of metrics.ts too, given its shared file name).
-    "src/observability/health.ts",
+    // After traffic.ts: tracing.ts (185), trace-context.ts (188),
+    // trace-store.ts (224), usage.ts (224), metrics.ts (322, largest of
+    // the remaining 6 — note health-metrics.test.ts likely covers PART
+    // of metrics.ts too, given its shared file name).
+    "src/observability/traffic.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
