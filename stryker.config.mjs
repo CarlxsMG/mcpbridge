@@ -2230,6 +2230,30 @@
 //   actual exported setMonitor() to create the monitor row), matching
 //   the fixture pattern already established in
 //   src/admin/entities/__tests__/monitor.test.ts.
+//   admin/overview.ts (39 LOC — GET /overview dashboard counters:
+//   client status breakdown, disabled client/tool counts, circuit
+//   breaker state counts, admin user count) 33 mutants, 36.36% baseline
+//   (12/33) -> **100.00% (33/33), clean** in a single verify round.
+//   routes-admin.test.ts already smoke-tested the happy path; new file
+//   `routes-overview-mutation.test.ts` adds the missing coverage.
+//   Two reusable techniques: (1) an ASYMMETRIC enabled/disabled split
+//   (e.g. 1 enabled + 2 disabled) is required to kill a
+//   negation-removal mutant (`!c.enabled` -> `c.enabled`) — a 1-vs-1
+//   split can't distinguish it, since both directions yield the same
+//   count. (2) circuit breaker open/half_open/closed counts read a
+//   process-wide singleton shared with every concurrently-run test
+//   file (never reset) — exact absolute counts aren't safe to assert,
+//   so instead measured the DELTA around adding exactly one fresh
+//   breaker of each kind (closed/open/half-open) within a single test,
+//   safe under any pre-existing global state since bun:test runs
+//   sequentially. This single delta test kills the entire cluster:
+//   filter-strip/always-true mutants (closed-breaker delta would wrongly
+//   move open/half_open), always-false/wrong-equality/emptied-string
+//   mutants (open/half-open breaker delta would wrongly stay at 0), and
+//   both ArithmeticOperator mutants on the closed computation (flipping
+//   either `-` to `+` in `total - open - half_open` changes the closed
+//   delta from the correct +1 to +3, since the open/half/total deltas
+//   of 1/1/3 only cancel correctly under the original signs).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2295,15 +2319,17 @@ export default {
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 (src/observability,
     // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
-    // admin/connect.ts, admin/monitors.ts DONE (see SCOPE HISTORY).
-    // Remaining domain-8 files ordered smallest-LOC-first (both
-    // src/routes/ and src/routes/admin/ pooled together):
-    // admin/overview.ts (39) < introspection.ts/usage.ts (41) <
-    // tags.ts (44) < admin/index.ts (51) < ... < admin-validators.ts
-    // (457, largest, last). Next: admin/overview.ts (39 LOC). No
-    // existing dedicated test file (confirmed via ls). Scope:
+    // admin/connect.ts, admin/monitors.ts, admin/overview.ts DONE (see
+    // SCOPE HISTORY). Remaining domain-8 files ordered smallest-LOC-first
+    // (both src/routes/ and src/routes/admin/ pooled together):
+    // introspection.ts/usage.ts (41, tied) < tags.ts (44) <
+    // admin/index.ts (51) < ... < admin-validators.ts (457, largest,
+    // last). Next: introspection.ts (41 LOC). No existing dedicated
+    // test file (confirmed via ls). usage.ts (also 41 LOC) already has
+    // routes-usage.test.ts — check its baseline right after
+    // introspection.ts closes. Scope:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/overview.ts",
+    "src/routes/introspection.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

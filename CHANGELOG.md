@@ -1470,6 +1470,21 @@ null` fallback and `validationError`'s exact `"VALIDATION_ERROR"`
   hand-rolling INSERT SQL, matching the fixture pattern already
   established in `src/admin/entities/__tests__/monitor.test.ts`. Run
   with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/overview.ts`** (39 LOC,
+  `src/routes/admin/` — `GET /overview` dashboard counters: client
+  status breakdown, disabled client/tool counts, circuit breaker state
+  counts, admin user count). 33 mutants, 36.36% baseline (12/33) →
+  **100.00% (33/33), clean** in a single verify round. New file
+  `routes-overview-mutation.test.ts` adds coverage
+  `routes-admin.test.ts`'s existing happy-path smoke test was missing.
+  Two reusable techniques: an asymmetric enabled/disabled split (e.g. 1
+  enabled + 2 disabled) is required to kill a negation-removal mutant
+  (`!c.enabled` → `c.enabled`) that a 1-vs-1 split can't distinguish;
+  and — since the circuit breaker registry is a process-wide singleton
+  shared with every concurrently-run test file and never reset — circuit
+  breaker counts are asserted as a DELTA around adding one fresh breaker
+  of each kind (closed/open/half-open) within a single test, rather than
+  as absolute values. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
