@@ -1305,6 +1305,94 @@
 //   `NaN` which a Set treats as equal to itself once added) — all
 //   already detected by the pre-existing "keeps disambiguating across
 //   many collisions" regression test, no new test needed.
+//   openapi-discovery.ts (228 LOC, src/discovery/ — OpenAPI/Swagger
+//   auto-discovery: fetch+DNS-pin, size limits, JSON/YAML parse,
+//   circular-reference rejection, iterative-BFS depth cap, dereference,
+//   operation-to-tool mapping, generateToolName, buildInputSchema)
+//   211 mutants, 51.18% baseline (108/211, decent existing coverage of
+//   the happy paths across 3 test files — openapi-discovery.test.ts,
+//   openapi-discovery-depth.test.ts, openapi-discovery-pin.test.ts —
+//   but the size-limit boundaries, several optional-chaining/fallback
+//   guards, generateToolName (never exercised — every existing test
+//   supplies an operationId), and most of buildInputSchema's individual
+//   field-mapping branches were thin) -> 96.68% raw (204/211) across 2
+//   verify rounds -> effectively 100% (6 documented equivalents + 1
+//   accepted timeout). Test dir mirrors 1:1
+//   (`src/discovery/__tests__/`). Scope:
+//   `STRYKER_TEST_SCOPE="src/discovery/__tests__"`. Given the LARGE
+//   survivor count (103, well past this program's ~40-50 solo-vs-
+//   Workflow threshold), used a **5-agent parallel Workflow** — one
+//   agent per functional cluster (od1: fetch/size-limits/cycle-
+//   detection/depth-cap BFS; od2: dereference-errors/paths-guard/
+//   basePath; od3: operation-loop-guards/name-mapping/
+//   generateToolName; od4: buildInputSchema parameter mapping; od5:
+//   buildInputSchema request-body merging) — each authoring its own
+//   `openapi-discovery-mutation-{od1..od5}.test.ts` (33 tests total),
+//   followed by one manual closing pass
+//   (`openapi-discovery-mutation-final.test.ts`, 4 tests) for the 4
+//   real gaps the cold round left plus verifying/correcting 2 of the
+//   agents' own already-investigated equivalence claims. Workflow cost:
+//   ~435k subagent tokens / 116 tool calls across 5 agents (~12 min
+//   wall-clock) took baseline 51.18% -> 94.79% (200/211 after cold
+//   round); the closing pass then fixed the last 4 real gaps —
+//   consistent with every other large multi-agent file in this
+//   program (context-budget.ts, registry.ts, guardrails.ts): a cold
+//   parallel round gets most of the way there fast, but always budget
+//   a manual pass. Key findings from the closing pass:
+//   - **`sanitizeToolName`'s OWN normalization pipeline can mask
+//     mutants in the function that FEEDS it.** `generateToolName`'s
+//     result is ALWAYS immediately passed through `sanitizeToolName`
+//     at its only call site (`opId ?? generateToolName(...)`), which
+//     itself unconditionally lowercases (masking a
+//     `.toLowerCase()`->`.toUpperCase()` mutant in generateToolName
+//     completely — genuine equivalent, verified empirically) and
+//     collapses repeated underscores (masking MOST but not all
+//     artifacts from generateToolName's own `.filter(Boolean)` being
+//     dropped — a LEADING or INTERIOR empty path segment collapses
+//     away identically either way, but a TRAILING one survives, since
+//     sanitizeToolName only strips LEADING invalid characters, never
+//     trailing ones — a path ending in "/" is the one case that isn't
+//     masked). Any future file with a similar
+//     "helper-feeds-into-a-normalizing-caller" structure should check
+//     whether the caller's OWN normalization steps mask the callee's
+//     mutants before assuming a test targeting the callee in isolation
+//     is even possible.
+//   - **A `?? fallback` value's mutant can be unobservable when the
+//     fallback is consumed by exactly ONE narrow check that any
+//     placeholder text will also fail identically.** `doc.servers?.
+//     [0]?.url ?? ""`'s fallback text, mutated to Stryker's own
+//     "Stryker was here!" placeholder, is only ever consumed by a
+//     subsequent `serverUrl.startsWith("/")` check — since the
+//     placeholder doesn't start with "/" either, both the real ""
+//     and the mutant text produce an IDENTICAL empty basePath for
+//     every reachable input. Genuine equivalent, verified empirically
+//     (not assumed) by tracing the value's only consumer.
+//   - **Two test cases can each independently "look like" they
+//     discriminate a MethodExpression swap (e.g. `startsWith`<->
+//     `endsWith`) while actually both producing identical results
+//     under both versions.** The cold round's two basePath test cases
+//     ("/api/v1/" and an absolute URL) both coincidentally have
+//     matching start/end characters (one starts AND ends with "/", the
+//     other starts with neither) — verified empirically that BOTH
+//     mutant and real code produce the same output for both cases. A
+//     THIRD case (a relative path starting with "/" but NOT ending
+//     with it) was needed to actually discriminate. General lesson:
+//     when testing a directional method swap, deliberately choose an
+//     input where the two directions' predicates disagree, not just
+//     an input that happens to satisfy the intended one.
+//   - **`@scalar/openapi-parser`'s `dereference()` return shape is
+//     more guaranteed than its TypeScript types suggest.** Both
+//     `errors` and `schema` are typed as optional
+//     (`errors?: ErrorObject[]`, `schema?: OpenAPI.Document`) but the
+//     real implementation ALWAYS returns `errors` as an array (`[]`
+//     when clean, verified via a direct empirical call) and `schema`
+//     as a truthy object on every reachable path — making the
+//     corresponding `errors?.length`/`schema?.paths` optional-chaining
+//     mutants genuine equivalents for this specific library's actual
+//     (not just typed) behavior. Don't assume a library's TypeScript
+//     optionality reflects real runtime possibility — call it directly
+//     and inspect the actual return value before writing an
+//     equivalence claim.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1367,13 +1455,12 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 6 continues (see SCOPE HISTORY) — tool-naming.ts done.
-    // Next: openapi-discovery.ts (228 LOC, src/discovery/ — OpenAPI/
-    // Swagger auto-discovery). Test scope confirmed: 3 files all in
-    // src/discovery/__tests__/ — openapi-discovery.test.ts,
-    // openapi-discovery-depth.test.ts, openapi-discovery-pin.test.ts.
+    // Domain 6 continues (see SCOPE HISTORY) — tool-naming.ts,
+    // openapi-discovery.ts done. Next: graphql-discovery.ts (313 LOC,
+    // src/discovery/ — GraphQL introspection auto-discovery). Confirmed
+    // 1:1 test dir: src/discovery/__tests__/graphql-discovery.test.ts.
     // Scope: STRYKER_TEST_SCOPE="src/discovery/__tests__".
-    "src/discovery/openapi-discovery.ts",
+    "src/discovery/graphql-discovery.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

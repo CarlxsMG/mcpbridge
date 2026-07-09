@@ -982,6 +982,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   satisfies the regex whenever non-empty (verified via `bun -e`
   brute-forcing a wide variety of inputs through the real pipeline).
   Run with `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
+- **Mutation testing — domain 6, `openapi-discovery.ts`** (228 LOC,
+  `src/discovery/` — OpenAPI/Swagger auto-discovery: fetch+DNS-pin, size
+  limits, JSON/YAML parse, circular-reference rejection, iterative-BFS
+  depth cap, dereference, operation-to-tool mapping, `generateToolName`,
+  `buildInputSchema`). 211 mutants, 51.18% baseline (108/211) → 96.68%
+  raw (204/211) across 2 verify rounds → **effectively 100%** (6
+  documented equivalents + 1 accepted timeout). Given the large
+  survivor count (103), used a **5-agent parallel workflow** — one
+  agent per functional cluster — each authoring its own test file (33
+  tests total), followed by one manual closing pass (4 tests) for the
+  remaining real gaps plus verifying two of the agents' own equivalence
+  claims. Key findings: `generateToolName`'s result always flows
+  through `sanitizeToolName` at its only call site, which masks a
+  case-conversion mutant entirely and masks *most* (but not all —
+  trailing path segments survive) artifacts from a dropped
+  `.filter(Boolean)`; a `?? fallback` value consumed by exactly one
+  narrow check can be unobservable when any placeholder text fails
+  that check identically to the real fallback; two test cases can each
+  look like they discriminate a directional method swap
+  (`startsWith`↔`endsWith`) while both actually producing identical
+  results under both versions — a third, deliberately chosen input was
+  needed; and `@scalar/openapi-parser`'s `dereference()` return shape
+  is more guaranteed than its TypeScript types suggest (`errors` is
+  always a real array, `schema` always truthy), making two
+  optional-chaining mutants genuine equivalents despite the optional
+  types. Run with `STRYKER_TEST_SCOPE="src/discovery/__tests__"`.
 
 ### Docs
 
