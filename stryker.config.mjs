@@ -2406,6 +2406,32 @@
 //   actually CONSUMED, not just where it's declared — a nearby-looking
 //   error path in the same function may use a completely different
 //   mechanism (its own `res.locals` read) that never touches X.**
+//   admin/oauth.ts (64 LOC — GET/PUT /clients/:name/oauth, outbound
+//   OAuth2 client-credentials config per upstream client) 57 mutants,
+//   0% baseline (zero coverage existed) -> effectively 100% (54/57
+//   killed + 3 accepted timeouts) after 2 verify rounds. New file
+//   `routes-oauth-mutation.test.ts`. Structurally near-identical to
+//   admin/canary.ts (same session) — GET/PUT + ensureClientAccess +
+//   typeof-string-ternaries + a null-clear branch +
+//   `result.reason ?? result.error` — so its whole test-design was
+//   reused verbatim (asymmetric fixtures, per-ternary two-direction
+//   tests, independent cross-team-denial tests for GET and PUT, no-
+//   reason/with-reason fallback tests). One NEW empirically-verified
+//   discriminator: the `scope` field's typeof-string ternary forced
+//   always-true survived a first verify round because sending a
+//   non-string `scope` (a number) doesn't crash — SQLite's STRICT
+//   TEXT-column type coercion (verified via a throwaway `bun -e`
+//   script: binding JS number `12345` to a STRICT `TEXT` column stores
+//   the STRING `"12345"`, no throw) silently accepts it. Fixed by
+//   asserting the persisted `scope` is `null` (real code's `undefined`
+//   fallback) rather than the mutant's coerced `"12345"`, via a
+//   follow-up GET. Setup fact worth remembering: the secrets provider
+//   (`getSecretsProvider().isConfigured()`) is UNCONFIGURED by default
+//   in this test env (`SECRET_ENCRYPTION_KEY` unset) — tests reaching
+//   the encrypt-and-store success path must set
+//   `config.secretEncryptionKey = Buffer.alloc(32, 7).toString("base64")`
+//   first, matching `src/security/__tests__/oauth-mutation.test.ts`'s
+//   own setup.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2473,14 +2499,16 @@ export default {
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
-    // admin/canary.ts, admin/traffic.ts, register.ts DONE (see SCOPE
-    // HISTORY). Remaining domain-8 files ordered smallest-LOC-first
-    // (both src/routes/ and src/routes/admin/ pooled together):
-    // admin/oauth.ts (64) < ... < admin-validators.ts (457, largest,
-    // last). Next: admin/oauth.ts (64 LOC). No existing dedicated test
-    // file (confirmed via ls). Scope:
+    // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts
+    // DONE (see SCOPE HISTORY). Remaining domain-8 files ordered
+    // smallest-LOC-first (both src/routes/ and src/routes/admin/
+    // pooled together): install-links.ts (66) < ... <
+    // admin-validators.ts (457, largest, last). Next: install-links.ts
+    // (66 LOC). Existing test file
+    // `routes-bundle-install-links.test.ts` — run baseline before
+    // assuming a rewrite is needed. Scope:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/oauth.ts",
+    "src/routes/install-links.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

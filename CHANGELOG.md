@@ -1593,6 +1593,21 @@ body.weight === "number"` guard forced always-true — since
   variable) — fixed by re-targeting a registration-function validation
   error, where that variable is actually consumed. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/oauth.ts`** (64 LOC,
+  `src/routes/admin/` — `GET`/`PUT /clients/:name/oauth`, outbound
+  OAuth2 client-credentials config per upstream client). 57 mutants, 0%
+  baseline (zero test coverage of any kind existed before this) →
+  **effectively 100%** (54/57 killed + 3 accepted timeouts) after 2
+  verify rounds. New file `routes-oauth-mutation.test.ts`.
+  Structurally near-identical to `admin/canary.ts` (same session) —
+  its whole test design was reused verbatim. One new discriminator: the
+  `scope` field's typeof-string ternary forced always-true survived a
+  first verify round because a non-string `scope` (a number) doesn't
+  crash — SQLite's `STRICT` `TEXT`-column type coercion silently
+  accepts it (verified empirically), storing its string representation
+  instead of throwing — fixed by asserting the persisted `scope` is
+  `null` (real code's fallback), not the mutant's coerced value. Run
+  with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
