@@ -1988,15 +1988,33 @@
 //   always fails a later check the same way. 2 accepted timeouts on
 //   setCurrentSpan's ALS-guard (same "genuine Stryker timeout =
 //   detected" convention as auth.ts/transports.ts/mcp-server.ts).
+//   trace-store.ts (224 LOC — SQLite-persisted spans for the admin-UI
+//   trace viewer: persistSpan, listTraces/getTrace/getTopSessions,
+//   pruneSpans/purgeAllSpans) 62 mutants, 80.65% baseline (50/62) ->
+//   **100.00% (62/62), clean** in a SINGLE verify round. Test dir
+//   mirrors 1:1 (`src/observability/__tests__/`). Scope:
+//   `STRYKER_TEST_SCOPE="src/observability/__tests__"`. One new test
+//   file, authored directly (12 baseline survivors — the SAME cluster
+//   shapes already seen on this file's structural sibling, traffic.ts:
+//   a type-check-vs-presence-check gap on two attribute-extraction
+//   ternaries, an unasserted DB-write catch block, a probabilistic-
+//   prune exact-boundary gap, a combined-filter " AND "-join gap, and a
+//   test-only helper with zero coverage of its own). Reused the exact
+//   same fixture techniques established for traffic.ts's own closing
+//   pass (a non-string-but-present attribute value to distinguish
+//   `typeof x === "string"` from a mere presence check; the exact
+//   `Math.random() === 0.02` boundary; two simultaneous filter clauses
+//   to exercise the join separator) — no NEW equivalence classes this
+//   file, straight reuse of an established playbook start-to-finish.
 //
-// ── DOMAIN 7 (src/observability, 7 of 10 files: anomaly.ts, monitor.ts,
-// alerts.ts, health.ts, traffic.ts, tracing.ts, trace-context.ts) IN
-// PROGRESS. Remaining 3 files (all WITH existing dedicated tests
-// directly under src/observability/__tests__/): trace-store.ts (224
-// LOC), usage.ts (224), metrics.ts (322, largest of the remaining 3 —
-// note health-metrics.test.ts likely covers PART of metrics.ts too,
-// given its shared file name) — always run baseline first per file
-// since some may already be clean (see registry-alias-index.ts/
+// ── DOMAIN 7 (src/observability, 8 of 10 files: anomaly.ts, monitor.ts,
+// alerts.ts, health.ts, traffic.ts, tracing.ts, trace-context.ts,
+// trace-store.ts) IN PROGRESS. Remaining 2 files (both WITH existing
+// dedicated tests directly under src/observability/__tests__/):
+// usage.ts (224 LOC), metrics.ts (322, largest remaining file — note
+// health-metrics.test.ts likely covers PART of metrics.ts too, given
+// its shared file name) — always run baseline first per file since
+// some may already be clean (see registry-alias-index.ts/
 // tool-index.ts precedent in domain 3). ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
@@ -2062,18 +2080,18 @@ export default {
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 = src/observability/
     // (10 files) is IN PROGRESS: anomaly.ts, monitor.ts, alerts.ts,
-    // health.ts, traffic.ts, tracing.ts, trace-context.ts DONE (see
-    // SCOPE HISTORY, all effectively 100%). Next: trace-store.ts
+    // health.ts, traffic.ts, tracing.ts, trace-context.ts, trace-store.ts
+    // DONE (see SCOPE HISTORY, all effectively 100%). Next: usage.ts
     // (224 LOC) — dedicated test at
-    // src/observability/__tests__/trace-store.test.ts (confirmed via ls
-    // when this domain was first surveyed). Scope:
+    // src/observability/__tests__/usage.test.ts (confirmed via ls when
+    // this domain was first surveyed). Scope:
     // STRYKER_TEST_SCOPE="src/observability/__tests__". Run baseline
     // first — may already be partially/fully clean (see
     // registry-alias-index.ts/tool-index.ts precedent in domain 3).
-    // After trace-store.ts: usage.ts (224), metrics.ts (322, largest of
-    // the remaining 2 — note health-metrics.test.ts likely covers PART
-    // of metrics.ts too, given its shared file name).
-    "src/observability/trace-store.ts",
+    // After usage.ts: metrics.ts (322, the LAST domain-7 file — note
+    // health-metrics.test.ts likely covers PART of metrics.ts too,
+    // given its shared file name).
+    "src/observability/usage.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

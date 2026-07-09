@@ -1306,6 +1306,22 @@ retentionMs`) needing the DEFAULT `now`, since the existing test
   field-format regexes, since an `undefined` destructured field or an
   empty split result always fails a later check the same way. Run with
   `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
+- **Mutation testing — domain 7, `trace-store.ts`** (224 LOC,
+  `src/observability/` — SQLite-persisted spans for the admin-UI trace
+  viewer: `persistSpan`, `listTraces`/`getTrace`/`getTopSessions`,
+  `pruneSpans`/`purgeAllSpans`). 62 mutants, 80.65% baseline (50/62) →
+  **100.00% (62/62), clean** in a single verify round. Test dir mirrors
+  1:1 (`src/observability/__tests__/`). One new test file, authored
+  directly (12 baseline survivors — the same cluster shapes already
+  closed on this file's structural sibling, `traffic.ts`: a
+  type-check-vs-presence-check gap on two attribute-extraction
+  ternaries, an unasserted DB-write catch block, a probabilistic-prune
+  exact-boundary gap, a combined-filter `" AND "`-join gap, and a
+  test-only helper with zero coverage of its own). Reused the exact
+  same fixture techniques established for `traffic.ts`'s own closing
+  pass — no new equivalence classes needed, straight reuse of an
+  already-proven playbook start-to-finish. Run with
+  `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
 
 ### Docs
 
