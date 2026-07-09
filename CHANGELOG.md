@@ -1514,6 +1514,23 @@ null` fallback and `validationError`'s exact `"VALIDATION_ERROR"`
   query parameter, turning into a 500 through Express's default error
   handler, so asserting the response STAYS 200 is a clean kill. Run
   with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `tags.ts`** (44 LOC, `src/routes/` —
+  `GET /admin-api/tags`, `GET /admin-api/tags/:tag/tools`, `PUT
+/admin-api/clients/:name/tools/:tool/tags`). 41 mutants, 65.85%
+  baseline (27/41, existing `routes-tags.test.ts` covered the happy
+  path but only asserted status codes) → **100.00% (41/41), clean** in
+  a single verify round. New file `routes-tags-mutation.test.ts`. Key
+  technique: the `!Array.isArray(body.tags) || !body.tags.every((t) =>
+typeof t === "string")` validation guard had FIVE distinct survivor
+  mutants on one line, all collapsing to the same observable failure —
+  bypassing validation lets a non-array or mixed-type `tags` value
+  reach `.map(normalizeTag)`, which throws on a non-string element,
+  crashing with a 500 instead of a clean 400. Two fixtures (a bare
+  string; a mixed `["real-string", 123]` array) killed all five at once
+  by asserting the response stays a clean 400. Also added exact-body
+  assertions (message content, exact `TOOL_NOT_FOUND` envelope, exact
+  success shape, exact `recordAudit` args) the pre-existing test never
+  checked. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

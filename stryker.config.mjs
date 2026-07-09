@@ -2290,6 +2290,27 @@
 //   handler turns into a 500; asserting the response STAYS 200 is
 //   simpler than asserting a specific wrong-item-count the way
 //   traces.ts's cursor tests had to.
+//   tags.ts (44 LOC — GET /admin-api/tags, GET
+//   /admin-api/tags/:tag/tools, PUT
+//   /admin-api/clients/:name/tools/:tool/tags) 41 mutants, 65.85%
+//   baseline (27/41, existing routes-tags.test.ts covered the happy
+//   path + status-only checks for the 400/404 branches) -> **100.00%
+//   (41/41), clean** in a single verify round. New file
+//   `routes-tags-mutation.test.ts` (existing file left untouched). Key
+//   technique: the `!Array.isArray(body.tags) || !body.tags.every((t)
+//   => typeof t === "string")` validation guard has FIVE distinct
+//   survivor mutants on one line (whole-condition-false, || -> &&,
+//   .every -> .some, typeof-check-forced-true, if-block-emptied) — all
+//   five collapse to the SAME observable failure mode: bypassing
+//   validation lets a non-array or mixed-type tags value reach
+//   .map(normalizeTag), where normalizeTag's .trim() throws on a
+//   non-string element, crashing with a 500 instead of a clean 400.
+//   Two fixtures (tags as a bare string; tags as ["real-string", 123])
+//   killed all five at once by simply asserting the response STAYS a
+//   clean 400 rather than crashing. Also added exact-body assertions
+//   (message content, exact TOOL_NOT_FOUND envelope, exact { status,
+//   name, tool, tags } success shape, exact recordAudit args) that the
+//   pre-existing test never checked, only status codes.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2356,14 +2377,15 @@ export default {
     // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
-    // introspection.ts, usage.ts DONE (see SCOPE HISTORY). Remaining
-    // domain-8 files ordered smallest-LOC-first (both src/routes/ and
-    // src/routes/admin/ pooled together): tags.ts (44) <
+    // introspection.ts, usage.ts, tags.ts DONE (see SCOPE HISTORY).
+    // Remaining domain-8 files ordered smallest-LOC-first (both
+    // src/routes/ and src/routes/admin/ pooled together):
     // admin/index.ts (51) < ... < admin-validators.ts (457, largest,
-    // last). Next: tags.ts (44 LOC). Existing test file
-    // `routes-tags.test.ts` — run baseline before assuming a rewrite is
-    // needed. Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/tags.ts",
+    // last). Next: admin/index.ts (51 LOC — top-level admin router,
+    // wires adminAuth + mounts every per-entity sub-router). Existing
+    // test file `routes-admin.test.ts` — run baseline before assuming a
+    // rewrite is needed. Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/admin/index.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
