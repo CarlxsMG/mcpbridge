@@ -1554,6 +1554,24 @@ body.weight === "number"` guard forced always-true — since
   `!ensureClientAccess(...)` cross-team-denial guard (only the `GET`
   handler's copy was tested) — fixed with a second cross-team-denied
   PUT test. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/traffic.ts`** (55 LOC,
+  `src/routes/admin/` — `GET /traffic` list+filter, `GET /traffic/:id`,
+  `POST /traffic/:id/replay` via `proxyToolCall`). 47 mutants, 0%
+  baseline (zero test coverage of any kind existed before this) →
+  **effectively 100%** (46/47 killed + 1 accepted timeout) after 2
+  verify rounds. New file `routes-traffic-mutation.test.ts`. Same
+  client/tool/cursor/limit typeof-string-filter cluster shape as
+  `traces.ts`. First verify round exposed a technique gap: for the
+  cursor filter, a non-string array doesn't crash `bun:sqlite` the way
+  client/tool do — `Number(nonStringValue)` coerces to a valid (if
+  useless) `NaN` before binding — so the forced-true mutant instead
+  silently returns zero items instead of crashing; fixed by asserting
+  the item count, not just that the response stays 200. Also reused
+  the `admin/canary.ts` "same guard, multiple call sites" lesson (`GET
+/:id` and `POST /:id/replay` each have their own independent `!rec`
+  guard) and spied on `proxyToolCall` directly to assert the replay
+  endpoint's exact parsed args. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

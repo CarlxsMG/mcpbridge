@@ -2343,6 +2343,36 @@
 //   both a no-reason error (CLIENT_NOT_FOUND) and a with-reason error
 //   (INVALID_URL, via a syntactically-malformed URL string) to
 //   distinguish `??` from a flipped `&&`.
+//   admin/traffic.ts (55 LOC — GET /traffic list+filter, GET
+//   /traffic/:id, POST /traffic/:id/replay via proxyToolCall) 47
+//   mutants, 0% baseline (zero coverage existed) -> effectively 100%
+//   (46/47 killed + 1 accepted timeout) after 2 verify rounds. New file
+//   `routes-traffic-mutation.test.ts`. Same client/tool/cursor/limit
+//   typeof-string-filter cluster shape as traces.ts, reusing its
+//   established techniques (asymmetric narrowing + repeated-query-key
+//   array). First verify round exposed a technique GAP: for the CURSOR
+//   filter specifically, a non-string array doesn't crash bun:sqlite
+//   the way client/tool do — `Number(nonStringValue)` coerces to a
+//   valid (if useless) NaN BEFORE binding, so the "doesn't crash, stays
+//   200" assertion used for client/tool is too weak here; the
+//   forced-true mutant instead silently returns ZERO items (`id <
+//   NaN` is always false in SQL) instead of real code's "cursor
+//   ignored, return everything" — fixed by asserting the item COUNT,
+//   not just the status. General lesson: **the "assert stays 200"
+//   shortcut (established for usage.ts's client filter) only works
+//   when the mutated value flows into a raw string-typed SQL bind
+//   parameter; if it first passes through `Number(...)`, it always
+//   converts to SOME valid bind value (even if NaN), so the divergence
+//   shows up in the RESULT SET, not the status code — check what the
+//   value flows into before picking a discriminator.** Also reused the
+//   canary.ts "same guard, multiple call sites" lesson (GET /:id and
+//   POST /:id/replay each have their own independent `!rec` guard) and
+//   the "spy on proxyToolCall directly" technique (via
+//   `spyOn(proxyMod, "proxyToolCall")`) to assert the replay endpoint's
+//   exact parsed args, rather than mocking global fetch — simpler and
+//   more precise than the fetch-mock idiom used in
+//   src/observability/__tests__/traffic.test.ts, from which the
+//   client/tool registration fixture pattern was reused.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2410,13 +2440,14 @@ export default {
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
-    // admin/canary.ts DONE (see SCOPE HISTORY). Remaining domain-8
-    // files ordered smallest-LOC-first (both src/routes/ and
-    // src/routes/admin/ pooled together): admin/traffic.ts (55) < ... <
-    // admin-validators.ts (457, largest, last). Next: admin/traffic.ts
-    // (55 LOC). No existing dedicated test file (confirmed via ls).
-    // Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/traffic.ts",
+    // admin/canary.ts, admin/traffic.ts DONE (see SCOPE HISTORY).
+    // Remaining domain-8 files ordered smallest-LOC-first (both
+    // src/routes/ and src/routes/admin/ pooled together): register.ts
+    // (56) < ... < admin-validators.ts (457, largest, last). Next:
+    // register.ts (56 LOC). Existing test file `routes-register.test.ts`
+    // — run baseline before assuming a rewrite is needed. Scope:
+    // STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/register.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
