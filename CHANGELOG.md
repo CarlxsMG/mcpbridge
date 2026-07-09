@@ -1496,6 +1496,24 @@ null` fallback and `validationError`'s exact `"VALIDATION_ERROR"`
   `log()` call verified with a `spyOn` assertion for the exact
   `("info", "Client unregistered", { name })` arguments. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `usage.ts`** (41 LOC, `src/routes/` —
+  4 read-only usage-analytics `GET` endpoints: `/summary`,
+  `/timeseries`, `/top-tools`, `/by-key`). 28 mutants, 57.14% baseline
+  (16/28, existing `routes-usage.test.ts` covered the happy path) →
+  **effectively 100%** (27/28, 1 accepted equivalent) in a single
+  verify round. New file `routes-usage-mutation.test.ts`. One genuine
+  equivalent, verified empirically: the `num()` helper's `typeof v !==
+"string"` guard forced always-false is unreachable-different, since
+  Express's default query parser only ever produces
+  string/string[]/undefined for `req.query` values, and `Number()` of
+  any reachable `string[]`/`undefined` is always `NaN`. Two reusable
+  techniques for the `?client=` filter: an asymmetric 2-client fixture
+  kills the forced-false/flipped-equality directions; a repeated-query-
+  key array kills the forced-true direction via a new discriminator —
+  `bun:sqlite` throws synchronously when a plain array is bound as a
+  query parameter, turning into a 500 through Express's default error
+  handler, so asserting the response STAYS 200 is a clean kill. Run
+  with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

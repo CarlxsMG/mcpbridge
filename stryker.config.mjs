@@ -2264,6 +2264,32 @@
 //   the DELETE handler's log() call was verified with a spyOn(loggerMod,
 //   "log") assertion for the exact ("info", "Client unregistered", {
 //   name }) arguments.
+//   usage.ts (41 LOC — 4 read-only usage-analytics GET endpoints:
+//   /admin-api/usage/summary, /timeseries, /top-tools, /by-key) 28
+//   mutants, 57.14% baseline (16/28, existing routes-usage.test.ts
+//   covered the happy path) -> effectively 100% (27/28, 1 accepted
+//   equivalent) in a single verify round. New file
+//   `routes-usage-mutation.test.ts` (existing file left untouched, same
+//   "extend via a NEW -mutation file" convention as domain 7's
+//   health/metrics split). One genuine equivalent, verified
+//   empirically: the num() helper's `typeof v !== "string"` guard
+//   forced always-false is unreachable-different, since Express's
+//   default query parser only ever produces string/string[]/undefined
+//   for req.query values, and Number() of any reachable string[]
+//   (comma-joined via Array.prototype.toString()) or undefined is
+//   always NaN — matching the early-return's `undefined` either way.
+//   Two reusable techniques for the ?client= filter cluster (shared by
+//   both /summary and /timeseries): an asymmetric 2-client fixture (one
+//   client's calls narrowed out) kills the forced-false/emptied-string/
+//   flipped-equality directions; a repeated-query-key array (same
+//   technique as traces.ts) kills the forced-true direction, but via a
+//   NEW discriminator worth generalizing — bun:sqlite throws
+//   synchronously ("Binding expected string, TypedArray, boolean,
+//   number, bigint or null", verified empirically) when a plain array
+//   is bound as a query parameter, which Express's default error
+//   handler turns into a 500; asserting the response STAYS 200 is
+//   simpler than asserting a specific wrong-item-count the way
+//   traces.ts's cursor tests had to.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2330,16 +2356,14 @@ export default {
     // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
-    // introspection.ts DONE (see SCOPE HISTORY). Remaining domain-8
-    // files ordered smallest-LOC-first (both src/routes/ and
-    // src/routes/admin/ pooled together): usage.ts (41) < tags.ts (44)
-    // < admin/index.ts (51) < ... < admin-validators.ts (457, largest,
-    // last). Next: usage.ts (41 LOC — read-only usage analytics: 4
-    // GET endpoints wrapping src/observability/usage.ts). Existing test
-    // file `routes-usage.test.ts` (90 LOC) — run baseline before
-    // assuming a rewrite is needed. Scope:
-    // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/usage.ts",
+    // introspection.ts, usage.ts DONE (see SCOPE HISTORY). Remaining
+    // domain-8 files ordered smallest-LOC-first (both src/routes/ and
+    // src/routes/admin/ pooled together): tags.ts (44) <
+    // admin/index.ts (51) < ... < admin-validators.ts (457, largest,
+    // last). Next: tags.ts (44 LOC). Existing test file
+    // `routes-tags.test.ts` — run baseline before assuming a rewrite is
+    // needed. Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/tags.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
