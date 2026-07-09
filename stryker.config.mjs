@@ -1184,6 +1184,23 @@
 //     equivalent — reasoning about one specific sub-scenario doesn't
 //     mean every mutation Stryker generated on that span shares the same
 //     fate.
+//   tool-mock.ts (58 LOC, src/tool-meta/ — per-tool mock/
+//   virtualization: "always"/"fallback" canned-response config CRUD)
+//   23 mutants, 95.65% baseline (22/23) -> **100.00% (23/23), clean**
+//   in a single verify round (first try). NOTE: yet another naming
+//   gotcha — its dedicated test is NOT `tool-mock.test.ts`, it's plain
+//   `src/tool-policies/__tests__/mock.test.ts` (the "tool-" prefix is
+//   dropped from the test filename entirely). Also has indirect
+//   coverage from proxy.ts's own C6/C7/C11 dispatch-pipeline test
+//   files, out of scope here (those exercise proxy.ts's OWN mock-
+//   branching logic, not this file's simple config CRUD). One new
+//   `tool-mock-mutation.test.ts` in `src/tool-policies/__tests__/`,
+//   authored directly (1 baseline survivor). Scope:
+//   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`. Closed:
+//   `row.enabled === 1` forced always-true, never observed since every
+//   existing test only ever persisted `enabled: true` — one direct
+//   `enabled: false` round-trip test closed it. No new equivalence
+//   classes.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1249,17 +1266,16 @@ export default {
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
     // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts,
     // response-cache.ts, oauth.ts, upstream-auth.ts, redaction.ts,
-    // tool-examples.ts, tool-tags.ts, sanitize.ts done. Next:
-    // tool-mock.ts (58 LOC, src/tool-meta/ — per-tool mock/
-    // virtualization CRUD). NOTE: yet another naming gotcha — its
-    // dedicated test is NOT tool-mock.test.ts, it's plain
-    // `src/tool-policies/__tests__/mock.test.ts` (the "tool-" prefix is
-    // dropped in the test filename). Also has indirect coverage from
-    // proxy.ts's own C6/C7/C11 dispatch-pipeline test files (out of
-    // scope here — those test proxy.ts's OWN mock-branching logic, not
-    // this file's simple config CRUD). Scope:
-    // STRYKER_TEST_SCOPE="src/tool-policies/__tests__".
-    "src/tool-meta/tool-mock.ts",
+    // tool-examples.ts, tool-tags.ts, sanitize.ts, tool-mock.ts done.
+    // Next (and FINAL domain-5 file): tool-sensitivity.ts (48 LOC,
+    // src/tool-meta/). Confirmed 1:1 test dir:
+    // `src/tool-meta/__tests__/tool-sensitivity.test.ts` (same 2-file
+    // scope as tool-tags.ts, alongside it). Scope:
+    // STRYKER_TEST_SCOPE="src/tool-meta/__tests__". Once this closes,
+    // domain 5 (src/tool-policies + src/tool-meta + src/content-filtering
+    // + src/backend-auth) is COMPLETE — next up is domain 6
+    // (src/discovery).
+    "src/tool-meta/tool-sensitivity.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

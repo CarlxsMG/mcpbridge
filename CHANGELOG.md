@@ -922,6 +922,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   span whose OTHER effects a normal positive test already kills — always
   check the verify-round survivor list before writing a mutant off.
   Run with `STRYKER_TEST_SCOPE="src/content-filtering/__tests__"`.
+- **Mutation testing — domain 5, `tool-mock.ts`** (58 LOC,
+  `src/tool-meta/` — per-tool mock/virtualization:
+  "always"/"fallback" canned-response config CRUD). 23 mutants, 95.65%
+  baseline (22/23) → **100.00% (23/23), clean** in a single verify
+  round. Test file is `src/tool-policies/__tests__/mock.test.ts` (the
+  "tool-" prefix is dropped from the test filename entirely — yet
+  another naming gotcha in this domain). One new
+  `tool-mock-mutation.test.ts`, authored directly (1 baseline
+  survivor). Closed: `row.enabled === 1` forced always-true, never
+  observed since every existing test only ever persisted
+  `enabled: true` — one direct `enabled: false` round-trip test closed
+  it. No new equivalence classes. Run with
+  `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
 
 ### Docs
 
