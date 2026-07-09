@@ -1938,14 +1938,66 @@
 //   beforeEach, truncates/reassigns both before the first assertion of
 //   the first test ever runs); and the `t.unref` always-true direction
 //   above.
+//   trace-context.ts (188 LOC — W3C Trace Context: parseTraceparent/
+//   formatTraceparent, newTraceId/newSpanId, the AsyncLocalStorage-backed
+//   per-request context, outbound traceparent/tracestate propagation)
+//   99 mutants, an already-strong 83.84% baseline (83/99, this file had
+//   ~30 pre-existing tests covering most W3C spec edge cases) -> 93.94%
+//   raw (93/99) across 2 verify rounds -> effectively 100% (4 documented
+//   equivalents + 2 accepted timeouts). Test dir mirrors 1:1
+//   (`src/observability/__tests__/`). Scope:
+//   `STRYKER_TEST_SCOPE="src/observability/__tests__"`. 14 baseline
+//   survivors, authored directly (no agent round). Key findings:
+//   - **The established "regex dual-technique" needed a THIRD variant
+//     for anchor-removal specifically, distinct from character-class-
+//     negation and quantifier-reduction.** All three of this file's
+//     `^...{N}$`-shaped regexes (TRACE_ID_RE/SPAN_ID_RE/FLAGS_RE) had
+//     both their `^` and `$` anchors survive — existing tests only
+//     tried inputs SHORTER than the required length, which an
+//     anchor-less regex still correctly rejects (nothing to match).
+//     Needed inputs exactly ONE CHARACTER TOO LONG that still CONTAIN a
+//     full valid run at the start or end — an anchored regex correctly
+//     rejects these (the extra character makes an exact match
+//     impossible), but an anchor-dropped one matches the embedded valid
+//     substring anyway.
+//   - **NEW equivalence-reasoning chain: an early guard can be masked by
+//     the VERY NEXT guard for a specific input class, and that masking
+//     can itself explain why chasing a "kill" for the early guard
+//     always fails.** `if (value === "") return null;` (line 59) looked
+//     like an easy, obviously-real gap — a whitespace-only input
+//     reduces to `""` only after `.trim()`, a genuinely distinct path
+//     from an already-empty string literal. But `"".split("-")` always
+//     yields exactly `[""]` (a single-element array), so the VERY NEXT
+//     guard, `if (parts.length < 4) return null;` (line 63, still real
+//     when line 59 is the mutant under test), independently catches
+//     every empty-value case anyway (`1 < 4` is always true). A test
+//     that looked like it should kill line 59 was written, run, and
+//     STILL failed to kill it on the verify round — re-investigating
+//     (rather than assuming the test was buggy) revealed line 59 is
+//     ALSO a genuine equivalent, for the exact same structural reason
+//     already established for line 63's own mutant. General lesson:
+//     when a seemingly-obvious new test doesn't kill its target mutant
+//     on verify, check whether a DOWNSTREAM guard (not just an upstream
+//     one) independently produces the identical outcome before assuming
+//     the test itself is wrong.
+//   4 documented equivalents total (59 x2, 63, 70) all trace to the SAME
+//   underlying fact: every one of parseTraceparent's early guards for a
+//   malformed/incomplete input is REDUNDANT with either the
+//   `parts.length < 4` check or one of the three field-format regexes,
+//   since an `undefined` destructured field or an empty split result
+//   always fails a later check the same way. 2 accepted timeouts on
+//   setCurrentSpan's ALS-guard (same "genuine Stryker timeout =
+//   detected" convention as auth.ts/transports.ts/mcp-server.ts).
 //
-// ── DOMAIN 7 (src/observability, 6 of 10 files: anomaly.ts, monitor.ts,
-// alerts.ts, health.ts, traffic.ts, tracing.ts) IN PROGRESS. Remaining
-// 4 files (all WITH existing dedicated tests directly under
-// src/observability/__tests__/): trace-context.ts (188 LOC),
-// trace-store.ts (224), usage.ts (224), metrics.ts (322) — always run
-// baseline first per file since some may already be clean (see
-// registry-alias-index.ts/tool-index.ts precedent in domain 3). ──
+// ── DOMAIN 7 (src/observability, 7 of 10 files: anomaly.ts, monitor.ts,
+// alerts.ts, health.ts, traffic.ts, tracing.ts, trace-context.ts) IN
+// PROGRESS. Remaining 3 files (all WITH existing dedicated tests
+// directly under src/observability/__tests__/): trace-store.ts (224
+// LOC), usage.ts (224), metrics.ts (322, largest of the remaining 3 —
+// note health-metrics.test.ts likely covers PART of metrics.ts too,
+// given its shared file name) — always run baseline first per file
+// since some may already be clean (see registry-alias-index.ts/
+// tool-index.ts precedent in domain 3). ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2010,18 +2062,18 @@ export default {
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 = src/observability/
     // (10 files) is IN PROGRESS: anomaly.ts, monitor.ts, alerts.ts,
-    // health.ts, traffic.ts, tracing.ts DONE (see SCOPE HISTORY, all
-    // effectively 100%). Next: trace-context.ts (188 LOC) — dedicated
-    // test at src/observability/__tests__/trace-context.test.ts
-    // (confirmed via ls when this domain was first surveyed). Scope:
+    // health.ts, traffic.ts, tracing.ts, trace-context.ts DONE (see
+    // SCOPE HISTORY, all effectively 100%). Next: trace-store.ts
+    // (224 LOC) — dedicated test at
+    // src/observability/__tests__/trace-store.test.ts (confirmed via ls
+    // when this domain was first surveyed). Scope:
     // STRYKER_TEST_SCOPE="src/observability/__tests__". Run baseline
     // first — may already be partially/fully clean (see
     // registry-alias-index.ts/tool-index.ts precedent in domain 3).
-    // After trace-context.ts: trace-store.ts (224), usage.ts (224),
-    // metrics.ts (322, largest of the remaining 3 — note
-    // health-metrics.test.ts likely covers PART of metrics.ts too,
-    // given its shared file name).
-    "src/observability/trace-context.ts",
+    // After trace-store.ts: usage.ts (224), metrics.ts (322, largest of
+    // the remaining 2 — note health-metrics.test.ts likely covers PART
+    // of metrics.ts too, given its shared file name).
+    "src/observability/trace-store.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

@@ -1274,6 +1274,38 @@ retentionMs`) needing the DEFAULT `now`, since the existing test
   load-balancer.ts/quarantine.ts), and the `t.unref` always-true
   direction above. Run with
   `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
+- **Mutation testing — domain 7, `trace-context.ts`** (188 LOC,
+  `src/observability/` — W3C Trace Context: `parseTraceparent`/
+  `formatTraceparent`, `newTraceId`/`newSpanId`, the
+  AsyncLocalStorage-backed per-request context, outbound
+  traceparent/tracestate propagation). 99 mutants, an already-strong
+  83.84% baseline (83/99) → 93.94% raw (93/99) across 2 verify rounds →
+  **effectively 100%** (4 documented equivalents + 2 accepted
+  timeouts). Test dir mirrors 1:1 (`src/observability/__tests__/`). One
+  new test file, authored directly (14 baseline survivors). Closed: all
+  three anchored hex-length regexes (`TRACE_ID_RE`/`SPAN_ID_RE`/
+  `FLAGS_RE`) had both their `^`/`$` anchors survive, needing a third
+  regex-mutant technique beyond the established character-class-
+  negation/quantifier-reduction pair — an input exactly one character
+  too long that still contains a full valid run at the start or end,
+  which an anchored regex correctly rejects but an anchor-dropped one
+  matches anyway; an uppercase-hex flags value that parses to a
+  perfectly finite number (defeating a later `Number.isFinite` check)
+  but fails the regex's lowercase-only requirement; and the all-zero
+  trace-id/span-id collision-retry guards, driven via a `randomBytes`
+  mock returning an all-zero buffer once. One new equivalence-reasoning
+  chain: a seemingly-obvious new test for the `value === ""` guard was
+  written and run, but still failed to kill its target mutant on
+  verify — re-investigating (rather than assuming the test was wrong)
+  revealed the guard is masked by the very next line's `parts.length <
+4` check for every empty-value input, the same structural reason
+  already established for that next guard's own equivalence. 4
+  documented equivalents total, all tracing to the same underlying
+  fact: every early guard for a malformed/incomplete traceparent is
+  redundant with either the length check or one of the three
+  field-format regexes, since an `undefined` destructured field or an
+  empty split result always fails a later check the same way. Run with
+  `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
 
 ### Docs
 
