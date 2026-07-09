@@ -731,6 +731,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exercised a single segment). No new equivalence classes this file —
   every survivor was a genuine, closable gap. Run with
   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
+- **Mutation testing — domain 5, `response-cache.ts`** (159 LOC,
+  `src/tool-policies/` — the per-tool GET response cache: durable
+  `tool_cache` config plus a process-local TTL+LRU in-memory store). 83
+  mutants, 77.11% baseline (64/83) → 96.39% raw (80/83) across 2 verify
+  rounds → **effectively 100%** (1 documented equivalent + 2 accepted
+  timeouts). Test file is cross-directory
+  (`src/proxy/__tests__/response-cache.test.ts`, not
+  `src/tool-policies/__tests__/`) — same gotcha class as
+  `load-balancer.ts`/`auth.ts`. One new
+  `response-cache-mutation.test.ts`, authored directly (19 baseline
+  survivors). Closed: the TTL `<=` vs `<` expiry-boundary tick;
+  `expiresAt`'s `* 1000` vs `/ 1000` arithmetic (a 100s TTL entry must
+  still be live 50ms later); the LRU-eviction loop's
+  `oldest === undefined` guard (needed a negative `cacheMaxEntries` to
+  drain the store to empty mid-loop — this mutant resolved as a genuine
+  Timeout on verify, not a Killed status, same convention as its
+  sibling while-body-emptied mutant); `purgeClientCache`'s entire
+  cluster (had zero prior coverage — one test asserting a target
+  client's keys are dropped AND an unrelated client's keys survive
+  kills the emptied-body, emptied-prefix, and
+  startsWith↔endsWith-swap mutants together); and `stableStringify`'s
+  null/primitive/undefined/array/multi-key-object edge cases (only ever
+  exercised via plain single-level objects before). One real miss on
+  the first verify round: a single-key-object test can't reach the
+  outer object branch's `.join(",")` separator between MULTIPLE
+  key:value pairs (nothing to join with only one entry) — needed a
+  2-key object to observe the dropped comma. **New finding, unrelated
+  to any mutant**: the file's "space-joined key" doc comment is stale —
+  the actual field separator in all 3 template literals (`cacheKey`,
+  `purgeToolCache`'s and `purgeClientCache`'s `prefix`) is a literal NUL
+  byte (`\0`), not a space, confirmed via a raw byte read; the file has
+  been binary in git's own eyes since its first commit. Functionally
+  harmless (the keys are process-local, in-memory-only) but flagged
+  rather than silently fixed, since changing production source is out
+  of scope for a test-only mutation backstop pass. Run with
+  `STRYKER_TEST_SCOPE="src/tool-policies/__tests__ src/proxy/__tests__"`.
 
 ### Docs
 

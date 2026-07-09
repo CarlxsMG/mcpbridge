@@ -883,6 +883,48 @@
 //   the existing test only ever exercised a single segment). No new
 //   equivalence classes this file — every survivor was a genuine,
 //   closable gap. Run with `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
+//   response-cache.ts (159 LOC, src/tool-policies/ — the per-tool GET
+//   response cache: durable tool_cache config + a process-local TTL+LRU
+//   in-memory store)  83 mutants  77.11% baseline (64/83, the existing
+//   response-cache.test.ts — cross-directory, at
+//   src/proxy/__tests__/response-cache.test.ts — fully covers config
+//   persistence and the proxy-integration happy paths, but the TTL
+//   boundary, expiresAt arithmetic, purgeClientCache (ZERO coverage),
+//   stableStringify's null/undefined/primitive/array edge cases, and
+//   both test-only helpers' own effects were thin) -> 96.39% raw
+//   (80/83) across 2 verify rounds -> effectively 100% (1 documented
+//   equivalent + 2 accepted timeouts). One new
+//   `response-cache-mutation.test.ts`, authored directly (19 baseline
+//   survivors). Scope:
+//   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__ src/proxy/__tests__"`.
+//   Closed: the TTL `<=` vs `<` expiry-boundary tick (exact-tick clock
+//   stubbing); expiresAt's `* 1000` vs `/ 1000` arithmetic (a 100s TTL
+//   entry must still be live 50ms later, which only a correct
+//   multiplication guarantees); the LRU-eviction loop's `oldest ===
+//   undefined` guard (needed a negative `cacheMaxEntries` to drain the
+//   store to empty mid-loop — the guard's own forced-false mutant
+//   surfaced as a genuine Timeout on verify, same "detected via
+//   timeout" convention as the sibling while-body-emptied mutant, not a
+//   Killed status); purgeClientCache's entire cluster (had ZERO prior
+//   coverage) via one test asserting a target client's keys are dropped
+//   AND an unrelated client's keys survive, which simultaneously kills
+//   the emptied-body, emptied-prefix, and startsWith<->endsWith-swap
+//   mutants; and stableStringify's null/primitive/undefined/array/
+//   multi-key-object edge cases (only ever exercised via plain single-
+//   level objects before), including a real miss on the FIRST verify
+//   round — a single-key-object test can't reach the outer object
+//   branch's `.join(",")` separator between MULTIPLE key:value pairs
+//   (nothing to join with only one entry), needing a 2-key object to
+//   observe the dropped comma. **New finding, unrelated to any mutant**:
+//   the file's "space-joined key" doc comment is stale — the actual
+//   field separator in all 3 template literals (cacheKey,
+//   purgeToolCache's and purgeClientCache's `prefix`) is a literal NUL
+//   byte (`\0`), not a space, confirmed via a raw byte read; the file
+//   has been binary in git's own eyes since its very first commit.
+//   Functionally harmless (the keys are process-local and in-memory
+//   only) but flagged to the user rather than silently fixed, since
+//   fixing production source is out of scope for a test-only mutation
+//   backstop pass.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -946,14 +988,15 @@ export default {
   },
   mutate: [
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
-    // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts done.
-    // Next: response-cache.ts (159 LOC, src/tool-policies/ — tied with
-    // pagination.ts at 159 LOC). CONFIRMED test-dir gotcha: its dedicated
-    // test lives at `src/proxy/__tests__/response-cache.test.ts`, NOT
-    // `src/tool-policies/__tests__/` — same cross-directory class as
-    // load-balancer.ts (src/mcp/__tests__) and auth.ts (domain 4). Scope:
-    // STRYKER_TEST_SCOPE="src/tool-policies/__tests__ src/proxy/__tests__".
-    "src/tool-policies/response-cache.ts",
+    // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts,
+    // response-cache.ts done. Next: oauth.ts (155 LOC, src/backend-auth/
+    // — client-credentials OAuth token acquisition/caching for upstream
+    // backend auth). CONFIRMED test-dir gotcha: its dedicated test lives
+    // at `src/security/__tests__/oauth.test.ts` — a leftover from before
+    // backend-auth's files moved out of src/security/ (see
+    // [[backend_structure_audit]]). Scope:
+    // STRYKER_TEST_SCOPE="src/security/__tests__".
+    "src/backend-auth/oauth.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
