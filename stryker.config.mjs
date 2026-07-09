@@ -1576,6 +1576,47 @@
 // src/catalog, src/secrets, src/config*, ws-proxy.ts, server.ts,
 // index.ts). Multi-session program, not finishable in one sitting. ──
 //
+// DOMAIN 7 — src/observability/ (10 files, ~1955 LOC). 7 of the 10 files
+// already have a dedicated test file directly under
+// src/observability/__tests__/ (health.ts, traffic.ts, tracing.ts,
+// trace-context.ts, trace-store.ts, usage.ts, metrics.ts); anomaly.ts,
+// monitor.ts, and alerts.ts have none.
+//   anomaly.ts (46 LOC — usage-spike detection: detectUsageSpike compares
+//   a recent-window call rate against a preceding baseline-window rate)
+//   28 mutants, 82.14% baseline (23/28, from the existing dedicated test
+//   covering the 4 main spike/no-spike scenarios) -> 96.43% raw (27/28)
+//   in a single verify round -> effectively 100% (the 1 raw survivor is a
+//   documented equivalent). Test dir is CROSS-DIRECTORY (same gotcha
+//   class as domain 5's backend-auth and domain 3's load-balancer.ts):
+//   the dedicated test lives at
+//   `src/admin/entities/__tests__/anomaly.test.ts`, not
+//   `src/observability/__tests__/` — new
+//   `anomaly-mutation.test.ts` added to that SAME cross-directory
+//   location. Scope: `STRYKER_TEST_SCOPE="src/observability/__tests__
+//   src/admin/entities/__tests__"`. One new test file, authored directly
+//   (5 baseline survivors, small enough for one pass, no agent round).
+//   Closed: two `?? default` fallbacks (`opts.factor ?? 3`,
+//   `opts.minCalls ?? 20`) mutated to `&&` — only observable with an
+//   explicit TRUTHY value distinct from the literal default (both
+//   operators agree whenever the left side is falsy/nullish, and the
+//   existing tests always passed the SAME value as the default, e.g.
+//   `factor: 3`, masking the mutant); an exact `recent.calls === minCalls`
+//   boundary (`>=` vs `>`); and an exact `recentRate === baselineRate *
+//   factor` threshold boundary (`>=` vs `>`), computed by hand from the
+//   real default windows (5-min recent, 60-min baseline) to land exactly
+//   on the boundary with no floating-point risk. One documented
+//   equivalent: `baselineRate === 0 ? true : ...` forced to always take
+//   the else branch. Verified genuinely unobservable: `recent.calls`/
+//   `baseline.calls` are SQL `COUNT(*)` results (always >= 0), and
+//   `config.anomalyRecentWindowMs`/`anomalyBaselineWindowMs` are read via
+//   `Number(process.env.X) || <default>` — the `||` fallback means an
+//   env value of 0 (or unset/NaN) can never actually produce a
+//   zero-or-negative window, only the positive default — so whenever
+//   baselineRate genuinely is 0, `recentRate` is always a non-negative
+//   finite number, making `recentRate >= 0` (the mutant's recomputed
+//   check) unconditionally true too, same as the real code's direct
+//   `true`. Next: monitor.ts (227 LOC, no existing dedicated test).
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -1637,24 +1678,22 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 6 (src/discovery) is COMPLETE (see SCOPE HISTORY) — all 4
-    // files (tool-naming.ts, openapi-discovery.ts, graphql-discovery.ts,
-    // curl-postman-discovery.ts) effectively 100%. Domain 7 =
-    // src/observability/ (10 files) starts here with the smallest file
-    // that has zero dedicated test coverage: anomaly.ts (46 LOC — usage
-    // anomaly detection). Surveyed the directory: anomaly.ts (46),
-    // health.ts (126), traffic.ts (152), tracing.ts (185),
-    // trace-context.ts (188), trace-store.ts (224), usage.ts (224),
-    // monitor.ts (227), alerts.ts (261), metrics.ts (322). Existing test
-    // files (health-metrics.test.ts, metrics.test.ts,
-    // trace-context.test.ts, trace-store.test.ts, tracing.test.ts,
-    // traffic.test.ts, usage.test.ts) cover 7 of the 10 — anomaly.ts,
-    // monitor.ts, and alerts.ts have none. Test dir not yet confirmed
-    // 1:1 — check src/observability/__tests__/ first (it exists, holds
-    // the 7 listed files above) before assuming for anomaly.ts
-    // specifically. Scope:
-    // STRYKER_TEST_SCOPE="src/observability/__tests__".
-    "src/observability/anomaly.ts",
+    // Domain 6 (src/discovery) is COMPLETE. Domain 7 = src/observability/
+    // (10 files) is IN PROGRESS: anomaly.ts DONE (see SCOPE HISTORY,
+    // effectively 100%, test dir CROSS-DIRECTORY at
+    // src/admin/entities/__tests__/anomaly-mutation.test.ts). Next:
+    // monitor.ts (227 LOC — no existing dedicated test; confirm test dir
+    // before assuming src/observability/__tests__/1:1, same gotcha class
+    // as anomaly.ts). Scope:
+    // STRYKER_TEST_SCOPE="src/observability/__tests__" (widen if
+    // monitor.ts's own test turns out cross-directory too). After
+    // monitor.ts: alerts.ts (261 LOC, also no existing dedicated test),
+    // then the 7 files with existing test files (health.ts, traffic.ts,
+    // tracing.ts, trace-context.ts, trace-store.ts, usage.ts,
+    // metrics.ts) — always run baseline first per file since some may
+    // already be clean (see registry-alias-index.ts/tool-index.ts
+    // precedent in domain 3).
+    "src/observability/monitor.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

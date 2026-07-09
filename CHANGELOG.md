@@ -1077,6 +1077,31 @@ tool-tags.test.ts`) — unlike `tool-examples.ts`'s cross-directory
   `STRYKER_TEST_SCOPE="src/discovery/__tests__"`. **This closes domain 6
   (src/discovery, 4 files) entirely** — domain 7 (`src/observability`,
   10 files) is next.
+- **Mutation testing — domain 7, `anomaly.ts`** (46 LOC,
+  `src/observability/` — usage-spike detection: `detectUsageSpike`
+  compares a recent-window call rate against a preceding baseline-window
+  rate). 28 mutants, 82.14% baseline (23/28) → 96.43% raw (27/28) in a
+  single verify round → **effectively 100%** (1 documented equivalent).
+  Test dir is cross-directory: the dedicated test lives at
+  `src/admin/entities/__tests__/anomaly.test.ts`, not
+  `src/observability/__tests__/` — the new
+  `anomaly-mutation.test.ts` was added alongside it. One new test file,
+  authored directly. Closed: two `?? default` fallbacks
+  (`opts.factor ?? 3`, `opts.minCalls ?? 20`) mutated to `&&` — only
+  observable with an explicit truthy value distinct from the literal
+  default, since the existing tests always passed the same value as the
+  default; and two exact boundary checks (`recent.calls === minCalls`,
+  `recentRate === baselineRate * factor`), the second computed by hand
+  from the real default windows (5-minute recent, 60-minute baseline) to
+  land exactly on the boundary with no floating-point risk. One
+  documented equivalent: a `baselineRate === 0 ? true : ...` ternary
+  forced to always take the else branch is unobservable because SQL
+  `COUNT(*)` call counts are always non-negative and the window-size env
+  fallback (`Number(process.env.X) || <default>`) can never actually
+  produce a zero-or-negative window, so whenever baselineRate is
+  genuinely 0, the recomputed comparison is unconditionally true too.
+  Run with `STRYKER_TEST_SCOPE="src/observability/__tests__
+src/admin/entities/__tests__"`.
 
 ### Docs
 
