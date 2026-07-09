@@ -1485,6 +1485,17 @@ null` fallback and `validationError`'s exact `"VALIDATION_ERROR"`
   breaker counts are asserted as a DELTA around adding one fresh breaker
   of each kind (closed/open/half-open) within a single test, rather than
   as absolute values. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `introspection.ts`** (41 LOC,
+  `src/routes/` — `GET /clients`, `GET /clients/:name/tools`, `DELETE
+/clients/:name`, each guarded by `adminAuth` directly rather than a
+  shared router). 28 mutants, 0% baseline (zero test coverage of any
+  kind existed before this) → **100.00% (28/28), clean** in a single
+  verify round. Test dir mirrors 1:1 (`src/routes/__tests__/`), new
+  file `routes-introspection-mutation.test.ts`. Standard real-HTTP +
+  `registry.register()`/`unregister()` fixtures; the `DELETE` handler's
+  `log()` call verified with a `spyOn` assertion for the exact
+  `("info", "Client unregistered", { name })` arguments. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

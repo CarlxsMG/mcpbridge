@@ -2254,6 +2254,16 @@
 //   either `-` to `+` in `total - open - half_open` changes the closed
 //   delta from the correct +1 to +3, since the open/half/total deltas
 //   of 1/1/3 only cancel correctly under the original signs).
+//   introspection.ts (41 LOC — GET /clients, GET /clients/:name/tools,
+//   DELETE /clients/:name; each route guarded by adminAuth directly,
+//   not via a shared router) 28 mutants, 0% baseline (zero coverage
+//   existed) -> **100.00% (28/28), clean** in a single verify round.
+//   Test dir mirrors 1:1 (`src/routes/__tests__/`), new file
+//   `routes-introspection-mutation.test.ts`. Authored directly.
+//   Standard real-HTTP + registry.register()/unregister() fixtures;
+//   the DELETE handler's log() call was verified with a spyOn(loggerMod,
+//   "log") assertion for the exact ("info", "Client unregistered", {
+//   name }) arguments.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2319,17 +2329,17 @@ export default {
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 (src/observability,
     // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
-    // admin/connect.ts, admin/monitors.ts, admin/overview.ts DONE (see
-    // SCOPE HISTORY). Remaining domain-8 files ordered smallest-LOC-first
-    // (both src/routes/ and src/routes/admin/ pooled together):
-    // introspection.ts/usage.ts (41, tied) < tags.ts (44) <
-    // admin/index.ts (51) < ... < admin-validators.ts (457, largest,
-    // last). Next: introspection.ts (41 LOC). No existing dedicated
-    // test file (confirmed via ls). usage.ts (also 41 LOC) already has
-    // routes-usage.test.ts — check its baseline right after
-    // introspection.ts closes. Scope:
+    // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
+    // introspection.ts DONE (see SCOPE HISTORY). Remaining domain-8
+    // files ordered smallest-LOC-first (both src/routes/ and
+    // src/routes/admin/ pooled together): usage.ts (41) < tags.ts (44)
+    // < admin/index.ts (51) < ... < admin-validators.ts (457, largest,
+    // last). Next: usage.ts (41 LOC — read-only usage analytics: 4
+    // GET endpoints wrapping src/observability/usage.ts). Existing test
+    // file `routes-usage.test.ts` (90 LOC) — run baseline before
+    // assuming a rewrite is needed. Scope:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/introspection.ts",
+    "src/routes/usage.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
