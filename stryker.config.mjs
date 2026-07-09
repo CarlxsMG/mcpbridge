@@ -925,6 +925,45 @@
 //   only) but flagged to the user rather than silently fixed, since
 //   fixing production source is out of scope for a test-only mutation
 //   backstop pass.
+//   oauth.ts (155 LOC, src/backend-auth/ — outbound OAuth2
+//   client-credentials with auto-refresh: config CRUD + a per-client
+//   TTL-cached token mint)  86 mutants  66.28% baseline (57/86, the
+//   existing oauth.test.ts covers config CRUD + cache-hit/refresh-after-
+//   expiry + proxy-injection happy paths, but never inspects the actual
+//   outbound mint request, never exercises INVALID_URL/
+//   SECRETS_PROVIDER_ERROR, never feeds the mint fetcher a non-ok
+//   response/missing access_token/missing expires_in, and never calls
+//   getOAuthBearer for an unconfigured client) -> 96.51% raw (83/86)
+//   across 2 verify rounds -> effectively 100% (3 documented
+//   equivalents). Test dir is CROSS-DIRECTORY:
+//   `src/security/__tests__/oauth.test.ts` — a leftover from before
+//   backend-auth's files moved out of src/security/. One new
+//   `oauth-mutation.test.ts` in that SAME directory (matching the
+//   sibling file's location), authored directly (29 baseline
+//   survivors). Scope: `STRYKER_TEST_SCOPE="src/security/__tests__"`.
+//   Closed: the INVALID_URL branch (a malformed tokenUrl); both
+//   directions of the SECRETS_PROVIDER_ERROR ternary (an Error throw vs.
+//   a non-Error throw from `encryptSecret`, via `spyOn` on
+//   `localProvider.encryptSecret`); `__resetOAuthForTesting`'s own
+//   effect (a stale per-client token cache is not reused after a manual
+//   reset, and the real clock resumes ticking — neither had ever been
+//   observed directly, since every OTHER test immediately re-stubs the
+//   clock right after calling it); the entire outbound mint request
+//   shape (method/headers/body, with and without a configured scope —
+//   no existing test had ever inspected the actual request at all); a
+//   non-ok token-endpoint response; a response missing `access_token`;
+//   and the `expires_in`-vs-3600-default TTL fork (a real, small
+//   `expires_in` forces an early refresh; a missing one falls back to
+//   3600s, not `NaN`). **Real miss on the first verify round, worth
+//   generalizing**: the non-ok-response test's mocked body initially had
+//   no `access_token` field, so forcing the `!resp.ok` guard false still
+//   converged on `null` via the DOWNSTREAM "missing access_token" guard
+//   firing instead — the same "one guard's forced-false mutant is
+//   masked by a later guard reaching the identical conclusion"
+//   pattern already seen on quarantine.ts and registry-persistence.ts.
+//   Fixed by giving the mocked non-ok response a VALID access_token, so
+//   the mutant's fall-through would have produced a real, non-null token
+//   instead of independently re-converging on null.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -989,14 +1028,13 @@ export default {
   mutate: [
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
     // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts,
-    // response-cache.ts done. Next: oauth.ts (155 LOC, src/backend-auth/
-    // — client-credentials OAuth token acquisition/caching for upstream
-    // backend auth). CONFIRMED test-dir gotcha: its dedicated test lives
-    // at `src/security/__tests__/oauth.test.ts` — a leftover from before
-    // backend-auth's files moved out of src/security/ (see
-    // [[backend_structure_audit]]). Scope:
+    // response-cache.ts, oauth.ts done. Next: upstream-auth.ts (94 LOC,
+    // src/backend-auth/ — per-client upstream auth: static header/query/
+    // basic-auth injection). Same cross-directory gotcha as oauth.ts:
+    // its dedicated test lives at
+    // `src/security/__tests__/upstream-auth.test.ts`. Scope:
     // STRYKER_TEST_SCOPE="src/security/__tests__".
-    "src/backend-auth/oauth.ts",
+    "src/backend-auth/upstream-auth.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
