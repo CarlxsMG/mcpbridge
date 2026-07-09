@@ -1677,6 +1677,25 @@ body.weight === "number"` guard forced always-true — since
   mutants requires a truthy non-string fixture value (e.g. a number), not
   merely an absent one, since an absent value stays falsy either way. Run
   with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `metrics.ts`** (84 LOC, `src/routes/` —
+  `GET /metrics` Prometheus snapshot, `GET /metrics/legacy` JSON). 60
+  mutants, 0% baseline (zero test coverage of any kind existed before
+  this) → **effectively 100%** (59/60 killed + 1 accepted equivalent)
+  after 2 verify rounds. New file `routes-metrics-mutation.test.ts`. Also
+  wired directly in `server.ts`, not `adminRoutes()` (same as
+  schedules.ts). One genuine equivalent: `c.tools?.length` emptied to
+  `c.tools.length` — `RegisteredClient.tools` is a required array field,
+  never optional, so the `?.` can never observably matter. Key
+  techniques: reused `registry.markClientStatus(...)` (a real production
+  setter) to construct degraded/unreachable fixture clients; used
+  delta-based assertions for the two genuinely process-wide-singleton
+  metrics this file reads (rate-limiter bucket sizes, legacy tool-call
+  counters); a 1-healthy/1-degraded fixture failed to kill the legacy
+  endpoint's healthy-filter equality mutant (both real and mutant code
+  coincidentally counted 1), fixed with an asymmetric 2-healthy/1-degraded
+  fixture; and Bun's fetch re-serializes Content-Type parameter order, so
+  that assertion needs substring checks, not exact equality. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

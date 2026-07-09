@@ -2555,6 +2555,39 @@
 //   merely an absent/undefined one — an absent value is already falsy
 //   both before and after a forced-true mutation, so it can't
 //   distinguish the mutant from real code.
+//   metrics.ts (84 LOC — GET /metrics Prometheus snapshot, GET
+//   /metrics/legacy JSON) 60 mutants, 0% baseline (zero coverage
+//   existed within the scoped test run) -> effectively 100% (59/60
+//   killed + 1 accepted equivalent) after 2 verify rounds. New file
+//   `routes-metrics-mutation.test.ts`. Also wired directly in
+//   `server.ts`, not `adminRoutes()` (same as schedules.ts — now 2/2
+//   domain-8 files outside `src/routes/admin/` following this
+//   pattern). One genuine equivalent: `c.tools?.length` ->
+//   `c.tools.length` (OptionalChaining) in the registryToolsTotal
+//   reduce — `RegisteredClient.tools` (src/mcp/types.ts) is a
+//   REQUIRED array field, never optional, at every construction site,
+//   so the `?.` can never observably matter. Key techniques: (1)
+//   reused `registry.markClientStatus(name, status)` — a real
+//   production setter — to construct degraded/unreachable clients
+//   directly, rather than raw SQL, since registry.register() always
+//   creates "healthy" clients; (2) reused the delta-based-assertion
+//   technique (domain 7's metrics.ts, domain 4's rate-limiter.ts) for
+//   the two genuinely process-wide-singleton metrics this file reads
+//   (rate-limiter bucket sizes, legacy tool-call counters) since those
+//   are never reset between tests or files, while registry-derived
+//   gauges could use exact/absolute assertions since `withApp`'s
+//   per-test client cleanup keeps the registry itself isolated; (3) a
+//   1-healthy/1-degraded fixture for the legacy endpoint's
+//   `c.status === "healthy"` filter FAILED to kill its
+//   EqualityOperator (`!==`) mutant — both real and mutant code
+//   coincidentally count exactly 1 client (the healthy one vs. the
+//   degraded one) — fixed with an ASYMMETRIC 2-healthy/1-degraded
+//   fixture (same "mixed fixture" class as approvals.ts's tri-value
+//   filter, but here the trap is a 1-vs-1 tie, not a single-item
+//   fixture); (4) Bun's fetch/undici re-serializes Content-Type
+//   parameter order, so a Content-Type assertion must check substrings
+//   (`toContain`), not exact string equality, when the response sets
+//   multiple `;`-separated parameters.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2624,12 +2657,13 @@ export default {
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
-    // schedules.ts DONE (see SCOPE HISTORY). Remaining domain-8 files
-    // ordered smallest-LOC-first (both src/routes/ and
-    // src/routes/admin/ pooled together): metrics.ts (84) < ... <
-    // admin-validators.ts (457, largest, last). Next: metrics.ts
-    // (84 LOC). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/metrics.ts",
+    // schedules.ts, metrics.ts DONE (see SCOPE HISTORY). Remaining
+    // domain-8 files ordered smallest-LOC-first (both src/routes/ and
+    // src/routes/admin/ pooled together): health.ts/teams.ts (87,
+    // tied — health.ts first) < ... < admin-validators.ts (457,
+    // largest, last). Next: health.ts (87 LOC). Scope:
+    // STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/health.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
