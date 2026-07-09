@@ -856,6 +856,33 @@
 //     that never supplies MORE than the cap's worth of input. When a
 //     pipeline ends in a bounding/capping operation, always test the
 //     over-the-cap case explicitly, not just the transform/filter steps.
+//   pagination.ts (159 LOC, src/tool-policies/ — cursor/page/link-header
+//   pagination strategies: getPaginationConfig/setPaginationConfig,
+//   getByPath, parseNextLink's RFC-5988 Link-header regex, withItems'
+//   nested-path response rewrite)  114 mutants  75.44% baseline
+//   (86/114, decent existing end-to-end coverage of the 3 strategies via
+//   proxyToolCall, but the config enabled/pageParam round-trip
+//   boundaries, getByPath's null-intermediate guard, parseNextLink's
+//   regex whitespace/quote boundaries + malformed-segment `continue`,
+//   and withItems' null/non-object/nested-descent guards were all
+//   thin) -> **100.00% (114/114), clean** in a single verify round. One
+//   new `pagination-mutation.test.ts`, authored directly (29 baseline
+//   survivors, well under the multi-agent Workflow threshold). Closed:
+//   the `enabled`/`pageParam` `??`->`&&` read/write round-trip pair (a
+//   truthy pageParam persisted and read back proves both directions at
+//   once); getByPath's `cur === null` guard isolated from its sibling
+//   `typeof` check via an explicit null intermediate; 3 distinct
+//   parseNextLink regex-boundary clusters (whitespace before/after the
+//   `;rel=` separator, spacing around `rel = "next"`, and optional-quote
+//   removal on an unquoted `rel=next` value) plus a `.trim()` gap on the
+//   captured URL and the malformed-segment `if (!m) continue` guard
+//   (proven via a garbage segment ahead of a valid one); and withItems'
+//   whole-body and per-intermediate-segment null/non-object guards plus
+//   the nested-descent loop's condition/direction/body (needing a
+//   multi-segment itemsPath with an untouched sibling property, since
+//   the existing test only ever exercised a single segment). No new
+//   equivalence classes this file — every survivor was a genuine,
+//   closable gap. Run with `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -919,13 +946,14 @@ export default {
   },
   mutate: [
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
-    // load-balancer.ts, quarantine.ts, guardrails.ts done. Next:
-    // pagination.ts (159 LOC, src/tool-policies/ — tied with
-    // response-cache.ts at 159 LOC, picked first alphabetically/by original
-    // wc -l ordering). Scope: verify per-file which __tests__ dir actually
-    // holds the test (domain 5 has at least one cross-directory gotcha
-    // already — see load-balancer.ts's entry above).
-    "src/tool-policies/pagination.ts",
+    // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts done.
+    // Next: response-cache.ts (159 LOC, src/tool-policies/ — tied with
+    // pagination.ts at 159 LOC). CONFIRMED test-dir gotcha: its dedicated
+    // test lives at `src/proxy/__tests__/response-cache.test.ts`, NOT
+    // `src/tool-policies/__tests__/` — same cross-directory class as
+    // load-balancer.ts (src/mcp/__tests__) and auth.ts (domain 4). Scope:
+    // STRYKER_TEST_SCOPE="src/tool-policies/__tests__ src/proxy/__tests__".
+    "src/tool-policies/response-cache.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

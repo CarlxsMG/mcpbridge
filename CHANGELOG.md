@@ -707,6 +707,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `String(args)` fallback (`"[object Object]"`) from the mutant's
   leftover `undefined`. Run with
   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
+- **Mutation testing — domain 5, `pagination.ts`** (159 LOC,
+  `src/tool-policies/` — cursor/page/link-header pagination strategies:
+  `getPaginationConfig`/`setPaginationConfig`, `getByPath`,
+  `parseNextLink`'s RFC-5988 Link-header regex, `withItems`' nested-path
+  response rewrite). 114 mutants, 75.44% baseline (86/114) →
+  **100.00% (114/114), clean** in a single verify round. One new
+  `pagination-mutation.test.ts`, authored directly (29 baseline
+  survivors, well under this program's multi-agent workflow threshold).
+  Closed: the `enabled`/`pageParam` `??`→`&&` read/write round-trip pair
+  (a single truthy `pageParam` persisted and read back proves both
+  directions at once); `getByPath`'s `cur === null` guard isolated from
+  its sibling `typeof` check via an explicit null intermediate; three
+  distinct `parseNextLink` regex-boundary clusters (whitespace
+  before/after the `;rel=` separator, spacing around `rel = "next"`, and
+  optional-quote removal on an unquoted `rel=next` value) plus a
+  `.trim()` gap on the captured URL and the malformed-segment
+  `if (!m) continue` guard (proven via a garbage segment ahead of a
+  valid one); and `withItems`' whole-body and per-intermediate-segment
+  null/non-object guards plus the nested-descent loop's
+  condition/direction/body (needing a multi-segment `itemsPath` with an
+  untouched sibling property, since the existing test only ever
+  exercised a single segment). No new equivalence classes this file —
+  every survivor was a genuine, closable gap. Run with
+  `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
 
 ### Docs
 
