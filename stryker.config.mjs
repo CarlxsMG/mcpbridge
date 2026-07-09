@@ -1484,6 +1484,97 @@
 //     structurally-similar objects (a reference vs. its resolved
 //     target), double-check which one the actual conditional reads
 //     from before trusting a fixture's shape.
+//   curl-postman-discovery.ts (469 LOC, src/discovery/ — the largest
+//   domain-6 file and the final one: tokenizeShellLike, parseCurlCommand/
+//   parseSingleCurlCommand, parsePostmanCollection/parsePostmanLeaf, and
+//   the shared toParsedUrl/extractPathAndQuery/extractBodyKeys/
+//   generateNameFromPath/describeSource helpers)  580 mutants, the
+//   LARGEST cold-round survivor/timeout count in this entire program
+//   (252 survivors + 27 timeouts baseline) -> 95.17% raw-detected
+//   (513 killed + 39 accepted timeouts, 552/580) across 1 verify round
+//   after the cold round plus 1 closing pass -> effectively 100% (all
+//   28 raw survivors are documented equivalents). Test dir mirrors 1:1
+//   (`src/discovery/__tests__/`). Scope:
+//   `STRYKER_TEST_SCOPE="src/discovery/__tests__"`. Given the scale, used
+//   a **5-agent parallel Workflow** — one agent per functional cluster
+//   (cp1: tokenizeShellLike + CURL_BOOLEAN_FLAGS/SUPPORTED_METHODS; cp2:
+//   parseSingleCurlCommand's flag-parsing loop; cp3:
+//   parsePostmanCollection's top-level validation + walk() +
+//   parsePostmanLeaf; cp4: extractPostmanUrl + extractPostmanBodyKeys;
+//   cp5: the shared helpers toParsedUrl/extractPathAndQuery/
+//   extractBodyKeys/generateNameFromPath/describeSource) — each authoring
+//   its own `curl-postman-discovery-mutation-{cp1..cp5}.test.ts` (73
+//   tests total), followed by one manual closing pass
+//   (`curl-postman-discovery-mutation-final.test.ts`, 6 tests) fixing 5
+//   real gaps the cold round left plus confirming 1 new equivalent.
+//   Learning from graphql-discovery.ts's orchestrator-citation-error
+//   lesson, each cp agent was told up front to re-query
+//   `reports/mutation/result.json` directly rather than trust prose —
+//   this round had zero citation-mislabeling incidents. Key findings:
+//   - **A backward-walking escape-scan mutant is a genuine, real
+//     infinite loop — not just theoretically hangable.** `j += 2` (the
+//     double-quote escape handler's index advance) flipped to `j -= 2`
+//     sends `j` walking BACKWARD once it passes a mid-string escape,
+//     re-scanning the same characters forever; confirmed via a
+//     hand-simulated copy with a 1000-iteration safety guard before
+//     writing the real test, which is expected (and confirmed) to
+//     surface as a Stryker Timeout, not a Killed status.
+//   - **A `typeof x !== "string"` guard's forced-true half is only
+//     observable with a genuinely NON-STRING input, not an empty
+//     string.** Every existing empty/whitespace-only test already used
+//     a real string, for which this half of the guard was already false
+//     regardless of the mutation — needed a literal `null` passed
+//     through a type-cast to bypass the TS type at the JS boundary.
+//   - **A line-continuation replacement-space mutant needs a
+//     continuation with NO other adjacent whitespace.** The cold round's
+//     two tests both coincidentally had a real whitespace character
+//     already sitting next to the backslash+newline match (from
+//     surrounding text), so dropping the match's OWN replacement space
+//     left an unrelated space behind anyway; needed a continuation
+//     sitting directly between two words with nothing else nearby.
+//   - **The SAME "caller normalization masks a helper's mutant" pattern
+//     already seen on openapi-discovery.ts's generateToolName recurred
+//     here for the Postman folder-label join.** The cold round's
+//     Capitalized segment-name fixture ("Alpha"/"Beta"/"Widget") let
+//     `sanitizeToolName`'s OWN camelCase-boundary regex
+//     (`replace(/([a-z0-9])([A-Z])/g, "$1_$2")`) reinsert the exact same
+//     underscores a dropped `.join("_")` separator would have provided;
+//     all-LOWERCASE segment names avoid the masking entirely. The
+//     `.filter(Boolean)` drop needed a SEPARATE fixture (a genuinely
+//     empty leaf name, not undefined) since sanitizeToolName only strips
+//     LEADING invalid characters, not trailing ones.
+//   - **A `.trim()` drop on a literal-path URL fallback needs a fixture
+//     with actual surrounding whitespace** — the cold round's
+//     unparseable-URL fixtures never had any whitespace to strip.
+//   - **New genuine equivalent**: `parsed !== null` forced always-true
+//     in extractBodyKeys' JSON-object-shape check. For any non-null
+//     parsed value this was already true regardless of the mutation; for
+//     a JSON body that's literally `null`, the forced-true mutant
+//     attempts `Object.keys(null)` (throws) inside the SAME try block
+//     that wraps the original `JSON.parse` call, so it's caught by the
+//     SAME catch (a no-op) and falls through to the urlencoded-regex
+//     fallback, which can't match the literal text "null" either — both
+//     real and mutant converge on the identical final `[]`. Verified via
+//     a hand-traced simulation of both routes reaching the same result.
+//   - Every one of the 28 final raw survivors cross-referenced cleanly
+//     against the 5 agents' own already-investigated equivalence claims
+//     (10 in cp1's tokenizeShellLike main loop, 3 in cp2's tokens.length/
+//     t.length boundary checks, 2 in cp3's item-typeof/header-filter
+//     checks, 5 in cp4's Postman-URL `[]`-fallback family, 7 in cp5's
+//     toParsedUrl/extractBodyKeys/generateNameFromPath family) plus the
+//     1 new equivalent (parsed!==null) found in the closing pass — zero
+//     NEW unexplained gaps after the closing pass's 5 fixes, a first for
+//     a file this large in the program.
+//
+// ── DOMAIN 6 (src/discovery, 4 files: tool-naming.ts, openapi-
+// discovery.ts, graphql-discovery.ts, curl-postman-discovery.ts) COMPLETE.
+// This closes out the largest cold-round survivor/timeout count seen in
+// the whole program (curl-postman-discovery.ts's 279) with zero
+// unexplained gaps remaining after just one closing pass. Domains 7-10
+// remain entirely unstarted: src/observability (10 files), src/routes +
+// src/routes/admin, src/admin, and the remaining misc (src/lib, src/cli,
+// src/catalog, src/secrets, src/config*, ws-proxy.ts, server.ts,
+// index.ts). Multi-session program, not finishable in one sitting. ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1546,17 +1637,24 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 6 continues (see SCOPE HISTORY) — tool-naming.ts,
-    // openapi-discovery.ts, graphql-discovery.ts done. Next (and FINAL
-    // domain-6 file): curl-postman-discovery.ts (469 LOC,
-    // src/discovery/ — the largest domain-6 file). Confirmed 1:1 test
-    // dir: src/discovery/__tests__/curl-postman-discovery.test.ts.
-    // Scope: STRYKER_TEST_SCOPE="src/discovery/__tests__". Given its
-    // size, expect another large survivor count needing a parallel
-    // Workflow, consistent with openapi-discovery.ts/graphql-
-    // discovery.ts. Once this closes, domain 6 (src/discovery) is
-    // COMPLETE — domain 7 (src/observability) is next.
-    "src/discovery/curl-postman-discovery.ts",
+    // Domain 6 (src/discovery) is COMPLETE (see SCOPE HISTORY) — all 4
+    // files (tool-naming.ts, openapi-discovery.ts, graphql-discovery.ts,
+    // curl-postman-discovery.ts) effectively 100%. Domain 7 =
+    // src/observability/ (10 files) starts here with the smallest file
+    // that has zero dedicated test coverage: anomaly.ts (46 LOC — usage
+    // anomaly detection). Surveyed the directory: anomaly.ts (46),
+    // health.ts (126), traffic.ts (152), tracing.ts (185),
+    // trace-context.ts (188), trace-store.ts (224), usage.ts (224),
+    // monitor.ts (227), alerts.ts (261), metrics.ts (322). Existing test
+    // files (health-metrics.test.ts, metrics.test.ts,
+    // trace-context.test.ts, trace-store.test.ts, tracing.test.ts,
+    // traffic.test.ts, usage.test.ts) cover 7 of the 10 — anomaly.ts,
+    // monitor.ts, and alerts.ts have none. Test dir not yet confirmed
+    // 1:1 — check src/observability/__tests__/ first (it exists, holds
+    // the 7 listed files above) before assuming for anomaly.ts
+    // specifically. Scope:
+    // STRYKER_TEST_SCOPE="src/observability/__tests__".
+    "src/observability/anomaly.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

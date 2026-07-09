@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to a file via `Bun.spawn` instead of `child_process.exec`, working around
   Node's hard-coded 1 MB `maxBuffer` that would otherwise kill the child
   with SIGTERM and surface as `ConfigError: There were failed tests in the
-  initial test run` despite a green 1227/0 suite. Initial run on
+initial test run` despite a green 1227/0 suite. Initial run on
   2026-07-06: **4/6 mutants killed (66.67% mutation score)**, completed in
   3m 26s on a single worker. The two surviving mutants are real coverage
   gaps and are tracked as P2-2 follow-up work:
@@ -26,10 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `BooleanLiteral` (line 17, replacement `true`) — if the catch returns
     `true` instead of `false`, any error path returns "match" — a security
     hole.
-  Both survive because the existing test only exercises the catch path
-  (`safeCompare("short", "verylong…")` → 403, no throw). New `compare.test.ts`
-  cases are needed: `(a, a) === true`, and a hex-error path that verifies
-  the catch returns `false`. Run with `bun run test:mutate`.
+    Both survive because the existing test only exercises the catch path
+    (`safeCompare("short", "verylong…")` → 403, no throw). New `compare.test.ts`
+    cases are needed: `(a, a) === true`, and a hex-error path that verifies
+    the catch returns `false`. Run with `bun run test:mutate`.
 - **P2-2 — closed the two surviving `compare.ts` mutants**. Added
   `src/security/__tests__/compare.test.ts` with 9 cases: equal-inputs
   return `true` (kills Mutant 4 — strict `.toBe(true)` rejects the
@@ -206,8 +206,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the `wsUrl.replace(/^ws/, "http")` regex's `^`-anchor-dropped mutant is
   masked by the adjacent URL-prefix validation one line earlier (every
   reachable `wsUrl` already starts with "ws"/"wss", so anchored and
-  unanchored replace agree). Up from a 69.94% baseline. Suite grows 1608 →
-  1627. Run with `STRYKER_TEST_SCOPE=src/proxy/__tests__ bun run test:mutate`.
+  unanchored replace agree). Up from a 69.94% baseline. Suite grows 1608 → 1627. Run with `STRYKER_TEST_SCOPE=src/proxy/__tests__ bun run test:mutate`.
 - **Mutation testing — domain 3 (`src/mcp/`), `registry.ts`** (1318 LOC, the
   dynamic client/tool registry — 2nd-largest backend file). 799 mutants,
   **98.25% raw (785/799)**, up from a 51.19% baseline (409/799), **effectively
@@ -237,7 +236,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dedicated unit-test file, only indirect route-level coverage). 552
   mutants, **99.09% raw (547/552)**, up from a 37.86% baseline (209/552),
   **effectively 100%**. 6 new `src/mcp/__tests__/registration-mutation-
-  rg1..rg5b.test.ts` files: shared helpers, the REST path (split across two
+rg1..rg5b.test.ts` files: shared helpers, the REST path (split across two
   files — its validation gauntlet vs. tool-resolution+register, since it's
   the single densest function in the file), the MCP-upstream path, and the
   GraphQL path (split across two files — validation vs. discovery+register).
@@ -245,7 +244,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   module-load-only `$ref` schema resolver (runs once against the fixed,
   valid, bundled `openapi.yaml`; not exported, so no test can supply a
   different input to observe a mutant there), and 1 is a `pathname ||
-  "/graphql"` fallback that's provably dead code (`new URL(...).pathname`
+"/graphql"` fallback that's provably dead code (`new URL(...).pathname`
   is never falsy for any valid URL). Authored across a cold round (6 agents,
   one per cluster) plus a final manual pass closing 3 genuine gaps a
   cluster's line-number references had drifted past (the GraphQL discovery
@@ -258,7 +257,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   authorization model: role tier + sensitive/`__confirm` step-up). 490
   mutants, **99.80% raw (489/490)**, up from a 39.39% baseline (193/490),
   **effectively 100%**. 5 new `src/mcp/__tests__/system-tools-mutation-
-  st1..st5.test.ts` files: helpers + the dispatch/auth logic (the
+st1..st5.test.ts` files: helpers + the dispatch/auth logic (the
   security-critical part), read-tier tools, operate-tier simple tools,
   `sys_register_client` (the densest single tool), and admin-tier
   mint/revoke. Most survivors sat in each tool's static `inputSchema`/
@@ -266,7 +265,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per tool against a hand-transcribed schema, rather than one test per
   literal field. A manual pass after the cold round found and fixed a real
   coordination gap between two agents (one tested `runSystemTool`'s
-  *generic* sensitive/`__confirm` gate via a single example tool; a sibling
+  _generic_ sensitive/`__confirm` gate via a single example tool; a sibling
   assumed that covered it, but each tool's own `sensitive: true` literal is
   an independent AST node never actually exercised for `sys_mint_key`/
   `sys_revoke_key` specifically) plus a genuine mislabeling (a `str()`/
@@ -277,7 +276,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it killed, a later one showed it surviving again with zero test changes
   in between, and the relevant test passes reliably standalone. Suite grows
   1991 → 2093. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run
-  test:mutate`.
+test:mutate`.
 - **Mutation testing — domain 3 (`src/mcp/`), `registry-persistence.ts`**
   (410 LOC, every SQLite interaction the registry does — 3 row-to-DTO
   converters plus `RegistryPersistence`'s REST/MCP registration and
@@ -288,7 +287,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Registry`/lock layer. Three verify rounds, each closing a genuine gap
   the previous one exposed (a `cb_half_open_timeout_ms` null-check twin to
   two already-covered siblings; an empty-object `circuitBreaker: {} ->
-  undefined` collapse; an empty-but-parsed `params: {}` object not
+undefined` collapse; an empty-but-parsed `params: {}` object not
   collapsing a tool-override row to `undefined`; the client-level `enabled`
   field on the read-hydration path, distinct from the already-covered
   per-tool one) — the same round-to-round survivor churn seen on other
@@ -323,7 +322,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `registry.getClient` to throw) since the MCP SDK absorbs every other
   failure mode internally and never rethrows to the caller. Suite grows
   2112 → 2168. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run
-  test:mutate`.
+test:mutate`.
 - **Mutation testing — domain 3 (`src/mcp/`), `mcp-upstream.ts`** (the
   outbound MCP upstream connection pool + dispatcher: `buildTransport`,
   `mcpResultToProxyResult`, `McpUpstreamPool`'s
@@ -356,7 +355,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that `spyOn` cannot intercept a class export's raw constructor
   arguments (breaks `new` semantics on the SDK's transport classes).
   Suite grows 2168 → 2192. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__
-  bun run test:mutate`.
+bun run test:mutate`.
 - **Mutation testing — domain 3 (`src/mcp/`), `mcp-server.ts`** (264 LOC,
   the security-critical core: `createMcpServer()` builds a per-scope MCP
   `Server` binding tools/list + tools/call's full authorization gate —
@@ -382,7 +381,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a Bearer-prefix-bypass (a non-`"Bearer "`-prefixed header whose blind
   `.slice(7)` would have accidentally landed on the real configured admin
   key); a separate `.slice(7)` vs `.slice(7).trim()` mutant (needed a
-  token with a stray *internal* space, since Node's own HTTP parser
+  token with a stray _internal_ space, since Node's own HTTP parser
   strips edge whitespace on the whole header value before the app ever
   sees it); a bundle/client name-collision confused-deputy gap in
   `mcpParamsForScope`; a client `.find()` "always match the first"
@@ -391,7 +390,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mirror of `mcp-upstream.ts`'s `getClientVersion()` technique); a
   `progressToken`-forced-true gap where the obvious fix (wait for a
   notification) was itself masked by schema validation dropping malformed
-  notifications on *both* the real and mutant paths — the reliable signal
+  notifications on _both_ the real and mutant paths — the reliable signal
   turned out one layer earlier, observing whether the SDK auto-generates
   an outbound progress token at all; and a system-scope no-credential
   tools/list gap. The 2 final equivalents: `isBundleEnabled`/
@@ -401,7 +400,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   guaranteed to already exist with real (possibly empty, but always
   truthy) `Set` objects, making the `?? []`/`?.` fallbacks dead code.
   Suite grows 2192 → 2241. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__
-  bun run test:mutate`.
+bun run test:mutate`.
 - **Mutation testing — domain 3 (`src/mcp/`), `mcp-discovery.ts`** (117
   LOC — MCP upstream tool discovery: name normalization, collision
   de-dup, description fallback, paginated tools/list connect flow). 53
@@ -446,7 +445,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whitespace/non-content for any realistic input, plus
   `Number.isFinite()`'s own spec-mandated non-coercion. Suite grows
   2248 → 2263. Run with `STRYKER_TEST_SCOPE=src/mcp/__tests__ bun run
-  test:mutate`.
+test:mutate`.
 - **Mutation testing — domain 3 (`src/mcp/`), `registry-alias-index.ts`**
   (96 LOC — `RegistryAliasIndex`, the display-name alias map kept in
   lockstep with the registry). 28 mutants, **100.00% (28/28) baseline,
@@ -488,7 +487,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   redundant `.toString()` branch). `src/db/migrations.ts` (1024 LOC)
   evaluated and **skipped** — static SQL data, same reasoning as
   `types.ts`. Run with `STRYKER_TEST_SCOPE="src/db/__tests__
-  src/middleware/__tests__"`.
+src/middleware/__tests__"`.
 - **Mutation testing — domain 4, `auth.ts`** (207 LOC, `src/middleware/` —
   admin auth (Bearer OR session+CSRF), MCP data-plane auth (env keys / DB-
   managed keys / JWT / "no auth material → allow all" fallback), and the
@@ -585,7 +584,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   waved through" boolean, genuine-access-granted and admin-role paths);
   `leader-lease.ts`'s failure-path log assertions and the stop-function's
   actual `clearInterval` call (via `spyOn(globalThis, "clearInterval"/
-  "setInterval")`); `rate-counters.ts`'s prune-boundary arithmetic (using
+"setInterval")`); `rate-counters.ts`'s prune-boundary arithmetic (using
   directly-injectable `now` rather than mocking `Date.now`), per-key/
   per-tool/per-end-user counter isolation, and the exact-shape returns of
   all three public functions; and `cors.ts`'s port-wildcard-flag
@@ -594,14 +593,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   variants across rounds, all structurally redundant with
   `matchesOriginEntry`'s own `"*"` handling plus a separately-computed
   `isWildcard` flag downstream); `json-depth.ts`'s `typeof root !==
-  "object"` check (every JS primitive funnels through `Object.values()`
+"object"` check (every JS primitive funnels through `Object.values()`
   to the same final result; the one input that WOULD diverge, `undefined`
   as the root, is unreachable — the middleware guards against it one
   layer up); and `rate-counters.ts`'s `++`/`--opCount` (an unexported
   counter observable only via `% 200 === 0`, which fires with identical
   frequency regardless of direction). Run with the same
-  `STRYKER_TEST_SCOPE`. **This closes domain 4 (`src/db`+`src/middleware`
-  +`src/net`) entirely.**
+  `STRYKER_TEST_SCOPE`. **This closes domain 4 (`src/db`+`src/middleware` +`src/net`) entirely.**
 - **Mutation testing — domain 5, `context-budget.ts`** (368 LOC,
   `src/tool-policies/` — the per-tool "context budget" guardrail:
   deterministic byte truncation plus opt-in LLM summarization via
@@ -694,9 +692,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (documented equivalent — cache-hit's `?? null` normalizes the mutant's
   leftover `undefined` back to `null`, and `if (re && …)` treats both as
   falsy, verified via `bun -e`); `setGuardrails`' `.slice(0,
-  MAX_DENY_PATTERNS)` cap being silently dropped from the end of the
+MAX_DENY_PATTERNS)` cap being silently dropped from the end of the
   trim/filter chain (the agent's pipeline test only fed 4 entries, never
-  the 20-item cap); the "clear when empty" path only *looking* like a
+  the 20-item cap); the "clear when empty" path only _looking_ like a
   DELETE via `getGuardrails` (`rowToGuardrails`'s own null-collapse
   returns `null` for a fallen-through empty upsert too — needed a raw
   `SELECT COUNT(*)` against `tool_guardrails` to prove the row is
@@ -790,7 +788,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   forces an early refresh; a missing one falls back to 3600s, not
   `NaN`). One real miss on the first verify round: the non-ok-response
   test's mocked body initially had no `access_token`, so forcing the
-  `!resp.ok` guard false still converged on `null` via the *downstream*
+  `!resp.ok` guard false still converged on `null` via the _downstream_
   "missing access_token" guard firing instead — same
   guard-masks-guard pattern seen on `quarantine.ts` and
   `registry-persistence.ts`. Fixed by giving that mocked response a
@@ -876,7 +874,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `registry.ts`'s own `getClientDetail`/`listAllTools` integration
   tests) → **100.00% (33/33), clean** in a single verify round. Test
   file is at the same directory as its source (`src/tool-meta/__tests__/
-  tool-tags.test.ts`) — unlike `tool-examples.ts`'s cross-directory
+tool-tags.test.ts`) — unlike `tool-examples.ts`'s cross-directory
   location, this one mirrors 1:1. One new `tool-tags-mutation.test.ts`,
   authored directly (1 baseline survivor). Closed: `normalizeTag`'s
   dropped `.trim()` — every tag in the existing suite was already
@@ -955,6 +953,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `src/content-filtering` + `src/backend-auth`, 16 files, ~2311 LOC) —
   14 files needed new tests, all effectively 100% (most exactly 100%).
   Domain 6 (`src/discovery`) is next.
+
 - **Mutation testing — domain 6, `tool-naming.ts`** (58 LOC,
   `src/discovery/` — shared tool-name normalization for auto-discovery
   sources: camelCase→snake_case, invalid-char substitution,
@@ -995,7 +994,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remaining real gaps plus verifying two of the agents' own equivalence
   claims. Key findings: `generateToolName`'s result always flows
   through `sanitizeToolName` at its only call site, which masks a
-  case-conversion mutant entirely and masks *most* (but not all —
+  case-conversion mutant entirely and masks _most_ (but not all —
   trailing path segments survive) artifacts from a dropped
   `.filter(Boolean)`; a `?? fallback` value consumed by exactly one
   narrow check can be unobservable when any placeholder text fails
@@ -1036,6 +1035,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its resolved typeMap target) in an initial fixture, silently failing
   to exercise the intended branch at all. Run with
   `STRYKER_TEST_SCOPE="src/discovery/__tests__"`.
+- **Mutation testing — domain 6, `curl-postman-discovery.ts`** (469 LOC,
+  `src/discovery/` — the largest domain-6 file and the final one:
+  `tokenizeShellLike`, `parseCurlCommand`/`parseSingleCurlCommand`,
+  `parsePostmanCollection`/`parsePostmanLeaf`, and the shared
+  `toParsedUrl`/`extractPathAndQuery`/`extractBodyKeys`/
+  `generateNameFromPath`/`describeSource` helpers). 580 mutants — the
+  largest cold-round survivor/timeout count in this entire program (252
+  survivors + 27 timeouts baseline) → 95.17% raw-detected (513 killed +
+  39 accepted timeouts) → **effectively 100%** (all 28 raw survivors are
+  documented equivalents). Given the scale, used a **5-agent parallel
+  workflow** — one agent per functional cluster (tokenizer, cURL
+  flag-parsing loop, Postman collection walk, Postman URL/body-key
+  extraction, shared helpers) — each authoring its own test file (73
+  tests total), followed by one manual closing pass (6 tests) fixing 5
+  real gaps plus confirming 1 new equivalent. Learning from
+  `graphql-discovery.ts`'s orchestrator-citation-error lesson, every
+  agent was told up front to re-query the raw Stryker JSON report rather
+  than trust prose — zero citation-mislabeling incidents this round. Key
+  findings: a backward-walking escape-scan mutant (`j += 2` → `j -= 2`)
+  is a genuine real infinite loop, confirmed via a hand-simulated
+  1000-iteration-guarded copy, expected to (and did) surface as a
+  Stryker Timeout rather than Killed; a `typeof x !== "string"` guard's
+  forced-true half is only observable with a genuinely non-string input
+  (every existing empty-string test already made that half false
+  regardless of the mutation); a line-continuation replacement-space
+  mutant needed a continuation with NO other adjacent whitespace, since
+  the cold round's fixtures happened to have a real space nearby anyway;
+  the SAME "caller normalization masks a helper's mutant" pattern from
+  `openapi-discovery.ts` recurred for the Postman folder-label join —
+  `sanitizeToolName`'s own camelCase-boundary regex reinserts the exact
+  underscores a dropped `.join("_")` separator would have provided
+  whenever every segment name is Capitalized, so all-lowercase segments
+  were needed to avoid the masking; and a new genuine equivalent,
+  `parsed !== null` forced always-true in `extractBodyKeys`' JSON-shape
+  check for a literal-`null` body — the forced-true mutant's
+  `Object.keys(null)` throw is caught by the SAME try/catch wrapping the
+  original `JSON.parse` call, falling through to a urlencoded-regex
+  fallback that can't match the text `"null"` either, so both real and
+  mutant converge on the identical final `[]`. Run with
+  `STRYKER_TEST_SCOPE="src/discovery/__tests__"`. **This closes domain 6
+  (src/discovery, 4 files) entirely** — domain 7 (`src/observability`,
+  10 files) is next.
 
 ### Docs
 
