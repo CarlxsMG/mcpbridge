@@ -1008,6 +1008,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   always a real array, `schema` always truthy), making two
   optional-chaining mutants genuine equivalents despite the optional
   types. Run with `STRYKER_TEST_SCOPE="src/discovery/__tests__"`.
+- **Mutation testing — domain 6, `graphql-discovery.ts`** (313 LOC,
+  `src/discovery/` — GraphQL introspection auto-discovery: type-mapping
+  helpers, `typeToJsonSchema`, `buildSelectionSet`, `synthesizeQuery`,
+  `fieldToTool`, `discoverToolsFromGraphQl`). 272 mutants, 43.38%
+  baseline (118/272) → 98.16% raw (267/272) across 2 verify rounds →
+  **effectively 100%** (5 documented equivalents). Given the very
+  large survivor count (154, the largest cold-round count this
+  session), used a **5-agent parallel workflow** — one agent per
+  functional cluster — each authoring its own test file (57 tests
+  total), followed by one manual closing pass (5 tests) fixing the
+  remaining real gaps. Key findings: an agent independently
+  re-verified the task's own mutant citations against the actual
+  Stryker JSON report and caught a mislabeling in the orchestrating
+  prompt — worth telling future multi-agent prompts to verify
+  citations against the raw report rather than trusting prose
+  descriptions; a `.join(", ")` separator mutant survived because a
+  test used a single-arg field (nothing to actually join) and an
+  `?? []` fallback mutant survived because a later `.filter()` step
+  happened to erase the placeholder's content regardless of which
+  fallback fired; two type-mapping guards needed deliberately
+  MALFORMED fixtures (a type whose `kind` tag and payload field are
+  inconsistent) to isolate their forced-true mutants, since the code
+  never cross-validates them and every realistic fixture keeps them
+  consistent; and a recursive function's branching read `kind` off the
+  wrong one of two structurally-similar objects (a type reference vs.
+  its resolved typeMap target) in an initial fixture, silently failing
+  to exercise the intended branch at all. Run with
+  `STRYKER_TEST_SCOPE="src/discovery/__tests__"`.
 
 ### Docs
 

@@ -1393,6 +1393,97 @@
 //     optionality reflects real runtime possibility — call it directly
 //     and inspect the actual return value before writing an
 //     equivalence claim.
+//   graphql-discovery.ts (313 LOC, src/discovery/ — GraphQL
+//   introspection auto-discovery: unwrap/printTypeRef/scalarToJsonType
+//   helpers, typeToJsonSchema, buildSelectionSet, synthesizeQuery,
+//   fieldToTool, discoverToolsFromGraphQl)  272 mutants, 43.38%
+//   baseline (118/272 — the existing test covers the happy path for
+//   query+mutation discovery, collision handling, includeMutations,
+//   and the introspection-disabled/errors/too-many-types guards, but
+//   the individual type-mapping branches, the deeply recursive
+//   buildSelectionSet, and most fetch/size-limit details were thin) ->
+//   98.16% raw (267/272) across 2 verify rounds -> effectively 100% (5
+//   documented equivalents). Test dir mirrors 1:1
+//   (`src/discovery/__tests__/`). Scope:
+//   `STRYKER_TEST_SCOPE="src/discovery/__tests__"`. Given the
+//   VERY LARGE survivor count (154, the largest cold-round count all
+//   session), used a **5-agent parallel Workflow** — one agent per
+//   functional cluster (gd1: unwrap/printTypeRef/scalarToJsonType/
+//   typeToJsonSchema, 40 survivors; gd2: buildSelectionSet alone, 62
+//   survivors — the single densest cluster this whole program has
+//   seen; gd3: synthesizeQuery/fieldToTool, 12; gd4:
+//   discoverToolsFromGraphQl's fetch/size-limits/JSON-parse/cyclic-
+//   check, 29; gd5: discoverToolsFromGraphQl's errors/introspection-
+//   disabled/too-many-types/field-iteration, 11) — each authoring its
+//   own `graphql-discovery-mutation-{gd1..gd5}.test.ts` (57 tests
+//   total, ~415k subagent tokens / 71 tool calls / ~8 min wall-clock,
+//   cold round drove 43.38%->95.59% raw, 12 survivors), followed by
+//   one manual closing pass
+//   (`graphql-discovery-mutation-final.test.ts`, 5 new tests) fixing
+//   the 7 real gaps and confirming 5 documented equivalents.
+//   Key findings:
+//   - **An agent independently re-verified the task's own mutant
+//     citations against the actual Stryker JSON report and caught a
+//     mislabeling.** The gd3 agent's prompt (authored by the
+//     orchestrating session, not Stryker itself) mis-described two
+//     survivors as the `usedNames.has(base)` collision check at lines
+//     214/216 — the agent cross-checked `reports/mutation/result.json`
+//     directly and found the ACTUAL mutants at those coordinates were
+//     the `arg.description` guard and the `defaultValue == null`
+//     comparison instead (the collision check itself had ZERO
+//     survivors, already fully killed). It targeted the real mutants,
+//     not the mis-described ones. General lesson for future multi-
+//     agent prompts in this program: always tell agents to verify
+//     citations against the raw JSON report rather than trusting
+//     prose-transcribed line:col descriptions — copy/summarization
+//     errors in the ORCHESTRATING session's own prompt are a real,
+//     now-observed failure mode, not just a hypothetical one.
+//   - **The manual closing pass found TWO test-construction traps that
+//     both independently produced a false sense of coverage**: (1) a
+//     `.join(", ")` separator mutant survived because the test used a
+//     field with only ONE arg — with a single-element array, `.join`
+//     never has anything to actually join, so the separator's value
+//     never gets consulted regardless of what it is; needed a 2+-arg
+//     field to exercise it. (2) An `?? []` fallback-array mutant
+//     survived because the test happened to construct a scenario where
+//     the placeholder's own content got filtered out by a LATER
+//     `.filter((t) => t.name)` step regardless of which fallback fired
+//     (a plain string element has no `.name`, so it's dropped from the
+//     resulting Map either way) — needed a test that inspects
+//     `types.length` directly via a boundary check (a `graphqlMaxTypes`
+//     cap forced to exactly 0) instead of relying on the placeholder's
+//     content surviving downstream.
+//   - **Two type-mapping guards (`kind === "ENUM"`, `kind ===
+//     "INPUT_OBJECT"`) needed deliberately MALFORMED fixtures to
+//     isolate their forced-true mutants** — every well-formed
+//     introspection fixture keeps `kind` and the corresponding data
+//     field (`enumValues`/`inputFields`) mutually consistent (a type
+//     that's actually kind ENUM genuinely has enumValues), so forcing
+//     either kind-check to always-true never diverges from real
+//     behavior on any REALISTIC fixture. The code itself never
+//     validates this consistency, so a fixture with kind:"OBJECT" but
+//     a POPULATED enumValues/inputFields array (never sent by a real
+//     GraphQL server, but not rejected by this code either) is what
+//     actually distinguishes the forced-true mutant from real
+//     behavior. General lesson: when a type-tag field and a
+//     corresponding payload field are checked together but never
+//     cross-validated by the code under test, an internally-consistent
+//     fixture can't isolate a forced-true mutant on the tag check
+//     alone — deliberately construct an inconsistent one.
+//   - **A recursive function's own type-reference `kind` field, not
+//     the typeMap entry's `kind` field, drives its branching.**
+//     `buildSelectionSet`'s `named.kind === "UNION"` check reads
+//     `kind` off the TYPE REFERENCE object (e.g. a field's `type:
+//     {kind, name, ofType}`), not off the separately-looked-up
+//     `typeMap.get(name)` entry — a fixture that sets the WRONG one
+//     (e.g. hard-coding the type reference's kind to "OBJECT" while
+//     only the typeMap entry says "UNION") silently fails to exercise
+//     the intended branch at all, with no error to signal the mistake
+//     (caught and fixed during this file's own closing pass). Whenever
+//     a recursive/graph-walking function reads a tag from one of TWO
+//     structurally-similar objects (a reference vs. its resolved
+//     target), double-check which one the actual conditional reads
+//     from before trusting a fixture's shape.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1456,11 +1547,16 @@ export default {
   },
   mutate: [
     // Domain 6 continues (see SCOPE HISTORY) — tool-naming.ts,
-    // openapi-discovery.ts done. Next: graphql-discovery.ts (313 LOC,
-    // src/discovery/ — GraphQL introspection auto-discovery). Confirmed
-    // 1:1 test dir: src/discovery/__tests__/graphql-discovery.test.ts.
-    // Scope: STRYKER_TEST_SCOPE="src/discovery/__tests__".
-    "src/discovery/graphql-discovery.ts",
+    // openapi-discovery.ts, graphql-discovery.ts done. Next (and FINAL
+    // domain-6 file): curl-postman-discovery.ts (469 LOC,
+    // src/discovery/ — the largest domain-6 file). Confirmed 1:1 test
+    // dir: src/discovery/__tests__/curl-postman-discovery.test.ts.
+    // Scope: STRYKER_TEST_SCOPE="src/discovery/__tests__". Given its
+    // size, expect another large survivor count needing a parallel
+    // Workflow, consistent with openapi-discovery.ts/graphql-
+    // discovery.ts. Once this closes, domain 6 (src/discovery) is
+    // COMPLETE — domain 7 (src/observability) is next.
+    "src/discovery/curl-postman-discovery.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
