@@ -1357,6 +1357,37 @@ retentionMs`) needing the DEFAULT `now`, since the existing test
   zero-count group at all, making the same-looking guard partially
   redundant there specifically. Run with
   `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
+- **Mutation testing — domain 7, `metrics.ts`** (322 LOC,
+  `src/observability/` — the LARGEST domain-7 file and the last one: a
+  dependency-free Prometheus text-exposition-format implementation
+  (Counter/Gauge/Histogram/MetricsRegistry primitives), ~20 exported
+  metric constant declarations used throughout the codebase, and a
+  small "legacy JSON metrics" section for the older `/metrics/legacy`
+  route). 172 mutants, 48.84% baseline (85/172) → 96.51% raw (166/172)
+  in a single verify round after the cold round → **effectively 100%**
+  (4 documented equivalents + 2 accepted timeouts). Test dir mirrors
+  1:1 (`src/observability/__tests__/`). Given the large survivor count
+  (85, the largest in domain 7), used a **4-agent parallel workflow**
+  (label helpers + Counter + Gauge; Histogram + MetricsRegistry; the
+  ~20 metric constant declarations via the bulk-schema-toEqual
+  technique; the legacy JSON metrics section), 26 tests total. All 4
+  agents completed cleanly; one manual fix was still needed afterward:
+  a cluster's initial design assumed a "pristine module state"
+  precondition that was correct for the file's own scoped Stryker run
+  but broke the full `bun run test` gate, since dozens of other
+  directories' tests exercise the same shared, un-resettable
+  module-level counter for real before `src/observability` runs
+  alphabetically in a full-tree sweep — fixed by documenting those 3
+  mutants as equivalent-in-practice instead of chasing a fragile
+  ordering assumption. This is the THIRD recurrence in this one file of
+  the same "module-level state, no reset hook, permanently touched by
+  real production code elsewhere in the suite" pattern (after a
+  session-getter default and a latencies-array empty-precondition),
+  worth treating as a standing category to check for on any future
+  un-resettable module state. Run with
+  `STRYKER_TEST_SCOPE="src/observability/__tests__"`. **This closes
+  domain 7 (`src/observability`, 10 files) entirely** — domain 8
+  (`src/routes` + `src/routes/admin`) is next.
 
 ### Docs
 

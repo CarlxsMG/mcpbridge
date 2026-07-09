@@ -2065,15 +2065,84 @@
 //     boundary can't distinguish clamped from unclamped" lesson
 //     already seen elsewhere in this program, now confirmed to need
 //     re-application even within domain 7 itself.
+//   metrics.ts (322 LOC, the LARGEST domain-7 file and the last one —
+//   a dependency-free Prometheus text-exposition-format implementation:
+//   Counter/Gauge/Histogram/MetricsRegistry primitives, ~20 exported
+//   metric constant declarations used throughout the codebase, and a
+//   small "legacy JSON metrics" section for the older /metrics/legacy
+//   route) 172 mutants, 48.84% baseline (85/172) -> 96.51% raw
+//   (166/172) in a SINGLE verify round after the cold round ->
+//   effectively 100% (4 documented equivalents + 2 accepted timeouts).
+//   Test dir mirrors 1:1 (`src/observability/__tests__/`). Scope:
+//   `STRYKER_TEST_SCOPE="src/observability/__tests__"`. Given the LARGE
+//   survivor count (85, the largest in domain 7, comparable to
+//   alerts.ts's 91), used a **4-agent parallel Workflow** (mc1: label
+//   helpers + Counter + Gauge; mc2: Histogram + MetricsRegistry; mc3:
+//   the ~20 metric constant declarations, via the bulk-schema-toEqual
+//   technique; mc4: the legacy JSON metrics section, with genuinely
+//   tricky module-state-with-no-reset-hook considerations), 26 tests
+//   total across `metrics-mutation-{mc1..mc4}.test.ts`. All 4 agents
+//   completed cleanly. A single verify round after the cold round
+//   drove 48.84% -> 96.51% directly — but one manual fix was still
+//   needed: mc4's initial design assumed a "pristine module state"
+//   precondition (verified correct for the SCOPED Stryker run, since no
+//   other file in src/observability/__tests__ touches this state
+//   first) that broke the FULL `bun run test` gate (2 real failures),
+//   since dozens of OTHER directories' tests call `recordToolCall` for
+//   real via `proxyToolCall` before `src/observability` runs
+//   alphabetically in a full-tree sweep. Key findings:
+//   - **A Workflow agent correctly verified an assumption FOR ITS OWN
+//     TEST SCOPE, but that scope was narrower than the full commit
+//     gate — always re-verify against `bun run test` (the full suite),
+//     not just the file's own scoped Stryker run, before treating a
+//     module-state assumption as safe.** mc4's "must run before
+//     anything else in this directory touches the state" reasoning was
+//     genuinely correct for `STRYKER_TEST_SCOPE="src/observability/__tests__"`
+//     (mc4's own file sorts alphabetically before the one other file
+//     in that directory that calls `recordToolCall`), but the file-
+//     discovery order across the ENTIRE `src/` tree in a full `bun run
+//     test` invocation is different — many other directories'
+//     proxy/mcp/middleware tests exercise `recordToolCall` for real via
+//     `proxyToolCall` before `observability` ever runs alphabetically.
+//     Fixed by removing the "pristine state" describe block entirely
+//     and documenting its 3 targeted mutants (`latencies`'s initial
+//     `[]` sentinel, and the `latencies.length > 0` guard's
+//     forced-true/`>=0` variants) as equivalent-in-practice instead —
+//     a genuinely-empty `latencies` array is not reliably observable
+//     in ANY run that includes more than this one isolated file, given
+//     no reset hook exists and real production code populates it
+//     throughout the whole suite. The file's OTHER cluster (the
+//     "latencies window cap", deliberately built to be robust to ANY
+//     prior accumulated state via a flood-then-marker technique) needed
+//     no changes at all and passed both scopes unmodified — the
+//     general lesson: prefer a technique robust to unknown prior state
+//     over one that assumes a specific execution order, even when the
+//     order-dependent version happens to work in the narrower scope
+//     you're immediately verifying against.
+//   - **A near-identical "no reset hook, permanently touched by real
+//     code elsewhere in the suite" module-state pattern recurred a
+//     THIRD time in this one file** (after `getSessionCounts`'s default
+//     arrow function, order-dependent on `src/mcp/transports.ts`'s
+//     `setupTransports` being called elsewhere, and now `latencies`'s
+//     empty-array precondition) — worth treating this as a standing
+//     category to check for on any future un-resettable module-level
+//     state, not a one-off surprise each time.
 //
-// ── DOMAIN 7 (src/observability, 9 of 10 files: anomaly.ts, monitor.ts,
-// alerts.ts, health.ts, traffic.ts, tracing.ts, trace-context.ts,
-// trace-store.ts, usage.ts) IN PROGRESS. Only 1 file remains:
-// metrics.ts (322 LOC, the LAST domain-7 file — note
-// health-metrics.test.ts likely covers PART of it too, given its
-// shared file name) — run baseline first, may already be partially/
-// fully clean (see registry-alias-index.ts/tool-index.ts precedent in
-// domain 3). ──
+// ── DOMAIN 7 (src/observability, 10 of 10 files) COMPLETE: anomaly.ts,
+// monitor.ts, alerts.ts, health.ts, traffic.ts, tracing.ts,
+// trace-context.ts, trace-store.ts, usage.ts, metrics.ts — all
+// effectively 100%. Domain 8 (src/routes + src/routes/admin, #29 in
+// the harness task list) is next. Quick survey: src/routes/ has 28
+// files (admin.ts and src/routes/admin/admin-validators.ts are both
+// pure 1-line re-export barrels with no logic to mutate, same
+// "types.ts"-style skip precedent as domain 3); src/routes/admin/ has
+// 13 more files. Smallest file with real logic: docs.ts (17 LOC — a
+// NODE_ENV-conditional auth-guard selector for the Swagger UI mount).
+// Test dir confirmed: src/routes/__tests__/ (e.g. routes-admin.test.ts,
+// routes-alerts.test.ts, routes-auth.test.ts...). Full domain-8 survey
+// (which specific route file pairs with which test file, whether the
+// naming convention is consistent) not yet done in depth — do that
+// when actually starting the domain. ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2136,20 +2205,22 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 6 (src/discovery) is COMPLETE. Domain 7 = src/observability/
-    // (10 files) is IN PROGRESS: anomaly.ts, monitor.ts, alerts.ts,
-    // health.ts, traffic.ts, tracing.ts, trace-context.ts, trace-store.ts,
-    // usage.ts DONE (see SCOPE HISTORY, all effectively 100%). Next (and
-    // LAST domain-7 file): metrics.ts (322 LOC) — dedicated test likely
-    // health-metrics.test.ts (shared with health.ts, confirmed cross-
-    // directory pattern DOESN'T apply here per that file's own closure
-    // notes — verify the exact test dir/file before assuming). Scope:
-    // STRYKER_TEST_SCOPE="src/observability/__tests__". Run baseline
-    // first — may already be partially clean given health-metrics.test.ts's
-    // existing coverage of some metrics. Once this closes, domain 7
-    // (src/observability, 10 files) is COMPLETE — domain 8 (src/routes +
-    // src/routes/admin, #29 in the harness task list) is next.
-    "src/observability/metrics.ts",
+    // Domain 6 (src/discovery) is COMPLETE. Domain 7 (src/observability,
+    // 10 files) is COMPLETE (see SCOPE HISTORY — all 10 files
+    // effectively 100%). Domain 8 = src/routes + src/routes/admin
+    // starts here. src/routes/admin.ts and
+    // src/routes/admin/admin-validators.ts are both pure 1-line
+    // re-export barrels (no logic, same skip precedent as domain 3's
+    // types.ts) — SKIP both. Smallest file with real logic: docs.ts
+    // (17 LOC — a NODE_ENV-conditional auth-guard selector wrapping the
+    // Swagger UI mount at /docs). Test dir: src/routes/__tests__/
+    // (confirmed to exist, holds routes-admin.test.ts,
+    // routes-alerts.test.ts, routes-auth.test.ts, etc. — exact
+    // docs.ts-specific test file not yet confirmed, check before
+    // assuming a name). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__"
+    // (widen if src/routes/admin/'s own tests turn out to live
+    // elsewhere — not yet surveyed in depth). Run baseline first.
+    "src/routes/docs.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
