@@ -955,6 +955,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `src/content-filtering` + `src/backend-auth`, 16 files, ~2311 LOC) —
   14 files needed new tests, all effectively 100% (most exactly 100%).
   Domain 6 (`src/discovery`) is next.
+- **Mutation testing — domain 6, `tool-naming.ts`** (58 LOC,
+  `src/discovery/` — shared tool-name normalization for auto-discovery
+  sources: camelCase→snake_case, invalid-char substitution,
+  `MAX_LEN` truncation, and collision disambiguation). 34 mutants,
+  67.65% baseline (23/34) → 82.35% raw (28/34) in a single verify round
+  → **effectively 100%** (3 documented equivalents + 3 accepted
+  timeouts). Test file is cross-directory
+  (`src/tool-policies/__tests__/tool-naming.test.ts`). One new
+  `tool-naming-mutation.test.ts` in that same directory, authored
+  directly (11 baseline survivors). Closed: the collapse-runs regex's
+  quantifier reduction (two consecutive spaces must collapse to ONE
+  underscore); the leading-strip regex's quantifier reduction (needed
+  two leading HYPHENS specifically, since consecutive underscores are
+  already collapsed by a prior step); the dropped `.slice(0, MAX_LEN)`
+  truncation call (an untruncated 100-char string falls into the "op"
+  fallback, which ALSO satisfies the existing `length <= 63` check —
+  only an exact-value assertion distinguishes "63 a's" from "op"); and
+  `uniqueToolName`'s suffix direction (`suffix++` vs `suffix--` — a
+  single collision can't distinguish these since post-increment/
+  decrement both read the original value on first use; needed a SECOND
+  sequential collision to observe the direction). 3 documented
+  equivalents: `TOOL_NAME_RE.test(truncated) && truncated.length > 0`'s
+  length check is provably redundant, since `TOOL_NAME_RE` requires a
+  non-empty match and every value `truncated` can actually take already
+  satisfies the regex whenever non-empty (verified via `bun -e`
+  brute-forcing a wide variety of inputs through the real pipeline).
+  Run with `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
 
 ### Docs
 

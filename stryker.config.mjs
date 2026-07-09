@@ -1252,8 +1252,59 @@
 // always cross-check an "equivalent" write-up against the actual
 // verify-round survivor list before finalizing it — reasoning about one
 // sub-scenario doesn't cover every mutation Stryker generates on the
-// same span. This closes tasks #25-26 in the harness task list. Domain
-// 6 (src/discovery) is next — entirely unstarted.
+// same span. This closes tasks #25-26 in the harness task list.
+//
+// DOMAIN 6 = src/discovery (4 files, ~1068 LOC). Test dir:
+// src/discovery/__tests__/ — most files' tests live directly there, but
+// tool-naming.ts (below) is yet another cross-directory case (tests
+// from src/tool-policies/__tests__/ instead).
+//   tool-naming.ts (58 LOC — shared tool-name normalization for
+//   auto-discovery sources: camelCase->snake_case, invalid-char
+//   substitution, MAX_LEN truncation, and collision disambiguation)
+//   34 mutants, 67.65% baseline (23/34, the existing
+//   tool-naming.test.ts covers camelCase splitting, single-invalid-
+//   char replacement, the empty/all-invalid fallback, a basic 100-char
+//   truncation LENGTH check, a single collision suffix, and the
+//   max-length-termination regressions — but never multiple
+//   CONSECUTIVE invalid chars, never multiple leading non-underscore
+//   invalid chars, never the EXACT truncated value, and never a SECOND
+//   sequential collision) -> 82.35% raw (28/34) in a single verify
+//   round -> effectively 100% (3 documented equivalents + 3 accepted
+//   timeouts). Test dir is CROSS-DIRECTORY:
+//   `src/tool-policies/__tests__/tool-naming.test.ts`. One new
+//   `tool-naming-mutation.test.ts` in that SAME directory, authored
+//   directly (11 baseline survivors). Scope:
+//   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`. Closed: the
+//   `/_+/g` collapse-runs regex's quantifier reduction (two consecutive
+//   spaces must collapse to ONE underscore, not survive as two — the
+//   existing tests only ever produced one invalid char at a time); the
+//   `/^[^a-z0-9]+/` leading-strip regex's quantifier reduction (needed
+//   TWO leading HYPHENS specifically, since consecutive underscores are
+//   already collapsed to one by the prior step, leaving hyphens as the
+//   only way to still have a multi-char leading invalid run at this
+//   point); the dropped `.slice(0, MAX_LEN)` truncation call (the
+//   existing test's `length <= 63` check is ALSO satisfied by the "op"
+//   fallback an untruncated 100-char string falls into, since
+//   TOOL_NAME_RE itself caps total length — only an EXACT value
+//   assertion distinguishes "63 a's" from "op"); and
+//   `uniqueToolName`'s suffix-direction (`suffix++` vs `suffix--`) —
+//   a SINGLE collision can't distinguish these since post-increment/
+//   decrement both read the ORIGINAL value on first use; needed a
+//   SECOND sequential collision on the same base name to observe which
+//   direction the suffix actually moves next. 3 documented equivalents:
+//   `TOOL_NAME_RE.test(truncated) && truncated.length > 0`'s length
+//   check is provably redundant — `TOOL_NAME_RE`
+//   (`/^[a-z0-9][a-z0-9_-]{0,62}$/`) REQUIRES a non-empty match, and
+//   every value truncated can actually take (given the guaranteed
+//   character-class + leading-char + length-cap properties of steps
+//   27-31) already satisfies the regex whenever it's non-empty —
+//   verified via `bun -e` brute-forcing a wide variety of inputs
+//   through the real pipeline. 3 accepted genuine timeouts (do-while
+//   body emptied, template-literal emptied causing a permanently
+//   unchanging candidate, and an arithmetic `+`->`-` flip coercing to
+//   `NaN` which a Set treats as equal to itself once added) — all
+//   already detected by the pre-existing "keeps disambiguating across
+//   many collisions" regression test, no new test needed.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1316,22 +1367,13 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // ── DOMAIN 5 COMPLETE (see SCOPE HISTORY) ── Domain 6 = src/discovery
-    // (4 files, ~1068 LOC): curl-postman-discovery.ts (469), graphql-
-    // discovery.ts (313), openapi-discovery.ts (228), tool-naming.ts
-    // (58, smallest, picked first per this program's established
-    // convention). Test dir: `src/discovery/__tests__/` holds
-    // curl-postman-discovery.test.ts, graphql-discovery.test.ts,
-    // mcp-discovery.test.ts (NOTE: mcp-discovery.ts itself lives in
-    // src/mcp/, already done in domain 3 — this test file is
-    // discovery-domain-adjacent but its SOURCE isn't part of this
-    // domain), openapi-discovery.test.ts, openapi-discovery-depth.test.ts,
-    // openapi-discovery-pin.test.ts. tool-naming.ts has no obviously-
-    // named dedicated test file in that list — verify whether it's
-    // tested at all (directly or indirectly) before assuming it needs
-    // new tests from scratch. Scope:
-    // STRYKER_TEST_SCOPE="src/discovery/__tests__".
-    "src/discovery/tool-naming.ts",
+    // Domain 6 continues (see SCOPE HISTORY) — tool-naming.ts done.
+    // Next: openapi-discovery.ts (228 LOC, src/discovery/ — OpenAPI/
+    // Swagger auto-discovery). Test scope confirmed: 3 files all in
+    // src/discovery/__tests__/ — openapi-discovery.test.ts,
+    // openapi-discovery-depth.test.ts, openapi-discovery-pin.test.ts.
+    // Scope: STRYKER_TEST_SCOPE="src/discovery/__tests__".
+    "src/discovery/openapi-discovery.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
