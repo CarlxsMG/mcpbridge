@@ -2588,6 +2588,33 @@
 //   parameter order, so a Content-Type assertion must check substrings
 //   (`toContain`), not exact string equality, when the response sets
 //   multiple `;`-separated parameters.
+//   health.ts (87 LOC — GET /livez, GET /readyz, GET /health) 36
+//   mutants, 0% baseline (zero coverage existed within the scoped
+//   test run) -> effectively 100% (35/36 killed + 1 accepted
+//   equivalent) after exactly 1 verify round. New file
+//   `routes-health-mutation.test.ts`. Also wired directly in
+//   `server.ts`, not `adminRoutes()` — all 3 routes are unauthenticated
+//   (k8s/LB probes), so this file needed no admin-key/bearer setup at
+//   all, unlike every other domain-8 file so far. One genuine
+//   equivalent: `dbUp`'s `catch { return false; }` emptied to
+//   `catch {}` — `dbUp()` has exactly one call site, `if (!dbUp())`,
+//   which only ever consumes the return value through `!`; the real
+//   `false` and the mutant's implicit `undefined` are both falsy, so
+//   `!false`/`!undefined` are identically `true` for every input. Key
+//   techniques: (1) reused the real `refreshLeaderStatus()` /
+//   `__resetLeaderFlagForTesting()` production functions
+//   (src/db/leader-lease.ts) to drive `isLeader()` deterministically,
+//   rather than mocking it; (2) `spyOn(dbConnMod, "getDb")
+//   .mockImplementation(() => { throw ... })` to simulate a DB outage
+//   for `dbUp()`'s catch branch; (3) a combined
+//   not-leader-AND-db-down test proves the two `if` guards are
+//   independent/additive (both reasons appear, in order), not an
+//   early-return that would only ever surface one; (4) the
+//   `(Date.now() - startedAt) / 1000` arithmetic (`/`->`*` or
+//   `-`->`+`) inflates the result from a small number of seconds to
+//   the billions — a generous `toBeLessThan(86400)` bound catches both
+//   without needing to control `Date.now()` directly or care about
+//   module-load-order-dependent uptime values across a full suite run.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2657,13 +2684,16 @@ export default {
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
-    // schedules.ts, metrics.ts DONE (see SCOPE HISTORY). Remaining
-    // domain-8 files ordered smallest-LOC-first (both src/routes/ and
-    // src/routes/admin/ pooled together): health.ts/teams.ts (87,
-    // tied — health.ts first) < ... < admin-validators.ts (457,
-    // largest, last). Next: health.ts (87 LOC). Scope:
-    // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/health.ts",
+    // schedules.ts, metrics.ts, health.ts DONE (see SCOPE HISTORY).
+    // Remaining domain-8 files ordered smallest-LOC-first (both
+    // src/routes/ and src/routes/admin/ pooled together): teams.ts
+    // (87) < backup.ts (98) < ... < admin-validators.ts (457, largest,
+    // last). Next: teams.ts (87 LOC). Scope:
+    // STRYKER_TEST_SCOPE="src/routes/__tests__". Paused here per user
+    // instruction (2026-07-09, Spanish: "cuando termine ese, para" —
+    // "when that one finishes, stop") — do NOT auto-continue to
+    // teams.ts without a fresh go-ahead.
+    "src/routes/teams.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

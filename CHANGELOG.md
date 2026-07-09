@@ -1696,6 +1696,25 @@ body.weight === "number"` guard forced always-true — since
   fixture; and Bun's fetch re-serializes Content-Type parameter order, so
   that assertion needs substring checks, not exact equality. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `health.ts`** (87 LOC, `src/routes/` —
+  `GET /livez`, `GET /readyz`, `GET /health`). 36 mutants, 0% baseline
+  (zero test coverage of any kind existed before this) → **effectively
+  100%** (35/36 killed + 1 accepted equivalent) after 1 verify round. New
+  file `routes-health-mutation.test.ts`. Also wired directly in
+  `server.ts`, not `adminRoutes()`; all 3 routes are unauthenticated
+  (k8s/LB probes), so no admin-key setup was needed. One genuine
+  equivalent: `dbUp`'s `catch { return false; }` emptied to `catch {}` —
+  its only call site (`if (!dbUp())`) consumes the value through `!`, and
+  `false`/`undefined` are equally falsy, so no test can observe the
+  difference. Key techniques: reused the real `refreshLeaderStatus()` /
+  `__resetLeaderFlagForTesting()` functions to drive `isLeader()`
+  deterministically; `spyOn(dbConnMod, "getDb")` throwing to simulate a DB
+  outage; a combined not-leader-and-db-down test proves both `reasons`
+  pushes are independent/additive, not an early return; a generous
+  `toBeLessThan(86400)` bound on `uptime_seconds` catches both the
+  `/`→`*` and `-`→`+` arithmetic mutants regardless of module-load timing
+  across a full suite run. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
