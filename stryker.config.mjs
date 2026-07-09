@@ -2168,6 +2168,28 @@
 //   paths. No new test file needed at all, no fix cycle — same
 //   "not every file needs new work, always run baseline first"
 //   precedent as domain 3's registry-alias-index.ts/tool-index.ts.
+//   http-errors.ts (37 LOC — shared sendError/validationError/
+//   notFound/forbidden error-envelope helpers + the requestId reader,
+//   used by nearly every route file) 9 mutants, 22.22% baseline (2/9)
+//   -> effectively 100% (5/9 killed + 4 accepted timeouts, 0 real
+//   survivors) in a single verify round. Test dir mirrors 1:1
+//   (`src/routes/__tests__/`), new file
+//   `routes-http-errors-mutation.test.ts`. Authored directly (pure
+//   functions operating on an Express `Response` — no real HTTP server
+//   needed, just a minimal hand-rolled Response mock capturing
+//   `.status()`/`.json()` calls, faster and simpler than the real-server
+//   idiom every other `routes-*.test.ts` file uses). Closed:
+//   `requestId()`'s `?? null` fallback (only observable with a real
+//   truthy stored id, since `??` and `&&` agree whenever the left side
+//   is falsy) and `validationError`'s exact `"VALIDATION_ERROR"` code
+//   string. The 4 accepted timeouts are each one of
+//   sendError/validationError/notFound/forbidden's own whole-body-
+//   emptied mutant — emptying any of them returns `undefined` instead
+//   of the chained `res.status().json()` Response, which would hang a
+//   real HTTP-level caller waiting for a response that never gets
+//   sent, so Stryker correctly times out rather than marking Killed
+//   (same convention as auth.ts/transports.ts/mcp-server.ts elsewhere
+//   in this program).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2232,15 +2254,13 @@ export default {
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 (src/observability,
     // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
-    // is IN PROGRESS: docs.ts, validation.ts DONE (see SCOPE HISTORY —
-    // docs.ts 100% clean w/ new tests, validation.ts ALREADY 100% clean
-    // at baseline, no new work needed). Next: http-errors.ts (37 LOC —
-    // shared sendError/validationError/notFound/forbidden envelope
-    // helpers + requestId reader, used by nearly every route file's own
-    // error paths — likely mostly/fully covered already, same pattern
-    // as validation.ts; run baseline first before assuming new tests
-    // are needed). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/http-errors.ts",
+    // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts DONE (see
+    // SCOPE HISTORY). Next: traces.ts (39 LOC — 4 admin-api endpoints:
+    // GET /admin-api/traces (list+filter), GET .../top-sessions,
+    // GET .../:traceId, DELETE /admin-api/traces (purge + audit log)) —
+    // no existing dedicated test (confirmed via ls). Scope:
+    // STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/traces.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

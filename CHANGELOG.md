@@ -1412,6 +1412,24 @@ retentionMs`) needing the DEFAULT `now`, since the existing test
   needed, no fix cycle — same "not every file needs new work, always
   run baseline first" precedent as domain 3's
   registry-alias-index.ts/tool-index.ts.
+- **Mutation testing — domain 8, `http-errors.ts`** (37 LOC,
+  `src/routes/` — shared `sendError`/`validationError`/`notFound`/
+  `forbidden` error-envelope helpers + the `requestId` reader, used by
+  nearly every route file). 9 mutants, 22.22% baseline (2/9) →
+  **effectively 100%** (5/9 killed + 4 accepted timeouts, 0 real
+  survivors) in a single verify round. Test dir mirrors 1:1
+  (`src/routes/__tests__/`), new file
+  `routes-http-errors-mutation.test.ts`. Authored directly using a
+  minimal hand-rolled Express `Response` mock (capturing `.status()`/
+  `.json()` calls) rather than a real HTTP server, since these are
+  pure functions operating on `res` alone. Closed `requestId()`'s `??
+null` fallback and `validationError`'s exact `"VALIDATION_ERROR"`
+  code string. The 4 accepted timeouts are each one of the four
+  functions' own whole-body-emptied mutant — emptying any of them
+  returns `undefined` instead of the chained `res.status().json()`
+  Response, hanging a real HTTP-level caller waiting for a response
+  that never gets sent, so Stryker correctly times out rather than
+  marking Killed. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
