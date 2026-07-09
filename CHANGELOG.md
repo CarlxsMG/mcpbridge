@@ -1531,6 +1531,14 @@ typeof t === "string")` validation guard had FIVE distinct survivor
   assertions (message content, exact `TOOL_NOT_FOUND` envelope, exact
   success shape, exact `recordAudit` args) the pre-existing test never
   checked. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/index.ts`** (51 LOC,
+  `src/routes/admin/` — top-level admin router: wires `adminAuth` +
+  mounts every per-entity sub-router under `/admin-api`). 2 mutants →
+  **100.00% (2/2), already clean at baseline** — the many
+  `routes-admin.test.ts`/`routes-*.test.ts` tests that hit any
+  `/admin-api/...` path already exercise both mutants indirectly. No
+  new test file needed, no fix cycle. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

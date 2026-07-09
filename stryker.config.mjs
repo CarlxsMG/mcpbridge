@@ -2311,6 +2311,14 @@
 //   (message content, exact TOOL_NOT_FOUND envelope, exact { status,
 //   name, tool, tags } success shape, exact recordAudit args) that the
 //   pre-existing test never checked, only status codes.
+//   admin/index.ts (51 LOC — top-level admin router: wires adminAuth
+//   + mounts every per-entity sub-router under /admin-api) 2 mutants
+//   -> **100.00% (2/2), ALREADY clean at baseline** — the many
+//   `routes-admin.test.ts`/`routes-*.test.ts` tests that hit any
+//   `/admin-api/...` path already exercise both the router-mounting
+//   BlockStatement and the "/admin-api" StringLiteral indirectly. No
+//   new test file needed, no fix cycle — same "not every file needs
+//   new work" precedent as validation.ts/admin/connect.ts.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2377,15 +2385,14 @@ export default {
     // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
-    // introspection.ts, usage.ts, tags.ts DONE (see SCOPE HISTORY).
-    // Remaining domain-8 files ordered smallest-LOC-first (both
-    // src/routes/ and src/routes/admin/ pooled together):
-    // admin/index.ts (51) < ... < admin-validators.ts (457, largest,
-    // last). Next: admin/index.ts (51 LOC — top-level admin router,
-    // wires adminAuth + mounts every per-entity sub-router). Existing
-    // test file `routes-admin.test.ts` — run baseline before assuming a
-    // rewrite is needed. Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/index.ts",
+    // introspection.ts, usage.ts, tags.ts, admin/index.ts DONE (see
+    // SCOPE HISTORY). Remaining domain-8 files ordered
+    // smallest-LOC-first (both src/routes/ and src/routes/admin/
+    // pooled together): admin/canary.ts (54) < ... <
+    // admin-validators.ts (457, largest, last). Next: admin/canary.ts
+    // (54 LOC). No existing dedicated test file (confirmed via ls).
+    // Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/admin/canary.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
