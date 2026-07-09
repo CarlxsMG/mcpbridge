@@ -2216,6 +2216,20 @@
 //   every mutant. No new test file needed, no fix cycle — same
 //   "not every file needs new work, always run baseline first"
 //   precedent as validation.ts.
+//   admin/monitors.ts (16 LOC — single GET /monitors read-only
+//   dashboard-snapshot endpoint wrapping listMonitors()) 3 mutants, 0%
+//   baseline (zero coverage existed) -> **100.00% (3/3), clean** in a
+//   single verify round. Test dir mirrors 1:1
+//   (`src/routes/__tests__/`), new file
+//   `routes-monitors-mutation.test.ts`. Authored directly. Fixture
+//   note: tool_monitor has NOT NULL example_id/baseline_schema_hash
+//   columns plus an FK to tools(client_name, name) with
+//   foreign_keys=ON — hand-rolled INSERT SQL isn't viable; reused the
+//   REAL production helpers instead (registry.register() to create the
+//   client+tool row, a tool_examples INSERT for the example, then the
+//   actual exported setMonitor() to create the monitor row), matching
+//   the fixture pattern already established in
+//   src/admin/entities/__tests__/monitor.test.ts.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2281,16 +2295,15 @@ export default {
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 (src/observability,
     // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
-    // admin/connect.ts DONE (see SCOPE HISTORY). Remaining domain-8
-    // files ordered smallest-LOC-first (both src/routes/ and
-    // src/routes/admin/ pooled together): admin/monitors.ts (16) <
+    // admin/connect.ts, admin/monitors.ts DONE (see SCOPE HISTORY).
+    // Remaining domain-8 files ordered smallest-LOC-first (both
+    // src/routes/ and src/routes/admin/ pooled together):
     // admin/overview.ts (39) < introspection.ts/usage.ts (41) <
     // tags.ts (44) < admin/index.ts (51) < ... < admin-validators.ts
-    // (457, largest, last). Next: admin/monitors.ts (16 LOC — single
-    // GET /monitors read-only dashboard-snapshot endpoint wrapping
-    // listMonitors()). No existing dedicated test file (confirmed via
-    // ls). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/monitors.ts",
+    // (457, largest, last). Next: admin/overview.ts (39 LOC). No
+    // existing dedicated test file (confirmed via ls). Scope:
+    // STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/admin/overview.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

@@ -1456,6 +1456,20 @@ null` fallback and `validationError`'s exact `"VALIDATION_ERROR"`
   "not every file needs new work, always run baseline first" precedent
   as `validation.ts`. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/monitors.ts`** (16 LOC,
+  `src/routes/admin/` — single `GET /monitors` read-only
+  dashboard-snapshot endpoint wrapping `listMonitors()`). 3 mutants, 0%
+  baseline (zero test coverage of any kind existed before this) →
+  **100.00% (3/3), clean** in a single verify round. Test dir mirrors
+  1:1 (`src/routes/__tests__/`), new file
+  `routes-monitors-mutation.test.ts`. Fixture note: `tool_monitor` has
+  `NOT NULL` `example_id`/`baseline_schema_hash` columns plus a foreign
+  key to `tools(client_name, name)` with `foreign_keys=ON` — reused the
+  real production helpers (`registry.register()`, a `tool_examples`
+  insert, and the actual exported `setMonitor()`) rather than
+  hand-rolling INSERT SQL, matching the fixture pattern already
+  established in `src/admin/entities/__tests__/monitor.test.ts`. Run
+  with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
