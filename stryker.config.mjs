@@ -1115,6 +1115,75 @@
 //   to the exported `normalizeTag("  Billing  ")` closed it). No new
 //   equivalence classes. Fastest baseline+verify cycle all session
 //   (12s + 11s, thanks to the 2-file `src/tool-meta/__tests__` scope).
+//   sanitize.ts (64 LOC, src/content-filtering/ — prompt-injection
+//   defense on tool descriptions: 11 SUSPICIOUS_PATTERNS regexes,
+//   Unicode NFC/NFD homoglyph normalization, markdown-code-block strip,
+//   space-collapse, MAX_DESCRIPTION_LENGTH truncation, wasSanitized/log)
+//   78 mutants, an unusually low 48.72% baseline (38/78 — Stryker's
+//   regex mutator generates multiple variants per literal across 11
+//   patterns, and the Unicode-normalization/wasSanitized/log-call
+//   internals had zero dedicated tests) -> **100.00% (78/78), clean**
+//   across 2 verify rounds. Test dir mirrors 1:1
+//   (`src/content-filtering/__tests__/sanitize.test.ts`, the only file
+//   in that scope, no port-binding concerns). One new
+//   `sanitize-mutation.test.ts`, authored directly (40 baseline
+//   survivors — right at this program's ~40-50 solo-vs-Workflow
+//   threshold, but authored solo anyway since most of the mass was the
+//   ALREADY-solved regex dual-technique plus a handful of well-scoped
+//   clusters, not genuinely novel work needing parallel agents). Scope:
+//   `STRYKER_TEST_SCOPE="src/content-filtering/__tests__"`. Closed: the
+//   regex dual-technique across all 11 SUSPICIOUS_PATTERNS (character-
+//   class-negation `\s`->`\S` on the 3 `\s*`-colon patterns, killed by a
+//   realistic positive match with a space before the colon; quantifier-
+//   reduction `\s+`->`\s` on the other 8, killed by DOUBLED whitespace —
+//   for the 4-gap "do not tell the user" phrase, doubling ALL FOUR gaps
+//   at once kills all 4 independent single-gap mutants in one test,
+//   since each mutant's one unfixed gap still breaks on the doubled
+//   space; "do not reveal" had ZERO prior coverage of any kind, needing
+//   both a positive AND a doubled-space test); the homoglyph-defeating
+//   Unicode normalization (an accented "Café" -> "Cafe" exact-match
+//   test, plus a doesn't-throw test for `char.normalize("")`, a genuine
+//   RangeError-inducing mutant); wasSanitized/log() (a clean description
+//   must NOT log; a code-block-only, a pattern-only, and a truncation-
+//   only description must each independently log, with the pattern-only
+//   case asserting the exact level/message/meta); the space-collapse
+//   step (4 spaces must collapse to exactly 1, not 0); and the
+//   truncation boundary's `trimEnd()` vs `trimStart()` (needed a slice
+//   ending in whitespace with no leading whitespace, to make the two
+//   diverge). Key findings:
+//   - **A doubled-whitespace test string can pass its OWN assertion for
+//     the wrong reason if the assertion checks for the doubled-spaced
+//     substring instead of the collapsed single-spaced one.** The
+//     pipeline's LATER, unconditional space-collapse step
+//     (`replace(/\s{2,}/g," ")`) normalizes ANY leftover doubled
+//     whitespace down to one space regardless of whether the injection
+//     pattern actually matched — so `.not.toContain("you  must")`
+//     (double-spaced) passes trivially under BOTH real code (removed
+//     entirely) AND the quantifier-reduced mutant (left in place, then
+//     collapsed to "you must" — no longer double-spaced either). The
+//     first verify round's 5 survivors (you must / ignore all / forget
+//     your / act as / pretend to) were all this SAME mistake; fixed by
+//     asserting absence of the SINGLE-spaced remnant instead. Any future
+//     test proving "X was stripped" alongside a later normalization step
+//     must assert against what the normalization step would ITSELF
+//     produce from the unstripped input, not the raw pre-normalization
+//     form.
+//   - **A `bun -e` equivalence investigation can be locally correct but
+//     still miss that Stryker generates several INDEPENDENT mutations on
+//     the same span.** An initial pass suspected `char.normalize("NFD")
+//     .replace(/[̀-ͯ]/g,"") || char`'s fallback was a documented
+//     equivalent, reasoning (correctly, verified across every codepoint
+//     in `[À-ÿ]`) that the right-hand `|| char` fallback never
+//     actually activates. But Stryker's ConditionalExpression/
+//     LogicalOperator mutators on that SAME span don't just test "does
+//     the fallback activate" — forcing the whole expression to a fixed
+//     boolean breaks the NORMAL (left-side-truthy) case too, which the
+//     "Café" exact-match test already killed on the very first verify
+//     round without any dedicated fallback test. Always check the
+//     verify-round survivor list before writing a mutant off as
+//     equivalent — reasoning about one specific sub-scenario doesn't
+//     mean every mutation Stryker generated on that span shares the same
+//     fate.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1180,11 +1249,17 @@ export default {
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
     // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts,
     // response-cache.ts, oauth.ts, upstream-auth.ts, redaction.ts,
-    // tool-examples.ts, tool-tags.ts done. Next: sanitize.ts (64 LOC,
-    // src/content-filtering/ — response sanitization). Confirmed 1:1
-    // test dir: `src/content-filtering/__tests__/sanitize.test.ts`.
-    // Scope: STRYKER_TEST_SCOPE="src/content-filtering/__tests__".
-    "src/content-filtering/sanitize.ts",
+    // tool-examples.ts, tool-tags.ts, sanitize.ts done. Next:
+    // tool-mock.ts (58 LOC, src/tool-meta/ — per-tool mock/
+    // virtualization CRUD). NOTE: yet another naming gotcha — its
+    // dedicated test is NOT tool-mock.test.ts, it's plain
+    // `src/tool-policies/__tests__/mock.test.ts` (the "tool-" prefix is
+    // dropped in the test filename). Also has indirect coverage from
+    // proxy.ts's own C6/C7/C11 dispatch-pipeline test files (out of
+    // scope here — those test proxy.ts's OWN mock-branching logic, not
+    // this file's simple config CRUD). Scope:
+    // STRYKER_TEST_SCOPE="src/tool-policies/__tests__".
+    "src/tool-meta/tool-mock.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

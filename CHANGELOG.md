@@ -884,6 +884,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the exported `normalizeTag("  Billing  ")` closed it. No new
   equivalence classes. Run with
   `STRYKER_TEST_SCOPE="src/tool-meta/__tests__"`.
+- **Mutation testing — domain 5, `sanitize.ts`** (64 LOC,
+  `src/content-filtering/` — prompt-injection defense on tool
+  descriptions: 11 `SUSPICIOUS_PATTERNS` regexes, Unicode NFC/NFD
+  homoglyph normalization, markdown-code-block strip, space-collapse,
+  `MAX_DESCRIPTION_LENGTH` truncation, `wasSanitized`/log). 78 mutants,
+  an unusually low 48.72% baseline (38/78 — Stryker's regex mutator
+  generates multiple variants per literal across 11 patterns, and the
+  Unicode-normalization/`wasSanitized`/log-call internals had zero
+  dedicated tests) → **100.00% (78/78), clean** across 2 verify rounds.
+  One new `sanitize-mutation.test.ts`, authored directly (40 baseline
+  survivors — right at this program's solo-vs-workflow threshold, but
+  solo anyway since most of the mass was the already-solved regex
+  dual-technique). Closed: the regex dual-technique across all 11
+  patterns (character-class-negation `\s`→`\S` on the 3 `\s*`-colon
+  patterns, killed by a positive match with a space before the colon;
+  quantifier-reduction `\s+`→`\s` on the other 8, killed by DOUBLED
+  whitespace — doubling all four gaps of the "do not tell the user"
+  phrase at once kills all four independent single-gap mutants
+  together; "do not reveal" had zero prior coverage at all); the
+  homoglyph-defeating Unicode normalization (`"Café"` → `"Cafe"` exact
+  match, plus a doesn't-throw test for a genuine `RangeError` mutant on
+  `char.normalize("")`); `wasSanitized`/log (a clean description must
+  NOT log; a code-block-only, pattern-only, and truncation-only
+  description must each independently log, the pattern-only case
+  asserting the exact level/message/meta); the space-collapse step (4
+  spaces must collapse to exactly 1, not 0); and the truncation
+  boundary's `trimEnd()` vs `trimStart()`. Key findings: a doubled-
+  whitespace assertion checking for the doubled-spaced SUBSTRING (rather
+  than the single-spaced remnant the pipeline's later unconditional
+  collapse step would leave behind either way) passes trivially under
+  both real code and the mutant — this caused 5 survivors on the first
+  verify round, fixed by asserting against the collapsed form instead;
+  and an equivalence investigation that's locally correct about ONE
+  sub-scenario (a `|| char` fallback never activating) can still miss
+  that Stryker generates several independent mutations on the same
+  span whose OTHER effects a normal positive test already kills — always
+  check the verify-round survivor list before writing a mutant off.
+  Run with `STRYKER_TEST_SCOPE="src/content-filtering/__tests__"`.
 
 ### Docs
 
