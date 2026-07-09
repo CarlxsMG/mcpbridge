@@ -624,6 +624,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exports are singletons) — always pair `spyOn` with
   `finally { spy.mockRestore(); }`, not just `mockClear()` between tests
   in the same file. Run with `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
+- **Mutation testing — domain 5, `load-balancer.ts`** (313 LOC,
+  `src/tool-policies/` — per-client N-way upstream load balancing:
+  round-robin/weighted/least-conn strategies, SSRF-validated + IP-pinned
+  target pool CRUD, per-target health cooldown). 234 mutants, 81.62%
+  baseline (191/234) → 98.29% raw (230/234) across 3 verify rounds →
+  **effectively 100%** (all 4 remaining are documented equivalents). Test
+  file is cross-directory (`src/mcp/__tests__/load-balancer.test.ts`, not
+  `src/tool-policies/__tests__/`) — same gotcha class as `auth.ts`'s
+  `rootMcpAuth` in domain 4. Given a smaller, more mechanical survivor
+  count (43, mostly validation-boundary boilerplate) than
+  `context-budget.ts`, authored directly rather than via a workflow — one
+  new `load-balancer-mutation.test.ts`. Closed: every validation
+  boundary (`primaryWeight`/`weight` integer-range triples, both in
+  `setLb` and `updateUpstream`); a non-REST client rejection path never
+  previously tested; a target-pool `?.`/`||` SSRF-result check; a
+  disabled-target-never-selected guarantee; the weighted strategy's real
+  (not floored) target weight, its block genuinely running (not silently
+  falling through to round-robin), and its out-of-bounds fallback index;
+  least-conn's tie-breaking (favor the earlier member) and correctness
+  in both directions; the health-cooldown exact-boundary tick; and the
+  `decInflight`/DI-helper-reset internals. New equivalence class found:
+  a module-level `let fn = () => ...` DI-helper's own initial value is
+  unreachable once any test file's `beforeEach` resets it (which this
+  file's own dedicated test does, unconditionally, before every test).
+  Run with `STRYKER_TEST_SCOPE="src/tool-policies/__tests__ src/mcp/__tests__"`.
 
 ### Docs
 

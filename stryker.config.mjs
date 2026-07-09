@@ -693,6 +693,59 @@
 //     mirror of the llm-mismatch case). Consistent with domain 3's
 //     registry.ts/proxy.ts experience: a cold parallel round gets most of
 //     the way there fast, but always budget a manual closing pass.
+//   load-balancer.ts (313 LOC, src/tool-policies/ — per-client N-way
+//   upstream load balancing: round-robin/weighted/least-conn strategies,
+//   SSRF-validated + IP-pinned target pool CRUD, per-target health
+//   cooldown independent of the client-level circuit breaker)  234
+//   mutants  81.62% baseline (191/234, decent existing coverage of the
+//   3 strategies' happy paths, but validation boundaries and the DI
+//   test helpers themselves were thin) -> 98.29% raw (230/234) across 3
+//   verify rounds / effectively 100% (all 4 raw survivors documented
+//   equivalents). Test dir is CROSS-DIRECTORY: the dedicated test file
+//   lives at `src/mcp/__tests__/load-balancer.test.ts`, not
+//   `src/tool-policies/__tests__/` (same gotcha class as auth.ts's
+//   rootMcpAuth in domain 4) — scope
+//   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__ src/mcp/__tests__"`.
+//   Given a SMALLER, more mechanical survivor count than
+//   context-budget.ts (43 vs. 57, mostly validation-boundary
+//   boilerplate), authored directly rather than via a Workflow — one new
+//   `load-balancer-mutation.test.ts`. Key findings:
+//   - **Module-level `let x = () => ...` DI-helper initial values are
+//     genuinely unreachable once ANY test file establishes a resetting
+//     `beforeEach`.** Both `nowFn`'s and `randFn`'s initial declarations
+//     (`let nowFn = () => Date.now()`) are distinct AST nodes from the
+//     structurally-identical reassignment inside `__resetLbForTesting`
+//     — but since `bun test` runs every file in one process and this
+//     module's OWN test file (correctly) resets both in every
+//     `beforeEach`, the initial declarations are overwritten before the
+//     first assertion of the first test ever runs. A NEW equivalence
+//     class worth checking on any future `let fn = () => ...` module
+//     global with its own test-only reset helper.
+//   - **A `>0`/`>=0` fallback-to-full-set boundary needs the EXACT zero
+//     case, not just "some unhealthy."** `healthy.length > 0 ? healthy :
+//     members` — cooling down only SOME targets never reaches the
+//     boundary; needed every single member (including primary) cooling
+//     simultaneously, and asserting the call doesn't throw (the `>=0`
+//     mutant selects from the empty `healthy` array, and `pool.length`
+//     of 0 makes round-robin's `idx % pool.length` a `% 0` — `NaN` —
+//     indexing `pool[NaN]` to `undefined`, then `.choice` throws).
+//   - **A boundary hit at a NON-LAST loop iteration is required to
+//     distinguish `<` from `<=` in an early-return accumulator loop** —
+//     `for (const m of pool) { r -= m.weight; if (r < 0) return
+//     m.choice; }`. A test where the boundary coincidentally lands on
+//     the LAST member (as an earlier "does the fallback throw" test
+//     did) can't tell `<` from `<=`, since both take the same return
+//     path there — needed r to hit exactly 0 after subtracting a
+//     NON-last member's weight specifically.
+//   - **An arithmetic `-1`-to-`+1` flip needs a THIRD reference point,
+//     not just "did the count change."** A "stays tracked, not wiped"
+//     test (checking presence/absence) doesn't prove SUBTRACTION
+//     specifically — `+1` also changes the tracked value, just upward
+//     instead of downward. Needed a comparison against a fixed
+//     third-party count (an untouched primary) positioned so the real
+//     (decremented) and mutant (incremented) values land on OPPOSITE
+//     sides of it, flipping which member a `least-conn`-style
+//     comparison would pick.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -755,10 +808,12 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts done.
-    // Next: load-balancer.ts (313 LOC, src/tool-policies/).
-    // Scope: STRYKER_TEST_SCOPE="src/tool-policies/__tests__"
-    "src/tool-policies/load-balancer.ts",
+    // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
+    // load-balancer.ts done. Next: quarantine.ts (253 LOC, src/tool-policies/).
+    // Scope: verify per-file which __tests__ dir actually holds the test
+    // (domain 5 has at least one cross-directory gotcha already — see
+    // load-balancer.ts's entry above).
+    "src/tool-policies/quarantine.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
