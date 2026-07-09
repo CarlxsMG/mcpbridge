@@ -1572,6 +1572,27 @@ body.weight === "number"` guard forced always-true — since
   guard) and spied on `proxyToolCall` directly to assert the replay
   endpoint's exact parsed args. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `register.ts`** (56 LOC,
+  `src/routes/` — `POST /register` dispatch to REST/MCP/GraphQL
+  registration, `GET /register/schema`). 58 mutants, 50.00% baseline
+  (29/58, existing `routes-register.test.ts` is thorough for the
+  dispatch branches but never isolates individual OR-clauses, never
+  checks exact messages/`request_id`, never tests the `tools[]` cap AT
+  the boundary, and never touches `GET /register/schema`) →
+  **effectively 100%** (50/58 real kills + 8 accepted: 1 timeout + 2
+  equivalents) after 2 verify rounds. New file
+  `routes-register-mutation.test.ts`. Two genuine equivalents:
+  `req.socket?.remoteAddress`'s optional-chaining mutant (a property
+  that's always present on any real HTTP request) and the `GET
+/register/schema` 503-fallback branch's whole cluster — gated by a
+  module-level constant resolved once at import time from the repo's
+  own checked-in OpenAPI spec, with no mocking mechanism in this
+  codebase to force a load failure. Fix-cycle miss on the first verify
+  round: a `request_id` test targeted the wrong code path (register.ts's
+  own Change-A guard, which never reads the local `requestId`
+  variable) — fixed by re-targeting a registration-function validation
+  error, where that variable is actually consumed. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

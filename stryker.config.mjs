@@ -2373,6 +2373,39 @@
 //   more precise than the fetch-mock idiom used in
 //   src/observability/__tests__/traffic.test.ts, from which the
 //   client/tool registration fixture pattern was reused.
+//   register.ts (56 LOC — POST /register dispatch to REST/MCP/GraphQL
+//   registration, GET /register/schema) 58 mutants, 50.00% baseline
+//   (29/58, existing routes-register.test.ts is thorough for the
+//   dispatch branches but never isolates individual OR-clauses, never
+//   checks exact messages/request_id, never tests the tools[] cap AT
+//   the boundary, and never touches GET /register/schema) ->
+//   effectively 100% (50/58 real kills + 8 accepted: 1 timeout + 2
+//   equivalents) after 2 verify rounds. New file
+//   `routes-register-mutation.test.ts` (existing file left untouched).
+//   Two genuine equivalents, one already-familiar shape and one new:
+//   `req.socket?.remoteAddress`'s optional-chaining-removed mutant
+//   (familiar "defensive check on an always-present property" shape,
+//   matching http-errors.ts precedent) and — NEW — the GET
+//   /register/schema 503-fallback branch's whole mutant cluster: it's
+//   gated by `resolvedRegistrationSchema`, a MODULE-LEVEL CONSTANT
+//   resolved once at import time from the repo's own checked-in OpenAPI
+//   spec, with no `mock.module` precedent anywhere in this codebase to
+//   force a load failure — verified empirically (`bun -e` import) that
+//   it resolves non-null in this environment, making the whole
+//   "unavailable" branch unreachable in any realistic test run here.
+//   Fix-cycle miss on the first verify round: a request_id test
+//   targeted register.ts's own Change-A guard (which calls
+//   `validationError(res, message)` directly and never reads the LOCAL
+//   `requestId` variable at all — it flows only into
+//   performMcpRegistration/performGraphqlRegistration/
+//   performRestRegistration as their 3rd argument), so it exercised the
+//   wrong code path and left the `?? -> &&` mutant on that local
+//   variable alive; fixed by re-targeting a registration-function
+//   validation error instead. General lesson: **before writing a test
+//   for "does variable X's fallback operator work", trace where X is
+//   actually CONSUMED, not just where it's declared — a nearby-looking
+//   error path in the same function may use a completely different
+//   mechanism (its own `res.locals` read) that never touches X.**
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2440,14 +2473,14 @@ export default {
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
-    // admin/canary.ts, admin/traffic.ts DONE (see SCOPE HISTORY).
-    // Remaining domain-8 files ordered smallest-LOC-first (both
-    // src/routes/ and src/routes/admin/ pooled together): register.ts
-    // (56) < ... < admin-validators.ts (457, largest, last). Next:
-    // register.ts (56 LOC). Existing test file `routes-register.test.ts`
-    // — run baseline before assuming a rewrite is needed. Scope:
+    // admin/canary.ts, admin/traffic.ts, register.ts DONE (see SCOPE
+    // HISTORY). Remaining domain-8 files ordered smallest-LOC-first
+    // (both src/routes/ and src/routes/admin/ pooled together):
+    // admin/oauth.ts (64) < ... < admin-validators.ts (457, largest,
+    // last). Next: admin/oauth.ts (64 LOC). No existing dedicated test
+    // file (confirmed via ls). Scope:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/register.ts",
+    "src/routes/admin/oauth.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
