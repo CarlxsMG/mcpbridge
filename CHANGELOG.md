@@ -649,6 +649,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unreachable once any test file's `beforeEach` resets it (which this
   file's own dedicated test does, unconditionally, before every test).
   Run with `STRYKER_TEST_SCOPE="src/tool-policies/__tests__ src/mcp/__tests__"`.
+- **Mutation testing — domain 5, `quarantine.ts`** (253 LOC,
+  `src/tool-policies/` — auto-quarantine after N consecutive
+  content-guardrail hits: block/force_approval/observe actions, auto
+  (cooldown) vs. manual recovery). 102 mutants, 85.3% baseline (87/102) →
+  99.02% raw (101/102) across 2 verify rounds → **effectively 100%** (the
+  1 remaining raw survivor is the same DI-helper-initial-value
+  equivalence class as `load-balancer.ts`'s `nowFn`). One new
+  `quarantine-mutation.test.ts`. Closed: every `cooldownUntil`
+  computation combination (auto/manual × real/null `cooldownMs`);
+  `checkQuarantine`'s no-policy short-circuit (needed an orphaned,
+  DB-mismatched quarantined state row with no policy to prove it, since
+  the downstream "not quarantined" check reaches the same conclusion for
+  a genuinely-empty client); a 3-mutant `&&`-chain cluster on the
+  auto-recovery condition (same DB-mismatch technique: a manual-mode
+  policy with `cooldown_until` forced into the past via direct UPDATE);
+  a `!== null`-forced-true gap where `x >= null` coerces to `x >= 0` in
+  JS (always true for realistic timestamps) — auto mode with a
+  genuinely-null `cooldownUntil` would otherwise auto-clear immediately;
+  and `getQuarantineForClient`, which had zero prior coverage. Run with
+  `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
 
 ### Docs
 

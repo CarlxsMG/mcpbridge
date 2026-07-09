@@ -746,6 +746,48 @@
 //     (decremented) and mutant (incremented) values land on OPPOSITE
 //     sides of it, flipping which member a `least-conn`-style
 //     comparison would pick.
+//   quarantine.ts (253 LOC, src/tool-policies/ — auto-quarantine after N
+//   consecutive content-guardrail hits: block/force_approval/observe
+//   actions, auto (cooldown) vs manual recovery)  102 mutants  85.3%
+//   baseline (87/102, decent existing coverage of policy CRUD/escalation/
+//   the 3 actions/basic recovery, but zero coverage of
+//   getQuarantineForClient and thin coverage of the cooldown-computation
+//   boundary combinations) -> 99.02% raw (101/102) across 2 verify rounds
+//   / effectively 100% (the 1 raw survivor is the SAME `let fn = () =>
+//   ...` DI-helper-initial-value equivalence class discovered on
+//   load-balancer.ts — `nowFn`'s module-load-time closure, unreachable
+//   once this file's own `beforeEach`/`afterEach` unconditionally call
+//   `__setClockForTesting(null)`). One new `quarantine-mutation.test.ts`,
+//   authored directly (15 baseline survivors, small enough for one
+//   pass). Key findings:
+//   - **A "no policy configured" test can't prove an early-return guard
+//     is load-bearing if the FOLLOW-ON logic reaches the identical
+//     conclusion anyway.** `checkQuarantine`'s `if (!policy) return
+//     {active:false}` forced-false mutant still produces `{active:
+//     false}` for a genuinely-empty client, since the downstream `if
+//     (!state.quarantined)` check ALSO returns `{active:false}` for a
+//     tool with no accumulated state. Needed an ORPHANED state row
+//     (`quarantined=1` with NO policy — a shape the public API can
+//     never itself produce, since clearing a policy deletes both rows
+//     together) constructed via direct INSERT to prove the early return
+//     fires BEFORE state is ever consulted.
+//   - **The SAME DB-mismatch technique closed a 3-mutant cluster on a
+//     compound `&&` condition**: `policy.recoveryMode === "auto" &&
+//     state.cooldownUntil !== null && nowFn() >= state.cooldownUntil`.
+//     Manual mode never itself produces a non-null `cooldownUntil`, so
+//     proving the `recoveryMode === "auto"` check is genuinely
+//     load-bearing (not just vacuously true whenever the other two
+//     conditions matter) needed a manual-mode policy with cooldown_until
+//     forced into the past via a direct UPDATE — confirming quarantine
+//     stays active despite an "expired" cooldown that should never even
+//     be consulted in manual mode.
+//   - **`x >= null` coerces to `x >= 0` in JS — always true for any
+//     realistic timestamp**, making a `!== null` guard's forced-true
+//     mutant a real, exploitable gap: auto mode with a genuinely-null
+//     cooldownUntil (cooldownMs never configured) would auto-clear
+//     IMMEDIATELY under the mutant, rather than never auto-clearing as
+//     intended. Worth checking for on any future `x !== null && y >=
+//     x`-shaped guard.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -809,11 +851,11 @@ export default {
   },
   mutate: [
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
-    // load-balancer.ts done. Next: quarantine.ts (253 LOC, src/tool-policies/).
-    // Scope: verify per-file which __tests__ dir actually holds the test
-    // (domain 5 has at least one cross-directory gotcha already — see
-    // load-balancer.ts's entry above).
-    "src/tool-policies/quarantine.ts",
+    // load-balancer.ts, quarantine.ts done. Next: guardrails.ts (195 LOC,
+    // src/tool-policies/). Scope: verify per-file which __tests__ dir
+    // actually holds the test (domain 5 has at least one cross-directory
+    // gotcha already — see load-balancer.ts's entry above).
+    "src/tool-policies/guardrails.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
