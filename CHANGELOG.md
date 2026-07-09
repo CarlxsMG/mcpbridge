@@ -1608,6 +1608,25 @@ body.weight === "number"` guard forced always-true — since
   instead of throwing — fixed by asserting the persisted `scope` is
   `null` (real code's fallback), not the mutant's coerced value. Run
   with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `install-links.ts`** (66 LOC,
+  `src/routes/` — public/unauthenticated `GET /install/:token`,
+  resolves a bundle install link and generates a connect snippet). 29
+  mutants, 75.86% baseline (22/29, existing
+  `routes-bundle-install-links.test.ts` covers the happy paths but
+  never varies `gatewayPublicUrl`, checks exact messages, or exercises
+  a tool missing from the live registry) → **effectively 100%** (27/29
+  killed, 2 accepted equivalents) in a single verify round. New file
+  `routes-install-links-mutation.test.ts`. Two genuine equivalents: the
+  no-Host-header `localhost` fallback (HTTP/1.1 mandates a Host
+  header) and the tool-description `?? ""` fallback — proven
+  unreachable BY CONSTRUCTION via a schema-level FK constraint
+  (`mcp_bundle_tools` cascades on delete from `tools`, verified
+  empirically, so a bundle can never reference a tool missing from the
+  live registry). Also caught and fixed a wrong-method mistake:
+  `registry.unregister()` only tears down the in-memory registry entry
+  and leaves the underlying DB rows in place; only
+  `registry.forgetClient()` actually deletes them. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

@@ -2432,6 +2432,41 @@
 //   `config.secretEncryptionKey = Buffer.alloc(32, 7).toString("base64")`
 //   first, matching `src/security/__tests__/oauth-mutation.test.ts`'s
 //   own setup.
+//   install-links.ts (66 LOC — public/unauthenticated GET
+//   /install/:token: resolves a bundle install link, generates a
+//   ready-to-use connect snippet) 29 mutants, 75.86% baseline (22/29,
+//   existing routes-bundle-install-links.test.ts covers the valid/
+//   unknown/revoked token happy paths but never varies
+//   config.gatewayPublicUrl, never checks exact messages, never checks
+//   the "bundle" scope/transport literals, never exercises a tool
+//   missing from the live registry) -> effectively 100% (27/29 killed,
+//   2 accepted equivalents) in a single verify round. New file
+//   `routes-install-links-mutation.test.ts`. Two genuine equivalents:
+//   the `${req.protocol}://localhost` no-Host-header fallback
+//   (unreachable — HTTP/1.1 mandates a Host header, no real client can
+//   omit it), and the tool-description `?? ""` fallback — proven
+//   UNREACHABLE BY CONSTRUCTION via a schema-level argument, not just
+//   an environmental one: `mcp_bundle_tools` has `FOREIGN KEY
+//   (client_name, tool_name) REFERENCES tools(...) ON DELETE CASCADE`
+//   with `foreign_keys=ON`, verified empirically with a throwaway
+//   bun:sqlite script reproducing the schema (inserting a dangling
+//   bundle_tools row throws "FOREIGN KEY constraint failed"; deleting
+//   the underlying tool cascades to delete the bundle_tools row too,
+//   confirmed via `registry.forgetClient()` making `bundle.tools`
+//   become `[]` rather than a dangling reference) — so a bundle can
+//   never contain a tool reference missing from `registry.listAllTools()`.
+//   Also found and fixed a WRONG-METHOD mistake mid-session:
+//   `registry.unregister()` only tears down the LIVE in-memory registry
+//   entry and leaves the underlying `clients`/`tools` DB rows in place;
+//   `registry.listAllTools()` reads those rows directly via SQL, so
+//   `unregister()` alone never removes a tool from that map — only
+//   `registry.forgetClient()` (which issues `DELETE FROM clients`,
+//   cascading to `tools`) does. General lesson: **when a test needs a
+//   client to be genuinely GONE from a live SQL-backed registry (not
+//   just absent from an in-memory cache), check whether the registry
+//   API distinguishes a "soft" teardown from a "hard" delete — this
+//   codebase's registry has both (`unregister` vs `forgetClient`) and
+//   they are NOT interchangeable for test fixture purposes.**
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2499,16 +2534,15 @@ export default {
     // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts,
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
-    // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts
-    // DONE (see SCOPE HISTORY). Remaining domain-8 files ordered
-    // smallest-LOC-first (both src/routes/ and src/routes/admin/
-    // pooled together): install-links.ts (66) < ... <
-    // admin-validators.ts (457, largest, last). Next: install-links.ts
-    // (66 LOC). Existing test file
-    // `routes-bundle-install-links.test.ts` — run baseline before
-    // assuming a rewrite is needed. Scope:
+    // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
+    // install-links.ts DONE (see SCOPE HISTORY). Remaining domain-8
+    // files ordered smallest-LOC-first (both src/routes/ and
+    // src/routes/admin/ pooled together): admin/audit-log.ts (68) <
+    // ... < admin-validators.ts (457, largest, last). Next:
+    // admin/audit-log.ts (68 LOC). No existing dedicated test file
+    // (confirmed via ls). Scope:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/install-links.ts",
+    "src/routes/admin/audit-log.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
