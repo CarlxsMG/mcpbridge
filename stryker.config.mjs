@@ -1694,9 +1694,74 @@
 //     (mocked) `dispatchWebhook` SYNCHRONOUSLY before its own first
 //     `await`, so the spy's call is already recorded by the time
 //     `runSyntheticChecks` returns.
-//   Next: alerts.ts (261 LOC — the last domain-7 file with no existing
-//   dedicated test at all; confirm test dir location, same
-//   cross-directory risk seen on both anomaly.ts and monitor.ts).
+//   Next: alerts.ts (261 LOC — turned out to ALSO have an existing
+//   dedicated test, same cross-directory gotcha; see its own entry
+//   below).
+//   alerts.ts (261 LOC — alert rule CRUD + periodic condition
+//   evaluation: evaluateCondition's 5 event-type switch cases
+//   (client_unreachable/circuit_breaker_open/error_rate/usage_spike/
+//   schema_drift/default), edge-triggered evaluateAlerts loop,
+//   dispatchAlertWebhook, sendTestAlert, startAlertLoop) 161 mutants,
+//   43.48% baseline (70/161) -> 99.38% raw (160/161) in a SINGLE verify
+//   round -> effectively 100% (1 documented equivalent). Test dir is
+//   CROSS-DIRECTORY (3rd domain-7 file in a row, same pattern as
+//   anomaly.ts/monitor.ts): dedicated test at
+//   `src/admin/entities/__tests__/alerts.test.ts`. Scope:
+//   `STRYKER_TEST_SCOPE="src/observability/__tests__
+//   src/admin/entities/__tests__"`. The LARGEST domain-7 survivor count
+//   (91, comparable to guardrails.ts's 91) — used a **5-agent parallel
+//   Workflow**, one agent per cluster (ac1: top-of-file CRUD —
+//   ALERT_EVENT_TYPES/rowToRule/getAlertRule/updateAlertRule/
+//   deleteAlertRule; ac2: client_unreachable + circuit_breaker_open
+//   switch cases; ac3: error_rate switch case, the densest single case
+//   in the file; ac4: usage_spike + schema_drift + default cases +
+//   dispatchAlertWebhook; ac5: markFired + evaluateAlerts +
+//   sendTestAlert + startAlertLoop) — each authoring its own
+//   `alerts-mutation-{ac1..ac5}.test.ts` (9+18+8+7+6 = 48 tests total).
+//   TWO of the five agents (ac2, ac4) hit a genuine mid-response server
+//   error and had to be recovered: ac2 had already written a complete,
+//   correct test file before erroring (just 2 minor TS tuple-length
+//   type errors in a `spy.mock.calls[0]` cast, fixed by hand — the cast
+//   needs 3 tuple elements since `dispatchWebhook(url, payload,
+//   options)` takes 3 positional args); ac4 left NO file at all and was
+//   retried from scratch as a single direct Agent call (not a full
+//   Workflow re-run) — succeeded cleanly on retry, 7 tests, 17/17
+//   targeted mutants. Reached effectively 100% in a SINGLE combined
+//   verify round — no 2nd round needed, a first for a Workflow-scale
+//   file this large in the program. One documented equivalent (found by
+//   the ac4 agent, verified via a standalone `.mjs` scratch script):
+//   `{ active: false, detail: {} }` (the `default` switch case's return
+//   value) collapsed to `{}` is unobservable, since `undefined` and
+//   `false` are both falsy in every branch condition `evaluateAlerts`
+//   checks, and `detail` is only ever read when `active` is truthy
+//   (never true for either variant) — confirmed identical
+//   (dispatched, nextState) outcomes across every reachable prior
+//   `lastState` value. Key findings from the individual clusters: a
+//   numeric-string `id` passed to `getAlertRule`'s
+//   `!Number.isInteger(id)` guard was verified (via a scratch
+//   `bun:sqlite` probe) to actually MATCH a row if the guard were
+//   skipped, thanks to SQLite's type-affinity coercion — confirming the
+//   guard is a real, exploitable gap, not just paranoia; and the dense
+//   10-mutant `error_rate` boundary cluster (`summary.calls >= minCalls
+//   && summary.errorRate >= threshold`) needed 4 separate boundary
+//   scenarios (both operands at their exact threshold, and each
+//   direction of "one side true, other false") to fully pin down `&&`
+//   vs `||` plus each side's own `>=`-vs-other-comparator variants — the
+//   same "N-way boundary combination" pattern seen on this program's
+//   other compound-condition clusters (rate-limiter.ts,
+//   quarantine.ts).
+//
+// ── DOMAIN 7 (src/observability, 3 of 10 files: anomaly.ts, monitor.ts,
+// alerts.ts) IN PROGRESS. All 3 files done so far turned out
+// cross-directory (tests at src/admin/entities/__tests__/, not
+// src/observability/__tests__/) — worth checking every remaining
+// domain-7 file the same way before assuming. Remaining 7 files (all
+// WITH existing dedicated tests directly under
+// src/observability/__tests__/): health.ts (126 LOC), traffic.ts (152),
+// tracing.ts (185), trace-context.ts (188), trace-store.ts (224),
+// usage.ts (224), metrics.ts (322) — always run baseline first per
+// file since some may already be clean (see
+// registry-alias-index.ts/tool-index.ts precedent in domain 3). ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1760,21 +1825,21 @@ export default {
   },
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 = src/observability/
-    // (10 files) is IN PROGRESS: anomaly.ts and monitor.ts DONE (see
-    // SCOPE HISTORY, both effectively 100%, both test dirs
+    // (10 files) is IN PROGRESS: anomaly.ts, monitor.ts, alerts.ts DONE
+    // (see SCOPE HISTORY, all effectively 100%, all 3 test dirs
     // CROSS-DIRECTORY at src/admin/entities/__tests__/ rather than
-    // src/observability/__tests__/). Next: alerts.ts (261 LOC) — ALSO
-    // has a dedicated test at src/admin/entities/__tests__/alerts.test.ts
-    // (confirmed via grep before assuming), same cross-directory
-    // pattern as the previous two files. Scope:
-    // STRYKER_TEST_SCOPE="src/observability/__tests__
-    // src/admin/entities/__tests__". After alerts.ts: the 7 files with
-    // existing test files directly under src/observability/__tests__/
-    // (health.ts, traffic.ts, tracing.ts, trace-context.ts,
-    // trace-store.ts, usage.ts, metrics.ts) — always run baseline first
-    // per file since some may already be clean (see
+    // src/observability/__tests__/). Next: health.ts (126 LOC, the
+    // smallest of the remaining 7 files) — its dedicated test IS
+    // directly under src/observability/__tests__/ (health-metrics.test.ts,
+    // shared with metrics.ts), unlike the 3 files just closed. Scope:
+    // STRYKER_TEST_SCOPE="src/observability/__tests__". Run baseline
+    // first — may already be partially/fully clean (see
     // registry-alias-index.ts/tool-index.ts precedent in domain 3).
-    "src/observability/alerts.ts",
+    // After health.ts: traffic.ts (152), tracing.ts (185),
+    // trace-context.ts (188), trace-store.ts (224), usage.ts (224),
+    // metrics.ts (322, largest of the 7 — note health-metrics.test.ts
+    // likely covers PART of metrics.ts too, given its shared file name).
+    "src/observability/health.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

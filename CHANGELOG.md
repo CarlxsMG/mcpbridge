@@ -1137,6 +1137,47 @@ src/admin/entities/__tests__"`.
   either way — verified empirically before accepting rather than assumed.
   Run with `STRYKER_TEST_SCOPE="src/observability/__tests__
 src/admin/entities/__tests__"`.
+- **Mutation testing — domain 7, `alerts.ts`** (261 LOC,
+  `src/observability/` — alert rule CRUD + periodic condition
+  evaluation: `evaluateCondition`'s 5 event-type switch cases
+  (`client_unreachable`/`circuit_breaker_open`/`error_rate`/`usage_spike`/
+  `schema_drift`/default), the edge-triggered `evaluateAlerts` loop,
+  `dispatchAlertWebhook`, `sendTestAlert`, `startAlertLoop`). 161
+  mutants, 43.48% baseline (70/161) → 99.38% raw (160/161) in a single
+  verify round → **effectively 100%** (1 documented equivalent). Test
+  dir is cross-directory (the 3rd domain-7 file in a row): dedicated
+  test at `src/admin/entities/__tests__/alerts.test.ts`. Given the
+  largest domain-7 survivor count (91), used a **5-agent parallel
+  workflow** — one agent per cluster — each authoring its own test file
+  (48 tests total across `alerts-mutation-ac1..ac5.test.ts`). Two of
+  the five agents hit a genuine mid-response server error mid-run: one
+  had already written a complete, correct file needing only 2 minor
+  TypeScript tuple-length fixes (a `spy.mock.calls[0]` cast needs 3
+  tuple elements, since `dispatchWebhook` takes 3 positional args); the
+  other left no file at all and was retried as a single direct agent
+  call, succeeding cleanly. Reached effectively 100% in a single
+  combined verify round — no 2nd round needed. One documented
+  equivalent, found and empirically verified by one of the cluster
+  agents via a standalone scratch script: the `default` switch case's
+  `{ active: false, detail: {} }` return value collapsed to `{}` is
+  unobservable, since `undefined` and `false` are both falsy in every
+  branch condition `evaluateAlerts` checks, and `detail` is only ever
+  read when `active` is truthy (never true for either variant). Other
+  findings: a numeric-string `id` passed to `getAlertRule`'s
+  `!Number.isInteger(id)` guard was verified (via a scratch
+  `bun:sqlite` probe) to actually match a row if the guard were
+  skipped, thanks to SQLite's type-affinity coercion — confirming the
+  guard is a real, exploitable gap, not just defensive paranoia; and
+  the dense `error_rate` boundary cluster (`summary.calls >= minCalls
+&& summary.errorRate >= threshold`) needed 4 separate boundary
+  scenarios to fully pin down `&&` vs `||` plus each side's own
+  comparator variants. Run with
+  `STRYKER_TEST_SCOPE="src/observability/__tests__
+src/admin/entities/__tests__"`. **This closes anomaly.ts + monitor.ts
+  - alerts.ts, all 3 cross-directory files in domain 7** — the 7
+    remaining files (health.ts, traffic.ts, tracing.ts, trace-context.ts,
+    trace-store.ts, usage.ts, metrics.ts) all have dedicated tests
+    directly under `src/observability/__tests__/`.
 
 ### Docs
 
