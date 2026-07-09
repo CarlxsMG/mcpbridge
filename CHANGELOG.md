@@ -1322,6 +1322,41 @@ retentionMs`) needing the DEFAULT `now`, since the existing test
   pass — no new equivalence classes needed, straight reuse of an
   already-proven playbook start-to-finish. Run with
   `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
+- **Mutation testing — domain 7, `usage.ts`** (224 LOC,
+  `src/observability/` — proxy usage analytics: `recordUsage`,
+  `getUsageSummary`/`getUsageTimeseries`/`getTopTools`/`getUsageByKey`).
+  114 mutants, 53.51% baseline (61/114) → 97.37% raw (111/114) across 2
+  verify rounds → **effectively 100%** (3 documented equivalents). Test
+  dir mirrors 1:1 (`src/observability/__tests__/`). One new test file,
+  authored directly (53 baseline survivors — mostly mechanical numeric-
+  boundary shapes rather than deep functional complexity, so a Workflow
+  wasn't needed despite the count). Closed: bucket-size selection at
+  the 26-hour threshold and its millisecond-constant arithmetic, the
+  60-second bucket floor, an exact last-bucket-boundary computation, the
+  `MAX_TIMESERIES_POINTS` (1000) cap on a window wide enough to exceed
+  it, limit clamping across three separate functions, and a "no
+  matching label" fallback string. Key findings: a module-level counter
+  with no exported getter/reset helper, observed only via a `% N === 0`
+  sampling check, reproduces the SAME `++`/`--`-direction equivalence
+  already established for `rate-counters.ts`'s `opCount` — confirming
+  the class generalizes, not just that one prior instance; tested the
+  "fires every 500th call" trigger deterministically (despite an
+  unknown, cross-test-file-shared starting offset) by calling the
+  function exactly 500 times and asserting the prune query fired
+  exactly once, since any 500 consecutive calls cross exactly one
+  multiple of 500 regardless of where they start; and a
+  limit-clamping-ceiling test needed data that actually EXCEEDS the
+  ceiling to be observable — an initial fixture with only 3 rows passed
+  under both the real 200-cap and a mutant with no cap at all, fixed by
+  seeding 201 distinct rows and asserting the exact clamped count. One
+  new equivalence class: an identical `calls > 0 ? errors/calls : 0`
+  code shape in two different functions has DIFFERENT equivalence
+  properties depending on how each function's query actually produces
+  the value — `getUsageSummary`'s plain aggregate can genuinely return
+  `calls = 0`, but `getTopTools`' `GROUP BY` query can never emit a
+  zero-count group at all, making the same-looking guard partially
+  redundant there specifically. Run with
+  `STRYKER_TEST_SCOPE="src/observability/__tests__"`.
 
 ### Docs
 

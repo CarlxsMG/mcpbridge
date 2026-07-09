@@ -2006,16 +2006,74 @@
 //   `Math.random() === 0.02` boundary; two simultaneous filter clauses
 //   to exercise the join separator) — no NEW equivalence classes this
 //   file, straight reuse of an established playbook start-to-finish.
+//   usage.ts (224 LOC — proxy usage analytics: recordUsage,
+//   getUsageSummary/getUsageTimeseries/getTopTools/getUsageByKey) 114
+//   mutants, 53.51% baseline (61/114) -> 97.37% raw (111/114) across 2
+//   verify rounds -> effectively 100% (3 documented equivalents). Test
+//   dir mirrors 1:1 (`src/observability/__tests__/`). Scope:
+//   `STRYKER_TEST_SCOPE="src/observability/__tests__"`. 53 baseline
+//   survivors — the largest solo-authored (no agent round) survivor
+//   count this domain, but almost entirely mechanical/numeric-boundary
+//   shapes rather than deep functional complexity, making a Workflow
+//   unnecessary. One new test file, authored directly. Key findings:
+//   - **A module-level counter with NO exported getter/reset helper,
+//     observed only via a `% N === 0` sampling check, reproduces the
+//     SAME `++`/`--`-direction equivalence already established for
+//     rate-counters.ts's `opCount`** — `insertCount`'s prune-trigger
+//     fires with identical frequency regardless of increment direction
+//     (any N consecutive integers, ascending or descending, hit every
+//     residue class mod N exactly once). Confirms this equivalence
+//     CLASS (not just this one prior instance) generalizes to any
+//     future unexported, un-resettable, modulo-gated counter.
+//   - **Deterministically testing a "fires every Nth call" trigger
+//     without a reset hook**: rather than trying to predict the exact
+//     call index that crosses a multiple of 500 (impossible without
+//     knowing the counter's current, cross-test-file-shared value),
+//     called the function exactly 500 times in a row and asserted the
+//     prune query fired EXACTLY once — deterministic regardless of the
+//     counter's unknown starting offset, since any 500 consecutive
+//     calls cross exactly one multiple of 500 no matter where they
+//     start.
+//   - **NEW equivalence class, a `GROUP BY` query's own SQL semantics
+//     make a `calls > 0` guard partially redundant** — `getTopTools`'
+//     `r.calls > 0 ? r.errors / r.calls : 0` looks identical to
+//     `getUsageSummary`'s own `row.calls > 0` guard (same code shape),
+//     but the two are NOT equally testable: `getUsageSummary` is a
+//     plain aggregate that can genuinely return `calls = 0` for an
+//     empty window, while `getTopTools` groups via `GROUP BY
+//     client_name, tool_name` — SQL guarantees `COUNT(*) >= 1` for
+//     every group actually emitted (a zero-member group is never
+//     returned at all), so `r.calls > 0`/`r.calls >= 0`/forced-`true`
+//     are ALL equivalent for any row this specific function can
+//     produce, while the OPPOSITE-direction mutants (forced-`false`,
+//     `<= 0`, the division-to-multiplication arithmetic) remain real,
+//     killable gaps. General lesson: an IDENTICAL code shape appearing
+//     in two different functions can have DIFFERENT equivalence
+//     properties depending on how each function's own query produces
+//     the value being checked — don't assume a pattern seen once
+//     elsewhere transfers automatically; check the SPECIFIC query
+//     shape (plain aggregate vs. GROUP BY) each time.
+//   - **A limit-clamping ceiling test needs data that actually EXCEEDS
+//     the ceiling to be observable** — an initial test asserted
+//     `getUsageByKey({limit: 500}).length <= 200` after seeding only 3
+//     keys, which passed under BOTH real code (clamps to 200) and the
+//     mutant (no clamp at all) equally, since 3 rows is under 200
+//     either way — a survivor on the SECOND verify round. Fixed by
+//     seeding 201 distinct key ids (strictly more than the 200 cap)
+//     and asserting the returned length is EXACTLY 200, not merely
+//     "under some loose bound." Same "test with data safely under the
+//     boundary can't distinguish clamped from unclamped" lesson
+//     already seen elsewhere in this program, now confirmed to need
+//     re-application even within domain 7 itself.
 //
-// ── DOMAIN 7 (src/observability, 8 of 10 files: anomaly.ts, monitor.ts,
+// ── DOMAIN 7 (src/observability, 9 of 10 files: anomaly.ts, monitor.ts,
 // alerts.ts, health.ts, traffic.ts, tracing.ts, trace-context.ts,
-// trace-store.ts) IN PROGRESS. Remaining 2 files (both WITH existing
-// dedicated tests directly under src/observability/__tests__/):
-// usage.ts (224 LOC), metrics.ts (322, largest remaining file — note
-// health-metrics.test.ts likely covers PART of metrics.ts too, given
-// its shared file name) — always run baseline first per file since
-// some may already be clean (see registry-alias-index.ts/
-// tool-index.ts precedent in domain 3). ──
+// trace-store.ts, usage.ts) IN PROGRESS. Only 1 file remains:
+// metrics.ts (322 LOC, the LAST domain-7 file — note
+// health-metrics.test.ts likely covers PART of it too, given its
+// shared file name) — run baseline first, may already be partially/
+// fully clean (see registry-alias-index.ts/tool-index.ts precedent in
+// domain 3). ──
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2080,18 +2138,18 @@ export default {
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 = src/observability/
     // (10 files) is IN PROGRESS: anomaly.ts, monitor.ts, alerts.ts,
-    // health.ts, traffic.ts, tracing.ts, trace-context.ts, trace-store.ts
-    // DONE (see SCOPE HISTORY, all effectively 100%). Next: usage.ts
-    // (224 LOC) — dedicated test at
-    // src/observability/__tests__/usage.test.ts (confirmed via ls when
-    // this domain was first surveyed). Scope:
+    // health.ts, traffic.ts, tracing.ts, trace-context.ts, trace-store.ts,
+    // usage.ts DONE (see SCOPE HISTORY, all effectively 100%). Next (and
+    // LAST domain-7 file): metrics.ts (322 LOC) — dedicated test likely
+    // health-metrics.test.ts (shared with health.ts, confirmed cross-
+    // directory pattern DOESN'T apply here per that file's own closure
+    // notes — verify the exact test dir/file before assuming). Scope:
     // STRYKER_TEST_SCOPE="src/observability/__tests__". Run baseline
-    // first — may already be partially/fully clean (see
-    // registry-alias-index.ts/tool-index.ts precedent in domain 3).
-    // After usage.ts: metrics.ts (322, the LAST domain-7 file — note
-    // health-metrics.test.ts likely covers PART of metrics.ts too,
-    // given its shared file name).
-    "src/observability/usage.ts",
+    // first — may already be partially clean given health-metrics.test.ts's
+    // existing coverage of some metrics. Once this closes, domain 7
+    // (src/observability, 10 files) is COMPLETE — domain 8 (src/routes +
+    // src/routes/admin, #29 in the harness task list) is next.
+    "src/observability/metrics.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
