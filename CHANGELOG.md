@@ -1430,6 +1430,24 @@ null` fallback and `validationError`'s exact `"VALIDATION_ERROR"`
   Response, hanging a real HTTP-level caller waiting for a response
   that never gets sent, so Stryker correctly times out rather than
   marking Killed. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `traces.ts`** (39 LOC, `src/routes/` —
+  4 admin-api endpoints: `GET /admin-api/traces` list+filter,
+  `GET .../top-sessions`, `GET .../:traceId`, `DELETE /admin-api/traces`
+  purge+audit). 41 mutants, 0% baseline (zero test coverage of any kind
+  existed before this) → **effectively 100%** (40/41 killed + 1 accepted
+  timeout) after 3 iterations. Test dir mirrors 1:1
+  (`src/routes/__tests__/`), new file `routes-traces-mutation.test.ts`.
+  Two fix rounds: the `?tool`/`?session_id`/`?cursor` typeof-string
+  guards' forced-true direction needed Express's repeated-query-key →
+  array behavior to produce an observable divergence a plain
+  absent/present-string test can't reach; the cursor guard's
+  forced-false / `typeof x === ""` direction needed the pagination test
+  strengthened to assert page 2's item is a genuinely different
+  `traceId` than page 1's, since silently dropping the cursor just
+  re-returns page 1's item at the same length. The 1 accepted timeout is
+  the GET-list handler's own whole-body-emptied mutant (same "genuine
+  Stryker timeout = detected" convention as elsewhere in this program).
+  Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

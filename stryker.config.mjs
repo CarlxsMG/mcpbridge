@@ -2190,6 +2190,24 @@
 //   sent, so Stryker correctly times out rather than marking Killed
 //   (same convention as auth.ts/transports.ts/mcp-server.ts elsewhere
 //   in this program).
+//   traces.ts (39 LOC — 4 admin-api endpoints: GET /admin-api/traces
+//   list+filter, GET .../top-sessions, GET .../:traceId, DELETE
+//   /admin-api/traces purge+audit) 41 mutants, 0% baseline (ZERO test
+//   coverage existed) -> effectively 100% (40/41 killed + 1 accepted
+//   timeout) after 3 iterations. Test dir mirrors 1:1
+//   (`src/routes/__tests__/`), new file
+//   `routes-traces-mutation.test.ts`. Two rounds of fixes: (1) the
+//   `?tool`/`?session_id`/`?cursor` typeof-string guards' forced-true
+//   direction needed Express's repeated-query-key => array behavior to
+//   produce an observable divergence (a plain absent/present-string test
+//   can't distinguish it); (2) the cursor guard's forced-false /
+//   `typeof x === ""` direction survived a first pagination test that
+//   only asserted `toHaveLength(1)` on page 2 — since silently dropping
+//   the cursor just re-returns page 1's newest-first item at the same
+//   length, the fix asserts page 2's item is a genuinely DIFFERENT
+//   traceId than page 1's. The 1 accepted timeout is the GET-list
+//   handler's own whole-body-emptied mutant (same "genuine Stryker
+//   timeout = detected" convention as elsewhere in this program).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2254,13 +2272,18 @@ export default {
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 (src/observability,
     // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
-    // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts DONE (see
-    // SCOPE HISTORY). Next: traces.ts (39 LOC — 4 admin-api endpoints:
-    // GET /admin-api/traces (list+filter), GET .../top-sessions,
-    // GET .../:traceId, DELETE /admin-api/traces (purge + audit log)) —
-    // no existing dedicated test (confirmed via ls). Scope:
+    // is IN PROGRESS: docs.ts, validation.ts, http-errors.ts, traces.ts
+    // DONE (see SCOPE HISTORY). Remaining domain-8 files ordered
+    // smallest-LOC-first (both src/routes/ and src/routes/admin/ pooled
+    // together): connect.ts (15) < admin/monitors.ts (16) <
+    // admin/overview.ts (39) < introspection.ts/usage.ts (41) <
+    // tags.ts (44) < admin/index.ts (51) < ... < admin-validators.ts
+    // (457, largest, last). Next: admin/connect.ts (15 LOC — single
+    // GET /connect/gateway-url read-only helper). Existing test file
+    // `routes-connect.test.ts` (73 LOC) already covers it — run baseline
+    // before assuming a rewrite is needed. Scope:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/traces.ts",
+    "src/routes/admin/connect.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
