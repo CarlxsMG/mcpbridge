@@ -1201,6 +1201,59 @@
 //   existing test only ever persisted `enabled: true` — one direct
 //   `enabled: false` round-trip test closed it. No new equivalence
 //   classes.
+//   tool-sensitivity.ts (48 LOC, src/tool-meta/ — final domain-5 file —
+//   destructive-tool gating: explicit sensitive flag, config auto-gate
+//   for write methods, CRUD)  38 mutants, 68.42% baseline (26/38, the
+//   existing tool-sensitivity.test.ts covers the proxy-level
+//   confirmation gate + elevated-key bypass + auto-gate for DELETE +
+//   an explicit override, but never an unknown tool, never clearing a
+//   flag back to null, never method PUT or a non-write method, never
+//   auto-gate disabled with a write method, and never
+//   getSensitivityForClient at all) -> **100.00% (38/38), clean** in a
+//   single verify round (first try). Test dir mirrors 1:1
+//   (`src/tool-meta/__tests__/tool-sensitivity.test.ts`, the same
+//   2-file scope as tool-tags.ts). One new
+//   `tool-sensitivity-mutation.test.ts`, authored directly (12 baseline
+//   survivors). Scope: `STRYKER_TEST_SCOPE="src/tool-meta/__tests__"`.
+//   Closed: an unknown-tool `setToolSensitive` call (returns exactly
+//   `false`, not `true`); clearing via `null` genuinely deletes the row
+//   (verified via raw SQL, same technique as guardrails.ts's
+//   getGuardrails()===null case); all 4 quadrants of the auto-gate's
+//   `autoGateWriteMethods && (method==="DELETE"||method==="PUT")`
+//   expression (the existing test only ever tried the all-true
+//   quadrant — enabled+DELETE — leaving the other 3 completely
+//   unobserved: enabled+non-write, disabled+write, and enabled+PUT
+//   specifically, the last also needed to kill the PUT-string-literal
+//   and `===`/`!==` mutants on that comparison); and
+//   `getSensitivityForClient`, which had ZERO prior coverage of any
+//   kind. No new equivalence classes.
+//
+// ── DOMAIN 5 (src/tool-policies + src/tool-meta + src/content-filtering
+// + src/backend-auth, 16 files, ~2311 LOC) COMPLETE. ── Final roster,
+// all effectively 100% (most exactly 100%): context-budget.ts,
+// load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts,
+// response-cache.ts, oauth.ts, upstream-auth.ts, redaction.ts,
+// tool-examples.ts, tool-tags.ts, sanitize.ts, tool-mock.ts,
+// tool-sensitivity.ts — 14 files, 21 commits across several sessions.
+// Recurring gotchas worth remembering for future domains: (1)
+// cross-directory test locations are COMMON but not universal even
+// within the same source directory (src/tool-meta/ alone has both
+// cross-directory files like tool-examples.ts/tool-mock.ts AND 1:1-
+// mirrored ones like tool-tags.ts/tool-sensitivity.ts) — always verify
+// per file via find/ls, never assume from a sibling's location; (2)
+// test FILENAMES can also drop prefixes (tool-mock.ts -> mock.test.ts)
+// independent of directory location; (3) the regex dual-technique
+// (character-class-negation needs a positive match, quantifier-
+// reduction needs a doubled/near-miss negative) recurs on every regex-
+// heavy file and generalizes cleanly; (4) a `bun -e` inline eval does
+// NOT reflect real ES-module strict-mode semantics — verify
+// strict-mode-dependent equivalence claims (property assignment to
+// primitives, etc.) with a real standalone script, not `bun -e`; (5)
+// always cross-check an "equivalent" write-up against the actual
+// verify-round survivor list before finalizing it — reasoning about one
+// sub-scenario doesn't cover every mutation Stryker generates on the
+// same span. This closes tasks #25-26 in the harness task list. Domain
+// 6 (src/discovery) is next — entirely unstarted.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1263,19 +1316,22 @@ export default {
     command: "bun scripts/stryker-test-runner.ts",
   },
   mutate: [
-    // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
-    // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts,
-    // response-cache.ts, oauth.ts, upstream-auth.ts, redaction.ts,
-    // tool-examples.ts, tool-tags.ts, sanitize.ts, tool-mock.ts done.
-    // Next (and FINAL domain-5 file): tool-sensitivity.ts (48 LOC,
-    // src/tool-meta/). Confirmed 1:1 test dir:
-    // `src/tool-meta/__tests__/tool-sensitivity.test.ts` (same 2-file
-    // scope as tool-tags.ts, alongside it). Scope:
-    // STRYKER_TEST_SCOPE="src/tool-meta/__tests__". Once this closes,
-    // domain 5 (src/tool-policies + src/tool-meta + src/content-filtering
-    // + src/backend-auth) is COMPLETE — next up is domain 6
-    // (src/discovery).
-    "src/tool-meta/tool-sensitivity.ts",
+    // ── DOMAIN 5 COMPLETE (see SCOPE HISTORY) ── Domain 6 = src/discovery
+    // (4 files, ~1068 LOC): curl-postman-discovery.ts (469), graphql-
+    // discovery.ts (313), openapi-discovery.ts (228), tool-naming.ts
+    // (58, smallest, picked first per this program's established
+    // convention). Test dir: `src/discovery/__tests__/` holds
+    // curl-postman-discovery.test.ts, graphql-discovery.test.ts,
+    // mcp-discovery.test.ts (NOTE: mcp-discovery.ts itself lives in
+    // src/mcp/, already done in domain 3 — this test file is
+    // discovery-domain-adjacent but its SOURCE isn't part of this
+    // domain), openapi-discovery.test.ts, openapi-discovery-depth.test.ts,
+    // openapi-discovery-pin.test.ts. tool-naming.ts has no obviously-
+    // named dedicated test file in that list — verify whether it's
+    // tested at all (directly or indirectly) before assuming it needs
+    // new tests from scratch. Scope:
+    // STRYKER_TEST_SCOPE="src/discovery/__tests__".
+    "src/discovery/tool-naming.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

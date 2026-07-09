@@ -935,6 +935,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `enabled: true` — one direct `enabled: false` round-trip test closed
   it. No new equivalence classes. Run with
   `STRYKER_TEST_SCOPE="src/tool-policies/__tests__"`.
+- **Mutation testing — domain 5, `tool-sensitivity.ts`** (48 LOC,
+  `src/tool-meta/` — destructive-tool gating: explicit sensitive flag,
+  config auto-gate for write methods, CRUD). The final domain-5 file.
+  38 mutants, 68.42% baseline (26/38) → **100.00% (38/38), clean** in a
+  single verify round. Test file mirrors 1:1
+  (`src/tool-meta/__tests__/tool-sensitivity.test.ts`). One new
+  `tool-sensitivity-mutation.test.ts`, authored directly (12 baseline
+  survivors). Closed: an unknown-tool `setToolSensitive` call (returns
+  exactly `false`, not `true`); clearing via `null` genuinely deletes
+  the row (verified via raw SQL); all 4 quadrants of the auto-gate's
+  `autoGateWriteMethods && (method==="DELETE"||method==="PUT")`
+  expression (the existing test only ever tried the all-true
+  quadrant); and `getSensitivityForClient`, which had zero prior
+  coverage. No new equivalence classes. Run with
+  `STRYKER_TEST_SCOPE="src/tool-meta/__tests__"`.
+
+  **This closes domain 5** (`src/tool-policies` + `src/tool-meta` +
+  `src/content-filtering` + `src/backend-auth`, 16 files, ~2311 LOC) —
+  14 files needed new tests, all effectively 100% (most exactly 100%).
+  Domain 6 (`src/discovery`) is next.
 
 ### Docs
 
