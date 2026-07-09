@@ -797,6 +797,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   valid `access_token`, so the mutant's fall-through would have produced
   a real token instead of re-converging on `null`. Run with
   `STRYKER_TEST_SCOPE="src/security/__tests__"`.
+- **Mutation testing — domain 5, `upstream-auth.ts`** (94 LOC,
+  `src/backend-auth/` — per-client upstream auth: static
+  bearer/basic/header credential injection). 51 mutants, 76.47%
+  baseline (39/51) → **100.00% (51/51), clean** in a single verify
+  round. Test file is cross-directory
+  (`src/security/__tests__/upstream-auth.test.ts`) — same gotcha class
+  as `oauth.ts`. One new `upstream-auth-mutation.test.ts` in that same
+  directory, authored directly (12 baseline survivors). Closed: the
+  `!row` early-return guard (same "internal crash on a null row is
+  swallowed by the same catch block as a genuine decrypt failure"
+  pattern as `oauth.ts`'s `!row` guard — distinguished via a logger spy
+  proving the decrypt-failure log call does NOT fire on the real
+  early-return path); the decrypt-failure log call's exact
+  level/message/meta (the existing wrong-key test proved the proxy
+  proceeds unauthenticated but never inspected the log call itself);
+  basic auth's `username !== undefined && password !== undefined` guard
+  (two tests, each with exactly one field present via an
+  `as unknown as UpstreamSecret` cast to bypass the type system,
+  isolate both halves and the `&&`↔`||` swap); header auth's
+  mirror-image `header_name && value !== undefined` guard (same
+  two-test pattern); and the switch's `default: return null;` branch
+  (no existing test had ever configured an unrecognized `auth_type` at
+  all). No new equivalence classes. Run with
+  `STRYKER_TEST_SCOPE="src/security/__tests__"`.
 
 ### Docs
 

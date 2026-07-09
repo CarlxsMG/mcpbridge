@@ -964,6 +964,35 @@
 //   Fixed by giving the mocked non-ok response a VALID access_token, so
 //   the mutant's fall-through would have produced a real, non-null token
 //   instead of independently re-converging on null.
+//   upstream-auth.ts (94 LOC, src/backend-auth/ — per-client upstream
+//   auth: static bearer/basic/header credential injection)  51 mutants
+//   76.47% baseline (39/51, the existing upstream-auth.test.ts covers
+//   store CRUD + all 3 auth-type proxy-injection happy paths + one
+//   wrong-key decrypt-failure case, but never spies on the decrypt-
+//   failure log call, never feeds a "basic"/"header" secret missing one
+//   required field, never exercises an unrecognized auth_type, and
+//   never calls getUpstreamAuthHeaders for an unconfigured client) ->
+//   **100.00% (51/51), clean** in a single verify round. One new
+//   `upstream-auth-mutation.test.ts`, in the same
+//   `src/security/__tests__/` directory as its sibling (same
+//   cross-directory gotcha as oauth.ts), authored directly (12 baseline
+//   survivors). Scope: `STRYKER_TEST_SCOPE="src/security/__tests__"`.
+//   Closed: the `!row` early-return guard (same "internal crash on a
+//   null row is swallowed by the SAME catch block as a genuine decrypt
+//   failure" pattern as oauth.ts's `!row` guard — distinguished via a
+//   logger spy proving the decrypt-failure log call does NOT fire on
+//   the real early-return path); the decrypt-failure log call's exact
+//   level/message/meta (the existing wrong-key test proved the proxy
+//   proceeds unauthenticated but never inspected the log call itself);
+//   basic auth's `username !== undefined && password !== undefined`
+//   guard (two tests, each with exactly one field present via an `as
+//   unknown as UpstreamSecret` cast to bypass the type system, isolate
+//   both halves and the `&&`-vs-`||` swap); header auth's mirror-image
+//   `header_name && value !== undefined` guard (same two-test pattern);
+//   and the switch's `default: return null;` branch (no existing test
+//   had ever configured an unrecognized auth_type at all). No new
+//   equivalence classes — every baseline survivor was a genuine,
+//   closable gap.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -1028,13 +1057,14 @@ export default {
   mutate: [
     // Domain 5 continues (see SCOPE HISTORY) — context-budget.ts,
     // load-balancer.ts, quarantine.ts, guardrails.ts, pagination.ts,
-    // response-cache.ts, oauth.ts done. Next: upstream-auth.ts (94 LOC,
-    // src/backend-auth/ — per-client upstream auth: static header/query/
-    // basic-auth injection). Same cross-directory gotcha as oauth.ts:
-    // its dedicated test lives at
-    // `src/security/__tests__/upstream-auth.test.ts`. Scope:
-    // STRYKER_TEST_SCOPE="src/security/__tests__".
-    "src/backend-auth/upstream-auth.ts",
+    // response-cache.ts, oauth.ts, upstream-auth.ts done. Next:
+    // redaction.ts (86 LOC, src/content-filtering/ — response-side field
+    // redaction). CONFIRMED test-dir gotcha: its dedicated test lives at
+    // `src/tool-policies/__tests__/redaction.test.ts`, NOT
+    // `src/content-filtering/__tests__/` — yet another cross-directory
+    // case, same class as load-balancer.ts/auth.ts/oauth.ts. Scope:
+    // STRYKER_TEST_SCOPE="src/tool-policies/__tests__".
+    "src/content-filtering/redaction.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
