@@ -2131,18 +2131,33 @@
 // ── DOMAIN 7 (src/observability, 10 of 10 files) COMPLETE: anomaly.ts,
 // monitor.ts, alerts.ts, health.ts, traffic.ts, tracing.ts,
 // trace-context.ts, trace-store.ts, usage.ts, metrics.ts — all
-// effectively 100%. Domain 8 (src/routes + src/routes/admin, #29 in
-// the harness task list) is next. Quick survey: src/routes/ has 28
-// files (admin.ts and src/routes/admin/admin-validators.ts are both
-// pure 1-line re-export barrels with no logic to mutate, same
-// "types.ts"-style skip precedent as domain 3); src/routes/admin/ has
-// 13 more files. Smallest file with real logic: docs.ts (17 LOC — a
-// NODE_ENV-conditional auth-guard selector for the Swagger UI mount).
-// Test dir confirmed: src/routes/__tests__/ (e.g. routes-admin.test.ts,
-// routes-alerts.test.ts, routes-auth.test.ts...). Full domain-8 survey
-// (which specific route file pairs with which test file, whether the
-// naming convention is consistent) not yet done in depth — do that
-// when actually starting the domain. ──
+// effectively 100%. ──
+//
+// DOMAIN 8 = src/routes + src/routes/admin — IN PROGRESS. src/routes/
+// has 28 files, src/routes/admin/ has 13 more (41 total). `admin.ts`
+// and `src/routes/admin/admin-validators.ts` are both pure 1-line
+// re-export barrels with no logic to mutate — SKIPPED, same
+// "types.ts"-style precedent as domain 3. Test dir: `src/routes/__tests__/`
+// (confirmed — holds routes-admin.test.ts, routes-alerts.test.ts,
+// routes-auth.test.ts, etc.); `src/routes/admin/`'s own test location
+// not yet confirmed for any file in that subdirectory — check before
+// assuming when reaching one.
+//   docs.ts (17 LOC — a NODE_ENV-conditional auth-guard selector
+//   wrapping the Swagger UI mount at /docs: development mode bypasses
+//   auth, everything else requires admin auth) 7 mutants, 0% baseline
+//   (0/7 — ZERO test coverage of any kind existed before this) ->
+//   **100.00% (7/7), clean** in a single verify round. Test dir
+//   mirrors 1:1 (`src/routes/__tests__/`), new file
+//   `routes-docs-mutation.test.ts` (no pre-existing `routes-docs.test.ts`
+//   to extend). Scope: `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+//   Authored directly (small file, no agent round). Real HTTP
+//   integration tests (Express app + `listen(0)` + real fetch, same
+//   pattern as the existing `routes-*.test.ts` files): NODE_ENV=
+//   "development" bypasses auth entirely; any other value requires a
+//   valid Bearer admin key; the route is genuinely mounted at exactly
+//   `/docs` (an unrelated path 404s); and a real round-trip resolving
+//   at all (not hanging) proves the dev-mode passthrough actually
+//   calls `next()`.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2206,21 +2221,18 @@ export default {
   },
   mutate: [
     // Domain 6 (src/discovery) is COMPLETE. Domain 7 (src/observability,
-    // 10 files) is COMPLETE (see SCOPE HISTORY — all 10 files
-    // effectively 100%). Domain 8 = src/routes + src/routes/admin
-    // starts here. src/routes/admin.ts and
-    // src/routes/admin/admin-validators.ts are both pure 1-line
-    // re-export barrels (no logic, same skip precedent as domain 3's
-    // types.ts) — SKIP both. Smallest file with real logic: docs.ts
-    // (17 LOC — a NODE_ENV-conditional auth-guard selector wrapping the
-    // Swagger UI mount at /docs). Test dir: src/routes/__tests__/
-    // (confirmed to exist, holds routes-admin.test.ts,
-    // routes-alerts.test.ts, routes-auth.test.ts, etc. — exact
-    // docs.ts-specific test file not yet confirmed, check before
-    // assuming a name). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__"
-    // (widen if src/routes/admin/'s own tests turn out to live
-    // elsewhere — not yet surveyed in depth). Run baseline first.
-    "src/routes/docs.ts",
+    // 10 files) is COMPLETE. Domain 8 = src/routes + src/routes/admin
+    // is IN PROGRESS: docs.ts DONE (see SCOPE HISTORY, 100% clean).
+    // Next: validation.ts (34 LOC — almost entirely type declarations
+    // plus one tiny lookup function, mutationErrorToStatus; likely a
+    // very small mutant count, consider batching with several more
+    // small domain-8 files in one Stryker run if baseline confirms
+    // this, matching the domain-4 "8 small files in one run"
+    // precedent). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
+    // Run baseline first — check whether validation.ts even has a
+    // dedicated test file, or is only exercised indirectly via the
+    // many routes that import it.
+    "src/routes/validation.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

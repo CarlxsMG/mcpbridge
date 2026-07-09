@@ -1388,6 +1388,19 @@ retentionMs`) needing the DEFAULT `now`, since the existing test
   `STRYKER_TEST_SCOPE="src/observability/__tests__"`. **This closes
   domain 7 (`src/observability`, 10 files) entirely** — domain 8
   (`src/routes` + `src/routes/admin`) is next.
+- **Mutation testing — domain 8, `docs.ts`** (17 LOC, `src/routes/` —
+  a NODE_ENV-conditional auth-guard selector wrapping the Swagger UI
+  mount at `/docs`). 7 mutants, 0% baseline (0/7 — zero test coverage
+  of any kind existed before this) → **100.00% (7/7), clean** in a
+  single verify round. Test dir mirrors 1:1 (`src/routes/__tests__/`),
+  new file `routes-docs-mutation.test.ts`. Authored directly, real
+  HTTP integration tests (Express app + `listen(0)` + real `fetch`,
+  matching the existing `routes-*.test.ts` convention): development
+  mode bypasses auth entirely; any other `NODE_ENV` value requires a
+  valid Bearer admin key; the route is genuinely mounted at exactly
+  `/docs` (an unrelated path 404s); and a real round-trip resolving at
+  all (rather than hanging) proves the dev-mode passthrough actually
+  calls `next()`. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
