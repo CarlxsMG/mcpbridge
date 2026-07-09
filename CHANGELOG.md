@@ -1647,6 +1647,23 @@ body.weight === "number"` guard forced always-true — since
   expected (twice), then trusting that signal over Stryker's stale
   report rather than re-running indefinitely. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/approvals.ts`** (73 LOC,
+  `src/routes/admin/` — `GET /approvals` status filter, `POST
+/approvals/:id/approve`, `POST /approvals/:id/reject`). 67 mutants,
+  0% baseline (zero test coverage of any kind existed before this) →
+  **effectively 100%** (66/67 killed + 1 accepted equivalent) after 2
+  verify rounds. New file `routes-approvals-mutation.test.ts`. One
+  genuine equivalent: the `"approved"` literal at the approve handler's
+  `decideApproval(...)` call site — `decideApproval`'s `status`
+  parameter is only ever compared against `"rejected"`, so `""` and
+  `"approved"` are behaviorally identical there. Key technique: the
+  tri-value status-filter OR needed a MIXED 2-approval fixture (one of
+  the target status, one of a different status) per narrowing test — a
+  single-approval fixture can't distinguish a real filter from no
+  filter applied at all when only one approval exists. Also found the
+  approve/reject audit calls don't include `note` in their detail
+  objects, so that ternary was verified via a follow-up `GET` instead
+  of the audit spy. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

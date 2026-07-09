@@ -2512,6 +2512,31 @@
 //   test fails as expected, trust that signal over Stryker's report and
 //   proceed to closure; re-running Stryker a 5th/6th time would not
 //   have resolved this.**
+//   admin/approvals.ts (73 LOC — GET /approvals status filter, POST
+//   /approvals/:id/approve, POST /approvals/:id/reject) 67 mutants, 0%
+//   baseline (zero coverage existed) -> effectively 100% (66/67 killed
+//   + 1 accepted equivalent) after 2 verify rounds. New file
+//   `routes-approvals-mutation.test.ts`. One genuine equivalent: the
+//   `"approved"` string literal at the approve handler's
+//   `decideApproval(rec.id, "approved", ...)` call site — confirmed by
+//   reading `decideApproval`'s full body that its `status` parameter is
+//   consumed in EXACTLY one place (`if (status === "rejected")`); every
+//   other status-related SQL statement uses a hardcoded literal, never
+//   the parameter, so `""` and `"approved"` are behaviorally identical
+//   at this call site (both take the "not rejected" path). Key
+//   technique: the tri-value status-filter OR (`q === "pending" ||
+//   q === "approved" || q === "rejected"`) needed a MIXED 2-approval
+//   fixture (one of the target status, one of a DIFFERENT status) for
+//   each narrowing test — a single-approval fixture can't distinguish
+//   "correctly filtered to 1" from "no filter applied, coincidentally
+//   still 1" when only one approval exists at all. Also found: the
+//   approve/reject handlers' `recordAudit` calls do NOT include the
+//   `note` field in their detail objects (confirmed from source), so
+//   the note-ternary's typeof-string guard had to be verified via a
+//   follow-up `GET /approvals?status=...` read instead of the audit
+//   spy technique used for canary.ts/oauth.ts's analogous ternaries —
+//   check what the audit detail actually contains before assuming a
+//   spy can observe a given field.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2580,14 +2605,14 @@ export default {
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
-    // install-links.ts, admin/audit-log.ts DONE (see SCOPE HISTORY).
-    // Remaining domain-8 files ordered smallest-LOC-first (both
-    // src/routes/ and src/routes/admin/ pooled together):
-    // admin/approvals.ts (73) < ... < admin-validators.ts (457,
-    // largest, last). Next: admin/approvals.ts (73 LOC). No existing
+    // install-links.ts, admin/audit-log.ts, admin/approvals.ts DONE
+    // (see SCOPE HISTORY). Remaining domain-8 files ordered
+    // smallest-LOC-first (both src/routes/ and src/routes/admin/
+    // pooled together): schedules.ts (74) < ... < admin-validators.ts
+    // (457, largest, last). Next: schedules.ts (74 LOC). No existing
     // dedicated test file (confirmed via ls). Scope:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/approvals.ts",
+    "src/routes/schedules.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
