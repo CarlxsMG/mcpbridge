@@ -1664,6 +1664,19 @@ body.weight === "number"` guard forced always-true — since
   approve/reject audit calls don't include `note` in their detail
   objects, so that ternary was verified via a follow-up `GET` instead
   of the audit spy. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `schedules.ts`** (74 LOC, `src/routes/` —
+  `GET /schedules` list, `POST /schedules` create, `PATCH /schedules/:id`
+  toggle, `DELETE /schedules/:id`). 98 mutants, 0% baseline (zero test
+  coverage of any kind existed before this) → **100%** (98/98 killed) after
+  1 verify round. New file `routes-schedules-mutation.test.ts`. Notable:
+  `scheduleRoutes` is wired directly in `server.ts`, not inside
+  `adminRoutes()` like every other domain-8 route file — the test app has
+  to call `scheduleRoutes(app)` directly (plus `requestIdMiddleware`)
+  rather than the usual `adminRoutes(app)`. Key technique: killing a
+  `typeof x === "string" ? x : fallback` ternary's conditional/equality
+  mutants requires a truthy non-string fixture value (e.g. a number), not
+  merely an absent one, since an absent value stays falsy either way. Run
+  with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

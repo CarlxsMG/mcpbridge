@@ -2537,6 +2537,24 @@
 //   spy technique used for canary.ts/oauth.ts's analogous ternaries —
 //   check what the audit detail actually contains before assuming a
 //   spy can observe a given field.
+//   schedules.ts (74 LOC — GET /schedules list, POST /schedules create,
+//   PATCH /schedules/:id toggle, DELETE /schedules/:id) 98 mutants, 0%
+//   baseline (zero coverage existed within the scoped test run) -> 100%
+//   (98/98 killed) after exactly 1 verify round. New file
+//   `routes-schedules-mutation.test.ts`. Notable: `scheduleRoutes` is
+//   wired directly in `server.ts`, NOT inside `adminRoutes()` like every
+//   other domain-8 file this session — the test's `startApp()` had to
+//   import and call `scheduleRoutes(app)` directly (plus
+//   `requestIdMiddleware`, matching the existing
+//   `src/admin/entities/__tests__/schedules.test.ts` app-wiring
+//   pattern) instead of the usual `adminRoutes(app)`; the first test run
+//   against an `adminRoutes(app)`-wired app 404'd on every request.
+//   Key technique reused a 3rd time: killing a `typeof x === "string" ?
+//   x : fallback` ternary's ConditionalExpression/EqualityOperator
+//   mutants requires a TRUTHY NON-STRING value (e.g. a number), not
+//   merely an absent/undefined one — an absent value is already falsy
+//   both before and after a forced-true mutation, so it can't
+//   distinguish the mutant from real code.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2605,14 +2623,13 @@ export default {
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
-    // install-links.ts, admin/audit-log.ts, admin/approvals.ts DONE
-    // (see SCOPE HISTORY). Remaining domain-8 files ordered
-    // smallest-LOC-first (both src/routes/ and src/routes/admin/
-    // pooled together): schedules.ts (74) < ... < admin-validators.ts
-    // (457, largest, last). Next: schedules.ts (74 LOC). No existing
-    // dedicated test file (confirmed via ls). Scope:
-    // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/schedules.ts",
+    // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
+    // schedules.ts DONE (see SCOPE HISTORY). Remaining domain-8 files
+    // ordered smallest-LOC-first (both src/routes/ and
+    // src/routes/admin/ pooled together): metrics.ts (84) < ... <
+    // admin-validators.ts (457, largest, last). Next: metrics.ts
+    // (84 LOC). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/metrics.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
