@@ -1627,6 +1627,26 @@ body.weight === "number"` guard forced always-true — since
   and leaves the underlying DB rows in place; only
   `registry.forgetClient()` actually deletes them. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/audit-log.ts`** (68 LOC,
+  `src/routes/admin/` — `GET /audit-log` list+filter, `GET
+/audit-log/verify`, `GET /audit-log/actions`, `GET /audit-log/export`
+  csv/html/json). 69 mutants, 59.42% baseline (41/69, existing
+  coverage in `routes-admin.test.ts` smoke-tests `/audit-log` and
+  thoroughly covers `/export`'s format branches but never varies
+  actor/action/from/to/cursor/limit) → **effectively 100%** (67/69 real
+  kills + 2 accepted timeouts) after 4 verify rounds. New file
+  `routes-audit-log-mutation.test.ts`. Same filter cluster shape as
+  `traces.ts`/`traffic.ts`, applied to two independent endpoint copies
+  (list + export). Two real gaps: `GET /audit-log/verify` had zero
+  coverage of any kind, and the export endpoint's actor/action filters
+  were missing their "non-string doesn't crash" sibling tests. **Also
+  the most severe Stryker verify-noise seen in this program to date**:
+  two separate verify rounds reported the identical 2 survivors even
+  after a confirmed-correct fix — resolved by hand-applying each
+  mutation to the source directly and confirming `bun test` fails as
+  expected (twice), then trusting that signal over Stryker's stale
+  report rather than re-running indefinitely. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

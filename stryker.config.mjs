@@ -2467,6 +2467,51 @@
 //   API distinguishes a "soft" teardown from a "hard" delete — this
 //   codebase's registry has both (`unregister` vs `forgetClient`) and
 //   they are NOT interchangeable for test fixture purposes.**
+//   admin/audit-log.ts (68 LOC — GET /audit-log list+filter, GET
+//   /audit-log/verify, GET /audit-log/actions, GET /audit-log/export
+//   csv/html/json) 69 mutants, 59.42% baseline (41/69, existing
+//   coverage in routes-admin.test.ts smoke-tests /audit-log and
+//   thoroughly covers /export's format branches, but never varies
+//   actor/action/from/to/cursor/limit on either list endpoint) ->
+//   effectively 100% (67/69 real kills + 2 accepted timeouts) after
+//   4 verify rounds. New file `routes-audit-log-mutation.test.ts`.
+//   Same actor/action/from/to/cursor/limit typeof-string-filter
+//   cluster shape as traces.ts/traffic.ts, applied identically twice
+//   (the list endpoint's own copy AND the export endpoint's
+//   independent copy of actor/action/from/to) — confirms the
+//   "same guard, multiple call sites" lesson generalizes to filter
+//   clusters, not just access guards. Two real gaps found across
+//   rounds: (1) `GET /audit-log/verify` was completely untested (0
+//   coverage of any kind) — missed entirely on the first pass despite
+//   being a simple one-liner handler; (2) the export endpoint's
+//   actor/action filters only had narrowing tests, not their sibling
+//   "non-string doesn't crash" tests (the list endpoint's copies had
+//   both, but coverage of one call site's full pair doesn't imply the
+//   other call site got both either).
+//   **NOTABLE: this file exhibited the most severe Stryker
+//   verify-noise seen in this program to date** — TWO separate verify
+//   rounds (the 3rd and 4th) reported the IDENTICAL 2 survivors
+//   (40:12-37 / 41:13-39, the export actor/action ConditionalExpression
+//   'true' mutants) even AFTER a real fix was applied and confirmed
+//   passing via `bun test` directly. Resolved by manually hand-applying
+//   each mutation to a local copy of the source (`sed -i` swapping
+//   `typeof x === "string"` for a literal `true`) and running `bun test`
+//   directly against it, TWICE — both times the test suite correctly
+//   failed (proving the test WOULD kill the real mutant), yet Stryker's
+//   own subprocess reported it as surviving. Root cause not
+//   conclusively identified (suspected: worker-process reuse or some
+//   state leak across sequentially-tested mutants within one Stryker
+//   worker, since `concurrency` runs multiple mutants through a shared
+//   pool of long-lived test-runner subprocesses) — but the manual
+//   reproduction is definitive proof the test is correct. **General
+//   lesson, stronger than the existing PX-2 precedent: when the SAME
+//   survivor(s) persist across MULTIPLE consecutive verify rounds
+//   despite a real, confirmed-correct fix, don't keep blindly re-running
+//   Stryker — hand-apply the exact mutation to a backup-then-restore
+//   copy of the source file and run the test suite directly. If the
+//   test fails as expected, trust that signal over Stryker's report and
+//   proceed to closure; re-running Stryker a 5th/6th time would not
+//   have resolved this.**
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2535,14 +2580,14 @@ export default {
     // admin/connect.ts, admin/monitors.ts, admin/overview.ts,
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
-    // install-links.ts DONE (see SCOPE HISTORY). Remaining domain-8
-    // files ordered smallest-LOC-first (both src/routes/ and
-    // src/routes/admin/ pooled together): admin/audit-log.ts (68) <
-    // ... < admin-validators.ts (457, largest, last). Next:
-    // admin/audit-log.ts (68 LOC). No existing dedicated test file
-    // (confirmed via ls). Scope:
+    // install-links.ts, admin/audit-log.ts DONE (see SCOPE HISTORY).
+    // Remaining domain-8 files ordered smallest-LOC-first (both
+    // src/routes/ and src/routes/admin/ pooled together):
+    // admin/approvals.ts (73) < ... < admin-validators.ts (457,
+    // largest, last). Next: admin/approvals.ts (73 LOC). No existing
+    // dedicated test file (confirmed via ls). Scope:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/audit-log.ts",
+    "src/routes/admin/approvals.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
