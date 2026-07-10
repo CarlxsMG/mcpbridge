@@ -3215,6 +3215,46 @@
 //   permitted, which already use this same save/restore pattern
 //   elsewhere in this file) must do the same.
 //
+//   `discovery.ts` (199 LOC — POST /discovery/preview (OpenAPI/
+//   curl/Postman/manual sources) and POST /discovery/preview-graphql)
+//   164 mutants, 54% baseline (89/164 killed by the existing
+//   routes-discovery.test.ts) -> effectively 100% (149/164 killed, 6
+//   confirmed equivalents, 9 accepted timeouts) after 2 verify rounds.
+//   New file `routes-discovery-mutation.test.ts`, existing test file
+//   left untouched. Fourth file closed via the parallel Workflow. 9
+//   accepted timeouts, the largest count so far for a single file in
+//   domain 8 — mostly whole-handler/whole-branch-body-emptied mutants
+//   across the file's 2 routes and their several source-specific
+//   try-blocks (openapi_url / curl-postman / manual), plus a
+//   validateManualToolsForPreview negation-removed/forced-true pair
+//   that both reach the exact same "early-return with no response
+//   sent yet" hang. 6 confirmed equivalents (all hand-mutation
+//   verified): a `stringArray()` ternary whose empty-vs-undefined
+//   distinction is erased by every caller's own `?.length`/`?? []`
+//   truthiness check; 2 validator-branch `return false`->`return true`
+//   flips that only cause a benign double-send-after-flush (the
+//   FIRST, correct response already reached the client before the
+//   second one throws `ERR_HTTP_HEADERS_SENT` server-side); a
+//   non-string-fallback StringLiteral consumed only by a hardcoded-
+//   message URL-prefix guard that rejects both fallback values
+//   identically; and a `new URL(...).pathname || "/graphql"` fallback
+//   — the same "WHATWG URL.pathname is never falsy" equivalence class
+//   already documented for registration.ts (domain 3). A rate-limiter
+//   singleton collision (the shared "register" tier bucket, keyed only
+//   by caller IP) required clearing `_internalsForTesting.registerBuckets`
+//   in `afterEach`, not just at setup, to avoid a stale 429 leaking
+//   from this file's own tests into the sibling test file's later
+//   runs. **Reported (honestly) `fullSuitePassed: false`** at hand-off
+//   — the SAME pre-existing worktree-only environment artifacts as
+//   policies.ts/auth.ts (config-schema.test.ts x5,
+//   registration-mutation-rg1.test.ts x3), confirmed unrelated via
+//   isolation + `git diff` showing zero changes to those files; the
+//   MAIN repo's full suite stayed green (3492/3492) after integration,
+//   confirming (yet again) that this exact 8-9-failure signature is a
+//   worktree-environment artifact specific to this parallel-Workflow
+//   program, not a real regression — safe to disregard once
+//   re-verified against the main repo directly.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3288,8 +3328,8 @@ export default {
     // consumers.ts, admin/lb.ts, config-io.ts, policies.ts, auth.ts,
     // alerts.ts (alerts.ts handled solo after its parallel worktree
     // agent's own Stryker process died silently mid-run),
-    // ws-proxy-admin.ts DONE (see SCOPE HISTORY). The remaining 8
-    // domain-8 files (composites.ts, discovery.ts, admin/tools.ts,
+    // ws-proxy-admin.ts, discovery.ts DONE (see SCOPE HISTORY). The
+    // remaining 7 domain-8 files (composites.ts, admin/tools.ts,
     // catalog.ts, auth-oidc.ts, mcp-keys.ts, bundles.ts,
     // admin-validators.ts) are being closed via a worktree-isolated
     // parallel Workflow (see the PARALLELIZATION note in SCOPE

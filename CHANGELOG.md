@@ -1941,6 +1941,19 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   but failed once integrated into the main repo; fixed by explicitly
   forcing the config value false for that one test's duration. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-ws-proxy-admin-mutation.test.ts"`.
+- **Mutation testing — domain 8, `discovery.ts`** (199 LOC, `src/routes/` —
+  `POST /discovery/preview` (OpenAPI/curl/Postman/manual sources) and
+  `POST /discovery/preview-graphql`). 164 mutants, 54% baseline (89/164
+  killed) → **effectively 100%** (149/164 killed, 6 confirmed equivalents,
+  9 accepted timeouts) after 2 verify rounds. New file
+  `routes-discovery-mutation.test.ts`; existing test file left untouched.
+  Fourth file closed via the parallel Workflow — the largest accepted-
+  timeout count so far in domain 8 (9), mostly whole-handler/whole-branch
+  mutants across the file's several source-specific try-blocks. Confirmed
+  a WHATWG `URL.pathname`-never-falsy equivalence already seen on
+  registration.ts, plus a benign double-send-after-flush equivalence for
+  two validator-branch `return false`→`true` flips. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-discovery.test.ts src/routes/__tests__/routes-discovery-mutation.test.ts"`.
 
 ### Docs
 
