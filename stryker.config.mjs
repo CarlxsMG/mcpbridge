@@ -4217,6 +4217,51 @@
 //   every connect.ts-owned field without duplicating connect-
 //   templates.ts's own logic. Closed via a worktree-isolated parallel
 //   Workflow agent.
+//   src/lib/origin-match.ts (71 LOC — shared Origin-header-vs-allowlist-
+//   entry comparison primitive, with an opt-in :* port-wildcard rule,
+//   used by middleware/cors.ts and middleware/origin-validator.ts) 53
+//   mutants, 98% baseline (52/53, first draft — this file had zero
+//   prior coverage anywhere despite two domain-4 consumers) -> **98.1%
+//   raw + 1 accepted equivalent** (effectively 100%) in 1 verify round.
+//   New file src/lib/__tests__/origin-match-mutation.test.ts. 1
+//   accepted equivalent: `hostname.toLowerCase()` forced to
+//   `toUpperCase()` is unobservable both because the WHATWG URL parser
+//   already lowercases hostnames during construction, and because
+//   parseOriginParts runs symmetrically on both sides of every equality
+//   check, so any CONSISTENT case-folding direction can't change which
+//   pairs compare equal — hand-verified. Closed via a worktree-isolated
+//   parallel Workflow agent.
+//   src/lib/leader-loop.ts (73 LOC — shared setInterval-based
+//   "leader-gated" and "plain periodic" loop scaffold with swallow/log
+//   error handling, factored out of five background loops) 18 mutants,
+//   100% baseline (18/18, first draft — had zero coverage of its OWN
+//   logic despite being spied-through as a stand-in in 2 sibling
+//   files' tests) -> **100%** in 1 verify round. New file
+//   src/lib/__tests__/leader-loop-mutation.test.ts. Reused this
+//   program's established circuit-breaker.ts/rate-limiter.ts technique
+//   (spy on the real global setInterval to capture the tick callback
+//   directly, bypassing real timers) applied to leader-loop.ts's OWN
+//   logic rather than a caller's. The `!isLeader()` gate's negation
+//   mutant was killed by flipping isLeader's mocked return value across
+//   REPEATED invocations of the SAME captured callback, proving the
+//   guard is re-evaluated per-tick, not cached at start. Closed via a
+//   worktree-isolated parallel Workflow agent.
+//   src/cli/client.ts (85 LOC — CLI credential store at
+//   ~/.mcpbridge/config.json + a thin bearer-authenticated fetch
+//   wrapper against the admin API) 56 mutants, 100% baseline (56/56,
+//   first draft — zero prior coverage of any kind) -> **100%**,
+//   reconfirmed identical on an independent second run (no verify
+//   noise). New file src/cli/__tests__/client-mutation.test.ts. Since
+//   CONFIG_DIR/CONFIG_PATH are computed once at module-load time from
+//   the real os.homedir() with no injection parameter, mocking
+//   os.homedir() itself wouldn't retroactively change the constants —
+//   spied `fs/promises`'s mkdir/readFile/writeFile directly on the
+//   module namespace instead (same pattern as routes-backup-mutation.
+//   test.ts), so no test ever touches the real home directory. The
+//   error-message fallback `body?.error?.message ?? \`HTTP ${status}\``
+//   needed a dedicated empty-string-message case to prove `??` (not
+//   `||`) is used — an all-falsy-value test alone can't distinguish the
+//   two. Closed via a worktree-isolated parallel Workflow agent.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating

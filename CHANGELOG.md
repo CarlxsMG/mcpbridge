@@ -2385,6 +2385,27 @@ are skipped entirely (pure interface / static data, no runtime logic).
   an expected payload, exercising every connect.ts-owned field without
   duplicating connect-templates.ts's own logic. Closed via a
   worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/lib/origin-match.ts`** (71 LOC —
+  shared Origin-header-vs-allowlist-entry comparison primitive). 53
+  mutants, 98% baseline (52/53, first draft) → effectively 100%
+  (52/53 + 1 accepted equivalent) in 1 verify round. New file
+  `origin-match-mutation.test.ts`. The 1 equivalent: `.toLowerCase()`
+  forced to `.toUpperCase()` is unobservable since the WHATWG URL parser
+  already lowercases hostnames, and the comparison is symmetric on both
+  sides regardless. Closed via a worktree-isolated parallel Workflow
+  agent.
+- **Mutation testing — domain 10, `src/lib/leader-loop.ts`** (73 LOC —
+  shared setInterval-based leader-gated/periodic loop scaffold). 18
+  mutants, 100% baseline (18/18, first draft — zero coverage of its own
+  logic despite being spied-through in 2 sibling tests) → **100%** in 1
+  verify round. New file `leader-loop-mutation.test.ts`. Closed via a
+  worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/cli/client.ts`** (85 LOC — CLI
+  credential store + bearer-authenticated fetch wrapper). 56 mutants,
+  100% baseline (56/56, first draft, zero prior coverage) → **100%**,
+  reconfirmed identical on an independent second run. New file
+  `client-mutation.test.ts`. Closed via a worktree-isolated parallel
+  Workflow agent.
 
 ### Docs
 
