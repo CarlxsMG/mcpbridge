@@ -3510,6 +3510,95 @@
 // are candidates for batching (same reasoning as domain 4's "8 small
 // remaining files" batch) rather than 18 separate closures.
 //
+//   src/admin/entities/policies.ts (112 LOC — guard-policy CRUD + bulk
+//   apply-to-tools/apply-to-bundle logic backing the domain-8
+//   src/routes/policies.ts handlers) 47 mutants, 97.9% baseline (46/47
+//   killed — the existing policies.test.ts only covered the CRUD happy
+//   path + apply success/skip/unknown-bundle cases, leaving
+//   getGuardPolicy()/policyNameExists() completely untested) -> **100%**
+//   (47/47) in 1 verify round. New file
+//   src/admin/entities/__tests__/policies-mutation.test.ts. Direct
+//   import+call (plain-function entity module, no Express routes, no
+//   recordAudit calls of its own). Closed via a worktree-isolated
+//   parallel Workflow agent.
+//   src/admin/config/config-diff.ts (59 LOC — pure order-insensitive
+//   structural diff between two config documents, name-keyed array
+//   alignment) 75 mutants, 93.3% baseline (70/75, no prior test file
+//   existed at all) -> effectively 100% (72/75 + 3 accepted equivalents)
+//   in 1 verify round. New dir + file
+//   src/admin/config/__tests__/config-diff-mutation.test.ts. The 2 real
+//   gaps were both in walk()'s aIsObj/bIsObj null guards (`typeof null
+//   === "object"` in JS makes the `x !== null` conjunct load-bearing —
+//   without it a null leaf vs. a real object wrongly falls through to
+//   `Object.keys(null)` and throws instead of reporting a clean
+//   'changed' diff). 3 accepted equivalents, all hand-verified: the
+//   array-transform's `arr.length > 0` boundary (unobservable — an empty
+//   array's `.every()` is vacuously true, so sorting a no-op empty array
+//   either way is indistinguishable) in both its ConditionalExpression
+//   and EqualityOperator (`>= 0`) forms, and walk()'s top-level `a ===
+//   b` early-return (provably redundant — every input satisfying it is
+//   independently caught by either the JSON.stringify shortcut or the
+//   self-referential recursive walk one level down). Also notable: the
+//   array sort-alignment tests needed a 3-element asymmetric fixture
+//   (deliberately unsorted going in) since a naive 2-element swap can't
+//   distinguish a correct ascending sort from a reversed one. Closed via
+//   a worktree-isolated parallel Workflow agent.
+//   src/admin/entities/teams.ts (112 LOC — team multi-tenancy entity:
+//   CRUD on teams, client/user team-ownership assignment, and the
+//   canAccessClient scoping decision) 70 mutants, 80% baseline (56/70 —
+//   the existing teams.test.ts covered the route-enforcement/happy-path
+//   side but left getTeam() completely untested, plus the
+//   setClientTeam/setUserTeam "clear" and "unknown-teamId" branches and
+//   the admin_users side of the FK ON DELETE SET NULL cascade) ->
+//   **94.3%** (66/70 + 4 accepted equivalents) in 1 verify round. New
+//   file src/admin/entities/__tests__/teams-mutation.test.ts. The 4
+//   accepted equivalents (2 ConditionalExpression existence-guard
+//   disables + 2 EqualityOperator `>0`->`>=0` boundary mutants, one pair
+//   each in setClientTeam/setUserTeam) are all hand-verified: each
+//   guard's existence check is followed immediately (same synchronous
+//   call, no interleaving I/O) by an UPDATE keyed on the same PRIMARY
+//   KEY/UNIQUE column the guard just checked, so the guard's own
+//   return-false path and the UPDATE's own `.changes` count always
+//   agree. No recordAudit calls exist in this file, unlike most
+//   domain-8 route handlers. Closed via a worktree-isolated parallel
+//   Workflow agent.
+//   src/admin/config/config-versions.ts (114 LOC — snapshot CRUD
+//   (create/list/get/delete) + diff/rollback on top of config-io.ts's
+//   exportConfig/importConfig) 39 mutants, 100% baseline (39/39, stable
+//   across 2 verify rounds) — no dedicated domain-9-convention test file
+//   existed yet (a pre-existing sibling src/__tests__/config-versions.
+//   test.ts covering the happy paths was left untouched), so the first
+//   draft doubled as the baseline per this program's own contingency
+//   for an empty __tests__ dir. New file src/admin/config/__tests__/
+//   config-versions-mutation.test.ts. Zero equivalents or timeouts
+//   needed. Closed via a worktree-isolated parallel Workflow agent.
+//   src/admin/entities/consumers.ts (159 LOC — API-consumer CRUD +
+//   monthlyQuota/endUserRateLimitPerMin enforcement checked on the
+//   proxy hot path) 89 mutants, 57.3% baseline (51/89 — the existing
+//   consumers.test.ts drove CRUD/FK-set-null/proxy-integration paths
+//   thoroughly but never imported isValidQuotaValue, consumerNameExists,
+//   or getConsumerByName at all, and only ever called
+//   checkConsumerQuota/checkEndUserRateLimit with the optional
+//   `consumer` param omitted) -> effectively 100% (88/89 + 1 accepted
+//   equivalent) in 1 verify round. New file src/admin/entities/
+//   __tests__/consumers-mutation.test.ts (direct-call, no Express routes
+//   of its own). Notable techniques: bun:sqlite's loose type-affinity
+//   binding means ordinary non-integer ids (1.5, NaN, strings) can't
+//   kill getConsumer's `!Number.isInteger(id)` guard at all (both paths
+//   return null) — passing the boolean `true` (silently coerced to 1 by
+//   sqlite) against a real id-1 row is the fixture that actually
+//   distinguishes guard-present from guard-removed; the optional
+//   explicit-`consumer` param on checkConsumerQuota/checkEndUserRateLimit
+//   needed a fabricated Consumer object paired with a non-existent
+//   consumerId to prove the passed object (not a fresh getConsumer()
+//   lookup) is what's used; the 256-char end-user-id truncation was
+//   killed with two ids sharing an identical 256-char prefix that
+//   diverge only after it. The 1 accepted equivalent (isValidQuotaValue's
+//   `typeof v === "number"` forced to `true` inside its `&&` chain) is
+//   the same Number.isInteger-implies-typeof-number equivalence class
+//   documented throughout this program. Closed via a worktree-isolated
+//   parallel Workflow agent.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3585,13 +3674,31 @@ export default {
     // auth-oidc.ts, composites.ts, mcp-keys.ts, bundles.ts,
     // admin-validators.ts, admin/tools.ts — **DOMAIN 8 COMPLETE**
     // (see SCOPE HISTORY for the full retrospective). Domain 9 =
-    // src/admin (33 files, see the "Next: domain 9" note in SCOPE
-    // HISTORY for the file inventory and test-dir layout) starts now.
-    // Smallest-LOC-first, per this program's established convention;
-    // the 18 tiny src/admin/tool-policies/mutations/*.ts files
-    // (19-116 LOC each) are candidates for batching rather than 18
-    // separate closures — decide batching strategy before launching.
+    // src/admin (33 files) starts now, batched: the 19 files in
+    // src/admin/tool-policies/mutations/ (18 ToolMutation handlers +
+    // index.ts the dispatcher; types.ts excluded — pure type
+    // declarations, no runtime logic, same precedent as domain 3's
+    // types.ts) share one baseline/verify pass here, matching domain
+    // 4's "8 small files batched into ONE run" precedent.
     "src/admin/tool-policies/mutations/enabled.ts",
+    "src/admin/tool-policies/mutations/sensitive.ts",
+    "src/admin/tool-policies/mutations/guards.ts",
+    "src/admin/tool-policies/mutations/cache.ts",
+    "src/admin/tool-policies/mutations/coalesce.ts",
+    "src/admin/tool-policies/mutations/pagination.ts",
+    "src/admin/tool-policies/mutations/streaming.ts",
+    "src/admin/tool-policies/mutations/transform.ts",
+    "src/admin/tool-policies/mutations/mock.ts",
+    "src/admin/tool-policies/mutations/quarantine-policy.ts",
+    "src/admin/tool-policies/mutations/redact-paths.ts",
+    "src/admin/tool-policies/mutations/guardrails.ts",
+    "src/admin/tool-policies/mutations/overrides.ts",
+    "src/admin/tool-policies/mutations/graphql.ts",
+    "src/admin/tool-policies/mutations/requires-approval.ts",
+    "src/admin/tool-policies/mutations/context-budget.ts",
+    "src/admin/tool-policies/mutations/ws.ts",
+    "src/admin/tool-policies/mutations/monitor.ts",
+    "src/admin/tool-policies/mutations/index.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

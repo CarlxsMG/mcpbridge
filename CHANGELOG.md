@@ -2041,6 +2041,59 @@ solo rescue for interrupted/stuck runs. See `stryker.config.mjs`'s
 SCOPE HISTORY for the full retrospective. Domain 9 (`src/admin`, 33
 files) starts next.
 
+- **Mutation testing — domain 9, `src/admin/entities/policies.ts`** (112 LOC
+  — guard-policy CRUD + bulk apply-to-tools/apply-to-bundle logic backing
+  the already-closed `src/routes/policies.ts` route handlers). 47 mutants,
+  97.9% baseline (46/47 killed — the existing `policies.test.ts` only
+  covered the CRUD happy path plus apply success/skip/unknown-bundle
+  cases, leaving `getGuardPolicy()`/`policyNameExists()` completely
+  untested) → **100%** (47/47) in 1 verify round. New file
+  `policies-mutation.test.ts`. Closed via a worktree-isolated parallel
+  Workflow agent.
+- **Mutation testing — domain 9, `src/admin/config/config-diff.ts`** (59
+  LOC — pure order-insensitive structural diff between two config
+  documents, name-keyed array alignment). 75 mutants, 93.3% baseline
+  (70/75, no prior test file existed at all) → effectively 100% (72/75 +
+  3 accepted equivalents) in 1 verify round. New file
+  `config-diff-mutation.test.ts`. The 2 real gaps were both in `walk()`'s
+  null-guard conjuncts (`typeof null === "object"` makes the `x !== null`
+  check load-bearing — without it a null leaf vs. a real object wrongly
+  throws instead of reporting a clean diff); the 3 accepted equivalents
+  (an `arr.length > 0` empty-array boundary in two mutant forms, plus a
+  redundant top-level `a === b` early-return) were each hand-verified by
+  mutating the source directly and confirming the full test file still
+  passed. Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 9, `src/admin/entities/teams.ts`** (112 LOC
+  — team multi-tenancy entity: CRUD on teams, client/user team-ownership
+  assignment, `canAccessClient` scoping). 70 mutants, 80% baseline (56/70
+  — the existing `teams.test.ts` covered route-enforcement/happy-path but
+  left `getTeam()` untested, plus the "clear"/"unknown-teamId" branches
+  and the `admin_users` side of the FK cascade) → **94.3%** (66/70 + 4
+  accepted equivalents) in 1 verify round. New file
+  `teams-mutation.test.ts`. The 4 equivalents (existence-guard disables +
+  `.changes > 0`→`>= 0` boundary mutants) were hand-verified: each guard
+  is followed immediately by an UPDATE keyed on the same PRIMARY
+  KEY/UNIQUE column it just checked, so the two can never disagree.
+  Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 9, `src/admin/config/config-versions.ts`**
+  (114 LOC — snapshot CRUD + diff/rollback on top of `config-io.ts`'s
+  export/import). 39 mutants, 100% baseline (39/39, stable across 2 verify
+  rounds) — no dedicated test file existed yet at the domain-9 convention
+  path, so the first draft doubled as the baseline. New file
+  `config-versions-mutation.test.ts`. Zero equivalents or timeouts
+  needed. Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 9, `src/admin/entities/consumers.ts`** (159
+  LOC — API-consumer CRUD + monthlyQuota/endUserRateLimitPerMin
+  enforcement checked on the proxy hot path). 89 mutants, 57.3% baseline
+  (51/89 — the existing `consumers.test.ts` never imported
+  `isValidQuotaValue`/`consumerNameExists`/`getConsumerByName` at all) →
+  effectively 100% (88/89 + 1 accepted equivalent) in 1 verify round. New
+  file `consumers-mutation.test.ts`. Notable: `bun:sqlite`'s loose type
+  affinity means ordinary non-integer ids can't kill `getConsumer`'s
+  integer guard at all — passing the boolean `true` (silently coerced to
+  1. is the fixture that actually distinguishes it. Closed via a
+     worktree-isolated parallel Workflow agent.
+
 ### Docs
 
 - Added `docs/architecture/slos.md` (and `docs/es/architecture/slos.md`) — initial
