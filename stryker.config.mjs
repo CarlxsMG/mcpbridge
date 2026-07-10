@@ -2801,6 +2801,58 @@
 //     `routes-upstream-auth.test.ts` file's own established pattern —
 //     always check a sibling test file for this exact convention
 //     before introducing a new one that touches the same global.
+//   admin/clients.ts (119 LOC — GET /clients list+filters, GET
+//   /clients/:name detail, PATCH /clients/:name enabled+guards, DELETE
+//   /clients/:name, PATCH /clients bulk enable/disable) 128 mutants,
+//   46.1% baseline (59/128 — the pre-existing `routes-admin.test.ts`
+//   covers the list/detail/PATCH/bulk-PATCH happy paths and a handful
+//   of 404s at a basic level, but never exercises the query-filter
+//   ternaries with a non-string fixture, never exercises team-scoped
+//   cross-team denial on GET/PATCH/DELETE, never exercises the disable
+//   branch's own audit action, and never asserts exact codes/messages/
+//   audit details anywhere) -> effectively 100% (123/128 killed + 1
+//   accepted equivalent + 4 genuine timeouts) after 2 verify rounds.
+//   New file `routes-clients-mutation.test.ts`, existing file left
+//   untouched. 1 accepted equivalent: the `teamId` ternary's
+//   forced-true direction — `registry.listClientsSummary`'s own
+//   query-building code re-validates `typeof opts.teamId === "number"`
+//   before ever using it as a SQL filter param (confirmed by reading
+//   the registry source directly), so whatever non-number value the
+//   route passes through is treated identically downstream. 4 genuine
+//   timeouts: the whole GET-list and PATCH-single handler bodies
+//   emptied, plus PATCH's own `!ensureClientAccess(...)` guard's
+//   negation-removed AND forced-true directions (both would either
+//   fall through past an already-sent 404 response or return early
+//   with NO response ever sent for a legitimately allowed request —
+//   either way the connection hangs; same "hangs forever = detected"
+//   convention as auth.ts/admin/users.ts/upstream-auth.ts). Key
+//   findings:
+//   - **A "doesn't crash" assertion on a query-filter ternary can't
+//     distinguish real filtering from a forced-false/emptied-string
+//     mutant that silently drops the filter** — both `status` and
+//     `cursor`'s initial tests only checked that a non-string
+//     (repeated-key) value didn't crash the request, which is
+//     equally true whether the filter is genuinely applied-then-
+//     ignored or unconditionally dropped. Fixed with a genuine
+//     narrowing assertion for `status` (two clients with DIFFERENT
+//     live statuses via `registry.markClientStatus`, filtered result
+//     must exclude the non-matching one) and real 2-page pagination
+//     for `cursor` (matching schedules.ts/audit-log.ts's established
+//     cursor-pagination technique) — reconfirms that "positive value
+//     passes through without crashing" is never sufficient for a
+//     filter ternary; the test must prove the filter's OBSERVABLE
+//     EFFECT.
+//   - **Confirming a genuine equivalent requires reading the
+//     downstream consumer's own validation code, not just reasoning
+//     about the route in isolation** — the `teamId` ternary looked
+//     identical in shape to `status`/`cursor` (same typeof-guard
+//     pattern) but turned out equivalent specifically because
+//     `registry.listClientsSummary` re-validates the SAME typeof
+//     check before using the value, unlike `status`/`cursor` which
+//     the registry consumes more directly. Same claim, same-looking
+//     mutant, opposite conclusion — the deciding factor was reading
+//     `src/mcp/registry.ts`'s actual query-building code, not
+//     assuming symmetry with the other three filters.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2871,13 +2923,13 @@ export default {
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
     // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts,
-    // admin/users.ts, upstream-auth.ts DONE (see SCOPE HISTORY).
-    // Remaining domain-8 files ordered smallest-LOC-first (both
-    // src/routes/ and src/routes/admin/ pooled together):
-    // admin/clients.ts (119) < ... < admin-validators.ts (457,
-    // largest, last). Next: admin/clients.ts (119 LOC). Scope:
-    // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/clients.ts",
+    // admin/users.ts, upstream-auth.ts, admin/clients.ts DONE (see
+    // SCOPE HISTORY). Remaining domain-8 files ordered
+    // smallest-LOC-first (both src/routes/ and src/routes/admin/
+    // pooled together): consumers.ts (121) < ... <
+    // admin-validators.ts (457, largest, last). Next: consumers.ts
+    // (121 LOC). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/consumers.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

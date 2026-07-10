@@ -1800,6 +1800,29 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   unrelated tests in other files during a full-suite run, fixed by
   matching the sibling test file's own capture-and-restore convention.
   Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/clients.ts`** (119 LOC,
+  `src/routes/admin/` — `GET /clients` list+filters, `GET /clients/:name`
+  detail, `PATCH /clients/:name` enabled+guards, `DELETE /clients/:name`,
+  `PATCH /clients` bulk enable/disable). 128 mutants, 46.1% baseline
+  (59/128 — existing `routes-admin.test.ts` never exercised the
+  query-filter ternaries with a non-string fixture, team-scoped
+  cross-team denial, the disable branch's own audit action, or exact
+  codes/messages/audit details) → **effectively 100%** (123/128 killed +
+  1 accepted equivalent + 4 genuine timeouts) after 2 verify rounds. New
+  file `routes-clients-mutation.test.ts`, existing file left untouched.
+  1 accepted equivalent: the `teamId` ternary's forced-true direction —
+  `registry.listClientsSummary` re-validates `typeof === "number"` before
+  using it as a SQL filter param regardless of what the route passes
+  through. 4 genuine timeouts: whole-handler-emptied and
+  `!ensureClientAccess(...)`'s negation-removed/forced-true directions
+  (same "hangs forever" convention as prior files). Key findings: a
+  "doesn't crash" assertion on a query-filter ternary can't distinguish
+  real filtering from a mutant that silently drops the filter — fixed
+  with genuine narrowing assertions (a status-mismatch fixture, real
+  2-page cursor pagination); and confirming a genuine equivalent requires
+  reading the downstream consumer's own validation code, not assuming
+  symmetry with a similarly-shaped sibling filter. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
