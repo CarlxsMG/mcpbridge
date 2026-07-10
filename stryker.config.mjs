@@ -3975,6 +3975,65 @@
 //   the entire 45-literal unknown-env-prefix array and its guard were
 //   real gaps, closed with boundary-value tests. Closed via a
 //   worktree-isolated parallel Workflow agent.
+//   src/lib/identifier.ts (66 LOC — shared identifier-shape regex
+//   validators isValidToolName/isValidAdminEntityName plus the
+//   client__tool composite-key encode/decode pair toolKey/splitToolKey)
+//   25 mutants, 100% baseline (25/25, first-draft test since none
+//   existed) -> **100%** on the FIRST run, no verify rounds needed. New
+//   file src/lib/__tests__/identifier-mutation.test.ts, 37 tests.
+//   Deliberately covered both regexes' min/max-length boundaries, an
+//   explicit cross-check that the two regexes reject each other's
+//   permissive cases (the source's own doc comments call out that
+//   conflating them would be a regression), and a splitToolKey input
+//   containing its own separator to pin indexOf-vs-lastIndexOf
+//   semantics. Closed via a worktree-isolated parallel Workflow agent.
+//   src/cli/connect-templates.ts (279 LOC — per-MCP-client config-
+//   snippet generator: Claude Desktop/Cursor/Windsurf/Continue/generic-
+//   JSON templates plus generateConnectSnippet/resolveGatewayEndpoint/
+//   isConnectClientId) 112 mutants, 78.6% baseline (88/112 — the
+//   existing 199-LOC test exercised generate() output but never read
+//   template objects' own id/label fields, never inspected untouched
+//   `instructions` array lines, and used bare `.toThrow()` without
+//   checking exact thrown messages) -> **100%** (112/112) in 1 verify
+//   round. New file connect-templates-mutation.test.ts. Zero
+//   equivalents or timeouts needed — notably, apiKeyHint's own
+//   template-literal body was NOT a gap despite looking like one:
+//   Stryker's StringLiteral mutator collapses the WHOLE template literal
+//   (including its interpolated placeholder expression) at once, which
+//   the sibling test's existing `.some(i => i.includes(PLACEHOLDER))`
+//   check already catches since the placeholder vanishes too. Closed
+//   via a worktree-isolated parallel Workflow agent.
+//   src/cli/args.ts (32 LOC — hand-rolled parseFlags() argv parser)
+//   39 mutants, 92% baseline (36/39 — the existing cli.test.ts, which
+//   also covers config-file.ts, never exercised a flag as the literal
+//   LAST argv element) -> effectively 100% (37/39 + 2 accepted genuine
+//   timeouts) in 1 verify round. New file args-mutation.test.ts. The 2
+//   accepted timeouts are both loop-counter UpdateOperator flips
+//   (`i++`->`i--`, `++i`->`--i`) causing genuine infinite loops, not
+//   fixable via assertions — same "inherent hang, not a coverage gap"
+//   class as this program's other loop-counter timeout findings.
+//   OPERATIONAL NOTE — a NEW confirmed instance of this program's
+//   documented verify-noise gotcha: the first 2 Stryker runs against
+//   this file's already-authored, provably-correct test both reported 2
+//   false survivors (the exact 2 real gaps this file needed) despite a
+//   direct `bun test` confirming the test file genuinely killed both
+//   mutations when hand-applied — only a 3rd, fresh run reported the
+//   correct 0-survivor result. Treat any single Stryker run against a
+//   freshly-authored file with mild suspicion; re-run once before
+//   trusting a survivor list, per [[px2_proxy_verification_noise]].
+//   Closed via a worktree-isolated parallel Workflow agent.
+//   src/secrets/local-provider.ts (25 LOC — zero-config SecretsProvider
+//   wrapping security/secret-box.ts's sync encrypt/decrypt/isConfigured
+//   in async shims) 5 mutants, 100% baseline (5/5, first-draft test
+//   since none existed) -> **100%** in 1 verify round (stable across a
+//   2nd stability-check run, 0 survivors both times). New file
+//   local-provider-mutation.test.ts. Test design specifically
+//   cross-checked every call against secret-box.ts's real functions
+//   imported independently under a different name, so a mutant breaking
+//   the DELEGATION itself (dropped argument, swapped underlying
+//   function, wrong return) would be caught, not just a body-emptied
+//   mutant that already looks broken via a thrown/undefined check.
+//   Closed via a worktree-isolated parallel Workflow agent.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating

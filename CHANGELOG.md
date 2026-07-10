@@ -2278,6 +2278,34 @@ are skipped entirely (pure interface / static data, no runtime logic).
   read. 5 genuinely observable arithmetic-bound mutants plus the
   unknown-env-prefix array were real gaps, closed with boundary tests.
   Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/lib/identifier.ts`** (66 LOC —
+  shared identifier-shape regex validators plus the `client__tool`
+  composite-key encode/decode pair). 25 mutants, 100% baseline (25/25,
+  no prior test existed) → **100%** on the first run, no verify rounds
+  needed. New file `identifier-mutation.test.ts`, 37 tests. Closed via a
+  worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/cli/connect-templates.ts`** (279
+  LOC — per-MCP-client config-snippet generator). 112 mutants, 78.6%
+  baseline (88/112 — the existing test never read template objects' own
+  `id`/`label` fields nor checked exact thrown messages) → **100%**
+  (112/112) in 1 verify round. New file `connect-templates-mutation.test.ts`.
+  Zero equivalents or timeouts needed. Closed via a worktree-isolated
+  parallel Workflow agent.
+- **Mutation testing — domain 10, `src/cli/args.ts`** (32 LOC —
+  hand-rolled `parseFlags()` argv parser). 39 mutants, 92% baseline
+  (36/39 — the existing test never exercised a flag as the literal last
+  argv element) → effectively 100% (37/39 + 2 accepted genuine timeouts)
+  in 1 verify round. New file `args-mutation.test.ts`. Notable: the
+  first 2 Stryker runs against this file's already-correct test both
+  reported the same 2 false survivors before a 3rd fresh run reported 0
+  — a new confirmed instance of this program's documented verify-noise
+  gotcha. Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/secrets/local-provider.ts`** (25
+  LOC — zero-config `SecretsProvider` wrapping `secret-box.ts`'s sync
+  primitives in async shims). 5 mutants, 100% baseline (5/5, no prior
+  test existed) → **100%** in 1 verify round, stable across a 2nd
+  stability check. New file `local-provider-mutation.test.ts`. Closed
+  via a worktree-isolated parallel Workflow agent.
 
 ### Docs
 
