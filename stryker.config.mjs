@@ -3127,6 +3127,56 @@
 //     blocking failures — narrowed to the two auth-specific test files
 //     for this file's own runs, same as policies.ts.
 //
+//   `alerts.ts` (152 LOC — GET/POST /alerts, PATCH/DELETE
+//   /alerts/:id, POST /alerts/:id/test) 170 mutants, 40% baseline
+//   (68/170 killed — existing hand-written test covered create/list/
+//   patch/delete happy path, invalid-eventType/non-http-webhook 400s,
+//   the test-endpoint's happy-path delivery, and a blanket 401, but
+//   never PATCH's own 404, DELETE's 404, POST /test's 404 or failure
+//   path, any exact message/audit assertion, or the isEventType/
+//   isHttpUrl/optNumber helper clusters) -> effectively 100%
+//   (165/170 killed, 3 confirmed equivalents, 2 accepted timeouts)
+//   after 1 verify round (plus a second confirming round). New file
+//   `routes-alerts-mutation.test.ts`, existing test file left
+//   untouched. **Handled SOLO, not via the parallel Workflow**: this
+//   file's own worktree agent (`wf_034df3d5-691-1`) got stuck — its
+//   background Stryker process silently died mid-run (last progress
+//   line at 34%/58 mutants, ~52 minutes with zero further output, no
+//   matching process found in the OS process list) while other
+//   worktrees' agents kept progressing normally, so its own
+//   `parallel()` promise never resolved. Since the baseline scan had
+//   already been captured before the stuck agent hung (170 mutants,
+//   68/170 killed, full survivor list preserved), this file was
+//   authored and verified directly in the main repo instead of
+//   waiting indefinitely. 3 confirmed equivalents, verified by
+//   hand-mutating the source and re-running the full suite for each:
+//   - `isEventType`'s `typeof v === "string"` clause forced true —
+//     `ALERT_EVENT_TYPES.includes(v)` can only ever be true when `v`
+//     genuinely IS one of those string literals, at which point the
+//     typeof clause is independently already true; no non-string
+//     input can make `.includes(v)` true, so the mutant is
+//     unreachable.
+//   - `optNumber`'s `typeof v === "number"` clause forced true — same
+//     `Number.isFinite()` non-coercive equivalence class seen
+//     repeatedly across this program (P2-2, policies.ts): it returns
+//     false for any non-number regardless of what the typeof clause
+//     evaluates to.
+//   - `optNumber`'s final `return { ok: false }` emptied to `{}` —
+//     same `LooseValidationResult` `{ok:false}`->`{}` class confirmed
+//     on policies.ts: every consumer only checks `.ok` via `!`
+//     truthiness, and `{}.ok` is `undefined`, exactly as falsy as
+//     `false`.
+//   A genuinely REAL, closely-related mutant (`isHttpUrl`'s OWN
+//   `typeof v === "string"` clause forced true) is NOT equivalent,
+//   unlike its isEventType sibling: `v.startsWith(...)` throws a
+//   TypeError for a non-string `v` (unlike `.includes()`, which is
+//   type-safe), so a non-string webhookUrl must be proven to still
+//   400 gracefully rather than 500/crash — worth remembering that two
+//   superficially identical "typeof-then-a-string-method-or-check"
+//   guards can differ in equivalence depending on whether the SECOND
+//   half of the check throws or safely returns false for a non-string
+//   input.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3197,18 +3247,20 @@ export default {
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
     // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts,
     // admin/users.ts, upstream-auth.ts, admin/clients.ts,
-    // consumers.ts, admin/lb.ts, config-io.ts, policies.ts, auth.ts
-    // DONE (see SCOPE HISTORY). The remaining 10 domain-8 files
-    // (alerts.ts, ws-proxy-admin.ts, composites.ts, discovery.ts,
-    // admin/tools.ts, catalog.ts, auth-oidc.ts, mcp-keys.ts,
-    // bundles.ts, admin-validators.ts) are being closed via a
-    // worktree-isolated parallel Workflow (see the PARALLELIZATION
-    // note in SCOPE HISTORY) and complete out of strict LOC order —
-    // check SCOPE HISTORY for the current done-list rather than
-    // assuming this pointer reflects a solo continuation queue while
-    // that workflow is still running. Scope for solo runs:
+    // consumers.ts, admin/lb.ts, config-io.ts, policies.ts, auth.ts,
+    // alerts.ts (alerts.ts handled solo after its parallel worktree
+    // agent's own Stryker process died silently mid-run) DONE (see
+    // SCOPE HISTORY). The remaining 9 domain-8 files
+    // (ws-proxy-admin.ts, composites.ts, discovery.ts, admin/tools.ts,
+    // catalog.ts, auth-oidc.ts, mcp-keys.ts, bundles.ts,
+    // admin-validators.ts) are being closed via a worktree-isolated
+    // parallel Workflow (see the PARALLELIZATION note in SCOPE
+    // HISTORY) and complete out of strict LOC order — check SCOPE
+    // HISTORY for the current done-list rather than assuming this
+    // pointer reflects a solo continuation queue while that workflow
+    // is still running. Scope for solo runs:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/alerts.ts",
+    "src/routes/ws-proxy-admin.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

@@ -1907,6 +1907,24 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   re-running the suite for all 5 occurrences, not by reasoning alone. Run
   with
   `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-auth.test.ts src/routes/__tests__/routes-auth-mutation.test.ts"`.
+- **Mutation testing — domain 8, `alerts.ts`** (152 LOC, `src/routes/` —
+  alert-rule CRUD + `POST /alerts/:id/test`). 170 mutants, 40% baseline
+  (68/170 killed — the existing hand-written test never touched PATCH's or
+  DELETE's 404, the test endpoint's 404/failure path, exact error
+  messages/audit calls, or the `isEventType`/`isHttpUrl`/`optNumber` helper
+  clusters) → **effectively 100%** (165/170 killed, 3 confirmed
+  equivalents, 2 accepted timeouts). New file `routes-alerts-mutation.test.ts`;
+  existing test file left untouched. Handled solo (not via the parallel
+  Workflow) after this file's own worktree agent got stuck when its
+  background Stryker process silently died mid-run; the baseline scan it
+  had already captured was reused directly. Found a genuine (non-equivalent)
+  counterpart to a previously-accepted equivalence pattern: `isHttpUrl`'s
+  `typeof v === "string"` clause forced true is a REAL gap (a non-string
+  `v.startsWith(...)` throws, unlike `isEventType`'s type-safe
+  `.includes()`), so two superficially identical typeof-guard mutants can
+  differ in equivalence depending on whether the guarded operation is
+  type-safe. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-alerts.test.ts src/routes/__tests__/routes-alerts-mutation.test.ts"`.
 
 ### Docs
 
