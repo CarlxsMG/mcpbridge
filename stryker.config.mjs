@@ -2935,6 +2935,58 @@
 //   can be silently skipped** — this session had drifted away from
 //   that discipline for several files before this incident surfaced it.
 //
+//   config-io.ts (145 LOC — GET /config/export (JSON/YAML),
+//   POST /config/import (JSON/YAML, dry-run/real), and the full
+//   snapshots subsystem: GET list, POST create, GET/:id, DELETE/:id,
+//   GET/:id/diff, POST/:id/rollback) 129 mutants, 13.95% baseline
+//   (18/129 killed by the existing hand-written routes-config-io.test.ts,
+//   which only covers plain-JSON export/import happy paths) -> **100%
+//   (129/129), clean** after 2 verify rounds. New file
+//   `routes-config-io-mutation.test.ts`, existing test file left
+//   untouched (only gap-filled). Round 1 left exactly 1 survivor: the
+//   `body.format === "yaml"` sub-condition (mutant 21) forced-true —
+//   none of the existing fixtures distinguished it because every
+//   format:yaml test ALSO had format genuinely equal to "yaml" (forcing
+//   the clause true changes nothing when it's already true), and the
+//   only format-omitted test used a non-string `raw`. Closed with a
+//   fixture where format is OMITTED but `raw` IS a string alongside an
+//   invalid-version `data` — real code takes the `else` branch (uses
+//   `data`, 400s on the bad version) while the forced-true mutant
+//   wrongly takes the YAML branch and parses `raw` (a valid document)
+//   for a 200. Key findings:
+//   - **A whole snapshots subsystem (list/create/get/delete/diff/
+//     rollback) had zero coverage of any kind** despite being fully
+//     wired and reachable — always check EVERY route in a file actually
+//     has at least one test, not just the ones the existing hand-written
+//     file happened to cover.
+//   - **`recordAudit`'s detail objects use `.length`, not the array
+//     itself** for skip counts (`{ applied, skipped: result.skipped.length
+//     }`) on both the import and rollback routes — an initial
+//     `toHaveBeenCalledWith(..., { skipped: [] })` assertion failed with
+//     a clear array-vs-number diff; always check the exact shape being
+//     passed to recordAudit rather than assuming it mirrors the
+//     underlying result type.
+//   - Reused the established "call the real entity function directly to
+//     verify a route's effect" technique (`getConsumerByName`/
+//     `createConsumer`/`deleteConsumer` from admin/entities/consumers.ts)
+//     to prove a non-dry-run import/rollback genuinely persisted, not
+//     just that the response looked right.
+//   - **The PowerShell `-RedirectStandardOutput`/`-RedirectStandardError`
+//     Start-Process params silently captured ZERO bytes** for a `bunx
+//     stryker run` launch — the process completed successfully (exit 0,
+//     result.json freshly written) but with empty logs, and the
+//     resulting survivor list was suspiciously IDENTICAL to the prior
+//     baseline scan. Root cause never fully confirmed, but switching to
+//     `Start-Process -FilePath cmd.exe -ArgumentList '/c','bunx stryker
+//     run > log 2>&1'` (redirection handled by cmd.exe itself before
+//     exec'ing the bunx shim, not by PowerShell capturing a grandchild's
+//     handles) produced normal, actively-advancing progress output on
+//     the very next attempt. **New standing rule: always verify a
+//     Stryker run's progress log is non-empty and advancing (check
+//     during the run, not just after) before trusting its result —
+//     an empty log + a suspiciously-unchanged survivor count is a red
+//     flag that the run didn't do what it claimed.**
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3005,12 +3057,16 @@ export default {
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
     // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts,
     // admin/users.ts, upstream-auth.ts, admin/clients.ts,
-    // consumers.ts, admin/lb.ts DONE (see SCOPE HISTORY). Remaining
-    // domain-8 files ordered smallest-LOC-first (both src/routes/ and
-    // src/routes/admin/ pooled together): config-io.ts (145) < ... <
-    // admin-validators.ts (457, largest, last). Next: config-io.ts
-    // (145 LOC). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/config-io.ts",
+    // consumers.ts, admin/lb.ts, config-io.ts DONE (see SCOPE HISTORY).
+    // Remaining domain-8 files ordered smallest-LOC-first (both
+    // src/routes/ and src/routes/admin/ pooled together): alerts.ts
+    // (152) < auth.ts (153) < policies.ts (160) < ws-proxy-admin.ts
+    // (170) < composites.ts (176) < discovery.ts (199) <
+    // admin/tools.ts (202) < catalog.ts (204) < auth-oidc.ts (214) <
+    // mcp-keys.ts (273) < bundles.ts (305) < admin-validators.ts
+    // (457, largest, last). Next: alerts.ts (152 LOC). Scope:
+    // STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/alerts.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

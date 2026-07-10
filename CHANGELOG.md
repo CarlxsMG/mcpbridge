@@ -1859,6 +1859,20 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   to ~2.5 hours), fixed by killing the process tree and relaunching with
   an explicit keep-awake guard paired with the wait call. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `config-io.ts`** (145 LOC, `src/routes/` —
+  `GET/POST /config/export`/`/import` in JSON or YAML, and the full
+  snapshots subsystem: list/create/get/delete/diff/rollback). 129 mutants,
+  13.95% baseline (18/129 killed by the existing hand-written test, which
+  only covered plain-JSON export/import happy paths) → **100%** (129/129)
+  after 2 verify rounds. New file `routes-config-io-mutation.test.ts`; the
+  existing `routes-config-io.test.ts` was left untouched, only gap-filled.
+  The entire snapshots subsystem had zero coverage before this despite
+  being fully wired and reachable. Round 1's single survivor (the
+  `body.format === "yaml"` sub-condition forced-true) needed a fixture
+  where `format` is omitted but `raw` is still a string, alongside an
+  invalid-version `data` payload, to distinguish the real else-branch
+  (400) from the mutant's wrongly-taken YAML-parse branch (200). Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
