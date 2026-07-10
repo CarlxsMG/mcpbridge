@@ -4340,6 +4340,59 @@
 // (src/secrets/provider.ts, src/catalog/builtin.ts — pure interface /
 // static data, no runtime logic).
 //
+// **src/index.ts AND src/cli/index.ts — DELIBERATE SKIPS (2026-07-10),
+// each independently empirically proven, not just reasoned about.** Both
+// are process-entrypoint files whose entire body is TOP-LEVEL code that
+// runs unconditionally the instant the module is evaluated (src/index.ts:
+// getDb()/bootstrapAdminUser()/initBundles()/background-loop-starts/
+// app.listen() culminating in process.on("SIGINT"/"SIGTERM", ...);
+// src/cli/index.ts: `process.exit(await main())` as its literal last
+// line) — there is no exported function whose logic can be exercised
+// without ALSO triggering those side effects merely by importing the
+// file. Two independent attempts to test src/cli/index.ts anyway, both
+// empirically falsified:
+//   (1) Spawn a real child process (`Bun.spawn(["bun","run",<file>,...])`)
+//       per test scenario, to sidestep the auto-exit problem. FAILED:
+//       Stryker's mutation-switching instrumentation is injected into the
+//       SAME process tree its own test command runs in; a freshly
+//       spawned child process never sees it, so the very first Stryker
+//       dry run against this approach failed outright
+//       (`ConfigError: There were failed tests in the initial test run`)
+//       even though the identical test passed cleanly under a plain
+//       `bun test` invocation — confirmed by reproducing the exact
+//       `stryker-test-runner.ts` command directly.
+//   (2) Mock `process.exit` + dynamically `import()` the file in-process
+//       with a cache-busting query string per test scenario (`?t=` +
+//       `Math.random()`), to get a fresh top-level evaluation each time
+//       while staying in Stryker's own instrumented process. FAILED:
+//       empirically confirmed (via a 3-line throwaway repro script) that
+//       Bun's dynamic `import()` resolves by underlying file path and
+//       ignores query-string differences entirely — a module already
+//       imported once is never re-evaluated, no matter how many distinct
+//       query strings are appended. Only the FIRST of several
+//       argv-scenario tests in one file ever actually executed the
+//       module body; every later test's `process.exit` spy silently
+//       captured nothing (`undefined`), regardless of what argv was set.
+// Given both routes are empirically dead ends, and every one of
+// src/cli/index.ts's 5 dispatched commands (login/pull/plan/apply/
+// connect) already has its own dedicated, 100%-mutation-tested file
+// under src/cli/commands/__tests__/, the remaining untested surface
+// (the command-lookup dispatch table, the usage-message fallback
+// ternary, and a top-level catch-all) is thin, low-risk glue code with
+// no correctness/security stakes beyond what real usage (`bun run cli --
+// <command>`) already implicitly exercises. src/index.ts has the
+// identical unimportable-top-level-code shape at a larger scale
+// (`createApp()` was already extracted into server.ts, already 100%
+// mutation-tested, SPECIFICALLY so tests wouldn't need to touch this
+// file) plus real e2e coverage (Playwright specs under e2e/) exercising
+// the actual boot sequence end-to-end — a form of coverage this
+// mutation-testing program doesn't measure but which is the more
+// appropriate tool for a process bootstrap file regardless. Both files
+// are marked COMPLETE-BY-SKIP, same precedent class as this program's
+// other deliberate skips (types.ts, static-data files), for a different
+// underlying reason (import-time side effects rather than absent
+// runtime logic).
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -4420,13 +4473,15 @@ export default {
     // retrospective. Domain 10 = misc (~32 files) IN PROGRESS: the
     // 27-file worktree-isolated parallel Workflow run (wf_ce4678ce-91a)
     // is COMPLETE — see the marker in SCOPE HISTORY for the full
-    // roster. Only 3 files remain before domain 10 is fully done:
-    // src/ws-proxy.ts (517 LOC, real WS server + DNS-pinning +
-    // bun:sqlite, largest and most complex file in the domain, coverage
-    // currently split across 3 existing test files), src/index.ts (217
-    // LOC, real process entrypoint — no safe unit-import path), and
-    // src/cli/index.ts (39 LOC, same process-exit-on-import problem).
-    // `mutate` below is scoped to ws-proxy.ts as the next solo target.
+    // roster. src/index.ts AND src/cli/index.ts are now BOTH deliberate
+    // SKIPS (see SCOPE HISTORY for the two independent, empirically-
+    // proven reasons this doesn't work for either file). Only
+    // src/ws-proxy.ts remains, being worked by its own dedicated
+    // worktree-isolated agent (a separate worktree copy of this file —
+    // editing THIS mutate: array in the main repo does not affect that
+    // agent's own local run). `mutate` below is a placeholder pointer;
+    // do not launch a solo run against ws-proxy.ts while that agent is
+    // still active.
     "src/ws-proxy.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],

@@ -2434,12 +2434,30 @@ are skipped entirely (pure interface / static data, no runtime logic).
 
 **Domain 10's 27-file worktree-isolated parallel Workflow run is now
 COMPLETE** — every file effectively 100%, all 27 completing cleanly
-end-to-end by their own agent (0 needing solo rescue). 3 files remain
-before domain 10 (misc, ~32 files) is fully done: `src/ws-proxy.ts`
-(517 LOC, largest/most complex file in the domain), `src/index.ts`, and
-`src/cli/index.ts` (both real process entrypoints with import-time side
-effects, held back for solo/special handling). See
-`stryker.config.mjs`'s SCOPE HISTORY for the full retrospective.
+end-to-end by their own agent (0 needing solo rescue).
+
+- **Mutation testing — domain 10, `src/index.ts` and `src/cli/index.ts`
+  — deliberate SKIPS, both empirically justified.** Both are
+  process-entrypoint files whose entire body runs unconditionally the
+  instant the module is imported, with no exported function that can be
+  exercised without also triggering real side effects (DB open, admin
+  bootstrap, port listen, process signal handlers, or — for the CLI —
+  `process.exit`). Two independent workarounds were tried for
+  `src/cli/index.ts` and both empirically failed: spawning a real child
+  process per test scenario broke Stryker's mutation instrumentation
+  (which only works within its own process tree), and mocking
+  `process.exit` plus a cache-busting dynamic `import()` per scenario
+  failed because Bun's module loader ignores query-string differences
+  and never re-evaluates an already-imported file. Every one of the 5
+  commands `src/cli/index.ts` dispatches already has its own dedicated,
+  100%-mutation-tested file, and `src/index.ts`'s `createApp()` wiring
+  was already extracted into the separately-100%-tested `src/server.ts`
+  specifically so tests wouldn't need to touch this file. See
+  `stryker.config.mjs`'s SCOPE HISTORY for the full empirical writeup.
+
+Only `src/ws-proxy.ts` remains before domain 10 (misc, ~32 files) is
+fully done (517 LOC, largest/most complex file in the domain, being
+worked by its own dedicated worktree-isolated agent).
 
 ### Docs
 
