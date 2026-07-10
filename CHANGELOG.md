@@ -2121,6 +2121,33 @@ tools.ts` PATCH tests) → effectively 100% (504/553 raw, all 49
   in either mutated direction because `v.llm` is populated
   if-and-only-if `v.mode === "llm_summarize"` by the validator's own
   return shape. 0 Stryker timeouts across all 3 verify rounds.
+- **Mutation testing — domain 9, `src/admin/audit/audit-export.ts`** (233
+  LOC — CSV/HTML compliance-evidence serializers for the audit-log
+  export route). 71 mutants, 94% baseline (67/71, first-draft test since
+  none existed) → effectively 100% (70/71 + 1 accepted equivalent) in 1
+  verify round. New file `audit-export-mutation.test.ts`. 1 accepted
+  equivalent: `fmtDate`'s trailing `$` regex anchor is redundant given
+  the function's actual ISO-8601 input shape. Closed via a
+  worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 9, `src/admin/audit/audit.ts`** (253 LOC —
+  admin audit log: tamper-evident hash-chain recording/verification,
+  SIEM streaming, filtered/paginated listing, action enumeration, bulk
+  export). 116 mutants, 95.7% baseline (111/116 — the pre-existing
+  `audit-chain.test.ts`'s tamper tests never isolated the prev_hash
+  linkage check from the content-hash recomputation check on the same
+  line) → **100%** (116/116) in 1 verify round. New file
+  `audit-mutation.test.ts`. Zero equivalents or timeouts needed. Closed
+  via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 9,
+  `src/admin/tool-composition/bundle-install-links.ts`** (289 LOC —
+  install-link token generation/redemption for MCP bundles). 113
+  mutants, 92.0% baseline (104/113, first-draft test since none existed)
+  → effectively 100% (110/113 + 3 accepted equivalents) in 1 verify
+  round. New file `bundle-install-links-mutation.test.ts`. 3 accepted
+  equivalents, each hand-verified: a non-integer-id guard made redundant
+  by `bun:sqlite`'s STRICT-table binding behavior, an empty-array
+  no-op loop guard, and an FK-cascade-proven-unreachable null check.
+  Closed via a worktree-isolated parallel Workflow agent.
 
 ### Docs
 

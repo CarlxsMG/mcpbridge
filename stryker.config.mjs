@@ -3649,6 +3649,56 @@
 //   closed concurrently via the parallel Workflow — see each file's own
 //   entry above.
 //
+//   src/admin/audit/audit-export.ts (233 LOC — CSV/HTML compliance-
+//   evidence serializers for the audit-log export route) 71 mutants, 94%
+//   baseline (67/71, first-draft test since none existed) -> effectively
+//   100% (70/71 + 1 accepted equivalent) in 1 verify round. New file
+//   `audit-export-mutation.test.ts`. Pure-function module, no DB/Express
+//   surface — direct import+call. 1 accepted equivalent: fmtDate's
+//   trailing `$` regex anchor is redundant given the function's actual
+//   ISO-8601 input shape (always exactly one dot-digits-Z substring, at
+//   the end), hand-verified. Real gaps needed exact-adjacency assertions
+//   (not just `.toContain()`) to distinguish whitespace-only
+//   join-separator mutants from the real output. Closed via a
+//   worktree-isolated parallel Workflow agent.
+//   src/admin/audit/audit.ts (253 LOC — admin audit log: tamper-evident
+//   hash-chain recording/verification, SIEM streaming, filtered/
+//   paginated listing, action enumeration, bulk export) 116 mutants,
+//   95.7% baseline (111/116 — the pre-existing audit-chain.test.ts's
+//   tamper tests only ever corrupted `target` or deleted a row, so
+//   verifyAuditChain's prev_hash linkage check was never isolated from
+//   the content-hash recomputation check on the same line) -> **100%**
+//   (116/116) in 1 verify round. New file `audit-mutation.test.ts`.
+//   Closed by independently recomputing the expected sha256 digest via a
+//   helper mirroring computeAuditHash's private formula, and by
+//   tampering prev_hash ALONE (leaving hash/target untouched) plus a
+//   manually-inserted NULL-prev_hash genesis row to isolate the linkage
+//   check's own `?? ""` fallback. Zero equivalents or timeouts needed.
+//   Closed via a worktree-isolated parallel Workflow agent.
+//   src/admin/tool-composition/bundle-install-links.ts (289 LOC —
+//   install-link token generation/redemption for MCP bundles: mints a
+//   bundle-scoped MCP key + encrypted-at-rest raw secret + hashed opaque
+//   token, resolves/revokes/lists them) 113 mutants, 92.0% baseline
+//   (104/113, first-draft test since none existed) -> effectively 100%
+//   (110/113 + 3 accepted equivalents) in 1 verify round. New file
+//   `bundle-install-links-mutation.test.ts`. Real gaps: exact NOT_FOUND/
+//   ALREADY_REVOKED error messages, a convergent-masking case on
+//   `!rawToken` killed by planting a DB row whose token_hash deliberately
+//   collides with `hashApiKey("")`, and a `log("warn", ...)` decrypt-
+//   failure path killed via `spyOn(logger, "log")`. 3 accepted
+//   equivalents, each hand-verified: `!Number.isInteger(id)` in
+//   getInstallLinkRow (a throwaway bun:sqlite script confirmed a
+//   non-integer REAL bound against an INTEGER PRIMARY KEY in a STRICT
+//   table never matches a row, so the guard is redundant);
+//   `rows.length === 0` in revokeAllInstallLinksForBundle (bypassing it
+//   just runs a for-loop zero times over an empty array, a no-op
+//   either way); and `if (!bundle) return null` in
+//   resolveInstallLinkToken (proven unreachable via the same FK-cascade
+//   argument already established for the sibling mcp_bundle_tools
+//   table, re-verified against bundle_install_tokens's own ON DELETE
+//   CASCADE FK from migration 46). Closed via a worktree-isolated
+//   parallel Workflow agent.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
