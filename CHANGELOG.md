@@ -2148,6 +2148,54 @@ tools.ts` PATCH tests) → effectively 100% (504/553 raw, all 49
   by `bun:sqlite`'s STRICT-table binding behavior, an empty-array
   no-op loop guard, and an FK-cascade-proven-unreachable null check.
   Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 9, `src/admin/entities/schedules.ts`** (227
+  LOC — maintenance-schedule cron matcher + CRUD + the once-a-minute
+  leader-gated evaluator). 203 mutants → effectively 100% (196/203, 2
+  confirmed equivalents + 5 genuine infinite-loop timeouts) after 3 solo
+  verify rounds, rescued from an interrupted parallel-Workflow draft. New
+  file `schedules-mutation.test.ts`. Real gaps closed: a comma-list
+  combining a valid cron part with an inverted range (an isolated
+  inverted range alone can't distinguish the bypass, since a separate
+  `out.size > 0` fallback happens to return null anyway); `cronMatches`
+  returning `false` instead of throwing for malformed input; 3
+  `createSchedule` validation branches whose tests never registered the
+  target client first, letting an unrelated later guard mask them; a
+  client-type schedule ignoring a supplied `toolName`; a malformed
+  tool-type row proving the evaluator's own guard is load-bearing; and
+  the exact stored `last_run_minute` arithmetic. 5 accepted genuine
+  timeouts: weakening the cron step validation lets a zero/negative step
+  reach a range-fill loop that then never terminates.
+- **Mutation testing — domain 9, `src/admin/entities/approvals.ts`** (315
+  LOC — human-in-the-loop N-of-M approval ticket lifecycle). 157
+  mutants, 94.9% baseline (149/157 — the existing test left 3 functions
+  untested and used loose assertions that masked branch-specific
+  mutants) → effectively 100% (152/157 + 5 accepted equivalents) in 1
+  verify round. New file `approvals-mutation.test.ts`. 5 accepted
+  equivalents: a `!== undefined` check subsumed by the next clause, plus
+  a 4-mutant cluster inside a TOCTOU race-guard structurally unreachable
+  in this codebase's synchronous, single-connection execution model.
+  Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 9, `src/admin/config/config-io.ts`** (302
+  LOC — exportConfig/importConfig, the config-as-code serialization
+  layer). 179 mutants, 97.2% baseline (174/179, first-draft test since
+  none existed) → **100%** (179/179) in 1 verify round. New file
+  `config-io-mutation.test.ts`. Found (and pinned, not fixed — out of
+  scope for a test-only pass) a genuine production inconsistency: a
+  "missing tools" validation guard defensively filters `b.tools ?? []`,
+  but the apply step two lines later passes the RAW `b.tools`, so an
+  omitted `tools` key sails past validation and throws deep in
+  `bundles.ts`. Zero equivalents or timeouts needed. Closed via a
+  worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 9, `src/admin/tool-composition/bundles.ts`**
+  (355 LOC — MCP bundle CRUD entity/business logic). 214 mutants, 61%
+  baseline (130/214 — the existing test asserted mostly via the
+  in-memory cache getters, leaving `updateBundle`'s underlying SQL write
+  path unguarded) → effectively 100% (212/214 + 2 accepted equivalents)
+  across 2 verify rounds. New file `bundles-mutation.test.ts`. 2 accepted
+  equivalents: both halves of an `updated_at` "bump only if unchanged"
+  guard are redundant, since the sibling branches already stamp the same
+  `now` value regardless. Closed via a worktree-isolated parallel
+  Workflow agent.
 
 ### Docs
 

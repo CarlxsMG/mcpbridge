@@ -3699,6 +3699,103 @@
 //   CASCADE FK from migration 46). Closed via a worktree-isolated
 //   parallel Workflow agent.
 //
+//   src/admin/entities/schedules.ts (227 LOC — maintenance-schedule
+//   cron matcher + CRUD + the once-a-minute leader-gated evaluator) 203
+//   mutants, baseline unmeasured (its parallel-Workflow agent was
+//   interrupted mid-verify, ~50% through, by the harness) -> effectively
+//   100% (196/203 raw, 2 confirmed equivalent + 5 genuine infinite-loop
+//   timeouts) after 3 solo verify rounds, rescued using the agent's own
+//   salvaged (typecheck/test-clean) draft. New file
+//   `schedules-mutation.test.ts`. Real gaps closed: a comma-list
+//   combining one valid cron field-part with an inverted range (`5,10-5`)
+//   — an ISOLATED inverted range alone can't distinguish the `lo > hi`
+//   guard's forced-false direction, since the loop adds nothing either
+//   way and the trailing `out.size > 0` fallback returns null via that
+//   different path; `cronMatches` returning `false` (not throwing) for a
+//   malformed expression; 3 createSchedule validation branches
+//   (targetType/action enum, tool-type-without-toolName) whose existing
+//   tests never registered the target client first, so an unrelated
+//   LATER "client not found" guard was coincidentally also returning
+//   INVALID_TARGET and masking whether the EARLIER checks did anything —
+//   the schedules table's own `CHECK (target_type IN (...))`/
+//   `CHECK (action IN (...))` constraints meant a truly-bypassed check
+//   would surface as a thrown SQLite constraint violation, not a clean
+//   INVALID_TARGET, once isolated; a client-type schedule that's ALSO
+//   given a toolName must still persist `tool_name` as null (bun:sqlite
+//   silently binds `undefined` the same as `null`, so a "toolName
+//   omitted" test alone can't catch this — needs a real, non-null
+//   toolName supplied alongside a "client" targetType); a malformed
+//   tool-type row with a null tool_name (constructed via direct SQL,
+//   createSchedule's own validation can never produce it) proving
+//   applySchedule's `else if (s.toolName)` guard is genuinely
+//   load-bearing via a `setToolEnabled` spy; and the exact stored
+//   `last_run_minute` value (`getTime() / 60_000`, not `* 60_000`). 2
+//   accepted equivalents (both on the SAME `out.size > 0` ternary,
+//   hand-verified): every parseField code path that reaches this line
+//   without an earlier `return null` is structurally guaranteed to have
+//   added at least one element (the inner loop always runs once given
+//   the already-checked `lo <= hi`/`step >= 1` invariants), so `out` can
+//   never legitimately be empty there. 5 accepted GENUINE timeouts
+//   (real infinite loops, not resource-contention noise — 0 unrelated
+//   timeouts elsewhere across all 3 verify rounds): weakening the
+//   `!Number.isInteger(step) || step < 1` guard (4 mutant variants) lets
+//   a zero/negative step reach the range-fill loop, which then never
+//   terminates; and reversing `v += step` to `v -= step` makes the same
+//   loop decrease forever while `v <= hi` stays true. None of these 5 are
+//   testable without constructing a real infinite loop, so — per this
+//   program's established "genuine timeout = detected" convention — they
+//   are accepted as-is, not chased.
+//   src/admin/entities/approvals.ts (315 LOC — human-in-the-loop N-of-M
+//   approval ticket lifecycle: requires-approval flags, ticket
+//   create/decide/consume, operator webhook notifier) 157 mutants,
+//   94.9% baseline (149/157 — the existing hand-written test left
+//   getApprovalConfigForClient/notifyApproval/listApprovals()'s
+//   no-filter form completely untested, and used loose
+//   `toMatchObject({ok:false})` assertions that masked several
+//   branch-specific mutants) -> effectively 100% (152/157 + 5 accepted
+//   equivalents) in 1 verify round. New file `approvals-mutation.test.ts`.
+//   5 accepted equivalents, all hand-verified: a `!== undefined`
+//   short-circuit subsumed by the very next `Number.isInteger(undefined)
+//   === false` clause, plus a 4-mutant cluster inside decideApproval's
+//   `r.changes === 0` branch — a TOCTOU race-guard structurally
+//   unreachable in this codebase's fully synchronous, single-connection
+//   execution model (no test process can interleave a write between the
+//   fresh read and the guarded UPDATE). Closed via a worktree-isolated
+//   parallel Workflow agent.
+//   src/admin/config/config-io.ts (302 LOC — exportConfig/importConfig,
+//   the config-as-code serialization layer: bundles/alerts/
+//   clients+tools/guardrails/consumers import-export with
+//   best-effort skip-and-report + dry-run semantics) 179 mutants, 97.2%
+//   baseline (174/179, first-draft test since none existed) -> **100%**
+//   (179/179) in 1 verify round. New file `config-io-mutation.test.ts`.
+//   Found (and pinned, not fixed — out of scope for a test-only pass) a
+//   genuine production inconsistency: the bundle-tools "missing tools"
+//   validation defensively does `(b.tools ?? []).filter(...)`, but the
+//   apply step two lines later calls createBundle/updateBundle with the
+//   RAW `b.tools`, so a hand-edited config with an omitted `tools` key
+//   sails past validation and then throws deep in bundles.ts's
+//   dedupeToolRefs — confirmed via hand-mutation that `.rejects.toThrow()`
+//   on current behavior is precisely what distinguishes real from
+//   mutated code here. Zero equivalents or timeouts needed. Closed via a
+//   worktree-isolated parallel Workflow agent.
+//   src/admin/tool-composition/bundles.ts (355 LOC — MCP bundle CRUD
+//   entity/business logic: createBundle/updateBundle/listBundles/
+//   getBundleDetail, tool-ref and composite-ref validation, hot-path
+//   cache sync) 214 mutants, 61% baseline (130/214 — getBundleToolKeys/
+//   getBundleComposites read the in-memory liveBundles cache while
+//   getBundleDetail reads straight from SQL, and the existing
+//   hand-written test mostly asserted via the cache getters, leaving
+//   updateBundle's underlying SQL write path unguarded) -> effectively
+//   100% (212/214 + 2 accepted equivalents) across 2 verify rounds. New
+//   file `bundles-mutation.test.ts`. 2 accepted equivalents (both
+//   hand-verified): the `updated_at` "bump only when neither description
+//   nor enabled changed" compound guard's two sub-clauses are each
+//   redundant, since the described/enabled branches already stamp
+//   `updated_at` to the SAME `now` captured once per call — the "extra"
+//   bump either clause would otherwise skip is an unobservable no-op
+//   rewrite of the identical value. Closed via a worktree-isolated
+//   parallel Workflow agent.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3774,22 +3871,21 @@ export default {
     // auth-oidc.ts, composites.ts, mcp-keys.ts, bundles.ts,
     // admin-validators.ts, admin/tools.ts — **DOMAIN 8 COMPLETE**
     // (see SCOPE HISTORY for the full retrospective). Domain 9 =
-    // src/admin (33 files) IN PROGRESS: the 19-file
-    // src/admin/tool-policies/mutations/ batch is COMPLETE (effectively
-    // 100%, see SCOPE HISTORY), as are policies.ts, config-diff.ts,
-    // teams.ts, config-versions.ts, and consumers.ts (closed via a
-    // worktree-isolated parallel Workflow, see SCOPE HISTORY for each).
-    // Remaining domain-9 files being worked concurrently by that same
-    // parallel Workflow (audit-export.ts, audit.ts,
-    // bundle-install-links.ts, config/config-io.ts, approvals.ts,
-    // bundles.ts, composites.ts) plus schedules.ts (interrupted
-    // mid-verify in the parallel run, test file already drafted at
-    // src/admin/entities/__tests__/schedules-mutation.test.ts — needs a
-    // solo Stryker rescue). `mutate` below is scoped to schedules.ts as
-    // the current solo target; the parallel Workflow's own worktrees
-    // carry their own local `mutate` overrides that never touch this
-    // file.
-    "src/admin/entities/schedules.ts",
+    // src/admin (33 files, incl. types.ts skipped = 32 needing coverage)
+    // IN PROGRESS, effectively 31/32 done: the 19-file
+    // src/admin/tool-policies/mutations/ batch, policies.ts,
+    // config-diff.ts, teams.ts, config-versions.ts, consumers.ts,
+    // audit-export.ts, audit.ts, bundle-install-links.ts, schedules.ts,
+    // approvals.ts, config-io.ts, and bundles.ts are all COMPLETE (see
+    // SCOPE HISTORY for each). Only composites.ts remains, still being
+    // worked by the same worktree-isolated parallel Workflow (run
+    // wf_58a63cec-c9b) — once it lands, DOMAIN 9 IS COMPLETE and domain
+    // 10 (misc: src/lib, src/cli, src/catalog, src/secrets, src/config*,
+    // ws-proxy.ts, server.ts, index.ts, 33 files) starts. `mutate` below
+    // is scoped to composites.ts purely as a placeholder pointer — do
+    // NOT launch a solo run against it while the parallel Workflow's own
+    // worktree is still actively working the same file.
+    "src/admin/tool-composition/composites.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
