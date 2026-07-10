@@ -1715,6 +1715,23 @@ body.weight === "number"` guard forced always-true — since
   `/`→`*` and `-`→`+` arithmetic mutants regardless of module-load timing
   across a full suite run. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `teams.ts`** (87 LOC, `src/routes/` —
+  `GET /admin-api/teams`, `POST /admin-api/teams`, `DELETE
+/admin-api/teams/:id`, `PUT /admin-api/clients/:name/team`, `PUT
+/admin-api/users/:username/team`). 97 mutants, 0% baseline (zero test
+  coverage of any kind existed before this) → **100%** (97/97 killed),
+  clean, after 1 verify round. New file `routes-teams-mutation.test.ts`.
+  Also wired directly in `server.ts`, not `adminRoutes()`. Gated by
+  `requireSuperAdmin` (Bearer callers always pass). Key techniques: a
+  `body.name.trim()` call has a mutant dropping `.trim()` entirely,
+  killed with a whitespace-padded name (the untrimmed value fails the
+  entity-name pattern's "must start with alphanumeric" rule while the
+  trimmed value passes); both `PUT .../team` routes share an identical
+  3-way `teamId === null ? null : (typeof teamId === "number" ? teamId :
+undefined)` ternary — same "same guard, multiple call sites" lesson as
+  canary.ts/traffic.ts/audit-log.ts, so each route needed its own
+  null-clear/number-assign/invalid-type/unknown-target tests rather than
+  sharing coverage. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

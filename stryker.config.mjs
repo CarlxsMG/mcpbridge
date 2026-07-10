@@ -2615,6 +2615,30 @@
 //   the billions — a generous `toBeLessThan(86400)` bound catches both
 //   without needing to control `Date.now()` directly or care about
 //   module-load-order-dependent uptime values across a full suite run.
+//   teams.ts (87 LOC — GET /admin-api/teams list, POST create, DELETE
+//   /:id, PUT /admin-api/clients/:name/team, PUT
+//   /admin-api/users/:username/team) 97 mutants, 0% baseline (zero
+//   coverage existed within the scoped test run) -> **100% (97/97
+//   killed)**, clean, after exactly 1 verify round. New file
+//   `routes-teams-mutation.test.ts`. Also wired directly in
+//   `server.ts`, not `adminRoutes()` (3rd domain-8 file following this
+//   pattern). Gated by `requireSuperAdmin` (Bearer callers always
+//   pass, same as `requireOperator`) — no new auth-fixture work
+//   needed. Key techniques: (1) the POST handler's `body.name.trim()`
+//   has a MethodExpression mutant dropping `.trim()` entirely — killed
+//   with a name padded with leading/trailing whitespace, since the
+//   UNTRIMMED raw string fails `ADMIN_ENTITY_NAME_RE`'s "must start
+//   with alphanumeric" rule while the trimmed real value passes; (2)
+//   both PUT routes share an IDENTICAL 3-way
+//   `body.teamId === null ? null : (typeof body.teamId === "number" ?
+//   body.teamId : undefined)` ternary — same "same guard, multiple
+//   call sites" lesson as canary.ts/traffic.ts/audit-log.ts, each
+//   route needed its OWN null-clear/number-assign/invalid-type/
+//   unknown-target tests, four per route, eight total; (3) the
+//   null-clear and number-assign tests are what distinguish the outer
+//   `=== null` ternary branch's forced-true/forced-false directions
+//   from each other (forced-true would null out a genuine numeric
+//   assignment; forced-false would reject a genuine null as invalid).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2684,16 +2708,13 @@ export default {
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
-    // schedules.ts, metrics.ts, health.ts DONE (see SCOPE HISTORY).
-    // Remaining domain-8 files ordered smallest-LOC-first (both
-    // src/routes/ and src/routes/admin/ pooled together): teams.ts
-    // (87) < backup.ts (98) < ... < admin-validators.ts (457, largest,
-    // last). Next: teams.ts (87 LOC). Scope:
-    // STRYKER_TEST_SCOPE="src/routes/__tests__". Paused here per user
-    // instruction (2026-07-09, Spanish: "cuando termine ese, para" —
-    // "when that one finishes, stop") — do NOT auto-continue to
-    // teams.ts without a fresh go-ahead.
-    "src/routes/teams.ts",
+    // schedules.ts, metrics.ts, health.ts, teams.ts DONE (see SCOPE
+    // HISTORY). Remaining domain-8 files ordered smallest-LOC-first
+    // (both src/routes/ and src/routes/admin/ pooled together):
+    // backup.ts (98) < admin/users.ts (105) < ... <
+    // admin-validators.ts (457, largest, last). Next: backup.ts
+    // (98 LOC). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/backup.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
