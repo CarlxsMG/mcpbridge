@@ -4122,6 +4122,34 @@
 //   a real, correctly-detected hang via the mutant's exact span, not a
 //   false negative. Closed via a worktree-isolated parallel Workflow
 //   agent.
+//   src/lib/stable-json.ts (62 LOC — deterministic/canonical JSON
+//   serialization with key-order sorting, used for approval-arg and
+//   schema-drift hashing) 35 mutants, 100% baseline (35/35, first-draft
+//   test since none existed) -> **100%** (35/35) after 2 verify rounds,
+//   zero fixes needed. New file src/lib/__tests__/stable-json-
+//   mutation.test.ts. Deliberately targeted: the `value !== null` guard
+//   before `typeof value === "object"` (typeof null === "object", so a
+//   dropped guard calls Object.keys(null) and throws); the
+//   doc-commented "undefined renders as null, not dropped" divergence
+//   from native JSON.stringify; and Object.keys(...).sort() genuinely
+//   exercised via deliberately out-of-alphabetical insertion order in
+//   every key-order fixture. Closed via a worktree-isolated parallel
+//   Workflow agent.
+//   src/cli/commands/apply.ts (92 LOC — CLI `gateway apply` command:
+//   registers not-yet-known servers: from a gateway.yaml, then applies
+//   config: via the idempotent /admin-api/config/import endpoint) 73
+//   mutants, no prior test file -> **100%** (73/73) on the first draft,
+//   stable across 2 verify rounds. New file
+//   src/cli/commands/__tests__/apply-mutation.test.ts. Notable
+//   convergent-masking risk closed: the `err instanceof CliApiError &&
+//   /regex/i.test(err.message)` compound guard on the config-import
+//   failure path was tested with a plain (non-CliApiError) Error whose
+//   message literally satisfies the regex, proving the instanceof half
+//   is independently load-bearing. Also targeted `flags['dry-run'] ===
+//   true` (equality, not truthiness) with a `--dry-run false` fixture
+//   (parseFlags yields the STRING "false", truthy but !== true — a real
+//   POST must still fire). Closed via a worktree-isolated parallel
+//   Workflow agent.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating

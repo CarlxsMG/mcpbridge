@@ -2345,6 +2345,17 @@ are skipped entirely (pure interface / static data, no runtime logic).
   timeout: gutting the security-headers middleware drops its trailing
   `next()`, hanging every request. Closed via a worktree-isolated
   parallel Workflow agent.
+- **Mutation testing — domain 10, `src/lib/stable-json.ts`** (62 LOC —
+  deterministic/canonical JSON serialization with key-order sorting).
+  35 mutants, 100% baseline (35/35, no prior test existed) → **100%**
+  after 2 verify rounds, zero fixes needed. New file
+  `stable-json-mutation.test.ts`. Closed via a worktree-isolated
+  parallel Workflow agent.
+- **Mutation testing — domain 10, `src/cli/commands/apply.ts`** (92 LOC
+  — CLI `gateway apply` command). 73 mutants, no prior test file →
+  **100%** (73/73) on the first draft, stable across 2 verify rounds.
+  New file `apply-mutation.test.ts`. Closed via a worktree-isolated
+  parallel Workflow agent.
 
 ### Docs
 
