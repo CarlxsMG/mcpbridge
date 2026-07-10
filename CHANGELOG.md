@@ -1732,6 +1732,25 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   canary.ts/traffic.ts/audit-log.ts, so each route needed its own
   null-clear/number-assign/invalid-type/unknown-target tests rather than
   sharing coverage. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `backup.ts`** (98 LOC, `src/routes/` —
+  `POST /admin-api/backup`, a SQLite `VACUUM INTO` snapshot streamed back
+  and cleaned up). 42 mutants, 0% baseline (zero test coverage of any
+  kind existed before this) → **100%** (42/42 killed), clean, after 2
+  verify rounds. New file `routes-backup-mutation.test.ts`. Also wired
+  directly in `server.ts`, not `adminRoutes()`. Gated by
+  `requireAdminRole` (Bearer callers always pass). Key techniques: a
+  pass-through `createReadStream` spy captures the exact path under test
+  without changing behavior, proving the private `backupDir()` helper's
+  `:memory:` vs. real-path branches independently (toggled by
+  temporarily overwriting `config.dbPath`); real `VACUUM INTO` writes a
+  real temp file to `./data/` during tests (no `:memory:` override for
+  `config.dbPath`), so failure-path tests capture and manually clean up
+  their own leftover file; a stream-close-triggered cleanup can resolve
+  slightly after the client's `fetch()` sees the response as complete,
+  needing a short polling helper instead of an immediate check;
+  simulating a post-headers-sent stream error requires pushing a real
+  data chunk before erroring, since headers only flush on the first
+  write. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 

@@ -2639,6 +2639,56 @@
 //   `=== null` ternary branch's forced-true/forced-false directions
 //   from each other (forced-true would null out a genuine numeric
 //   assignment; forced-false would reject a genuine null as invalid).
+//   backup.ts (98 LOC — POST /admin-api/backup: SQLite `VACUUM INTO` +
+//   file stream + cleanup) 42 mutants, 0% baseline (zero coverage
+//   existed within the scoped test run) -> **100% (42/42 killed)**,
+//   clean, after 2 verify rounds. New file
+//   `routes-backup-mutation.test.ts`. Also wired directly in
+//   `server.ts`, not `adminRoutes()`. Gated by `requireAdminRole`
+//   (Bearer callers always pass). First round left 4 survivors, all in
+//   the unlink().catch() cleanup-failure log branch — no test forced
+//   `unlink()` itself to fail; closed with a dedicated test spying
+//   `fs/promises`'s `unlink` to reject. Key techniques, several new to
+//   this program:
+//   - **Pass-through `createReadStream` spy captures the exact path
+//     under test without changing behavior**: `spyOn(fsMod,
+//     "createReadStream").mockImplementation((p, opts) => {
+//     capturedPath = String(p); return realCreateReadStream(p, opts);
+//     })` (capturing `realCreateReadStream` BEFORE calling `spyOn`)
+//     proves the private, non-exported `backupDir()` helper computed
+//     the exact expected directory string for both its `?:` branches
+//     (`dirname(config.dbPath)` normally, `process.cwd()` when
+//     `config.dbPath === ":memory:"`, toggled by temporarily
+//     overwriting `config.dbPath` for one test and restoring it after)
+//     — without this, both branches are indistinguishable from the
+//     outside since only a bare filename (not the full directory) is
+//     ever echoed back to the client via `Content-Disposition`.
+//   - **Real `VACUUM INTO` writes a real temp file to `./data/` during
+//     tests** (not `:memory:` — `config.dbPath` has no test-env
+//     override) — every test that doesn't hit this exact code path's
+//     own cleanup must clean up its own leftover file by hand (`stat`-
+//     failure and `unlink`-failure tests capture the real path from
+//     their mock's own call argument and manually `unlink` it in
+//     `finally`, using the real fs/promises `unlink` re-obtained after
+//     `mockRestore()`).
+//   - **A stream-`"close"`-triggered cleanup can resolve slightly
+//     AFTER the client's `fetch()` sees the response as fully
+//     received** — asserting file-non-existence immediately after
+//     `await res.arrayBuffer()` was flaky; fixed with a short polling
+//     helper (`waitForFileGone`, 20ms interval, 2s timeout) rather than
+//     a single immediate check.
+//   - **Simulating a post-headers-sent stream error requires pushing a
+//     real data chunk before erroring**, since Express/Node only flush
+//     headers on the first actual write. A custom `Readable` that
+//     pushes one chunk then emits `"error"` on a later microtask
+//     reliably gets past the `!res.headersSent` guard's "false"
+//     branch, proving `res.destroy(err)` (not a second JSON response)
+//     is what happens once the client has already received a 200. The
+//     resulting connection-reset can surface as either the initial
+//     `fetch()` call itself rejecting or a later body-read rejecting
+//     depending on how much was buffered — the test accepts either by
+//     wrapping the whole exchange in one try/catch rather than
+//     asserting a specific rejection site.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2708,13 +2758,14 @@ export default {
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
-    // schedules.ts, metrics.ts, health.ts, teams.ts DONE (see SCOPE
-    // HISTORY). Remaining domain-8 files ordered smallest-LOC-first
-    // (both src/routes/ and src/routes/admin/ pooled together):
-    // backup.ts (98) < admin/users.ts (105) < ... <
-    // admin-validators.ts (457, largest, last). Next: backup.ts
-    // (98 LOC). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/backup.ts",
+    // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts DONE
+    // (see SCOPE HISTORY). Remaining domain-8 files ordered
+    // smallest-LOC-first (both src/routes/ and src/routes/admin/
+    // pooled together): admin/users.ts (105) < upstream-auth.ts
+    // (111) < ... < admin-validators.ts (457, largest, last). Next:
+    // admin/users.ts (105 LOC). Scope:
+    // STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/admin/users.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
