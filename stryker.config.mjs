@@ -4034,6 +4034,71 @@
 //   function, wrong return) would be caught, not just a body-emptied
 //   mutant that already looks broken via a thrown/undefined check.
 //   Closed via a worktree-isolated parallel Workflow agent.
+//   src/cli/commands/plan.ts (44 LOC — CLI plan command: diffs a local
+//   gateway.yaml against the live gateway, reporting drift without
+//   applying anything) 36 mutants, 100% on first authored draft (36/36,
+//   no prior test existed) -> **100%** confirmed stable across 2
+//   independent Stryker rounds. New file
+//   src/cli/commands/__tests__/plan-mutation.test.ts. Notable
+//   technique: rather than hand-computing diffConfigs's exact
+//   `config: N diff(s)` count and per-entry log-line strings, the test
+//   calls the REAL diffConfigs (already domain-9-tested) as an oracle
+//   to derive expected entries from the same fixtures, independently
+//   re-deriving the log-line format in unmutated test code — still
+//   kills any literal/format mutant in plan.ts's own construction.
+//   Closed via a worktree-isolated parallel Workflow agent.
+//   src/catalog/index.ts (248 LOC — merges the static builtin catalog
+//   with SQLite-backed custom entries: listCatalog/getCatalogEntry
+//   lookups plus createCustomEntry/updateCustomEntry/deleteCustomEntry
+//   CRUD) 138 mutants, 94.2% baseline (130/138, first-draft test since
+//   the existing catalog.test.ts only reached this file transitively)
+//   -> effectively 100% (136/138 + 2 accepted equivalents) in 1 verify
+//   round. New file src/__tests__/catalog-mutation.test.ts (co-located
+//   with the existing catalog.test.ts, per the GOTCHA noted above — NOT
+//   a mirrored src/catalog/__tests__/). GOTCHA: this domain's usual
+//   `STRYKER_TEST_SCOPE="src/__tests__"` (the whole directory) aborts
+//   Stryker's dry run outright here too (same config-schema.test.ts
+//   pre-existing-failure cause as src/config.ts/src/config-schema.ts
+//   above) — narrowed to the two catalog test files by name instead. 2
+//   accepted equivalents, both hand-verified: getCustomEntry's
+//   `!Number.isInteger(id)` guard (bun:sqlite silently returns null for
+//   NaN/fractional binds against an INTEGER PRIMARY KEY, identical to
+//   what the guard would return) and updateCustomEntry's `merged.tags
+//   ?? []` fallback (merged.tags is type-provably never undefined given
+//   every real caller's shape). 6 real gaps closed: a coincidental-parse
+//   edge case on the `custom:`-prefix check, an omitted-vs-explicit-
+//   null/false divergence on 3 of updateCustomEntry's 12 merge fields,
+//   and un-asserted error `.message` text on 3 of 4
+//   CatalogMutationError variants. Closed via a worktree-isolated
+//   parallel Workflow agent.
+//   src/lib/pagination-cursor.ts (55 LOC — shared keyset-pagination
+//   helper: clampLimit arithmetic clamp + keysetPaginate's fetch-
+//   limit+1/slice/derive-nextCursor mechanics, factored out of
+//   trace-store/traffic/audit's independently-converged pagination
+//   code) 12 mutants, 100% baseline (12/12, first-draft test since none
+//   existed) -> **100%** in 1 verify round, stable across a stability
+//   check (no run-to-run noise). New file
+//   src/lib/__tests__/pagination-cursor-mutation.test.ts. Key technique:
+//   two boundary tests (total rows === limit exactly, and === limit+1
+//   exactly) together kill every EqualityOperator variant on the
+//   `rows.length > limit` comparison. Closed via a worktree-isolated
+//   parallel Workflow agent.
+//   src/cli/config-file.ts (48 LOC — loads/saves the CLI's gateway.yaml
+//   config-as-code file, validating its top-level version field) 22
+//   mutants, 91% baseline (20/22 — reflects the existing cli.test.ts's
+//   round-trip/missing-file/missing-version tests counted alongside the
+//   new draft from the first scan, since they share one __tests__ dir)
+//   -> effectively 100% (20/22 raw + 2 accepted equivalents) in 1
+//   verify round. New file
+//   src/cli/__tests__/config-file-mutation.test.ts. 2 accepted
+//   equivalents, both hand-verified: the `yaml` package never returns
+//   JS `undefined` (only `null`) for any parseable input, making a
+//   `typeof parsed !== "object"` clause unreachable-as-independently-
+//   observable (every non-object scalar it CAN produce still trips a
+//   later `.version` typeof check); and Bun's `fs.writeFile` normalizes
+//   an empty-string encoding argument identically to `"utf-8"` for
+//   string payloads (verified byte-identical for ASCII and multi-byte
+//   content). Closed via a worktree-isolated parallel Workflow agent.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating

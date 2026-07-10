@@ -2306,6 +2306,35 @@ are skipped entirely (pure interface / static data, no runtime logic).
   test existed) → **100%** in 1 verify round, stable across a 2nd
   stability check. New file `local-provider-mutation.test.ts`. Closed
   via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/cli/commands/plan.ts`** (44 LOC —
+  CLI `plan` command: diffs a local `gateway.yaml` against the live
+  gateway). 36 mutants, 100% on first authored draft (36/36, no prior
+  test existed) → **100%** confirmed stable across 2 independent Stryker
+  rounds. New file `plan-mutation.test.ts`. Closed via a
+  worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/catalog/index.ts`** (248 LOC —
+  merges the static builtin catalog with SQLite-backed custom entries).
+  138 mutants, 94.2% baseline (130/138, first-draft test) → effectively
+  100% (136/138 + 2 accepted equivalents) in 1 verify round. New file
+  `catalog-mutation.test.ts` (co-located with the existing
+  `catalog.test.ts` at the ROOT `src/__tests__/`, not a mirrored
+  `src/catalog/__tests__/`). 6 real gaps closed: a coincidental-parse
+  edge case on the `custom:`-prefix check, an omitted-vs-explicit-
+  null/false divergence on 3 merge fields, and un-asserted error message
+  text. Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/lib/pagination-cursor.ts`** (55
+  LOC — shared keyset-pagination helper). 12 mutants, 100% baseline
+  (12/12, no prior test existed) → **100%** in 1 verify round, stable
+  across a stability check. New file `pagination-cursor-mutation.test.ts`.
+  Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/cli/config-file.ts`** (48 LOC —
+  loads/saves the CLI's `gateway.yaml` file). 22 mutants, 91% baseline
+  (20/22) → effectively 100% (20/22 + 2 accepted equivalents) in 1
+  verify round. New file `config-file-mutation.test.ts`. 2 accepted
+  equivalents: the `yaml` package never returns JS `undefined` for any
+  parseable input, and Bun's `fs.writeFile` normalizes an empty-string
+  encoding identically to `"utf-8"` for string payloads. Closed via a
+  worktree-isolated parallel Workflow agent.
 
 ### Docs
 
