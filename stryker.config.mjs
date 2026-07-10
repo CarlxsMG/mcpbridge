@@ -4150,6 +4150,58 @@
 //   (parseFlags yields the STRING "false", truthy but !== true — a real
 //   POST must still fire). Closed via a worktree-isolated parallel
 //   Workflow agent.
+//   src/secrets/vault-provider.ts (118 LOC — HashiCorp Vault
+//   Transit-engine SecretsProvider: encrypt/decrypt via
+//   /v1/transit/{op}/{key}, X-Vault-Token auth, never falls back to
+//   plaintext on any Vault/network/shape error) 98 mutants, 62%
+//   baseline (61/98 — the existing test covered isConfigured/round-
+//   trip/broad error-handling but missed most exact-shape/boundary
+//   cases) -> effectively 100% (97/98 + 1 accepted equivalent) across 2
+//   verify rounds. New file vault-provider-mutation.test.ts. Two
+//   notable traps, both empirically confirmed: (1) VaultProviderError's
+//   `cause !== undefined ? {cause} : undefined` ternary can only be
+//   distinguished via `"cause" in err` (own-property presence), not
+//   `err.cause === undefined` — per the Error-cause spec, `{cause:
+//   undefined}` still installs an own `cause` property; (2) the
+//   VAULT_ADDR trailing-slash regex mutants could NOT be distinguished
+//   via a real Bun.serve round-trip (Bun's fetch client silently
+//   collapses redundant slashes before the request reaches the wire) —
+//   required mocking `globalThis.fetch` directly to capture the raw URL
+//   string before Bun's own normalization. 1 accepted equivalent: an
+//   `Array.isArray(errBody.errors)` forced-true mutant is unobservable
+//   because the call is wrapped in a swallow-everything try/catch and
+//   every non-array JSON-representable value lacks a `.join` method,
+//   throwing a TypeError the catch swallows either way. Closed via a
+//   worktree-isolated parallel Workflow agent.
+//   src/secrets/index.ts (28 LOC — getSecretsProvider() factory
+//   selecting local vs vault SecretsProvider by
+//   config.secretsProvider, plus two re-exports) 5 mutants, 100%
+//   baseline (5/5 killed by the existing hand-written test alone,
+//   before any new work) -> **100%** (5/5) after 1 verify round
+//   confirming the baseline held. New file
+//   secrets-index-mutation.test.ts gap-fills two behavioral blind spots
+//   the existing test never touched: the re-exported VaultProviderError
+//   class (structural identity + a real failure actually rejecting with
+//   an instance of it) and the fallback-to-local branch for any
+//   secretsProvider value other than the exact literal "vault" (bogus
+//   string/undefined/empty-string, proving a specific === comparison,
+//   not a broader truthy/falsy check). Closed via a worktree-isolated
+//   parallel Workflow agent.
+//   src/lib/ttl-cache.ts (66 LOC — generic "fetch it, remember
+//   fetchedAt, refetch once stale" TTL-cache factory with an injectable
+//   clock, shared by jwt.ts's JWKS cache, oidc.ts's discovery cache,
+//   and oauth.ts's per-client token cache) 18 mutants, 100% baseline
+//   (18/18, first draft since none existed) -> **100%** (18/18) after 1
+//   verify round, stable (identical both runs). New file
+//   ttl-cache-mutation.test.ts. Notable: a `??`->`&&` mutant on `opts.
+//   nowFn ?? (() => Date.now())` was killed incidentally (not by a
+//   dedicated test) since every clock-driven test's synthetic
+//   timestamps diverge enormously from real epoch millis once the
+//   `&&` mutant discards the injected clock; the failed-fetchFn
+//   contract needed a dedicated test re-reading the cache at a time
+//   computed relative to the ORIGINAL fetchedAt (not the failed
+//   attempt's time) to prove state genuinely wasn't touched. Closed via
+//   a worktree-isolated parallel Workflow agent.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating

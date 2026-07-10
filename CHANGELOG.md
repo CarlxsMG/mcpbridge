@@ -2356,6 +2356,27 @@ are skipped entirely (pure interface / static data, no runtime logic).
   **100%** (73/73) on the first draft, stable across 2 verify rounds.
   New file `apply-mutation.test.ts`. Closed via a worktree-isolated
   parallel Workflow agent.
+- **Mutation testing — domain 10, `src/secrets/vault-provider.ts`** (118
+  LOC — HashiCorp Vault Transit-engine `SecretsProvider`). 98 mutants,
+  62% baseline (61/98) → effectively 100% (97/98 + 1 accepted
+  equivalent) across 2 verify rounds. New file
+  `vault-provider-mutation.test.ts`. Notable: a VAULT_ADDR
+  trailing-slash regex mutant required mocking `globalThis.fetch`
+  directly, since Bun's own fetch client silently collapses redundant
+  slashes before the request reaches the wire. Closed via a
+  worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/secrets/index.ts`** (28 LOC —
+  `getSecretsProvider()` factory). 5 mutants, 100% baseline (5/5 killed
+  by the existing test alone) → **100%** after 1 verify round. New file
+  `secrets-index-mutation.test.ts` gap-fills the re-exported
+  `VaultProviderError` class and the fallback-to-local branch for any
+  non-`"vault"` value. Closed via a worktree-isolated parallel Workflow
+  agent.
+- **Mutation testing — domain 10, `src/lib/ttl-cache.ts`** (66 LOC —
+  generic TTL-cache factory with an injectable clock). 18 mutants, 100%
+  baseline (18/18, no prior test existed) → **100%** after 1 verify
+  round, stable. New file `ttl-cache-mutation.test.ts`. Closed via a
+  worktree-isolated parallel Workflow agent.
 
 ### Docs
 
