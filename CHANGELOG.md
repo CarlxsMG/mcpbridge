@@ -2455,9 +2455,30 @@ end-to-end by their own agent (0 needing solo rescue).
   specifically so tests wouldn't need to touch this file. See
   `stryker.config.mjs`'s SCOPE HISTORY for the full empirical writeup.
 
-Only `src/ws-proxy.ts` remains before domain 10 (misc, ~32 files) is
-fully done (517 LOC, largest/most complex file in the domain, being
-worked by its own dedicated worktree-isolated agent).
+- **Mutation testing — domain 10, `src/ws-proxy.ts`** (517 LOC — live
+  bidirectional WebSocket proxy for arbitrary backend WS services: real
+  `WebSocketServer`, DNS-pinning, `bun:sqlite`-persisted targets,
+  capacity/breaker/auth/origin gating, a periodic idle+revalidation
+  sweep loop — the largest/most complex file in domain 10). 277
+  mutants, 81.95% baseline (227/277, from 3 existing test files'
+  indirect exercise) → effectively 100% (250/277 + 26 individually-
+  triaged equivalents + 1 legitimate timeout) across 3 verify rounds.
+  New file `ws-proxy-mutation.test.ts`, 42 tests, real `WebSocketServer`
+  backends throughout via `Bun.serve`. **Two genuine Bun-runtime
+  limitations discovered and empirically proven**: Bun does not run the
+  real npm `ws` package at runtime (its own internal reimplementation
+  resolves instead), which makes an `http.Server` upgrade-socket's
+  response body permanently unobservable to any client (confirmed via
+  a real `curl` process reporting "Empty reply from server") and
+  normalizes every abrupt client disconnect to a plain `close` event,
+  never `error` (confirmed via 3 independent disconnect techniques).
+  Closed via a dedicated worktree-isolated background Agent. See
+  `stryker.config.mjs`'s SCOPE HISTORY for the full retrospective.
+
+**Domain 10 is now COMPLETE, closing out the entire multi-session
+Stryker mutation-testing hardening program (P2 + domains 2-10)** —
+every file in the codebase with meaningful runtime logic now has a
+dedicated mutation-testing backstop.
 
 ### Docs
 

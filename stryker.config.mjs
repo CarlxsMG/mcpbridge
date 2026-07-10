@@ -4393,6 +4393,77 @@
 // underlying reason (import-time side effects rather than absent
 // runtime logic).
 //
+// src/ws-proxy.ts (517 LOC — live bidirectional WebSocket proxy for arbitrary
+// backend WS services: real WebSocketServer, DNS-pinning via net/ip-
+// validator.ts, bun:sqlite-persisted targets, capacity/breaker/auth/origin
+// gating on the upgrade path, a periodic idle+revalidation sweep loop — the
+// LARGEST and most complex file in domain 10) 277 mutants, 81.95% baseline
+// (227/277 — from 3 existing test files' indirect exercise: ws-proxy.test.ts's
+// CRUD coverage, routes-ws-proxy-admin-mutation.test.ts's admin-route wrapper
+// + one real-upgrade happy path, and routes-ws-proxy.test.ts's end-to-end
+// passthrough/404/401/503/disconnect-all) -> effectively 100% (250/277 + 26
+// individually-triaged equivalents/environment-unobservable mutants + 1
+// legitimate "hangs forever" Timeout) across 3 verify rounds, closed via a
+// dedicated worktree-isolated background Agent (not the batched parallel
+// Workflow, given this file's size/complexity). New file
+// src/__tests__/ws-proxy-mutation.test.ts, 42 tests, real WebSocketServer
+// backends throughout (via Bun.serve) plus a real Express app +
+// server.on("upgrade") wired to handleWsProxyUpgrade — mocking `ws`'s
+// WebSocket class would lose the actual open/message/close/error event
+// sequencing this file's own logic depends on. **Two genuine Bun-runtime
+// limitations discovered and empirically proven (not assumed), both
+// generalizable to any future WS-proxy-adjacent file in this codebase**:
+//   (1) Bun does NOT run the real npm `ws` package at runtime — its own
+//       internal reimplementation resolves instead (confirmed by dumping
+//       `WebSocketServer.toString()`, a minified class, not the real
+//       package's source). One consequence: an `http.Server`'s "upgrade"
+//       event socket silently drops any `write()`/`end()` payload before the
+//       connection closes — proven via 3 independent raw clients (node:net,
+//       Bun.connect, and a real external `curl` process, the last reporting
+//       "Empty reply from server" even though the server-side write() call
+//       itself returns `true`) — making rejectUpgrade()'s entire HTTP
+//       response body permanently unobservable to any black-box client
+//       in this environment. All 12 StringLiteral/BlockStatement mutants on
+//       rejectUpgrade()'s message text are accepted-equivalent for this
+//       reason; each upgrade-rejection GATE is still verified to genuinely
+//       fire (the connection never opens), just not the exact wire text.
+//   (2) The same shim normalizes EVERY abrupt client disconnect (terminate,
+//       a raw TCP RST via socket.resetAndDestroy(), and even a hand-crafted
+//       invalid-UTF-8 WS frame — a known `'error'`-triggering case in the
+//       real `ws` package's protocol-level Receiver) to a plain `'close'`
+//       event, never `'error'` — confirmed by attempting all 3 techniques
+//       against a real accepted WebSocket. Since clientWs's "close" and
+//       "error" handlers have textually identical bodies
+//       (`safeClose(backendWs); removeConn(conn);`), the 2 mutants swapping
+//       between them are behaviorally indistinguishable via any external
+//       observation available in this environment.
+// Also closed: 2 defensive `?? 401`/`?? "Unauthorized"` fallback mutants via
+// directly mocking evaluateMcpAuth's return shape (its real contract never
+// omits these fields, making the fallback otherwise dead); the `!match` 404
+// branch and the `/ws-proxy/:name` regex's start-anchor required standing up
+// a SECOND, deliberately-unfiltered HTTP server bypassing the shared
+// harness's own `startsWith("/ws-proxy/")` pre-filter, since that filter was
+// itself preventing the regex's own edge cases from ever being reached; and
+// a `rawDataByteLength`/`safeClose` readyState-guard cluster (5 mutants)
+// confirmed equivalent via direct experimentation (`Buffer.length ===
+// Buffer.byteLength` always; `ws.terminate()` is empirically idempotent
+// regardless of readyState on this shim). 3 verify rounds (round 2:
+// 49->29 survivors after the initial authoring pass; round 3: 29->26 after
+// adding the `!match`/anchor tests; round 4, a stability check: identical
+// 26-mutant-ID set, confirming no verify-noise). 0 unresolved real gaps.
+//
+// **── DOMAIN 10 (misc: src/lib, src/cli, src/catalog, src/secrets,
+// root src/*.ts, ~32 files needing coverage) COMPLETE (2026-07-10) ──**
+// Every file effectively 100% except the 2 deliberate process-entrypoint
+// skips (src/index.ts, src/cli/index.ts) and 2 deliberate pure-type/data
+// skips (src/secrets/provider.ts, src/catalog/builtin.ts) noted above. This
+// closes out the entire multi-session Stryker mutation-testing hardening
+// program spanning P2 (src/security) + domains 2-10 (src/proxy, src/mcp,
+// src/db+middleware+net, src/tool-policies+tool-meta+content-filtering+
+// backend-auth, src/observability, src/routes+src/routes/admin, src/admin,
+// and this final misc domain) — every file in the codebase with meaningful
+// runtime logic now has a dedicated Stryker mutation-testing backstop.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -4468,20 +4539,17 @@ export default {
     // auth-oidc.ts, composites.ts, mcp-keys.ts, bundles.ts,
     // admin-validators.ts, admin/tools.ts — **DOMAIN 8 COMPLETE**
     // (see SCOPE HISTORY for the full retrospective). **DOMAIN 9
-    // (src/admin, 32 files needing coverage) COMPLETE** — see the
-    // DOMAIN 9 COMPLETE marker in SCOPE HISTORY for the full roster and
-    // retrospective. Domain 10 = misc (~32 files) IN PROGRESS: the
-    // 27-file worktree-isolated parallel Workflow run (wf_ce4678ce-91a)
-    // is COMPLETE — see the marker in SCOPE HISTORY for the full
-    // roster. src/index.ts AND src/cli/index.ts are now BOTH deliberate
-    // SKIPS (see SCOPE HISTORY for the two independent, empirically-
-    // proven reasons this doesn't work for either file). Only
-    // src/ws-proxy.ts remains, being worked by its own dedicated
-    // worktree-isolated agent (a separate worktree copy of this file —
-    // editing THIS mutate: array in the main repo does not affect that
-    // agent's own local run). `mutate` below is a placeholder pointer;
-    // do not launch a solo run against ws-proxy.ts while that agent is
-    // still active.
+    // (src/admin, 32 files needing coverage) COMPLETE** and **DOMAIN 10
+    // (misc: src/lib, src/cli, src/catalog, src/secrets, root src/*.ts,
+    // ~32 files needing coverage) COMPLETE** — see the DOMAIN 10
+    // COMPLETE marker in SCOPE HISTORY for the full roster and
+    // retrospective. **This closes out the entire multi-session Stryker
+    // mutation-testing hardening program (P2 + domains 2-10)** — every
+    // file in the codebase with meaningful runtime logic now has a
+    // dedicated mutation-testing backstop. `mutate` below is left
+    // pointing at src/ws-proxy.ts (the last file closed) purely as a
+    // stable placeholder for any future ad-hoc re-verification; there
+    // is no active target.
     "src/ws-proxy.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
