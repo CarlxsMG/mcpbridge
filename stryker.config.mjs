@@ -4099,6 +4099,29 @@
 //   an empty-string encoding argument identically to `"utf-8"` for
 //   string payloads (verified byte-identical for ASCII and multi-byte
 //   content). Closed via a worktree-isolated parallel Workflow agent.
+//   src/server.ts (195 LOC — createApp(), the Express app-wiring
+//   factory: global middleware chain, MCP transport mount, all ~25 REST
+//   routers, and the terminal JSON error envelope) 97 mutants, 93.8%
+//   baseline (91/97 — the existing create-app.test.ts alone only killed
+//   24/97 (24.7%) run in isolation, never checking exact header string
+//   values, the TRUST_PROXY branch, the HSTS conditional, the
+//   express.json options, or almost any of the error-handler's branch
+//   matrix) -> **100%** (96/97 + 1 accepted genuine timeout) in 1 verify
+//   round. New file src/__tests__/server-mutation.test.ts. Notable
+//   techniques: the inline, non-exported global error handler
+//   (`app.use((err,req,res,next)=>...)`) was reached by pulling the one
+//   4-arg layer directly off Express 5's `app.router.stack` and
+//   invoking it with a synthetic req/res/next, since no real route ever
+//   writes a partial response before throwing; the express.json()
+//   options-object mutant (`{}`) doesn't change strict-mode behavior at
+//   all (body-parser's own default is already strict:true) — only a
+//   body-SIZE boundary test (between the configured 64kb limit and
+//   body-parser's 100kb default) catches it. 1 accepted genuine
+//   timeout: the security-headers middleware's whole body gutted to
+//   `{}` drops the trailing next(), hanging every request — verified as
+//   a real, correctly-detected hang via the mutant's exact span, not a
+//   false negative. Closed via a worktree-isolated parallel Workflow
+//   agent.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating

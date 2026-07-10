@@ -2335,6 +2335,16 @@ are skipped entirely (pure interface / static data, no runtime logic).
   parseable input, and Bun's `fs.writeFile` normalizes an empty-string
   encoding identically to `"utf-8"` for string payloads. Closed via a
   worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/server.ts`** (195 LOC —
+  `createApp()`, the Express app-wiring factory). 97 mutants, 93.8%
+  baseline (91/97 — the existing `create-app.test.ts` alone only killed
+  24/97 run in isolation) → **100%** (96/97 + 1 accepted genuine
+  timeout) in 1 verify round. New file `server-mutation.test.ts`. The
+  inline global error handler was reached by pulling its 4-arg layer
+  directly off Express 5's `app.router.stack`. 1 accepted genuine
+  timeout: gutting the security-headers middleware drops its trailing
+  `next()`, hanging every request. Closed via a worktree-isolated
+  parallel Workflow agent.
 
 ### Docs
 
