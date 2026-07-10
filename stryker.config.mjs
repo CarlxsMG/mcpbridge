@@ -3846,8 +3846,82 @@
 // thread machine) — 11/12 completed cleanly end-to-end by their own
 // agent, 1 (schedules.ts) needed solo rescue after being interrupted
 // mid-verify. Domain 10 (misc: src/lib, src/cli, src/catalog,
-// src/secrets, src/config*, ws-proxy.ts, server.ts, index.ts, 33 files)
-// starts next.
+// src/secrets, src/config*, ws-proxy.ts, server.ts, index.ts, ~32
+// files) STARTED (2026-07-10), scaled immediately to a SECOND
+// worktree-isolated parallel Workflow (run wf_ce4678ce-91a, 27 files
+// batched 3-at-a-time across 9 sequential batches), same dual-track
+// pattern as domain 9. 3 files deliberately EXCLUDED from the parallel
+// run for solo/special handling: ws-proxy.ts (517 LOC, real WS server +
+// DNS-pinning + bun:sqlite, coverage currently split across 3 existing
+// test files), src/index.ts (217 LOC, real process entrypoint —
+// getDb()/bootstrap/background-loops/app.listen all run at
+// module-import time, no safe unit-import path), src/cli/index.ts (39
+// LOC, same process-exit-on-import problem, argv-dispatch then
+// `process.exit(await main())` at module top level). 2 files SKIPPED
+// entirely (types/data-only, no runtime logic, same precedent as this
+// program's other such skips): src/secrets/provider.ts (pure
+// SecretsProvider interface) and src/catalog/builtin.ts (a static
+// BuiltinCatalogEntry[] array, zero functions/branches). GOTCHA
+// reconfirmed: src/catalog/index.ts's existing test lives at the ROOT
+// src/__tests__/catalog.test.ts, NOT a mirrored src/catalog/__tests__/
+// — same "test dir doesn't always mirror 1:1" class as domain 4's
+// ip-validator.ts and domain 5's load-balancer.ts.
+//   src/lib/crypto.ts (16 LOC — shared sha256Hex(input) helper, a thin
+//   node:crypto createHash("sha256").update(input,"utf8").digest("hex")
+//   wrapper used by 7+ call sites) 4 mutants (the smallest scope seen in
+//   this whole program), 75% baseline (3/4, no prior test existed) ->
+//   **75%** (3/4, 1 accepted equivalent) after 1 verify round, stable
+//   across 2 independent Stryker runs (ruling out verify noise). New
+//   dir + file src/lib/__tests__/crypto-mutation.test.ts. 1 accepted
+//   equivalent, hand-verified across ASCII/emoji/Latin-1 inputs with a
+//   "latin1" control: Node's Hash.update() normalizes an
+//   unrecognized/empty encoding string to the same default as "utf8",
+//   so no input can distinguish `"utf8"` from `""` at the JS-string
+//   level. Closed via a worktree-isolated parallel Workflow agent.
+//   src/cli/commands/login.ts (15 LOC — CLI `login` subcommand:
+//   validates --url/--token flags, persists via saveCliCredentials)
+//   20 mutants, 100% baseline (20/20, no prior test existed) -> **100%**
+//   in 1 verify round (no fix cycle needed — a genuinely clean first
+//   draft). New dir + file
+//   src/cli/commands/__tests__/login-mutation.test.ts. Notable: since
+//   parseFlags (src/cli/args.ts) can only ever produce a string or
+//   boolean flag value (never e.g. a number), the "invalid-type-but-
+//   truthy" typeof-guard case was exercised via a flag with no
+//   following value on argv (parseFlags stores it as boolean `true`,
+//   distinct from the flag being absent). Closed via a worktree-
+//   isolated parallel Workflow agent.
+//   src/config.ts (382 LOC — the env-driven runtime `config` singleton:
+//   ~90 fields computed once at module load from process.env, plus the
+//   parseTrustProxy/parseSecretsProvider/parseCorsOrigins helpers) 460
+//   mutants, 21.3% baseline (98/460 — the existing config-parsers.test.ts
+//   only reached the `config` object transitively through its 3 parser
+//   helpers, leaving every other field untested) -> effectively 100%
+//   (452/460 + 8 accepted equivalents) in 1 verify round. New file
+//   src/__tests__/config-mutation.test.ts. Closed via a data-table-
+//   driven fresh-module-reimport technique (the sibling file's
+//   cache-busting query-string trick, generalized to ~90 fields grouped
+//   into 6 categories, each verified against 3 scenarios via only 4
+//   dynamic re-imports total). 8 accepted equivalents, ALL hand-verified
+//   via direct WHATWG URL-parsing experiments: a successfully-parsed
+//   http/https URL's `.protocol` is always exactly one trailing colon,
+//   its `.hostname` can never be empty, and its `.pathname` can never be
+//   the empty string — making 4 defensive normaliseOrigin guards
+//   unreachable-true; a 5th/6th/7th cluster in parseCorsOrigins's own
+//   whitespace-only-input early-return is convergent-masked by an
+//   independent fallthrough filter reaching the same `[]` result either
+//   way. Also incidentally found and closed 4 REAL gaps in that same
+//   region despite it nominally being the sibling file's territory: a
+//   whitespace-padded `" * "` wildcard entry only round-trips correctly
+//   because parseCorsOrigins's OWN pre-trim runs before
+//   normaliseOrigin's (too-late) internal trim, and 3 two-part
+//   concatenated error-message StringLiterals where the sibling test's
+//   single `.toThrow(/regex/)` was satisfied by either half alone.
+//   Operational note: this domain's usual `STRYKER_TEST_SCOPE="src/
+//   __tests__"` convention fails Stryker's dry run outright for this
+//   file specifically, because that directory also contains
+//   config-schema.test.ts's 5 pre-existing/unrelated failures — scoped
+//   down to just the two relevant test files instead. Closed via a
+//   worktree-isolated parallel Workflow agent.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -3926,14 +4000,18 @@ export default {
     // (see SCOPE HISTORY for the full retrospective). **DOMAIN 9
     // (src/admin, 32 files needing coverage) COMPLETE** — see the
     // DOMAIN 9 COMPLETE marker in SCOPE HISTORY for the full roster and
-    // retrospective. Domain 10 = misc (src/lib [10 files], src/cli [9],
-    // src/catalog [2], src/secrets [4], src/config.ts, src/config-
-    // schema.ts, src/index.ts, src/server.ts, src/ws-proxy.ts) starts
-    // now. `mutate` below points to src/lib/identifier.ts (TOOL_NAME_RE,
-    // TOOL_KEY_SEPARATOR, toolKey/parseToolKey — small, foundational,
-    // referenced throughout the registry) as the first target; test-dir
-    // convention for this domain not yet confirmed, check before
-    // assuming src/lib/__tests__ mirrors 1:1.
+    // retrospective. Domain 10 = misc (~32 files) IN PROGRESS: crypto.ts,
+    // src/cli/commands/login.ts, and src/config.ts are done (see SCOPE
+    // HISTORY). The remaining ~24 routine files (11 src/lib/*.ts, 3 more
+    // src/cli/*.ts, 4 src/cli/commands/*.ts, src/catalog/index.ts, 3
+    // src/secrets/*.ts, src/config-schema.ts, src/server.ts) are being
+    // worked concurrently by a worktree-isolated parallel Workflow (run
+    // wf_ce4678ce-91a). ws-proxy.ts/src/index.ts/src/cli/index.ts are
+    // held back for solo/special handling once the parallel run finishes
+    // (see SCOPE HISTORY for why). `mutate` below is scoped to
+    // src/lib/identifier.ts purely as a placeholder pointer — do NOT
+    // launch a solo run against it (or any file the parallel Workflow's
+    // FILES list already covers) while that worktree is still active.
     "src/lib/identifier.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],

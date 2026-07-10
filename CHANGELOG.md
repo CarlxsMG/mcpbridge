@@ -2220,7 +2220,38 @@ end-to-end and 1 (`schedules.ts`) needing solo rescue after being
 interrupted mid-verify. See `stryker.config.mjs`'s SCOPE HISTORY for the
 full retrospective. Domain 10 (misc: `src/lib`, `src/cli`,
 `src/catalog`, `src/secrets`, `src/config*`, `ws-proxy.ts`, `server.ts`,
-`index.ts`, ~30 files) starts next.
+`index.ts`, ~32 files) starts now, scaled immediately to a second
+worktree-isolated parallel Workflow. 3 files (`ws-proxy.ts`,
+`src/index.ts`, `src/cli/index.ts`) are held back for solo/special
+handling (real WS/DNS/SQLite, or process-entrypoint import-time side
+effects); 2 files (`src/secrets/provider.ts`, `src/catalog/builtin.ts`)
+are skipped entirely (pure interface / static data, no runtime logic).
+
+- **Mutation testing — domain 10, `src/lib/crypto.ts`** (16 LOC — shared
+  `sha256Hex` helper). 4 mutants (the smallest scope in this whole
+  program), 75% baseline (3/4, no prior test existed) → **75%** (3/4, 1
+  accepted equivalent) in 1 verify round, stable across 2 independent
+  runs. New file `crypto-mutation.test.ts`. The 1 equivalent: Node's
+  `Hash.update()` normalizes an unrecognized/empty encoding string to
+  the same default as `"utf8"`, hand-verified across ASCII/emoji/
+  Latin-1 inputs with a `"latin1"` control. Closed via a
+  worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/cli/commands/login.ts`** (15 LOC
+  — CLI `login` subcommand). 20 mutants, 100% baseline (20/20, no prior
+  test existed) → **100%** in 1 verify round — a genuinely clean first
+  draft, no fix cycle needed. New file `login-mutation.test.ts`. Closed
+  via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/config.ts`** (382 LOC — the
+  env-driven runtime `config` singleton, ~90 fields). 460 mutants, 21.3%
+  baseline (98/460 — the existing test only reached `config`
+  transitively through 3 parser helpers) → effectively 100%
+  (452/460 + 8 accepted equivalents) in 1 verify round. New file
+  `config-mutation.test.ts`. 8 accepted equivalents (all hand-verified
+  via WHATWG URL-parsing experiments) plus 4 REAL gaps incidentally
+  found and closed in the sibling file's nominal territory (a
+  whitespace-padded wildcard entry, 3 two-part error-message
+  StringLiterals). Closed via a worktree-isolated parallel Workflow
+  agent.
 
 ### Docs
 
