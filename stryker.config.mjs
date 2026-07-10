@@ -3922,6 +3922,59 @@
 //   config-schema.test.ts's 5 pre-existing/unrelated failures — scoped
 //   down to just the two relevant test files instead. Closed via a
 //   worktree-isolated parallel Workflow agent.
+//   src/lib/mcp-result.ts (29 LOC — single toolResult() builder for the
+//   shared MCP CallTool result envelope) 10 mutants, 100% baseline
+//   (10/10, first-draft test since none existed) -> **100%** in 1
+//   verify round. New file src/lib/__tests__/mcp-result-mutation.test.ts.
+//   Zero equivalents or timeouts needed. Closed via a worktree-isolated
+//   parallel Workflow agent.
+//   src/cli/commands/pull.ts (24 LOC — CLI command that GETs the live
+//   config export and writes it into gateway.yaml's config: section,
+//   preserving any existing hand-authored servers: list) 12 mutants,
+//   92% baseline (11/12, no existing test previously covered
+//   pullCommand) -> effectively 100% (11/12 + 1 accepted equivalent) in
+//   1 verify round. New file
+//   src/cli/commands/__tests__/pull-mutation.test.ts. 1 accepted
+//   equivalent: the catch block's only statement assigns `undefined` to
+//   a `let servers` already implicitly undefined (no initializer), a
+//   no-op either way. Closed via a worktree-isolated parallel Workflow
+//   agent.
+//   src/config-schema.ts (388 LOC — typed zod validation of process.env;
+//   flags unknown/malformed env vars at boot without altering config.ts's
+//   own parsed shape) 218 mutants, 56.9% baseline (124/218 own-file
+//   score — the existing config-schema.test.ts, untouched, covers basic
+//   PORT/AUTH_DISABLED/LOG_FORMAT/SECRETS_PROVIDER cases but misses
+//   envUrl/envCsv/envOptString entirely, exact min/max boundaries, and
+//   validateEnvOrWarn/validateEnvStrict's exact message formats) ->
+//   81.7% own-file score (178/218 + 40 confirmed equivalents) across 2
+//   STABLE verify rounds (identical 40-survivor set both times, ruling
+//   out verify noise). New file
+//   src/__tests__/config-schema-mutation.test.ts. OPERATIONAL GOTCHA:
+//   the zod version resolved in this repo (4.4.3) requires every
+//   z.object key to be textually PRESENT in the input (a key merely
+//   absent, vs present-with-undefined, fails validation even for an
+//   optional-typed field) — this is the confirmed root cause of
+//   config-schema.test.ts's 5 pre-existing failures, and it ALSO means
+//   Stryker's dry run cannot use the shared `STRYKER_TEST_SCOPE="src/
+//   __tests__"` for this file (the dry run requires the WHOLE scope to
+//   pass first) — verification was scoped to just this new file's own
+//   path instead, so the reported score is this file's OWN standalone
+//   kill rate, not a combined score with the untouched sibling (the
+//   combined score in a fixed-zod environment would only be >= this,
+//   per the agent's own reasoning, never lower). All 40 accepted
+//   equivalents trace to ONE structural root cause, hand-verified for 6
+//   representative mutants plus a full code-trace of validateEnv:
+//   `EnvReport` never returns `result.data`, so every `.transform()`
+//   callback's OUTPUT VALUE (envBool's boolean, envCsv's array,
+//   envOptString's trimmed string, several `v ?? default` string
+//   constants, and envInt/envEnum's `def` argument in the early-return
+//   branch that bypasses min/max/enum checking) is fundamentally
+//   unobservable through the public contract — only
+//   result.success/result.error.issues are ever read. 5 genuinely
+//   observable arithmetic-bound mutants (computed MAX arguments) plus
+//   the entire 45-literal unknown-env-prefix array and its guard were
+//   real gaps, closed with boundary-value tests. Closed via a
+//   worktree-isolated parallel Workflow agent.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating

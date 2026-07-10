@@ -2252,6 +2252,32 @@ are skipped entirely (pure interface / static data, no runtime logic).
   whitespace-padded wildcard entry, 3 two-part error-message
   StringLiterals). Closed via a worktree-isolated parallel Workflow
   agent.
+- **Mutation testing — domain 10, `src/lib/mcp-result.ts`** (29 LOC —
+  single `toolResult()` builder for the shared MCP CallTool result
+  envelope). 10 mutants, 100% baseline (10/10, no prior test existed) →
+  **100%** in 1 verify round. New file `mcp-result-mutation.test.ts`.
+  Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/cli/commands/pull.ts`** (24 LOC —
+  CLI command that GETs the live config export into `gateway.yaml`).
+  12 mutants, 92% baseline (11/12, no existing test) → effectively 100%
+  (11/12 + 1 accepted equivalent) in 1 verify round. New file
+  `pull-mutation.test.ts`. Closed via a worktree-isolated parallel
+  Workflow agent.
+- **Mutation testing — domain 10, `src/config-schema.ts`** (388 LOC —
+  typed zod validation of `process.env`). 218 mutants, 56.9% baseline
+  (124/218 own-file score) → 81.7% own-file score (178/218 + 40
+  confirmed equivalents) across 2 stable verify rounds. New file
+  `config-schema-mutation.test.ts`. Operational gotcha: this repo's
+  resolved zod version requires every schema key to be textually present
+  in the input, which is the confirmed root cause of the sibling test's
+  5 pre-existing failures — verification was scoped to just this new
+  file since Stryker's dry run needs the whole scope to pass first. All
+  40 equivalents trace to one structural cause (hand-verified): `EnvReport`
+  never returns `result.data`, so every transform's output value is
+  unobservable through the public contract — only success/issues are
+  read. 5 genuinely observable arithmetic-bound mutants plus the
+  unknown-env-prefix array were real gaps, closed with boundary tests.
+  Closed via a worktree-isolated parallel Workflow agent.
 
 ### Docs
 
