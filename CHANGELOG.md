@@ -1966,6 +1966,20 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   Stryker's own external one, a stronger detection signal needing no
   extra work. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-catalog.test.ts src/routes/__tests__/routes-catalog-mutation.test.ts"`.
+- **Mutation testing — domain 8, `auth-oidc.ts`** (214 LOC, `src/routes/` —
+  OIDC SSO `GET /start`, `GET /callback`, `GET/PUT /settings`). 186
+  mutants, 50% baseline (93/186 killed) → **effectively 100%** (176/186
+  killed, 5 confirmed equivalents, 5 accepted timeouts) after 2 verify
+  rounds. New file `routes-auth-oidc-mutation.test.ts`; existing test file
+  left untouched. Sixth file closed via the parallel Workflow. Found 2
+  equivalents where the route's own `scopes` default/trim is fully masked
+  by `setOidcConfig`'s own internal re-trim-and-default, so the route-level
+  logic never actually affects what's persisted. Also fixed a permanent
+  lint gap: `.stryker-tmp/**` wasn't in `eslint.config.js`'s ignores either
+  (same root cause as the `.claude/**` fix) — a live Stryker sandbox got
+  swept into `bun run lint` as a second tsconfig root; `bun run lint` is
+  now safe to run at any time, even mid-Stryker-run. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-auth-oidc.test.ts src/routes/__tests__/routes-auth-oidc-mutation.test.ts"`.
 
 ### Docs
 

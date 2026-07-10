@@ -3277,6 +3277,40 @@
 //   faster than Stryker's own 60s external one — a stronger, not
 //   weaker, detection signal, so this asymmetry needed no action.
 //
+//   `auth-oidc.ts` (214 LOC — OIDC SSO: GET /start, GET /callback,
+//   GET/PUT /settings) 186 mutants, 50% baseline (93/186 killed) ->
+//   effectively 100% (176/186 killed, 5 confirmed equivalents, 5
+//   accepted timeouts) after 2 verify rounds. New file
+//   `routes-auth-oidc-mutation.test.ts`, existing test file left
+//   untouched. Sixth file closed via the parallel Workflow (last of
+//   batch 3, alongside admin/tools.ts and catalog.ts). 5 accepted
+//   timeouts, all whole-handler/whole-helper-body-emptied (including
+//   `redirectToLoginWithError()`, a shared helper called from 11
+//   different failure branches across the callback handler — emptying
+//   it hangs every one of them). 5 confirmed equivalents (all
+//   hand-mutation verified): 2 StringLiteral fallback-value mutants
+//   (issuer/redirectUri "" -> "Stryker was here!") where the downstream
+//   protocol-prefix regex check rejects BOTH values identically; 2
+//   more where the route's own `.trim()`/default-literal for `scopes`
+//   is fully masked by `setOidcConfig`'s OWN internal
+//   `.trim() || "openid profile email"` re-application, so the
+//   route-level default/trim never actually reaches storage
+//   unchanged; and the by-now-familiar `req.socket?.remoteAddress`
+//   optional-chaining removal (same class as auth.ts/catalog.ts —
+//   Express's `req.socket` is never null for a real HTTP connection).
+//   **New permanent lint fix, found integrating this file**: the SAME
+//   ESLint-doesn't-consult-.gitignore root cause as the `.claude/**`
+//   fix (policies.ts) also applies to `.stryker-tmp/sandbox-*` — a
+//   Stryker run's own live sandbox copy, mid-execution, got swept
+//   into `bun run lint` as a second tsconfig root (963 spurious
+//   errors) when lint happened to run while a DIFFERENT solo Stryker
+//   verify (composites.ts) was still executing concurrently. Instead
+//   of the old workaround (wait for the sandbox to disappear, or
+//   delete an orphaned one), added `.stryker-tmp/**` to
+//   `eslint.config.js`'s `ignores` array permanently, alongside
+//   `.claude/**` — `bun run lint` is now safe to run at ANY time,
+//   even mid-Stryker-run, going forward.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3350,9 +3384,9 @@ export default {
     // consumers.ts, admin/lb.ts, config-io.ts, policies.ts, auth.ts,
     // alerts.ts (alerts.ts handled solo after its parallel worktree
     // agent's own Stryker process died silently mid-run),
-    // ws-proxy-admin.ts, discovery.ts, catalog.ts DONE (see SCOPE
-    // HISTORY). The remaining 6 domain-8 files (composites.ts,
-    // admin/tools.ts, auth-oidc.ts, mcp-keys.ts, bundles.ts,
+    // ws-proxy-admin.ts, discovery.ts, catalog.ts, auth-oidc.ts DONE
+    // (see SCOPE HISTORY). The remaining 5 domain-8 files
+    // (composites.ts, admin/tools.ts, mcp-keys.ts, bundles.ts,
     // admin-validators.ts) are being closed via a worktree-isolated
     // parallel Workflow (see the PARALLELIZATION note in SCOPE
     // HISTORY) and complete out of strict LOC order — check SCOPE

@@ -29,8 +29,16 @@ export default tseslint.config(
       // parallel Workflow runs) gets swept in as a second copy of the whole
       // src/ tree, causing tsconfigRootDir ambiguity/parsing errors across
       // the entire real codebase. Same root cause as the .stryker-tmp/
-      // sandbox-* incident (see stryker.config.mjs's SCOPE HISTORY).
+      // sandbox-* entry below.
       ".claude/**",
+      // .stryker-tmp/ is also gitignored, but for the same reason as above
+      // ESLint doesn't consult .gitignore — a Stryker run's live sandbox
+      // copy (.stryker-tmp/sandbox-*) was repeatedly getting swept in as a
+      // second tsconfig root whenever `bun run lint` ran while a Stryker
+      // scan was still mid-execution, producing hundreds of spurious
+      // parsing errors. Previously worked around per-incident by waiting
+      // for the sandbox to disappear; fixed permanently here instead.
+      ".stryker-tmp/**",
     ],
   },
   eslint.configs.recommended,
