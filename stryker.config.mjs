@@ -2689,6 +2689,51 @@
 //     depending on how much was buffered — the test accepts either by
 //     wrapping the whole exchange in one try/catch rather than
 //     asserting a specific rejection site.
+//   admin/users.ts (105 LOC — GET/POST/PATCH/DELETE
+//   /admin-api/users, mounted through `adminRoutes()` unlike the
+//   previous 4 files) 114 mutants, 47.4% baseline (54/114 — the
+//   pre-existing `routes-admin.test.ts` covers the create/list/delete
+//   happy path, duplicate-username 409, last-admin-protected on
+//   delete, last-admin-protected on demote-to-viewer PATCH, and
+//   CAN-delete-when-another-admin-exists, but never asserts exact
+//   codes/messages/audit details, never exercises PATCH's is_active
+//   branch or its own last-admin guard, never tests an unknown
+//   username on PATCH, and never verifies the username-trim/
+//   role-default/type-coercion ternaries) -> effectively 100%
+//   (112/114 killed + 2 genuine timeouts) after 2 verify rounds. New
+//   file `routes-users-mutation.test.ts`, left `routes-admin.test.ts`
+//   untouched. 2 accepted timeouts: the whole POST and PATCH handler
+//   bodies emptied (`BlockStatement`) — an emptied async handler never
+//   sends a response, so the request hangs until Stryker's own
+//   per-mutant timeout, the same "genuine timeout = detected"
+//   convention used throughout this program (auth.ts, transports.ts,
+//   mcp-server.ts, ...). Round 1 left 2 real survivors that round-2
+//   hand-verification confirmed were fixture design bugs, not
+//   equivalents:
+//   - **A `typeof x === "boolean" ? x : undefined` ternary's
+//     forced-true mutant is NOT killed by sending a TRUTHY non-boolean
+//     value** — `is_active: "true"` (a truthy string) passed through
+//     `updateUser`'s `isActive ? 1 : 0` coercion lands on the SAME
+//     active=1 outcome as the real "ignored, stays active" behavior,
+//     by coincidence. Needed a FALSY non-boolean value (`is_active:
+//     ""`) so the mutant's raw pass-through coerces to active=0 while
+//     real code still ignores it and leaves the user active — a new,
+//     narrower variant of the established "truthy non-string" lesson
+//     (schedules.ts/metrics.ts/teams.ts): the fixture must specifically
+//     be FALSY, not just non-boolean, when the downstream consumer
+//     itself re-coerces via truthiness.
+//   - **`nextRole !== undefined` forced-true inside a larger `&&`/`||`
+//     chain can be masked by a SIBLING clause independently reaching
+//     the same truth value** — a test sending `is_active: false` (no
+//     `role` field) to protect a sole admin correctly expects 409, but
+//     under this specific mutant the FORCED role-branch ALSO evaluates
+//     true (`undefined !== "admin"` is true), so both real code (via
+//     the genuine is_active branch) and the mutant (via the wrongly
+//     forced role branch) independently arrive at the same 409 —
+//     convergent-branch masking, not a genuine kill. Needed a request
+//     that deliberately keeps EVERY real branch false (`is_active:
+//     true`, no `role`) so only the mutant's forced branch would
+//     wrongly fire.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2758,14 +2803,14 @@ export default {
     // introspection.ts, usage.ts, tags.ts, admin/index.ts,
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
-    // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts DONE
-    // (see SCOPE HISTORY). Remaining domain-8 files ordered
-    // smallest-LOC-first (both src/routes/ and src/routes/admin/
-    // pooled together): admin/users.ts (105) < upstream-auth.ts
-    // (111) < ... < admin-validators.ts (457, largest, last). Next:
-    // admin/users.ts (105 LOC). Scope:
+    // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts,
+    // admin/users.ts DONE (see SCOPE HISTORY). Remaining domain-8
+    // files ordered smallest-LOC-first (both src/routes/ and
+    // src/routes/admin/ pooled together): upstream-auth.ts (111) <
+    // ... < admin-validators.ts (457, largest, last). Next:
+    // upstream-auth.ts (111 LOC). Scope:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/users.ts",
+    "src/routes/upstream-auth.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

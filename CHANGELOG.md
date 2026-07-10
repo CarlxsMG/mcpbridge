@@ -1751,6 +1751,27 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   simulating a post-headers-sent stream error requires pushing a real
   data chunk before erroring, since headers only flush on the first
   write. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/users.ts`** (105 LOC,
+  `src/routes/admin/` — `GET/POST/PATCH/DELETE /admin-api/users`, mounted
+  through `adminRoutes()`). 114 mutants, 47.4% baseline (54/114 — existing
+  `routes-admin.test.ts` coverage never asserted exact codes/messages/
+  audit details, never exercised PATCH's `is_active` branch or its own
+  last-admin guard, and never tested an unknown username on PATCH) →
+  **effectively 100%** (112/114 killed + 2 genuine timeouts) after 2
+  verify rounds. New file `routes-users-mutation.test.ts`, existing file
+  left untouched. 2 accepted timeouts: the whole POST/PATCH handler
+  bodies emptied — an emptied async handler never responds, so the
+  request hangs until Stryker's own timeout (same convention as auth.ts,
+  transports.ts, mcp-server.ts). Key findings: a `typeof x === "boolean"
+? x : undefined` ternary's forced-true mutant is NOT killed by a truthy
+  non-boolean fixture value, since the downstream `isActive ? 1 : 0`
+  coercion lands on the same outcome by coincidence — needs a FALSY
+  non-boolean value instead; and a `nextRole !== undefined` forced-true
+  mutant inside a larger boolean chain can be masked when a sibling
+  clause independently reaches the same truth value for the SAME test
+  input — needs a fixture that keeps every OTHER real branch false so
+  only the mutant's forced branch would wrongly fire. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
