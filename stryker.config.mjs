@@ -3177,6 +3177,44 @@
 //   half of the check throws or safely returns false for a non-string
 //   input.
 //
+//   `ws-proxy-admin.ts` (170 LOC — GET list/detail, POST create,
+//   PATCH update, DELETE, POST /disconnect-all for the persistent-
+//   WS-proxy target registry) 161 mutants, 0% baseline (no test file
+//   existed at all — the sibling `routes-ws-proxy.test.ts` only
+//   covers `ws-proxy.ts`'s actual WS upgrade/pipe logic via a raw
+//   `server.on("upgrade")` harness, never mounting these admin CRUD
+//   routes) -> effectively 100% (156/161 killed, 4 confirmed
+//   equivalents, 1 accepted timeout) after 1 verify round. New file
+//   `routes-ws-proxy-admin-mutation.test.ts`. Third file closed via
+//   the parallel Workflow. 3 of the 4 equivalents are the SAME
+//   `Number.isInteger`-short-circuit class already documented for
+//   tool-search.ts (domain 3): a `typeof x !== "number" || ...`
+//   guard's first clause is redundant whenever the second clause is
+//   `!Number.isInteger(x)`, since `Number.isInteger` is spec-mandated
+//   to return false for any non-Number type regardless of what typeof
+//   evaluates to — recurred at 3 independent call sites
+//   (maxConnections/maxMessageBytes/idleTimeoutMs) in this one file.
+//   The 4th is a StringLiteral-fallback equivalence (an invalid-name
+//   fallback value is only ever consumed by a regex validator that
+//   rejects both the real "" and the mutant's marker string
+//   identically). **Integration-time fix, found while sanity-checking
+//   in the main repo (not caught by the agent's own worktree run,
+//   which lacked a dev `.env`)**: one test asserting a blocked-private-
+//   IP-range rejection relied on the AMBIENT `config.allowPrivateIps`
+//   defaulting to false, which is only true in a bare environment —
+//   this repo's own local dev `.env` sets `ALLOW_PRIVATE_IPS=true`
+//   (needed to register real loopback test clients, per CLAUDE.md),
+//   so the same test PASSED in the sandboxed worktree (no `.env`) but
+//   FAILED in the main repo (real dev `.env` present) with the
+//   registration wrongly succeeding (201) instead of being blocked
+//   (400). Fixed by explicitly forcing `config.allowPrivateIps =
+//   false` for the duration of that one test (save/restore), rather
+//   than relying on whatever the ambient environment happens to
+//   default to — any future test asserting SSRF-block behavior
+//   specifically (as opposed to tests that merely NEED private IPs
+//   permitted, which already use this same save/restore pattern
+//   elsewhere in this file) must do the same.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3249,9 +3287,9 @@ export default {
     // admin/users.ts, upstream-auth.ts, admin/clients.ts,
     // consumers.ts, admin/lb.ts, config-io.ts, policies.ts, auth.ts,
     // alerts.ts (alerts.ts handled solo after its parallel worktree
-    // agent's own Stryker process died silently mid-run) DONE (see
-    // SCOPE HISTORY). The remaining 9 domain-8 files
-    // (ws-proxy-admin.ts, composites.ts, discovery.ts, admin/tools.ts,
+    // agent's own Stryker process died silently mid-run),
+    // ws-proxy-admin.ts DONE (see SCOPE HISTORY). The remaining 8
+    // domain-8 files (composites.ts, discovery.ts, admin/tools.ts,
     // catalog.ts, auth-oidc.ts, mcp-keys.ts, bundles.ts,
     // admin-validators.ts) are being closed via a worktree-isolated
     // parallel Workflow (see the PARALLELIZATION note in SCOPE
@@ -3260,7 +3298,7 @@ export default {
     // pointer reflects a solo continuation queue while that workflow
     // is still running. Scope for solo runs:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/ws-proxy-admin.ts",
+    "src/routes/composites.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

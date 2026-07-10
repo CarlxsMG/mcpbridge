@@ -1925,6 +1925,22 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   differ in equivalence depending on whether the guarded operation is
   type-safe. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-alerts.test.ts src/routes/__tests__/routes-alerts-mutation.test.ts"`.
+- **Mutation testing — domain 8, `ws-proxy-admin.ts`** (170 LOC,
+  `src/routes/` — GET list/detail, POST create, PATCH update, DELETE, and
+  `POST /disconnect-all` for the persistent WS-proxy target registry). 161
+  mutants, 0% baseline (no test file existed at all for these admin CRUD
+  routes) → **effectively 100%** (156/161 killed, 4 confirmed equivalents,
+  1 accepted timeout). New file `routes-ws-proxy-admin-mutation.test.ts`.
+  Third file closed via the parallel Workflow. 3 of the 4 equivalents are
+  the same `Number.isInteger`-short-circuit class documented for
+  tool-search.ts, recurring at 3 independent call sites in this one file.
+  Integration-time fix: one test asserting a blocked-private-IP-range
+  rejection relied on `config.allowPrivateIps` defaulting to false, which
+  only holds in a bare environment — this repo's own dev `.env` sets
+  `ALLOW_PRIVATE_IPS=true`, so the test passed in the sandboxed worktree
+  but failed once integrated into the main repo; fixed by explicitly
+  forcing the config value false for that one test's duration. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-ws-proxy-admin-mutation.test.ts"`.
 
 ### Docs
 
