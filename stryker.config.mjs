@@ -3599,6 +3599,56 @@
 //   documented throughout this program. Closed via a worktree-isolated
 //   parallel Workflow agent.
 //
+//   src/admin/tool-policies/mutations/ (18 ToolMutation handlers +
+//   index.ts's dispatcher; types.ts excluded) — closed as ONE batch, per
+//   the domain-4 "8 small files" precedent. Baseline: 553 mutants, 35
+//   killed (5.3%, only indirect exercise from src/routes/admin/tools.ts's
+//   own PATCH tests, which only ever send `{ enabled: ... }`) ->
+//   effectively 100% (504/553 raw, all 49 remaining raw survivors
+//   confirmed equivalent) after 3 verify rounds. New file
+//   src/admin/tool-policies/mutations/__tests__/mutations-batch.test.ts,
+//   76 tests, tested via direct calls to `dispatchToolMutations` (no
+//   Express app needed — a lightweight mock Response captures
+//   status/json calls). Two recurring equivalence classes account for
+//   the bulk of survivors: (1) each handler's OWN `ok ? {kind:"ok"} :
+//   {kind:"tool_not_found"}` (or `{kind:"error"}`) ternary has its
+//   SUCCESS branch (`{kind:"ok"}` emptied to `{}`) survive in EVERY one
+//   of the 18 files, since the dispatcher only ever branches on
+//   `result.kind === "tool_not_found"` / `"error"`, never checking for
+//   `"ok"` explicitly — confirmed via hand-mutation on cache.ts, then
+//   applied identically to all 18 (each file needed its OWN
+//   `expectToolNotFound` test since each has a separate AST copy of the
+//   ternary, but none needed a corresponding "ok" test); (2) several
+//   `{kind:"set"}` discriminant string literals (monitor.ts, graphql.ts,
+//   ws.ts) survive emptied to `""` since nothing ever checks
+//   `kind==="set"`, only `kind==="clear"`. Real gaps closed per-file:
+//   monitor.ts (INVALID_INTERVAL 400 path, `monitor: false` clear
+//   trigger, intervalMinutes default-15), graphql.ts/ws.ts (non-object
+//   non-array raw values beyond just arrays, non-string-truthy required
+//   fields), overrides.ts (its own `{kind:"ok"}` gap; the
+//   TOOL_ALIAS_INVALID 400 branch of its status ternary is a confirmed
+//   DEAD branch — validateToolOverrideInput's displayName regex is
+//   IDENTICAL to the registry's own TOOL_NAME_RE check, so a malformed
+//   alias is always caught at validation, before ever reaching the
+//   registry code path that would throw TOOL_ALIAS_INVALID), requires-
+//   approval.ts (MAX_APPROVAL_LEVELS boundary at 10, non-integer levels,
+//   and the exact minimum boundary at 1 — the `< 1` vs `<= 1` boundary
+//   mutant only distinguishes at the value 1 itself), context-budget.ts
+//   (a genuine llm_summarize success-path audit test, needed to prove
+//   `llmProvider` is included — the two pre-existing llm_summarize tests
+//   both only reached secrets-provider error paths). One new equivalence
+//   class found here: context-budget.ts's audit meta spread condition
+//   `v.mode === "llm_summarize" && v.llm` is unobservable in EITHER
+//   direction (`&&`->`||`, or the first conjunct forced to `true`)
+//   because `v.llm` is populated if-and-only-if `v.mode ===
+//   "llm_summarize"` — validateContextBudgetInput's own return shape
+//   guarantees the two conditions can never disagree on any reachable
+//   input, confirmed via hand-mutation. 0 Stryker timeouts across all 3
+//   verify rounds (no resource-contention contamination). Test file
+//   authored directly (solo), while 5 sibling domain-9 files were being
+//   closed concurrently via the parallel Workflow — see each file's own
+//   entry above.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3674,31 +3724,22 @@ export default {
     // auth-oidc.ts, composites.ts, mcp-keys.ts, bundles.ts,
     // admin-validators.ts, admin/tools.ts — **DOMAIN 8 COMPLETE**
     // (see SCOPE HISTORY for the full retrospective). Domain 9 =
-    // src/admin (33 files) starts now, batched: the 19 files in
-    // src/admin/tool-policies/mutations/ (18 ToolMutation handlers +
-    // index.ts the dispatcher; types.ts excluded — pure type
-    // declarations, no runtime logic, same precedent as domain 3's
-    // types.ts) share one baseline/verify pass here, matching domain
-    // 4's "8 small files batched into ONE run" precedent.
-    "src/admin/tool-policies/mutations/enabled.ts",
-    "src/admin/tool-policies/mutations/sensitive.ts",
-    "src/admin/tool-policies/mutations/guards.ts",
-    "src/admin/tool-policies/mutations/cache.ts",
-    "src/admin/tool-policies/mutations/coalesce.ts",
-    "src/admin/tool-policies/mutations/pagination.ts",
-    "src/admin/tool-policies/mutations/streaming.ts",
-    "src/admin/tool-policies/mutations/transform.ts",
-    "src/admin/tool-policies/mutations/mock.ts",
-    "src/admin/tool-policies/mutations/quarantine-policy.ts",
-    "src/admin/tool-policies/mutations/redact-paths.ts",
-    "src/admin/tool-policies/mutations/guardrails.ts",
-    "src/admin/tool-policies/mutations/overrides.ts",
-    "src/admin/tool-policies/mutations/graphql.ts",
-    "src/admin/tool-policies/mutations/requires-approval.ts",
-    "src/admin/tool-policies/mutations/context-budget.ts",
-    "src/admin/tool-policies/mutations/ws.ts",
-    "src/admin/tool-policies/mutations/monitor.ts",
-    "src/admin/tool-policies/mutations/index.ts",
+    // src/admin (33 files) IN PROGRESS: the 19-file
+    // src/admin/tool-policies/mutations/ batch is COMPLETE (effectively
+    // 100%, see SCOPE HISTORY), as are policies.ts, config-diff.ts,
+    // teams.ts, config-versions.ts, and consumers.ts (closed via a
+    // worktree-isolated parallel Workflow, see SCOPE HISTORY for each).
+    // Remaining domain-9 files being worked concurrently by that same
+    // parallel Workflow (audit-export.ts, audit.ts,
+    // bundle-install-links.ts, config/config-io.ts, approvals.ts,
+    // bundles.ts, composites.ts) plus schedules.ts (interrupted
+    // mid-verify in the parallel run, test file already drafted at
+    // src/admin/entities/__tests__/schedules-mutation.test.ts — needs a
+    // solo Stryker rescue). `mutate` below is scoped to schedules.ts as
+    // the current solo target; the parallel Workflow's own worktrees
+    // carry their own local `mutate` overrides that never touch this
+    // file.
+    "src/admin/entities/schedules.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

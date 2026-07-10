@@ -2091,8 +2091,36 @@ files) starts next.
   file `consumers-mutation.test.ts`. Notable: `bun:sqlite`'s loose type
   affinity means ordinary non-integer ids can't kill `getConsumer`'s
   integer guard at all — passing the boolean `true` (silently coerced to
-  1. is the fixture that actually distinguishes it. Closed via a
-     worktree-isolated parallel Workflow agent.
+  `1` by sqlite) is the fixture that actually distinguishes it. Closed via
+  a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 9, `src/admin/tool-policies/mutations/`**
+  (18 `ToolMutation` handlers + `index.ts`'s dispatcher; `types.ts`
+  excluded — pure type declarations). Closed as ONE batch, matching the
+  domain-4 "8 small files" precedent. 553 mutants, 5.3% baseline (35/553,
+  only indirect exercise from the already-closed `src/routes/admin/
+tools.ts` PATCH tests) → effectively 100% (504/553 raw, all 49
+  remaining raw survivors confirmed equivalent) after 3 verify rounds.
+  New file `mutations-batch.test.ts`, 76 tests, direct calls to
+  `dispatchToolMutations` (no Express app needed). Two equivalence
+  classes recur across every file: each handler's own success-branch
+  `{kind:"ok"}` object literal (the dispatcher only ever branches on
+  `"tool_not_found"`/`"error"`, never `"ok"` explicitly), and several
+  `{kind:"set"}` discriminant strings (nothing ever checks
+  `kind==="set"`, only `"clear"`). Real gaps closed per-file: monitor.ts
+  (`INVALID_INTERVAL` 400 path, `monitor: false` clear trigger,
+  `intervalMinutes` default), graphql.ts/ws.ts (non-object non-array raw
+  values beyond arrays, non-string-truthy required fields), overrides.ts
+  (confirmed the `TOOL_ALIAS_INVALID` 400 branch is dead code —
+  `validateToolOverrideInput`'s displayName regex is identical to the
+  registry's own check, so it's always caught at validation first),
+  requires-approval.ts (`MAX_APPROVAL_LEVELS` boundary, non-integer
+  levels, exact minimum boundary), context-budget.ts (a genuine
+  `llm_summarize` success-path audit test proving `llmProvider` is
+  included). New equivalence class: context-budget.ts's audit meta
+  spread condition `v.mode === "llm_summarize" && v.llm` is unobservable
+  in either mutated direction because `v.llm` is populated
+  if-and-only-if `v.mode === "llm_summarize"` by the validator's own
+  return shape. 0 Stryker timeouts across all 3 verify rounds.
 
 ### Docs
 
