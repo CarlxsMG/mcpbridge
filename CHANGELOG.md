@@ -2421,6 +2421,25 @@ are skipped entirely (pure interface / static data, no runtime logic).
   (single-key and compound-key) rather than coupling to an unrelated
   production schema. Closed via a worktree-isolated parallel Workflow
   agent.
+- **Mutation testing — domain 10, `src/lib/async-lock.ts`** (81 LOC —
+  per-key async mutex `createKeyedMutex()` + `reloadLiveCache()`). 13
+  mutants, 85% baseline (11/13, first draft) → effectively 100%
+  (11/13 + 2 accepted equivalents) in 1 verify round, stable across 2
+  runs. New file `async-lock-mutation.test.ts`. **Last file of the
+  27-file domain-10 parallel Workflow run.** The 2 accepted equivalents
+  (a queue-tail cleanup guard) are memory-hygiene-only, since every
+  `withLock()` call unconditionally overwrites the map entry regardless
+  of prior deletion. Closed via a worktree-isolated parallel Workflow
+  agent.
+
+**Domain 10's 27-file worktree-isolated parallel Workflow run is now
+COMPLETE** — every file effectively 100%, all 27 completing cleanly
+end-to-end by their own agent (0 needing solo rescue). 3 files remain
+before domain 10 (misc, ~32 files) is fully done: `src/ws-proxy.ts`
+(517 LOC, largest/most complex file in the domain), `src/index.ts`, and
+`src/cli/index.ts` (both real process entrypoints with import-time side
+effects, held back for solo/special handling). See
+`stryker.config.mjs`'s SCOPE HISTORY for the full retrospective.
 
 ### Docs
 

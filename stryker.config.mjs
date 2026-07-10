@@ -4291,6 +4291,54 @@
 //   each way) proves the ON CONFLICT target uses ALL key columns, not
 //   just the first. Closed via a worktree-isolated parallel Workflow
 //   agent.
+//   src/lib/async-lock.ts (81 LOC — per-key async mutex
+//   createKeyedMutex()/withLock + reloadLiveCache() Map clear-and-
+//   repopulate helper, factored out of registry.ts/bundles.ts/
+//   composites.ts's three independently-converged identical private
+//   withLock implementations) 13 mutants, 85% baseline (11/13, first
+//   draft since none existed) -> effectively 100% (11/13 + 2 accepted
+//   equivalents, 2 of the 11 kills being genuine timeouts) in 1 verify
+//   round, stable across 2 independent runs. New file
+//   src/lib/__tests__/async-lock-mutation.test.ts. **LAST file of the
+//   27-file domain-10 parallel Workflow run (wf_ce4678ce-91a) — see the
+//   marker below.** 2 accepted equivalents (both hand-verified): the
+//   finally block's `if (locks.get(key) === lockEntry) locks.delete
+//   (key)` queue-tail cleanup guard is a memory-hygiene-only
+//   optimization — every withLock() call unconditionally overwrites the
+//   map entry on entry, so a leftover undeleted (already-settled) entry
+//   behaves identically to a fresh Promise.resolve() for the next
+//   caller; the only real effect of skipping it is unbounded Map
+//   growth, not a functional/ordering bug. The two REAL bugs on that
+//   same line (forced-true always-delete, and inverted equality) WERE
+//   killed, but only via a deliberately deep 4-waiter fixture — a
+//   simpler 2-waiter fixture can't distinguish correct cleanup from
+//   these bugs, since a second caller's own `prev` is captured
+//   synchronously at ITS OWN call time, independent of an earlier
+//   caller's finally block; the divergence only becomes observable when
+//   a THIRD-plus waiter already occupies the map's "current entry" slot
+//   at the moment an earlier caller's finally runs. Closed via a
+//   worktree-isolated parallel Workflow agent.
+//
+// **── Domain 10's 27-file worktree-isolated parallel Workflow run
+// (wf_ce4678ce-91a) COMPLETE (2026-07-10) ──** All 27 files effectively
+// 100%: crypto.ts, cli/commands/login.ts, config.ts, lib/mcp-result.ts,
+// cli/commands/pull.ts, config-schema.ts, lib/identifier.ts,
+// cli/connect-templates.ts, cli/args.ts, secrets/local-provider.ts,
+// cli/commands/plan.ts, catalog/index.ts, lib/pagination-cursor.ts,
+// cli/config-file.ts, server.ts, lib/stable-json.ts,
+// cli/commands/apply.ts, secrets/vault-provider.ts, secrets/index.ts,
+// lib/ttl-cache.ts, cli/commands/connect.ts, lib/origin-match.ts,
+// lib/leader-loop.ts, cli/client.ts, lib/webhook.ts, lib/tool-config.ts,
+// lib/async-lock.ts. Batched 3-at-a-time across 9 sequential batches on
+// this 16-core/32-thread machine, all 27 completing cleanly end-to-end
+// by their own agent (0 needing solo rescue — unlike domain 9's
+// schedules.ts). Domain 10's remaining work before the whole domain is
+// complete: src/ws-proxy.ts, src/index.ts, and src/cli/index.ts (held
+// back for solo/special handling — real WS/DNS/SQLite, or
+// process-entrypoint import-time side effects, respectively; see the
+// domain-10-kickoff note above for why). 2 files were skipped entirely
+// (src/secrets/provider.ts, src/catalog/builtin.ts — pure interface /
+// static data, no runtime logic).
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -4369,19 +4417,17 @@ export default {
     // (see SCOPE HISTORY for the full retrospective). **DOMAIN 9
     // (src/admin, 32 files needing coverage) COMPLETE** — see the
     // DOMAIN 9 COMPLETE marker in SCOPE HISTORY for the full roster and
-    // retrospective. Domain 10 = misc (~32 files) IN PROGRESS: crypto.ts,
-    // src/cli/commands/login.ts, and src/config.ts are done (see SCOPE
-    // HISTORY). The remaining ~24 routine files (11 src/lib/*.ts, 3 more
-    // src/cli/*.ts, 4 src/cli/commands/*.ts, src/catalog/index.ts, 3
-    // src/secrets/*.ts, src/config-schema.ts, src/server.ts) are being
-    // worked concurrently by a worktree-isolated parallel Workflow (run
-    // wf_ce4678ce-91a). ws-proxy.ts/src/index.ts/src/cli/index.ts are
-    // held back for solo/special handling once the parallel run finishes
-    // (see SCOPE HISTORY for why). `mutate` below is scoped to
-    // src/lib/identifier.ts purely as a placeholder pointer — do NOT
-    // launch a solo run against it (or any file the parallel Workflow's
-    // FILES list already covers) while that worktree is still active.
-    "src/lib/identifier.ts",
+    // retrospective. Domain 10 = misc (~32 files) IN PROGRESS: the
+    // 27-file worktree-isolated parallel Workflow run (wf_ce4678ce-91a)
+    // is COMPLETE — see the marker in SCOPE HISTORY for the full
+    // roster. Only 3 files remain before domain 10 is fully done:
+    // src/ws-proxy.ts (517 LOC, real WS server + DNS-pinning +
+    // bun:sqlite, largest and most complex file in the domain, coverage
+    // currently split across 3 existing test files), src/index.ts (217
+    // LOC, real process entrypoint — no safe unit-import path), and
+    // src/cli/index.ts (39 LOC, same process-exit-on-import problem).
+    // `mutate` below is scoped to ws-proxy.ts as the next solo target.
+    "src/ws-proxy.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
