@@ -2987,6 +2987,88 @@
 //     an empty log + a suspiciously-unchanged survivor count is a red
 //     flag that the run didn't do what it claimed.**
 //
+//   `policies.ts` (160 LOC — guard-policy CRUD: GET list, POST create,
+//   PATCH update, DELETE, POST /:id/apply to tools or a bundle) 196
+//   mutants, 0% baseline within scope (the existing hand-written
+//   routes-policies.test.ts covered POST create/duplicate-409/list/
+//   delete happy paths, the tools-array apply path, and a blanket 401
+//   — but PATCH had ZERO coverage of any kind) -> 95.9% (188/196
+//   killed), 5 confirmed equivalents, 3 accepted timeouts (whole-
+//   handler-emptied) after 2 verify rounds — effectively 100%, zero
+//   unexplained gaps. New file `routes-policies-mutation.test.ts`,
+//   existing test file left untouched. First file closed via the new
+//   parallel Workflow (see PARALLELIZATION note above) — authored,
+//   verified, and full-suite-checked entirely inside an isolated git
+//   worktree, then integrated back by hand. Key findings:
+//   - **New equivalence class: a `LooseValidationResult`-shaped
+//     `{ ok: false }` return site mutates cleanly to `{}` and stays
+//     equivalent whenever EVERY consumer only checks `.ok` via `!`
+//     truthiness** (never a strict `=== false` comparison, never reads
+//     `.value` off the falsy branch) — `{}.ok` is `undefined`, exactly
+//     as falsy as `false`. Recurred 3 times in this one file alone
+//     (optPositiveOrNull's and validateToolRefs' `{ok:false}` sites);
+//     worth checking on any other file using the same convention
+//     (src/routes/validation.ts) before assuming such a mutant is a
+//     real gap.
+//   - **`JSON.stringify(Infinity)` silently serializes to `null`**,
+//     which is itself a VALID value for an `optPositiveOrNull`-shaped
+//     field — genuinely testing a non-finite-number rejection path
+//     requires bypassing `JSON.stringify` and sending a raw body
+//     string with a numeric literal that overflows on parse (e.g.
+//     `1e400`), since `JSON.parse('1e400') === Infinity` but the
+//     literal itself is syntactically valid JSON.
+//   - Reconfirmed the two-`.trim()`-calls-in-one-condition technique
+//     (first seen on consumers.ts) needs TWO distinct padded fixtures
+//     on `body.name.trim() !== existing.name && policyNameExists(...)`
+//     -shaped lines — one padded same-name no-op, one padded collision
+//     with a DIFFERENT row's name.
+//   - **Worktree-specific environment gotcha, unrelated to this file**:
+//     a fresh git worktree lacks the untracked `data/` directory
+//     (needed by routes-backup-mutation.test.ts's real VACUUM INTO
+//     tests) and, separately, had 9 pre-existing test failures
+//     (config-schema.test.ts, registration-mutation-rg1.test.ts,
+//     routes-register-mutation.test.ts) reproducible with or without
+//     this file's own changes — confirmed unrelated and worktree-only
+//     (the MAIN repo's full suite stayed green after integration).
+//     Narrowed `STRYKER_TEST_SCOPE` to just the 2 policies-related test
+//     files for the actual mutation runs rather than the whole
+//     `src/routes/__tests__` directory, which is safe per this
+//     project's own documented invariant (fewer tests can only leave a
+//     mutant undetected, never falsely mark one killed).
+//
+//   files: alerts.ts through admin-validators.ts) is being closed via
+//   a Workflow that fans out one worktree-isolated agent per file,
+//   batched 3-at-a-time (matched to this machine's 16 physical/32
+//   logical cores — Stryker's own internal `concurrency: 8` per run
+//   means 3 concurrent files already uses 24 threads; going wider
+//   risks corrupting Stryker's own 60s per-mutant timeout heuristic
+//   under contention, which would misreport real survivors as
+//   false-positive timeouts). Each agent does the full baseline/
+//   author/verify/full-suite cycle in its own worktree and returns a
+//   structured result (test file content + score + findings); a
+//   single steward (this conversation) does the actual git integration
+//   serially afterward — writing the file into the main repo, a
+//   sanity full-suite run, then the usual stryker.config.mjs/
+//   CHANGELOG.md/commit/memory housekeeping — to keep one commit per
+//   file and avoid every agent's local edits to this shared file
+//   conflicting with each other. Files close in COMPLETION order, not
+//   strictly the original smallest-LOC-first queue order, since
+//   parallel agents finish at different times regardless of their
+//   file's size. **New gotcha found integrating the first parallel
+//   result (policies.ts): a git worktree checked out under
+//   `.claude/worktrees/` (used by every parallel agent) is NOT swept
+//   by `.gitignore` when running plain `eslint .` — ESLint walks the
+//   filesystem directly and doesn't consult .gitignore at all, so a
+//   live worktree's own full `src/` copy gets treated as a SECOND
+//   tsconfig root, producing thousands of spurious tsconfigRootDir/
+//   parsing errors across the entire real codebase (same root cause,
+//   different directory, as the earlier `.stryker-tmp/sandbox-*`
+//   incident below). Fixed PERMANENTLY this time (rather than just
+//   deleting the offending directory) by adding an explicit
+//   `.claude/**` entry to `eslint.config.js`'s top-level `ignores`
+//   array — safe to run `bun run lint` from the main repo even while
+//   other worktrees are still live and in progress.**
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3057,14 +3139,16 @@ export default {
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
     // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts,
     // admin/users.ts, upstream-auth.ts, admin/clients.ts,
-    // consumers.ts, admin/lb.ts, config-io.ts DONE (see SCOPE HISTORY).
-    // Remaining domain-8 files ordered smallest-LOC-first (both
-    // src/routes/ and src/routes/admin/ pooled together): alerts.ts
-    // (152) < auth.ts (153) < policies.ts (160) < ws-proxy-admin.ts
-    // (170) < composites.ts (176) < discovery.ts (199) <
-    // admin/tools.ts (202) < catalog.ts (204) < auth-oidc.ts (214) <
-    // mcp-keys.ts (273) < bundles.ts (305) < admin-validators.ts
-    // (457, largest, last). Next: alerts.ts (152 LOC). Scope:
+    // consumers.ts, admin/lb.ts, config-io.ts, policies.ts DONE (see
+    // SCOPE HISTORY). The remaining 11 domain-8 files (alerts.ts,
+    // auth.ts, ws-proxy-admin.ts, composites.ts, discovery.ts,
+    // admin/tools.ts, catalog.ts, auth-oidc.ts, mcp-keys.ts,
+    // bundles.ts, admin-validators.ts) are being closed via a
+    // worktree-isolated parallel Workflow (see the PARALLELIZATION
+    // note in SCOPE HISTORY) and complete out of strict LOC order —
+    // check SCOPE HISTORY for the current done-list rather than
+    // assuming this pointer reflects a solo continuation queue while
+    // that workflow is still running. Scope for solo runs:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
     "src/routes/alerts.ts",
   ],

@@ -23,6 +23,14 @@ export default tseslint.config(
       "coverage/**",
       "data/**",
       "test-results/**",
+      // .claude/ is already gitignored wholesale, but `eslint .` walks the
+      // filesystem directly and doesn't consult .gitignore — without this,
+      // any live git worktree checked out under .claude/worktrees/ (used by
+      // parallel Workflow runs) gets swept in as a second copy of the whole
+      // src/ tree, causing tsconfigRootDir ambiguity/parsing errors across
+      // the entire real codebase. Same root cause as the .stryker-tmp/
+      // sandbox-* incident (see stryker.config.mjs's SCOPE HISTORY).
+      ".claude/**",
     ],
   },
   eslint.configs.recommended,

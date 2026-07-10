@@ -1873,6 +1873,25 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   invalid-version `data` payload, to distinguish the real else-branch
   (400) from the mutant's wrongly-taken YAML-parse branch (200). Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `policies.ts`** (160 LOC, `src/routes/` —
+  guard-policy CRUD + apply-to-tools/apply-to-bundle admin-API routes). 196
+  mutants, baseline had zero coverage on the PATCH endpoint (the existing
+  hand-written test only covered POST create/duplicate-409/list/delete
+  happy paths, the tools-array apply path, and a blanket 401) → **95.9%**
+  (188/196 killed), 5 confirmed equivalents and 3 accepted timeouts
+  (whole-handler-emptied) after 2 verify rounds. New file
+  `routes-policies-mutation.test.ts`; existing `routes-policies.test.ts`
+  left untouched. First file closed via a worktree-isolated parallel
+  Workflow instead of solo. Found a reusable `{ok:false}`→`{}` equivalence
+  class (any `LooseValidationResult`-shaped return whose only consumers
+  check `.ok` via truthiness is immune to this mutator) and confirmed the
+  `JSON.stringify(Infinity)`→`null` trap requires a raw numeric-overflow
+  literal body to genuinely test non-finite rejection. Also fixed a
+  permanent lint gap: `eslint.config.js` didn't ignore `.claude/**`, so a
+  live git worktree (used by the parallel Workflow) got swept into
+  `eslint .` as a second tsconfig root, producing thousands of spurious
+  errors. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-policies-mutation.test.ts src/routes/__tests__/routes-policies.test.ts"`.
 
 ### Docs
 
