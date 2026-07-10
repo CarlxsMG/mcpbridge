@@ -2895,6 +2895,45 @@
 //     other is exercised — each needs its own padding-sensitive case,
 //     and the SECOND one specifically needs the FIRST clause to
 //     independently evaluate true so the second clause is even reached.
+//   admin/lb.ts (123 LOC — GET/PUT /clients/:name/lb strategy config,
+//   POST /clients/:name/lb/upstreams add target, PATCH/DELETE
+//   /clients/:name/lb/upstreams/:id) 123 mutants, 0% baseline (zero
+//   coverage existed at all — confirmed via grep across every
+//   __tests__ dir) -> effectively 100% (114/123 killed + 9 genuine
+//   timeouts) after 1 verify round (a SECOND round was needed only
+//   because the first was sleep-contaminated mid-run — see below, not
+//   because of a real test gap). New file `routes-lb-mutation.test.ts`.
+//   9 genuine timeouts, all whole-handler-emptied
+//   (GET/PUT/POST — 3 of the file's 5 routes) or their OWN
+//   `ensureClientAccess` guard's negation-removed/forced-true
+//   directions (same "hangs forever = detected" convention as every
+//   prior domain-8 file); PATCH's and DELETE's structurally-identical
+//   copies of the SAME guard were cleanly killed (not timeouts) by
+//   this file's own tests — worth noting that 5 structurally identical
+//   guards in the same file don't necessarily all time out the same
+//   way, so don't assume a clean kill on one call site predicts the
+//   outcome on a sibling.
+//   **OPERATIONAL INCIDENT this file — sleep contamination recurred,
+//   confirming the DOMAIN 2-era gotcha is still live and this session
+//   had NOT been running a keep-awake guard for any of today's earlier
+//   domain-8 verify rounds.** The first verify attempt's log showed
+//   elapsed time jump from `~4m` to `~2h 32m` between consecutive
+//   progress lines, with the timed-out-mutant count spiking from 6 to
+//   14 in the same jump — both signs matched the documented "machine
+//   suspends overnight, Stryker's wall-clock elapsed counts sleep time"
+//   pattern exactly. Fixed by `taskkill /PID <root> /T /F` on the
+//   contaminated process tree (confirmed via `Get-Process`), clearing
+//   the orphaned `.stryker-tmp/sandbox-*` left behind, and relaunching
+//   with an EXPLICIT keep-awake guard this time
+//   (`SetThreadExecutionState([uint32]0x80000001L)` before
+//   `Wait-Process`, released with `0x80000000L` after) — the re-run's
+//   elapsed-time progression stayed linear (no further jumps) and
+//   finished in a normal ~9 minutes. **Going forward for the rest of
+//   this domain-8/9/10 program: always pair every Stryker verify/
+//   baseline launch with the keep-awake guard in the SAME background
+//   PowerShell call as the `Wait-Process`, not as a separate step that
+//   can be silently skipped** — this session had drifted away from
+//   that discipline for several files before this incident surfaced it.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2966,12 +3005,12 @@ export default {
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
     // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts,
     // admin/users.ts, upstream-auth.ts, admin/clients.ts,
-    // consumers.ts DONE (see SCOPE HISTORY). Remaining domain-8 files
-    // ordered smallest-LOC-first (both src/routes/ and
-    // src/routes/admin/ pooled together): admin/lb.ts (123) < ... <
-    // admin-validators.ts (457, largest, last). Next: admin/lb.ts
-    // (123 LOC). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/lb.ts",
+    // consumers.ts, admin/lb.ts DONE (see SCOPE HISTORY). Remaining
+    // domain-8 files ordered smallest-LOC-first (both src/routes/ and
+    // src/routes/admin/ pooled together): config-io.ts (145) < ... <
+    // admin-validators.ts (457, largest, last). Next: config-io.ts
+    // (145 LOC). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/config-io.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

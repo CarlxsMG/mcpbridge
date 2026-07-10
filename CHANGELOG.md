@@ -1842,6 +1842,23 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   an unpadded no-op test can't distinguish either `.trim()` mutant since
   both sides already match without trimming. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/lb.ts`** (123 LOC,
+  `src/routes/admin/` — `GET/PUT /clients/:name/lb` strategy config,
+  `POST /clients/:name/lb/upstreams`, `PATCH/DELETE
+/clients/:name/lb/upstreams/:id`). 123 mutants, 0% baseline (zero test
+  coverage of any kind existed at all) → **effectively 100%** (114/123
+  killed + 9 genuine timeouts) after 1 verify round. New file
+  `routes-lb-mutation.test.ts`. 9 genuine timeouts: whole-handler-emptied
+  (3 of the file's 5 routes) or their own `ensureClientAccess` guard's
+  negation-removed/forced-true directions (same "hangs forever"
+  convention as prior files) — PATCH's and DELETE's structurally
+  identical copies of the same guard were cleanly killed instead, a
+  reminder that identical-shaped guards across sibling routes don't
+  necessarily time out the same way. Operational note: the first verify
+  attempt was sleep-contaminated mid-run (elapsed time jumped from ~4min
+  to ~2.5 hours), fixed by killing the process tree and relaunching with
+  an explicit keep-awake guard paired with the wait call. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
