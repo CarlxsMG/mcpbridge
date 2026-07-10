@@ -96,17 +96,46 @@ curl -X POST http://localhost:3000/register \
   -H "Content-Type: application/json" \
   -d '{
     "name": "github",
+    "kind": "mcp",
+    "mcp_url": "https://your-mcp-server.example.com/mcp",
+    "mcp_transport": "streamable-http"
+  }'
 ```
 
+El bridge se conecta al upstream, descubre sus tools y las re-expone a través de la misma
+pila de guards que todo lo demás. Se soportan tanto `streamable-http` como `sse` como
+transportes upstream.
+
 ## Apuntar un cliente MCP al bridge
+
+Apunta cualquier cliente MCP (Claude Desktop, Cursor, tu propio agente) a un **shard de
+backend** — las tools de un backend registrado. Para el `petstore` que registraste, eso es
+`/mcp/petstore`. El bridge implementa la **versión `2025-06-18` del protocolo MCP** — consulta
+[Conectar clientes MCP →](/es/guide/connecting-clients) para los detalles de negociación de versión.
 
 ```json
 {
   "mcpServers": {
-    "bridge": { "url": "http://localhost:3000/mcp" }
+    "petstore": { "url": "http://localhost:3000/mcp/petstore" }
   }
 }
 ```
+
+(`:8790` en lugar de `:3000` si estás en la Opción B.)
+
+Tres endpoints, dos planos:
+
+| Endpoint                  | Plano   | Le da al cliente                                                                    |
+| ------------------------- | ------- | ----------------------------------------------------------------------------------- |
+| `/mcp/:clientName`        | datos   | Las tools de un backend (p. ej. `/mcp/petstore`)                                    |
+| `/mcp-custom/:bundleName` | datos   | Un subconjunto curado entre backends — [varios tras un endpoint](/es/guide/bundles) |
+| `POST /mcp`               | control | Tools `sys_*` para operar el gateway mismo, **no** tools de backend                 |
+
+El transporte es **Streamable HTTP** en todos los endpoints (el transporte SSE legacy fue eliminado).
+
+::: tip ¿Quieres un endpoint que exponga `petstore` _y_ un upstream juntos?
+Eso es un **bundle** — consulta [Agregar backends en un solo endpoint →](/es/guide/bundles).
+:::
 
 ## Siguientes pasos
 

@@ -5,8 +5,8 @@ titleTemplate: MCP REST Bridge
 
 hero:
   name: MCP REST Bridge
-  text: Any REST API or MCP server → secure, governed AI tools
-  tagline: The self-hosted MCP gateway with a real admin UI. OpenAPI-to-MCP auto-discovery, per-tool guardrails, RBAC and circuit breaking — in one binary. No Kubernetes.
+  text: Any REST, GraphQL or MCP server → secure, governed AI tools
+  tagline: The self-hosted MCP gateway with a real admin UI. Auto-discover tools from OpenAPI, GraphQL, a cURL command or a Postman export — or aggregate other MCP servers. Per-tool guardrails, RBAC and circuit breaking in one binary. No Kubernetes.
   actions:
     - theme: brand
       text: Try the live demo ↗
@@ -25,7 +25,7 @@ features:
       height: 28
       wrap: true
     title: Connect anything
-    details: Point at an OpenAPI/Swagger spec and get MCP tools instantly — or register an existing MCP server as an upstream. REST-to-MCP and MCP-to-MCP in the same gateway.
+    details: Auto-discover tools from an OpenAPI or GraphQL spec, a cURL command or a Postman export — or re-expose an existing MCP server. REST, GraphQL and MCP-to-MCP in one gateway.
   - icon:
       src: /icons/dashboard.svg
       width: 28
@@ -73,6 +73,8 @@ each client sees, and watch health, usage and audit trails live.
 > 🎮 **[Try the live demo →](https://aico-dot-team-code.github.io/mcpbridge/demo/)** — the real
 > admin UI running on mock data, right in your browser. No install, no signup.
 
+<ConvertAnything />
+
 ## 60-second quickstart
 
 ```bash
@@ -88,15 +90,18 @@ docker run -p 3000:3000 \
 ```
 
 Open **http://localhost:3000/admin**, log in, and add your first server. Then point any
-MCP client at `http://localhost:3000/mcp`. Full walkthrough in
-**[Getting started →](/guide/getting-started)**
+MCP client at that backend's shard — `http://localhost:3000/mcp/<your-server>` — or
+[curate a bundle](/guide/bundles) to serve several backends behind one endpoint. Full
+walkthrough in **[Getting started →](/guide/getting-started)**
 
 ## How it works
 
 <HowItWorks />
 
-Serve tools four ways: **aggregated** `/mcp`, **per-client** `/mcp/:name`, **curated
-bundles** `/mcp-custom/:bundle`, or **legacy SSE** `/sse`.
+Serve backend tools two ways: **per-client** `/mcp/:name` for one backend, or a **curated
+bundle** `/mcp-custom/:bundle` to put several behind one endpoint. The `/mcp` root is the
+**control plane** — `sys_*` tools an agent uses to operate the gateway itself, not backend
+tools. ([How bundles aggregate several backends →](/guide/bundles))
 
 ## Why teams pick it
 
@@ -107,6 +112,8 @@ bundles** `/mcp-custom/:bundle`, or **legacy SSE** `/sse`.
 - **Security isn't an add-on.** SSRF, injection sanitizing and secret detection are on by
   default, on every path.
 - **No heavy infra.** No Kubernetes, no Postgres, no sidecars. A binary and a SQLite file.
+- **Tested for real.** 280+ backend test files, Vitest, Playwright e2e and Stryker mutation
+  testing — coverage that measures whether the tests catch bugs, not just run lines.
 
 <div style="margin-top: 2.5rem; text-align: center;">
 

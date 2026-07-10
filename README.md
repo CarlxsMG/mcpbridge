@@ -8,7 +8,7 @@
 
 # MCP REST Bridge
 
-### Turn any REST API or MCP server into secure, governed AI tools.
+### Turn any REST, GraphQL, or MCP server into secure, governed AI tools.
 
 **The self-hosted MCP gateway with a real admin UI** — OpenAPI-to-MCP auto-discovery,
 per-tool guardrails, RBAC, circuit breaking. One binary. No Kubernetes.
@@ -18,6 +18,7 @@ per-tool guardrails, RBAC, circuit breaking. One binary. No Kubernetes.
 [![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-compatible-00a99a)](https://modelcontextprotocol.io)
 [![License: MIT](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-00a99a)](#contributing)
+[![Mutation tested with Stryker](https://img.shields.io/badge/mutation_tested-Stryker-a2c4c9)](https://stryker-mutator.io)
 [![Star on GitHub](https://img.shields.io/github/stars/aico-dot-team-code/mcpbridge?style=social)](https://github.com/aico-dot-team-code/mcpbridge)
 
 [**🎮 Live demo**](https://aico-dot-team-code.github.io/mcpbridge/demo/) ·
@@ -32,9 +33,10 @@ per-tool guardrails, RBAC, circuit breaking. One binary. No Kubernetes.
 
 **MCP REST Bridge** is an open-source **MCP gateway / proxy / aggregator** for the
 [Model Context Protocol](https://modelcontextprotocol.io) (implements **spec version
-`2025-06-18`**). Point it at an OpenAPI/Swagger spec and it turns your REST API into MCP
-tools automatically. Register an existing MCP server and it re-exposes it through the same
-governed pipeline. Every call runs through SSRF protection, prompt-injection sanitizing,
+`2025-06-18`**). Point it at an OpenAPI/Swagger spec, a GraphQL endpoint, a `curl` command
+or a Postman collection and it turns your API into MCP tools automatically. Register an
+existing MCP server and it re-exposes it through the same governed pipeline. Every call
+runs through SSRF protection, prompt-injection sanitizing,
 per-tool rate limits, circuit breakers, RBAC and a tamper-evident audit log — and you
 manage all of it from a **built-in admin UI**, not a pile of YAML. Tested against
 **Claude Desktop**, **Cursor**, and custom MCP agents.
@@ -47,12 +49,33 @@ manage all of it from a **built-in admin UI**, not a pile of YAML. Tested agains
 
 </div>
 
+## 🔌 Convert anything to MCP
+
+Six ways to turn a backend into governed MCP tools — one `POST /register` call, then every
+call runs through the same guard pipeline:
+
+| Your backend                 | Register with             | Becomes                          |
+| ---------------------------- | ------------------------- | -------------------------------- |
+| REST API (OpenAPI / Swagger) | `openapi_url`             | one MCP tool per operation       |
+| GraphQL API                  | `graphql_url`             | one tool per query & mutation    |
+| A `curl` command             | `curl_input`              | one tool from the request        |
+| Postman collection (v2.1)    | `postman_collection`      | one tool per request             |
+| No spec — hand-written       | `tools[]`                 | exactly the tools you define     |
+| Existing MCP server          | `kind: "mcp"` + `mcp_url` | its tools, re-exposed & governed |
+
+See **[Registering backends →](https://aico-dot-team-code.github.io/mcpbridge/guide/registering-backends)**
+for the payload of each, and **[Bundles →](https://aico-dot-team-code.github.io/mcpbridge/guide/bundles)**
+to serve several backends through one endpoint.
+
 ## ✨ Why MCP REST Bridge
 
 - **A real admin UI, not config files.** A full Vue 3 dashboard to register servers,
   curate tool bundles, set guardrails, rotate keys, watch usage and read the audit log.
-- **Bidirectional in one binary.** REST/OpenAPI → MCP **and** MCP → MCP gateway.
-  Aggregate many backends behind a single endpoint.
+- **Bidirectional in one binary.** REST, GraphQL & OpenAPI → MCP **and** MCP → MCP gateway.
+  Aggregate many backends behind one curated endpoint (a bundle).
+- **Tested for real, not just green.** A 280+-file backend suite, Vitest for the admin UI,
+  Playwright end-to-end, and **Stryker mutation testing** that injects faults to prove the
+  tests actually catch bugs.
 - **Secure by default.** SSRF + DNS-rebinding protection with IP pinning, prompt-injection
   sanitizing, secret detection, and fail-closed per-tool key restrictions — built in, not a plugin.
 - **Enterprise features without the enterprise weight.** RBAC, teams, audit hash-chain + SIEM,
@@ -125,16 +148,19 @@ curl -X POST http://localhost:3000/register \
 
 ### Point an MCP client at the bridge
 
+Point it at a backend shard — the `petstore` you just registered is at `/mcp/petstore`:
+
 ```json
 {
   "mcpServers": {
-    "bridge": { "url": "http://localhost:3000/mcp" }
+    "petstore": { "url": "http://localhost:3000/mcp/petstore" }
   }
 }
 ```
 
-Serve tools four ways: aggregated `/mcp`, per-client `/mcp/:name`, curated bundles
-`/mcp-custom/:bundle`, or legacy SSE `/sse`.
+Serve backend tools two ways: per-client `/mcp/:name` (one backend) or a curated bundle
+`/mcp-custom/:bundle` (several behind one endpoint). The `/mcp` root is the system control
+plane (`sys_*` gateway-management tools), not backend tools — all over Streamable HTTP.
 
 ### CLI (config-as-code)
 
@@ -156,9 +182,11 @@ command reference and `gateway.yaml` format.
 **Connect anything**
 
 - OpenAPI / Swagger → MCP **auto-discovery** — point at a spec, get tools instantly
+- **GraphQL → MCP** — introspect the schema, one tool per query & mutation
+- **cURL / Postman import** — derive tools from a pasted `curl` command or a Postman v2.1 export
+- **Manual tool definitions** when there's no spec
 - MCP → MCP **gateway / aggregator** (Streamable HTTP + SSE upstreams)
-- Manual tool definitions when there's no spec
-- Four serving modes: aggregated, per-client shard, curated bundles, legacy SSE
+- Two data-plane serving modes: per-client `/mcp/:name` and curated bundles `/mcp-custom/:bundle` (the `/mcp` root is the system control plane)
 
 **Govern & secure**
 
@@ -201,7 +229,7 @@ circuit breaker → dispatch → response sanitizing → audit).
 
 |                                              | OpenAPI→MCP CLIs | Heavy gateways (k8s) | **MCP REST Bridge** |
 | -------------------------------------------- | :--------------: | :------------------: | :-----------------: |
-| REST / OpenAPI → MCP                         |        ✅        |       partial        |         ✅          |
+| REST / GraphQL / OpenAPI → MCP               |        ✅        |       partial        |         ✅          |
 | MCP → MCP gateway                            |        ❌        |          ✅          |         ✅          |
 | Admin UI                                     |        ❌        |         some         |     ✅ Vue SPA      |
 | Built-in security (SSRF, injection, secrets) |        ❌        |         some         |         ✅          |
@@ -225,16 +253,23 @@ Full docs live on the **[project website](https://aico-dot-team-code.github.io/m
 
 ## 🤝 Contributing
 
-Contributions welcome! After any change:
+Contributions welcome! The bridge is covered by **several test systems, not one** — **Bun**
+for the 280+-file backend suite, **Vitest** for the admin UI, **Playwright** end-to-end, and
+**[Stryker](https://stryker-mutator.io) mutation testing** on top (which injects faults to
+prove the tests actually catch bugs, not just execute lines). After any change:
 
 ```bash
 tsc --noEmit                            # backend type-check
 bun test                                # backend tests (should be 100% green)
+bun run test:e2e                        # Playwright end-to-end (e2e/)
+bun run test:mutate                     # Stryker mutation testing (scope to changed files)
 cd admin-ui && bun run typecheck        # admin UI type-check
+cd admin-ui && bun run test             # admin UI tests (Vitest)
 cd admin-ui && bun run build            # admin UI production build
 ```
 
 Open an issue to discuss larger changes first. Good first issues are labelled in the tracker.
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the full guide.
 
 ## 📄 License
 

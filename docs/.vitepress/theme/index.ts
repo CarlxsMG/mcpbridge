@@ -4,6 +4,7 @@ import HowItWorks from "./components/HowItWorks.vue";
 import RequestPath from "./components/RequestPath.vue";
 import ScaleOut from "./components/ScaleOut.vue";
 import DemoReel from "./components/DemoReel.vue";
+import ConvertAnything from "./components/ConvertAnything.vue";
 import "./custom.css";
 
 // The default VitePress theme, re-skinned with the product's own design tokens
@@ -15,5 +16,6 @@ export default {
     app.component("RequestPath", RequestPath);
     app.component("ScaleOut", ScaleOut);
     app.component("DemoReel", DemoReel);
+    app.component("ConvertAnything", ConvertAnything);
   },
 } satisfies Theme;

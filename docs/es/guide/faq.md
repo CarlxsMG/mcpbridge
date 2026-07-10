@@ -36,6 +36,8 @@ imagen completa.
 Sí — registra un servidor MCP existente como upstream (`kind: "mcp"`) y se re-expone a
 través de la misma pila de guards que un backend REST: los mismos guardrails, el mismo
 RBAC, el mismo log de auditoría. Consulta [Registrar backends →](/es/guide/registering-backends).
+Para exponer tools de varios backends (REST y/o MCP) a través de **un** único endpoint MCP,
+cura un [bundle →](/es/guide/bundles).
 
 ## ¿Qué pasa si un backend cae?
 

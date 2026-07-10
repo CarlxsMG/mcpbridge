@@ -33,6 +33,9 @@ scripteando una admin API raw a mano.
   prompt-injection y detección de secretos siempre activas.
 - **Baterías incluidas.** Guardrails por tool, RBAC, equipos, canary/failover, versionado
   de config, tracing OpenTelemetry y un log de auditoría encadenado por hash.
+- **Testeado con rigor.** Una suite de 280+ ficheros en el backend, Vitest para el admin UI,
+  e2e con Playwright, y mutation testing con Stryker que verifica que los tests atrapan de
+  verdad los bugs inyectados.
 - **Ligero.** Bun + SQLite. Sin DB externa, sin Kubernetes.
 
 ## Cómo se compara
@@ -41,7 +44,7 @@ La mayoría de herramientas en este espacio caen en tres categorías:
 
 |                                                 | CLIs OpenAPI→MCP | Gateways pesados (k8s) | **MCP REST Bridge** |
 | ----------------------------------------------- | :--------------: | :--------------------: | :-----------------: |
-| REST / OpenAPI → MCP                            |        ✅        |        parcial         |         ✅          |
+| REST / GraphQL / OpenAPI → MCP                  |        ✅        |        parcial         |         ✅          |
 | Gateway MCP → MCP                               |        ❌        |           ✅           |         ✅          |
 | UI de admin                                     |        ❌        |        algunos         |     ✅ Vue SPA      |
 | Seguridad integrada (SSRF, inyección, secretos) |        ❌        |        algunos         |         ✅          |

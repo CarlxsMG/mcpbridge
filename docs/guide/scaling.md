@@ -38,11 +38,12 @@ for graceful degradation.
 
 ## MCP sessions & sticky routing
 
-The **Streamable HTTP** and **SSE** transports keep per-session state **in memory** on
-the instance that opened the session. Two options:
+The **Streamable HTTP** transport keeps per-session state **in memory** on the instance
+that opened the session. Two options:
 
-- **Sticky sessions** — enable session affinity on your load balancer for `/mcp`, `/sse`
-  and `/messages` so a session stays on one instance. Recommended for streaming clients.
+- **Sticky sessions** — enable session affinity on your load balancer for the MCP endpoints
+  (`/mcp`, `/mcp/:name`, `/mcp-custom/:bundle`) so a session stays on one instance.
+  Recommended for streaming clients.
 - **Stateless calls** — clients that open a fresh request per call don't need affinity and
   balance freely.
 
@@ -62,7 +63,7 @@ REST proxying and the admin API need no affinity.
 - [ ] All instances share one `DB_PATH`
 - [ ] `RATE_LIMIT_SHARED=true` and `REGISTRY_SYNC=true`
 - [ ] Load balancer health-checks `/health`
-- [ ] Sticky sessions for `/mcp` · `/sse` · `/messages` (if you use streaming)
+- [ ] Sticky sessions for the MCP endpoints `/mcp` · `/mcp/:name` · `/mcp-custom/:bundle` (if you use streaming)
 - [ ] `AUDIT_SINK_URL` set for a consolidated audit trail
 
 See **[Deployment →](/guide/deployment)** for the container setup and

@@ -93,7 +93,7 @@ anything (phase 2's import endpoint has its own `dryRun` mode, reported inline).
 
 ```bash
 gateway connect --client <claude-desktop|cursor|windsurf|continue|generic-json> \
-  --scope <client|bundle|aggregated> [--name <clientOrBundleName>] [--out <file>]
+  --scope <client|bundle|system> [--name <clientOrBundleName>] [--out <file>]
 ```
 
 Generates a ready-to-paste MCP client config (`claude_desktop_config.json`, `.cursor/mcp.json`,
@@ -102,7 +102,8 @@ the serving modes, instead of hand-editing the file yourself:
 
 - `--scope client --name petstore` — a per-client shard (`/mcp/petstore`)
 - `--scope bundle --name support-agent` — a curated bundle (`/mcp-custom/support-agent`)
-- `--scope aggregated` — the full `/mcp` endpoint (no `--name` needed)
+- `--scope system` — the `/mcp` control plane (`sys_*` gateway-management tools, **not**
+  backend tools; no `--name` needed)
 
 It checks the target actually exists (and is enabled) against the live admin API before
 generating anything, so a typo'd name fails with a clear message instead of a config that

@@ -54,7 +54,15 @@ bun run dev:all      # backend :8790 + admin UI :8791, ambos con hot reload
 | `cd admin-ui && bun run test`      | Tests de componente/unidad del admin UI (Vitest)                                                        |
 | `cd admin-ui && bun run typecheck` | Typecheck del admin UI (`vue-tsc -b --noEmit`)                                                          |
 | `cd admin-ui && bun run build`     | Build de producción del admin UI — atrapa cosas que el typecheck solo no (p. ej. imports Vite sin usar) |
-| `bun run test:e2e`                 | Test smoke e2e con Playwright (`e2e/`)                                                                  |
+| `bun run test:e2e`                 | End-to-end con Playwright (`e2e/`): smoke, protocolo MCP, auth-fail-closed                              |
+| `bun run test:mutate`              | Mutation testing con [Stryker](https://stryker-mutator.io) (`stryker.config.mjs`)                       |
+
+El bridge está cubierto por **varios sistemas de test, no uno**: **el runner de Bun** para la
+suite del backend (280+ ficheros bajo `src/**/__tests__/`), **Vitest** para el admin UI,
+**Playwright** para end-to-end, y encima **mutation testing con [Stryker](https://stryker-mutator.io)** —
+que inyecta fallos en el código y falla si los tests no los atrapan, así que la cobertura mide
+_efectividad_, no solo ejecución de líneas. Las corridas de mutación son mucho más pesadas que
+un test normal; acótalas a los ficheros que cambiaste mientras iteras (mira `stryker.config.mjs`).
 
 ### El gotcha root-vs-package
 

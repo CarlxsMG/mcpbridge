@@ -51,9 +51,53 @@ curl -X POST https://bridge.example.com/register \
   }'
 ```
 
-Or point `postman_collection` at a Postman Collection v2.1 export (as a JSON string) to derive
-one tool per request in the collection — useful when a team already maintains one instead of
-an OpenAPI spec.
+Or point `postman_collection` at a Postman Collection v2.1 export (an object, or its
+JSON-encoded string form) to derive one tool per request in the collection — useful when a
+team already maintains one instead of an OpenAPI spec:
+
+```bash
+curl -X POST https://bridge.example.com/register \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "team-api",
+    "health_url": "https://team-api.example.com/health",
+    "postman_collection": "{\"info\":{\"schema\":\"https://schema.getpostman.com/json/collection/v2.1.0/collection.json\"},\"item\":[{\"name\":\"Get order\",\"request\":{\"method\":\"GET\",\"url\":\"https://team-api.example.com/orders/:id\"}}]}"
+  }'
+```
+
+Nested folders are flattened into an underscore-joined tool-name prefix (`Users` › `Get`
+becomes `users_get`) so identically-named requests in different folders don't collide.
+
+## Manual tool definitions
+
+No spec, no `curl`, no Postman? Describe the tools yourself with a `tools` array. Each entry
+is an HTTP method + path on `base_url` plus a JSON Schema for its arguments; Express-style
+`:placeholders` in the path are filled from the call's arguments at dispatch time:
+
+```bash
+curl -X POST https://bridge.example.com/register \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "customer_service",
+    "health_url": "https://api.example.com/health",
+    "base_url": "https://api.example.com",
+    "tools": [
+      {
+        "name": "get_customer",
+        "method": "GET",
+        "endpoint": "/customers/:id",
+        "description": "Retrieve a single customer record by ID.",
+        "inputSchema": {
+          "type": "object",
+          "properties": { "id": { "type": "string", "description": "The customer ID." } },
+          "required": ["id"]
+        }
+      }
+    ]
+  }'
+```
 
 ## A GraphQL API
 
@@ -105,7 +149,8 @@ through the exact same registration path (SSRF check, discovery, IP pinning) as 
   `ALLOW_PRIVATE_IPS=true` (local dev only).
 - **Health monitoring.** A background loop checks each backend and auto-evicts unhealthy
   ones (a `ping` probe for MCP upstreams). Eviction never destroys admin config.
-- **Tools go live** across all four serving modes immediately.
+- **Tools go live** immediately — on the backend's own shard (`/mcp/:name`), and available
+  to drop into any [curated bundle](/guide/bundles).
 
 ## Keeping tools current
 
@@ -119,5 +164,6 @@ enable flags — survives re-discovery.
 request cleanup, circuit-breaker state, and tool-index removal for you. The admin UI exposes
 the same action from a server's detail page.
 
-Next: **[Connecting MCP clients →](/guide/connecting-clients)** ·
+Next: **[Aggregating backends into one endpoint →](/guide/bundles)** ·
+**[Connecting MCP clients →](/guide/connecting-clients)** ·
 **[Guardrails & resilience →](/guide/guardrails-resilience)**

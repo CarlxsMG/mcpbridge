@@ -33,6 +33,8 @@ a bare admin API by hand.
   sanitizing and secret detection are always on.
 - **Batteries included.** Per-tool guardrails, RBAC, teams, canary/failover, config
   versioning, OpenTelemetry tracing and a hash-chained audit log.
+- **Tested rigorously.** A 280+-file backend suite, Vitest for the admin UI, Playwright
+  end-to-end, and Stryker mutation testing that verifies the tests actually catch injected bugs.
 - **Lightweight.** Bun + SQLite. No external DB, no Kubernetes.
 
 ## How it compares
@@ -41,7 +43,7 @@ Most tools in this space fall into three buckets:
 
 |                                              | OpenAPI→MCP CLIs | Heavy gateways (k8s) | **MCP REST Bridge** |
 | -------------------------------------------- | :--------------: | :------------------: | :-----------------: |
-| REST / OpenAPI → MCP                         |        ✅        |       partial        |         ✅          |
+| REST / GraphQL / OpenAPI → MCP               |        ✅        |       partial        |         ✅          |
 | MCP → MCP gateway                            |        ❌        |          ✅          |         ✅          |
 | Admin UI                                     |        ❌        |         some         |     ✅ Vue SPA      |
 | Built-in security (SSRF, injection, secrets) |        ❌        |         some         |         ✅          |

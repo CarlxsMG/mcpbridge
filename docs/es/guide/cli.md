@@ -97,7 +97,7 @@ inline).
 
 ```bash
 gateway connect --client <claude-desktop|cursor|windsurf|continue|generic-json> \
-  --scope <client|bundle|aggregated> [--name <clientOrBundleName>] [--out <file>]
+  --scope <client|bundle|system> [--name <clientOrBundleName>] [--out <file>]
 ```
 
 Genera un config de cliente MCP listo para pegar (`claude_desktop_config.json`,
@@ -106,7 +106,8 @@ JSON genérico) para uno de los modos de servir, en lugar de editar el fichero a
 
 - `--scope client --name petstore` — un shard por cliente (`/mcp/petstore`)
 - `--scope bundle --name support-agent` — un bundle curado (`/mcp-custom/support-agent`)
-- `--scope aggregated` — el endpoint `/mcp` completo (sin necesidad de `--name`)
+- `--scope system` — el control plane `/mcp` (tools `sys_*` de gestión del gateway, **no**
+  tools de backend; sin necesidad de `--name`)
 
 Verifica que el target exista realmente (y esté habilitado) contra la admin API en vivo antes
 de generar nada, así que un nombre con typo falla con un mensaje claro en lugar de un

@@ -41,6 +41,7 @@ const textEs = {
   Connect: "Conectar",
   "Connecting MCP clients": "Conectar clientes MCP",
   "Registering backends": "Registrar backends",
+  Bundles: "Bundles",
   Operate: "Operar",
   Security: "Seguridad",
   "Access control & multi-tenancy": "Control de acceso y multi-tenancy",
@@ -78,8 +79,9 @@ const sidebarGuideEn = [
   {
     text: "Connect",
     items: [
-      { text: "Connecting MCP clients", link: "/guide/connecting-clients" },
       { text: "Registering backends", link: "/guide/registering-backends" },
+      { text: "Bundles", link: "/guide/bundles" },
+      { text: "Connecting MCP clients", link: "/guide/connecting-clients" },
     ],
   },
   {

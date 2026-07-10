@@ -8,7 +8,7 @@ info:
     REST calls. REST-capable services register themselves along with a
     description of their tools; the bridge then exposes those tools to any MCP
     client (e.g. Claude Desktop, Cursor, or a custom agent) via the Streamable
-    HTTP and legacy SSE MCP transports.
+    HTTP MCP transport.
 
 servers:
   - url: http://localhost:3000
@@ -5599,9 +5599,9 @@ components:
       type: object
       description: >
         A JSON-RPC 2.0 message. Used as the request and response body for all
-        MCP transport endpoints (/mcp and /messages). May be a request (has
-        `method`), a response (has `result` or `error`), or a notification
-        (has `method` but no `id`).
+        MCP transport endpoints (/mcp, /mcp/{clientName}, /mcp-custom/{bundleName}).
+        May be a request (has `method`), a response (has `result` or `error`), or
+        a notification (has `method` but no `id`).
       required:
         - jsonrpc
       properties:

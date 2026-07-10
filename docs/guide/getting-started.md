@@ -110,28 +110,34 @@ are supported.
 
 ## Connect an MCP client
 
-Point any MCP client (Claude Desktop, Cursor, your own agent) at the aggregated endpoint.
+Point any MCP client (Claude Desktop, Cursor, your own agent) at a **backend shard** — one
+registered backend's tools. For the `petstore` you just registered, that's `/mcp/petstore`.
 The bridge implements **MCP protocol version `2025-06-18`** — see
 [Connecting MCP clients →](/guide/connecting-clients) for details on version negotiation.
 
 ```json
 {
   "mcpServers": {
-    "bridge": { "url": "http://localhost:3000/mcp" }
+    "petstore": { "url": "http://localhost:3000/mcp/petstore" }
   }
 }
 ```
 
 (`:8790` instead of `:3000` if you're on Option B.)
 
-Four serving modes are available:
+Three endpoints, two planes:
 
-| Mode             | Endpoint                  | Use it for                          |
-| ---------------- | ------------------------- | ----------------------------------- |
-| Aggregated       | `/mcp`                    | Everything registered, one endpoint |
-| Per-client shard | `/mcp/:clientName`        | Only one backend's tools            |
-| Curated bundle   | `/mcp-custom/:bundleName` | A hand-picked cross-backend subset  |
-| Legacy SSE       | `/sse` + `/messages`      | Older MCP clients                   |
+| Endpoint                  | Plane   | Gives the client                                                               |
+| ------------------------- | ------- | ------------------------------------------------------------------------------ |
+| `/mcp/:clientName`        | data    | One backend's tools (e.g. `/mcp/petstore`)                                     |
+| `/mcp-custom/:bundleName` | data    | A curated cross-backend subset — [several behind one endpoint](/guide/bundles) |
+| `POST /mcp`               | control | `sys_*` tools to operate the gateway itself, **not** backend tools             |
+
+Transport is **Streamable HTTP** on every endpoint (the legacy SSE transport was removed).
+
+::: tip Want one endpoint that exposes `petstore` _and_ an upstream together?
+That's a **bundle** — see [Aggregating backends into one endpoint →](/guide/bundles).
+:::
 
 ## Next steps
 

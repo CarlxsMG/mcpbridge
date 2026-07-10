@@ -40,12 +40,12 @@ resiliencia](/es/guide/guardrails-resilience)) para degradación con gracia.
 
 ## Sesiones MCP y sticky routing
 
-Los transportes **Streamable HTTP** y **SSE** mantienen estado por sesión **en memoria**
-en la instancia que abrió la sesión. Dos opciones:
+El transporte **Streamable HTTP** mantiene estado por sesión **en memoria** en la instancia
+que abrió la sesión. Dos opciones:
 
-- **Sticky sessions** — habilita afinidad de sesión en tu load balancer para `/mcp`,
-  `/sse` y `/messages` para que una sesión se quede en una instancia. Recomendado para
-  clientes streaming.
+- **Sticky sessions** — habilita afinidad de sesión en tu load balancer para los endpoints
+  MCP (`/mcp`, `/mcp/:name`, `/mcp-custom/:bundle`) para que una sesión se quede en una
+  instancia. Recomendado para clientes streaming.
 - **Llamadas stateless** — los clientes que abren un request fresco por llamada no
   necesitan afinidad y se balancean libremente.
 
@@ -67,7 +67,7 @@ El proxy REST y la admin API no necesitan afinidad.
 - [ ] Todas las instancias comparten un `DB_PATH`
 - [ ] `RATE_LIMIT_SHARED=true` y `REGISTRY_SYNC=true`
 - [ ] El load balancer chequea `/health`
-- [ ] Sticky sessions para `/mcp` · `/sse` · `/messages` (si usas streaming)
+- [ ] Sticky sessions para los endpoints MCP `/mcp` · `/mcp/:name` · `/mcp-custom/:bundle` (si usas streaming)
 - [ ] `AUDIT_SINK_URL` configurado para un audit trail consolidado
 
 Consulta **[Despliegue →](/es/guide/deployment)** para el setup del contenedor y

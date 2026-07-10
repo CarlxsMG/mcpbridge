@@ -8,8 +8,7 @@
  *   1. Construct an `express()` instance, set `trust proxy`, register the
  *      global middleware chain (JSON body, JSON depth, request-id, the
  *      baseline security-headers middleware, CORS, the global rate limit).
- *   2. Mount the MCP transports (Streamable HTTP + the legacy SSE route
- *      via `setupTransports`).
+ *   2. Mount the MCP transports (Streamable HTTP, via `setupTransports`).
  *   3. Mount every REST router (admin, bundles, policies, …) and the
  *      `/livez` + `/readyz` + `/health` trio.
  *   4. Register the global JSON error envelope at the very end so it

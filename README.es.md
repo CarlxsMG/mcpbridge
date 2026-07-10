@@ -12,17 +12,18 @@
 
 # MCP REST Bridge
 
-### Convierte cualquier API REST o servidor MCP en herramientas de IA seguras y gobernadas.
+### Convierte cualquier servidor REST, GraphQL o MCP en herramientas de IA seguras y gobernadas.
 
 **El gateway MCP auto-hospedado con una UI de administración real** — auto-descubrimiento
 OpenAPI-a-MCP, guardrails por herramienta, RBAC, circuit breaking. Un único binario. Sin
 Kubernetes.
 
-[![Bun](https://img.shields.io/badge/runtime-Bun-black?logo=bon)](https://bun.sh)
+[![Bun](https://img.shields.io/badge/runtime-Bun-black?logo=bun)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-compatible-00a99a)](https://modelcontextprotocol.io)
 [![Licencia: MIT](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
 [![PRs bienvenidos](https://img.shields.io/badge/PRs-welcome-00a99a)](#-contribuir)
+[![Mutation tested con Stryker](https://img.shields.io/badge/mutation_tested-Stryker-a2c4c9)](https://stryker-mutator.io)
 [![Estrella en GitHub](https://img.shields.io/github/stars/aico-dot-team-code/mcpbridge?style=social)](https://github.com/aico-dot-team-code/mcpbridge)
 
 [**🎮 Demo en vivo**](https://aico-dot-team-code.github.io/mcpbridge/demo/) ·
@@ -37,8 +38,9 @@ Kubernetes.
 
 **MCP REST Bridge** es un **gateway/proxy/agregador MCP** open-source para el
 [Model Context Protocol](https://modelcontextprotocol.io) (implementa la **versión de spec
-`2025-06-18`**). Apúntalo a un spec OpenAPI/Swagger y convierte tu API REST en herramientas
-MCP automáticamente. Registra un servidor MCP existente y lo re-expone a través del mismo
+`2025-06-18`**). Apúntalo a un spec OpenAPI/Swagger, un endpoint GraphQL, un comando `curl`
+o una colección Postman y convierte tu API en herramientas MCP automáticamente. Registra un
+servidor MCP existente y lo re-expone a través del mismo
 pipeline gobernado. Cada llamada pasa por protección SSRF, sanitización de prompt-injection,
 rate limits por herramienta, circuit breakers, RBAC y un log de auditoría a prueba de
 manipulaciones — y todo lo gestionas desde una **UI de administración integrada**, no desde
@@ -53,13 +55,34 @@ de administración completa funcionando con datos mock, sin instalar nada.
 
 </div>
 
+## 🔌 Convierte cualquier cosa a MCP
+
+Seis formas de convertir un backend en tools MCP gobernadas — una llamada `POST /register`, y
+luego cada llamada pasa por la misma guard pipeline:
+
+| Tu backend                   | Regístralo con            | Se convierte en                      |
+| ---------------------------- | ------------------------- | ------------------------------------ |
+| API REST (OpenAPI / Swagger) | `openapi_url`             | una tool MCP por operación           |
+| API GraphQL                  | `graphql_url`             | una tool por query y mutation        |
+| Un comando `curl`            | `curl_input`              | una tool desde la request            |
+| Colección Postman (v2.1)     | `postman_collection`      | una tool por request                 |
+| Sin spec — a mano            | `tools[]`                 | exactamente las tools que definas    |
+| Servidor MCP existente       | `kind: "mcp"` + `mcp_url` | sus tools, re-expuestas y gobernadas |
+
+Consulta **[Registrar backends →](https://aico-dot-team-code.github.io/mcpbridge/guide/registering-backends)**
+para el payload de cada uno, y **[Bundles →](https://aico-dot-team-code.github.io/mcpbridge/guide/bundles)**
+para servir varios backends por un solo endpoint.
+
 ## ✨ Por qué MCP REST Bridge
 
 - **Una UI de admin real, no ficheros de config.** Un dashboard Vue 3 completo para
   registrar servidores, curar bundles de herramientas, definir guardrails, rotar keys,
   supervisar el uso y leer el log de auditoría.
-- **Bidireccional en un binario.** REST/OpenAPI → MCP **y** MCP → gateway MCP. Agrega
-  muchos backends detrás de un único endpoint.
+- **Bidireccional en un binario.** REST, GraphQL y OpenAPI → MCP **y** MCP → gateway MCP.
+  Agrega muchos backends detrás de un endpoint curado (un bundle).
+- **Testeado de verdad, no solo verde.** Una suite de 280+ ficheros en el backend, Vitest
+  para el admin UI, e2e con Playwright, y **mutation testing con [Stryker](https://stryker-mutator.io)**
+  que inyecta fallos para probar que los tests atrapan bugs de verdad.
 - **Seguro por defecto.** Protección SSRF + DNS-rebinding con anclaje de IP, sanitización
   de prompt-injection, detección de secretos y restricciones fail-closed de keys por
   herramienta — integrado, no como plugin.
@@ -137,16 +160,19 @@ curl -X POST http://localhost:3000/register \
 
 ### Apunta un cliente MCP al bridge
 
+Apúntalo a un shard de backend — el `petstore` que registraste está en `/mcp/petstore`:
+
 ```json
 {
   "mcpServers": {
-    "bridge": { "url": "http://localhost:3000/mcp" }
+    "petstore": { "url": "http://localhost:3000/mcp/petstore" }
   }
 }
 ```
 
-Sirve herramientas de cuatro maneras: agregado `/mcp`, por cliente `/mcp/:name`,
-bundles curados `/mcp-custom/:bundle`, o SSE legacy `/sse`.
+Sirve tools de backend de dos maneras: por cliente `/mcp/:name` (un backend) o un bundle
+curado `/mcp-custom/:bundle` (varios tras un endpoint). La raíz `/mcp` es el control plane
+(tools `sys_*` de gestión del gateway), no tools de backend — todo sobre Streamable HTTP.
 
 ### CLI (config-as-code)
 
@@ -169,9 +195,11 @@ referencia completa de comandos y el formato de `gateway.yaml`.
 **Conecta cualquier cosa**
 
 - Auto-descubrimiento **OpenAPI / Swagger → MCP** — apunta a un spec, obtén tools al instante
+- **GraphQL → MCP** — introspecciona el schema, una tool por query y mutation
+- **Import cURL / Postman** — deriva tools de un `curl` pegado o una exportación Postman v2.1
+- **Definiciones manuales de tools** cuando no hay spec
 - Gateway / agregador **MCP → MCP** (upstreams Streamable HTTP + SSE)
-- Definiciones manuales de tools cuando no hay spec
-- Cuatro modos de servir: agregado, shard por cliente, bundles curados, SSE legacy
+- Dos modos de servir de datos: por cliente `/mcp/:name` y bundles curados `/mcp-custom/:bundle` (la raíz `/mcp` es el control plane del sistema)
 
 **Gobernar y asegurar**
 
@@ -215,7 +243,7 @@ response → audit).
 
 |                                                 | CLIs OpenAPI→MCP | Gateways pesados (k8s) | **MCP REST Bridge** |
 | ----------------------------------------------- | :--------------: | :--------------------: | :-----------------: |
-| REST / OpenAPI → MCP                            |        ✅        |        parcial         |         ✅          |
+| REST / GraphQL / OpenAPI → MCP                  |        ✅        |        parcial         |         ✅          |
 | Gateway MCP → MCP                               |        ❌        |           ✅           |         ✅          |
 | UI de admin                                     |        ❌        |        algunos         |     ✅ Vue SPA      |
 | Seguridad integrada (SSRF, inyección, secretos) |        ❌        |        algunos         |         ✅          |
@@ -241,17 +269,25 @@ Las docs completas viven en la **[web del proyecto](https://aico-dot-team-code.g
 
 ## 🤝 Contribuir
 
-¡Contribuciones bienvenidas! Después de cualquier cambio:
+¡Contribuciones bienvenidas! El bridge está cubierto por **varios sistemas de test, no uno** —
+**Bun** para la suite de 280+ ficheros del backend, **Vitest** para el admin UI, **Playwright**
+end-to-end, y encima **mutation testing con [Stryker](https://stryker-mutator.io)** (que inyecta
+fallos para probar que los tests atrapan bugs de verdad, no solo ejecutan líneas). Después de
+cualquier cambio:
 
 ```bash
 tsc --noEmit                            # type-check del backend
 bun test                                # tests del backend (deberían estar 100% verdes)
+bun run test:e2e                        # end-to-end con Playwright (e2e/)
+bun run test:mutate                     # mutation testing con Stryker (acota a los ficheros cambiados)
 cd admin-ui && bun run typecheck        # type-check del admin UI
+cd admin-ui && bun run test             # tests del admin UI (Vitest)
 cd admin-ui && bun run build            # build de producción del admin UI
 ```
 
 Abre un issue para discutir cambios grandes primero. Las buenas primeras contribuciones
-están etiquetadas en el tracker.
+están etiquetadas en el tracker. Consulta **[CONTRIBUTING.md](CONTRIBUTING.md)** para la guía
+completa.
 
 ## 📄 Licencia
 

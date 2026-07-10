@@ -34,7 +34,8 @@ cual.
 
 **Bundle** — Un conjunto curado, entre backends, de tools servidas en un endpoint
 `/mcp-custom/<bundle>`. Cuando un cliente MCP apunta a un bundle, solo ve las tools que
-seleccionaste — útil para "esta app solo necesita estas X tools".
+seleccionaste — útil para "esta app solo necesita estas X tools", y la forma de poner varios
+backends tras una sola URL MCP ([cómo crear uno →](/es/guide/bundles)).
 
 **Composite** — Una tool de orden superior que ejecuta varias tools en cadena y devuelve
 un resultado agregado. Ejemplo: `summarize_issue` que llama a `get_issue`, `list_comments`

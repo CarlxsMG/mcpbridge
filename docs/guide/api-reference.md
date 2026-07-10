@@ -8,12 +8,15 @@ development, behind admin auth in production.
 
 Where MCP clients connect. Auth: `MCP_API_KEYS` Bearer, or a JWT when `JWT_JWKS_URL` is set.
 
-| Endpoint                           | Purpose                                         |
-| ---------------------------------- | ----------------------------------------------- |
-| `POST /mcp`                        | Aggregated Streamable HTTP — every enabled tool |
-| `GET/POST /mcp/:clientName`        | One backend's tools (sharded)                   |
-| `GET/POST /mcp-custom/:bundleName` | A curated bundle                                |
-| `GET /sse` + `POST /messages`      | Legacy SSE transport                            |
+| Endpoint                           | Purpose                                                             |
+| ---------------------------------- | ------------------------------------------------------------------- |
+| `GET/POST /mcp/:clientName`        | Data plane — one backend's tools (sharded)                          |
+| `GET/POST /mcp-custom/:bundleName` | Data plane — a curated cross-backend [bundle](/guide/bundles)       |
+| `POST /mcp`                        | Control plane — `sys_*` gateway-management tools, not backend tools |
+
+All three speak **Streamable HTTP**; the legacy SSE transport (`/sse` + `/messages`) was
+removed. `/mcp` has its own fail-closed auth (a real system role is required — no
+"unconfigured means open" fallback).
 
 ## Registration
 

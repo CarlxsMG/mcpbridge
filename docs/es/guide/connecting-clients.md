@@ -1,8 +1,8 @@
 # Conectar clientes MCP
 
 Cualquier cliente MCP — Claude Desktop, Cursor, una extensión de IDE o tu propio agente —
-se conecta al bridge a través del Model Context Protocol. Apúntalo a uno de los cuatro
-endpoints y verá una lista unificada de tools.
+se conecta al bridge a través del Model Context Protocol. Apúntalo al endpoint que
+corresponde a las tools que debe ver.
 
 ::: tip Versión de protocolo soportada
 El bridge implementa la **versión `2025-06-18` del protocolo MCP**. Los clientes que
@@ -14,15 +14,23 @@ rareza específica del cliente.
 
 ## Elige un endpoint
 
-| Endpoint                      | Le da al cliente                      | Úsalo cuando                                            |
-| ----------------------------- | ------------------------------------- | ------------------------------------------------------- |
-| `POST /mcp`                   | Cada tool habilitada, de cada backend | Un assistant debe alcanzar todo                         |
-| `/mcp/:clientName`            | Solo las tools de ese backend         | Quieres aislar un solo backend                          |
-| `/mcp-custom/:bundleName`     | Un subconjunto entre backends curado  | Has curado exactamente las tools que un agente necesita |
-| `GET /sse` + `POST /messages` | Las mismas tools sobre SSE legacy     | El cliente solo habla el transporte antiguo             |
+El bridge expone **tres endpoints en dos planos**. Para darle a un agente tus tools de
+backend, usa uno de los dos endpoints del **plano de datos**:
 
-Prefiere **Streamable HTTP** (`/mcp`, `/mcp/:name`, `/mcp-custom/:bundle`) salvo que un
-cliente requiera SSE.
+| Endpoint                  | Le da al cliente                     | Úsalo cuando                                                                              |
+| ------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `/mcp/:clientName`        | Solo las tools de ese backend        | Quieres un único backend (p. ej. `/mcp/petstore`)                                         |
+| `/mcp-custom/:bundleName` | Un subconjunto entre backends curado | Has curado exactamente las tools que un agente necesita — [crea uno →](/es/guide/bundles) |
+
+No hay un endpoint "todo aplanado junto": para exponer varios backends por una sola URL,
+[cura un bundle](/es/guide/bundles). El tercer endpoint es el **control plane**:
+
+| Endpoint    | Le da al cliente                                                  | Úsalo cuando                           |
+| ----------- | ----------------------------------------------------------------- | -------------------------------------- |
+| `POST /mcp` | Tools `sys_*` para gestionar el gateway — **no** tools de backend | Un agente debe operar el gateway mismo |
+
+Todos los endpoints hablan **Streamable HTTP** (el transporte SSE legacy `GET /sse` +
+`POST /messages` fue eliminado).
 
 > **Nota:** "client" está sobrecargado en esta página — `:clientName` en una URL es el
 > nombre que diste a un **backend** en el registro (p. ej. `petstore`), no a la app que se
@@ -32,17 +40,18 @@ cliente requiera SSE.
 
 ## Apuntar un cliente
 
-La mayoría de los clientes aceptan una URL remota de servidor MCP:
+La mayoría de los clientes aceptan una URL remota de servidor MCP — apúntalos a un shard de backend:
 
 ```json
 {
   "mcpServers": {
-    "bridge": { "url": "https://bridge.example.com/mcp" }
+    "petstore": { "url": "https://bridge.example.com/mcp/petstore" }
   }
 }
 ```
 
-Para un bundle curado, cambia la URL a `https://bridge.example.com/mcp-custom/support-agent`.
+Para un bundle curado, cambia la URL a `https://bridge.example.com/mcp-custom/support-agent`;
+para operar el gateway mismo, usa `https://bridge.example.com/mcp`.
 
 ¿Prefieres no editar ese JSON a mano? `gateway connect --client cursor --scope client --name petstore`
 (y amigos para Claude Desktop, Windsurf, Continue) genera el mismo snippet desde el CLI —

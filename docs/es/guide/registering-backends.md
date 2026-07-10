@@ -51,9 +51,55 @@ curl -X POST https://bridge.example.com/register \
   }'
 ```
 
-O apunta `postman_collection` a una exportación Postman Collection v2.1 (como string JSON)
-para derivar una tool por request de la colección — útil cuando un equipo ya mantiene una en
-lugar de un spec OpenAPI.
+O apunta `postman_collection` a una exportación Postman Collection v2.1 (un objeto, o su
+forma como string JSON) para derivar una tool por request de la colección — útil cuando un
+equipo ya mantiene una en lugar de un spec OpenAPI:
+
+```bash
+curl -X POST https://bridge.example.com/register \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "team-api",
+    "health_url": "https://team-api.example.com/health",
+    "postman_collection": "{\"info\":{\"schema\":\"https://schema.getpostman.com/json/collection/v2.1.0/collection.json\"},\"item\":[{\"name\":\"Get order\",\"request\":{\"method\":\"GET\",\"url\":\"https://team-api.example.com/orders/:id\"}}]}"
+  }'
+```
+
+Las carpetas anidadas se aplanan en un prefijo de nombre unido por guiones bajos (`Users` ›
+`Get` se convierte en `users_get`) para que requests con el mismo nombre en carpetas distintas
+no colisionen.
+
+## Definiciones de tools manuales
+
+¿Sin spec, sin `curl`, sin Postman? Describe tú mismo las tools con un array `tools`. Cada
+entrada es un método HTTP + path sobre `base_url` más un JSON Schema para sus argumentos; los
+`:placeholders` estilo Express en el path se rellenan con los argumentos de la llamada en el
+momento del dispatch:
+
+```bash
+curl -X POST https://bridge.example.com/register \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "customer_service",
+    "health_url": "https://api.example.com/health",
+    "base_url": "https://api.example.com",
+    "tools": [
+      {
+        "name": "get_customer",
+        "method": "GET",
+        "endpoint": "/customers/:id",
+        "description": "Recupera un único registro de cliente por ID.",
+        "inputSchema": {
+          "type": "object",
+          "properties": { "id": { "type": "string", "description": "El ID del cliente." } },
+          "required": ["id"]
+        }
+      }
+    ]
+  }'
+```
 
 ## Una API GraphQL
 
@@ -108,7 +154,8 @@ a un formulario pre-rellenado, no un code path separado.
 - **Monitorización de salud.** Un loop en background chequea cada backend y auto-elimina los
   no saludables (un probe `ping` para upstreams MCP). La eliminación nunca destruye config
   admin.
-- **Las tools se activan** en los cuatro modos de servir inmediatamente.
+- **Las tools se activan** inmediatamente — en el shard propio del backend (`/mcp/:name`), y
+  disponibles para añadir a cualquier [bundle curado](/es/guide/bundles).
 
 ## Mantener las tools al día
 
@@ -122,5 +169,6 @@ La config por tool — guards, aliases, enable flags — sobrevive al re-descubr
 limpieza de requests en vuelo, el estado del circuit-breaker y la eliminación del índice de
 tools por ti. La UI de admin expone la misma acción desde la página de detalle del server.
 
-Siguiente: **[Conectar clientes MCP →](/es/guide/connecting-clients)** ·
+Siguiente: **[Agregar backends en un solo endpoint →](/es/guide/bundles)** ·
+**[Conectar clientes MCP →](/es/guide/connecting-clients)** ·
 **[Guardrails y resiliencia →](/es/guide/guardrails-resilience)**

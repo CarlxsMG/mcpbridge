@@ -47,6 +47,23 @@ cd admin-ui && bun run test        # single run
 cd admin-ui && bun run test:watch  # watch mode
 ```
 
+End-to-end tests run a real browser + backend with Playwright:
+
+```bash
+bun run test:e2e        # Playwright (e2e/): smoke, MCP-protocol, auth-fail-closed
+```
+
+On top of those, the suite is kept honest with **[Stryker](https://stryker-mutator.io)
+mutation testing** — it injects faults into the source and checks the tests catch them, so
+coverage reflects _effectiveness_, not just line execution:
+
+```bash
+bun run test:mutate     # stryker run (config: stryker.config.mjs)
+```
+
+Mutation runs are much heavier than a normal test pass — scope them to the files you're
+changing while iterating (see `stryker.config.mjs`).
+
 ## Typechecking
 
 Backend and admin UI are typechecked separately, since they're different

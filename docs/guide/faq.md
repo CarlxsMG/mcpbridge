@@ -33,7 +33,9 @@ backends behind one governed endpoint. See the comparison table in
 
 Yes — register an existing MCP server as an upstream (`kind: "mcp"`) and it's re-exposed
 through the same guard stack as a REST-derived backend: same guardrails, same RBAC, same
-audit log. See [Registering backends →](/guide/registering-backends).
+audit log. See [Registering backends →](/guide/registering-backends). To expose tools from
+several backends (REST and/or MCP) through **one** MCP endpoint, curate a
+[bundle →](/guide/bundles).
 
 ## What happens if a backend goes down?
 

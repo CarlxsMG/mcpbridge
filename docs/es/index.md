@@ -5,8 +5,8 @@ titleTemplate: MCP REST Bridge
 
 hero:
   name: MCP REST Bridge
-  text: Cualquier API REST o servidor MCP → herramientas de IA seguras y gobernadas
-  tagline: El gateway MCP auto-hospedado con una UI de administración real. Auto-descubrimiento OpenAPI-a-MCP, guardrails por herramienta, RBAC y circuit breaking — en un único binario. Sin Kubernetes.
+  text: Cualquier servidor REST, GraphQL o MCP → herramientas de IA seguras y gobernadas
+  tagline: El gateway MCP auto-hospedado con una UI de administración real. Auto-descubre tools desde OpenAPI, GraphQL, un comando cURL o una exportación Postman — o agrega otros servidores MCP. Guardrails por herramienta, RBAC y circuit breaking en un único binario. Sin Kubernetes.
   actions:
     - theme: brand
       text: Probar la demo en vivo ↗
@@ -25,7 +25,7 @@ features:
       height: 28
       wrap: true
     title: Conecta cualquier cosa
-    details: Apunta a un spec de OpenAPI/Swagger y obtén herramientas MCP al instante — o registra un servidor MCP existente como upstream. REST-a-MCP y MCP-a-MCP en el mismo gateway.
+    details: Auto-descubre tools desde un spec OpenAPI o GraphQL, un comando cURL o una exportación Postman — o re-expón un servidor MCP existente. REST, GraphQL y MCP-a-MCP en un gateway.
   - icon:
       src: /icons/dashboard.svg
       width: 28
@@ -74,6 +74,8 @@ ve cada cliente y observa salud, uso y rastros de auditoría en vivo.
 > de administración real ejecutándose con datos mock, directamente en tu navegador. Sin
 > instalación, sin registro.
 
+<ConvertAnything />
+
 ## Quickstart de 60 segundos
 
 ```bash
@@ -89,15 +91,18 @@ docker run -p 3000:3000 \
 ```
 
 Abre **http://localhost:3000/admin**, inicia sesión y añade tu primer servidor. Luego apunta
-cualquier cliente MCP a `http://localhost:3000/mcp`. Tutorial completo en
-**[Primeros pasos →](/es/guide/getting-started)**
+cualquier cliente MCP al shard de ese backend — `http://localhost:3000/mcp/<tu-servidor>` — o
+[cura un bundle](/es/guide/bundles) para servir varios backends tras un solo endpoint.
+Tutorial completo en **[Primeros pasos →](/es/guide/getting-started)**
 
 ## Cómo funciona
 
 <HowItWorks />
 
-Sirve herramientas de cuatro maneras: **agregado** `/mcp`, **por cliente** `/mcp/:name`,
-**bundles curados** `/mcp-custom/:bundle`, o **SSE legacy** `/sse`.
+Sirve tools de backend de dos maneras: **por cliente** `/mcp/:name` para un backend, o un
+**bundle curado** `/mcp-custom/:bundle` para poner varios tras un solo endpoint. La raíz
+`/mcp` es el **control plane** — tools `sys_*` que un agente usa para operar el gateway, no
+tools de backend. ([Cómo los bundles agregan varios backends →](/es/guide/bundles))
 
 ## Por qué los equipos lo eligen
 
@@ -109,6 +114,9 @@ Sirve herramientas de cuatro maneras: **agregado** `/mcp`, **por cliente** `/mcp
   secretos están activadas por defecto, en cada path.
 - **Sin infraestructura pesada.** Sin Kubernetes, sin Postgres, sin sidecars. Un binario y
   un fichero SQLite.
+- **Testeado de verdad.** 280+ ficheros de test en el backend, Vitest, e2e con Playwright y
+  mutation testing con Stryker — cobertura que mide si los tests atrapan bugs, no solo si
+  ejecutan líneas.
 
 <div style="margin-top: 2.5rem; text-align: center;">
 

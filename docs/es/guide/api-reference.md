@@ -9,12 +9,15 @@ El bridge expone unas pocas superficies HTTP distintas. El backend también sirv
 Donde se conectan los clientes MCP. Auth: `MCP_API_KEYS` Bearer, o un JWT cuando
 `JWT_JWKS_URL` está configurado.
 
-| Endpoint                           | Propósito                                       |
-| ---------------------------------- | ----------------------------------------------- |
-| `POST /mcp`                        | Streamable HTTP agregado — cada tool habilitada |
-| `GET/POST /mcp/:clientName`        | Tools de un solo backend (shardeado)            |
-| `GET/POST /mcp-custom/:bundleName` | Un bundle curado                                |
-| `GET /sse` + `POST /messages`      | Transporte SSE legacy                           |
+| Endpoint                           | Propósito                                                             |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `GET/POST /mcp/:clientName`        | Plano de datos — tools de un solo backend (shardeado)                 |
+| `GET/POST /mcp-custom/:bundleName` | Plano de datos — un [bundle](/es/guide/bundles) curado entre backends |
+| `POST /mcp`                        | Control plane — tools `sys_*` de gestión del gateway, no de backend   |
+
+Los tres hablan **Streamable HTTP**; el transporte SSE legacy (`/sse` + `/messages`) fue
+eliminado. `/mcp` tiene su propia auth fail-closed (requiere un rol de sistema real — sin
+fallback "sin configurar significa abierto").
 
 ## Registro
 
