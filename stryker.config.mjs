@@ -4262,6 +4262,35 @@
 //   needed a dedicated empty-string-message case to prove `??` (not
 //   `||`) is used — an all-falsy-value test alone can't distinguish the
 //   two. Closed via a worktree-isolated parallel Workflow agent.
+//   src/lib/webhook.ts (66 LOC — shared SSRF-validate → POST-with-
+//   timeout → swallow-error webhook dispatch mechanism factored out of
+//   alerts/monitor/audit/approvals notifiers) 19 mutants, 100% baseline
+//   (19/19, first draft — the 5+ consumer mutation tests all mock
+//   dispatchWebhook AWAY via spyOn, so this file's OWN logic had zero
+//   prior exercise anywhere) -> **100%** in 1 verify round, stable
+//   across 2 independent runs. New file
+//   src/lib/__tests__/webhook-mutation.test.ts. Killed the `err
+//   instanceof Error ? err.message : String(err)` ternary's non-Error
+//   branch with a thrown bare NUMBER (42), asserting the logged value
+//   is the STRING "42" — distinguishes a real String() call from an
+//   accidental pass-through. Closed via a worktree-isolated parallel
+//   Workflow agent.
+//   src/lib/tool-config.ts (81 LOC — shared per-(client,tool)/per-
+//   client SQLite config-table primitives: toolExists guard + generic
+//   upsertConfig INSERT-ON-CONFLICT builder used by ~9 tool-policies/
+//   proxy modules) 21 mutants, 100% baseline (21/21, first draft since
+//   none existed) -> **100%** in 1 verify round, stable across 2
+//   independent runs. New file
+//   src/lib/__tests__/tool-config-mutation.test.ts. Since upsertConfig
+//   is generic over table/column names (always static, caller-hardcoded
+//   strings per its own docstring, never derived from request input),
+//   two dedicated THROWAWAY tables (one single-key, one compound-key)
+//   were created via raw SQL in the test file itself, rather than
+//   coupling this unit test to an unrelated domain's production schema
+//   — the compound-key cross-product test (3 rows sharing one column
+//   each way) proves the ON CONFLICT target uses ALL key columns, not
+//   just the first. Closed via a worktree-isolated parallel Workflow
+//   agent.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating

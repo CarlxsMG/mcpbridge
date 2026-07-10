@@ -2406,6 +2406,21 @@ are skipped entirely (pure interface / static data, no runtime logic).
   reconfirmed identical on an independent second run. New file
   `client-mutation.test.ts`. Closed via a worktree-isolated parallel
   Workflow agent.
+- **Mutation testing — domain 10, `src/lib/webhook.ts`** (66 LOC —
+  shared SSRF-validate → POST-with-timeout → swallow-error webhook
+  dispatch). 19 mutants, 100% baseline (19/19, first draft — the 5+
+  consumer mutation tests all mock `dispatchWebhook` away, so this
+  file's own logic had zero prior exercise) → **100%** in 1 verify
+  round, stable across 2 runs. New file `webhook-mutation.test.ts`.
+  Closed via a worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/lib/tool-config.ts`** (81 LOC —
+  shared per-tool/per-client SQLite config-table primitives). 21
+  mutants, 100% baseline (21/21, first draft, zero prior coverage) →
+  **100%** in 1 verify round, stable across 2 runs. New file
+  `tool-config-mutation.test.ts`. Used two dedicated throwaway tables
+  (single-key and compound-key) rather than coupling to an unrelated
+  production schema. Closed via a worktree-isolated parallel Workflow
+  agent.
 
 ### Docs
 
