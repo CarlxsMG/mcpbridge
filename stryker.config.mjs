@@ -3311,6 +3311,110 @@
 //   `.claude/**` — `bun run lint` is now safe to run at ANY time,
 //   even mid-Stryker-run, going forward.
 //
+//   `composites.ts` (176 LOC — composite-tool CRUD: GET list/detail,
+//   POST create, PATCH update, DELETE) 175 mutants, 0% baseline (no
+//   test file existed at all) -> effectively 100% (169/175 killed, 3
+//   confirmed equivalents, 3 accepted timeouts) after 2 verify rounds.
+//   New file `routes-composites-mutation.test.ts`. Seventh file
+//   closed via the parallel Workflow, but its OWN verify round never
+//   finished within that agent's turn budget (interrupted at 22%,
+//   40/175 tested) — completed SOLO afterward instead of waiting
+//   indefinitely, same as alerts.ts. **Also required a genuine retry**:
+//   the first solo attempt was launched while 3 OTHER parallel-
+//   workflow agents (batch 3) were simultaneously running their own
+//   Stryker scans, causing severe resource contention (26 concurrent
+//   Stryker-related processes observed) that corrupted the timeout
+//   heuristic — 24/40 mutants (60%!) falsely timed out, an order of
+//   magnitude above this program's normal 1-9-per-file rate. Killed
+//   the contaminated run, cleared the orphaned `.stryker-tmp/sandbox-*`
+//   it left behind, waited for a window with 0 active Stryker
+//   processes (confirmed via `Get-CimInstance Win32_Process`), and
+//   re-ran cleanly (0-3 timeouts throughout). **New standing rule for
+//   the rest of this parallel-workflow program: before launching any
+//   SOLO Stryker run to pick up an interrupted/stuck parallel agent's
+//   work, check the Stryker-related process count first and wait for
+//   a low-contention window** — don't just fire it alongside whatever
+//   the parallel workflow's other agents happen to be doing. 3
+//   confirmed equivalents (hand-mutation verified): the `typeof e !==
+//   "object"` step-shape guard is masked by the SAME step's own
+//   targetClient/targetTool typeof checks (every JSON-reachable
+//   non-object value's property access yields `undefined`, which
+//   those checks independently reject); the `tmpl === null` check is
+//   literally dead code since `e.argsTemplate ?? {}` already excludes
+//   null via nullish coalescing before this line ever runs; and the
+//   name fallback `""` -> marker-string StringLiteral is masked by
+//   `TOOL_NAME_RE` rejecting both identically (same class as
+//   ws-proxy-admin.ts/bundles.ts). One genuine gap: the 10KB
+//   `argsTemplate` size check's `>` vs `>=` boundary needed an EXACT
+//   `JSON.stringify(tmpl).length === 10240` fixture (accepted under
+//   real `>`, wrongly rejected under the mutant `>=`) — the existing
+//   under/over fixtures only tested well clear of the boundary.
+//   Picked up a genuinely useful permanent fix along the way: the
+//   worktree agent had patched `scripts/stryker-test-runner.ts` to
+//   `mkdirSync("data", {recursive:true})` before every scoped run
+//   (the gitignored `./data/` directory routes/backup.ts's real
+//   `VACUUM INTO` tests need doesn't exist in a totally fresh
+//   worktree/sandbox) — merged into the main repo permanently rather
+//   than left as a one-off worktree patch.
+//
+//   `mcp-keys.ts` (273 LOC — MCP API key CRUD: GET list, POST create,
+//   PATCH update, DELETE, POST /:id/rotate) 319 mutants, 49% baseline
+//   (157/319 killed) -> effectively 100% (315/319 killed, 2 confirmed
+//   equivalents, 2 accepted timeouts) after 3 verify rounds. New file
+//   `routes-mcp-keys-mutation.test.ts`, existing test file left
+//   untouched. Eighth file closed via the parallel Workflow. 2
+//   confirmed equivalents are the by-now-familiar
+//   typeof-then-Number.isInteger/isFinite short-circuit class
+//   (validateConsumerId, validateExpiresAt) — recurring for the 4th+
+//   time in this domain (ws-proxy-admin.ts, tool-search.ts lineage).
+//
+//   `bundles.ts` (305 LOC — MCP bundle CRUD: GET list/detail, POST
+//   create, PATCH update, POST /install-links) 255 mutants, 47%
+//   baseline (121/255 killed) -> effectively 100% (248/255 killed, 3
+//   confirmed equivalents, 4 accepted timeouts) after 2 verify
+//   rounds. New file `routes-bundles-mutation.test.ts`, existing test
+//   file left untouched. Ninth file closed via the parallel Workflow.
+//   3 confirmed equivalents: the SAME TOOL_NAME_RE-masks-fallback-
+//   marker class (bundle-name StringLiteral) and the SAME
+//   typeof-then-Number.isFinite short-circuit class
+//   (validateExpiresAt) seen repeatedly this domain, plus a THIRD
+//   recurring class — `typeof entry !== "object"` masked by
+//   validateToolRefs' own downstream `.client`/`.tool` typeof checks
+//   (identical mechanism to composites.ts's step-shape equivalent,
+//   confirmed independently on a different file's own copy of the
+//   same validation idiom).
+//
+//   `admin-validators.ts` (457 LOC, the LARGEST file in domain 8 —
+//   13 exported `validate*Input(raw: unknown): ValidationResult<T>`
+//   pure-function helpers consumed by src/admin/tool-policies/
+//   mutations/*.ts and admin/clients.ts; NO Express routes, NO DB
+//   access, NO recordAudit calls) 1027 mutants, 0% baseline (no test
+//   file existed) -> effectively 100% (1014/1027 killed, 13 confirmed
+//   equivalents, 0 accepted timeouts) after 2 verify rounds. New file
+//   `routes-admin-validators-mutation.test.ts`, tested via direct
+//   import+call (no Express/supertest harness needed at all — same
+//   idiom as http-errors.ts's pure-function precedent, but scaled up
+//   to 13 functions). Tenth file closed via the parallel Workflow, and
+//   by far the largest single mutant count this program has directly
+//   authored tests for in one file. All 13 confirmed equivalents are
+//   the SAME "masked by a strict-type-checking builtin" class seen
+//   throughout domain 8 (`Number.isInteger`/`Number.isFinite`/
+//   `Array.prototype.includes` each independently reject any wrong
+//   type regardless of what a preceding `typeof` clause evaluates
+//   to) — confirmed by hand-mutating and re-running the FULL 93-test
+//   file for every single one individually (not assumed from pattern-
+//   matching alone), since it recurs across 5 different validators in
+//   this one file. **Important counter-example documented alongside**:
+//   the SAME typeof-ternary shape feeding into a plain falsy-check
+//   (`if (!crp || !cp)`) instead of a strict builtin is NOT
+//   equivalent — a truthy non-string value slips through a falsy
+//   check silently, so distinguishing needs a wrong-type-but-TRUTHY
+//   fixture (e.g. a number), not just a value-fidelity check. Also:
+//   an `.every()` -> `.some()` MethodExpression mutant needed a MIXED
+//   valid+invalid array (a single-bad-entry array can't distinguish
+//   them), and a `.slice(0, N)` message-truncation mutant needed a
+//   fixture deliberately longer than N characters.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3384,22 +3488,21 @@ export default {
     // consumers.ts, admin/lb.ts, config-io.ts, policies.ts, auth.ts,
     // alerts.ts (alerts.ts handled solo after its parallel worktree
     // agent's own Stryker process died silently mid-run),
-    // ws-proxy-admin.ts, discovery.ts, catalog.ts, auth-oidc.ts DONE
-    // (see SCOPE HISTORY). The remaining 5 domain-8 files
-    // (composites.ts, admin/tools.ts, mcp-keys.ts, bundles.ts,
-    // admin-validators.ts) are being closed via a worktree-isolated
-    // parallel Workflow (see the PARALLELIZATION note in SCOPE
-    // HISTORY) and complete out of strict LOC order — check SCOPE
-    // HISTORY for the current done-list rather than assuming this
-    // pointer reflects a solo continuation queue while that workflow
-    // is still running. NOTE: both composites.ts and admin/tools.ts
-    // had their parallel Stryker runs interrupted mid-verify (ran out
-    // of turns before Stryker finished) — their test files exist and
-    // are known-passing locally, but need a fresh from-scratch Stryker
-    // run (not resumable — coverageAnalysis:"off" only flushes
+    // ws-proxy-admin.ts, discovery.ts, catalog.ts, auth-oidc.ts,
+    // composites.ts, mcp-keys.ts, bundles.ts, admin-validators.ts
+    // DONE (see SCOPE HISTORY). Only 1 domain-8 file remains:
+    // admin/tools.ts — its parallel Workflow agent's own Stryker
+    // verify was interrupted mid-run (ran out of turns at 9%,
+    // 16/166 tested) before finishing; the test file it authored
+    // exists at src/routes/__tests__/routes-tools-mutation.test.ts
+    // and passes locally, but needs a fresh from-scratch Stryker run
+    // (not resumable — coverageAnalysis:"off" only flushes
     // result.json on full completion) to get real survivor data.
+    // Before launching, check the Stryker-related process count via
+    // Get-CimInstance and wait for a low-contention window (see the
+    // composites.ts SCOPE HISTORY entry for why this matters).
     // Scope for solo runs: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/composites.ts",
+    "src/routes/admin/tools.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

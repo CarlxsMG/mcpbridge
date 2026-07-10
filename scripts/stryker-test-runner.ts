@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { mkdirSync } from "fs";
+
 /**
  * Wrapper that runs the project's test suite from inside a Stryker sandbox
  * and returns its exit code, while redirecting stdout/stderr to a log file.
@@ -55,6 +57,16 @@ const TEST_ARGS = scope
   ? ["test", ...scope.split(/\s+/), "--path-ignore-patterns={admin-ui,e2e}/**"]
   : ["test", "--path-ignore-patterns={admin-ui,e2e}/**"];
 const LOG_FILE = ".stryker-test-output.log";
+
+// `./data/` (config.dbPath's default parent dir) is gitignored, so Stryker's
+// sandbox copy (which respects .gitignore) never includes it — a totally
+// fresh checkout/worktree/sandbox that has never run the real app also lacks
+// it. routes/backup.ts's real `VACUUM INTO` write needs this directory to
+// exist even though the live test DB itself is ":memory:" (config.dbPath
+// stays the on-disk default unless DB_PATH is overridden). Create it
+// defensively so a first-ever scoped run isn't blocked by an environment gap
+// unrelated to whatever's being mutated.
+mkdirSync("data", { recursive: true });
 
 // Build the child env. The wrapper bun process loaded .env into its own
 // process.env before this script ran, so any value .env sets is already

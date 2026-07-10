@@ -1980,6 +1980,45 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   swept into `bun run lint` as a second tsconfig root; `bun run lint` is
   now safe to run at any time, even mid-Stryker-run. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-auth-oidc.test.ts src/routes/__tests__/routes-auth-oidc-mutation.test.ts"`.
+- **Mutation testing — domain 8, `composites.ts`** (176 LOC, `src/routes/` —
+  composite-tool CRUD). 175 mutants, 0% baseline (no test file existed at
+  all) → **effectively 100%** (169/175 killed, 3 confirmed equivalents, 3
+  accepted timeouts) after 2 verify rounds. New file
+  `routes-composites-mutation.test.ts`. Seventh file closed via the
+  parallel Workflow, though its own verify round was interrupted mid-run
+  and had to be completed solo afterward. Also merged a permanent fix from
+  the interrupted run: `scripts/stryker-test-runner.ts` now defensively
+  `mkdirSync("data")`s before every scoped run, since the gitignored
+  `./data/` directory `routes/backup.ts`'s real `VACUUM INTO` tests need
+  doesn't exist in a totally fresh worktree/sandbox. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `mcp-keys.ts`** (273 LOC, `src/routes/` —
+  MCP API key CRUD + `POST /:id/rotate`). 319 mutants, 49% baseline
+  (157/319 killed) → **effectively 100%** (315/319 killed, 2 confirmed
+  equivalents, 2 accepted timeouts) after 3 verify rounds. New file
+  `routes-mcp-keys-mutation.test.ts`; existing test file left untouched.
+  Eighth file closed via the parallel Workflow. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `bundles.ts`** (305 LOC, `src/routes/` —
+  MCP bundle CRUD + `POST /install-links`). 255 mutants, 47% baseline
+  (121/255 killed) → **effectively 100%** (248/255 killed, 3 confirmed
+  equivalents, 4 accepted timeouts) after 2 verify rounds. New file
+  `routes-bundles-mutation.test.ts`; existing test file left untouched.
+  Ninth file closed via the parallel Workflow. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin-validators.ts`** (457 LOC, the
+  largest file in domain 8 — 13 exported `validate*Input` pure-function
+  helpers, no Express routes). 1027 mutants, 0% baseline (no test file
+  existed) → **effectively 100%** (1014/1027 killed, 13 confirmed
+  equivalents, 0 accepted timeouts) after 2 verify rounds. New file
+  `routes-admin-validators-mutation.test.ts`, tested via direct
+  import+call rather than an HTTP harness. Tenth file closed via the
+  parallel Workflow — the largest single-file mutant count this program
+  has directly authored tests for. All 13 equivalents are the same
+  "masked by a strict-type-checking builtin" class (`Number.isInteger`/
+  `Number.isFinite`/`Array.prototype.includes` each independently reject
+  wrong types), confirmed individually via hand-mutation rather than
+  assumed from the pattern. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
