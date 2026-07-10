@@ -2734,6 +2734,73 @@
 //     that deliberately keeps EVERY real branch false (`is_active:
 //     true`, no `role`) so only the mutant's forced branch would
 //     wrongly fire.
+//   upstream-auth.ts (111 LOC — GET/PUT/DELETE
+//   /admin-api/clients/:name/upstream-auth, `validateBody`'s
+//   bearer/basic/header switch) 159 mutants, 32.7% baseline (52/159 —
+//   the pre-existing `routes-upstream-auth.test.ts` covers only the
+//   bearer-auth happy path + a handful of 400/404/501/401/403 branches
+//   at STATUS-CODE-ONLY level; it never exercises the basic-auth
+//   branch AT ALL, never exercises bearer's own empty-token
+//   validation, never exercises header auth's own happy path, and
+//   never asserts exact codes/messages/audit details anywhere) ->
+//   effectively 100% (157/159 killed + 1 accepted equivalent + 1
+//   genuine timeout) after 2 verify rounds. New file
+//   `routes-upstream-auth-mutation.test.ts`, existing file left
+//   untouched. 1 accepted equivalent: the `input === null` half of
+//   `typeof input !== "object" || input === null` — production mounts
+//   `express.json({strict: true})` (src/server.ts), which rejects
+//   every bare-scalar top-level JSON body (a raw string, `null`, a
+//   number) with body-parser's own SyntaxError BEFORE the route ever
+//   runs, confirmed empirically with a standalone script against a
+//   real express app; there is no way to reach this handler with
+//   `req.body === null` through the real HTTP boundary. 1 genuine
+//   timeout: the whole PUT handler body emptied (same "hangs forever"
+//   convention as auth.ts/admin/users.ts). Key findings:
+//   - **`getUpstreamAuthInfo` (the read-model) never exposes the
+//     stored secret, by design** — an `ObjectLiteral` mutant emptying
+//     the `secret: {...}` object passed to `setUpstreamAuth` (for
+//     bearer/basic/header alike) is INVISIBLE to any test that only
+//     checks the read-model's `configured`/`type`/`headerName` fields
+//     or that the raw plaintext doesn't leak. Had to import and call
+//     `getUpstreamAuthHeaders(clientName)` directly (the function the
+//     PROXY uses to resolve the real outbound `Authorization`/custom
+//     header) to decrypt and reconstruct the actual stored credential
+//     and assert it byte-for-byte — the only way to distinguish a
+//     genuinely-stored secret from an emptied one from outside the
+//     module.
+//   - **A `typeof x !== "string" || x.length === 0` cluster needs an
+//     EMPTY-STRING fixture, not just a MISSING-field fixture, to kill
+//     the `.length === 0` sub-clause's forced-false direction** — an
+//     omitted field is caught by the `typeof !== "string"` half
+//     regardless of mutation, so it can never exercise the length
+//     check on its own; needed `headerName: ""` / `value: ""`
+//     specifically (both genuinely strings, both empty) as separate
+//     fixtures from the missing-field ones.
+//   - **A regex correctness test needs THREE fixture shapes, not one
+//     positive case**, to fully kill an anchored `+`-quantified
+//     character-class pattern's full mutant family: a normal
+//     multi-char valid value (kills quantifier-removed and
+//     negated-class mutants, both of which wrongly reject it); an
+//     invalid LEADING character with an otherwise-valid suffix (kills
+//     `^` removal, since `.test()` without a leading anchor still
+//     matches the valid suffix); and an invalid TRAILING character
+//     with an otherwise-valid prefix (kills `$` removal, symmetric
+//     reasoning). One fixture shape alone leaves at least one anchor
+//     direction unkilled.
+//   - **A NEW test file that sets a shared config singleton
+//     (`config.secretEncryptionKey`) must restore it via `afterEach`,
+//     not just inside individual try/finally blocks** — the first
+//     verify-round-2 full-suite run (`bun run test`) broke 3 UNRELATED
+//     tests in other files (context-budget.ts's + admin-routes'
+//     llm_summarize-secrets-provider tests) because this file's
+//     `startApp()` unconditionally set the key on every call with no
+//     global teardown, leaking a configured value into whatever test
+//     file happened to run next in the same `bun test` process. Fixed
+//     by capturing the ORIGINAL value once at module load and
+//     restoring it in a top-level `afterEach`, matching the sibling
+//     `routes-upstream-auth.test.ts` file's own established pattern —
+//     always check a sibling test file for this exact convention
+//     before introducing a new one that touches the same global.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2804,13 +2871,13 @@ export default {
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
     // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts,
-    // admin/users.ts DONE (see SCOPE HISTORY). Remaining domain-8
-    // files ordered smallest-LOC-first (both src/routes/ and
-    // src/routes/admin/ pooled together): upstream-auth.ts (111) <
-    // ... < admin-validators.ts (457, largest, last). Next:
-    // upstream-auth.ts (111 LOC). Scope:
+    // admin/users.ts, upstream-auth.ts DONE (see SCOPE HISTORY).
+    // Remaining domain-8 files ordered smallest-LOC-first (both
+    // src/routes/ and src/routes/admin/ pooled together):
+    // admin/clients.ts (119) < ... < admin-validators.ts (457,
+    // largest, last). Next: admin/clients.ts (119 LOC). Scope:
     // STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/upstream-auth.ts",
+    "src/routes/admin/clients.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

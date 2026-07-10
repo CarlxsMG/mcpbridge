@@ -1772,6 +1772,34 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   input — needs a fixture that keeps every OTHER real branch false so
   only the mutant's forced branch would wrongly fire. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `upstream-auth.ts`** (111 LOC,
+  `src/routes/` — `GET/PUT/DELETE /admin-api/clients/:name/upstream-auth`,
+  a bearer/basic/header credential-validation switch). 159 mutants, 32.7%
+  baseline (52/159 — existing `routes-upstream-auth.test.ts` covers only
+  the bearer-auth happy path plus a handful of 400/404/501/401/403
+  branches at status-code-only level; basic auth was completely
+  untested) → **effectively 100%** (157/159 killed + 1 accepted
+  equivalent + 1 genuine timeout) after 2 verify rounds. New file
+  `routes-upstream-auth-mutation.test.ts`, existing file left untouched.
+  1 accepted equivalent: the `input === null` half of a type guard —
+  production's `express.json({strict: true})` rejects every bare-scalar
+  JSON body before the route ever runs, confirmed empirically, so this
+  branch is unreachable through the real HTTP boundary. Key findings:
+  `getUpstreamAuthInfo` (the read-model) never exposes the stored
+  secret, so proving a secret-object literal wasn't emptied required
+  calling `getUpstreamAuthHeaders` (the function the proxy itself uses)
+  to decrypt and assert the real outbound credential; a
+  `typeof x !== "string" || x.length === 0` cluster needs an
+  EMPTY-STRING fixture (not just a missing-field one) to kill the
+  length-check's own forced-false direction; an anchored regex needs
+  three fixture shapes (valid multi-char, invalid-leading-char,
+  invalid-trailing-char) to kill its full mutant family; and a new test
+  file that sets a shared `config` singleton must restore it via
+  `afterEach`, not just inside individual try/finally blocks — this
+  file's first draft leaked `config.secretEncryptionKey` into 3
+  unrelated tests in other files during a full-suite run, fixed by
+  matching the sibling test file's own capture-and-restore convention.
+  Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
