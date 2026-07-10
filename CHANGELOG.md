@@ -1954,6 +1954,18 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   registration.ts, plus a benign double-send-after-flush equivalence for
   two validator-branch `return false`→`true` flips. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-discovery.test.ts src/routes/__tests__/routes-discovery-mutation.test.ts"`.
+- **Mutation testing — domain 8, `catalog.ts`** (204 LOC, `src/routes/` —
+  catalog-entry CRUD + `POST /:id/install`). 270 mutants, 35% baseline
+  (95/270 killed) → **effectively 100%** (265/270 killed, 2 confirmed
+  equivalents, 3 accepted timeouts). New file
+  `routes-catalog-mutation.test.ts`; existing test file left untouched.
+  Fifth file closed via the parallel Workflow. Notable: the DELETE
+  handler's whole-body-emptied mutant was cleanly killed rather than
+  timing out like its create/PATCH/install siblings — a pending-connection
+  interaction apparently fires a bun-internal timeout faster than
+  Stryker's own external one, a stronger detection signal needing no
+  extra work. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-catalog.test.ts src/routes/__tests__/routes-catalog-mutation.test.ts"`.
 
 ### Docs
 

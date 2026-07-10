@@ -3255,6 +3255,28 @@
 //   program, not a real regression — safe to disregard once
 //   re-verified against the main repo directly.
 //
+//   `catalog.ts` (204 LOC — catalog-entry CRUD: GET list, POST
+//   create, PATCH update, DELETE, POST /:id/install) 270 mutants,
+//   35% baseline (95/270 killed) -> effectively 100% (265/270
+//   killed, 2 confirmed equivalents, 3 accepted timeouts) after 1
+//   verify round. New file `routes-catalog-mutation.test.ts`, existing
+//   test file left untouched. Fifth file closed via the parallel
+//   Workflow (from batch 3, alongside admin/tools.ts and
+//   auth-oidc.ts). 2 confirmed equivalents (both hand-mutation
+//   verified): `stringArrayOrUndefined`'s `v === undefined` early
+//   return is dead code since every real call site already guards
+//   behind its own `if (body.X !== undefined)` check; and
+//   `req.socket?.remoteAddress`'s `?.` is redundant since Node's http
+//   server always populates `req.socket` before Express ever
+//   dispatches to a handler (same class as auth.ts's identical
+//   finding). 3 accepted timeouts (whole-handler-emptied, standard
+//   convention) on create/PATCH/install — notably, the analogous
+//   whole-body-emptied mutant on the DELETE handler was instead
+//   cleanly KILLED rather than timing out, apparently because a
+//   pending-connection interaction fires a bun-internal timeout
+//   faster than Stryker's own 60s external one — a stronger, not
+//   weaker, detection signal, so this asymmetry needed no action.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3328,16 +3350,21 @@ export default {
     // consumers.ts, admin/lb.ts, config-io.ts, policies.ts, auth.ts,
     // alerts.ts (alerts.ts handled solo after its parallel worktree
     // agent's own Stryker process died silently mid-run),
-    // ws-proxy-admin.ts, discovery.ts DONE (see SCOPE HISTORY). The
-    // remaining 7 domain-8 files (composites.ts, admin/tools.ts,
-    // catalog.ts, auth-oidc.ts, mcp-keys.ts, bundles.ts,
+    // ws-proxy-admin.ts, discovery.ts, catalog.ts DONE (see SCOPE
+    // HISTORY). The remaining 6 domain-8 files (composites.ts,
+    // admin/tools.ts, auth-oidc.ts, mcp-keys.ts, bundles.ts,
     // admin-validators.ts) are being closed via a worktree-isolated
     // parallel Workflow (see the PARALLELIZATION note in SCOPE
     // HISTORY) and complete out of strict LOC order — check SCOPE
     // HISTORY for the current done-list rather than assuming this
     // pointer reflects a solo continuation queue while that workflow
-    // is still running. Scope for solo runs:
-    // STRYKER_TEST_SCOPE="src/routes/__tests__".
+    // is still running. NOTE: both composites.ts and admin/tools.ts
+    // had their parallel Stryker runs interrupted mid-verify (ran out
+    // of turns before Stryker finished) — their test files exist and
+    // are known-passing locally, but need a fresh from-scratch Stryker
+    // run (not resumable — coverageAnalysis:"off" only flushes
+    // result.json on full completion) to get real survivor data.
+    // Scope for solo runs: STRYKER_TEST_SCOPE="src/routes/__tests__".
     "src/routes/composites.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
