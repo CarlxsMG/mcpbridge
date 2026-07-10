@@ -2019,6 +2019,27 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   `Number.isFinite`/`Array.prototype.includes` each independently reject
   wrong types), confirmed individually via hand-mutation rather than
   assumed from the pattern. Run with `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `admin/tools.ts`** (202 LOC, `src/routes/admin/`
+  — per-tool policy PATCH, bulk enable/disable, synthetic test call,
+  saved-example CRUD, circuit-breaker reset, cache purge, quarantine
+  clear). 166 mutants, 0% baseline (no test file existed) →
+  **effectively 100%** (158/166 killed, 5 confirmed equivalents, 3
+  accepted timeouts) after 1 verify round, using the existing 38-test
+  file the parallel Workflow agent had already authored with zero
+  further changes needed. Eleventh and **last file of domain 8**,
+  closed solo after its own verify round was interrupted at 9%. Found
+  that `express.json()`'s default `strict: true` rejects any raw
+  top-level JSON scalar body with its own 400 before the route ever
+  runs, making a `typeof body !== "object"` guard's forced-true
+  direction unreachable — confirmed empirically, not assumed.
+
+**Domain 8 (`src/routes` + `src/routes/admin`, 41 files) is now
+COMPLETE** — every file effectively 100%. The final 12 files were
+closed via a worktree-isolated parallel Workflow (batched 3 agents at
+a time), with 9 of 12 completing cleanly end-to-end and 3 needing
+solo rescue for interrupted/stuck runs. See `stryker.config.mjs`'s
+SCOPE HISTORY for the full retrospective. Domain 9 (`src/admin`, 33
+files) starts next.
 
 ### Docs
 

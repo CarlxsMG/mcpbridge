@@ -3415,6 +3415,101 @@
 //   them), and a `.slice(0, N)` message-truncation mutant needed a
 //   fixture deliberately longer than N characters.
 //
+//   `admin/tools.ts` (202 LOC — per-tool policy PATCH (delegates to
+//   `dispatchToolMutations`), bulk enable/disable, synthetic test
+//   call, saved-example CRUD, circuit-breaker reset, cache purge,
+//   quarantine clear) 166 mutants, 0% baseline within scope (no test
+//   file existed) -> effectively 100% (158/166 killed, 5 confirmed
+//   equivalents, 3 accepted timeouts) after 1 verify round, using the
+//   EXISTING test file the parallel Workflow agent had already
+//   authored (38 tests) with ZERO further changes needed — every one
+//   of the 5 raw survivors turned out to be a genuine equivalent, not
+//   a real gap. Eleventh and LAST file of domain 8, closed solo after
+//   its own parallel-Workflow verify round was interrupted at 9%
+//   (16/166 tested). **Self-inflicted process gotcha, worth
+//   remembering**: the FIRST solo attempt to complete this file was
+//   launched WITHOUT first writing the agent's already-authored test
+//   file to disk — an oversight (the file's content had been reviewed
+//   from the journal but the `fs.writeFileSync` step was skipped,
+//   unlike every other file this session). Running Stryker with zero
+//   new test coverage in place produced a 90% survival rate (107/119
+//   tested) that superficially LOOKED like the same resource-
+//   contention corruption seen on composites.ts — but with 0 timeouts
+//   (contamination always shows up as spurious TIMEOUTS, never
+//   spurious survivors), which was the tell that something else was
+//   wrong. Diagnosed by checking whether the test file even existed
+//   on disk (`ls src/routes/__tests__/ | grep tools` — it didn't),
+//   killed the wasted run, wrote the file for real, and re-ran
+//   cleanly. **New standing rule: immediately after reviewing ANY
+//   parallel-Workflow agent's structured result, write its
+//   `newTestFileContent` to disk via `fs.writeFileSync` in the SAME
+//   step — never defer it, and never launch a Stryker run for a file
+//   without first confirming (via `ls`) that its test file actually
+//   exists on disk.** 5 confirmed equivalents (all hand-mutation
+//   verified): the compound `typeof body !== "object" || body ===
+//   null || Array.isArray(body)` guard's first two clauses are BOTH
+//   individually and jointly unreachable — `body === null` can never
+//   be true since `(req.body as ...) ?? {}` already replaces
+//   null/undefined with `{}` before this line runs (same class as
+//   composites.ts's `tmpl === null`), and `typeof body !== "object"`
+//   can never independently matter since Express's `express.json()`
+//   defaults to `strict: true`, which rejects any raw top-level JSON
+//   scalar (string/number/boolean) with its own 400 SyntaxError
+//   BEFORE the route ever executes — confirmed empirically with a
+//   standalone probe, not assumed — leaving only genuine objects and
+//   arrays reachable, and `Array.isArray(body)` already independently
+//   catches the latter. Plus a 5th: `outcome !== null` forced false
+//   is the SAME double-send-after-flush equivalence class as
+//   discovery.ts's validator-branch flips — the dispatcher's FIRST
+//   (correct) error response already reaches the client before the
+//   mutant's redundant second `res.json()` call throws
+//   `ERR_HTTP_HEADERS_SENT` server-side.
+//
+// **── DOMAIN 8 (src/routes + src/routes/admin, 41 files) COMPLETE
+// (2026-07-10) ──** Final roster: docs.ts, validation.ts,
+// http-errors.ts, traces.ts, admin/connect.ts, admin/monitors.ts,
+// admin/overview.ts, introspection.ts, usage.ts, tags.ts,
+// admin/index.ts, admin/canary.ts, admin/traffic.ts, register.ts,
+// admin/oauth.ts, install-links.ts, admin/audit-log.ts,
+// admin/approvals.ts, schedules.ts, metrics.ts, health.ts, teams.ts,
+// backup.ts, admin/users.ts, upstream-auth.ts, admin/clients.ts,
+// consumers.ts, admin/lb.ts, config-io.ts, policies.ts, auth.ts,
+// alerts.ts, ws-proxy-admin.ts, discovery.ts, catalog.ts,
+// auth-oidc.ts, composites.ts, mcp-keys.ts, bundles.ts,
+// admin-validators.ts, admin/tools.ts (41 files; 2 barrel re-exports
+// confirmed skipped, not counted). Every file effectively 100%. The
+// last 12 files (alerts.ts onward) closed via a worktree-isolated
+// parallel Workflow, batched 3-at-a-time — 9 of 12 completed cleanly
+// end-to-end by their own agent, 3 needed solo rescue (alerts.ts: a
+// stuck agent whose Stryker process died silently; composites.ts and
+// admin/tools.ts: interrupted mid-verify, ran out of turn budget).
+// See the PARALLELIZATION note above and each file's own entry for
+// the full set of gotchas this approach surfaced (Stryker-process-
+// contention corrupts the timeout heuristic; ESLint doesn't consult
+// .gitignore for either `.claude/worktrees/` or `.stryker-tmp/`; a
+// dev `.env`'s `ALLOW_PRIVATE_IPS=true` diverges from a fresh
+// worktree's default; always write an agent's test file to disk
+// immediately, never defer it).
+//
+// Next: domain 9 = src/admin (33 files: src/admin/tool-policies/
+// mutations/*.ts [18 small ToolMutation handlers, 19-116 LOC each,
+// zero test coverage], src/admin/config/*.ts [3 files, zero test
+// coverage], src/admin/audit/*.ts [2 files, only audit-chain.test.ts
+// exists — likely a different file], src/admin/entities/*.ts [9
+// files, several ALREADY have substantial test coverage: alerts,
+// anomaly, approvals, consumers, monitor, policies, rbac, schedules,
+// teams], src/admin/tool-composition/*.ts [3 files, bundles.ts and
+// composites.ts already have tests, bundle-install-links.ts doesn't]).
+// Test dirs mirror source subdirectories 1:1 (src/admin/audit/
+// __tests__/, src/admin/entities/__tests__/,
+// src/admin/tool-composition/__tests__/) — EXCEPT src/admin/config/
+// and src/admin/tool-policies/mutations/ have no __tests__ dir at
+// all yet. Given many domain-9 files are called directly by already-
+// tested domain-8 routes, expect higher baseline scores than domain 8
+// saw from indirect coverage alone. The 18 tiny mutations/*.ts files
+// are candidates for batching (same reasoning as domain 4's "8 small
+// remaining files" batch) rather than 18 separate closures.
+//
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
 // all of `src/security/*.ts` at once (12 files / 946 mutants / ~8h /
@@ -3486,23 +3581,17 @@ export default {
     // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts,
     // admin/users.ts, upstream-auth.ts, admin/clients.ts,
     // consumers.ts, admin/lb.ts, config-io.ts, policies.ts, auth.ts,
-    // alerts.ts (alerts.ts handled solo after its parallel worktree
-    // agent's own Stryker process died silently mid-run),
-    // ws-proxy-admin.ts, discovery.ts, catalog.ts, auth-oidc.ts,
-    // composites.ts, mcp-keys.ts, bundles.ts, admin-validators.ts
-    // DONE (see SCOPE HISTORY). Only 1 domain-8 file remains:
-    // admin/tools.ts — its parallel Workflow agent's own Stryker
-    // verify was interrupted mid-run (ran out of turns at 9%,
-    // 16/166 tested) before finishing; the test file it authored
-    // exists at src/routes/__tests__/routes-tools-mutation.test.ts
-    // and passes locally, but needs a fresh from-scratch Stryker run
-    // (not resumable — coverageAnalysis:"off" only flushes
-    // result.json on full completion) to get real survivor data.
-    // Before launching, check the Stryker-related process count via
-    // Get-CimInstance and wait for a low-contention window (see the
-    // composites.ts SCOPE HISTORY entry for why this matters).
-    // Scope for solo runs: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/admin/tools.ts",
+    // alerts.ts, ws-proxy-admin.ts, discovery.ts, catalog.ts,
+    // auth-oidc.ts, composites.ts, mcp-keys.ts, bundles.ts,
+    // admin-validators.ts, admin/tools.ts — **DOMAIN 8 COMPLETE**
+    // (see SCOPE HISTORY for the full retrospective). Domain 9 =
+    // src/admin (33 files, see the "Next: domain 9" note in SCOPE
+    // HISTORY for the file inventory and test-dir layout) starts now.
+    // Smallest-LOC-first, per this program's established convention;
+    // the 18 tiny src/admin/tool-policies/mutations/*.ts files
+    // (19-116 LOC each) are candidates for batching rather than 18
+    // separate closures — decide batching strategy before launching.
+    "src/admin/tool-policies/mutations/enabled.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
