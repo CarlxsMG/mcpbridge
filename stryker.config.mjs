@@ -3795,6 +3795,59 @@
 //   bump either clause would otherwise skip is an unobservable no-op
 //   rewrite of the identical value. Closed via a worktree-isolated
 //   parallel Workflow agent.
+//   src/admin/tool-composition/composites.ts (505 LOC — composite/
+//   macro-tool CRUD entity layer: step sequencing, $ref/${} arg
+//   templating, per-step dispatch via proxyToolCall, live-cache sync;
+//   the execution engine underneath the already-tested route/CRUD HTTP
+//   layer) 425 mutants, 52.2% baseline (222/425 — the existing
+//   hand-written composites.test.ts covered templating basics/CRUD
+//   happy paths/runComposite threading but never asserted exact
+//   error-message text, and left several convergent-clause triple-OR
+//   type guards and extractText's multi-content-array branch
+//   completely unexercised) -> effectively 100% (419/425 + 6 accepted
+//   equivalents) across 3 verify rounds. New file
+//   `composites-mutation.test.ts`, 86 tests. **DOMAIN 9's LAST FILE —
+//   see the DOMAIN 9 COMPLETE marker below.** Notable techniques: a
+//   spoofed-`.type`-on-a-function fixture to isolate the FIRST clause of
+//   a `typeof x !== "object" || x === null || x.type !== "object"`
+//   triple-OR (any primitive already independently satisfies the third
+//   clause, masking the first — the same convergent-clause class this
+//   program has hit repeatedly); an `Object.defineProperty`
+//   non-enumerable-property fixture proving the `$ref`-shortcut check is
+//   `Object.keys`-based, not dot-access-based; and directly mocking
+//   `proxyToolCall` (same technique as routes-tools-mutation.test.ts) to
+//   feed a heterogeneous multi-content array through extractText, since
+//   no real REST/WS dispatch path ever synthesizes more than one
+//   `{type:"text"}` content entry. 6 accepted equivalents, ALL
+//   hand-verified: getByPath's `node === undefined` guard-half (bypassed,
+//   it still lands on the same final `else return undefined` since
+//   `typeof undefined !== "object"`); runComposite's dead `last`
+//   initializer (always overwritten — the loop is guaranteed >=1
+//   iteration and every iteration either returns early or reassigns
+//   `last` before the loop ends); the JSON.parse catch body (assigning
+//   `undefined` to an already-`undefined` `let json`); and refreshCache's
+//   `!detail` branch (unreachable — always called immediately after its
+//   own committed insert/update, serialized per-name by the same mutex).
+//   Closed via a worktree-isolated parallel Workflow agent.
+//
+// **── DOMAIN 9 (src/admin, 33 files incl. types.ts skipped = 32 needing
+// coverage) COMPLETE (2026-07-10) ──** Final roster, all effectively
+// 100%: the 19-file src/admin/tool-policies/mutations/ batch (enabled,
+// sensitive, guards, cache, coalesce, pagination, streaming, transform,
+// mock, quarantine-policy, redact-paths, guardrails, overrides,
+// graphql, requires-approval, context-budget, ws, monitor, index.ts),
+// policies.ts, config-diff.ts, teams.ts, config-versions.ts,
+// consumers.ts, audit-export.ts, audit.ts, bundle-install-links.ts,
+// schedules.ts, approvals.ts, config-io.ts, bundles.ts, composites.ts
+// (32 files; types.ts skipped, pure type declarations). 12 of the 13
+// non-batch files (everything after the mutations/ batch) were closed
+// via a SINGLE worktree-isolated parallel Workflow run (wf_58a63cec-c9b,
+// batched 3/3/3/3/1 across 5 sequential batches on this 16-core/32-
+// thread machine) — 11/12 completed cleanly end-to-end by their own
+// agent, 1 (schedules.ts) needed solo rescue after being interrupted
+// mid-verify. Domain 10 (misc: src/lib, src/cli, src/catalog,
+// src/secrets, src/config*, ws-proxy.ts, server.ts, index.ts, 33 files)
+// starts next.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -3870,22 +3923,18 @@ export default {
     // alerts.ts, ws-proxy-admin.ts, discovery.ts, catalog.ts,
     // auth-oidc.ts, composites.ts, mcp-keys.ts, bundles.ts,
     // admin-validators.ts, admin/tools.ts — **DOMAIN 8 COMPLETE**
-    // (see SCOPE HISTORY for the full retrospective). Domain 9 =
-    // src/admin (33 files, incl. types.ts skipped = 32 needing coverage)
-    // IN PROGRESS, effectively 31/32 done: the 19-file
-    // src/admin/tool-policies/mutations/ batch, policies.ts,
-    // config-diff.ts, teams.ts, config-versions.ts, consumers.ts,
-    // audit-export.ts, audit.ts, bundle-install-links.ts, schedules.ts,
-    // approvals.ts, config-io.ts, and bundles.ts are all COMPLETE (see
-    // SCOPE HISTORY for each). Only composites.ts remains, still being
-    // worked by the same worktree-isolated parallel Workflow (run
-    // wf_58a63cec-c9b) — once it lands, DOMAIN 9 IS COMPLETE and domain
-    // 10 (misc: src/lib, src/cli, src/catalog, src/secrets, src/config*,
-    // ws-proxy.ts, server.ts, index.ts, 33 files) starts. `mutate` below
-    // is scoped to composites.ts purely as a placeholder pointer — do
-    // NOT launch a solo run against it while the parallel Workflow's own
-    // worktree is still actively working the same file.
-    "src/admin/tool-composition/composites.ts",
+    // (see SCOPE HISTORY for the full retrospective). **DOMAIN 9
+    // (src/admin, 32 files needing coverage) COMPLETE** — see the
+    // DOMAIN 9 COMPLETE marker in SCOPE HISTORY for the full roster and
+    // retrospective. Domain 10 = misc (src/lib [10 files], src/cli [9],
+    // src/catalog [2], src/secrets [4], src/config.ts, src/config-
+    // schema.ts, src/index.ts, src/server.ts, src/ws-proxy.ts) starts
+    // now. `mutate` below points to src/lib/identifier.ts (TOOL_NAME_RE,
+    // TOOL_KEY_SEPARATOR, toolKey/parseToolKey — small, foundational,
+    // referenced throughout the registry) as the first target; test-dir
+    // convention for this domain not yet confirmed, check before
+    // assuming src/lib/__tests__ mirrors 1:1.
+    "src/lib/identifier.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

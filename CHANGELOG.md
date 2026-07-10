@@ -2196,6 +2196,31 @@ tools.ts` PATCH tests) → effectively 100% (504/553 raw, all 49
   guard are redundant, since the sibling branches already stamp the same
   `now` value regardless. Closed via a worktree-isolated parallel
   Workflow agent.
+- **Mutation testing — domain 9,
+  `src/admin/tool-composition/composites.ts`** (505 LOC — composite/
+  macro-tool CRUD entity layer: step sequencing, `$ref`/`${}` arg
+  templating, per-step dispatch, live-cache sync — the execution engine
+  underneath the already-tested route/CRUD HTTP layer). 425 mutants,
+  52.2% baseline (222/425 — the existing test covered happy paths but
+  never asserted exact error-message text, and left convergent-clause
+  type guards and a multi-content-array branch unexercised) → effectively
+  100% (419/425 + 6 accepted equivalents) across 3 verify rounds. New
+  file `composites-mutation.test.ts`, 86 tests. **Domain 9's last file.**
+  6 accepted equivalents, all hand-verified: a guard-half subsumed by a
+  later `typeof` check, a dead loop-variable initializer, a no-op catch
+  assignment, and an unreachable cache-refresh branch (serialized by a
+  per-name mutex). Closed via a worktree-isolated parallel Workflow
+  agent.
+
+**Domain 9 (`src/admin`, 32 files needing coverage) is now COMPLETE** —
+every file effectively 100%. 12 of the 13 non-batch files were closed
+via a single worktree-isolated parallel Workflow (batched 3 agents at a
+time across 5 sequential batches), with 11/12 completing cleanly
+end-to-end and 1 (`schedules.ts`) needing solo rescue after being
+interrupted mid-verify. See `stryker.config.mjs`'s SCOPE HISTORY for the
+full retrospective. Domain 10 (misc: `src/lib`, `src/cli`,
+`src/catalog`, `src/secrets`, `src/config*`, `ws-proxy.ts`, `server.ts`,
+`index.ts`, ~30 files) starts next.
 
 ### Docs
 
