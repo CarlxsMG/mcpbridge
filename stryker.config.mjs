@@ -3036,6 +3036,7 @@
 //     project's own documented invariant (fewer tests can only leave a
 //     mutant undetected, never falsely mark one killed).
 //
+//   **PARALLELIZATION (2026-07-10): the remaining domain-8 tail (12
 //   files: alerts.ts through admin-validators.ts) is being closed via
 //   a Workflow that fans out one worktree-isolated agent per file,
 //   batched 3-at-a-time (matched to this machine's 16 physical/32
@@ -3068,6 +3069,63 @@
 //   `.claude/**` entry to `eslint.config.js`'s top-level `ignores`
 //   array — safe to run `bun run lint` from the main repo even while
 //   other worktrees are still live and in progress.**
+//
+//   `auth.ts` (153 LOC — admin login/logout, GET /me, PATCH
+//   /me/password, GET /sessions, DELETE /sessions/:id) 188 mutants,
+//   23% baseline (43/188 killed — the existing hand-written test
+//   covered only login's happy/sad paths, GET /me's session branch,
+//   and logout's CSRF gate; PATCH /me/password, GET /sessions, and
+//   DELETE /sessions/:id were entirely untested) -> effectively 100%
+//   (176/188 killed, 11 confirmed equivalents, 1 accepted timeout)
+//   after 2 verify rounds. New file `routes-auth-mutation.test.ts`,
+//   existing test file left untouched. Second file closed via the
+//   parallel Workflow. Key findings:
+//   - **New equivalence class, confirmed by hand-mutating and
+//     re-running the suite for all 5 occurrences**: an identical
+//     3-clause session-context guard (`!ctx || ctx.method !== "session"
+//     || <ctx.username|ctx.userId undefined>`) repeats verbatim across
+//     3 routes (PATCH /me/password, GET /sessions, DELETE
+//     /sessions/:id); forcing the middle clause to a literal `false`
+//     is equivalent at every site because `AuthContext`'s own shape
+//     ties `method === "session"` to always carrying a real
+//     username/userId — whenever the third clause could differ, the
+//     middle clause's real value already agrees with the forced one,
+//     and whenever it wouldn't agree, the third clause independently
+//     produces the same outcome either way.
+//   - `.catch(() => false)`'s arrow body mutated to `() => undefined`
+//     is equivalent at both its call sites (login, password-change) —
+//     the caught value only ever feeds a `!x` boolean check, and
+//     `undefined`/`false` are equally falsy there.
+//   - **New mechanical technique**: for holdout equivalence
+//     candidates, wrote a small script that patches the EXACT Stryker
+//     mutant text into a backup-restorable copy of the source by
+//     1-indexed line:column (Stryker's own convention), then ran the
+//     real test pair directly — much faster per-mutant than a full
+//     Stryker verify round when confirming a handful of candidates.
+//     Gotcha hit building it: invoking a native Windows node/bun
+//     executable directly with a git-bash-style `/c/Users/...` path
+//     silently mangles into a bogus path or drops segments — always
+//     use `C:/Users/...` (drive-letter + forward slashes) for a
+//     directly-invoked native Windows executable from this
+//     environment.
+//   - **New sequencing technique**: reaching `Bun.password.verify()`'s
+//     throw path for a route gated behind an active session (which
+//     itself depends on the SAME credential store) requires seeding a
+//     clean login first, then corrupting the stored hash AFTER
+//     authentication succeeds — corrupting it up front breaks the
+//     login step itself.
+//   - **`GET /sessions` touches the authenticating cookie's own
+//     `last_seen_at`** (a sliding-window side effect) — naively
+//     listing then deleting `sessions[0]` can silently target the
+//     CALLING cookie's own session (freshly touched, sorts first), not
+//     the intended other one; fixed by tagging each login with a
+//     distinct User-Agent and reading identity via the real
+//     `listActiveSessionsForUser` entity function directly, bypassing
+//     the HTTP endpoint's own side effect.
+//   - Confirmed (again) that `STRYKER_TEST_SCOPE="src/routes/__tests__"`
+//     (the whole directory) has pre-existing, unrelated dry-run-
+//     blocking failures — narrowed to the two auth-specific test files
+//     for this file's own runs, same as policies.ts.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -3139,9 +3197,9 @@ export default {
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
     // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts,
     // admin/users.ts, upstream-auth.ts, admin/clients.ts,
-    // consumers.ts, admin/lb.ts, config-io.ts, policies.ts DONE (see
-    // SCOPE HISTORY). The remaining 11 domain-8 files (alerts.ts,
-    // auth.ts, ws-proxy-admin.ts, composites.ts, discovery.ts,
+    // consumers.ts, admin/lb.ts, config-io.ts, policies.ts, auth.ts
+    // DONE (see SCOPE HISTORY). The remaining 10 domain-8 files
+    // (alerts.ts, ws-proxy-admin.ts, composites.ts, discovery.ts,
     // admin/tools.ts, catalog.ts, auth-oidc.ts, mcp-keys.ts,
     // bundles.ts, admin-validators.ts) are being closed via a
     // worktree-isolated parallel Workflow (see the PARALLELIZATION

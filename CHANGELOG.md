@@ -1892,6 +1892,21 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   `eslint .` as a second tsconfig root, producing thousands of spurious
   errors. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-policies-mutation.test.ts src/routes/__tests__/routes-policies.test.ts"`.
+- **Mutation testing — domain 8, `auth.ts`** (153 LOC, `src/routes/` — admin
+  login/logout, `GET /me`, `PATCH /me/password`, `GET /sessions`,
+  `DELETE /sessions/:id`). 188 mutants, 23% baseline (43/188 killed — the
+  existing hand-written test only covered login happy/sad paths, `GET /me`'s
+  session branch, and logout's CSRF gate; the password-change and session-
+  management endpoints were entirely untested) → **effectively 100%**
+  (176/188 killed, 11 confirmed equivalents, 1 accepted timeout) after 2
+  verify rounds. New file `routes-auth-mutation.test.ts`; existing test file
+  left untouched. Second file closed via the parallel Workflow. Found a
+  reusable equivalence class: an identical 3-clause session-context guard
+  repeats across 3 routes, and its middle clause is always redundant with
+  the third given `AuthContext`'s own shape — confirmed by hand-mutating and
+  re-running the suite for all 5 occurrences, not by reasoning alone. Run
+  with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__/routes-auth.test.ts src/routes/__tests__/routes-auth-mutation.test.ts"`.
 
 ### Docs
 
