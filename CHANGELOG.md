@@ -2377,6 +2377,14 @@ are skipped entirely (pure interface / static data, no runtime logic).
   baseline (18/18, no prior test existed) → **100%** after 1 verify
   round, stable. New file `ttl-cache-mutation.test.ts`. Closed via a
   worktree-isolated parallel Workflow agent.
+- **Mutation testing — domain 10, `src/cli/commands/connect.ts`** (117
+  LOC — generates a ready-to-paste MCP client connection config). 121
+  mutants, no prior test file → **100%** (121/121) after 2 verify
+  rounds, stable. New file `connect-mutation.test.ts`. Wiring tests call
+  the real `CONNECT_TEMPLATES[id].generate()` independently to compute
+  an expected payload, exercising every connect.ts-owned field without
+  duplicating connect-templates.ts's own logic. Closed via a
+  worktree-isolated parallel Workflow agent.
 
 ### Docs
 

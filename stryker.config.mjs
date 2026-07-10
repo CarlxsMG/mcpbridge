@@ -4202,6 +4202,21 @@
 //   computed relative to the ORIGINAL fetchedAt (not the failed
 //   attempt's time) to prove state genuinely wasn't touched. Closed via
 //   a worktree-isolated parallel Workflow agent.
+//   src/cli/commands/connect.ts (117 LOC — generates a ready-to-paste
+//   MCP client connection config for a registered client/bundle/the
+//   system control plane, confirming the target exists+is enabled via
+//   the admin API first) 121 mutants, no prior test file
+//   (first-draft-as-baseline) -> **100%** (121/121) after 2 verify
+//   rounds, stable (no survivor-set noise between runs). New file
+//   src/cli/commands/__tests__/connect-mutation.test.ts. Rather than
+//   re-testing connect-templates.ts's per-client template content
+//   (owned by a sibling agent in this same run), the wiring tests call
+//   the REAL CONNECT_TEMPLATES[id].generate() independently inside the
+//   test file to compute an expected output string, then assert
+//   connectCommand's actual payload matches byte-for-byte — exercises
+//   every connect.ts-owned field without duplicating connect-
+//   templates.ts's own logic. Closed via a worktree-isolated parallel
+//   Workflow agent.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
