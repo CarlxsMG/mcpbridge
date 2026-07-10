@@ -2853,6 +2853,48 @@
 //     mutant, opposite conclusion — the deciding factor was reading
 //     `src/mcp/registry.ts`'s actual query-building code, not
 //     assuming symmetry with the other three filters.
+//   consumers.ts (121 LOC — GET /consumers list, POST create, PATCH
+//   /consumers/:id (name+monthlyQuota+endUserRateLimitPerMin), DELETE
+//   /consumers/:id, GET /consumers/:id/usage) 125 mutants, 46.4%
+//   baseline (58/125 — existing `routes-consumers.test.ts` covers
+//   create/list/duplicate/usage/delete happy path and
+//   endUserRateLimitPerMin validation+patch+null-clear, but never
+//   PATCHes the `name` field at all, never tests an unknown id on
+//   PATCH/DELETE/usage, and never asserts exact codes/messages/audit
+//   details) -> effectively 100% (122/125 killed + 1 accepted
+//   equivalent + 2 genuine timeouts) after 2 verify rounds. New file
+//   `routes-consumers-mutation.test.ts`, existing file left untouched.
+//   1 accepted equivalent: `optPositiveIntOrNull`'s `{ ok: false }`
+//   emptied to `{}` — every call site consumes the result only through
+//   `!x.ok`, and `!undefined`/`!false` are both `true` (same
+//   equivalence class as several prior files' `{ok:false}`-shaped
+//   helpers). 2 genuine timeouts: the whole POST and PATCH handler
+//   bodies emptied (same "hangs forever" convention as prior files).
+//   Key finding, round 1 left 2 real survivors on a THIRD verify
+//   attempt-worthy gap that an UNPADDED no-op fixture couldn't reach:
+//   - **A duplicate-name-on-update check with TWO separate `.trim()`
+//     calls (`body.name.trim() !== existing.name && consumerNameExists(
+//     body.name.trim())`) needs a WHITESPACE-PADDED fixture for EACH
+//     call, not one unpadded "no-op" test** — PATCHing a name back to
+//     its own CURRENT value with no padding can't distinguish either
+//     `.trim()` mutant, since both sides already match without
+//     trimming. Needed two separate fixtures: (1) a PADDED same-name
+//     no-op (kills the FIRST `.trim()` — real code short-circuits the
+//     `&&` to false before ever checking existence; the mutant's raw
+//     untrimmed comparison wrongly differs, proceeds to check
+//     existence, and finds the consumer's OWN row, since
+//     `consumerNameExists` has no self-exclusion, wrongly 409ing), and
+//     (2) a PADDED collision with a DIFFERENT consumer's real name
+//     (kills the SECOND `.trim()` — this fixture keeps the first
+//     clause genuinely true so the second clause actually runs; real
+//     code trims before checking existence and correctly 409s, the
+//     mutant checks the raw padded string that no consumer is
+//     literally named, wrongly letting the rename through). General
+//     lesson: when TWO trim/normalize calls guard the SAME compound
+//     condition, a fixture proving one is reachable doesn't prove the
+//     other is exercised — each needs its own padding-sensitive case,
+//     and the SECOND one specifically needs the FIRST clause to
+//     independently evaluate true so the second clause is even reached.
 //
 // P2-1/P2-2 used a single file (compare.ts) to validate the pipeline
 // end-to-end. P2-3 keeps that incremental pattern rather than mutating
@@ -2923,13 +2965,13 @@ export default {
     // admin/canary.ts, admin/traffic.ts, register.ts, admin/oauth.ts,
     // install-links.ts, admin/audit-log.ts, admin/approvals.ts,
     // schedules.ts, metrics.ts, health.ts, teams.ts, backup.ts,
-    // admin/users.ts, upstream-auth.ts, admin/clients.ts DONE (see
-    // SCOPE HISTORY). Remaining domain-8 files ordered
-    // smallest-LOC-first (both src/routes/ and src/routes/admin/
-    // pooled together): consumers.ts (121) < ... <
-    // admin-validators.ts (457, largest, last). Next: consumers.ts
-    // (121 LOC). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
-    "src/routes/consumers.ts",
+    // admin/users.ts, upstream-auth.ts, admin/clients.ts,
+    // consumers.ts DONE (see SCOPE HISTORY). Remaining domain-8 files
+    // ordered smallest-LOC-first (both src/routes/ and
+    // src/routes/admin/ pooled together): admin/lb.ts (123) < ... <
+    // admin-validators.ts (457, largest, last). Next: admin/lb.ts
+    // (123 LOC). Scope: STRYKER_TEST_SCOPE="src/routes/__tests__".
+    "src/routes/admin/lb.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",

@@ -1823,6 +1823,25 @@ undefined)` ternary — same "same guard, multiple call sites" lesson as
   reading the downstream consumer's own validation code, not assuming
   symmetry with a similarly-shaped sibling filter. Run with
   `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
+- **Mutation testing — domain 8, `consumers.ts`** (121 LOC, `src/routes/`
+  — `GET /consumers`, `POST /consumers`, `PATCH /consumers/:id`, `DELETE
+/consumers/:id`, `GET /consumers/:id/usage`). 125 mutants, 46.4%
+  baseline (58/125 — existing `routes-consumers.test.ts` never PATCHed
+  the `name` field at all, never tested an unknown id on
+  PATCH/DELETE/usage, and never asserted exact codes/messages/audit
+  details) → **effectively 100%** (122/125 killed + 1 accepted
+  equivalent + 2 genuine timeouts) after 2 verify rounds. New file
+  `routes-consumers-mutation.test.ts`, existing file left untouched. 1
+  accepted equivalent: a `{ ok: false }` helper result emptied to `{}` —
+  every caller consumes it only through `!x.ok`. 2 genuine timeouts:
+  whole POST/PATCH handler bodies emptied. Key finding: a duplicate-name-
+  on-update check with two separate `.trim()` calls guarding the same
+  compound condition needs two DIFFERENT whitespace-padded fixtures (a
+  padded no-op rename, and a padded collision with another consumer's
+  real name where the first clause must independently evaluate true) —
+  an unpadded no-op test can't distinguish either `.trim()` mutant since
+  both sides already match without trimming. Run with
+  `STRYKER_TEST_SCOPE="src/routes/__tests__"`.
 
 ### Docs
 
