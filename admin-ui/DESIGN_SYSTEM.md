@@ -749,12 +749,14 @@ comment above `.tag-chip` in that file.
 `bun run typecheck` is clean. If you add a new page or component, follow the recipes above rather
 than starting from scratch — every visual pattern this app needs already has a home here.
 
-### Known gaps noticed during rollout, not fixed (out of scope for a styling-only pass)
+### Gaps noticed during rollout — since resolved
 
-- `RegisterServerPage.vue`: in REST+OpenAPI mode, "Register server" stays disabled until "Preview
-  tools" has been run at least once, and any edit to the OpenAPI URL/tags/ops resets that — nothing
-  in the UI explains _why_ the primary button is disabled.
-- `CompositeDetailPage.vue` has no unsaved-changes route-leave guard, unlike `BundleDetailPage.vue`
-  which already has one via `onBeforeRouteLeave` + `ConfirmDialog`.
-- `KeysPage.vue`: the "Elevated" checkbox in the create form is styled identically to the "elevated"
-  status chip in the table, which conflates "this sets the flag" with "this key is elevated."
+The three UX gaps originally recorded here have all been addressed (kept as a record):
+
+- `RegisterServerPage.vue`: the disabled "Register server" button now shows an inline hint
+  (`preview_hint` / `preview_stale_hint`) explaining that a tools preview must be run first.
+- `CompositeDetailPage.vue` now has an unsaved-changes route-leave guard via the shared
+  `useUnsavedChangesGuard` composable + `ConfirmDialog`, matching `BundleDetailPage.vue`.
+- The MCP-key create form moved to its own page (`NewApiKeyPage.vue`), so its "Elevated" toggle
+  no longer sits next to — and can't be confused with — the "elevated" status chip in
+  `KeysPage.vue`'s table.
