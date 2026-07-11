@@ -15,13 +15,13 @@ tablas de abajo cubren la configuración a la que recurrirás más a menudo.
 
 ## Runtime y networking
 
-| Variable                | Default                        | Descripción                                                                                    |
-| ----------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `PORT`                  | `3000` (Docker) / `8790` (dev) | Puerto de escucha del backend.                                                                 |
-| `SESSION_COOKIE_SECURE` | `true`                         | Mantener `true` en producción (HTTPS). Poner `false` solo para dev HTTP plano local.           |
-| `NODE_ENV`              | —                              | `development` relaja las guardas de arranque para dev local. **Nunca** en producción.          |
-| `TRUST_PROXY`           | `false`                        | Habilitar **solo** detrás de un reverse proxy de confianza (afecta la confianza en client-IP). |
-| `ALLOW_PRIVATE_IPS`     | `false`                        | Permitir registrar backends en loopback/IPs privadas. Solo dev local — nunca en producción.    |
+| Variable                | Default                        | Descripción                                                                                                                                                                                                                                               |
+| ----------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                  | `3000` (Docker) / `8790` (dev) | Puerto de escucha del backend.                                                                                                                                                                                                                            |
+| `SESSION_COOKIE_SECURE` | `true`                         | Mantener `true` en producción (HTTPS). Poner `false` solo para dev HTTP plano local.                                                                                                                                                                      |
+| `NODE_ENV`              | —                              | `development` relaja las guardas de arranque para dev local. **Nunca** en producción.                                                                                                                                                                     |
+| `TRUST_PROXY`           | `false`                        | Número de saltos (p. ej. `1`) o lista CIDR/preset acorde a tu topología de reverse proxy — nunca `true` a secas, que confía en todos los saltos de `X-Forwarded-For` y permite que un cliente falsifique su IP. Ver [Despliegue →](/es/guide/deployment). |
+| `ALLOW_PRIVATE_IPS`     | `false`                        | Permitir registrar backends en loopback/IPs privadas. Solo dev local — nunca en producción.                                                                                                                                                               |
 
 ## Persistencia
 

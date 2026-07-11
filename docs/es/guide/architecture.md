@@ -24,7 +24,7 @@ debe saber _qué_ tool se está llamando antes de poder aplicar reglas por herra
 redundante se eliminó. Si necesitas tools de backend cross-cliente en una sola sesión, cura
 un bundle. `/mcp` es el plano de control: un cliente LLM se conecta ahí para inspeccionar y
 operar el gateway (listar/registrar/habilitar clientes, emitir keys, leer el audit log, ...),
-protegido por su propia auth fail-closed (`RootMcpAuth` — sin el fallback "sin configurar
+protegido por su propia auth fail-closed (`rootMcpAuth` — sin el fallback "sin configurar
 implica abierto" que sí tienen los dos endpoints de datos) y un nivel de rol por tool
 (read/operate/admin) más confirmación explícita para acciones sensibles. Ver
 `src/mcp/system-tools.ts`.

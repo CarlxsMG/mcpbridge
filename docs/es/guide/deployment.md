@@ -50,9 +50,13 @@ En producción:
 
 - Mantén **`SESSION_COOKIE_SECURE=true`** para que la cookie de sesión admin sea
   `__Host-`/Secure.
-- Define **`TRUST_PROXY=true`** _solo_ cuando el bridge esté genuinamente detrás de un
-  proxy de confianza, para que lea la IP real del cliente desde `X-Forwarded-For`
-  correctamente.
+- Define **`TRUST_PROXY`** con un número de saltos (`1` para un único reverse proxy) o una
+  lista CIDR/preset (`loopback,uniquelocal`) que coincida con tu topología real de proxy —
+  **nunca `true` a secas** en producción. `true` le dice a Express que confíe en _todos_ los
+  saltos de `X-Forwarded-For`, así que un cliente puede simplemente anteponer una IP
+  falsificada a ese header y que se acepte como su dirección real; un número de saltos hace
+  que Express solo lea la IP que añadió tu propio proxy de confianza, ignorando lo que el
+  cliente haya inyectado.
 - Reenvía el header `X-Forwarded-Proto` para que la lógica de HSTS y secure-cookie
   funcione.
 

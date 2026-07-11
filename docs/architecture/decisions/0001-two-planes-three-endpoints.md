@@ -107,7 +107,7 @@ sensitive / `__confirm` step-up gate, reusing the same mechanism
   proxy already enforces on sensitive backend tools.
 - `src/security/system-role.ts` `resolveSystemRole` rejects callers with
   no system-role credential — there is **no** unconfigured-admin open
-  mode. Covered by `src/__tests__/system-tools.test.ts`.
+  mode. Covered by `src/mcp/__tests__/system-tools.test.ts`.
 - `e2e/auth-fail-closed.spec.ts` and `e2e/mcp-protocol.spec.ts` exercise
   the data plane against the post-split `/mcp/:clientName` endpoint, with
   each spec minting its own managed MCP key so the suite is

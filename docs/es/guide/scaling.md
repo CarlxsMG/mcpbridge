@@ -22,7 +22,7 @@ a través de una base de datos SQLite compartida.
 
 | Setting                  | Efecto                                                                                                                                             |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RATE_LIMIT_SHARED=true` | Los rate limits usan contadores fixed-window en SQLite, de modo que un límite por tool se aplica cross-**all**-instancias, no por proceso.         |
+| `RATE_LIMIT_SHARED=true` | Los rate limits usan contadores fixed-window en SQLite, de modo que un límite por tool se aplica en **todas** las instancias, no por proceso.      |
 | `REGISTRY_SYNC=true`     | Cada instancia reconcilia periódicamente su registry en vivo desde SQLite — un cliente registrado (o eliminado) en un nodo se propaga a los otros. |
 
 Los loops en background que deben correr **una vez** — evaluación de alertas, schedules de

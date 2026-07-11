@@ -25,11 +25,10 @@ qué versiones mayores reciben fixes de seguridad backportados.
 
 **Por favor no abras un issue público de GitHub para vulnerabilidades de seguridad.**
 
-Preferido: usa el [reporte privado de vulnerabilidades de GitHub](https://github.com/aico-dot-team-code/mcpbridge/security/advisories/new)
+Usa el [reporte privado de vulnerabilidades de GitHub](https://github.com/aico-dot-team-code/mcpbridge/security/advisories/new)
 para este repositorio (pestaña "Security" → "Report a vulnerability"). Esto abre un hilo
-de advisory privado solo con los maintainers.
-
-Alternativamente, envía un email a **security@aico.team**.
+de advisory privado solo con los maintainers, para que puedas revelar los detalles sin
+abrir un issue público.
 
 Al reportar, por favor incluye:
 

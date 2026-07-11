@@ -5,10 +5,10 @@ to the bridge over the Model Context Protocol. Point it at the endpoint that mat
 tools it should see.
 
 ::: tip Supported protocol version
-The bridge implements **MCP protocol version `2025-06-18`**. Clients that negotiate an
-older or newer version during initialization should still interoperate (the SDK handles
-version negotiation), but `2025-06-18` is the version this gateway is built and tested
-against — worth knowing if you hit a client-specific quirk.
+The bridge negotiates the MCP protocol version via the official TypeScript SDK, which
+currently supports `2025-03-26` through `2025-11-25` (including `2025-06-18`). Clients
+that negotiate a version in that range during initialization should interoperate
+automatically — worth knowing if you hit a client-specific quirk.
 :::
 
 ## Choose an endpoint

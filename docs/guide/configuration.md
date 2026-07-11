@@ -18,13 +18,13 @@ list is the `config` object in `src/config.ts` (validated at boot by `src/config
 
 ## Runtime & networking
 
-| Variable                | Default                        | Description                                                                               |
-| ----------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
-| `PORT`                  | `3000` (Docker) / `8790` (dev) | Backend listen port.                                                                      |
-| `SESSION_COOKIE_SECURE` | `true`                         | Keep `true` in production (HTTPS). Set `false` only for local plain-HTTP dev.             |
-| `NODE_ENV`              | —                              | `development` relaxes startup guards for local dev. **Never** in production.              |
-| `TRUST_PROXY`           | `false`                        | Enable **only** when behind a trusted reverse proxy (affects client-IP trust).            |
-| `ALLOW_PRIVATE_IPS`     | `false`                        | Allow registering backends on loopback/private IPs. Local dev only — never in production. |
+| Variable                | Default                        | Description                                                                                                                                                                                                           |
+| ----------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                  | `3000` (Docker) / `8790` (dev) | Backend listen port.                                                                                                                                                                                                  |
+| `SESSION_COOKIE_SECURE` | `true`                         | Keep `true` in production (HTTPS). Set `false` only for local plain-HTTP dev.                                                                                                                                         |
+| `NODE_ENV`              | —                              | `development` relaxes startup guards for local dev. **Never** in production.                                                                                                                                          |
+| `TRUST_PROXY`           | `false`                        | Hop count (e.g. `1`) or CIDR/preset list matching your reverse-proxy topology — never bare `true`, which trusts every hop in `X-Forwarded-For` and lets a client spoof its IP. See [Deployment →](/guide/deployment). |
+| `ALLOW_PRIVATE_IPS`     | `false`                        | Allow registering backends on loopback/private IPs. Local dev only — never in production.                                                                                                                             |
 
 ## Persistence
 

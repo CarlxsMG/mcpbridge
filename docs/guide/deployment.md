@@ -47,8 +47,12 @@ Terminate TLS at your proxy (nginx, Caddy, Traefik, a cloud LB) and forward to t
 In production:
 
 - Keep **`SESSION_COOKIE_SECURE=true`** so the admin session cookie is `__Host-`/Secure.
-- Set **`TRUST_PROXY=true`** _only_ when the bridge is genuinely behind a trusted proxy, so
-  it reads the real client IP from `X-Forwarded-For` correctly.
+- Set **`TRUST_PROXY`** to a hop count (`1` for a single reverse proxy) or a CIDR/preset list
+  (`loopback,uniquelocal`) matching your actual proxy topology — **never bare `true`** in
+  production. `true` tells Express to trust _every_ hop in `X-Forwarded-For`, so a client can
+  simply prepend a forged IP to that header and have it accepted as their real address; a hop
+  count makes Express read only the IP your own trusted proxy appended, ignoring anything the
+  client injected.
 - Forward the `X-Forwarded-Proto` header so HSTS and secure-cookie logic behave.
 
 ## Bun (bare metal / VM)

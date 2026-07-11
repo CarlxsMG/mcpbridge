@@ -5,11 +5,11 @@ se conecta al bridge a través del Model Context Protocol. Apúntalo al endpoint
 corresponde a las tools que debe ver.
 
 ::: tip Versión de protocolo soportada
-El bridge implementa la **versión `2025-06-18` del protocolo MCP**. Los clientes que
-negocien una versión anterior o posterior durante el init aún deberían interoperar (el
-SDK maneja la negociación de versiones), pero `2025-06-18` es la versión contra la que
-este gateway está construido y probado — vale la pena saberlo si te encuentras con una
-rareza específica del cliente.
+El bridge negocia la versión del protocolo MCP a través del SDK oficial de TypeScript,
+que actualmente soporta desde `2025-03-26` hasta `2025-11-25` (incluyendo `2025-06-18`).
+Los clientes que negocien una versión dentro de ese rango durante el init deberían
+interoperar automáticamente — vale la pena saberlo si te encuentras con una rareza
+específica del cliente.
 :::
 
 ## Elige un endpoint

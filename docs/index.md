@@ -80,19 +80,24 @@ each client sees, and watch health, usage and audit trails live.
 ```bash
 docker build -t mcpbridge .
 
+export ADMIN_API_KEY=$(openssl rand -hex 24)
+
 docker run -p 3000:3000 \
   -e NODE_ENV=development \
   -e SESSION_COOKIE_SECURE=false \
   -e BOOTSTRAP_ADMIN_USERNAME=admin \
   -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
+  -e ADMIN_API_KEYS=$ADMIN_API_KEY \
   -v "$PWD/data:/app/data" \
   mcpbridge
 ```
 
-Open **http://localhost:3000/admin**, log in, and add your first server. Then point any
-MCP client at that backend's shard — `http://localhost:3000/mcp/<your-server>` — or
-[curate a bundle](/guide/bundles) to serve several backends behind one endpoint. Full
-walkthrough in **[Getting started →](/guide/getting-started)**
+Open **http://localhost:3000/admin**, log in, and add your first server. `$ADMIN_API_KEY` is
+the Bearer token the `curl`/CLI examples throughout these docs use — keep it exported in the
+same shell. Then point any MCP client at that backend's shard —
+`http://localhost:3000/mcp/<your-server>` — or [curate a bundle](/guide/bundles) to serve
+several backends behind one endpoint. Full walkthrough in
+**[Getting started →](/guide/getting-started)**
 
 ## How it works
 

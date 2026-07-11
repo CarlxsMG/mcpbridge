@@ -24,7 +24,7 @@ must know _which_ tool is being called before it can apply per-tool rules.
 removed. If you want cross-client backend tools in one session, curate a bundle. `/mcp`
 itself is the control plane: an LLM client connects there to inspect and operate the gateway
 (list/register/enable clients, mint keys, tail the audit log, ...), gated by its own
-fail-closed auth (`RootMcpAuth` — no "unconfigured means open" fallback, unlike the two data
+fail-closed auth (`rootMcpAuth` — no "unconfigured means open" fallback, unlike the two data
 endpoints) and a per-tool role tier (read/operate/admin) plus step-up confirmation for
 sensitive actions. See `src/mcp/system-tools.ts`.
 

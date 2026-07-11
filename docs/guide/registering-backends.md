@@ -160,9 +160,16 @@ enable flags — survives re-discovery.
 
 ## Removing a backend
 
-`DELETE /clients/:name` (admin auth) unregisters a backend — the registry handles in-flight
-request cleanup, circuit-breaker state, and tool-index removal for you. The admin UI exposes
-the same action from a server's detail page.
+`DELETE /admin-api/clients/:name` (see [API reference](/guide/api-reference)) removes a
+backend — the registry handles in-flight request cleanup, circuit-breaker state, and
+tool-index removal for you, and its persisted admin config (guards, enable flags, etc.) is
+purged too. The admin UI exposes the same action from a server's detail page.
+
+There's also a lighter `DELETE /clients/:name` at the top level: it tears down the same
+in-memory/live state but leaves the client's row in SQLite untouched, so the backend can
+reappear on the next DB reconciliation. Prefer `/admin-api/clients/:name` for a real,
+permanent removal; the top-level route exists mainly for the health-eviction code path
+internally and isn't meant as the primary way to unregister a backend by hand.
 
 Next: **[Aggregating backends into one endpoint →](/guide/bundles)** ·
 **[Connecting MCP clients →](/guide/connecting-clients)** ·

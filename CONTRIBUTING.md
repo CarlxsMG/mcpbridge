@@ -143,10 +143,14 @@ change in, if there was one.
 
 Before opening a PR, please confirm:
 
-- [ ] `bun run test` passes (backend)
-- [ ] `bun run typecheck` passes (backend)
-- [ ] `cd admin-ui && bun run typecheck` passes (if you touched the admin UI)
-- [ ] `cd admin-ui && bun run test` passes (if you touched the admin UI)
+- [ ] `bun run check` passes — the one-shot local CI gate (format:check → root lint →
+      admin-ui lint → root typecheck → root tests → admin-ui typecheck → admin-ui tests →
+      admin-ui build, in order). Run this before opening a PR; it's what CI actually checks.
+- [ ] If `bun run check` fails, the granular commands below can help narrow down which stage:
+  - [ ] `bun run test` passes (backend)
+  - [ ] `bun run typecheck` passes (backend)
+  - [ ] `cd admin-ui && bun run typecheck` passes (if you touched the admin UI)
+  - [ ] `cd admin-ui && bun run test` passes (if you touched the admin UI)
 - [ ] New/changed schema goes through a new, appended `src/db/migrations.ts` entry
       (not an edit to an existing one)
 - [ ] Commit messages follow the `type(scope): summary` convention above

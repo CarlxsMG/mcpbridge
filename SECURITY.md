@@ -17,12 +17,10 @@ major versions receive backported security fixes.
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Preferred: use [GitHub's private vulnerability reporting](https://github.com/aico-dot-team-code/mcpbridge/security/advisories/new)
+Use [GitHub's private vulnerability reporting](https://github.com/aico-dot-team-code/mcpbridge/security/advisories/new)
 for this repository ("Security" tab → "Report a vulnerability"). This opens a
-private advisory thread with maintainers only.
-
-Alternatively, email **security@aico.team** _(placeholder — replace with a real,
-monitored security contact before publishing this repo publicly)_.
+private advisory thread with maintainers only, so you can disclose details
+without a public issue.
 
 When reporting, please include:
 

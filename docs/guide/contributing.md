@@ -46,7 +46,7 @@ bun run dev:all      # backend :8790 + admin UI :8791, both with hot reload
 
 | Command                            | What it runs                                                                                        |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `bun test`                         | Backend test suite (`src/**/__tests__/`). Should be 100% green.                                     |
+| `bun run test`                     | Backend test suite (`src/**/__tests__/`). Should be 100% green.                                     |
 | `bun run typecheck`                | Backend typecheck (`tsc --noEmit`)                                                                  |
 | `cd admin-ui && bun run test`      | Admin UI component/unit tests (Vitest)                                                              |
 | `cd admin-ui && bun run typecheck` | Admin UI typecheck (`vue-tsc -b --noEmit`)                                                          |

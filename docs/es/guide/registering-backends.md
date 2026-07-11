@@ -165,9 +165,18 @@ La config por tool — guards, aliases, enable flags — sobrevive al re-descubr
 
 ## Eliminar un backend
 
-`DELETE /clients/:name` (auth admin) da de baja un backend — el registro se encarga de la
-limpieza de requests en vuelo, el estado del circuit-breaker y la eliminación del índice de
-tools por ti. La UI de admin expone la misma acción desde la página de detalle del server.
+`DELETE /admin-api/clients/:name` (ver [Referencia de API](/es/guide/api-reference)) elimina
+un backend — el registro se encarga de la limpieza de requests en vuelo, el estado del
+circuit-breaker y la eliminación del índice de tools por ti, y su config admin persistida
+(guards, enable flags, etc.) también se purga. La UI de admin expone la misma acción desde la
+página de detalle del server.
+
+También existe un `DELETE /clients/:name` más ligero a nivel raíz: da de baja el mismo estado
+en memoria/en vivo pero deja intacta la fila del cliente en SQLite, así que el backend puede
+reaparecer en la siguiente reconciliación con la base de datos. Prefiere
+`/admin-api/clients/:name` para una eliminación real y permanente; la ruta de nivel raíz
+existe sobre todo para el propio código de auto-eliminación por salud, y no está pensada como
+la forma principal de dar de baja un backend a mano.
 
 Siguiente: **[Agregar backends en un solo endpoint →](/es/guide/bundles)** ·
 **[Conectar clientes MCP →](/es/guide/connecting-clients)** ·

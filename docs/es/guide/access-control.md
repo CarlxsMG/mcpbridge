@@ -45,7 +45,7 @@ limitarlo.
 
 ## Equipos (multi-tenancy)
 
-Los **equipos** scoping a clientes para que los tenants solo vean y gestionen sus propios
+Los **equipos** acotan los clientes para que los tenants solo vean y gestionen sus propios
 backends. Un super-admin con bearer lo ve todo; un usuario de sesión sin equipo es
 super-admin; un usuario scoped a un equipo está limitado a su equipo. El acceso
 cross-team devuelve la misma respuesta "no encontrado" que un recurso inexistente, para

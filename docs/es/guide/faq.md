@@ -12,9 +12,10 @@ nada de él requiere Kubernetes, Postgres o cualquier servicio externo. Consulta
 
 ## ¿Funciona con Claude Desktop, Cursor u otros clientes MCP?
 
-Sí — cualquier cliente que hable el Model Context Protocol. El bridge implementa la
-**versión `2025-06-18` del protocolo MCP** y está probado contra Claude Desktop, Cursor y
-agentes personalizados. El comando CLI `gateway connect` genera configs listas para pegar
+Sí — cualquier cliente que hable el Model Context Protocol. El bridge negocia la versión
+del protocolo a través del SDK oficial de TypeScript, que actualmente soporta desde
+`2025-03-26` hasta `2025-11-25` (incluyendo `2025-06-18`), y está probado contra Claude
+Desktop, Cursor y agentes personalizados. El comando CLI `gateway connect` genera configs listas para pegar
 específicas para Claude Desktop, Cursor, Windsurf y Continue. Consulta
 [Conectar clientes MCP →](/es/guide/connecting-clients).
 
@@ -57,7 +58,7 @@ drift, `apply` para aplicarla. Útil para CI/CD y revisión estilo GitOps. Consu
 
 Las migraciones de schema se ejecutan automáticamente al arrancar y son sólo forward — no
 hay rollback automático, así que haz backup de tu base de datos SQLite antes de actualizar a
-una nueva versión. Consulta [Despliegue → Actualizar](/es/guide/deployment#upgrading).
+una nueva versión. Consulta [Despliegue → Actualizar](/es/guide/deployment#actualizar).
 
 ## ¿Puedo probarlo sin instalar nada?
 
