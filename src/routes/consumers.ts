@@ -12,7 +12,7 @@ import {
   getConsumerUsageThisMonth,
   isValidQuotaValue,
 } from "../admin/entities/consumers.js";
-import { sendError, validationError, notFound } from "./http-errors.js";
+import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 import type { LooseValidationResult } from "./validation.js";
 
 function optPositiveIntOrNull(v: unknown): LooseValidationResult<number | null> {
@@ -27,7 +27,7 @@ export function consumerRoutes(app: Express): void {
   });
 
   app.post("/admin-api/consumers", adminAuth, requireAdminRole, (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name || name.length > 128) {
       validationError(res, "name is required (1-128 chars)");
@@ -65,7 +65,7 @@ export function consumerRoutes(app: Express): void {
       notFound(res, "CONSUMER_NOT_FOUND", "Consumer not found");
       return;
     }
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const updates: { name?: string; monthlyQuota?: number | null; endUserRateLimitPerMin?: number | null } = {};
     if (body.name !== undefined) {
       if (typeof body.name !== "string" || !body.name.trim()) {

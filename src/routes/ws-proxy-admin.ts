@@ -11,7 +11,7 @@ import {
   type WsProxyTargetError,
   type WsProxyTargetInput,
 } from "../ws-proxy.js";
-import { sendError, validationError, notFound } from "./http-errors.js";
+import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
 
 const WS_PROXY_ERROR_STATUS: Record<WsProxyTargetError["code"], number> = {
@@ -76,7 +76,7 @@ export function wsProxyAdminRoutes(app: Express): void {
   });
 
   app.post("/admin-api/ws-proxy-targets", adminAuth, requireAdminRole, async (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name : "";
     const parsed = parseTargetInput(body);
     if (!parsed.ok) {
@@ -107,7 +107,7 @@ export function wsProxyAdminRoutes(app: Express): void {
         notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
         return;
       }
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       const existing = getWsProxyTargetDetail(name)!;
       const merged = {
         backendWsUrl: existing.backendWsUrl,

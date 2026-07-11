@@ -13,7 +13,7 @@ import {
 } from "../security/mcp-key-store.js";
 import { isAdminRole, type AdminRole } from "../security/user-store.js";
 import { getConsumer } from "../admin/entities/consumers.js";
-import { sendError, validationError, notFound, forbidden } from "./http-errors.js";
+import { sendError, validationError, notFound, forbidden, bodyOf } from "./http-errors.js";
 import type { ValidationResult } from "./validation.js";
 
 function validateConsumerId(v: unknown): ValidationResult<number | null> {
@@ -71,7 +71,7 @@ export function mcpKeyRoutes(app: Express): void {
   });
 
   app.post("/admin-api/mcp-keys", adminAuth, requireAdminRole, (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const label = validateLabel(body.label);
     if (!label.ok) {
       validationError(res, label.message);
@@ -153,7 +153,7 @@ export function mcpKeyRoutes(app: Express): void {
       notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
       return;
     }
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const updates: {
       label?: string;
       enabled?: boolean;

@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { getClientOAuth, setClientOAuth, type OAuthError } from "../../backend-auth/oauth.js";
 import { ensureClientAccess, requireOperator } from "../../middleware/authz.js";
-import { sendError, validationError } from "../http-errors.js";
+import { sendError, validationError, bodyOf } from "../http-errors.js";
 import { mutationErrorToStatus } from "../validation.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 
@@ -35,7 +35,7 @@ oauthRoutes.get("/clients/:name/oauth", (req: Request<{ name: string }>, res: Re
 oauthRoutes.put("/clients/:name/oauth", requireOperator, async (req: Request<{ name: string }>, res: Response) => {
   const { name } = req.params;
   if (!ensureClientAccess(req, res, name)) return;
-  const body = (req.body as Record<string, unknown>) ?? {};
+  const body = bodyOf(req);
   let input: { tokenUrl: string; clientId: string; clientSecret: string; scope?: string } | null;
   if (body.oauth === null) {
     input = null;

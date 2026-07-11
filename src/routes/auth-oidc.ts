@@ -17,7 +17,7 @@ import { touchLastLogin } from "../security/user-store.js";
 import { getSecretsProvider } from "../secrets/index.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { log } from "../logger.js";
-import { sendError, validationError, requestId } from "./http-errors.js";
+import { sendError, validationError, requestId, bodyOf } from "./http-errors.js";
 import {
   getOidcPublicConfig,
   getOidcSettings,
@@ -180,7 +180,7 @@ export function authOidcRoutes(app: Express): void {
   });
 
   app.put("/admin-api/auth/oidc/settings", adminAuth, requireSuperAdmin, async (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const issuer = typeof body.issuer === "string" ? body.issuer : "";
     const clientId = typeof body.clientId === "string" ? body.clientId : "";
     const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret : "";

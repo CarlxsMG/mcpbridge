@@ -11,7 +11,7 @@ import {
 } from "../../security/user-store.js";
 import { revokeAllSessionsForUser } from "../../security/session-store.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
-import { sendError, validationError, notFound } from "../http-errors.js";
+import { sendError, validationError, notFound, bodyOf } from "../http-errors.js";
 import { requireAdminRole } from "../../middleware/authz.js";
 
 /**
@@ -40,7 +40,7 @@ usersRoutes.get("/users", requireAdminRole, (_req: Request, res: Response) => {
 });
 
 usersRoutes.post("/users", requireAdminRole, async (req: Request, res: Response) => {
-  const body = (req.body as Record<string, unknown>) ?? {};
+  const body = bodyOf(req);
   const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
   const role: AdminRole = isAdminRole(body.role) ? body.role : "admin";
@@ -63,7 +63,7 @@ usersRoutes.post("/users", requireAdminRole, async (req: Request, res: Response)
 
 usersRoutes.patch("/users/:username", requireAdminRole, (req: Request<{ username: string }>, res: Response) => {
   const { username } = req.params;
-  const body = (req.body as Record<string, unknown>) ?? {};
+  const body = bodyOf(req);
   const existing = findUserByUsername(username);
   if (!existing) {
     notFound(res, "USER_NOT_FOUND", "User not found");

@@ -1,9 +1,9 @@
 import { Router, type Request, type Response } from "express";
 import { listApprovals, getApproval, decideApproval, type ApprovalStatus } from "../../admin/entities/approvals.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
-import { sendError, notFound } from "../http-errors.js";
+import { sendError, notFound, bodyOf } from "../http-errors.js";
 import { ensureClientAccess, requireOperator } from "../../middleware/authz.js";
-import { TOOL_KEY_SEPARATOR, toolKey } from "../../lib/identifier.js";
+import { toolKey } from "../../lib/identifier.js";
 
 /**
  * Human-in-the-loop approvals queue: list pending tickets, decide one
@@ -27,10 +27,8 @@ approvalsRoutes.post("/approvals/:id/approve", requireOperator, (req: Request<{ 
     return;
   }
   if (!ensureClientAccess(req, res, rec.clientName)) return;
-  const note =
-    typeof (req.body as Record<string, unknown>)?.note === "string"
-      ? ((req.body as Record<string, unknown>).note as string)
-      : null;
+  const body = bodyOf(req);
+  const note = typeof body.note === "string" ? body.note : null;
   const result = decideApproval(rec.id, "approved", actorFromRequest(req), note);
   if (!result.ok) {
     sendError(res, 409, "NOT_PENDING", result.message);
@@ -57,10 +55,8 @@ approvalsRoutes.post("/approvals/:id/reject", requireOperator, (req: Request<{ i
     return;
   }
   if (!ensureClientAccess(req, res, rec.clientName)) return;
-  const note =
-    typeof (req.body as Record<string, unknown>)?.note === "string"
-      ? ((req.body as Record<string, unknown>).note as string)
-      : null;
+  const body = bodyOf(req);
+  const note = typeof body.note === "string" ? body.note : null;
   const result = decideApproval(rec.id, "rejected", actorFromRequest(req), note);
   if (!result.ok) {
     sendError(res, 409, "NOT_PENDING", result.message);

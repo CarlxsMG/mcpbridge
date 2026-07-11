@@ -1,11 +1,10 @@
 import { Router, type Request, type Response } from "express";
 import { registry } from "../../mcp/registry.js";
 import { ensureClientAccess, callerTeamId, requireOperator, canCallerAccessClient } from "../../middleware/authz.js";
-import { sendError, validationError, notFound } from "../http-errors.js";
+import { validationError, notFound, bodyOf } from "../http-errors.js";
 import { validateClientGuardInput } from "../admin-validators.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import type { ClientStatus } from "../../mcp/types.js";
-import { toolKey } from "../../lib/identifier.js";
 
 /**
  * Clients CRUD-ish surface. Per-client PATCH currently exposes two
@@ -52,7 +51,7 @@ clientsRoutes.get("/clients/:name", (req: Request<{ name: string }>, res: Respon
 clientsRoutes.patch("/clients/:name", requireOperator, async (req: Request<{ name: string }>, res: Response) => {
   const { name } = req.params;
   if (!ensureClientAccess(req, res, name)) return;
-  const body = (req.body as Record<string, unknown>) ?? {};
+  const body = bodyOf(req);
   const actor = actorFromRequest(req);
 
   if (body.enabled !== undefined) {
@@ -102,7 +101,7 @@ clientsRoutes.delete("/clients/:name", requireOperator, async (req: Request<{ na
 // one transaction per name — partial successes are reported in the
 // response so the operator can see which names didn't exist.
 clientsRoutes.patch("/clients", requireOperator, async (req: Request, res: Response) => {
-  const body = (req.body as Record<string, unknown>) ?? {};
+  const body = bodyOf(req);
   const names = body.names;
   const enabled = body.enabled;
   if (!Array.isArray(names) || names.some((n) => typeof n !== "string") || typeof enabled !== "boolean") {

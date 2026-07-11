@@ -11,7 +11,7 @@ import {
   type CompositeStep,
   type CompositeMutationError,
 } from "../admin/tool-composition/composites.js";
-import { sendError, validationError, notFound } from "./http-errors.js";
+import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
 
 const MAX_STEPS = 10;
@@ -69,7 +69,7 @@ export function compositeRoutes(app: Express): void {
   });
 
   app.post("/admin-api/composites", adminAuth, requireAdminRole, async (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name : "";
     const description = typeof body.description === "string" ? body.description : undefined;
     const inputSchema = (
@@ -105,7 +105,7 @@ export function compositeRoutes(app: Express): void {
     requireAdminRole,
     async (req: Request<{ name: string }>, res: Response) => {
       const { name } = req.params;
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       const updates: {
         description?: string | null;
         enabled?: boolean;

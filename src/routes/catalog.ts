@@ -14,7 +14,7 @@ import {
   type CustomCatalogEntryInput,
   type CatalogMutationError,
 } from "../catalog/index.js";
-import { requestId, sendError, validationError, notFound, forbidden } from "./http-errors.js";
+import { requestId, sendError, validationError, notFound, forbidden, bodyOf } from "./http-errors.js";
 import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
 
 const CATALOG_ERROR_STATUS: Record<CatalogMutationError["code"], number> = {
@@ -83,7 +83,7 @@ export function catalogRoutes(app: Express): void {
   });
 
   app.post("/admin-api/catalog", adminAuth, requireAdminRole, (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const parsed = parseCustomEntryInput(body, true);
     if (!parsed.ok) {
       validationError(res, parsed.message);
@@ -115,7 +115,7 @@ export function catalogRoutes(app: Express): void {
       return;
     }
     const rowId = Number(id.slice("custom:".length));
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const parsed = parseCustomEntryInput(body, false);
     if (!parsed.ok) {
       validationError(res, parsed.message);
@@ -167,7 +167,7 @@ export function catalogRoutes(app: Express): void {
         notFound(res, "CATALOG_ENTRY_NOT_FOUND", "Catalog entry not found");
         return;
       }
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : entry.slug;
       const peerIp = req.socket?.remoteAddress;
       const reqId = requestId(res);

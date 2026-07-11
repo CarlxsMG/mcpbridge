@@ -8,7 +8,7 @@ import {
   type LbStrategy,
 } from "../../tool-policies/load-balancer.js";
 import { ensureClientAccess, requireOperator } from "../../middleware/authz.js";
-import { sendError, validationError } from "../http-errors.js";
+import { sendError, validationError, bodyOf } from "../http-errors.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 
 /**
@@ -31,7 +31,7 @@ lbRoutes.get("/clients/:name/lb", (req: Request<{ name: string }>, res: Response
 lbRoutes.put("/clients/:name/lb", requireOperator, (req: Request<{ name: string }>, res: Response) => {
   const { name } = req.params;
   if (!ensureClientAccess(req, res, name)) return;
-  const body = (req.body as Record<string, unknown>) ?? {};
+  const body = bodyOf(req);
   let input: { strategy: LbStrategy; primaryWeight: number; enabled: boolean } | null;
   if (body.lb === null) {
     input = null;
@@ -58,7 +58,7 @@ lbRoutes.put("/clients/:name/lb", requireOperator, (req: Request<{ name: string 
 lbRoutes.post("/clients/:name/lb/upstreams", requireOperator, async (req: Request<{ name: string }>, res: Response) => {
   const { name } = req.params;
   if (!ensureClientAccess(req, res, name)) return;
-  const body = (req.body as Record<string, unknown>) ?? {};
+  const body = bodyOf(req);
   const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl : "";
   const weight = typeof body.weight === "number" ? body.weight : 1;
   if (!baseUrl) {
@@ -80,7 +80,7 @@ lbRoutes.patch(
   (req: Request<{ name: string; id: string }>, res: Response) => {
     const { name, id } = req.params;
     if (!ensureClientAccess(req, res, name)) return;
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const patch: { enabled?: boolean; weight?: number } = {};
     if (body.enabled !== undefined) {
       if (typeof body.enabled !== "boolean") {

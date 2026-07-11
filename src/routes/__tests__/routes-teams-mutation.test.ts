@@ -80,6 +80,38 @@ describe("GET /admin-api/teams", () => {
   });
 });
 
+describe("GET /admin-api/teams/:id", () => {
+  test("a non-integer id fails validation with the exact message", async () => {
+    await withApp(async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/admin-api/teams/not-a-number`, { headers: bearer() });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { code: string; message: string } };
+      expect(body.error.code).toBe("VALIDATION_ERROR");
+      expect(body.error.message).toBe("id must be an integer");
+    });
+  });
+
+  test("an unknown team id returns the exact TEAM_NOT_FOUND 404", async () => {
+    await withApp(async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/admin-api/teams/999999`, { headers: bearer() });
+      expect(res.status).toBe(404);
+      const body = (await res.json()) as { error: { code: string; message: string } };
+      expect(body.error.code).toBe("TEAM_NOT_FOUND");
+      expect(body.error.message).toBe("Team not found");
+    });
+  });
+
+  test("a known team id returns its full detail", async () => {
+    await withApp(async (baseUrl) => {
+      const t = seedTeam("svc-teams-get-detail");
+      const res = await fetch(`${baseUrl}/admin-api/teams/${t.id}`, { headers: bearer() });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { id: number; name: string };
+      expect(body).toEqual(t);
+    });
+  });
+});
+
 describe("POST /admin-api/teams", () => {
   // Kills 6 LogicalOperator (?? -> &&): with no Content-Type/body at all,
   // req.body is undefined; `??` falls back to {} and validation fails

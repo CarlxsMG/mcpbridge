@@ -3,7 +3,7 @@ import { adminAuth } from "../middleware/auth.js";
 import { requireOperator } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { listSchedules, createSchedule, setScheduleEnabled, deleteSchedule } from "../admin/entities/schedules.js";
-import { sendError, validationError, notFound } from "./http-errors.js";
+import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 
 export function scheduleRoutes(app: Express): void {
   app.get("/admin-api/schedules", adminAuth, (_req: Request, res: Response) => {
@@ -11,7 +11,7 @@ export function scheduleRoutes(app: Express): void {
   });
 
   app.post("/admin-api/schedules", adminAuth, requireOperator, (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const targetType = body.targetType;
     const clientName = typeof body.clientName === "string" ? body.clientName : "";
     const toolName = typeof body.toolName === "string" ? body.toolName : null;
@@ -48,7 +48,7 @@ export function scheduleRoutes(app: Express): void {
   });
 
   app.patch("/admin-api/schedules/:id", adminAuth, requireOperator, (req: Request<{ id: string }>, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     if (typeof body.enabled !== "boolean") {
       validationError(res, "enabled (boolean) is required");
       return;

@@ -3,7 +3,7 @@ import { config } from "../config.js";
 import { adminAuth } from "../middleware/auth.js";
 import { requireOperator } from "../middleware/authz.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
-import { validationError } from "./http-errors.js";
+import { validationError, bodyOf } from "./http-errors.js";
 import {
   performRestRegistration,
   performMcpRegistration,
@@ -25,17 +25,14 @@ export function registerRoutes(app: Express): void {
       if (req.body === null || typeof req.body !== "object" || Array.isArray(req.body)) {
         return validationError(res, "Request body must be a JSON object");
       }
+      const b = bodyOf(req);
 
       // Change B — cap tools[] length before any other processing
-      if (
-        Array.isArray((req.body as Record<string, unknown>).tools) &&
-        ((req.body as Record<string, unknown>).tools as unknown[]).length > config.maxToolsPerClient
-      ) {
+      if (Array.isArray(b.tools) && (b.tools as unknown[]).length > config.maxToolsPerClient) {
         return validationError(res, `tools[] exceeds maximum of ${config.maxToolsPerClient}`);
       }
 
       const peerIp = req.socket?.remoteAddress;
-      const b = req.body as Record<string, unknown>;
 
       // MCP-upstream and GraphQL registration each take a distinct shape from
       // plain REST/OpenAPI; same adminAuth + SSRF posture as REST in all cases.

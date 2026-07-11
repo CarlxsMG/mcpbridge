@@ -12,7 +12,7 @@ import {
   revokeSessionById,
 } from "../security/session-store.js";
 import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME, parseCookies } from "../security/cookies.js";
-import { requestId, sendError, validationError, forbidden, notFound } from "./http-errors.js";
+import { requestId, sendError, validationError, forbidden, notFound, bodyOrNull } from "./http-errors.js";
 
 // A syntactically-valid argon2id hash with no corresponding real user, verified
 // against on every login where the username doesn't exist — keeps failure
@@ -37,7 +37,7 @@ function clearSessionCookies(res: Response): void {
 
 export function authRoutes(app: Express): void {
   app.post("/admin-api/auth/login", rateLimitLogin(config.rateLimitLogin), async (req: Request, res: Response) => {
-    const body = req.body as Record<string, unknown> | null;
+    const body = bodyOrNull(req);
     const username = typeof body?.username === "string" ? body.username.trim().toLowerCase() : "";
     const password = typeof body?.password === "string" ? body.password : "";
 
@@ -95,7 +95,7 @@ export function authRoutes(app: Express): void {
       return;
     }
 
-    const body = req.body as Record<string, unknown> | null;
+    const body = bodyOrNull(req);
     const currentPassword = typeof body?.current_password === "string" ? body.current_password : "";
     const newPassword = typeof body?.new_password === "string" ? body.new_password : "";
 

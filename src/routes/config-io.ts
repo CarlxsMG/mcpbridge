@@ -12,7 +12,7 @@ import {
   diffSnapshot,
   rollbackToSnapshot,
 } from "../admin/config/config-versions.js";
-import { sendError, validationError, notFound } from "./http-errors.js";
+import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 
 export function configIoRoutes(app: Express): void {
   app.get("/admin-api/config/export", adminAuth, requireAdminRole, (req: Request, res: Response) => {
@@ -26,7 +26,7 @@ export function configIoRoutes(app: Express): void {
   });
 
   app.post("/admin-api/config/import", adminAuth, requireAdminRole, async (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const dryRun = body.dryRun === true;
     // Accept { dryRun, data }, a bare export document, or { format:"yaml", raw }
     // (YAML text travels inside the normal JSON body — no separate content-type
@@ -63,7 +63,7 @@ export function configIoRoutes(app: Express): void {
   });
 
   app.post("/admin-api/config/snapshots", adminAuth, requireAdminRole, (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const label = typeof body.label === "string" ? body.label.trim() : "";
     if (!label || label.length > 120) {
       validationError(res, "label is required (<= 120 chars)");

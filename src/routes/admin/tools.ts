@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { registry } from "../../mcp/registry.js";
 import { ensureClientAccess, requireOperator } from "../../middleware/authz.js";
-import { sendError, validationError, notFound } from "../http-errors.js";
+import { validationError, notFound, bodyOf } from "../http-errors.js";
 import { listExamples, createExample, deleteExample } from "../../tool-meta/tool-examples.js";
 import { purgeToolCache } from "../../tool-policies/response-cache.js";
 import { clearQuarantine } from "../../tool-policies/quarantine.js";
@@ -36,7 +36,7 @@ toolsRoutes.patch(
   async (req: Request<{ name: string; tool: string }>, res: Response) => {
     const { name, tool } = req.params;
     if (!ensureClientAccess(req, res, name)) return;
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     if (typeof body !== "object" || body === null || Array.isArray(body)) {
       validationError(res, "request body must be a JSON object");
       return;
@@ -56,7 +56,7 @@ toolsRoutes.patch("/clients/:name/tools", requireOperator, async (req: Request<{
   const { name } = req.params;
   // Tenancy: this bulk toggle targets one client's tools, so scope it up front.
   if (!ensureClientAccess(req, res, name)) return;
-  const body = (req.body as Record<string, unknown>) ?? {};
+  const body = bodyOf(req);
   const toolNames = body.tool_names;
   const enabled = body.enabled;
   if (!Array.isArray(toolNames) || toolNames.some((n) => typeof n !== "string") || typeof enabled !== "boolean") {
@@ -88,7 +88,7 @@ toolsRoutes.post(
       notFound(res, "TOOL_NOT_FOUND", "Client or tool not found");
       return;
     }
-    const args = (req.body as Record<string, unknown>) ?? {};
+    const args = bodyOf(req);
     const result = await proxyToolCall(mcpToolName, args);
     recordAudit(actorFromRequest(req), "tool.test", mcpToolName);
     res.status(200).json(result);
@@ -111,7 +111,7 @@ toolsRoutes.post(
   (req: Request<{ name: string; tool: string }>, res: Response) => {
     const { name, tool } = req.params;
     if (!ensureClientAccess(req, res, name)) return;
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const label = typeof body.label === "string" ? body.label.trim() : "";
     if (!label || label.length > 100) {
       validationError(res, "label is required (<= 100 chars)");

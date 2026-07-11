@@ -1,4 +1,4 @@
-import type { Response } from "express";
+import type { Request, Response } from "express";
 
 /**
  * Reads the per-request correlation id (set by the requestId middleware) off
@@ -34,4 +34,23 @@ export function notFound(res: Response, code: string, message: string): Response
 /** 403 — code varies (FORBIDDEN, IMMUTABLE_ENTRY, ...), so it's a parameter. */
 export function forbidden(res: Response, code: string, message: string): Response {
   return sendError(res, 403, code, message);
+}
+
+/**
+ * Gives Express's untyped `req.body` a usable object shape. The `?? {}` fallback
+ * is load-bearing: Express leaves `req.body` `undefined` when no body-parsing
+ * middleware matched (or the parsed body was empty), so every route handler in
+ * src/routes/ used to write `(req.body as Record<string, unknown>) ?? {}` by hand.
+ */
+export function bodyOf(req: Request): Record<string, unknown> {
+  return (req.body as Record<string, unknown>) ?? {};
+}
+
+/**
+ * Like {@link bodyOf} but preserves a `null`/absent body instead of defaulting
+ * to `{}` — for handlers (auth login / password change) that read fields via
+ * optional chaining and must not conflate "no body" with an empty object.
+ */
+export function bodyOrNull(req: Request): Record<string, unknown> | null {
+  return req.body as Record<string, unknown> | null;
 }

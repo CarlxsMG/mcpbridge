@@ -10,7 +10,7 @@ import { parseCurlCommand, parsePostmanCollection } from "../discovery/curl-post
 import { toolsCountCapError, findToolEndpointError } from "../mcp/registration.js";
 import type { RestToolDefinition } from "../mcp/types.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
-import { sendError, validationError } from "./http-errors.js";
+import { sendError, validationError, bodyOf } from "./http-errors.js";
 
 function stringArray(input: unknown): string[] | undefined {
   if (!Array.isArray(input)) return undefined;
@@ -77,7 +77,7 @@ export function discoveryRoutes(app: Express): void {
     requireAdminRole,
     rateLimitRegister(config.rateLimitRegister),
     async (req: Request, res: Response) => {
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       const openapiUrl = typeof body.openapi_url === "string" ? body.openapi_url : "";
       const curlInput = typeof body.curl_input === "string" ? body.curl_input : "";
       const postmanCollection = body.postman_collection;
@@ -160,7 +160,7 @@ export function discoveryRoutes(app: Express): void {
     requireAdminRole,
     rateLimitRegister(config.rateLimitRegister),
     async (req: Request, res: Response) => {
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       const graphqlUrl = typeof body.graphql_url === "string" ? body.graphql_url : "";
 
       if (!graphqlUrl.startsWith("http://") && !graphqlUrl.startsWith("https://")) {

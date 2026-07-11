@@ -13,7 +13,7 @@ import {
   applyPolicyToBundle,
 } from "../admin/entities/policies.js";
 import type { BundleToolRef } from "../admin/tool-composition/bundles.js";
-import { sendError, validationError, notFound } from "./http-errors.js";
+import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 import type { LooseValidationResult } from "./validation.js";
 
 /** Accepts a positive number, or null (clears the guard). Rejects anything else. */
@@ -49,7 +49,7 @@ export function policyRoutes(app: Express): void {
   });
 
   app.post("/admin-api/policies", adminAuth, requireAdminRole, (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name || name.length > 128) {
       validationError(res, "name is required (1-128 chars)");
@@ -78,7 +78,7 @@ export function policyRoutes(app: Express): void {
       notFound(res, "POLICY_NOT_FOUND", "Policy not found");
       return;
     }
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const updates: { name?: string; rateLimitPerMin?: number | null; timeoutMs?: number | null } = {};
     if (body.name !== undefined) {
       if (typeof body.name !== "string" || !body.name.trim()) {
@@ -133,7 +133,7 @@ export function policyRoutes(app: Express): void {
         notFound(res, "POLICY_NOT_FOUND", "Policy not found");
         return;
       }
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       const actor = actorFromRequest(req);
 
       if (typeof body.bundle === "string" && body.bundle) {

@@ -2,8 +2,8 @@ import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireSuperAdmin } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
-import { listTeams, createTeam, deleteTeam, setClientTeam, setUserTeam } from "../admin/entities/teams.js";
-import { sendError, validationError, notFound } from "./http-errors.js";
+import { listTeams, getTeam, createTeam, deleteTeam, setClientTeam, setUserTeam } from "../admin/entities/teams.js";
+import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 
 export function teamRoutes(app: Express): void {
   // Any admin may read the team list (needed for assignment dropdowns).
@@ -11,8 +11,23 @@ export function teamRoutes(app: Express): void {
     res.status(200).json({ items: listTeams() });
   });
 
+  // Any admin may read a single team's detail (same auth tier as the list above).
+  app.get("/admin-api/teams/:id", adminAuth, (req: Request<{ id: string }>, res: Response) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      validationError(res, "id must be an integer");
+      return;
+    }
+    const team = getTeam(id);
+    if (!team) {
+      notFound(res, "TEAM_NOT_FOUND", "Team not found");
+      return;
+    }
+    res.status(200).json(team);
+  });
+
   app.post("/admin-api/teams", adminAuth, requireSuperAdmin, (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name) {
       validationError(res, "name is required");
@@ -47,7 +62,7 @@ export function teamRoutes(app: Express): void {
     adminAuth,
     requireSuperAdmin,
     (req: Request<{ name: string }>, res: Response) => {
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       const teamId = body.teamId === null ? null : typeof body.teamId === "number" ? body.teamId : undefined;
       if (teamId === undefined) {
         validationError(res, "teamId must be a number or null");
@@ -69,7 +84,7 @@ export function teamRoutes(app: Express): void {
     adminAuth,
     requireSuperAdmin,
     (req: Request<{ username: string }>, res: Response) => {
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       const teamId = body.teamId === null ? null : typeof body.teamId === "number" ? body.teamId : undefined;
       if (teamId === undefined) {
         validationError(res, "teamId must be a number or null");

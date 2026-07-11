@@ -20,7 +20,7 @@ import {
   revokeAllInstallLinksForBundle,
   type InstallLinkMutationError,
 } from "../admin/tool-composition/bundle-install-links.js";
-import { sendError, validationError, notFound } from "./http-errors.js";
+import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
 
 const BUNDLE_ERROR_STATUS: Record<BundleMutationError["code"], number> = {
@@ -105,7 +105,7 @@ export function bundleRoutes(app: Express): void {
   });
 
   app.post("/admin-api/bundles", adminAuth, requireAdminRole, async (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name : "";
     const description = typeof body.description === "string" ? body.description : undefined;
 
@@ -145,7 +145,7 @@ export function bundleRoutes(app: Express): void {
     requireAdminRole,
     async (req: Request<{ name: string }>, res: Response) => {
       const { name } = req.params;
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       const actor = actorFromRequest(req);
 
       const updates: {
@@ -240,7 +240,7 @@ export function bundleRoutes(app: Express): void {
     requireAdminRole,
     async (req: Request<{ name: string }>, res: Response) => {
       const { name } = req.params;
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       const exp = validateExpiresAt(body.expiresAt);
       if (!exp.ok) {
         validationError(res, exp.message);

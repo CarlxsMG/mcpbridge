@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { getCanary, setCanary } from "../../tool-policies/canary.js";
 import { ensureClientAccess, requireOperator } from "../../middleware/authz.js";
-import { sendError, validationError } from "../http-errors.js";
+import { sendError, validationError, bodyOf } from "../http-errors.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 
 /**
@@ -23,7 +23,7 @@ canaryRoutes.get("/clients/:name/canary", (req: Request<{ name: string }>, res: 
 canaryRoutes.put("/clients/:name/canary", requireOperator, async (req: Request<{ name: string }>, res: Response) => {
   const { name } = req.params;
   if (!ensureClientAccess(req, res, name)) return;
-  const body = (req.body as Record<string, unknown>) ?? {};
+  const body = bodyOf(req);
   let input: { secondaryBaseUrl: string; mode: "canary" | "failover"; weight: number; enabled: boolean } | null;
   if (body.canary === null) {
     input = null;

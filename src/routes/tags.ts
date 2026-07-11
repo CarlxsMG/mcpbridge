@@ -2,9 +2,9 @@ import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
-import { TOOL_KEY_SEPARATOR, toolKey } from "../lib/identifier.js";
+import { TOOL_KEY_SEPARATOR } from "../lib/identifier.js";
 import { listAllTags, listToolsByTag, setToolTags, normalizeTag, TAG_RE } from "../tool-meta/tool-tags.js";
-import { validationError, notFound } from "./http-errors.js";
+import { validationError, notFound, bodyOf } from "./http-errors.js";
 
 export function tagRoutes(app: Express): void {
   app.get("/admin-api/tags", adminAuth, (_req: Request, res: Response) => {
@@ -21,7 +21,7 @@ export function tagRoutes(app: Express): void {
     requireAdminRole,
     (req: Request<{ name: string; tool: string }>, res: Response) => {
       const { name, tool } = req.params;
-      const body = (req.body as Record<string, unknown>) ?? {};
+      const body = bodyOf(req);
       if (!Array.isArray(body.tags) || !body.tags.every((t) => typeof t === "string")) {
         validationError(res, "tags must be an array of strings");
         return;

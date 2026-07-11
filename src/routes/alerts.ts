@@ -12,7 +12,7 @@ import {
   ALERT_EVENT_TYPES,
   type AlertEventType,
 } from "../observability/alerts.js";
-import { validationError, notFound } from "./http-errors.js";
+import { validationError, notFound, bodyOf } from "./http-errors.js";
 import type { LooseValidationResult } from "./validation.js";
 
 function isEventType(v: unknown): v is AlertEventType {
@@ -35,7 +35,7 @@ export function alertRoutes(app: Express): void {
   });
 
   app.post("/admin-api/alerts", adminAuth, requireAdminRole, (req: Request, res: Response) => {
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name || name.length > 128) {
       validationError(res, "name is required (1-128 chars)");
@@ -74,7 +74,7 @@ export function alertRoutes(app: Express): void {
       notFound(res, "ALERT_NOT_FOUND", "Alert rule not found");
       return;
     }
-    const body = (req.body as Record<string, unknown>) ?? {};
+    const body = bodyOf(req);
     const updates: {
       name?: string;
       enabled?: boolean;

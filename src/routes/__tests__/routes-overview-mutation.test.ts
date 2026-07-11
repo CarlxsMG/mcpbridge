@@ -17,6 +17,8 @@ import { requestIdMiddleware } from "../../middleware/request-id.js";
 import { registry } from "../../mcp/registry.js";
 import { getCircuitBreaker, removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
+import { cacheSet, __resetCacheForTesting } from "../../tool-policies/response-cache.js";
+import { __resetWsProxyForTesting } from "../../ws-proxy.js";
 
 let baseUrl = "";
 let server: Server | null = null;
@@ -64,6 +66,8 @@ interface OverviewBody {
   tools: { total: number; disabled: number };
   circuit_breakers: { open: number; half_open: number; closed: number };
   admin_users: number;
+  response_cache: { entries: number };
+  ws_proxy: { active_connections: number };
 }
 
 async function getOverview(): Promise<OverviewBody> {
@@ -73,10 +77,14 @@ async function getOverview(): Promise<OverviewBody> {
 
 beforeEach(async () => {
   for (const c of registry.listClients()) await registry.unregister(c.name);
+  __resetCacheForTesting();
+  __resetWsProxyForTesting();
 });
 
 afterEach(async () => {
   for (const c of registry.listClients()) await registry.unregister(c.name);
+  __resetCacheForTesting();
+  __resetWsProxyForTesting();
   removeCircuitBreaker("ov-fresh-closed");
   removeCircuitBreaker("ov-fresh-open");
   removeCircuitBreaker("ov-fresh-half-open");
@@ -194,5 +202,34 @@ describe("GET /admin-api/overview — circuit breaker counts", () => {
     expect(after.circuit_breakers.open - before.circuit_breakers.open).toBe(1);
     expect(after.circuit_breakers.half_open - before.circuit_breakers.half_open).toBe(1);
     expect(after.circuit_breakers.closed - before.circuit_breakers.closed).toBe(1);
+  });
+});
+
+describe("GET /admin-api/overview — response_cache.entries", () => {
+  // Confirms the field genuinely reflects the process-local response-cache
+  // store size (via cacheSize()) rather than being hardcoded to 0 — kills
+  // both a StringLiteral/ObjectLiteral stub on `response_cache` and a
+  // MethodExpression mutant swapping cacheSize() for something inert.
+  test("reflects the exact number of entries currently held", async () => {
+    await startApp();
+    const before = await getOverview();
+    expect(before.response_cache.entries).toBe(0);
+
+    cacheSet("ov-cache-key-1", { content: [{ type: "text", text: "a" }] }, 60);
+    cacheSet("ov-cache-key-2", { content: [{ type: "text", text: "b" }] }, 60);
+
+    const after = await getOverview();
+    expect(after.response_cache.entries).toBe(2);
+  });
+});
+
+describe("GET /admin-api/overview — ws_proxy.active_connections", () => {
+  // Confirms the field reflects wsProxyActiveConnectionCount() rather than
+  // being hardcoded to 0 — with no live ws-proxy connections in this test
+  // process (reset in beforeEach), it must report exactly 0.
+  test("reports 0 when there are no live ws-proxy connections", async () => {
+    await startApp();
+    const body = await getOverview();
+    expect(body.ws_proxy.active_connections).toBe(0);
   });
 });
