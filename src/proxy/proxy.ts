@@ -653,6 +653,57 @@ function checkGuardrailInputGate(
   return null;
 }
 
+/** "always" mock short-circuit — serve a canned response without hitting the upstream. Returns the result, or null. */
+function checkMockAlwaysShortCircuit(
+  mockCfg: ReturnType<typeof getToolMock> | null,
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  mcpToolName: string,
+  callerKey: ReturnType<typeof resolveMcpKeyByToken>,
+): ToolResult | null {
+  if (!(mockCfg?.enabled && mockCfg.mode === "always")) return null;
+  recordToolCall(0, false);
+  recordUsage({
+    clientName: client.name,
+    toolName: tool.name,
+    keyId: callerKey?.id ?? null,
+    statusClass: "2xx",
+    isError: false,
+    durationMs: 0,
+  });
+  log("info", "Tool call served from mock", { tool: mcpToolName, client: client.name });
+  return toolResult(mockCfg.response);
+}
+
+/** Response-cache lookup short-circuit — serve an idempotent GET from the TTL cache. Returns the cached result, or null. */
+function checkResponseCacheShortCircuit(
+  responseCacheEnabled: boolean,
+  responseCacheKey: string,
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  mcpToolName: string,
+  callerKey: ReturnType<typeof resolveMcpKeyByToken>,
+): ToolResult | null {
+  if (!responseCacheEnabled) return null;
+  const hit = cacheGet(responseCacheKey);
+  if (hit) {
+    cacheEvents.inc({ client: client.name, outcome: "hit" });
+    recordToolCall(0, false);
+    recordUsage({
+      clientName: client.name,
+      toolName: tool.name,
+      keyId: callerKey?.id ?? null,
+      statusClass: "2xx",
+      isError: false,
+      durationMs: 0,
+    });
+    log("info", "Tool call served from cache", { tool: mcpToolName, client: client.name });
+    return { content: hit.content };
+  }
+  cacheEvents.inc({ client: client.name, outcome: "miss" });
+  return null;
+}
+
 async function dispatchToolCall(
   mcpToolName: string,
   args: Record<string, unknown> = {},
@@ -724,18 +775,9 @@ async function dispatchToolCall(
   // guards, before the breaker — like the cache). A "fallback" mock is returned
   // only when the backend is unavailable (checked at the failure returns below).
   const mockCfg = client.kind === "rest" ? getToolMock(client.name, tool.name) : null;
-  if (mockCfg?.enabled && mockCfg.mode === "always") {
-    recordToolCall(0, false);
-    recordUsage({
-      clientName: client.name,
-      toolName: tool.name,
-      keyId: callerKey?.id ?? null,
-      statusClass: "2xx",
-      isError: false,
-      durationMs: 0,
-    });
-    log("info", "Tool call served from mock", { tool: mcpToolName, client: client.name });
-    return toolResult(mockCfg.response);
+  {
+    const sc = checkMockAlwaysShortCircuit(mockCfg, client, tool, mcpToolName, callerKey);
+    if (sc) return sc;
   }
 
   // ── Response cache (lookup) ────────────────────────────────────────────────
@@ -749,23 +791,16 @@ async function dispatchToolCall(
     client.kind === "rest" && tool.method.toUpperCase() === "GET" ? getToolCacheConfig(client.name, tool.name) : null;
   const responseCacheEnabled = cacheCfg?.enabled === true;
   const responseCacheKey = responseCacheEnabled ? cacheKey(client.name, tool.name, client.base_url, args) : "";
-  if (responseCacheEnabled) {
-    const hit = cacheGet(responseCacheKey);
-    if (hit) {
-      cacheEvents.inc({ client: client.name, outcome: "hit" });
-      recordToolCall(0, false);
-      recordUsage({
-        clientName: client.name,
-        toolName: tool.name,
-        keyId: callerKey?.id ?? null,
-        statusClass: "2xx",
-        isError: false,
-        durationMs: 0,
-      });
-      log("info", "Tool call served from cache", { tool: mcpToolName, client: client.name });
-      return { content: hit.content };
-    }
-    cacheEvents.inc({ client: client.name, outcome: "miss" });
+  {
+    const sc = checkResponseCacheShortCircuit(
+      responseCacheEnabled,
+      responseCacheKey,
+      client,
+      tool,
+      mcpToolName,
+      callerKey,
+    );
+    if (sc) return sc;
   }
 
   // Request coalescing — concurrent identical in-flight REST GET calls share a
