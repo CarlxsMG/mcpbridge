@@ -515,6 +515,45 @@ function checkSensitiveToolGate(
   return null;
 }
 
+/**
+ * Availability backstop — the tool should already be excluded from any tools/list
+ * a caller saw, but a stale client-side cache could still call a disabled/deleting/
+ * unreachable target directly. Returns a reject result, or null to proceed.
+ */
+function checkClientToolAvailable(
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  mcpToolName: string,
+): ToolResult | null {
+  if (!client.enabled || !tool.enabled) {
+    return toolResult(`Tool '${mcpToolName}' is disabled`, { isError: true });
+  }
+  if (isDeleting(client.name)) {
+    return toolResult("Client is being unregistered", { isError: true });
+  }
+  if (client.status === "unreachable") {
+    return toolResult(`Client '${client.name}' is unreachable`, { isError: true });
+  }
+  return null;
+}
+
+/**
+ * Allowed-key restriction — fail closed: an explicit per-tool key allowlist must
+ * hold even when global MCP auth is disabled/unconfigured. Returns a reject result,
+ * or null to proceed.
+ */
+function checkAllowedKeyGate(
+  tool: RegisteredTool,
+  callerToken: string | undefined,
+  mcpToolName: string,
+): ToolResult | null {
+  if (!tool.guards?.allowedKeyHashes?.length) return null;
+  if (!isKeyAllowed(callerToken, tool.guards.allowedKeyHashes)) {
+    return toolResult(`Not authorized to call tool '${mcpToolName}'`, { isError: true });
+  }
+  return null;
+}
+
 /** Per-tool rate limit (shared cross-instance in HA, in-memory otherwise). Returns a reject result, or null. */
 function checkToolRateLimitGate(tool: RegisteredTool, mcpToolName: string): ToolResult | null {
   if (tool.guards?.rateLimitPerMin === undefined) return null;
@@ -541,30 +580,17 @@ async function dispatchToolCall(
 
   const { client, tool } = resolved;
 
-  // Admin enable/disable backstop — the tool should already be excluded from
-  // whatever tools/list a caller saw, but a stale client-side cache could
-  // still attempt to call it directly.
-  if (!client.enabled || !tool.enabled) {
-    return toolResult(`Tool '${mcpToolName}' is disabled`, { isError: true });
+  // Availability backstop (disabled / deleting / unreachable).
+  {
+    const gate = checkClientToolAvailable(client, tool, mcpToolName);
+    if (gate) return gate;
   }
 
-  if (isDeleting(client.name)) {
-    return toolResult("Client is being unregistered", { isError: true });
-  }
-
-  if (client.status === "unreachable") {
-    return toolResult(`Client '${client.name}' is unreachable`, { isError: true });
-  }
-
-  // Admin guards — run before the circuit breaker check below, since a
-  // half-open breaker's canRequest() consumes the single probe slot as a
-  // side effect; a guard-rejected call must not burn that probe.
-  if (tool.guards?.allowedKeyHashes?.length) {
-    // Fail closed: an explicit restriction must hold even when global MCP
-    // auth is disabled or unconfigured — it shouldn't become a silent no-op.
-    if (!isKeyAllowed(callerToken, tool.guards.allowedKeyHashes)) {
-      return toolResult(`Not authorized to call tool '${mcpToolName}'`, { isError: true });
-    }
+  // Allowed-key restriction — runs before the circuit breaker (a guard-rejected
+  // call must not burn a half-open probe).
+  {
+    const gate = checkAllowedKeyGate(tool, callerToken, mcpToolName);
+    if (gate) return gate;
   }
 
   // Resolve the managed key once — used for scope enforcement here and for
