@@ -455,6 +455,78 @@ function runApprovalGate(
   return null;
 }
 
+/** The uniform tool-call result shape returned throughout the dispatch pipeline. */
+type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
+
+/**
+ * Multi-tenant monthly quota + optional caller-asserted per-end-user rate limit.
+ * A named stage of dispatchToolCall's pre-flight guard sequence: returns a reject
+ * result, or null to proceed.
+ */
+function checkConsumerQuotaGate(
+  callerKey: ReturnType<typeof resolveMcpKeyByToken>,
+  args: Record<string, unknown>,
+  opts: ToolCallOpts | undefined,
+): ToolResult | null {
+  if (callerKey?.consumerId == null) return null;
+  // Fetched once and passed to both checks below — each independently calling
+  // getConsumer() would be a second identical SQLite read per call.
+  const consumer = getConsumer(callerKey.consumerId);
+  const quota = checkConsumerQuota(callerKey.consumerId, consumer);
+  if (quota.exceeded) {
+    return toolResult(`Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})`, {
+      isError: true,
+    });
+  }
+  // Per-end-user rate limit (opt-in fairness dimension) — caller-asserted and
+  // UNAUTHENTICATED: a fairness knob, not an authorization boundary. Zero overhead
+  // unless the caller asserts an id AND the consumer opted in.
+  const assertedEndUserId = resolveEndUserId(opts?.endUserId, args);
+  if (assertedEndUserId !== null) {
+    const endUserRl = checkEndUserRateLimit(callerKey.consumerId, assertedEndUserId, consumer);
+    if (endUserRl.limited) {
+      return toolResult(`End-user rate limit exceeded — retry after ${endUserRl.retryAfterSeconds}s`, {
+        isError: true,
+      });
+    }
+  }
+  return null;
+}
+
+/**
+ * Destructive-action gate — a sensitive tool requires an explicit `__confirm: true`
+ * argument or an elevated key. Returns a reject result, or null to proceed.
+ */
+function checkSensitiveToolGate(
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  args: Record<string, unknown>,
+  callerKey: ReturnType<typeof resolveMcpKeyByToken>,
+  mcpToolName: string,
+): ToolResult | null {
+  if (!isToolSensitive(client.name, tool.name, tool.method)) return null;
+  const confirmed = args.__confirm === true;
+  if (!confirmed && callerKey?.elevated !== true) {
+    return toolResult(
+      `Tool '${mcpToolName}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.`,
+      { isError: true },
+    );
+  }
+  return null;
+}
+
+/** Per-tool rate limit (shared cross-instance in HA, in-memory otherwise). Returns a reject result, or null. */
+function checkToolRateLimitGate(tool: RegisteredTool, mcpToolName: string): ToolResult | null {
+  if (tool.guards?.rateLimitPerMin === undefined) return null;
+  const rl = config.rateLimitShared
+    ? checkSharedToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin)
+    : checkToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin);
+  if (!rl.allowed) {
+    return toolResult(`Tool rate limit exceeded — retry after ${rl.retryAfterSeconds}s`, { isError: true });
+  }
+  return null;
+}
+
 async function dispatchToolCall(
   mcpToolName: string,
   args: Record<string, unknown> = {},
@@ -503,46 +575,16 @@ async function dispatchToolCall(
     return toolResult(`API key is not authorized to call tool '${mcpToolName}'`, { isError: true });
   }
 
-  // Multi-tenant monthly quota — reject once the key's consumer is at/over its cap.
-  if (callerKey?.consumerId != null) {
-    // Fetched once and passed to both checks below — each independently
-    // calling getConsumer() would be a second identical SQLite read per call.
-    const consumer = getConsumer(callerKey.consumerId);
-    const quota = checkConsumerQuota(callerKey.consumerId, consumer);
-    if (quota.exceeded) {
-      return toolResult(`Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})`, {
-        isError: true,
-      });
-    }
-
-    // Per-end-user rate limit (optional, opt-in fairness dimension) — lets the
-    // calling application assert an end-user identity per call so one noisy
-    // end user can't exhaust the whole shared key's quota for everyone else.
-    // Caller-asserted, UNAUTHENTICATED: a fairness knob, not an authorization
-    // boundary. Zero overhead unless BOTH (a) the caller asserts an id AND (b)
-    // the consumer opted in (see resolveEndUserId/checkEndUserRateLimit).
-    const assertedEndUserId = resolveEndUserId(opts?.endUserId, args);
-    if (assertedEndUserId !== null) {
-      const endUserRl = checkEndUserRateLimit(callerKey.consumerId, assertedEndUserId, consumer);
-      if (endUserRl.limited) {
-        return toolResult(`End-user rate limit exceeded — retry after ${endUserRl.retryAfterSeconds}s`, {
-          isError: true,
-        });
-      }
-    }
+  // Multi-tenant monthly quota + per-end-user rate limit.
+  {
+    const gate = checkConsumerQuotaGate(callerKey, args, opts);
+    if (gate) return gate;
   }
 
-  // Destructive-action gating — a sensitive tool requires an explicit
-  // `__confirm: true` argument or an elevated key. The __confirm arg is not part
-  // of any inputSchema, so Ajv's removeAdditional strips it before the upstream call.
-  if (isToolSensitive(client.name, tool.name, tool.method)) {
-    const confirmed = (args as Record<string, unknown>).__confirm === true;
-    if (!confirmed && callerKey?.elevated !== true) {
-      return toolResult(
-        `Tool '${mcpToolName}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.`,
-        { isError: true },
-      );
-    }
+  // Destructive-action gating (__confirm is stripped later by Ajv's removeAdditional).
+  {
+    const gate = checkSensitiveToolGate(client, tool, args, callerKey, mcpToolName);
+    if (gate) return gate;
   }
 
   // Auto-quarantine — escalates after N consecutive guardrail violations (see
@@ -604,14 +646,9 @@ async function dispatchToolCall(
     recordGuardrailHit(client.name, tool.name, false);
   }
 
-  if (tool.guards?.rateLimitPerMin !== undefined) {
-    // Shared (cross-instance) counters when running HA; fast in-memory otherwise.
-    const rl = config.rateLimitShared
-      ? checkSharedToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin)
-      : checkToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin);
-    if (!rl.allowed) {
-      return toolResult(`Tool rate limit exceeded — retry after ${rl.retryAfterSeconds}s`, { isError: true });
-    }
+  {
+    const gate = checkToolRateLimitGate(tool, mcpToolName);
+    if (gate) return gate;
   }
 
   // Mock / virtualization. An "always" mock short-circuits the upstream (after
