@@ -34,6 +34,12 @@ que la cookie de sesión funcione sobre `http://localhost` plano. **En producci�
 sobre HTTPS y elimina ambas** — la cookie se vuelve `__Host-`/`Secure` automáticamente.
 :::
 
+::: tip ¿Prefieres no compilar desde el código?
+Cada release publica una imagen prebuilt, multi-arch y firmada — quita el `docker build` y
+usa `ghcr.io/aico-dot-team-code/mcpbridge:latest` como imagen en `docker run`. Consulta
+[Despliegue →](/es/guide/deployment).
+:::
+
 ## Opción B — Bun (desarrollo local, con hot reload)
 
 ```bash

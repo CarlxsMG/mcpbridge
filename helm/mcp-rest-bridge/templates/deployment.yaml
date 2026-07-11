@@ -48,6 +48,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: {{ .Values.persistence.mountPath }}
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: data
           {{- if .Values.persistence.enabled }}
@@ -56,6 +58,10 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        # Writable scratch so the container can run with
+        # readOnlyRootFilesystem: true (SQLite temp files, etc.).
+        - name: tmp
+          emptyDir: {}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

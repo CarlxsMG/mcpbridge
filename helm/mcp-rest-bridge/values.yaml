@@ -93,8 +93,9 @@ securityContext:
       - ALL
   seccompProfile:
     type: RuntimeDefault
-  # readOnlyRootFilesystem: true is recommended, but the process needs a writable
-  # /tmp — enable it together with an emptyDir mounted at /tmp in the Deployment.
+  # The Deployment mounts an emptyDir at /tmp, so a read-only root filesystem
+  # still leaves SQLite's temp space (and any other scratch) writable.
+  readOnlyRootFilesystem: true
 
 livenessProbe:
   httpGet:

@@ -116,6 +116,11 @@ bootstrap. `$ADMIN_API_KEY` es el token Bearer que usan los ejemplos `curl`/CLI 
 mantenlo exportado en el mismo shell. (`NODE_ENV=development` + `SESSION_COOKIE_SECURE=false`
 son solo para HTTP local — en producción ejecuta sobre HTTPS y elimina ambas.)
 
+> **¿Prefieres no compilar desde el código?** Cada release publica una imagen prebuilt,
+> multi-arch y firmada — quita el paso `docker build` y usa
+> `ghcr.io/aico-dot-team-code/mcpbridge:latest` como imagen en `docker run`. Consulta
+> [Despliegue](https://aico-dot-team-code.github.io/mcpbridge/guide/deployment).
+
 ### Bun (desarrollo local, con hot reload)
 
 ```bash

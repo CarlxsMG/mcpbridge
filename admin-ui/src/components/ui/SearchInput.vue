@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { Search } from "lucide-vue-next";
 
-defineProps<{ placeholder?: string }>();
+defineProps<{ placeholder?: string; ariaLabel?: string }>();
 const model = defineModel<string>({ default: "" });
 </script>
 
 <template>
   <div class="search-input">
     <Search :size="15" stroke-width="2" aria-hidden="true" />
-    <input v-model="model" type="search" :placeholder="placeholder" />
+    <input
+      v-model="model"
+      type="search"
+      :placeholder="placeholder"
+      :aria-label="ariaLabel ?? placeholder ?? 'Search'"
+    />
   </div>
 </template>
 

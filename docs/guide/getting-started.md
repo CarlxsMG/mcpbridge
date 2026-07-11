@@ -37,6 +37,12 @@ session cookie works over plain `http://localhost`. **In production, serve over 
 drop both** — the cookie then becomes `__Host-`/`Secure` automatically.
 :::
 
+::: tip Prefer not to build from source?
+Every release publishes a prebuilt, multi-arch, signed image — drop the `docker build` and
+use `ghcr.io/aico-dot-team-code/mcpbridge:latest` as the image in `docker run`. See
+[Deployment →](/guide/deployment).
+:::
+
 ## Option B — Bun (local dev, hot reload)
 
 ```bash

@@ -106,6 +106,11 @@ credentials. `$ADMIN_API_KEY` is the Bearer token the `curl`/CLI examples below 
 it exported in the same shell. (`NODE_ENV=development` + `SESSION_COOKIE_SECURE=false` are
 only for local HTTP — in production run behind HTTPS and drop both.)
 
+> **Prefer not to build from source?** Every release publishes a prebuilt, multi-arch,
+> signed image — drop the `docker build` step and use
+> `ghcr.io/aico-dot-team-code/mcpbridge:latest` as the image in `docker run`. See
+> [Deployment](https://aico-dot-team-code.github.io/mcpbridge/guide/deployment).
+
 ### Bun (local dev, with hot reload)
 
 ```bash
