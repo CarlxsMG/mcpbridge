@@ -86,11 +86,11 @@ describe("discoverToolsFromOpenApi — DNS pin: URL hostname replaced", () => {
       ipPin: { resolvedIp: "93.184.216.34", hostname: "example.com" },
     });
 
-    const headers = state.captured!.options.headers as Record<string, string> | undefined;
-    expect(headers).toBeDefined();
-    // Accept both "Host" and "host" (case-insensitive)
-    const hostValue = headers?.["Host"] ?? headers?.["host"] ?? headers?.["HOST"];
-    expect(hostValue).toBe("example.com");
+    // The pinned path routes through makePinnedFetch, which hands fetch a
+    // Headers instance — normalize via `new Headers(...)` (case-insensitive .get)
+    // rather than plain-object bracket access.
+    const headers = new Headers(state.captured!.options.headers);
+    expect(headers.get("Host")).toBe("example.com");
   });
 
   test("redirect option is 'error'", async () => {

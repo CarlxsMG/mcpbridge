@@ -41,6 +41,8 @@ describe("MCP data-plane open mode", () => {
     expect(isMcpDataPlaneOpen()).toBe(false);
     const verdict = await evaluateMcpAuth({});
     expect(verdict.ok).toBe(false);
+    // Narrow to the failure arm of the discriminated union before reading status.
+    if (verdict.ok) throw new Error("expected a failing verdict");
     expect(verdict.status).toBe(401);
   });
 

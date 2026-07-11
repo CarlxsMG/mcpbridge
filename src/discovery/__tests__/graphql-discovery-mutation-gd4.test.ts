@@ -161,8 +161,10 @@ describe("discoverToolsFromGraphQl — ipPin rewrites the URL and sets a Host he
     expect(state.captured!.url).toContain("1.2.3.4");
     expect(state.captured!.url).not.toContain("example.test/");
 
-    const headers = state.captured!.options.headers as Record<string, string>;
-    expect(headers["Host"]).toBe("example.test");
+    // The pinned path routes through makePinnedFetch, which hands fetch a
+    // Headers instance — normalize via `new Headers(...)` (case-insensitive .get).
+    const headers = new Headers(state.captured!.options.headers);
+    expect(headers.get("Host")).toBe("example.test");
   });
 
   test("without ipPin, the URL is fetched as-is and no Host header is set", async () => {

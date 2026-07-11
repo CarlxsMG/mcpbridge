@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { makePinnedFetch } from "../net/ip-validator.js";
 import { sanitizeToolName, uniqueToolName } from "./tool-naming.js";
 
 /**
@@ -232,22 +233,20 @@ export async function discoverToolsFromGraphQl(options: {
 }): Promise<GraphqlDiscoveredTool[]> {
   const { graphqlUrl, ipPin, authHeaders, includeMutations = true } = options;
 
-  // 1. Fetch — DNS-pinned URL when ipPin is provided, exactly like OpenAPI discovery.
-  let fetchUrl = graphqlUrl;
+  // 1. Fetch — when ipPin is provided, route through the shared DNS-pinned fetch
+  //    (hostname -> SSRF-validated IP, original Host header preserved, redirects
+  //    refused), the same anti-DNS-rebinding primitive used by OpenAPI discovery,
+  //    the REST dispatch path, and the MCP-upstream transport.
   const fetchHeaders: Record<string, string> = { "Content-Type": "application/json", ...(authHeaders ?? {}) };
-  if (ipPin) {
-    const parsed = new URL(graphqlUrl);
-    fetchHeaders["Host"] = ipPin.hostname;
-    parsed.hostname = ipPin.resolvedIp;
-    fetchUrl = parsed.toString();
-  }
-  const res = await fetch(fetchUrl, {
+  const pinnedFetch = ipPin ? makePinnedFetch(new URL(graphqlUrl).hostname, ipPin.resolvedIp) : null;
+  const fetchInit: RequestInit = {
     method: "POST",
     headers: fetchHeaders,
     body: JSON.stringify({ query: INTROSPECTION_QUERY }),
     redirect: "error" as RequestRedirect,
     signal: AbortSignal.timeout(config.graphqlDiscoveryTimeoutMs),
-  });
+  };
+  const res = pinnedFetch ? await pinnedFetch(graphqlUrl, fetchInit) : await fetch(graphqlUrl, fetchInit);
   if (!res.ok) throw new Error(`Failed to fetch GraphQL introspection from ${graphqlUrl}: ${res.status}`);
 
   const contentLength = Number(res.headers.get("content-length") || 0);

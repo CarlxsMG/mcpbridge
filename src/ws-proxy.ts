@@ -24,7 +24,7 @@ import { getCircuitBreaker } from "./middleware/circuit-breaker.js";
 import { registry } from "./mcp/registry.js";
 import { log } from "./logger.js";
 import { wsProxyActiveConnections, wsProxyBytesTotal } from "./observability/metrics.js";
-import { TOOL_NAME_RE } from "./lib/identifier.js";
+import { isValidToolName } from "./lib/identifier.js";
 import { reloadLiveCache } from "./lib/async-lock.js";
 
 export interface WsProxyTarget {
@@ -133,7 +133,7 @@ export async function upsertWsProxyTarget(
   name: string,
   input: WsProxyTargetInput,
 ): Promise<{ ok: true; target: WsProxyTarget } | { ok: false; error: WsProxyTargetError }> {
-  if (!TOOL_NAME_RE.test(name)) {
+  if (!isValidToolName(name)) {
     return { ok: false, error: { code: "INVALID_NAME", message: "Name must match /^[a-z0-9][a-z0-9_-]{0,62}$/" } };
   }
   if (!targets.has(name) && registry.getClient(name)) {
@@ -298,7 +298,9 @@ export async function handleWsProxyUpgrade(req: IncomingMessage, socket: Duplex,
 
   const verdict = await evaluateMcpAuth(req.headers);
   if (!verdict.ok) {
-    rejectUpgrade(socket, verdict.status ?? 401, verdict.message ?? "Unauthorized");
+    // McpAuthVerdict's failure arm always carries status/message (discriminated
+    // on `ok`), so no defensive fallback is needed here.
+    rejectUpgrade(socket, verdict.status, verdict.message);
     return;
   }
   if (verdict.scopes !== undefined && !isClientInKeyScope(verdict.scopes, name)) {

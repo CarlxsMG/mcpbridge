@@ -105,16 +105,22 @@ export function adminAuth(req: Request, res: Response, next: NextFunction): void
   next();
 }
 
-export interface McpAuthVerdict {
-  ok: boolean;
-  status?: number;
-  code?: string;
-  message?: string;
-  mcpKeyId?: number;
-  /** Present only for a matched DB-managed key — lets a non-Express caller (WS-proxy upgrade) apply the same scope check proxy.ts does. */
-  scopes?: McpKeyScopes | null;
-  jwtSubject?: string;
-}
+/**
+ * Discriminated on `ok`: a success carries only the optional identity fields
+ * (never a status/code/message), and a failure ALWAYS carries the full
+ * status/code/message triple. Narrowing on `verdict.ok` therefore makes those
+ * three non-optional in the failure arm — no non-null assertions needed at the
+ * consumers (mcpAuth, ws-proxy's upgrade path).
+ */
+export type McpAuthVerdict =
+  | {
+      ok: true;
+      mcpKeyId?: number;
+      /** Present only for a matched DB-managed key — lets a non-Express caller (WS-proxy upgrade) apply the same scope check proxy.ts does. */
+      scopes?: McpKeyScopes | null;
+      jwtSubject?: string;
+    }
+  | { ok: false; status: number; code: string; message: string };
 
 function extractBearerFromHeaders(headers: IncomingHttpHeaders): string | null {
   const header = headers.authorization;
@@ -183,7 +189,7 @@ export async function evaluateMcpAuth(headers: IncomingHttpHeaders): Promise<Mcp
 export async function mcpAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const verdict = await evaluateMcpAuth(req.headers);
   if (!verdict.ok) {
-    sendError(res, verdict.status!, verdict.code!, verdict.message!);
+    sendError(res, verdict.status, verdict.code, verdict.message);
     return;
   }
   if (verdict.mcpKeyId !== undefined) req.mcpKeyId = verdict.mcpKeyId;

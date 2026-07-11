@@ -190,6 +190,8 @@ describe("evaluateMcpAuth — JWT branch", () => {
       try {
         const verdict = await evaluateMcpAuth({ authorization: "Bearer a-real-jwt" });
         expect(verdict.ok).toBe(true);
+        // Narrow to the success arm of the discriminated union before reading jwtSubject.
+        if (!verdict.ok) throw new Error("expected a successful verdict");
         expect(verdict.jwtSubject).toBe("user-42");
       } finally {
         isConfiguredSpy.mockRestore();
@@ -324,6 +326,8 @@ describe("evaluateMcpAuth — 'no auth material configured => allow all' fallbac
     try {
       const verdict = await evaluateMcpAuth({});
       expect(verdict.ok).toBe(false);
+      // Narrow to the failure arm of the discriminated union before reading status.
+      if (verdict.ok) throw new Error("expected a failing verdict");
       expect(verdict.status).toBe(401);
     } finally {
       (config as Record<string, unknown>).mcpApiKeys = origMcpApiKeys;

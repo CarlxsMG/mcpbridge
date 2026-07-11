@@ -230,10 +230,17 @@ describe("upgrade rejection gates, each isolated (others satisfied)", () => {
     expect(await expectRejected(targetName)).toBe(false);
   });
 
-  test("401 fallback: an auth verdict with no status/message still results in a rejection (defensive fallback path)", async () => {
-    const targetName = uniqueName("auth-fallback-401");
+  test("a failing auth verdict rejects the upgrade with its status/message", async () => {
+    const targetName = uniqueName("auth-fail-reject");
     await upsertWsProxyTarget(targetName, { backendWsUrl: "ws://127.0.0.1:1" });
-    const authSpy = spyOn(authMod, "evaluateMcpAuth").mockResolvedValue({ ok: false });
+    // McpAuthVerdict's failure arm is discriminated on `ok` and always carries
+    // status/code/message, so the mock supplies the full triple.
+    const authSpy = spyOn(authMod, "evaluateMcpAuth").mockResolvedValue({
+      ok: false,
+      status: 401,
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+    });
     try {
       expect(await expectRejected(targetName)).toBe(false);
     } finally {

@@ -4,6 +4,7 @@ import { parse as parseYaml } from "yaml";
 import type { OpenAPIV3 } from "openapi-types";
 import type { RestToolDefinition } from "../mcp/types.js";
 import { config } from "../config.js";
+import { makePinnedFetch } from "../net/ip-validator.js";
 import { sanitizeToolName, uniqueToolName } from "./tool-naming.js";
 
 const VALID_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
@@ -16,20 +17,17 @@ export async function discoverToolsFromOpenApi(options: {
 }): Promise<RestToolDefinition[]> {
   const { openapiUrl, ipPin, includeTags, excludeOperations } = options;
 
-  // 1. Fetch spec — use DNS-pinned URL when ipPin is provided to prevent DNS rebinding
-  let fetchUrl = openapiUrl;
-  const fetchHeaders: Record<string, string> = {};
-  if (ipPin) {
-    const parsed = new URL(openapiUrl);
-    fetchHeaders["Host"] = ipPin.hostname;
-    parsed.hostname = ipPin.resolvedIp;
-    fetchUrl = parsed.toString();
-  }
-  const res = await fetch(fetchUrl, {
-    headers: fetchHeaders,
+  // 1. Fetch spec — when ipPin is provided, route through the shared DNS-pinned
+  //    fetch: it swaps the hostname for the SSRF-validated IP, preserves the
+  //    original Host header (host:port, derived from the URL), and refuses
+  //    redirects — the single anti-DNS-rebinding primitive also used by the REST
+  //    dispatch path (proxy.ts) and the MCP-upstream transport (mcp-upstream.ts).
+  const pinnedFetch = ipPin ? makePinnedFetch(new URL(openapiUrl).hostname, ipPin.resolvedIp) : null;
+  const fetchInit: RequestInit = {
     redirect: "error" as RequestRedirect,
     signal: AbortSignal.timeout(config.openapiDiscoveryTimeoutMs),
-  });
+  };
+  const res = pinnedFetch ? await pinnedFetch(openapiUrl, fetchInit) : await fetch(openapiUrl, fetchInit);
   if (!res.ok) throw new Error(`Failed to fetch OpenAPI spec from ${openapiUrl}: ${res.status}`);
 
   // Limit spec size to 5MB to prevent DoS

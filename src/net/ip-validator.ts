@@ -241,7 +241,7 @@ export async function refreshPinIfStale(
 // WebSocket dial, which can't rewrite the request URL the way fetch does).
 // ---------------------------------------------------------------------------
 
-type PinnedFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
+export type PinnedFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 /**
  * Builds a fetch that pins `originalHostname` to `ip` while preserving the
