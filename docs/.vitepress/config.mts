@@ -44,6 +44,7 @@ const textEs = {
   Bundles: "Bundles",
   Operate: "Operar",
   Security: "Seguridad",
+  "Threat model": "Modelo de amenazas",
   "Access control & multi-tenancy": "Control de acceso y multi-tenancy",
   "Guardrails & resilience": "Guardrails y resiliencia",
   "Observability & monitoring": "Observabilidad y monitorización",
@@ -88,6 +89,7 @@ const sidebarGuideEn = [
     text: "Operate",
     items: [
       { text: "Security", link: "/guide/security" },
+      { text: "Threat model", link: "/guide/threat-model" },
       { text: "Access control & multi-tenancy", link: "/guide/access-control" },
       { text: "Guardrails & resilience", link: "/guide/guardrails-resilience" },
       { text: "Observability & monitoring", link: "/guide/observability" },

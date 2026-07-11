@@ -1,105 +1,43 @@
 # Conceptos y glosario
 
-Esta página explica el vocabulario que usa el resto de la documentación — los términos que
-puedes ver en la UI de administración, en la CLI y en los mensajes de log.
+Un recorrido rápido por el vocabulario que se usa en esta documentación y en la UI de admin.
 
-## Gateway, bridge, upstream
+## La idea central
 
-**Gateway / Bridge** — Sinónimos dentro de este proyecto. El proceso Bun que recibe llamadas
-MCP, las valida y las envía a tus backends. Lo verás referido como "the bridge" en la mayor
-parte de la documentación.
+El bridge mantiene un **registro** (registry) de backends y proxia cada llamada a través de una
+única guard pipeline uniforme, direccionada por una identidad estable `client__tool` — consulta
+**[Arquitectura →](/es/guide/architecture)** para el camino completo de la request. El glosario
+de abajo cubre el vocabulario que aparece en la documentación y en la UI de admin.
 
-**Upstream** — Un servidor backend que el bridge re-expone como herramientas MCP.
-Puede ser una API REST registrada desde un spec OpenAPI, o un servidor MCP existente
-(Streamable HTTP o SSE).
+## Glosario
 
-## Cliente, consumidor y key
+| Término                         | Qué significa                                                                                                                                                                                        |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Cliente** (backend)           | Un backend registrado — una API **REST** (tools descubiertas desde OpenAPI) o un **upstream MCP** (`kind: "mcp"`).                                                                                   |
+| **Tool**                        | Una única operación invocable, con namespace `clientName__toolName`.                                                                                                                                 |
+| **Modo de servir**              | Cómo un cliente alcanza tools de _backend_: **shard por cliente** (`/mcp/:name`) o **bundle curado** (`/mcp-custom/:bundle`). `/mcp` en sí es el plano de control, no un modo de servir — ver abajo. |
+| **System tool**                 | Una tool `sys_*` sobre el propio gateway (gestión + obtención de datos), servida solo en la raíz del plano de control `/mcp` — nunca una tool de backend.                                            |
+| **[Bundle](/es/guide/bundles)** | Un subconjunto curado por un admin, entre clientes, de tools (y/o macros composite) tras un endpoint — cómo pones varios backends tras una sola URL MCP.                                             |
+| **Guard**                       | Una **política** por tool: rate limit, timeout, override de circuit-breaker, restricción de keys permitidas.                                                                                         |
+| **Guardrail**                   | Un control de **contenido** por tool: deny-rules de input, detección de secretos, escaneo de prompt-injection en responses, redacción de campos.                                                     |
+| **Circuit breaker**             | Protección de fallos por tool (`closed → open → half_open`) que falla rápido mientras un backend no está sano.                                                                                       |
+| **Canary / failover**           | Enruta parte o todo el tráfico a un backend **secundario** validado (canary ponderado, o failover cuando el breaker primario se abre).                                                               |
+| **Consumidor**                  | Un tenant/equipo/producto que agrupa API keys y lleva una **cuota** mensual.                                                                                                                         |
+| **MCP API key**                 | La credencial que presenta un caller de tools; puede tener **scope** (a clientes/tools), ser **elevada** (para tools sensibles), expirar y revocarse. Almacenada como hash.                          |
+| **Usuario / rol admin**         | Quién administra el bridge, gated por RBAC: `admin` / `operator` / `auditor` / `viewer`.                                                                                                             |
+| **Equipo (team)**               | Una frontera de multi-tenancy que acota clientes para que los tenants solo vean los suyos.                                                                                                           |
+| **Registry**                    | La vista viva en memoria de clientes + tools, hidratada desde SQLite y con monitorización de salud.                                                                                                  |
+| **Audit log**                   | Un registro a prueba de manipulaciones, **encadenado por hash**, de cada mutación admin; opcionalmente streameado a un SIEM.                                                                         |
+| **Leader**                      | La única instancia (elegida vía un lease en SQLite) que corre los loops en background — alertas, programaciones — en un despliegue multi-instancia.                                                  |
+| **Tool composite**              | Una macro que ejecuta varios pasos de tool como una llamada, cada paso por la pila completa de guards.                                                                                               |
+| **`search_tools`**              | Una meta-tool sintética que deja a un cliente buscar en su propia lista de tools.                                                                                                                    |
 
-**Cliente (MCP)** — El agente o IDE del lado del consumidor (Claude Desktop, Cursor, un
-SDK personalizado) que abre una sesión MCP contra el bridge.
+## Cómo encajan las piezas
 
-**API key (o Bearer token)** — Credencial que un cliente presenta al bridge para
-autenticarse. Se crea en **API keys**, vive en el backend, y está restringida por scopes
-(qué clientes/herramientas puede llamar).
+- **Conecta** un backend → sus tools entran en el registry ([Registrar backends](/es/guide/registering-backends)).
+- **Cura** lo que ve un cliente con modos de servir y [bundles](/es/guide/bundles).
+- **Gobierna** cada tool con guards, guardrails y control de acceso.
+- **Opera** con health checks, métricas, alertas, audit — y [escala](/es/guide/scaling) cuando lo necesites.
 
-**Consumidor** — Una entidad lógica (humana o de sistema) a la que pertenece una API key. Las
-keys se acotan a un consumidor para que puedas aplicar cuotas y hacer un seguimiento del
-uso por cliente/equipo.
-
-## Tool, bundle, composite
-
-**Tool** — Una función invocable expuesta vía MCP. Cada operación REST descubierta de un
-spec OpenAPI se convierte en una tool; cada tool registrada en un upstream MCP pasa tal
-cual.
-
-**Bundle** — Un conjunto curado, entre backends, de tools servidas en un endpoint
-`/mcp-custom/<bundle>`. Cuando un cliente MCP apunta a un bundle, solo ve las tools que
-seleccionaste — útil para "esta app solo necesita estas X tools", y la forma de poner varios
-backends tras una sola URL MCP ([cómo crear uno →](/es/guide/bundles)).
-
-**Composite** — Una tool de orden superior que ejecuta varias tools en cadena y devuelve
-un resultado agregado. Ejemplo: `summarize_issue` que llama a `get_issue`, `list_comments`
-y `post_summary` en secuencia.
-
-## Guardrails y políticas
-
-**Guardrail / guard** — Una regla configurable aplicada a una tool específica o al
-comportamiento global. Tipos:
-
-- **Guardrails & resilience** — denegación de patrones de prompt-injection, red de
-  seguridad de secretos, normalización de inputs.
-- **Rate limit / timeout / circuit breaker** — Governance operacional.
-- **Allowed keys** — restringir qué API keys pueden llamar a una tool específica (más
-  estricto que el scope).
-
-**Canary / failover** — Un servidor secundario opcional que el bridge usa cuando el
-primario tiene el circuito abierto. No engaña al breaker primario: solo asume el tráfico
-en respuesta a una condición de breaker abierto.
-
-## Modos de servir
-
-**Control `/mcp`** — El plano de control del propio gateway: tools `sys_*` de gestión y
-obtención de datos (listar/registrar/habilitar clientes, emitir keys, audit log...). Nunca
-sirve tools de backend — para eso están los dos modos de datos de abajo. Auth fail-closed
-(`RootMcpAuth`, sin el fallback "sin configurar implica abierto") + nivel de rol por tool.
-
-**Sharded `/mcp/:clientName`** — Una endpoint por upstream backend — útil para aislar
-clientes o limitar blast radius.
-
-**Curated `/mcp-custom/:bundleName`** — Una endpoint por bundle — herramientas (y/o
-composites) seleccionadas a mano, expuestas a un cliente.
-
-El modo "Aggregated" (todas las tools de todos los backends aplanadas en `/mcp`) y el
-transporte SSE legacy (`GET /sse` + `POST /messages`) fueron eliminados: `/mcp` es ahora
-el plano de control, y Streamable HTTP es el único transporte MCP entrante.
-
-## Audit, RBAC, equipos
-
-**Audit log** — Registro append-only, encadenado por hash, de cada acción de
-administración (crear server, rotar key, editar guard, etc.). Está firmado de modo que
-modificar una entrada invalida todas las posteriores.
-
-**RBAC** — Control de acceso basado en roles. El bridge soporta cuatro: `admin`,
-`operator`, `auditor`, `viewer`.
-
-**Team** — Un grupo al que pertenecen servidores y usuarios para multi-tenancy. Un
-servidor asignado a un equipo solo es visible/administrable por miembros de ese equipo.
-
-## SSRF y seguridad
-
-**SSRF (Server-Side Request Forgery)** — Una vulnerabilidad donde un atacante hace que el
-servidor emita requests contra hosts internos o metadatos de cloud. El bridge mitiga esto
-con IP-pinning (resuelve DNS una vez a una IP, nunca la re-resuelve), validación de URL,
-y bloqueo de rangos privados.
-
-**IP-pinning** — Práctica de resolver el DNS de un backend una vez en el registro y
-almacenar la IP para siempre. Cualquier request subsiguiente va a esa IP exacta, incluso
-si el DNS cambia, lo que evita trucos DNS-rebinding.
-
-**Prompt-injection guardrail** — Una regla de guard que busca patrones conocidos de
-inyección en inputs de tools y los bloquea / sanitiza antes de llegar al backend.
-
-## Conclusión
-
-Si te encuentras con un término no explicado aquí, abre un issue — la documentación
-crece con las contribuciones.
+Consulta la **[Arquitectura →](/es/guide/architecture)** para el camino de la request, o la
+**[Referencia de API →](/es/guide/api-reference)** para los endpoints.
