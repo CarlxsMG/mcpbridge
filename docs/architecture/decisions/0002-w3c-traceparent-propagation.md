@@ -1,8 +1,8 @@
 # W3C traceparent propagation through the proxy pipeline
 
-* Status: accepted
-* Date: 2026-07-06
-* Deciders: CarlxsMG (SRE + architecture), Claude Sonnet 5 (review)
+- Status: accepted
+- Date: 2026-07-06
+- Deciders: CarlxsMG (SRE + architecture), Claude Sonnet 5 (review)
 
 ## Context and Problem Statement
 
@@ -26,32 +26,32 @@ trace-id)?
 
 ## Decision Drivers
 
-* **Industry standard.** W3C Trace Context (`traceparent`, `tracestate`) is
+- **Industry standard.** W3C Trace Context (`traceparent`, `tracestate`) is
   the de-facto propagation format; OpenTelemetry, Jaeger, Datadog, and
   Honeycomb all emit and accept it. Adopting it is free interoperability
   with whatever trace viewer the operator already runs.
-* **Malformed input must never fail the request.** An LLM-driven caller
+- **Malformed input must never fail the request.** An LLM-driven caller
   might send `traceparent: garbage`; we cannot 502 the whole MCP call
   because of a malformed header.
-* **Per-request state without parameter threading.** The trace context has
+- **Per-request state without parameter threading.** The trace context has
   to be available in `proxyToolCall`, in the transport's pinned fetch, and
   in the OTLP exporter — without turning every signature into
   `(args, callerToken, opts, traceCtx)`.
-* **Both REST and MCP upstreams.** The bridge dispatches to both, and the
+- **Both REST and MCP upstreams.** The bridge dispatches to both, and the
   propagation has to work for both kinds of backend, not just one.
 
 ## Considered Options
 
-* **A. New `traceparent` header only — ignore `tracestate` and don't emit
+- **A. New `traceparent` header only — ignore `tracestate` and don't emit
   on outbound.** Rejected: half the W3C spec; loses vendor-specific
   routing info (`tracestate`); the upstream's trace viewer won't stitch
   with the agent's.
-* **B. Hand-thread the parsed trace context through every function
+- **B. Hand-thread the parsed trace context through every function
   signature.** Rejected: ripples through 5+ files (`proxyToolCall`,
   the upstream transport's `pinnedFetch`, the OTLP exporter, the
   request-id middleware, the system-tools dispatcher); every existing
   signature changes; every existing test would have to update.
-* **C. Parse + enter an `AsyncLocalStorage` context per request; both
+- **C. Parse + enter an `AsyncLocalStorage` context per request; both
   inbound and outbound paths read from the ALS scope.** Chosen.
 
 ## Decision Outcome
@@ -82,40 +82,40 @@ on serialize so a v00 upstream gets a v00 outbound.
 
 ### Consequences
 
-* Good, because `mcp_proxy_request_duration_seconds` is now correlatable
+- Good, because `mcp_proxy_request_duration_seconds` is now correlatable
   with the upstream trace in any W3C-compatible viewer — an operator can
   see exactly where the bridge's latency came from (auth check, breaker
   check, body serialization, fetch, response decoding).
-* Good, because the ALS approach adds zero parameters to any existing
+- Good, because the ALS approach adds zero parameters to any existing
   signature; the migration is mechanical (no public API changes).
-* Good, because the strict parser rejects malformed input cleanly instead
+- Good, because the strict parser rejects malformed input cleanly instead
   of propagating garbage to the OTLP exporter.
-* Good, because both REST and MCP upstreams are covered by the same
+- Good, because both REST and MCP upstreams are covered by the same
   helper, so future transports (e.g. WebSocket) get propagation for free.
-* Bad, because `AsyncLocalStorage` adds a small per-request overhead
+- Bad, because `AsyncLocalStorage` adds a small per-request overhead
   (~1–2 µs per ALS read, per the Node docs). At our request volume this
   is unmeasurable, but worth knowing.
-* Bad, because the bridge now reveals its parent `trace-id` to backends.
+- Bad, because the bridge now reveals its parent `trace-id` to backends.
   An operator who treats their backend trace IDs as secrets has to
   trust the upstream not to log them — same exposure any service mesh
   has, but worth documenting.
 
 ### Confirmation
 
-* `src/__tests__/trace-context.test.ts` — 39 tests covering parse,
+- `src/__tests__/trace-context.test.ts` — 39 tests covering parse,
   serialize, round-trip, malformed inputs (non-hex, all-zero, future
   version, wrong length, tracestate with vendor keys), the AsyncLocalStorage
   context, and the `outboundTraceHeaders()` helper.
-* `e2e/mcp-protocol.spec.ts` exercises a real `tools/call` and the trace
+- `e2e/mcp-protocol.spec.ts` exercises a real `tools/call` and the trace
   context survives end-to-end.
-* `docs/architecture/slos.md` mentions trace correlation as a prerequisite
+- `docs/architecture/slos.md` mentions trace correlation as a prerequisite
   for diagnosing SLO violations on latency buckets.
 
 ## More Information
 
-* Commit: `aebe04b` — `feat(tracing): W3C traceparent propagation through
-  proxy pipeline (P1-6)`
-* W3C spec: <https://www.w3.org/TR/trace-context/>
-* Related code: `src/observability/trace-context.ts`,
+- Commit: `aebe04b` — `feat(tracing): W3C traceparent propagation through
+proxy pipeline (P1-6)`
+- W3C spec: <https://www.w3.org/TR/trace-context/>
+- Related code: `src/observability/trace-context.ts`,
   `src/middleware/request-id.ts`, `src/proxy/proxy.ts`,
   `src/mcp/mcp-upstream.ts`.

@@ -184,7 +184,9 @@ describe("session persistence + expiry/idle boundaries", () => {
     const user = makeUser();
     const session = createSession(user.id, undefined, undefined);
     // Keep last_seen fresh so the idle check can't mask the expiry check.
-    getDb().query(`UPDATE admin_sessions SET last_seen_at = ? WHERE user_id = ?`).run(session.expiresAt - 1, user.id);
+    getDb()
+      .query(`UPDATE admin_sessions SET last_seen_at = ? WHERE user_id = ?`)
+      .run(session.expiresAt - 1, user.id);
     Date.now = () => session.expiresAt;
     // `expires_at < now` is false at equality → still valid; `<=` expires it.
     expect(validateSession(session.token)).not.toBeNull();
@@ -194,7 +196,9 @@ describe("session persistence + expiry/idle boundaries", () => {
     const user = makeUser();
     const session = createSession(user.id, undefined, undefined);
     const past = session.expiresAt + 1000;
-    getDb().query(`UPDATE admin_sessions SET last_seen_at = ? WHERE user_id = ?`).run(past - 1, user.id);
+    getDb()
+      .query(`UPDATE admin_sessions SET last_seen_at = ? WHERE user_id = ?`)
+      .run(past - 1, user.id);
     Date.now = () => past;
     // Idle window is fine (seen 1ms ago); ONLY the expiry guard rejects. The
     // `if(false)` mutant skips it and would validate an expired session.

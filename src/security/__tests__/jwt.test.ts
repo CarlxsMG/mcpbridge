@@ -476,7 +476,11 @@ describe("verifyJwt — clock injection, nbf boundary, unset audience, JWKS cach
       exp: future(),
     })}`;
     const sig = new Uint8Array(
-      await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, kp.privateKey, new TextEncoder().encode(signingInput)),
+      await crypto.subtle.sign(
+        { name: "ECDSA", hash: "SHA-256" },
+        kp.privateKey,
+        new TextEncoder().encode(signingInput),
+      ),
     );
     const token = `${signingInput}.${b64url(sig)}`;
     __setJwtDepsForTesting({

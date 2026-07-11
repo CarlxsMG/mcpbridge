@@ -1,8 +1,8 @@
 # Two planes, three endpoints — the /mcp split
 
-* Status: accepted
-* Date: 2026-07-06
-* Deciders: CarlxsMG (architecture), Claude Sonnet 5 (review + hardening)
+- Status: accepted
+- Date: 2026-07-06
+- Deciders: CarlxsMG (architecture), Claude Sonnet 5 (review + hardening)
 
 ## Context and Problem Statement
 
@@ -28,34 +28,34 @@ tools it was scoped to)?
 
 ## Decision Drivers
 
-* **Auth plane separation.** The data plane (`/mcp/:clientName`,
+- **Auth plane separation.** The data plane (`/mcp/:clientName`,
   `/mcp-custom/:bundleName`) uses `mcpAuth` which has an explicit
   "no auth material configured → allow all" fallback (dev-only). The
   control plane (gateway management) cannot have that fallback — an
   unconfigured admin API would let anyone mint keys. The two planes
   need different auth logic.
-* **Composites belong to bundles, not to the bridge.** A composite is
+- **Composites belong to bundles, not to the bridge.** A composite is
   "this bundle's macro", not a standalone tool. Its scope must be the
   bundle it was added to, not the global session.
-* **Streamable HTTP only.** Carrying both SSE and Streamable HTTP doubles
+- **Streamable HTTP only.** Carrying both SSE and Streamable HTTP doubles
   the surface area for tests, transport errors, and proxy quirks
   (see REVIEW §2.6).
-* **No breaking change to the per-client endpoints.** Existing MCP
+- **No breaking change to the per-client endpoints.** Existing MCP
   clients connecting to `/mcp/:clientName` should not need to know
   anything changed.
 
 ## Considered Options
 
-* **A. Keep `/mcp` as the aggregate, add `/mcp/admin` as a sibling.**
+- **A. Keep `/mcp` as the aggregate, add `/mcp/admin` as a sibling.**
   Two endpoints, same hostname, different auth. Rejected: the aggregate
   remains the "magic endpoint that flattens everything", which is
   exactly what we're trying to delete; and the composites issue stays
   because they still live in the aggregate.
-* **B. Rename `/mcp` to `/mcp/:clientName` and create `/mcp/admin`.**
+- **B. Rename `/mcp` to `/mcp/:clientName` and create `/mcp/admin`.**
   Rejected: requires every existing MCP client (potentially external)
   to update its base URL. Breaks the public contract on day one of the
   refactor.
-* **C. Repurpose `/mcp` as the control plane; keep
+- **C. Repurpose `/mcp` as the control plane; keep
   `/mcp/:clientName` and `/mcp-custom/:bundleName` as the data plane.**
   Chosen. The control plane's auth (`rootMcpAuth` /
   `resolveSystemRole`) is fail-closed by design and resolves only from
@@ -82,19 +82,19 @@ sensitive / `__confirm` step-up gate, reusing the same mechanism
 
 ### Consequences
 
-* Good, because the bridge is now fully governable over MCP — an admin
+- Good, because the bridge is now fully governable over MCP — an admin
   LLM can drive the whole lifecycle (register, configure, mint key, call)
   through one protocol.
-* Good, because the data plane's existing auth contract is unchanged;
+- Good, because the data plane's existing auth contract is unchanged;
   no MCP client needs a config update.
-* Good, because removing the aggregate scope also removes the composite
+- Good, because removing the aggregate scope also removes the composite
   leakage: composites can only be invoked via the bundle they belong to.
-* Good, because removing SSE cuts the transport matrix in half — every
+- Good, because removing SSE cuts the transport matrix in half — every
   e2e and integration test runs against one transport now.
-* Bad, because any operator who was relying on `/mcp` as a shortcut
+- Bad, because any operator who was relying on `/mcp` as a shortcut
   (one URL, all tools) has to choose between `/mcp` (control) and the
   per-client / bundle shards (data).
-* Bad, because `mcp-server.ts`'s client-scope check used to be a name
+- Bad, because `mcp-server.ts`'s client-scope check used to be a name
   prefix test instead of exact tool→client membership; the refactor
   surfaced this by being the first time the data plane was exercised
   in isolation against its own auth gate. Closed in the same commit
@@ -102,20 +102,20 @@ sensitive / `__confirm` step-up gate, reusing the same mechanism
 
 ### Confirmation
 
-* `src/mcp/system-tools.ts` registers every `sys_*` tool with an explicit
+- `src/mcp/system-tools.ts` registers every `sys_*` tool with an explicit
   role tier and the same `__confirm` / elevated-credential step-up the
   proxy already enforces on sensitive backend tools.
-* `src/security/system-role.ts` `resolveSystemRole` rejects callers with
+- `src/security/system-role.ts` `resolveSystemRole` rejects callers with
   no system-role credential — there is **no** unconfigured-admin open
   mode. Covered by `src/__tests__/system-tools.test.ts`.
-* `e2e/auth-fail-closed.spec.ts` and `e2e/mcp-protocol.spec.ts` exercise
+- `e2e/auth-fail-closed.spec.ts` and `e2e/mcp-protocol.spec.ts` exercise
   the data plane against the post-split `/mcp/:clientName` endpoint, with
   each spec minting its own managed MCP key so the suite is
   order-independent.
 
 ## More Information
 
-* Commit: `69fd8eb` — `feat(mcp): split /mcp into a system control plane,
-  separate from data-plane shards`
-* Related code: `src/mcp/system-tools.ts`,
+- Commit: `69fd8eb` — `feat(mcp): split /mcp into a system control plane,
+separate from data-plane shards`
+- Related code: `src/mcp/system-tools.ts`,
   `src/security/system-role.ts`, `src/mcp/transports.ts`.

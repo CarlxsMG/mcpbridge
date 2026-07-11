@@ -22,7 +22,9 @@ beforeEach(() => {
 function makeConsumer(name: string): number {
   const now = Date.now();
   const row = getDb()
-    .query(`INSERT INTO consumers (name, monthly_quota, created_at, updated_at, created_by) VALUES (?, NULL, ?, ?, ?) RETURNING id`)
+    .query(
+      `INSERT INTO consumers (name, monthly_quota, created_at, updated_at, created_by) VALUES (?, NULL, ?, ?, ?) RETURNING id`,
+    )
     .get(name, now, now, null) as { id: number };
   return row.id;
 }
