@@ -3,8 +3,8 @@ import addFormats from "ajv-formats";
 import { registry } from "../mcp/registry.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import { isRawIpLiteral, refreshPinIfStale } from "../net/ip-validator.js";
-import type { PinnedIp } from "../net/ip-validator.js";
+import { isRawIpLiteral, refreshPinIfStale, makePinnedFetch } from "../net/ip-validator.js";
+import type { PinnedIp, PinnedFetch } from "../net/ip-validator.js";
 import { getCircuitBreaker } from "../middleware/circuit-breaker.js";
 import {
   recordToolCall,
@@ -203,7 +203,14 @@ interface PageCtx {
   targetBaseUrl: string;
   resolvedPath: string;
   baseQuery: URLSearchParams;
-  pinIp: string;
+  /**
+   * The shared DNS-pinned fetch from the primary request (makePinnedFetch):
+   * swaps the original hostname for the SSRF-validated IP, preserves the Host
+   * header, and refuses redirects. Every follow-up page reuses it, so pagination
+   * pins exactly like the primary request without re-implementing the technique.
+   */
+  pinnedFetch: PinnedFetch;
+  /** Original host:port of the primary request — used only for the cross-host next-link guard. */
   originalHost: string;
   headers: Record<string, string>;
   timeoutMs: number;
@@ -213,10 +220,12 @@ interface PageCtx {
   firstLink: string | null;
 }
 
-/** Builds a same-host page URL with the pinned IP substituted for the hostname. */
-function buildPinnedUrl(baseUrl: string, path: string, query: URLSearchParams, pinIp: string): string {
+/**
+ * Builds a same-host page URL keeping the original hostname — the pinned fetch
+ * (ctx.pinnedFetch) swaps it to the validated IP at request time.
+ */
+function buildPageUrl(baseUrl: string, path: string, query: URLSearchParams): string {
   const u = new URL(`${baseUrl}${path}`);
-  u.hostname = pinIp;
   u.search = query.toString();
   return u.toString();
 }
@@ -248,10 +257,12 @@ async function fetchAllPages(firstBodyText: string, cfg: PaginationConfig, ctx: 
 
   const fetchPage = async (urlStr: string): Promise<{ ok: boolean; text: string | null; link: string | null }> => {
     const signal = AbortSignal.any([ctx.externalSignal, AbortSignal.timeout(ctx.timeoutMs)]);
-    const resp = await fetch(urlStr, {
+    // urlStr carries the ORIGINAL hostname; ctx.pinnedFetch swaps it to the
+    // validated IP, sets the Host header (host:port) from the URL, and refuses
+    // redirects — the identical DNS-rebinding-safe transport the primary used.
+    const resp = await ctx.pinnedFetch(urlStr, {
       method: "GET",
-      headers: { ...ctx.headers, "Content-Type": "application/json", Host: ctx.originalHost },
-      redirect: "error" as RequestRedirect,
+      headers: { ...ctx.headers, "Content-Type": "application/json" },
       signal,
     });
     const text = resp.ok ? await readBodyWithCap(resp) : null;
@@ -265,11 +276,11 @@ async function fetchAllPages(firstBodyText: string, cfg: PaginationConfig, ctx: 
       if (!cursor) break;
       const q = new URLSearchParams(ctx.baseQuery);
       q.set(cfg.cursorParam ?? "cursor", cursor);
-      urlStr = buildPinnedUrl(ctx.targetBaseUrl, ctx.resolvedPath, q, ctx.pinIp);
+      urlStr = buildPageUrl(ctx.targetBaseUrl, ctx.resolvedPath, q);
     } else if (cfg.strategy === "page") {
       const q = new URLSearchParams(ctx.baseQuery);
       q.set(cfg.pageParam ?? "page", String(pageNum));
-      urlStr = buildPinnedUrl(ctx.targetBaseUrl, ctx.resolvedPath, q, ctx.pinIp);
+      urlStr = buildPageUrl(ctx.targetBaseUrl, ctx.resolvedPath, q);
     } else {
       if (!link) break;
       let linkUrl: URL;
@@ -279,8 +290,7 @@ async function fetchAllPages(firstBodyText: string, cfg: PaginationConfig, ctx: 
         break;
       }
       if (linkUrl.host !== ctx.originalHost) break; // cross-host next: stop (SSRF-safe)
-      linkUrl.hostname = ctx.pinIp;
-      urlStr = linkUrl.toString();
+      urlStr = linkUrl.toString(); // original hostname; ctx.pinnedFetch pins it to the validated IP
     }
 
     let res: { ok: boolean; text: string | null; link: string | null };
@@ -840,13 +850,56 @@ async function dispatchToolCall(
   return runRest();
 }
 
+/** Stage-1 routing decision returned by resolveRestRouting (breaker/LB/canary + outcome recorders). */
+interface RestRouting {
+  breaker: ReturnType<typeof getCircuitBreaker>;
+  effectiveTimeout: number;
+  route: ReturnType<typeof decideSecondary>;
+  canary: ReturnType<typeof getCanary>;
+  lbChoice: LbChoice | null;
+  lbKey: string | undefined;
+  recordBreakerSuccess: () => void;
+  recordBreakerFailure: () => void;
+}
+
+/** Stage-2 built request returned by buildRestRequest (pinned fetch + URL/body + auth + response config). */
+interface RestRequest {
+  remainingArgs: Record<string, unknown>;
+  resolvedPath: string;
+  transformCfg: ReturnType<typeof getToolTransform>;
+  targetBaseUrl: string;
+  originalHost: string;
+  pinnedFetch: PinnedFetch;
+  url: string;
+  method: string;
+  body: string | undefined;
+  upstreamAuthHeaders: Record<string, string>;
+  redactionPaths: ReturnType<typeof getRedactionPaths>;
+  reqController: AbortController;
+}
+
+/** Per-call identity + response-cache context threaded into stage-3 response processing. */
+interface RestCallCtx {
+  client: RegisteredClient;
+  tool: RegisteredTool;
+  mcpToolName: string;
+  callerKey: ReturnType<typeof resolveMcpKeyByToken>;
+  guardrails: ReturnType<typeof getGuardrails>;
+  responseCacheEnabled: boolean;
+  responseCacheKey: string;
+  cacheCfg: ReturnType<typeof getToolCacheConfig> | null;
+}
+
 /**
- * The REST/GraphQL/WS/MCP dispatch path, hoisted out of dispatchToolCall. Every
- * transport-agnostic gate (enable/scope/quota/sensitivity/quarantine/approval/
- * guardrails/rate-limit/mock/cache) has already run; this owns breaker/LB/canary
- * routing, request building + IP pinning, the retry loop, and response processing.
+ * Stage 1 of dispatchRestToolCall — breaker/LB/canary routing. Runs the circuit-breaker check,
+ * N-way load-balancer target selection (which takes precedence over canary), and secondary-upstream
+ * (canary/failover) routing, then dispatches the MCP- and WS-kind early paths. Returns a ToolResult
+ * for the fail-fast / MCP / WS early-return cases (mirroring the ToolResult|null gate convention),
+ * otherwise the routing bundle the caller continues with: the breaker, effective timeout, secondary
+ * route + canary config, LB choice/key, and the two breaker/LB outcome recorders (which capture
+ * route/lbKey/breaker for the retry loop).
  */
-async function dispatchRestToolCall(
+async function resolveRestRouting(
   client: RegisteredClient,
   tool: RegisteredTool,
   mcpToolName: string,
@@ -854,11 +907,8 @@ async function dispatchRestToolCall(
   callerKey: ReturnType<typeof resolveMcpKeyByToken>,
   guardrails: ReturnType<typeof getGuardrails>,
   mockCfg: ReturnType<typeof getToolMock> | null,
-  responseCacheEnabled: boolean,
-  responseCacheKey: string,
-  cacheCfg: ReturnType<typeof getToolCacheConfig> | null,
   opts: ToolCallOpts | undefined,
-): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+): Promise<ToolResult | RestRouting> {
   // Circuit breaker check
   const breaker = getCircuitBreaker(client.name, client.guards?.circuitBreaker);
   const circuitCheck = breaker.canRequest();
@@ -927,7 +977,27 @@ async function dispatchRestToolCall(
     if (!route.bypassBreaker) breaker.recordFailure();
     if (lbKey) markTargetDown(lbKey);
   };
+  return { breaker, effectiveTimeout, route, canary, lbChoice, lbKey, recordBreakerSuccess, recordBreakerFailure };
+}
 
+/**
+ * Stage 2 of dispatchRestToolCall — request building + SSRF IP pinning. Substitutes path params
+ * (rejecting post-substitution ".."/"." traversal — Fix 2), validates args via Ajv, applies the
+ * declarative request transform, resolves the pinned backend IP (LB member / canary secondary /
+ * TTL-refreshed primary), and constructs the pinned fetch + URL/query-or-body + upstream auth
+ * (incl. OAuth2 bearer) + redaction paths. Opens in-flight tracking (reqController / LB inflight)
+ * that dispatchRestToolCall's finally later releases. Returns a ToolResult for the traversal / Ajv /
+ * pin-refresh / deleting early-return cases, otherwise the built-request bundle.
+ */
+async function buildRestRequest(
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  args: Record<string, unknown>,
+  lbChoice: LbChoice | null,
+  route: ReturnType<typeof decideSecondary>,
+  canary: ReturnType<typeof getCanary>,
+  lbKey: string | undefined,
+): Promise<ToolResult | RestRequest> {
   // Build URL with path param substitution
   let remainingArgs = { ...args };
   const resolvedPath = tool.endpoint.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (_, paramName) => {
@@ -1024,7 +1094,13 @@ async function dispatchRestToolCall(
     pinIp = pin.ip;
   }
 
-  parsedBase.hostname = pinIp;
+  // Pin every outbound request to the SSRF-validated IP while preserving the
+  // original Host header and refusing redirects — via the single shared helper
+  // (also used by discovery + the MCP-upstream transport). The URL keeps its
+  // original hostname here; makePinnedFetch swaps it to `pinIp` at fetch time
+  // and derives the Host header (host:port) from this URL. Reused unchanged for
+  // every retry attempt and for pagination follow-ups (passed into PageCtx).
+  const pinnedFetch = makePinnedFetch(hostname, pinIp);
   let url = parsedBase.toString();
 
   const method = tool.method.toUpperCase();
@@ -1062,6 +1138,217 @@ async function dispatchRestToolCall(
 
   // Response redaction paths for this tool (applied to JSON responses below).
   const redactionPaths = getRedactionPaths(client.name, tool.name);
+  return {
+    remainingArgs,
+    resolvedPath,
+    transformCfg,
+    targetBaseUrl,
+    originalHost,
+    pinnedFetch,
+    url,
+    method,
+    body,
+    upstreamAuthHeaders,
+    redactionPaths,
+    reqController,
+  };
+}
+
+/**
+ * Stage 3 of dispatchRestToolCall — success-response processing. Given a known-good (2xx) Response,
+ * reads the body under the streaming size cap (rejecting oversize — proxyBodyCapRejections), records
+ * success metrics/usage, then runs the streaming-normalize / paginate → response-transform →
+ * redaction → guardrail-scan → context-budget → cache-set pipeline and returns the final ToolResult.
+ * No upstream response header is forwarded (Fix 1). Called by the retry loop right after
+ * recordBreakerSuccess(); the retry/error control flow stays in dispatchRestToolCall.
+ */
+async function processRestSuccessResponse(
+  response: Response,
+  attempt: number,
+  startTime: number,
+  routing: RestRouting,
+  req: RestRequest,
+  call: RestCallCtx,
+): Promise<ToolResult> {
+  const { effectiveTimeout, route } = routing;
+  const {
+    method,
+    targetBaseUrl,
+    resolvedPath,
+    remainingArgs,
+    pinnedFetch,
+    originalHost,
+    upstreamAuthHeaders,
+    transformCfg,
+    redactionPaths,
+    reqController,
+  } = req;
+  const { client, tool, mcpToolName, callerKey, guardrails, responseCacheEnabled, responseCacheKey, cacheCfg } = call;
+  // A2: read body with streaming cap
+  const rawText = await readBodyWithCap(response);
+  if (rawText === null) {
+    proxyBodyCapRejections.inc({ client: client.name });
+    log("warn", "Upstream response exceeded size limit", {
+      tool: mcpToolName,
+      client: client.name,
+      limit: config.maxResponseBytes,
+    });
+    recordToolCall(Date.now() - startTime, true);
+    recordUsage({
+      clientName: client.name,
+      toolName: tool.name,
+      keyId: callerKey?.id ?? null,
+      statusClass: "2xx",
+      isError: true,
+      durationMs: Date.now() - startTime,
+    });
+    proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, (Date.now() - startTime) / 1000);
+    return toolResult("Upstream response exceeded MAX_RESPONSE_BYTES limit", { isError: true });
+  }
+
+  const durationSuccess = (Date.now() - startTime) / 1000;
+  proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, durationSuccess);
+  if (attempt > 0) {
+    proxyRetryAttempts.inc({ client: client.name, method, outcome: "success" });
+  }
+  log("info", "Tool call succeeded", {
+    tool: mcpToolName,
+    client: client.name,
+    status: response.status,
+    duration_ms: Date.now() - startTime,
+    attempts: attempt + 1,
+  });
+  recordToolCall(Date.now() - startTime, false);
+  recordUsage({
+    clientName: client.name,
+    toolName: tool.name,
+    keyId: callerKey?.id ?? null,
+    statusClass: "2xx",
+    isError: false,
+    durationMs: Date.now() - startTime,
+  });
+
+  // Fix 1 — Response header allowlist (no-op confirmation).
+  // Only `content-type` is read internally to format the body; no upstream
+  // response headers (Set-Cookie, Authorization, WWW-Authenticate, etc.) are
+  // forwarded to the MCP caller. The return value carries only the body text,
+  // so sensitive headers cannot leak through this code path.
+  // Safe-to-forward allowlist (for future reference if headers are ever added):
+  //   content-type, content-length, content-encoding, content-language,
+  //   cache-control, etag, last-modified, retry-after
+  const contentType = response.headers.get("content-type") ?? "";
+
+  // Response pagination — follow cursor/page/link and aggregate the items
+  // array across pages BEFORE redaction/guardrail/cache. JSON GET only; the
+  // follow-ups reuse the pinned IP + Host of this request.
+  let bodyText = rawText;
+  const streamingCfg = getStreamingConfig(client.name, tool.name);
+  if (streamingCfg?.enabled) {
+    // Normalize a streaming-format body (NDJSON / SSE) into one aggregated
+    // JSON result — MCP returns a single tool result, so the upstream stream
+    // must complete (bounded by the response byte cap).
+    bodyText = JSON.stringify({ events: parseStream(rawText, streamingCfg.format, streamingCfg.maxEvents) }, null, 2);
+  } else if (method === "GET" && contentType.includes("application/json")) {
+    const paginationCfg = getPaginationConfig(client.name, tool.name);
+    if (paginationCfg?.enabled) {
+      const aggregated = await fetchAllPages(rawText, paginationCfg, {
+        targetBaseUrl,
+        resolvedPath,
+        baseQuery: new URLSearchParams(
+          Object.entries(remainingArgs).map(([k, v]) => [k, String(v)] as [string, string]),
+        ),
+        pinnedFetch,
+        originalHost,
+        headers: upstreamAuthHeaders,
+        timeoutMs: effectiveTimeout,
+        externalSignal: reqController.signal,
+        maxBytes: config.maxResponseBytes,
+        firstBytes: new TextEncoder().encode(rawText).length,
+        firstLink: response.headers.get("link"),
+      });
+      if (aggregated !== null) bodyText = aggregated;
+    }
+  }
+
+  // Declarative response transform on the parsed JSON body (pre-redaction).
+  if (transformCfg?.enabled && transformCfg.response.length > 0) {
+    try {
+      bodyText = JSON.stringify(applyOps(JSON.parse(bodyText), transformCfg.response), null, 2);
+    } catch {
+      /* non-JSON body: leave unchanged */
+    }
+  }
+
+  let responseText = bodyText;
+  if (contentType.includes("application/json")) {
+    // applyRedaction parses, redacts configured paths, and pretty-prints;
+    // returns null on non-JSON so we fall back to the raw text.
+    const processed = applyRedaction(redactionPaths, bodyText);
+    if (processed !== null) responseText = processed;
+  }
+
+  // Response guardrail scan (spotlighting) — runs after redaction so the
+  // envelope wraps the already-redacted text, not raw secrets.
+  if (guardrails?.scanResponses) {
+    const scan = applyResponseScan(responseText);
+    recordGuardrailHit(client.name, tool.name, scan.flagged);
+    if (scan.flagged) {
+      log("warn", "Tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
+      responseText = scan.text;
+    }
+  }
+
+  // Context budget — MUST run after redaction and the guardrail scan above:
+  // this is the last transformation before the response is cached/returned,
+  // so an opt-in llm_summarize call only ever sees already-sanitized text.
+  const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, responseText);
+  responseText = budgeted.text;
+
+  if (responseCacheEnabled && cacheCfg && !route.useSecondary) {
+    cacheSet(responseCacheKey, { content: [{ type: "text", text: responseText }] }, cacheCfg.ttlSeconds);
+    cacheEvents.inc({ client: client.name, outcome: "store" });
+  }
+  return toolResult(responseText);
+}
+
+/**
+ * The REST/GraphQL/WS/MCP dispatch path, hoisted out of dispatchToolCall. Every
+ * transport-agnostic gate (enable/scope/quota/sensitivity/quarantine/approval/
+ * guardrails/rate-limit/mock/cache) has already run; this owns breaker/LB/canary
+ * routing, request building + IP pinning, the retry loop, and response processing.
+ */
+async function dispatchRestToolCall(
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  mcpToolName: string,
+  args: Record<string, unknown>,
+  callerKey: ReturnType<typeof resolveMcpKeyByToken>,
+  guardrails: ReturnType<typeof getGuardrails>,
+  mockCfg: ReturnType<typeof getToolMock> | null,
+  responseCacheEnabled: boolean,
+  responseCacheKey: string,
+  cacheCfg: ReturnType<typeof getToolCacheConfig> | null,
+  opts: ToolCallOpts | undefined,
+): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+  const call: RestCallCtx = {
+    client,
+    tool,
+    mcpToolName,
+    callerKey,
+    guardrails,
+    responseCacheEnabled,
+    responseCacheKey,
+    cacheCfg,
+  };
+
+  const routing = await resolveRestRouting(client, tool, mcpToolName, args, callerKey, guardrails, mockCfg, opts);
+  if ("content" in routing) return routing;
+  const { breaker, effectiveTimeout, route, canary, lbChoice, lbKey, recordBreakerSuccess, recordBreakerFailure } =
+    routing;
+
+  const built = await buildRestRequest(client, tool, args, lbChoice, route, canary, lbKey);
+  if ("content" in built) return built;
+  const { method, url, body, upstreamAuthHeaders, reqController, pinnedFetch } = built;
 
   const startTime = Date.now();
 
@@ -1091,6 +1378,9 @@ async function dispatchRestToolCall(
       // reqController.signal stays persistent (external client cancellation).
       const attemptSignal = AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]);
 
+      // Host header + redirect:"error" + hostname->IP pinning are all applied by
+      // pinnedFetch (makePinnedFetch); the options below carry only method, the
+      // trace/auth/content-type headers, the body, and the per-attempt signal.
       const fetchOptions: RequestInit =
         body !== undefined
           ? {
@@ -1098,10 +1388,8 @@ async function dispatchRestToolCall(
               headers: outboundTraceHeaders(undefined, {
                 ...upstreamAuthHeaders,
                 "Content-Type": "application/json",
-                Host: originalHost,
               }),
               body,
-              redirect: "error" as RequestRedirect,
               signal: attemptSignal,
             }
           : {
@@ -1109,150 +1397,16 @@ async function dispatchRestToolCall(
               headers: outboundTraceHeaders(undefined, {
                 ...upstreamAuthHeaders,
                 "Content-Type": "application/json",
-                Host: originalHost,
               }),
-              redirect: "error" as RequestRedirect,
               signal: attemptSignal,
             };
 
       try {
-        const response = await fetch(url, fetchOptions);
+        const response = await pinnedFetch(url, fetchOptions);
 
         if (response.ok) {
           recordBreakerSuccess();
-
-          // A2: read body with streaming cap
-          const rawText = await readBodyWithCap(response);
-          if (rawText === null) {
-            proxyBodyCapRejections.inc({ client: client.name });
-            log("warn", "Upstream response exceeded size limit", {
-              tool: mcpToolName,
-              client: client.name,
-              limit: config.maxResponseBytes,
-            });
-            recordToolCall(Date.now() - startTime, true);
-            recordUsage({
-              clientName: client.name,
-              toolName: tool.name,
-              keyId: callerKey?.id ?? null,
-              statusClass: "2xx",
-              isError: true,
-              durationMs: Date.now() - startTime,
-            });
-            proxyRequestDuration.observe(
-              { client: client.name, method, status_class: "2xx" },
-              (Date.now() - startTime) / 1000,
-            );
-            return toolResult("Upstream response exceeded MAX_RESPONSE_BYTES limit", { isError: true });
-          }
-
-          const durationSuccess = (Date.now() - startTime) / 1000;
-          proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, durationSuccess);
-          if (attempt > 0) {
-            proxyRetryAttempts.inc({ client: client.name, method, outcome: "success" });
-          }
-          log("info", "Tool call succeeded", {
-            tool: mcpToolName,
-            client: client.name,
-            status: response.status,
-            duration_ms: Date.now() - startTime,
-            attempts: attempt + 1,
-          });
-          recordToolCall(Date.now() - startTime, false);
-          recordUsage({
-            clientName: client.name,
-            toolName: tool.name,
-            keyId: callerKey?.id ?? null,
-            statusClass: "2xx",
-            isError: false,
-            durationMs: Date.now() - startTime,
-          });
-
-          // Fix 1 — Response header allowlist (no-op confirmation).
-          // Only `content-type` is read internally to format the body; no upstream
-          // response headers (Set-Cookie, Authorization, WWW-Authenticate, etc.) are
-          // forwarded to the MCP caller. The return value carries only the body text,
-          // so sensitive headers cannot leak through this code path.
-          // Safe-to-forward allowlist (for future reference if headers are ever added):
-          //   content-type, content-length, content-encoding, content-language,
-          //   cache-control, etag, last-modified, retry-after
-          const contentType = response.headers.get("content-type") ?? "";
-
-          // Response pagination — follow cursor/page/link and aggregate the items
-          // array across pages BEFORE redaction/guardrail/cache. JSON GET only; the
-          // follow-ups reuse the pinned IP + Host of this request.
-          let bodyText = rawText;
-          const streamingCfg = getStreamingConfig(client.name, tool.name);
-          if (streamingCfg?.enabled) {
-            // Normalize a streaming-format body (NDJSON / SSE) into one aggregated
-            // JSON result — MCP returns a single tool result, so the upstream stream
-            // must complete (bounded by the response byte cap).
-            bodyText = JSON.stringify(
-              { events: parseStream(rawText, streamingCfg.format, streamingCfg.maxEvents) },
-              null,
-              2,
-            );
-          } else if (method === "GET" && contentType.includes("application/json")) {
-            const paginationCfg = getPaginationConfig(client.name, tool.name);
-            if (paginationCfg?.enabled) {
-              const aggregated = await fetchAllPages(rawText, paginationCfg, {
-                targetBaseUrl,
-                resolvedPath,
-                baseQuery: new URLSearchParams(
-                  Object.entries(remainingArgs).map(([k, v]) => [k, String(v)] as [string, string]),
-                ),
-                pinIp,
-                originalHost,
-                headers: upstreamAuthHeaders,
-                timeoutMs: effectiveTimeout,
-                externalSignal: reqController.signal,
-                maxBytes: config.maxResponseBytes,
-                firstBytes: new TextEncoder().encode(rawText).length,
-                firstLink: response.headers.get("link"),
-              });
-              if (aggregated !== null) bodyText = aggregated;
-            }
-          }
-
-          // Declarative response transform on the parsed JSON body (pre-redaction).
-          if (transformCfg?.enabled && transformCfg.response.length > 0) {
-            try {
-              bodyText = JSON.stringify(applyOps(JSON.parse(bodyText), transformCfg.response), null, 2);
-            } catch {
-              /* non-JSON body: leave unchanged */
-            }
-          }
-
-          let responseText = bodyText;
-          if (contentType.includes("application/json")) {
-            // applyRedaction parses, redacts configured paths, and pretty-prints;
-            // returns null on non-JSON so we fall back to the raw text.
-            const processed = applyRedaction(redactionPaths, bodyText);
-            if (processed !== null) responseText = processed;
-          }
-
-          // Response guardrail scan (spotlighting) — runs after redaction so the
-          // envelope wraps the already-redacted text, not raw secrets.
-          if (guardrails?.scanResponses) {
-            const scan = applyResponseScan(responseText);
-            recordGuardrailHit(client.name, tool.name, scan.flagged);
-            if (scan.flagged) {
-              log("warn", "Tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
-              responseText = scan.text;
-            }
-          }
-
-          // Context budget — MUST run after redaction and the guardrail scan above:
-          // this is the last transformation before the response is cached/returned,
-          // so an opt-in llm_summarize call only ever sees already-sanitized text.
-          const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, responseText);
-          responseText = budgeted.text;
-
-          if (responseCacheEnabled && cacheCfg && !route.useSecondary) {
-            cacheSet(responseCacheKey, { content: [{ type: "text", text: responseText }] }, cacheCfg.ttlSeconds);
-            cacheEvents.inc({ client: client.name, outcome: "store" });
-          }
-          return toolResult(responseText);
+          return await processRestSuccessResponse(response, attempt, startTime, routing, built, call);
         }
 
         lastStatus = response.status;
