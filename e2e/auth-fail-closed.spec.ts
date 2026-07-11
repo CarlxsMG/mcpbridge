@@ -61,6 +61,8 @@ interface McpAuthCall {
   status: number;
   /** Best-effort body — only present when we expected 200 (or the body was JSON). */
   bodyText?: string;
+  /** The `mcp-session-id` response header, set on a successful initialize. */
+  sessionId: string | null;
   _allHeaders?: Record<string, string>;
 }
 

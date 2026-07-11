@@ -18,7 +18,7 @@
  * which is not what this test exercises — see `auth-fail-closed.spec.ts` for
  * the control-plane auth story.
  */
-import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import {
   APP_BASE_URL,
   BOOTSTRAP_ADMIN_PASSWORD,

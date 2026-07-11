@@ -1,4 +1,6 @@
-FROM oven/bun:1.3.11-alpine AS base
+# Pinned to the immutable digest for oven/bun:1.3.11-alpine (multi-arch manifest
+# list digest, verified via https://hub.docker.com/v2/repositories/oven/bun/tags/1.3.11-alpine)
+FROM oven/bun:1.3.11-alpine@sha256:7ed9f74c326d1c260abe247ac423ccbf5ac92af62bb442d515d1f92f21e8ea9b AS base
 WORKDIR /app
 
 # Install dependencies
@@ -32,7 +34,7 @@ VOLUME /app/data
 USER bun
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:3000/health || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:$PORT/health || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["bun", "src/index.ts"]

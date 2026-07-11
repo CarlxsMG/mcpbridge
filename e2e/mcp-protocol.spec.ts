@@ -20,7 +20,7 @@
  * shape to assert that a backend 404 becomes an isError MCP result, not
  * a transport error.
  */
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { APP_BASE_URL, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME, FIXTURE_BASE_URL } from "./env";
 
 /** Unique server name per spec run so this file can run alongside the others. */

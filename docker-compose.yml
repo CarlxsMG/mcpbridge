@@ -1,22 +1,30 @@
 # Minimal production compose file for the MCP REST Bridge.
 #
 #   cp .env.example .env   # fill in real values (BOOTSTRAP_ADMIN_*, etc.)
-#   docker compose up -d --build
+#   docker compose up -d
 #
 # Notes:
+# - Defaults to pulling the published, signed, multi-arch image from GHCR
+#   (built by .github/workflows/docker-publish.yml). Uncomment the `build: .`
+#   line below instead if you want to build from local source.
 # - `env_file` injects .env into the container's process env (same file
 #   Compose also reads for ${VAR} substitution below, so PORT stays in sync
 #   on both sides of the port mapping).
 # - The image already declares a HEALTHCHECK (wget .../health) in the
 #   Dockerfile — Compose picks that up automatically, no need to redeclare
-#   it here. It assumes the default PORT=3000; if you override PORT in
-#   .env, the Dockerfile's hardcoded healthcheck URL will need updating too.
+#   it here. That healthcheck runs *inside* the container and always probes
+#   the container's own `$PORT` env var (`http://localhost:$PORT/health`),
+#   never the host-side port mapping above — so the mapping alone overriding
+#   PORT is not enough. `env_file: .env` is what makes an overridden PORT
+#   actually reach the container's process env, which is what keeps the
+#   healthcheck (and the app itself) pointed at the right port.
 # - The SQLite DB (DB_PATH=/app/data/mcp-bridge.db, set in the Dockerfile)
 #   lives on the named volume below so it survives container recreation.
 
 services:
   mcp-bridge:
-    build: .
+    image: ghcr.io/aico-dot-team-code/mcpbridge:latest
+    # build: .   # uncomment to build from local source instead of the published image — e.g. for testing an unreleased change
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     env_file:
