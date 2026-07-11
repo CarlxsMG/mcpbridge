@@ -10,8 +10,14 @@ import { adminAuth } from "../middleware/auth.js";
 import spec from "../openapi.yaml";
 
 export function docsRoutes(app: Express): void {
+  // /docs (Swagger UI + the full OpenAPI spec) is admin-authenticated by
+  // default. Set EXPOSE_DOCS_UNAUTHENTICATED=true to serve it publicly — an
+  // explicit opt-in, so a staging/shared deploy that happens to inherit
+  // NODE_ENV=development can't silently expose the whole API surface.
   const docsGuard =
-    process.env.NODE_ENV === "development" ? (_req: Request, _res: Response, next: NextFunction) => next() : adminAuth;
+    process.env.EXPOSE_DOCS_UNAUTHENTICATED === "true"
+      ? (_req: Request, _res: Response, next: NextFunction) => next()
+      : adminAuth;
 
   app.use("/docs", docsGuard, swaggerUi.serve, swaggerUi.setup(spec));
 }

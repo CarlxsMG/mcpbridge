@@ -1,6 +1,7 @@
 import type { Request, Response, Express } from "express";
 import { registry } from "../mcp/registry.js";
 import { adminAuth } from "../middleware/auth.js";
+import { requireOperator, ensureClientAccess } from "../middleware/authz.js";
 import { log } from "../logger.js";
 import { notFound } from "./http-errors.js";
 
@@ -29,7 +30,8 @@ export function introspectionRoutes(app: Express): void {
 
   // Unregister a client — registry.unregister() handles abort, circuit-breaker
   // cleanup, toolIndex cleanup, and notifyToolsChanged internally.
-  app.delete("/clients/:name", adminAuth, async (req: Request<{ name: string }>, res: Response) => {
+  app.delete("/clients/:name", adminAuth, requireOperator, async (req: Request<{ name: string }>, res: Response) => {
+    if (!ensureClientAccess(req, res, req.params.name)) return;
     const removed = await registry.unregister(req.params.name);
     if (!removed) {
       notFound(res, "CLIENT_NOT_FOUND", "Client not found");

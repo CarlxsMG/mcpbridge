@@ -17,6 +17,7 @@ import { startHealthCheckLoop } from "./observability/health.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
 import { checkStartupGuards } from "./security/startup-guards.js";
+import { isMcpDataPlaneOpen } from "./middleware/auth.js";
 import { validateEnvOrWarn } from "./config-schema.js";
 import { getDb } from "./db/connection.js";
 import { bootstrapAdminUser } from "./security/bootstrap-admin.js";
@@ -166,12 +167,31 @@ for (const key of Object.keys(redactedConfig)) {
     redactedConfig[key] = "<redacted>";
   } else if (REDACT_EXACT_KEYS.has(key) && redactedConfig[key]) {
     redactedConfig[key] = "<redacted>";
+  } else if (typeof redactedConfig[key] === "string" && /^https?:\/\/[^/]*@/.test(redactedConfig[key] as string)) {
+    // Strip credentials embedded in a configured URL (e.g. https://user:pass@host
+    // in JWT_JWKS_URL / AUDIT_SINK_URL / VAULT_ADDR) so they never hit the log.
+    redactedConfig[key] = (redactedConfig[key] as string).replace(/^(https?:\/\/)[^/@]*@/, "$1<redacted>@");
   }
 }
 // Env validation — surface typos and out-of-range values at boot. Warn-only by
 // default (dev ergonomic); production can promote via STRICT_CONFIG=production.
 validateEnvOrWarn();
 log("info", "Active configuration", redactedConfig);
+
+// Fail-open guard: warn loudly if the MCP data plane is unauthenticated (no
+// MCP_API_KEYS, managed keys, or inbound JWT, and REQUIRE_MCP_AUTH unset) — every
+// backend tool on /mcp/:client, /mcp-custom/:bundle, and the WS proxy would then
+// be callable by anyone. Emitted last so operators can't miss it.
+if (isMcpDataPlaneOpen()) {
+  log("warn", "MCP data plane is UNAUTHENTICATED — set MCP_API_KEYS or REQUIRE_MCP_AUTH=true", {
+    registeredClients: registry.listClients().length,
+    affectedEndpoints: ["/mcp/:client", "/mcp-custom/:bundle", "/ws-proxy/*"],
+    detail:
+      "No MCP_API_KEYS, DB-managed keys, or inbound JWT are configured, so backend tools on the " +
+      "data-plane endpoints accept any caller. Mint an MCP key or set REQUIRE_MCP_AUTH=true to fail closed.",
+  });
+}
+
 const server = app.listen(config.port, () => {
   log("info", "MCP REST Bridge started", { port: config.port });
 });

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { registry } from "../../mcp/registry.js";
-import { ensureClientAccess, callerTeamId, requireOperator } from "../../middleware/authz.js";
+import { ensureClientAccess, callerTeamId, requireOperator, canCallerAccessClient } from "../../middleware/authz.js";
 import { sendError, validationError, notFound } from "../http-errors.js";
 import { validateClientGuardInput } from "../admin-validators.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
@@ -112,6 +112,13 @@ clientsRoutes.patch("/clients", requireOperator, async (req: Request, res: Respo
   const actor = actorFromRequest(req);
   const results: Record<string, boolean> = {};
   for (const name of names as string[]) {
+    // Tenancy: a team-scoped caller can't toggle clients outside its team —
+    // report them as not-found (false), the same way ensureClientAccess hides
+    // a single out-of-team client behind a 404.
+    if (!canCallerAccessClient(req, name)) {
+      results[name] = false;
+      continue;
+    }
     results[name] = await registry.setClientEnabled(name, enabled);
     if (results[name]) recordAudit(actor, enabled ? "client.enable" : "client.disable", name, { bulk: true });
   }

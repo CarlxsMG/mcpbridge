@@ -118,6 +118,8 @@ const EnvSchema = z.object({
 
   // ── Auth & session ────────────────────────────────────────────────────────
   AUTH_DISABLED: envBool,
+  REQUIRE_MCP_AUTH: envBool,
+  EXPOSE_DOCS_UNAUTHENTICATED: envBool,
   ADMIN_API_KEYS: envCsv,
   MCP_API_KEYS: envCsv,
   SESSION_TTL_MS: envInt(1_800_000, 60_000, 86_400_000),

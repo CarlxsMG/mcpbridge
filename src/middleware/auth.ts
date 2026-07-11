@@ -123,6 +123,18 @@ function extractBearerFromHeaders(headers: IncomingHttpHeaders): string | null {
 }
 
 /**
+ * True when the MCP data plane (`/mcp/:client`, `/mcp-custom/:bundle`, the WS
+ * proxy) is in "open mode": no auth material exists at all — no env
+ * `MCP_API_KEYS`, no DB-managed keys, no inbound JWT — AND `REQUIRE_MCP_AUTH`
+ * is not set. In that state any caller is accepted, so a loud warning is
+ * emitted at boot (see `warnIfMcpDataPlaneOpen`). Setting `REQUIRE_MCP_AUTH=true`
+ * forces this to false so the data plane fails closed even before a key exists.
+ */
+export function isMcpDataPlaneOpen(): boolean {
+  return !config.requireMcpAuth && config.mcpApiKeys.length === 0 && !hasAnyMcpKeys() && !isJwtConfigured();
+}
+
+/**
  * Pure verdict version of mcpAuth's logic — usable from a raw `http.IncomingMessage`
  * (e.g. a WS-proxy upgrade request) that never gets an Express `Response` to
  * write onto. mcpAuth below is a thin Express adapter over this.
@@ -152,8 +164,9 @@ export async function evaluateMcpAuth(headers: IncomingHttpHeaders): Promise<Mcp
 
   // Preserve the historical "no auth material => allow all" behaviour, but only
   // when there is genuinely nothing to check against — configuring JWT (like
-  // minting a managed key) locks the surface down too.
-  if (!envConfigured && !hasAnyMcpKeys() && !isJwtConfigured()) return { ok: true };
+  // minting a managed key) locks the surface down too, and REQUIRE_MCP_AUTH
+  // opts out of it entirely (fail closed even before a key exists).
+  if (isMcpDataPlaneOpen()) return { ok: true };
 
   if (!token) return { ok: false, status: 401, code: "UNAUTHORIZED", message: "Missing Authorization header" };
   return { ok: false, status: 403, code: "FORBIDDEN", message: "Invalid API key" };

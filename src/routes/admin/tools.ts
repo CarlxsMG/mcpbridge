@@ -54,6 +54,8 @@ toolsRoutes.patch(
 // Bulk enable/disable across all listed tools of one client.
 toolsRoutes.patch("/clients/:name/tools", requireOperator, async (req: Request<{ name: string }>, res: Response) => {
   const { name } = req.params;
+  // Tenancy: this bulk toggle targets one client's tools, so scope it up front.
+  if (!ensureClientAccess(req, res, name)) return;
   const body = (req.body as Record<string, unknown>) ?? {};
   const toolNames = body.tool_names;
   const enabled = body.enabled;

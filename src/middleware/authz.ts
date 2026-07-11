@@ -21,6 +21,18 @@ export function ensureClientAccess(req: Request, res: Response, clientName: stri
   return false;
 }
 
+/**
+ * Non-response-writing tenancy check for bulk loops, where `ensureClientAccess`
+ * can't be used because it would write a 404 mid-iteration. Returns true when
+ * the caller may act on this client, or the client is unknown (the per-name
+ * result then reports it as not-found normally).
+ */
+export function canCallerAccessClient(req: Request, clientName: string): boolean {
+  const clientTeam = getClientTeam(clientName);
+  if (clientTeam === undefined) return true; // unknown client — handled as not-found by the caller
+  return canAccessClient(callerTeamId(req), clientTeam);
+}
+
 /** Admin-only for session callers (viewer/operator/auditor are rejected). Bearer callers always pass. */
 export function requireAdminRole(req: Request, res: Response, next: NextFunction): void {
   if (req.authContext?.method === "session" && req.authContext.role !== "admin") {

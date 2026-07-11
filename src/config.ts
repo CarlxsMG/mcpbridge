@@ -109,32 +109,45 @@ function parseSecretsProvider(): "local" | "vault" {
   throw new Error(`Invalid SECRETS_PROVIDER "${raw}" — must be "local" or "vault".`);
 }
 
+/**
+ * Parse an integer env var. Falls back to `def` only when the var is unset,
+ * empty, or non-numeric — NOT when it is a valid `0`. `Number(x) || def`
+ * silently turns a deliberate `0` (e.g. `RETRY_MAX_ATTEMPTS=0` to disable
+ * retries, `CACHE_MAX_ENTRIES=0` to disable the cache) into the default.
+ * Range validation lives in `config-schema.ts`.
+ */
+function envInt(raw: string | undefined, def: number): number {
+  if (raw === undefined || raw.trim() === "") return def;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : def;
+}
+
 const authDisabled = process.env.AUTH_DISABLED === "true";
 const corsOrigins = parseCorsOrigins(process.env.CORS_ORIGINS, authDisabled);
 
 export const config = {
-  port: Number(process.env.PORT) || 3000,
-  toolCallTimeoutMs: Number(process.env.TOOL_CALL_TIMEOUT_MS) || 30_000,
-  healthCheckTimeoutMs: Number(process.env.HEALTH_CHECK_TIMEOUT_MS) || 5_000,
-  healthCheckIntervalMs: Number(process.env.HEALTH_CHECK_INTERVAL_MS) || 30_000,
+  port: envInt(process.env.PORT, 3000),
+  toolCallTimeoutMs: envInt(process.env.TOOL_CALL_TIMEOUT_MS, 30_000),
+  healthCheckTimeoutMs: envInt(process.env.HEALTH_CHECK_TIMEOUT_MS, 5_000),
+  healthCheckIntervalMs: envInt(process.env.HEALTH_CHECK_INTERVAL_MS, 30_000),
   /** Maximum number of concurrent health checks per batch. */
-  healthCheckMaxConcurrent: Number(process.env.HEALTH_CHECK_MAX_CONCURRENT) || 20,
-  openapiDiscoveryTimeoutMs: Number(process.env.OPENAPI_DISCOVERY_TIMEOUT_MS) || 10_000,
-  graphqlDiscoveryTimeoutMs: Number(process.env.GRAPHQL_DISCOVERY_TIMEOUT_MS) || 10_000,
+  healthCheckMaxConcurrent: envInt(process.env.HEALTH_CHECK_MAX_CONCURRENT, 20),
+  openapiDiscoveryTimeoutMs: envInt(process.env.OPENAPI_DISCOVERY_TIMEOUT_MS, 10_000),
+  graphqlDiscoveryTimeoutMs: envInt(process.env.GRAPHQL_DISCOVERY_TIMEOUT_MS, 10_000),
   /** Width cap on __schema.types during GraphQL introspection — bounds discovery cost on a huge schema. */
-  graphqlMaxTypes: Number(process.env.GRAPHQL_MAX_TYPES) || 2000,
+  graphqlMaxTypes: envInt(process.env.GRAPHQL_MAX_TYPES, 2000),
   /** Depth cap for auto-synthesized selection sets on object/interface return types. */
-  graphqlSelectionMaxDepth: Number(process.env.GRAPHQL_SELECTION_MAX_DEPTH) || 2,
+  graphqlSelectionMaxDepth: envInt(process.env.GRAPHQL_SELECTION_MAX_DEPTH, 2),
   /** Depth cap for mapping nested GraphQL INPUT_OBJECT types to JSON Schema. */
-  graphqlInputMaxDepth: Number(process.env.GRAPHQL_INPUT_MAX_DEPTH) || 3,
-  wsProxyMaxGlobalConnections: Number(process.env.WS_PROXY_MAX_GLOBAL_CONNECTIONS) || 500,
-  wsProxyDefaultMaxConnectionsPerTarget: Number(process.env.WS_PROXY_DEFAULT_MAX_CONNECTIONS) || 10,
-  wsProxyDefaultMaxMessageBytes: Number(process.env.WS_PROXY_DEFAULT_MAX_MESSAGE_BYTES) || 1_048_576,
-  wsProxyDefaultIdleTimeoutMs: Number(process.env.WS_PROXY_DEFAULT_IDLE_TIMEOUT_MS) || 300_000,
-  wsProxyDialTimeoutMs: Number(process.env.WS_PROXY_DIAL_TIMEOUT_MS) || 10_000,
-  wsProxyRevalidateIntervalMs: Number(process.env.WS_PROXY_REVALIDATE_INTERVAL_MS) || 60_000,
-  sessionTtlMs: Number(process.env.SESSION_TTL_MS) || 1_800_000,
-  maxSessions: Number(process.env.MAX_SESSIONS) || 100,
+  graphqlInputMaxDepth: envInt(process.env.GRAPHQL_INPUT_MAX_DEPTH, 3),
+  wsProxyMaxGlobalConnections: envInt(process.env.WS_PROXY_MAX_GLOBAL_CONNECTIONS, 500),
+  wsProxyDefaultMaxConnectionsPerTarget: envInt(process.env.WS_PROXY_DEFAULT_MAX_CONNECTIONS, 10),
+  wsProxyDefaultMaxMessageBytes: envInt(process.env.WS_PROXY_DEFAULT_MAX_MESSAGE_BYTES, 1_048_576),
+  wsProxyDefaultIdleTimeoutMs: envInt(process.env.WS_PROXY_DEFAULT_IDLE_TIMEOUT_MS, 300_000),
+  wsProxyDialTimeoutMs: envInt(process.env.WS_PROXY_DIAL_TIMEOUT_MS, 10_000),
+  wsProxyRevalidateIntervalMs: envInt(process.env.WS_PROXY_REVALIDATE_INTERVAL_MS, 60_000),
+  sessionTtlMs: envInt(process.env.SESSION_TTL_MS, 1_800_000),
+  maxSessions: envInt(process.env.MAX_SESSIONS, 100),
   allowPrivateIps: process.env.ALLOW_PRIVATE_IPS === "true",
   allowedHosts:
     process.env.ALLOWED_HOSTS?.split(",")
@@ -153,39 +166,47 @@ export const config = {
     process.env.MCP_API_KEYS?.split(",")
       .map((k) => k.trim())
       .filter(Boolean) ?? [],
-  rateLimitRegister: Number(process.env.RATE_LIMIT_REGISTER) || 10,
-  rateLimitMcp: Number(process.env.RATE_LIMIT_MCP) || 100,
-  rateLimitGlobal: Number(process.env.RATE_LIMIT_GLOBAL) || 1000,
+  /**
+   * When true, the MCP data plane (`/mcp/:client`, `/mcp-custom/:bundle`, the WS
+   * proxy) NEVER falls back to "open mode": a caller must present a valid MCP key
+   * or JWT even when no auth material is otherwise configured. Without this,
+   * registering backends but forgetting `MCP_API_KEYS` leaves those tools
+   * unauthenticated (a boot warning is logged in that case regardless).
+   */
+  requireMcpAuth: process.env.REQUIRE_MCP_AUTH === "true",
+  rateLimitRegister: envInt(process.env.RATE_LIMIT_REGISTER, 10),
+  rateLimitMcp: envInt(process.env.RATE_LIMIT_MCP, 100),
+  rateLimitGlobal: envInt(process.env.RATE_LIMIT_GLOBAL, 1000),
   logFormat: (process.env.LOG_FORMAT as "json" | "text") || "json",
   /** Consecutive health-check failures before a client is auto-evicted. */
-  maxConsecutiveFailures: Number(process.env.MAX_CONSECUTIVE_FAILURES) || 3,
+  maxConsecutiveFailures: envInt(process.env.MAX_CONSECUTIVE_FAILURES, 3),
   trustProxy: parseTrustProxy(),
   /** Maximum upstream response body size in bytes. Responses exceeding this are rejected. */
-  maxResponseBytes: Number(process.env.MAX_RESPONSE_BYTES) || 10_485_760,
+  maxResponseBytes: envInt(process.env.MAX_RESPONSE_BYTES, 10_485_760),
   /** Maximum value honoured from a Retry-After header, in milliseconds. */
-  retryAfterMaxMs: Number(process.env.RETRY_AFTER_MAX_MS) || 30_000,
+  retryAfterMaxMs: envInt(process.env.RETRY_AFTER_MAX_MS, 30_000),
   /** Maximum number of retry attempts for idempotent requests (total attempts = retryMaxAttempts + 1). */
-  retryMaxAttempts: Number(process.env.RETRY_MAX_ATTEMPTS) || 2,
+  retryMaxAttempts: envInt(process.env.RETRY_MAX_ATTEMPTS, 2),
   /** Base delay in milliseconds for exponential backoff between retries. */
-  retryBaseDelayMs: Number(process.env.RETRY_BASE_DELAY_MS) || 500,
+  retryBaseDelayMs: envInt(process.env.RETRY_BASE_DELAY_MS, 500),
   /** Maximum number of cached tool responses held in memory (LRU-evicted). Per-tool opt-in via admin. */
-  cacheMaxEntries: Number(process.env.CACHE_MAX_ENTRIES) || 10_000,
+  cacheMaxEntries: envInt(process.env.CACHE_MAX_ENTRIES, 10_000),
   /** Cooldown (ms) a load-balanced upstream target is skipped after a failed call. */
-  lbTargetCooldownMs: Number(process.env.LB_TARGET_COOLDOWN_MS) || 30_000,
+  lbTargetCooldownMs: envInt(process.env.LB_TARGET_COOLDOWN_MS, 30_000),
   /** Optional webhook notified (fire-and-forget) when a tool call is queued for human approval. Operator-trusted. */
   approvalWebhookUrl: process.env.APPROVAL_WEBHOOK_URL || undefined,
   /** Timeout for an approval-notification webhook delivery (ms). */
-  approvalWebhookTimeoutMs: Number(process.env.APPROVAL_WEBHOOK_TIMEOUT_MS) || 5_000,
+  approvalWebhookTimeoutMs: envInt(process.env.APPROVAL_WEBHOOK_TIMEOUT_MS, 5_000),
   /** Capture per-call traffic (args + result preview) for the admin explorer. Off by default (privacy/volume). */
   trafficCaptureEnabled: process.env.TRAFFIC_CAPTURE === "true",
   /** Max characters stored for a captured result preview. */
-  trafficMaxBodyBytes: Number(process.env.TRAFFIC_MAX_BODY_BYTES) || 8_192,
+  trafficMaxBodyBytes: envInt(process.env.TRAFFIC_MAX_BODY_BYTES, 8_192),
   /** How long to retain captured traffic rows before pruning (ms). Default 7 days. */
-  trafficRetentionMs: Number(process.env.TRAFFIC_RETENTION_MS) || 7 * 24 * 60 * 60_000,
+  trafficRetentionMs: envInt(process.env.TRAFFIC_RETENTION_MS, 7 * 24 * 60 * 60_000),
   /** Optional webhook notified (fire-and-forget) when a synthetic monitor fails or detects schema drift. */
   monitorWebhookUrl: process.env.MONITOR_WEBHOOK_URL || undefined,
   /** Timeout for a monitor-notification webhook delivery (ms). */
-  monitorWebhookTimeoutMs: Number(process.env.MONITOR_WEBHOOK_TIMEOUT_MS) || 5_000,
+  monitorWebhookTimeoutMs: envInt(process.env.MONITOR_WEBHOOK_TIMEOUT_MS, 5_000),
 
   // ─── Inbound JWT auth (optional, WebCrypto + JWKS, no dependency) ────────────
   /** JWKS endpoint URL. When set, `mcpAuth` also accepts a valid RS256/ES256 JWT bearer. */
@@ -195,31 +216,31 @@ export const config = {
   /** Required `aud` claim (optional; when set, tokens must list this audience). */
   jwtAudience: process.env.JWT_AUDIENCE || undefined,
   /** How long a fetched JWKS is cached (ms). */
-  jwtJwksCacheMs: Number(process.env.JWT_JWKS_CACHE_MS) || 600_000,
+  jwtJwksCacheMs: envInt(process.env.JWT_JWKS_CACHE_MS, 600_000),
   /** Timeout for a JWKS fetch (ms). */
-  jwtJwksTimeoutMs: Number(process.env.JWT_JWKS_TIMEOUT_MS) || 5_000,
+  jwtJwksTimeoutMs: envInt(process.env.JWT_JWKS_TIMEOUT_MS, 5_000),
   /** Timeout for an outbound OAuth2 client-credentials token request (ms). */
-  oauthTokenTimeoutMs: Number(process.env.OAUTH_TOKEN_TIMEOUT_MS) || 10_000,
+  oauthTokenTimeoutMs: envInt(process.env.OAUTH_TOKEN_TIMEOUT_MS, 10_000),
   /** Sliding-window duration for circuit-breaker failure counting (ms). */
-  circuitBreakerWindowMs: Number(process.env.CIRCUIT_BREAKER_WINDOW_MS) || 60_000,
+  circuitBreakerWindowMs: envInt(process.env.CIRCUIT_BREAKER_WINDOW_MS, 60_000),
   /** Number of failures within circuitBreakerWindowMs that trips the breaker. */
-  circuitBreakerFailureThreshold: Number(process.env.CIRCUIT_BREAKER_FAILURE_THRESHOLD) || 3,
+  circuitBreakerFailureThreshold: envInt(process.env.CIRCUIT_BREAKER_FAILURE_THRESHOLD, 3),
   /** Milliseconds before an open circuit breaker transitions to half-open for a probe attempt. */
-  circuitBreakerResetTimeoutMs: Number(process.env.CIRCUIT_BREAKER_RESET_TIMEOUT_MS) || 30_000,
+  circuitBreakerResetTimeoutMs: envInt(process.env.CIRCUIT_BREAKER_RESET_TIMEOUT_MS, 30_000),
   /** Timeout applied to the single probe request sent in half-open state (ms). */
-  circuitBreakerHalfOpenTimeoutMs: Number(process.env.CIRCUIT_BREAKER_HALF_OPEN_TIMEOUT_MS) || 5_000,
+  circuitBreakerHalfOpenTimeoutMs: envInt(process.env.CIRCUIT_BREAKER_HALF_OPEN_TIMEOUT_MS, 5_000),
   /** Maximum number of tools allowed in a single /register payload. */
-  maxToolsPerClient: Number(process.env.MAX_TOOLS_PER_CLIENT) || 100,
+  maxToolsPerClient: envInt(process.env.MAX_TOOLS_PER_CLIENT, 100),
   /** Interval in milliseconds between rate-limiter bucket cleanup passes. */
-  rateLimitCleanupIntervalMs: Number(process.env.RATE_LIMIT_CLEANUP_INTERVAL_MS) || 300_000,
+  rateLimitCleanupIntervalMs: envInt(process.env.RATE_LIMIT_CLEANUP_INTERVAL_MS, 300_000),
   /** Maximum number of LRU buckets in the global rate-limiter map. */
-  rateLimitMaxBucketsGlobal: Number(process.env.RATE_LIMIT_MAX_BUCKETS_GLOBAL) || 50_000,
+  rateLimitMaxBucketsGlobal: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_GLOBAL, 50_000),
   /** Maximum number of LRU buckets in the MCP session rate-limiter map. */
-  rateLimitMaxBucketsMcp: Number(process.env.RATE_LIMIT_MAX_BUCKETS_MCP) || 100_000,
+  rateLimitMaxBucketsMcp: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_MCP, 100_000),
   /** Maximum number of LRU buckets in the register rate-limiter map. */
-  rateLimitMaxBucketsRegister: Number(process.env.RATE_LIMIT_MAX_BUCKETS_REGISTER) || 10_000,
+  rateLimitMaxBucketsRegister: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_REGISTER, 10_000),
   /** Milliseconds to wait before force-exiting during graceful shutdown. */
-  shutdownForceExitMs: Number(process.env.SHUTDOWN_FORCE_EXIT_MS) || 10_000,
+  shutdownForceExitMs: envInt(process.env.SHUTDOWN_FORCE_EXIT_MS, 10_000),
   /** Whether the /metrics endpoint is enabled (env METRICS_ENABLED, default true). */
   metricsEnabled: process.env.METRICS_ENABLED !== "false",
 
@@ -229,15 +250,15 @@ export const config = {
   /** service.name resource attribute for exported spans. */
   otelServiceName: process.env.OTEL_SERVICE_NAME || "mcp-rest-bridge",
   /** Max spans buffered before a flush is forced. */
-  otelMaxBatch: Number(process.env.OTEL_MAX_BATCH) || 128,
+  otelMaxBatch: envInt(process.env.OTEL_MAX_BATCH, 128),
   /** Timeout for an OTLP export POST (ms). */
-  otelExportTimeoutMs: Number(process.env.OTEL_EXPORT_TIMEOUT_MS) || 5_000,
+  otelExportTimeoutMs: envInt(process.env.OTEL_EXPORT_TIMEOUT_MS, 5_000),
 
   // ─── Built-in trace viewer (SQLite-persisted spans, independent of OTLP) ────
   /** Persist spans to SQLite for the admin-UI trace viewer. Off by default (volume — one row per tool call). */
   traceStorageEnabled: process.env.TRACE_STORAGE === "true",
   /** Max age (ms) a persisted span is kept before pruning. */
-  traceRetentionMs: Number(process.env.TRACE_RETENTION_MS) || 24 * 60 * 60 * 1000,
+  traceRetentionMs: envInt(process.env.TRACE_RETENTION_MS, 24 * 60 * 60 * 1000),
 
   // ─── CORS constants ────────────────────────────────────────────────────────
   /** HTTP methods advertised in Access-Control-Allow-Methods. */
@@ -256,7 +277,7 @@ export const config = {
   /** Headers exposed to the browser via Access-Control-Expose-Headers. */
   corsExposedHeaders: ["Mcp-Session-Id", "X-Request-Id"] as readonly string[],
   /** Preflight cache duration in seconds (Access-Control-Max-Age). */
-  corsMaxAgeSeconds: Number(process.env.CORS_MAX_AGE_SECONDS) || 600,
+  corsMaxAgeSeconds: envInt(process.env.CORS_MAX_AGE_SECONDS, 600),
   /**
    * Whether to send Access-Control-Allow-Credentials: true.
    * Only honoured when the request origin is in the allowlist.
@@ -264,7 +285,7 @@ export const config = {
    */
   corsAllowCredentials: process.env.CORS_ALLOW_CREDENTIALS === "true",
   /** Maximum JSON nesting depth accepted in request bodies. */
-  maxJsonDepth: Number(process.env.MAX_JSON_DEPTH) || 32,
+  maxJsonDepth: envInt(process.env.MAX_JSON_DEPTH, 32),
 
   // ─── Persistence (SQLite) ──────────────────────────────────────────────────
   /** Path to the SQLite database file. Use ":memory:" for ephemeral/test runs. */
@@ -292,15 +313,15 @@ export const config = {
   /** Name of the Vault Transit key used for encrypt/decrypt operations. */
   vaultTransitKeyName: process.env.VAULT_TRANSIT_KEY_NAME || "mcp-rest-bridge",
   /** Timeout for an outbound Vault Transit encrypt/decrypt request (ms). */
-  vaultRequestTimeoutMs: Number(process.env.VAULT_REQUEST_TIMEOUT_MS) || 5_000,
+  vaultRequestTimeoutMs: envInt(process.env.VAULT_REQUEST_TIMEOUT_MS, 5_000),
 
   // ─── Per-tool context budget (src/context-budget.ts) ───────────────────────
   /** Hard timeout for the opt-in per-tool llm_summarize compression call (ms). A miss/timeout falls back to truncation. */
-  contextBudgetLlmTimeoutMs: Number(process.env.CONTEXT_BUDGET_LLM_TIMEOUT_MS) || 15_000,
+  contextBudgetLlmTimeoutMs: envInt(process.env.CONTEXT_BUDGET_LLM_TIMEOUT_MS, 15_000),
 
   // ─── Usage analytics ───────────────────────────────────────────────────────
   /** How long to retain per-call usage rows before opportunistic pruning (ms). Default 30 days. */
-  usageRetentionMs: Number(process.env.USAGE_RETENTION_MS) || 30 * 24 * 60 * 60_000,
+  usageRetentionMs: envInt(process.env.USAGE_RETENTION_MS, 30 * 24 * 60 * 60_000),
 
   // ─── Destructive-tool gating ───────────────────────────────────────────────
   /** When true, DELETE/PUT tools are treated as sensitive by default (per-tool overrides still win). */
@@ -310,23 +331,23 @@ export const config = {
   /** Optional webhook URL that every audit event is POSTed to (fire-and-forget). Operator-trusted env config. */
   auditSinkUrl: process.env.AUDIT_SINK_URL || undefined,
   /** Timeout for an outbound audit-sink delivery (ms). */
-  auditSinkTimeoutMs: Number(process.env.AUDIT_SINK_TIMEOUT_MS) || 3_000,
+  auditSinkTimeoutMs: envInt(process.env.AUDIT_SINK_TIMEOUT_MS, 3_000),
 
   // ─── Alerts / webhooks ─────────────────────────────────────────────────────
   /** How often the leader evaluates alert rules (ms). */
-  alertIntervalMs: Number(process.env.ALERT_INTERVAL_MS) || 30_000,
+  alertIntervalMs: envInt(process.env.ALERT_INTERVAL_MS, 30_000),
   /** Timeout for an outbound alert webhook delivery (ms). */
-  alertWebhookTimeoutMs: Number(process.env.ALERT_WEBHOOK_TIMEOUT_MS) || 5_000,
+  alertWebhookTimeoutMs: envInt(process.env.ALERT_WEBHOOK_TIMEOUT_MS, 5_000),
   /** Sliding window for error-rate alert evaluation (ms). */
-  alertErrorRateWindowMs: Number(process.env.ALERT_ERROR_RATE_WINDOW_MS) || 5 * 60_000,
+  alertErrorRateWindowMs: envInt(process.env.ALERT_ERROR_RATE_WINDOW_MS, 5 * 60_000),
   /** Recent window for usage-spike anomaly detection (ms). */
-  anomalyRecentWindowMs: Number(process.env.ANOMALY_RECENT_WINDOW_MS) || 5 * 60_000,
+  anomalyRecentWindowMs: envInt(process.env.ANOMALY_RECENT_WINDOW_MS, 5 * 60_000),
   /** Baseline window (immediately preceding the recent window) for usage-spike detection (ms). */
-  anomalyBaselineWindowMs: Number(process.env.ANOMALY_BASELINE_WINDOW_MS) || 60 * 60_000,
+  anomalyBaselineWindowMs: envInt(process.env.ANOMALY_BASELINE_WINDOW_MS, 60 * 60_000),
 
   // ─── Per-tool rate-limit guard tier ────────────────────────────────────────
   /** Maximum number of LRU buckets for the per-tool guard rate limiter. */
-  rateLimitMaxBucketsTool: Number(process.env.RATE_LIMIT_MAX_BUCKETS_TOOL) || 20_000,
+  rateLimitMaxBucketsTool: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_TOOL, 20_000),
 
   // ─── Public gateway URL (client-connection config generator) ────────────────
   /**
@@ -346,15 +367,15 @@ export const config = {
 
   // ─── Admin session auth ─────────────────────────────────────────────────────
   /** Sliding idle-timeout for an admin session (ms). */
-  sessionIdleTimeoutMs: Number(process.env.SESSION_IDLE_TIMEOUT_MS) || 30 * 60_000,
+  sessionIdleTimeoutMs: envInt(process.env.SESSION_IDLE_TIMEOUT_MS, 30 * 60_000),
   /** Absolute hard cap on an admin session's lifetime (ms), regardless of activity. */
-  sessionAbsoluteTtlMs: Number(process.env.SESSION_ABSOLUTE_TTL_MS) || 12 * 60 * 60_000,
+  sessionAbsoluteTtlMs: envInt(process.env.SESSION_ABSOLUTE_TTL_MS, 12 * 60 * 60_000),
   /** Whether admin session cookies require the Secure attribute. Only disable via the escape hatch below. */
   sessionCookieSecure: process.env.SESSION_COOKIE_SECURE !== "false",
   allowUnsafeInsecureSessionCookie: process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE === "true",
   /** Rate limit for POST /admin-api/auth/login, per source IP. */
-  rateLimitLogin: Number(process.env.RATE_LIMIT_LOGIN) || 10,
-  rateLimitMaxBucketsLogin: Number(process.env.RATE_LIMIT_MAX_BUCKETS_LOGIN) || 5_000,
+  rateLimitLogin: envInt(process.env.RATE_LIMIT_LOGIN, 10),
+  rateLimitMaxBucketsLogin: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_LOGIN, 5_000),
   /**
    * Rate limit for the public, unauthenticated GET /install/:token route, per
    * source IP. Defense in depth only — the 32-random-byte token space is
@@ -362,15 +383,15 @@ export const config = {
    * whole admin surface a fully anonymous caller can hit, so it gets its own
    * tier rather than sharing bucket state with any authenticated route.
    */
-  rateLimitInstallLink: Number(process.env.RATE_LIMIT_INSTALL_LINK) || 20,
-  rateLimitMaxBucketsInstallLink: Number(process.env.RATE_LIMIT_MAX_BUCKETS_INSTALL_LINK) || 5_000,
+  rateLimitInstallLink: envInt(process.env.RATE_LIMIT_INSTALL_LINK, 20),
+  rateLimitMaxBucketsInstallLink: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_INSTALL_LINK, 5_000),
   /** Optional bootstrap credentials — only consumed once, when admin_users is empty. */
   bootstrapAdminUsername: process.env.BOOTSTRAP_ADMIN_USERNAME || undefined,
   bootstrapAdminPassword: process.env.BOOTSTRAP_ADMIN_PASSWORD || undefined,
 
   // ─── Horizontal-scaling scaffolding ─────────────────────────────────────────
   /** Duration of the leader-election lease (ms) — only the leader runs the health-check loop. */
-  leaderLeaseDurationMs: Number(process.env.LEADER_LEASE_DURATION_MS) || 15_000,
+  leaderLeaseDurationMs: envInt(process.env.LEADER_LEASE_DURATION_MS, 15_000),
   /** Stable identity for this process in leader-election bookkeeping. */
   instanceId: process.env.INSTANCE_ID || crypto.randomUUID(),
   /** Use SQLite-backed shared rate-limit counters (global across instances) for per-tool limits. */
@@ -378,5 +399,5 @@ export const config = {
   /** Periodically reconcile the in-memory registry from SQLite so registrations/removals on other instances propagate. */
   registrySyncEnabled: process.env.REGISTRY_SYNC === "true",
   /** Interval between registry reconciliation passes (ms). */
-  registrySyncIntervalMs: Number(process.env.REGISTRY_SYNC_INTERVAL_MS) || 15_000,
+  registrySyncIntervalMs: envInt(process.env.REGISTRY_SYNC_INTERVAL_MS, 15_000),
 };

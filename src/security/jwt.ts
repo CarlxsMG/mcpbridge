@@ -128,7 +128,10 @@ export async function verifyJwt(token: string): Promise<JwtResult> {
   if (!signatureOk) return { valid: false, reason: "signature invalid" };
 
   const nowSec = Math.floor(nowFn() / 1000);
-  if (typeof claims.exp === "number" && nowSec >= claims.exp) return { valid: false, reason: "expired" };
+  // Require an expiry — a token with no `exp` would otherwise be accepted
+  // forever. Mirrors the OIDC ID-token verifier (src/security/oidc.ts).
+  if (typeof claims.exp !== "number") return { valid: false, reason: "missing exp claim" };
+  if (nowSec >= claims.exp) return { valid: false, reason: "expired" };
   if (typeof claims.nbf === "number" && nowSec < claims.nbf) return { valid: false, reason: "not yet valid" };
   if (config.jwtIssuer && claims.iss !== config.jwtIssuer) return { valid: false, reason: "issuer mismatch" };
   if (config.jwtAudience) {

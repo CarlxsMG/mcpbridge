@@ -1,9 +1,11 @@
 /**
  * Stryker mutation-testing backstop for src/routes/docs.ts — domain 8.
  *
- * Baseline: 7 mutants, 0 killed / 7 survived — docs.ts had ZERO test coverage
- * of any kind before this file. All line:col citations below were read
- * directly from reports/mutation/result.json.
+ * /docs (Swagger UI + the full OpenAPI spec) is admin-authenticated by default;
+ * EXPOSE_DOCS_UNAUTHENTICATED=true is the explicit opt-in that serves it
+ * publicly. (Previously the bypass was tied to NODE_ENV=development, which risked
+ * exposing the whole API surface on a staging deploy that inherited that env —
+ * the explicit opt-in is fail-secure.)
  */
 import { describe, test, expect, afterEach } from "bun:test";
 import express from "express";
@@ -12,13 +14,14 @@ import type { Server } from "http";
 import { config } from "../../config.js";
 
 let activeServer: Server | null = null;
-const originalNodeEnv = process.env.NODE_ENV;
+const originalExposeDocs = process.env.EXPOSE_DOCS_UNAUTHENTICATED;
 const ADMIN_KEY = "test-admin-key-docs";
 const originalAdminApiKeys = config.adminApiKeys;
 const originalAuthDisabled = config.authDisabled;
 
-async function startApp(nodeEnv: string): Promise<string> {
-  process.env.NODE_ENV = nodeEnv;
+async function startApp(exposeDocs: boolean): Promise<string> {
+  if (exposeDocs) process.env.EXPOSE_DOCS_UNAUTHENTICATED = "true";
+  else delete process.env.EXPOSE_DOCS_UNAUTHENTICATED;
   (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
   (config as Record<string, unknown>).authDisabled = false;
 
@@ -36,7 +39,8 @@ async function startApp(nodeEnv: string): Promise<string> {
 }
 
 afterEach(async () => {
-  process.env.NODE_ENV = originalNodeEnv;
+  if (originalExposeDocs === undefined) delete process.env.EXPOSE_DOCS_UNAUTHENTICATED;
+  else process.env.EXPOSE_DOCS_UNAUTHENTICATED = originalExposeDocs;
   (config as Record<string, unknown>).adminApiKeys = originalAdminApiKeys;
   (config as Record<string, unknown>).authDisabled = originalAuthDisabled;
   await new Promise<void>((resolve) => {
@@ -49,56 +53,53 @@ afterEach(async () => {
   });
 });
 
-describe("docsRoutes — the NODE_ENV=development guard bypass", () => {
-  // Kills 14:5-14:43 (ConditionalExpression true/false, EqualityOperator
-  // '!==') and 14:30-14:43 (StringLiteral, "development" emptied) — in
-  // development mode, /docs must be reachable with NO Authorization header.
-  test("in development mode, /docs is reachable without any Authorization header", async () => {
-    const baseUrl = await startApp("development");
+describe("docsRoutes — the EXPOSE_DOCS_UNAUTHENTICATED opt-in", () => {
+  // Kills the ConditionalExpression (true/false), the EqualityOperator, and the
+  // "true" / env-name StringLiterals — with the opt-in set, /docs must be
+  // reachable with NO Authorization header.
+  test("with EXPOSE_DOCS_UNAUTHENTICATED=true, /docs is reachable without any Authorization header", async () => {
+    const baseUrl = await startApp(true);
     const res = await fetch(`${baseUrl}/docs/`);
     expect(res.status).not.toBe(401);
   });
 
-  // Kills the SAME mutants from the opposite direction — outside development
-  // mode, /docs must require admin auth (401 without a valid Bearer key).
-  test("outside development mode, /docs requires admin auth", async () => {
-    const baseUrl = await startApp("test");
+  // The SAME mutants from the opposite direction — without the opt-in, /docs
+  // must require admin auth (401 without a valid Bearer key).
+  test("without the opt-in, /docs requires admin auth", async () => {
+    const baseUrl = await startApp(false);
     const res = await fetch(`${baseUrl}/docs/`);
     expect(res.status).toBe(401);
   });
 
-  test("outside development mode, a valid Bearer key reaches /docs", async () => {
-    const baseUrl = await startApp("test");
+  test("without the opt-in, a valid Bearer key reaches /docs", async () => {
+    const baseUrl = await startApp(false);
     const res = await fetch(`${baseUrl}/docs/`, { headers: { Authorization: `Bearer ${ADMIN_KEY}` } });
     expect(res.status).not.toBe(401);
   });
 });
 
-describe("docsRoutes — the dev-mode passthrough actually calls next()", () => {
-  // Kills 14:46-14:107 ArrowFunction (the `(_req, _res, next) => next()`
-  // passthrough replaced with a no-op that never calls next -- the request
-  // would hang/never resolve past the guard). A real HTTP round-trip that
-  // resolves at all (not a timeout) proves next() was actually invoked.
-  test("a development-mode request resolves rather than hanging on an un-invoked next()", async () => {
-    const baseUrl = await startApp("development");
+describe("docsRoutes — the opt-in passthrough actually calls next()", () => {
+  // Kills the ArrowFunction passthrough (`(_req, _res, next) => next()` replaced
+  // with a no-op that never calls next — the request would hang past the guard).
+  // A real HTTP round-trip that resolves at all (not a timeout) proves next().
+  test("an opt-in request resolves rather than hanging on an un-invoked next()", async () => {
+    const baseUrl = await startApp(true);
     const res = await fetch(`${baseUrl}/docs/`);
     expect(res.status).toBeLessThan(500);
   });
 });
 
 describe("docsRoutes — mounted at the exact /docs path", () => {
-  // Kills 12:48-17:2 BlockStatement (the whole function body emptied -- no
-  // route would be wired at all) and 16:11-16:18 StringLiteral (the "/docs"
-  // mount path emptied, which would mount the middleware at "/" instead,
-  // making it also match unrelated paths).
+  // Kills the whole-body BlockStatement (no route wired) and the "/docs" mount
+  // StringLiteral (emptied → mounted at "/", matching unrelated paths too).
   test("an unrelated path is NOT served by the docs middleware", async () => {
-    const baseUrl = await startApp("development");
+    const baseUrl = await startApp(true);
     const res = await fetch(`${baseUrl}/totally-unrelated-path`);
     expect(res.status).toBe(404);
   });
 
   test("/docs itself IS served (the route is genuinely wired)", async () => {
-    const baseUrl = await startApp("development");
+    const baseUrl = await startApp(true);
     const res = await fetch(`${baseUrl}/docs/`);
     expect(res.status).not.toBe(404);
   });
