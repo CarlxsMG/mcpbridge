@@ -28,9 +28,10 @@ import { getApprovalConfigForClient } from "../admin/entities/approvals.js";
 import { getQuarantineForClient } from "../tool-policies/quarantine.js";
 import { getWsForClient, getGraphqlForClient } from "../proxy/backends.js";
 import { getContextBudgetForClient } from "../tool-policies/context-budget.js";
+import { purgeClientCache } from "../tool-policies/response-cache.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";
-import { TOOL_NAME_RE, TOOL_KEY_SEPARATOR } from "../lib/identifier.js";
+import { TOOL_KEY_SEPARATOR, isValidToolName } from "../lib/identifier.js";
 import { createKeyedMutex } from "../lib/async-lock.js";
 import { RegistryAliasIndex } from "./registry-alias-index.js";
 import { ToolIndex } from "./tool-index.js";
@@ -243,7 +244,7 @@ class Registry {
       throw new Error("Client name is required and must be a non-empty string");
     }
 
-    if (!TOOL_NAME_RE.test(name)) {
+    if (!isValidToolName(name)) {
       throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
     }
 
@@ -254,7 +255,7 @@ class Registry {
         throw new Error("Tool name is required and must be a non-empty string");
       }
 
-      if (!TOOL_NAME_RE.test(tool.name)) {
+      if (!isValidToolName(tool.name)) {
         throw new Error(
           `Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`,
         );
@@ -374,7 +375,7 @@ class Registry {
     if (!name || typeof name !== "string") {
       throw new Error("Client name is required and must be a non-empty string");
     }
-    if (!TOOL_NAME_RE.test(name)) {
+    if (!isValidToolName(name)) {
       throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
     }
 
@@ -383,7 +384,7 @@ class Registry {
       if (!tool.name || typeof tool.name !== "string") {
         throw new Error("Tool name is required and must be a non-empty string");
       }
-      if (!TOOL_NAME_RE.test(tool.name)) {
+      if (!isValidToolName(tool.name)) {
         throw new Error(
           `Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`,
         );
@@ -489,16 +490,22 @@ class Registry {
       // 2. Clean up circuit-breaker state
       removeCircuitBreaker(name);
 
-      // 3. Remove all toolIndex + alias entries for this client
+      // 3. Drop any cached responses for this client's tools — otherwise a
+      // stale (possibly pre-redaction-change or pre-backend-swap) entry can
+      // outlive the client and get served again if the same name is
+      // re-registered later against a different backend.
+      purgeClientCache(name);
+
+      // 4. Remove all toolIndex + alias entries for this client
       for (const tool of client.tools) {
         this.toolIndex.deleteTool(name, tool.name);
       }
       this.aliasIndex.clearForClient(name);
 
-      // 4. Remove the client record
+      // 5. Remove the client record
       this.clients.delete(name);
 
-      // 5. Broadcast tool-list change to all connected MCP sessions
+      // 6. Broadcast tool-list change to all connected MCP sessions
       notifyToolsChanged();
 
       return true;
@@ -770,7 +777,7 @@ class Registry {
           // A display-name alias becomes part of the composite MCP key, so it
           // must satisfy the same charset as a tool name (keeps the `__`
           // separator unambiguous — see TOOL_KEY_SEPARATOR invariant).
-          if (!TOOL_NAME_RE.test(override.displayName)) {
+          if (!isValidToolName(override.displayName)) {
             throw new ToolOverrideError("TOOL_ALIAS_INVALID", "displayName must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
           }
           if (!this.isAliasAvailable(clientName, toolName, override.displayName)) {

@@ -57,10 +57,3 @@ export const TOOL_KEY_SEPARATOR = "__";
 export function toolKey(clientName: string, toolName: string): string {
   return `${clientName}${TOOL_KEY_SEPARATOR}${toolName}`;
 }
-
-/** Splits a canonical MCP composite key back into `[clientName, toolName]`. */
-export function splitToolKey(key: string): [string, string] {
-  const idx = key.indexOf(TOOL_KEY_SEPARATOR);
-  if (idx < 0) throw new Error(`Invalid tool key (no '${TOOL_KEY_SEPARATOR}' separator): ${key}`);
-  return [key.slice(0, idx), key.slice(idx + TOOL_KEY_SEPARATOR.length)];
-}

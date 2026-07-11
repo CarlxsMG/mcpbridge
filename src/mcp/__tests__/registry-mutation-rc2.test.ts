@@ -265,7 +265,6 @@ describe("Registry.register — inputSchema.type must be 'object' (L291/292)", (
 describe("Registry.register — inputSchema 10KB size limit boundary (L295/296)", () => {
   function schemaOfExactLength(target: number): Record<string, unknown> {
     let padLen = 0;
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const schema = { type: "object", pad: "a".repeat(padLen) };
       const len = JSON.stringify(schema).length;

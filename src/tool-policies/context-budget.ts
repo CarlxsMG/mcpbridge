@@ -96,12 +96,6 @@ export function getToolContextBudget(clientName: string, toolName: string): Cont
   return row ? rowToInternal(row) : null;
 }
 
-/** Public read (admin UI) — same as above but strips the encrypted key ref. */
-export function getToolContextBudgetPublic(clientName: string, toolName: string): ContextBudgetPublic | null {
-  const internal = getToolContextBudget(clientName, toolName);
-  return internal ? toPublic(internal) : null;
-}
-
 /** Context-budget config for every tool of a client, keyed by tool name (batched for detail views; public shape). */
 export function getContextBudgetForClient(clientName: string): Record<string, ContextBudgetPublic> {
   const rows = getDb()

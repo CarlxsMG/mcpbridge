@@ -57,6 +57,3 @@ export function stableStringify(value: unknown): string {
     .map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`)
     .join(",")}}`;
 }
-
-/** Alias for call sites that talk about "canonicalizing" a value rather than "stringifying" it. */
-export const canonicalStringify = stableStringify;

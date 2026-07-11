@@ -1,8 +1,8 @@
 import { getDb } from "../../db/connection.js";
 import { notifyToolsChanged } from "../../mcp/mcp-server.js";
-import { TOOL_KEY_SEPARATOR, toolKey } from "../../lib/identifier.js";
+import { toolKey } from "../../lib/identifier.js";
 import { log } from "../../logger.js";
-import { TOOL_NAME_RE } from "../../lib/identifier.js";
+import { isValidToolName } from "../../lib/identifier.js";
 import { createKeyedMutex, reloadLiveCache } from "../../lib/async-lock.js";
 import { hasComposite } from "./composites.js";
 
@@ -203,7 +203,7 @@ export async function createBundle(
   actor: string,
   composites: string[] = [],
 ): Promise<BundleMutationResult> {
-  if (!TOOL_NAME_RE.test(name)) {
+  if (!isValidToolName(name)) {
     return {
       ok: false,
       error: { code: "INVALID_NAME", message: "Bundle name must match /^[a-z0-9][a-z0-9_-]{0,62}$/" },

@@ -385,7 +385,7 @@ describe("__resetLbForTesting / __setLbDepsForTesting", () => {
     __resetLbForTesting();
     const dateSpy = spyOn(Date, "now").mockReturnValue(123_456_789);
     try {
-      const lb = lbCfg("round-robin", [target(1, "5.6.7.8")]);
+      lbCfg("round-robin", [target(1, "5.6.7.8")]);
       markTargetDown(`${CLIENT}#http://1.2.3.4`);
       expect(dateSpy).toHaveBeenCalled();
     } finally {

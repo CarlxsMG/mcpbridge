@@ -380,11 +380,6 @@ export function listSystemTools(role: AdminRole): AdvertisedTool[] {
   }));
 }
 
-/** True for any known system tool name — lets mcp-server.ts distinguish "unknown tool" from "no system role" before auth is even resolved. */
-export function isSystemTool(name: string): boolean {
-  return toolByName.has(name);
-}
-
 /** Dispatches a system tool call under `auth`'s resolved role — the tools/call counterpart to listSystemTools. */
 export async function runSystemTool(
   name: string,

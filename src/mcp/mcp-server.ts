@@ -150,6 +150,15 @@ export function createMcpServer(scope: McpServerScope): Server {
     }
 
     if (scope.kind === "system") {
+      // Deliberately resolve auth BEFORE looking at `name` at all: a caller
+      // with no system role gets the exact same "no system role" error
+      // whether `name` is a real sys_* tool or complete garbage. Checking
+      // tool-name existence first (and only then falling back to this
+      // message) would let an unauthenticated/under-privileged caller
+      // distinguish "tool exists but I lack permission" from "tool doesn't
+      // exist" — an enumeration oracle for the sys_* tool surface. Once a
+      // role IS resolved, runSystemTool()'s own lookup below reports
+      // "Unknown tool: <name>" for a bad name, same as any other scope.
       const auth = resolveSystemRole(callerToken);
       if (!auth) {
         return { isError: true, content: [{ type: "text", text: "This credential has no system role" }] };

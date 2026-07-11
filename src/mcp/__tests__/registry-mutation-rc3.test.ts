@@ -214,7 +214,6 @@ describe("registerMcp — inputSchema 10KB size limit boundary (L407/408)", () =
   // so length grows 1:1) rather than guessing an offset.
   function schemaOfExactLength(target: number): Record<string, unknown> {
     let padLen = 0;
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const schema = { type: "object", pad: "a".repeat(padLen) };
       const len = JSON.stringify(schema).length;

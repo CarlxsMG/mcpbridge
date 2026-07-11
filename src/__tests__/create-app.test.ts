@@ -11,7 +11,7 @@
  * `createApp` is missing a router, the corresponding endpoint won't
  * respond and the assertion below will fail.
  */
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { describe, test, expect, afterEach } from "bun:test";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../config.js";

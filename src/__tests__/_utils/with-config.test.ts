@@ -10,7 +10,6 @@ import { withConfig } from "./with-config.js";
 
 describe("withConfig", () => {
   test("applies the patch and runs the body", () => {
-    const sentinel = `sentinel-${Date.now()}`;
     let captured: unknown = null;
     withConfig({ adminApiKeys: ["x"] }, () => {
       captured = config.adminApiKeys;

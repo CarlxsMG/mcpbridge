@@ -1,5 +1,5 @@
 import { getDb } from "../../db/connection.js";
-import { ADMIN_ENTITY_NAME_RE } from "../../lib/identifier.js";
+import { isValidAdminEntityName } from "../../lib/identifier.js";
 
 /**
  * Team multi-tenancy: teams own clients, and admin users belong to a team.
@@ -45,7 +45,7 @@ export function getTeam(id: number): Team | null {
 export type TeamError = "INVALID_NAME" | "ALREADY_EXISTS";
 
 export function createTeam(name: string, actor: string | null): Team | TeamError {
-  if (!ADMIN_ENTITY_NAME_RE.test(name)) return "INVALID_NAME";
+  if (!isValidAdminEntityName(name)) return "INVALID_NAME";
   const db = getDb();
   if (db.query(`SELECT 1 FROM teams WHERE name = ?`).get(name)) return "ALREADY_EXISTS";
   const now = Date.now();

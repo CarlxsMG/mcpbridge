@@ -85,11 +85,6 @@ export async function runCoalesced<T>(
   }
 }
 
-/** Number of distinct calls currently in flight and coalescible. */
-export function coalesceInFlightSize(): number {
-  return inFlight.size;
-}
-
 /** Test-only: clear in-flight bookkeeping between tests. */
 export function __resetCoalesceForTesting(): void {
   inFlight.clear();

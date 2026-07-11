@@ -184,7 +184,7 @@ describe("enforceJsonDepth — cyclic object handling", () => {
 
     try {
       // Run with a low maxDepth so it exits quickly even without a seen-set
-      const result = run(a, 5);
+      run(a, 5);
       terminated = true;
       clearTimeout(timer);
       // It should reject (depth exceeded via cycle) or pass — either is acceptable

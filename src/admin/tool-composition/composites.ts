@@ -4,7 +4,7 @@ import { proxyToolCall } from "../../proxy/proxy.js";
 import { TOOL_KEY_SEPARATOR } from "../../lib/identifier.js";
 import { SEARCH_TOOL_NAME, type AdvertisedTool } from "../../mcp/tool-search.js";
 import { log } from "../../logger.js";
-import { TOOL_NAME_RE } from "../../lib/identifier.js";
+import { isValidToolName } from "../../lib/identifier.js";
 import { createKeyedMutex, reloadLiveCache } from "../../lib/async-lock.js";
 
 /**
@@ -83,7 +83,7 @@ const { withLock } = createKeyedMutex();
 
 /** Composite names must be tool-name-shaped but MUST NOT contain the `__` separator (would shadow a real tool) or be reserved. */
 export function isValidCompositeName(name: string): boolean {
-  return TOOL_NAME_RE.test(name) && !name.includes(TOOL_KEY_SEPARATOR) && name !== SEARCH_TOOL_NAME;
+  return isValidToolName(name) && !name.includes(TOOL_KEY_SEPARATOR) && name !== SEARCH_TOOL_NAME;
 }
 
 function validateSteps(db: ReturnType<typeof getDb>, steps: CompositeStep[]): CompositeMutationError | null {

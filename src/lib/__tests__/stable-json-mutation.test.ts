@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { canonicalizeValue, canonicalStringify, stableStringify } from "../stable-json.js";
+import { canonicalizeValue, stableStringify } from "../stable-json.js";
 
 // ---------------------------------------------------------------------------
 // Mutation-testing backstop for `src/lib/stable-json.ts` — deterministic JSON
@@ -167,14 +167,5 @@ describe("stableStringify", () => {
 
   test("key strings are JSON-escaped like a normal JSON key", () => {
     expect(stableStringify({ 'a"b': 1 })).toBe('{"a\\"b":1}');
-  });
-});
-
-describe("canonicalStringify", () => {
-  test("is an alias for stableStringify — identical output for the same input", () => {
-    expect(canonicalStringify).toBe(stableStringify);
-    const input = { z: 1, a: [3, 2, 1], m: { y: 1, x: 2 } };
-    expect(canonicalStringify(input)).toBe(stableStringify(input));
-    expect(canonicalStringify(input)).toBe('{"a":[3,2,1],"m":{"x":2,"y":1},"z":1}');
   });
 });

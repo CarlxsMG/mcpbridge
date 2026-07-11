@@ -21,7 +21,6 @@ import {
   applyContextBudget,
   setToolContextBudget,
   getToolContextBudget,
-  getToolContextBudgetPublic,
   __setContextBudgetFetchForTesting,
   __resetContextBudgetForTesting,
 } from "../../tool-policies/context-budget.js";
@@ -121,13 +120,13 @@ describe("setToolContextBudget / getToolContextBudget", () => {
     expect(await setToolContextBudget(CLIENT, getTool.name, { mode: "truncate", maxResponseBytes: 500 })).toEqual({
       ok: true,
     });
-    expect(getToolContextBudgetPublic(CLIENT, getTool.name)).toEqual({
+    expect(registry.getClientDetail(CLIENT)!.tools[0].contextBudget).toEqual({
       mode: "truncate",
       maxResponseBytes: 500,
       llm: null,
     });
     expect(await setToolContextBudget(CLIENT, getTool.name, null)).toEqual({ ok: true });
-    expect(getToolContextBudgetPublic(CLIENT, getTool.name)).toBeNull();
+    expect(registry.getClientDetail(CLIENT)!.tools[0].contextBudget).toBeUndefined();
   });
 
   test("llm_summarize mode requires a configured secrets provider, and never echoes the raw key back", async () => {
@@ -149,7 +148,7 @@ describe("setToolContextBudget / getToolContextBudget", () => {
       }),
     ).toEqual({ ok: true });
 
-    const pub = getToolContextBudgetPublic(CLIENT, getTool.name);
+    const pub = registry.getClientDetail(CLIENT)!.tools[0].contextBudget;
     expect(pub).toEqual({
       mode: "llm_summarize",
       maxResponseBytes: 500,

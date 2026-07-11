@@ -15,7 +15,7 @@ import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { registry } from "../mcp/registry.js";
-import { TOOL_KEY_SEPARATOR, toolKey } from "../lib/identifier.js";
+import { TOOL_KEY_SEPARATOR } from "../lib/identifier.js";
 import { proxyToolCall } from "../proxy/proxy.js";
 import { dispatchWebhook } from "../lib/webhook.js";
 import { stableStringify } from "../lib/stable-json.js";

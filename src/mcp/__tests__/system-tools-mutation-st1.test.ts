@@ -5,18 +5,17 @@ import { describe, test, expect, beforeEach, spyOn } from "bun:test";
 //       actorFor, and the str/num/bool/json arg-coercion helpers (shared by
 //       every other system-tools cluster's tool handlers — killed here once).
 //   (b) the security-critical dispatch/auth path, L370-427: listSystemTools'
-//       tier filter, isSystemTool, and runSystemTool's tier gate, sensitive/
-//       __confirm step-up gate, envBearerOnly restriction, and catch-all
-//       error handler.
+//       tier filter and runSystemTool's tier gate, sensitive/__confirm
+//       step-up gate, envBearerOnly restriction, and catch-all error handler.
 //
 // Unlike the sibling system-tools.test.ts (real MCP JSON-RPC handshake over
-// HTTP), everything here calls listSystemTools/isSystemTool/runSystemTool
-// directly with a hand-built SystemAuthResult — no transport, no session.
+// HTTP), everything here calls listSystemTools/runSystemTool directly with a
+// hand-built SystemAuthResult — no transport, no session.
 //
 // House convention (see src/mcp/__tests__/registry-mutation-rc9.test.ts):
 // fresh in-memory SQLite + a fully drained live registry before every test.
 
-import { listSystemTools, isSystemTool, runSystemTool } from "../system-tools.js";
+import { listSystemTools, runSystemTool } from "../system-tools.js";
 import { registry } from "../registry.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { listAuditLog } from "../../admin/audit/audit.js";
@@ -130,13 +129,6 @@ describe("listSystemTools tier filter (L384:53 BlockStatement->'{}')", () => {
     // both collapse to an empty (or identically-sized) list; asserting the
     // counts actually differ closes that gap.
     expect(adminNames.length).toBeGreaterThan(viewerNames.length);
-  });
-});
-
-describe("isSystemTool", () => {
-  test("true for a known tool name, false for an unknown one", () => {
-    expect(isSystemTool("sys_list_clients")).toBe(true);
-    expect(isSystemTool("nonexistent_tool")).toBe(false);
   });
 });
 

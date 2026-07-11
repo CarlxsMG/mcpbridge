@@ -4,7 +4,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
-import { setToolTags, getToolTags, listAllTags, listToolsByTag } from "../../tool-meta/tool-tags.js";
+import { setToolTags, listAllTags, listToolsByTag } from "../../tool-meta/tool-tags.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
 
 function makeTool(name: string): RestToolDefinition {
@@ -29,16 +29,16 @@ afterEach(async () => {
 });
 
 describe("tool tags", () => {
-  test("set/get normalizes case and dedupes", async () => {
+  test("set normalizes case and dedupes", async () => {
     await reg("svc", [makeTool("t")]);
     expect(setToolTags("svc", "t", ["Billing", "billing", "READ"])).toBe(true);
-    expect(getToolTags("svc", "t")).toEqual(["billing", "read"]);
+    expect(registry.getClientDetail("svc")!.tools[0].tags).toEqual(["billing", "read"]);
   });
 
   test("invalid tags are dropped", async () => {
     await reg("svc", [makeTool("t")]);
     setToolTags("svc", "t", ["ok", "has space", "bad!"]);
-    expect(getToolTags("svc", "t")).toEqual(["ok"]);
+    expect(registry.getClientDetail("svc")!.tools[0].tags).toEqual(["ok"]);
   });
 
   test("returns false for an unknown tool", async () => {

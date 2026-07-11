@@ -16,7 +16,7 @@
  * existing importers of this module are unaffected.
  */
 
-import { TOOL_NAME_RE } from "../lib/identifier.js";
+import { TOOL_NAME_RE, isValidToolName } from "../lib/identifier.js";
 
 export { TOOL_NAME_RE };
 const MAX_LEN = 63;
@@ -30,7 +30,7 @@ export function sanitizeToolName(raw: string): string {
     .replace(/_+/g, "_")
     .replace(/^[^a-z0-9]+/, "");
   const truncated = snake.slice(0, MAX_LEN);
-  return TOOL_NAME_RE.test(truncated) && truncated.length > 0 ? truncated : "op";
+  return isValidToolName(truncated) && truncated.length > 0 ? truncated : "op";
 }
 
 /**

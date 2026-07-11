@@ -12,10 +12,6 @@
  */
 import { describe, test, expect } from "bun:test";
 import type { Request, Response, NextFunction } from "express";
-import { _internalsForTesting } from "../../middleware/rate-limiter.js";
-
-const { registerBuckets } = _internalsForTesting;
-
 // ---------------------------------------------------------------------------
 // Helpers — build lightweight Express-like mocks
 // ---------------------------------------------------------------------------
@@ -63,21 +59,6 @@ function nextFn(): { called: boolean; fn: NextFunction } {
 
 // Import the register rate-limiter factory (uses normalizeIp internally)
 import { rateLimitRegister } from "../../middleware/rate-limiter.js";
-
-/**
- * Fire `count` requests from `ip` through the register rate-limiter
- * using a very high per-minute limit so we never hit the rate cap.
- * Returns true if all next() were called (no rate-limit block).
- */
-function fireRequests(ip: string | undefined, count: number, limitPerMin = 10_000): boolean {
-  const mw = rateLimitRegister(limitPerMin);
-  for (let i = 0; i < count; i++) {
-    const next = nextFn();
-    mw(makeReq(ip), makeRes() as unknown as Response, next.fn);
-    if (!next.called) return false; // rate-limited unexpectedly
-  }
-  return true;
-}
 
 // ---------------------------------------------------------------------------
 // TEST 6a: ::ffff:1.2.3.4 and 1.2.3.4 share the same bucket

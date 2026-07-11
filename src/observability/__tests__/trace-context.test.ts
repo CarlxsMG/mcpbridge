@@ -6,7 +6,7 @@
  * integration with `requestIdMiddleware` and `startSpan` (parent inheritance
  * + OTLP parentSpanId emission).
  */
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { describe, test, expect, afterEach } from "bun:test";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";

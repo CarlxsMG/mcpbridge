@@ -8,14 +8,6 @@ export function normalizeTag(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
-export function getToolTags(clientName: string, toolName: string): string[] {
-  return (
-    getDb()
-      .query(`SELECT tag FROM tool_tags WHERE client_name = ? AND tool_name = ? ORDER BY tag`)
-      .all(clientName, toolName) as { tag: string }[]
-  ).map((r) => r.tag);
-}
-
 /** Replace-all set of a tool's tags. Returns false if the tool doesn't exist. */
 export function setToolTags(clientName: string, toolName: string, tags: string[]): boolean {
   if (!toolExists(clientName, toolName)) return false;

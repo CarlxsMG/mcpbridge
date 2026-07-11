@@ -424,6 +424,27 @@ describe("tools/call — system-scope authorization gate (no credential reaching
     });
   });
 
+  // Security property: auth is resolved BEFORE `name` is even looked at, so a
+  // caller with no system role gets the byte-identical error whether they
+  // named a real sys_* tool or complete garbage — closing off an enumeration
+  // oracle that would otherwise let an unauthenticated/under-privileged
+  // caller learn which sys_* tool names exist by comparing error messages.
+  // See the code comment at the `scope.kind === "system"` gate for the full
+  // reasoning (this was previously an unimplemented aspiration documented on
+  // a since-removed `isSystemTool` helper's stale JSDoc).
+  test("tools/call for a NONEXISTENT tool name with no Authorization header returns the identical 'no system role' error, not an 'unknown tool' error", async () => {
+    await startApp();
+    const sessionId = await initSession();
+    expect(sessionId).not.toBeNull();
+
+    const result = await toolsCall(sessionId!, "sys_this_tool_does_not_exist");
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({
+      isError: true,
+      content: [{ type: "text", text: "This credential has no system role" }],
+    });
+  });
+
   // 90:46-90:48 ArrayDeclaration [Survived] ("[]" -> "[\"Stryker was here\"]")
   // on scopedToolList's system-scope branch: "return auth ?
   // listSystemTools(auth.role) : [];". A no-credential tools/list for the

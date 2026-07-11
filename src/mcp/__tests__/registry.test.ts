@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, it } from "bun:test";
+import { describe, test, expect, beforeEach } from "bun:test";
 
 // Registry exports a singleton; import the class by instantiating via the module's
 // internal class. Because the class is not exported we exercise it through a fresh

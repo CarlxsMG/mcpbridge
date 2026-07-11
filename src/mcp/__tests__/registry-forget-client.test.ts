@@ -3,6 +3,7 @@ import { registry } from "../../mcp/registry.js";
 import { __resetDbForTesting, getDb } from "../../db/connection.js";
 import { createBundle, getBundleDetail } from "../../admin/tool-composition/bundles.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
+import { cacheGet, cacheKey, cacheSet, __resetCacheForTesting } from "../../tool-policies/response-cache.js";
 
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
   return {
@@ -73,6 +74,37 @@ describe("Registry.forgetClient", () => {
     // returned false for the not-live case).
     await reg("svc");
     expect(registry.getClient("svc")?.enabled).toBe(true);
+  });
+
+  test("purges the response cache for the client's tools — otherwise a stale entry could be served if the name is re-registered later", async () => {
+    __resetCacheForTesting();
+    try {
+      await reg("svc", [makeTool({ name: "get-users" })]);
+      const key = cacheKey("svc", "get-users", "http://example.com", {});
+      cacheSet(key, { content: [{ type: "text", text: "stale" }] }, 60);
+      expect(cacheGet(key)).not.toBeNull();
+
+      await registry.forgetClient("svc");
+
+      expect(cacheGet(key)).toBeNull();
+    } finally {
+      __resetCacheForTesting();
+    }
+  });
+
+  test("plain unregister() also purges the response cache (shared teardownLiveClient path, not forgetClient-only)", async () => {
+    __resetCacheForTesting();
+    try {
+      await reg("svc", [makeTool({ name: "get-users" })]);
+      const key = cacheKey("svc", "get-users", "http://example.com", {});
+      cacheSet(key, { content: [{ type: "text", text: "stale" }] }, 60);
+
+      await registry.unregister("svc");
+
+      expect(cacheGet(key)).toBeNull();
+    } finally {
+      __resetCacheForTesting();
+    }
   });
 
   test("purges bundle membership rows referencing a forgotten client's tools (same FK-cascade shape as tool_guards)", async () => {

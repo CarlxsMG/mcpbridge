@@ -4,7 +4,6 @@ import {
   ADMIN_ENTITY_NAME_RE,
   isValidAdminEntityName,
   isValidToolName,
-  splitToolKey,
   TOOL_KEY_SEPARATOR,
   TOOL_NAME_RE,
   toolKey,
@@ -13,8 +12,8 @@ import {
 // ---------------------------------------------------------------------------
 // Mutation-testing backstop for `src/lib/identifier.ts` — the shared
 // identifier-shape primitives (`TOOL_NAME_RE` / `ADMIN_ENTITY_NAME_RE`) and
-// the `client__tool` composite-key encode/decode pair (`toolKey` /
-// `splitToolKey`). Pure regex + string logic, no I/O.
+// the `client__tool` composite-key encoder (`toolKey`). Pure regex + string
+// logic, no I/O.
 // ---------------------------------------------------------------------------
 
 describe("TOOL_NAME_RE / isValidToolName", () => {
@@ -170,46 +169,5 @@ describe("toolKey", () => {
   test("distinct client/tool pairs produce distinct keys", () => {
     expect(toolKey("client1", "tool")).not.toBe(toolKey("client2", "tool"));
     expect(toolKey("client", "tool1")).not.toBe(toolKey("client", "tool2"));
-  });
-});
-
-describe("splitToolKey", () => {
-  test("splits a canonical key back into [clientName, toolName]", () => {
-    expect(splitToolKey("myclient__mytool")).toEqual(["myclient", "mytool"]);
-  });
-
-  test("round-trips through toolKey for a variety of names", () => {
-    for (const [client, tool] of [
-      ["a", "b"],
-      ["my-client", "my_tool"],
-      ["client9", "tool0"],
-    ] as const) {
-      expect(splitToolKey(toolKey(client, tool))).toEqual([client, tool]);
-    }
-  });
-
-  test("splits at the FIRST separator occurrence — tool name may itself contain '__'", () => {
-    // clientName never legitimately contains "__" (TOOL_NAME_RE forbids
-    // double underscores from being ambiguous in practice via convention),
-    // but splitToolKey must still resolve deterministically using indexOf
-    // (first match), not lastIndexOf (last match), when '__' appears more
-    // than once in the composite key.
-    expect(splitToolKey("client__tool__extra")).toEqual(["client", "tool__extra"]);
-  });
-
-  test("throws when the separator is absent", () => {
-    expect(() => splitToolKey("no-separator-here")).toThrow("Invalid tool key (no '__' separator): no-separator-here");
-  });
-
-  test("throws on empty string", () => {
-    expect(() => splitToolKey("")).toThrow(/Invalid tool key/);
-  });
-
-  test("handles the separator at the very start (empty clientName)", () => {
-    expect(splitToolKey("__tool")).toEqual(["", "tool"]);
-  });
-
-  test("handles the separator at the very end (empty toolName)", () => {
-    expect(splitToolKey("client__")).toEqual(["client", ""]);
   });
 });
