@@ -4,6 +4,7 @@ import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
+import { bundlePath } from "@/utils/apiPaths";
 import { i18n } from "../i18n";
 import type { BundleSummary } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -33,9 +34,7 @@ const { rowError, toggle } = useOptimisticToggle<BundleSummary>((b) => b.name, e
 onMounted(load);
 
 function toggleEnabled(bundle: BundleSummary) {
-  toggle(bundle, "enabled", (next) =>
-    api.patch(`/admin-api/bundles/${encodeURIComponent(bundle.name)}`, { enabled: next }),
-  );
+  toggle(bundle, "enabled", (next) => api.patch(bundlePath(bundle.name), { enabled: next }));
 }
 </script>
 

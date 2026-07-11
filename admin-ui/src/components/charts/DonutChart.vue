@@ -11,7 +11,7 @@ const props = withDefaults(
     size?: number;
     centerLabel?: string | null;
   }>(),
-  { size: 120 },
+  { size: 120, centerLabel: undefined },
 );
 
 const total = computed(() => props.segments.reduce((sum, s) => sum + s.value, 0));

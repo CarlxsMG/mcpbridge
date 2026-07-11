@@ -8,57 +8,26 @@
     "delete": "Eliminar",
     "edit": "Editar",
     "close": "Cerrar",
-    "back": "Atrás",
     "next": "Siguiente",
     "previous": "Anterior",
-    "submit": "Enviar",
-    "create": "Crear",
     "search": "Buscar…",
     "loading": "Cargando…",
-    "yes": "Sí",
-    "no": "No",
     "enabled": "Habilitado",
     "disabled": "Deshabilitado",
-    "all": "Todos",
     "name": "Nombre",
-    "description": "Descripción",
-    "type": "Tipo",
     "status": "Estado",
-    "actions": "Acciones",
-    "updated": "Actualizado",
     "copied": "Copiado",
     "copy": "Copiar",
     "copy_to_clipboard": "Copiar al portapapeles",
     "apply": "Aplicar",
     "disable": "Deshabilitar",
-    "enable": "Habilitar",
     "refresh": "Refrescar",
     "refreshing": "Refrescando…",
     "reset": "Restablecer",
-    "add": "Añadir",
-    "create_new": "Crear nuevo",
-    "page": "Página",
+    "method": "Método",
     "endpoint": "Endpoint",
     "load_more": "Cargar más",
-    "of": "de",
-    "showing": "Mostrando",
-    "results": "resultados",
-    "result": "resultado",
-    "no_results": "Sin resultados",
-    "empty": "Vacío",
-    "retry": "Reintentar",
-    "error": "Error",
-    "success": "Éxito",
-    "pending": "Pendiente",
-    "confirm": "Confirmar",
-    "confirm_default": "¿Estás seguro?",
-    "never": "Nunca",
     "or": "o",
-    "optional": "opcional",
-    "required": "obligatorio",
-    "unsaved_changes": "Tienes cambios sin guardar. ¿Descartarlos?",
-    "discard": "Descartar",
-    "keep_editing": "Seguir editando",
     "current_locale": "Idioma",
     "connect_client": "Conectar cliente",
     "done": "Listo",
@@ -170,31 +139,12 @@
     }
   },
   "errors": {
-    "generic": "Algo salió mal. Inténtalo de nuevo.",
-    "load_failed": "Error al cargar.",
     "load_servers_failed": "Error al cargar los servidores.",
-    "load_tags_failed": "Error al cargar las etiquetas.",
-    "save_failed": "Error al guardar.",
-    "delete_failed": "Error al eliminar.",
     "update_failed": "Error al actualizar.",
     "action_failed": "La acción falló.",
-    "permission_denied": "No tienes permiso para realizar esta acción.",
-    "network": "Error de red. Comprueba tu conexión.",
-    "not_found": "Recurso no encontrado.",
-    "validation_failed": "Corrige los errores antes de enviar.",
-    "session_expired": "Tu sesión ha caducado. Inicia sesión de nuevo.",
-    "csrf_mismatch": "El token de sesión ha caducado. Recarga la página e inténtalo otra vez.",
-    "rate_limited": "Demasiadas peticiones. Reduce la velocidad e inténtalo de nuevo.",
-    "server_invalid": "La URL del servidor no es válida o no se puede alcanzar.",
-    "openapi_fetch_failed": "No se pudo obtener el spec de OpenAPI.",
-    "register_failed": "No se pudo registrar el servidor.",
-    "yaml_invalid": "El YAML no es válido.",
-    "snapshot_failed": "No se pudo cargar el snapshot.",
     "preview_failed": "La vista previa falló.",
     "not_authenticated": "No autenticado",
-    "request_failed_with_status": "Petición fallida con código {status}",
-    "bulk_update_failed": "La actualización masiva falló.",
-    "tag_tools_load_failed": "Error al cargar herramientas para esta etiqueta."
+    "request_failed_with_status": "Petición fallida con código {status}"
   },
   "sidebar": {
     "brand_live_title": "Tráfico en vivo en el último minuto",
@@ -317,24 +267,6 @@
       },
       "errors": {
         "load_failed": "Error al cargar los tools."
-      },
-      "new": {
-        "title": "Crear bundle",
-        "subtitle_p1": "Selecciones de tools cross-client, cada una servida en su propio",
-        "subtitle_p2": "endpoint.",
-        "fields": {
-          "name": "Nombre",
-          "description": "Descripción (opcional)",
-          "tools": "Tools"
-        },
-        "placeholders": {
-          "name": "p. ej. assistant-a",
-          "description": "Para qué sirve este bundle"
-        },
-        "errors": {
-          "name_required": "El nombre es obligatorio.",
-          "create_failed": "Error al crear el bundle."
-        }
       }
     },
     "server_detail_upstream_auth": {
@@ -846,7 +778,6 @@
       "empty": "Aún no hay snapshots. Un snapshot captura la config completa — bundles, guardrails, consumers y más — para que puedas comparar o hacer rollback después.",
       "diff_vs_current": "diff vs current",
       "rollback": "rollback",
-      "delete": "eliminar",
       "diff_heading": "Diff: #{id} \"{label}\" → {to}",
       "no_differences": "Sin diferencias.",
       "table": {
@@ -951,8 +882,7 @@
         "bulk_update_failed": "La actualización masiva falló.",
         "tags_load_failed": "Error al cargar las etiquetas.",
         "tag_tools_load_failed": "Error al cargar herramientas para esta etiqueta."
-      },
-      "selected_count_plural": "Selección: {count}"
+      }
     },
     "login": {
       "subtitle": "Inicia sesión para gestionar servidores y herramientas",
@@ -1084,7 +1014,6 @@
         "consumer_none": "Ninguno",
         "create_consumer": "Crear consumer",
         "elevated_label": "Elevated (salta la confirmación de tools sensibles)",
-        "minted_key": "Crear key",
         "minting": "Creando…",
         "errors": {
           "label_required": "La etiqueta es obligatoria.",
@@ -1290,28 +1219,17 @@
         "disable_label": "Deshabilitar {name}"
       },
       "create_alert": "Nueva alerta",
-      "filter_state": "Estado",
-      "state_all": "Todos los estados",
-      "state_enabled": "Solo habilitadas",
-      "state_disabled": "Solo deshabilitadas",
-      "selected_count": "{count} seleccionadas",
-      "enable_selected": "Habilitar seleccionadas",
-      "disable_selected": "Deshabilitar seleccionadas",
-      "clear_selection": "Limpiar selección",
       "table": {
         "name": "Nombre",
         "type": "Tipo",
         "target": "Target",
         "threshold": "Umbral",
         "actions": "Acciones",
-        "enabled": "Habilitado",
         "enabled_label": "Habilitado",
         "disabled_label": "Deshabilitado"
       },
       "empty": {
-        "no_alerts": "Aún no hay reglas de alerta.",
-        "new_alert": "Crea tu primera regla de alerta",
-        "no_match": "Ninguna alerta coincide con tus filtros."
+        "no_alerts": "Aún no hay reglas de alerta."
       },
       "errors": {
         "load_failed": "Error al cargar alertas.",
@@ -1394,7 +1312,6 @@
       "title": "Compuestos",
       "subtitle": "Tools compuestas — cada una encadena varias llamadas de tools en una única callable por MCP.",
       "create": "Crear compuesta",
-      "search": "Buscar por nombre…",
       "table": {
         "name": "Nombre",
         "description": "Descripción",
@@ -1404,8 +1321,7 @@
         "disable": "Deshabilitar"
       },
       "empty": {
-        "no_composites": "Aún no hay tools compuestas. Una compuesta encadena varias llamadas de tools para que un único request MCP dispare una secuencia.",
-        "no_match": "Ninguna tool compuesta coincide con tus filtros."
+        "no_composites": "Aún no hay tools compuestas. Una compuesta encadena varias llamadas de tools para que un único request MCP dispare una secuencia."
       },
       "confirm": {
         "delete_title": "¿Eliminar este compuesto?",
@@ -1445,16 +1361,6 @@
       }
     },
     "composite_detail": {
-      "title": "{name}",
-      "back_to_composites": "Compuestos",
-      "tabs": {
-        "config": "Config",
-        "steps": "Pasos",
-        "settings": "Ajustes"
-      },
-      "save_changes": "Guardar cambios",
-      "saving": "Guardando…",
-      "saved": "Guardado",
       "description_label": "Descripción",
       "description_placeholder": "Qué hace este composite",
       "schema_label": "Input schema (JSON)",
@@ -1479,7 +1385,6 @@
       },
       "errors": {
         "load_failed": "Error al cargar el compuesto.",
-        "save_failed": "Error al guardar los cambios.",
         "delete_failed": "Error al eliminar el compuesto.",
         "save_description_failed": "Error al guardar la descripción.",
         "save_schema_failed": "Error al guardar el input schema.",
@@ -1490,8 +1395,6 @@
       }
     },
     "bundle_detail": {
-      "title": "{name}",
-      "back_to_bundles": "Bundles",
       "disable_bundle": "Desactivar bundle",
       "enable_bundle": "Activar bundle",
       "share_link": "Compartir enlace de instalación",
@@ -1519,8 +1422,6 @@
       }
     },
     "server_detail": {
-      "title": "{name}",
-      "back_to_servers": "Servidores",
       "tabs": {
         "tools": "Tools",
         "settings": "Configuración"
@@ -1553,15 +1454,10 @@
       "installing": "Instalando…",
       "confirm_install": "Confirmar instalación",
       "table": {
-        "name": "Nombre",
-        "description": "Descripción",
-        "install": "Instalar",
-        "installed": "Instalado",
-        "configure": "Configurar e instalar"
+        "install": "Instalar"
       },
       "empty": {
-        "no_entries": "Aún no hay entradas en el catálogo. El catálogo lista servidores instalables con un clic — integrados o añadidos por admin — para que registrar un backend nuevo no empiece desde un formulario en blanco.",
-        "no_match": "Ninguna entrada del catálogo coincide con tu búsqueda."
+        "no_entries": "Aún no hay entradas en el catálogo. El catálogo lista servidores instalables con un clic — integrados o añadidos por admin — para que registrar un backend nuevo no empiece desde un formulario en blanco."
       },
       "confirm": {
         "delete_title": "¿Eliminar entrada del catálogo?",
@@ -1605,11 +1501,6 @@
     "config": {
       "title": "Configuración",
       "subtitle": "Exporta, importa y haz snapshot de la configuración en vivo del bridge.",
-      "intro_hint": "Exporta un snapshot portable de la config admin (bundles, alertas, guards y overrides por cliente), o importa uno en esta instancia.",
-      "tabs": {
-        "import_export": "Importar / Exportar",
-        "snapshots": "Snapshots"
-      },
       "result": {
         "dry_run": "Dry run — no se cambió nada",
         "import_applied": "Import aplicado",
@@ -1621,9 +1512,6 @@
         "guardrails": "Guardrails: {count}",
         "consumers": "Consumidores: {count}",
         "skipped_heading": "Saltados ({count}):"
-      },
-      "errors": {
-        "load_failed": "Error al cargar la configuración."
       }
     },
     "consumers": {
@@ -1639,7 +1527,6 @@
         "toggle_usage": "Alternar detalle de uso para {name}"
       },
       "table": {
-        "name": "Nombre",
         "quota": "Cuota",
         "end_user_limit": "Límite por end-user",
         "used_this_month": "Usado este mes"
@@ -1650,9 +1537,7 @@
         "remaining": "Restante"
       },
       "empty": {
-        "no_consumers": "Aún no hay consumidores. Un consumidor agrupa una o más API keys bajo una cuota mensual y rate limit compartidos.",
-        "new_consumer": "Crea tu primer consumidor",
-        "no_match": "Ningún consumidor coincide con tus filtros."
+        "no_consumers": "Aún no hay consumidores. Un consumidor agrupa una o más API keys bajo una cuota mensual y rate limit compartidos."
       },
       "confirm": {
         "delete_title": "¿Eliminar este consumidor?",
@@ -1709,8 +1594,7 @@
         "no_monitors": "Aún no hay tools monitorizadas. Configura un monitor desde los ajustes de una tool en el detalle del server."
       },
       "errors": {
-        "load_failed": "Error al cargar monitores. Comprueba tu conexión e inténtalo de nuevo.",
-        "toggle_failed": "Error al actualizar."
+        "load_failed": "Error al cargar monitores. Comprueba tu conexión e inténtalo de nuevo."
       }
     },
     "policies": {
@@ -1732,8 +1616,7 @@
         "apply_to_bundle": "Aplicar al bundle"
       },
       "empty": {
-        "no_policies": "Aún no hay políticas. Una política aplica rate limit y timeout a todas las tools a la vez, en lugar de configurar cada una individualmente.",
-        "new_policy": "Crea tu primera política"
+        "no_policies": "Aún no hay políticas. Una política aplica rate limit y timeout a todas las tools a la vez, en lugar de configurar cada una individualmente."
       },
       "confirm": {
         "delete_title": "¿Eliminar esta política?",
@@ -1781,8 +1664,7 @@
         "last_run": "Última ejecución"
       },
       "empty": {
-        "no_schedules": "Aún no hay programaciones. Una programación habilita o deshabilita un cliente o tool automáticamente en un intervalo cron.",
-        "new_schedule": "Crea tu primera programación"
+        "no_schedules": "Aún no hay programaciones. Una programación habilita o deshabilita un cliente o tool automáticamente en un intervalo cron."
       },
       "confirm": {
         "delete_title": "¿Eliminar esta programación?",
@@ -1919,12 +1801,9 @@
     },
     "users": {
       "title": "Usuarios",
-      "subtitle": "Usuarios admin que pueden iniciar sesión en este bridge.",
-      "create": "Nuevo usuario",
       "table": {
         "username": "Username",
         "role": "Rol",
-        "created": "Creado",
         "last_login": "Último login",
         "team": "Team",
         "active": "Activo"
@@ -1987,11 +1866,6 @@
     },
     "usage": {
       "title": "Uso",
-      "subtitle": "Volumen de llamadas y latencia en una ventana.",
-      "filter_window": "Ventana",
-      "window_24h": "Últimas 24 horas",
-      "window_7d": "Últimos 7 días",
-      "window_30d": "Últimos 30 días",
       "errors": {
         "load_failed": "Error al cargar uso."
       },
@@ -2034,26 +1908,14 @@
     },
     "traffic": {
       "title": "Tráfico",
-      "subtitle": "Argumentos y previews de respuesta de tool calls capturados.",
-      "filter_state": "Capturado",
-      "state_all": "Todo",
-      "state_yes": "Solo capturado",
-      "state_no": "No capturado",
       "table": {
-        "tool": "Tool",
-        "client": "Cliente",
-        "captured_at": "Capturado en",
         "duration": "Duración",
-        "actions": "Acciones",
         "time": "Hora",
         "client_tool": "Cliente / tool",
         "status": "Estado",
         "preview": "Vista previa de respuesta",
         "status_error": "Error",
         "status_ok": "OK"
-      },
-      "empty": {
-        "no_traffic": "La captura de tráfico está off — actívala con la env var TRAFFIC_CAPTURE."
       },
       "errors": {
         "load_failed": "Error al cargar tráfico."
@@ -2186,73 +2048,6 @@
       "subtitle": "La página que buscas no existe (o ya no existe).",
       "go_servers": "Ir a servidores",
       "go_overview": "Ir a resumen"
-    },
-    "ws_proxies": {
-      "title": "Proxies WebSocket",
-      "subtitle": "Targets persistentes de pasarela WebSocket.",
-      "create": "Nuevo proxy",
-      "table": {
-        "name": "Nombre",
-        "url": "URL",
-        "connections": "Conexiones",
-        "enabled": "Habilitado",
-        "actions": "Acciones"
-      },
-      "empty": {
-        "no_proxies": "Aún no hay proxies WebSocket."
-      },
-      "errors": {
-        "load_failed": "Error al cargar proxies WebSocket.",
-        "toggle_failed": "Error al actualizar."
-      }
-    },
-    "catalog_new": {
-      "title": "Nueva entrada del catálogo",
-      "back_to_catalog": "Catálogo"
-    },
-    "composite_new": {
-      "title": "Nuevo compuesto",
-      "back_to_composites": "Compuestos"
-    },
-    "consumer_new": {
-      "title": "Nuevo consumidor",
-      "back_to_consumers": "Consumidores"
-    },
-    "policy_new": {
-      "title": "Nueva política",
-      "back_to_policies": "Políticas"
-    },
-    "schedule_new": {
-      "title": "Nueva programación",
-      "back_to_schedules": "Programaciones"
-    },
-    "team_new": {
-      "title": "Nuevo equipo",
-      "back_to_teams": "Equipos"
-    },
-    "user_new": {
-      "title": "Nuevo usuario",
-      "back_to_users": "Usuarios"
-    },
-    "alert_new": {
-      "title": "Nueva alerta",
-      "back_to_alerts": "Alertas"
-    },
-    "api_key_new": {
-      "title": "Crear API key",
-      "back_to_keys": "API keys"
-    },
-    "ws_proxy_new": {
-      "title": "Nuevo proxy WebSocket",
-      "back_to_proxies": "Proxies WebSocket"
-    },
-    "monitor_new": {
-      "title": "Nuevo monitor",
-      "back_to_monitors": "Monitores"
-    },
-    "bundle_new": {
-      "title": "Nuevo bundle",
-      "back_to_bundles": "Bundles"
     }
   },
   "demo": {
@@ -2438,10 +2233,10 @@
         }
       },
       "audit": {
-        "128": {
+        "120": {
           "detail": {
-            "label": {
-              "value": "Pipeline de CI (elevado)"
+            "name": {
+              "value": "Soporte"
             }
           }
         },
@@ -2452,10 +2247,10 @@
             }
           }
         },
-        "120": {
+        "128": {
           "detail": {
-            "name": {
-              "value": "Soporte"
+            "label": {
+              "value": "Pipeline de CI (elevado)"
             }
           }
         }

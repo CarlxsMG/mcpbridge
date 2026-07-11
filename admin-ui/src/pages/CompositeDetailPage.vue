@@ -7,6 +7,7 @@ import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { useFieldDraft } from "@/composables/useFieldDraft";
 import { useDetailPageDelete, syncAfterLoad } from "@/composables/useDetailPageDelete";
+import { compositePath } from "@/utils/apiPaths";
 import { tk } from "@/i18n";
 import type { CompositeDetail, CompositeStep } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -24,7 +25,7 @@ const {
   errorMessage,
   load: loadDetail,
 } = useResource<CompositeDetail | null>(
-  () => api.get<CompositeDetail>(`/admin-api/composites/${encodeURIComponent(props.name)}`),
+  () => api.get<CompositeDetail>(compositePath(props.name)),
   null,
   tk("pages.composite_detail.errors.load_failed"),
 );
@@ -39,7 +40,7 @@ const {
 } = useFieldDraft(
   () => detail.value?.description ?? "",
   async (value) => {
-    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { description: value || null });
+    await api.patch(compositePath(props.name), { description: value || null });
     await load();
   },
   { fallbackMessage: tk("pages.composite_detail.errors.save_description_failed") },
@@ -61,7 +62,7 @@ const {
     } catch {
       throw new ApiError(0, "INVALID_JSON", t("pages.composite_detail.errors.schema_invalid"));
     }
-    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { inputSchema });
+    await api.patch(compositePath(props.name), { inputSchema });
     await load();
   },
   { fallbackMessage: tk("pages.composite_detail.errors.save_schema_failed") },
@@ -83,7 +84,7 @@ const {
     } catch {
       throw new ApiError(0, "INVALID_JSON", t("pages.composite_detail.errors.steps_invalid"));
     }
-    await api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { steps });
+    await api.patch(compositePath(props.name), { steps });
     await load();
   },
   { fallbackMessage: tk("pages.composite_detail.errors.save_steps_failed") },
@@ -98,7 +99,7 @@ const {
   deleted,
   error: deleteError,
 } = useDetailPageDelete(
-  () => `/admin-api/composites/${encodeURIComponent(props.name)}`,
+  () => compositePath(props.name),
   "/composites",
   tk("pages.composite_detail.errors.delete_failed"),
 );
@@ -123,9 +124,7 @@ const { rowError: toggleError, toggle: toggleEnabledField } = useOptimisticToggl
 
 function toggleEnabled() {
   if (!detail.value) return;
-  toggleEnabledField(detail.value, "enabled", (next) =>
-    api.patch(`/admin-api/composites/${encodeURIComponent(props.name)}`, { enabled: next }),
-  );
+  toggleEnabledField(detail.value, "enabled", (next) => api.patch(compositePath(props.name), { enabled: next }));
 }
 </script>
 

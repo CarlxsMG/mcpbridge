@@ -1,4 +1,4 @@
-import { computed, readonly, watchEffect } from "vue";
+import { computed, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
 import { DEFAULT_LOCALE, LOCALE_STORAGE_KEY, SUPPORTED_LOCALES, type AppLocale, i18n } from "../i18n";
 
@@ -91,7 +91,3 @@ export function useLocale() {
     setLocale,
   };
 }
-
-// Touching `readonly` so the import survives tree-shake when only the
-// value side is consumed elsewhere in the app.
-export const __locale_readonly_marker = readonly;

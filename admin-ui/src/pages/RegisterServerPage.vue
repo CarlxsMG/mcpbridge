@@ -406,17 +406,17 @@ async function register() {
             <thead>
               <tr>
                 <th>{{ t("common.name") }}</th>
-                <th>Method</th>
-                <th>{{ t("common.endpoint") || "Endpoint" }}</th>
+                <th>{{ t("common.method") }}</th>
+                <th>{{ t("common.endpoint") }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="t in previewTools" :key="t.name">
-                <td>{{ t.name }}</td>
+              <tr v-for="tool in previewTools" :key="tool.name">
+                <td>{{ tool.name }}</td>
                 <td>
-                  <code>{{ t.method }}</code>
+                  <code>{{ tool.method }}</code>
                 </td>
-                <td class="ep">{{ t.endpoint }}</td>
+                <td class="ep">{{ tool.endpoint }}</td>
               </tr>
             </tbody>
           </TableCard>

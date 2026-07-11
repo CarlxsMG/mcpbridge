@@ -101,7 +101,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 }
 
 /** Like apiFetch, but returns the raw response body as text (e.g. a YAML export) instead of parsing JSON. */
-export async function apiFetchRaw(path: string, init: RequestInit = {}): Promise<string> {
+async function apiFetchRaw(path: string, init: RequestInit = {}): Promise<string> {
   if (import.meta.env.VITE_DEMO === "true") {
     const { demoFetch } = await import("../demo/demo");
     const data = await demoFetch<unknown>(path, init);

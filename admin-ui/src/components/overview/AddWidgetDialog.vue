@@ -28,6 +28,9 @@ function onAdd(preset: WidgetPreset) {
 </script>
 
 <template>
+  <!-- :ariaLabel kept camelCase (not :aria-label): vue-tsc treats the hyphenated form as the
+       built-in ARIA passthrough attribute rather than resolving it to ModalShell's ariaLabel prop -->
+  <!-- eslint-disable-next-line vue/attribute-hyphenation -->
   <ModalShell :open="open" :ariaLabel="t('components.add_widget.title')" max-width="46rem" @close="emit('close')">
     <div class="add-head">
       <h2>{{ t("components.add_widget.title") }}</h2>

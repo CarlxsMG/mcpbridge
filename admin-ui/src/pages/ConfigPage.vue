@@ -59,7 +59,7 @@ function onRollbackResult(r: ConfigImportResult) {
       <div v-if="result.skipped.length" class="skipped">
         <strong>{{ t("pages.config.result.skipped_heading", { count: result.skipped.length }) }}</strong>
         <ul>
-          <li v-for="(s, i) in result.skipped" :key="i">
+          <li v-for="s in result.skipped" :key="`${s.type}:${s.id}`">
             {{ s.type }} <code>{{ s.id }}</code> — {{ s.reason }}
           </li>
         </ul>

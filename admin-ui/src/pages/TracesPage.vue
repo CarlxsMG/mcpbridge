@@ -170,7 +170,16 @@ const topSessionsChart = computed(() =>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="trace in traces" :key="trace.traceId" class="clickable" @click="openTrace(trace)">
+          <tr
+            v-for="trace in traces"
+            :key="trace.traceId"
+            class="clickable"
+            tabindex="0"
+            role="button"
+            @click="openTrace(trace)"
+            @keydown.enter="openTrace(trace)"
+            @keydown.space.prevent="openTrace(trace)"
+          >
             <td class="mono">{{ formatDateTime(trace.startMs) }}</td>
             <td class="mono">{{ trace.mcpToolName ?? "—" }}</td>
             <td class="mono">

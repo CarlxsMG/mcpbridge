@@ -7,6 +7,7 @@ import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { useFieldDraft } from "@/composables/useFieldDraft";
 import { useDetailPageDelete, syncAfterLoad } from "@/composables/useDetailPageDelete";
+import { bundlePath } from "@/utils/apiPaths";
 import { tk } from "@/i18n";
 import type { BundleDetail, BundleToolRef } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -28,7 +29,7 @@ const {
   errorMessage,
   load: loadDetail,
 } = useResource<BundleDetail | null>(
-  () => api.get<BundleDetail>(`/admin-api/bundles/${encodeURIComponent(props.name)}`),
+  () => api.get<BundleDetail>(bundlePath(props.name)),
   null,
   tk("pages.bundle_detail.errors.load_failed"),
 );
@@ -43,7 +44,7 @@ const {
 } = useFieldDraft(
   () => detail.value?.description ?? "",
   async (value) => {
-    await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { description: value || null });
+    await api.patch(bundlePath(props.name), { description: value || null });
     await load();
   },
   { fallbackMessage: tk("pages.bundle_detail.errors.save_description_failed") },
@@ -59,7 +60,7 @@ const {
 } = useFieldDraft<BundleToolRef[]>(
   () => detail.value?.tools ?? [],
   async (value) => {
-    await api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { tools: value });
+    await api.patch(bundlePath(props.name), { tools: value });
     await load();
   },
   {
@@ -80,11 +81,7 @@ const {
   deleting,
   deleted,
   error: deleteError,
-} = useDetailPageDelete(
-  () => `/admin-api/bundles/${encodeURIComponent(props.name)}`,
-  "/bundles",
-  tk("pages.bundle_detail.errors.delete_failed"),
-);
+} = useDetailPageDelete(() => bundlePath(props.name), "/bundles", tk("pages.bundle_detail.errors.delete_failed"));
 const connectOpen = ref(false);
 const shareOpen = ref(false);
 
@@ -101,9 +98,7 @@ onMounted(load);
 
 async function toggleEnabled() {
   if (!detail.value) return;
-  await toggle(detail.value, "enabled", (next) =>
-    api.patch(`/admin-api/bundles/${encodeURIComponent(props.name)}`, { enabled: next }),
-  );
+  await toggle(detail.value, "enabled", (next) => api.patch(bundlePath(props.name), { enabled: next }));
   errorMessage.value = toggleError.value.singleton ?? "";
 }
 

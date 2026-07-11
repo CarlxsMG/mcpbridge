@@ -231,15 +231,15 @@ onMounted(() => load());
       <template v-else>
         <div class="tag-cloud">
           <button
-            v-for="t in tags"
-            :key="t.tag"
+            v-for="tag in tags"
+            :key="tag.tag"
             type="button"
             class="tag-filter-chip"
-            :class="{ 'tag-filter-chip-active': selectedTag === t.tag }"
-            :aria-pressed="selectedTag === t.tag"
-            @click="selectTag(t.tag)"
+            :class="{ 'tag-filter-chip-active': selectedTag === tag.tag }"
+            :aria-pressed="selectedTag === tag.tag"
+            @click="selectTag(tag.tag)"
           >
-            {{ t.tag }} <span class="tag-count">{{ t.count }}</span>
+            {{ tag.tag }} <span class="tag-count">{{ tag.count }}</span>
           </button>
         </div>
         <div v-if="selectedTag" class="tag-tools">

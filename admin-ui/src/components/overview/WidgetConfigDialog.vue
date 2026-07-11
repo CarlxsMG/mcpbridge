@@ -118,6 +118,9 @@ function save(): void {
 </script>
 
 <template>
+  <!-- :ariaLabel kept camelCase (not :aria-label): vue-tsc treats the hyphenated form as the
+       built-in ARIA passthrough attribute rather than resolving it to ModalShell's ariaLabel prop -->
+  <!-- eslint-disable vue/attribute-hyphenation -->
   <ModalShell
     v-if="widget"
     :open="open"
@@ -125,6 +128,7 @@ function save(): void {
     max-width="32rem"
     @close="emit('close')"
   >
+    <!-- eslint-enable vue/attribute-hyphenation -->
     <h2 class="cfg-title">{{ t("components.widget_config.title") }}</h2>
 
     <form @submit.prevent="save">

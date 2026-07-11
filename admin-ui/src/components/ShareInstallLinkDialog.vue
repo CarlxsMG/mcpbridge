@@ -8,6 +8,7 @@ import ModalShell from "@/components/ui/ModalShell.vue";
 import CopyButton from "@/components/ui/CopyButton.vue";
 import { formatDateTime, formatMaybeDate } from "@/utils/format";
 import { toErrorMessage } from "@/utils/errors";
+import { bundlePath } from "@/utils/apiPaths";
 import { tk } from "@/i18n";
 
 const props = defineProps<{ open: boolean; bundleName: string }>();
@@ -35,9 +36,7 @@ async function load() {
   listError.value = "";
   loading.value = true;
   try {
-    const res = await api.get<{ items: BundleInstallLink[] }>(
-      `/admin-api/bundles/${encodeURIComponent(props.bundleName)}/install-links`,
-    );
+    const res = await api.get<{ items: BundleInstallLink[] }>(bundlePath(props.bundleName, "install-links"));
     links.value = res.items;
   } catch (err) {
     listError.value = toErrorMessage(err, tk("components.share_install_link.errors.load_failed"));
@@ -72,10 +71,7 @@ async function createLink() {
   createError.value = "";
   creating.value = true;
   try {
-    const created = await api.post<BundleInstallLinkWithToken>(
-      `/admin-api/bundles/${encodeURIComponent(props.bundleName)}/install-links`,
-      {},
-    );
+    const created = await api.post<BundleInstallLinkWithToken>(bundlePath(props.bundleName, "install-links"), {});
     minted.value = created;
     await load();
   } catch (err) {
@@ -91,7 +87,7 @@ async function confirmRevoke() {
   pendingRevoke.value = null;
   revokeError.value = "";
   try {
-    await api.delete(`/admin-api/bundles/${encodeURIComponent(props.bundleName)}/install-links/${link.id}`);
+    await api.delete(bundlePath(props.bundleName, "install-links", String(link.id)));
     if (minted.value?.id === link.id) minted.value = null;
     await load();
   } catch (err) {
@@ -107,12 +103,16 @@ function statusOf(link: BundleInstallLink): string {
 </script>
 
 <template>
+  <!-- :ariaLabel kept camelCase (not :aria-label): vue-tsc treats the hyphenated form as the
+       built-in ARIA passthrough attribute rather than resolving it to ModalShell's ariaLabel prop -->
+  <!-- eslint-disable vue/attribute-hyphenation -->
   <ModalShell
     :open="open"
     :ariaLabel="t('components.share_install_link.title')"
     :max-width="'40rem'"
     @close="emit('close')"
   >
+    <!-- eslint-enable vue/attribute-hyphenation -->
     <div class="dialog-head">
       <h2>{{ t("components.share_install_link.title") }}</h2>
       <button type="button" class="link-btn" @click="emit('close')">{{ t("common.close") }}</button>

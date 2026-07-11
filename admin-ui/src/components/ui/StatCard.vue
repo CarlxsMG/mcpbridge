@@ -10,7 +10,7 @@ withDefaults(
     tone?: "default" | "danger" | "warning" | "ok";
     pulse?: boolean;
   }>(),
-  { tone: "default", pulse: false },
+  { detail: "", tone: "default", pulse: false },
 );
 </script>
 

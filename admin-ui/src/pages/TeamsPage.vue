@@ -75,7 +75,9 @@ async function confirmRemove() {
             <td>{{ team.name }}</td>
             <td>{{ new Date(team.createdAt).toLocaleDateString() }}</td>
             <td>
-              <button class="link-btn danger" @click="requestRemove(team)">{{ t("common.delete") }}</button>
+              <button type="button" class="link-btn danger" @click="requestRemove(team)">
+                {{ t("common.delete") }}
+              </button>
             </td>
           </tr>
         </tbody>

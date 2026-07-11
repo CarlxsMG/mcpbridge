@@ -172,7 +172,7 @@ function fmt(v: unknown): string {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(e, i) in diff.entries" :key="i" :class="e.kind">
+          <tr v-for="e in diff.entries" :key="e.path" :class="e.kind">
             <td>
               <code>{{ e.path }}</code>
             </td>

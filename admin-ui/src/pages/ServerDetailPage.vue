@@ -480,8 +480,8 @@ async function resetBreaker() {
   display: inline-block;
   margin-left: 0.35rem;
   padding: 0.05rem 0.45rem;
-  background: #eef2f7;
-  color: #3a5a8a;
+  background: var(--signal-soft);
+  color: var(--signal-strong);
   border-radius: 999px;
   font-size: 0.72rem;
   vertical-align: middle;

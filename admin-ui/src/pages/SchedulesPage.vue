@@ -116,7 +116,7 @@ function formatLastRun(m: number | null): string {
               <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>
             </td>
             <td>
-              <button class="link-btn danger" @click="requestDelete(s)">{{ t("common.delete") }}</button>
+              <button type="button" class="link-btn danger" @click="requestDelete(s)">{{ t("common.delete") }}</button>
             </td>
           </tr>
         </tbody>

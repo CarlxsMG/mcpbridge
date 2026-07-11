@@ -7,6 +7,7 @@ import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
+import { compositePath } from "@/utils/apiPaths";
 import { i18n } from "../i18n";
 import type { CompositeSummary } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -38,7 +39,7 @@ const { rowError: toggleError, toggle } = useOptimisticToggle<CompositeSummary>(
 onMounted(load);
 
 function toggleEnabled(c: CompositeSummary) {
-  toggle(c, "enabled", (next) => api.patch(`/admin-api/composites/${encodeURIComponent(c.name)}`, { enabled: next }));
+  toggle(c, "enabled", (next) => api.patch(compositePath(c.name), { enabled: next }));
 }
 
 const {
@@ -51,7 +52,7 @@ const {
 function confirmDelete() {
   return confirmDeleteAction(async (c) => {
     try {
-      await api.delete(`/admin-api/composites/${encodeURIComponent(c.name)}`);
+      await api.delete(compositePath(c.name));
       await load();
     } catch (err) {
       errorMessage.value = toErrorMessage(err, toggleFallback);
