@@ -1,0 +1,43 @@
+# Dependency-vulnerability gates: a PR dependency review (blocks pulling in a
+# known-vulnerable or badly-licensed dep) plus a lockfile audit on push/PR and
+# weekly (so a newly-disclosed CVE in an already-pinned dep still surfaces).
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 4 * * 1" # Mondays 04:41 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    # Only meaningful on a PR (it diffs the PR's dependency changes).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      # `bun audit` reads the committed lockfiles and reports known CVEs. Run it
+      # for both the root gateway and the admin-ui (separate lockfiles). Non-fatal
+      # for now (report-only) so a transitive advisory doesn't block unrelated
+      # work; tighten to a failing gate once the baseline is clean.
+      - name: Audit root dependencies
+        run: bun audit || true
+      - name: Audit admin-ui dependencies
+        working-directory: admin-ui
+        run: bun audit || true

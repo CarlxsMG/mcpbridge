@@ -1,7 +1,9 @@
 # Builds the multi-stage Dockerfile at the repo root and publishes it to the
 # GitHub Container Registry (GHCR) whenever a `vX.Y.Z` release tag is pushed.
 # Uses the built-in GITHUB_TOKEN (no extra secrets needed) since the image is
-# published under this same repo/org.
+# published under this same repo/org. The published image is multi-arch
+# (amd64 + arm64), ships an SBOM + build provenance attestation, is signed with
+# cosign (keyless/OIDC), and is scanned by Trivy with results in the Security tab.
 name: Docker Publish (GHCR)
 
 on:
@@ -16,6 +18,8 @@ env:
 permissions:
   contents: read
   packages: write
+  id-token: write # cosign keyless signing (OIDC)
+  security-events: write # upload the Trivy SARIF to the Security tab
 
 jobs:
   build-and-push:
@@ -43,27 +47,60 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # QEMU emulation lets a single amd64 runner build the arm64 leg too.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ steps.image.outputs.name }}:${{ steps.version.outputs.tag }}
             ${{ steps.image.outputs.name }}:latest
+          sbom: true
+          provenance: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      # Keyless signature bound to this workflow's OIDC identity — verifiable with
+      # `cosign verify --certificate-identity-regexp ... --certificate-oidc-issuer ...`.
+      - name: Sign the published image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}:${{ steps.version.outputs.tag }}
+          format: sarif
+          output: trivy-results.sarif
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy results to the Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
 
       - name: Job summary
         run: |
           {
             echo "### Docker image published :whale:"
             echo
-            echo "- \`${{ steps.image.outputs.name }}:${{ steps.version.outputs.tag }}\`"
+            echo "- \`${{ steps.image.outputs.name }}:${{ steps.version.outputs.tag }}\` (linux/amd64, linux/arm64, signed, SBOM attached)"
             echo "- \`${{ steps.image.outputs.name }}:latest\`"
             echo
             echo "\`\`\`bash"

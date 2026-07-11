@@ -68,13 +68,14 @@ persistence:
   existingClaim: ""
   mountPath: /app/data
 
-resources: {}
-# Example:
-#   requests:
-#     cpu: 100m
-#     memory: 128Mi
-#   limits:
-#     memory: 512Mi
+# Sensible defaults for a single Bun + SQLite process. No CPU limit (avoids
+# throttling); override for your own sizing. Set to {} to remove all constraints.
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
 
 podAnnotations: {}
 
@@ -87,6 +88,13 @@ securityContext:
   runAsNonRoot: true
   runAsUser: 1000
   allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+  # readOnlyRootFilesystem: true is recommended, but the process needs a writable
+  # /tmp — enable it together with an emptyDir mounted at /tmp in the Deployment.
 
 livenessProbe:
   httpGet:
