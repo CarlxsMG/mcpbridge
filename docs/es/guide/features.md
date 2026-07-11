@@ -59,5 +59,86 @@ y **[Control de acceso →](/es/guide/access-control)**.
 - **Política por herramienta** — rate limits, timeouts, overrides de circuit-breaker y
   restricciones de API keys permitidas, aplicadas en el dispatch antes del circuit breaker.
 
-(Esta página es una traducción al español; consulta la versión inglesa para el contenido
-completo.)
+**Acceso e identidad**
+
+- **RBAC** con roles `admin` / `operator` / `auditor` / `viewer`.
+- **Multi-tenancy por equipos** — acota clientes a equipos para que cada tenant solo vea los suyos.
+- **Login de admin por sesión** (argon2id vía `Bun.password`) más un camino de key Bearer
+  estática para CI/automatización, con protección CSRF en las mutaciones autenticadas por cookie.
+- **OAuth2 / JWT entrante** (opcional) — acepta tokens de acceso OAuth2/OIDC (RS256/ES256)
+  verificados contra un endpoint JWKS, junto a las keys estáticas y gestionadas en DB. Sin
+  dependencia extra (WebCrypto).
+- **OAuth2 client-credentials saliente** — el bridge emite y auto-refresca un token desde el
+  endpoint de token del backend y lo inyecta, para que el caller MCP nunca vea el client secret real.
+
+**Control y flujo**
+
+- **Aprobación humana en el bucle** — las tools de alto riesgo pueden requerir una aprobación
+  admin fuera de banda; la llamada abre un ticket ligado a sus argumentos exactos y es de un
+  solo uso una vez aprobada.
+- **Transforms declarativos de request/response** — remodela los argumentos o la response JSON
+  de una tool (set / remove / rename / copy) sin código y sin eval de expresiones que explotar.
+
+## Operar con confianza
+
+**UI de admin y config**
+
+- **UI de admin (Vue 3 SPA)** — dashboard, servidores, bundles, API keys, consumidores,
+  políticas, uso, alertas, programaciones, audit log, usuarios, equipos y config.
+- **Dashboard de widgets personalizable** — una grid de Overview estilo Grafana: añade,
+  redimensiona y configura widgets de stat/chart/nota desde un catálogo, y exporta o importa
+  el layout entero.
+- **Versionado de config + rollback**, más import/export de toda la configuración.
+- **Programaciones de mantenimiento** vía un matcher cron integrado (gated por leader, deduplicado).
+
+**Resiliencia** — ver **[Guardrails y resiliencia →](/es/guide/guardrails-resilience)**
+
+- **Monitorización de salud + auto-eliminación** de backends no saludables, con un probe ping
+  para upstreams MCP.
+- **Canary / failover** — enruta a un secundario validado cuando el breaker del primario se
+  abre, sin cerrar falsamente el breaker del primario.
+- **Caché de responses** — TTL por tool + caché LRU para responses `GET` idempotentes, servida
+  tras todos los guards pero antes del circuit breaker (un hit de caché nunca gasta un probe half-open).
+- **Balanceo de carga N-way** — reparte las llamadas de un cliente entre un pool de targets
+  upstream (round-robin / ponderado / least-connections) con un cooldown de salud por target,
+  encima del circuit breaker primario.
+
+**Manejo de datos**
+
+- **Auto-paginación** — sigue paginación cursor / page / `Link` RFC-5988 y agrega las páginas
+  en una sola response (solo mismo host, SSRF-safe).
+- **Normalización de streaming** — convierte una response NDJSON o SSE en un único resultado JSON agregado.
+- **Mock / virtualización** — sirve una response predefinida (siempre, para desarrollo
+  contract-first) o solo como fallback cuando el backend no está disponible.
+
+## Observar
+
+Consulta **[Observabilidad y monitorización →](/es/guide/observability)**.
+
+- **Prometheus `/metrics`**, incluyendo `mcp_tool_calls_total{outcome}`.
+- **Tracing OpenTelemetry (OTLP/HTTP)** — un span por llamada de tool cuando hay un endpoint OTLP.
+- **Analítica de uso** y **detección de anomalías / picos de uso** que dispara alertas vía webhooks.
+- **Audit log a prueba de manipulaciones** — cada acción admin está encadenada por hash
+  (`hash = SHA256(prev | …)`) y es verificable; opcionalmente streameada a un SIEM.
+- **Explorador de tráfico + replay** — captura opt-in por llamada (argumentos + un preview del
+  resultado) que puedes inspeccionar y re-ejecutar desde la admin API.
+- **Monitorización sintética + schema-drift** — reproduce periódicamente un ejemplo guardado a
+  través de una tool y marca fallos, y detecta cuándo el schema de input de un upstream deriva
+  de una baseline capturada.
+
+## Escalar (opt-in)
+
+Consulta **[Escalado y alta disponibilidad →](/es/guide/scaling)**.
+
+- **Contadores de rate compartidos** en SQLite para límites consistentes entre instancias.
+- **Reconciliación del registro cross-instancia** para que registros y bajas propaguen a los peers.
+- **Elección de leader** para que los loops en background (alertas, programaciones) corran en
+  exactamente una instancia.
+
+## Ejecuta en cualquier sitio
+
+Proceso único Bun + `bun:sqlite` — sin base de datos externa, sin Kubernetes. Consulta
+**[Despliegue →](/es/guide/deployment)** para Docker, bare-metal y reverse-proxy.
+
+Siguiente: **[Primeros pasos →](/es/guide/getting-started)** ·
+**[Por qué MCP REST Bridge →](/es/guide/why-mcp-rest-bridge)**

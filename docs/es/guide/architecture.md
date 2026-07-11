@@ -63,5 +63,9 @@ Un loop en background chequea la salud de cada cliente y auto-elimina los no sal
 disparan ante fallos repetidos, y un **canary/failover** secundario opcional puede tomar
 el relevo cuando se abre el breaker primario — sin cerrar falsamente el breaker primario.
 
+Para el razonamiento detrás de estas decisiones, consulta los
+**[Architecture Decision Records →](/architecture/decisions/0001-two-planes-three-endpoints)**
+(en inglés) y los **[SLOs →](/es/architecture/slos)** de fiabilidad.
+
 Siguiente: **[Seguridad →](/es/guide/security)** ·
 **[Despliegue →](/es/guide/deployment)**

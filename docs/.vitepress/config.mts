@@ -133,6 +133,29 @@ const sidebarGuideEs = sidebarGuideEn.map((group) => ({
   })),
 }));
 
+// Architecture sidebar — ADRs + SLOs live outside /guide/ (they're reference
+// material, not part of the linear guide), so they get their own sidebar shown
+// when you land on an /architecture/ page. The ADRs are English-only; only the
+// SLO doc has a Spanish mirror, so the ES architecture sidebar lists just that.
+const sidebarArchitecture = [
+  {
+    text: "Architecture",
+    items: [
+      { text: "SLOs (public contract)", link: "/architecture/slos" },
+      {
+        text: "ADR-0001 · Two planes, three endpoints",
+        link: "/architecture/decisions/0001-two-planes-three-endpoints",
+      },
+      {
+        text: "ADR-0002 · W3C traceparent propagation",
+        link: "/architecture/decisions/0002-w3c-traceparent-propagation",
+      },
+      { text: "ADR-0003 · SLOs as a public contract", link: "/architecture/decisions/0003-slos-public-contract" },
+      { text: "ADR-0004 · E2E as a CI gate", link: "/architecture/decisions/0004-e2e-as-ci-gate" },
+    ],
+  },
+];
+
 export default defineConfig({
   // VitePress's built-in i18n. The root locale keeps the existing
   // /guide/foo URLs; the Spanish locale mounts at /es/guide/foo.
@@ -174,7 +197,12 @@ export default defineConfig({
             ],
           },
         ],
-        sidebar: { "/es/guide/": sidebarGuideEs },
+        sidebar: {
+          "/es/guide/": sidebarGuideEs,
+          "/es/architecture/": [
+            { text: textEs["Architecture"], items: [{ text: "SLOs", link: "/es/architecture/slos" }] },
+          ],
+        },
         editLink: {
           pattern: REPO_URL + "/edit/main/docs/:path",
           text: textEs["Edit this page on GitHub"],
@@ -261,6 +289,7 @@ export default defineConfig({
 
     sidebar: {
       "/guide/": sidebarGuideEn,
+      "/architecture/": sidebarArchitecture,
     },
 
     socialLinks: [{ icon: "github", link: REPO_URL }],

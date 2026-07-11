@@ -59,4 +59,8 @@ probe for MCP upstreams). Per-tool **circuit breakers** trip on repeated failure
 optional **canary/failover** secondary can take over when a primary breaker opens — without
 falsely closing the primary's breaker.
 
+For the reasoning behind these choices, see the
+**[Architecture Decision Records →](/architecture/decisions/0001-two-planes-three-endpoints)**
+and the reliability **[SLOs →](/architecture/slos)**.
+
 Next: **[Security →](/guide/security)** · **[Deployment →](/guide/deployment)**

@@ -1,17 +1,20 @@
 # Configuration
 
 MCP REST Bridge is configured with environment variables (Bun auto-loads a `.env` file in
-development). The repository's **`.env.example`** is the authoritative, commented list — the
-tables below cover the settings you'll reach for most often.
+development). The repository's **`.env.example`** is a curated, commented starter set, and the
+tables below cover the settings you'll reach for most often — the exhaustive, range-validated
+list is the `config` object in `src/config.ts` (validated at boot by `src/config-schema.ts`).
 
 ## First-boot & authentication
 
-| Variable                   | Description                                                                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `BOOTSTRAP_ADMIN_USERNAME` | Username for the first admin user. Applied **only once**, while the users table is empty.                                        |
-| `BOOTSTRAP_ADMIN_PASSWORD` | Password for that first admin (min 12 chars). Remove after the user exists.                                                      |
-| `ADMIN_API_KEYS`           | Comma-separated static Bearer keys for the JSON admin API (`/admin-api`, `/register`). Optional — the Vue UI uses session login. |
-| `MCP_API_KEYS`             | Comma-separated keys MCP clients present to call tools. Empty = no key required (combine with per-tool guards as needed).        |
+| Variable                      | Description                                                                                                                                                                 |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BOOTSTRAP_ADMIN_USERNAME`    | Username for the first admin user. Applied **only once**, while the users table is empty.                                                                                   |
+| `BOOTSTRAP_ADMIN_PASSWORD`    | Password for that first admin (min 12 chars). Remove after the user exists.                                                                                                 |
+| `ADMIN_API_KEYS`              | Comma-separated static Bearer keys for the JSON admin API (`/admin-api`, `/register`). Optional — the Vue UI uses session login.                                            |
+| `MCP_API_KEYS`                | Comma-separated keys MCP clients present to call tools. Empty = no key required (combine with per-tool guards as needed).                                                   |
+| `REQUIRE_MCP_AUTH`            | `true` forces the MCP data plane to fail **closed** even before a key exists (otherwise, with no keys/JWT configured, the data plane is open and a boot warning is logged). |
+| `EXPOSE_DOCS_UNAUTHENTICATED` | `true` serves `/docs` (Swagger UI + full OpenAPI spec) publicly. Off by default — `/docs` is admin-authenticated.                                                           |
 
 ## Runtime & networking
 
@@ -91,8 +94,8 @@ via WebCrypto — no extra dependency). Additive to `MCP_API_KEYS` and DB-manage
 
 ::: tip
 Generate keys/secrets with, e.g., `openssl rand -hex 24` (API keys) or
-`openssl rand -base64 32` (`SECRET_ENCRYPTION_KEY`). See `.env.example` in the repo for the
-complete, commented reference — including CORS, rate-limit, and timeout tuning.
+`openssl rand -base64 32` (`SECRET_ENCRYPTION_KEY`). `.env.example` is a curated starter set;
+the exhaustive list is the `config` object in `src/config.ts`.
 :::
 
 Next: **[Deployment →](/guide/deployment)** · **[Security →](/guide/security)**
