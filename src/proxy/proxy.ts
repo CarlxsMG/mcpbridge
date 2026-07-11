@@ -566,6 +566,93 @@ function checkToolRateLimitGate(tool: RegisteredTool, mcpToolName: string): Tool
   return null;
 }
 
+/** Key-scope enforcement — a scoped managed key may only call clients/tools in its scope. Returns a reject result, or null. */
+function checkKeyScopeGate(
+  callerKey: ReturnType<typeof resolveMcpKeyByToken>,
+  client: RegisteredClient,
+  mcpToolName: string,
+): ToolResult | null {
+  if (callerKey && !isToolInKeyScope(callerKey.scopes, client.name, mcpToolName)) {
+    return toolResult(`API key is not authorized to call tool '${mcpToolName}'`, { isError: true });
+  }
+  return null;
+}
+
+/**
+ * Auto-quarantine (escalates after N consecutive guardrail violations) plus the
+ * human-in-the-loop approval-ticket gate. Quarantine's "force_approval" action
+ * reuses the same approval gate, so the two live together (approvalGateHandled is
+ * local). Returns a reject / approval-ticket result, or null to proceed.
+ */
+function checkQuarantineAndApprovalGate(
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  args: Record<string, unknown>,
+  mcpToolName: string,
+  callerKey: ReturnType<typeof resolveMcpKeyByToken>,
+): ToolResult | null {
+  let approvalGateHandled = false;
+  const quarantine = checkQuarantine(client.name, tool.name);
+  if (quarantine.active) {
+    if (quarantine.action === "block") {
+      log("warn", "Tool call blocked by quarantine", {
+        tool: mcpToolName,
+        client: client.name,
+        reason: quarantine.reason,
+      });
+      return toolResult(
+        `Tool '${mcpToolName}' is quarantined: ${quarantine.reason ?? "too many guardrail violations"}`,
+        { isError: true },
+      );
+    }
+    if (quarantine.action === "force_approval") {
+      const gated = runApprovalGate(client, tool, args, mcpToolName, callerKey);
+      approvalGateHandled = true;
+      if (gated) return gated;
+    } else if (quarantine.action === "observe") {
+      log("warn", "Quarantined tool call allowed through (observe mode)", {
+        tool: mcpToolName,
+        client: client.name,
+        reason: quarantine.reason,
+      });
+    }
+  }
+  // Human-in-the-loop approval (ticket model): no __approval_id files a pending
+  // ticket bound to these exact args; a valid id is validated + consumed (single-use).
+  if (!approvalGateHandled && requiresApproval(client.name, tool.name)) {
+    const gated = runApprovalGate(client, tool, args, mcpToolName, callerKey);
+    if (gated) return gated;
+  }
+  return null;
+}
+
+/**
+ * Input-guardrail gate — deny-rule / secret checks on the arguments (records the
+ * hit either way). The caller keeps the resolved `guardrails` for the response
+ * scan on the output path. Returns a reject result, or null to proceed.
+ */
+function checkGuardrailInputGate(
+  guardrails: ReturnType<typeof getGuardrails>,
+  client: RegisteredClient,
+  tool: RegisteredTool,
+  args: Record<string, unknown>,
+  mcpToolName: string,
+): ToolResult | null {
+  if (!guardrails) return null;
+  const inputCheck = checkInputGuardrails(guardrails, args);
+  if (inputCheck.blocked) {
+    recordGuardrailHit(client.name, tool.name, true);
+    log("warn", "Tool call rejected by input guardrail", {
+      tool: mcpToolName,
+      client: client.name,
+      reason: inputCheck.reason,
+    });
+    return toolResult(`Input rejected by guardrail: ${inputCheck.reason}`, { isError: true });
+  }
+  recordGuardrailHit(client.name, tool.name, false);
+  return null;
+}
+
 async function dispatchToolCall(
   mcpToolName: string,
   args: Record<string, unknown> = {},
@@ -597,8 +684,9 @@ async function dispatchToolCall(
   // usage attribution at every terminal outcome below. Legacy env keys and
   // admin test-calls resolve to null (no scope restriction, unattributed).
   const callerKey = callerToken ? resolveMcpKeyByToken(callerToken) : null;
-  if (callerKey && !isToolInKeyScope(callerKey.scopes, client.name, mcpToolName)) {
-    return toolResult(`API key is not authorized to call tool '${mcpToolName}'`, { isError: true });
+  {
+    const gate = checkKeyScopeGate(callerKey, client, mcpToolName);
+    if (gate) return gate;
   }
 
   // Multi-tenant monthly quota + per-end-user rate limit.
@@ -613,63 +701,18 @@ async function dispatchToolCall(
     if (gate) return gate;
   }
 
-  // Auto-quarantine — escalates after N consecutive guardrail violations (see
-  // quarantine.ts). Runs before the breaker, like every other guard, and
-  // before the natural approval gate so its "force_approval" action can reuse
-  // that same gate below without duplicating ticket-creation logic.
-  let approvalGateHandled = false;
-  const quarantine = checkQuarantine(client.name, tool.name);
-  if (quarantine.active) {
-    if (quarantine.action === "block") {
-      log("warn", "Tool call blocked by quarantine", {
-        tool: mcpToolName,
-        client: client.name,
-        reason: quarantine.reason,
-      });
-      return toolResult(
-        `Tool '${mcpToolName}' is quarantined: ${quarantine.reason ?? "too many guardrail violations"}`,
-        { isError: true },
-      );
-    }
-    if (quarantine.action === "force_approval") {
-      const gated = runApprovalGate(client, tool, args, mcpToolName, callerKey);
-      approvalGateHandled = true;
-      if (gated) return gated;
-    } else if (quarantine.action === "observe") {
-      log("warn", "Quarantined tool call allowed through (observe mode)", {
-        tool: mcpToolName,
-        client: client.name,
-        reason: quarantine.reason,
-      });
-    }
+  // Auto-quarantine + human-in-the-loop approval gate (both run before the breaker).
+  {
+    const gate = checkQuarantineAndApprovalGate(client, tool, args, mcpToolName, callerKey);
+    if (gate) return gate;
   }
 
-  // Human-in-the-loop approval (ticket model). No __approval_id -> file a pending
-  // ticket bound to these exact args and return its id. With an id -> validate and
-  // consume it (single-use, args-bound) before proceeding. __approval_id is not in
-  // any inputSchema, so Ajv's removeAdditional strips it before the upstream call.
-  if (!approvalGateHandled && requiresApproval(client.name, tool.name)) {
-    const gated = runApprovalGate(client, tool, args, mcpToolName, callerKey);
-    if (gated) return gated;
-  }
-
-  // Content guardrails — input gate runs here (before the breaker, like every
-  // other guard) so a rejected call never burns a half-open probe. The same
-  // config's scan-responses flag is reused on the output path below (REST) and
-  // threaded into the MCP dispatch.
+  // Content guardrails — input gate (before the breaker, so a reject never burns a
+  // half-open probe). `guardrails` is kept for the response scan on the output path.
   const guardrails = getGuardrails(client.name, tool.name);
-  if (guardrails) {
-    const inputCheck = checkInputGuardrails(guardrails, args);
-    if (inputCheck.blocked) {
-      recordGuardrailHit(client.name, tool.name, true);
-      log("warn", "Tool call rejected by input guardrail", {
-        tool: mcpToolName,
-        client: client.name,
-        reason: inputCheck.reason,
-      });
-      return toolResult(`Input rejected by guardrail: ${inputCheck.reason}`, { isError: true });
-    }
-    recordGuardrailHit(client.name, tool.name, false);
+  {
+    const gate = checkGuardrailInputGate(guardrails, client, tool, args, mcpToolName);
+    if (gate) return gate;
   }
 
   {
