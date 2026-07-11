@@ -9,7 +9,7 @@ import { parseCurlCommand, parsePostmanCollection } from "../discovery/curl-post
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { setToolGraphql } from "../proxy/backends.js";
 import { getWsProxyTargetDetail } from "../ws-proxy.js";
-import type { McpTransport } from "./types.js";
+import type { McpTransport, RestToolDefinition } from "./types.js";
 // Bun parses YAML modules at bundle time (native loader, same as JSON) — this
 // works identically under `bun src/index.ts` and under `bun build --compile`.
 // The previous `readFileSync(resolve(import.meta.dirname, ...))` approach
@@ -140,6 +140,220 @@ export function findToolEndpointError(tools: { name: string; endpoint?: unknown 
 }
 
 /**
+ * Resolves and SSRF-validates the two backend URLs a REST registration pins
+ * itself to — health_url and base_url — returning the derived peer IP, the two
+ * absolute URLs, and base_url's pinned resolved IP. base_url defaults to
+ * health_url's origin when omitted. Any failing gate (missing peer IP for a
+ * relative health_url, a bad base_url scheme, or either URL failing SSRF)
+ * returns the exact error RegisterOutcome the inline code did.
+ */
+async function resolveRestRegistrationTargets(
+  health_url: string,
+  base_url: string | undefined,
+  peerIp: string | undefined,
+  requestId: string | null,
+): Promise<RegisterOutcome | { ip: string; resolvedHealthUrl: string; resolvedBaseUrl: string; pinnedIp: string }> {
+  // Change C — use the true peer address; req.ip follows X-Forwarded-For when
+  // TRUST_PROXY is set, which is attacker-controlled.
+  if (!health_url.startsWith("http") && !peerIp) {
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Cannot determine peer IP for relative health_url",
+          request_id: requestId,
+        },
+      },
+    };
+  }
+  const ip = peerIp || "127.0.0.1";
+
+  // Resolve health_url
+  const resolvedHealthUrl = health_url.startsWith("http")
+    ? health_url
+    : `http://${ip}${health_url.startsWith("/") ? "" : "/"}${health_url}`;
+
+  // Validate health_url against SSRF
+  const healthValidation = await validateBackendUrl(resolvedHealthUrl, config.allowPrivateIps, config.allowedHosts);
+  if (!healthValidation.valid) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: `Invalid health_url: ${healthValidation.reason}` } },
+    };
+  }
+
+  // Resolve base_url
+  let resolvedBaseUrl: string;
+  if (base_url) {
+    if (!base_url.startsWith("http://") && !base_url.startsWith("https://")) {
+      return {
+        ok: false,
+        status: 400,
+        body: { error: { code: "VALIDATION_ERROR", message: "base_url must start with http:// or https://" } },
+      };
+    }
+    resolvedBaseUrl = base_url;
+  } else {
+    // Extract base from health_url
+    try {
+      const healthParsed = new URL(resolvedHealthUrl);
+      resolvedBaseUrl = `${healthParsed.protocol}//${healthParsed.host}`;
+    } catch {
+      resolvedBaseUrl = `http://${ip}`;
+    }
+  }
+
+  // Validate base_url against SSRF and capture pinned IP
+  const baseUrlValidation = await validateBackendUrl(resolvedBaseUrl, config.allowPrivateIps, config.allowedHosts);
+  if (!baseUrlValidation.valid) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: `Invalid base_url: ${baseUrlValidation.reason}` } },
+    };
+  }
+  const pinnedIp = baseUrlValidation.resolvedIp!;
+  return { ip, resolvedHealthUrl, resolvedBaseUrl, pinnedIp };
+}
+
+/**
+ * Resolves the tool list from whichever discovery source the payload selected —
+ * OpenAPI auto-discovery (SSRF-validated + IP-pinned), a cURL paste, a Postman
+ * collection, or a hand-written 'tools' array. Returns the resolved tools, or
+ * the exact error RegisterOutcome the inline branch did (bad openapi_url, zero
+ * OpenAPI tools, a non-array 'tools'). Network/parse throws propagate to the
+ * caller's try/catch so the DISCOVERY_ERROR vs VALIDATION_ERROR code selection
+ * stays put.
+ */
+async function resolveRestTools(
+  openapi_url: string | undefined,
+  ip: string,
+  hasCurl: boolean,
+  curl_input: string,
+  hasPostman: boolean,
+  postman_collection: unknown,
+  tools: unknown,
+  include_tags: string[] | undefined,
+  exclude_operations: string[] | undefined,
+): Promise<RegisterOutcome | { tools: RestToolDefinition[] }> {
+  let resolvedTools;
+  if (openapi_url) {
+    const resolvedOpenapiUrl = openapi_url.startsWith("http")
+      ? openapi_url
+      : `http://${ip}${openapi_url.startsWith("/") ? "" : "/"}${openapi_url}`;
+
+    const openapiValidation = await validateBackendUrl(resolvedOpenapiUrl, config.allowPrivateIps, config.allowedHosts);
+    if (!openapiValidation.valid) {
+      return {
+        ok: false,
+        status: 400,
+        body: { error: { code: "VALIDATION_ERROR", message: `Invalid openapi_url: ${openapiValidation.reason}` } },
+      };
+    }
+
+    const openapiHostname = new URL(resolvedOpenapiUrl).hostname;
+    resolvedTools = await discoverToolsFromOpenApi({
+      openapiUrl: resolvedOpenapiUrl,
+      ipPin: { resolvedIp: openapiValidation.resolvedIp!, hostname: openapiHostname },
+      includeTags: include_tags,
+      excludeOperations: exclude_operations,
+    });
+
+    if (resolvedTools.length === 0) {
+      return {
+        ok: false,
+        status: 400,
+        body: {
+          error: {
+            code: "DISCOVERY_ERROR",
+            message: "No tools discovered from OpenAPI spec. Check include_tags/exclude_operations filters.",
+          },
+        },
+      };
+    }
+  } else if (hasCurl) {
+    // Parsing is pure/local (no network access, no SSRF surface) — a parse
+    // failure here is a VALIDATION_ERROR (bad input), not a DISCOVERY_ERROR
+    // (which the catch block below reserves for openapi_url's network path).
+    resolvedTools = parseCurlCommand(curl_input);
+  } else if (hasPostman) {
+    const collection = typeof postman_collection === "string" ? JSON.parse(postman_collection) : postman_collection;
+    resolvedTools = parsePostmanCollection(collection);
+  } else {
+    if (!Array.isArray(tools)) {
+      return {
+        ok: false,
+        status: 400,
+        body: { error: { code: "VALIDATION_ERROR", message: "'tools' must be an array" } },
+      };
+    }
+    resolvedTools = tools;
+  }
+  return { tools: resolvedTools };
+}
+
+/**
+ * Post-processes a resolved REST tool list and writes it to the registry: the
+ * curl/postman-only tools-count cap, the per-tool endpoint path-traversal
+ * check, then registry.register(). Returns an error RegisterOutcome if a gate
+ * fails, or null once the client is registered. registry.register() throws
+ * propagate to the caller's try/catch.
+ */
+async function finalizeRestRegistration(
+  name: string,
+  resolvedTools: RestToolDefinition[],
+  hasCurl: boolean,
+  hasPostman: boolean,
+  resolvedHealthUrl: string,
+  ip: string,
+  resolvedBaseUrl: string,
+  pinnedIp: string,
+  retry_non_safe_methods: unknown,
+  requestId: string | null,
+): Promise<RegisterOutcome | null> {
+  // A curl_input/postman_collection paste can legitimately produce far more
+  // tools than a hand-written 'tools' array ever would (Change B above only
+  // caps a literal 'tools' array, before either parser has run) — enforce
+  // the same cap here for parity with the OpenAPI/MCP/GraphQL branches.
+  if (hasCurl || hasPostman) {
+    const capError = toolsCountCapError(resolvedTools.length, config.maxToolsPerClient);
+    if (capError) {
+      return {
+        ok: false,
+        status: 400,
+        body: { error: { code: "VALIDATION_ERROR", message: capError, request_id: requestId } },
+      };
+    }
+  }
+
+  // Validate resolved tool endpoints for path-traversal segments before registering.
+  // This closes the registration-time gap identified in Sprint 2; proxy.ts still
+  // catches traversal at runtime as a backstop.
+  const endpointError = findToolEndpointError(resolvedTools);
+  if (endpointError) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: endpointError, request_id: requestId } },
+    };
+  }
+
+  await registry.register(
+    name,
+    resolvedTools,
+    resolvedHealthUrl,
+    ip,
+    resolvedBaseUrl,
+    pinnedIp,
+    retry_non_safe_methods === true,
+  );
+  return null;
+}
+
+/**
  * Pure (non-Express) core of the REST/OpenAPI registration branch — the exact
  * logic that used to live inline in the POST /register handler, unchanged
  * except that every `res.status(x).json(y); return;` became `return {ok:false,
@@ -211,167 +425,40 @@ export async function performRestRegistration(
     };
   }
 
-  // Change C — use the true peer address; req.ip follows X-Forwarded-For when
-  // TRUST_PROXY is set, which is attacker-controlled.
-  if (!health_url.startsWith("http") && !peerIp) {
-    return {
-      ok: false,
-      status: 400,
-      body: {
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Cannot determine peer IP for relative health_url",
-          request_id: requestId,
-        },
-      },
-    };
-  }
-  const ip = peerIp || "127.0.0.1";
-
-  // Resolve health_url
-  const resolvedHealthUrl = health_url.startsWith("http")
-    ? health_url
-    : `http://${ip}${health_url.startsWith("/") ? "" : "/"}${health_url}`;
-
-  // Validate health_url against SSRF
-  const healthValidation = await validateBackendUrl(resolvedHealthUrl, config.allowPrivateIps, config.allowedHosts);
-  if (!healthValidation.valid) {
-    return {
-      ok: false,
-      status: 400,
-      body: { error: { code: "VALIDATION_ERROR", message: `Invalid health_url: ${healthValidation.reason}` } },
-    };
-  }
-
-  // Resolve base_url
-  const { base_url } = body;
-  let resolvedBaseUrl: string;
-  if (base_url) {
-    if (!base_url.startsWith("http://") && !base_url.startsWith("https://")) {
-      return {
-        ok: false,
-        status: 400,
-        body: { error: { code: "VALIDATION_ERROR", message: "base_url must start with http:// or https://" } },
-      };
-    }
-    resolvedBaseUrl = base_url;
-  } else {
-    // Extract base from health_url
-    try {
-      const healthParsed = new URL(resolvedHealthUrl);
-      resolvedBaseUrl = `${healthParsed.protocol}//${healthParsed.host}`;
-    } catch {
-      resolvedBaseUrl = `http://${ip}`;
-    }
-  }
-
-  // Validate base_url against SSRF and capture pinned IP
-  const baseUrlValidation = await validateBackendUrl(resolvedBaseUrl, config.allowPrivateIps, config.allowedHosts);
-  if (!baseUrlValidation.valid) {
-    return {
-      ok: false,
-      status: 400,
-      body: { error: { code: "VALIDATION_ERROR", message: `Invalid base_url: ${baseUrlValidation.reason}` } },
-    };
-  }
-  const pinnedIp = baseUrlValidation.resolvedIp!;
+  const targets = await resolveRestRegistrationTargets(health_url, body.base_url, peerIp, requestId);
+  if ("ok" in targets) return targets;
+  const { ip, resolvedHealthUrl, resolvedBaseUrl, pinnedIp } = targets;
 
   // Resolve tools — either from manual payload or OpenAPI discovery
   let resolvedTools;
   try {
-    if (openapi_url) {
-      const resolvedOpenapiUrl = openapi_url.startsWith("http")
-        ? openapi_url
-        : `http://${ip}${openapi_url.startsWith("/") ? "" : "/"}${openapi_url}`;
+    const toolsResult = await resolveRestTools(
+      openapi_url,
+      ip,
+      hasCurl,
+      curl_input,
+      hasPostman,
+      postman_collection,
+      tools,
+      include_tags,
+      exclude_operations,
+    );
+    if ("ok" in toolsResult) return toolsResult;
+    resolvedTools = toolsResult.tools;
 
-      const openapiValidation = await validateBackendUrl(
-        resolvedOpenapiUrl,
-        config.allowPrivateIps,
-        config.allowedHosts,
-      );
-      if (!openapiValidation.valid) {
-        return {
-          ok: false,
-          status: 400,
-          body: { error: { code: "VALIDATION_ERROR", message: `Invalid openapi_url: ${openapiValidation.reason}` } },
-        };
-      }
-
-      const openapiHostname = new URL(resolvedOpenapiUrl).hostname;
-      resolvedTools = await discoverToolsFromOpenApi({
-        openapiUrl: resolvedOpenapiUrl,
-        ipPin: { resolvedIp: openapiValidation.resolvedIp!, hostname: openapiHostname },
-        includeTags: include_tags,
-        excludeOperations: exclude_operations,
-      });
-
-      if (resolvedTools.length === 0) {
-        return {
-          ok: false,
-          status: 400,
-          body: {
-            error: {
-              code: "DISCOVERY_ERROR",
-              message: "No tools discovered from OpenAPI spec. Check include_tags/exclude_operations filters.",
-            },
-          },
-        };
-      }
-    } else if (hasCurl) {
-      // Parsing is pure/local (no network access, no SSRF surface) — a parse
-      // failure here is a VALIDATION_ERROR (bad input), not a DISCOVERY_ERROR
-      // (which the catch block below reserves for openapi_url's network path).
-      resolvedTools = parseCurlCommand(curl_input);
-    } else if (hasPostman) {
-      const collection = typeof postman_collection === "string" ? JSON.parse(postman_collection) : postman_collection;
-      resolvedTools = parsePostmanCollection(collection);
-    } else {
-      if (!Array.isArray(tools)) {
-        return {
-          ok: false,
-          status: 400,
-          body: { error: { code: "VALIDATION_ERROR", message: "'tools' must be an array" } },
-        };
-      }
-      resolvedTools = tools;
-    }
-
-    // A curl_input/postman_collection paste can legitimately produce far more
-    // tools than a hand-written 'tools' array ever would (Change B above only
-    // caps a literal 'tools' array, before either parser has run) — enforce
-    // the same cap here for parity with the OpenAPI/MCP/GraphQL branches.
-    if (hasCurl || hasPostman) {
-      const capError = toolsCountCapError(resolvedTools.length, config.maxToolsPerClient);
-      if (capError) {
-        return {
-          ok: false,
-          status: 400,
-          body: { error: { code: "VALIDATION_ERROR", message: capError, request_id: requestId } },
-        };
-      }
-    }
-
-    // Validate resolved tool endpoints for path-traversal segments before registering.
-    // This closes the registration-time gap identified in Sprint 2; proxy.ts still
-    // catches traversal at runtime as a backstop.
-    const endpointError = findToolEndpointError(resolvedTools);
-    if (endpointError) {
-      return {
-        ok: false,
-        status: 400,
-        body: { error: { code: "VALIDATION_ERROR", message: endpointError, request_id: requestId } },
-      };
-    }
-
-    await registry.register(
+    const finalizeOutcome = await finalizeRestRegistration(
       name,
       resolvedTools,
+      hasCurl,
+      hasPostman,
       resolvedHealthUrl,
       ip,
       resolvedBaseUrl,
       pinnedIp,
-      retry_non_safe_methods === true,
+      retry_non_safe_methods,
+      requestId,
     );
+    if (finalizeOutcome) return finalizeOutcome;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     const code = openapi_url ? "DISCOVERY_ERROR" : "VALIDATION_ERROR";
@@ -498,6 +585,78 @@ export async function performMcpRegistration(
 }
 
 /**
+ * Runs GraphQL introspection and registers the discovered fields: one REST tool
+ * (method "POST") per query/mutation field plus a persisted tool_graphql row
+ * carrying each field's synthesized query. Returns an error RegisterOutcome for
+ * a failing gate (zero tools, over the per-client cap) or a network/introspection
+ * throw (DISCOVERY_ERROR), or the registered tool count on success.
+ */
+async function discoverAndRegisterGraphqlTools(
+  name: string,
+  graphqlUrl: string,
+  parsedGraphqlUrl: URL,
+  pinnedIp: string,
+  ip: string,
+  resolvedBaseUrl: string,
+  resolvedHealthUrl: string,
+  includeMutations: boolean,
+  requestId: string | null,
+): Promise<RegisterOutcome | { toolsCount: number }> {
+  try {
+    const discovered = await discoverToolsFromGraphQl({
+      graphqlUrl,
+      ipPin: { resolvedIp: pinnedIp, hostname: parsedGraphqlUrl.hostname },
+      authHeaders: getUpstreamAuthHeaders(name) ?? undefined,
+      includeMutations,
+    });
+    if (discovered.length === 0) {
+      return {
+        ok: false,
+        status: 400,
+        body: {
+          error: {
+            code: "DISCOVERY_ERROR",
+            message: "No tools discovered from GraphQL endpoint",
+            request_id: requestId,
+          },
+        },
+      };
+    }
+    if (discovered.length > config.maxToolsPerClient) {
+      return {
+        ok: false,
+        status: 400,
+        body: {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: `GraphQL schema exposes ${discovered.length} tools, exceeds maximum of ${config.maxToolsPerClient}`,
+            request_id: requestId,
+          },
+        },
+      };
+    }
+
+    const endpointPath = parsedGraphqlUrl.pathname || "/graphql";
+    const mappedTools = discovered.map((d) => ({
+      name: d.name,
+      method: "POST" as const,
+      endpoint: endpointPath,
+      description: d.description,
+      inputSchema: d.inputSchema,
+    }));
+
+    await registry.register(name, mappedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp, false);
+    for (const d of discovered) {
+      setToolGraphql(name, d.name, { enabled: true, query: d.query });
+    }
+    return { toolsCount: discovered.length };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, status: 400, body: { error: { code: "DISCOVERY_ERROR", message, request_id: requestId } } };
+  }
+}
+
+/**
  * Pure (non-Express) core of the GraphQL registration branch: validates
  * graphql_url (SSRF + IP pin, same posture as REST/MCP), runs introspection to
  * discover one tool per query/mutation field, registers them as ordinary REST
@@ -598,59 +757,19 @@ export async function performGraphqlRegistration(
   const parsedGraphqlUrl = new URL(graphqlUrl);
   const resolvedBaseUrl = `${parsedGraphqlUrl.protocol}//${parsedGraphqlUrl.host}`;
 
-  let toolsCount: number;
-  try {
-    const discovered = await discoverToolsFromGraphQl({
-      graphqlUrl,
-      ipPin: { resolvedIp: pinnedIp, hostname: parsedGraphqlUrl.hostname },
-      authHeaders: getUpstreamAuthHeaders(name) ?? undefined,
-      includeMutations: body.include_mutations !== false,
-    });
-    if (discovered.length === 0) {
-      return {
-        ok: false,
-        status: 400,
-        body: {
-          error: {
-            code: "DISCOVERY_ERROR",
-            message: "No tools discovered from GraphQL endpoint",
-            request_id: requestId,
-          },
-        },
-      };
-    }
-    if (discovered.length > config.maxToolsPerClient) {
-      return {
-        ok: false,
-        status: 400,
-        body: {
-          error: {
-            code: "VALIDATION_ERROR",
-            message: `GraphQL schema exposes ${discovered.length} tools, exceeds maximum of ${config.maxToolsPerClient}`,
-            request_id: requestId,
-          },
-        },
-      };
-    }
-
-    const endpointPath = parsedGraphqlUrl.pathname || "/graphql";
-    const mappedTools = discovered.map((d) => ({
-      name: d.name,
-      method: "POST" as const,
-      endpoint: endpointPath,
-      description: d.description,
-      inputSchema: d.inputSchema,
-    }));
-
-    await registry.register(name, mappedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp, false);
-    for (const d of discovered) {
-      setToolGraphql(name, d.name, { enabled: true, query: d.query });
-    }
-    toolsCount = discovered.length;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, status: 400, body: { error: { code: "DISCOVERY_ERROR", message, request_id: requestId } } };
-  }
+  const discovery = await discoverAndRegisterGraphqlTools(
+    name,
+    graphqlUrl,
+    parsedGraphqlUrl,
+    pinnedIp,
+    ip,
+    resolvedBaseUrl,
+    resolvedHealthUrl,
+    body.include_mutations !== false,
+    requestId,
+  );
+  if ("ok" in discovery) return discovery;
+  const toolsCount = discovery.toolsCount;
 
   log("info", "GraphQL endpoint registered", { name, tools_count: toolsCount, source: "graphql" });
   return {
