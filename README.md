@@ -89,18 +89,22 @@ to serve several backends through one endpoint.
 ```bash
 docker build -t mcpbridge .
 
+export ADMIN_API_KEY=$(openssl rand -hex 24)
+
 docker run -p 3000:3000 \
   -e NODE_ENV=development \
   -e SESSION_COOKIE_SECURE=false \
   -e BOOTSTRAP_ADMIN_USERNAME=admin \
   -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
+  -e ADMIN_API_KEYS=$ADMIN_API_KEY \
   -v "$PWD/data:/app/data" \
   mcpbridge
 ```
 
 Open the admin UI at **http://localhost:3000/admin** and log in with the bootstrap
-credentials. (`NODE_ENV=development` + `SESSION_COOKIE_SECURE=false` are only for local
-HTTP — in production run behind HTTPS and drop both.)
+credentials. `$ADMIN_API_KEY` is the Bearer token the `curl`/CLI examples below use — keep
+it exported in the same shell. (`NODE_ENV=development` + `SESSION_COOKIE_SECURE=false` are
+only for local HTTP — in production run behind HTTPS and drop both.)
 
 ### Bun (local dev, with hot reload)
 

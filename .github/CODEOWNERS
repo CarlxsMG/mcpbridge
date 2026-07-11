@@ -1,0 +1,18 @@
+# Code owners — GitHub auto-requests review from these owners on matching paths.
+# Replace @CarlxsMG with the real maintainer handle(s)/team before publishing.
+
+# Default owner for everything.
+*                           @CarlxsMG
+
+# Security-critical surfaces — always require an owner's review.
+/src/security/**            @CarlxsMG
+/src/proxy/**               @CarlxsMG
+/src/net/**                 @CarlxsMG
+/src/middleware/auth.ts     @CarlxsMG
+/src/middleware/authz.ts    @CarlxsMG
+/src/db/migrations.ts       @CarlxsMG
+
+# CI / release / supply-chain pipelines.
+/.github/**                 @CarlxsMG
+/Dockerfile                 @CarlxsMG
+/helm/**                    @CarlxsMG

@@ -104,7 +104,7 @@ callers do not.
 |                        |                                                                                                                                                                                                            |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Objective**          | The hash-chain audit log is intact. Every row's `hash` matches its content and the previous row's `hash`.                                                                                                  |
-| **SLI**                | The audit verify endpoint (`GET /admin-api/audit/verify` or equivalent — see `src/admin/audit/audit.ts`) returns `ok: true` on every run.                                                                  |
+| **SLI**                | The audit verify endpoint (`GET /admin-api/audit-log/verify` — see `src/routes/admin/audit-log.ts`) returns `ok: true` on every run.                                                                       |
 | **Target**             | **100%** — no tolerance. A single failed verification is a sev-1.                                                                                                                                          |
 | **Window**             | Per run. Run on a schedule (hourly is a reasonable default).                                                                                                                                               |
 | **Error budget**       | **0.** No budget.                                                                                                                                                                                          |
@@ -162,9 +162,9 @@ not a month later when the budget is gone.
 
 - **Per-backend latency, success rate, or payload size.** That's the backend owner's
   SLO. The gateway can surface it; it cannot promise it.
-- **MCP protocol correctness.** The `@modelcontextprotocol/sdk` handles framing; our
-  contract tests (planned, see `docs/REVIEW.md` §2.4) cover the round-trip. If a
-  contract test fails, that's a bug, not a SLO miss.
+- **MCP protocol correctness.** The `@modelcontextprotocol/sdk` handles framing; the
+  MCP-protocol e2e test (`e2e/mcp-protocol.spec.ts`) covers the round-trip. If it
+  fails, that's a bug, not a SLO miss.
 - **Time-to-first-byte from a cold start.** Single Bun process, sub-second start in
   practice. If cold start ever becomes user-visible, it gets its own SLO.
 - **"The dashboard loads in under 2 s."** Admin UI latency is a UX concern, not a

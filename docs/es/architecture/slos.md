@@ -166,8 +166,8 @@ tiempo de hacer algo, no un mes después cuando el presupuesto ya está agotado.
 - **Latencia, tasa de éxito o tamaño de payload por backend.** Es el SLO del dueño del
   backend. El gateway puede surfarlo; no puede prometerlo.
 - **Corrección del protocolo MCP.** El `@modelcontextprotocol/sdk` se encarga del
-  framing; nuestros contract tests (planeados, ver `docs/REVIEW.md` §2.4) cubren el
-  round-trip. Si un contract test falla, es un bug, no un miss de SLO.
+  framing; el test e2e de protocolo MCP (`e2e/mcp-protocol.spec.ts`) cubre el
+  round-trip. Si falla, es un bug, no un miss de SLO.
 - **Time-to-first-byte desde cold start.** Proceso Bun único, arranque sub-segundo en la
   práctica. Si el cold start se vuelve user-visible algún día, le haremos su propio SLO.
 - **"El dashboard carga en menos de 2 s."** La latencia de la admin-ui es una

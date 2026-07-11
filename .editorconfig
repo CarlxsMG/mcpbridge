@@ -1,0 +1,20 @@
+# EditorConfig — https://editorconfig.org
+# Mirrors .prettierrc.json (LF, 2-space) for editors that don't run Prettier.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Markdown uses two trailing spaces for hard line breaks — don't strip them.
+[*.md]
+trim_trailing_whitespace = false
+
+# Binary / asset types.
+[*.{png,jpg,jpeg,gif,ico,webp,woff,woff2,ttf,otf,pdf}]
+insert_final_newline = false
+trim_trailing_whitespace = false

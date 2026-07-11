@@ -117,6 +117,5 @@ sensitive / `__confirm` step-up gate, reusing the same mechanism
 
 * Commit: `69fd8eb` — `feat(mcp): split /mcp into a system control plane,
   separate from data-plane shards`
-* Review: `docs/REVIEW.md` §0 (Modularidad ★★★☆☆) and §2.4 (Cobertura).
 * Related code: `src/mcp/system-tools.ts`,
   `src/security/system-role.ts`, `src/mcp/transports.ts`.

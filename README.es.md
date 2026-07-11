@@ -99,18 +99,22 @@ para servir varios backends por un solo endpoint.
 ```bash
 docker build -t mcpbridge .
 
+export ADMIN_API_KEY=$(openssl rand -hex 24)
+
 docker run -p 3000:3000 \
   -e NODE_ENV=development \
   -e SESSION_COOKIE_SECURE=false \
   -e BOOTSTRAP_ADMIN_USERNAME=admin \
   -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
+  -e ADMIN_API_KEYS=$ADMIN_API_KEY \
   -v "$PWD/data:/app/data" \
   mcpbridge
 ```
 
 Abre la UI de admin en **http://localhost:3000/admin** e inicia sesión con las credenciales
-bootstrap. (`NODE_ENV=development` + `SESSION_COOKIE_SECURE=false` son solo para HTTP local —
-en producción ejecuta sobre HTTPS y elimina ambas.)
+bootstrap. `$ADMIN_API_KEY` es el token Bearer que usan los ejemplos `curl`/CLI de abajo —
+mantenlo exportado en el mismo shell. (`NODE_ENV=development` + `SESSION_COOKIE_SECURE=false`
+son solo para HTTP local — en producción ejecuta sobre HTTPS y elimina ambas.)
 
 ### Bun (desarrollo local, con hot reload)
 

@@ -3,7 +3,7 @@
  * registry, shared by the `gateway connect` CLI command
  * (src/cli/commands/connect.ts) and mirrored (admin-ui has zero shared deps
  * with the backend, see admin-ui/DESIGN_SYSTEM.md / repo conventions) at
- * admin-ui/src/composables/connect-templates.ts for the "Connect client"
+ * admin-ui/src/utils/connectTemplates.ts for the "Connect client"
  * admin-UI dialog. Keep the two files in sync by hand — there is no build
  * step that shares code across the two packages.
  *

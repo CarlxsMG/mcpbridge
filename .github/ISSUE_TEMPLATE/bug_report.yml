@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a defect in the gateway, admin UI, or CLI.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please search existing issues first.
+        For a **security vulnerability, do NOT open a public issue** — follow
+        [SECURITY.md](../../SECURITY.md) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, plus what you expected instead.
+      placeholder: When I register a backend with X, the gateway returns Y; I expected Z.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps. Include the request/response or a `curl` if relevant.
+      placeholder: |
+        1. Start the gateway with `...`
+        2. `curl -X POST .../register -d '...'`
+        3. See error
+    validations:
+      required: true
+  - type: input
+    id: request-id
+    attributes:
+      label: request_id (if any)
+      description: The `request_id` from the JSON error envelope ties the failure to the server log.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Gateway version / commit, how you run it (Docker / Bun / binary), OS, and Bun version.
+      placeholder: |
+        - Version/commit:
+        - Runtime: Docker image / `bun src/index.ts` / binary
+        - OS:
+        - Bun: `bun --version`
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste any relevant log output (redact secrets). This is automatically formatted as code.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This is not a security vulnerability (those go through SECURITY.md).
+          required: true

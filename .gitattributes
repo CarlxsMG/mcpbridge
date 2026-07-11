@@ -1,0 +1,41 @@
+# Normalize line endings. Store everything as LF in git and check it out as LF
+# on every platform, so the working tree matches `.prettierrc.json`'s
+# `"endOfLine": "lf"` and `prettier --check` / `bun run check` stop failing on
+# Windows checkouts (git's autocrlf would otherwise hand out CRLF files).
+* text=auto eol=lf
+
+# Explicit text types (belt and suspenders).
+*.ts    text eol=lf
+*.mts   text eol=lf
+*.cts   text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.vue   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.svg   text eol=lf
+*.sh    text eol=lf
+*.env   text eol=lf
+
+# Lockfiles: text, but collapse in diffs and mark generated for language stats.
+bun.lock            text eol=lf -diff linguist-generated
+admin-ui/bun.lock   text eol=lf -diff linguist-generated
+
+# Binary assets — git must never touch these.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.pdf   binary

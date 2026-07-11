@@ -139,9 +139,7 @@ CI wiring:
     fix smoke for new /mcp split (P1-3)`
   * `d5ed472` — `ci: add e2e job running the Playwright suite (12 specs)
     on every PR`
-* Review: `docs/REVIEW.md` §2.4 (Cobertura de tests — solo 1 e2e).
-* Follow-up (still open): canary fail-over spec, bundle-install spec.
-  Both are listed in `docs/REVIEW.md` backlog and await a future
-  session — they need real canary / bundle-install fixtures, which
-  is more than a 1-hour drop-in.
+* Follow-up (still open): canary fail-over spec, bundle-install spec —
+  both await a future session; they need real canary / bundle-install
+  fixtures, which is more than a 1-hour drop-in.
 * Related code: `e2e/*.spec.ts`, `.github/workflows/ci.yml`.

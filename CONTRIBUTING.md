@@ -32,10 +32,11 @@ Common scripts (run from the repo root unless noted):
 
 ## Running tests
 
-Backend tests use Bun's built-in test runner:
+Backend tests use Bun's built-in test runner. Always use `bun run test` (not bare
+`bun test`, which sweeps up the admin-ui Vitest and e2e Playwright specs and fails):
 
 ```bash
-bun test
+bun run test
 ```
 
 This should be 100% green before you open a PR. Tests live under `src/**/__tests__/`.
@@ -142,7 +143,7 @@ change in, if there was one.
 
 Before opening a PR, please confirm:
 
-- [ ] `bun test` passes (backend)
+- [ ] `bun run test` passes (backend)
 - [ ] `bun run typecheck` passes (backend)
 - [ ] `cd admin-ui && bun run typecheck` passes (if you touched the admin UI)
 - [ ] `cd admin-ui && bun run test` passes (if you touched the admin UI)
