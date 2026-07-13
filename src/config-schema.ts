@@ -115,6 +115,10 @@ const EnvSchema = z.object({
   // ── Server / runtime ─────────────────────────────────────────────────────
   PORT: envInt(3000, 1, 65535),
   NODE_ENV: z.union([z.string(), z.undefined()]).transform((v) => v ?? "development"),
+  // Set to "production" to make validateEnvStrict abort boot on any env
+  // validation error, instead of only logging warnings (the dev-ergonomic
+  // default). Any other value leaves the warn-only behavior in place.
+  STRICT_CONFIG: envOptString,
 
   // ── Auth & session ────────────────────────────────────────────────────────
   AUTH_DISABLED: envBool,

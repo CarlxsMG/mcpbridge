@@ -57,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `STRICT_CONFIG` (the production "abort boot on any invalid env var" switch) was read at startup
+  but not declared in the env schema or documented in `.env.example`, contradicting the schema
+  module's own "source of truth" docstring and letting a typo like `STRICT_CONFIGG` slip by
+  unflagged. Now declared in `EnvSchema` and documented as a commented example.
 - The Servers table's enable/disable toggle labels were hardcoded English (`"Enabled"`/`"Disabled"`)
   — the only user-facing strings in the admin UI that bypassed i18n — so they stayed English under a
   Spanish locale. Now routed through `t('common.enabled')` / `t('common.disabled')`, matching the
