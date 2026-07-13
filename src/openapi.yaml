@@ -1085,8 +1085,12 @@ paths:
   /health:
     get:
       operationId: healthCheck
-      summary: Proxy health check
-      description: Returns 200 if the proxy is running. No authentication required.
+      summary: Legacy generic health check (with uptime)
+      description: >
+        Returns 200 whenever the process is answering HTTP, plus process
+        uptime for ops dashboards. No authentication required. Kept for
+        backward compatibility — new probes should prefer /livez (liveness)
+        and /readyz (readiness).
       tags:
         - Introspection
       responses:
@@ -1100,6 +1104,62 @@ paths:
                   status:
                     type: string
                     example: ok
+                  uptime_seconds:
+                    type: integer
+                    description: Whole seconds since this process started.
+                    example: 3600
+
+  /livez:
+    get:
+      operationId: livenessProbe
+      summary: Kubernetes liveness probe
+      description: >
+        Always 200 while the process can answer HTTP. Nothing in the codebase
+        can flip this to a non-200 by itself — a failure here means the
+        orchestrator should restart the container. No authentication required.
+      tags:
+        - Introspection
+      responses:
+        "200":
+          description: Process is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: alive }
+
+  /readyz:
+    get:
+      operationId: readinessProbe
+      summary: Kubernetes readiness probe
+      description: >
+        200 only when this instance holds the leader lease AND its SQLite
+        handle answers `SELECT 1`; otherwise 503. A 503 means take this
+        instance out of the load-balancer pool (e.g. a non-leader follower,
+        which is deliberately not ready for leader-only data-plane work). No
+        authentication required.
+      tags:
+        - Introspection
+      responses:
+        "200":
+          description: Ready to serve traffic.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ready }
+                  reasons: { type: array, items: { type: string }, example: [] }
+        "503":
+          description: Not ready — `reasons` lists why (e.g. not_leader, db_unavailable).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: not_ready }
+                  reasons: { type: array, items: { type: string }, example: [not_leader] }
 
   # ---------------------------------------------------------------------------
   # Auth — admin UI session lifecycle
@@ -1274,6 +1334,155 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   # ---------------------------------------------------------------------------
+  # Auth — OIDC single sign-on (Authorization Code + PKCE)
+  # ---------------------------------------------------------------------------
+  /admin-api/auth/oidc/config:
+    get:
+      operationId: getOidcPublicConfig
+      summary: Whether SSO is enabled (public, pre-session)
+      description: >
+        Public — the login page reads this before any session exists to decide
+        whether to render the "Sign in with SSO" button. Deliberately exposes
+        nothing beyond the enabled flag.
+      tags: [Auth]
+      responses:
+        "200":
+          description: SSO availability.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled: { type: boolean, example: false }
+
+  /admin-api/auth/oidc/start:
+    get:
+      operationId: startOidcLogin
+      summary: Begin the SSO login (redirects to the identity provider)
+      description: >
+        Public, full-page navigation (not fetch/XHR). Generates a PKCE pair and
+        a single-use state token, then 302-redirects the browser to the IdP's
+        authorization endpoint.
+      tags: [Auth]
+      responses:
+        "302":
+          description: Redirect to the identity provider's authorization endpoint.
+          headers:
+            Location: { schema: { type: string } }
+        "404":
+          description: SSO is not enabled (SSO_NOT_CONFIGURED).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "502":
+          description: The identity provider's discovery document was unreachable (SSO_DISCOVERY_FAILED).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/auth/oidc/callback:
+    get:
+      operationId: oidcCallback
+      summary: OIDC redirect-back endpoint (exchanges the code, starts a session)
+      description: >
+        Public — the identity provider redirects the browser here after
+        authentication. Validates the state token, exchanges the authorization
+        code, verifies the ID token, provisions/loads the user, and on success
+        issues session + CSRF cookies before redirecting into the admin UI. On
+        any failure it redirects back to /admin/login with a non-sensitive
+        `sso_error` hint rather than returning a JSON error.
+      tags: [Auth]
+      parameters:
+        - { name: code, in: query, schema: { type: string }, description: Authorization code from the IdP. }
+        - {
+            name: state,
+            in: query,
+            schema: { type: string },
+            description: The single-use state token issued by /start.,
+          }
+        - { name: error, in: query, schema: { type: string }, description: Present if the IdP denied the request. }
+      responses:
+        "302":
+          description: >
+            Redirect — to /admin/servers with session cookies set on success,
+            or to /admin/login?sso_error=... on any failure.
+          headers:
+            Location: { schema: { type: string } }
+            Set-Cookie: { schema: { type: string }, description: Session + CSRF cookies, only on success. }
+
+  /admin-api/auth/oidc/settings:
+    get:
+      operationId: getOidcSettings
+      summary: Read the SSO configuration (superadmin)
+      description: Requires the super-admin role. The client secret is never returned in cleartext.
+      tags: [Auth]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: Current SSO settings.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings:
+                    type: object
+                    properties:
+                      issuer: { type: string }
+                      clientId: { type: string }
+                      redirectUri: { type: string }
+                      scopes: { type: string, example: openid profile email }
+                      enabled: { type: boolean }
+                      clientSecretSet:
+                        {
+                          type: boolean,
+                          description: Whether a client secret is stored (the value itself is never returned).,
+                        }
+        "403":
+          description: Caller is not a super-admin.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    put:
+      operationId: updateOidcSettings
+      summary: Create or update the SSO configuration (superadmin)
+      description: >
+        Requires the super-admin role. The client secret is encrypted at rest
+        via the configured secrets provider (SECRET_ENCRYPTION_KEY or Vault);
+        enabling SSO with no secrets provider configured returns 409.
+      tags: [Auth]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [issuer, clientId, redirectUri]
+              properties:
+                issuer: { type: string, description: OIDC issuer URL (discovery base). }
+                clientId: { type: string }
+                clientSecret:
+                  { type: string, format: password, description: Stored encrypted; omit to keep the existing secret. }
+                redirectUri: { type: string, description: Must match /admin-api/auth/oidc/callback at your public URL. }
+                scopes: { type: string, default: openid profile email }
+                enabled: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            {
+              application/json:
+                { schema: { type: object, properties: { status: { type: string, example: updated } } } },
+            }
+        "400":
+          description: Invalid settings (e.g. missing issuer/clientId/redirectUri).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "403":
+          description: Caller is not a super-admin.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: No secrets provider is configured to encrypt the client secret (SECRETS_PROVIDER_UNCONFIGURED).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "502":
+          description: The secrets provider failed (SECRETS_PROVIDER_ERROR).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ---------------------------------------------------------------------------
   # Admin — client-connection config generator ("Connect client")
   # ---------------------------------------------------------------------------
   /admin-api/connect/gateway-url:
@@ -1398,6 +1607,36 @@ paths:
         "404":
           description: No such client.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    delete:
+      operationId: deleteAdminClient
+      summary: Permanently unregister a client and forget all its config
+      description: >
+        Hard removal — deregisters the client, drops it from the live registry,
+        and deletes its persisted tools/guards/config. This is the canonical,
+        permanent removal path, distinct from disabling via PATCH (which keeps
+        the record). Requires the operator role; team-scoped callers can only
+        remove clients within their team.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Removed.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { status: { type: string, example: deleted }, name: { type: string } },
+                    },
+                },
+            }
+        "404":
+          description: No such client (or outside the caller's team).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   /admin-api/clients/{name}/tools/{tool}:
     patch:
@@ -1416,17 +1655,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                enabled: { type: boolean }
-                guards:
-                  oneOf:
-                    - type: object
-                      properties:
-                        rateLimitPerMin: { type: number, minimum: 1 }
-                        timeoutMs: { type: number, minimum: 1 }
-                        allowedApiKeys: { type: array, items: { type: string } }
-                    - type: "null"
+              $ref: "#/components/schemas/ToolConfigPatch"
       responses:
         "200":
           description: Updated.
@@ -1628,6 +1857,26 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/AuditLogEntry" } }
                   nextCursor: { type: string }
+
+  /admin-api/audit-log/actions:
+    get:
+      operationId: listAuditActions
+      summary: Distinct action values present in the audit log
+      description: >
+        Backs the admin UI's action-filter dropdown — the set of distinct
+        `action` strings currently recorded (e.g. client.delete,
+        tool.guards.update, oidc.config.update).
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: Distinct action values.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions: { type: array, items: { type: string }, example: [client.delete, tool.guards.update] }
 
   /admin-api/overview:
     get:
@@ -2640,6 +2889,137 @@ paths:
           description: No such bundle.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
+  /admin-api/bundles/{name}/install-links:
+    get:
+      operationId: listInstallLinks
+      summary: List a bundle's shareable install links
+      description: The one-time tokens are never included — only link metadata (id, created/expiry, revocation state).
+      tags: [Bundles]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Install links for this bundle.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InstallLink" } }
+        "404":
+          description: No such bundle.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+    post:
+      operationId: createInstallLink
+      summary: Mint a shareable "install this bundle" link
+      description: >
+        Creates a revocable install link backed by a fresh MCP API key scoped
+        only to this bundle's tools. The raw token is returned exactly once, in
+        this response — it is never persisted in cleartext or retrievable again.
+        Requires the admin role for session callers.
+      tags: [Bundles]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expiresAt:
+                  type: [integer, "null"]
+                  description: Unix ms epoch after which the link stops working; null/omitted means no expiry.
+      responses:
+        "201":
+          description: Link created. `token` is present here and nowhere else.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/InstallLink"
+                  - type: object
+                    properties:
+                      token: { type: string, description: The one-time raw token — shown only in this response. }
+        "400":
+          description: Invalid expiresAt.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "404":
+          description: No such bundle.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /admin-api/bundles/{name}/install-links/{id}:
+    delete:
+      operationId: revokeInstallLink
+      summary: Revoke an install link
+      description: >
+        Immediately invalidates the link and its scoped MCP key. Requires the
+        admin role for session callers.
+      tags: [Bundles]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Revoked.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { type: object, properties: { status: { type: string, example: revoked }, id: { type: integer } } },
+                },
+            }
+        "404":
+          description: No such install link for this bundle.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  /install/{token}:
+    get:
+      operationId: resolveInstallLink
+      summary: Public "install this bundle" landing endpoint
+      description: >
+        Public and rate-limited — the teammate-facing side of an install link.
+        Returns the bundle's tool list and a ready-to-paste client-connection
+        snippet (including the scoped MCP key), with no admin login required.
+        Unknown, revoked, and expired tokens all return an identical 404 (no
+        state can be distinguished).
+      tags: [Bundles]
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Bundle summary plus a connection snippet.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bundle:
+                    type: object
+                    properties:
+                      name: { type: string }
+                      description: { type: [string, "null"] }
+                      tools:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            client: { type: string }
+                            tool: { type: string }
+                            description: { type: string }
+                  connect:
+                    type: object
+                    description: A ready-to-paste client-connection config (see the Connect-client generator).
+        "404":
+          description: The token is unknown, revoked, or expired (INSTALL_LINK_NOT_FOUND).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "429":
+          description: Too many requests from this IP.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
   /admin-api/tools:
     get:
       operationId: listAllToolsFlat
@@ -3618,6 +3998,29 @@ paths:
                   spans: { type: array, items: { $ref: "#/components/schemas/StoredSpan" } }
         "404":
           description: No spans found for this trace id.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
+  # ── Database backup ──────────────────────────────────────────────────────────
+
+  /admin-api/backup:
+    post:
+      operationId: createBackup
+      summary: Download a consistent snapshot of the admin database
+      description: >
+        Streams a compacted SQLite snapshot produced via `VACUUM INTO` — SQLite's
+        safe online-backup primitive, consistent even under concurrent writes and
+        WAL mode (a raw file copy is not). The temporary snapshot is deleted from
+        disk after streaming. Requires the admin role.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: The database snapshot, as a file attachment.
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "500":
+          description: The snapshot could not be created or streamed (BACKUP_FAILED / BACKUP_STREAM_FAILED).
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   # ── Config export/import + versioned snapshots ───────────────────────────────
@@ -5125,6 +5528,380 @@ components:
             items: { type: string },
             description: "Names of composite (macro) tools this bundle also exposes.",
           }
+
+    InstallLink:
+      type: object
+      description: >
+        Metadata for a bundle install link. The raw token is never included in
+        list/detail responses — only a short tokenPrefix for identification.
+      properties:
+        id: { type: integer }
+        bundleName: { type: string }
+        tokenPrefix: { type: string, description: First characters of the token, for display only. }
+        mcpKeyId: { type: integer, description: The scoped MCP API key auto-provisioned for this link. }
+        createdBy: { type: [string, "null"] }
+        createdAt: { type: integer, description: Unix ms epoch. }
+        expiresAt: { type: [integer, "null"], description: Unix ms epoch, or null for no expiry. }
+        revokedAt: { type: [integer, "null"], description: Unix ms epoch when revoked, or null if active. }
+        lastUsedAt: { type: [integer, "null"], description: Unix ms epoch of last successful resolve, or null. }
+
+    ToolConfigPatch:
+      type: object
+      description: >
+        Request body for PATCH /admin-api/clients/{name}/tools/{tool}. Every field
+        is optional; only the keys present in the request are applied, in the order
+        listed here. Most object-valued policy keys accept null (and, where noted,
+        literal false) to clear them.
+      properties:
+        enabled:
+          type: boolean
+          description: Enables (true) or disables (false) the tool; has no null/clear form.
+
+        guards:
+          type: [object, "null"]
+          description: Per-tool guard config (rate limit, timeout, allowed caller keys); pass null (only) to clear all guards.
+          properties:
+            rateLimitPerMin:
+              type: number
+              exclusiveMinimum: 0
+              description: Max calls per minute for this tool (positive, finite number).
+            timeoutMs:
+              type: number
+              exclusiveMinimum: 0
+              description: Per-call dispatch timeout in milliseconds (positive, finite number).
+            allowedApiKeys:
+              type: array
+              items:
+                type: string
+                minLength: 1
+              description: Raw caller API keys permitted to invoke this tool; hashed server-side and never stored in plaintext.
+
+        overrides:
+          type: [object, "null"]
+          description: Presentation override (description, per-param hints, displayName alias); pass null (only) to clear, and any sub-field may be null to leave it unset.
+          properties:
+            description:
+              type: [string, "null"]
+              maxLength: 4096
+              description: Replacement tool description (<=4096 chars); empty string or null leaves it unset.
+            params:
+              type: [object, "null"]
+              description: Map of parameter name to a { description } hint object; null leaves the param hints unset.
+              additionalProperties:
+                type: object
+                properties:
+                  description:
+                    type: string
+                    maxLength: 2048
+                    description: Replacement description for this parameter (<=2048 chars).
+            displayName:
+              type: [string, "null"]
+              pattern: "^[a-z0-9][a-z0-9_-]{0,62}$"
+              description: Tool alias, lowercase alphanumeric with hyphens/underscores, 1-63 chars; null leaves it unset.
+
+        sensitive:
+          type: [boolean, "null"]
+          description: Marks the tool sensitive (true) or not (false); pass null to clear the flag.
+
+        redactPaths:
+          type: array
+          items:
+            type: string
+          description: Response dot-paths whose values are redacted from tool results; send an empty array to clear (null is NOT accepted).
+
+        guardrails:
+          type: [object, "null"]
+          description: Input deny-patterns plus response secret-scanning config; pass null to clear (an all-empty config is also stored as cleared).
+          properties:
+            denyPatterns:
+              type: array
+              maxItems: 20
+              items:
+                type: string
+                maxLength: 200
+              description: Regex patterns blocking matching inputs (each must compile; <=200 chars each, <=20 entries).
+            blockSecrets:
+              type: boolean
+              default: false
+              description: Block responses that appear to contain secrets.
+            scanResponses:
+              type: boolean
+              default: false
+              description: Scan tool responses against the deny-patterns / secret detectors.
+
+        cache:
+          type: [object, boolean, "null"]
+          description: Response cache for idempotent GET tools; pass false or null to clear (true is rejected).
+          required: [ttlSeconds]
+          properties:
+            enabled:
+              type: boolean
+              default: true
+              description: Whether caching is active (defaults to true when the object is present).
+            ttlSeconds:
+              type: integer
+              minimum: 1
+              maximum: 86400
+              description: Cache TTL in seconds (1-86400 / 24h); required when setting.
+
+        coalesce:
+          type: [object, boolean, "null"]
+          description: Request coalescing (dedupe concurrent identical calls); pass false or null to clear (true is rejected).
+          properties:
+            enabled:
+              type: boolean
+              default: true
+              description: Whether coalescing is active (defaults to true when the object is present).
+
+        quarantinePolicy:
+          type: [object, boolean, "null"]
+          description: Auto-quarantine policy after N consecutive guardrail hits; pass false or null to clear (true is rejected).
+          required: [consecutiveThreshold, action, recoveryMode]
+          properties:
+            consecutiveThreshold:
+              type: integer
+              minimum: 1
+              maximum: 100
+              description: Consecutive guardrail hits before quarantine trips (1-100); required.
+            action:
+              type: string
+              enum: [block, force_approval, observe]
+              description: What happens once quarantined; required.
+            recoveryMode:
+              type: string
+              enum: [auto, manual]
+              description: How the tool leaves quarantine; required.
+            cooldownMs:
+              type: [integer, "null"]
+              minimum: 1000
+              description: Cooldown before auto-recovery in ms (>=1000); optional, null or omitted means none.
+
+        pagination:
+          type: [object, boolean, "null"]
+          description: Automatic follow-the-cursor/page/link pagination; pass false or null to clear (true is rejected); required sub-fields depend on strategy.
+          required: [strategy, maxPages]
+          properties:
+            strategy:
+              type: string
+              enum: [cursor, page, link]
+              description: Pagination strategy; required.
+            enabled:
+              type: boolean
+              default: true
+              description: Whether pagination is active (defaults to true when present).
+            itemsPath:
+              type: string
+              description: Dot-path to the item array within each page (optional; defaults to empty).
+            maxPages:
+              type: integer
+              minimum: 1
+              maximum: 100
+              description: Maximum pages to follow (1-100); required.
+            cursorResponsePath:
+              type: string
+              description: Dot-path to the next cursor in the response; required when strategy is 'cursor'.
+            cursorParam:
+              type: string
+              description: Query param carrying the cursor; required when strategy is 'cursor'.
+            pageParam:
+              type: string
+              description: Query param carrying the page number; required when strategy is 'page'.
+
+        streaming:
+          type: [object, boolean, "null"]
+          description: Streaming response normalizer (wire format + event cap); pass false or null to clear (true is rejected).
+          required: [format, maxEvents]
+          properties:
+            format:
+              type: string
+              enum: [ndjson, sse]
+              description: Wire format to parse the upstream stream as; required.
+            maxEvents:
+              type: integer
+              minimum: 1
+              maximum: 10000
+              description: Maximum events read before stopping (1-10000); required.
+            enabled:
+              type: boolean
+              default: true
+              description: Whether streaming normalization is active (defaults to true when present).
+
+        transform:
+          type: [object, boolean, "null"]
+          description: Request/response transform pipelines (set/remove/rename/copy ops); pass false or null to clear (true is rejected).
+          properties:
+            enabled:
+              type: boolean
+              default: true
+              description: Whether transforms are active (defaults to true when present).
+            request:
+              type: array
+              maxItems: 50
+              description: Ordered ops applied to the outgoing request (max 50).
+              items:
+                type: object
+                oneOf:
+                  - required: [op, path, value]
+                    properties:
+                      op:
+                        const: set
+                      path:
+                        type: string
+                      value: {}
+                  - required: [op, path]
+                    properties:
+                      op:
+                        const: remove
+                      path:
+                        type: string
+                  - required: [op, from, to]
+                    properties:
+                      op:
+                        enum: [rename, copy]
+                      from:
+                        type: string
+                      to:
+                        type: string
+            response:
+              type: array
+              maxItems: 50
+              description: Ordered ops applied to the incoming response (max 50; same op shapes as request).
+              items:
+                type: object
+                oneOf:
+                  - required: [op, path, value]
+                    properties:
+                      op:
+                        const: set
+                      path:
+                        type: string
+                      value: {}
+                  - required: [op, path]
+                    properties:
+                      op:
+                        const: remove
+                      path:
+                        type: string
+                  - required: [op, from, to]
+                    properties:
+                      op:
+                        enum: [rename, copy]
+                      from:
+                        type: string
+                      to:
+                        type: string
+
+        mock:
+          type: [object, boolean, "null"]
+          description: Inline mock response used in 'always' or 'fallback' mode; pass false or null to clear (true is rejected).
+          required: [mode, response]
+          properties:
+            mode:
+              type: string
+              enum: [always, fallback]
+              description: Whether the mock always applies or only when the backend fails; required.
+            response:
+              type: string
+              maxLength: 1000000
+              description: Raw mock response body (<=1 MB); required.
+            enabled:
+              type: boolean
+              default: true
+              description: Whether the mock is active (defaults to true when present).
+
+        requiresApproval:
+          type: boolean
+          description: Turns the human-approval requirement on (true) or off (false) for this tool; pair with approvalLevels to set the threshold; has no null form.
+
+        approvalLevels:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Companion to requiresApproval — the N-of-M distinct-approver threshold (1-10); only read when requiresApproval is also present in the body.
+
+        monitor:
+          type: [object, boolean, "null"]
+          description: Synthetic monitor that replays a saved example on a schedule and flags schema drift; pass false or null to clear (true is rejected); requires the tool to be live.
+          required: [exampleId]
+          properties:
+            exampleId:
+              type: integer
+              description: ID of the saved example to replay; required.
+            intervalMinutes:
+              type: number
+              default: 15
+              description: Minutes between runs (defaults to 15; no explicit range is enforced by the validator).
+            enabled:
+              type: boolean
+              default: true
+              description: Whether the monitor is active (defaults to true when present).
+
+        graphql:
+          type: [object, boolean, "null"]
+          description: GraphQL wrapper that rewrites the tool's args into { query, variables } and POSTs to the client base URL; pass false or null to clear (true is rejected).
+          required: [query]
+          properties:
+            query:
+              type: string
+              minLength: 1
+              description: GraphQL query/mutation string (trimmed, non-empty); required.
+            enabled:
+              type: boolean
+              default: true
+              description: Whether the wrapper is active (defaults to true when present).
+
+        ws:
+          type: [object, boolean, "null"]
+          description: WebSocket backend (request/response over WS, optional persistent mode); pass false or null to clear (true is rejected); the URL is SSRF-validated server-side.
+          required: [wsUrl]
+          properties:
+            wsUrl:
+              type: string
+              minLength: 1
+              description: ws:// or wss:// backend URL; required.
+            enabled:
+              type: boolean
+              default: true
+              description: Whether the WS backend is active (defaults to true when present).
+            persistent:
+              type: boolean
+              default: false
+              description: Keep one socket open for multi-message exchanges (defaults to false).
+
+        contextBudget:
+          type: [object, boolean, "null"]
+          description: Response-size budget via plain truncation or LLM summarisation; pass false or null to clear (true is rejected).
+          required: [mode, maxResponseBytes]
+          properties:
+            mode:
+              type: string
+              enum: [truncate, llm_summarize]
+              description: Budgeting strategy; required.
+            maxResponseBytes:
+              type: integer
+              minimum: 256
+              description: Byte budget for the response (>=256, up to the server's configured max response size / MAX_RESPONSE_BYTES); required.
+            llm:
+              type: object
+              description: LLM summariser config; required only when mode is 'llm_summarize'.
+              required: [provider, baseUrl, model, apiKey]
+              properties:
+                provider:
+                  type: string
+                  enum: [openai, anthropic]
+                  description: Summariser provider; required.
+                baseUrl:
+                  type: string
+                  minLength: 1
+                  description: Provider base URL (non-empty); required.
+                model:
+                  type: string
+                  minLength: 1
+                  description: Model name (non-empty); required.
+                apiKey:
+                  type: string
+                  minLength: 1
+                  description: Provider API key (non-empty; stored via the secrets provider and never echoed back); required.
 
     # -------------------------------------------------------------------------
     # Composites
