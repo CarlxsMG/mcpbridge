@@ -158,6 +158,36 @@ const sidebarArchitecture = [
   },
 ];
 
+// PromQL isn't in Shiki's bundled language set (Shiki 2.x ships no `promql`
+// grammar), so the SLO doc's ```promql burn-rate blocks fell back to plaintext
+// and logged a "language 'promql' is not loaded" warning on every build.
+// Register a compact TextMate grammar so those blocks actually highlight —
+// comments, strings, durations (1h/5m), numbers, aggregation/function keywords,
+// operators, and metric/label identifiers. Kept intentionally small (it only
+// has to cover the burn-rate expressions we document), not a full PromQL parser.
+const promqlGrammar = {
+  name: "promql",
+  scopeName: "source.promql",
+  patterns: [
+    { match: "#.*$", name: "comment.line.number-sign.promql" },
+    { begin: '"', end: '"', name: "string.quoted.double.promql" },
+    { begin: "'", end: "'", name: "string.quoted.single.promql" },
+    { match: "\\b\\d+(ms|[smhdwy])\\b", name: "constant.numeric.duration.promql" },
+    { match: "\\b\\d+(\\.\\d+)?\\b|\\.\\d+", name: "constant.numeric.promql" },
+    {
+      match: "\\b(by|without|on|ignoring|group_left|group_right|offset|bool|and|or|unless)\\b",
+      name: "keyword.control.promql",
+    },
+    {
+      match:
+        "\\b(sum|min|max|avg|group|stddev|stdvar|count|count_values|bottomk|topk|quantile|rate|irate|increase|delta|idelta|deriv|predict_linear|histogram_quantile|holt_winters|abs|absent|absent_over_time|ceil|changes|clamp|clamp_max|clamp_min|day_of_month|day_of_week|days_in_month|exp|floor|hour|label_join|label_replace|ln|log2|log10|minute|month|resets|round|scalar|sgn|sort|sort_desc|sqrt|time|timestamp|vector|year|avg_over_time|min_over_time|max_over_time|sum_over_time|count_over_time|quantile_over_time|stddev_over_time|stdvar_over_time|last_over_time|present_over_time)\\b(?=\\s*\\()",
+      name: "support.function.promql",
+    },
+    { match: "==|!=|>=|<=|=~|!~|[-+*/%^<>=]", name: "keyword.operator.promql" },
+    { match: "[a-zA-Z_:][a-zA-Z0-9_:]*", name: "variable.other.metric.promql" },
+  ],
+};
+
 export default defineConfig({
   // VitePress's built-in i18n. The root locale keeps the existing
   // /guide/foo URLs; the Spanish locale mounts at /es/guide/foo.
@@ -225,6 +255,12 @@ export default defineConfig({
   metaChunk: true,
   // Only skip localhost URLs (quickstart examples); still validate real internal links.
   ignoreDeadLinks: "localhostLinks",
+
+  // Register the custom PromQL grammar (defined above) so the SLO burn-rate
+  // code blocks highlight instead of falling back to plaintext with a warning.
+  markdown: {
+    languages: [promqlGrammar],
+  },
 
   sitemap: { hostname: SITE_ORIGIN + BASE },
 
