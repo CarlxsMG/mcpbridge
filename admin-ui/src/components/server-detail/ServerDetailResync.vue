@@ -116,7 +116,12 @@ async function rediscoverMcp() {
     </template>
     <div v-if="resyncOpen" class="resync-body">
       <div class="field-inline">
-        <input v-model="resyncUrl" type="url" placeholder="https://api.example.com/openapi.json" />
+        <input
+          v-model="resyncUrl"
+          type="url"
+          :aria-label="t('components.server_detail_resync.resync_url_aria')"
+          placeholder="https://api.example.com/openapi.json"
+        />
         <button type="button" class="btn-secondary" :disabled="resyncing" @click="previewResync">
           {{
             resyncing

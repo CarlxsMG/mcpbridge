@@ -129,6 +129,7 @@ onMounted(() => data.refresh());
           type="file"
           accept="application/json,.json"
           class="visually-hidden"
+          :aria-label="t('pages.overview.import_layout')"
           @change="onImportFile"
         />
       </div>

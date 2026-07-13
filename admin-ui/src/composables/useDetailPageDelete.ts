@@ -33,7 +33,10 @@ export function useDetailPageDelete(
       try {
         await api.delete(deletePath());
         deleted.value = true;
-        router.push(redirectTo);
+        // Best-effort redirect after a successful delete — don't await it, so a
+        // navigation guard's redirect/abort can't fall into the catch below and
+        // masquerade as a delete failure.
+        void router.push(redirectTo);
       } catch (err) {
         error.value = toErrorMessage(err, fallbackMessage);
         deleting.value = false;

@@ -12,19 +12,6 @@
 
 import { tk } from "@/i18n";
 
-// Kept for any external/future consumer that wants the raw short/full weekday
-// names (e.g. a picker UI) — `describeCron` itself resolves weekday names via
-// `WEEKDAY_FULL_KEYS`/`weekdayName()` below instead, so they're localized.
-export const WEEKDAY_OPTIONS = [
-  { value: 0, label: "Sun", full: "Sunday" },
-  { value: 1, label: "Mon", full: "Monday" },
-  { value: 2, label: "Tue", full: "Tuesday" },
-  { value: 3, label: "Wed", full: "Wednesday" },
-  { value: 4, label: "Thu", full: "Thursday" },
-  { value: 5, label: "Fri", full: "Friday" },
-  { value: 6, label: "Sat", full: "Saturday" },
-];
-
 const WEEKDAY_FULL_KEYS: Record<number, string> = {
   0: "utils.cron.weekdays.sunday",
   1: "utils.cron.weekdays.monday",

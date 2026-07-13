@@ -38,6 +38,27 @@ export default tseslint.config(
     },
   },
   {
+    // Type-aware linting for the plain-TS modules only (composables, utils,
+    // stores) — this is where the app's async plumbing lives (useApi, the
+    // useResource/useLoadState wrappers everything funnels through), so it's
+    // where a stray un-awaited or misused promise would actually hide. Scoped
+    // to *.ts on purpose: type-checked linting of *.vue SFCs needs vue-tsc-grade
+    // type resolution and isn't worth the parser cost for the thin <script>
+    // glue, which mostly just calls these composables.
+    files: ["src/**/*.ts"],
+    ignores: ["src/**/*.d.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+    },
+  },
+  {
     // Build / maintenance scripts (e.g. scripts/check-i18n.mjs) live outside
     // src/ — they need Node globals (console, process) and ESM dynamic import,
     // but they're plain JS/TS so they don't need the Vue parser or browser

@@ -337,6 +337,7 @@
       "rediscover_hint": "Re-connects to {url} and refreshes this server's tool list.",
       "resync_title": "Re-sync from OpenAPI",
       "resync_button": "Re-sync",
+      "resync_url_aria": "OpenAPI URL to re-sync from",
       "preview_diff": "Preview diff",
       "added": "added",
       "removed": "removed",
@@ -486,6 +487,7 @@
       "running": "Running…",
       "run": "Run test",
       "save_placeholder": "Save as… (label)",
+      "save_aria": "Save the current run as a named example",
       "errors": {
         "test_failed": "Test call failed.",
         "save_failed": "Failed to save example."

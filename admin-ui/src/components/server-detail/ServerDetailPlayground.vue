@@ -135,6 +135,7 @@ async function deleteExampleFn(ex: ToolExample) {
         <input
           v-model="newExampleLabel"
           type="text"
+          :aria-label="t('components.server_detail_playground.save_aria')"
           :placeholder="t('components.server_detail_playground.save_placeholder')"
         />
         <button

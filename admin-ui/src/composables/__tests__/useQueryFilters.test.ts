@@ -21,7 +21,7 @@ function makeRouter(): Router {
 
 async function setup(query: Record<string, string>) {
   const router = makeRouter();
-  router.push({ path: "/list", query });
+  await router.push({ path: "/list", query });
   await router.isReady();
 
   let composable!: ReturnType<typeof useQueryFilters<"tool" | "session_id">>;

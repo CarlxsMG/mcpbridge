@@ -47,7 +47,9 @@ export function useQueryFilters<K extends string>(
   }
 
   function syncUrl(extra?: Record<string, string | undefined>): void {
-    router.replace({ query: toQuery(extra) });
+    // Fire-and-forget URL sync — a redirected/aborted navigation is not an
+    // error we act on here (and this is a synchronous void helper).
+    void router.replace({ query: toQuery(extra) });
   }
 
   return { filters, toQuery, syncUrl };

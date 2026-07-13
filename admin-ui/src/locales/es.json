@@ -337,6 +337,7 @@
       "rediscover_hint": "Reconecta a {url} y refresca la lista de tools de este servidor.",
       "resync_title": "Re-sincronizar desde OpenAPI",
       "resync_button": "Re-sincronizar",
+      "resync_url_aria": "URL de OpenAPI para re-sincronizar",
       "preview_diff": "Vista previa del diff",
       "added": "añadidos",
       "removed": "eliminados",
@@ -486,6 +487,7 @@
       "running": "Ejecutando…",
       "run": "Ejecutar prueba",
       "save_placeholder": "Guardar como… (etiqueta)",
+      "save_aria": "Guardar la ejecución actual como ejemplo con nombre",
       "errors": {
         "test_failed": "La prueba falló.",
         "save_failed": "Error al guardar el ejemplo."
