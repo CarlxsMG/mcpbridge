@@ -709,51 +709,12 @@ async function buildRestRequest(
   // (built in the body step below) with the args as variables.
   const graphqlCfg = getToolGraphql(client.name, tool.name);
 
-  // Build URL with pinned IP to prevent DNS rebinding.
-  // Periodically re-resolve via TTL cache to mitigate IP-pin TOCTOU.
-  // When routing to the secondary, use its config-time-validated base URL and
-  // its pinned IP directly (no TTL re-resolution; it was pinned at setCanary).
-  const targetBaseUrl = lbChoice ? lbChoice.baseUrl : route.useSecondary ? route.cfg.secondaryBaseUrl : client.base_url;
-  const parsedBase = new URL(`${targetBaseUrl}${resolvedPath}`);
-  const originalHost = parsedBase.host;
-  const hostname = parsedBase.hostname;
-
-  let pinIp: string;
-  if (lbChoice) {
-    // LB members carry a config-time-pinned IP (pool targets) or the client's
-    // pinned IP (primary) — used directly, like the canary secondary.
-    pinIp = lbChoice.resolvedIp;
-  } else if (route.useSecondary) {
-    pinIp = route.cfg.secondaryResolvedIp;
-  } else {
-    // Seed the pin cache from the registry value on first access.
-    if (!pinnedIpCache.has(client.name)) {
-      pinnedIpCache.set(client.name, { ip: client.resolved_ip, resolvedAt: Date.now() });
-    }
-
-    let pin = pinnedIpCache.get(client.name)!;
-
-    // Only attempt re-resolution for hostnames (not raw IP literals).
-    if (!isRawIpLiteral(hostname)) {
-      try {
-        pin = await refreshPinIfStale(hostname, pin);
-        pinnedIpCache.set(client.name, pin);
-      } catch (err) {
-        const reason = errorMessage(err);
-        return toolResult(`Backend hostname now resolves to private IP: ${reason}`, { isError: true });
-      }
-    }
-    pinIp = pin.ip;
-  }
-
-  // Pin every outbound request to the SSRF-validated IP while preserving the
-  // original Host header and refusing redirects — via the single shared helper
-  // (also used by discovery + the MCP-upstream transport). The URL keeps its
-  // original hostname here; makePinnedFetch swaps it to `pinIp` at fetch time
-  // and derives the Host header (host:port) from this URL. Reused unchanged for
-  // every retry attempt and for pagination follow-ups (passed into PageCtx).
-  const pinnedFetch = makePinnedFetch(hostname, pinIp);
-  let url = parsedBase.toString();
+  // DNS-rebinding-safe target resolution: the base URL (primary / LB member /
+  // canary secondary), the SSRF-pinned IP, and the pinned fetch bound to them.
+  const target = await resolvePinnedTarget(client, lbChoice, route, resolvedPath);
+  if ("content" in target) return target;
+  const { targetBaseUrl, originalHost, pinnedFetch } = target;
+  let url = target.url;
 
   const method = tool.method.toUpperCase();
   let body: string | undefined;
@@ -803,6 +764,61 @@ async function buildRestRequest(
     upstreamAuthHeaders,
     redactionPaths,
     reqController,
+  };
+}
+
+/**
+ * DNS-rebinding-safe outbound-target resolution — kept as one unit so the SSRF
+ * pin/Host invariant lives in a single place. Picks the base URL (primary / LB
+ * member / config-time-pinned canary secondary), resolves the IP to pin, and
+ * builds the shared pinned fetch (which swaps the hostname to `pinIp` at fetch
+ * time, sets the Host header, and refuses redirects). For the primary hostname
+ * it re-pins via the TTL cache to mitigate IP-pin TOCTOU; LB members and canary
+ * secondaries carry a config-time-validated IP used directly. Returns a
+ * ToolResult only for the fail-closed case where a primary hostname now
+ * resolves to a private IP.
+ */
+async function resolvePinnedTarget(
+  client: RegisteredClient,
+  lbChoice: LbChoice | null,
+  route: ReturnType<typeof decideSecondary>,
+  resolvedPath: string,
+): Promise<
+  | ToolResult
+  | { targetBaseUrl: string; originalHost: string; pinnedFetch: ReturnType<typeof makePinnedFetch>; url: string }
+> {
+  const targetBaseUrl = lbChoice ? lbChoice.baseUrl : route.useSecondary ? route.cfg.secondaryBaseUrl : client.base_url;
+  const parsedBase = new URL(`${targetBaseUrl}${resolvedPath}`);
+  const hostname = parsedBase.hostname;
+
+  let pinIp: string;
+  if (lbChoice) {
+    pinIp = lbChoice.resolvedIp;
+  } else if (route.useSecondary) {
+    pinIp = route.cfg.secondaryResolvedIp;
+  } else {
+    // Seed the pin cache from the registry value on first access.
+    if (!pinnedIpCache.has(client.name)) {
+      pinnedIpCache.set(client.name, { ip: client.resolved_ip, resolvedAt: Date.now() });
+    }
+    let pin = pinnedIpCache.get(client.name)!;
+    // Only attempt re-resolution for hostnames (not raw IP literals).
+    if (!isRawIpLiteral(hostname)) {
+      try {
+        pin = await refreshPinIfStale(hostname, pin);
+        pinnedIpCache.set(client.name, pin);
+      } catch (err) {
+        return toolResult(`Backend hostname now resolves to private IP: ${errorMessage(err)}`, { isError: true });
+      }
+    }
+    pinIp = pin.ip;
+  }
+
+  return {
+    targetBaseUrl,
+    originalHost: parsedBase.host,
+    pinnedFetch: makePinnedFetch(hostname, pinIp),
+    url: parsedBase.toString(),
   };
 }
 
