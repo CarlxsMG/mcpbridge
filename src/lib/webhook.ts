@@ -18,7 +18,8 @@
  */
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import { validateBackendUrl } from "../net/ip-validator.js";
+import { validateBackendUrl, makePinnedFetch } from "../net/ip-validator.js";
+import { errorMessage } from "./error-message.js";
 
 export interface DispatchWebhookOptions {
   /** AbortSignal timeout (ms) applied to the fetch. */
@@ -47,19 +48,22 @@ export async function dispatchWebhook(
     log("warn", options.rejectedLogMessage, { ...options.logContext, reason: validation.reason });
     return false;
   }
+  // Pin the just-validated IP so the destination can't be DNS-rebound between
+  // validation and send. makePinnedFetch preserves the original Host header and
+  // forces redirect:"error" — the same discipline the main proxy dispatch uses.
+  const pinnedFetch = makePinnedFetch(new URL(url).hostname, validation.resolvedIp);
   try {
-    await fetch(url, {
+    await pinnedFetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      redirect: "error",
       signal: AbortSignal.timeout(options.timeoutMs),
     });
     return true;
   } catch (err) {
     log("warn", options.failedLogMessage, {
       ...options.logContext,
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     });
     return false;
   }

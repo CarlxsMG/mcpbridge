@@ -147,7 +147,7 @@ export async function addUpstream(
   if (!Number.isInteger(weight) || weight < 1 || weight > 1000) return { ok: false, error: "INVALID_WEIGHT" };
 
   const url = await validateBackendUrl(baseUrl, config.allowPrivateIps, config.allowedHosts);
-  if (!url.valid || !url.resolvedIp) return { ok: false, error: "INVALID_URL", reason: url.reason };
+  if (!url.valid) return { ok: false, error: "INVALID_URL", reason: url.reason };
 
   const now = Date.now();
   const res = getDb()

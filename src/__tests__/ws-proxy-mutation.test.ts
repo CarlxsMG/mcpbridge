@@ -398,10 +398,9 @@ describe("upsertWsProxyTarget: validation edge cases not covered by ws-proxy.tes
     }
   });
 
-  test("rejects when validateBackendUrl reports valid:false even if it also (incorrectly) returned a resolvedIp", async () => {
+  test("rejects with the reported reason when validateBackendUrl returns valid:false", async () => {
     const validateSpy = spyOn(ipValidatorMod, "validateBackendUrl").mockResolvedValue({
       valid: false,
-      resolvedIp: "1.2.3.4",
       reason: "test-forced-reason",
     });
     try {
@@ -410,23 +409,6 @@ describe("upsertWsProxyTarget: validation edge cases not covered by ws-proxy.tes
       if (!result.ok) {
         expect(result.error.code).toBe("INVALID_URL");
         expect(result.error.message).toBe("test-forced-reason");
-      }
-    } finally {
-      validateSpy.mockRestore();
-    }
-  });
-
-  test("rejects when validateBackendUrl reports valid:true but omits resolvedIp, falling back to the default message", async () => {
-    const validateSpy = spyOn(ipValidatorMod, "validateBackendUrl").mockResolvedValue({
-      valid: true,
-      resolvedIp: undefined,
-    });
-    try {
-      const result = await upsertWsProxyTarget(uniqueName("or-check-b"), { backendWsUrl: "ws://example.invalid" });
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.code).toBe("INVALID_URL");
-        expect(result.error.message).toBe("invalid backendWsUrl");
       }
     } finally {
       validateSpy.mockRestore();

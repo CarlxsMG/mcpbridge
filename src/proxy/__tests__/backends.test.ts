@@ -2,13 +2,12 @@
  * Extra backends — GraphQL (args wrapped as { query, variables }) and WebSocket
  * (ephemeral request/response), both as per-tool config on a REST client.
  */
-import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
-import * as ipValidatorMod from "../../net/ip-validator.js";
 import {
   getToolGraphql,
   getGraphqlForClient,
@@ -318,28 +317,6 @@ describe("backends — setToolWs delete + validation reasons", () => {
 // "ws" repeated later in the string (e.g. "wss://ws-echo.example.com/path"):
 // `.replace(/^ws/, "http")` and `.replace(/ws/, "http")` produce byte-identical
 // output in every case reachable past L113's guard. No test can distinguish them.
-
-describe("backends — setToolWs L117 valid/resolvedIp guard", () => {
-  test("rejects when only one of valid/resolvedIp is falsy (kills L117 LogicalOperator || -> &&)", async () => {
-    await reg();
-    (config as Record<string, unknown>).allowPrivateIps = true;
-    const spy = spyOn(ipValidatorMod, "validateBackendUrl");
-    try {
-      // valid:true, resolvedIp missing — real `||` rejects (resolvedIp is falsy);
-      // the `&&` mutant needs BOTH falsy, so with valid:true it would wrongly proceed.
-      spy.mockResolvedValueOnce({ valid: true, resolvedIp: undefined });
-      const r1 = await setToolWs(CLIENT, "wst", { enabled: true, wsUrl: "ws://mocked.example" });
-      expect(r1).toMatchObject({ ok: false, error: "INVALID_URL" });
-
-      // valid:false, resolvedIp present — the mirror asymmetry, other side.
-      spy.mockResolvedValueOnce({ valid: false, resolvedIp: "9.9.9.9", reason: "blocked" });
-      const r2 = await setToolWs(CLIENT, "wst", { enabled: true, wsUrl: "ws://mocked.example" });
-      expect(r2).toMatchObject({ ok: false, error: "INVALID_URL", reason: "blocked" });
-    } finally {
-      spy.mockRestore();
-    }
-  });
-});
 
 describe("backends — wsRequest cap + early close", () => {
   test("rejects a message larger than maxBytes (kills L164 maxBytes check)", async () => {

@@ -64,6 +64,16 @@ import {
   type PinnedIp,
 } from "../../net/ip-validator.js";
 
+type VbuResult = Awaited<ReturnType<typeof validateBackendUrl>>;
+/** Asserts the invalid arm and narrows `result` so subsequent `.reason` reads type-check. */
+function assertInvalid(r: VbuResult): asserts r is { valid: false; reason: string } {
+  expect(r.valid).toBe(false);
+}
+/** Asserts the valid arm and narrows `result` so subsequent `.resolvedIp` reads type-check. */
+function assertValid(r: VbuResult): asserts r is { valid: true; resolvedIp: string } {
+  expect(r.valid).toBe(true);
+}
+
 type LookupRecord = { address: string; family: number };
 type LookupOptions = Parameters<typeof Bun.dns.lookup>[1];
 
@@ -93,7 +103,7 @@ describe("6to4 extraction only applies to genuinely-6to4 addresses", () => {
     // 0x0a00/0x0001, which the 6to4 extractor would decode as "10.0.0.1" (a
     // blocked RFC-1918 address) if it were wrongly applied.
     const result = await validateBackendUrl("http://[2001:a00:1::1]/", false, []);
-    expect(result.valid).toBe(true);
+    assertValid(result);
   });
 });
 
@@ -113,7 +123,7 @@ describe("validateBackendUrl — malformed URL and protocol rejection", () => {
   // true" on the protocol-rejection return object).
   test("a non-http(s) protocol is rejected with valid: false, not silently accepted", async () => {
     const result = await validateBackendUrl("ftp://example.com/", false, []);
-    expect(result.valid).toBe(false);
+    assertInvalid(result);
     expect(result.reason).toBe("Protocol not allowed: ftp:");
   });
 });
@@ -126,7 +136,7 @@ describe("validateBackendUrl — malformed URL and protocol rejection", () => {
 describe("validateBackendUrl — bracketed IPv6 literal end to end", () => {
   test("a bracketed public IPv6 URL resolves with the brackets stripped from resolvedIp", async () => {
     const result = await validateBackendUrl("http://[2606:4700:4700::1111]/", false, []);
-    expect(result.valid).toBe(true);
+    assertValid(result);
     expect(result.resolvedIp).toBe("2606:4700:4700::1111");
   });
 });
@@ -160,7 +170,7 @@ describe("validateBackendUrl — IP-literal fast path", () => {
     const dnsSpy = spyOn(Bun.dns, "lookup");
     try {
       const result = await validateBackendUrl("http://93.184.216.34/", false, []);
-      expect(result.valid).toBe(true);
+      assertValid(result);
       expect(result.resolvedIp).toBe("93.184.216.34");
       expect(dnsSpy).not.toHaveBeenCalled();
     } finally {
@@ -188,7 +198,7 @@ describe("validateBackendUrl — DNS resolution", () => {
     });
     try {
       const result = await validateBackendUrl("http://example.test/", false, []);
-      expect(result.valid).toBe(true);
+      assertValid(result);
       expect(result.resolvedIp).toBe("2606:4700:4700::1111");
     } finally {
       dnsSpy.mockRestore();
@@ -205,7 +215,7 @@ describe("validateBackendUrl — DNS resolution", () => {
     });
     try {
       const result = await validateBackendUrl("http://example.test/", false, []);
-      expect(result.valid).toBe(true);
+      assertValid(result);
       expect(result.resolvedIp).toBe("93.184.216.34");
     } finally {
       dnsSpy.mockRestore();
@@ -221,7 +231,7 @@ describe("validateBackendUrl — DNS resolution", () => {
     });
     try {
       const result = await validateBackendUrl("http://ghost.example.test/", false, []);
-      expect(result.valid).toBe(false);
+      assertInvalid(result);
       expect(result.reason).toBe("DNS resolution failed for: ghost.example.test");
     } finally {
       dnsSpy.mockRestore();
@@ -235,8 +245,8 @@ describe("validateBackendUrl — DNS resolution", () => {
     });
     try {
       const result = await validateBackendUrl("http://example.test/", false, []);
-      expect(result.valid).toBe(true);
-      expect(result.reason).toBeUndefined();
+      assertValid(result);
+      expect(result).not.toHaveProperty("reason");
     } finally {
       dnsSpy.mockRestore();
     }
@@ -254,7 +264,7 @@ describe("validateBackendUrl — DNS resolution", () => {
     });
     try {
       const result = await validateBackendUrl("http://internal.example.test/", true, []);
-      expect(result.valid).toBe(true);
+      assertValid(result);
       expect(result.resolvedIp).toBe("10.0.0.5");
     } finally {
       dnsSpy.mockRestore();
@@ -268,7 +278,7 @@ describe("validateBackendUrl — DNS resolution", () => {
     });
     try {
       const result = await validateBackendUrl("http://internal.example.test/", false, []);
-      expect(result.valid).toBe(false);
+      assertInvalid(result);
       expect(result.reason).toBe("Resolved IP is in a blocked private range: 10.0.0.5");
     } finally {
       dnsSpy.mockRestore();
@@ -286,7 +296,7 @@ describe("validateBackendUrl — DNS resolution", () => {
     });
     try {
       const result = await validateBackendUrl("http://example.test/", false, []);
-      expect(result.valid).toBe(true);
+      assertValid(result);
       expect(result.resolvedIp).toBe("93.184.216.34");
     } finally {
       dnsSpy.mockRestore();

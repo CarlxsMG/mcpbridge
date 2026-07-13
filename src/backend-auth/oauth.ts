@@ -13,8 +13,9 @@
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { getSecretsProvider } from "../secrets/index.js";
-import { validateBackendUrl } from "../net/ip-validator.js";
+import { validateBackendUrl, makePinnedFetch } from "../net/ip-validator.js";
 import { createTtlCache, type TtlCache } from "../lib/ttl-cache.js";
+import { errorMessage } from "../lib/error-message.js";
 
 export interface OAuthPublic {
   tokenUrl: string;
@@ -60,7 +61,7 @@ export async function setClientOAuth(
   try {
     clientSecretEnc = await secretsProvider.encryptSecret(input.clientSecret);
   } catch (err) {
-    return { ok: false, error: "SECRETS_PROVIDER_ERROR", reason: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: "SECRETS_PROVIDER_ERROR", reason: errorMessage(err) };
   }
 
   db.query(
@@ -115,7 +116,19 @@ function getTokenTtlCache(clientName: string): TtlCache<MintedToken, OAuthRow> {
         });
         if (row.scope) body.set("scope", row.scope);
 
-        const resp = await fetchImpl(row.token_url, {
+        // SSRF: re-validate and IP-pin the token endpoint at mint time. The
+        // validation in setClientOAuth runs at config-write time and its IP is
+        // discarded; minting happens lazily (on cache-miss/expiry, potentially
+        // days later), so without this the hostname would be re-resolved at
+        // fetch time — a DNS-rebinding window on a POST that carries the
+        // decrypted client_secret. makePinnedFetch also forces redirect:"error"
+        // (no following a 3xx to an attacker-chosen host) and preserves the
+        // original Host header, matching the main proxy dispatch discipline.
+        const pin = await validateBackendUrl(row.token_url, config.allowPrivateIps, config.allowedHosts);
+        if (!pin.valid) throw new Error(`token endpoint rejected: ${pin.reason}`);
+        const pinnedFetch = makePinnedFetch(new URL(row.token_url).hostname, pin.resolvedIp, fetchImpl);
+
+        const resp = await pinnedFetch(row.token_url, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: body.toString(),

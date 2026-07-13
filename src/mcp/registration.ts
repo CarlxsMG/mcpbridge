@@ -17,6 +17,7 @@ import type { McpTransport, RestToolDefinition } from "./types.js";
 // synthetic $bunfs path there, not a real on-disk directory, so the read
 // always threw ENOENT (harmless here — this route degrades to a 503 below).
 import openapiSpec from "../openapi.yaml";
+import { errorMessage } from "../lib/error-message.js";
 
 /**
  * ws-proxy.ts's upsertWsProxyTarget() rejects a new ws-proxy target whose
@@ -215,7 +216,7 @@ async function resolveRestRegistrationTargets(
       body: { error: { code: "VALIDATION_ERROR", message: `Invalid base_url: ${baseUrlValidation.reason}` } },
     };
   }
-  const pinnedIp = baseUrlValidation.resolvedIp!;
+  const pinnedIp = baseUrlValidation.resolvedIp;
   return { ip, resolvedHealthUrl, resolvedBaseUrl, pinnedIp };
 }
 
@@ -257,7 +258,7 @@ async function resolveRestTools(
     const openapiHostname = new URL(resolvedOpenapiUrl).hostname;
     resolvedTools = await discoverToolsFromOpenApi({
       openapiUrl: resolvedOpenapiUrl,
-      ipPin: { resolvedIp: openapiValidation.resolvedIp!, hostname: openapiHostname },
+      ipPin: { resolvedIp: openapiValidation.resolvedIp, hostname: openapiHostname },
       includeTags: include_tags,
       excludeOperations: exclude_operations,
     });
@@ -483,7 +484,7 @@ export async function performRestRegistration(
     );
     if (finalizeOutcome) return finalizeOutcome;
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     const code = hasOpenapi ? "DISCOVERY_ERROR" : "VALIDATION_ERROR";
     return { ok: false, status: 400, body: { error: { code, message } } };
   }
@@ -564,7 +565,7 @@ export async function performMcpRegistration(
       },
     };
   }
-  const pinnedIp = validation.resolvedIp!;
+  const pinnedIp = validation.resolvedIp;
   const ip = peerIp || "127.0.0.1";
 
   let toolsCount: number;
@@ -598,7 +599,7 @@ export async function performMcpRegistration(
     await registry.registerMcp(name, discovered, mcpUrl, transport, ip, pinnedIp);
     toolsCount = discovered.length;
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     return { ok: false, status: 400, body: { error: { code: "DISCOVERY_ERROR", message, request_id: requestId } } };
   }
 
@@ -673,7 +674,7 @@ async function discoverAndRegisterGraphqlTools(
     }
     return { toolsCount: discovered.length };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     return { ok: false, status: 400, body: { error: { code: "DISCOVERY_ERROR", message, request_id: requestId } } };
   }
 }
@@ -733,7 +734,7 @@ export async function performGraphqlRegistration(
       },
     };
   }
-  const pinnedIp = validation.resolvedIp!;
+  const pinnedIp = validation.resolvedIp;
   const ip = peerIp || "127.0.0.1";
 
   // health_url defaults to graphql_url when omitted — many GraphQL servers

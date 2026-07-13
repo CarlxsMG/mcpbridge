@@ -147,8 +147,8 @@ export async function upsertWsProxyTarget(
   }
   const httpEquivalent = input.backendWsUrl.replace(/^ws/, "http");
   const check = await validateBackendUrl(httpEquivalent, config.allowPrivateIps, config.allowedHosts);
-  if (!check.valid || !check.resolvedIp) {
-    return { ok: false, error: { code: "INVALID_URL", message: check.reason ?? "invalid backendWsUrl" } };
+  if (!check.valid) {
+    return { ok: false, error: { code: "INVALID_URL", message: check.reason } };
   }
 
   const now = Date.now();

@@ -78,7 +78,7 @@ export async function setCanary(
     return { ok: false, error: "INVALID_WEIGHT" };
 
   const check = await validateBackendUrl(input.secondaryBaseUrl, config.allowPrivateIps, config.allowedHosts);
-  if (!check.valid || !check.resolvedIp) return { ok: false, error: "INVALID_URL", reason: check.reason };
+  if (!check.valid) return { ok: false, error: "INVALID_URL", reason: check.reason };
 
   upsertConfig(
     "client_canary",

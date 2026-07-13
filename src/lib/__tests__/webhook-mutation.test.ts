@@ -17,10 +17,10 @@
  *     already covers that exhaustively. We only prove dispatchWebhook calls
  *     it and respects a `valid: false` result.)
  *   - The dispatched-successfully branch: exact fetch call shape (method,
- *     Content-Type header, JSON body, `redirect: "error"`, an AbortSignal),
- *     resolving `true` — including when the response itself is a non-2xx
- *     status (per the file's own doc comment: "non-2xx is NOT treated as
- *     failure here").
+ *     Content-Type header, the pinned-dispatch Host header, JSON body,
+ *     `redirect: "error"`, an AbortSignal), resolving `true` — including when
+ *     the response itself is a non-2xx status (per the file's own doc comment:
+ *     "non-2xx is NOT treated as failure here").
  *   - The swallowed-exception branch: a thrown `Error` uses `.message`; a
  *     thrown non-Error value falls through to `String(err)` — both logged
  *     via `failedLogMessage` with `{ ...logContext, error }`, resolving
@@ -190,8 +190,11 @@ describe("dispatchWebhook — validated URL, fetch dispatched", () => {
     const call = fetchCalls[0];
     expect(call.url).toBe("http://127.0.0.1:9999/hook");
     expect(call.init.method).toBe("POST");
-    const headers = call.init.headers as Record<string, string>;
-    expect(headers["Content-Type"]).toBe("application/json");
+    // makePinnedFetch normalizes headers into a Headers instance and adds the
+    // pinned-dispatch Host header alongside the caller's Content-Type.
+    const headers = new Headers(call.init.headers);
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.get("Host")).toBe("127.0.0.1:9999");
     expect(call.init.body).toBe(JSON.stringify(payload));
     expect(call.init.redirect).toBe("error");
     expect(call.init.signal).toBeInstanceOf(AbortSignal);

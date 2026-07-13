@@ -137,7 +137,7 @@ export async function validateBackendUrl(
   url: string,
   allowPrivateIps: boolean,
   allowedHosts: string[],
-): Promise<{ valid: boolean; reason?: string; resolvedIp?: string }> {
+): Promise<{ valid: true; resolvedIp: string } | { valid: false; reason: string }> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -225,7 +225,7 @@ export async function refreshPinIfStale(
   // Re-resolve via the existing dual-stack validator (allowPrivateIps=false, no host filter).
   const result = await validateBackendUrl(`http://${hostname}/`, false, []);
 
-  if (!result.valid || !result.resolvedIp) {
+  if (!result.valid) {
     throw new Error(`Backend hostname now resolves to private IP or failed DNS: ${result.reason ?? hostname}`);
   }
 
@@ -250,7 +250,7 @@ export type PinnedFetch = (input: string | URL, init?: RequestInit) => Promise<R
  * `fetch` implementation (e.g. the MCP SDK's HTTP/SSE transports) instead of
  * building the request URL themselves.
  */
-export function makePinnedFetch(originalHostname: string, ip: string): PinnedFetch {
+export function makePinnedFetch(originalHostname: string, ip: string, baseFetch: typeof fetch = fetch): PinnedFetch {
   return async (input, init) => {
     const u = new URL(typeof input === "string" ? input : input.toString());
     const host = u.host; // host:port, preserved as the Host header
@@ -259,7 +259,7 @@ export function makePinnedFetch(originalHostname: string, ip: string): PinnedFet
     }
     const headers = new Headers(init?.headers);
     headers.set("Host", host);
-    return fetch(u, { ...init, headers, redirect: "error" });
+    return baseFetch(u, { ...init, headers, redirect: "error" });
   };
 }
 

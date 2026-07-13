@@ -114,7 +114,7 @@ export async function setToolWs(
   // SSRF-validate the http-equivalent (validateBackendUrl speaks http/https).
   const httpEquivalent = input.wsUrl.replace(/^ws/, "http");
   const check = await validateBackendUrl(httpEquivalent, config.allowPrivateIps, config.allowedHosts);
-  if (!check.valid || !check.resolvedIp) return { ok: false, error: "INVALID_URL", reason: check.reason };
+  if (!check.valid) return { ok: false, error: "INVALID_URL", reason: check.reason };
   upsertConfig(
     "tool_ws",
     { client_name: clientName, tool_name: toolName },

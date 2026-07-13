@@ -11,6 +11,7 @@ import { toolsCountCapError, findToolEndpointError } from "../mcp/registration.j
 import type { RestToolDefinition } from "../mcp/types.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { sendError, validationError, bodyOf } from "./http-errors.js";
+import { errorMessage } from "../lib/error-message.js";
 
 function stringArray(input: unknown): string[] | undefined {
   if (!Array.isArray(input)) return undefined;
@@ -107,14 +108,14 @@ export function discoveryRoutes(app: Express): void {
           const hostname = new URL(openapiUrl).hostname;
           const tools = await discoverToolsFromOpenApi({
             openapiUrl,
-            ipPin: { resolvedIp: validation.resolvedIp!, hostname },
+            ipPin: { resolvedIp: validation.resolvedIp, hostname },
             includeTags,
             excludeOperations,
           });
           recordAudit(actorFromRequest(req), "discovery.preview", openapiUrl, { count: tools.length });
           sendToolsPreview(res, tools);
         } catch (err) {
-          sendError(res, 400, "DISCOVERY_ERROR", err instanceof Error ? err.message : String(err));
+          sendError(res, 400, "DISCOVERY_ERROR", errorMessage(err));
         }
         return;
       }
@@ -144,7 +145,7 @@ export function discoveryRoutes(app: Express): void {
         recordAudit(actorFromRequest(req), "discovery.preview_manual", source, { count: tools.length });
         sendToolsPreview(res, tools);
       } catch (err) {
-        sendError(res, 400, "VALIDATION_ERROR", err instanceof Error ? err.message : String(err));
+        sendError(res, 400, "VALIDATION_ERROR", errorMessage(err));
       }
     },
   );
@@ -192,7 +193,7 @@ export function discoveryRoutes(app: Express): void {
           })),
         });
       } catch (err) {
-        sendError(res, 400, "DISCOVERY_ERROR", err instanceof Error ? err.message : String(err));
+        sendError(res, 400, "DISCOVERY_ERROR", errorMessage(err));
       }
     },
   );

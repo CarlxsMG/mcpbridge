@@ -68,7 +68,7 @@ function body(overrides: Record<string, unknown>): Record<string, unknown> {
 
 const ORIGINAL_MAX_TOOLS = config.maxToolsPerClient;
 
-let extraValidate: Record<string, { valid: boolean; reason?: string; resolvedIp?: string }>;
+let extraValidate: Record<string, { valid: true; resolvedIp: string } | { valid: false; reason: string }>;
 let validateSpy: ReturnType<typeof spyOn>;
 let openapiSpy: ReturnType<typeof spyOn>;
 let curlSpy: ReturnType<typeof spyOn>;

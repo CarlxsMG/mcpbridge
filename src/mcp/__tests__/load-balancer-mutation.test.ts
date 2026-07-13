@@ -44,7 +44,6 @@ import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
-import * as ipValidatorMod from "../../net/ip-validator.js";
 import {
   getLb,
   setLb,
@@ -153,20 +152,6 @@ describe("addUpstream — weight upper boundary", () => {
     expect(ok.ok).toBe(true);
     const rejected = await addUpstream(CLIENT, "http://9.9.9.9", 1001);
     expect(rejected).toMatchObject({ ok: false, error: "INVALID_WEIGHT" });
-  });
-
-  // 150:7-150:36 LogicalOperator [Survived] (`!url.valid || !url.resolvedIp`
-  // flipped to `&&`). A validation result that's valid but missing a
-  // resolvedIp (or vice versa) must still be rejected.
-  test("a valid-but-missing-resolvedIp validation result is still rejected as INVALID_URL", async () => {
-    await reg();
-    const spy = spyOn(ipValidatorMod, "validateBackendUrl").mockResolvedValue({ valid: true, resolvedIp: undefined });
-    try {
-      const result = await addUpstream(CLIENT, "http://5.6.7.8", 1);
-      expect(result).toMatchObject({ ok: false, error: "INVALID_URL" });
-    } finally {
-      spy.mockRestore();
-    }
   });
 });
 
