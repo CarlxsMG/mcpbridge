@@ -18,7 +18,12 @@ import { ensureClientAccess, requireOperator } from "../../middleware/authz.js";
  */
 export const trafficRoutes = Router();
 
-trafficRoutes.get("/traffic", (req: Request, res: Response) => {
+// Reads are operator+ (matching the replay route below): a captured record
+// carries the call's *full, unredacted* request args (stored verbatim for
+// faithful replay — see observability/traffic.ts), which can include secrets a
+// tool takes as an argument. Those must not be readable by the lower auditor /
+// viewer roles, which router-level adminAuth alone would allow.
+trafficRoutes.get("/traffic", requireOperator, (req: Request, res: Response) => {
   const clientName = typeof req.query.client === "string" ? req.query.client : undefined;
   const toolName = typeof req.query.tool === "string" ? req.query.tool : undefined;
   const errorsOnly = req.query.errors === "true";
@@ -27,7 +32,7 @@ trafficRoutes.get("/traffic", (req: Request, res: Response) => {
   res.status(200).json(listTraffic({ clientName, toolName, errorsOnly, cursor, limit }));
 });
 
-trafficRoutes.get("/traffic/:id", (req: Request<{ id: string }>, res: Response) => {
+trafficRoutes.get("/traffic/:id", requireOperator, (req: Request<{ id: string }>, res: Response) => {
   const rec = getTraffic(Number(req.params.id));
   if (!rec) {
     notFound(res, "TRAFFIC_NOT_FOUND", "Traffic record not found");

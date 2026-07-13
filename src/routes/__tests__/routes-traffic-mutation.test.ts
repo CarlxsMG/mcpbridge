@@ -380,6 +380,31 @@ describe("GET /admin-api/traffic/:id", () => {
   });
 });
 
+describe("GET /admin-api/traffic* — operator+ gate (captured args can carry secrets)", () => {
+  function roleSessionCookie(username: string, role: "viewer" | "operator"): Record<string, string> {
+    const user = createUser(username, "irrelevant-hash", role, null);
+    const session = createSession(user.id, "127.0.0.1", "test-agent");
+    return { Cookie: `${SESSION_COOKIE_NAME}=${session.token}` };
+  }
+
+  test("a viewer session is refused (403) on both the list and the single-record read", async () => {
+    await withApp(async (baseUrl) => {
+      const id = insertRawTraffic('{"token":"s3cret"}');
+      const headers = roleSessionCookie("traffic-viewer", "viewer");
+      expect((await fetch(`${baseUrl}/admin-api/traffic`, { headers })).status).toBe(403);
+      expect((await fetch(`${baseUrl}/admin-api/traffic/${id}`, { headers })).status).toBe(403);
+    });
+  });
+
+  test("an operator session is allowed (200) — the gate is operator+, not admin-only", async () => {
+    await withApp(async (baseUrl) => {
+      insertRawTraffic('{"q":1}');
+      const headers = roleSessionCookie("traffic-operator", "operator");
+      expect((await fetch(`${baseUrl}/admin-api/traffic`, { headers })).status).toBe(200);
+    });
+  });
+});
+
 describe("POST /admin-api/traffic/:id/replay", () => {
   // Kills 39:20-41 StringLiteral (route path emptied), 39:115-55:2
   // BlockStatement (whole handler emptied), 47:7-49:4 BlockStatement
