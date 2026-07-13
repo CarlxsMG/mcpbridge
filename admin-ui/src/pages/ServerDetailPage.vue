@@ -29,6 +29,7 @@ import ServerDetailTeam from "@/components/server-detail/ServerDetailTeam.vue";
 import ServerDetailRemove from "@/components/server-detail/ServerDetailRemove.vue";
 import ServerDetailToolsTable from "@/components/server-detail/ServerDetailToolsTable.vue";
 import ServerDetailPlayground from "@/components/server-detail/ServerDetailPlayground.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 import { Wrench, Settings2, RotateCcw, Cable } from "lucide-vue-next";
 
 const props = defineProps<{ name: string; tool?: string }>();
@@ -116,8 +117,12 @@ function confirmClientDisable() {
   });
 }
 
-function closeGuardEditor() {
-  router.push(`/servers/${encodeURIComponent(props.name)}`);
+async function closeGuardEditor() {
+  const toolName = props.tool;
+  await router.push(`/servers/${encodeURIComponent(props.name)}`);
+  if (!toolName) return;
+  await nextTick();
+  document.querySelector<HTMLButtonElement>(`[data-guard-trigger="${CSS.escape(toolName)}"]`)?.focus();
 }
 
 async function resetBreaker() {
@@ -256,9 +261,10 @@ async function resetBreaker() {
 
       <ServerDetailPlayground :client-name="props.name" :tool="activeTool" />
     </div>
-    <p v-else-if="tool && detail && !activeTool" class="error">
-      {{ t("pages.server_detail.tool_not_found", { name: tool }) }}
-    </p>
+    <FieldError
+      v-else-if="tool && detail && !activeTool"
+      :message="t('pages.server_detail.tool_not_found', { name: tool })"
+    />
 
     <ConfirmDialog
       :open="pendingClientDisable !== null"

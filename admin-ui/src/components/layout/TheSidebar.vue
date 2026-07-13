@@ -253,9 +253,11 @@ async function onLogout() {
     transform: translateX(-100%);
     transition: transform 0.2s ease;
     box-shadow: var(--shadow-lg);
+    visibility: hidden;
   }
   .sidebar.sidebar-open {
     transform: translateX(0);
+    visibility: visible;
   }
   .sidebar .brand {
     display: none;

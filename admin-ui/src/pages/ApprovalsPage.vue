@@ -4,7 +4,7 @@ import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
 import { statusTone, toneColorVar } from "@/utils/status";
@@ -21,7 +21,6 @@ import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { ClipboardCheck, Check, X, RefreshCw } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 
 type TabKey = ApprovalStatus | "all";
 const TABS = computed(() => [

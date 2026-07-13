@@ -6,6 +6,7 @@ import type { BundleInstallLink, BundleInstallLinkWithToken } from "@/types/api"
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ModalShell from "@/components/ui/ModalShell.vue";
 import CopyButton from "@/components/ui/CopyButton.vue";
+import SecretReveal from "@/components/ui/SecretReveal.vue";
 import { formatDateTime, formatMaybeDate } from "@/utils/format";
 import { toErrorMessage } from "@/utils/errors";
 import { bundlePath } from "@/utils/apiPaths";
@@ -122,16 +123,16 @@ function statusOf(link: BundleInstallLink): string {
       {{ t("components.share_install_link.hint_p2") }}
     </p>
 
-    <div v-if="minted" class="minted" role="alert">
-      <div class="minted-title">{{ t("components.share_install_link.minted_title") }}</div>
-      <div class="minted-row">
-        <code class="minted-secret">{{ installUrl(minted.token) }}</code>
-        <CopyButton :key="minted.token" :text="installUrl(minted.token)" :label="t('common.copy')" />
-        <button type="button" class="link-btn" @click="minted = null">
-          {{ t("components.share_install_link.dismiss") }}
-        </button>
-      </div>
-    </div>
+    <SecretReveal
+      v-if="minted"
+      :title="t('components.share_install_link.minted_title')"
+      :secret="installUrl(minted.token)"
+    >
+      <CopyButton :key="minted.token" :text="installUrl(minted.token)" :label="t('common.copy')" />
+      <button type="button" class="link-btn" @click="minted = null">
+        {{ t("components.share_install_link.dismiss") }}
+      </button>
+    </SecretReveal>
 
     <button type="button" class="btn-primary create-btn" :disabled="creating" @click="createLink">
       {{ creating ? t("common.creating") : t("components.share_install_link.create_new") }}
@@ -162,7 +163,7 @@ function statusOf(link: BundleInstallLink): string {
               <span class="status" :class="statusOf(link).toLowerCase()">{{ statusOf(link) }}</span>
             </td>
             <td>{{ formatDateTime(link.createdAt) }}</td>
-            <td>{{ formatMaybeDate(link.lastUsedAt) }}</td>
+            <td>{{ formatMaybeDate(link.lastUsedAt, tk("common.never")) }}</td>
             <td>
               <div class="actions">
                 <button
@@ -198,35 +199,6 @@ function statusOf(link: BundleInstallLink): string {
 </template>
 
 <style scoped>
-.minted {
-  background: var(--ok-soft);
-  border: 1px solid var(--ok);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-.minted-title {
-  font-weight: 600;
-  font-size: var(--text-sm);
-  margin-bottom: var(--space-2);
-}
-.minted-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-.minted-secret {
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.6rem;
-  font-size: 0.82rem;
-  font-family: var(--font-mono);
-  word-break: break-all;
-  flex: 1;
-  min-width: 12.5rem;
-}
 .create-btn {
   margin-bottom: var(--space-5);
 }

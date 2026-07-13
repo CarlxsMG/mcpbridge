@@ -11,6 +11,7 @@
 // is the explicit way back, not a silent re-seed.
 
 import { ref, watch, type Ref } from "vue";
+import { tk } from "@/i18n";
 import {
   defaultLayout,
   GRID_COLUMNS,
@@ -38,7 +39,8 @@ function validateWidget(raw: unknown): WidgetInstance | null {
   const rawOptions = (r.options && typeof r.options === "object" ? r.options : {}) as unknown as WidgetOptions;
   const options: WidgetOptions = {
     ...rawOptions,
-    title: typeof rawOptions.title === "string" ? rawOptions.title : "Widget",
+    title:
+      typeof rawOptions.title === "string" ? rawOptions.title : tk("components.widget_config.widget_default_title"),
   };
   return {
     id: r.id,

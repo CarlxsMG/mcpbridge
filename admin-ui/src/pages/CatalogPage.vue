@@ -6,7 +6,7 @@ import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import type { CatalogEntry, DiscoveryPreview, DiscoveredTool } from "@/types/api";
 import { LayoutGrid } from "lucide-vue-next";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -15,9 +15,9 @@ import ListLayout from "@/components/ui/ListLayout.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import KindBadge from "@/components/ui/KindBadge.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 
 const router = useRouter();
 
@@ -170,12 +170,12 @@ function confirmDelete() {
                   t("pages.register_server.preview_count", { count: previewTools.length })
                 }}</span>
               </div>
-              <p v-if="previewError" class="error">{{ previewError }}</p>
+              <FieldError :message="previewError" />
             </template>
             <p v-else class="hint">
               {{ t("pages.register_server.mcp_transport_hint") }}
             </p>
-            <p v-if="installError" class="error">{{ installError }}</p>
+            <FieldError :message="installError" />
             <button type="button" class="btn-primary" :disabled="installing" @click="confirmInstall(entry)">
               {{ installing ? t("pages.catalog.installing") : t("pages.catalog.confirm_install") }}
             </button>

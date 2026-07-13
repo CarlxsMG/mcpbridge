@@ -6,6 +6,7 @@ import { toErrorMessage } from "@/utils/errors";
 import { tk } from "@/i18n";
 import type { ClientDetail, DiscoveredTool, DiscoveryPreview } from "@/types/api";
 import ConfigSection from "./ConfigSection.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const props = defineProps<{ detail: ClientDetail }>();
 const emit = defineEmits<{ resynced: [] }>();
@@ -104,7 +105,7 @@ async function rediscoverMcp() {
     <p class="ua-status">
       {{ t("components.server_detail_resync.rediscover_hint", { url: detail.mcpUrl }) }}
     </p>
-    <p v-if="resyncError" class="error">{{ resyncError }}</p>
+    <FieldError :message="resyncError" />
   </ConfigSection>
 
   <ConfigSection v-else :title="t('components.server_detail_resync.resync_title')">
@@ -124,7 +125,7 @@ async function rediscoverMcp() {
           }}
         </button>
       </div>
-      <p v-if="resyncError" class="error">{{ resyncError }}</p>
+      <FieldError :message="resyncError" />
       <div v-if="resyncDiff" class="diff">
         <p class="diff-summary">
           <strong>{{ resyncDiff.added.length }}</strong> {{ t("components.server_detail_resync.added") }} ·

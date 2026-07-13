@@ -12,13 +12,21 @@ const { t } = useI18n({ useScope: "global" });
 
 const query = ref("");
 
+// `label`/`description` on CATALOG_PRESETS are i18n key paths (GROUP_LABELS
+// pattern), not display text — resolve them here so search + rendering both
+// use the current-locale string, and re-resolve reactively on locale switch.
+const resolvedPresets = computed(() =>
+  CATALOG_PRESETS.map((p) => ({ ...p, resolvedLabel: t(p.label), resolvedDescription: t(p.description) })),
+);
+
 const grouped = computed(() => {
   const q = query.value.trim().toLowerCase();
-  const match = (p: WidgetPreset) => !q || p.label.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
+  const match = (p: (typeof resolvedPresets.value)[number]) =>
+    !q || p.resolvedLabel.toLowerCase().includes(q) || p.resolvedDescription.toLowerCase().includes(q);
   return GROUP_ORDER.map((group) => ({
     group,
     label: t(GROUP_LABELS[group]),
-    presets: CATALOG_PRESETS.filter((p) => p.group === group && match(p)),
+    presets: resolvedPresets.value.filter((p) => p.group === group && match(p)),
   })).filter((g) => g.presets.length > 0);
 });
 
@@ -51,8 +59,8 @@ function onAdd(preset: WidgetPreset) {
           <button v-for="p in g.presets" :key="p.key" type="button" class="preset" @click="onAdd(p)">
             <span class="preset-icon"><component :is="p.icon" :size="16" stroke-width="2" aria-hidden="true" /></span>
             <span class="preset-text">
-              <span class="preset-label">{{ p.label }}</span>
-              <span class="preset-desc">{{ p.description }}</span>
+              <span class="preset-label">{{ p.resolvedLabel }}</span>
+              <span class="preset-desc">{{ p.resolvedDescription }}</span>
             </span>
           </button>
         </div>

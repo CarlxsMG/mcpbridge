@@ -13,6 +13,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import TableCard from "@/components/ui/TableCard.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const props = defineProps<{ clientName: string }>();
 const { t } = useI18n({ useScope: "global" });
@@ -178,7 +179,7 @@ function confirmRemoveTarget() {
         {{ lbSaving ? t("common.saving") : t("components.server_detail_lb.save_pool") }}
       </button>
     </form>
-    <p v-if="lbError || clearLbError" class="error">{{ lbError || clearLbError }}</p>
+    <FieldError :message="lbError || clearLbError" />
 
     <template v-if="lb">
       <TableCard class="lb-targets">
@@ -236,7 +237,7 @@ function confirmRemoveTarget() {
           >{{ t("components.server_detail_lb.fields.weight") }}
           <input v-model.number="newTargetWeight" type="number" min="1" max="1000"
         /></label>
-        <p v-if="targetError" class="error">{{ targetError }}</p>
+        <FieldError :message="targetError" />
         <button type="submit" class="btn-secondary" :disabled="addingTarget">
           {{ addingTarget ? t("components.server_detail_lb.adding") : t("components.server_detail_lb.add_target") }}
         </button>

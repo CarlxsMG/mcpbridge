@@ -7,7 +7,7 @@ import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useEntityForm } from "@/composables/useEntityForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import type { ConsumerWithUsage, ConsumerUsage } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import QuotaBar from "@/components/charts/QuotaBar.vue";
@@ -17,10 +17,10 @@ import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 import { Users2, ChevronDown, ChevronRight } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 
 const loadFallback = tk("pages.consumers.errors.load_failed");
 const updateFallback = tk("pages.consumers.errors.update_failed");
@@ -156,17 +156,17 @@ function confirmDelete() {
     <form v-if="showEdit" class="create-form" @submit.prevent="submitConsumer">
       <FormField :label="t('common.name')" for="c-name">
         <input id="c-name" v-model="newName" type="text" :placeholder="t('pages.consumers.name_placeholder')" />
-        <p v-if="nameError" class="error">{{ nameError }}</p>
+        <FieldError :message="nameError" />
       </FormField>
       <FormField :label="t('pages.consumers.monthly_quota_label')" for="c-quota">
         <input id="c-quota" v-model="newQuota" type="text" inputmode="numeric" />
-        <p v-if="quotaError" class="error">{{ quotaError }}</p>
+        <FieldError :message="quotaError" />
       </FormField>
       <FormField :label="t('pages.consumers.end_user_limit_label')" for="c-end-user-limit">
         <input id="c-end-user-limit" v-model="newEndUserLimit" type="text" inputmode="numeric" />
-        <p v-if="endUserLimitError" class="error">{{ endUserLimitError }}</p>
+        <FieldError :message="endUserLimitError" />
       </FormField>
-      <p v-if="createError" class="error">{{ createError }}</p>
+      <FieldError :message="createError" />
       <div class="form-actions">
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("common.saving") : t("common.save_changes") }}
@@ -236,7 +236,7 @@ function confirmDelete() {
               <td colspan="6">
                 <div class="usage-detail">
                   <SignalLoader v-if="usageLoadingId === c.id" />
-                  <p v-else-if="usageErrorById[c.id]" class="error">{{ usageErrorById[c.id] }}</p>
+                  <FieldError v-else-if="usageErrorById[c.id]" :message="usageErrorById[c.id]" />
                   <template v-else-if="usageById[c.id]">
                     <div class="usage-detail-stats">
                       <div class="usage-stat">

@@ -127,7 +127,7 @@ async function testTool(tool: ToolDetail) {
         </td>
         <td class="url-cell">{{ kind === "mcp" ? tool.upstreamName : tool.endpoint }}</td>
         <td>
-          <button type="button" class="link-btn" @click="openGuardEditor(tool)">
+          <button type="button" class="link-btn" :data-guard-trigger="tool.name" @click="openGuardEditor(tool)">
             {{
               tool.guards
                 ? t("components.server_detail_tools.edit_guards")

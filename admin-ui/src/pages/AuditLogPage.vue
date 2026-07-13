@@ -6,7 +6,7 @@ import { useCursorPagination } from "@/composables/useCursorPagination";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime, prettyJson } from "@/utils/format";
 import { downloadTextFile } from "@/utils/download";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import type { AuditLogEntry, PaginatedResult } from "@/types/api";
 import { ScrollText, CheckCircle2, XCircle } from "lucide-vue-next";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -18,7 +18,6 @@ import SelectMenu from "@/components/ui/SelectMenu.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 
 const actorFilter = ref("");
 const actionFilter = ref("");

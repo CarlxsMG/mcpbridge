@@ -217,7 +217,7 @@ function confirmDelete() {
               />
             </td>
             <td>{{ user.is_active ? t("pages.users.yes") : t("pages.users.no") }}</td>
-            <td>{{ formatMaybeDate(user.last_login_at) }}</td>
+            <td>{{ formatMaybeDate(user.last_login_at, tk("common.never")) }}</td>
             <td>
               <button
                 type="button"

@@ -66,8 +66,9 @@ watch(
   },
 );
 
+// `d.label` is an i18n key path (GROUP_LABELS pattern), not display text.
 const toGroupedOptions = <T extends { id: string; label: string; group: keyof typeof GROUP_LABELS }>(defs: T[]) =>
-  defs.map((d) => ({ value: d.id, label: `${t(GROUP_LABELS[d.group])} · ${d.label}` }));
+  defs.map((d) => ({ value: d.id, label: `${t(GROUP_LABELS[d.group])} · ${t(d.label)}` }));
 
 const metricOptions = toGroupedOptions(STAT_METRICS);
 const seriesOptions = toGroupedOptions(TIMESERIES_SERIES);

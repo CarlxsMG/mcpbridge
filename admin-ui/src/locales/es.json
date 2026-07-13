@@ -32,6 +32,8 @@
     "connect_client": "Conectar cliente",
     "done": "Listo",
     "creating": "Creando…",
+    "never": "Nunca",
+    "skip_to_content": "Saltar al contenido",
     "time_windows": {
       "last_24h": "Últimas 24 horas",
       "last_7d": "Últimos 7 días",
@@ -836,6 +838,83 @@
         "access": "Acceso",
         "activity": "Actividad",
         "custom": "Custom"
+      },
+      "widgets": {
+        "note_preset_label": "Texto / nota",
+        "descriptions": {
+          "stat": "Número único",
+          "timeseries": "Línea + área durante la ventana de tiempo seleccionada",
+          "donut": "Anillo de proporciones",
+          "bars": "Barras horizontales clasificadas",
+          "list": "Tabla compacta de actividad reciente",
+          "note": "Un panel de texto libre en markdown para anotaciones y enlaces"
+        },
+        "stat": {
+          "clients_live": { "label": "Servidores activos", "detail": "{count} deshabilitados" },
+          "tools_total": { "label": "Herramientas totales", "detail": "{count} deshabilitadas" },
+          "breakers_open": { "label": "Interruptores abiertos", "detail": "{count} semiabiertos" },
+          "admins": { "label": "Usuarios administradores" },
+          "usage_calls": { "label": "Llamadas" },
+          "usage_errors": { "label": "Errores" },
+          "usage_error_rate": { "label": "Tasa de error" },
+          "usage_avg_ms": { "label": "Latencia media" },
+          "usage_max_ms": { "label": "Latencia máxima" },
+          "usage_tools": { "label": "Herramientas activas" },
+          "usage_keys": { "label": "Claves activas" },
+          "approvals_pending": { "label": "Aprobaciones pendientes" },
+          "ws_connections": { "label": "Conexiones WS activas", "detail": "{count} destino(s)" }
+        },
+        "donut": {
+          "clients_health": { "label": "Estado de los servidores" },
+          "breakers": { "label": "Interruptores de circuito" },
+          "monitors_status": { "label": "Estado de los monitores" },
+          "approvals_status": { "label": "Aprobaciones" }
+        },
+        "bars": {
+          "top_tools": { "label": "Herramientas más usadas por llamadas", "hint_errors": "{count} errores" },
+          "by_key": { "label": "Llamadas por clave de API" },
+          "consumers_quota": { "label": "Uso por consumidor", "hint_of_quota": "de {quota}" }
+        },
+        "list": {
+          "audit_recent": {
+            "label": "Actividad reciente",
+            "head_action": "Acción",
+            "head_target": "Objetivo",
+            "head_when": "Cuándo",
+            "empty": "No hay acciones de administración recientes."
+          },
+          "traffic_recent": {
+            "label": "Llamadas recientes",
+            "head_tool": "Herramienta",
+            "head_status": "Estado",
+            "head_duration": "Duración",
+            "head_when": "Cuándo",
+            "empty": "No hay llamadas capturadas (requiere TRAFFIC_CAPTURE)."
+          },
+          "approvals_pending": {
+            "label": "Aprobaciones pendientes",
+            "head_tool": "Herramienta",
+            "head_requested": "Solicitado",
+            "empty": "No hay aprobaciones en espera."
+          },
+          "clients_unhealthy": {
+            "label": "Servidores con problemas",
+            "head_server": "Servidor",
+            "head_status": "Estado",
+            "empty": "Todos los servidores están saludables.",
+            "unknown_status": "desconocido"
+          }
+        },
+        "series": {
+          "calls_errors": { "label": "Llamadas y errores en el tiempo", "primary": "Llamadas", "secondary": "Errores" },
+          "latency": { "label": "Latencia media en el tiempo", "primary": "Latencia media" }
+        },
+        "relative_time": {
+          "just_now": "justo ahora",
+          "minutes_ago": "hace {m} min",
+          "hours_ago": "hace {h} h",
+          "days_ago": "hace {d} d"
+        }
       }
     }
   },
@@ -1235,7 +1314,6 @@
         "load_failed": "Error al cargar alertas.",
         "toggle_failed": "Error al actualizar.",
         "delete_failed": "Error al eliminar la alerta.",
-        "test_failed": "Test falló: {error}",
         "test_delivery_failed": "La entrega del test falló."
       },
       "event_types": {
@@ -2048,6 +2126,36 @@
       "subtitle": "La página que buscas no existe (o ya no existe).",
       "go_servers": "Ir a servidores",
       "go_overview": "Ir a resumen"
+    }
+  },
+  "utils": {
+    "cron": {
+      "every_minute": "Cada minuto",
+      "every_n_minutes": {
+        "one": "Cada {n} minuto",
+        "other": "Cada {n} minutos"
+      },
+      "every_n_hours_at_minute": {
+        "one": "Cada {n} hora, en el minuto {min}",
+        "other": "Cada {n} horas, en el minuto {min}"
+      },
+      "every_day_at": "Todos los días a las {time}",
+      "every_weekday_at": "Cada día laborable a las {time}",
+      "every_day_range_at": "Todos los días de {from} a {to}, a las {time}",
+      "every_days_at": "Cada {days} a las {time}",
+      "on_day_of_month_at": "El día {dom} de cada mes a las {time}",
+      "am": "a. m.",
+      "pm": "p. m.",
+      "time_of_day": "{hour}:{minute} {period} UTC",
+      "weekdays": {
+        "sunday": "domingo",
+        "monday": "lunes",
+        "tuesday": "martes",
+        "wednesday": "miércoles",
+        "thursday": "jueves",
+        "friday": "viernes",
+        "saturday": "sábado"
+      }
     }
   },
   "demo": {

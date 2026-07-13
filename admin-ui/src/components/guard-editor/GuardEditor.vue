@@ -210,7 +210,7 @@ function confirmClear() {
     </div>
 
     <div class="field">
-      <label>{{ t("components.guard_editor.allowed_keys_label") }}</label>
+      <label for="new-api-key">{{ t("components.guard_editor.allowed_keys_label") }}</label>
       <p class="hint">
         {{
           existingKeyCount > 0
@@ -221,6 +221,7 @@ function confirmClear() {
       </p>
       <div class="key-input">
         <input
+          id="new-api-key"
           v-model="newApiKey"
           class="api-key-input"
           :type="showApiKey ? 'text' : 'password'"

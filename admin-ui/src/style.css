@@ -19,6 +19,20 @@
   --signal-strong: #00877b;
   --signal-soft: #e1f5f2;
 
+  /* Solid-fill button background (.btn-primary) + its hover shade.
+     Deliberately separate from --signal-strong and NOT re-themed in the
+     dark-theme override block below, even though --signal-strong itself
+     does change there (#20c4b3 — bright, tuned as *foreground text* color
+     against near-black surfaces, e.g. links). .btn-primary always pairs
+     this with white (#fff) text regardless of theme, and no single color
+     can be AA-safe (>=4.5:1) as both "text on a near-black surface" and
+     "background under white text" at once — verified: white-on-#20c4b3 is
+     only ~2.18:1. Keeping these two fixed across themes keeps the button
+     AA-compliant (and its hover state visibly darker, never identical to
+     rest) everywhere. */
+  --signal-strong-btn: #00877b; /* white text on this: ~4.42:1 */
+  --signal-strong-btn-hover: #00655c; /* white text on this: ~6.96:1 */
+
   /* Canary: amber — guardrails, elevated/sensitive, the product's own
      canary-deploy feature. */
   --canary: #d97f0a;
@@ -47,7 +61,10 @@
 
   --text-primary: #14171c;
   --text-secondary: #565d6b;
-  --text-muted: #8a8f98;
+  /* Darkened from #8a8f98 (3.25:1 vs white — fails AA) to clear 4.5:1
+     against every light-theme surface, worst case (--surface-sunken,
+     #f6f7f5, the darkest of paper/surface/surface-sunken): ~4.99:1. */
+  --text-muted: #636b7a;
   --text-on-dark: #e6e8eb;
   --text-on-dark-muted: #8d94a3;
 
@@ -142,7 +159,13 @@
   --surface-sunken: #171b22;
   --text-primary: #e7e9ec;
   --text-secondary: #a2a8b5;
-  --text-muted: #6b7280;
+  /* Lightened (not darkened) from #6b7280 — on dark surfaces, muted text
+     needs *more* luminance to gain contrast, not less. #6b7280 was only
+     ~3.57:1 against --surface-sunken (#171b22, the lightest of the three
+     dark surfaces, i.e. the hardest case) — darkening it further would
+     have made contrast worse. #838b99 clears 4.5:1 against all three
+     dark surfaces, worst case (--surface-sunken): ~5.03:1. */
+  --text-muted: #838b99;
   --border: #262c3a;
   --border-strong: #333a4a;
   --signal-strong: #20c4b3;
@@ -228,12 +251,12 @@ button {
 }
 
 .btn-primary {
-  background: var(--signal);
+  background: var(--signal-strong-btn);
   color: #fff;
   box-shadow: var(--shadow-xs);
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--signal-strong);
+  background: var(--signal-strong-btn-hover);
 }
 
 .btn-secondary {

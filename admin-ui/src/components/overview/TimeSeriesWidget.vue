@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import TimeSeriesChart from "@/components/charts/TimeSeriesChart.vue";
 import WidgetCard from "./WidgetCard.vue";
 import { SERIES_BY_ID, type DashboardStores, type WidgetInstance } from "./widgetCatalog";
 
 const props = defineProps<{ widget: WidgetInstance; stores: DashboardStores }>();
+const { t } = useI18n({ useScope: "global" });
 const def = computed(() => SERIES_BY_ID.get(props.widget.options.series ?? ""));
 const result = computed(() => def.value?.get(props.stores) ?? null);
 
@@ -27,12 +29,12 @@ const formatTime = computed(() => {
       :points="result.points"
       :secondary-points="result.secondaryPoints ?? []"
       :primary-label="result.primaryLabel"
-      :secondary-label="result.secondaryLabel ?? 'Secondary'"
+      :secondary-label="result.secondaryLabel ?? t('components.charts.secondary')"
       :format-value="result.valueFormat"
       :format-secondary="result.valueFormat"
       :format-time="formatTime"
       :height="height"
     />
-    <p v-else class="w-muted">No data.</p>
+    <p v-else class="w-muted">{{ t("components.charts.no_data") }}</p>
   </WidgetCard>
 </template>

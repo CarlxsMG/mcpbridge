@@ -9,6 +9,7 @@ import { tk } from "@/i18n";
 import { clientPath } from "@/utils/apiPaths";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const props = defineProps<{ clientName: string }>();
 const router = useRouter();
@@ -46,7 +47,7 @@ function confirmRemoveServer() {
     <button type="button" class="btn-danger" @click="requestRemoveServer">
       {{ t("components.server_detail_remove.button") }}
     </button>
-    <p v-if="removeError" class="error">{{ removeError }}</p>
+    <FieldError :message="removeError" />
   </ConfigSection>
 
   <ConfirmDialog

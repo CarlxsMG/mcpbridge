@@ -49,6 +49,7 @@ const inputEl = ref<HTMLInputElement | null>(null);
 const listEl = ref<HTMLDivElement | null>(null);
 const panelEl = ref<HTMLDivElement | null>(null);
 const justOpened = ref(false);
+const triggerEl = ref<HTMLElement | null>(null);
 const { onKeydown: trapKeydown } = useFocusTrap(panelEl);
 
 function onGlobalKeydown(e: KeyboardEvent) {
@@ -65,6 +66,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
 }
 
 async function show() {
+  triggerEl.value = document.activeElement as HTMLElement | null;
   open.value = true;
   query.value = "";
   activeIndex.value = 0;
@@ -79,6 +81,7 @@ async function show() {
 
 function close() {
   open.value = false;
+  triggerEl.value?.focus();
 }
 
 async function loadLive() {

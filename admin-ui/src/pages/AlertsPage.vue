@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
-import { api, ApiError } from "@/composables/useApi";
+import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import type { AlertRule, AlertEventType } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -19,7 +19,6 @@ import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { BellRing } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 
 const EVENT_LABELS: Record<AlertEventType, string> = {
   circuit_breaker_open: tk("pages.alerts.event.circuit_breaker_open"),
@@ -89,10 +88,7 @@ async function testRule(rule: AlertRule) {
     testMessage.value = t("pages.alerts.test_sent", { name: rule.name });
     await load();
   } catch (err) {
-    errorMessage.value =
-      err instanceof ApiError
-        ? t("pages.alerts.errors.test_failed", { error: err.message })
-        : t("pages.alerts.errors.test_delivery_failed");
+    errorMessage.value = toErrorMessage(err, t("pages.alerts.errors.test_delivery_failed"));
   } finally {
     testingRuleId.value = null;
   }
@@ -142,7 +138,7 @@ function confirmDelete() {
             <td>
               <HoverPreview class="cell-truncate" :text="rule.webhookUrl" mono>{{ rule.webhookUrl }}</HoverPreview>
             </td>
-            <td>{{ formatMaybeDate(rule.lastFiredAt) }}</td>
+            <td>{{ formatMaybeDate(rule.lastFiredAt, tk("common.never")) }}</td>
             <td>
               <TogglePill
                 :on="rule.enabled"

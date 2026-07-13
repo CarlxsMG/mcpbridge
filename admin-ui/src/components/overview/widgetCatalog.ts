@@ -44,6 +44,7 @@ import {
   Hash,
 } from "lucide-vue-next";
 import { pct } from "@/utils/format";
+import { tk } from "@/i18n";
 import type {
   OverviewStats,
   UsageSummary,
@@ -243,17 +244,19 @@ export interface StatMetricDef {
 }
 
 function healthSegments(o: OverviewStats): Segment[] {
+  // Reuses `badges.status_*` — same "Healthy"/"Degraded"/"Unreachable" concept
+  // already translated for the server-status badge elsewhere in the UI.
   return [
-    { label: "Healthy", value: o.clients.healthy, color: C_OK },
-    { label: "Degraded", value: o.clients.degraded, color: C_WARN },
-    { label: "Unreachable", value: o.clients.unreachable, color: C_BAD },
+    { label: tk("badges.status_healthy"), value: o.clients.healthy, color: C_OK },
+    { label: tk("badges.status_degraded"), value: o.clients.degraded, color: C_WARN },
+    { label: tk("badges.status_unreachable"), value: o.clients.unreachable, color: C_BAD },
   ].filter((s) => s.value > 0);
 }
 
 export const STAT_METRICS: StatMetricDef[] = [
   {
     id: "clients.live",
-    label: "Live servers",
+    label: "components.overview.widgets.stat.clients_live.label",
     group: "overview",
     source: "overview",
     icon: "server",
@@ -261,13 +264,13 @@ export const STAT_METRICS: StatMetricDef[] = [
       s.overview && {
         value: s.overview.clients.live,
         display: String(s.overview.clients.live),
-        detail: `${s.overview.clients.disabled} disabled`,
+        detail: tk("components.overview.widgets.stat.clients_live.detail", { count: s.overview.clients.disabled }),
         segments: healthSegments(s.overview),
       },
   },
   {
     id: "tools.total",
-    label: "Total tools",
+    label: "components.overview.widgets.stat.tools_total.label",
     group: "overview",
     source: "overview",
     icon: "wrench",
@@ -275,12 +278,12 @@ export const STAT_METRICS: StatMetricDef[] = [
       s.overview && {
         value: s.overview.tools.total,
         display: String(s.overview.tools.total),
-        detail: `${s.overview.tools.disabled} disabled`,
+        detail: tk("components.overview.widgets.stat.tools_total.detail", { count: s.overview.tools.disabled }),
       },
   },
   {
     id: "breakers.open",
-    label: "Breakers open",
+    label: "components.overview.widgets.stat.breakers_open.label",
     group: "overview",
     source: "overview",
     icon: "breaker",
@@ -290,12 +293,14 @@ export const STAT_METRICS: StatMetricDef[] = [
       s.overview && {
         value: s.overview.circuit_breakers.open,
         display: String(s.overview.circuit_breakers.open),
-        detail: `${s.overview.circuit_breakers.half_open} half-open`,
+        detail: tk("components.overview.widgets.stat.breakers_open.detail", {
+          count: s.overview.circuit_breakers.half_open,
+        }),
       },
   },
   {
     id: "admins",
-    label: "Admin users",
+    label: "components.overview.widgets.stat.admins.label",
     group: "overview",
     source: "overview",
     icon: "shield",
@@ -303,7 +308,7 @@ export const STAT_METRICS: StatMetricDef[] = [
   },
   {
     id: "usage.calls",
-    label: "Calls",
+    label: "components.overview.widgets.stat.usage_calls.label",
     group: "usage",
     source: "usageSummary",
     icon: "activity",
@@ -311,7 +316,7 @@ export const STAT_METRICS: StatMetricDef[] = [
   },
   {
     id: "usage.errors",
-    label: "Errors",
+    label: "components.overview.widgets.stat.usage_errors.label",
     group: "usage",
     source: "usageSummary",
     icon: "alert",
@@ -321,7 +326,7 @@ export const STAT_METRICS: StatMetricDef[] = [
   },
   {
     id: "usage.errorRate",
-    label: "Error rate",
+    label: "components.overview.widgets.stat.usage_error_rate.label",
     group: "usage",
     source: "usageSummary",
     icon: "percent",
@@ -331,7 +336,7 @@ export const STAT_METRICS: StatMetricDef[] = [
   },
   {
     id: "usage.avgMs",
-    label: "Avg latency",
+    label: "components.overview.widgets.stat.usage_avg_ms.label",
     group: "usage",
     source: "usageSummary",
     icon: "timer",
@@ -339,7 +344,7 @@ export const STAT_METRICS: StatMetricDef[] = [
   },
   {
     id: "usage.maxMs",
-    label: "Max latency",
+    label: "components.overview.widgets.stat.usage_max_ms.label",
     group: "usage",
     source: "usageSummary",
     icon: "gauge",
@@ -347,7 +352,7 @@ export const STAT_METRICS: StatMetricDef[] = [
   },
   {
     id: "usage.tools",
-    label: "Active tools",
+    label: "components.overview.widgets.stat.usage_tools.label",
     group: "usage",
     source: "usageSummary",
     icon: "wrench",
@@ -355,7 +360,7 @@ export const STAT_METRICS: StatMetricDef[] = [
   },
   {
     id: "usage.keys",
-    label: "Active keys",
+    label: "components.overview.widgets.stat.usage_keys.label",
     group: "usage",
     source: "usageSummary",
     icon: "key",
@@ -363,7 +368,7 @@ export const STAT_METRICS: StatMetricDef[] = [
   },
   {
     id: "approvals.pending",
-    label: "Pending approvals",
+    label: "components.overview.widgets.stat.approvals_pending.label",
     group: "access",
     source: "approvals",
     icon: "approvals",
@@ -376,13 +381,17 @@ export const STAT_METRICS: StatMetricDef[] = [
   },
   {
     id: "ws.connections",
-    label: "Live WS connections",
+    label: "components.overview.widgets.stat.ws_connections.label",
     group: "access",
     source: "wsProxyTargets",
     icon: "cable",
     get: (s) => {
       const n = s.wsProxyTargets.reduce((sum, t) => sum + (t.activeConnections ?? 0), 0);
-      return { value: n, display: String(n), detail: `${s.wsProxyTargets.length} target(s)` };
+      return {
+        value: n,
+        display: String(n),
+        detail: tk("components.overview.widgets.stat.ws_connections.detail", { count: s.wsProxyTargets.length }),
+      };
     },
   },
 ];
@@ -412,53 +421,57 @@ function monitorState(m: MonitorRecord): MonitorState {
 export const DONUT_BREAKDOWNS: DonutBreakdownDef[] = [
   {
     id: "clients.health",
-    label: "Server health",
+    label: "components.overview.widgets.donut.clients_health.label",
     group: "health",
     source: "overview",
     get: (s) => (s.overview ? healthSegments(s.overview) : []),
   },
   {
     id: "breakers",
-    label: "Circuit breakers",
+    label: "components.overview.widgets.donut.breakers.label",
     group: "health",
     source: "overview",
+    // Reuses `badges.status_*` — same "Closed"/"Half-open"/"Open" concept
+    // already translated for the circuit-breaker badge elsewhere in the UI.
     get: (s) =>
       s.overview
         ? [
-            { label: "Closed", value: s.overview.circuit_breakers.closed, color: C_OK },
-            { label: "Half-open", value: s.overview.circuit_breakers.half_open, color: C_WARN },
-            { label: "Open", value: s.overview.circuit_breakers.open, color: C_BAD },
+            { label: tk("badges.status_closed"), value: s.overview.circuit_breakers.closed, color: C_OK },
+            { label: tk("badges.status_half_open"), value: s.overview.circuit_breakers.half_open, color: C_WARN },
+            { label: tk("badges.status_open"), value: s.overview.circuit_breakers.open, color: C_BAD },
           ].filter((x) => x.value > 0)
         : [],
   },
   {
     id: "monitors.status",
-    label: "Monitor status",
+    label: "components.overview.widgets.donut.monitors_status.label",
     group: "health",
     source: "monitors",
+    // Reuses `pages.monitors.state.*` — same state labels the Monitors page itself uses.
     get: (s) => {
       const counts: Record<MonitorState, number> = { healthy: 0, drift: 0, failing: 0, never: 0, disabled: 0 };
       for (const m of s.monitors) counts[monitorState(m)]++;
       return [
-        { label: "Healthy", value: counts.healthy, color: C_OK },
-        { label: "Drift detected", value: counts.drift, color: C_WARN },
-        { label: "Failing", value: counts.failing, color: C_BAD },
-        { label: "Never checked", value: counts.never, color: C_MUTED },
-        { label: "Disabled", value: counts.disabled, color: C_NEUTRAL },
+        { label: tk("pages.monitors.state.healthy"), value: counts.healthy, color: C_OK },
+        { label: tk("pages.monitors.state.drift"), value: counts.drift, color: C_WARN },
+        { label: tk("pages.monitors.state.failing"), value: counts.failing, color: C_BAD },
+        { label: tk("pages.monitors.state.never"), value: counts.never, color: C_MUTED },
+        { label: tk("pages.monitors.state.disabled"), value: counts.disabled, color: C_NEUTRAL },
       ].filter((x) => x.value > 0);
     },
   },
   {
     id: "approvals.status",
-    label: "Approvals",
+    label: "components.overview.widgets.donut.approvals_status.label",
     group: "access",
     source: "approvals",
+    // Reuses `pages.approvals.status.*` — same status labels the Approvals page itself uses.
     get: (s) => {
       const by = (st: string) => s.approvals.filter((a) => a.status === st).length;
       return [
-        { label: "Pending", value: by("pending"), color: C_WARN },
-        { label: "Approved", value: by("approved"), color: C_OK },
-        { label: "Rejected", value: by("rejected"), color: C_BAD },
+        { label: tk("pages.approvals.status.pending"), value: by("pending"), color: C_WARN },
+        { label: tk("pages.approvals.status.approved"), value: by("approved"), color: C_OK },
+        { label: tk("pages.approvals.status.rejected"), value: by("rejected"), color: C_BAD },
       ].filter((x) => x.value > 0);
     },
   },
@@ -479,34 +492,38 @@ export interface BarsRankingDef {
 export const BARS_RANKINGS: BarsRankingDef[] = [
   {
     id: "topTools",
-    label: "Top tools by calls",
+    label: "components.overview.widgets.bars.top_tools.label",
     group: "usage",
     source: "topTools",
     get: (s) =>
       s.topTools.slice(0, 8).map((t) => ({
         label: `${t.client}/${t.tool}`,
         value: t.calls,
-        hint: t.errors ? `${t.errors} err` : undefined,
+        hint: t.errors ? tk("components.overview.widgets.bars.top_tools.hint_errors", { count: t.errors }) : undefined,
         danger: t.errorRate > 0.1,
       })),
   },
   {
     id: "byKey",
-    label: "Calls by API key",
+    label: "components.overview.widgets.bars.by_key.label",
     group: "usage",
     source: "byKey",
     get: (s) => s.byKey.slice(0, 8).map((k) => ({ label: k.label, value: k.calls })),
   },
   {
     id: "consumers.quota",
-    label: "Consumer usage",
+    label: "components.overview.widgets.bars.consumers_quota.label",
     group: "access",
     source: "consumers",
+    // Reuses `pages.consumers.unlimited` — same wording the Consumers page uses.
     get: (s) =>
       s.consumers.slice(0, 8).map((c) => ({
         label: c.name,
         value: c.usedThisMonth,
-        hint: c.monthlyQuota != null ? `of ${c.monthlyQuota}` : "unlimited",
+        hint:
+          c.monthlyQuota != null
+            ? tk("components.overview.widgets.bars.consumers_quota.hint_of_quota", { quota: c.monthlyQuota })
+            : tk("pages.consumers.unlimited"),
         danger: c.monthlyQuota != null && c.usedThisMonth >= c.monthlyQuota,
       })),
   },
@@ -527,24 +544,28 @@ export interface ListFeedDef {
 function relTime(ms: number | null | undefined): string {
   if (ms == null) return "—";
   const diff = Date.now() - ms;
-  if (diff < 0) return "just now";
+  if (diff < 0) return tk("components.overview.widgets.relative_time.just_now");
   const m = Math.floor(diff / 60_000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return tk("components.overview.widgets.relative_time.just_now");
+  if (m < 60) return tk("components.overview.widgets.relative_time.minutes_ago", { m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return tk("components.overview.widgets.relative_time.hours_ago", { h });
+  return tk("components.overview.widgets.relative_time.days_ago", { d: Math.floor(h / 24) });
 }
 
 export const LIST_FEEDS: ListFeedDef[] = [
   {
     id: "audit.recent",
-    label: "Recent activity",
+    label: "components.overview.widgets.list.audit_recent.label",
     group: "activity",
     source: "auditLog",
     get: (s) => ({
-      head: ["Action", "Target", "When"],
-      empty: "No recent admin actions.",
+      head: [
+        tk("components.overview.widgets.list.audit_recent.head_action"),
+        tk("components.overview.widgets.list.audit_recent.head_target"),
+        tk("components.overview.widgets.list.audit_recent.head_when"),
+      ],
+      empty: tk("components.overview.widgets.list.audit_recent.empty"),
       rows: s.auditLog.slice(0, 8).map((e) => ({
         key: String(e.id),
         cells: [
@@ -557,17 +578,27 @@ export const LIST_FEEDS: ListFeedDef[] = [
   },
   {
     id: "traffic.recent",
-    label: "Recent calls",
+    label: "components.overview.widgets.list.traffic_recent.label",
     group: "activity",
     source: "traffic",
+    // Reuses `pages.traffic.table.status_error` / `status_ok` — same wording
+    // the Traffic page itself uses for the identical error/OK distinction.
     get: (s) => ({
-      head: ["Tool", "Status", "Duration", "When"],
-      empty: "No captured calls (needs TRAFFIC_CAPTURE).",
+      head: [
+        tk("components.overview.widgets.list.traffic_recent.head_tool"),
+        tk("components.overview.widgets.list.traffic_recent.head_status"),
+        tk("components.overview.widgets.list.traffic_recent.head_duration"),
+        tk("components.overview.widgets.list.traffic_recent.head_when"),
+      ],
+      empty: tk("components.overview.widgets.list.traffic_recent.empty"),
       rows: s.traffic.slice(0, 8).map((t) => ({
         key: String(t.id),
         cells: [
           { text: t.mcpToolName, mono: true },
-          { text: t.isError ? "Error" : "OK", tone: t.isError ? "bad" : "ok" },
+          {
+            text: t.isError ? tk("pages.traffic.table.status_error") : tk("pages.traffic.table.status_ok"),
+            tone: t.isError ? "bad" : "ok",
+          },
           { text: `${t.durationMs}ms` },
           { text: relTime(t.createdAt), tone: "neutral" },
         ],
@@ -576,14 +607,17 @@ export const LIST_FEEDS: ListFeedDef[] = [
   },
   {
     id: "approvals.pending",
-    label: "Pending approvals",
+    label: "components.overview.widgets.list.approvals_pending.label",
     group: "access",
     source: "approvals",
     get: (s) => {
       const pending = s.approvals.filter((a) => a.status === "pending");
       return {
-        head: ["Tool", "Requested"],
-        empty: "No approvals waiting.",
+        head: [
+          tk("components.overview.widgets.list.approvals_pending.head_tool"),
+          tk("components.overview.widgets.list.approvals_pending.head_requested"),
+        ],
+        empty: tk("components.overview.widgets.list.approvals_pending.empty"),
         rows: pending.slice(0, 8).map((a) => ({
           key: String(a.id),
           cells: [
@@ -596,19 +630,25 @@ export const LIST_FEEDS: ListFeedDef[] = [
   },
   {
     id: "clients.unhealthy",
-    label: "Unhealthy servers",
+    label: "components.overview.widgets.list.clients_unhealthy.label",
     group: "health",
     source: "clients",
     get: (s) => {
       const bad = s.clients.filter((c) => c.status && c.status !== "healthy");
       return {
-        head: ["Server", "Status"],
-        empty: "All servers healthy.",
+        head: [
+          tk("components.overview.widgets.list.clients_unhealthy.head_server"),
+          tk("components.overview.widgets.list.clients_unhealthy.head_status"),
+        ],
+        empty: tk("components.overview.widgets.list.clients_unhealthy.empty"),
         rows: bad.slice(0, 8).map((c) => ({
           key: c.name,
           cells: [
             { text: c.name, mono: true },
-            { text: c.status ?? "unknown", tone: c.status === "unreachable" ? "bad" : "warn" },
+            {
+              text: c.status ?? tk("components.overview.widgets.list.clients_unhealthy.unknown_status"),
+              tone: c.status === "unreachable" ? "bad" : "warn",
+            },
           ],
         })),
       };
@@ -631,27 +671,27 @@ export interface TimeseriesSeriesDef {
 export const TIMESERIES_SERIES: TimeseriesSeriesDef[] = [
   {
     id: "calls.errors",
-    label: "Calls & errors over time",
+    label: "components.overview.widgets.series.calls_errors.label",
     group: "usage",
     source: "usageTimeseries",
     get: (s) =>
       s.usageTimeseries && {
         points: s.usageTimeseries.points.map((p) => ({ t: p.t, v: p.calls })),
         secondaryPoints: s.usageTimeseries.points.map((p) => ({ t: p.t, v: p.errors })),
-        primaryLabel: "Calls",
-        secondaryLabel: "Errors",
+        primaryLabel: tk("components.overview.widgets.series.calls_errors.primary"),
+        secondaryLabel: tk("components.overview.widgets.series.calls_errors.secondary"),
         bucketMs: s.usageTimeseries.bucketMs,
       },
   },
   {
     id: "latency",
-    label: "Avg latency over time",
+    label: "components.overview.widgets.series.latency.label",
     group: "usage",
     source: "usageTimeseries",
     get: (s) =>
       s.usageTimeseries && {
         points: s.usageTimeseries.points.map((p) => ({ t: p.t, v: p.avgMs })),
-        primaryLabel: "Avg latency",
+        primaryLabel: tk("components.overview.widgets.series.latency.primary"),
         bucketMs: s.usageTimeseries.bucketMs,
         valueFormat: (n: number) => `${n}ms`,
       },
@@ -713,7 +753,9 @@ export interface WidgetPreset {
   key: string;
   viz: WidgetViz;
   group: WidgetGroup;
+  /** i18n key path (GROUP_LABELS pattern) — resolve with `t()` at render time, not raw text. */
   label: string;
+  /** i18n key path (GROUP_LABELS pattern) — resolve with `t()` at render time, not raw text. */
   description: string;
   icon: Component;
   /** Builds a fresh instance (new id) for this preset. */
@@ -738,13 +780,20 @@ export function genId(): string {
   return `w-${idSeq}-${Math.floor(Math.random() * 1e9).toString(36)}`;
 }
 
+// `def.label` is an i18n KEY PATH (see the GROUP_LABELS precedent above), not
+// display text — these instance builders resolve it to real text via `tk()`
+// *once*, at creation time, so the persisted `options.title` is a normal
+// editable string (shown as-is in WidgetConfigDialog's title input and in
+// each widget's card header) rather than a raw key path. Like any
+// user-editable title, it does not retroactively re-translate on a later
+// locale switch — same behavior as a custom title the user typed themselves.
 function statInstance(def: StatMetricDef, id = genId()): WidgetInstance {
   return {
     id,
     type: "stat",
     ...DEFAULT_SIZE.stat,
     options: {
-      title: def.label,
+      title: tk(def.label),
       metric: def.id,
       icon: def.icon,
       unit: def.unit,
@@ -754,16 +803,16 @@ function statInstance(def: StatMetricDef, id = genId()): WidgetInstance {
   };
 }
 function donutInstance(def: DonutBreakdownDef, id = genId()): WidgetInstance {
-  return { id, type: "donut", ...DEFAULT_SIZE.donut, options: { title: def.label, breakdown: def.id } };
+  return { id, type: "donut", ...DEFAULT_SIZE.donut, options: { title: tk(def.label), breakdown: def.id } };
 }
 function barsInstance(def: BarsRankingDef, id = genId()): WidgetInstance {
-  return { id, type: "bars", ...DEFAULT_SIZE.bars, options: { title: def.label, ranking: def.id } };
+  return { id, type: "bars", ...DEFAULT_SIZE.bars, options: { title: tk(def.label), ranking: def.id } };
 }
 function listInstance(def: ListFeedDef, id = genId()): WidgetInstance {
-  return { id, type: "list", ...DEFAULT_SIZE.list, options: { title: def.label, feed: def.id } };
+  return { id, type: "list", ...DEFAULT_SIZE.list, options: { title: tk(def.label), feed: def.id } };
 }
 function seriesInstance(def: TimeseriesSeriesDef, id = genId()): WidgetInstance {
-  return { id, type: "timeseries", ...DEFAULT_SIZE.timeseries, options: { title: def.label, series: def.id } };
+  return { id, type: "timeseries", ...DEFAULT_SIZE.timeseries, options: { title: tk(def.label), series: def.id } };
 }
 export function noteInstance(id = genId()): WidgetInstance {
   return {
@@ -785,13 +834,17 @@ const VIZ_ICON: Record<WidgetViz, Component> = {
 
 // Curated presets (one per registry entry) + a "custom" group whose entries
 // create a blank-ish widget and open the config dialog as a builder.
+//
+// `label`/`description` are i18n KEY PATHS here too (same GROUP_LABELS
+// precedent) — AddWidgetDialog.vue resolves them via `t()` at render time, so
+// this module-level array (evaluated once at import) never bakes in a locale.
 export const CATALOG_PRESETS: WidgetPreset[] = [
   ...STAT_METRICS.map<WidgetPreset>((d) => ({
     key: `stat:${d.id}`,
     viz: "stat",
     group: d.group,
     label: d.label,
-    description: `Single number — ${d.label.toLowerCase()}`,
+    description: "components.overview.widgets.descriptions.stat",
     icon: resolveIcon(d.icon),
     create: () => statInstance(d),
   })),
@@ -800,7 +853,7 @@ export const CATALOG_PRESETS: WidgetPreset[] = [
     viz: "timeseries",
     group: d.group,
     label: d.label,
-    description: "Line + area over the selected time window",
+    description: "components.overview.widgets.descriptions.timeseries",
     icon: VIZ_ICON.timeseries,
     create: () => seriesInstance(d),
   })),
@@ -809,7 +862,7 @@ export const CATALOG_PRESETS: WidgetPreset[] = [
     viz: "donut",
     group: d.group,
     label: d.label,
-    description: "Proportion ring",
+    description: "components.overview.widgets.descriptions.donut",
     icon: VIZ_ICON.donut,
     create: () => donutInstance(d),
   })),
@@ -818,7 +871,7 @@ export const CATALOG_PRESETS: WidgetPreset[] = [
     viz: "bars",
     group: d.group,
     label: d.label,
-    description: "Ranked horizontal bars",
+    description: "components.overview.widgets.descriptions.bars",
     icon: VIZ_ICON.bars,
     create: () => barsInstance(d),
   })),
@@ -827,7 +880,7 @@ export const CATALOG_PRESETS: WidgetPreset[] = [
     viz: "list",
     group: d.group,
     label: d.label,
-    description: "Compact recent-activity table",
+    description: "components.overview.widgets.descriptions.list",
     icon: VIZ_ICON.list,
     create: () => listInstance(d),
   })),
@@ -835,8 +888,8 @@ export const CATALOG_PRESETS: WidgetPreset[] = [
     key: "note",
     viz: "note",
     group: "custom",
-    label: "Text / note",
-    description: "A free-text markdown panel for annotations and links",
+    label: "components.overview.widgets.note_preset_label",
+    description: "components.overview.widgets.descriptions.note",
     icon: VIZ_ICON.note,
     create: () => noteInstance(),
   },

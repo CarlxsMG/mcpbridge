@@ -9,6 +9,7 @@ import { tk } from "@/i18n";
 import type { Team } from "@/types/api";
 import ConfigSection from "./ConfigSection.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const props = defineProps<{ clientName: string; teamId: number | null }>();
 const { t } = useI18n({ useScope: "global" });
@@ -66,6 +67,6 @@ async function assignTeam(teamId: number | null) {
         @update:model-value="assignTeam"
       />
     </div>
-    <p v-if="teamError" class="error">{{ teamError }}</p>
+    <FieldError :message="teamError" />
   </ConfigSection>
 </template>

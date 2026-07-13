@@ -7,7 +7,7 @@ import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useAuth } from "@/composables/useAuth";
 import { useTheme } from "@/composables/useTheme";
 import { useDensity } from "@/composables/useDensity";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
 import type { AdminSession } from "@/types/api";
@@ -21,7 +21,6 @@ import { Lock, Monitor, LogOut, SlidersHorizontal, Languages } from "lucide-vue-
 import { useLocale } from "@/composables/useLocale";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 
 const { state: authState } = useAuth();
 const { theme, setTheme } = useTheme();

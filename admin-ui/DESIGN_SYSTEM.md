@@ -313,13 +313,13 @@ boolean` (skip making the trigger span itself a tab stop — use when the defaul
   `ServerDetailLb.vue` (`usePatchResource(() => clientPath(props.clientName, "lb"))`) — also
   `ServerDetailUpstreamAuth.vue`, `ServerDetailOAuth.vue`, `ServerDetailCanary.vue`,
   `ServerDetailTeam.vue`. `usePatchTool.ts` builds a tool-scoped variant on top of it.
-- **`useDraftField<T>(source: () => T, save: (value: T) => Promise<unknown>, options?: { fallbackMessage?: string; isEqual?: (a: T, b: T) => boolean })`**
+- **`useFieldDraft<T>(source: () => T, save: (value: T) => Promise<unknown>, options?: { fallbackMessage?: string; isEqual?: (a: T, b: T) => boolean })`**
   — Generalizes the draft/dirty/save trio: `draft` ref seeded from `source()`, `dirty` computed
   _live_ against `source()` (not a snapshot taken at construction), `saving`/`errorMessage` refs,
   `sync()` to pull a fresh value in after a reload, `commit()` to save (no-ops if not dirty). **Use
   when:** a field needs local edit state tracked against "changed vs. current source" plus a save
   action (description/tools/schema/steps-style fields). **Example:** see `BundleDetailPage.vue`
-  (description field, and `useDraftField<BundleToolRef[]>` for the tools list).
+  (description field, and `useFieldDraft<BundleToolRef[]>` for the tools list).
 - **`usePropDraft<T>(source: () => T): Ref<T>`** — Generalizes the
   `ref(transform(props.x)) + watch(() => props.x, v => draft.value = transform(v))` pair. No
   dirty/save tracking of its own — pair it with a save call (e.g. `usePatchTool`) for that. **Use

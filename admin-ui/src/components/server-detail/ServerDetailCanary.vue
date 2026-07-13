@@ -11,6 +11,7 @@ import type { CanaryConfig } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const props = defineProps<{ clientName: string }>();
 const { t } = useI18n({ useScope: "global" });
@@ -105,7 +106,7 @@ const {
       >
       <button type="submit" class="btn-secondary">{{ t("components.server_detail_canary.save") }}</button>
     </form>
-    <p v-if="canaryError || clearCanaryError" class="error">{{ canaryError || clearCanaryError }}</p>
+    <FieldError :message="canaryError || clearCanaryError" />
   </ConfigSection>
 
   <ConfirmDialog

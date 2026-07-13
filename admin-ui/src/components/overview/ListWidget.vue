@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import WidgetCard from "./WidgetCard.vue";
 import { LIST_BY_ID, cellToneColor, type DashboardStores, type WidgetInstance } from "./widgetCatalog";
 
 const props = defineProps<{ widget: WidgetInstance; stores: DashboardStores }>();
+const { t } = useI18n({ useScope: "global" });
 const def = computed(() => LIST_BY_ID.get(props.widget.options.feed ?? ""));
 const feed = computed(() => def.value?.get(props.stores) ?? null);
 </script>
@@ -29,7 +31,7 @@ const feed = computed(() => def.value?.get(props.stores) ?? null);
         </tr>
       </tbody>
     </table>
-    <p v-else class="w-muted">{{ feed?.empty ?? "No data." }}</p>
+    <p v-else class="w-muted">{{ feed?.empty ?? t("components.charts.no_data") }}</p>
   </WidgetCard>
 </template>
 

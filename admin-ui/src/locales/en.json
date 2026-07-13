@@ -32,6 +32,8 @@
     "connect_client": "Connect client",
     "done": "Done",
     "creating": "Creating…",
+    "never": "Never",
+    "skip_to_content": "Skip to content",
     "time_windows": {
       "last_24h": "Last 24 hours",
       "last_7d": "Last 7 days",
@@ -836,6 +838,83 @@
         "access": "Access",
         "activity": "Activity",
         "custom": "Custom"
+      },
+      "widgets": {
+        "note_preset_label": "Text / note",
+        "descriptions": {
+          "stat": "Single number",
+          "timeseries": "Line + area over the selected time window",
+          "donut": "Proportion ring",
+          "bars": "Ranked horizontal bars",
+          "list": "Compact recent-activity table",
+          "note": "A free-text markdown panel for annotations and links"
+        },
+        "stat": {
+          "clients_live": { "label": "Live servers", "detail": "{count} disabled" },
+          "tools_total": { "label": "Total tools", "detail": "{count} disabled" },
+          "breakers_open": { "label": "Breakers open", "detail": "{count} half-open" },
+          "admins": { "label": "Admin users" },
+          "usage_calls": { "label": "Calls" },
+          "usage_errors": { "label": "Errors" },
+          "usage_error_rate": { "label": "Error rate" },
+          "usage_avg_ms": { "label": "Avg latency" },
+          "usage_max_ms": { "label": "Max latency" },
+          "usage_tools": { "label": "Active tools" },
+          "usage_keys": { "label": "Active keys" },
+          "approvals_pending": { "label": "Pending approvals" },
+          "ws_connections": { "label": "Live WS connections", "detail": "{count} target(s)" }
+        },
+        "donut": {
+          "clients_health": { "label": "Server health" },
+          "breakers": { "label": "Circuit breakers" },
+          "monitors_status": { "label": "Monitor status" },
+          "approvals_status": { "label": "Approvals" }
+        },
+        "bars": {
+          "top_tools": { "label": "Top tools by calls", "hint_errors": "{count} err" },
+          "by_key": { "label": "Calls by API key" },
+          "consumers_quota": { "label": "Consumer usage", "hint_of_quota": "of {quota}" }
+        },
+        "list": {
+          "audit_recent": {
+            "label": "Recent activity",
+            "head_action": "Action",
+            "head_target": "Target",
+            "head_when": "When",
+            "empty": "No recent admin actions."
+          },
+          "traffic_recent": {
+            "label": "Recent calls",
+            "head_tool": "Tool",
+            "head_status": "Status",
+            "head_duration": "Duration",
+            "head_when": "When",
+            "empty": "No captured calls (needs TRAFFIC_CAPTURE)."
+          },
+          "approvals_pending": {
+            "label": "Pending approvals",
+            "head_tool": "Tool",
+            "head_requested": "Requested",
+            "empty": "No approvals waiting."
+          },
+          "clients_unhealthy": {
+            "label": "Unhealthy servers",
+            "head_server": "Server",
+            "head_status": "Status",
+            "empty": "All servers healthy.",
+            "unknown_status": "unknown"
+          }
+        },
+        "series": {
+          "calls_errors": { "label": "Calls & errors over time", "primary": "Calls", "secondary": "Errors" },
+          "latency": { "label": "Avg latency over time", "primary": "Avg latency" }
+        },
+        "relative_time": {
+          "just_now": "just now",
+          "minutes_ago": "{m}m ago",
+          "hours_ago": "{h}h ago",
+          "days_ago": "{d}d ago"
+        }
       }
     }
   },
@@ -1235,7 +1314,6 @@
         "load_failed": "Failed to load alerts.",
         "toggle_failed": "Failed to update.",
         "delete_failed": "Failed to delete alert.",
-        "test_failed": "Test failed: {error}",
         "test_delivery_failed": "Test delivery failed."
       },
       "event_types": {
@@ -2048,6 +2126,36 @@
       "subtitle": "The page you're looking for doesn't exist (or no longer does).",
       "go_servers": "Go to servers",
       "go_overview": "Go to overview"
+    }
+  },
+  "utils": {
+    "cron": {
+      "every_minute": "Every minute",
+      "every_n_minutes": {
+        "one": "Every {n} minute",
+        "other": "Every {n} minutes"
+      },
+      "every_n_hours_at_minute": {
+        "one": "Every {n} hour, at minute {min}",
+        "other": "Every {n} hours, at minute {min}"
+      },
+      "every_day_at": "Every day at {time}",
+      "every_weekday_at": "Every weekday at {time}",
+      "every_day_range_at": "Every day from {from} to {to} at {time}",
+      "every_days_at": "Every {days} at {time}",
+      "on_day_of_month_at": "On day {dom} of the month at {time}",
+      "am": "AM",
+      "pm": "PM",
+      "time_of_day": "{hour}:{minute} {period} UTC",
+      "weekdays": {
+        "sunday": "Sunday",
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday"
+      }
     }
   },
   "demo": {

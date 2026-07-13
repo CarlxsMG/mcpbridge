@@ -8,7 +8,7 @@ import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
 import { compositePath } from "@/utils/apiPaths";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import type { CompositeSummary } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -19,7 +19,6 @@ import TogglePill from "@/components/ui/TogglePill.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 
 const loadFallback = tk("pages.composites.errors.load_failed");
 const toggleFallback = tk("pages.composites.errors.update_failed");

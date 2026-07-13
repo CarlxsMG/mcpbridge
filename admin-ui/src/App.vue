@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useAuth } from "./composables/useAuth";
 import { useLiveSignal } from "./composables/useLiveSignal";
@@ -16,6 +17,7 @@ import TheMobileTopbar from "./components/layout/TheMobileTopbar.vue";
 import TheSidebar from "./components/layout/TheSidebar.vue";
 
 const route = useRoute();
+const { t } = useI18n({ useScope: "global" });
 const { state } = useAuth();
 const { start: startLiveSignal, stop: stopLiveSignal } = useLiveSignal();
 
@@ -52,12 +54,13 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <a href="#main-content" class="skip-link">{{ t("common.skip_to_content") }}</a>
   <DemoRibbon />
   <div v-if="showShell" class="app-shell">
     <TheMobileTopbar :nav-open="mobileNavOpen" @toggle-nav="mobileNavOpen = !mobileNavOpen" />
     <div v-if="mobileNavOpen" class="mobile-nav-backdrop" @click="mobileNavOpen = false"></div>
     <TheSidebar :nav-open="mobileNavOpen" />
-    <main class="content">
+    <main id="main-content" class="content">
       <RouterView />
     </main>
   </div>
@@ -66,6 +69,24 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  z-index: var(--z-command-palette);
+  background: var(--surface);
+  color: var(--text-primary);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-base);
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus {
+  left: var(--space-4);
+  top: var(--space-4);
+}
 .app-shell {
   display: flex;
   height: 100vh;

@@ -24,6 +24,7 @@ import TogglePill from "@/components/ui/TogglePill.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import KindBadge from "@/components/ui/KindBadge.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 import { Server, Tags, ChevronRight } from "lucide-vue-next";
 import { i18n } from "../i18n";
 
@@ -224,7 +225,7 @@ onMounted(() => load());
 
     <div v-if="showTagBrowser" class="tag-browser">
       <SignalLoader v-if="tagsLoading" />
-      <p v-else-if="tagsError" class="error">{{ tagsError }}</p>
+      <FieldError v-else-if="tagsError" :message="tagsError" />
       <p v-else-if="tags.length === 0" class="subtitle">
         {{ t("pages.servers.empty.tags") }}
       </p>
@@ -244,7 +245,7 @@ onMounted(() => load());
         </div>
         <div v-if="selectedTag" class="tag-tools">
           <SignalLoader v-if="tagToolsLoading" />
-          <p v-else-if="tagToolsError" class="error">{{ tagToolsError }}</p>
+          <FieldError v-else-if="tagToolsError" :message="tagToolsError" />
           <p v-else-if="tagTools.length === 0" class="subtitle">
             {{ t("pages.servers.empty.tag_tools", { tag: selectedTag }) }}
           </p>
@@ -283,7 +284,7 @@ onMounted(() => load());
       <button type="button" class="link-btn" @click="selected = new Set()">
         {{ t("pages.servers.clear_selection") }}
       </button>
-      <span v-if="bulkError" class="error">{{ bulkError }}</span>
+      <span v-if="bulkError" class="error" role="alert">{{ bulkError }}</span>
     </div>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">

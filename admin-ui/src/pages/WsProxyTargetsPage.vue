@@ -18,6 +18,7 @@ import EmptyState from "@/components/ui/EmptyState.vue";
 import FormField from "@/components/ui/FormField.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 import { Waypoints } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
@@ -180,7 +181,7 @@ async function confirmDelete() {
       <FormField :label="t('pages.ws_proxy_targets.fields.idle_timeout')" for="wp-idle">
         <input id="wp-idle" v-model="newIdleTimeoutMinutes" type="text" inputmode="numeric" />
       </FormField>
-      <p v-if="createError" class="error">{{ createError }}</p>
+      <FieldError :message="createError" />
       <div class="form-actions">
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("pages.ws_proxy_targets.saving") : t("pages.ws_proxy_targets.save_changes") }}

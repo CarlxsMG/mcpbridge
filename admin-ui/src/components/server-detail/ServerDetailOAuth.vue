@@ -10,6 +10,7 @@ import { tk } from "@/i18n";
 import type { ClientOAuthConfig } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const props = defineProps<{ clientName: string }>();
 const { t } = useI18n({ useScope: "global" });
@@ -112,7 +113,7 @@ const {
         >{{ t("components.server_detail_oauth.fields.scope") }}
         <input v-model="oauthScope" autocomplete="off" placeholder="read write"
       /></label>
-      <p v-if="oauthError || clearOAuthError" class="error">{{ oauthError || clearOAuthError }}</p>
+      <FieldError :message="oauthError || clearOAuthError" />
       <button type="submit" class="btn-primary" :disabled="oauthSaving">
         {{ oauthSaving ? t("common.saving") : t("components.server_detail_oauth.save") }}
       </button>

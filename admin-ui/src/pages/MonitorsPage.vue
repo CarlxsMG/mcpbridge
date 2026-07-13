@@ -5,7 +5,7 @@ import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { formatMaybeDate } from "@/utils/format";
 import { statusTone, toneColorVar } from "@/utils/status";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import type { MonitorRecord } from "@/types/api";
 import DonutChart from "@/components/charts/DonutChart.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -17,7 +17,6 @@ import HoverPreview from "@/components/ui/HoverPreview.vue";
 import { Radar, RefreshCw } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 const loadFallback = tk("pages.monitors.errors.load_failed");
 
 const {
@@ -98,7 +97,7 @@ const segments = computed(() => {
               />{{ STATE_LABEL[stateOf(m)] }}
             </td>
             <td>{{ m.intervalMinutes }}m</td>
-            <td>{{ formatMaybeDate(m.lastCheckedAt) }}</td>
+            <td>{{ formatMaybeDate(m.lastCheckedAt, tk("common.never")) }}</td>
             <td>
               <HoverPreview class="cell-truncate" :text="m.lastError ?? ''">{{ m.lastError ?? "—" }}</HoverPreview>
             </td>

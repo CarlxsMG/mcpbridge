@@ -11,6 +11,7 @@ import type { UpstreamAuthInfo, UpstreamKind } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const props = defineProps<{ clientName: string; kind: UpstreamKind }>();
 const { t } = useI18n({ useScope: "global" });
@@ -127,7 +128,7 @@ const {
           <input v-model="uaValue" type="password" autocomplete="off"
         /></label>
       </template>
-      <p v-if="uaError || clearUaError" class="error">{{ uaError || clearUaError }}</p>
+      <FieldError :message="uaError || clearUaError" />
       <button type="submit" class="btn-primary" :disabled="uaSaving">
         {{ uaSaving ? t("common.saving") : t("components.server_detail_upstream_auth.save_credentials") }}
       </button>

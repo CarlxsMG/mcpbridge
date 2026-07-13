@@ -8,6 +8,7 @@ import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { useFieldDraft } from "@/composables/useFieldDraft";
 import { useDetailPageDelete, syncAfterLoad } from "@/composables/useDetailPageDelete";
 import { compositePath } from "@/utils/apiPaths";
+import { prettyJson } from "@/utils/format";
 import { tk } from "@/i18n";
 import type { CompositeDetail, CompositeStep } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -15,6 +16,7 @@ import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const props = defineProps<{ name: string }>();
 const { t } = useI18n({ useScope: "global" });
@@ -54,7 +56,7 @@ const {
   sync: syncSchema,
   commit: saveSchema,
 } = useFieldDraft(
-  () => JSON.stringify(detail.value?.inputSchema ?? {}, null, 2),
+  () => prettyJson(detail.value?.inputSchema ?? {}),
   async (value) => {
     let inputSchema: Record<string, unknown>;
     try {
@@ -76,7 +78,7 @@ const {
   sync: syncSteps,
   commit: saveSteps,
 } = useFieldDraft(
-  () => JSON.stringify(detail.value?.steps ?? [], null, 2),
+  () => prettyJson(detail.value?.steps ?? []),
   async (value) => {
     let steps: CompositeStep[];
     try {
@@ -176,7 +178,7 @@ function toggleEnabled() {
             {{ savingDescription ? t("common.saving") : t("common.save") }}
           </button>
         </div>
-        <p v-if="descriptionError" class="error">{{ descriptionError }}</p>
+        <FieldError :message="descriptionError" />
       </FormField>
 
       <FormField :label="t('pages.composite_detail.schema_label')" for="composite-schema" class="json-field">
@@ -186,7 +188,7 @@ function toggleEnabled() {
             {{ savingSchema ? t("common.saving") : t("pages.composite_detail.save_schema") }}
           </button>
         </div>
-        <p v-if="schemaError" class="error">{{ schemaError }}</p>
+        <FieldError :message="schemaError" />
       </FormField>
 
       <FormField :label="t('pages.composite_detail.steps_label')" for="composite-steps" class="json-field">
@@ -201,7 +203,7 @@ function toggleEnabled() {
             {{ savingSteps ? t("common.saving") : t("pages.composite_detail.save_steps") }}
           </button>
         </div>
-        <p v-if="stepsError" class="error">{{ stepsError }}</p>
+        <FieldError :message="stepsError" />
       </FormField>
     </template>
 

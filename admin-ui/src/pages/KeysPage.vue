@@ -167,7 +167,7 @@ function confirmDelete() {
             <td>
               <StatusBadge :status="statusOf(key)" />
             </td>
-            <td>{{ formatMaybeDate(key.lastUsedAt) }}</td>
+            <td>{{ formatMaybeDate(key.lastUsedAt, tk("common.never")) }}</td>
             <td>{{ formatMaybeDate(key.expiresAt, "—") }}</td>
             <td>
               <div class="actions">

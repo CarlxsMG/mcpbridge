@@ -5,6 +5,7 @@ import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
+import { formatDateTime } from "@/utils/format";
 import { tk } from "@/i18n";
 import type { Team } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -73,7 +74,7 @@ async function confirmRemove() {
           <tr v-for="team in teams" :key="team.id">
             <td>{{ team.id }}</td>
             <td>{{ team.name }}</td>
-            <td>{{ new Date(team.createdAt).toLocaleDateString() }}</td>
+            <td>{{ formatDateTime(team.createdAt) }}</td>
             <td>
               <button type="button" class="link-btn danger" @click="requestRemove(team)">
                 {{ t("common.delete") }}

@@ -5,16 +5,16 @@ import { useRouter } from "vue-router";
 import { api, ApiError } from "@/composables/useApi";
 import { parseList } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import FormField from "@/components/ui/FormField.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (key: string) => (i18n.global.t as (k: string) => string)(key);
 
 const TRANSPORT_OPTIONS: { value: McpTransport; label: string }[] = [
   { value: "streamable-http", label: "Streamable HTTP" },
@@ -401,7 +401,7 @@ async function register() {
               t("pages.register_server.preview_count", { count: previewTools.length })
             }}</span>
           </div>
-          <p v-if="previewError" class="error">{{ previewError }}</p>
+          <FieldError :message="previewError" />
           <TableCard v-if="previewTools && previewTools.length" id="preview-table">
             <thead>
               <tr>

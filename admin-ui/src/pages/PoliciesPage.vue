@@ -5,7 +5,7 @@ import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import type { GuardPolicy, BundleSummary } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -16,7 +16,6 @@ import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { ShieldCheck } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 
 const policies = ref<GuardPolicy[]>([]);
 const bundles = ref<BundleSummary[]>([]);

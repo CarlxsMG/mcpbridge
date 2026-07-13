@@ -8,7 +8,7 @@ import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
 import { describeCron } from "@/utils/cron";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import type { Schedule } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -19,7 +19,6 @@ import TogglePill from "@/components/ui/TogglePill.vue";
 import { Clock } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
-const tk = (k: string) => (i18n.global.t as (key: string) => string)(k);
 const loadFallback = tk("pages.schedules.errors.load_failed");
 const toggleFallback = tk("pages.schedules.errors.toggle_failed");
 
@@ -59,7 +58,7 @@ function confirmDelete() {
 }
 
 function formatLastRun(m: number | null): string {
-  return formatMaybeDate(m === null ? null : m * 60_000);
+  return formatMaybeDate(m === null ? null : m * 60_000, tk("common.never"));
 }
 </script>
 
