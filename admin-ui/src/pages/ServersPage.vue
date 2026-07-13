@@ -350,8 +350,8 @@ onMounted(() => load());
             <td>
               <TogglePill
                 :on="client.enabled"
-                on-label="Enabled"
-                off-label="Disabled"
+                :on-label="t('common.enabled')"
+                :off-label="t('common.disabled')"
                 :aria-pressed="client.enabled"
                 @click="onToggleClick(client)"
               />

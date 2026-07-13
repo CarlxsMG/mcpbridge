@@ -57,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The Servers table's enable/disable toggle labels were hardcoded English (`"Enabled"`/`"Disabled"`)
+  — the only user-facing strings in the admin UI that bypassed i18n — so they stayed English under a
+  Spanish locale. Now routed through `t('common.enabled')` / `t('common.disabled')`, matching the
+  other eight toggle call sites.
 - `scripts/extract-routes.ts` was silently generating an **incomplete** route manifest — it captured
   only top-level `app.<method>` routes and dropped all 40 admin sub-router routes
   (`src/routes/admin/*.ts`), and had drifted four routes stale — which left admin-ui's demo-contract
