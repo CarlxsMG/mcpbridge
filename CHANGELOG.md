@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **OpenAPI ↔ route parity gate** (`src/__tests__/openapi-route-parity.test.ts`): fails CI when a
+  real `src/routes/**` route is missing from `src/openapi.yaml`, when a documented operation has no
+  route behind it, or when the committed route manifest is stale. Closing the drift it found added
+  14 previously-undocumented operations to the spec — `DELETE /admin-api/clients/{name}`, the five
+  OIDC SSO endpoints, the four bundle install-link endpoints (incl. the public `GET /install/{token}`),
+  `POST /admin-api/backup`, `GET /admin-api/audit-log/actions`, and the `/livez` + `/readyz` probes —
+  expanded the per-tool config `PATCH` body from 2 to all 19 accepted keys (new `ToolConfigPatch`
+  schema), and added `uptime_seconds` to `/health`.
 - Comprehensive Stryker mutation-testing coverage across the entire backend, used as a
   regression-detection backstop for the test suite — every file with meaningful runtime logic
   is now effectively 100% mutation-killed (`bun run test:mutate`).
@@ -41,6 +49,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `scripts/extract-routes.ts` was silently generating an **incomplete** route manifest — it captured
+  only top-level `app.<method>` routes and dropped all 40 admin sub-router routes
+  (`src/routes/admin/*.ts`), and had drifted four routes stale — which left admin-ui's demo-contract
+  test blind to them. It now extracts both registration conventions and ships a `--check` mode the
+  new parity test uses to gate manifest freshness.
 - **Security:** the startup "Active configuration" log line no longer leaks
   `SECRET_ENCRYPTION_KEY` or `VAULT_TOKEN` in plaintext — both are now redacted the same way
   admin/MCP API keys and the bootstrap password already were.
