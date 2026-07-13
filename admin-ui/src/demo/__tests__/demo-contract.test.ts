@@ -154,6 +154,13 @@ const EXCLUDED_ROUTES = new Set<string>([
   // fetched by any admin-ui page.
   "GET /metrics",
   "GET /metrics/legacy",
+  // Ops/orchestrator health + K8s probes (src/routes/health.ts). Consumed by
+  // load balancers, Docker HEALTHCHECK, and Kubernetes liveness/readiness
+  // probes — never fetched by an admin-ui page, so the demo has nothing to
+  // stand in for.
+  "GET /health",
+  "GET /livez",
+  "GET /readyz",
   // Ops/CLI-triggered backup export; no admin-ui page or composable calls it.
   "POST /admin-api/backup",
   // Legacy discovery-schema endpoint, superseded by

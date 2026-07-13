@@ -541,6 +541,11 @@
   },
   {
     "method": "get",
+    "path": "/admin-api/teams/:id",
+    "file": "teams.ts"
+  },
+  {
+    "method": "get",
     "path": "/admin-api/tools",
     "file": "bundles.ts"
   },
@@ -671,8 +676,18 @@
   },
   {
     "method": "get",
+    "path": "/health",
+    "file": "health.ts"
+  },
+  {
+    "method": "get",
     "path": "/install/:token",
     "file": "install-links.ts"
+  },
+  {
+    "method": "get",
+    "path": "/livez",
+    "file": "health.ts"
   },
   {
     "method": "get",
@@ -683,6 +698,11 @@
     "method": "get",
     "path": "/metrics/legacy",
     "file": "metrics.ts"
+  },
+  {
+    "method": "get",
+    "path": "/readyz",
+    "file": "health.ts"
   },
   {
     "method": "post",
