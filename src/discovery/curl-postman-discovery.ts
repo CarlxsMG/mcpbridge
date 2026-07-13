@@ -334,7 +334,8 @@ export function parsePostmanCollection(json: unknown): RestToolDefinition[] {
 }
 
 function parsePostmanLeaf(item: PostmanItem, folderPath: string[], usedNames: Set<string>): RestToolDefinition | null {
-  const req = item.request!;
+  const req = item.request;
+  if (!req) return null;
   const rawMethod = (req.method ?? "GET").toUpperCase();
   if (!SUPPORTED_METHODS.has(rawMethod as RestMethod)) return null;
   const method = rawMethod as RestMethod;
@@ -342,7 +343,10 @@ function parsePostmanLeaf(item: PostmanItem, folderPath: string[], usedNames: Se
   const { path, queryKeys } = extractPostmanUrl(req.url);
   if (path === null) return null;
 
-  const headerNames = (req.header ?? []).filter((h) => !h?.disabled && h?.key).map((h) => h.key!);
+  const headerNames = (req.header ?? [])
+    .filter((h) => !h?.disabled)
+    .map((h) => h?.key)
+    .filter((k): k is string => Boolean(k));
   const bodyKeys = extractPostmanBodyKeys(req.body);
 
   const label = [...folderPath, item.name ?? ""].filter(Boolean).join("_") || generateNameFromPath(method, path);
@@ -361,7 +365,10 @@ function extractPostmanUrl(url: PostmanRequest["url"]): { path: string | null; q
   if (!url) return { path: null, queryKeys: [] };
   if (typeof url === "string") return extractPathAndQuery(url);
 
-  const structuredQueryKeys = (url.query ?? []).filter((q) => !q?.disabled && q?.key).map((q) => q.key!);
+  const structuredQueryKeys = (url.query ?? [])
+    .filter((q) => !q?.disabled)
+    .map((q) => q?.key)
+    .filter((k): k is string => Boolean(k));
   if (Array.isArray(url.path) && url.path.length > 0) {
     const segments = url.path.map((seg) => (typeof seg === "string" ? seg : (seg?.value ?? "")));
     const path = `/${segments.filter(Boolean).join("/")}`;
@@ -380,9 +387,15 @@ function extractPostmanBodyKeys(body: PostmanBody | undefined): string[] {
     case "raw":
       return extractBodyKeys(body.raw);
     case "urlencoded":
-      return (body.urlencoded ?? []).filter((e) => !e?.disabled && e?.key).map((e) => e.key!);
+      return (body.urlencoded ?? [])
+        .filter((e) => !e?.disabled)
+        .map((e) => e?.key)
+        .filter((k): k is string => Boolean(k));
     case "formdata":
-      return (body.formdata ?? []).filter((e) => !e?.disabled && e?.key).map((e) => e.key!);
+      return (body.formdata ?? [])
+        .filter((e) => !e?.disabled)
+        .map((e) => e?.key)
+        .filter((k): k is string => Boolean(k));
     case "graphql":
       return extractBodyKeys(body.graphql?.variables);
     default:

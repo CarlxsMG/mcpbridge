@@ -179,7 +179,7 @@ export function discoveryRoutes(app: Express): void {
         const hostname = new URL(graphqlUrl).hostname;
         const tools = await discoverToolsFromGraphQl({
           graphqlUrl,
-          ipPin: { resolvedIp: validation.resolvedIp!, hostname },
+          ipPin: { resolvedIp: validation.resolvedIp, hostname },
           includeMutations: body.include_mutations !== false,
         });
         recordAudit(actorFromRequest(req), "discovery.preview_graphql", graphqlUrl, { count: tools.length });

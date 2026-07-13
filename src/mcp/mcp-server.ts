@@ -212,10 +212,15 @@ export function createMcpServer(scope: McpServerScope): Server {
     const onProgress =
       progressToken !== undefined
         ? (progress: number, total?: number, message?: string) => {
-            void extra.sendNotification({
-              method: "notifications/progress",
-              params: { progressToken, progress, total, message },
-            });
+            // Best-effort: if the caller disconnected mid-call the transport is
+            // closed and the send rejects — swallow it rather than surface an
+            // unhandled rejection (same discipline as notifyToolsChanged).
+            void extra
+              .sendNotification({
+                method: "notifications/progress",
+                params: { progressToken, progress, total, message },
+              })
+              .catch(() => {});
           }
         : undefined;
 

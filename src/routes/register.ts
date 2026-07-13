@@ -3,7 +3,7 @@ import { config } from "../config.js";
 import { adminAuth } from "../middleware/auth.js";
 import { requireOperator } from "../middleware/authz.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
-import { validationError, bodyOf } from "./http-errors.js";
+import { validationError, bodyOf, sendError } from "./http-errors.js";
 import {
   performRestRegistration,
   performMcpRegistration,
@@ -51,7 +51,7 @@ export function registerRoutes(app: Express): void {
 
   app.get("/register/schema", adminAuth, (_req: Request, res: Response) => {
     if (!resolvedRegistrationSchema) {
-      res.status(503).json({ error: { code: "SCHEMA_UNAVAILABLE", message: "Schema could not be loaded" } });
+      sendError(res, 503, "SCHEMA_UNAVAILABLE", "Schema could not be loaded");
       return;
     }
     res.setHeader("Content-Type", "application/schema+json");

@@ -486,20 +486,28 @@ export function startWsProxyRevalidationLoop(): () => void {
       const remaining = [...set].filter((conn) => !isRawIpLiteral(conn.hostname));
       const hostname = remaining[0]?.hostname;
       if (!hostname) continue;
-      void validateBackendUrl(`http://${hostname}`, config.allowPrivateIps, config.allowedHosts).then((check) => {
-        if (check.valid) return;
-        log("warn", "WS proxy connections distrusted after revalidation", {
-          target: targetName,
-          hostname,
-          reason: check.reason,
-          count: remaining.length,
-        });
-        for (const conn of remaining) {
-          safeClose(conn.clientWs);
-          safeClose(conn.backendWs);
-          removeConn(conn);
-        }
-      });
+      void validateBackendUrl(`http://${hostname}`, config.allowPrivateIps, config.allowedHosts)
+        .then((check) => {
+          if (check.valid) return;
+          log("warn", "WS proxy connections distrusted after revalidation", {
+            target: targetName,
+            hostname,
+            reason: check.reason,
+            count: remaining.length,
+          });
+          for (const conn of remaining) {
+            safeClose(conn.clientWs);
+            safeClose(conn.backendWs);
+            removeConn(conn);
+          }
+        })
+        .catch((err) =>
+          log("warn", "WS proxy revalidation errored", {
+            target: targetName,
+            hostname,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
     }
   }, config.wsProxyRevalidateIntervalMs);
   return () => clearInterval(handle);
