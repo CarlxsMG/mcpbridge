@@ -322,7 +322,7 @@ describe("applyCommand — server registration loop", () => {
         ],
       },
       {
-        postImpl: (path, body) => {
+        postImpl: (_path, body) => {
           const name = (body as { name: string }).name;
           if (name === "fails") return Promise.reject(new Error("nope"));
           return Promise.resolve({});

@@ -26,7 +26,6 @@ class CircuitBreaker {
   /** Sliding window of failure timestamps within windowMs. */
   private failureTimestamps: number[] = [];
   private lastFailureTime = 0;
-  private lastStateChange = 0;
   private cfg: CircuitConfig;
   private lastAccess = Date.now();
   readonly clientName: string;
@@ -49,7 +48,6 @@ class CircuitBreaker {
         // Transition open → half_open; always reset probeInFlight before evaluating probe.
         this.state = "half_open";
         this.probeInFlight = false;
-        this.lastStateChange = Date.now();
         breakerStateTransitions.inc({ client: this.clientName, from_state: "open", to_state: "half_open" });
         // Fall through to half_open handling below.
       } else {
@@ -87,7 +85,6 @@ class CircuitBreaker {
       // Probe failed — go back to open immediately.
       this.probeInFlight = false;
       this.state = "open";
-      this.lastStateChange = Date.now();
       breakerStateTransitions.inc({ client: this.clientName, from_state: "half_open", to_state: "open" });
       log("warn", "Circuit breaker re-opened after failed probe", { client: this.clientName });
       return;

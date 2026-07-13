@@ -248,7 +248,7 @@ export function rateLimitMcp(maxPerMinute: number) {
 }
 
 export function rateLimitGlobal(maxPerMinute: number) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (_req: Request, res: Response, next: NextFunction): void => {
     const key = "global";
     if (checkLimit(globalBuckets, config.rateLimitMaxBucketsGlobal, key, maxPerMinute, "global", res)) {
       next();

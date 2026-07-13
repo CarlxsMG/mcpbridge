@@ -159,7 +159,7 @@ export function createApp(): CreateAppResult {
   // Registered LAST so it catches anything the routers above throw. Shape
   // matches the per-route `sendError` envelope so downstream consumers
   // (admin UI, ops dashboards) get a uniform error response.
-  app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (res.headersSent) {
       _next(err);
       return;
