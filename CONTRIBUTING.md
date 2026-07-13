@@ -154,3 +154,9 @@ Before opening a PR, please confirm:
 - [ ] New/changed schema goes through a new, appended `src/db/migrations.ts` entry
       (not an edit to an existing one)
 - [ ] Commit messages follow the `type(scope): summary` convention above
+
+## Releasing
+
+Cutting a tagged, published release (slug sweep, `bun run version:bump`, then a `v*` tag that
+builds the signed GHCR image and standalone binaries) is a maintainer task with its own
+runbook: see [`RELEASING.md`](RELEASING.md).
