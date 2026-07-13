@@ -509,7 +509,7 @@
       "new_key_n": "Nueva key #{n}",
       "remove": "eliminar",
       "replace_warning": "Al guardar se REEMPLAZARÁ toda la allow-list con estas {count} key(s).",
-      "preview": "Preview",
+      "preview": "Vista previa",
       "preview_new_keys": "{count} key(s) nueva(s)",
       "preview_existing_keys": "{count} key(s) sin cambios",
       "clearing": "Limpiando…",

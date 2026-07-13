@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Search } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 
 defineProps<{ placeholder?: string; ariaLabel?: string }>();
 const model = defineModel<string>({ default: "" });
+const { t } = useI18n({ useScope: "global" });
 </script>
 
 <template>
@@ -12,7 +14,7 @@ const model = defineModel<string>({ default: "" });
       v-model="model"
       type="search"
       :placeholder="placeholder"
-      :aria-label="ariaLabel ?? placeholder ?? 'Search'"
+      :aria-label="ariaLabel ?? placeholder ?? t('common.search')"
     />
   </div>
 </template>
