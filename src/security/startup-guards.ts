@@ -6,6 +6,8 @@ export interface StartupGuardEnv {
   trustProxy: unknown;
   nodeEnv: string | undefined;
   sessionCookieSecure: boolean;
+  jwtJwksUrl: string | undefined;
+  jwtAudience: string | undefined;
 }
 
 export type GuardResult = { ok: true } | { ok: false; reason: string };
@@ -23,6 +25,7 @@ export type GuardResult = { ok: true } | { ok: false; reason: string };
  *  2. CORS wildcard '*' outside development
  *  3. TRUST_PROXY=true (boolean) outside development
  *  4. SESSION_COOKIE_SECURE=false outside development (unless ALLOW_UNSAFE_INSECURE_SESSION_COOKIE=true)
+ *  5. JWT_JWKS_URL set without JWT_AUDIENCE outside development (unless ALLOW_UNSAFE_JWT_NO_AUDIENCE=true)
  */
 export function checkStartupGuards(env: StartupGuardEnv): GuardResult {
   const isDev = env.nodeEnv === "development";
@@ -71,6 +74,25 @@ export function checkStartupGuards(env: StartupGuardEnv): GuardResult {
         reason:
           "SESSION_COOKIE_SECURE=false outside development — admin session cookies would be sent over " +
           "plain HTTP. Refusing to start unless ALLOW_UNSAFE_INSECURE_SESSION_COOKIE=true also set.",
+      };
+    }
+  }
+
+  // ── 5. JWT audience-binding guard ─────────────────────────────────────────
+  // With inbound JWT auth enabled (JWT_JWKS_URL set) but no JWT_AUDIENCE, any
+  // token validly signed by a key in that JWKS is accepted regardless of who it
+  // was minted for. In a shared IdP (one tenant issuing tokens for many apps) a
+  // token for an unrelated app would be accepted as a gateway data-plane
+  // credential — a cross-audience privilege grant. Require the audience binding.
+  if (env.jwtJwksUrl && !env.jwtAudience && !isDev) {
+    const allowUnsafe = process.env.ALLOW_UNSAFE_JWT_NO_AUDIENCE === "true";
+    if (!allowUnsafe) {
+      return {
+        ok: false,
+        reason:
+          "JWT_JWKS_URL is set without JWT_AUDIENCE outside development — any token validly signed by the " +
+          "JWKS is accepted regardless of its intended audience (a cross-audience privilege grant in a shared " +
+          "IdP). Refusing to start unless JWT_AUDIENCE is set (or ALLOW_UNSAFE_JWT_NO_AUDIENCE=true also set).",
       };
     }
   }

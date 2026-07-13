@@ -13,6 +13,8 @@ function safeEnv(overrides: Partial<StartupGuardEnv> = {}): StartupGuardEnv {
     trustProxy: false,
     nodeEnv: "production",
     sessionCookieSecure: true,
+    jwtJwksUrl: undefined,
+    jwtAudience: undefined,
     ...overrides,
   };
 }
@@ -20,11 +22,14 @@ function safeEnv(overrides: Partial<StartupGuardEnv> = {}): StartupGuardEnv {
 // Ensure ALLOW_UNSAFE_* does not leak between tests
 let savedAllowUnsafe: string | undefined;
 let savedAllowUnsafeCookie: string | undefined;
+let savedAllowUnsafeJwt: string | undefined;
 beforeEach(() => {
   savedAllowUnsafe = process.env.ALLOW_UNSAFE_AUTH_DISABLED;
   delete process.env.ALLOW_UNSAFE_AUTH_DISABLED;
   savedAllowUnsafeCookie = process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE;
   delete process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE;
+  savedAllowUnsafeJwt = process.env.ALLOW_UNSAFE_JWT_NO_AUDIENCE;
+  delete process.env.ALLOW_UNSAFE_JWT_NO_AUDIENCE;
 });
 afterEach(() => {
   if (savedAllowUnsafe === undefined) {
@@ -36,6 +41,11 @@ afterEach(() => {
     delete process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE;
   } else {
     process.env.ALLOW_UNSAFE_INSECURE_SESSION_COOKIE = savedAllowUnsafeCookie;
+  }
+  if (savedAllowUnsafeJwt === undefined) {
+    delete process.env.ALLOW_UNSAFE_JWT_NO_AUDIENCE;
+  } else {
+    process.env.ALLOW_UNSAFE_JWT_NO_AUDIENCE = savedAllowUnsafeJwt;
   }
 });
 
@@ -154,6 +164,54 @@ describe("checkStartupGuards — SESSION_COOKIE_SECURE", () => {
   test("sessionCookieSecure=true + NODE_ENV=production → ok", () => {
     const result = checkStartupGuards(safeEnv({ sessionCookieSecure: true, nodeEnv: "production" }));
     expect(result.ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// JWT audience-binding guard
+// ---------------------------------------------------------------------------
+
+describe("checkStartupGuards — JWT audience binding", () => {
+  const JWKS = "https://idp.example.com/.well-known/jwks.json";
+
+  test("JWT_JWKS_URL set without JWT_AUDIENCE + NODE_ENV=production → fail with JWT_AUDIENCE in reason", () => {
+    const result = checkStartupGuards(safeEnv({ jwtJwksUrl: JWKS, jwtAudience: undefined, nodeEnv: "production" }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain("JWT_AUDIENCE");
+    }
+  });
+
+  test("JWT_JWKS_URL set without JWT_AUDIENCE + NODE_ENV=development → ok (allowed in dev)", () => {
+    const result = checkStartupGuards(safeEnv({ jwtJwksUrl: JWKS, jwtAudience: undefined, nodeEnv: "development" }));
+    expect(result.ok).toBe(true);
+  });
+
+  test("JWT_JWKS_URL + JWT_AUDIENCE both set + NODE_ENV=production → ok", () => {
+    const result = checkStartupGuards(safeEnv({ jwtJwksUrl: JWKS, jwtAudience: "mcp-bridge", nodeEnv: "production" }));
+    expect(result.ok).toBe(true);
+  });
+
+  test("no JWT_JWKS_URL (inbound JWT disabled) + NODE_ENV=production → ok even without audience", () => {
+    const result = checkStartupGuards(
+      safeEnv({ jwtJwksUrl: undefined, jwtAudience: undefined, nodeEnv: "production" }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  test("JWT_JWKS_URL without audience + ALLOW_UNSAFE_JWT_NO_AUDIENCE=true + production → ok (escape hatch)", () => {
+    process.env.ALLOW_UNSAFE_JWT_NO_AUDIENCE = "true";
+    const result = checkStartupGuards(safeEnv({ jwtJwksUrl: JWKS, jwtAudience: undefined, nodeEnv: "production" }));
+    expect(result.ok).toBe(true);
+  });
+
+  test("JWT audience reason includes the cross-audience explanation and remediation chunks", () => {
+    const r = checkStartupGuards(safeEnv({ jwtJwksUrl: JWKS, jwtAudience: undefined, nodeEnv: "production" }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toContain("cross-audience privilege grant");
+      expect(r.reason).toContain("ALLOW_UNSAFE_JWT_NO_AUDIENCE=true");
+    }
   });
 });
 

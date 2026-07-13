@@ -72,10 +72,26 @@ const guard = checkStartupGuards({
   trustProxy: config.trustProxy,
   nodeEnv: process.env.NODE_ENV,
   sessionCookieSecure: config.sessionCookieSecure,
+  jwtJwksUrl: config.jwtJwksUrl,
+  jwtAudience: config.jwtAudience,
 });
 if (!guard.ok) {
   log("error", `FATAL: ${guard.reason}`);
   process.exit(1);
+}
+
+// Warn when the JWT-audience guard is bypassed via escape hatch
+if (
+  config.jwtJwksUrl &&
+  !config.jwtAudience &&
+  process.env.NODE_ENV !== "development" &&
+  process.env.ALLOW_UNSAFE_JWT_NO_AUDIENCE === "true"
+) {
+  log(
+    "warn",
+    "JWT_JWKS_URL is set without JWT_AUDIENCE outside development — any token validly signed by the JWKS " +
+      "is accepted regardless of audience. Continuing because ALLOW_UNSAFE_JWT_NO_AUDIENCE=true.",
+  );
 }
 
 // Warn when AUTH_DISABLED is allowed via escape hatch
