@@ -146,17 +146,7 @@ export function hasComposite(name: string): boolean {
   return liveComposites.has(name);
 }
 
-/** Advertised (tools/list) definitions for every enabled composite. */
-export function listAdvertisedComposites(): AdvertisedTool[] {
-  const out: AdvertisedTool[] = [];
-  for (const [name, c] of liveComposites) {
-    if (c.enabled)
-      out.push({ name, description: c.description ?? `Composite tool: ${name}`, inputSchema: c.inputSchema });
-  }
-  return out;
-}
-
-/** Single-name lookup for a bundle's tools/list — undefined for unknown OR disabled (same "don't advertise" rule as listAdvertisedComposites). */
+/** Single-name lookup for a bundle's tools/list — undefined for unknown OR disabled composites. */
 export function getAdvertisedComposite(name: string): AdvertisedTool | undefined {
   const c = liveComposites.get(name);
   if (!c?.enabled) return undefined;

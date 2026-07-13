@@ -383,10 +383,6 @@ export interface TagToolRef {
   tool: string;
 }
 
-export interface ApiErrorBody {
-  error: { code: string; message: string; request_id?: string | null };
-}
-
 // ─── WS proxy targets ────────────────────────────────────────────────────────
 
 /** GET /admin-api/ws-proxy-targets item — a live WebSocket passthrough target (see src/ws-proxy.ts). */

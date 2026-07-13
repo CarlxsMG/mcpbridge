@@ -7,7 +7,7 @@
  * This file gap-fills what it doesn't reach: every validation error branch
  * (INVALID_SCHEMA, ALREADY_EXISTS, NOT_FOUND, the individual INVALID_STEPS
  * sub-checks), the notifyToolsChanged call-count/scopeChanged conditions, the
- * multi-row listComposites/listAdvertisedComposites paths, the resolveRef/
+ * multi-row listComposites paths, the resolveRef/
  * getByPath/resolveTemplate edge branches (unknown $ref heads, non-integer
  * array indices, non-$ref-shaped objects), and runComposite's own guard
  * clauses (unknown composite, empty-steps, non-object resolved args, the
@@ -35,7 +35,6 @@ import {
   resolveTemplate,
   hasComposite,
   isValidCompositeName,
-  listAdvertisedComposites,
   getAdvertisedComposite,
   type CompositeStep,
 } from "../composites.js";
@@ -433,7 +432,6 @@ describe("updateComposite — persistence, cache refresh, and scopeChanged notif
     expect(getCompositeDetail("flow")?.description).toBe("keep-me");
     // Disabled composites are excluded from every advertised-tool read path.
     expect(getAdvertisedComposite("flow")).toBeUndefined();
-    expect(listAdvertisedComposites().map((c) => c.name)).not.toContain("flow");
     // hasComposite is existence-only, independent of enabled.
     expect(hasComposite("flow")).toBe(true);
   });
@@ -547,7 +545,7 @@ describe("deleteComposite", () => {
   });
 });
 
-describe("listComposites / listAdvertisedComposites — multi-row narrowing", () => {
+describe("listComposites — multi-row narrowing", () => {
   test("listComposites returns every composite ordered by name with the correct per-composite stepsCount (2 distinct items)", async () => {
     await regSvc();
     await createComposite("bbb", "second alpha", OBJ_SCHEMA, oneStep(), "t");
@@ -580,28 +578,6 @@ describe("listComposites / listAdvertisedComposites — multi-row narrowing", ()
     const rows = listComposites();
     expect(rows.length).toBe(1);
     expect(rows[0]!.enabled).toBe(false);
-  });
-
-  test("listAdvertisedComposites returns an empty array with none created", () => {
-    expect(listAdvertisedComposites()).toEqual([]);
-  });
-
-  test("listAdvertisedComposites includes only enabled composites out of several (2 distinct: one enabled, one disabled)", async () => {
-    await regSvc();
-    await createComposite("on-flow", "visible", OBJ_SCHEMA, oneStep(), "t");
-    await createComposite("off-flow", "hidden", OBJ_SCHEMA, oneStep(), "t");
-    await updateComposite("off-flow", { enabled: false });
-
-    const advertised = listAdvertisedComposites();
-    expect(advertised.map((c) => c.name)).toEqual(["on-flow"]);
-    expect(advertised[0]).toEqual({ name: "on-flow", description: "visible", inputSchema: OBJ_SCHEMA });
-  });
-
-  test("listAdvertisedComposites falls back to a generated description for a null-description entry (own code path, not just getAdvertisedComposite's)", async () => {
-    await regSvc();
-    await createComposite("no-desc-flow", undefined, OBJ_SCHEMA, oneStep(), "t");
-    const advertised = listAdvertisedComposites();
-    expect(advertised.find((c) => c.name === "no-desc-flow")?.description).toBe("Composite tool: no-desc-flow");
   });
 });
 

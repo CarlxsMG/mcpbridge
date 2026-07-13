@@ -6,27 +6,10 @@
  * gives a fast signal the moment the two copies drift.
  */
 import { describe, test, expect } from "vitest";
-import {
-  CONNECT_TEMPLATES,
-  isConnectClientId,
-  generateConnectSnippet,
-  resolveGatewayEndpoint,
-} from "../connectTemplates";
+import { CONNECT_TEMPLATES, generateConnectSnippet, resolveGatewayEndpoint } from "../connectTemplates";
 
 const PLACEHOLDER = "<YOUR_MCP_API_KEY>";
 const URL = "https://gw.example.com/mcp/acme-crm";
-
-describe("isConnectClientId", () => {
-  test("accepts every registered client id", () => {
-    for (const id of Object.keys(CONNECT_TEMPLATES)) {
-      expect(isConnectClientId(id)).toBe(true);
-    }
-  });
-
-  test("rejects an unknown id", () => {
-    expect(isConnectClientId("vscode-copilot")).toBe(false);
-  });
-});
 
 describe("claude-desktop template", () => {
   test("generates an mcp-remote stdio-bridge entry with the header in env, not inline", () => {

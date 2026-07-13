@@ -250,10 +250,6 @@ export const CONNECT_TEMPLATES: Record<ConnectClientId, ConnectTemplate> = {
   "generic-json": genericJson,
 };
 
-export function isConnectClientId(value: string): value is ConnectClientId {
-  return (CONNECT_CLIENT_IDS as readonly string[]).includes(value);
-}
-
 export function generateConnectSnippet(clientId: ConnectClientId, input: ConnectTemplateInput): ConnectTemplateOutput {
   return CONNECT_TEMPLATES[clientId].generate(input);
 }
