@@ -156,3 +156,27 @@ jobs:
       - name: Build docs site
         working-directory: docs
         run: bun run docs:build
+
+  docker:
+    # Validates that the container image — the primary distribution artifact,
+    # consumed by both docker-compose.yml and the Helm chart — actually builds
+    # on every push/PR. docker-publish.yml only builds on a `v*` tag, so
+    # without this a Dockerfile / multi-stage / COPY-path break isn't caught
+    # until a release is cut, after merge (the same reasoning the `docs` job
+    # above applies to the Pages deploy). Build-only: single-arch, loaded
+    # locally and discarded — it never pushes.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build image (no push)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: mcp-rest-bridge:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

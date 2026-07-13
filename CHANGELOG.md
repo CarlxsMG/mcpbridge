@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- CI now **builds the container image on every push/PR** (build-only, single-arch, never pushed).
+  The image is the primary distribution artifact (docker-compose + Helm both consume it), yet
+  `docker-publish.yml` only built it on a `v*` tag — so a `Dockerfile`/`COPY`/multi-stage break used
+  to surface only after merge, when a release was cut. Mirrors the existing docs-build PR gate.
 - **OpenAPI ↔ route parity gate** (`src/__tests__/openapi-route-parity.test.ts`): fails CI when a
   real `src/routes/**` route is missing from `src/openapi.yaml`, when a documented operation has no
   route behind it, or when the committed route manifest is stale. Closing the drift it found added
