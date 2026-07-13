@@ -76,8 +76,8 @@ everything pass, and still have formatting drift that only the root check catche
 bun run check
 ```
 
-Runs the full gate in order — format check → root lint → admin-ui lint → root typecheck →
-root tests → admin-ui typecheck → admin-ui tests → admin-ui build — stopping at the first
+Runs the full gate in order — format check → root lint → admin-ui lint → admin-ui i18n parity →
+root typecheck → root tests → admin-ui typecheck → admin-ui tests → admin-ui build — stopping at the first
 failure. This is what CI runs; treat a clean `bun run check` as the actual bar for "ready to
 open a PR," not just a green package-scoped run.
 
@@ -140,7 +140,7 @@ folding hardening back into the feature commit after the fact.
 P2 = polish. Not required, but consistent with the project's history if you want to signal
 urgency:
 
-```
+```text
 fix(admin-ui): stop the .field input recipe double-bordering child components' own inputs [P2]
 ```
 

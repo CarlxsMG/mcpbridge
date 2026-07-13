@@ -150,5 +150,6 @@ Eso es un **bundle** — consulta [Agregar backends en un solo endpoint →](/es
 - Lee [Arquitectura →](/es/guide/architecture) para el modelo de pipeline completo.
 - Lee [Reglas y resiliencia →](/es/guide/guardrails-resilience) para SSRF, secret-detection y las reglas de validación.
 - Lee [Configuración →](/es/guide/configuration) para todas las variables de entorno soportadas.
+- Blinda el despliegue para producción: define `MCP_API_KEYS`, configura guardrails por tool y sírvelo tras HTTPS — mira [Funcionalidades →](/es/guide/features) para la lista completa de capacidades.
 
 Para preguntas comunes y patrones de resolución de problemas, salta a [Preguntas frecuentes →](/es/guide/faq).

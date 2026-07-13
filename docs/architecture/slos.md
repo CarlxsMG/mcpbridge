@@ -114,7 +114,7 @@ callers do not.
 This SLO is a **detector**, not a target to meet. The right operational posture is to
 never see the alert fire; if it does, the post-mortem is "what got modified, and by whom".
 
-### SLO-6 — Health probe coverage
+### SLO-6 — Health probe coverage {#slo-6-health-probe-coverage}
 
 |                     |                                                                                                                                                                                                                                                                                                                        |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

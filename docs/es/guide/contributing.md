@@ -80,7 +80,8 @@ bun run check
 ```
 
 Ejecuta el gate completo en orden — check de formato → root lint → admin-ui lint →
-root typecheck → root tests → admin-ui typecheck → admin-ui tests → admin-ui build —
+admin-ui i18n parity → root typecheck → root tests → admin-ui typecheck → admin-ui tests →
+admin-ui build —
 deteniéndose en el primer fallo. Esto es lo que corre CI; trata un `bun run check`
 limpio como la barra real para "listo para abrir un PR", no solo un run package-scoped
 verde.
@@ -149,7 +150,7 @@ suelen usar sufijos `[P0]`/`[P1]`/`[P2]` — P0 = corrección/seguridad crítico
 robustez importante, P2 = pulido. No es obligatorio, pero consistente con la historia
 del proyecto si quieres señalar urgencia:
 
-```
+```text
 fix(admin-ui): stop the .field input recipe double-bordering child components' own inputs [P2]
 ```
 

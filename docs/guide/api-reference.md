@@ -34,14 +34,14 @@ See [Registering backends](/guide/registering-backends) for the payload fields.
 The JSON management API behind the Vue admin UI. Auth: session cookie (with CSRF on
 mutations) **or** `ADMIN_API_KEYS` Bearer. Role-gated; every mutation is audited.
 
-| Group           | Examples                                                                                                                                             |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth            | `POST /admin-api/auth/login`, `/logout`, `GET /auth/me`                                                                                              |
-| Servers & tools | `GET/POST /admin-api/clients`, `GET/PATCH/DELETE /admin-api/clients/:name`, `PATCH /admin-api/clients` (bulk enable/disable), `GET /admin-api/tools` |
-| Curation        | `/admin-api/bundles*`, `/composites*`                                                                                                                |
-| Access          | `/admin-api/mcp-keys*`, `/consumers*`, `/policies*`, `/users*`, `/teams*`                                                                            |
-| Observability   | `/admin-api/overview`, `/usage/*`, `/alerts*`, `/audit-log*`                                                                                         |
-| Config & ops    | `/admin-api/config/*` (export/import, snapshots, rollback), `/schedules*`, `/discovery/preview`                                                      |
+| Group           | Examples                                                                                                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth            | `POST /admin-api/auth/login`, `/logout`, `GET /auth/me`                                                                                                                       |
+| Servers & tools | `GET /admin-api/clients` (create via `POST /register`), `GET/PATCH/DELETE /admin-api/clients/:name`, `PATCH /admin-api/clients` (bulk enable/disable), `GET /admin-api/tools` |
+| Curation        | `/admin-api/bundles*`, `/composites*`                                                                                                                                         |
+| Access          | `/admin-api/mcp-keys*`, `/consumers*`, `/policies*`, `/users*`, `/teams*`                                                                                                     |
+| Observability   | `/admin-api/overview`, `/usage/*`, `/alerts*`, `/audit-log*`                                                                                                                  |
+| Config & ops    | `/admin-api/config/*` (export/import, snapshots, rollback), `/schedules*`, `/discovery/preview`                                                                               |
 
 The full request/response shapes are in the Swagger UI at **`/docs`**.
 

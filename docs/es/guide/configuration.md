@@ -1,17 +1,21 @@
 # Configuración
 
 MCP REST Bridge se configura con variables de entorno (Bun auto-carga un fichero `.env`
-en desarrollo). El **`.env.example`** del repo es la lista autoritativa y comentada — las
-tablas de abajo cubren la configuración a la que recurrirás más a menudo.
+en desarrollo). El **`.env.example`** del repo es un conjunto inicial curado y comentado, y
+las tablas de abajo cubren la configuración a la que recurrirás más a menudo — la lista
+exhaustiva y validada por rangos es el objeto `config` en `src/config.ts` (validado en el
+arranque por `src/config-schema.ts`).
 
 ## Primer arranque y autenticación
 
-| Variable                   | Descripción                                                                                                                                          |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BOOTSTRAP_ADMIN_USERNAME` | Username del primer usuario admin. Se aplica **solo una vez**, mientras la tabla users esté vacía.                                                   |
-| `BOOTSTRAP_ADMIN_PASSWORD` | Contraseña de ese primer admin (mín 12 chars). Eliminar después de que el usuario exista.                                                            |
-| `ADMIN_API_KEYS`           | Claves Bearer estáticas separadas por comas para la admin API JSON (`/admin-api`, `/register`). Opcional — la UI Vue usa login de sesión.            |
-| `MCP_API_KEYS`             | Claves separadas por comas que los clientes MCP presentan para llamar tools. Vacío = no requiere key (combinar con guards por tool según necesidad). |
+| Variable                      | Descripción                                                                                                                                                                                                      |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BOOTSTRAP_ADMIN_USERNAME`    | Username del primer usuario admin. Se aplica **solo una vez**, mientras la tabla users esté vacía.                                                                                                               |
+| `BOOTSTRAP_ADMIN_PASSWORD`    | Contraseña de ese primer admin (mín 12 chars). Eliminar después de que el usuario exista.                                                                                                                        |
+| `ADMIN_API_KEYS`              | Claves Bearer estáticas separadas por comas para la admin API JSON (`/admin-api`, `/register`). Opcional — la UI Vue usa login de sesión.                                                                        |
+| `MCP_API_KEYS`                | Claves separadas por comas que los clientes MCP presentan para llamar tools. Vacío = no requiere key (combinar con guards por tool según necesidad).                                                             |
+| `REQUIRE_MCP_AUTH`            | `true` fuerza al plano de datos MCP a fallar **cerrado** incluso antes de que exista una key (de lo contrario, sin keys/JWT configuradas, el plano de datos queda abierto y se registra un warning de arranque). |
+| `EXPOSE_DOCS_UNAUTHENTICATED` | `true` sirve `/docs` (Swagger UI + spec OpenAPI completa) públicamente. Desactivado por defecto — `/docs` requiere autenticación admin.                                                                          |
 
 ## Runtime y networking
 

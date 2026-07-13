@@ -60,7 +60,7 @@ see [CLI reference →](/guide/cli).
 If you've set `MCP_API_KEYS` (recommended in production), the client must present a key as
 a Bearer token:
 
-```
+```http
 Authorization: Bearer <mcp-api-key>
 ```
 

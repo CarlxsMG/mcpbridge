@@ -27,7 +27,7 @@ pipeline de dispatch, la API admin, el audit log, los bucles de health/leader.
 - Fiabilidad de la red entre el gateway y un backend. Fallos de health-check atribuibles
   a una partición de red se registran en `mcp_health_loop_errors_total` y
   `mcp_health_check_runs_total{outcome="failure"}` y alimentan el **SLO de cobertura de
-  sondas** (§[SLO-6](#slo-6--cobertura-de-sondas-de-health)), no el SLO de tasa de éxito.
+  sondas** (§[SLO-6](#slo-6-cobertura-de-sondas-de-health)), no el SLO de tasa de éxito.
 - Fiabilidad de la red entre el cliente MCP y el gateway. Terminación TLS, ingress y
   protección DDoS son del operador.
 - Corrección del cliente MCP (timeouts, reintentos, parseo).
@@ -106,7 +106,7 @@ lentas; los llamantes a tools no.
 |                          |                                                                                                                                                                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Objetivo**             | El audit log con hash-chain está intacto. El `hash` de cada fila coincide con su contenido y con el `hash` de la fila anterior.                                                                                                |
-| **SLI**                  | El endpoint de verify (`GET /admin-api/audit/verify` o equivalente — ver `src/admin/audit/audit.ts`) devuelve `ok: true` en cada ejecución.                                                                                    |
+| **SLI**                  | El endpoint de verify (`GET /admin-api/audit-log/verify` — ver `src/routes/admin/audit-log.ts`) devuelve `ok: true` en cada ejecución.                                                                                         |
 | **Target**               | **100%** — sin tolerancia. Un solo verify fallido es sev-1.                                                                                                                                                                    |
 | **Ventana**              | Por ejecución. Lánzalo con una schedule (cada hora es un default razonable).                                                                                                                                                   |
 | **Presupuesto de error** | **0.** Sin presupuesto.                                                                                                                                                                                                        |
@@ -117,7 +117,7 @@ Este SLO es un **detector**, no un target a cumplir. La postura operativa correc
 no ver nunca saltar la alerta; si salta, el post-mortem es "¿qué se modificó y por
 quién?".
 
-### SLO-6 — Cobertura de sondas de health
+### SLO-6 — Cobertura de sondas de health {#slo-6-cobertura-de-sondas-de-health}
 
 |                          |                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
