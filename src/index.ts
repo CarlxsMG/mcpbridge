@@ -18,7 +18,7 @@ import { config } from "./config.js";
 import { log } from "./logger.js";
 import { checkStartupGuards } from "./security/startup-guards.js";
 import { isMcpDataPlaneOpen } from "./middleware/auth.js";
-import { validateEnvOrWarn } from "./config-schema.js";
+import { validateEnvOrWarn, validateEnvStrict } from "./config-schema.js";
 import { getDb } from "./db/connection.js";
 import { bootstrapAdminUser } from "./security/bootstrap-admin.js";
 import {
@@ -174,8 +174,15 @@ for (const key of Object.keys(redactedConfig)) {
   }
 }
 // Env validation — surface typos and out-of-range values at boot. Warn-only by
-// default (dev ergonomic); production can promote via STRICT_CONFIG=production.
+// default (dev ergonomic); production can promote via STRICT_CONFIG=production,
+// which aborts boot instead of just logging.
 validateEnvOrWarn();
+try {
+  validateEnvStrict();
+} catch (err) {
+  log("error", `FATAL: ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
+}
 log("info", "Active configuration", redactedConfig);
 
 // Fail-open guard: warn loudly if the MCP data plane is unauthenticated (no

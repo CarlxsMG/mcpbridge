@@ -375,8 +375,10 @@ export function validateEnvOrWarn(env: NodeJS.ProcessEnv = process.env): EnvRepo
 
 /**
  * Strict variant — returns the same report but ALSO throws on errors when
- * `STRICT_CONFIG=production` is set. Not used by default boot; exported for
- * CI scripts and `bun run cli` subcommands that want fail-fast semantics.
+ * `STRICT_CONFIG=production` is set. Called by boot (`src/index.ts`) right
+ * after `validateEnvOrWarn`, so a production deployment can actually abort
+ * on invalid config instead of just logging; also exported standalone for CI
+ * scripts and `bun run cli` subcommands that want the same fail-fast check.
  */
 export function validateEnvStrict(env: NodeJS.ProcessEnv = process.env): EnvReport {
   const report = validateEnv(env);
