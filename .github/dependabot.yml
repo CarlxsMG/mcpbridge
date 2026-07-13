@@ -21,6 +21,18 @@ updates:
       - "dependencies"
       - "admin-ui"
 
+  # VitePress docs/marketing site — its own package.json/lockfile (docs/bun.lock).
+  # Build-time-only toolchain, but keeps its transitive vite/esbuild advisories
+  # visible and auto-proposes bumps (see security.yml's docs audit note).
+  - package-ecosystem: "npm"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docs"
+
   # GitHub Actions workflow files themselves.
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -30,3 +42,14 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+
+  # Dockerfile base image (oven/bun:*-alpine, digest-pinned) so base-image CVEs
+  # get proposed as digest bumps.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"

@@ -36,6 +36,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     strategy:
@@ -96,6 +97,7 @@ jobs:
   build-admin-ui:
     name: Build admin UI (companion artifact)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -137,6 +139,7 @@ jobs:
     name: Publish GitHub Release
     needs: [build, build-admin-ui]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # Only cut/attach-to a real GitHub Release on an actual tag push. A manual
     # workflow_dispatch run still exercises the full build matrix above (and
     # its artifacts are downloadable from the run) without publishing.

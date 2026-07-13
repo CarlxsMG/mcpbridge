@@ -22,6 +22,7 @@ jobs:
     # Only meaningful on a PR (it diffs the PR's dependency changes).
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Dependency Review
@@ -31,6 +32,7 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -54,3 +56,11 @@ jobs:
       - name: Audit admin-ui dependencies
         working-directory: admin-ui
         run: bun audit --audit-level=high
+      # docs/ is a build-time-only VitePress toolchain that ships static HTML,
+      # so its transitive dev-server advisories (vite/esbuild) never reach the
+      # published product; the Dependabot /docs entry tracks the bumps. Gate
+      # this at CRITICAL (not high) so a genuine docs-toolchain emergency still
+      # fails CI, without blocking on the dev-only high/moderate advisories.
+      - name: Audit docs dependencies
+        working-directory: docs
+        run: bun audit --audit-level=critical
