@@ -338,8 +338,16 @@ describe("handleStreamablePost — catch block: createMcpServer() throws mid-ses
       // ObjectLiteral->{} mutant (key entirely absent) still fails this.
       expect("sessionId" in meta).toBe(true);
       expect(meta.sessionId).toBeUndefined();
-      expect(meta.err).toBeInstanceOf(Error);
-      expect((meta.err as Error).message).toBe("t3-log-boom");
+      // The meta flattens the Error to { message, stack, name } rather than
+      // logging the raw Error — a raw Error serializes to `{}` under the JSON
+      // logger (message/stack/name are non-enumerable), so the handler mirrors
+      // server.ts / system-tools.ts. Asserting the flattened shape here also
+      // backstops against a regression to the raw-Error form.
+      expect(meta.err).not.toBeInstanceOf(Error);
+      const flatErr = meta.err as { message: string; stack: string; name: string };
+      expect(flatErr.message).toBe("t3-log-boom");
+      expect(flatErr.name).toBe("Error");
+      expect(typeof flatErr.stack).toBe("string");
     } finally {
       logSpy.mockRestore();
     }

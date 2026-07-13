@@ -192,7 +192,9 @@ async function handleStreamablePost(req: Request, res: Response, scope: McpServe
   } catch (err) {
     log("error", `POST handler failed (scope=${scopeKey(scope)})`, {
       sessionId,
-      err,
+      // A raw Error serializes to `{}` under the JSON logger (message/stack/name
+      // are non-enumerable) — flatten it like server.ts / system-tools.ts do.
+      err: err instanceof Error ? { message: err.message, stack: err.stack, name: err.name } : err,
     });
     if (transport && !transportInserted) {
       // Release the reservation taken before the failed insert
