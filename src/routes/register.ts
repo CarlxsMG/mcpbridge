@@ -38,11 +38,11 @@ export function registerRoutes(app: Express): void {
       // plain REST/OpenAPI; same adminAuth + SSRF posture as REST in all cases.
       let outcome: RegisterOutcome;
       if (b.kind === "mcp" || typeof b.mcp_url === "string") {
-        outcome = await performMcpRegistration(req.body, peerIp, requestId);
+        outcome = await performMcpRegistration(b, peerIp, requestId);
       } else if (b.kind === "graphql" || typeof b.graphql_url === "string") {
-        outcome = await performGraphqlRegistration(req.body, peerIp, requestId);
+        outcome = await performGraphqlRegistration(b, peerIp, requestId);
       } else {
-        outcome = await performRestRegistration(req.body, peerIp, requestId);
+        outcome = await performRestRegistration(b, peerIp, requestId);
       }
 
       res.status(outcome.status).json(outcome.body);

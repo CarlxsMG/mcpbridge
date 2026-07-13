@@ -357,13 +357,13 @@ async function finalizeRestRegistration(
  * Pure (non-Express) core of the REST/OpenAPI registration branch — the exact
  * logic that used to live inline in the POST /register handler, unchanged
  * except that every `res.status(x).json(y); return;` became `return {ok:false,
- * status:x, body:y}`. `body` mirrors the loosely-typed shape Express's
- * `req.body` always had here (no schema validation upstream), so this keeps
- * the same permissive field access the route relied on.
+ * status:x, body:y}`. `body` is `Record<string, unknown>` (there's still no
+ * schema validation upstream — every field's shape is only as trustworthy as
+ * this function's own `typeof` narrowing), so every field read off it below
+ * is explicitly type-guarded before use rather than assumed.
  */
 export async function performRestRegistration(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentionally loose: mirrors the unvalidated req.body shape this branch has always had (see doc comment above).
-  body: any,
+  body: Record<string, unknown>,
   peerIp: string | undefined,
   requestId: string | null,
 ): Promise<RegisterOutcome> {
@@ -380,7 +380,7 @@ export async function performRestRegistration(
   } = body;
 
   // Validate required fields
-  if (!name || !health_url) {
+  if (!name || typeof name !== "string" || !health_url || typeof health_url !== "string") {
     return {
       ok: false,
       status: 400,
@@ -390,14 +390,37 @@ export async function performRestRegistration(
   const wsCollision = wsProxyNameCollision(name, requestId);
   if (wsCollision) return wsCollision;
 
+  // base_url is optional, but when present it's later passed to
+  // resolveRestRegistrationTargets/URL construction as a string — a wrong
+  // type here used to be silently forwarded as `any` and would throw an
+  // uncaught TypeError (e.g. `base_url.startsWith` on a number) instead of
+  // producing the same VALIDATION_ERROR a malformed base_url string gets
+  // below. Reject it up front with the identical message/code.
+  if (body.base_url !== undefined && body.base_url !== null && typeof body.base_url !== "string") {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: "base_url must start with http:// or https://" } },
+    };
+  }
+  const baseUrl = typeof body.base_url === "string" ? body.base_url : undefined;
+
   // Exactly one discovery-source field: an explicit 'tools' array, OpenAPI
   // auto-discovery, or one of the two lower-friction alternatives below (a
   // raw cURL paste or a Postman Collection v2.1 export) — both of which parse
   // down into the same 'tools' array shape and are registered exactly like
   // hand-written manual tools (source: "manual").
+  const openapiUrl = typeof openapi_url === "string" ? openapi_url : undefined;
+  const curlInput = typeof curl_input === "string" ? curl_input : "";
+  const includeTagsArr = Array.isArray(include_tags)
+    ? include_tags.filter((t): t is string => typeof t === "string")
+    : undefined;
+  const excludeOperationsArr = Array.isArray(exclude_operations)
+    ? exclude_operations.filter((t): t is string => typeof t === "string")
+    : undefined;
   const hasTools = tools !== undefined && tools !== null;
-  const hasOpenapi = typeof openapi_url === "string" && openapi_url.length > 0;
-  const hasCurl = typeof curl_input === "string" && curl_input.trim().length > 0;
+  const hasOpenapi = typeof openapiUrl === "string" && openapiUrl.length > 0;
+  const hasCurl = curlInput.trim().length > 0;
   const hasPostman = postman_collection !== undefined && postman_collection !== null && postman_collection !== "";
   const providedCount = [hasTools, hasOpenapi, hasCurl, hasPostman].filter(Boolean).length;
   if (providedCount === 0) {
@@ -425,7 +448,7 @@ export async function performRestRegistration(
     };
   }
 
-  const targets = await resolveRestRegistrationTargets(health_url, body.base_url, peerIp, requestId);
+  const targets = await resolveRestRegistrationTargets(health_url, baseUrl, peerIp, requestId);
   if ("ok" in targets) return targets;
   const { ip, resolvedHealthUrl, resolvedBaseUrl, pinnedIp } = targets;
 
@@ -433,15 +456,15 @@ export async function performRestRegistration(
   let resolvedTools;
   try {
     const toolsResult = await resolveRestTools(
-      openapi_url,
+      openapiUrl,
       ip,
       hasCurl,
-      curl_input,
+      curlInput,
       hasPostman,
       postman_collection,
       tools,
-      include_tags,
-      exclude_operations,
+      includeTagsArr,
+      excludeOperationsArr,
     );
     if ("ok" in toolsResult) return toolsResult;
     resolvedTools = toolsResult.tools;
@@ -461,19 +484,19 @@ export async function performRestRegistration(
     if (finalizeOutcome) return finalizeOutcome;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    const code = openapi_url ? "DISCOVERY_ERROR" : "VALIDATION_ERROR";
+    const code = hasOpenapi ? "DISCOVERY_ERROR" : "VALIDATION_ERROR";
     return { ok: false, status: 400, body: { error: { code, message } } };
   }
 
   log("info", "Client registered", {
     name,
     tools_count: resolvedTools.length,
-    source: openapi_url ? "openapi" : "manual",
+    source: hasOpenapi ? "openapi" : "manual",
   });
   return {
     ok: true,
     status: 200,
-    body: { status: "registered", name, tools_count: resolvedTools.length, source: openapi_url ? "openapi" : "manual" },
+    body: { status: "registered", name, tools_count: resolvedTools.length, source: hasOpenapi ? "openapi" : "manual" },
   };
 }
 
@@ -485,8 +508,7 @@ export async function performRestRegistration(
  * an operator can configure auth then re-register.
  */
 export async function performMcpRegistration(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentionally loose: mirrors the unvalidated req.body shape this branch has always had (see doc comment above).
-  body: any,
+  body: Record<string, unknown>,
   peerIp: string | undefined,
   requestId: string | null,
 ): Promise<RegisterOutcome> {
@@ -667,8 +689,7 @@ async function discoverAndRegisterGraphqlTools(
  * cleanup step needed.
  */
 export async function performGraphqlRegistration(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentionally loose: mirrors the unvalidated req.body shape this branch has always had (see doc comment above).
-  body: any,
+  body: Record<string, unknown>,
   peerIp: string | undefined,
   requestId: string | null,
 ): Promise<RegisterOutcome> {

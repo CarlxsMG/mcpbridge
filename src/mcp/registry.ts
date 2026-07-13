@@ -8,26 +8,12 @@ import type {
   ToolGuardConfig,
   ToolOverride,
   McpTransport,
-  UpstreamKind,
 } from "./types.js";
 import { sanitizeToolDescription } from "../content-filtering/sanitize.js";
 import { abortClientRequests } from "../proxy/proxy.js";
-import {
-  removeCircuitBreaker,
-  updateCircuitBreakerConfig,
-  getAllCircuitStates,
-} from "../middleware/circuit-breaker.js";
+import { removeCircuitBreaker, updateCircuitBreakerConfig } from "../middleware/circuit-breaker.js";
 import { notifyToolsChanged } from "./mcp-server.js";
 import { getDb } from "../db/connection.js";
-import { getTagsForClient, getAllToolTags } from "../tool-meta/tool-tags.js";
-import { getSensitivityForClient } from "../tool-meta/tool-sensitivity.js";
-import { getRedactionForClient } from "../content-filtering/redaction.js";
-import { getGuardrailsForClient } from "../tool-policies/guardrails.js";
-import { getCoalesceForClient } from "../tool-policies/coalesce.js";
-import { getApprovalConfigForClient } from "../admin/entities/approvals.js";
-import { getQuarantineForClient } from "../tool-policies/quarantine.js";
-import { getWsForClient, getGraphqlForClient } from "../proxy/backends.js";
-import { getContextBudgetForClient } from "../tool-policies/context-budget.js";
 import { purgeClientCache } from "../tool-policies/response-cache.js";
 import { mcpUpstream } from "./mcp-upstream.js";
 import type { DiscoveredMcpTool } from "./mcp-discovery.js";
@@ -37,45 +23,22 @@ import { RegistryAliasIndex } from "./registry-alias-index.js";
 import { ToolIndex } from "./tool-index.js";
 import {
   RegistryPersistence,
-  rowToClientGuards,
   rowToToolGuards,
   rowToToolOverride,
-  type ClientGuardRow,
   type ToolGuardRow,
   type ToolOverrideRow,
 } from "./registry-persistence.js";
+import {
+  listClientsSummaryReadModel,
+  listAllToolsReadModel,
+  getClientDetailReadModel,
+  type ClientSummary,
+  type ClientDetail,
+  type ListClientsSummaryOpts,
+  type ToolListItem,
+} from "./registry-read-models.js";
 
-export interface ClientSummary {
-  name: string;
-  enabled: boolean;
-  live: boolean;
-  status: ClientStatus | null;
-  toolsCount: number;
-  healthUrl: string;
-  baseUrl: string;
-  kind: UpstreamKind;
-  teamId: number | null;
-}
-
-export interface ClientDetail {
-  name: string;
-  enabled: boolean;
-  live: boolean;
-  status: ClientStatus | null;
-  ip: string | null;
-  healthUrl: string;
-  baseUrl: string;
-  resolvedIp: string | null;
-  retryNonSafeMethods: boolean;
-  consecutiveFailures: number | null;
-  guards?: ClientGuardConfig;
-  circuitBreakerState: string | null;
-  kind: UpstreamKind;
-  mcpUrl: string | null;
-  mcpTransport: string | null;
-  teamId: number | null;
-  tools: RegisteredTool[];
-}
+export type { ClientSummary, ClientDetail };
 
 const VALID_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
@@ -114,6 +77,25 @@ export function validateEndpointPath(endpoint: string): string | null {
     return `Endpoint contains invalid path segment: ${endpoint}`;
   }
   return null;
+}
+
+/**
+ * Sanitizes every string `.description` found on an inputSchema's top-level
+ * `properties` map, mutating the schema in place. Shared by register() (REST)
+ * and registerMcp() (MCP upstream) — both walk a newly-validated tool's
+ * inputSchema.properties the same way right after validation, applying the
+ * same prompt-injection defense (sanitizeToolDescription) as the top-level
+ * tool.description. Security-relevant: keep behavior byte-for-byte identical
+ * to what each call site had inlined before this was extracted.
+ */
+function sanitizeSchemaPropertyDescriptions(schema: Record<string, unknown> | undefined): void {
+  if (!schema?.properties || typeof schema.properties !== "object") return;
+  for (const key of Object.keys(schema.properties as Record<string, unknown>)) {
+    const prop = (schema.properties as Record<string, Record<string, unknown>>)[key];
+    if (prop && typeof prop.description === "string") {
+      prop.description = sanitizeToolDescription(prop.description);
+    }
+  }
 }
 
 class Registry {
@@ -301,15 +283,7 @@ class Registry {
     // Sanitize tool descriptions and inputSchema property descriptions
     for (const tool of tools) {
       tool.description = sanitizeToolDescription(tool.description);
-
-      if (tool.inputSchema?.properties && typeof tool.inputSchema.properties === "object") {
-        for (const key of Object.keys(tool.inputSchema.properties as Record<string, unknown>)) {
-          const prop = (tool.inputSchema.properties as Record<string, Record<string, unknown>>)[key];
-          if (prop && typeof prop.description === "string") {
-            prop.description = sanitizeToolDescription(prop.description);
-          }
-        }
-      }
+      sanitizeSchemaPropertyDescriptions(tool.inputSchema);
     }
 
     await this.withLock(name, async () => {
@@ -412,14 +386,7 @@ class Registry {
 
     // Sanitize descriptions + inputSchema property descriptions (same as REST).
     const sanitizedTools: DiscoveredMcpTool[] = tools.map((t) => {
-      if (t.inputSchema.properties && typeof t.inputSchema.properties === "object") {
-        for (const key of Object.keys(t.inputSchema.properties as Record<string, unknown>)) {
-          const prop = (t.inputSchema.properties as Record<string, Record<string, unknown>>)[key];
-          if (prop && typeof prop.description === "string") {
-            prop.description = sanitizeToolDescription(prop.description);
-          }
-        }
-      }
+      sanitizeSchemaPropertyDescriptions(t.inputSchema);
       return { ...t, description: sanitizeToolDescription(t.description) };
     });
 
@@ -1073,252 +1040,29 @@ class Registry {
 
   /**
    * Paginated (keyset, by name), searchable client listing for the admin UI.
-   * `status` is applied as a post-filter over the returned page (health status
-   * is in-memory-only/ephemeral, not a SQL column), so a status-filtered page
-   * may return fewer than `limit` items — acceptable for an admin list view.
+   * Thin wrapper — logic lives in registry-read-models.ts (SQL-backed read
+   * model, needs only the live `clients` map for health-status merging).
    */
-  listClientsSummary(
-    opts: {
-      q?: string;
-      enabled?: boolean;
-      status?: ClientStatus;
-      cursor?: string;
-      limit?: number;
-      teamId?: number | null;
-    } = {},
-  ): { items: ClientSummary[]; nextCursor?: string } {
-    const db = getDb();
-    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
-
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
-
-    if (opts.cursor) {
-      conditions.push("c.name > ?");
-      params.push(opts.cursor);
-    }
-    if (opts.q) {
-      conditions.push("c.name LIKE ?");
-      params.push(`%${opts.q}%`);
-    }
-    if (opts.enabled !== undefined) {
-      conditions.push("c.enabled = ?");
-      params.push(opts.enabled ? 1 : 0);
-    }
-    // Tenancy scoping: a team-scoped caller only sees its own team's clients.
-    if (typeof opts.teamId === "number") {
-      conditions.push("c.team_id = ?");
-      params.push(opts.teamId);
-    }
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
-    const rows = db
-      .query(
-        `SELECT c.name, c.enabled, c.kind, c.health_url, c.base_url, c.team_id, COUNT(t.name) as tools_count
-         FROM clients c LEFT JOIN tools t ON t.client_name = c.name
-         ${whereClause}
-         GROUP BY c.name
-         ORDER BY c.name
-         LIMIT ?`,
-      )
-      .all(...params, limit + 1) as {
-      name: string;
-      enabled: number;
-      kind: string;
-      health_url: string;
-      base_url: string;
-      team_id: number | null;
-      tools_count: number;
-    }[];
-
-    const hasMore = rows.length > limit;
-    const page = hasMore ? rows.slice(0, limit) : rows;
-
-    let items: ClientSummary[] = page.map((r) => {
-      const live = this.clients.get(r.name);
-      return {
-        name: r.name,
-        enabled: r.enabled === 1,
-        live: live !== undefined,
-        status: live?.status ?? null,
-        toolsCount: r.tools_count,
-        healthUrl: r.health_url,
-        baseUrl: r.base_url,
-        kind: r.kind as UpstreamKind,
-        teamId: r.team_id ?? null,
-      };
-    });
-
-    if (opts.status) {
-      items = items.filter((i) => i.status === opts.status);
-    }
-
-    return { items, nextCursor: hasMore ? page[page.length - 1].name : undefined };
+  listClientsSummary(opts: ListClientsSummaryOpts = {}): { items: ClientSummary[]; nextCursor?: string } {
+    return listClientsSummaryReadModel(this.clients, opts);
   }
 
   /**
-   * Flat listing of every (client, tool) pair across every registered client,
-   * read from SQLite so it includes clients that aren't currently live —
-   * purpose-built for the bundle admin UI's tool picker, which (consistent
-   * with bundles.ts checking existence rather than "currently enabled" when
-   * validating membership) should let an admin pick a tool belonging to a
-   * temporarily-down client.
+   * Flat listing of every (client, tool) pair across every registered client.
+   * Thin wrapper — logic lives in registry-read-models.ts.
    */
-  listAllTools(): {
-    client: string;
-    tool: string;
-    description: string;
-    enabled: boolean;
-    clientEnabled: boolean;
-    tags: string[];
-  }[] {
-    const db = getDb();
-    const rows = db
-      .query(
-        `SELECT c.name as client_name, c.enabled as client_enabled, t.name as tool_name, t.description, t.enabled
-         FROM tools t JOIN clients c ON c.name = t.client_name
-         ORDER BY c.name, t.name`,
-      )
-      .all() as {
-      client_name: string;
-      client_enabled: number;
-      tool_name: string;
-      description: string;
-      enabled: number;
-    }[];
-
-    const allTags = getAllToolTags();
-    return rows.map((r) => ({
-      client: r.client_name,
-      tool: r.tool_name,
-      description: r.description,
-      enabled: r.enabled === 1,
-      clientEnabled: r.client_enabled === 1,
-      tags: allTags[`${r.client_name}__${r.tool_name}`] ?? [],
-    }));
+  listAllTools(): ToolListItem[] {
+    return listAllToolsReadModel();
   }
 
-  /** Full detail for one client — tools with guards, health, circuit-breaker state. Undefined if never registered. */
+  /**
+   * Full detail for one client — tools with guards, health, circuit-breaker
+   * state. Undefined if never registered. Thin wrapper — logic lives in
+   * registry-read-models.ts (SQL-backed read model, needs only the live
+   * `clients` map for health/breaker-state merging).
+   */
   getClientDetail(name: string): ClientDetail | undefined {
-    const db = getDb();
-    const row = db
-      .query(
-        `SELECT ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, mcp_url, mcp_transport, team_id FROM clients WHERE name = ?`,
-      )
-      .get(name) as {
-      ip: string;
-      health_url: string;
-      base_url: string;
-      resolved_ip: string;
-      retry_non_safe_methods: number;
-      enabled: number;
-      kind: string;
-      mcp_url: string | null;
-      mcp_transport: string | null;
-      team_id: number | null;
-    } | null;
-    if (!row) return undefined;
-
-    const live = this.clients.get(name);
-    const guardRow = db
-      .query(
-        `SELECT cb_failure_threshold, cb_reset_timeout_ms, cb_half_open_timeout_ms, cb_window_ms, extra_json FROM client_guards WHERE client_name = ?`,
-      )
-      .get(name) as ClientGuardRow | null;
-
-    const tagMap = getTagsForClient(name);
-    const sensMap = getSensitivityForClient(name);
-    const redactMap = getRedactionForClient(name);
-    const guardrailMap = getGuardrailsForClient(name);
-    const coalesceMap = getCoalesceForClient(name);
-    const approvalMap = getApprovalConfigForClient(name);
-    const quarantineMap = getQuarantineForClient(name);
-    const wsMap = getWsForClient(name);
-    const graphqlMap = getGraphqlForClient(name);
-    const contextBudgetMap = getContextBudgetForClient(name);
-    let tools: RegisteredTool[];
-    if (live) {
-      tools = live.tools.map((t) => ({
-        ...t,
-        tags: tagMap[t.name] ?? [],
-        sensitive: sensMap[t.name] ?? null,
-        redactPaths: redactMap[t.name] ?? [],
-        guardrails: guardrailMap[t.name],
-        coalesce: coalesceMap[t.name],
-        approval: approvalMap[t.name],
-        quarantine: quarantineMap[t.name],
-        ws: wsMap[t.name],
-        graphql: graphqlMap[t.name],
-        contextBudget: contextBudgetMap[t.name],
-      }));
-    } else {
-      const toolRows = db
-        .query(
-          `SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`,
-        )
-        .all(name) as {
-        name: string;
-        method: string;
-        endpoint: string;
-        description: string;
-        input_schema: string;
-        enabled: number;
-        upstream_name: string | null;
-      }[];
-      tools = toolRows.map((t) => {
-        const tg = db
-          .query(
-            `SELECT rate_limit_per_min, timeout_ms, allowed_key_hashes, extra_json FROM tool_guards WHERE client_name = ? AND tool_name = ?`,
-          )
-          .get(name, t.name) as ToolGuardRow | null;
-        const to = db
-          .query(
-            `SELECT description, param_overrides_json, display_name, drift_note FROM tool_overrides WHERE client_name = ? AND tool_name = ?`,
-          )
-          .get(name, t.name) as ToolOverrideRow | null;
-        return {
-          name: t.name,
-          method: t.method as RegisteredTool["method"],
-          endpoint: t.endpoint,
-          upstreamName: t.upstream_name ?? undefined,
-          description: t.description,
-          inputSchema: JSON.parse(t.input_schema) as Record<string, unknown>,
-          enabled: t.enabled === 1,
-          guards: rowToToolGuards(tg),
-          override: rowToToolOverride(to),
-          tags: tagMap[t.name] ?? [],
-          sensitive: sensMap[t.name] ?? null,
-          redactPaths: redactMap[t.name] ?? [],
-          guardrails: guardrailMap[t.name],
-          coalesce: coalesceMap[t.name],
-          approval: approvalMap[t.name],
-          quarantine: quarantineMap[t.name],
-          ws: wsMap[t.name],
-          graphql: graphqlMap[t.name],
-          contextBudget: contextBudgetMap[t.name],
-        };
-      });
-    }
-
-    return {
-      name,
-      enabled: row.enabled === 1,
-      live: live !== undefined,
-      status: live?.status ?? null,
-      ip: live?.ip ?? row.ip,
-      healthUrl: row.health_url,
-      baseUrl: row.base_url,
-      kind: row.kind as UpstreamKind,
-      mcpUrl: row.mcp_url,
-      mcpTransport: row.mcp_transport,
-      teamId: row.team_id ?? null,
-      resolvedIp: row.resolved_ip,
-      retryNonSafeMethods: row.retry_non_safe_methods === 1,
-      consecutiveFailures: live?.consecutive_failures ?? null,
-      guards: rowToClientGuards(guardRow),
-      circuitBreakerState: live ? (getAllCircuitStates()[name] ?? "closed") : null,
-      tools,
-    };
+    return getClientDetailReadModel(this.clients, name);
   }
 }
 
