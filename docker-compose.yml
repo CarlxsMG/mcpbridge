@@ -5,8 +5,13 @@
 #
 # Notes:
 # - Defaults to pulling the published, signed, multi-arch image from GHCR
-#   (built by .github/workflows/docker-publish.yml). Uncomment the `build: .`
-#   line below instead if you want to build from local source.
+#   (built by .github/workflows/docker-publish.yml), pinned to a specific
+#   released version rather than `:latest` — a mutable tag would let a
+#   `docker compose pull` silently swap the running version out from under
+#   you. Bump MCPBRIDGE_VERSION (env or .env) when you want to upgrade;
+#   verify the new tag exists at https://github.com/aico-dot-team-code/mcpbridge/pkgs/container/mcpbridge
+#   first. Uncomment the `build: .` line below instead if you want to build
+#   from local source.
 # - `env_file` injects .env into the container's process env (same file
 #   Compose also reads for ${VAR} substitution below, so PORT stays in sync
 #   on both sides of the port mapping).
@@ -20,10 +25,14 @@
 #   healthcheck (and the app itself) pointed at the right port.
 # - The SQLite DB (DB_PATH=/app/data/mcp-bridge.db, set in the Dockerfile)
 #   lives on the named volume below so it survives container recreation.
+# - Runtime hardening mirrors the Helm chart's securityContext: no privilege
+#   escalation, and a read-only root filesystem with an explicit tmpfs for
+#   the few paths Bun/the app need to write to at runtime (nothing under
+#   /app itself — /app/data is already its own writable named volume above).
 
 services:
   mcp-bridge:
-    image: ghcr.io/aico-dot-team-code/mcpbridge:latest
+    image: ghcr.io/aico-dot-team-code/mcpbridge:${MCPBRIDGE_VERSION:-1.0.0}
     # build: .   # uncomment to build from local source instead of the published image — e.g. for testing an unreleased change
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
@@ -32,6 +41,12 @@ services:
     volumes:
       - mcp-bridge-data:/app/data
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    mem_limit: 512m
 
 volumes:
   mcp-bridge-data:

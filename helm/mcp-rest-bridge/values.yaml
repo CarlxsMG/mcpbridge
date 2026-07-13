@@ -97,6 +97,18 @@ securityContext:
   # still leaves SQLite's temp space (and any other scratch) writable.
   readOnlyRootFilesystem: true
 
+# Gates liveness/readiness until the app answers /health once — covers a slow
+# first boot (DB migrations run at startup, see src/db/migrations.ts) without
+# needing a large initialDelaySeconds on livenessProbe below, which would
+# otherwise slow down detecting a genuinely hung pod on every later restart.
+# 30 * 5s = up to 150s to come up before Kubernetes gives up and restarts it.
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+  failureThreshold: 30
+  periodSeconds: 5
+
 livenessProbe:
   httpGet:
     path: /health
