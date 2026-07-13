@@ -143,7 +143,7 @@ export interface EndUserRateLimitStatus {
  * limit, for consumers that have opted in via endUserRateLimitPerMin. This is
  * a cooperative fairness dimension, not an authorization boundary — the
  * identity is caller-asserted and unauthenticated (see resolveEndUserId in
- * proxy.ts). A consumer that hasn't opted in, or an unknown/deleted consumer,
+ * proxy/gates.ts). A consumer that hasn't opted in, or an unknown/deleted consumer,
  * never limits (fail-open, symmetric with checkConsumerQuota above).
  */
 export function checkEndUserRateLimit(

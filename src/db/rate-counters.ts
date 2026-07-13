@@ -66,7 +66,8 @@ export function checkSharedToolRateLimit(
  * Shared-counter equivalent for a caller-asserted end-user identity, namespaced
  * per consumer so the same raw id under two different consumers never shares a
  * bucket. Only ever called when a consumer has opted in (endUserRateLimitPerMin
- * set) and a call actually asserts an identity — see resolveEndUserId in proxy.ts.
+ * set) and a call actually asserts an identity — see resolveEndUserId in
+ * proxy/gates.ts.
  */
 export function checkSharedEndUserRateLimit(
   consumerId: number,
