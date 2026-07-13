@@ -44,7 +44,7 @@ function expectedAuditHash(
   detailJson: string | null,
   createdAt: number,
 ): string {
-  return sha256Hex([prevHash, actor, action, target, detailJson ?? "", String(createdAt)].join("\n"));
+  return sha256Hex(JSON.stringify([prevHash, actor, action, target, detailJson, createdAt]));
 }
 
 beforeEach(() => {
@@ -106,8 +106,8 @@ describe("recordAudit — error swallowing", () => {
   });
 });
 
-describe("recordAudit — the content hash's exact join formula", () => {
-  test("with a detail object, the stored hash matches prevHash+actor+action+target+JSON(detail)+createdAt joined with \\n", () => {
+describe("recordAudit — the content hash's exact pre-image formula", () => {
+  test("with a detail object, the stored hash matches the JSON-tuple pre-image of prevHash+actor+action+target+JSON(detail)+createdAt", () => {
     recordAudit("alice", "act.one", "target1", { k: "v" });
     const row = getDb().query(`SELECT hash, created_at FROM admin_audit_log ORDER BY id ASC LIMIT 1`).get() as {
       hash: string;
@@ -117,7 +117,7 @@ describe("recordAudit — the content hash's exact join formula", () => {
     expect(row.hash).toBe(expected);
   });
 
-  test("with no detail, the hashed detail segment is the ??-fallback empty string, not a placeholder", () => {
+  test("with no detail, the hashed detail element is JSON null (distinct from an empty-string detail), not a placeholder", () => {
     recordAudit("bob", "act.two", "target2");
     const row = getDb().query(`SELECT hash, created_at FROM admin_audit_log ORDER BY id ASC LIMIT 1`).get() as {
       hash: string;
@@ -125,6 +125,20 @@ describe("recordAudit — the content hash's exact join formula", () => {
     };
     const expected = expectedAuditHash("", "bob", "act.two", "target2", null, row.created_at);
     expect(row.hash).toBe(expected);
+    // A null detail must NOT hash the same as an empty-string detail — the JSON
+    // tuple keeps them distinct (the old "\n"-join collapsed both to "").
+    expect(row.hash).not.toBe(expectedAuditHash("", "bob", "act.two", "target2", "", row.created_at));
+  });
+
+  test("the pre-image is injective across newline-containing field boundaries (no cross-field collision)", () => {
+    // Under a raw `"\n".join`, these two distinct tuples share a pre-image:
+    //   ["","x","a\nb","c","",ts]  and  ["","x","a","b\nc","",ts]
+    // both flatten to "…\nx\na\nb\nc\n\n<ts>". The JSON-tuple encoding keeps
+    // them distinct, which is the whole point of the hardening.
+    const ts = 1_700_000_000_000;
+    const a = expectedAuditHash("", "x", "a\nb", "c", null, ts);
+    const b = expectedAuditHash("", "x", "a", "b\nc", null, ts);
+    expect(a).not.toBe(b);
   });
 });
 

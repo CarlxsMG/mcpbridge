@@ -20,6 +20,14 @@ export interface AuditLogEntry {
  * Content hash of one audit row, chained to the previous row's hash. Any edit to
  * a historical row (or a deleted/inserted row) breaks every subsequent hash, so
  * verifyAuditChain() can detect tampering.
+ *
+ * The pre-image is a JSON-encoded field tuple, NOT a raw `"\n".join`: `target`
+ * and `detail` are caller-influenced and may contain newlines, and a bare
+ * newline join is not injective — e.g. action `"a\nb"` + target `"c"` and action
+ * `"a"` + target `"b\nc"` serialize to the same joined string, so two distinct
+ * logical rows could share a hash. JSON.stringify escapes newlines/quotes inside
+ * each element and delimits with structure, making the commitment injective
+ * (and it distinguishes a null detail from an empty-string one).
  */
 function computeAuditHash(
   prevHash: string,
@@ -29,7 +37,7 @@ function computeAuditHash(
   detailJson: string | null,
   createdAt: number,
 ): string {
-  return sha256Hex([prevHash, actor, action, target, detailJson ?? "", String(createdAt)].join("\n"));
+  return sha256Hex(JSON.stringify([prevHash, actor, action, target, detailJson, createdAt]));
 }
 
 /**
