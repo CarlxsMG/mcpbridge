@@ -408,7 +408,18 @@ async function resolveRestRouting(
   // machinery below is replaced by a single WS round-trip.
   const wsCfg = getToolWs(client.name, tool.name);
   if (wsCfg?.enabled) {
-    return dispatchWsToolCall(client, tool, args, wsCfg, effectiveTimeout, breaker, callerKey, opts);
+    return dispatchWsToolCall(
+      client,
+      tool,
+      args,
+      mcpToolName,
+      wsCfg,
+      effectiveTimeout,
+      breaker,
+      callerKey,
+      guardrails?.scanResponses ?? false,
+      opts,
+    );
   }
 
   // When bypassing the primary breaker (failover call to the secondary), the
@@ -931,8 +942,28 @@ async function dispatchRestToolCall(
         // success responses, preventing a malicious upstream from OOM-ing the bridge with
         // an oversized error body (e.g. a 400 with a 10 GB payload).
         const errorBody = await readBodyWithCap(response);
-        const errorBodyText =
+        let errorBodyText =
           errorBody === null ? `[body truncated — exceeded ${config.maxResponseBytes} byte limit]` : errorBody;
+        // Response-sanitization parity with the success path: a 4xx/5xx body can
+        // carry the same secrets (e.g. a debug 400 echoing the gateway-injected
+        // Authorization) or a prompt-injection payload as a 2xx body, so run the
+        // configured redaction paths + guardrail scan over it before it reaches
+        // the caller. (Skip the truncation-placeholder case — nothing to redact.)
+        if (errorBody !== null) {
+          const redacted = applyRedaction(built.redactionPaths, errorBodyText);
+          if (redacted !== null) errorBodyText = redacted;
+          if (guardrails?.scanResponses) {
+            const scan = applyResponseScan(errorBodyText);
+            recordGuardrailHit(client.name, tool.name, scan.flagged);
+            if (scan.flagged) {
+              log("warn", "Tool error response flagged by guardrail scan", {
+                tool: mcpToolName,
+                client: client.name,
+              });
+              errorBodyText = scan.text;
+            }
+          }
+        }
         return recordFailure({
           durationMs: errDurationMs,
           statusClass: httpStatusClass(response.status),
