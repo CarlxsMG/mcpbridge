@@ -180,3 +180,45 @@ jobs:
           tags: mcp-rest-bridge:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  helm:
+    # Lints + renders the Helm chart on every push/PR. The multi-file chart
+    # (deployment/service/secret/pvc/configmap/_helpers) is otherwise only
+    # exercised by hand, so a bad template indent, undefined value, or broken
+    # `define` would ship unnoticed. Helm 3 is preinstalled on ubuntu-latest, so
+    # no setup action (or extra pinned dependency) is needed.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: helm lint
+        run: helm lint helm/mcp-rest-bridge
+      - name: helm template (render with default values)
+        run: helm template mcp-rest-bridge helm/mcp-rest-bridge > /dev/null
+
+  test-windows:
+    # The Linux `test` job above is the full gate (format/lint/build included);
+    # this leg re-runs typecheck + the backend and admin-ui test suites on
+    # Windows to catch platform-specific regressions a Linux-only CI would miss
+    # (path handling, bun:sqlite, the CRLF/LF class .gitattributes tames) — the
+    # maintainer develops on Windows, and the shipped binaries include a Windows
+    # target. Format/lint/build are OS-independent, so they're not repeated here.
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - name: Install root dependencies
+        run: bun install --frozen-lockfile
+      - name: Typecheck (root)
+        run: bun run typecheck
+      - name: Test (root)
+        run: bun run test
+      - name: Install admin-ui dependencies
+        working-directory: admin-ui
+        run: bun install --frozen-lockfile
+      - name: Test (admin-ui)
+        working-directory: admin-ui
+        run: bun run test

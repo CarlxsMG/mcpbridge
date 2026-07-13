@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- CI now **lints and renders the Helm chart** (`helm lint` + `helm template`) and runs a **Windows
+  test leg** (typecheck + backend/admin-ui suites on `windows-latest`) on every push/PR — the chart
+  was previously only hand-checked, and CI was Linux-only despite shipping a Windows binary and the
+  maintainer developing on Windows.
 - CI now **builds the container image on every push/PR** (build-only, single-arch, never pushed).
   The image is the primary distribution artifact (docker-compose + Helm both consume it), yet
   `docker-publish.yml` only built it on a `v*` tag — so a `Dockerfile`/`COPY`/multi-stage break used
