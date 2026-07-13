@@ -736,41 +736,45 @@ describe("getSharedWss: a single WebSocketServer instance is reused across upgra
 });
 
 describe("dialBackendAndPipe: DNS pinning of the outbound dial", () => {
-  test("pins via makePinnedLookup(target.resolvedIp) when the backend hostname is not a raw IP literal", async () => {
-    const targetName = uniqueName("pinned-lookup");
+  test("delegates the connect-target pin to pinnedWsDial(backendWsUrl, resolvedIp) for a hostname backend", async () => {
+    const targetName = uniqueName("pinned-dial");
     const backend = echoBackend();
     try {
       const created = await upsertWsProxyTarget(targetName, { backendWsUrl: `ws://localhost:${backend.port}` });
       expect(created.ok).toBe(true);
       const resolvedIp = created.ok ? created.target.resolvedIp : "";
 
-      const lookupSpy = spyOn(ipValidatorMod, "makePinnedLookup");
+      const pinSpy = spyOn(ipValidatorMod, "pinnedWsDial");
       try {
         const ws = new WebSocket(wsUrl(targetName));
         await waitOpen(ws);
-        expect(lookupSpy).toHaveBeenCalledWith(resolvedIp);
+        // pinnedWsDial's own unit tests prove it rewrites the connect host to
+        // the IP (never re-resolved); here we prove ws-proxy wires it in with
+        // the backend URL + the IP resolved at config time. (Its `lookup`-based
+        // predecessor was a silent no-op under Bun's `ws` shim.)
+        expect(pinSpy).toHaveBeenCalledWith(`ws://localhost:${backend.port}`, resolvedIp);
         ws.close();
       } finally {
-        lookupSpy.mockRestore();
+        pinSpy.mockRestore();
       }
     } finally {
       backend.stop(true);
     }
   });
 
-  test("does NOT pin via makePinnedLookup when the backend hostname is already a raw IP literal", async () => {
-    const targetName = uniqueName("no-pinned-lookup");
+  test("still delegates to pinnedWsDial for a raw-IP backend (which pinnedWsDial returns unchanged)", async () => {
+    const targetName = uniqueName("pinned-dial-raw");
     const backend = echoBackend();
     try {
       await upsertWsProxyTarget(targetName, { backendWsUrl: `ws://127.0.0.1:${backend.port}` });
-      const lookupSpy = spyOn(ipValidatorMod, "makePinnedLookup");
+      const pinSpy = spyOn(ipValidatorMod, "pinnedWsDial");
       try {
         const ws = new WebSocket(wsUrl(targetName));
         await waitOpen(ws);
-        expect(lookupSpy).not.toHaveBeenCalled();
+        expect(pinSpy).toHaveBeenCalledWith(`ws://127.0.0.1:${backend.port}`, "127.0.0.1");
         ws.close();
       } finally {
-        lookupSpy.mockRestore();
+        pinSpy.mockRestore();
       }
     } finally {
       backend.stop(true);

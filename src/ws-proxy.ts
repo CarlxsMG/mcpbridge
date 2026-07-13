@@ -16,7 +16,7 @@ import type { IncomingMessage } from "http";
 import type { Duplex } from "stream";
 import { getDb } from "./db/connection.js";
 import { config } from "./config.js";
-import { validateBackendUrl, isRawIpLiteral, makePinnedLookup } from "./net/ip-validator.js";
+import { validateBackendUrl, isRawIpLiteral, pinnedWsDial } from "./net/ip-validator.js";
 import { evaluateMcpAuth } from "./middleware/auth.js";
 import { isClientInKeyScope } from "./security/mcp-key-store.js";
 import { isOriginAllowed } from "./middleware/origin-validator.js";
@@ -347,16 +347,17 @@ function dialBackendAndPipe(
   breaker: ReturnType<typeof getCircuitBreaker>,
 ): void {
   const hostname = new URL(target.backendWsUrl.replace(/^ws/, "http")).hostname;
-  const isRawIp = isRawIpLiteral(hostname);
 
-  const backendWs = new WsClient(target.backendWsUrl, {
+  // Pin the TCP connection to the SSRF-validated IP while preserving the
+  // original hostname for the Host header / TLS SNI — the same DNS-rebinding
+  // mitigation proxy.ts applies to REST fetches, via pinnedWsDial. (Bun's `ws`
+  // shim ignores the Node `lookup` option, so the connect host is rewritten to
+  // the IP literal rather than pinned through a lookup callback.)
+  const pin = pinnedWsDial(target.backendWsUrl, target.resolvedIp);
+  const backendWs = new WsClient(pin.url, {
     maxPayload: target.maxMessageBytes,
     handshakeTimeout: config.wsProxyDialTimeoutMs,
-    // Pin the TCP connection to the SSRF-validated IP while preserving the
-    // original hostname for the Host header / TLS SNI — same intent as the
-    // fetch-side pinning proxy.ts does for REST, achieved differently since a
-    // WS upgrade handshake can't rewrite the URL host the way fetch does.
-    ...(isRawIp ? {} : { lookup: makePinnedLookup(target.resolvedIp) }),
+    ...pin.options,
   });
 
   const conn: ProxiedConn = { clientWs, backendWs, lastActivity: Date.now(), targetName: target.name, hostname };

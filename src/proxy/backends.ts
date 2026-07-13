@@ -9,9 +9,10 @@
  * Both reuse the same guard/breaker/usage stack as REST — only the wire format
  * differs. The WS URL is SSRF-validated at config time (via its http-equivalent).
  */
+import { WebSocket as WsClient, type RawData } from "ws";
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
-import { validateBackendUrl } from "../net/ip-validator.js";
+import { validateBackendUrl, pinnedWsDial } from "../net/ip-validator.js";
 import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 // ── GraphQL ─────────────────────────────────────────────────────────────────
@@ -130,12 +131,31 @@ export async function setToolWs(
 }
 
 /**
+ * Opens a `ws` WebSocket whose TCP connect target is pinned to the
+ * SSRF-validated `resolvedIp` (see {@link pinnedWsDial}), while the original
+ * hostname stays visible for the Host header / TLS SNI — the WS-dial equivalent
+ * of the IP pinning proxy.ts applies to REST fetches. Without this, a bare
+ * `new WebSocket(url)` re-resolves DNS on every call, reopening the
+ * DNS-rebinding window that config-time validation (setToolWs) closes.
+ */
+function openPinnedWs(url: string, resolvedIp: string): WsClient {
+  const pin = pinnedWsDial(url, resolvedIp);
+  return new WsClient(pin.url, pin.options);
+}
+
+/**
  * Opens an ephemeral WebSocket, sends `payload`, and resolves with the first
  * message received (capped). Rejects on timeout, socket error, or a close
  * before any message. One message in → one message out per fresh connection, so
  * no correlation id is needed.
  */
-export function wsRequest(url: string, payload: string, timeoutMs: number, maxBytes: number): Promise<string> {
+export function wsRequest(
+  url: string,
+  resolvedIp: string,
+  payload: string,
+  timeoutMs: number,
+  maxBytes: number,
+): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     let settled = false;
     const finish = (fn: () => void) => {
@@ -149,26 +169,26 @@ export function wsRequest(url: string, payload: string, timeoutMs: number, maxBy
       }
       fn();
     };
-    const ws = new WebSocket(url);
+    const ws = openPinnedWs(url, resolvedIp);
     const timer = setTimeout(() => finish(() => reject(new Error("timeout"))), timeoutMs);
 
-    ws.addEventListener("open", () => {
+    ws.on("open", () => {
       try {
         ws.send(payload);
       } catch (e) {
         finish(() => reject(e instanceof Error ? e : new Error(String(e))));
       }
     });
-    ws.addEventListener("message", (ev: MessageEvent) => {
-      const data = typeof ev.data === "string" ? ev.data : "";
-      if (data.length > maxBytes) {
+    ws.on("message", (data: RawData, isBinary: boolean) => {
+      const text = isBinary ? "" : data.toString();
+      if (text.length > maxBytes) {
         finish(() => reject(new Error("WS response exceeded MAX_RESPONSE_BYTES limit")));
         return;
       }
-      finish(() => resolve(data));
+      finish(() => resolve(text));
     });
-    ws.addEventListener("error", () => finish(() => reject(new Error("WebSocket error"))));
-    ws.addEventListener("close", () => finish(() => reject(new Error("WebSocket closed before a response"))));
+    ws.on("error", () => finish(() => reject(new Error("WebSocket error"))));
+    ws.on("close", () => finish(() => reject(new Error("WebSocket closed before a response"))));
   });
 }
 
@@ -183,6 +203,7 @@ export function wsRequest(url: string, payload: string, timeoutMs: number, maxBy
  */
 export function wsRequestPersistent(
   url: string,
+  resolvedIp: string,
   payload: string,
   timeoutMs: number,
   maxBytes: number,
@@ -202,31 +223,31 @@ export function wsRequestPersistent(
       }
       fn();
     };
-    const ws = new WebSocket(url);
+    const ws = openPinnedWs(url, resolvedIp);
     const timer = setTimeout(
       () => finish(() => (lastData !== null ? resolve(lastData) : reject(new Error("timeout")))),
       timeoutMs,
     );
 
-    ws.addEventListener("open", () => {
+    ws.on("open", () => {
       try {
         ws.send(payload);
       } catch (e) {
         finish(() => reject(e instanceof Error ? e : new Error(String(e))));
       }
     });
-    ws.addEventListener("message", (ev: MessageEvent) => {
-      const data = typeof ev.data === "string" ? ev.data : "";
-      if (data.length > maxBytes) {
+    ws.on("message", (data: RawData, isBinary: boolean) => {
+      const text = isBinary ? "" : data.toString();
+      if (text.length > maxBytes) {
         finish(() => reject(new Error("WS response exceeded MAX_RESPONSE_BYTES limit")));
         return;
       }
-      lastData = data;
-      onMessage?.(data);
+      lastData = text;
+      onMessage?.(text);
       // Deliberately does not `finish()` here — stays open for further messages.
     });
-    ws.addEventListener("error", () => finish(() => reject(new Error("WebSocket error"))));
-    ws.addEventListener("close", () =>
+    ws.on("error", () => finish(() => reject(new Error("WebSocket error"))));
+    ws.on("close", () =>
       finish(() => (lastData !== null ? resolve(lastData) : reject(new Error("WebSocket closed before a response")))),
     );
   });

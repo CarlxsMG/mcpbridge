@@ -142,7 +142,7 @@ describe("WebSocket", () => {
     test("wsRequest (non-persistent) still closes after the first message even when the server sends more", async () => {
       const server = multiMessageServer();
       try {
-        const result = await wsRequest(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000);
+        const result = await wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 1_000_000);
         expect(result).toBe("first:hi");
       } finally {
         server.stop(true);
@@ -153,8 +153,13 @@ describe("WebSocket", () => {
       const server = multiMessageServer();
       try {
         const received: string[] = [];
-        const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000, (data) =>
-          received.push(data),
+        const result = await wsRequestPersistent(
+          `ws://localhost:${server.port}`,
+          "127.0.0.1",
+          "hi",
+          2000,
+          1_000_000,
+          (data) => received.push(data),
         );
         expect(received).toEqual(["first:hi", "second:hi", "third:hi"]);
         expect(result).toBe("third:hi");
@@ -197,7 +202,7 @@ describe("WebSocket", () => {
         },
       });
       try {
-        const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 100, 1_000_000);
+        const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 100, 1_000_000);
         expect(result).toBe("only:hi");
       } finally {
         server.stop(true);
@@ -330,7 +335,9 @@ describe("backends — wsRequest cap + early close", () => {
       },
     });
     try {
-      await expect(wsRequest(`ws://localhost:${server.port}`, "hi", 2000, 10)).rejects.toThrow("MAX_RESPONSE_BYTES");
+      await expect(wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 10)).rejects.toThrow(
+        "MAX_RESPONSE_BYTES",
+      );
     } finally {
       server.stop(true);
     }
@@ -350,7 +357,7 @@ describe("backends — wsRequest cap + early close", () => {
       },
     });
     try {
-      await expect(wsRequest(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000)).rejects.toThrow(
+      await expect(wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 1_000_000)).rejects.toThrow(
         "closed before a response",
       );
     } finally {
@@ -384,7 +391,7 @@ describe("backends — wsRequest close is an observable side effect", () => {
       },
     });
     try {
-      const result = await wsRequest(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000);
+      const result = await wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 1_000_000);
       expect(result).toBe("resp");
       // The client-side `ws.close()` inside `finish` is what makes the server
       // observe a close; if the try block were emptied (the mutant), the socket
@@ -412,7 +419,9 @@ describe("backends — wsRequest timeout rejection", () => {
       },
     });
     try {
-      await expect(wsRequest(`ws://localhost:${server.port}`, "hi", 50, 1_000_000)).rejects.toThrow("timeout");
+      await expect(wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 50, 1_000_000)).rejects.toThrow(
+        "timeout",
+      );
     } finally {
       server.stop(true);
     }
@@ -432,7 +441,7 @@ describe("backends — wsRequest binary payload + cap boundary", () => {
       },
     });
     try {
-      const result = await wsRequest(`ws://localhost:${server.port}`, "hi", 2000, 100);
+      const result = await wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 100);
       expect(result).toBe("");
     } finally {
       server.stop(true);
@@ -451,8 +460,34 @@ describe("backends — wsRequest binary payload + cap boundary", () => {
       },
     });
     try {
-      const result = await wsRequest(`ws://localhost:${server.port}`, "hi", 2000, N);
+      const result = await wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, N);
       expect(result).toBe("x".repeat(N));
+    } finally {
+      server.stop(true);
+    }
+  });
+});
+
+describe("backends — wsRequest pins the connection to resolvedIp (DNS-rebinding regression)", () => {
+  test("dials the pinned IP even when the URL hostname does not resolve via real DNS (proves resolvedIp is honored, not re-resolved)", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: (req, s) => (s.upgrade(req) ? undefined : new Response("no")),
+      websocket: {
+        message(ws, msg) {
+          ws.send(`pong:${msg}`);
+        },
+      },
+    });
+    try {
+      // `.invalid` is reserved to always fail DNS (RFC 6761). A bare
+      // `new WebSocket(url)` would therefore reject on ENOTFOUND; the round-trip
+      // only succeeds because the pinned `dns.lookup` override steers the TCP
+      // connect to 127.0.0.1 (where the server actually listens) while leaving
+      // the hostname untouched for the Host header — i.e. the pin is honored and
+      // the hostname is never re-resolved. Regresses the DNS-rebinding fix.
+      const result = await wsRequest(`ws://pinned.invalid:${server.port}`, "127.0.0.1", "hi", 2000, 1_000_000);
+      expect(result).toBe("pong:hi");
     } finally {
       server.stop(true);
     }
@@ -470,7 +505,7 @@ describe("backends — wsRequest real protocol error", () => {
       fetch: () => new Response("nope", { status: 400 }),
     });
     try {
-      await expect(wsRequest(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000)).rejects.toThrow(
+      await expect(wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 1_000_000)).rejects.toThrow(
         "WebSocket error",
       );
     } finally {
@@ -511,7 +546,7 @@ describe("backends — wsRequest send() cannot throw in practice (equivalent mut
       // If `ws.send` had thrown, this would reject via the catch's own error
       // instead of the close listener's "closed before a response" — observing
       // the latter is evidence `send` executed without throwing.
-      await expect(wsRequest(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000)).rejects.toThrow(
+      await expect(wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 1_000_000)).rejects.toThrow(
         "closed before a response",
       );
     } finally {
@@ -538,7 +573,7 @@ describe("backends — wsRequestPersistent close is an observable side effect", 
       },
     });
     try {
-      const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 100, 1_000_000);
+      const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 100, 1_000_000);
       expect(result).toBe("resp:hi");
       const deadline = Date.now() + 1000;
       while (!serverSawClose && Date.now() < deadline) {
@@ -563,9 +598,9 @@ describe("backends — wsRequestPersistent timeout with no message ever received
       },
     });
     try {
-      await expect(wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 50, 1_000_000)).rejects.toThrow(
-        "timeout",
-      );
+      await expect(
+        wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 50, 1_000_000),
+      ).rejects.toThrow("timeout");
     } finally {
       server.stop(true);
     }
@@ -587,9 +622,9 @@ describe("backends — wsRequestPersistent closes before any message", () => {
       },
     });
     try {
-      await expect(wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000)).rejects.toThrow(
-        "closed before a response",
-      );
+      await expect(
+        wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 1_000_000),
+      ).rejects.toThrow("closed before a response");
     } finally {
       server.stop(true);
     }
@@ -610,7 +645,7 @@ describe("backends — wsRequestPersistent binary payload + cap boundary", () =>
       },
     });
     try {
-      const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 2000, 100);
+      const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 100);
       expect(result).toBe("");
     } finally {
       server.stop(true);
@@ -630,7 +665,7 @@ describe("backends — wsRequestPersistent binary payload + cap boundary", () =>
       },
     });
     try {
-      const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 2000, N);
+      const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, N);
       expect(result).toBe("x".repeat(N));
     } finally {
       server.stop(true);
@@ -659,7 +694,7 @@ describe("backends — wsRequestPersistent cap-exceeded rejection (+ settled-gua
       },
     });
     try {
-      await expect(wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 500, 10)).rejects.toThrow(
+      await expect(wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 500, 10)).rejects.toThrow(
         "MAX_RESPONSE_BYTES",
       );
     } finally {
@@ -675,9 +710,9 @@ describe("backends — wsRequestPersistent real protocol error", () => {
       fetch: () => new Response("nope", { status: 400 }),
     });
     try {
-      await expect(wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000)).rejects.toThrow(
-        "WebSocket error",
-      );
+      await expect(
+        wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 1_000_000),
+      ).rejects.toThrow("WebSocket error");
     } finally {
       server.stop(true);
     }
@@ -704,9 +739,9 @@ describe("backends — wsRequestPersistent send() cannot throw in practice (equi
       },
     });
     try {
-      await expect(wsRequestPersistent(`ws://localhost:${server.port}`, "hi", 2000, 1_000_000)).rejects.toThrow(
-        "closed before a response",
-      );
+      await expect(
+        wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 1_000_000),
+      ).rejects.toThrow("closed before a response");
     } finally {
       server.stop(true);
     }

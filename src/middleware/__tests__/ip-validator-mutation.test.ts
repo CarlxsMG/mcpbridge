@@ -58,7 +58,7 @@ import {
   isRawIpLiteral,
   validateBackendUrl,
   makePinnedFetch,
-  makePinnedLookup,
+  pinnedWsDial,
   refreshPinIfStale,
   IP_PIN_TTL_MS,
   type PinnedIp,
@@ -355,20 +355,30 @@ describe("makePinnedFetch", () => {
 });
 
 // ===========================================================================
-// makePinnedLookup — 281:63-283:2 BlockStatement [Survived] (the whole
-// function body emptied). Completely untested by the existing sibling
-// file; this is the dns.lookup-shaped pinning helper used by ws-proxy.ts's
-// raw WebSocket dial.
+// pinnedWsDial — the WebSocket-dial pinning helper used by ws-proxy.ts and
+// proxy/backends.ts. Rewrites the connect host to the validated IP literal
+// (so the hostname is never re-resolved at dial time — the DNS-rebinding
+// mitigation) while preserving the original hostname in the Host header, and
+// the TLS SNI for wss. Replaces makePinnedLookup, whose `lookup` override is a
+// silent no-op under Bun's `ws` shim.
 // ===========================================================================
 
-describe("makePinnedLookup", () => {
-  test("always resolves to the pinned IP, regardless of the hostname it's asked to look up", () => {
-    const lookup = makePinnedLookup("93.184.216.34");
-    const calls: Array<[Error | null, string, number]> = [];
-    lookup("totally-different-hostname.test", {}, (err, address, family) => {
-      calls.push([err, address, family]);
-    });
-    expect(calls).toEqual([[null, "93.184.216.34", 4]]);
+describe("pinnedWsDial", () => {
+  test("rewrites the connect host to the pinned IP and preserves the original Host header (ws)", () => {
+    const pin = pinnedWsDial("ws://backend.example:8080/socket?x=1", "93.184.216.34");
+    expect(pin.url).toBe("ws://93.184.216.34:8080/socket?x=1");
+    expect(pin.options).toEqual({ headers: { host: "backend.example:8080" } });
+  });
+
+  test("adds TLS SNI (servername) for wss so the certificate still validates against the hostname", () => {
+    const pin = pinnedWsDial("wss://backend.example/socket", "93.184.216.34");
+    expect(pin.url).toBe("wss://93.184.216.34/socket");
+    expect(pin.options).toEqual({ headers: { host: "backend.example" }, servername: "backend.example" });
+  });
+
+  test("leaves a raw-IP-literal URL unchanged — no host rewrite, no header/SNI override", () => {
+    const pin = pinnedWsDial("ws://127.0.0.1:9000/x", "127.0.0.1");
+    expect(pin).toEqual({ url: "ws://127.0.0.1:9000/x", options: {} });
   });
 });
 

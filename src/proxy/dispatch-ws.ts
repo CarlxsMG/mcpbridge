@@ -35,12 +35,13 @@ export async function dispatchWsToolCall(
     const text = wsCfg.persistent
       ? await wsRequestPersistent(
           wsCfg.wsUrl,
+          wsCfg.resolvedIp,
           JSON.stringify(cleanArgs),
           timeoutMs,
           config.maxResponseBytes,
           opts?.onProgress ? (data) => opts.onProgress!(0, undefined, data) : undefined,
         )
-      : await wsRequest(wsCfg.wsUrl, JSON.stringify(cleanArgs), timeoutMs, config.maxResponseBytes);
+      : await wsRequest(wsCfg.wsUrl, wsCfg.resolvedIp, JSON.stringify(cleanArgs), timeoutMs, config.maxResponseBytes);
     breaker.recordSuccess();
     const durationMs = Date.now() - startTime;
     recordToolCall(durationMs, false);

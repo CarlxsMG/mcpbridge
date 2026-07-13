@@ -263,21 +263,36 @@ export function makePinnedFetch(originalHostname: string, ip: string, baseFetch:
   };
 }
 
-type PinnedDnsLookup = (
-  hostname: string,
-  options: unknown,
-  callback: (err: Error | null, address: string, family: number) => void,
-) => void;
+/**
+ * A WebSocket dial pinned to a validated IP: `url` is what to actually open
+ * (connect host rewritten to the IP literal, so no DNS resolution happens at
+ * dial time), and `options` are the `ws` options that keep the original
+ * hostname visible to the backend (Host header, plus TLS SNI for `wss`).
+ */
+export interface PinnedWsDial {
+  url: string;
+  options: { headers?: Record<string, string>; servername?: string };
+}
 
 /**
- * Builds a Node `dns.lookup`-shaped override that always resolves to the
- * pinned `ip`, regardless of the hostname it's asked to look up — the
- * socket-layer equivalent of `makePinnedFetch`'s URL-host swap, for
- * transports (e.g. a raw WebSocket dial) that pin via a lookup callback
- * instead of rewriting the request URL. The original hostname is left
- * untouched everywhere else (Host header / TLS SNI); only the actual TCP
- * connect target is pinned.
+ * Pins a WebSocket dial to `ip` the way {@link makePinnedFetch} pins a fetch:
+ * rewrite the connect host to the validated IP literal — so the hostname is
+ * never resolved at dial time, closing the DNS-rebinding TOCTOU window — while
+ * carrying the original hostname in the `Host` header, and the TLS SNI
+ * (`servername`) for `wss`, so the backend still sees (and its certificate
+ * still validates against) its own name.
+ *
+ * This replaces an earlier `dns.lookup`-override approach: **Bun's `ws` shim
+ * silently ignores the `lookup` option**, so under this project's runtime a
+ * `{ lookup }` pin was a no-op and provided NO actual protection. A raw-IP URL
+ * already dials a literal and is returned unchanged (no override needed).
  */
-export function makePinnedLookup(ip: string): PinnedDnsLookup {
-  return (_hostname, _options, callback) => callback(null, ip, 4);
+export function pinnedWsDial(wsUrl: string, ip: string): PinnedWsDial {
+  const u = new URL(wsUrl.replace(/^ws/, "http"));
+  if (isRawIpLiteral(u.hostname)) return { url: wsUrl, options: {} };
+  const scheme = wsUrl.startsWith("wss") ? "wss" : "ws";
+  const dialUrl = `${scheme}://${ip}${u.port ? `:${u.port}` : ""}${u.pathname}${u.search}`;
+  const options: PinnedWsDial["options"] = { headers: { host: u.host } };
+  if (scheme === "wss") options.servername = u.hostname;
+  return { url: dialUrl, options };
 }
