@@ -2,8 +2,8 @@
 /**
  * Bumps the project version everywhere it's duplicated, in one shot: root
  * package.json, admin-ui/package.json, docs/package.json, the Helm chart's
- * `appVersion`, and CHANGELOG.md's `[Unreleased]` section + compare-link
- * footer.
+ * `appVersion`, docker-compose.yml's default image tag, and CHANGELOG.md's
+ * `[Unreleased]` section + compare-link footer.
  *
  *   bun scripts/bump-version.ts 1.1.0
  *
@@ -26,6 +26,7 @@ export const ROOT_PACKAGE_JSON = join(ROOT, "package.json");
 export const ADMIN_UI_PACKAGE_JSON = join(ROOT, "admin-ui", "package.json");
 export const DOCS_PACKAGE_JSON = join(ROOT, "docs", "package.json");
 export const CHART_YAML = join(ROOT, "helm", "mcp-rest-bridge", "Chart.yaml");
+export const DOCKER_COMPOSE_YML = join(ROOT, "docker-compose.yml");
 export const CHANGELOG_MD = join(ROOT, "CHANGELOG.md");
 
 /** Placeholder date written into a freshly-cut CHANGELOG.md section — this
@@ -112,6 +113,27 @@ export function bumpChartAppVersion(content: string, newVersion: string): string
     throw new Error('could not find an "appVersion" field in Chart.yaml to replace');
   }
   return content.replace(re, `$1"${newVersion}"`);
+}
+
+// ---------------------------------------------------------------------------
+// docker-compose.yml
+// ---------------------------------------------------------------------------
+
+/**
+ * Updates docker-compose.yml's DEFAULT image tag — the `1.0.0` fallback inside
+ * `image: ...:${MCPBRIDGE_VERSION:-1.0.0}`. Without this, a fresh `docker compose
+ * up` after a release keeps pulling the previous version unless the operator
+ * happens to set MCPBRIDGE_VERSION (the Helm chart avoids this by defaulting
+ * image.tag to .Chart.AppVersion, which this script already bumps — compose was
+ * the lone outlier). Matches only the `:-<tag>}` default inside the parameter
+ * expansion, so an explicit MCPBRIDGE_VERSION override at runtime is untouched.
+ */
+export function bumpComposeImageTag(content: string, newVersion: string): string {
+  const re = /(\$\{MCPBRIDGE_VERSION:-)[^}]*(\})/;
+  if (!re.test(content)) {
+    throw new Error('could not find a "${MCPBRIDGE_VERSION:-<tag>}" default image tag in docker-compose.yml');
+  }
+  return content.replace(re, `$1${newVersion}$2`);
 }
 
 // ---------------------------------------------------------------------------
@@ -240,6 +262,17 @@ function main(): void {
         "untouched on purpose — per its own comment it tracks template/values changes, not the app version. " +
         "Bump it by hand too if this release also changed the chart.",
     );
+  }
+
+  {
+    const before = readFileSync(DOCKER_COMPOSE_YML, "utf8");
+    const after = bumpComposeImageTag(before, newVersion);
+    if (after !== before) {
+      writeFileSync(DOCKER_COMPOSE_YML, after, "utf8");
+      changed.push(`docker-compose.yml [default image tag] (${DOCKER_COMPOSE_YML})`);
+    } else {
+      console.log(`[bump-version] docker-compose.yml default image tag already "${newVersion}" — left untouched`);
+    }
   }
 
   {

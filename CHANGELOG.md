@@ -61,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `scripts/bump-version.ts` now also updates `docker-compose.yml`'s default image tag
+  (`${MCPBRIDGE_VERSION:-<tag>}`) — previously the lone release-artifact reference it didn't bump, so
+  after a release a fresh `docker compose up` kept pulling the old version unless the operator set
+  `MCPBRIDGE_VERSION`. (The Helm chart already tracked `.Chart.AppVersion`, which the script bumps.)
 - `STRICT_CONFIG` (the production "abort boot on any invalid env var" switch) was read at startup
   but not declared in the env schema or documented in `.env.example`, contradicting the schema
   module's own "source of truth" docstring and letting a typo like `STRICT_CONFIGG` slip by

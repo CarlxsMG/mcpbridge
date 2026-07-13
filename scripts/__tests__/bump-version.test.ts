@@ -7,10 +7,12 @@ import {
   assertValidSemver,
   bumpChangelog,
   bumpChartAppVersion,
+  bumpComposeImageTag,
   bumpPackageJsonVersion,
   CHANGELOG_MD,
   CHART_YAML,
   DATE_PLACEHOLDER,
+  DOCKER_COMPOSE_YML,
   DOCS_PACKAGE_JSON,
   InvalidVersionError,
   ROOT_PACKAGE_JSON,
@@ -141,6 +143,35 @@ describe("bumpChartAppVersion", () => {
     const chartVersionLine = real.split("\n").find((l) => /^version:/.test(l));
     expect(chartVersionLine).toBeDefined();
     expect(bumped).toContain(chartVersionLine as string);
+  });
+});
+
+describe("bumpComposeImageTag", () => {
+  const fixture = [
+    "services:",
+    "  gateway:",
+    "    image: ghcr.io/acme/mcpbridge:${MCPBRIDGE_VERSION:-1.0.0}",
+    "    restart: unless-stopped",
+  ].join("\n");
+
+  test("updates the default tag inside the ${MCPBRIDGE_VERSION:-...} expansion", () => {
+    const result = bumpComposeImageTag(fixture, "1.1.0");
+    expect(result).toContain("mcpbridge:${MCPBRIDGE_VERSION:-1.1.0}");
+    expect(result).not.toContain("1.0.0");
+    // The rest of the line (registry/repo, restart policy) survives unchanged.
+    expect(result).toContain("restart: unless-stopped");
+  });
+
+  test("throws a clear error when there's no MCPBRIDGE_VERSION default to replace", () => {
+    expect(() => bumpComposeImageTag("services:\n  gateway:\n    image: nginx:latest\n", "1.1.0")).toThrow(
+      /MCPBRIDGE_VERSION/,
+    );
+  });
+
+  test("works against the real docker-compose.yml (read-only)", () => {
+    const real = readFileSync(DOCKER_COMPOSE_YML, "utf8");
+    const bumped = bumpComposeImageTag(real, "99.99.99");
+    expect(bumped).toContain("${MCPBRIDGE_VERSION:-99.99.99}");
   });
 });
 
