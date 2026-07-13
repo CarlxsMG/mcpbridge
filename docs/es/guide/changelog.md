@@ -10,10 +10,7 @@ history, see [GitHub Releases →](https://github.com/aico-dot-team-code/mcpbrid
 
 Desde la 1.0.0, el backend ha incorporado cobertura exhaustiva de mutation testing con Stryker
 (todo archivo con lógica de runtime relevante está ahora efectivamente al 100% de mutantes
-eliminados — ver
-[`MUTATION_TESTING_LOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/MUTATION_TESTING_LOG.md)
-en la raíz del repo para el registro técnico completo por archivo), además de varios cambios
-reales de cara al usuario/operador: propagación de contexto W3C `traceparent` a través del
+eliminados), además de varios cambios reales de cara al usuario/operador: propagación de contexto W3C `traceparent` a través del
 pipeline del proxy, un [contrato público de SLOs](/es/architecture/slos) de fiabilidad, cobertura
 e2e ampliada con Playwright integrada en CI, y una corrección de seguridad para que el log de
 configuración de arranque ya no filtre `SECRET_ENCRYPTION_KEY`/`VAULT_TOKEN` en texto plano.

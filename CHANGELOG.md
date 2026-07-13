@@ -9,14 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Comprehensive Stryker mutation-testing coverage across the entire backend
-  (`src/security`, `src/proxy`, `src/mcp`, `src/db`, `src/middleware`, `src/net`,
-  `src/tool-policies`, `src/tool-meta`, `src/content-filtering`, `src/backend-auth`,
-  `src/discovery`, `src/observability`, `src/routes`, `src/admin`, `src/lib`, `src/cli`,
-  `src/catalog`, `src/secrets`, `src/config*`, and `ws-proxy.ts`) as a regression-detection
-  backstop for the test suite — every file with meaningful runtime logic is now effectively
-  100% mutation-killed. See [`MUTATION_TESTING_LOG.md`](./MUTATION_TESTING_LOG.md) for the
-  full per-file log.
+- Comprehensive Stryker mutation-testing coverage across the entire backend, used as a
+  regression-detection backstop for the test suite — every file with meaningful runtime logic
+  is now effectively 100% mutation-killed (`bun run test:mutate`).
 - W3C `traceparent` context propagation: the gateway now honors an incoming `traceparent` on
   MCP requests (its own OTLP span inherits the caller's trace-id and records the upstream's
   span-id as its parent) and injects a matching `traceparent`/`tracestate` on every outbound
@@ -50,26 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SECRET_ENCRYPTION_KEY` or `VAULT_TOKEN` in plaintext — both are now redacted the same way
   admin/MCP API keys and the bootstrap password already were.
 - **Security:** `.github/workflows/security.yml`'s `bun audit` gate was previously
-  report-only (`|| true` on both the root and admin-ui steps) and silently accumulated 25
-  root vulnerabilities (3 high — notably `hono`'s CORS-wildcard-with-credentials reflection,
-  and `fast-uri`'s host-confusion/path-traversal pair via `ajv`) with none blocking CI. The
-  gate now actually fails on high/critical findings (`bun audit --audit-level=high`). Fixing
-  it surfaced the backlog, which was then resolved on the root project: bumping
-  `@modelcontextprotocol/sdk` (whose bundled `hono`/`@hono/node-server`/`ip-address` carried
-  most of the findings) resolved 24 of the 25 vulnerabilities; a resulting `ajv`/`ajv-formats`
-  duplicate-copy type conflict was fixed by pinning `ajv` to an exact version so both
-  dedupe to one copy; a `zod` transitive bump was reverted after it broke `validateEnv`'s
-  baseline behavior (confirmed via the full test suite, unrelated to the SDK bump). One
-  moderate `qs` DoS advisory remains (nested under `express`/`@stryker-mutator/core`, not
-  fixable without an upstream release) and is now a real, visible CI finding rather than a
-  silently-ignored one. The parallel admin-ui gate flagged a **critical** `vitest` advisory
-  (arbitrary file read/exec via its UI server) — fixed by bumping `vitest` `^2.1.0` →
-  `^3.2.7` (the minimal major bump past the patched `3.2.6`, staying on `vite@6.x` since
-  `vitest@3` supports it as a peer — no need to jump to `vite@7`/`8`). Verified with a full
-  admin-ui `typecheck`/`lint`/`test` (322/322)/`build` pass, all green with zero API-surface
-  changes needed; `bun audit` in `admin-ui/` now reports zero vulnerabilities. The production
-  bundle's main chunk also shrank from 1.4 MB to 406 KB as an incidental side effect of the
-  newer Vite/esbuild toolchain.
+  report-only (`|| true`) and silently accumulated vulnerabilities with none blocking CI. The
+  gate now fails on high/critical findings (`bun audit --audit-level=high`). Resolved 24 of 25
+  root advisories (mainly via an `@modelcontextprotocol/sdk` bump) and all 5 admin-ui advisories
+  (a critical `vitest` arbitrary file read/exec, fixed by bumping to `^3.2.7`); one moderate `qs`
+  DoS advisory remains, nested under `express`/`@stryker-mutator/core` with no upstream fix yet.
 - `scripts/check-all.ts` now strips `SECRET_ENCRYPTION_KEY` before spawning the root test
   process, matching the existing `SESSION_COOKIE_SECURE` handling.
 - `e2e/smoke.spec.ts` now targets stable `#preview-table`/`#tools-table` ids instead of the

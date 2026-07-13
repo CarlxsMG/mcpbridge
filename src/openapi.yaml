@@ -4,11 +4,20 @@ info:
   title: MCP REST Bridge
   version: 1.0.0
   description: >
-    A micro-proxy that translates the Model Context Protocol (MCP) into plain
-    REST calls. REST-capable services register themselves along with a
-    description of their tools; the bridge then exposes those tools to any MCP
-    client (e.g. Claude Desktop, Cursor, or a custom agent) via the Streamable
-    HTTP MCP transport.
+    A self-hosted MCP gateway that bridges MCP clients to backend REST APIs and
+    other MCP servers, bidirectionally. REST-capable services register
+    themselves (via OpenAPI/Swagger auto-discovery, a cURL/Postman import, or a
+    manual tool list) and the bridge exposes their tools to any MCP client
+    (e.g. Claude Desktop, Cursor, or a custom agent) via the Streamable HTTP
+    MCP transport; existing MCP servers can likewise be registered as
+    upstreams and re-exposed. Every call is proxied through a uniform guard
+    pipeline (SSRF check, guardrails, per-tool policy, circuit breaker,
+    response sanitizing, audit) documented in this admin API — this
+    specification covers that management surface, not the dynamic per-client
+    tool endpoints it provisions.
+  license:
+    name: MIT
+    identifier: MIT
 
 servers:
   - url: http://localhost:3000
