@@ -50,9 +50,7 @@ data/
 /blob-report/
 
 # AICO artifacts
-.aico/*
-!.aico/docs/
-!.aico/data/
+.aico/
 
 # Claude Code local state — per-user, never committed
 .claude/

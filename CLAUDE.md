@@ -23,6 +23,14 @@ The repo is two projects in one:
 uses `bun:sqlite` (no `better-sqlite3`); password hashing uses `Bun.password` (argon2id, no
 `bcrypt`). Don't introduce Node-only equivalents of these.
 
+**Two exact-pinned deps — don't "helpfully" bump them.** `ajv` is pinned to `8.18.0` (not
+`^8`) so the dependency tree dedupes to a single physical copy — a second nested `ajv` under
+`ajv-formats` reintroduces a real TypeScript type conflict. `zod` is held at `4.3.6` because
+`4.4.x` broke `validateEnv` (the env-schema validation, ~46 test failures). Both pins are
+load-bearing; change them only behind a deliberate test pass, never in a routine dependency
+sweep. (`bun-types` is exact-pinned too, but self-evidently — it must match
+`packageManager`/`.bun-version`.)
+
 ## Commands
 
 Run from the repo root unless noted. `admin-ui/` is a separate TypeScript project with its own
@@ -38,8 +46,9 @@ bun run dev:all                      # both together (scripts/dev-all.ts)
 bun run cli -- <command>             # the bundled config-as-code CLI (src/cli)
 
 bun run check                        # everything CI checks, in one shot (scripts/check-all.ts):
-                                      # format:check → lint (root) → lint (admin-ui) → typecheck (root)
-                                      # → test (root) → typecheck (admin-ui) → test (admin-ui) → build (admin-ui)
+                                      # format:check → lint (root) → lint (admin-ui) → i18n parity (admin-ui)
+                                      # → typecheck (root) → test (root) → typecheck (admin-ui) → test (admin-ui)
+                                      # → build (admin-ui)
 
 bun run format:check && bun run lint # prettier --check + eslint, root only
 tsc --noEmit                         # backend type-check
