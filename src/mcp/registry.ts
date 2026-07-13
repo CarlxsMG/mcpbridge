@@ -98,6 +98,63 @@ function sanitizeSchemaPropertyDescriptions(schema: Record<string, unknown> | un
   }
 }
 
+/**
+ * Client-name validation shared by register() (REST) and registerMcp() (MCP
+ * upstream) — both entry points gate the same way. Security-relevant: keep
+ * behavior byte-for-byte identical to what each call site had inlined before
+ * this was extracted (mirrors sanitizeSchemaPropertyDescriptions above).
+ */
+function validateClientName(name: string): void {
+  if (!name || typeof name !== "string") {
+    throw new Error("Client name is required and must be a non-empty string");
+  }
+  if (!isValidToolName(name)) {
+    throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
+  }
+}
+
+/**
+ * Per-tool identity checks (name validity + in-batch duplicate detection) shared
+ * by both registration paths. Runs BEFORE each path's kind-specific checks
+ * (REST method/endpoint, MCP upstreamName), preserving the original error
+ * precedence. Adds the accepted name to `seenToolNames`. Extracted so the two
+ * security-relevant entry points can't drift and admit on one path a tool the
+ * other would reject.
+ */
+function validateToolIdentity(clientName: string, tool: { name: string }, seenToolNames: Set<string>): void {
+  if (!tool.name || typeof tool.name !== "string") {
+    throw new Error("Tool name is required and must be a non-empty string");
+  }
+  if (!isValidToolName(tool.name)) {
+    throw new Error(`Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`);
+  }
+  if (seenToolNames.has(tool.name)) {
+    throw new Error(`Duplicate tool name "${tool.name}" found for client "${clientName}"`);
+  }
+  seenToolNames.add(tool.name);
+}
+
+/**
+ * Per-tool description + inputSchema-shape/size checks shared by both
+ * registration paths. Runs AFTER each path's kind-specific checks, preserving
+ * the original error precedence. Same anti-drift rationale as
+ * validateToolIdentity.
+ */
+function validateCommonToolSchema(tool: { name: string; description: string; inputSchema: unknown }): void {
+  if (!tool.description || typeof tool.description !== "string") {
+    throw new Error(`Tool "${tool.name}" is missing a valid description`);
+  }
+  if (!tool.inputSchema || typeof tool.inputSchema !== "object") {
+    throw new Error(`Tool "${tool.name}" is missing a valid inputSchema`);
+  }
+  if ((tool.inputSchema as Record<string, unknown>)["type"] !== "object") {
+    throw new Error(`Tool "${tool.name}" inputSchema must have type: "object"`);
+  }
+  if (JSON.stringify(tool.inputSchema).length > 10240) {
+    throw new Error(`Tool '${tool.name}': inputSchema exceeds 10KB size limit`);
+  }
+}
+
 class Registry {
   private clients: Map<string, RegisteredClient> = new Map();
   private toolIndex = new ToolIndex();
@@ -222,31 +279,12 @@ class Registry {
     resolvedIp: string,
     retryNonSafeMethods: boolean = false,
   ): Promise<void> {
-    if (!name || typeof name !== "string") {
-      throw new Error("Client name is required and must be a non-empty string");
-    }
-
-    if (!isValidToolName(name)) {
-      throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
-    }
+    validateClientName(name);
 
     const seenToolNames = new Set<string>();
 
     for (const tool of tools) {
-      if (!tool.name || typeof tool.name !== "string") {
-        throw new Error("Tool name is required and must be a non-empty string");
-      }
-
-      if (!isValidToolName(tool.name)) {
-        throw new Error(
-          `Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`,
-        );
-      }
-
-      if (seenToolNames.has(tool.name)) {
-        throw new Error(`Duplicate tool name "${tool.name}" found for client "${name}"`);
-      }
-      seenToolNames.add(tool.name);
+      validateToolIdentity(name, tool, seenToolNames);
 
       if (!tool.method || !VALID_METHODS.has(tool.method)) {
         throw new Error(`Tool "${tool.name}" has missing or invalid method "${tool.method}"`);
@@ -263,21 +301,7 @@ class Registry {
         throw new Error(`Tool "${tool.name}" ${endpointError}`);
       }
 
-      if (!tool.description || typeof tool.description !== "string") {
-        throw new Error(`Tool "${tool.name}" is missing a valid description`);
-      }
-
-      if (!tool.inputSchema || typeof tool.inputSchema !== "object") {
-        throw new Error(`Tool "${tool.name}" is missing a valid inputSchema`);
-      }
-
-      if (tool.inputSchema["type"] !== "object") {
-        throw new Error(`Tool "${tool.name}" inputSchema must have type: "object"`);
-      }
-
-      if (JSON.stringify(tool.inputSchema).length > 10240) {
-        throw new Error(`Tool '${tool.name}': inputSchema exceeds 10KB size limit`);
-      }
+      validateCommonToolSchema(tool);
     }
 
     // Sanitize tool descriptions and inputSchema property descriptions
@@ -346,42 +370,15 @@ class Registry {
     ip: string,
     resolvedIp: string,
   ): Promise<void> {
-    if (!name || typeof name !== "string") {
-      throw new Error("Client name is required and must be a non-empty string");
-    }
-    if (!isValidToolName(name)) {
-      throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
-    }
+    validateClientName(name);
 
     const seenToolNames = new Set<string>();
     for (const tool of tools) {
-      if (!tool.name || typeof tool.name !== "string") {
-        throw new Error("Tool name is required and must be a non-empty string");
-      }
-      if (!isValidToolName(tool.name)) {
-        throw new Error(
-          `Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`,
-        );
-      }
-      if (seenToolNames.has(tool.name)) {
-        throw new Error(`Duplicate tool name "${tool.name}" found for client "${name}"`);
-      }
-      seenToolNames.add(tool.name);
+      validateToolIdentity(name, tool, seenToolNames);
       if (!tool.upstreamName || typeof tool.upstreamName !== "string") {
         throw new Error(`Tool "${tool.name}" is missing a valid upstreamName`);
       }
-      if (!tool.description || typeof tool.description !== "string") {
-        throw new Error(`Tool "${tool.name}" is missing a valid description`);
-      }
-      if (!tool.inputSchema || typeof tool.inputSchema !== "object") {
-        throw new Error(`Tool "${tool.name}" is missing a valid inputSchema`);
-      }
-      if ((tool.inputSchema as Record<string, unknown>)["type"] !== "object") {
-        throw new Error(`Tool "${tool.name}" inputSchema must have type: "object"`);
-      }
-      if (JSON.stringify(tool.inputSchema).length > 10240) {
-        throw new Error(`Tool '${tool.name}': inputSchema exceeds 10KB size limit`);
-      }
+      validateCommonToolSchema(tool);
     }
 
     // Sanitize descriptions + inputSchema property descriptions (same as REST).
@@ -967,10 +964,12 @@ class Registry {
   }
 
   /**
-   * All servable (enabled) tools across every enabled client. Not used by any
-   * MCP-serving endpoint any more (there is no flattened "every client" scope
-   * — see McpServerScope) — kept as a general registry query for admin
-   * read-models and the `sys_list_tools`-adjacent tooling in system-tools.ts.
+   * All servable (enabled) tools across every enabled client, flattened. No
+   * production caller remains (there is no flattened "every client" serving
+   * scope any more — see McpServerScope; `sys_list_tools` uses listAllTools()).
+   * Retained as a stable test accessor: the registry test-suite and mutation
+   * backstops assert against "everything currently advertised" through this one
+   * call rather than aggregating getMcpToolsForClient across clients by hand.
    */
   getAllMcpTools(): { name: string; description: string; inputSchema: Record<string, unknown> }[] {
     const result: { name: string; description: string; inputSchema: Record<string, unknown> }[] = [];
