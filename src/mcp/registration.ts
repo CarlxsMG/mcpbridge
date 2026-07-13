@@ -502,6 +502,68 @@ export async function performRestRegistration(
 }
 
 /**
+ * Shared prologue for the single-URL registration branches (MCP, GraphQL):
+ * `name` is a non-empty string, it doesn't collide with a WS-proxy target, and
+ * body[urlKey] is an http(s) URL. Returns the validated name+url or the exact
+ * error RegisterOutcome the two inline copies used to build. (REST is not a
+ * consumer — it takes multiple URLs and omits request_id, a different shape.)
+ */
+function checkNameAndUrl(
+  body: Record<string, unknown>,
+  urlKey: "mcp_url" | "graphql_url",
+  requestId: string | null,
+): RegisterOutcome | { name: string; url: string } {
+  const name = body.name;
+  if (typeof name !== "string" || !name) {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } },
+    };
+  }
+  const collision = wsProxyNameCollision(name, requestId);
+  if (collision) return collision;
+  const url = body[urlKey];
+  if (typeof url !== "string" || (!url.startsWith("http://") && !url.startsWith("https://"))) {
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `${urlKey} must start with http:// or https://`,
+          request_id: requestId,
+        },
+      },
+    };
+  }
+  return { name, url };
+}
+
+/**
+ * Shared SSRF-validate + IP-pin step for the single-URL registration branches.
+ * Returns the pinned IP + resolved peer IP, or the exact error RegisterOutcome.
+ */
+async function pinRegistrationUrl(
+  url: string,
+  urlKey: "mcp_url" | "graphql_url",
+  peerIp: string | undefined,
+  requestId: string | null,
+): Promise<RegisterOutcome | { pinnedIp: string; ip: string }> {
+  const validation = await validateBackendUrl(url, config.allowPrivateIps, config.allowedHosts);
+  if (!validation.valid) {
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error: { code: "VALIDATION_ERROR", message: `Invalid ${urlKey}: ${validation.reason}`, request_id: requestId },
+      },
+    };
+  }
+  return { pinnedIp: validation.resolvedIp, ip: peerIp || "127.0.0.1" };
+}
+
+/**
  * Pure (non-Express) core of the MCP-upstream registration branch: validates
  * mcp_url (SSRF + IP pin, same as REST base_url), connects to the upstream to
  * discover its tools, and registers them. Auth (if the upstream requires it)
@@ -513,32 +575,11 @@ export async function performMcpRegistration(
   peerIp: string | undefined,
   requestId: string | null,
 ): Promise<RegisterOutcome> {
-  const name = body.name;
-  const mcpUrl = body.mcp_url;
-  const transportRaw = typeof body.mcp_transport === "string" ? body.mcp_transport : "streamable-http";
+  const basics = checkNameAndUrl(body, "mcp_url", requestId);
+  if ("ok" in basics) return basics;
+  const { name, url: mcpUrl } = basics;
 
-  if (typeof name !== "string" || !name) {
-    return {
-      ok: false,
-      status: 400,
-      body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } },
-    };
-  }
-  const mcpWsCollision = wsProxyNameCollision(name, requestId);
-  if (mcpWsCollision) return mcpWsCollision;
-  if (typeof mcpUrl !== "string" || (!mcpUrl.startsWith("http://") && !mcpUrl.startsWith("https://"))) {
-    return {
-      ok: false,
-      status: 400,
-      body: {
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "mcp_url must start with http:// or https://",
-          request_id: requestId,
-        },
-      },
-    };
-  }
+  const transportRaw = typeof body.mcp_transport === "string" ? body.mcp_transport : "streamable-http";
   if (transportRaw !== "streamable-http" && transportRaw !== "sse") {
     return {
       ok: false,
@@ -555,18 +596,9 @@ export async function performMcpRegistration(
   const transport: McpTransport = transportRaw;
 
   // SSRF validation + IP pin on the MCP endpoint (same posture as REST base_url).
-  const validation = await validateBackendUrl(mcpUrl, config.allowPrivateIps, config.allowedHosts);
-  if (!validation.valid) {
-    return {
-      ok: false,
-      status: 400,
-      body: {
-        error: { code: "VALIDATION_ERROR", message: `Invalid mcp_url: ${validation.reason}`, request_id: requestId },
-      },
-    };
-  }
-  const pinnedIp = validation.resolvedIp;
-  const ip = peerIp || "127.0.0.1";
+  const pinned = await pinRegistrationUrl(mcpUrl, "mcp_url", peerIp, requestId);
+  if ("ok" in pinned) return pinned;
+  const { pinnedIp, ip } = pinned;
 
   let toolsCount: number;
   try {
@@ -694,48 +726,13 @@ export async function performGraphqlRegistration(
   peerIp: string | undefined,
   requestId: string | null,
 ): Promise<RegisterOutcome> {
-  const name = body.name;
-  const graphqlUrl = body.graphql_url;
+  const basics = checkNameAndUrl(body, "graphql_url", requestId);
+  if ("ok" in basics) return basics;
+  const { name, url: graphqlUrl } = basics;
 
-  if (typeof name !== "string" || !name) {
-    return {
-      ok: false,
-      status: 400,
-      body: { error: { code: "VALIDATION_ERROR", message: "Missing required field: name", request_id: requestId } },
-    };
-  }
-  const gqlWsCollision = wsProxyNameCollision(name, requestId);
-  if (gqlWsCollision) return gqlWsCollision;
-  if (typeof graphqlUrl !== "string" || (!graphqlUrl.startsWith("http://") && !graphqlUrl.startsWith("https://"))) {
-    return {
-      ok: false,
-      status: 400,
-      body: {
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "graphql_url must start with http:// or https://",
-          request_id: requestId,
-        },
-      },
-    };
-  }
-
-  const validation = await validateBackendUrl(graphqlUrl, config.allowPrivateIps, config.allowedHosts);
-  if (!validation.valid) {
-    return {
-      ok: false,
-      status: 400,
-      body: {
-        error: {
-          code: "VALIDATION_ERROR",
-          message: `Invalid graphql_url: ${validation.reason}`,
-          request_id: requestId,
-        },
-      },
-    };
-  }
-  const pinnedIp = validation.resolvedIp;
-  const ip = peerIp || "127.0.0.1";
+  const pinned = await pinRegistrationUrl(graphqlUrl, "graphql_url", peerIp, requestId);
+  if ("ok" in pinned) return pinned;
+  const { pinnedIp, ip } = pinned;
 
   // health_url defaults to graphql_url when omitted — many GraphQL servers
   // reject a bare GET on the operation endpoint (CSRF-prevention plugins,
