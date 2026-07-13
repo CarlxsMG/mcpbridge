@@ -1,6 +1,11 @@
-# Pinned to the immutable digest for oven/bun:1.3.11-alpine (multi-arch manifest
-# list digest, verified via https://hub.docker.com/v2/repositories/oven/bun/tags/1.3.11-alpine)
-FROM oven/bun:1.3.11-alpine@sha256:7ed9f74c326d1c260abe247ac423ccbf5ac92af62bb442d515d1f92f21e8ea9b AS base
+# BUN_VERSION must match .bun-version (the single source of truth CI reads via
+# `bun-version-file`) — bump both together. The digest below is pinned to that
+# exact tag (multi-arch manifest list digest, verified via
+# https://hub.docker.com/v2/repositories/oven/bun/tags/1.3.11-alpine); a tag
+# bump without a matching digest bump fails the pull loudly rather than
+# silently building against a different image.
+ARG BUN_VERSION=1.3.11
+FROM oven/bun:${BUN_VERSION}-alpine@sha256:7ed9f74c326d1c260abe247ac423ccbf5ac92af62bb442d515d1f92f21e8ea9b AS base
 WORKDIR /app
 
 # Install dependencies
