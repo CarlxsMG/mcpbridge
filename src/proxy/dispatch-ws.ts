@@ -6,6 +6,7 @@ import { getCircuitBreaker } from "../middleware/circuit-breaker.js";
 import { wsRequest, wsRequestPersistent } from "./backends.js";
 import { recordToolCall, proxyRequestDuration } from "../observability/metrics.js";
 import { recordUsage } from "../observability/usage.js";
+import { errorMessage } from "../lib/error-message.js";
 
 /**
  * Dispatches a tool call over a WebSocket (per-tool `tool_ws` config).
@@ -66,9 +67,6 @@ export async function dispatchWsToolCall(
       durationMs,
     });
     proxyRequestDuration.observe({ client: client.name, method: "WS", status_class: "error" }, durationMs / 1000);
-    return toolResult(
-      `WebSocket call failed for '${client.name}': ${err instanceof Error ? err.message : String(err)}`,
-      { isError: true },
-    );
+    return toolResult(`WebSocket call failed for '${client.name}': ${errorMessage(err)}`, { isError: true });
   }
 }

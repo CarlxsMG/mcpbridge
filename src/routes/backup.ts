@@ -10,6 +10,7 @@ import { config } from "../config.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { sendError } from "./http-errors.js";
 import { log } from "../logger.js";
+import { errorMessage } from "../lib/error-message.js";
 
 /**
  * Directory the temp snapshot is written to before being streamed back and
@@ -40,12 +41,7 @@ export function backupRoutes(app: Express): void {
     try {
       getDb().query("VACUUM INTO ?").run(backupPath);
     } catch (err) {
-      sendError(
-        res,
-        500,
-        "BACKUP_FAILED",
-        `Failed to create backup: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      sendError(res, 500, "BACKUP_FAILED", `Failed to create backup: ${errorMessage(err)}`);
       return;
     }
 
@@ -58,12 +54,7 @@ export function backupRoutes(app: Express): void {
     } catch (err) {
       // VACUUM INTO reported success but the file is unreadable — surface as a
       // 500 rather than trying to stream a file that isn't there.
-      sendError(
-        res,
-        500,
-        "BACKUP_FAILED",
-        `Backup snapshot missing after creation: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      sendError(res, 500, "BACKUP_FAILED", `Backup snapshot missing after creation: ${errorMessage(err)}`);
       return;
     }
 
@@ -76,7 +67,7 @@ export function backupRoutes(app: Express): void {
       unlink(backupPath).catch((err) => {
         log("warn", "Failed to remove temporary backup file", {
           path: backupPath,
-          error: err instanceof Error ? err.message : String(err),
+          error: errorMessage(err),
         });
       });
     };

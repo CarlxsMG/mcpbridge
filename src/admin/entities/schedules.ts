@@ -4,6 +4,7 @@ import { recordAudit } from "../audit/audit.js";
 import { startLeaderGatedInterval } from "../../lib/leader-loop.js";
 import { log } from "../../logger.js";
 import { runSyntheticChecks } from "../../observability/monitor.js";
+import { errorMessage } from "../../lib/error-message.js";
 
 /**
  * Maintenance schedules: cron-driven enable/disable of a client or a single
@@ -210,7 +211,7 @@ export async function runDueSchedules(now: Date): Promise<number> {
     } catch (err) {
       log("error", "Schedule application failed", {
         scheduleId: s.id,
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
     }
   }

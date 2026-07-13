@@ -1,6 +1,7 @@
 import { getDb } from "./connection.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
+import { errorMessage } from "../lib/error-message.js";
 
 let currentlyLeader = false;
 
@@ -42,7 +43,7 @@ export function refreshLeaderStatus(): boolean {
   try {
     currentlyLeader = tryAcquireOrRenewLease();
   } catch (err) {
-    log("error", "Leader election renewal failed", { error: err instanceof Error ? err.message : String(err) });
+    log("error", "Leader election renewal failed", { error: errorMessage(err) });
     currentlyLeader = false;
   }
   return currentlyLeader;

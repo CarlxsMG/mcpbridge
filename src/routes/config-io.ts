@@ -13,6 +13,7 @@ import {
   rollbackToSnapshot,
 } from "../admin/config/config-versions.js";
 import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
+import { errorMessage } from "../lib/error-message.js";
 
 export function configIoRoutes(app: Express): void {
   app.get("/admin-api/config/export", adminAuth, requireAdminRole, (req: Request, res: Response) => {
@@ -36,7 +37,7 @@ export function configIoRoutes(app: Express): void {
       try {
         data = parseYaml(body.raw);
       } catch (err) {
-        sendError(res, 400, "IMPORT_ERROR", `invalid YAML: ${err instanceof Error ? err.message : String(err)}`);
+        sendError(res, 400, "IMPORT_ERROR", `invalid YAML: ${errorMessage(err)}`);
         return;
       }
     } else {
@@ -52,7 +53,7 @@ export function configIoRoutes(app: Express): void {
       }
       res.status(200).json(result);
     } catch (err) {
-      sendError(res, 400, "IMPORT_ERROR", err instanceof Error ? err.message : String(err));
+      sendError(res, 400, "IMPORT_ERROR", errorMessage(err));
     }
   });
 

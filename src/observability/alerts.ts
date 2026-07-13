@@ -7,6 +7,7 @@ import { getUsageSummary } from "./usage.js";
 import { detectUsageSpike } from "./anomaly.js";
 import { dispatchWebhook } from "../lib/webhook.js";
 import { startLeaderGatedInterval } from "../lib/leader-loop.js";
+import { errorMessage } from "../lib/error-message.js";
 
 export type AlertEventType =
   "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike" | "schema_drift";
@@ -247,10 +248,7 @@ export async function sendTestAlert(id: number): Promise<{ ok: boolean; reason?:
 /** Starts the periodic (leader-only) alert evaluation loop. Returns a stop function. */
 export function startAlertLoop(): () => void {
   return startLeaderGatedInterval(
-    () =>
-      evaluateAlerts().catch((err) =>
-        log("warn", "Alert evaluation failed", { error: err instanceof Error ? err.message : String(err) }),
-      ),
+    () => evaluateAlerts().catch((err) => log("warn", "Alert evaluation failed", { error: errorMessage(err) })),
     config.alertIntervalMs,
   );
 }

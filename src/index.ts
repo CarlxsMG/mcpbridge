@@ -37,6 +37,7 @@ import { registry } from "./mcp/registry.js";
 import { startCircuitBreakerCleanup } from "./middleware/circuit-breaker.js";
 import { startRateLimiterCleanup } from "./middleware/rate-limiter.js";
 import { createApp } from "./server.js";
+import { errorMessage } from "./lib/error-message.js";
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 // Opens the SQLite handle and applies any pending migrations before anything
@@ -145,9 +146,7 @@ if (config.registrySyncEnabled) {
   const t = setInterval(() => {
     registry
       .reconcileFromDb()
-      .catch((err) =>
-        log("warn", "Registry reconciliation failed", { error: err instanceof Error ? err.message : String(err) }),
-      );
+      .catch((err) => log("warn", "Registry reconciliation failed", { error: errorMessage(err) }));
   }, config.registrySyncIntervalMs);
   if (t.unref) t.unref();
   stopRegistrySync = () => clearInterval(t);
@@ -180,7 +179,7 @@ validateEnvOrWarn();
 try {
   validateEnvStrict();
 } catch (err) {
-  log("error", `FATAL: ${err instanceof Error ? err.message : String(err)}`);
+  log("error", `FATAL: ${errorMessage(err)}`);
   process.exit(1);
 }
 log("info", "Active configuration", redactedConfig);

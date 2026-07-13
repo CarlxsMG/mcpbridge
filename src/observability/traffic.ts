@@ -15,6 +15,7 @@ import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { clampLimit, keysetPaginate } from "../lib/pagination-cursor.js";
+import { errorMessage } from "../lib/error-message.js";
 
 export interface TrafficRecord {
   id: number;
@@ -89,7 +90,7 @@ export function recordTraffic(input: {
         Date.now(),
       );
   } catch (err) {
-    log("warn", "Failed to record traffic capture", { error: err instanceof Error ? err.message : String(err) });
+    log("warn", "Failed to record traffic capture", { error: errorMessage(err) });
     return;
   }
   if (Math.random() < 0.02) pruneTraffic();

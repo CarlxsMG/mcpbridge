@@ -1,6 +1,7 @@
 import { parseFlags } from "../args.js";
 import { makeClient, clientExists, CliApiError } from "../client.js";
 import { loadGatewayFile, type GatewayServerEntry } from "../config-file.js";
+import { errorMessage } from "../../lib/error-message.js";
 
 interface ImportResult {
   dryRun: boolean;
@@ -61,7 +62,7 @@ export async function applyCommand(argv: string[]): Promise<number> {
       console.log(`  + ${s.name} (registered)`);
     } catch (err) {
       anyServerFailed = true;
-      console.error(`  x ${s.name} (failed: ${err instanceof Error ? err.message : String(err)})`);
+      console.error(`  x ${s.name} (failed: ${errorMessage(err)})`);
     }
   }
 
@@ -83,7 +84,7 @@ export async function applyCommand(argv: string[]): Promise<number> {
           `config: ${file} was exported from a different gateway version — run "gateway pull --file ${file}" to refresh, then re-apply your edits.`,
         );
       } else {
-        console.error(`config: import failed: ${err instanceof Error ? err.message : String(err)}`);
+        console.error(`config: import failed: ${errorMessage(err)}`);
       }
     }
   }

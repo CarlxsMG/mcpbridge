@@ -10,6 +10,7 @@ import { pullCommand } from "./commands/pull.js";
 import { planCommand } from "./commands/plan.js";
 import { applyCommand } from "./commands/apply.js";
 import { connectCommand } from "./commands/connect.js";
+import { errorMessage } from "../lib/error-message.js";
 
 const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
   login: loginCommand,
@@ -31,7 +32,7 @@ async function main(): Promise<number> {
   try {
     return await fn(rest);
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
     return 1;
   }
 }

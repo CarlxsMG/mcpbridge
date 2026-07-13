@@ -67,6 +67,7 @@ import {
 import { getOrCompile } from "./schema-validator.js";
 import { dispatchWsToolCall } from "./dispatch-ws.js";
 import { dispatchMcpToolCall } from "./dispatch-mcp.js";
+import { errorMessage } from "../lib/error-message.js";
 
 // ---------------------------------------------------------------------------
 // TTL-based pinned IP cache — module-level Map keyed on client name
@@ -740,7 +741,7 @@ async function buildRestRequest(
         pin = await refreshPinIfStale(hostname, pin);
         pinnedIpCache.set(client.name, pin);
       } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
+        const reason = errorMessage(err);
         return toolResult(`Backend hostname now resolves to private IP: ${reason}`, { isError: true });
       }
     }
@@ -1110,7 +1111,7 @@ async function dispatchRestToolCall(
         }
         return toolResult(`REST API returned ${response.status}: ${errorBodyText}`, { isError: true });
       } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
+        lastError = errorMessage(error);
         if (!isIdempotent || attempt >= MAX_RETRIES) {
           proxyRequestDuration.observe(
             { client: client.name, method, status_class: "error" },

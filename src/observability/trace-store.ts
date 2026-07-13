@@ -15,6 +15,7 @@ import { config } from "../config.js";
 import { log } from "../logger.js";
 import { clampLimit, keysetPaginate } from "../lib/pagination-cursor.js";
 import type { FinishedSpan, AttrValue } from "./tracing.js";
+import { errorMessage } from "../lib/error-message.js";
 
 export interface StoredSpan {
   id: number;
@@ -103,7 +104,7 @@ export function persistSpan(span: FinishedSpan): void {
         Date.now(),
       );
   } catch (err) {
-    log("warn", "Failed to persist span for trace viewer", { error: err instanceof Error ? err.message : String(err) });
+    log("warn", "Failed to persist span for trace viewer", { error: errorMessage(err) });
     return;
   }
   if (Math.random() < 0.02) pruneSpans();

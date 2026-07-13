@@ -7,6 +7,7 @@ import { startLeaderGatedInterval } from "../lib/leader-loop.js";
 import { mcpUpstream } from "../mcp/mcp-upstream.js";
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { healthCheckDuration, healthCheckRunsTotal, healthLoopErrorsTotal, healthEvictionsTotal } from "./metrics.js";
+import { errorMessage } from "../lib/error-message.js";
 
 async function checkBatch(clients: ReturnType<typeof registry.listClients>): Promise<void> {
   for (let i = 0; i < clients.length; i += config.healthCheckMaxConcurrent) {
@@ -62,7 +63,7 @@ async function checkBatch(clients: ReturnType<typeof registry.listClients>): Pro
           healthCheckRunsTotal.inc({ outcome: "failure" });
           log("warn", "Health check failed", {
             client: client.name,
-            error: error instanceof Error ? error.message : String(error),
+            error: errorMessage(error),
           });
           await handleFailure(client.name, previousStatus);
         }
@@ -117,7 +118,7 @@ export function startHealthCheckLoop(): () => void {
     } catch (err) {
       healthLoopErrorsTotal.inc({});
       log("error", "Health check loop encountered an unhandled error", {
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
     }
   };

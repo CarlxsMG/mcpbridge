@@ -6,6 +6,7 @@ import { createMcpKey, revokeMcpKey, type McpKeyScopes } from "../../security/mc
 import { getBundleDetail, type BundleDetail } from "./bundles.js";
 import { TOOL_KEY_SEPARATOR } from "../../lib/identifier.js";
 import { log } from "../../logger.js";
+import { errorMessage } from "../../lib/error-message.js";
 
 /**
  * Shareable, revocable "install this bundle" links.
@@ -163,7 +164,7 @@ export async function createInstallLink(
     revokeMcpKey(keyRecord.id);
     return {
       ok: false,
-      error: { code: "SECRETS_PROVIDER_ERROR", message: err instanceof Error ? err.message : String(err) },
+      error: { code: "SECRETS_PROVIDER_ERROR", message: errorMessage(err) },
     };
   }
 
@@ -270,7 +271,7 @@ export async function resolveInstallLinkToken(rawToken: string): Promise<Resolve
   } catch (err) {
     log("warn", "Failed to decrypt install-link MCP key — is the secrets provider configured correctly?", {
       installLinkId: row.id,
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     });
     return null;
   }

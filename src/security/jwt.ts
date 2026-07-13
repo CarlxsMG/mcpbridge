@@ -10,6 +10,7 @@
  */
 import { config } from "../config.js";
 import { createTtlCache } from "../lib/ttl-cache.js";
+import { errorMessage } from "../lib/error-message.js";
 
 export interface Jwk {
   kid?: string;
@@ -104,7 +105,7 @@ export async function verifyJwt(token: string): Promise<JwtResult> {
   try {
     keys = await getJwks();
   } catch (e) {
-    return { valid: false, reason: `jwks: ${e instanceof Error ? e.message : String(e)}` };
+    return { valid: false, reason: `jwks: ${errorMessage(e)}` };
   }
   const candidates = header.kid ? keys.filter((k) => k.kid === header.kid) : keys;
   if (candidates.length === 0) return { valid: false, reason: "no matching key" };

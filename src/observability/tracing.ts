@@ -1,8 +1,8 @@
-import { randomBytes } from "crypto";
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { persistSpan } from "./trace-store.js";
 import { getCurrentTraceContext, newSpanId, newTraceId, setCurrentSpan } from "./trace-context.js";
+import { errorMessage } from "../lib/error-message.js";
 
 /**
  * Dependency-free OpenTelemetry span export over OTLP/HTTP (JSON). When
@@ -38,10 +38,6 @@ export function tracingEnabled(): boolean {
   return Boolean(config.otelEndpoint) || config.traceStorageEnabled;
 }
 
-function genId(bytes: number): string {
-  return randomBytes(bytes).toString("hex");
-}
-
 /**
  * Starts a span. Cheap; the export cost is deferred to the batched flush.
  *
@@ -69,10 +65,6 @@ export function startSpan(name: string, attributes: Record<string, AttrValue> = 
   setCurrentSpan(span);
   return span;
 }
-
-// genId is kept for any future call site that needs a raw id (currentSpan
-// uses the W3C-compliant newSpanId() / newTraceId() helpers instead).
-void genId;
 
 const buffer: FinishedSpan[] = [];
 let flushScheduled = false;
@@ -170,7 +162,7 @@ export async function flush(): Promise<void> {
     });
   } catch (err) {
     log("warn", "OTLP span export failed", {
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
       spans: batch.length,
     });
   }

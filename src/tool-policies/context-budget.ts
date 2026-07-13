@@ -3,6 +3,7 @@ import { getSecretsProvider } from "../secrets/index.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { toolExists, upsertConfig } from "../lib/tool-config.js";
+import { errorMessage } from "../lib/error-message.js";
 
 /**
  * Per-tool "context budget" guardrail — an MCP-specific problem a generic API
@@ -152,7 +153,7 @@ export async function setToolContextBudget(
     try {
       llmApiKeyRef = await secretsProvider.encryptSecret(input.llm.apiKey);
     } catch (err) {
-      return { ok: false, error: "SECRETS_PROVIDER_ERROR", reason: err instanceof Error ? err.message : String(err) };
+      return { ok: false, error: "SECRETS_PROVIDER_ERROR", reason: errorMessage(err) };
     }
     llmProvider = input.llm.provider;
     llmBaseUrl = input.llm.baseUrl;
@@ -352,7 +353,7 @@ export async function applyContextBudget(
         tool: mcpToolName,
         client: clientName,
         provider: cfg.llm.provider,
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
       return { text: truncateToBudget(text, cfg.maxResponseBytes).text, applied: "llm_summarize_fallback_truncate" };
     }

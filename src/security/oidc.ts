@@ -29,6 +29,7 @@ import { createUser, findUserByUsername, findUserById, type AdminUser } from "./
 import { createJwksFetcher, verifyJwtSignatureWithKeys, type JwtClaims, type Jwk } from "./jwt.js";
 import { sha256Hex } from "../lib/crypto.js";
 import { createTtlCache } from "../lib/ttl-cache.js";
+import { errorMessage } from "../lib/error-message.js";
 
 // ── WebCrypto-based PKCE (RFC 7636) ─────────────────────────────────────────
 
@@ -138,7 +139,7 @@ export async function verifyIdToken(
   try {
     keys = await getJwksFetcherFor(opts.jwksUri)();
   } catch (e) {
-    return { valid: false, reason: `jwks: ${e instanceof Error ? e.message : String(e)}` };
+    return { valid: false, reason: `jwks: ${errorMessage(e)}` };
   }
   const sig = await verifyJwtSignatureWithKeys(idToken, keys);
   if (!sig.valid) return sig;
@@ -341,7 +342,7 @@ export async function setOidcConfig(
   try {
     clientSecretRef = await secretsProvider.encryptSecret(clientSecret);
   } catch (err) {
-    return { ok: false, error: "SECRETS_PROVIDER_ERROR", reason: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: "SECRETS_PROVIDER_ERROR", reason: errorMessage(err) };
   }
 
   const now = Date.now();

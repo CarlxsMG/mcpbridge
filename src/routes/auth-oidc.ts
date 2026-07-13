@@ -31,6 +31,7 @@ import {
   verifyIdToken,
   findOrProvisionSsoUser,
 } from "../security/oidc.js";
+import { errorMessage } from "../lib/error-message.js";
 
 /** Redirects the browser back to the SPA's login page with a machine-readable (never sensitive) error hint. */
 function redirectToLoginWithError(res: Response, reason: string): void {
@@ -56,7 +57,7 @@ export function authOidcRoutes(app: Express): void {
     try {
       discovery = await discoverOidcIssuer(cfg.issuer);
     } catch (err) {
-      log("warn", "OIDC discovery failed", { error: err instanceof Error ? err.message : String(err) });
+      log("warn", "OIDC discovery failed", { error: errorMessage(err) });
       sendError(res, 502, "SSO_DISCOVERY_FAILED", "Could not reach the identity provider");
       return;
     }
@@ -109,7 +110,7 @@ export function authOidcRoutes(app: Express): void {
     try {
       discovery = await discoverOidcIssuer(cfg.issuer);
     } catch (err) {
-      log("warn", "OIDC discovery failed during callback", { error: err instanceof Error ? err.message : String(err) });
+      log("warn", "OIDC discovery failed during callback", { error: errorMessage(err) });
       redirectToLoginWithError(res, "discovery_failed");
       return;
     }
@@ -118,7 +119,7 @@ export function authOidcRoutes(app: Express): void {
     try {
       clientSecret = await getSecretsProvider().decryptSecret(cfg.clientSecretRef);
     } catch (err) {
-      log("error", "OIDC client secret decryption failed", { error: err instanceof Error ? err.message : String(err) });
+      log("error", "OIDC client secret decryption failed", { error: errorMessage(err) });
       redirectToLoginWithError(res, "server_error");
       return;
     }
@@ -133,7 +134,7 @@ export function authOidcRoutes(app: Express): void {
         codeVerifier,
       });
     } catch (err) {
-      log("warn", "OIDC token exchange failed", { error: err instanceof Error ? err.message : String(err) });
+      log("warn", "OIDC token exchange failed", { error: errorMessage(err) });
       redirectToLoginWithError(res, "token_exchange_failed");
       return;
     }

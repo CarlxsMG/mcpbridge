@@ -6,15 +6,6 @@
  *
  * Documented equivalents (verified, not assumed):
  *
- *   41:39-43:2 BlockStatement + 42:38-42:43 StringLiteral (genId's whole body
- *   / its "hex" encoding argument). `genId` is a module-private, never-
- *   exported helper with ZERO real call sites anywhere in the codebase — the
- *   very next line, `void genId;`, only REFERENCES the function value to
- *   silence an unused-declaration lint warning, it never INVOKES it (verified
- *   via a repo-wide grep for `genId(` finding only the function's own
- *   definition line). A function with no call site anywhere is unreachable
- *   by construction; no test can exercise its body.
- *
  *   77:32-77:34 ArrayDeclaration (`const buffer: FinishedSpan[] = [];`'s `[]`
  *   replaced with a sentinel array) and 78:22-78:27 BooleanLiteral (`let
  *   flushScheduled = false;`'s initial value flipped to `true`). Same

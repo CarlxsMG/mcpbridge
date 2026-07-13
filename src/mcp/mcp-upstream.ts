@@ -6,6 +6,7 @@ import type { ProgressCallback } from "@modelcontextprotocol/sdk/shared/protocol
 import { makePinnedFetch } from "../net/ip-validator.js";
 import { toolResult } from "../lib/mcp-result.js";
 import { outboundTraceHeaders } from "../observability/trace-context.js";
+import { errorMessage } from "../lib/error-message.js";
 
 // ---------------------------------------------------------------------------
 // Outbound MCP upstream connection pool + dispatcher.
@@ -48,7 +49,7 @@ const CLIENT_NAME = "mcp-rest-bridge";
 const CLIENT_VERSION = "1.0.0";
 
 function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  return errorMessage(err);
 }
 
 /** Default transport factory — real network transports. Overridable for tests. */
