@@ -1,9 +1,6 @@
 # Dependencies
 node_modules/
 
-# Lockfiles
-bun.lock
-
 # Build output
 dist/
 *.js.map
@@ -62,8 +59,8 @@ data/
 scripts/__pycache__/
 
 # Stryker mutation testing — runs are reproducible via `bun run test:mutate`,
-# so the reports (HTML + JSON) and per-run logs are local-only artifacts.
-reports/mutation/
+# so all report output (HTML + JSON) and per-run logs are local-only artifacts.
+reports/
 .stryker-tmp/
 stryker.log
 stryker.err

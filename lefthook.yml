@@ -1,0 +1,20 @@
+# Local git hooks — installed via `bunx lefthook install` (one-time, per
+# clone; not run automatically so CI and fresh clones are never surprised by
+# it). Mirrors the same checks CI enforces (see .github/workflows/ci.yml),
+# just earlier — catching a format/lint/commit-message problem before it
+# reaches a PR instead of after.
+pre-commit:
+  parallel: true
+  jobs:
+    - name: format
+      run: bun run format:check
+    - name: lint (root)
+      run: bun run lint
+    - name: lint (admin-ui)
+      root: admin-ui/
+      run: bun run lint
+
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: bunx commitlint --edit {1}
