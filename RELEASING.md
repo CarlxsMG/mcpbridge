@@ -107,7 +107,10 @@ Pushing the `v*` tag fires both:
 - **`docker-publish.yml`** → multi-arch (amd64 + arm64) image to
   `ghcr.io/<org>/<repo>`, with an SBOM + build-provenance attestation, a keyless cosign
   signature, and a Trivy scan surfaced in the Security tab.
-- **`release-binaries.yml`** → standalone compiled binaries.
+- **`release-binaries.yml`** → standalone compiled binaries. Note the binary is the
+  **backend only** — the admin UI ships as a separate artifact (`admin-ui-dist.tar.gz`). If you
+  advertise a binary download anywhere, say so next to it, or `/admin` will 404 for anyone who
+  grabs just the binary.
 
 ## Step 5 — Create the GitHub Release
 
