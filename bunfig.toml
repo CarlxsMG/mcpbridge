@@ -1,0 +1,25 @@
+# Bun test-runner config. CI already runs `bun test --coverage` (see
+# .github/workflows/ci.yml); this makes that a real gate instead of a table
+# nobody reads. Current baseline is ~97.6% functions / ~98.5% lines (see
+# CLAUDE.md's mutation-testing note) — thresholds below are set well under
+# that baseline so routine work doesn't flake the gate, while still catching
+# a real coverage collapse.
+[test]
+coverageSkipTestFiles = true
+coverageThreshold = { lines = 0.90, functions = 0.85 }
+# src/config.ts is under-reported by Bun's coverage instrumentation even when
+# fully exercised: src/__tests__/config-parsers.test.ts statically imports
+# and calls parseCorsOrigins with every branch (empty/whitespace/single/
+# multiple/wildcard/invalid), and src/__tests__/config-mutation.test.ts
+# exercises parseTrustProxy via a cache-busting dynamic re-import (module-
+# load-time code, no other way to reach it) — verified by running that test
+# file alone, in isolation, and still seeing the same ~50%/76% numbers. This
+# is a tooling gap, not a real coverage gap; carving it out keeps the gate
+# meaningful everywhere else instead of laundering it into a lower global
+# threshold or leaving a permanently-red, untrusted check.
+#
+# scripts/** (dev/build tooling — version bumping, i18n audits, the dev-all
+# runner) is excluded too: it's not part of the shipped gateway/admin-API
+# surface CLAUDE.md describes, so it doesn't belong under the same coverage
+# bar as runtime request-path code.
+coveragePathIgnorePatterns = ["src/config.ts", "scripts/**"]
