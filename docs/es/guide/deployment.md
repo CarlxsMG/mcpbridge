@@ -22,9 +22,9 @@ docker run -d --name mcpbridge -p 3000:3000 \
   — monta un volumen ahí para que la config sobreviva a restarts.
 - Un `HEALTHCHECK` pega a `/health`; el proceso se apaga con gracia en `SIGTERM`.
 
-Las releases taggeadas (`vX.Y.Z`) también se publican a GHCR en
-`ghcr.io/aico-dot-team-code/mcpbridge` (ajusta el owner/repo si forkaste este proyecto —
-consulta la nota al inicio del README), así que puedes saltarte el build local por
+Cuando se publique la primera release, las releases taggeadas (`vX.Y.Z`) también se publicarán
+a GHCR en `ghcr.io/aico-dot-team-code/mcpbridge` (ajusta el owner/repo si forkaste este
+proyecto — consulta la nota al inicio del README) — entonces podrás saltarte el build local por
 completo:
 
 ```bash

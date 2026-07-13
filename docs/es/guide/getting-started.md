@@ -35,9 +35,10 @@ sobre HTTPS y elimina ambas** — la cookie se vuelve `__Host-`/`Secure` automá
 :::
 
 ::: tip ¿Prefieres no compilar desde el código?
-Cada release publica una imagen prebuilt, multi-arch y firmada — quita el `docker build` y
-usa `ghcr.io/aico-dot-team-code/mcpbridge:latest` como imagen en `docker run`. Consulta
-[Despliegue →](/es/guide/deployment).
+Cuando se publique la primera release, cada release publicará una imagen prebuilt, multi-arch
+y firmada en GHCR — entonces podrás quitar el `docker build` y usar
+`ghcr.io/aico-dot-team-code/mcpbridge:latest` como imagen en `docker run`. Hasta entonces,
+compila en local con el `docker build` de arriba. Consulta [Despliegue →](/es/guide/deployment).
 :::
 
 ## Opción B — Bun (desarrollo local, con hot reload)

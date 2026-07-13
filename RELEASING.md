@@ -10,13 +10,16 @@ that.
 - **No git tags exist.** `docker-publish.yml` and `release-binaries.yml` both trigger
   **only on `v*` tags**, so the GHCR image and the standalone binaries the README,
   `docker-compose.yml`, and the docs advertise **have never been built**.
-- `docker-compose.yml` defaults to `ghcr.io/aico-dot-team-code/mcpbridge:1.0.0` — an image
-  that does not exist yet, under a repo slug that does not resolve.
+- `docker-compose.yml` now builds from local source (`build: .`) because no image is
+  published; its `image:` tag `ghcr.io/aico-dot-team-code/mcpbridge:1.0.0` won't resolve until
+  you publish (at which point comment `build:` back out so it pulls the signed image).
 - `CHANGELOG.md` marks `## [1.0.0] - 2026-07-03` as released and its footer links point at
   `.../compare/v1.0.0...HEAD` and `.../releases/tag/v1.0.0` — both **404** until a real slug
   and a real `v1.0.0` tag/release exist.
-- The repo slug `aico-dot-team-code/mcpbridge` is a **placeholder** (31 tracked files; the
-  top of `README.md` says so). Publishing is gated on picking the real handle.
+- The repo slug `aico-dot-team-code/mcpbridge` is a **placeholder** — ~34 tracked files carry
+  the token, across both the `<org>/<repo>` slug and the `<owner>.github.io/<repo>` Pages form
+  (the top of `README.md` says so). Publishing is gated on picking the real handle; see
+  [Step 1](#step-1--set-the-real-repository-slug-one-sweep) for the complete sweep.
 
 Because HEAD is far past the `1.0.0` changelog date, tagging `v1.0.0` at HEAD would mislabel
 a large body of unreleased work — see [First release](#first-release-decision) for how to
@@ -32,18 +35,38 @@ handle the initial cut specifically.
 
 ## Step 1 — Set the real repository slug (one sweep)
 
-Replace every occurrence of the placeholder with your real `<org>/<repo>` slug, then delete
-the now-obsolete find-and-replace comment at the top of `README.md` and `README.es.md`:
+The placeholder `aico-dot-team-code/mcpbridge` (owner `aico-dot-team-code`, repo `mcpbridge`)
+appears in **two distinct URL shapes plus a pair of derived constants**, so a single
+find-and-replace on the `<org>/<repo>` form alone is **not** enough — it silently misses the
+GitHub Pages host `<owner>.github.io/<repo>` that the README badges, the "Live demo"/"Docs"
+links, `.env.example`, and `docs/.vitepress/config.mts` are built from. Replace all of them,
+from a clean tree, after everything you want in the release is committed (git grep only matches
+tracked files):
 
 ```bash
-# Run from a clean tree, after everything you want in the release is committed
-# (git grep only matches tracked files).
-git grep -l 'aico-dot-team-code/mcpbridge' | xargs sed -i 's#aico-dot-team-code/mcpbridge#<ORG>/<REPO>#g'
+# 1. The Pages host + base path (do this FIRST — it's the more specific pattern):
+#    README/docs "Live demo" & "Docs" links, .env.example, DemoReel.vue.
+git grep -l 'aico-dot-team-code.github.io/mcpbridge' \
+  | xargs sed -i 's#aico-dot-team-code\.github\.io/mcpbridge#<ORG>.github.io/<REPO>#g'
+
+# 2. The repository slug: github.com/<org>/<repo>, ghcr.io/<org>/<repo>, package.json, etc.
+git grep -l 'aico-dot-team-code/mcpbridge' \
+  | xargs sed -i 's#aico-dot-team-code/mcpbridge#<ORG>/<REPO>#g'
+
+# 3. The two derived constants in the docs config — the seds above don't touch them,
+#    because they hold owner and repo SEPARATELY, not the joined slug:
+#    docs/.vitepress/config.mts →  GH_USER = "<ORG>";  GH_REPO = "<REPO>";
+sed -i 's#"aico-dot-team-code"#"<ORG>"#; s#"mcpbridge"#"<REPO>"#' docs/.vitepress/config.mts
+
+# 4. Verify NOTHING remains — this must print nothing:
+git grep -n 'aico-dot-team-code'
 ```
 
-This touches ~31 files across `README*.md`, `package.json`, `docker-compose.yml`,
-`helm/`, `SECURITY.md`, `CHANGELOG.md`, `.env.example`, `.github/`, the docs, and the
-`monitoring/` runbook URLs. Review the diff, then commit:
+Then delete the now-obsolete find-and-replace comment at the top of `README.md` and
+`README.es.md`. This whole sweep touches ~34 files across `README*.md`, `package.json`,
+`docker-compose.yml`, `helm/`, `SECURITY.md`, `CHANGELOG.md`, `.env.example`, `.github/`,
+`docs/` (incl. `.vitepress/config.mts` and `DemoReel.vue`), and the `monitoring/` runbook
+URLs. Review the diff, then commit:
 
 ```bash
 git commit -am "chore(release): set real repository slug"
