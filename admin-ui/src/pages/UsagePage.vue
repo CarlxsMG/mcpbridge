@@ -92,7 +92,7 @@ onMounted(load);
           :options="WINDOW_OPTIONS"
           @update:model-value="onWindowChange"
         />
-        <span v-if="loading" class="loading-note">{{ t("common.loading") }}</span>
+        <SignalLoader v-if="loading" :label="t('common.loading')" />
       </div>
     </PageHeader>
 
@@ -198,10 +198,6 @@ onMounted(load);
   display: flex;
   align-items: center;
   gap: 0.6rem;
-}
-.loading-note {
-  color: var(--text-muted);
-  font-size: 0.85rem;
 }
 .cards {
   display: grid;

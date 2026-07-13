@@ -15,6 +15,7 @@ import SelectMenu from "@/components/ui/SelectMenu.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import FieldError from "@/components/ui/FieldError.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
+import TogglePill from "@/components/ui/TogglePill.vue";
 
 const props = defineProps<{ clientName: string }>();
 const { t } = useI18n({ useScope: "global" });
@@ -209,16 +210,13 @@ function confirmRemoveTarget() {
               />
             </td>
             <td>
-              <button
-                type="button"
-                class="toggle"
-                :class="target.enabled ? 'toggle-on' : 'toggle-off'"
-                :aria-pressed="target.enabled"
+              <TogglePill
+                :on="target.enabled"
+                :on-label="t('common.enabled')"
+                :off-label="t('common.disabled')"
                 :disabled="savingTargetId === target.id"
                 @click="toggleTargetEnabled(target)"
-              >
-                {{ target.enabled ? t("common.enabled") : t("common.disabled") }}
-              </button>
+              />
             </td>
             <td>
               <button type="button" class="link-btn danger" @click="requestRemoveTarget(target)">

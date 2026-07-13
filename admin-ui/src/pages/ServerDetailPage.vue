@@ -140,7 +140,7 @@ async function resetBreaker() {
 
 <template>
   <section>
-    <p class="breadcrumb">
+    <p class="sd-breadcrumb">
       <RouterLink to="/servers">{{ t("nav.servers.label") }}</RouterLink> / {{ name }}
     </p>
 
@@ -180,7 +180,7 @@ async function resetBreaker() {
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-      <dl class="meta">
+      <dl class="sd-meta">
         <template v-if="detail.kind === 'mcp'">
           <div>
             <dt>{{ t("pages.server_detail.mcp_url") }}</dt>
@@ -281,17 +281,12 @@ async function resetBreaker() {
   </section>
 </template>
 
-<style>
-.breadcrumb {
+<style scoped>
+.sd-breadcrumb {
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
-.header-actions .btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.meta {
+.sd-meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
   gap: 0.75rem;
@@ -301,7 +296,7 @@ async function resetBreaker() {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
-.meta dt {
+.sd-meta dt {
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -309,12 +304,50 @@ async function resetBreaker() {
   color: var(--text-muted);
   margin-bottom: 0.2rem;
 }
-.meta dd {
+.sd-meta dd {
   margin: 0;
   font-size: 0.88rem;
   font-family: var(--font-mono);
   word-break: break-all;
 }
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 18, 22, 0.45);
+  z-index: var(--z-drawer);
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(26.25rem, 100%);
+  background: var(--surface);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+  padding: 1.5rem;
+  overflow-y: auto;
+  z-index: var(--z-drawer-top);
+}
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.drawer-header h2 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+</style>
+
+<style>
+/* Unscoped on purpose: the rules below reach into the child section components
+   rendered on this page (ServerDetailToolsTable, ServerDetailPlayground,
+   ServerDetailResync, ServerDetailLb), each of which renders under its own
+   scoped-style hash — a `scoped` block here could not target them (same pattern
+   as ConfigSection.vue). These names are domain-specific, so they carry no
+   app-wide-collision risk; the page's own-element styles (breadcrumb, meta,
+   drawer) live in the `scoped` block above. */
 .url-cell {
   color: var(--text-secondary);
   font-family: var(--font-mono);
@@ -323,40 +356,6 @@ async function resetBreaker() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  border-radius: var(--radius-pill);
-  padding: 0.28rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--surface);
-  transition: background-color 0.12s ease;
-}
-.toggle::before {
-  content: "";
-  width: 0.55em;
-  height: 0.55em;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-.toggle-on {
-  border: 1px solid var(--ok);
-  color: var(--ok);
-}
-.toggle-off {
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-}
-.toggle-on:hover {
-  background: var(--ok-soft);
-}
-.toggle-off:hover {
-  background: var(--surface-sunken);
 }
 .test-result {
   margin-top: 1rem;
@@ -423,34 +422,6 @@ async function resetBreaker() {
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   font-size: 0.85rem;
-}
-.drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 18, 22, 0.45);
-  z-index: var(--z-drawer);
-}
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  height: 100vh;
-  width: min(26.25rem, 100%);
-  background: var(--surface);
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
-  padding: 1.5rem;
-  overflow-y: auto;
-  z-index: var(--z-drawer-top);
-}
-.drawer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-.drawer-header h2 {
-  font-size: 1.05rem;
-  margin: 0;
 }
 .resync-body {
   margin-top: 0.9rem;

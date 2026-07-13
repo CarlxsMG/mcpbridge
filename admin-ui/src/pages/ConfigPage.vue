@@ -92,7 +92,13 @@ function onRollbackResult(r: ConfigImportResult) {
 </style>
 
 <style>
-.block {
+/* Unscoped on purpose: these style the `.config-block` sections rendered by the
+   child components (ConfigExportSection / ConfigImportSection /
+   ConfigSnapshotsSection), each under its own scoped-style hash, so a `scoped`
+   block here could not reach them (same pattern as ConfigSection.vue). Renamed
+   from the generic `.block` to `.config-block` so the unscoped rules can't
+   collide app-wide with any other component. */
+.config-block {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -100,22 +106,22 @@ function onRollbackResult(r: ConfigImportResult) {
   padding: 1.25rem;
   margin: 1.25rem 0;
 }
-.block h2 {
+.config-block h2 {
   margin-top: 0;
   font-size: 1.05rem;
 }
-.block .hint {
+.config-block .hint {
   color: var(--text-secondary);
   font-size: 0.85rem;
   max-width: 40rem;
 }
-.block > label {
+.config-block > label {
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
   margin: 0.5rem 0 0.35rem;
 }
-.block textarea {
+.config-block textarea {
   width: 100%;
   box-sizing: border-box;
   font-family: var(--font-mono);
@@ -124,17 +130,17 @@ function onRollbackResult(r: ConfigImportResult) {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
 }
-.block .actions {
+.config-block .actions {
   display: flex;
   gap: 0.75rem;
   margin-top: 0.75rem;
   align-items: center;
 }
-.block .actions label {
+.config-block .actions label {
   font-size: 0.85rem;
   font-weight: 600;
 }
-.block .label-input {
+.config-block .label-input {
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -142,24 +148,24 @@ function onRollbackResult(r: ConfigImportResult) {
   font-family: var(--font-body);
   min-width: 16.25rem;
 }
-.block .format-field {
+.config-block .format-field {
   max-width: 12rem;
 }
-.block .row-actions {
+.config-block .row-actions {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
 }
-.block .diff {
+.config-block .diff {
   margin-top: 1rem;
 }
-.block .diff tr.added td {
+.config-block .diff tr.added td {
   background: var(--ok-soft);
 }
-.block .diff tr.removed td {
+.config-block .diff tr.removed td {
   background: var(--breach-soft);
 }
-.block .diff tr.changed td {
+.config-block .diff tr.changed td {
   background: var(--canary-soft);
 }
 </style>

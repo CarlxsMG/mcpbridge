@@ -100,7 +100,7 @@ function fmt(v: unknown): string {
 </script>
 
 <template>
-  <div class="block">
+  <div class="config-block">
     <h2>{{ t("components.config_snapshots.title") }}</h2>
     <p class="hint">{{ t("components.config_snapshots.hint") }}</p>
     <div class="actions">

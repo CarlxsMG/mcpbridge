@@ -318,6 +318,19 @@ button {
   gap: var(--space-3);
 }
 
+/* Header action buttons that pair a lucide icon with a text label (Reset breaker,
+   Refresh, Browse by tag, …): align the icon + label and space them. Global on
+   purpose — several pages slot such buttons into PageHeader's `.header-actions`
+   default slot (ServersPage, ApprovalsPage, OverviewPage, …) and rely on this.
+   It previously leaked app-wide from ServerDetailPage.vue's page-level, unscoped
+   <style>; this is its intended home. (MonitorsPage keeps its own scoped copy
+   that additionally sets flex-shrink.) */
+.header-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 @keyframes signal-pulse {
   0%,
   100% {

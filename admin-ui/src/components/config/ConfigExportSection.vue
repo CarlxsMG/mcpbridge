@@ -31,7 +31,7 @@ async function doExport(format: "json" | "yaml") {
 </script>
 
 <template>
-  <div class="block">
+  <div class="config-block">
     <h2>{{ t("components.config_export.title") }}</h2>
     <div class="actions" role="group" :aria-label="t('components.config_export.aria_label')">
       <button type="button" class="btn-secondary" :disabled="exportingFormat !== null" @click="doExport('json')">

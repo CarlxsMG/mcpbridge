@@ -11,12 +11,12 @@ import es from "./locales/es.json";
  * only configures the vue-i18n instance. The instance is created once at app
  * boot and shared via Vue's plugin system (`app.use(i18n)` in `main.ts`).
  *
- * Why English-as-source-of-truth: the committed EN strings in the codebase
- * match the keys in `en.json` 1:1 (no `t()` calls in components yet during the
- * phase 0 scaffold), so flipping locale to "es" must still render identical
- * strings until extraction in later phases. If a key is missing in ES it falls
- * back to EN — surfacing real "you forgot to translate this" coverage gaps
- * instead of silently showing the raw key.
+ * Why English-as-source-of-truth: i18n extraction is complete — every user-facing
+ * string across the pages/components is routed through `t()`, and both `en.json`
+ * and `es.json` are fully populated, with EN as the canonical key set. Flipping the
+ * locale to "es" swaps every string; if a key is missing in ES it falls back to EN
+ * — surfacing real "you forgot to translate this" coverage gaps instead of silently
+ * showing the raw key.
  */
 export type AppLocale = "en" | "es";
 

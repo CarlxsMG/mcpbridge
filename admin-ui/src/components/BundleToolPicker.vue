@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import type { ToolListItem, BundleToolRef } from "@/types/api";
-import { Search } from "lucide-vue-next";
+import SearchInput from "@/components/ui/SearchInput.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import { toErrorMessage } from "@/utils/errors";
 import { tk } from "@/i18n";
@@ -80,17 +80,11 @@ const groupedByClient = computed(() => {
 <template>
   <div class="tool-picker">
     <div class="picker-header">
-      <label for="tool-filter" class="visually-hidden">{{ t("components.bundle_tool_picker.filter_label") }}</label>
-      <div class="search-input">
-        <Search :size="15" stroke-width="2" aria-hidden="true" />
-        <input
-          id="tool-filter"
-          v-model="search"
-          type="search"
-          :placeholder="t('components.bundle_tool_picker.filter_placeholder')"
-          :aria-label="t('components.bundle_tool_picker.filter_label')"
-        />
-      </div>
+      <SearchInput
+        v-model="search"
+        :placeholder="t('components.bundle_tool_picker.filter_placeholder')"
+        :aria-label="t('components.bundle_tool_picker.filter_label')"
+      />
       <label class="show-selected">
         <input v-model="showSelectedOnly" type="checkbox" />
         {{ t("components.bundle_tool_picker.show_selected_only") }}
@@ -104,10 +98,10 @@ const groupedByClient = computed(() => {
     <SignalLoader v-if="loading" :label="t('components.bundle_tool_picker.loading')" />
 
     <template v-else-if="allTools.length === 0">
-      <p class="empty-state">{{ t("components.bundle_tool_picker.empty.no_tools") }}</p>
+      <p class="picker-empty">{{ t("components.bundle_tool_picker.empty.no_tools") }}</p>
     </template>
     <template v-else-if="groupedByClient.length === 0">
-      <p class="empty-state">{{ t("components.bundle_tool_picker.empty.no_match", { search }) }}</p>
+      <p class="picker-empty">{{ t("components.bundle_tool_picker.empty.no_match", { search }) }}</p>
     </template>
 
     <details v-for="[clientName, tools] in groupedByClient" :key="clientName" class="client-group" open>
@@ -155,40 +149,6 @@ const groupedByClient = computed(() => {
 }
 .picker-header .search-input {
   flex: 1;
-}
-.search-input {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0 0.6rem;
-  background: var(--surface);
-}
-.search-input svg {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-.search-input input {
-  flex: 1;
-  width: 100%;
-  padding: 0.45rem 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-}
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 .show-selected {
   display: inline-flex;
@@ -254,7 +214,11 @@ const groupedByClient = computed(() => {
   padding: 0.05em 0.45em;
   border-radius: var(--radius-pill);
 }
-.empty-state {
+/* Intentionally lighter than the shared EmptyState.vue card: this state renders
+   *inside* the bordered, scrollable `.tool-picker`, where a full bordered
+   empty-state card would read as a card-in-a-card. Renamed off `.empty-state`
+   to avoid colliding with that shared component's global-ish class name. */
+.picker-empty {
   padding: 1rem;
   text-align: center;
   color: var(--text-secondary);

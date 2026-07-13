@@ -11,6 +11,7 @@ import type { ToolDetail, UpstreamKind } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import TableCard from "@/components/ui/TableCard.vue";
+import TogglePill from "@/components/ui/TogglePill.vue";
 import { Wrench } from "lucide-vue-next";
 
 const props = defineProps<{ tools: ToolDetail[]; kind: UpstreamKind; clientName: string }>();
@@ -145,15 +146,12 @@ async function testTool(tool: ToolDetail) {
           </button>
         </td>
         <td>
-          <button
-            type="button"
-            class="toggle"
-            :class="tool.enabled ? 'toggle-on' : 'toggle-off'"
-            :aria-pressed="tool.enabled"
+          <TogglePill
+            :on="tool.enabled"
+            :on-label="t('common.enabled')"
+            :off-label="t('common.disabled')"
             @click="onToolToggleClick(tool)"
-          >
-            {{ tool.enabled ? t("common.enabled") : t("common.disabled") }}
-          </button>
+          />
           <p v-if="rowError[tool.name]" class="row-error">{{ rowError[tool.name] }}</p>
         </td>
         <td>

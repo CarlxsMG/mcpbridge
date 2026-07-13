@@ -63,7 +63,7 @@ async function confirmImport() {
 </script>
 
 <template>
-  <div class="block">
+  <div class="config-block">
     <h2>{{ t("components.config_import.title") }}</h2>
     <p class="hint">
       {{ t("components.config_import.hint") }}
