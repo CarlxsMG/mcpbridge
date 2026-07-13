@@ -48,6 +48,12 @@ async function transitCall(op: "encrypt" | "decrypt", body: Record<string, strin
   const { addr, token, keyName } = vaultConfig();
   const url = `${addr}/v1/transit/${op}/${encodeURIComponent(keyName)}`;
 
+  // redirect:"error" is deliberately NOT set here (unlike the SSRF-guarded
+  // backend fetches in ip-validator/proxy): VAULT_ADDR is operator-trusted
+  // infra — same trust tier as the OTLP exporter — and Vault HA standby nodes
+  // legitimately 307-redirect Transit calls to the active node, so refusing
+  // redirects would break those deployments (and Vault fails closed, never
+  // back to plaintext). Don't "harden" this to redirect:"error".
   let resp: Response;
   try {
     resp = await fetch(url, {
