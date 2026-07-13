@@ -117,8 +117,8 @@ transportes upstream.
 Apunta cualquier cliente MCP (Claude Desktop, Cursor, tu propio agente) a un **shard de
 backend** — las tools de un backend registrado. Para el `petstore` que registraste, eso es
 `/mcp/petstore`. El bridge negocia la versión del protocolo MCP a través del SDK oficial de
-TypeScript, que actualmente soporta desde `2025-03-26` hasta `2025-11-25` (incluyendo
-`2025-06-18`) — consulta [Conectar clientes MCP →](/es/guide/connecting-clients) para los
+TypeScript, que soporta desde `2024-10-07` hasta `2025-11-25` y usa `2025-03-26` por
+defecto cuando el cliente no indica versión — consulta [Conectar clientes MCP →](/es/guide/connecting-clients) para los
 detalles de negociación de versión.
 
 ```json

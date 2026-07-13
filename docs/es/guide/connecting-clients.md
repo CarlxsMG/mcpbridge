@@ -6,7 +6,7 @@ corresponde a las tools que debe ver.
 
 ::: tip Versión de protocolo soportada
 El bridge negocia la versión del protocolo MCP a través del SDK oficial de TypeScript,
-que actualmente soporta desde `2025-03-26` hasta `2025-11-25` (incluyendo `2025-06-18`).
+que soporta desde `2024-10-07` hasta `2025-11-25` y usa `2025-03-26` por defecto cuando el cliente no indica versión.
 Los clientes que negocien una versión dentro de ese rango durante el init deberían
 interoperar automáticamente — vale la pena saberlo si te encuentras con una rareza
 específica del cliente.

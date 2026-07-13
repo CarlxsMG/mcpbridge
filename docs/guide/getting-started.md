@@ -119,7 +119,7 @@ are supported.
 Point any MCP client (Claude Desktop, Cursor, your own agent) at a **backend shard** — one
 registered backend's tools. For the `petstore` you just registered, that's `/mcp/petstore`.
 The bridge negotiates the MCP protocol version via the official TypeScript SDK, which
-currently supports `2025-03-26` through `2025-11-25` (including `2025-06-18`) — see
+supports `2024-10-07` through `2025-11-25` and defaults to `2025-03-26` when a client sends none — see
 [Connecting MCP clients →](/guide/connecting-clients) for details on version negotiation.
 
 ```json

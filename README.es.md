@@ -38,8 +38,8 @@ Kubernetes.
 
 **MCP REST Bridge** es un **gateway/proxy/agregador MCP** open-source para el
 [Model Context Protocol](https://modelcontextprotocol.io) (negocia la versión del protocolo
-MCP a través del **SDK oficial**, con soporte actual desde `2025-03-26` hasta `2025-11-25`,
-incluyendo `2025-06-18`). Apúntalo a un spec OpenAPI/Swagger, un endpoint GraphQL, un comando `curl`
+MCP a través del **SDK oficial**, que soporta desde `2024-10-07` hasta `2025-11-25` y
+usa `2025-03-26` por defecto cuando el cliente no indica versión). Apúntalo a un spec OpenAPI/Swagger, un endpoint GraphQL, un comando `curl`
 o una colección Postman y convierte tu API en herramientas MCP automáticamente. Registra un
 servidor MCP existente y lo re-expone a través del mismo
 pipeline gobernado. Cada llamada pasa por protección SSRF, sanitización de prompt-injection,

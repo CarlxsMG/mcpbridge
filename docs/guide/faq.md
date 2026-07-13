@@ -13,8 +13,8 @@ it requires Kubernetes, Postgres, or any external service. See
 ## Does it work with Claude Desktop, Cursor, or other MCP clients?
 
 Yes — any client that speaks the Model Context Protocol. The bridge negotiates the protocol
-version via the official TypeScript SDK, which currently supports `2025-03-26` through
-`2025-11-25` (including `2025-06-18`), and is tested against Claude Desktop, Cursor, and
+version via the official TypeScript SDK, which supports `2024-10-07` through
+`2025-11-25` (defaulting to `2025-03-26` when a client sends none), and is tested against Claude Desktop, Cursor, and
 custom agents. The `gateway connect` CLI command generates ready-to-paste config for Claude
 Desktop, Cursor, Windsurf, and Continue specifically. See
 [Connecting MCP clients →](/guide/connecting-clients).

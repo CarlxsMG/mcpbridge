@@ -97,8 +97,8 @@ key gestionada).
 
 ::: tip
 Genera claves/secretos con, p. ej., `openssl rand -hex 24` (API keys) o `openssl rand -base64 32`
-(`SECRET_ENCRYPTION_KEY`). Consulta `.env.example` en el repo para la referencia completa y
-comentada — incluyendo tuning de CORS, rate-limit y timeouts.
+(`SECRET_ENCRYPTION_KEY`). `.env.example` es un conjunto inicial curado; la lista exhaustiva es el
+objeto `config` en `src/config.ts`.
 :::
 
 Siguiente: **[Despliegue →](/es/guide/deployment)** · **[Seguridad →](/es/guide/security)**

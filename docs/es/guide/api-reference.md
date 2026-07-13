@@ -48,12 +48,14 @@ Las formas completas request/response están en el Swagger UI en **`/docs`**.
 
 ## Operaciones
 
-| Endpoint       | Auth                            | Propósito                                                                        |
-| -------------- | ------------------------------- | -------------------------------------------------------------------------------- |
-| `GET /health`  | ninguna                         | Liveness probe (`{ "status": "ok", "uptime_seconds": <n> }`) para load balancers |
-| `GET /metrics` | sesión admin o `ADMIN_API_KEYS` | Métricas Prometheus (incl. `mcp_tool_calls_total{outcome}`)                      |
-| `GET /admin`   | login de UI                     | El SPA Vue de admin                                                              |
-| `GET /docs`    | dev-open / admin                | Explorador OpenAPI interactivo (Swagger UI)                                      |
+| Endpoint       | Auth                            | Propósito                                                                                                      |
+| -------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `GET /health`  | ninguna                         | Salud genérica + uptime (`{ "status": "ok", "uptime_seconds": <n> }`) para load balancers y dashboards de ops  |
+| `GET /livez`   | ninguna                         | Liveness probe de Kubernetes — siempre `200` mientras el proceso responda HTTP                                 |
+| `GET /readyz`  | ninguna                         | Readiness probe de Kubernetes — `200` solo si tiene el lease de líder y la BD responde `SELECT 1`, si no `503` |
+| `GET /metrics` | sesión admin o `ADMIN_API_KEYS` | Métricas Prometheus (incl. `mcp_tool_calls_total{outcome}`)                                                    |
+| `GET /admin`   | login de UI                     | El SPA Vue de admin                                                                                            |
+| `GET /docs`    | dev-open / admin                | Explorador OpenAPI interactivo (Swagger UI)                                                                    |
 
 ## Errores
 

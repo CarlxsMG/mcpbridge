@@ -33,8 +33,8 @@ per-tool guardrails, RBAC, circuit breaking. One binary. No Kubernetes.
 
 **MCP REST Bridge** is an open-source **MCP gateway / proxy / aggregator** for the
 [Model Context Protocol](https://modelcontextprotocol.io) (negotiates the MCP protocol
-version via the **official SDK**, currently supporting `2025-03-26` through `2025-11-25`,
-including `2025-06-18`). Point it at an OpenAPI/Swagger spec, a GraphQL endpoint, a `curl` command
+version via the **official SDK**, which supports `2024-10-07` through `2025-11-25` and
+defaults to `2025-03-26` when a client sends none). Point it at an OpenAPI/Swagger spec, a GraphQL endpoint, a `curl` command
 or a Postman collection and it turns your API into MCP tools automatically. Register an
 existing MCP server and it re-exposes it through the same governed pipeline. Every call
 runs through SSRF protection, prompt-injection sanitizing,
