@@ -119,7 +119,7 @@ tools de backend. ([Cómo los bundles agregan varios backends →](/es/guide/bun
   secretos están activadas por defecto, en cada path.
 - **Sin infraestructura pesada.** Sin Kubernetes, sin Postgres, sin sidecars. Un binario y
   un fichero SQLite.
-- **Testeado de verdad.** 280+ ficheros de test en el backend, Vitest, e2e con Playwright y
+- **Testeado de verdad.** 330+ ficheros de test en el backend, Vitest, e2e con Playwright y
   mutation testing con Stryker — cobertura que mide si los tests atrapan bugs, no solo si
   ejecutan líneas.
 

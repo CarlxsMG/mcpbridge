@@ -58,7 +58,7 @@ bun run dev:all      # backend :8790 + admin UI :8791, ambos con hot reload
 | `bun run test:mutate`              | Mutation testing con [Stryker](https://stryker-mutator.io) (`stryker.config.mjs`)                       |
 
 El bridge está cubierto por **varios sistemas de test, no uno**: **el runner de Bun** para la
-suite del backend (280+ ficheros bajo `src/**/__tests__/`), **Vitest** para el admin UI,
+suite del backend (330+ ficheros bajo `src/**/__tests__/`), **Vitest** para el admin UI,
 **Playwright** para end-to-end, y encima **mutation testing con [Stryker](https://stryker-mutator.io)** —
 que inyecta fallos en el código y falla si los tests no los atrapan, así que la cobertura mide
 _efectividad_, no solo ejecución de líneas. Las corridas de mutación son mucho más pesadas que

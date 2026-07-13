@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a managed key is minted) and `e2e/mcp-protocol.spec.ts` (protocol-contract assertions on
   `/mcp/:clientName`) Playwright specs, wired into a new required `e2e` CI job that runs the
   full suite on every PR/push to `main`.
+- `monitoring/` — deployable Prometheus alert rules and a Grafana dashboard for the reliability
+  SLOs (the multi-window burn-rate alerts from `docs/architecture/slos.md`, wired to the real
+  Prometheus metric names). Covers SLO-1/2/6 today; SLO-4's metric isn't emitted yet.
+- `RELEASING.md` — the maintainer runbook for cutting the first tagged, GHCR/binary-published
+  release under a real repository identity.
 
 ### Changed
 
@@ -61,6 +66,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Security:** WebSocket dials — both per-tool `tool_ws` backends and dedicated ws-proxy
+  targets — are now actually pinned to the SSRF-validated IP. Each previously re-resolved the
+  backend hostname at dial time (the per-tool path via a bare `new WebSocket(url)`; ws-proxy via a
+  Node `dns.lookup` override that **Bun's bundled `ws` silently ignores**), reopening the
+  DNS-rebinding TOCTOU that the config-time IP validation exists to close. A new `pinnedWsDial()`
+  rewrites the connect host to the validated IP literal while preserving the original hostname for
+  the Host header / TLS SNI (the WebSocket analogue of the REST path's `makePinnedFetch`).
+- Robustness & a11y hardening: guarded two fire-and-forget promises that could surface as
+  process-level unhandled rejections (the MCP progress-notification send after a mid-call client
+  disconnect; the ws-proxy DNS-revalidation loop); routed `GET /register/schema`'s 503 through the
+  shared `sendError()` so it carries `request_id` like every other admin-API error; gave three
+  placeholder-only / hidden admin-UI inputs real accessible names; and enabled a type-checked
+  ESLint layer on the admin-UI TypeScript modules (which caught three floating Vue Router
+  navigations).
 - Admin-UI accessibility & reuse: `TogglePill` now owns its `aria-pressed` (removing the duplicated
   binding from all nine call sites); per-field validation errors on the four create forms
   (New Alert / Composite / Consumer / Schedule) now go through `FieldError`, adding the missing

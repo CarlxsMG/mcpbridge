@@ -117,7 +117,7 @@ tools. ([How bundles aggregate several backends →](/guide/bundles))
 - **Security isn't an add-on.** SSRF, injection sanitizing and secret detection are on by
   default, on every path.
 - **No heavy infra.** No Kubernetes, no Postgres, no sidecars. A binary and a SQLite file.
-- **Tested for real.** 280+ backend test files, Vitest, Playwright e2e and Stryker mutation
+- **Tested for real.** 330+ backend test files, Vitest, Playwright e2e and Stryker mutation
   testing — coverage that measures whether the tests catch bugs, not just run lines.
 
 <div style="margin-top: 2.5rem; text-align: center;">

@@ -36,7 +36,7 @@ mutations) **or** `ADMIN_API_KEYS` Bearer. Role-gated; every mutation is audited
 
 | Group           | Examples                                                                                                                                                                      |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth            | `POST /admin-api/auth/login`, `/logout`, `GET /auth/me`                                                                                                                       |
+| Auth            | `POST /admin-api/auth/login`, `/logout`, `GET /admin-api/auth/me`                                                                                                             |
 | Servers & tools | `GET /admin-api/clients` (create via `POST /register`), `GET/PATCH/DELETE /admin-api/clients/:name`, `PATCH /admin-api/clients` (bulk enable/disable), `GET /admin-api/tools` |
 | Curation        | `/admin-api/bundles*`, `/composites*`                                                                                                                                         |
 | Access          | `/admin-api/mcp-keys*`, `/consumers*`, `/policies*`, `/users*`, `/teams*`                                                                                                     |

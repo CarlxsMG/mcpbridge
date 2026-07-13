@@ -81,7 +81,7 @@ para servir varios backends por un solo endpoint.
   supervisar el uso y leer el log de auditoría.
 - **Bidireccional en un binario.** REST, GraphQL y OpenAPI → MCP **y** MCP → gateway MCP.
   Agrega muchos backends detrás de un endpoint curado (un bundle).
-- **Testeado de verdad, no solo verde.** Una suite de 280+ ficheros en el backend, Vitest
+- **Testeado de verdad, no solo verde.** Una suite de 330+ ficheros en el backend, Vitest
   para el admin UI, e2e con Playwright, y **mutation testing con [Stryker](https://stryker-mutator.io)**
   que inyecta fallos para probar que los tests atrapan bugs de verdad.
 - **Seguro por defecto.** Protección SSRF + DNS-rebinding con anclaje de IP, sanitización
@@ -280,7 +280,7 @@ Las docs completas viven en la **[web del proyecto](https://aico-dot-team-code.g
 ## 🤝 Contribuir
 
 ¡Contribuciones bienvenidas! El bridge está cubierto por **varios sistemas de test, no uno** —
-**Bun** para la suite de 280+ ficheros del backend, **Vitest** para el admin UI, **Playwright**
+**Bun** para la suite de 330+ ficheros del backend, **Vitest** para el admin UI, **Playwright**
 end-to-end, y encima **mutation testing con [Stryker](https://stryker-mutator.io)** (que inyecta
 fallos para probar que los tests atrapan bugs de verdad, no solo ejecutan líneas). Después de
 cualquier cambio:
