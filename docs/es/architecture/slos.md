@@ -154,8 +154,9 @@ Se calculan como:
 ) / 0.005 > 14.4
 ```
 
-…con las variantes análogas `6h / 6`, `24h / 1` y `72h / 1`. Implementa esto en
-Prometheus / Grafana; el gateway no emite alertas de burn por sí mismo.
+…con las variantes análogas `6h / 6`, `24h / 1` y `72h / 1`. Hay reglas Prometheus listas
+para aplicar (y un dashboard Grafana) en el directorio `monitoring/` del repo; el gateway
+no emite alertas de burn por sí mismo.
 
 **Por qué multi-ventana.** Una ventana única de 30 días esconde un día caliente dentro
 de un mes con holgura. El alerting multi-ventana caza una caída del lunes por la mañana a
@@ -194,6 +195,7 @@ tiempo de hacer algo, no un mes después cuando el presupuesto ya está agotado.
 - `docs/guide/guardrails-resilience.md` — circuit breakers, rate limiters, canary.
 - `src/observability/metrics.ts` — cada nombre de métrica y label de este doc, definido
   ahí.
+- `monitoring/` — reglas de alerta Prometheus y un dashboard Grafana listos para aplicar que implementan las señales SLO-1/2/6 de arriba.
 - `src/admin/audit/audit.ts` — construcción del hash de la cadena de audit y ruta de
   verify.
 - [Google SRE Workbook, cap. 5 — "Reliable Design" burn-rate alerting](https://sre.google/workbook/alerting-on-slos/).

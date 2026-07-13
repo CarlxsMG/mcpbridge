@@ -1,0 +1,215 @@
+# Prometheus alerting + recording rules for MCP REST Bridge.
+#
+# These implement the machine-checkable SLOs from docs/architecture/slos.md against
+# the metric names the gateway actually exposes at GET /metrics
+# (src/observability/metrics.ts). Load them into Prometheus:
+#
+#   # prometheus.yml
+#   rule_files:
+#     - /etc/prometheus/rules/mcp-rest-bridge.alerts.yaml
+#
+# Validate before shipping:  promtool check rules monitoring/prometheus/alerts.yaml
+#
+# SLO coverage (see monitoring/README.md for the full rationale):
+#   SLO-1 tool-call availability .... ✅ implemented (burn-rate, below)
+#   SLO-2 tool-call latency ......... ✅ implemented
+#   SLO-6 health-probe coverage ..... ⚠️  loop-errors alert implemented; the coverage
+#                                        ratio is a commented template (needs your
+#                                        HEALTH_CHECK_INTERVAL_MS — default 30000)
+#   SLO-3 tools/list latency ........ ❌ OTLP span, not a Prometheus series
+#   SLO-4 admin-API availability .... ❌ needs http_requests_total from a reverse-proxy
+#                                        exporter; the gateway does not emit it
+#   SLO-5 audit-chain integrity ..... ❌ binary check via GET /admin-api/audit-log/verify;
+#                                        wire as a blackbox/cron probe, not a metric rule
+#
+# Thresholds mirror slos.md exactly. The error-budget target for SLO-1 is 0.5%
+# (99.5% availability); a NaN ratio when there is zero traffic simply never fires.
+
+groups:
+  # ── SLO-1 · Tool-call availability — multi-window burn-rate ──────────────────
+  - name: mcp-rest-bridge.slo1-availability
+    rules:
+      - alert: MCPToolCallErrorBudgetBurnFast
+        expr: |
+          (
+            1 - (
+              sum(rate(mcp_tool_calls_total{outcome="success"}[1h]))
+              /
+              sum(rate(mcp_tool_calls_total[1h]))
+            )
+          ) / 0.005 > 14.4
+        for: 2m
+        labels:
+          severity: page
+          slo: slo-1
+        annotations:
+          summary: "Tool-call error budget burning 14.4× (fast)"
+          description: >-
+            ≈2% of the 30-day error budget for SLO-1 (99.5% tool-call availability) is
+            being spent per hour. Something is on fire.
+          runbook_url: "https://github.com/aico-dot-team-code/mcpbridge/blob/main/docs/architecture/slos.md"
+
+      - alert: MCPToolCallErrorBudgetBurnSustained
+        expr: |
+          (
+            1 - (
+              sum(rate(mcp_tool_calls_total{outcome="success"}[6h]))
+              /
+              sum(rate(mcp_tool_calls_total[6h]))
+            )
+          ) / 0.005 > 6
+        for: 15m
+        labels:
+          severity: page
+          slo: slo-1
+        annotations:
+          summary: "Tool-call error budget burning 6× (sustained)"
+          description: >-
+            ≈1% of the 30-day error budget spent in 6h. Sustained degradation.
+          runbook_url: "https://github.com/aico-dot-team-code/mcpbridge/blob/main/docs/architecture/slos.md"
+
+      - alert: MCPToolCallErrorBudgetBurnDay
+        expr: |
+          (
+            1 - (
+              sum(rate(mcp_tool_calls_total{outcome="success"}[24h]))
+              /
+              sum(rate(mcp_tool_calls_total[24h]))
+            )
+          ) / 0.005 > 1
+        for: 1h
+        labels:
+          severity: ticket
+          slo: slo-1
+        annotations:
+          summary: "Tool-call error budget burning 1× (day)"
+          description: >-
+            ≈5% of the 30-day error budget spent in a day. Not a fire; not OK either.
+          runbook_url: "https://github.com/aico-dot-team-code/mcpbridge/blob/main/docs/architecture/slos.md"
+
+      - alert: MCPToolCallErrorBudgetLeak
+        expr: |
+          (
+            1 - (
+              sum(rate(mcp_tool_calls_total{outcome="success"}[3d]))
+              /
+              sum(rate(mcp_tool_calls_total[3d]))
+            )
+          ) / 0.005 > 1
+        for: 2h
+        labels:
+          severity: ticket
+          slo: slo-1
+        annotations:
+          summary: "Tool-call error budget slow leak (72h)"
+          description: "Slow burn over 3 days — usually a leaky regression."
+          runbook_url: "https://github.com/aico-dot-team-code/mcpbridge/blob/main/docs/architecture/slos.md"
+
+  # ── SLO-2 · Tool-call latency ───────────────────────────────────────────────
+  - name: mcp-rest-bridge.slo2-latency
+    rules:
+      - alert: MCPToolCallLatencyP99High
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(rate(mcp_proxy_request_duration_seconds_bucket[5m])) by (le)
+          ) > 10
+        for: 5m
+        labels:
+          severity: page
+          slo: slo-2
+        annotations:
+          summary: "Tool-call p99 latency > 10s"
+          description: "p99 proxy request duration has exceeded 10s for 5m (SLO-2 target: p99 ≤ 5s over 30d)."
+          runbook_url: "https://github.com/aico-dot-team-code/mcpbridge/blob/main/docs/architecture/slos.md"
+
+      - alert: MCPToolCallLatencyP95Elevated
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(mcp_proxy_request_duration_seconds_bucket[15m])) by (le)
+          ) > 2
+        for: 15m
+        labels:
+          severity: warning
+          slo: slo-2
+        annotations:
+          summary: "Tool-call p95 latency > 2s"
+          description: "p95 proxy request duration has exceeded 2s for 15m (SLO-2 target: p95 ≤ 1s over 30d)."
+          runbook_url: "https://github.com/aico-dot-team-code/mcpbridge/blob/main/docs/architecture/slos.md"
+
+  # ── SLO-6 · Health-probe coverage ───────────────────────────────────────────
+  - name: mcp-rest-bridge.slo6-health
+    rules:
+      # The early-warning signal: the leader-gated health loop is swallowing
+      # exceptions it shouldn't. Interval-independent, so this ships active.
+      - alert: MCPHealthLoopErrors
+        expr: increase(mcp_health_loop_errors_total[10m]) > 0
+        for: 0m
+        labels:
+          severity: page
+          slo: slo-6
+        annotations:
+          summary: "Health-check outer loop is erroring"
+          description: >-
+            mcp_health_loop_errors_total incremented — the health loop caught an
+            unhandled error. If the leader has stalled, dead backends stop being evicted.
+          runbook_url: "https://github.com/aico-dot-team-code/mcpbridge/blob/main/docs/architecture/slos.md"
+
+      # Coverage ratio = actual probes / expected probes over 24h. Expected depends on
+      # your HEALTH_CHECK_INTERVAL_MS. The 30 below is 30000 ms (the default) expressed
+      # as probes-per-client-per-second denominator (interval_ms / 1000). ADJUST if you
+      # changed the interval, then uncomment. Left commented so a wrong interval can't
+      # page you with false "coverage low" alarms out of the box.
+      #
+      # - record: slo6:health_probe_coverage:ratio24h
+      #   expr: |
+      #     sum(rate(mcp_health_check_runs_total[24h]))
+      #     /
+      #     (sum(mcp_registry_clients) / 30)
+      # - alert: MCPHealthProbeCoverageLow
+      #   expr: slo6:health_probe_coverage:ratio24h < 0.95
+      #   for: 30m
+      #   labels: { severity: page, slo: slo-6 }
+      #   annotations:
+      #     summary: "Health-probe coverage < 95%"
+      #     description: "The leader probed fewer than 95% of expected backend health checks over 24h."
+
+  # ── Operational alerts (not SLOs) — from the gateway's richer metric set ──────
+  - name: mcp-rest-bridge.operational
+    rules:
+      - alert: MCPCircuitBreakerOpen
+        expr: mcp_breaker_current_state == 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit breaker open for {{ $labels.client }}"
+          description: "A per-tool breaker on client {{ $labels.client }} has been open ≥5m — its backend is failing repeatedly."
+
+      - alert: MCPClientEvicted
+        expr: increase(mcp_health_evictions_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backend client auto-evicted: {{ $labels.client }}"
+          description: "Client {{ $labels.client }} crossed the consecutive-failure threshold and was auto-evicted from the registry."
+
+      - alert: MCPRateLimitRejectionSpike
+        expr: sum(rate(mcp_rate_limit_hits_total[5m])) by (tier) > 1
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Sustained 429 rate-limit rejections (tier: {{ $labels.tier }})"
+          description: ">1 request/s rejected with 429 on the {{ $labels.tier }} tier for 10m — a caller may be misconfigured, or a limit is too tight."
+
+      - alert: MCPResponseBodyCapRejections
+        expr: increase(mcp_proxy_body_cap_rejections_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Upstream responses hit the response-size cap ({{ $labels.client }})"
+          description: "Client {{ $labels.client }} returned responses exceeding MAX_RESPONSE_BYTES and they were rejected — raise the cap or fix the backend if this is expected."

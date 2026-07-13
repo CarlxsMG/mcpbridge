@@ -7,7 +7,8 @@ tamper-evident audit trail, all from the same instance.
 
 Scrape `GET /metrics` for Prometheus-format metrics, including
 `mcp_tool_calls_total{outcome}` alongside process and HTTP metrics. Wire it into your usual
-dashboards and alerting.
+dashboards and alerting — or start from the ready-to-apply Prometheus rules and Grafana
+dashboard in the repo's `monitoring/` directory.
 
 ## Tracing (OpenTelemetry)
 

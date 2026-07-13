@@ -7,7 +7,8 @@ alertas y un log de auditoría a prueba de manipulaciones, todo desde la misma i
 
 Scrape `GET /metrics` para métricas en formato Prometheus, incluyendo
 `mcp_tool_calls_total{outcome}` junto con métricas de proceso y HTTP. Cablea en tus
-dashboards y alertas habituales.
+dashboards y alertas habituales — o parte de las reglas Prometheus y el dashboard Grafana
+listos para aplicar en el directorio `monitoring/` del repo.
 
 ## Tracing (OpenTelemetry)
 
