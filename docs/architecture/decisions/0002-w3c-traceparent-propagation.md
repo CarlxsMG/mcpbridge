@@ -102,7 +102,7 @@ on serialize so a v00 upstream gets a v00 outbound.
 
 ### Confirmation
 
-- `src/__tests__/trace-context.test.ts` — 39 tests covering parse,
+- `src/observability/__tests__/trace-context.test.ts` — 39 tests covering parse,
   serialize, round-trip, malformed inputs (non-hex, all-zero, future
   version, wrong length, tracestate with vendor keys), the AsyncLocalStorage
   context, and the `outboundTraceHeaders()` helper.

@@ -137,7 +137,7 @@ CI wiring:
 - Commits:
   - `d58fd30` — `test(e2e): add auth-fail-closed + mcp-protocol specs,
 fix smoke for new /mcp split (P1-3)`
-  - `d5ed472` — `ci: add e2e job running the Playwright suite (12 specs)
+  - `d5ed472` — `ci: add e2e job running the Playwright suite (3 specs / 12 tests)
 on every PR`
 - Follow-up (still open): canary fail-over spec, bundle-install spec —
   both await a future session; they need real canary / bundle-install

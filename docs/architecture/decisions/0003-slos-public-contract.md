@@ -7,7 +7,7 @@
 ## Context and Problem Statement
 
 The bridge exposes Prometheus metrics (`mcp_proxy_request_duration_seconds`,
-`audit_chain_ok`, `health_probe_success_total`, …) and ships an OTLP
+`mcp_tool_calls_total`, `mcp_health_check_runs_total`, …) and ships an OTLP
 tracer, but there is **no published contract** for what "the bridge is
 working" means. Operators wiring alerts on the metrics have to pick their
 own thresholds, which inevitably drift between deployments and end up
@@ -59,16 +59,17 @@ Grafana alerting pipeline?
 
 Chosen option: **C — six SLOs, four windows, four burn-rates**.
 
-The full set, each grounded in a real metric:
+The full set, with the source signal each SLO is measured from (a real metric
+where the gateway emits one, otherwise the honest gap):
 
-| SLO   | Window | Target               | Source metric                                       |
-| ----- | ------ | -------------------- | --------------------------------------------------- |
-| SLO-1 | 30 d   | 99.5 %               | `mcp_proxy_request_total{status_class=~"2xx\|4xx"}` |
-| SLO-2 | 30 d   | p95 ≤ 1 s, p99 ≤ 5 s | `mcp_proxy_request_duration_seconds` histogram      |
-| SLO-3 | 30 d   | p99 ≤ 500 ms         | `mcp_tools_list_duration_seconds`                   |
-| SLO-4 | 30 d   | 99 %                 | `mcp_admin_api_request_total{status_class=~"2xx"}`  |
-| SLO-5 | 24 h   | 100 % (binary)       | `mcp_audit_chain_ok` (1 = ok, 0 = broken)           |
-| SLO-6 | 24 h   | ≥ 99 %               | `mcp_health_probe_success_total`                    |
+| SLO   | Window | Target               | Source signal                                                                            |
+| ----- | ------ | -------------------- | ---------------------------------------------------------------------------------------- |
+| SLO-1 | 30 d   | 99.5 %               | `mcp_tool_calls_total{outcome}`                                                          |
+| SLO-2 | 30 d   | p95 ≤ 1 s, p99 ≤ 5 s | `mcp_proxy_request_duration_seconds` histogram                                           |
+| SLO-3 | 30 d   | p99 ≤ 500 ms         | _Not yet instrumented — no `tools/list` span or metric is emitted (aspirational)._       |
+| SLO-4 | 30 d   | 99 %                 | `http_requests_total{route=~"/admin-api/.*"}` from a reverse proxy — not gateway-emitted |
+| SLO-5 | 24 h   | 100 % (binary)       | `GET /admin-api/audit-log/verify` route (`ok: true`) — not a metric                      |
+| SLO-6 | 24 h   | ≥ 99 %               | `mcp_health_check_runs_total{outcome}`                                                   |
 
 SLO-1, SLO-2, and SLO-4 use the standard 4-window burn-rate alert
 formulation (1 h × 14.4× budget, 6 h × 6×, 24 h × 4×, 72 h × 1×) so
@@ -105,9 +106,15 @@ backend is stale but still in the registry.
 ### Confirmation
 
 - `docs/architecture/slos.md` and `docs/es/architecture/slos.md` publish
-  the targets, the metric names, the windows, and the alert formulas.
-- The metrics referenced exist in `src/observability/metrics.ts` and
-  are exported by `/metrics` (no change to that path is needed).
+  the targets, the source signals, the windows, and the alert formulas.
+- The metrics behind SLO-1, SLO-2, and SLO-6 (`mcp_tool_calls_total`,
+  `mcp_proxy_request_duration_seconds`, `mcp_health_check_runs_total`)
+  exist in `src/observability/metrics.ts` and are exported by `/metrics`
+  (no change to that path is needed). SLO-5 is enforced from the
+  `GET /admin-api/audit-log/verify` route, not a metric. SLO-3 (`tools/list`
+  latency) and SLO-4 (admin-API availability) are **not yet instrumented**
+  by the gateway — SLO-3 emits no span or metric today, and SLO-4 depends
+  on an HTTP metric from a reverse proxy in front of the gateway.
 - The W3C traceparent propagation (ADR-0002) makes latency-bucket
   violations diagnosable from a single trace — operators can find the
   slow call, not just the slow bucket.
