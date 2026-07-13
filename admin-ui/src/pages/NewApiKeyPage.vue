@@ -3,14 +3,15 @@ import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useClipboard } from "@/composables/useClipboard";
-import { toErrorMessage } from "@/utils/errors";
+import { useCreateForm } from "@/composables/useCreateForm";
 import { parseList } from "@/utils/fieldParsing";
-import { tk } from "@/i18n";
 import type { McpApiKeyWithSecret, Consumer } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+import FieldError from "@/components/ui/FieldError.vue";
+import SecretReveal from "@/components/ui/SecretReveal.vue";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -35,36 +36,27 @@ async function loadConsumers() {
 }
 onMounted(loadConsumers);
 
-const creating = ref(false);
-const error = ref("");
 const mintedKey = ref<McpApiKeyWithSecret | null>(null);
 const { copied, copy } = useClipboard();
 
-async function createKey() {
-  error.value = "";
-  if (!label.value.trim()) {
-    error.value = t("pages.keys.new.errors.label_required");
-    return;
-  }
-  const clientList = parseList(clients.value);
-  const toolList = parseList(tools.value);
-  const scopes = clientList.length || toolList.length ? { clients: clientList, tools: toolList } : null;
-  const expiresAt = expires.value ? new Date(expires.value).getTime() : null;
-
-  creating.value = true;
-  try {
+const { creating, error, run } = useCreateForm({
+  submit: async () => {
     mintedKey.value = await api.post<McpApiKeyWithSecret>("/admin-api/mcp-keys", {
       label: label.value.trim(),
-      scopes,
-      expiresAt,
+      scopes:
+        parseList(clients.value).length || parseList(tools.value).length
+          ? { clients: parseList(clients.value), tools: parseList(tools.value) }
+          : null,
+      expiresAt: expires.value ? new Date(expires.value).getTime() : null,
       consumerId: consumerId.value === "" ? null : consumerId.value,
       elevated: elevated.value,
     });
-  } catch (err) {
-    error.value = toErrorMessage(err, tk("pages.keys.new.errors.create_failed"));
-  } finally {
-    creating.value = false;
-  }
+  },
+  fallbackKey: "pages.keys.new.errors.create_failed",
+});
+
+function createKey() {
+  return run(() => (label.value.trim() ? null : t("pages.keys.new.errors.label_required")));
 }
 
 async function copyKey() {
@@ -78,16 +70,18 @@ async function copyKey() {
     <FormPage max-width="32rem">
       <PageHeader :title="t('pages.keys.new.title')" :back-link="{ to: '/keys', label: t('nav.keys.label') }" />
 
-      <div v-if="mintedKey" class="minted" role="alert">
-        <div class="minted-title">{{ t("pages.keys.new.minted_title", { label: mintedKey.label }) }}</div>
-        <div class="minted-row">
-          <code class="minted-secret">{{ mintedKey.key }}</code>
-          <button type="button" class="btn-secondary" @click="copyKey">
-            {{ copied ? t("common.copied") : t("common.copy") }}
-          </button>
-        </div>
-        <RouterLink to="/keys" class="btn-primary done-link">{{ t("common.done") }}</RouterLink>
-      </div>
+      <SecretReveal
+        v-if="mintedKey"
+        :title="t('pages.keys.new.minted_title', { label: mintedKey.label })"
+        :secret="mintedKey.key"
+      >
+        <button type="button" class="btn-secondary" @click="copyKey">
+          {{ copied ? t("common.copied") : t("common.copy") }}
+        </button>
+        <template #footer>
+          <RouterLink to="/keys" class="btn-primary done-link">{{ t("common.done") }}</RouterLink>
+        </template>
+      </SecretReveal>
 
       <form v-else class="form-card" @submit.prevent="createKey">
         <FormField :label="t('pages.keys.new.fields.label')" for="k-label">
@@ -98,7 +92,7 @@ async function copyKey() {
             required
             :placeholder="t('pages.keys.new.placeholders.label')"
           />
-          <p v-if="error" class="error">{{ error }}</p>
+          <FieldError :message="error" />
         </FormField>
         <FormField :label="t('pages.keys.new.fields.clients')" for="k-clients">
           <input id="k-clients" v-model="clients" type="text" :placeholder="t('pages.keys.new.placeholders.clients')" />
@@ -131,35 +125,6 @@ async function copyKey() {
 </template>
 
 <style scoped>
-.minted {
-  background: var(--ok-soft);
-  border: 1px solid var(--ok);
-  border-radius: var(--radius-md);
-  padding: 1rem;
-}
-.minted-title {
-  font-weight: 600;
-  font-size: 0.85rem;
-  margin-bottom: 0.5rem;
-}
-.minted-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-}
-.minted-secret {
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.6rem;
-  font-size: 0.85rem;
-  font-family: var(--font-mono);
-  word-break: break-all;
-  flex: 1;
-  min-width: 12.5rem;
-}
 .done-link {
   display: inline-block;
 }

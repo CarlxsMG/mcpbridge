@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
+import { useCreateForm } from "@/composables/useCreateForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
-import { toErrorMessage } from "@/utils/errors";
-import { tk } from "@/i18n";
 import type { AlertEventType } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -28,8 +27,6 @@ const EVENT_OPTIONS = (Object.keys(EVENT_LABELS) as AlertEventType[]).map((value
 
 const NUMERIC_EVENTS = new Set<AlertEventType>(["error_rate", "usage_spike"]);
 
-const router = useRouter();
-
 const name = ref("");
 const event = ref<AlertEventType>("circuit_breaker_open");
 const url = ref("");
@@ -37,10 +34,39 @@ const threshold = ref("0.5");
 const minCalls = ref("10");
 const nameError = ref("");
 const urlError = ref("");
-const error = ref("");
-const creating = ref(false);
 
-async function createRule() {
+const { creating, error, run } = useCreateForm({
+  submit: () => {
+    const body: Record<string, unknown> = {
+      name: name.value.trim(),
+      eventType: event.value,
+      webhookUrl: url.value.trim(),
+    };
+    if (NUMERIC_EVENTS.has(event.value)) {
+      body.threshold = parseOptionalNumber(threshold.value).value;
+      body.minCalls = parseOptionalNumber(minCalls.value).value;
+    }
+    return api.post("/admin-api/alerts", body);
+  },
+  redirectTo: "/alerts",
+  fallbackKey: "pages.alerts.errors_create.create_failed",
+});
+
+function validateThresholds(): string | null {
+  if (NUMERIC_EVENTS.has(event.value)) {
+    const thresholdResult = parseOptionalNumber(threshold.value, t("pages.alerts.errors_create.threshold_invalid"));
+    if (thresholdResult.value === null) {
+      return t("pages.alerts.errors_create.threshold_invalid");
+    }
+    const minCallsResult = parseOptionalNumber(minCalls.value, t("pages.alerts.errors_create.min_calls_invalid"));
+    if (minCallsResult.value === null) {
+      return t("pages.alerts.errors_create.min_calls_invalid");
+    }
+  }
+  return null;
+}
+
+function createRule() {
   error.value = "";
   nameError.value = "";
   urlError.value = "";
@@ -53,40 +79,7 @@ async function createRule() {
   if (nameError.value || urlError.value) {
     return;
   }
-  let thresholdValue: number | null = null;
-  let minCallsValue: number | null = null;
-  if (NUMERIC_EVENTS.has(event.value)) {
-    const thresholdResult = parseOptionalNumber(threshold.value, t("pages.alerts.errors_create.threshold_invalid"));
-    if (thresholdResult.value === null) {
-      error.value = t("pages.alerts.errors_create.threshold_invalid");
-      return;
-    }
-    const minCallsResult = parseOptionalNumber(minCalls.value, t("pages.alerts.errors_create.min_calls_invalid"));
-    if (minCallsResult.value === null) {
-      error.value = t("pages.alerts.errors_create.min_calls_invalid");
-      return;
-    }
-    thresholdValue = thresholdResult.value;
-    minCallsValue = minCallsResult.value;
-  }
-  creating.value = true;
-  try {
-    const body: Record<string, unknown> = {
-      name: name.value.trim(),
-      eventType: event.value,
-      webhookUrl: url.value.trim(),
-    };
-    if (NUMERIC_EVENTS.has(event.value)) {
-      body.threshold = thresholdValue;
-      body.minCalls = minCallsValue;
-    }
-    await api.post("/admin-api/alerts", body);
-    await router.push("/alerts");
-  } catch (err) {
-    error.value = toErrorMessage(err, tk("pages.alerts.errors_create.create_failed"));
-  } finally {
-    creating.value = false;
-  }
+  return run(validateThresholds);
 }
 </script>
 
@@ -135,7 +128,7 @@ async function createRule() {
             />
           </FormField>
         </template>
-        <p v-if="error" class="error">{{ error }}</p>
+        <FieldError :message="error" />
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("pages.alerts.creating") : t("pages.alerts.create_rule") }}
         </button>

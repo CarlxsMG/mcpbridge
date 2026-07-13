@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
-import { toErrorMessage } from "@/utils/errors";
+import { useCreateForm } from "@/composables/useCreateForm";
 import { describeCron } from "@/utils/cron";
-import { tk } from "@/i18n";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -44,8 +43,6 @@ const WEEKDAY_OPTIONS = [
   { value: 5, label: t("pages.schedules.new.weekdays.fri") },
   { value: 6, label: t("pages.schedules.new.weekdays.sat") },
 ];
-
-const router = useRouter();
 
 const targetType = ref<"client" | "tool">("client");
 const clientName = ref("");
@@ -82,10 +79,20 @@ const computedCron = computed(() => {
 });
 const cronPreview = computed(() => describeCron(computedCron.value));
 
-const error = ref("");
-const creating = ref(false);
+const { creating, error, run } = useCreateForm({
+  submit: () =>
+    api.post("/admin-api/schedules", {
+      targetType: targetType.value,
+      clientName: clientName.value.trim(),
+      toolName: targetType.value === "tool" ? toolName.value.trim() : undefined,
+      action: action.value,
+      cron: computedCron.value,
+    }),
+  redirectTo: "/schedules",
+  fallbackKey: "pages.schedules.new.errors.create_failed",
+});
 
-async function createSchedule() {
+function createSchedule() {
   error.value = "";
   weekdaysError.value = "";
   if (!clientName.value.trim()) {
@@ -96,25 +103,9 @@ async function createSchedule() {
     weekdaysError.value = t("pages.schedules.new.errors.weekdays_required");
     return;
   }
-  if (frequency.value === "custom" && !customCron.value.trim()) {
-    error.value = t("pages.schedules.new.errors.cron_required");
-    return;
-  }
-  creating.value = true;
-  try {
-    await api.post("/admin-api/schedules", {
-      targetType: targetType.value,
-      clientName: clientName.value.trim(),
-      toolName: targetType.value === "tool" ? toolName.value.trim() : undefined,
-      action: action.value,
-      cron: computedCron.value,
-    });
-    await router.push("/schedules");
-  } catch (err) {
-    error.value = toErrorMessage(err, tk("pages.schedules.new.errors.create_failed"));
-  } finally {
-    creating.value = false;
-  }
+  return run(() =>
+    frequency.value === "custom" && !customCron.value.trim() ? t("pages.schedules.new.errors.cron_required") : null,
+  );
 }
 </script>
 
@@ -198,7 +189,7 @@ async function createSchedule() {
           <span v-if="frequency !== 'custom'" class="cron-raw">({{ computedCron }})</span>
         </p>
 
-        <p v-if="error" class="error">{{ error }}</p>
+        <FieldError :message="error" />
         <button class="btn-primary" type="submit" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.schedules.new.create") }}
         </button>

@@ -1,18 +1,15 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
+import { useCreateForm } from "@/composables/useCreateForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
-import { toErrorMessage } from "@/utils/errors";
-import { tk } from "@/i18n";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const { t } = useI18n({ useScope: "global" });
-
-const router = useRouter();
 
 const name = ref("");
 const quota = ref("");
@@ -20,40 +17,33 @@ const endUserLimit = ref("");
 const nameError = ref("");
 const quotaError = ref("");
 const endUserLimitError = ref("");
-const error = ref("");
-const creating = ref(false);
 
-async function createConsumer() {
+const { creating, error, run } = useCreateForm({
+  submit: () =>
+    api.post("/admin-api/consumers", {
+      name: name.value.trim(),
+      monthlyQuota: parseOptionalNumber(quota.value).value,
+      endUserRateLimitPerMin: parseOptionalNumber(endUserLimit.value).value,
+    }),
+  redirectTo: "/consumers",
+  fallbackKey: "pages.consumers.new.errors.create_failed",
+});
+
+function createConsumer() {
+  error.value = "";
   nameError.value = "";
   quotaError.value = "";
   endUserLimitError.value = "";
-  error.value = "";
   if (!name.value.trim()) {
     nameError.value = t("pages.consumers.new.errors.name_required");
   }
-  const quotaResult = parseOptionalNumber(quota.value, t("pages.consumers.new.errors.quota_invalid"));
-  quotaError.value = quotaResult.error ?? "";
-  const endUserLimitResult = parseOptionalNumber(
-    endUserLimit.value,
-    t("pages.consumers.new.errors.end_user_limit_invalid"),
-  );
-  endUserLimitError.value = endUserLimitResult.error ?? "";
+  quotaError.value = parseOptionalNumber(quota.value, t("pages.consumers.new.errors.quota_invalid")).error ?? "";
+  endUserLimitError.value =
+    parseOptionalNumber(endUserLimit.value, t("pages.consumers.new.errors.end_user_limit_invalid")).error ?? "";
   if (nameError.value || quotaError.value || endUserLimitError.value) {
     return;
   }
-  creating.value = true;
-  try {
-    await api.post("/admin-api/consumers", {
-      name: name.value.trim(),
-      monthlyQuota: quotaResult.value,
-      endUserRateLimitPerMin: endUserLimitResult.value,
-    });
-    await router.push("/consumers");
-  } catch (err) {
-    error.value = toErrorMessage(err, tk("pages.consumers.new.errors.create_failed"));
-  } finally {
-    creating.value = false;
-  }
+  return run();
 }
 </script>
 
@@ -78,7 +68,7 @@ async function createConsumer() {
           <input id="c-end-user-limit" v-model="endUserLimit" type="text" inputmode="numeric" />
           <p v-if="endUserLimitError" class="error">{{ endUserLimitError }}</p>
         </FormField>
-        <p v-if="error" class="error">{{ error }}</p>
+        <FieldError :message="error" />
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.consumers.new.create") }}
         </button>

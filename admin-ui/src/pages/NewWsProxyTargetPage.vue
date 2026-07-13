@@ -1,64 +1,52 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
+import { useCreateForm } from "@/composables/useCreateForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
-import { toErrorMessage } from "@/utils/errors";
-import { tk } from "@/i18n";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const { t } = useI18n({ useScope: "global" });
-
-const router = useRouter();
 
 const name = ref("");
 const backendUrl = ref("");
 const maxConnections = ref("");
 const maxMessageBytes = ref("");
 const idleTimeoutMinutes = ref("");
-const error = ref("");
-const creating = ref(false);
 
-async function createTarget() {
-  error.value = "";
-  if (!name.value.trim() || !backendUrl.value.trim()) {
-    error.value = t("pages.ws_proxy_targets.errors.name_and_url_required");
-    return;
-  }
-  const maxConnectionsResult = parseOptionalNumber(
-    maxConnections.value,
-    t("pages.ws_proxy_targets.errors.max_connections_invalid"),
-  );
-  const maxMessageBytesResult = parseOptionalNumber(
-    maxMessageBytes.value,
-    t("pages.ws_proxy_targets.errors.max_message_bytes_invalid"),
-  );
-  const idleTimeoutMinutesResult = parseOptionalNumber(
-    idleTimeoutMinutes.value,
-    t("pages.ws_proxy_targets.errors.idle_timeout_invalid"),
-  );
-  for (const result of [maxConnectionsResult, maxMessageBytesResult, idleTimeoutMinutesResult]) {
-    if (result.error) {
-      error.value = result.error;
-      return;
-    }
-  }
-  creating.value = true;
-  try {
+const { creating, error, run } = useCreateForm({
+  submit: () => {
     const body: Record<string, unknown> = { name: name.value.trim(), backendWsUrl: backendUrl.value.trim() };
-    if (maxConnectionsResult.value !== null) body.maxConnections = maxConnectionsResult.value;
-    if (maxMessageBytesResult.value !== null) body.maxMessageBytes = maxMessageBytesResult.value;
-    if (idleTimeoutMinutesResult.value !== null) body.idleTimeoutMs = idleTimeoutMinutesResult.value * 60_000;
-    await api.post("/admin-api/ws-proxy-targets", body);
-    await router.push("/ws-proxies");
-  } catch (err) {
-    error.value = toErrorMessage(err, tk("pages.ws_proxy_targets.errors.create_failed"));
-  } finally {
-    creating.value = false;
-  }
+    const maxConnectionsValue = parseOptionalNumber(maxConnections.value).value;
+    const maxMessageBytesValue = parseOptionalNumber(maxMessageBytes.value).value;
+    const idleTimeoutMinutesValue = parseOptionalNumber(idleTimeoutMinutes.value).value;
+    if (maxConnectionsValue !== null) body.maxConnections = maxConnectionsValue;
+    if (maxMessageBytesValue !== null) body.maxMessageBytes = maxMessageBytesValue;
+    if (idleTimeoutMinutesValue !== null) body.idleTimeoutMs = idleTimeoutMinutesValue * 60_000;
+    return api.post("/admin-api/ws-proxy-targets", body);
+  },
+  redirectTo: "/ws-proxies",
+  fallbackKey: "pages.ws_proxy_targets.errors.create_failed",
+});
+
+function createTarget() {
+  return run(() => {
+    if (!name.value.trim() || !backendUrl.value.trim()) {
+      return t("pages.ws_proxy_targets.errors.name_and_url_required");
+    }
+    const results = [
+      parseOptionalNumber(maxConnections.value, t("pages.ws_proxy_targets.errors.max_connections_invalid")),
+      parseOptionalNumber(maxMessageBytes.value, t("pages.ws_proxy_targets.errors.max_message_bytes_invalid")),
+      parseOptionalNumber(idleTimeoutMinutes.value, t("pages.ws_proxy_targets.errors.idle_timeout_invalid")),
+    ];
+    for (const result of results) {
+      if (result.error) return result.error;
+    }
+    return null;
+  });
 }
 </script>
 
@@ -91,7 +79,7 @@ async function createTarget() {
         <FormField :label="t('pages.ws_proxy_targets.fields.idle_timeout')" for="wp-idle">
           <input id="wp-idle" v-model="idleTimeoutMinutes" type="text" inputmode="numeric" />
         </FormField>
-        <p v-if="error" class="error">{{ error }}</p>
+        <FieldError :message="error" />
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.ws_proxy_targets.new.create") }}
         </button>

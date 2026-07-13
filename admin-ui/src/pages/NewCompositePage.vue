@@ -1,18 +1,15 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
-import { toErrorMessage } from "@/utils/errors";
-import { tk } from "@/i18n";
+import { useCreateForm } from "@/composables/useCreateForm";
 import type { CompositeDetail, CompositeStep } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const { t } = useI18n({ useScope: "global" });
-
-const router = useRouter();
 
 const name = ref("");
 const nameTouched = ref(false);
@@ -23,8 +20,6 @@ const steps = ref(
 );
 const schemaError = ref("");
 const stepsError = ref("");
-const error = ref("");
-const creating = ref(false);
 
 const nameError = computed(() => {
   const v = name.value.trim();
@@ -34,7 +29,19 @@ const nameError = computed(() => {
     : t("pages.composites.new.errors.name_format");
 });
 
-async function createComposite() {
+const { creating, error, run } = useCreateForm({
+  submit: () =>
+    api.post<CompositeDetail>("/admin-api/composites", {
+      name: name.value.trim(),
+      description: description.value.trim() || undefined,
+      inputSchema: JSON.parse(schema.value) as Record<string, unknown>,
+      steps: JSON.parse(steps.value) as CompositeStep[],
+    }),
+  redirectTo: (composite) => `/composites/${encodeURIComponent(composite.name)}`,
+  fallbackKey: "pages.composites.new.errors.create_failed",
+});
+
+function createComposite() {
   error.value = "";
   schemaError.value = "";
   stepsError.value = "";
@@ -46,34 +53,19 @@ async function createComposite() {
   if (nameError.value) {
     return;
   }
-  let inputSchema: Record<string, unknown>;
-  let parsedSteps: CompositeStep[];
   try {
-    inputSchema = JSON.parse(schema.value) as Record<string, unknown>;
+    JSON.parse(schema.value);
   } catch {
     schemaError.value = t("pages.composites.new.errors.schema_invalid");
     return;
   }
   try {
-    parsedSteps = JSON.parse(steps.value) as CompositeStep[];
+    JSON.parse(steps.value);
   } catch {
     stepsError.value = t("pages.composites.new.errors.steps_invalid");
     return;
   }
-  creating.value = true;
-  try {
-    await api.post<CompositeDetail>("/admin-api/composites", {
-      name: name.value.trim(),
-      description: description.value.trim() || undefined,
-      inputSchema,
-      steps: parsedSteps,
-    });
-    await router.push(`/composites/${encodeURIComponent(name.value.trim())}`);
-  } catch (err) {
-    error.value = toErrorMessage(err, tk("pages.composites.new.errors.create_failed"));
-  } finally {
-    creating.value = false;
-  }
+  return run();
 }
 </script>
 
@@ -128,7 +120,7 @@ async function createComposite() {
           <textarea id="new-composite-steps" v-model="steps" class="mono-field" rows="6" spellcheck="false"></textarea>
           <p v-if="stepsError" class="error">{{ stepsError }}</p>
         </FormField>
-        <p v-if="error" class="error">{{ error }}</p>
+        <FieldError :message="error" />
         <button class="btn-primary" type="submit" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.composites.new.create") }}
         </button>

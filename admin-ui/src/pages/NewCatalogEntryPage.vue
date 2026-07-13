@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
-import { toErrorMessage } from "@/utils/errors";
-import { tk } from "@/i18n";
+import { useCreateForm } from "@/composables/useCreateForm";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+import FieldError from "@/components/ui/FieldError.vue";
 
 const { t } = useI18n({ useScope: "global" });
-
-const router = useRouter();
 
 const slug = ref("");
 const name = ref("");
@@ -20,18 +17,10 @@ const kind = ref<"rest" | "mcp">("rest");
 const healthUrl = ref("");
 const openapiUrl = ref("");
 const mcpUrl = ref("");
-const error = ref("");
-const creating = ref(false);
 
-async function createEntry() {
-  error.value = "";
-  if (!slug.value.trim() || !name.value.trim()) {
-    error.value = t("pages.catalog.new.errors.slug_name_required");
-    return;
-  }
-  creating.value = true;
-  try {
-    await api.post("/admin-api/catalog", {
+const { creating, error, run } = useCreateForm({
+  submit: () =>
+    api.post("/admin-api/catalog", {
       slug: slug.value.trim(),
       name: name.value.trim(),
       description: description.value.trim() || undefined,
@@ -39,13 +28,13 @@ async function createEntry() {
       healthUrl: kind.value === "rest" ? healthUrl.value.trim() || undefined : undefined,
       openapiUrl: kind.value === "rest" ? openapiUrl.value.trim() || undefined : undefined,
       mcpUrl: kind.value === "mcp" ? mcpUrl.value.trim() || undefined : undefined,
-    });
-    await router.push("/catalog");
-  } catch (err) {
-    error.value = toErrorMessage(err, tk("pages.catalog.new.errors.create_failed"));
-  } finally {
-    creating.value = false;
-  }
+    }),
+  redirectTo: "/catalog",
+  fallbackKey: "pages.catalog.new.errors.create_failed",
+});
+
+function createEntry() {
+  return run(() => (slug.value.trim() && name.value.trim() ? null : t("pages.catalog.new.errors.slug_name_required")));
 }
 </script>
 
@@ -115,7 +104,7 @@ async function createEntry() {
         <FormField v-else :label="t('pages.catalog.new.fields.mcp_url')" for="ce-mcp">
           <input id="ce-mcp" v-model="mcpUrl" type="url" :placeholder="t('pages.catalog.new.placeholders.mcp_url')" />
         </FormField>
-        <p v-if="error" class="error">{{ error }}</p>
+        <FieldError :message="error" />
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("common.saving") : t("pages.catalog.new.save") }}
         </button>
