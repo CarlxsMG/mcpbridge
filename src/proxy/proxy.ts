@@ -1019,6 +1019,43 @@ async function dispatchRestToolCall(
   let lastError: string | undefined;
   let lastStatus: number | undefined;
 
+  // Terminal-failure recording, shared by all three REST failure exits
+  // (non-retryable error response, network throw, retries exhausted). Each used
+  // to hand-roll the same quintet — duration metric, breaker failure, log,
+  // recordToolCall, recordUsage — followed by the mock-fallback-or-error result;
+  // keeping three copies in lockstep was a standing drift hazard. `durationMs` is
+  // passed in rather than measured here so the non-retryable branch can record
+  // BEFORE it reads the (capped, potentially large) error body.
+  const recordFailure = (f: {
+    durationMs: number;
+    statusClass: string;
+    logLevel: "warn" | "error";
+    logMessage: string;
+    logExtra: Record<string, unknown>;
+    mockResult: string | null;
+    resultMessage: string;
+  }) => {
+    proxyRequestDuration.observe({ client: client.name, method, status_class: f.statusClass }, f.durationMs / 1000);
+    recordBreakerFailure();
+    log(f.logLevel, f.logMessage, {
+      tool: mcpToolName,
+      client: client.name,
+      duration_ms: f.durationMs,
+      ...f.logExtra,
+    });
+    recordToolCall(f.durationMs, true);
+    recordUsage({
+      clientName: client.name,
+      toolName: tool.name,
+      keyId: callerKey?.id ?? null,
+      statusClass: f.statusClass,
+      isError: true,
+      durationMs: f.durationMs,
+    });
+    if (f.mockResult !== null) return toolResult(f.mockResult);
+    return toolResult(f.resultMessage, { isError: true });
+  };
+
   try {
     for (let attempt = 0; attempt <= (isIdempotent ? MAX_RETRIES : 0); attempt++) {
       if (attempt > 0) {
@@ -1078,66 +1115,37 @@ async function dispatchRestToolCall(
           continue;
         }
 
-        // Non-retryable error response
-        proxyRequestDuration.observe(
-          { client: client.name, method, status_class: httpStatusClass(response.status) },
-          (Date.now() - startTime) / 1000,
-        );
-        recordBreakerFailure();
-        log("warn", "Tool call returned error", {
-          tool: mcpToolName,
-          client: client.name,
-          status: response.status,
-          duration_ms: Date.now() - startTime,
-          attempts: attempt + 1,
-        });
-        recordToolCall(Date.now() - startTime, true);
-        recordUsage({
-          clientName: client.name,
-          toolName: tool.name,
-          keyId: callerKey?.id ?? null,
-          statusClass: httpStatusClass(response.status),
-          isError: true,
-          durationMs: Date.now() - startTime,
-        });
+        // Non-retryable error response — measure first, then read the (capped)
+        // error body for the result message, then record the failure.
+        const errDurationMs = Date.now() - startTime;
         // Fix 3 — cap error-response body via the same readBodyWithCap helper used for
         // success responses, preventing a malicious upstream from OOM-ing the bridge with
         // an oversized error body (e.g. a 400 with a 10 GB payload).
         const errorBody = await readBodyWithCap(response);
         const errorBodyText =
           errorBody === null ? `[body truncated — exceeded ${config.maxResponseBytes} byte limit]` : errorBody;
-        if (mockCfg?.enabled && mockCfg.mode === "fallback" && response.status >= 500) {
-          return toolResult(mockCfg.response);
-        }
-        return toolResult(`REST API returned ${response.status}: ${errorBodyText}`, { isError: true });
+        return recordFailure({
+          durationMs: errDurationMs,
+          statusClass: httpStatusClass(response.status),
+          logLevel: "warn",
+          logMessage: "Tool call returned error",
+          logExtra: { status: response.status, attempts: attempt + 1 },
+          mockResult:
+            mockCfg?.enabled && mockCfg.mode === "fallback" && response.status >= 500 ? mockCfg.response : null,
+          resultMessage: `REST API returned ${response.status}: ${errorBodyText}`,
+        });
       } catch (error) {
         lastError = errorMessage(error);
         if (!isIdempotent || attempt >= MAX_RETRIES) {
-          proxyRequestDuration.observe(
-            { client: client.name, method, status_class: "error" },
-            (Date.now() - startTime) / 1000,
-          );
-          recordBreakerFailure();
-          log("error", "Tool call failed", {
-            tool: mcpToolName,
-            client: client.name,
-            error: lastError,
-            duration_ms: Date.now() - startTime,
-            attempts: attempt + 1,
-          });
-          recordToolCall(Date.now() - startTime, true);
-          recordUsage({
-            clientName: client.name,
-            toolName: tool.name,
-            keyId: callerKey?.id ?? null,
-            statusClass: "error",
-            isError: true,
+          return recordFailure({
             durationMs: Date.now() - startTime,
+            statusClass: "error",
+            logLevel: "error",
+            logMessage: "Tool call failed",
+            logExtra: { error: lastError, attempts: attempt + 1 },
+            mockResult: mockCfg?.enabled && mockCfg.mode === "fallback" ? mockCfg.response : null,
+            resultMessage: `Failed to reach ${client.name}: ${lastError}`,
           });
-          if (mockCfg?.enabled && mockCfg.mode === "fallback") {
-            return toolResult(mockCfg.response);
-          }
-          return toolResult(`Failed to reach ${client.name}: ${lastError}`, { isError: true });
         }
         proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
       }
@@ -1145,33 +1153,15 @@ async function dispatchRestToolCall(
 
     // Exhausted retries
     proxyRetryAttempts.inc({ client: client.name, method, outcome: "exhausted" });
-    proxyRequestDuration.observe(
-      { client: client.name, method, status_class: lastError ? "error" : httpStatusClass(lastStatus ?? 0) },
-      (Date.now() - startTime) / 1000,
-    );
-    recordBreakerFailure();
     const errorMsg = lastError || `REST API returned ${lastStatus}`;
-    log("error", "Tool call failed after retries", {
-      tool: mcpToolName,
-      client: client.name,
-      error: errorMsg,
-      duration_ms: Date.now() - startTime,
-      attempts: MAX_RETRIES + 1,
-    });
-    recordToolCall(Date.now() - startTime, true);
-    recordUsage({
-      clientName: client.name,
-      toolName: tool.name,
-      keyId: callerKey?.id ?? null,
-      statusClass: lastError ? "error" : httpStatusClass(lastStatus ?? 0),
-      isError: true,
+    return recordFailure({
       durationMs: Date.now() - startTime,
-    });
-    if (mockCfg?.enabled && mockCfg.mode === "fallback") {
-      return toolResult(mockCfg.response);
-    }
-    return toolResult(`Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}`, {
-      isError: true,
+      statusClass: lastError ? "error" : httpStatusClass(lastStatus ?? 0),
+      logLevel: "error",
+      logMessage: "Tool call failed after retries",
+      logExtra: { error: errorMsg, attempts: MAX_RETRIES + 1 },
+      mockResult: mockCfg?.enabled && mockCfg.mode === "fallback" ? mockCfg.response : null,
+      resultMessage: `Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}`,
     });
   } finally {
     untrackRequest(client.name, reqController);

@@ -40,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Internal: the REST dispatcher's three terminal-failure exits (non-retryable error, network
+  throw, retries exhausted) in `src/proxy/proxy.ts` now share one `recordFailure()` helper instead
+  of hand-rolling the same metrics/breaker/log/usage/mock-fallback sequence three times — removing
+  a standing drift hazard on a security-critical hot path. No behavior change (317 proxy tests).
 - Internal test-suite cleanup: co-located ~113 test files with their source under
   `src/<feature>/__tests__/`, and added a shared `withConfig()` test helper to remove
   repeated untyped config-mutation boilerplate from test setup/teardown.
