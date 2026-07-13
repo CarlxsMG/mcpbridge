@@ -170,7 +170,7 @@ function createSchedule() {
               {{ day.label }}
             </button>
           </div>
-          <p v-if="weekdaysError" class="error">{{ weekdaysError }}</p>
+          <FieldError :message="weekdaysError" />
         </FormField>
 
         <FormField v-if="frequency === 'hourly'" :label="t('pages.schedules.new.fields.minute')" for="sched-minute">

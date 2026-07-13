@@ -61,6 +61,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Admin-UI accessibility & reuse: `TogglePill` now owns its `aria-pressed` (removing the duplicated
+  binding from all nine call sites); per-field validation errors on the four create forms
+  (New Alert / Composite / Consumer / Schedule) now go through `FieldError`, adding the missing
+  `role="alert"` so they're announced to screen readers; the three "Connect client" comboboxes get
+  accessible names; and `TraceDetailPage` / `ServerDetailLb` reuse `EmptyState` / `HoverPreview`
+  instead of re-declaring them.
 - `scripts/bump-version.ts` now also updates `docker-compose.yml`'s default image tag
   (`${MCPBRIDGE_VERSION:-<tag>}`) — previously the lone release-artifact reference it didn't bump, so
   after a release a fresh `docker compose up` kept pulling the old version unless the operator set

@@ -219,7 +219,6 @@ async function confirmDelete() {
                 :on="target.enabled"
                 :on-label="t('pages.ws_proxy_targets.enabled')"
                 :off-label="t('pages.ws_proxy_targets.disabled')"
-                :aria-pressed="target.enabled"
                 @click="toggleEnabled(target)"
               />
               <p v-if="rowError[target.name]" class="row-error">{{ rowError[target.name] }}</p>

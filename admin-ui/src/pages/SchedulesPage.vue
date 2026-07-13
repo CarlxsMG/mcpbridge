@@ -106,7 +106,6 @@ function formatLastRun(m: number | null): string {
                 :on="s.enabled"
                 :on-label="t('pages.schedules.table.disable')"
                 :off-label="t('pages.schedules.table.enable')"
-                :aria-pressed="s.enabled"
                 @click="toggle(s)"
               />
               <p v-if="rowError[s.id]" class="row-error">{{ rowError[s.id] }}</p>

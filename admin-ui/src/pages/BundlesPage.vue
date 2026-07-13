@@ -79,7 +79,6 @@ function toggleEnabled(bundle: BundleSummary) {
                 :on="bundle.enabled"
                 :on-label="t('pages.bundles.table.disable_bundle')"
                 :off-label="t('pages.bundles.table.enable_bundle')"
-                :aria-pressed="bundle.enabled"
                 @click="toggleEnabled(bundle)"
               />
               <p v-if="rowError[bundle.name]" class="row-error">{{ rowError[bundle.name] }}</p>

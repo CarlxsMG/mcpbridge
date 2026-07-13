@@ -3,7 +3,7 @@ defineProps<{ on: boolean; onLabel: string; offLabel: string; disabled?: boolean
 </script>
 
 <template>
-  <button type="button" class="toggle" :class="on ? 'toggle-on' : 'toggle-off'" :disabled="disabled">
+  <button type="button" class="toggle" :class="on ? 'toggle-on' : 'toggle-off'" :aria-pressed="on" :disabled="disabled">
     {{ on ? onLabel : offLabel }}
   </button>
 </template>

@@ -160,7 +160,6 @@ async function resetBreaker() {
           :on="detail.enabled"
           :on-label="t('common.enabled')"
           :off-label="t('common.disabled')"
-          :aria-pressed="detail.enabled"
           @click="onClientToggleClick"
         />
         <button

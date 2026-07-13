@@ -94,14 +94,14 @@ function createRule() {
       <form class="form-card" @submit.prevent="createRule">
         <FormField :label="t('pages.alerts.fields.name')" for="alert-name">
           <input id="alert-name" v-model="name" type="text" placeholder="pager" />
-          <p v-if="nameError" class="error">{{ nameError }}</p>
+          <FieldError :message="nameError" />
         </FormField>
         <FormField :label="t('pages.alerts.fields.event')" for="alert-event">
           <SelectMenu id="alert-event" v-model="event" :options="EVENT_OPTIONS" />
         </FormField>
         <FormField :label="t('pages.alerts.fields.url')" for="alert-url">
           <input id="alert-url" v-model="url" type="url" placeholder="https://hooks.example.com/x" />
-          <p v-if="urlError" class="error">{{ urlError }}</p>
+          <FieldError :message="urlError" />
         </FormField>
         <template v-if="NUMERIC_EVENTS.has(event)">
           <FormField

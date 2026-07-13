@@ -6,7 +6,9 @@ import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { prettyJson } from "@/utils/format";
 import type { StoredSpan } from "@/types/api";
+import { Waypoints } from "lucide-vue-next";
 import ListLayout from "@/components/ui/ListLayout.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
 
 const props = defineProps<{ traceId: string }>();
 const router = useRouter();
@@ -55,9 +57,7 @@ const waterfall = computed(() => {
     </button>
     <ListLayout :loading="loading" :error="errorMessage" :empty="waterfall.rows.length === 0">
       <template #empty>
-        <div class="empty-state">
-          <p>{{ t("pages.traces.detail_not_found") }}</p>
-        </div>
+        <EmptyState :icon="Waypoints">{{ t("pages.traces.detail_not_found") }}</EmptyState>
       </template>
 
       <div class="waterfall-card">
@@ -86,16 +86,6 @@ const waterfall = computed(() => {
 </template>
 
 <style scoped>
-.empty-state p {
-  color: var(--text-muted);
-}
-.empty-state {
-  padding: 3rem 2rem;
-  text-align: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
 .back-link {
   display: inline-block;
   margin-bottom: 1rem;

@@ -131,7 +131,6 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
           :on="detail.enabled"
           :on-label="t('pages.bundle_detail.disable_bundle')"
           :off-label="t('pages.bundle_detail.enable_bundle')"
-          :aria-pressed="detail.enabled"
           @click="toggleEnabled"
         />
         <button type="button" class="btn-secondary share-btn" @click="shareOpen = true">

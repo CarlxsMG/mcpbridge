@@ -58,15 +58,15 @@ function createConsumer() {
       <form class="form-card" @submit.prevent="createConsumer">
         <FormField :label="t('pages.consumers.new.fields.name')" for="c-name">
           <input id="c-name" v-model="name" type="text" :placeholder="t('pages.consumers.new.placeholders.name')" />
-          <p v-if="nameError" class="error">{{ nameError }}</p>
+          <FieldError :message="nameError" />
         </FormField>
         <FormField :label="t('pages.consumers.new.fields.quota')" for="c-quota">
           <input id="c-quota" v-model="quota" type="text" inputmode="numeric" />
-          <p v-if="quotaError" class="error">{{ quotaError }}</p>
+          <FieldError :message="quotaError" />
         </FormField>
         <FormField :label="t('pages.consumers.new.fields.end_user_limit')" for="c-end-user-limit">
           <input id="c-end-user-limit" v-model="endUserLimit" type="text" inputmode="numeric" />
-          <p v-if="endUserLimitError" class="error">{{ endUserLimitError }}</p>
+          <FieldError :message="endUserLimitError" />
         </FormField>
         <FieldError :message="error" />
         <button type="submit" class="btn-primary" :disabled="creating">

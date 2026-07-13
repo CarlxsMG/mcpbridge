@@ -352,7 +352,6 @@ onMounted(() => load());
                 :on="client.enabled"
                 :on-label="t('common.enabled')"
                 :off-label="t('common.disabled')"
-                :aria-pressed="client.enabled"
                 @click="onToggleClick(client)"
               />
               <p v-if="rowError[client.name]" class="row-error">{{ rowError[client.name] }}</p>

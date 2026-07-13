@@ -14,6 +14,7 @@ import ConfigSection from "./ConfigSection.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import FieldError from "@/components/ui/FieldError.vue";
+import HoverPreview from "@/components/ui/HoverPreview.vue";
 
 const props = defineProps<{ clientName: string }>();
 const { t } = useI18n({ useScope: "global" });
@@ -193,7 +194,9 @@ function confirmRemoveTarget() {
         </thead>
         <tbody>
           <tr v-for="target in lb.targets" :key="target.id">
-            <td class="url-cell" :title="target.baseUrl">{{ target.baseUrl }}</td>
+            <td>
+              <HoverPreview class="url-cell" :text="target.baseUrl" mono>{{ target.baseUrl }}</HoverPreview>
+            </td>
             <td>
               <input
                 type="number"

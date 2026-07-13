@@ -145,7 +145,6 @@ function toggleEnabled() {
           :on="detail.enabled"
           :on-label="t('pages.composite_detail.disable')"
           :off-label="t('pages.composite_detail.enable')"
-          :aria-pressed="detail.enabled"
           @click="toggleEnabled"
         />
         <button type="button" class="btn-danger" :disabled="deleting" @click="requestDelete">

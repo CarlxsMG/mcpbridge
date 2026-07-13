@@ -91,7 +91,7 @@ function createComposite() {
             required
             @blur="nameTouched = true"
           />
-          <p v-if="nameTouched && nameError" class="error">{{ nameError }}</p>
+          <FieldError :message="nameTouched && nameError ? nameError : ''" />
         </FormField>
         <FormField :label="t('pages.composites.new.fields.description')" for="new-composite-description">
           <input
@@ -109,7 +109,7 @@ function createComposite() {
             rows="4"
             spellcheck="false"
           ></textarea>
-          <p v-if="schemaError" class="error">{{ schemaError }}</p>
+          <FieldError :message="schemaError" />
         </FormField>
         <FormField :label="t('pages.composites.new.fields.steps')" for="new-composite-steps">
           <p class="template-hint">
@@ -118,7 +118,7 @@ function createComposite() {
             >.
           </p>
           <textarea id="new-composite-steps" v-model="steps" class="mono-field" rows="6" spellcheck="false"></textarea>
-          <p v-if="stepsError" class="error">{{ stepsError }}</p>
+          <FieldError :message="stepsError" />
         </FormField>
         <FieldError :message="error" />
         <button class="btn-primary" type="submit" :disabled="creating">

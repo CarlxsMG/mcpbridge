@@ -141,12 +141,20 @@ const result = computed(() => {
     <div class="form-grid">
       <label
         >{{ t("components.connect_client_dialog.fields.client") }}
-        <SelectMenu v-model="clientId" :options="CLIENT_OPTIONS" />
+        <SelectMenu
+          v-model="clientId"
+          :options="CLIENT_OPTIONS"
+          :aria-label="t('components.connect_client_dialog.fields.client')"
+        />
       </label>
 
       <label
         >{{ t("components.connect_client_dialog.fields.connect_to") }}
-        <SelectMenu v-model="scope" :options="SCOPE_OPTIONS" />
+        <SelectMenu
+          v-model="scope"
+          :options="SCOPE_OPTIONS"
+          :aria-label="t('components.connect_client_dialog.fields.connect_to')"
+        />
       </label>
 
       <label v-if="scope !== 'system'"
@@ -161,6 +169,11 @@ const result = computed(() => {
           :create-path="targetCreatePath"
           :create-label="targetCreateLabel"
           :reload="loadContext"
+          :aria-label="
+            scope === 'client'
+              ? t('components.connect_client_dialog.fields.server')
+              : t('components.connect_client_dialog.fields.bundle')
+          "
         />
       </label>
 

@@ -96,7 +96,6 @@ function confirmDelete() {
                 :on="c.enabled"
                 :on-label="t('pages.composites.table.disable')"
                 :off-label="t('pages.composites.table.enable')"
-                :aria-pressed="c.enabled"
                 @click="toggleEnabled(c)"
               />
               <p v-if="toggleError[c.name]" class="row-error">{{ toggleError[c.name] }}</p>

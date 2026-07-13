@@ -144,7 +144,6 @@ function confirmDelete() {
                 :on="rule.enabled"
                 :on-label="t('pages.alerts.table.enabled_label')"
                 :off-label="t('pages.alerts.table.disabled_label')"
-                :aria-pressed="rule.enabled"
                 :disabled="isPending(rule)"
                 @click="toggle(rule)"
               />
