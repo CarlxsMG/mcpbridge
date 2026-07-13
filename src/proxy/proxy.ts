@@ -509,7 +509,6 @@ interface RestRouting {
   breaker: ReturnType<typeof getCircuitBreaker>;
   effectiveTimeout: number;
   route: ReturnType<typeof decideSecondary>;
-  canary: ReturnType<typeof getCanary>;
   lbChoice: LbChoice | null;
   lbKey: string | undefined;
   recordBreakerSuccess: () => void;
@@ -631,7 +630,7 @@ async function resolveRestRouting(
     if (!route.bypassBreaker) breaker.recordFailure();
     if (lbKey) markTargetDown(lbKey);
   };
-  return { breaker, effectiveTimeout, route, canary, lbChoice, lbKey, recordBreakerSuccess, recordBreakerFailure };
+  return { breaker, effectiveTimeout, route, lbChoice, lbKey, recordBreakerSuccess, recordBreakerFailure };
 }
 
 /**
@@ -649,7 +648,6 @@ async function buildRestRequest(
   args: Record<string, unknown>,
   lbChoice: LbChoice | null,
   route: ReturnType<typeof decideSecondary>,
-  canary: ReturnType<typeof getCanary>,
   lbKey: string | undefined,
 ): Promise<ToolResult | RestRequest> {
   // Build URL with path param substitution
@@ -715,7 +713,7 @@ async function buildRestRequest(
   // Periodically re-resolve via TTL cache to mitigate IP-pin TOCTOU.
   // When routing to the secondary, use its config-time-validated base URL and
   // its pinned IP directly (no TTL re-resolution; it was pinned at setCanary).
-  const targetBaseUrl = lbChoice ? lbChoice.baseUrl : route.useSecondary ? canary!.secondaryBaseUrl : client.base_url;
+  const targetBaseUrl = lbChoice ? lbChoice.baseUrl : route.useSecondary ? route.cfg.secondaryBaseUrl : client.base_url;
   const parsedBase = new URL(`${targetBaseUrl}${resolvedPath}`);
   const originalHost = parsedBase.host;
   const hostname = parsedBase.hostname;
@@ -726,7 +724,7 @@ async function buildRestRequest(
     // pinned IP (primary) — used directly, like the canary secondary.
     pinIp = lbChoice.resolvedIp;
   } else if (route.useSecondary) {
-    pinIp = canary!.secondaryResolvedIp;
+    pinIp = route.cfg.secondaryResolvedIp;
   } else {
     // Seed the pin cache from the registry value on first access.
     if (!pinnedIpCache.has(client.name)) {
@@ -997,10 +995,9 @@ async function dispatchRestToolCall(
 
   const routing = await resolveRestRouting(client, tool, mcpToolName, args, callerKey, guardrails, mockCfg, opts);
   if ("content" in routing) return routing;
-  const { breaker, effectiveTimeout, route, canary, lbChoice, lbKey, recordBreakerSuccess, recordBreakerFailure } =
-    routing;
+  const { breaker, effectiveTimeout, route, lbChoice, lbKey, recordBreakerSuccess, recordBreakerFailure } = routing;
 
-  const built = await buildRestRequest(client, tool, args, lbChoice, route, canary, lbKey);
+  const built = await buildRestRequest(client, tool, args, lbChoice, route, lbKey);
   if ("content" in built) return built;
   const { method, url, body, upstreamAuthHeaders, reqController, pinnedFetch } = built;
 

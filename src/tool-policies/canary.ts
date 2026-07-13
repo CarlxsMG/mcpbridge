@@ -96,6 +96,15 @@ export async function setCanary(
 }
 
 /**
+ * Result of {@link decideSecondary}. A discriminated union so that a `true`
+ * `useSecondary` narrows `cfg` to a non-null {@link CanaryConfig} at the call
+ * site — the dispatcher reads the secondary's pinned URL/IP off `route.cfg`
+ * directly, with no non-null assertion on the separately-fetched config.
+ */
+export type SecondaryDecision =
+  { useSecondary: true; bypassBreaker: boolean; cfg: CanaryConfig } | { useSecondary: false; bypassBreaker: false };
+
+/**
  * Decides whether a single call should go to the secondary.
  *   - not enabled            -> primary
  *   - failover + breaker open -> secondary (bypass; primary is presumed down)
@@ -106,13 +115,13 @@ export function decideSecondary(
   cfg: CanaryConfig | null,
   breakerOpen: boolean,
   rand: () => number = Math.random,
-): { useSecondary: boolean; bypassBreaker: boolean } {
+): SecondaryDecision {
   if (!cfg || !cfg.enabled) return { useSecondary: false, bypassBreaker: false };
   if (breakerOpen) {
     return cfg.mode === "failover"
-      ? { useSecondary: true, bypassBreaker: true }
+      ? { useSecondary: true, bypassBreaker: true, cfg }
       : { useSecondary: false, bypassBreaker: false };
   }
-  if (cfg.mode === "canary" && rand() * 100 < cfg.weight) return { useSecondary: true, bypassBreaker: false };
+  if (cfg.mode === "canary" && rand() * 100 < cfg.weight) return { useSecondary: true, bypassBreaker: false, cfg };
   return { useSecondary: false, bypassBreaker: false };
 }

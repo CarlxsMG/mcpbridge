@@ -59,7 +59,11 @@ describe("decideSecondary", () => {
   });
   test("failover routes to secondary only when the breaker is open, bypassing it", () => {
     expect(decideSecondary(cfg(true, "failover", 50), false)).toEqual({ useSecondary: false, bypassBreaker: false });
-    expect(decideSecondary(cfg(true, "failover", 50), true)).toEqual({ useSecondary: true, bypassBreaker: true });
+    expect(decideSecondary(cfg(true, "failover", 50), true)).toEqual({
+      useSecondary: true,
+      bypassBreaker: true,
+      cfg: cfg(true, "failover", 50),
+    });
   });
   test("canary mode does NOT failover when the breaker is open", () => {
     expect(decideSecondary(cfg(true, "canary", 100), true).useSecondary).toBe(false);
