@@ -100,6 +100,21 @@ fragment TypeRef on __Type {
 
 const MAX_SPEC_SIZE = 5 * 1024 * 1024;
 
+/**
+ * A well-formed NON_NULL/LIST wrapper always carries an `ofType`; a null here
+ * means the upstream's introspection response is malformed. Throw a clean,
+ * prefixed discovery error rather than letting a non-null assertion surface a
+ * raw TypeError mid-walk (the whole spec is untrusted remote input).
+ */
+function requireOfType(t: GqlTypeRef): GqlTypeRef {
+  if (!t.ofType) {
+    throw new Error(
+      `GRAPHQL_MALFORMED_TYPE: a ${t.kind} type wrapper is missing its ofType in the introspection response`,
+    );
+  }
+  return t.ofType;
+}
+
 /** Unwraps NON_NULL/LIST wrappers down to the named type, tracking whether it's a list and/or non-null. */
 function unwrap(t: GqlTypeRef): { named: GqlTypeRef; required: boolean; list: boolean } {
   let cur = t;
@@ -107,21 +122,24 @@ function unwrap(t: GqlTypeRef): { named: GqlTypeRef; required: boolean; list: bo
   let list = false;
   if (cur.kind === "NON_NULL") {
     required = true;
-    cur = cur.ofType!;
+    cur = requireOfType(cur);
   }
   if (cur.kind === "LIST") {
     list = true;
-    cur = cur.ofType!;
-    if (cur.kind === "NON_NULL") cur = cur.ofType!;
+    cur = requireOfType(cur);
+    if (cur.kind === "NON_NULL") cur = requireOfType(cur);
   }
   return { named: cur, required, list };
 }
 
 /** Prints the canonical GraphQL type signature for a variable declaration, e.g. "[ID!]!". */
 function printTypeRef(t: GqlTypeRef): string {
-  if (t.kind === "NON_NULL") return `${printTypeRef(t.ofType!)}!`;
-  if (t.kind === "LIST") return `[${printTypeRef(t.ofType!)}]`;
-  return t.name!;
+  if (t.kind === "NON_NULL") return `${printTypeRef(requireOfType(t))}!`;
+  if (t.kind === "LIST") return `[${printTypeRef(requireOfType(t))}]`;
+  if (!t.name) {
+    throw new Error("GRAPHQL_MALFORMED_TYPE: a named type is missing its name in the introspection response");
+  }
+  return t.name;
 }
 
 function scalarToJsonType(scalarName: string | null): string {
