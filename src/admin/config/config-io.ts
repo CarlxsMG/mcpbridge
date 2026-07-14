@@ -8,7 +8,7 @@ import {
   type BundleToolRef,
 } from "../tool-composition/bundles.js";
 import { listAlertRules, createAlertRule, type AlertEventType } from "../../observability/alerts.js";
-import { getGuardrailsForClient, setGuardrails } from "../../tool-policies/guardrails.js";
+import { getGuardrailsForClient, setGuardrails, firstUnsafeDenyPattern } from "../../tool-policies/guardrails.js";
 import {
   listConsumers,
   getConsumerByName,
@@ -252,11 +252,25 @@ export async function importConfig(
     }
   }
 
-  // Guardrails — applied only to already-registered tools.
+  // Guardrails — applied only to already-registered tools. Deny patterns are
+  // re-validated here (not only at the interactive admin route) because a
+  // hand-edited config, a rollback, or the config-as-code CLI apply could
+  // otherwise persist a catastrophic-backtracking (ReDoS) pattern straight to the
+  // guardrail hot path, where a single crafted argument payload would pin a CPU
+  // core — a gateway-wide DoS. Mirrors the quota re-validation the consumers loop
+  // below already performs for the same "config bypasses the admin-api" reason.
   for (const g of asArray<ExportedGuardrail>(doc.guardrails)) {
     if (!toolExists.get(g.client, g.tool)) {
       skipped.push({ type: "guardrail", id: `${g.client}__${g.tool}`, reason: "tool not found" });
       continue;
+    }
+    const denyPatterns = g.guardrails?.denyPatterns;
+    if (Array.isArray(denyPatterns)) {
+      const unsafe = firstUnsafeDenyPattern(denyPatterns.filter((p): p is string => typeof p === "string"));
+      if (unsafe) {
+        skipped.push({ type: "guardrail", id: `${g.client}__${g.tool}`, reason: unsafe });
+        continue;
+      }
     }
     if (!dryRun) {
       setGuardrails(g.client, g.tool, g.guardrails ?? null);

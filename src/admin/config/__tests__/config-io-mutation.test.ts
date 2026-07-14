@@ -1104,3 +1104,49 @@ describe("exportConfig -> importConfig round trip", () => {
     expect(result.applied.consumers).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// importConfig — deny-pattern ReDoS re-validation (config bypasses the admin API)
+// ---------------------------------------------------------------------------
+describe("importConfig — guardrail deny-pattern ReDoS re-validation", () => {
+  test("a catastrophic-backtracking deny pattern is skipped and never persisted", async () => {
+    await reg("grclient", ["search"]);
+    const doc = baseDoc({
+      guardrails: [
+        {
+          client: "grclient",
+          tool: "search",
+          guardrails: { denyPatterns: ["(a+)+$"], blockSecrets: false, scanResponses: false },
+        },
+      ],
+    });
+
+    const result = await importConfig(doc, { dryRun: false }, null);
+
+    const skip = result.skipped.find((s) => s.type === "guardrail" && s.id === "grclient__search");
+    expect(skip).toBeDefined();
+    expect(skip!.reason).toContain("ReDoS");
+    // Nothing persisted — the interactive admin route rejects such patterns, and
+    // import/rollback/CLI apply must too (a ReDoS pattern on the guardrail hot
+    // path can pin a CPU core on a crafted args payload — a gateway-wide DoS).
+    expect(getGuardrailsForClient("grclient")).toEqual({});
+  });
+
+  test("a safe deny pattern still imports and persists normally", async () => {
+    await reg("grclient2", ["search"]);
+    const doc = baseDoc({
+      guardrails: [
+        {
+          client: "grclient2",
+          tool: "search",
+          guardrails: { denyPatterns: ["password"], blockSecrets: false, scanResponses: false },
+        },
+      ],
+    });
+
+    const result = await importConfig(doc, { dryRun: false }, null);
+
+    expect(result.applied.guardrails).toBe(1);
+    expect(getGuardrailsForClient("grclient2").search?.denyPatterns).toEqual(["password"]);
+  });
+});

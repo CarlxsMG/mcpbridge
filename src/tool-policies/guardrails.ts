@@ -40,6 +40,31 @@ export function looksReDoSProne(pattern: string): boolean {
   return /\([^)]*[+*][^)]*\)[+*{]/.test(pattern);
 }
 
+/**
+ * Validates a raw deny-pattern list at a config boundary: the list must stay
+ * within MAX_DENY_PATTERNS, and each pattern within MAX_DENY_PATTERN_LENGTH,
+ * compile as a RegExp, and not be catastrophic-backtracking (looksReDoSProne).
+ * Returns a human-readable reason for the first offender, or null when all are
+ * safe. Used by importConfig to re-validate imported deny patterns, mirroring
+ * the per-pattern checks validateGuardrailsInput applies on the interactive
+ * admin route — so neither boundary can persist an un-vetted pattern (a ReDoS
+ * pattern on the guardrail hot path can pin a CPU core on a crafted args
+ * payload, a gateway-wide DoS).
+ */
+export function firstUnsafeDenyPattern(patterns: string[]): string | null {
+  if (patterns.length > MAX_DENY_PATTERNS) return `at most ${MAX_DENY_PATTERNS} deny patterns allowed`;
+  for (const p of patterns) {
+    if (p.length > MAX_DENY_PATTERN_LENGTH) return `deny pattern exceeds ${MAX_DENY_PATTERN_LENGTH} chars`;
+    try {
+      new RegExp(p);
+    } catch {
+      return `invalid regex: ${p.slice(0, 40)}`;
+    }
+    if (looksReDoSProne(p)) return `catastrophic-backtracking (ReDoS) pattern: ${p.slice(0, 40)}`;
+  }
+  return null;
+}
+
 // High-signal secret/credential shapes. Deliberately narrow (low false-positive)
 // rather than exhaustive — a broad "looks like base64" rule would block normal
 // payloads. Names are used only in the (non-echoing) rejection reason.
@@ -107,8 +132,10 @@ export function getGuardrails(clientName: string, toolName: string): ToolGuardra
 
 /**
  * Replace-all set of a tool's guardrails. Pass null (or an all-empty config) to
- * clear. Returns false when the tool doesn't exist. Deny patterns are validated
- * (compilable, bounded count/length) at this boundary.
+ * clear. Returns false when the tool doesn't exist. Deny patterns are trimmed and
+ * capped at MAX_DENY_PATTERNS here; full validation (length, compilability, and
+ * ReDoS rejection) happens at the call boundaries via firstUnsafeDenyPattern —
+ * the interactive admin route and importConfig — before a pattern reaches here.
  */
 export function setGuardrails(clientName: string, toolName: string, cfg: ToolGuardrails | null): boolean {
   if (!toolExists(clientName, toolName)) return false;
