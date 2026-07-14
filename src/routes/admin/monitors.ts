@@ -3,11 +3,11 @@ import { listMonitors } from "../../observability/monitor.js";
 
 /**
  * Synthetic monitor list: snapshot of every per-tool synthetic check the
- * bridge is running (drift detection, periodic liveness, etc.). The
- * monitor lifecycle — create / update / delete / pause — is configured
- * per-tool via the under-the-client routes in legacyMount (now
- * slated for further split in P0-2b continuations), so this router
- * exposes only the dashboard read.
+ * bridge is running (drift detection, periodic liveness, etc.). The monitor
+ * lifecycle — create / update / delete / pause — is configured per-tool through
+ * the `monitor` key of the per-tool policy PATCH in `tools.ts` (handled by
+ * `admin/tool-policies/mutations/monitor.ts`), so this router exposes only the
+ * dashboard read.
  */
 export const monitorsRoutes = Router();
 

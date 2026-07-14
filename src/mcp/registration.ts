@@ -104,12 +104,7 @@ export type RegisterOutcome =
  * only when a value is passed (the REST branch deliberately omits it, unlike the
  * MCP/GraphQL branches which thread it through).
  */
-export function registerError(
-  status: number,
-  code: string,
-  message: string,
-  requestId?: string | null,
-): RegisterOutcome {
+function registerError(status: number, code: string, message: string, requestId?: string | null): RegisterOutcome {
   return {
     ok: false,
     status,

@@ -7,7 +7,7 @@ import ipaddr from "ipaddr.js";
 // ---------------------------------------------------------------------------
 
 /** Named list of blocked IPv4 CIDRs. No magic strings elsewhere in this file. */
-export const BLOCKED_IPV4_CIDRS: readonly [string, string][] = [
+const BLOCKED_IPV4_CIDRS: readonly [string, string][] = [
   ["127.0.0.0/8", "loopback"],
   ["10.0.0.0/8", "RFC-1918 class-A private"],
   ["172.16.0.0/12", "RFC-1918 class-B private"],

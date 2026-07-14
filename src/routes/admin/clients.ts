@@ -7,12 +7,12 @@ import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import type { ClientStatus } from "../../mcp/types.js";
 
 /**
- * Clients CRUD-ish surface. Per-client PATCH currently exposes two
- * sub-mutations in one body (enabled toggle + guards update) — kept inline
- * for now because splitting this further means splitting one endpoint
- * into a body-shape dispatch which is more refactor than clean-cut.
- * Same applies to per-tool PATCH which stays in legacyMount until split
- * by feature (cache / coalesce / mock / …).
+ * Clients CRUD-ish surface. Per-client PATCH exposes two sub-mutations in one
+ * body (enabled toggle + guards update) — kept inline because splitting it
+ * would turn one endpoint into a body-shape dispatch, more refactor than
+ * clean-cut. (The per-tool policy PATCH, whose body carried far more keys, did
+ * get that treatment: it lives in `tools.ts`, delegating each body key to its
+ * own mutation under `admin/tool-policies/mutations/`.)
  *
  * Auth: any admin can list / view (team-scoped). Mutations (PATCH, DELETE,
  * bulk-PATCH) require the operator role.

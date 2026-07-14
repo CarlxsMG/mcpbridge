@@ -50,7 +50,7 @@ interface SessionRow {
  * accumulated dead rows indefinitely. Called opportunistically on session
  * creation, mirroring oidc_auth_state's cleanup — no separate timer to wire up.
  */
-export function cleanupExpiredSessions(now: number = Date.now()): number {
+function cleanupExpiredSessions(now: number = Date.now()): number {
   const revokedBefore = now - config.sessionIdleTimeoutMs;
   return getDb()
     .query(`DELETE FROM admin_sessions WHERE expires_at < ? OR (revoked_at IS NOT NULL AND revoked_at < ?)`)
