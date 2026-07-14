@@ -343,14 +343,17 @@ describe("PATCH /admin-api/alerts/:id", () => {
   test("a valid webhookUrl update is persisted", async () => {
     await startApp();
     const created = (await (await create(VALID)).json()) as { id: number };
+    // Loopback (like VALID) so it passes the store-time SSRF check under the
+    // test's ALLOW_PRIVATE_IPS; a distinct path proves the update took effect.
+    const updatedUrl = "http://127.0.0.1:9/updated";
     const res = await fetch(`${baseUrl}/admin-api/alerts/${created.id}`, {
       method: "PATCH",
       headers: bearer(),
-      body: JSON.stringify({ webhookUrl: "https://new.example.com/hook" }),
+      body: JSON.stringify({ webhookUrl: updatedUrl }),
     });
     expect(res.status).toBe(200);
     const rule = (await res.json()) as { webhookUrl: string };
-    expect(rule.webhookUrl).toBe("https://new.example.com/hook");
+    expect(rule.webhookUrl).toBe(updatedUrl);
   });
 
   // Kills 126/127/128/129/130/131/132/133/134 (threshold's optNumber

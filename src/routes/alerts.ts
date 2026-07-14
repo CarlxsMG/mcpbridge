@@ -14,6 +14,19 @@ import {
 } from "../observability/alerts.js";
 import { validationError, notFound, bodyOf } from "./http-errors.js";
 import type { LooseValidationResult } from "./validation.js";
+import { validateBackendUrl } from "../net/ip-validator.js";
+import { config } from "../config.js";
+
+/**
+ * SSRF-validate a webhook destination at store time. `dispatchWebhook` already
+ * validates+pins at fire time (that's the real rebinding defense), but checking
+ * here too gives the admin immediate feedback on a bad URL and is defense in
+ * depth. Returns an error string, or null when the URL is acceptable.
+ */
+async function webhookUrlError(url: string): Promise<string | null> {
+  const check = await validateBackendUrl(url, config.allowPrivateIps, config.allowedHosts);
+  return check.valid ? null : `webhookUrl rejected: ${check.reason}`;
+}
 
 function isEventType(v: unknown): v is AlertEventType {
   return typeof v === "string" && (ALERT_EVENT_TYPES as string[]).includes(v);
@@ -34,7 +47,7 @@ export function alertRoutes(app: Express): void {
     res.status(200).json({ items: listAlertRules() });
   });
 
-  app.post("/admin-api/alerts", adminAuth, requireAdminRole, (req: Request, res: Response) => {
+  app.post("/admin-api/alerts", adminAuth, requireAdminRole, async (req: Request, res: Response) => {
     const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name || name.length > 128) {
@@ -47,6 +60,11 @@ export function alertRoutes(app: Express): void {
     }
     if (!isHttpUrl(body.webhookUrl)) {
       validationError(res, "webhookUrl must be an absolute http(s) URL");
+      return;
+    }
+    const urlErr = await webhookUrlError(body.webhookUrl);
+    if (urlErr) {
+      validationError(res, urlErr);
       return;
     }
     const threshold = optNumber(body.threshold);
@@ -68,61 +86,71 @@ export function alertRoutes(app: Express): void {
     res.status(201).json(rule);
   });
 
-  app.patch("/admin-api/alerts/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
-    const id = Number(req.params.id);
-    if (!getAlertRule(id)) {
-      notFound(res, "ALERT_NOT_FOUND", "Alert rule not found");
-      return;
-    }
-    const body = bodyOf(req);
-    const updates: {
-      name?: string;
-      enabled?: boolean;
-      webhookUrl?: string;
-      threshold?: number | null;
-      minCalls?: number | null;
-    } = {};
-    if (body.name !== undefined) {
-      if (typeof body.name !== "string" || !body.name.trim()) {
-        validationError(res, "name must be a non-empty string");
+  app.patch(
+    "/admin-api/alerts/:id",
+    adminAuth,
+    requireAdminRole,
+    async (req: Request<{ id: string }>, res: Response) => {
+      const id = Number(req.params.id);
+      if (!getAlertRule(id)) {
+        notFound(res, "ALERT_NOT_FOUND", "Alert rule not found");
         return;
       }
-      updates.name = body.name.trim();
-    }
-    if (body.enabled !== undefined) {
-      if (typeof body.enabled !== "boolean") {
-        validationError(res, "enabled must be a boolean");
-        return;
+      const body = bodyOf(req);
+      const updates: {
+        name?: string;
+        enabled?: boolean;
+        webhookUrl?: string;
+        threshold?: number | null;
+        minCalls?: number | null;
+      } = {};
+      if (body.name !== undefined) {
+        if (typeof body.name !== "string" || !body.name.trim()) {
+          validationError(res, "name must be a non-empty string");
+          return;
+        }
+        updates.name = body.name.trim();
       }
-      updates.enabled = body.enabled;
-    }
-    if (body.webhookUrl !== undefined) {
-      if (!isHttpUrl(body.webhookUrl)) {
-        validationError(res, "webhookUrl must be an absolute http(s) URL");
-        return;
+      if (body.enabled !== undefined) {
+        if (typeof body.enabled !== "boolean") {
+          validationError(res, "enabled must be a boolean");
+          return;
+        }
+        updates.enabled = body.enabled;
       }
-      updates.webhookUrl = body.webhookUrl;
-    }
-    if (body.threshold !== undefined) {
-      const t = optNumber(body.threshold);
-      if (!t.ok) {
-        validationError(res, "threshold must be a number or null");
-        return;
+      if (body.webhookUrl !== undefined) {
+        if (!isHttpUrl(body.webhookUrl)) {
+          validationError(res, "webhookUrl must be an absolute http(s) URL");
+          return;
+        }
+        const urlErr = await webhookUrlError(body.webhookUrl);
+        if (urlErr) {
+          validationError(res, urlErr);
+          return;
+        }
+        updates.webhookUrl = body.webhookUrl;
       }
-      updates.threshold = t.value;
-    }
-    if (body.minCalls !== undefined) {
-      const m = optNumber(body.minCalls);
-      if (!m.ok) {
-        validationError(res, "minCalls must be a number or null");
-        return;
+      if (body.threshold !== undefined) {
+        const t = optNumber(body.threshold);
+        if (!t.ok) {
+          validationError(res, "threshold must be a number or null");
+          return;
+        }
+        updates.threshold = t.value;
       }
-      updates.minCalls = m.value;
-    }
-    const rule = updateAlertRule(id, updates);
-    recordAudit(actorFromRequest(req), "alert.update", String(id), { fields: Object.keys(updates) });
-    res.status(200).json(rule);
-  });
+      if (body.minCalls !== undefined) {
+        const m = optNumber(body.minCalls);
+        if (!m.ok) {
+          validationError(res, "minCalls must be a number or null");
+          return;
+        }
+        updates.minCalls = m.value;
+      }
+      const rule = updateAlertRule(id, updates);
+      recordAudit(actorFromRequest(req), "alert.update", String(id), { fields: Object.keys(updates) });
+      res.status(200).json(rule);
+    },
+  );
 
   app.delete("/admin-api/alerts/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
