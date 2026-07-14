@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { buildTransport } from "./mcp-upstream.js";
 import type { McpConnParams } from "./mcp-upstream.js";
+import { config } from "../config.js";
 
 // ---------------------------------------------------------------------------
 // MCP upstream tool discovery — the MCP counterpart of openapi-discovery.ts.
@@ -98,6 +99,15 @@ export async function discoverToolsFromMcpServer(
   try {
     const collected: Array<{ name: string; description?: string; inputSchema: Record<string, unknown> }> = [];
     let cursor: string | undefined;
+    // Bound the paginated read so a malicious/compromised upstream can't OOM or
+    // hang the gateway. `maxTools` mirrors the per-client cap registration enforces
+    // afterward, so buffering past it is pointless — once we're over it the client
+    // is rejected regardless, and we stop reading rather than absorb an unbounded
+    // stream. MAX_PAGES is a separate safety net for an upstream that returns empty
+    // pages with an endless nextCursor (which would never grow `collected`).
+    const maxTools = config.maxToolsPerClient;
+    const MAX_PAGES = 1000;
+    let pages = 0;
     do {
       const page = await client.listTools(cursor ? { cursor } : undefined, { timeout });
       for (const t of page.tools) {
@@ -108,7 +118,8 @@ export async function discoverToolsFromMcpServer(
         });
       }
       cursor = page.nextCursor;
-    } while (cursor);
+      if (collected.length > maxTools) break; // over the cap — registration will reject anyway
+    } while (cursor && ++pages < MAX_PAGES);
 
     return discoverMapTools(collected);
   } finally {
