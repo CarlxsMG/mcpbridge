@@ -137,10 +137,15 @@ export async function setToolWs(
  * of the IP pinning proxy.ts applies to REST fetches. Without this, a bare
  * `new WebSocket(url)` re-resolves DNS on every call, reopening the
  * DNS-rebinding window that config-time validation (setToolWs) closes.
+ *
+ * `maxPayload` caps a single inbound frame at the protocol layer so `ws` rejects
+ * an over-cap frame (close 1009) instead of buffering it fully in memory before
+ * the application-level `maxBytes` check runs — without it `ws` falls back to its
+ * 100 MiB default, a large gap versus the tool's real response ceiling.
  */
-function openPinnedWs(url: string, resolvedIp: string): WsClient {
+function openPinnedWs(url: string, resolvedIp: string, maxPayload: number): WsClient {
   const pin = pinnedWsDial(url, resolvedIp);
-  return new WsClient(pin.url, pin.options);
+  return new WsClient(pin.url, { maxPayload, ...pin.options });
 }
 
 /**
@@ -169,7 +174,7 @@ export function wsRequest(
       }
       fn();
     };
-    const ws = openPinnedWs(url, resolvedIp);
+    const ws = openPinnedWs(url, resolvedIp, maxBytes);
     const timer = setTimeout(() => finish(() => reject(new Error("timeout"))), timeoutMs);
 
     ws.on("open", () => {
@@ -223,7 +228,7 @@ export function wsRequestPersistent(
       }
       fn();
     };
-    const ws = openPinnedWs(url, resolvedIp);
+    const ws = openPinnedWs(url, resolvedIp, maxBytes);
     const timer = setTimeout(
       () => finish(() => (lastData !== null ? resolve(lastData) : reject(new Error("timeout")))),
       timeoutMs,

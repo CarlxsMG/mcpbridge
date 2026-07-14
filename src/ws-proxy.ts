@@ -259,8 +259,26 @@ function safeClose(ws: WsClient): void {
 }
 
 let sharedWss: WebSocketServer | null = null;
-function getSharedWss(): WebSocketServer {
-  if (!sharedWss) sharedWss = new WebSocketServer({ noServer: true });
+let sharedWssMaxPayload = 0;
+/**
+ * The shared upgrade handler for every proxied caller. `maxPayload` caps a
+ * single caller frame at the protocol layer so `ws` rejects an over-cap frame
+ * (close 1009) instead of assembling it fully in memory first — without it `ws`
+ * falls back to its 100 MiB default, ~100× the 1 MiB default per-target ceiling,
+ * and the per-message `bytes > maxMessageBytes` check below only runs *after*
+ * the whole frame is buffered. The backend leg is already capped this way
+ * (`new WsClient(..., { maxPayload })`); this closes the same gap on the client
+ * leg. We size the server to the largest ceiling seen so far so no legitimate
+ * target frame is rejected here (the exact per-target limit is still enforced
+ * per message), growing — never shrinking — the server when a bigger target
+ * appears. Swapping the (noServer) server object is safe: live connections
+ * captured their own `maxPayload` at accept time and are unaffected.
+ */
+function getSharedWss(maxPayload: number): WebSocketServer {
+  if (!sharedWss || maxPayload > sharedWssMaxPayload) {
+    sharedWss = new WebSocketServer({ noServer: true, maxPayload });
+    sharedWssMaxPayload = maxPayload;
+  }
   return sharedWss;
 }
 
@@ -332,7 +350,7 @@ export async function handleWsProxyUpgrade(req: IncomingMessage, socket: Duplex,
     return;
   }
 
-  const wss = getSharedWss();
+  const wss = getSharedWss(target.maxMessageBytes);
   wss.handleUpgrade(req, socket, head, (clientWs) => {
     void dialBackendAndPipe(clientWs, target, breaker);
   });
@@ -525,4 +543,9 @@ export function wsProxyActiveConnectionCount(): number {
 export function __resetWsProxyForTesting(): void {
   targets.clear();
   connsByTarget.clear();
+  // Deliberately does NOT reset the shared WebSocketServer: it's a stateless
+  // (noServer) upgrade handler and `sharedWssMaxPayload` only ever grows as a
+  // frame-size backstop, so retaining it across tests is harmless — and a test
+  // that spies on the `WebSocketServer` constructor relies on the singleton
+  // already existing (so `new` is never re-invoked under the spy).
 }
