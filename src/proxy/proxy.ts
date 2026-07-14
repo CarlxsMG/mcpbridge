@@ -879,8 +879,15 @@ async function dispatchRestToolCall(
   try {
     for (let attempt = 0; attempt <= (isIdempotent ? MAX_RETRIES : 0); attempt++) {
       if (attempt > 0) {
-        // Don't retry if circuit is now open
-        if (!breaker.canRequest().allowed) break;
+        // Don't retry if the circuit is now open — but ONLY for a normal
+        // (primary) call. When this call is deliberately routed to the failover
+        // secondary (route.bypassBreaker), the primary breaker is open by
+        // definition, so re-checking it here would (a) cancel every retry to a
+        // healthy secondary exactly when the primary is down, and (b) risk
+        // consuming the primary's half-open probe slot if its reset timeout
+        // fired during the backoff — a probe the secondary call then never
+        // clears (recordBreaker* skip the breaker when bypassing).
+        if (!route.bypassBreaker && !breaker.canRequest().allowed) break;
         const delay = BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * BASE_DELAY;
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
