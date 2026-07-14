@@ -74,6 +74,23 @@ const CURL_BOOLEAN_FLAGS = new Set([
   "-Ss",
 ]);
 
+// The single-character versions of the boolean short flags above, for decomposing
+// a COMBINED cluster like `-fsSL`, `-sSf`, or `-Lv`. curl lets you mash short flags
+// together, so enumerating every combination is hopeless; instead, a single-dash
+// token whose every character is a known boolean short flag takes no value. Without
+// this, `curl -fsSL <url>` treated `-fsSL` as value-taking and swallowed the URL,
+// and `curl -sSf -X POST <url>` swallowed `-X` and produced a tool for method "POST".
+const CURL_BOOLEAN_SHORT_CHARS = new Set(["s", "S", "k", "L", "v", "i", "f", "g", "4", "6", "N", "#"]);
+
+/** True when a token consumes no following value: a known boolean flag, or a single-dash cluster of only boolean short flags. */
+function isBooleanFlagToken(t: string): boolean {
+  if (CURL_BOOLEAN_FLAGS.has(t)) return true;
+  if (t.length > 2 && t.startsWith("-") && !t.startsWith("--")) {
+    return [...t.slice(1)].every((c) => CURL_BOOLEAN_SHORT_CHARS.has(c));
+  }
+  return false;
+}
+
 /**
  * Shell-like tokenizer: splits on whitespace, honoring single quotes (no
  * escapes inside), double quotes (backslash-escapes `"`, `\`, `$`, `` ` ``),
@@ -218,7 +235,7 @@ function parseSingleCurlCommand(
       i++; // consume the "user:pass" value — never inspected or persisted (see file-level doc comment)
       sawUser = true;
     } else if (t.startsWith("-") && t !== "-") {
-      if (!CURL_BOOLEAN_FLAGS.has(t)) i++; // best-effort: assume unknown flags take a value and skip it
+      if (!isBooleanFlagToken(t)) i++; // best-effort: assume unknown flags take a value and skip it
     } else if (!url) {
       url = t;
     }
