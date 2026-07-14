@@ -48,6 +48,9 @@ const errorMessage = ref("");
 const configuringWidget = computed(() => layout.widgets.value.find((w) => w.id === configuringId.value) ?? null);
 const isEmpty = computed(() => layout.widgets.value.length === 0);
 const showNoServers = computed(() => data.stores.overview !== null && data.stores.overview.clients.live === 0);
+// Surface per-source fetch failures the data layer records — otherwise a dead
+// backend renders as empty/zero widgets with no signal that anything went wrong.
+const failedSourceCount = computed(() => Object.keys(data.errors).length);
 
 function onAdd(preset: WidgetPreset): void {
   const id = layout.addPreset(preset);
@@ -136,6 +139,10 @@ onMounted(() => data.refresh());
     </PageHeader>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+
+    <p v-if="failedSourceCount > 0" class="error" role="alert">
+      {{ t("pages.overview.load_error", { count: failedSourceCount }) }}
+    </p>
 
     <p v-if="showNoServers" class="onboarding-note">
       <Server :size="15" stroke-width="2" aria-hidden="true" />

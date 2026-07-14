@@ -985,6 +985,7 @@
       "last_7d": "Últimos 7 días",
       "last_30d": "Últimos 30 días",
       "refreshing": "Refrescando…",
+      "load_error": "No se pudieron cargar {count} fuente(s) de datos — algunos widgets pueden aparecer vacíos. Prueba a refrescar.",
       "add_widget": "Añadir widget",
       "export_layout": "Exportar layout como JSON",
       "export": "Exportar",

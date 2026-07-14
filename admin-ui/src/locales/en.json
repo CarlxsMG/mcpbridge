@@ -985,6 +985,7 @@
       "last_7d": "Last 7 days",
       "last_30d": "Last 30 days",
       "refreshing": "Refreshing…",
+      "load_error": "{count} data source(s) couldn't load — some widgets may be empty. Try refreshing.",
       "add_widget": "Add widget",
       "export_layout": "Export layout as JSON",
       "export": "Export",
