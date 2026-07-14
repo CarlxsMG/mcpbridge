@@ -43,11 +43,26 @@ interface SessionRow {
   revoked_at: number | null;
 }
 
+/**
+ * Deletes sessions that can no longer authenticate: past their absolute expiry,
+ * or revoked more than an idle-timeout ago. admin_sessions were otherwise only
+ * ever removed by the FK cascade on user deletion, so a long-lived instance
+ * accumulated dead rows indefinitely. Called opportunistically on session
+ * creation, mirroring oidc_auth_state's cleanup — no separate timer to wire up.
+ */
+export function cleanupExpiredSessions(now: number = Date.now()): number {
+  const revokedBefore = now - config.sessionIdleTimeoutMs;
+  return getDb()
+    .query(`DELETE FROM admin_sessions WHERE expires_at < ? OR (revoked_at IS NOT NULL AND revoked_at < ?)`)
+    .run(now, revokedBefore).changes;
+}
+
 /** Creates a new session row and returns the raw (never-persisted) token + CSRF token to hand back to the client. */
 export function createSession(userId: number, ip: string | undefined, userAgent: string | undefined): CreatedSession {
   const token = randomBytes(32).toString("base64url");
   const csrfToken = randomBytes(32).toString("base64url");
   const now = Date.now();
+  cleanupExpiredSessions(now); // opportunistic prune, like oidc_auth_state's cleanup
   const expiresAt = now + config.sessionAbsoluteTtlMs;
 
   getDb()
