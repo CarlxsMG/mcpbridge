@@ -38,7 +38,7 @@ import { isDeleting } from "../mcp/registry.js";
 import { resolveMcpKeyByToken } from "../security/mcp-key-store.js";
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { recordUsage } from "../observability/usage.js";
-import { getRedactionPaths, applyRedaction } from "../content-filtering/redaction.js";
+import { getRedactionPaths, applyRedaction, stripInjectedCredentials } from "../content-filtering/redaction.js";
 import { getGuardrails, applyResponseScan } from "../tool-policies/guardrails.js";
 import { recordGuardrailHit } from "../tool-policies/quarantine.js";
 import { applyContextBudget } from "../tool-policies/context-budget.js";
@@ -634,29 +634,10 @@ async function resolvePinnedTarget(
  * reads the body under the streaming size cap (rejecting oversize — proxyBodyCapRejections), records
  * success metrics/usage, then runs the streaming-normalize / paginate → response-transform →
  * redaction → guardrail-scan → context-budget → cache-set pipeline and returns the final ToolResult.
- * No upstream response header is forwarded (Fix 1). Called by the retry loop right after
- * recordBreakerSuccess(); the retry/error control flow stays in dispatchRestToolCall.
+ * No upstream response header is forwarded (Fix 1). The caller records breaker/LB success only
+ * AFTER this returns, so a 2xx whose body then resets mid-stream counts as a failure, not a
+ * success; the retry/error control flow stays in dispatchRestToolCall.
  */
-/**
- * Strips the gateway's OWN injected upstream-credential values from a response
- * body before it reaches the MCP caller. Response headers are never forwarded,
- * but a backend that reflects the request Authorization into its body (debug /
- * echo endpoints, verbose errors) would otherwise leak the gateway-injected
- * credential to a caller authorized to CALL the tool but not to HOLD the secret,
- * defeating the credential-broker property. Runs unconditionally, independent of
- * per-tool redaction config. The length guard avoids mangling legitimate content
- * that happens to equal a trivially short header value.
- */
-function stripInjectedCredentials(text: string, headers: Record<string, string>): string {
-  let out = text;
-  for (const value of Object.values(headers)) {
-    if (value.length >= 8 && out.includes(value)) {
-      out = out.split(value).join("<redacted>");
-    }
-  }
-  return out;
-}
-
 async function processRestSuccessResponse(
   response: Response,
   attempt: number,
@@ -845,7 +826,15 @@ async function dispatchRestToolCall(
   const { breaker, effectiveTimeout, route, lbChoice, lbKey, recordBreakerSuccess, recordBreakerFailure } = routing;
 
   const built = await buildRestRequest(client, tool, args, lbChoice, route, lbKey);
-  if ("content" in built) return built;
+  if ("content" in built) {
+    // buildRestRequest bailed before reaching the backend (arg validation, path
+    // traversal, a failed pin refresh, or mid-unregister) — no signal about
+    // backend health, so release any half-open probe consumed by canRequest() in
+    // resolveRestRouting rather than stranding it (which would wedge the breaker
+    // in half_open forever). No-op when no probe is in flight.
+    breaker.releaseProbe();
+    return built;
+  }
   const { method, url, body, upstreamAuthHeaders, reqController, pinnedFetch } = built;
 
   const startTime = Date.now();
@@ -947,8 +936,14 @@ async function dispatchRestToolCall(
         const response = await pinnedFetch(url, fetchOptions);
 
         if (response.ok) {
+          // Record breaker/LB success only AFTER the body is fully read: if the
+          // connection resets mid-stream, processRestSuccessResponse throws and
+          // control falls to the catch below (a failure) — so one call can never
+          // log both a success and a failure, which would otherwise keep a
+          // half-broken backend's breaker from ever opening.
+          const success = await processRestSuccessResponse(response, attempt, startTime, routing, built, call);
           recordBreakerSuccess();
-          return await processRestSuccessResponse(response, attempt, startTime, routing, built, call);
+          return success;
         }
 
         lastStatus = response.status;

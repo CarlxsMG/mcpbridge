@@ -8,7 +8,7 @@ import { getOrCompile } from "./schema-validator.js";
 import { mcpUpstream } from "../mcp/mcp-upstream.js";
 import type { McpConnParams } from "../mcp/mcp-upstream.js";
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
-import { getRedactionPaths, applyRedaction } from "../content-filtering/redaction.js";
+import { getRedactionPaths, applyRedaction, stripInjectedCredentials } from "../content-filtering/redaction.js";
 import { applyResponseScan } from "../tool-policies/guardrails.js";
 import { recordGuardrailHit } from "../tool-policies/quarantine.js";
 import { applyContextBudget } from "../tool-policies/context-budget.js";
@@ -40,6 +40,11 @@ export async function dispatchMcpToolCall(
   const argsToSend = { ...rawArgs };
   const validate = getOrCompile(client.name, tool.name, tool.inputSchema);
   if (!validate(argsToSend)) {
+    // Arg validation failed before we reached the upstream — release any
+    // half-open probe consumed by breaker.canRequest() in resolveRestRouting.
+    // This exit records neither success nor failure, so without releasing it the
+    // probe strands and wedges the breaker in half_open. No-op if none in flight.
+    breaker.releaseProbe();
     const firstError = validate.errors?.[0];
     return toolResult(
       `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
@@ -47,12 +52,17 @@ export async function dispatchMcpToolCall(
     );
   }
 
+  // Captured once and reused below to strip these same values back out of the
+  // result: the gateway injects this credential into the upstream call, and a
+  // caller authorized to CALL the tool must never receive it back if the upstream
+  // reflects it (credential-broker property).
+  const injectedAuthHeaders = getUpstreamAuthHeaders(client.name);
   const params: McpConnParams = {
     name: client.name,
     url: client.mcpUrl ?? client.base_url,
     transport: client.mcpTransport ?? "streamable-http",
     resolvedIp: client.resolved_ip,
-    authHeaders: getUpstreamAuthHeaders(client.name) ?? undefined,
+    authHeaders: injectedAuthHeaders ?? undefined,
   };
 
   const result = await mcpUpstream.call(params, tool.upstreamName ?? tool.name, argsToSend, {
@@ -133,6 +143,18 @@ export async function dispatchMcpToolCall(
         const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, item.text);
         return budgeted.applied === "none" ? item : { ...item, text: budgeted.text };
       }),
+    );
+  }
+
+  // Strip the gateway's own injected upstream credential if the (untrusted)
+  // upstream reflected it into a result part — parity with the REST path
+  // (proxy.ts). Runs over EVERY result (success AND isError), independent of
+  // redaction config, so a caller authorized to CALL this MCP-upstream tool can
+  // never harvest the gateway-held credential it was never trusted to HOLD (nor
+  // can traffic capture then persist it).
+  if (injectedAuthHeaders) {
+    result.content = result.content.map((item) =>
+      item.type === "text" ? { ...item, text: stripInjectedCredentials(item.text, injectedAuthHeaders) } : item,
     );
   }
 

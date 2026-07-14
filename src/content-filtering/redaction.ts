@@ -84,3 +84,24 @@ export function getRedactionForClient(clientName: string): Record<string, string
   for (const r of rows) out[r.tool_name] = JSON.parse(r.paths_json) as string[];
   return out;
 }
+
+/**
+ * Strips the gateway's OWN injected upstream-credential values from a response
+ * body before it reaches the MCP caller. Response headers are never forwarded,
+ * but a backend or MCP upstream that reflects the request Authorization into its
+ * body (debug / echo endpoints, verbose errors) would otherwise leak the
+ * gateway-injected credential to a caller authorized to CALL the tool but not to
+ * HOLD the secret, defeating the credential-broker property. Runs
+ * unconditionally, independent of per-tool redaction config. The length guard
+ * avoids mangling legitimate content that happens to equal a trivially short
+ * header value.
+ */
+export function stripInjectedCredentials(text: string, headers: Record<string, string>): string {
+  let out = text;
+  for (const value of Object.values(headers)) {
+    if (value.length >= 8 && out.includes(value)) {
+      out = out.split(value).join("<redacted>");
+    }
+  }
+  return out;
+}

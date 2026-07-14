@@ -277,3 +277,51 @@ describe("CircuitBreaker — sliding window not masked by interleaved successes"
     expect(cb.getState()).toBe("open");
   });
 });
+
+// ---------------------------------------------------------------------------
+// releaseProbe — frees a half-open probe consumed by a dispatch path that then
+// bailed before recording an outcome (arg-validation / path-traversal / failed
+// pin-refresh). Without it the probe stays in flight forever and the breaker is
+// wedged in half_open — every later call rejected as "Probing" — permanently
+// bricking a recovered client until an admin reset.
+// ---------------------------------------------------------------------------
+
+describe("CircuitBreaker — releaseProbe frees a stranded half-open probe", () => {
+  test("after releaseProbe the breaker re-probes instead of staying wedged in 'Probing'", () => {
+    const cb = getCircuitBreaker(CLIENT);
+    cb.recordFailure();
+    cb.recordFailure();
+    cb.recordFailure();
+    expect(cb.getState()).toBe("open");
+
+    const realNow = Date.now;
+    try {
+      Date.now = () => realNow() + 31_000;
+
+      // First caller consumes the single half-open probe; a concurrent caller is
+      // correctly rejected while it's in flight.
+      expect(cb.canRequest().allowed).toBe(true);
+      expect(cb.canRequest()).toMatchObject({ allowed: false, reason: "Probing" });
+
+      // The dispatch path bailed before recording success/failure and released it.
+      cb.releaseProbe();
+
+      // Still half_open (not force-closed/opened) AND the next call re-probes,
+      // rather than being rejected as "Probing" forever.
+      expect(cb.getState()).toBe("half_open");
+      const reprobe = cb.canRequest();
+      expect(reprobe.allowed).toBe(true);
+      expect(typeof reprobe.timeout).toBe("number");
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  test("releaseProbe is a no-op outside half_open (closed breaker keeps allowing)", () => {
+    const cb = getCircuitBreaker(CLIENT);
+    expect(cb.getState()).toBe("closed");
+    cb.releaseProbe();
+    expect(cb.getState()).toBe("closed");
+    expect(cb.canRequest().allowed).toBe(true);
+  });
+});

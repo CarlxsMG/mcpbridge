@@ -105,6 +105,23 @@ class CircuitBreaker {
     }
   }
 
+  /**
+   * Releases an in-flight half_open probe WITHOUT recording an outcome, leaving
+   * the breaker in half_open so the NEXT call re-probes. Used by dispatch paths
+   * that consume canRequest()'s probe grant but then bail before reaching the
+   * backend (argument validation fails, a pre-flight pin refresh fails, the
+   * client is mid-unregister) — those exits carry no health signal about the
+   * backend. Without releasing, the probe would stay in-flight forever, wedging
+   * the breaker in half_open: every later call is rejected as "Probing", and the
+   * idle sweep never evicts it because each rejected canRequest() refreshes
+   * lastAccess. No-op unless a probe is actually in flight.
+   */
+  releaseProbe(): void {
+    if (this.state === "half_open" && this.probeInFlight) {
+      this.probeInFlight = false;
+    }
+  }
+
   getLastAccess(): number {
     return this.lastAccess;
   }
