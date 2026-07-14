@@ -22,9 +22,9 @@
  *
  * — or CI's freshness test goes red.
  *
- * ── Two registration conventions, both matched ──────────────────────────────
+ * ── Three registration conventions, all matched ─────────────────────────────
  * Deliberately simple regex extraction rather than a full TS/AST parse, because
- * every route in this codebase follows one of exactly two shapes:
+ * every route in this codebase follows one of exactly three shapes:
  *
  *   1. Top-level files (src/routes/*.ts) register directly on the app:
  *        `app.<method>("/path", …)`  →  path taken verbatim.
@@ -38,6 +38,14 @@
  *      Matching the `\w+Routes.` receiver (not a bare `\w+.`) is what keeps
  *      query-string reads like `searchParams.get(...)` / `headers.get(...)` and
  *      docstring examples (`r.get("/overview", …)`) out of the manifest.
+ *
+ *   3. Top-level files (src/routes/*.ts) that build one Router, apply the shared
+ *      `adminAuth` gate to it once, and mount it themselves:
+ *        `const r = Router(); r.use(adminAuth); … app.use("/admin-api", r)`
+ *        with `r.<method>("/rel", …)`  →  path prefixed with that file's own
+ *      mount (`/admin-api/rel`), attributed to the file it lives in. Keyed on
+ *      the mounted receiver name (from the `app.use("/prefix", r)` it found),
+ *      so unrelated `.get()`/`.post()` calls are excluded as in convention 2.
  *
  * Runtime introspection of the Express 5 router stack was considered and
  * rejected: path-to-regexp v8 no longer exposes a mounted sub-router's prefix
@@ -75,6 +83,12 @@ const APP_ROUTE_RE = /app\.(get|post|put|patch|delete)\(\s*["'`]([^"'`]+)["'`]/g
 // `.get()`/`.post()` calls (Map/Headers/URLSearchParams) in the same files.
 const ADMIN_ROUTE_RE = /(\w+Routes)\.(get|post|put|patch|delete)\(\s*["'`]([^"'`]+)["'`]/g;
 
+// `app.use("/prefix", receiver)` — a single Express Router mounted on the app
+// under a path prefix. The `\s*\)` requires the receiver to be the LAST argument
+// (so a middleware chain like `app.use("/docs", guard, swaggerUi.serve, …)` is
+// NOT matched — that's a middleware mount, not a route-registering sub-router).
+const APP_MOUNT_RE = /app\.use\(\s*["'`]([^"'`]+)["'`]\s*,\s*([A-Za-z_$][\w$]*)\s*\)/g;
+
 function readTs(dir: string): string[] {
   return readdirSync(dir).filter((f) => f.endsWith(".ts"));
 }
@@ -83,8 +97,23 @@ function extractTopLevel(): RouteEntry[] {
   const entries: RouteEntry[] = [];
   for (const file of readTs(ROUTES_DIR)) {
     const src = readFileSync(join(ROUTES_DIR, file), "utf8");
+    // (a) Direct registrations on the app: `app.<method>("/path", …)` — verbatim.
     for (const m of src.matchAll(APP_ROUTE_RE)) {
       entries.push({ method: m[1] as Method, path: m[2], file });
+    }
+    // (b) Registrations on a Router the file mounts under a prefix:
+    //     `app.use("/prefix", r)` then `r.<method>("/rel")` => "/prefix/rel".
+    //     This is the shape the admin-api route files use (const r = Router();
+    //     one shared r.use(adminAuth); app.use("/admin-api", r)). Keying the
+    //     inner match on the mounted receiver name keeps unrelated `.get()`/
+    //     `.post()` calls (Map/Headers/URLSearchParams) out, the same way the
+    //     `\w+Routes` discriminator does for the admin sub-routers.
+    for (const mount of src.matchAll(APP_MOUNT_RE)) {
+      const [prefix, receiver] = [mount[1], mount[2]];
+      const routeRe = new RegExp(`\\b${receiver}\\.(get|post|put|patch|delete)\\(\\s*["'\`]([^"'\`]+)["'\`]`, "g");
+      for (const m of src.matchAll(routeRe)) {
+        entries.push({ method: m[1] as Method, path: `${prefix}${m[2]}`, file });
+      }
     }
   }
   return entries;
