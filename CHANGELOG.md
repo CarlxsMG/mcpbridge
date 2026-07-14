@@ -46,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Prometheus metric names). Covers SLO-1/2/6 today; SLO-4's metric isn't emitted yet.
 - `RELEASING.md` — the maintainer runbook for cutting the first tagged, GHCR/binary-published
   release under a real repository identity.
+- **admin-UI coverage gate** — `@vitest/coverage-v8` with a ratchet-floor threshold (lines 65 /
+  statements 62 / functions 58 / branches 48), wired into CI and `bun run check`. The SPA previously
+  ran `vitest` with no threshold at all, so its coverage could silently decay; the backend already
+  gates at 90/85.
 
 ### Changed
 
@@ -71,9 +75,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tooling: `bun run check` now enforces `typecheck:tools` and `lint:i18n` exactly like CI; the Bun
   toolchain is pinned in the `admin-ui`/`docs` sub-projects; and four completed one-shot migration
   helper scripts were removed.
+- Docs: the README quickstart now notes that the Bun dev path serves the backend on `:8790` (its
+  `curl`/client/CLI examples use the Docker port `:3000`), so an Option-B copy-paste no longer
+  connection-refuses; the `bun run check` step list in CONTRIBUTING gained the missing
+  `typecheck (tools)` step; and `.env.example` documents the `AUTH_DISABLED` /
+  `ALLOW_UNSAFE_AUTH_DISABLED` escape hatch it already referenced.
+
+### Removed
+
+- `@scalar/types` — an unused direct dependency (never imported in `src/`, not a peer requirement of
+  `@scalar/openapi-parser`).
 
 ### Fixed
 
+- **Docker image build was broken (P0).** The deps-stage `bun install --production` ran the root
+  `prepare` hook (`lefthook install`), but `lefthook` is a devDependency `--production` omits (and
+  the stage has no `.git`), so the script exited 1 and `docker build` failed outright — breaking
+  compose `build:`, the Helm image, `docker-publish.yml`, and the CI docker job. Added
+  `--ignore-scripts` to that install. The image is now also secure-by-default (`ENV
+NODE_ENV=production`, and the prod compose pins it so a copied dev `.env` can't disable the
+  startup guards).
+- **Security — team-scoped admins could escape their tenant.** The team multi-tenancy boundary was
+  enforced on the per-client routes but not the global ones: user CRUD, DB backup, and config
+  export/import ran behind `requireAdminRole` (which a team-scoped admin passes) instead of
+  `requireSuperAdmin` — so a team admin could create a teamless (super-admin) user, download the
+  whole multi-tenant DB, or read/rewrite another tenant's config. Additionally, `upstream-auth` and
+  `GET /traffic/:id` skipped the `ensureClientAccess` check their siblings enforce (the traffic list
+  wasn't team-scoped either), and `mcp-keys` gated `adminRole`/`elevated` on super-admin but not
+  `scopes` — letting a team admin mint an unrestricted data-plane key. All now confined to the
+  caller's tenant; bearer/CI and the teamless bootstrap admin are unaffected.
+- **Security — JWT & SSO auth survived an IdP key rotation.** Both JWT verifiers rejected a token
+  whose `kid` wasn't in the cached JWKS without refetching, so a routine signing-key rotation locked
+  out all JWT data-plane auth and SSO admin login until the cache TTL (10 min) lapsed. On a `kid`
+  miss they now force one (rate-limited) JWKS refetch before rejecting.
+- **REST auto-discovery dropped an absolute OpenAPI server URL's path prefix.** A spec whose
+  `servers[0].url` is absolute with a path (`https://host/api/v3` — Petstore/Stripe/GitHub) yielded
+  an empty base path, so every discovered operation lost its `/api/v3` prefix and 404'd once proxied.
+  The pathname is now kept (the origin still comes from the client's `base_url`).
+- **WebSocket tool dispatch now validates arguments like the REST/MCP paths.** The WS path only
+  hand-deleted two fields and never ran the tool's Ajv schema, so the internal `__end_user` field and
+  any unknown caller keys leaked to the backend and malformed args were forwarded rather than
+  rejected. It now runs the same `removeAdditional:"all"` validation.
+- **Approvals — a reject could 500 without recording who rejected.** The reject branch flipped the
+  ticket to `rejected` and only then inserted the decision row, so a same-actor approve-then-reject
+  hit `UNIQUE(approval_id, decided_by)` uncaught after the status had committed. The decision is now
+  inserted first (catching the duplicate like the approve branch), then the status flips.
+- **Security — the MCP rate limit couldn't be escaped by rotating the session id.** `rateLimitMcp`
+  keyed only on the client-controlled `mcp-session-id`, so a fresh id per request got a new bucket
+  every time. A per-IP ceiling is now checked first, with the session id only subdividing beneath it.
+- **Security — the audit hash-chain can't fork under HA.** `recordAudit` read the chain tip and
+  inserted in a _deferred_ transaction, so two instances could read the same tip and fork the chain
+  (later flagged as tampering). It now uses `BEGIN IMMEDIATE`.
+- **Security — the CSV audit export is hardened against spreadsheet formula injection.** A field
+  starting with `= + - @` (user-controlled `actor`/`target`) is now prefixed with a single quote so
+  Excel/Sheets treats it as text.
+- **The Overview dashboard surfaces data-source failures instead of silent zeros.** A dead backend
+  rendered empty/zero widgets while the refresh spinner stopped as if it had succeeded; the recorded
+  per-source errors are now shown in a banner.
+- **Resource hygiene:** load-balancer runtime state (round-robin cursor, per-target cooldown/inflight)
+  is now dropped on client/target teardown instead of leaking across churn; expired and revoked
+  `admin_sessions` rows are pruned opportunistically instead of accumulating forever; upstream MCP
+  `tools/list` pagination is bounded so a malicious upstream can't OOM/hang discovery.
+- **cURL import handles combined boolean-flag clusters.** `curl -fsSL <url>` (and `-sSf -X POST`)
+  previously mis-parsed — the cluster was treated as value-taking and swallowed the URL or the `-X`.
+  Any single-dash cluster of only known boolean short flags is now decomposed.
+- **Alert webhook URLs are SSRF-validated at store time** (defense in depth; they were already
+  validated at fire time), giving the admin immediate feedback on a bad URL.
+- **Admin UI — accessibility & UX.** `TabStrip` now implements the real WAI-ARIA tabs keyboard model
+  (roving tabindex, arrow/Home/End, `tabpanel` wiring) instead of exposing `role="tab"` with no
+  keyboard support; client-side navigations move focus to the main region and announce the localized
+  page title in a polite live region (WCAG 2.4.3); `ListLayout` no longer stacks a load error on top
+  of the empty state; the tool enable/sensitive toggles use the shared optimistic-toggle composable
+  (double-click race); and two pages dropped duplicate local `tk()` re-implementations.
 - **Circuit breaker — half-open probe leak fixed (could permanently brick a recovering client).**
   A call that consumed the single `half_open` probe but then bailed before reaching the backend
   (argument validation, post-substitution path traversal, a failed DNS-rebind pin refresh, or an
