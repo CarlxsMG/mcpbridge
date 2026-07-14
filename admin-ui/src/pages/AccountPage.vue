@@ -275,12 +275,9 @@ onMounted(loadSessions);
       <div class="pref-row">
         <div>
           <p class="pref-label">
-            <Languages
-              :size="14"
-              stroke-width="2"
-              aria-hidden="true"
-              style="display: inline-block; vertical-align: -2px; margin-right: 4px"
-            />{{ t("pages.account.locale_label") }}
+            <Languages :size="14" stroke-width="2" aria-hidden="true" class="locale-icon" />{{
+              t("pages.account.locale_label")
+            }}
           </p>
           <p class="hint">{{ t("pages.account.locale_hint") }}</p>
         </div>
@@ -382,5 +379,10 @@ onMounted(loadSessions);
   font-weight: 600;
   margin: 0 0 0.2rem;
   font-size: var(--text-md);
+}
+.locale-icon {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-right: 4px;
 }
 </style>

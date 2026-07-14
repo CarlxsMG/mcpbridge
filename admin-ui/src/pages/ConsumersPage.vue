@@ -195,6 +195,9 @@ function confirmDelete() {
         </thead>
         <tbody>
           <template v-for="c in consumers" :key="c.id">
+            <!-- Row click is mouse-only convenience; the accessible control is
+                 the expander <button> below (keyboard + aria-expanded), so the
+                 row itself is intentionally not a focusable target. -->
             <tr class="cons-row" @click="toggleUsage(c)">
               <td class="expand-col">
                 <button
