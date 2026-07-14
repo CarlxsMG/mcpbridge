@@ -19,7 +19,11 @@ const SECRET_KEY_WORDS = [
   "api_key",
   "cookie",
   "bearer",
+  "csrf",
 ];
+// Deliberately NOT a bare "key": it would redact non-secret diagnostic fields
+// (lbKey, cacheKey, responseCacheKey, scopeKey…) that don't end in a safe
+// suffix. "apikey"/"api_key" already cover the credential case.
 const SAFE_SUFFIX_WORDS = [
   "id",
   "ids",
@@ -41,18 +45,25 @@ const SAFE_SUFFIX_WORDS = [
 const SECRET_KEY_RE = new RegExp(`(${SECRET_KEY_WORDS.join("|")})`, "i");
 const SAFE_SUFFIX_RE = new RegExp(`(${SAFE_SUFFIX_WORDS.join("|")})$`, "i");
 
-function redactMeta(meta: Record<string, unknown>): Record<string, unknown> {
-  let changed = false;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(meta)) {
-    if (v != null && v !== "" && SECRET_KEY_RE.test(k) && !SAFE_SUFFIX_RE.test(k)) {
-      out[k] = "<redacted>";
-      changed = true;
-    } else {
-      out[k] = v;
+// Recurses into nested objects/arrays so a secret buried under a non-secret key
+// (e.g. { response: { headers: { authorization } } }) is redacted too, not just
+// top-level keys. A secret-named key's value is redacted whole (not descended
+// into); any other value is descended.
+function redactValue(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(redactValue);
+  if (v != null && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      out[k] =
+        val != null && val !== "" && SECRET_KEY_RE.test(k) && !SAFE_SUFFIX_RE.test(k) ? "<redacted>" : redactValue(val);
     }
+    return out;
   }
-  return changed ? out : meta;
+  return v;
+}
+
+function redactMeta(meta: Record<string, unknown>): Record<string, unknown> {
+  return redactValue(meta) as Record<string, unknown>;
 }
 
 export function log(level: LogLevel, message: string, meta?: Record<string, unknown>): void {
