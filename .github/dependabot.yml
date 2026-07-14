@@ -10,6 +10,23 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
+    # Load-bearing version pins (see CLAUDE.md). Each of these breaks the build
+    # or tests when bumped, so Dependabot must not keep re-opening PRs for them —
+    # they move only behind a deliberate, tested upgrade, never a routine sweep.
+    ignore:
+      # Exact pins: ajv 8.18.0 (single-copy tree dedupe) / zod 4.3.6 (validateEnv).
+      - dependency-name: "ajv"
+      - dependency-name: "zod"
+      # 0.28.x ships a broken .d.ts that fails our (skipLibCheck-off) typecheck;
+      # hold until upstream fixes its published types.
+      - dependency-name: "@scalar/openapi-parser"
+      # The 7.x native-compiler rewrite is high-risk under vue-tsc / typescript-eslint;
+      # take a major deliberately, not on a bot PR (minors/patches still flow).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # Must match .bun-version / packageManager — bumped as part of the
+      # coordinated Bun upgrade, not on its own.
+      - dependency-name: "bun-types"
 
   # Admin UI (Vue 3 + Vite), its own package.json/lockfile.
   - package-ecosystem: "npm"
@@ -20,6 +37,11 @@ updates:
     labels:
       - "dependencies"
       - "admin-ui"
+    ignore:
+      # Same as root: the TypeScript 7.x major is high-risk under vue-tsc; take
+      # it deliberately, not on a bot PR (minors/patches still flow).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # VitePress docs/marketing site — its own package.json/lockfile (docs/bun.lock).
   # Build-time-only toolchain, but keeps its transitive vite/esbuild advisories
