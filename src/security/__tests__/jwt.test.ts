@@ -101,6 +101,48 @@ describe("verifyJwt", () => {
     serveJwks({ ...jwk, kid: "different" });
     expect(await verifyJwt(token)).toMatchObject({ valid: false, reason: "no matching key" });
   });
+
+  test("recovers from an IdP key rotation by refetching once on an unknown kid", async () => {
+    configure();
+    const { token, jwk } = await makeToken(
+      { sub: "u1", iss: "https://issuer", aud: "my-api", exp: future() },
+      "rotated-key",
+    );
+    // First fetch returns a STALE JWKS (missing the token's kid, as right after a
+    // rotation); the forced refetch returns the fresh set that includes it.
+    let calls = 0;
+    __setJwtDepsForTesting({
+      fetch: (async () => {
+        calls++;
+        const keys = calls === 1 ? [{ ...jwk, kid: "old-key" }] : [jwk];
+        return new Response(JSON.stringify({ keys }), { status: 200 });
+      }) as unknown as typeof fetch,
+    });
+    const v = await verifyJwt(token);
+    expect(v.valid).toBe(true);
+    expect(calls).toBe(2); // initial (miss) + exactly one forced refetch
+  });
+
+  test("rate-limits the forced refetch: repeated unknown kids don't refetch again within the cooldown", async () => {
+    configure();
+    const { token } = await makeToken(
+      { sub: "u1", iss: "https://issuer", aud: "my-api", exp: future() },
+      "never-served",
+    );
+    let calls = 0;
+    __setJwtDepsForTesting({
+      fetch: (async () => {
+        calls++;
+        return new Response(JSON.stringify({ keys: [{ kid: "something-else" }] }), { status: 200 });
+      }) as unknown as typeof fetch,
+    });
+    // First unknown-kid verify: initial fetch + one forced refetch = 2 calls.
+    expect(await verifyJwt(token)).toMatchObject({ valid: false, reason: "no matching key" });
+    expect(calls).toBe(2);
+    // A second unknown-kid verify inside the cooldown must NOT refetch again.
+    expect(await verifyJwt(token)).toMatchObject({ valid: false, reason: "no matching key" });
+    expect(calls).toBe(2);
+  });
 });
 
 // Reusable building blocks factored out for OIDC ID-token verification (see
