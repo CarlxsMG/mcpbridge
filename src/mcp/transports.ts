@@ -45,10 +45,12 @@ function scopeKey(scope: McpServerScope): string {
   return scope.kind === "system" ? "system" : `${scope.kind}:${scope.name}`;
 }
 
-// Atomic session counter — incremented as a reservation BEFORE map insert,
-// decremented on every cleanup path (onclose, TTL eviction, error rollback,
-// explicit DELETE, graceful shutdown). Because Node/Bun is single-threaded,
-// ++ and -- between awaits are atomic at the JS level; no lock is needed.
+// Atomic session counter — incremented as a reservation BEFORE map insert
+// (see handleStreamablePost), released exactly once per session by
+// releaseSession() below. The pre-insert failure path rolls the reservation
+// back directly (no map entry exists yet to key off). Because Node/Bun is
+// single-threaded, ++ and -- between awaits are atomic at the JS level; no
+// lock is needed.
 let activeSessionCount = 0;
 
 // Session activity tracking for TTL cleanup
@@ -56,6 +58,23 @@ const sessionActivity = new Map<string, number>();
 
 function touchSession(sessionId: string): void {
   sessionActivity.set(sessionId, Date.now());
+}
+
+/**
+ * Releases a live session's slot exactly once. The counter is decremented ONLY
+ * when this call is the one that actually removes the session from the map, so
+ * the transport's own `onclose` (invoked synchronously by `transport.close()`)
+ * and the explicit TTL / DELETE / shutdown paths that trigger it can't
+ * double-count a single departure — whichever runs first does the accounting,
+ * the rest are idempotent no-ops. (Double-counting previously let the counter
+ * drift below the true live count until the `maxSessions` cap stopped
+ * rejecting new sessions.)
+ */
+function releaseSession(sessionId: string): void {
+  const removed = streamableSessions.delete(sessionId);
+  sessionActivity.delete(sessionId);
+  sessionScope.delete(sessionId);
+  if (removed) activeSessionCount = Math.max(0, activeSessionCount - 1);
 }
 
 // Session cleanup loop — removes zombie sessions
@@ -71,11 +90,11 @@ function startSessionCleanup(): void {
           try {
             streamable.close();
           } catch {}
-          streamableSessions.delete(id);
-          sessionScope.delete(id);
-          activeSessionCount = Math.max(0, activeSessionCount - 1);
         }
-        sessionActivity.delete(id);
+        // Single idempotent release — close() above fires onclose, which also
+        // releases; whichever runs first decrements, the other is a no-op.
+        // Also drops a stale sessionActivity entry with no live transport.
+        releaseSession(id);
       }
     }
   }, 60_000);
@@ -156,15 +175,12 @@ async function handleStreamablePost(req: Request, res: Response, scope: McpServe
         sessionIdGenerator: () => randomUUID(),
       });
 
-      // When the transport closes, remove it from the map and release reservation
+      // When the transport closes, release its slot. This is the primary owner
+      // of session accounting; the explicit TTL/DELETE/shutdown paths call
+      // releaseSession too, but it is idempotent so a departure counts once.
       transport.onclose = () => {
         const sid = streamableSessionIdByTransport.get(transport!);
-        if (sid !== undefined) {
-          streamableSessions.delete(sid);
-          sessionActivity.delete(sid);
-          sessionScope.delete(sid);
-          activeSessionCount = Math.max(0, activeSessionCount - 1);
-        }
+        if (sid !== undefined) releaseSession(sid);
       };
 
       const server = createMcpServer(scope);
@@ -261,9 +277,9 @@ async function handleStreamableDelete(req: Request, res: Response, scope: McpSer
     return;
   }
   await transport.handleRequest(req, res);
-  streamableSessions.delete(sessionId);
-  sessionScope.delete(sessionId);
-  activeSessionCount = Math.max(0, activeSessionCount - 1);
+  // handleRequest for a DELETE closes the transport internally → onclose →
+  // releaseSession; this explicit call is the idempotent backstop.
+  releaseSession(sessionId);
 }
 
 export function setupTransports(app: Express): () => void {
@@ -352,9 +368,7 @@ export function setupTransports(app: Express): () => void {
       try {
         transport.close();
       } catch {}
-      streamableSessions.delete(id);
-      sessionScope.delete(id);
-      activeSessionCount = Math.max(0, activeSessionCount - 1);
+      releaseSession(id);
     }
   };
 }

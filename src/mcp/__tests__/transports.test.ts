@@ -208,3 +208,73 @@ describe("transports — POST /mcp new session respects maxSessions cap", () => 
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// TEST 7: DELETE releases exactly one session slot — the double-decrement
+// regression. Establishes two REAL sessions (full initialize handshake), then
+// deletes one and asserts the counter drops by exactly one. The pre-fix code
+// decremented twice per departure (the transport's onclose AND the explicit
+// DELETE/TTL/shutdown handler), which — with two live sessions — dropped the
+// counter to the baseline while a session was still live, silently defeating
+// the maxSessions cap. The Math.max(0, …) clamp masked this on a single
+// session, so only the two-session case distinguishes the bug from the fix.
+// ---------------------------------------------------------------------------
+
+/** Full initialize → notifications/initialized handshake on the /mcp system scope. Returns the session id. */
+async function initSystemSession(): Promise<string> {
+  const initRes = await fetch(`${baseUrl}/mcp`, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...AUTH_HEADER },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "initialize",
+      id: 1,
+      params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+    }),
+  });
+  const sessionId = initRes.headers.get("mcp-session-id");
+  if (initRes.status !== 200 || !sessionId) throw new Error(`initialize failed: status=${initRes.status}`);
+  await fetch(`${baseUrl}/mcp`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "mcp-session-id": sessionId,
+      ...AUTH_HEADER,
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+  });
+  return sessionId;
+}
+
+describe("transports — DELETE releases exactly one session slot (no double-decrement)", () => {
+  test("deleting one of two live sessions leaves the counter at exactly one", async () => {
+    const { getActiveSessionCount } = await import("../../mcp/transports.js");
+    const cleanup = await startApp();
+    try {
+      const before = getActiveSessionCount();
+
+      const a = await initSystemSession();
+      const b = await initSystemSession();
+      expect(getActiveSessionCount()).toBe(before + 2);
+
+      // Delete one; the other stays live. Pre-fix, this decremented twice.
+      const del = await fetch(`${baseUrl}/mcp`, { method: "DELETE", headers: { "mcp-session-id": a, ...AUTH_HEADER } });
+      expect(del.status).toBeLessThan(300);
+      // Let onclose (fired inside handleRequest) and the trailing explicit
+      // release both settle before reading the counter.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(getActiveSessionCount()).toBe(before + 1);
+
+      const del2 = await fetch(`${baseUrl}/mcp`, {
+        method: "DELETE",
+        headers: { "mcp-session-id": b, ...AUTH_HEADER },
+      });
+      expect(del2.status).toBeLessThan(300);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(getActiveSessionCount()).toBe(before);
+    } finally {
+      await stopServer(cleanup);
+    }
+  });
+});

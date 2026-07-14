@@ -488,47 +488,33 @@ describe("handleStreamablePost — new-session reservation increments the counte
 });
 
 // ---------------------------------------------------------------------------
-// 160:33-168:8 (onclose body emptied), 162:13-162:30 (x2, the `sid !==
-// undefined` guard), 162:32-167:10 (guarded block emptied), 166:32-166:67 and
-// 166:44-166:66 (the `activeSessionCount = Math.max(0, activeSessionCount -
-// 1)` decrement inside onclose) — the transport.onclose handler installed
-// during new-session creation.
+// The transport.onclose handler installed during new-session creation (~L160)
+// and releaseSession()'s decrement, exercised end-to-end via DELETE.
 //
-// Investigated two ways whether/when the SDK's transport actually invokes
-// onclose through the public HTTP surface:
-//   1. Ending the underlying HTTP connection client-side (res.body reader
-//      cancel / socket destroy) — not pursued further once (2) below gave a
-//      clean, deterministic, single-request signal.
-//   2. A DELETE request. Confirmed by reading
-//      node_modules/@modelcontextprotocol/sdk/dist/cjs/server/webStandardStreamableHttp.js:
-//      `handleDeleteRequest` (L570-580) itself calls `await this.close()`
-//      (L580), and `close()` (L633-641) calls `this.onclose?.()` (L641) —
-//      i.e. a plain DELETE *does* fire our onclose handler, synchronously
-//      inside the `await transport.handleRequest(req, res)` call at L261 of
-//      transports.ts, i.e. BEFORE handleStreamableDelete's own explicit
-//      cleanup at L262-264 runs.
+// A DELETE fires onclose synchronously inside the awaited
+// `transport.handleRequest(req, res)` — the SDK's handleDeleteRequest calls
+// `this.close()`, which invokes `this.onclose?.()` — and then
+// handleStreamableDelete's own explicit releaseSession runs. Both call
+// releaseSession, but it decrements ONLY when it is the call that actually
+// removed the session from the map, so DELETE-ing ONE of two independent
+// sessions drops activeSessionCount by exactly ONE (the former double-decrement
+// bug is fixed), and the untouched session stays fully live — proving the `sid`
+// resolved inside onclose is that session's own id (via
+// streamableSessionIdByTransport) and doesn't leak across transports. A flipped
+// `sid !== undefined` guard, a negated decrement, or a broken `if (removed)`
+// gate all diverge the delta or session-B liveness from what the real file
+// produces.
 //
-// This produces an empirically-verified, deterministic real-code behavior:
-// with two independent active sessions, DELETE-ing ONE of them decrements
-// activeSessionCount by TWO, not one — onclose's own decrement (L166) fires
-// first (during the awaited handleRequest), then handleStreamableDelete's
-// own separate decrement (L264, outside this file's test scope) fires again
-// right after. This is pre-existing behavior of the file under test (not
-// something this test suite is permitted to fix, and not itself a target of
-// this cluster) — verified by hand-running it against the real,
-// un-mutated file before relying on it. It is used here purely as a
-// reliable way to prove the onclose handler's body (L160-168) really runs
-// via the public HTTP surface and really does its documented cleanup work
-// (map deletions + counter decrement): if L160-168's body were emptied, or
-// the `sid !== undefined` guard were flipped, or the decrement were negated
-// into an increment, DELETE-ing one of two sessions would decrement the
-// counter by ONE (the normal-looking, but here actually wrong, amount) or
-// leave it unchanged/increased — not by the two we observe from the real
-// file — which is exactly the divergence this test asserts against.
+// Note: because onclose and the explicit DELETE path are now idempotently
+// redundant, an "onclose body emptied" mutant no longer changes the DELETE
+// delta (the explicit release covers it) — that mutant only manifests on the
+// pure client-disconnect path (session lingers until the TTL sweep), which is
+// not deterministically drivable through the HTTP surface, consistent with this
+// file's other equivalence notes.
 // ---------------------------------------------------------------------------
 
-describe("transport.onclose — proven reachable via DELETE, real cleanup work observed (L160-168)", () => {
-  test("DELETE-ing one of two active sessions decrements activeSessionCount by 2 (onclose fires once via the SDK's internal close(), then the DELETE handler's own separate cleanup fires again)", async () => {
+describe("transport.onclose + releaseSession — reachable via DELETE, single idempotent release (~L160)", () => {
+  test("DELETE-ing one of two active sessions decrements activeSessionCount by exactly 1 (onclose + the explicit release are idempotently redundant, not additive)", async () => {
     await reg("t2-onclose-a");
     await reg("t2-onclose-b");
     const { getActiveSessionCount } = await import("../../mcp/transports.js");
@@ -549,7 +535,7 @@ describe("transport.onclose — proven reachable via DELETE, real cleanup work o
       expect(delRes.status).toBe(200);
 
       const afterDelete = getActiveSessionCount();
-      expect(afterHandshakes - afterDelete).toBe(2);
+      expect(afterHandshakes - afterDelete).toBe(1);
 
       // Session B (never touched) must be completely unaffected by A's
       // onclose/cleanup running — proves the `sid` resolved inside onclose

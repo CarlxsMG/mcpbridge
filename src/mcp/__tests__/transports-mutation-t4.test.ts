@@ -419,30 +419,25 @@ describe("DELETE /mcp/:clientName — a second DELETE of the same session (docum
 });
 
 // ---------------------------------------------------------------------------
-// L264:24-264:59 MethodExpression and L264:36-264:58 ArithmeticOperator —
-// Math.max(0, activeSessionCount - 1) at the end of a successful DELETE.
+// releaseSession()'s decrement — Math.max(0, activeSessionCount - 1), gated on
+// whether this call actually removed the session from the map.
 //
-// IMPORTANT — empirically observed, NOT the naive "decreases by exactly 1"
-// assumption: a successful DELETE actually decrements activeSessionCount
-// TWICE. handleStreamableDelete awaits `transport.handleRequest(req, res)`,
-// and the SDK's own DELETE handler (webStandardStreamableHttp.js's
-// handleDeleteRequest) calls `await this.close()` internally, which fires
-// the `transport.onclose` callback transports.ts registered at session
-// creation (L160-168) — that callback ALREADY does the full
-// streamableSessions/sessionActivity/sessionScope/activeSessionCount
-// cleanup once. THEN, after handleRequest resolves, handleStreamableDelete's
-// own L261-264 run a SECOND time, decrementing activeSessionCount again
-// (the map deletes at L262-263 are harmless no-ops at that point, but the
-// counter arithmetic at L264 is not idempotent). With only one active
-// session this double-decrement is invisible — the Math.max(0, ...) floor
-// clamps both hits to the same final 0 — so a naive single-session test
-// would pass even against a mutant that broke the arithmetic. Using
-// multiple concurrent sessions avoids that clamp-masking and pins down the
-// real delta.
+// A successful DELETE releases the session exactly ONCE, even though two paths
+// run: handleStreamableDelete awaits `transport.handleRequest(req, res)`, and
+// the SDK's own DELETE handler calls `this.close()` internally, firing the
+// `transport.onclose` callback transports.ts registered at session creation
+// (~L160) → releaseSession. THEN handleStreamableDelete's own explicit
+// releaseSession runs. Because releaseSession only decrements when its own
+// `streamableSessions.delete()` returned true, whichever call runs first does
+// the accounting and the other is an idempotent no-op — so the counter tracks
+// live sessions exactly. (This is the fix for a former double-decrement that
+// let the counter drift below the true live count until the maxSessions cap
+// stopped rejecting new sessions.) Deltas are used throughout because
+// activeSessionCount is a module global shared across the whole test process.
 // ---------------------------------------------------------------------------
 
-describe("DELETE /mcp/:clientName — activeSessionCount decrement (L264)", () => {
-  test("deleting one of three active sessions drops the count by exactly 2 (double-cleanup, not floor-masked)", async () => {
+describe("DELETE /mcp/:clientName — activeSessionCount release is idempotent (single decrement)", () => {
+  test("deleting one of three active sessions drops the count by exactly 1 (no double-cleanup)", async () => {
     await startApp();
     await reg("client-a");
     const { getActiveSessionCount } = await import("../../mcp/transports.js");
@@ -464,32 +459,31 @@ describe("DELETE /mcp/:clientName — activeSessionCount decrement (L264)", () =
     expect(res.status).toBe(200);
 
     const after = getActiveSessionCount();
-    // If L264's arithmetic operator were flipped ("-" -> "+"), `after`
-    // would be >= `before` instead of two less than it. If the Math.max
-    // wrapper (MethodExpression) were stripped or altered, this specific
-    // case wouldn't reveal it (only the floor test below does), but the
-    // exact-delta assertion here still pins the real arithmetic outcome.
-    expect(before - after).toBe(2);
+    // Exactly one release. If releaseSession's `if (removed)` gate were forced
+    // always-true, both the onclose call and the explicit call would decrement
+    // → delta 2. If the `- 1` were flipped to `+ 1`, the delta would be negative.
+    expect(before - after).toBe(1);
     expect(after).toBeGreaterThanOrEqual(0);
   });
 
-  test("a single-session DELETE floors the count at 0, never negative (Math.max floor)", async () => {
+  test("a single-session DELETE releases exactly one slot and never goes negative (Math.max floor)", async () => {
     await startApp();
     await reg("client-a");
     const { getActiveSessionCount } = await import("../../mcp/transports.js");
 
     const sessionId = await initSession("/mcp/client-a");
     expect(sessionId).not.toBeNull();
-    expect(getActiveSessionCount()).toBe(1);
+    const before = getActiveSessionCount();
 
     const res = await fetch(`${baseUrl}/mcp/client-a`, {
       method: "DELETE",
       headers: { "mcp-session-id": sessionId! },
     });
     expect(res.status).toBe(200);
-    // The double-decrement (see the test above) would drive this to -1
-    // without the Math.max(0, ...) floor — stripping the floor
-    // (MethodExpression) surfaces here as a negative count instead of 0.
-    expect(getActiveSessionCount()).toBe(0);
+    const after = getActiveSessionCount();
+    expect(before - after).toBe(1);
+    // The Math.max(0, …) floor keeps the counter non-negative even if a stray
+    // release ever ran without a matching reservation.
+    expect(after).toBeGreaterThanOrEqual(0);
   });
 });
