@@ -196,6 +196,19 @@ async function handleStreamablePost(req: Request, res: Response, scope: McpServe
         sessionScope.set(transport.sessionId, scopeKey(scope));
         transportInserted = true;
         touchSession(transport.sessionId);
+      } else {
+        // The POST carried no session header but wasn't a valid `initialize`
+        // either: the SDK answered it (e.g. a 400) WITHOUT throwing and never
+        // assigned a sessionId, so no session exists to track. Roll back the
+        // reservation taken at `activeSessionCount++` above and close the orphan
+        // transport — the catch below only fires on a throw, so without this
+        // every non-initialize sessionless POST (a stray tools/list, a client
+        // that lost its session) leaks a slot permanently, and after maxSessions
+        // such requests the gateway rejects ALL new sessions with 503 "at
+        // capacity" until restart. The transport was never inserted into
+        // streamableSessionIdByTransport, so its onclose can't double-decrement.
+        activeSessionCount = Math.max(0, activeSessionCount - 1);
+        await transport.close().catch(() => {});
       }
     } else {
       // Session ID provided but not found — expired

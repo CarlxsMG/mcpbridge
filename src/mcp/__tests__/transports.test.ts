@@ -210,6 +210,44 @@ describe("transports — POST /mcp new session respects maxSessions cap", () => 
 });
 
 // ---------------------------------------------------------------------------
+// TEST 6b: a sessionless POST that is NOT a valid `initialize` must not leak a
+// session slot. The SDK answers such a request (e.g. a stray tools/list) with a
+// 400 WITHOUT throwing and WITHOUT assigning a session id, so the up-front
+// activeSessionCount++ reservation is neither stored nor rolled back by the
+// catch — the no-session `else` branch must release it. Pre-fix, each such
+// request leaked one slot; after maxSessions of them the gateway 503s ALL new
+// sessions until restart (a permanent, trivially-triggered DoS).
+// ---------------------------------------------------------------------------
+
+describe("transports — a non-initialize sessionless POST does not leak a session slot", () => {
+  test("activeSessionCount is unchanged after a sessionless tools/list POST", async () => {
+    const { getActiveSessionCount } = await import("../../mcp/transports.js");
+    const cleanup = await startApp();
+    try {
+      const before = getActiveSessionCount();
+      const res = await fetch(`${baseUrl}/mcp`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          ...AUTH_HEADER,
+        },
+        // Well-formed JSON-RPC, but not `initialize`, and no mcp-session-id.
+        body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 1 }),
+      });
+      // The SDK rejects it as a client error (no valid session / not an init).
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      // Let any transport.close()/onclose settle, then assert the reservation
+      // was released — no leak.
+      await new Promise((r) => setTimeout(r, 15));
+      expect(getActiveSessionCount()).toBe(before);
+    } finally {
+      await stopServer(cleanup);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // TEST 7: DELETE releases exactly one session slot — the double-decrement
 // regression. Establishes two REAL sessions (full initialize handshake), then
 // deletes one and asserts the counter drops by exactly one. The pre-fix code
