@@ -128,6 +128,11 @@ bun run dev:all                      # backend :8790 + admin UI :8791
 > default of 3000 — high, uncommon ports so a local dev server doesn't clash with 3000 (or a
 > real gateway instance) you might also have running. See [Configuration](https://aico-dot-team-code.github.io/mcpbridge/guide/configuration) for the full port reference.
 
+> **Every `curl`, client-config, and `cli --url` example below uses `http://localhost:3000`**
+> (the Docker port). On the Bun path the backend is on `:8790` instead — set
+> `export BASE=http://localhost:8790` and swap `$BASE` in for `http://localhost:3000`, or just
+> replace the port by hand.
+
 ### Register your first REST API (auto-discovered from OpenAPI)
 
 From the UI: **Add server → REST**, paste an OpenAPI URL, done. Or via the API:

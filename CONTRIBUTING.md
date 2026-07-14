@@ -144,8 +144,9 @@ change in, if there was one.
 Before opening a PR, please confirm:
 
 - [ ] `bun run check` passes — the one-shot local CI gate (format:check → root lint →
-      admin-ui lint → admin-ui i18n parity → root typecheck → root tests → admin-ui typecheck →
-      admin-ui tests → admin-ui build, in order). Run this before opening a PR; it's what CI actually checks.
+      admin-ui lint → admin-ui i18n parity → root typecheck → root typecheck (tools) → root tests →
+      admin-ui typecheck → admin-ui tests → admin-ui build, in order). Run this before opening a PR;
+      it's what CI actually checks.
 - [ ] If `bun run check` fails, the granular commands below can help narrow down which stage:
   - [ ] `bun run test` passes (backend)
   - [ ] `bun run typecheck` passes (backend)

@@ -77,8 +77,8 @@ bun run check
 ```
 
 Runs the full gate in order — format check → root lint → admin-ui lint → admin-ui i18n parity →
-root typecheck → root tests → admin-ui typecheck → admin-ui tests → admin-ui build — stopping at the first
-failure. This is what CI runs; treat a clean `bun run check` as the actual bar for "ready to
+root typecheck → root typecheck (tools) → root tests → admin-ui typecheck → admin-ui tests →
+admin-ui build — stopping at the first failure. This is what CI runs; treat a clean `bun run check` as the actual bar for "ready to
 open a PR," not just a green package-scoped run.
 
 ## Code style & conventions

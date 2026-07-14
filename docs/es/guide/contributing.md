@@ -80,8 +80,8 @@ bun run check
 ```
 
 Ejecuta el gate completo en orden — check de formato → root lint → admin-ui lint →
-admin-ui i18n parity → root typecheck → root tests → admin-ui typecheck → admin-ui tests →
-admin-ui build —
+admin-ui i18n parity → root typecheck → root typecheck (tools) → root tests → admin-ui typecheck →
+admin-ui tests → admin-ui build —
 deteniéndose en el primer fallo. Esto es lo que corre CI; trata un `bun run check`
 limpio como la barra real para "listo para abrir un PR", no solo un run package-scoped
 verde.

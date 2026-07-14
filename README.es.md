@@ -140,6 +140,11 @@ bun run dev:all                      # backend :8790 + admin UI :8791
 > ejecutándose. Consulta [Configuración](https://aico-dot-team-code.github.io/mcpbridge/guide/configuration)
 > para la referencia completa de puertos.
 
+> **Todos los ejemplos de `curl`, config de cliente y `cli --url` de abajo usan
+> `http://localhost:3000`** (el puerto de Docker). En la ruta Bun el backend está en `:8790` en
+> su lugar — define `export BASE=http://localhost:8790` y sustituye `$BASE` por
+> `http://localhost:3000`, o simplemente reemplaza el puerto a mano.
+
 ### Registra tu primera API REST (auto-descubierta desde OpenAPI)
 
 Desde la UI: **Añadir servidor → REST**, pega una URL de OpenAPI, listo. O vía API:
