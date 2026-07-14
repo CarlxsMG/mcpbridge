@@ -49,6 +49,9 @@ data/
 /playwright-report/
 /blob-report/
 
+# Coverage reports (vitest --coverage in admin-ui; regenerated on demand)
+coverage/
+
 # AICO artifacts
 .aico/
 

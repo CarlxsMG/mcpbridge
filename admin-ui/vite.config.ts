@@ -67,5 +67,18 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
+    coverage: {
+      provider: "v8",
+      // Ratchet floor: set a few points below the current numbers so the gate can't
+      // silently decay the (still-thin) admin-UI coverage, and can be raised as page
+      // and composable tests are added. `bun run test:coverage` locally; CI enforces
+      // it on every push/PR. The root backend project already gates at 90/85.
+      thresholds: {
+        lines: 65,
+        statements: 62,
+        functions: 58,
+        branches: 48,
+      },
+    },
   },
 });
