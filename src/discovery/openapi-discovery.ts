@@ -106,9 +106,24 @@ export async function discoverToolsFromOpenApi(options: {
 
   const doc = schema as unknown as OpenAPIV3.Document;
 
-  // 4. Extract base path
+  // 4. Extract base path. The spec's server URL carries the API's path prefix,
+  //    which every operation path is relative to. A relative server URL ("/api/v3")
+  //    is used verbatim; an ABSOLUTE one ("https://host/api/v3" — the common real
+  //    shape for Petstore/Stripe/GitHub) contributes only its pathname, since its
+  //    origin is handled by the client's base_url. Previously the absolute case was
+  //    dropped entirely, so every discovered endpoint lost its "/api/v3" prefix and
+  //    404'd once proxied.
   const serverUrl = doc.servers?.[0]?.url ?? "";
-  const basePath = serverUrl.startsWith("/") ? serverUrl.replace(/\/$/, "") : "";
+  let basePath = "";
+  if (serverUrl.startsWith("/")) {
+    basePath = serverUrl.replace(/\/$/, "");
+  } else if (serverUrl) {
+    try {
+      basePath = new URL(serverUrl).pathname.replace(/\/$/, "");
+    } catch {
+      basePath = ""; // malformed absolute server URL — no usable base path
+    }
+  }
 
   // 5. Map operations
   const tools: RestToolDefinition[] = [];

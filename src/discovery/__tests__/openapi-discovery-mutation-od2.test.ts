@@ -254,8 +254,8 @@ describe("discoverToolsFromOpenApi — basePath: relative server URL with traili
   });
 });
 
-describe("discoverToolsFromOpenApi — basePath: absolute server URL is not used as a prefix", () => {
-  test("an absolute (non-relative) server URL falls back to an empty basePath", async () => {
+describe("discoverToolsFromOpenApi — basePath: absolute server URL contributes its pathname", () => {
+  test("an absolute server URL's path prefix is used, but never its scheme/host", async () => {
     const spec = {
       openapi: "3.0.0",
       info: { title: "t", version: "1.0.0" },
@@ -270,13 +270,11 @@ describe("discoverToolsFromOpenApi — basePath: absolute server URL is not used
 
     const { discoverToolsFromOpenApi } = await import("../../discovery/openapi-discovery.js");
     const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
-    // "https://example.com/api" does not start with "/", so basePath must be "" —
-    // NOT the absolute URL itself. Kills the startsWith("/")->endsWith("/") swap
-    // (which would flip false->true here since the URL doesn't end with "/" either,
-    // so combined with the "/api/v1/" case above the two together isolate the exact
-    // startsWith("/") semantics) and any placeholder-string mutant that would leak a
-    // literal into the endpoint.
-    expect(tools.map((t) => t.endpoint)).toEqual(["/items/:id"]);
+    // "https://example.com/api" -> basePath "/api" (its PATHNAME, not the whole URL):
+    // the operation path is relative to the server URL's path, so the prefix must be
+    // kept, or every proxied call 404s. The origin (scheme+host) is still excluded —
+    // that comes from the client's base_url, not the endpoint.
+    expect(tools.map((t) => t.endpoint)).toEqual(["/api/items/:id"]);
     expect(tools[0].endpoint).not.toContain("example.com");
     expect(tools[0].endpoint).not.toContain("https");
   });
