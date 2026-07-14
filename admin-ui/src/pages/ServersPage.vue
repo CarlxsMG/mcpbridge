@@ -261,7 +261,7 @@ onMounted(() => load());
     <form class="filters" @submit.prevent="applyFilters">
       <div class="field">
         <label for="d-search">{{ t("common.search") }}</label>
-        <SearchInput v-model="q" :placeholder="t('pages.servers.search_placeholder')" />
+        <SearchInput id="d-search" v-model="q" :placeholder="t('pages.servers.search_placeholder')" />
       </div>
       <div class="field">
         <label for="d-state">{{ t("pages.servers.state_label") }}</label>
@@ -314,6 +314,7 @@ onMounted(() => load());
               <input
                 type="checkbox"
                 :checked="selected.size > 0 && selected.size === items.length"
+                :indeterminate.prop="selected.size > 0 && selected.size < items.length"
                 :aria-label="t('pages.servers.aria.select_all')"
                 @change="toggleSelectAll"
               />

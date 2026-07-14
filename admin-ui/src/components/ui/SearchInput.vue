@@ -2,7 +2,7 @@
 import { Search } from "lucide-vue-next";
 import { useI18n } from "vue-i18n";
 
-defineProps<{ placeholder?: string; ariaLabel?: string }>();
+defineProps<{ placeholder?: string; ariaLabel?: string; id?: string }>();
 const model = defineModel<string>({ default: "" });
 const { t } = useI18n({ useScope: "global" });
 </script>
@@ -11,6 +11,7 @@ const { t } = useI18n({ useScope: "global" });
   <div class="search-input">
     <Search :size="15" stroke-width="2" aria-hidden="true" />
     <input
+      :id="id"
       v-model="model"
       type="search"
       :placeholder="placeholder"

@@ -102,7 +102,7 @@ async function confirmDelete() {
       <RouterLink to="/policies/new" class="btn-primary">{{ t("pages.policies.create") }}</RouterLink>
     </PageHeader>
 
-    <p v-if="notice" class="notice">{{ notice }}</p>
+    <p v-if="notice" class="notice" role="status">{{ notice }}</p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="policies.length === 0">
       <template #empty>

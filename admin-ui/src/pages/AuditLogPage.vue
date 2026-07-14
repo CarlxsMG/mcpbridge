@@ -151,13 +151,22 @@ onMounted(() => {
     <form class="filters" @submit.prevent="applyFilter">
       <div class="field">
         <label for="actor-filter">{{ t("pages.audit_log.filter.actor") }}</label>
-        <SearchInput v-model="actorFilter" :placeholder="t('pages.audit_log.filter.actor_placeholder')" />
+        <SearchInput
+          id="actor-filter"
+          v-model="actorFilter"
+          :placeholder="t('pages.audit_log.filter.actor_placeholder')"
+        />
       </div>
 
       <div class="field">
         <label for="action-filter">{{ t("pages.audit_log.filter.action") }}</label>
         <SelectMenu v-if="knownActions.length" id="action-filter" v-model="actionFilter" :options="actionOptions" />
-        <SearchInput v-else v-model="actionFilter" :placeholder="t('pages.audit_log.filter.action_placeholder')" />
+        <SearchInput
+          v-else
+          id="action-filter"
+          v-model="actionFilter"
+          :placeholder="t('pages.audit_log.filter.action_placeholder')"
+        />
       </div>
 
       <div class="field">
