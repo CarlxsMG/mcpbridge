@@ -3,8 +3,10 @@
 **/*.test.ts
 **/*.spec.ts
 
-# Dev artifacts
-node_modules
+# Dev artifacts (** so nested admin-ui/node_modules is excluded too — a bare
+# `node_modules` only matches the root copy in Docker, letting host-platform
+# binaries leak into the Linux image via `COPY admin-ui/ ./`)
+**/node_modules
 .git
 .gitignore
 .github
@@ -27,7 +29,7 @@ docker-compose*.yml
 
 # Logs / coverage / dist
 *.log
-dist/
+**/dist
 
 # SQLite (admin config store) — never bake local dev DB into the image
 data/
