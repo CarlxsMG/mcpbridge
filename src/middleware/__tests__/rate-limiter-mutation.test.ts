@@ -326,18 +326,18 @@ describe("rateLimitGlobal", () => {
 });
 
 describe("rateLimitMcp", () => {
-  // 240:7-242:55 ConditionalExpression [Survived] (the whole `(header) ||
-  // (query) || normalizeIp(...)` sessionId fallback chain forced to the
-  // literal `false`). Under the mutant EVERY caller collapses onto the same
-  // "mcp:false" bucket regardless of their real session — two distinct
-  // session ids must produce two distinct bucket keys.
-  test("keys buckets by the real mcp-session-id header, not a mutated constant", () => {
+  // The (client-controlled) session id SUBDIVIDES a source IP's allowance: two
+  // distinct session ids from the same IP must produce two distinct per-session
+  // bucket keys (kills any mutant that collapses the sessionId onto a constant),
+  // while both share the per-IP ceiling bucket.
+  test("subdivides an IP's allowance by the real mcp-session-id header, not a mutated constant", () => {
     mcpBuckets.clear();
     const mw = rateLimitMcp(10);
-    mw(makeReq({ headers: { "mcp-session-id": "session-A" } }), makeFakeRes().res, makeNext().fn);
-    mw(makeReq({ headers: { "mcp-session-id": "session-B" } }), makeFakeRes().res, makeNext().fn);
-    expect(mcpBuckets.has("mcp:session-A")).toBe(true);
-    expect(mcpBuckets.has("mcp:session-B")).toBe(true);
+    mw(makeReq({ ip: "5.5.5.5", headers: { "mcp-session-id": "session-A" } }), makeFakeRes().res, makeNext().fn);
+    mw(makeReq({ ip: "5.5.5.5", headers: { "mcp-session-id": "session-B" } }), makeFakeRes().res, makeNext().fn);
+    expect(mcpBuckets.has("mcp:5.5.5.5:session-A")).toBe(true);
+    expect(mcpBuckets.has("mcp:5.5.5.5:session-B")).toBe(true);
+    expect(mcpBuckets.has("mcp_ip:5.5.5.5")).toBe(true); // shared per-IP ceiling
   });
 
   // 244:82-244:87 StringLiteral [Survived] ("mcp" tier emptied) / 244:95-
@@ -360,17 +360,16 @@ describe("rateLimitMcp", () => {
     expect(rateLimitHits.render()).toContain('{tier="mcp"}');
   });
 
-  // 242:19-242:54 LogicalOperator [Survived] (`req.ip ?? req.socket?.
-  // remoteAddress` flipped to `&&`, in the sessionId fallback's final leg).
-  // Same divergence-only-when-left-is-truthy reasoning as
-  // rateLimitInstallLink's identical fallback.
-  test("falls back to req.ip directly (not overridden by a different socket.remoteAddress) when no session-id header/query is present", () => {
+  // The per-IP ceiling keys off `req.ip ?? req.socket?.remoteAddress` — req.ip
+  // must win when present (not be overridden by a different socket.remoteAddress).
+  // With no session id present, only the per-IP ceiling bucket is created.
+  test("keys the per-IP ceiling by req.ip directly (not by socket.remoteAddress) when no session-id is present", () => {
     mcpBuckets.clear();
     const mw = rateLimitMcp(10);
     const req = makeReq({ ip: "7.7.7.7", socket: { remoteAddress: "8.8.8.8" } });
     mw(req, makeFakeRes().res, makeNext().fn);
-    expect(mcpBuckets.has("mcp:7.7.7.7")).toBe(true);
-    expect(mcpBuckets.has("mcp:8.8.8.8")).toBe(false);
+    expect(mcpBuckets.has("mcp_ip:7.7.7.7")).toBe(true);
+    expect(mcpBuckets.has("mcp_ip:8.8.8.8")).toBe(false);
   });
 });
 

@@ -234,16 +234,39 @@ export function rateLimitInstallLink(maxPerMinute: number) {
   };
 }
 
+// A single source IP may run several legitimate MCP sessions at once, so the
+// per-IP ceiling is this multiple of the per-session limit — enough headroom for
+// concurrent sessions, while still bounding a caller that rotates the (client-
+// controlled) session id to escape the per-session bucket.
+const MCP_IP_LIMIT_MULTIPLIER = 4;
+
 export function rateLimitMcp(maxPerMinute: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const sessionId =
-      (req.headers["mcp-session-id"] as string) ||
-      (req.query.sessionId as string) ||
-      normalizeIp(req.ip ?? req.socket?.remoteAddress);
-    const key = `mcp:${sessionId}`;
-    if (checkLimit(mcpBuckets, config.rateLimitMaxBucketsMcp, key, maxPerMinute, "mcp", res)) {
-      next();
+    const ip = normalizeIp(req.ip ?? req.socket?.remoteAddress);
+    const sessionId = (req.headers["mcp-session-id"] as string) || (req.query.sessionId as string) || "";
+    // Two tiers so the client-controlled session id can only SUBDIVIDE a source
+    // IP's allowance, never ESCAPE it. The per-IP ceiling is checked first: a
+    // caller sending a fresh random mcp-session-id per request would otherwise get
+    // a brand-new bucket every time and never trip the per-session limit (only the
+    // coarse global bucket backstopped it before).
+    if (
+      !checkLimit(
+        mcpBuckets,
+        config.rateLimitMaxBucketsMcp,
+        `mcp_ip:${ip}`,
+        maxPerMinute * MCP_IP_LIMIT_MULTIPLIER,
+        "mcp",
+        res,
+      )
+    ) {
+      return;
     }
+    if (sessionId) {
+      if (!checkLimit(mcpBuckets, config.rateLimitMaxBucketsMcp, `mcp:${ip}:${sessionId}`, maxPerMinute, "mcp", res)) {
+        return;
+      }
+    }
+    next();
   };
 }
 
