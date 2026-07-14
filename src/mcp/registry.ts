@@ -12,6 +12,7 @@ import type {
 import { sanitizeToolDescription } from "../content-filtering/sanitize.js";
 import { abortClientRequests } from "../proxy/proxy.js";
 import { removeCircuitBreaker, updateCircuitBreakerConfig } from "../middleware/circuit-breaker.js";
+import { clearLbState } from "../tool-policies/load-balancer.js";
 import { notifyToolsChanged } from "./mcp-server.js";
 import { getDb } from "../db/connection.js";
 import { purgeClientCache } from "../tool-policies/response-cache.js";
@@ -453,6 +454,10 @@ class Registry {
 
       // 2. Clean up circuit-breaker state
       removeCircuitBreaker(name);
+
+      // 2b. Drop load-balancer runtime state (round-robin cursor, per-target
+      // cooldown/in-flight) so it doesn't leak across client churn.
+      clearLbState(name);
 
       // 3. Drop any cached responses for this client's tools — otherwise a
       // stale (possibly pre-redaction-change or pre-backend-swap) entry can

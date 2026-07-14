@@ -196,6 +196,10 @@ export function updateUpstream(
 export function removeUpstream(clientName: string, id: number): { ok: true } | { ok: false; error: LbError } {
   const res = getDb().query(`DELETE FROM client_upstreams WHERE client_name = ? AND id = ?`).run(clientName, id);
   if (res.changes === 0) return { ok: false, error: "TARGET_NOT_FOUND" };
+  // Drop the removed pool's runtime state so its cooldown/in-flight entries don't
+  // linger (clears the whole client's LB state — the cursor/counts rebuild on the
+  // next selection).
+  clearLbState(clientName);
   return { ok: true };
 }
 
@@ -298,6 +302,20 @@ export function decInflight(key: string): void {
 }
 
 /** Test-only: reset all runtime state. */
+/**
+ * Drops all runtime LB state for a client — its round-robin cursor and every
+ * per-target cooldown/in-flight entry (keyed `clientName#baseUrl`). Called when a
+ * client is torn down or a target removed so these module Maps don't grow
+ * unbounded under client/target churn (the breaker and rate-limiter self-evict;
+ * LB had no such path). Deleting during Map iteration is well-defined.
+ */
+export function clearLbState(clientName: string): void {
+  rrCursor.delete(clientName);
+  const prefix = `${clientName}#`;
+  for (const key of cooldownUntil.keys()) if (key.startsWith(prefix)) cooldownUntil.delete(key);
+  for (const key of inflight.keys()) if (key.startsWith(prefix)) inflight.delete(key);
+}
+
 export function __resetLbForTesting(): void {
   rrCursor.clear();
   cooldownUntil.clear();
