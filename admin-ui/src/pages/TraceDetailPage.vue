@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { prettyJson } from "@/utils/format";
@@ -9,9 +8,9 @@ import type { StoredSpan } from "@/types/api";
 import { Waypoints } from "lucide-vue-next";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
+import PageHeader from "@/components/ui/PageHeader.vue";
 
 const props = defineProps<{ traceId: string }>();
-const router = useRouter();
 const { t } = useI18n({ useScope: "global" });
 
 const spans = ref<StoredSpan[] | null>(null);
@@ -27,10 +26,6 @@ async function loadDetail() {
 
 onMounted(loadDetail);
 watch(() => props.traceId, loadDetail);
-
-function backToList() {
-  router.push({ name: "traces" });
-}
 
 const waterfall = computed(() => {
   const rows = spans.value ?? [];
@@ -52,16 +47,16 @@ const waterfall = computed(() => {
 
 <template>
   <section>
-    <button type="button" class="link-btn back-link" @click="backToList">
-      &larr; {{ t("pages.traces.back_to_list") }}
-    </button>
+    <PageHeader
+      :title="t('pages.traces.detail_title', { id: traceId })"
+      :back-link="{ to: { name: 'traces' }, label: t('pages.traces.back_to_list') }"
+    />
     <ListLayout :loading="loading" :error="errorMessage" :empty="waterfall.rows.length === 0">
       <template #empty>
         <EmptyState :icon="Waypoints">{{ t("pages.traces.detail_not_found") }}</EmptyState>
       </template>
 
       <div class="waterfall-card">
-        <h2>{{ t("pages.traces.detail_title", { id: traceId }) }}</h2>
         <div class="waterfall">
           <div v-for="row in waterfall.rows" :key="row.span.id" class="waterfall-row">
             <div class="waterfall-label" :title="row.span.name">{{ row.span.name }}</div>
@@ -86,22 +81,12 @@ const waterfall = computed(() => {
 </template>
 
 <style scoped>
-.back-link {
-  display: inline-block;
-  margin-bottom: 1rem;
-}
 .waterfall-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
   padding: 1.25rem;
-}
-.waterfall-card h2 {
-  margin-top: 0;
-  font-size: 0.95rem;
-  font-family: var(--font-mono);
-  word-break: break-all;
 }
 .waterfall {
   display: flex;
@@ -152,13 +137,5 @@ const waterfall = computed(() => {
   padding: 0.6rem;
   border-radius: var(--radius-sm);
   overflow-x: auto;
-}
-.link-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 0.85rem;
-  padding: 0;
-  color: var(--signal-strong);
 }
 </style>

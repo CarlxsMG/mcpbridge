@@ -205,7 +205,7 @@ function confirmRemoveTarget() {
                 max="1000"
                 :value="target.weight"
                 :disabled="savingTargetId === target.id"
-                style="max-width: 5rem"
+                class="weight-input"
                 @change="updateTargetWeight(target, Number(($event.target as HTMLInputElement).value))"
               />
             </td>
@@ -270,3 +270,9 @@ function confirmRemoveTarget() {
     @cancel="cancelRemoveTarget"
   />
 </template>
+
+<style scoped>
+.weight-input {
+  max-width: 5rem;
+}
+</style>

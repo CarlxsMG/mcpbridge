@@ -490,7 +490,8 @@
       "save_aria": "Guardar la ejecución actual como ejemplo con nombre",
       "errors": {
         "test_failed": "La prueba falló.",
-        "save_failed": "Error al guardar el ejemplo."
+        "save_failed": "Error al guardar el ejemplo.",
+        "delete_example_failed": "Error al eliminar el ejemplo."
       }
     },
     "guard_editor": {

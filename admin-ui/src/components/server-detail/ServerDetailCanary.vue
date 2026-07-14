@@ -98,7 +98,7 @@ const {
       </label>
       <label
         >{{ t("components.server_detail_canary.fields.weight") }}
-        <input v-model.number="canaryForm.weight" type="number" min="1" max="100" style="max-width: 5.625rem"
+        <input v-model.number="canaryForm.weight" type="number" min="1" max="100" class="weight-input"
       /></label>
       <label class="inline-check"
         ><input v-model="canaryForm.enabled" type="checkbox" />
@@ -119,3 +119,9 @@ const {
     @cancel="cancelClearCanary"
   />
 </template>
+
+<style scoped>
+.weight-input {
+  max-width: 5.625rem;
+}
+</style>

@@ -28,6 +28,15 @@ function copyText() {
     <Check v-if="copied" :size="14" stroke-width="2" aria-hidden="true" />
     <Copy v-else :size="14" stroke-width="2" aria-hidden="true" />
     <template v-if="label">{{ copied ? t("common.copied") : label }}</template>
+    <!-- Announce copy-success to assistive tech: a focused button silently
+         swapping its aria-label isn't reliably re-announced. Teleported to
+         <body> so it stays out of the button's accessible name and, crucially,
+         keeps this component single-root — callers rely on fallthrough
+         class/attrs landing on the button itself (e.g. HoverPreview positions
+         it via a passed-in absolute class). -->
+    <Teleport to="body">
+      <span class="copy-sr-status" role="status">{{ copied ? t("common.copied") : "" }}</span>
+    </Teleport>
   </button>
 </template>
 
@@ -38,5 +47,22 @@ function copyText() {
   gap: var(--space-1-5);
   padding: 0.3rem 0.7rem;
   font-size: var(--text-sm);
+}
+</style>
+
+<style>
+/* Unscoped: the status region is teleported to <body>, outside this component's
+   scoped-attribute tree, so a scoped rule would never match it (same reason
+   HoverPreview styles its teleported panel unscoped). */
+.copy-sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>

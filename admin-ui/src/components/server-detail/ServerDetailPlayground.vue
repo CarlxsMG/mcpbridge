@@ -94,8 +94,14 @@ async function deleteExampleFn(ex: ToolExample) {
   try {
     await api.delete(toolPath(props.clientName, props.tool.name, "examples", String(ex.id)));
     await loadExamples(props.tool.name);
-  } catch {
-    /* ignore */
+  } catch (err) {
+    // Surface the failure like every other delete in the app (and like this
+    // component's own save path) instead of swallowing it — otherwise the stale
+    // example chip lingers with no feedback.
+    playgroundResult.value = {
+      text: toErrorMessage(err, tk("components.server_detail_playground.errors.delete_example_failed")),
+      isError: true,
+    };
   }
 }
 </script>

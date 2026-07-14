@@ -490,7 +490,8 @@
       "save_aria": "Save the current run as a named example",
       "errors": {
         "test_failed": "Test call failed.",
-        "save_failed": "Failed to save example."
+        "save_failed": "Failed to save example.",
+        "delete_example_failed": "Failed to delete example."
       }
     },
     "guard_editor": {
