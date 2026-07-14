@@ -6,7 +6,7 @@ defineProps<{ loading: boolean; error?: string; empty: boolean }>();
 
 <template>
   <p v-if="error" class="error" role="alert">{{ error }}</p>
-  <SignalLoader v-if="loading" />
+  <SignalLoader v-else-if="loading" />
   <slot v-else-if="empty" name="empty" />
   <slot v-else />
 </template>

@@ -15,6 +15,7 @@ import SignalLoader from "@/components/ui/SignalLoader.vue";
 import DemoRibbon from "./components/layout/DemoRibbon.vue";
 import TheMobileTopbar from "./components/layout/TheMobileTopbar.vue";
 import TheSidebar from "./components/layout/TheSidebar.vue";
+import { routeAnnouncement } from "@/router";
 
 const route = useRoute();
 const { t } = useI18n({ useScope: "global" });
@@ -55,12 +56,13 @@ onUnmounted(() => {
 
 <template>
   <a href="#main-content" class="skip-link">{{ t("common.skip_to_content") }}</a>
+  <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ routeAnnouncement }}</div>
   <DemoRibbon />
   <div v-if="showShell" class="app-shell">
     <TheMobileTopbar :nav-open="mobileNavOpen" @toggle-nav="mobileNavOpen = !mobileNavOpen" />
     <div v-if="mobileNavOpen" class="mobile-nav-backdrop" @click="mobileNavOpen = false"></div>
     <TheSidebar :nav-open="mobileNavOpen" />
-    <main id="main-content" class="content">
+    <main id="main-content" class="content" tabindex="-1">
       <RouterView />
     </main>
   </div>
@@ -87,6 +89,17 @@ onUnmounted(() => {
   left: var(--space-4);
   top: var(--space-4);
 }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .app-shell {
   display: flex;
   height: 100vh;
@@ -111,6 +124,11 @@ onUnmounted(() => {
   overflow-y: auto;
   padding: var(--space-8) var(--space-10) 0;
   min-width: 0;
+}
+.content:focus {
+  /* Focused programmatically after a route change to move the reading position,
+     not because the region itself is an interactive control — so no focus ring. */
+  outline: none;
 }
 
 @media (max-width: 768px) {

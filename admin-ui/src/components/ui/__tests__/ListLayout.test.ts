@@ -37,13 +37,23 @@ describe("ListLayout", () => {
     expect(wrapper.find(".signal-loader").exists()).toBe(true);
   });
 
-  it("shows both the error paragraph and the loader when error and loading are both set (they are independent v-ifs, not mutually exclusive)", () => {
+  it("shows only the error paragraph, not the loader, when error and loading are both set (error takes precedence — the branches are mutually exclusive)", () => {
     const wrapper = mount(ListLayout, {
       props: { loading: true, empty: false, error: "Failed to load servers." },
     });
 
     expect(wrapper.find('p.error[role="alert"]').exists()).toBe(true);
-    expect(wrapper.find(".signal-loader").exists()).toBe(true);
+    expect(wrapper.find(".signal-loader").exists()).toBe(false);
+  });
+
+  it("shows only the error paragraph, not the empty slot, on a failed first load (error + empty must not stack)", () => {
+    const wrapper = mount(ListLayout, {
+      props: { loading: false, empty: true, error: "Failed to load servers." },
+      slots: { empty: '<div class="empty-marker">No servers yet</div>' },
+    });
+
+    expect(wrapper.find('p.error[role="alert"]').exists()).toBe(true);
+    expect(wrapper.find(".empty-marker").exists()).toBe(false);
   });
 
   it("shows the #empty slot when empty is true and not loading", () => {

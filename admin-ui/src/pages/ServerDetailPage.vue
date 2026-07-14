@@ -15,7 +15,7 @@ import StatusBadge from "@/components/ui/StatusBadge.vue";
 import KindBadge from "@/components/ui/KindBadge.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
-import TabStrip from "@/components/ui/TabStrip.vue";
+import TabStrip, { tabId, tabPanelId } from "@/components/ui/TabStrip.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import GuardEditor from "@/components/guard-editor/GuardEditor.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
@@ -53,6 +53,7 @@ const tabs = [
   { key: "tools" as const, label: t("pages.server_detail.tabs.tools"), icon: Wrench },
   { key: "settings" as const, label: t("pages.server_detail.tabs.settings"), icon: Settings2 },
 ];
+const tabIdBase = "server-detail";
 const resettingBreaker = ref(false);
 const drawerCloseBtn = ref<HTMLButtonElement | null>(null);
 const drawerEl = ref<HTMLElement | null>(null);
@@ -216,21 +217,23 @@ async function resetBreaker() {
         </div>
       </dl>
 
-      <TabStrip v-model="activeTab" :tabs="tabs" />
+      <TabStrip v-model="activeTab" :tabs="tabs" :id-base="tabIdBase" />
 
-      <template v-if="activeTab === 'settings'">
-        <ServerDetailUpstreamAuth :client-name="props.name" :kind="detail.kind" />
-        <ServerDetailOAuth v-if="detail.kind !== 'mcp'" :client-name="props.name" />
-        <ServerDetailResync :detail="detail" @resynced="load" />
-        <ServerDetailLb v-if="detail.kind !== 'mcp'" :client-name="props.name" />
-        <ServerDetailCanary v-if="detail.kind !== 'mcp'" :client-name="props.name" />
-        <ServerDetailTeam :client-name="props.name" :team-id="detail.teamId" />
-        <ServerDetailRemove :client-name="props.name" />
-      </template>
+      <div :id="tabPanelId(tabIdBase)" role="tabpanel" :aria-labelledby="tabId(tabIdBase, activeTab)">
+        <template v-if="activeTab === 'settings'">
+          <ServerDetailUpstreamAuth :client-name="props.name" :kind="detail.kind" />
+          <ServerDetailOAuth v-if="detail.kind !== 'mcp'" :client-name="props.name" />
+          <ServerDetailResync :detail="detail" @resynced="load" />
+          <ServerDetailLb v-if="detail.kind !== 'mcp'" :client-name="props.name" />
+          <ServerDetailCanary v-if="detail.kind !== 'mcp'" :client-name="props.name" />
+          <ServerDetailTeam :client-name="props.name" :team-id="detail.teamId" />
+          <ServerDetailRemove :client-name="props.name" />
+        </template>
 
-      <template v-if="activeTab === 'tools'">
-        <ServerDetailToolsTable :tools="detail.tools" :kind="detail.kind" :client-name="props.name" />
-      </template>
+        <template v-if="activeTab === 'tools'">
+          <ServerDetailToolsTable :tools="detail.tools" :kind="detail.kind" :client-name="props.name" />
+        </template>
+      </div>
     </template>
 
     <!-- Guard editor drawer -->

@@ -1,5 +1,7 @@
-import { createRouter, createWebHashHistory, createWebHistory } from "vue-router";
+import { ref, nextTick } from "vue";
+import { createRouter, createWebHashHistory, createWebHistory, type RouteLocationNormalized } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
+import { tk } from "@/i18n";
 import { navEntries } from "../navigation";
 
 // The ~24 static, param-free routes come from navEntries (shared with App.vue's
@@ -89,10 +91,52 @@ router.beforeEach(async (to) => {
   return true;
 });
 
-// Derives a readable page title from the route name (e.g. "server-detail" -> "Server detail")
-// so the browser tab reflects where the user actually is, not a static index.html title.
-router.afterEach((to) => {
-  if (typeof to.name !== "string") return;
-  const readable = to.name.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
-  document.title = `${readable} — MCP Bridge`;
+// Text announced to assistive tech after a client-side navigation, rendered
+// into App.vue's polite aria-live region. Set only on real page changes (see
+// afterEach below) so pagination/filter/drawer param updates stay silent.
+export const routeAnnouncement = ref("");
+
+/**
+ * A human, localized page title for the browser tab + the route announcement.
+ * Prefers the shared, translated nav label (`nav.<name>.label`, same keys the
+ * sidebar uses), then a meaningful route param (server/bundle name, trace id),
+ * then a humanized slug so login / not-found / "*-new" routes still read well.
+ * Localizes correctly at locale=es because the nav labels do.
+ */
+function resolvePageTitle(to: RouteLocationNormalized): string {
+  const name = typeof to.name === "string" ? to.name : "";
+
+  const labelKey = `nav.${name}.label`;
+  const label = tk(labelKey);
+  if (label !== labelKey) return label;
+
+  const param = to.params.name ?? to.params.traceId;
+  if (typeof param === "string" && param) return param;
+
+  if (name) return name.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
+  return "MCP Bridge";
+}
+
+// The guard-editor drawer is a route-param change on the *same* page
+// (server-detail ⇄ tool-guard), which manages its own focus — collapse the two
+// names so navigating into/out of the drawer isn't treated as a page change.
+function pageKey(name: unknown): string {
+  if (typeof name !== "string") return "";
+  return name === "tool-guard" ? "server-detail" : name;
+}
+
+router.afterEach((to, from) => {
+  const title = resolvePageTitle(to);
+  document.title = title === "MCP Bridge" ? title : `${title} — MCP Bridge`;
+
+  // Focus + announcement only on a genuine page change. Same-page param/query
+  // updates (pagination, filters, opening the drawer) must not steal focus from
+  // the control the user just operated, nor re-announce the same page.
+  if (pageKey(to.name) === pageKey(from.name)) return;
+
+  routeAnnouncement.value = title;
+  // Land keyboard focus on the main region once the new page has rendered, so
+  // keyboard/AT users start at the top of the new content (WCAG 2.4.3). No-ops
+  // gracefully on the pre-login shell where #main-content isn't mounted.
+  void nextTick(() => document.getElementById("main-content")?.focus());
 });
