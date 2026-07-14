@@ -86,11 +86,16 @@ Accept OAuth2/OIDC access tokens as an MCP credential, verified against a JWKS e
 via WebCrypto — no extra dependency). Additive to `MCP_API_KEYS` and DB-managed keys; setting
 `JWT_JWKS_URL` also locks the surface down (like minting a managed key).
 
-| Variable       | Description                                                                    |
-| -------------- | ------------------------------------------------------------------------------ |
-| `JWT_JWKS_URL` | JWKS endpoint. When set, MCP auth also accepts a valid RS256/ES256 JWT bearer. |
-| `JWT_ISSUER`   | Required `iss` claim (optional — rejected on mismatch when set).               |
-| `JWT_AUDIENCE` | Required `aud` claim (optional — token must list it when set).                 |
+| Variable                       | Description                                                                                                           |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `JWT_JWKS_URL`                 | JWKS endpoint. When set, MCP auth also accepts a valid RS256/ES256 JWT bearer.                                        |
+| `JWT_ISSUER`                   | Required `iss` claim (optional — rejected on mismatch when set).                                                      |
+| `JWT_AUDIENCE`                 | Required `aud` claim — token must list it. **Mandatory in production when `JWT_JWKS_URL` is set** (see warning).      |
+| `ALLOW_UNSAFE_JWT_NO_AUDIENCE` | Escape hatch to run `JWT_JWKS_URL` without `JWT_AUDIENCE` outside development. Unsafe — see warning. Default `false`. |
+
+::: warning Audience binding is required in production
+With `JWT_JWKS_URL` set but `JWT_AUDIENCE` empty, **any** token validly signed by that JWKS is accepted regardless of the audience it was minted for — in a shared IdP, a token issued for an unrelated app becomes a valid gateway credential (a cross-audience privilege grant). Outside development the bridge therefore **refuses to start** in this configuration unless you also set `ALLOW_UNSAFE_JWT_NO_AUDIENCE=true`. Set `JWT_AUDIENCE` to the gateway's own audience instead.
+:::
 
 ::: tip
 Generate keys/secrets with, e.g., `openssl rand -hex 24` (API keys) or

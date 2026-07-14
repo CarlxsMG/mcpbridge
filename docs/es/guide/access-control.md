@@ -55,7 +55,11 @@ que la pertenencia a equipos nunca se filtre por la forma de los errores.
 
 Configura `JWT_JWKS_URL` para aceptar tokens de acceso OAuth2/OIDC como credencial MCP,
 verificados contra un endpoint JWKS (RS256/ES256 vía WebCrypto — sin dependencia extra).
-Opcionalmente fija `JWT_ISSUER` y `JWT_AUDIENCE`. Esto se añade a `MCP_API_KEYS` y a keys
+Define `JWT_AUDIENCE` con la audiencia propia del gateway — es **obligatorio en producción**
+cuando `JWT_JWKS_URL` está configurado (el bridge se niega a arrancar sin ella fuera de
+desarrollo, salvo `ALLOW_UNSAFE_JWT_NO_AUDIENCE=true`), para que un token emitido para otra app
+en un IdP compartido no pueda reutilizarse aquí. `JWT_ISSUER` es opcional. Esto se añade a
+`MCP_API_KEYS` y a keys
 gestionadas en DB.
 
 Siguiente: **[Guardrails y resiliencia →](/es/guide/guardrails-resilience)** ·

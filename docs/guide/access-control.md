@@ -49,8 +49,11 @@ missing resource, so team membership never leaks through error shapes.
 ## Inbound JWT / OAuth
 
 Set `JWT_JWKS_URL` to accept OAuth2/OIDC access tokens as an MCP credential, verified against
-a JWKS endpoint (RS256/ES256 via WebCrypto — no extra dependency). Optionally pin `JWT_ISSUER`
-and `JWT_AUDIENCE`. This is additive to `MCP_API_KEYS` and DB-managed keys.
+a JWKS endpoint (RS256/ES256 via WebCrypto — no extra dependency). Set `JWT_AUDIENCE` to the
+gateway's own audience — it is **required in production** when `JWT_JWKS_URL` is set (the bridge
+refuses to start without it outside development, unless `ALLOW_UNSAFE_JWT_NO_AUDIENCE=true`), so a
+token minted for another app in a shared IdP can't be replayed here. `JWT_ISSUER` is optional.
+This is additive to `MCP_API_KEYS` and DB-managed keys.
 
 Next: **[Guardrails & resilience →](/guide/guardrails-resilience)** ·
 **[Security →](/guide/security)**

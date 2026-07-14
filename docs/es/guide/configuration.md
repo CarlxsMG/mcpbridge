@@ -89,11 +89,16 @@ JWKS (RS256/ES256, vía WebCrypto — sin dependencia extra). Aditivo a `MCP_API
 gestionadas en DB; configurar `JWT_JWKS_URL` también cierra la superficie (como mintear una
 key gestionada).
 
-| Variable       | Descripción                                                                                      |
-| -------------- | ------------------------------------------------------------------------------------------------ |
-| `JWT_JWKS_URL` | Endpoint JWKS. Cuando se configura, la auth MCP también acepta un bearer JWT RS256/ES256 válido. |
-| `JWT_ISSUER`   | Claim `iss` requerido (opcional — se rechaza si hay mismatch cuando se define).                  |
-| `JWT_AUDIENCE` | Claim `aud` requerido (opcional — el token debe listarlo cuando se define).                      |
+| Variable                       | Descripción                                                                                                                       |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_JWKS_URL`                 | Endpoint JWKS. Cuando se configura, la auth MCP también acepta un bearer JWT RS256/ES256 válido.                                  |
+| `JWT_ISSUER`                   | Claim `iss` requerido (opcional — se rechaza si hay mismatch cuando se define).                                                   |
+| `JWT_AUDIENCE`                 | Claim `aud` requerido — el token debe listarlo. **Obligatorio en producción cuando `JWT_JWKS_URL` está configurado** (ver aviso). |
+| `ALLOW_UNSAFE_JWT_NO_AUDIENCE` | Escape hatch para usar `JWT_JWKS_URL` sin `JWT_AUDIENCE` fuera de desarrollo. Inseguro — ver aviso. Por defecto `false`.          |
+
+::: warning El binding de audiencia es obligatorio en producción
+Con `JWT_JWKS_URL` configurado pero `JWT_AUDIENCE` vacío, se acepta **cualquier** token firmado válidamente por ese JWKS sin importar la audiencia para la que se emitió — en un IdP compartido, un token emitido para otra app se convierte en una credencial válida del gateway (una concesión de privilegios cross-audience). Por eso, fuera de desarrollo, el bridge **se niega a arrancar** en esta configuración salvo que además definas `ALLOW_UNSAFE_JWT_NO_AUDIENCE=true`. En su lugar, define `JWT_AUDIENCE` con la audiencia propia del gateway.
+:::
 
 ::: tip
 Genera claves/secretos con, p. ej., `openssl rand -hex 24` (API keys) o `openssl rand -base64 32`
