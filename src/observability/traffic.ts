@@ -116,7 +116,19 @@ export function recordTraffic(input: {
  * without a second COUNT query.
  */
 export function listTraffic(
-  filter: { clientName?: string; toolName?: string; errorsOnly?: boolean; cursor?: string; limit?: number } = {},
+  filter: {
+    clientName?: string;
+    toolName?: string;
+    errorsOnly?: boolean;
+    cursor?: string;
+    limit?: number;
+    /**
+     * Tenancy scope. A number restricts results to records whose client is owned
+     * by that team; null/undefined (super-admin / bearer) sees every record.
+     * Records with no client_name are only visible to super-admins.
+     */
+    teamId?: number | null;
+  } = {},
 ): { items: TrafficRecord[]; nextCursor?: string } {
   const where: string[] = [];
   const params: (string | number)[] = [];
@@ -133,6 +145,12 @@ export function listTraffic(
     params.push(filter.toolName);
   }
   if (filter.errorsOnly) where.push("is_error = 1");
+  if (typeof filter.teamId === "number") {
+    // Team-scoped caller: only records for a client their team owns. The subquery
+    // is a static fragment; team_id is bound as a parameter.
+    where.push("client_name IN (SELECT name FROM clients WHERE team_id = ?)");
+    params.push(filter.teamId);
+  }
   const limit = clampLimit(filter.limit, 100, 1000);
   const sql = `SELECT * FROM tool_traffic ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY id DESC`;
   return keysetPaginate<TrafficRow, TrafficRecord>(getDb(), sql, params, limit, rowTo, (r) => r.id);

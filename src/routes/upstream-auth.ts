@@ -1,6 +1,6 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "../middleware/authz.js";
+import { requireAdminRole, ensureClientAccess } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { getDb } from "../db/connection.js";
 import { isSecretBoxConfigured } from "../security/secret-box.js";
@@ -62,6 +62,10 @@ function validateBody(input: unknown): ValidationResult<ValidatedAuth> {
 
 export function upstreamAuthRoutes(app: Express): void {
   app.get("/admin-api/clients/:name/upstream-auth", adminAuth, (req: Request<{ name: string }>, res: Response) => {
+    // Tenancy scope first, so a caller can't even confirm another team's client
+    // exists (ensureClientAccess writes the same CLIENT_NOT_FOUND on a cross-team
+    // client as on a genuinely missing one).
+    if (!ensureClientAccess(req, res, req.params.name)) return;
     if (!clientExists(req.params.name)) {
       notFound(res, "CLIENT_NOT_FOUND", "Client not found");
       return;
@@ -75,6 +79,7 @@ export function upstreamAuthRoutes(app: Express): void {
     requireAdminRole,
     (req: Request<{ name: string }>, res: Response) => {
       const { name } = req.params;
+      if (!ensureClientAccess(req, res, name)) return;
       if (!clientExists(name)) {
         notFound(res, "CLIENT_NOT_FOUND", "Client not found");
         return;
@@ -99,6 +104,7 @@ export function upstreamAuthRoutes(app: Express): void {
     adminAuth,
     requireAdminRole,
     (req: Request<{ name: string }>, res: Response) => {
+      if (!ensureClientAccess(req, res, req.params.name)) return;
       const ok = clearUpstreamAuth(req.params.name);
       if (!ok) {
         notFound(res, "NOT_CONFIGURED", "No upstream auth configured for this client");

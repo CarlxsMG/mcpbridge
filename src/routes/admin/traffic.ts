@@ -3,7 +3,7 @@ import { listTraffic, getTraffic } from "../../observability/traffic.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import { notFound } from "../http-errors.js";
-import { ensureClientAccess, requireOperator } from "../../middleware/authz.js";
+import { ensureClientAccess, requireOperator, callerTeamId } from "../../middleware/authz.js";
 
 /**
  * Traffic explorer: list captured call records (opt-in via
@@ -29,7 +29,8 @@ trafficRoutes.get("/traffic", requireOperator, (req: Request, res: Response) => 
   const errorsOnly = req.query.errors === "true";
   const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
   const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
-  res.status(200).json(listTraffic({ clientName, toolName, errorsOnly, cursor, limit }));
+  // Tenancy scope: a team-scoped operator only sees their team's clients' traffic.
+  res.status(200).json(listTraffic({ clientName, toolName, errorsOnly, cursor, limit, teamId: callerTeamId(req) }));
 });
 
 trafficRoutes.get("/traffic/:id", requireOperator, (req: Request<{ id: string }>, res: Response) => {
@@ -38,6 +39,9 @@ trafficRoutes.get("/traffic/:id", requireOperator, (req: Request<{ id: string }>
     notFound(res, "TRAFFIC_NOT_FOUND", "Traffic record not found");
     return;
   }
+  // Same tenancy scope as replay: a team-scoped operator must not read another
+  // team's captured args. Cross-team reads 404 like a missing record.
+  if (rec.clientName && !ensureClientAccess(req, res, rec.clientName)) return;
   res.status(200).json(rec);
 });
 

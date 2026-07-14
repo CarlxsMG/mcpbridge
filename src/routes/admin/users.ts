@@ -12,13 +12,16 @@ import {
 import { revokeAllSessionsForUser } from "../../security/session-store.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import { sendError, validationError, notFound, bodyOf } from "../http-errors.js";
-import { requireAdminRole } from "../../middleware/authz.js";
+import { requireSuperAdmin } from "../../middleware/authz.js";
 
 /**
- * Admin-user CRUD. Every handler requires the `admin` role via
- * `requireAdminRole` (read-only listing also demands it; the listing
- * surfaces usernames / roles / last-login timestamps that we don't want
- * leaking to viewer-tier sessions).
+ * Admin-user CRUD. Every handler requires a *super-admin* session (admin role
+ * + no team) via `requireSuperAdmin`, not merely the admin role: users are a
+ * global, un-teamed resource, so a team-scoped admin must not create accounts
+ * (a teamless `role:"admin"` user is itself a super-admin — a privilege-
+ * escalation path), enumerate cross-tenant usernames/roles, or demote/remove
+ * another tenant's users. Bearer/CI callers pass, as does the teamless
+ * bootstrap admin.
  *
  * Routing rule: the "last active admin" invariant is enforced on every
  * mutation that could demote or remove that account. The count check is
@@ -27,7 +30,7 @@ import { requireAdminRole } from "../../middleware/authz.js";
  */
 export const usersRoutes = Router();
 
-usersRoutes.get("/users", requireAdminRole, (_req: Request, res: Response) => {
+usersRoutes.get("/users", requireSuperAdmin, (_req: Request, res: Response) => {
   const users = listUsers().map((u) => ({
     username: u.username,
     role: u.role,
@@ -39,7 +42,7 @@ usersRoutes.get("/users", requireAdminRole, (_req: Request, res: Response) => {
   res.status(200).json({ users });
 });
 
-usersRoutes.post("/users", requireAdminRole, async (req: Request, res: Response) => {
+usersRoutes.post("/users", requireSuperAdmin, async (req: Request, res: Response) => {
   const body = bodyOf(req);
   const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
@@ -61,7 +64,7 @@ usersRoutes.post("/users", requireAdminRole, async (req: Request, res: Response)
   res.status(201).json({ username: user.username, role: user.role, is_active: user.isActive });
 });
 
-usersRoutes.patch("/users/:username", requireAdminRole, (req: Request<{ username: string }>, res: Response) => {
+usersRoutes.patch("/users/:username", requireSuperAdmin, (req: Request<{ username: string }>, res: Response) => {
   const { username } = req.params;
   const body = bodyOf(req);
   const existing = findUserByUsername(username);
@@ -88,7 +91,7 @@ usersRoutes.patch("/users/:username", requireAdminRole, (req: Request<{ username
   res.status(200).json({ status: "updated", username });
 });
 
-usersRoutes.delete("/users/:username", requireAdminRole, (req: Request<{ username: string }>, res: Response) => {
+usersRoutes.delete("/users/:username", requireSuperAdmin, (req: Request<{ username: string }>, res: Response) => {
   const { username } = req.params;
   const existing = findUserByUsername(username);
   if (!existing) {

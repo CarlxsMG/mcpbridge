@@ -227,10 +227,11 @@ describe("adminRole — /mcp system control-plane grants", () => {
     expect(res.status).toBe(400);
   });
 
-  test("a team-scoped admin session cannot grant adminRole, even though it can otherwise mint keys", async () => {
+  test("a team-scoped admin can grant neither adminRole nor an unscoped/foreign-scoped key", async () => {
     await startApp();
     const headers = teamAdminSessionHeaders("team-admin");
 
+    // Control-plane role: super-admin only.
     const withRole = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
       method: "POST",
       headers,
@@ -238,12 +239,23 @@ describe("adminRole — /mcp system control-plane grants", () => {
     });
     expect(withRole.status).toBe(403);
 
-    const withoutRole = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
+    // Unscoped key: reaches every tenant's clients via /mcp/:clientName, so a
+    // team-scoped admin must confine it to its own team's clients — an unscoped
+    // mint is rejected.
+    const unscoped = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
       method: "POST",
       headers,
       body: JSON.stringify({ label: "plain" }),
     });
-    expect(withoutRole.status).toBe(201);
+    expect(unscoped.status).toBe(403);
+
+    // A key scoped to a client the team doesn't own is rejected the same way.
+    const foreign = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ label: "foreign", scopes: { clients: ["someone-elses-client"] } }),
+    });
+    expect(foreign.status).toBe(403);
   });
 
   test("PATCH also requires a super-admin to set adminRole", async () => {

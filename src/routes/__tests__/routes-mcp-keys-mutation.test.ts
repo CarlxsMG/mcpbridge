@@ -476,11 +476,15 @@ describe("elevated grant gating", () => {
     expect(body.error.message).toBe("Setting elevated requires a super-admin (admin role, no team)");
   });
 
-  test("POST: a truthy-but-non-boolean elevated value is treated as false (=== true, not type coercion) and bypasses the super-admin gate", async () => {
+  test("POST: a truthy-but-non-boolean elevated value is treated as false (=== true, not type coercion)", async () => {
     await startApp();
+    // Use a super-admin (env Bearer) who *could* set elevated with a real boolean:
+    // the string "true" still yielding elevated:false proves the check is a strict
+    // `=== true`, not a truthy coercion. (A team-scoped admin can't reach this path
+    // at all now — an unscoped mint is rejected by scope confinement first.)
     const res = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
       method: "POST",
-      headers: teamAdminSessionHeaders("team-admin-elev2"),
+      headers: bearer(),
       body: JSON.stringify({ label: "sneaky", elevated: "true" }),
     });
     expect(res.status).toBe(201);

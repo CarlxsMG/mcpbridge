@@ -1,6 +1,7 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole, isSuperAdminCaller } from "../middleware/authz.js";
+import { requireAdminRole, isSuperAdminCaller, callerTeamId } from "../middleware/authz.js";
+import { getClientTeam } from "../admin/entities/teams.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import {
   listMcpKeys,
@@ -40,6 +41,30 @@ function validateScopes(input: unknown): ValidationResult<McpKeyScopes | null> {
     value[field] = arr as string[];
   }
   return { ok: true, value };
+}
+
+/**
+ * A data-plane key's scope is the ONLY thing confining it to a set of clients —
+ * the `/mcp/:clientName` data plane itself has no team check. So a team-scoped
+ * admin must not be able to mint an unrestricted (or other-team) key, which would
+ * reach every tenant's tools. For a non-super-admin caller we therefore require
+ * `scopes.clients` to be present, non-empty, and list only clients their team
+ * owns. Super-admins (and bearer/CI callers) may mint any scope, including null.
+ * Returns an error message when the scope is not permitted, or null when allowed.
+ */
+function scopeConfinementError(req: Request, scopes: McpKeyScopes | null): string | null {
+  if (isSuperAdminCaller(req)) return null;
+  const clients = scopes?.clients;
+  if (!clients || clients.length === 0) {
+    return "scopes.clients is required and must list only your team's clients";
+  }
+  const team = callerTeamId(req); // a concrete team id for a non-super-admin session
+  for (const name of clients) {
+    if (getClientTeam(name) !== team) {
+      return `scopes.clients includes '${name}', which your team does not own`;
+    }
+  }
+  return null;
 }
 
 function validateExpiresAt(input: unknown): ValidationResult<number | null> {
@@ -117,6 +142,16 @@ export function mcpKeyRoutes(app: Express): void {
       return;
     }
 
+    // Confine a team-scoped admin's key to its own team's clients. Runs after the
+    // adminRole/elevated gates so those more-specific escalation attempts keep
+    // their own error; a team admin with clean role/elevated but a missing or
+    // foreign scope is rejected here.
+    const scopeErr = scopeConfinementError(req, scopes.value);
+    if (scopeErr) {
+      forbidden(res, "FORBIDDEN", scopeErr);
+      return;
+    }
+
     const actor = actorFromRequest(req);
     const { record, rawKey } = createMcpKey(
       label.value,
@@ -191,6 +226,13 @@ export function mcpKeyRoutes(app: Express): void {
       const scopes = validateScopes(body.scopes);
       if (!scopes.ok) {
         validationError(res, scopes.message);
+        return;
+      }
+      // Same confinement as create: a team-scoped admin can't re-scope a key
+      // beyond its own team's clients.
+      const scopeErr = scopeConfinementError(req, scopes.value);
+      if (scopeErr) {
+        forbidden(res, "FORBIDDEN", scopeErr);
         return;
       }
       updates.scopes = scopes.value;
