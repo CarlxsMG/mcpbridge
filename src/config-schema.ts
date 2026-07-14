@@ -339,7 +339,6 @@ export function validateEnv(env: NodeJS.ProcessEnv = process.env): EnvReport {
     "ENABLE_",
     "BOOTSTRAP_",
     "HSTS_",
-    "CORS_",
     "PROXY_",
   ];
   const unknown: EnvIssue[] = [];
