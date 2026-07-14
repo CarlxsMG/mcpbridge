@@ -22,6 +22,23 @@ interface GuardrailRow {
 
 export const MAX_DENY_PATTERNS = 20;
 export const MAX_DENY_PATTERN_LENGTH = 200;
+// Cap the string an operator-configured deny pattern is run against: a
+// catastrophic-backtracking regex could otherwise pin a CPU core on a large
+// caller-supplied args payload (ReDoS on the hot path). 16 KiB is far above any
+// legitimate argument set that a deny pattern meaningfully inspects.
+export const MAX_DENY_SCAN_BYTES = 16_384;
+
+/**
+ * Conservative ReDoS heuristic — flags a group that both contains an unbounded
+ * quantifier AND is itself quantified (the classic catastrophic-backtracking
+ * shape: `(a+)+`, `(a*)*`, `(a+)*`, `(\w+){2,}`). Intentionally narrow to avoid
+ * rejecting legitimate operator patterns; the MAX_DENY_SCAN_BYTES eval-time cap
+ * is the runtime backstop for anything it misses. Used to reject such a pattern
+ * at config time before it ever reaches the DB / hot path.
+ */
+export function looksReDoSProne(pattern: string): boolean {
+  return /\([^)]*[+*][^)]*\)[+*{]/.test(pattern);
+}
 
 // High-signal secret/credential shapes. Deliberately narrow (low false-positive)
 // rather than exhaustive — a broad "looks like base64" rule would block normal
@@ -150,9 +167,12 @@ export function checkInputGuardrails(cfg: ToolGuardrails, args: unknown): { bloc
     haystack = String(args);
   }
 
+  // Bound the string admin deny-patterns run against (ReDoS backstop) — the
+  // fixed, known-safe secret-shape patterns below still scan the full haystack.
+  const denyHaystack = haystack.length > MAX_DENY_SCAN_BYTES ? haystack.slice(0, MAX_DENY_SCAN_BYTES) : haystack;
   for (const pattern of cfg.denyPatterns) {
     const re = compileDenyPattern(pattern);
-    if (re && re.test(haystack)) {
+    if (re && re.test(denyHaystack)) {
       return { blocked: true, reason: "arguments matched a configured deny pattern" };
     }
   }

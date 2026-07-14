@@ -30,7 +30,7 @@ import type {
   ContextBudgetMode,
   ContextBudgetLlmProvider,
 } from "../tool-policies/context-budget.js";
-import { MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH } from "../tool-policies/guardrails.js";
+import { MAX_DENY_PATTERNS, MAX_DENY_PATTERN_LENGTH, looksReDoSProne } from "../tool-policies/guardrails.js";
 import { MAX_CACHE_TTL_SECONDS } from "../tool-policies/response-cache.js";
 import { MAX_PAGINATION_PAGES } from "../tool-policies/pagination.js";
 import { MAX_STREAM_EVENTS } from "../proxy/streaming.js";
@@ -413,6 +413,12 @@ export function validateGuardrailsInput(input: unknown): ValidationResult<ToolGu
         new RegExp(p);
       } catch {
         return { ok: false, message: `guardrails.denyPatterns contains an invalid regex: ${p.slice(0, 40)}` };
+      }
+      if (looksReDoSProne(p)) {
+        return {
+          ok: false,
+          message: `guardrails.denyPatterns contains a catastrophic-backtracking (ReDoS) pattern: ${p.slice(0, 40)}`,
+        };
       }
     }
     value.denyPatterns = (g.denyPatterns as string[]).map((p) => p.trim()).filter(Boolean);

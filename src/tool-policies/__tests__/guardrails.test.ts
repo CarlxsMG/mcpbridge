@@ -18,6 +18,8 @@ import {
   checkInputGuardrails,
   applyResponseScan,
   responseLooksInjected,
+  looksReDoSProne,
+  MAX_DENY_SCAN_BYTES,
 } from "../../tool-policies/guardrails.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
 
@@ -79,6 +81,30 @@ describe("guardrails — module", () => {
     const cfg = { denyPatterns: ["\\bDROP\\s+TABLE\\b"], blockSecrets: false, scanResponses: false };
     expect(checkInputGuardrails(cfg, { q: "DROP TABLE users" }).blocked).toBe(true);
     expect(checkInputGuardrails(cfg, { q: "select * from users" }).blocked).toBe(false);
+  });
+
+  test("looksReDoSProne flags nested-unbounded-quantifier patterns, not safe ones", () => {
+    // Classic catastrophic-backtracking shapes.
+    expect(looksReDoSProne("(a+)+")).toBe(true);
+    expect(looksReDoSProne("(a*)*")).toBe(true);
+    expect(looksReDoSProne("(a+)*")).toBe(true);
+    expect(looksReDoSProne("(\\w+){2,}")).toBe(true);
+    expect(looksReDoSProne("^(\\d+)+$")).toBe(true);
+    // Safe patterns — no inner unbounded quantifier, or no outer quantifier.
+    expect(looksReDoSProne("\\bDROP\\s+TABLE\\b")).toBe(false);
+    expect(looksReDoSProne("(abc)+")).toBe(false);
+    expect(looksReDoSProne("a+")).toBe(false);
+    expect(looksReDoSProne("(foo|bar)")).toBe(false);
+    expect(looksReDoSProne("\\w+@\\w+")).toBe(false);
+  });
+
+  test("deny-pattern scan is bounded to MAX_DENY_SCAN_BYTES (ReDoS backstop)", () => {
+    const cfg = { denyPatterns: ["NEEDLE"], blockSecrets: false, scanResponses: false };
+    // NEEDLE sits just past the byte cap in the serialized args, so the capped
+    // scan never reaches it; the same needle within the cap still matches.
+    const padded = "a".repeat(MAX_DENY_SCAN_BYTES) + "NEEDLE";
+    expect(checkInputGuardrails(cfg, { q: padded }).blocked).toBe(false);
+    expect(checkInputGuardrails(cfg, { q: "NEEDLE" }).blocked).toBe(true);
   });
 
   test("secret detection catches high-signal shapes, not normal text", () => {
