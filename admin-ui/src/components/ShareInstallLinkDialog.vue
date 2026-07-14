@@ -104,16 +104,12 @@ function statusOf(link: BundleInstallLink): string {
 </script>
 
 <template>
-  <!-- :ariaLabel kept camelCase (not :aria-label): vue-tsc treats the hyphenated form as the
-       built-in ARIA passthrough attribute rather than resolving it to ModalShell's ariaLabel prop -->
-  <!-- eslint-disable vue/attribute-hyphenation -->
   <ModalShell
     :open="open"
-    :ariaLabel="t('components.share_install_link.title')"
+    :label="t('components.share_install_link.title')"
     :max-width="'40rem'"
     @close="emit('close')"
   >
-    <!-- eslint-enable vue/attribute-hyphenation -->
     <div class="dialog-head">
       <h2>{{ t("components.share_install_link.title") }}</h2>
       <button type="button" class="link-btn" @click="emit('close')">{{ t("common.close") }}</button>

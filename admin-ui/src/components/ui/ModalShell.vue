@@ -4,7 +4,9 @@ import { useFocusTrap } from "@/composables/useFocusTrap";
 
 const props = defineProps<{
   open: boolean;
-  ariaLabel: string;
+  // Accessible name for the dialog. Named `label` (not `ariaLabel`) so callers
+  // bind `:label` without tripping vue/attribute-hyphenation on `:ariaLabel`.
+  label: string;
   alert?: boolean;
   maxWidth?: string;
 }>();
@@ -42,7 +44,7 @@ watch(
       class="panel"
       :role="alert ? 'alertdialog' : 'dialog'"
       aria-modal="true"
-      :aria-label="ariaLabel"
+      :aria-label="label"
       :style="{ maxWidth: maxWidth ?? '40rem' }"
     >
       <slot />

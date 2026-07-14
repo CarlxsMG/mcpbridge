@@ -15,10 +15,7 @@ const { t } = useI18n({ useScope: "global" });
 </script>
 
 <template>
-  <!-- :ariaLabel kept camelCase (not :aria-label): vue-tsc treats the hyphenated form as the
-       built-in ARIA passthrough attribute rather than resolving it to ModalShell's ariaLabel prop -->
-  <!-- eslint-disable-next-line vue/attribute-hyphenation -->
-  <ModalShell :open="open" :ariaLabel="title" alert :max-width="'26.25rem'" @close="emit('cancel')">
+  <ModalShell :open="open" :label="title" alert :max-width="'26.25rem'" @close="emit('cancel')">
     <h2>{{ title }}</h2>
     <p>{{ message }}</p>
     <div class="actions">

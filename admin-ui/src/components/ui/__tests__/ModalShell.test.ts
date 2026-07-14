@@ -9,7 +9,7 @@ function mountShell(open: boolean, props: { alert?: boolean; maxWidth?: string }
   activeWrapper = mount(ModalShell, {
     props: {
       open,
-      ariaLabel: "Test dialog",
+      label: "Test dialog",
       ...props,
     },
     slots: {
