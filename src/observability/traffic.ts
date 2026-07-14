@@ -7,15 +7,18 @@
  * call while debugging. Opt-in globally (`TRAFFIC_CAPTURE`, off by default —
  * payloads have privacy/volume cost) and time-bounded by `TRAFFIC_RETENTION_MS`.
  *
- * Args are stored in full (they're the caller's own inputs, already size-bounded
- * by the inbound body limits) so a replay is faithful; only the result preview
- * is truncated.
+ * Args are stored in full for faithful replay — EXCEPT any dot-paths the
+ * operator configured as redactions for the tool, which are stripped from the
+ * stored args too (not just the result preview), so a secret that arrives as a
+ * call argument isn't persisted in plaintext. Tools without redaction configured
+ * keep full args. The result preview is truncated.
  */
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { clampLimit, keysetPaginate } from "../lib/pagination-cursor.js";
 import { errorMessage } from "../lib/error-message.js";
+import { getRedactionPaths, applyRedaction } from "../content-filtering/redaction.js";
 
 export interface TrafficRecord {
   id: number;
@@ -67,12 +70,22 @@ export function recordTraffic(input: {
   result: { content: Array<{ type: string; text: string }>; isError?: boolean };
   durationMs: number;
 }): void {
-  const argsJson = safeJson(input.args);
+  let argsJson = safeJson(input.args);
   const preview = truncate(
     (input.result.content ?? []).map((c) => c.text ?? "").join("\n"),
     config.trafficMaxBodyBytes,
   );
   try {
+    // Strip the tool's configured redaction paths from the stored args too — an
+    // operator who marked a field sensitive shouldn't have it persisted in
+    // plaintext when it arrives as a call argument. Opt-in per tool; unmatched
+    // paths (and tools with no redaction) leave the args intact for replay.
+    // Inside the try so a redaction-read failure fails closed (no write) rather
+    // than persisting unredacted args.
+    if (input.clientName && input.toolName) {
+      const paths = getRedactionPaths(input.clientName, input.toolName);
+      if (paths.length > 0) argsJson = applyRedaction(paths, argsJson) ?? argsJson;
+    }
     getDb()
       .query(
         `INSERT INTO tool_traffic (mcp_tool_name, client_name, tool_name, key_id, args_json, preview, is_error, duration_ms, created_at)
