@@ -249,7 +249,7 @@ describe("discovery-source flags — L184-187 boundary values, via L189/L201 mes
 // ---------------------------------------------------------------------------
 
 describe("peer-IP-required guard — L216-229", () => {
-  test("relative health_url, no peerIp -> exact error (includes request_id, unlike the other guards in this file)", async () => {
+  test("relative health_url, no peerIp -> exact error (no request_id, uniform with the other inner guards in this file)", async () => {
     const result = await performRestRegistration(
       { name: uniqueName("e1"), health_url: "/health", tools: [] },
       undefined,
@@ -262,7 +262,6 @@ describe("peer-IP-required guard — L216-229", () => {
         error: {
           code: "VALIDATION_ERROR",
           message: "Cannot determine peer IP for relative health_url",
-          request_id: "rid-e1",
         },
       },
     });

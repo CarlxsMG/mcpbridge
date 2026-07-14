@@ -161,12 +161,14 @@ async function resolveRestRegistrationTargets(
   health_url: string,
   base_url: string | undefined,
   peerIp: string | undefined,
-  requestId: string | null,
 ): Promise<RegisterOutcome | { ip: string; resolvedHealthUrl: string; resolvedBaseUrl: string; pinnedIp: string }> {
   // Change C — use the true peer address; req.ip follows X-Forwarded-For when
   // TRUST_PROXY is set, which is attacker-controlled.
   if (!health_url.startsWith("http") && !peerIp) {
-    return registerError(400, "VALIDATION_ERROR", "Cannot determine peer IP for relative health_url", requestId);
+    // No request_id here, uniform with the other inner REST validation guards
+    // (base_url scheme/SSRF, health_url SSRF, discovery-source count) — this
+    // guard used to be the lone one that threaded it, an accidental outlier.
+    return registerError(400, "VALIDATION_ERROR", "Cannot determine peer IP for relative health_url");
   }
   const ip = peerIp || "127.0.0.1";
 
@@ -397,7 +399,7 @@ export async function performRestRegistration(
     );
   }
 
-  const targets = await resolveRestRegistrationTargets(health_url, baseUrl, peerIp, requestId);
+  const targets = await resolveRestRegistrationTargets(health_url, baseUrl, peerIp);
   if ("ok" in targets) return targets;
   const { ip, resolvedHealthUrl, resolvedBaseUrl, pinnedIp } = targets;
 
