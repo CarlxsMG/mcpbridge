@@ -96,6 +96,19 @@ export function abortClientRequests(clientName: string): void {
 }
 
 /**
+ * Drops the cached pinned IP for a client so the next dispatch re-seeds it from
+ * the registry's current `resolved_ip`. The registry calls this when a client is
+ * re-registered (its backend — and thus validated IP — may have changed) or torn
+ * down; without it a re-registration is invisible to this cache until
+ * IP_PIN_TTL_MS lapses, so requests keep routing to the *previous* backend's IP
+ * while carrying the new hostname. Not an SSRF hole (both IPs passed
+ * validateBackendUrl), but stale routing — this closes that window immediately.
+ */
+export function invalidatePinnedIp(clientName: string): void {
+  pinnedIpCache.delete(clientName);
+}
+
+/**
  * Optional per-call bridging for MCP-to-MCP progress/cancellation forwarding
  * (kind:"mcp" upstreams only — see dispatchMcpToolCall). `signal` is the
  * downstream caller's own cancellation (auto-aborted by the SDK on

@@ -10,7 +10,7 @@ import type {
   McpTransport,
 } from "./types.js";
 import { sanitizeToolDescription } from "../content-filtering/sanitize.js";
-import { abortClientRequests } from "../proxy/proxy.js";
+import { abortClientRequests, invalidatePinnedIp } from "../proxy/proxy.js";
 import { removeCircuitBreaker, updateCircuitBreakerConfig } from "../middleware/circuit-breaker.js";
 import { clearLbState } from "../tool-policies/load-balancer.js";
 import { notifyToolsChanged } from "./mcp-server.js";
@@ -318,6 +318,10 @@ class Registry {
         for (const tool of existing.tools) {
           this.toolIndex.deleteTool(name, tool.name);
         }
+        // Re-registering over a live client may point it at a different backend;
+        // drop the stale pinned IP so the new resolved_ip below is what gets used
+        // (this path does not go through teardownLiveClient).
+        invalidatePinnedIp(name);
       }
 
       const persisted = this.persistence.persistRestRegistration(
@@ -448,6 +452,10 @@ class Registry {
 
       // 1. Abort any in-flight requests so they don't land against a removed client
       abortClientRequests(name);
+
+      // 1a. Forget the pinned-IP cache entry so a later re-registration under the
+      // same name re-seeds from its fresh resolved_ip instead of the old pin.
+      invalidatePinnedIp(name);
 
       // 1b. Close any outbound MCP upstream connection (no-op for REST clients).
       void mcpUpstream.disconnect(name);
