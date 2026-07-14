@@ -26,7 +26,14 @@ import { getDb } from "../db/connection.js";
 import { getSecretsProvider } from "../secrets/index.js";
 import { log } from "../logger.js";
 import { createUser, findUserByUsername, findUserById, type AdminUser } from "./user-store.js";
-import { createJwksFetcher, verifyJwtSignatureWithKeys, type JwtClaims, type Jwk } from "./jwt.js";
+import {
+  createJwksFetcher,
+  verifyJwtSignatureWithKeys,
+  JWKS_NO_MATCHING_KEY,
+  type JwksFetcher,
+  type JwtClaims,
+  type Jwk,
+} from "./jwt.js";
 import { sha256Hex } from "../lib/crypto.js";
 import { createTtlCache } from "../lib/ttl-cache.js";
 import { errorMessage } from "../lib/error-message.js";
@@ -62,7 +69,7 @@ let nowFn: () => number = () => Date.now();
 // miss and never gates freshness itself — a *different* issuer must force a
 // reset() rather than silently reuse another issuer's still-fresh document.
 let discoveryCacheIssuer: string | null = null;
-const jwksFetchers = new Map<string, () => Promise<Jwk[]>>();
+const jwksFetchers = new Map<string, JwksFetcher>();
 
 export function __setOidcDepsForTesting(deps: { fetch?: typeof fetch; now?: () => number }): void {
   if (deps.fetch) fetchImpl = deps.fetch;
@@ -117,7 +124,7 @@ export async function discoverOidcIssuer(issuer: string): Promise<OidcDiscoveryD
   return discoveryTtlCache.get(issuer);
 }
 
-function getJwksFetcherFor(jwksUri: string): () => Promise<Jwk[]> {
+function getJwksFetcherFor(jwksUri: string): JwksFetcher {
   let f = jwksFetchers.get(jwksUri);
   if (!f) {
     f = createJwksFetcher(jwksUri, { fetchImpl, timeoutMs: DISCOVERY_TIMEOUT_MS, nowFn });
@@ -135,13 +142,25 @@ export async function verifyIdToken(
   idToken: string,
   opts: { issuer: string; audience: string; jwksUri: string },
 ): Promise<IdTokenVerifyResult> {
+  const fetcher = getJwksFetcherFor(opts.jwksUri);
   let keys: Jwk[];
   try {
-    keys = await getJwksFetcherFor(opts.jwksUri)();
+    keys = await fetcher();
   } catch (e) {
     return { valid: false, reason: `jwks: ${errorMessage(e)}` };
   }
-  const sig = await verifyJwtSignatureWithKeys(idToken, keys);
+  let sig = await verifyJwtSignatureWithKeys(idToken, keys);
+  // The cached JWKS may predate an IdP key rotation — force one (rate-limited)
+  // refetch and retry before rejecting an otherwise-valid ID token, so a routine
+  // key-roll doesn't lock every SSO login out until the cache TTL lapses.
+  if (!sig.valid && sig.reason === JWKS_NO_MATCHING_KEY) {
+    try {
+      keys = await fetcher({ forceRefresh: true });
+    } catch (e) {
+      return { valid: false, reason: `jwks: ${errorMessage(e)}` };
+    }
+    sig = await verifyJwtSignatureWithKeys(idToken, keys);
+  }
   if (!sig.valid) return sig;
 
   const claims = sig.claims;

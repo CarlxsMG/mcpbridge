@@ -60,6 +60,7 @@ export function __resetJwtForTesting(): void {
   jwksCache.reset();
   fetchImpl = fetch;
   nowFn = () => Date.now();
+  lastForcedJwksRefresh = 0;
 }
 
 function b64urlToBytes(s: string): Uint8Array {
@@ -75,6 +76,30 @@ function b64urlToString(s: string): string {
 
 async function getJwks(): Promise<Jwk[]> {
   return jwksCache.get();
+}
+
+// Rate-limit forced JWKS refetches so a flood of tokens carrying unknown `kid`s
+// can't hammer the JWKS endpoint. Recovery from a genuine key rotation is still
+// near-immediate: the first token bearing the new kid triggers one refetch.
+let lastForcedJwksRefresh = 0;
+const FORCED_JWKS_REFRESH_COOLDOWN_MS = 60_000;
+
+/**
+ * Resolve the candidate JWKs for a token's `kid`. On a miss with a concrete kid,
+ * the cached JWKS may simply predate an IdP key rotation — force one (rate-limited)
+ * refetch and re-check before giving up, so a routine key-roll doesn't reject every
+ * valid token until the cache TTL (default 10 min) lapses.
+ */
+async function jwksForKid(kid: string | undefined): Promise<Jwk[]> {
+  const keys = await getJwks();
+  const match = kid ? keys.filter((k) => k.kid === kid) : keys;
+  if (match.length > 0 || !kid) return match;
+  const now = nowFn();
+  if (now - lastForcedJwksRefresh < FORCED_JWKS_REFRESH_COOLDOWN_MS) return match;
+  lastForcedJwksRefresh = now;
+  jwksCache.reset();
+  const refreshed = await getJwks();
+  return refreshed.filter((k) => k.kid === kid);
 }
 
 export function importKey(jwk: Jwk, alg: "RS256" | "ES256"): Promise<CryptoKey> {
@@ -101,13 +126,12 @@ export async function verifyJwt(token: string): Promise<JwtResult> {
   const alg = header.alg;
   if (alg !== "RS256" && alg !== "ES256") return { valid: false, reason: `unsupported alg ${String(alg)}` };
 
-  let keys: Jwk[];
+  let candidates: Jwk[];
   try {
-    keys = await getJwks();
+    candidates = await jwksForKid(header.kid);
   } catch (e) {
     return { valid: false, reason: `jwks: ${errorMessage(e)}` };
   }
-  const candidates = header.kid ? keys.filter((k) => k.kid === header.kid) : keys;
   if (candidates.length === 0) return { valid: false, reason: "no matching key" };
 
   const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
@@ -158,6 +182,12 @@ export interface JwtHeader {
   kid?: string;
 }
 
+/** The signature-result reason when no JWK matched the token's kid — the signal to force one JWKS refetch. */
+export const JWKS_NO_MATCHING_KEY = "no matching key";
+
+/** A cached JWKS fetcher; pass `{ forceRefresh: true }` to bypass the cache once (rate-limited internally). */
+export type JwksFetcher = (opts?: { forceRefresh?: boolean }) => Promise<Jwk[]>;
+
 export type JwtSignatureResult =
   { valid: true; claims: JwtClaims; header: JwtHeader } | { valid: false; reason: string };
 
@@ -184,7 +214,7 @@ export async function verifyJwtSignatureWithKeys(token: string, keys: Jwk[]): Pr
   if (alg !== "RS256" && alg !== "ES256") return { valid: false, reason: `unsupported alg ${String(alg)}` };
 
   const candidates = header.kid ? keys.filter((k) => k.kid === header.kid) : keys;
-  if (candidates.length === 0) return { valid: false, reason: "no matching key" };
+  if (candidates.length === 0) return { valid: false, reason: JWKS_NO_MATCHING_KEY };
 
   const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
   const sig = b64urlToBytes(parts[2]);
@@ -214,15 +244,23 @@ export async function verifyJwtSignatureWithKeys(token: string, keys: Jwk[]): Pr
 export function createJwksFetcher(
   url: string,
   opts: { fetchImpl?: typeof fetch; timeoutMs?: number; cacheMs?: number; nowFn?: () => number } = {},
-): () => Promise<Jwk[]> {
+): JwksFetcher {
   const doFetch = opts.fetchImpl ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 5_000;
   const cacheMs = opts.cacheMs ?? 600_000;
   const now = opts.nowFn ?? (() => Date.now());
   let cache: { keys: Jwk[]; fetchedAt: number } | null = null;
+  // Rate-limit forced refetches (unknown-kid recovery) so a flood of tokens with
+  // bogus kids can't hammer the IdP's JWKS endpoint.
+  let lastForced = 0;
+  const FORCED_COOLDOWN_MS = 60_000;
 
-  return async () => {
+  return async (o) => {
     const t = now();
+    if (o?.forceRefresh && t - lastForced >= FORCED_COOLDOWN_MS) {
+      lastForced = t;
+      cache = null; // fall through and refetch below
+    }
     if (cache && t - cache.fetchedAt < cacheMs) return cache.keys;
     const resp = await doFetch(url, { signal: AbortSignal.timeout(timeoutMs) });
     if (!resp.ok) throw new Error(`JWKS fetch failed: ${resp.status}`);
