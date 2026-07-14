@@ -51,6 +51,12 @@ const steps: Step[] = [
   // at runtime. Cheaper than a typecheck, fails earlier in the pipeline.
   { label: "i18n parity", cmd: [bunExe, "run", "lint:i18n"], cwd: `${root}/admin-ui` },
   { label: "root typecheck", cmd: [bunExe, "run", "typecheck"], cwd: root },
+  // typecheck:tools covers scripts/ + e2e/ (tsconfig.tools.json); the root
+  // typecheck above only includes src/. CI runs this as its own gate, so
+  // `check` must too — otherwise a type error in a script or e2e spec passes
+  // locally and only surfaces in CI (the local↔CI drift this script exists to
+  // prevent).
+  { label: "typecheck (tools)", cmd: [bunExe, "run", "typecheck:tools"], cwd: root },
   // --path-ignore-patterns excludes admin-ui and e2e on purpose: a bare
   // `bun test` from the repo root also recurses into admin-ui/src/**/*.test.ts
   // (Vitest-only specs — jsdom environment + setupFiles wired in
