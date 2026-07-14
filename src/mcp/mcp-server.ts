@@ -20,6 +20,7 @@ import { config } from "../config.js";
 import { SEARCH_TOOL_NAME, searchToolDefinition, runSearchTool, type AdvertisedTool } from "./tool-search.js";
 import { hasComposite, getAdvertisedComposite, runComposite } from "../admin/tool-composition/composites.js";
 import { resolveSystemRole } from "../security/system-role.js";
+import { resolveMcpKeyByToken, isToolInKeyScope } from "../security/mcp-key-store.js";
 import { listSystemTools, runSystemTool } from "./system-tools.js";
 // Bun parses JSON modules at bundle time (like YAML — see docs.ts), so this
 // works identically under `bun src/index.ts` and under `bun build --compile`.
@@ -75,7 +76,19 @@ function callerTokenFromExtra(extra: { requestInfo?: { headers?: Record<string, 
  * applies to isToolInKeyScope.
  */
 function scopedToolList(scope: McpServerScope, callerToken?: string): AdvertisedTool[] {
-  if (scope.kind === "client") return registry.getMcpToolsForClient(scope.name);
+  if (scope.kind === "client") {
+    const tools = registry.getMcpToolsForClient(scope.name);
+    // Advertise only the tools this caller's key may actually call — a managed
+    // key scoped to a subset shouldn't see the names/schemas of out-of-scope
+    // tools it can't invoke (the call-time checkKeyScopeGate already blocks
+    // them; this closes the tools/list + search_tools information leak). Uses
+    // the same advertised composite name the call-time gate keys on, so the two
+    // stay consistent. No managed key (open mode / static env key) or an
+    // unrestricted key → advertise all (isToolInKeyScope passes null scopes).
+    const key = callerToken ? resolveMcpKeyByToken(callerToken) : null;
+    if (!key) return tools;
+    return tools.filter((t) => isToolInKeyScope(key.scopes, scope.name, t.name));
+  }
   if (scope.kind === "bundle") {
     if (!isBundleEnabled(scope.name)) return [];
     const keys = getBundleToolKeys(scope.name);

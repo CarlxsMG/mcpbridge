@@ -13,6 +13,7 @@ import type { Server } from "http";
 import { config } from "../../config.js";
 import { registry } from "../../mcp/registry.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
+import { createMcpKey, deleteMcpKey } from "../../security/mcp-key-store.js";
 
 import { withConfig } from "../../__tests__/_utils/with-config.js";
 let baseUrl = "";
@@ -259,5 +260,41 @@ describe("/mcp — system control plane, not a data aggregator", () => {
         "client-a__tool-a",
       ]);
     });
+  });
+});
+
+// A managed key is deleted after each test — minting one flips the data plane
+// from open to key-required (hasAnyMcpKeys), so leaving it behind would lock
+// down other test files that share this process's DB and expect open mode.
+describe("POST /mcp/:clientName — tools/list is filtered by the caller's key scope", () => {
+  test("a managed key scoped to one tool sees only that tool, not the client's others", async () => {
+    await startApp();
+    await reg("scopefilter", [makeTool({ name: "tool-a" }), makeTool({ name: "tool-b", endpoint: "/thing-b" })]);
+    const { record, rawKey } = createMcpKey("scoped-to-a", { tools: ["scopefilter__tool-a"] }, null, "test");
+    const auth = { Authorization: `Bearer ${rawKey}` };
+    try {
+      const session = await initSession("/mcp/scopefilter", auth);
+      expect(session).not.toBeNull();
+      const names = (await toolsList("/mcp/scopefilter", session!, auth)).body?.tools.map((t) => t.name) ?? [];
+      expect(names).toContain("scopefilter__tool-a");
+      expect(names).not.toContain("scopefilter__tool-b");
+    } finally {
+      deleteMcpKey(record.id);
+    }
+  });
+
+  test("an unrestricted managed key still sees all of the client's tools", async () => {
+    await startApp();
+    await reg("scopefilter2", [makeTool({ name: "tool-a" }), makeTool({ name: "tool-b", endpoint: "/thing-b" })]);
+    const { record, rawKey } = createMcpKey("unrestricted", null, null, "test");
+    const auth = { Authorization: `Bearer ${rawKey}` };
+    try {
+      const session = await initSession("/mcp/scopefilter2", auth);
+      const names = (await toolsList("/mcp/scopefilter2", session!, auth)).body?.tools.map((t) => t.name) ?? [];
+      expect(names).toContain("scopefilter2__tool-a");
+      expect(names).toContain("scopefilter2__tool-b");
+    } finally {
+      deleteMcpKey(record.id);
+    }
   });
 });
