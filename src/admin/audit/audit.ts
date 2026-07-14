@@ -81,19 +81,24 @@ export function recordAudit(actor: string, action: string, target: string, detai
     const createdAt = Date.now();
     const detailJson = detail ? JSON.stringify(detail) : null;
     // Read the tip of the chain and insert atomically so the (prev_hash, hash)
-    // linkage is consistent. bun:sqlite is synchronous, so within one process
-    // no other write interleaves between the read and the insert.
-    const hash = db.transaction(() => {
-      const prev = db
-        .query(`SELECT hash FROM admin_audit_log WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1`)
-        .get() as { hash: string } | null;
-      const prevHash = prev?.hash ?? "";
-      const h = computeAuditHash(prevHash, actor, action, target, detailJson, createdAt);
-      db.query(
-        `INSERT INTO admin_audit_log (actor, action, target, detail_json, created_at, prev_hash, hash) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ).run(actor, action, target, detailJson, createdAt, prevHash, h);
-      return h;
-    })();
+    // linkage is consistent. BEGIN IMMEDIATE takes the write lock up front — before
+    // the tip SELECT — so in an HA / multi-instance deployment two concurrent
+    // writers can't both read the same tip and fork the chain off one prev_hash
+    // (which verifyAuditChain would later flag as tampering); the second serializes
+    // behind the first. A single process was already safe (bun:sqlite is sync).
+    const hash = db
+      .transaction(() => {
+        const prev = db
+          .query(`SELECT hash FROM admin_audit_log WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1`)
+          .get() as { hash: string } | null;
+        const prevHash = prev?.hash ?? "";
+        const h = computeAuditHash(prevHash, actor, action, target, detailJson, createdAt);
+        db.query(
+          `INSERT INTO admin_audit_log (actor, action, target, detail_json, created_at, prev_hash, hash) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ).run(actor, action, target, detailJson, createdAt, prevHash, h);
+        return h;
+      })
+      .immediate();
     streamAuditEvent({ actor, action, target, detail: detail ?? null, createdAt, hash });
   } catch {
     // Best-effort — never let audit logging break the request it's describing.
