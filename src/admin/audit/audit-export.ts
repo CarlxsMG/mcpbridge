@@ -8,12 +8,21 @@ import type { AuditLogEntry } from "./audit.js";
  * has in hand (see exportAuditLog in ./audit.ts, which owns all filtering).
  */
 
-/** Escapes one CSV field per RFC 4180: quote the field and double any embedded quotes if it contains a comma, quote, or line break. */
+/**
+ * Escapes one CSV field per RFC 4180 (quote + double embedded quotes if it
+ * contains a comma, quote, or line break) AND neutralizes spreadsheet formula
+ * injection: a field a spreadsheet would evaluate as a formula (leading =, +, -,
+ * @, or a leading tab/CR that can front one) is prefixed with a single quote so
+ * Excel/Google Sheets treats it as literal text. `actor`/`action`/`target` derive
+ * from user-controlled input, so an auditor opening the export must not trigger a
+ * `=HYPERLINK(...)`/`=cmd|...` payload.
+ */
 function csvField(value: string): string {
-  if (/[",\r\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+  const guarded = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  if (/[",\r\n]/.test(guarded)) {
+    return `"${guarded.replace(/"/g, '""')}"`;
   }
-  return value;
+  return guarded;
 }
 
 /**
