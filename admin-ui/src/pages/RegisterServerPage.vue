@@ -10,16 +10,13 @@ import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "@/types/api
 import PageHeader from "@/components/ui/PageHeader.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import FormField from "@/components/ui/FormField.vue";
-import SelectMenu from "@/components/ui/SelectMenu.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import FieldError from "@/components/ui/FieldError.vue";
+import RegisterRestFields from "@/components/register-server/RegisterRestFields.vue";
+import RegisterGraphqlFields from "@/components/register-server/RegisterGraphqlFields.vue";
+import RegisterMcpFields from "@/components/register-server/RegisterMcpFields.vue";
 
 const { t } = useI18n({ useScope: "global" });
-
-const TRANSPORT_OPTIONS: { value: McpTransport; label: string }[] = [
-  { value: "streamable-http", label: "Streamable HTTP" },
-  { value: "sse", label: "SSE (legacy)" },
-];
 
 const router = useRouter();
 
@@ -36,13 +33,6 @@ const manualTools = ref("");
 const curlInput = ref("");
 const postmanText = ref("");
 const postmanFileName = ref("");
-
-const curlPlaceholder =
-  "curl -X POST https://api.example.com/users \\\n" +
-  '  -H "Content-Type: application/json" \\\n' +
-  '  -d \'{"name":"Jane"}\'\n\n' +
-  "# a second command works too — separate with a blank line\n" +
-  "curl https://api.example.com/users";
 
 const mcpUrl = ref("");
 const mcpTransport = ref<McpTransport>("streamable-http");
@@ -111,18 +101,6 @@ async function preview() {
   } finally {
     previewing.value = false;
   }
-}
-
-function onPostmanFileChange(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  postmanFileName.value = file.name;
-  const reader = new FileReader();
-  reader.onload = () => {
-    postmanText.value = typeof reader.result === "string" ? reader.result : "";
-  };
-  reader.readAsText(file);
 }
 
 watch([mode, openapiUrl, includeTags, excludeOps, manualTools, curlInput, postmanText], () => {
@@ -245,152 +223,28 @@ async function register() {
           />
         </FormField>
 
-        <template v-if="kind === 'rest'">
-          <FormField :label="t('pages.register_server.health_url_label')" for="r-health">
-            <input
-              id="r-health"
-              v-model="healthUrl"
-              type="url"
-              :placeholder="t('pages.register_server.health_url_placeholder')"
-            />
-          </FormField>
-          <FormField :label="t('pages.register_server.base_url_label')" for="r-base">
-            <input
-              id="r-base"
-              v-model="baseUrl"
-              type="url"
-              :placeholder="t('pages.register_server.base_url_placeholder')"
-            />
-          </FormField>
+        <RegisterRestFields
+          v-if="kind === 'rest'"
+          v-model:health-url="healthUrl"
+          v-model:base-url="baseUrl"
+          v-model:mode="mode"
+          v-model:openapi-url="openapiUrl"
+          v-model:include-tags="includeTags"
+          v-model:exclude-ops="excludeOps"
+          v-model:manual-tools="manualTools"
+          v-model:curl-input="curlInput"
+          v-model:postman-text="postmanText"
+          v-model:postman-file-name="postmanFileName"
+        />
 
-          <div class="segmented" role="radiogroup" :aria-label="t('pages.register_server.mode_aria')">
-            <label
-              ><input v-model="mode" type="radio" name="mode" value="openapi" />
-              {{ t("pages.register_server.mode_openapi") }}</label
-            >
-            <label
-              ><input v-model="mode" type="radio" name="mode" value="manual" />
-              {{ t("pages.register_server.mode_manual") }}</label
-            >
-            <label
-              ><input v-model="mode" type="radio" name="mode" value="curl" />
-              {{ t("pages.register_server.mode_curl") }}</label
-            >
-            <label
-              ><input v-model="mode" type="radio" name="mode" value="postman" />
-              {{ t("pages.register_server.mode_postman") }}</label
-            >
-          </div>
+        <RegisterGraphqlFields
+          v-else-if="kind === 'graphql'"
+          v-model:graphql-url="graphqlUrl"
+          v-model:graphql-health-url="graphqlHealthUrl"
+          v-model:include-mutations="includeMutations"
+        />
 
-          <template v-if="mode === 'openapi'">
-            <FormField :label="t('pages.register_server.openapi_url_label')" for="r-openapi">
-              <input
-                id="r-openapi"
-                v-model="openapiUrl"
-                type="url"
-                :placeholder="t('pages.register_server.openapi_url_placeholder')"
-              />
-            </FormField>
-            <FormField :label="t('pages.register_server.include_tags_label')" for="r-tags">
-              <input
-                id="r-tags"
-                v-model="includeTags"
-                type="text"
-                :placeholder="t('pages.register_server.include_tags_placeholder')"
-              />
-            </FormField>
-            <FormField :label="t('pages.register_server.exclude_ops_label')" for="r-exclude">
-              <input
-                id="r-exclude"
-                v-model="excludeOps"
-                type="text"
-                :placeholder="t('pages.register_server.exclude_ops_placeholder')"
-              />
-            </FormField>
-          </template>
-
-          <FormField
-            v-else-if="mode === 'manual'"
-            :label="t('pages.register_server.manual_tools_label')"
-            for="r-manual"
-          >
-            <textarea
-              id="r-manual"
-              v-model="manualTools"
-              rows="10"
-              spellcheck="false"
-              placeholder='[{"name":"get_user","method":"GET","endpoint":"/users/:id","description":"Fetch a user by id","inputSchema":{"type":"object","properties":{"id":{"type":"string"}}}}]'
-            ></textarea>
-          </FormField>
-
-          <FormField v-else-if="mode === 'curl'" :label="t('pages.register_server.curl_label')" for="r-curl">
-            <textarea
-              id="r-curl"
-              v-model="curlInput"
-              rows="10"
-              spellcheck="false"
-              :placeholder="curlPlaceholder"
-            ></textarea>
-            <p class="hint">
-              {{ t("pages.register_server.curl_hint") }}
-            </p>
-          </FormField>
-
-          <FormField v-else :label="t('pages.register_server.postman_label')" for="r-postman-file">
-            <input id="r-postman-file" type="file" accept="application/json,.json" @change="onPostmanFileChange" />
-            <p v-if="postmanFileName" class="hint">
-              {{ t("pages.register_server.postman_loaded", { name: postmanFileName }) }}
-            </p>
-            <label for="r-postman-text" class="postman-paste-label">{{
-              t("pages.register_server.postman_paste_label")
-            }}</label>
-            <textarea id="r-postman-text" v-model="postmanText" rows="8" spellcheck="false"></textarea>
-          </FormField>
-        </template>
-
-        <template v-else-if="kind === 'graphql'">
-          <FormField :label="t('pages.register_server.graphql_url_label')" for="r-graphql-url">
-            <input
-              id="r-graphql-url"
-              v-model="graphqlUrl"
-              type="url"
-              :placeholder="t('pages.register_server.graphql_url_placeholder')"
-            />
-          </FormField>
-          <FormField :label="t('pages.register_server.graphql_health_label')" for="r-graphql-health">
-            <input
-              id="r-graphql-health"
-              v-model="graphqlHealthUrl"
-              type="url"
-              :placeholder="t('pages.register_server.health_url_placeholder')"
-            />
-            <p class="hint">
-              {{ t("pages.register_server.graphql_health_hint") }}
-            </p>
-          </FormField>
-          <label class="checkline"
-            ><input v-model="includeMutations" type="checkbox" />
-            {{ t("pages.register_server.graphql_include_mutations") }}</label
-          >
-        </template>
-
-        <template v-else>
-          <FormField :label="t('pages.register_server.mcp_url_label')" for="r-mcp-url">
-            <input
-              id="r-mcp-url"
-              v-model="mcpUrl"
-              type="url"
-              required
-              :placeholder="t('pages.register_server.mcp_url_placeholder')"
-            />
-          </FormField>
-          <FormField :label="t('pages.register_server.mcp_transport_label')" for="r-mcp-transport">
-            <SelectMenu id="r-mcp-transport" v-model="mcpTransport" :options="TRANSPORT_OPTIONS" />
-          </FormField>
-          <p class="hint">
-            {{ t("pages.register_server.mcp_transport_hint") }}
-          </p>
-        </template>
+        <RegisterMcpFields v-else v-model:mcp-url="mcpUrl" v-model:mcp-transport="mcpTransport" />
 
         <template v-if="kind === 'rest' || kind === 'graphql'">
           <div class="preview-row">
@@ -449,10 +303,6 @@ async function register() {
   gap: 0.85rem;
   margin: 1rem 0;
 }
-:deep(.field textarea) {
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-}
 .hint {
   font-size: 0.82rem;
   color: var(--text-secondary);
@@ -461,16 +311,6 @@ async function register() {
 .hint.warn {
   color: var(--canary);
   font-weight: 600;
-}
-:deep(.field input[type="file"]) {
-  padding: 0.4rem 0;
-  border: none;
-}
-.postman-paste-label {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin: 0.6rem 0 0.3rem;
 }
 .preview-row {
   display: flex;
