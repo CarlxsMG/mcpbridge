@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useConfirmAction } from "./useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 
 /**
  * The "click Clear -> confirm -> clear the config -> reload" flow repeated across
@@ -11,7 +12,7 @@ import { toErrorMessage } from "@/utils/errors";
 export function useClearableConfig(
   loadFn: () => Promise<unknown>,
   clearFn: () => Promise<unknown>,
-  fallbackMessage = "Failed to clear.",
+  fallbackMessage = tk("errors.clear_failed"),
 ) {
   const error = ref("");
   const { pending: pendingClear, request, cancel: cancelClear, confirm } = useConfirmAction<true>();

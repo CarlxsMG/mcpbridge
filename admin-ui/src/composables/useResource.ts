@@ -1,5 +1,6 @@
 import { ref, type Ref } from "vue";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 
 /**
  * Lowest-level building block: wraps the loading/error-message boilerplate
@@ -12,7 +13,7 @@ import { toErrorMessage } from "@/utils/errors";
  * separate refs, or conditional/stale-guarded assignment) — see
  * ApprovalsPage, KeysPage, PoliciesPage, UsagePage for real examples.
  */
-export function useLoadState(fallbackMessage = "Failed to load.") {
+export function useLoadState(fallbackMessage = tk("errors.load_failed")) {
   const loading = ref(false);
   const errorMessage = ref("");
 
@@ -48,7 +49,7 @@ export function useLoadState(fallbackMessage = "Failed to load.") {
  *   to re-sync a local draft from freshly-loaded detail) can branch on it
  *   instead of re-deriving success from `errorMessage`.
  */
-export function useResource<T>(fetcher: () => Promise<T>, initialValue: T, fallbackMessage = "Failed to load.") {
+export function useResource<T>(fetcher: () => Promise<T>, initialValue: T, fallbackMessage = tk("errors.load_failed")) {
   const { loading, errorMessage, run } = useLoadState(fallbackMessage);
   const data = ref(initialValue) as Ref<T>;
 

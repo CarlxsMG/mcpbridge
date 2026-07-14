@@ -163,6 +163,18 @@ const grouped = computed(() => {
   return [...groups.entries()];
 });
 
+// Stable per-result DOM id + the currently-active one, so the input's
+// `aria-activedescendant` can point a screen reader at the highlighted option
+// (the combobox pattern SelectMenu.vue already uses) — arrowing was previously
+// a purely visual `.active` class with no assistive-tech signal.
+function optionId(entry: Entry): string {
+  return `cmd-opt-${entry.id}`;
+}
+const activeOptionId = computed(() => {
+  const entry = results.value[activeIndex.value];
+  return entry ? optionId(entry) : undefined;
+});
+
 watch(results, () => {
   activeIndex.value = 0;
 });
@@ -215,21 +227,35 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
           ref="inputEl"
           v-model="query"
           type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-controls="cmd-listbox"
+          :aria-expanded="results.length > 0"
+          :aria-activedescendant="activeOptionId"
           :placeholder="t('command_palette.search_placeholder')"
           :aria-label="t('common.search')"
         />
         <kbd>Esc</kbd>
       </div>
-      <div ref="listEl" class="cmd-results">
+      <div
+        id="cmd-listbox"
+        ref="listEl"
+        class="cmd-results"
+        role="listbox"
+        :aria-label="t('command_palette.results_aria')"
+      >
         <template v-if="results.length">
-          <div v-for="[group, items] in grouped" :key="group" class="cmd-group">
-            <p class="cmd-group-label">{{ group }}</p>
+          <div v-for="[group, items] in grouped" :key="group" class="cmd-group" role="group" :aria-label="group">
+            <p class="cmd-group-label" aria-hidden="true">{{ group }}</p>
             <button
               v-for="entry in items"
+              :id="optionId(entry)"
               :key="entry.id"
               type="button"
+              role="option"
               class="cmd-item"
               :class="{ active: results[activeIndex]?.id === entry.id }"
+              :aria-selected="results[activeIndex]?.id === entry.id"
               @mouseenter="activeIndex = results.indexOf(entry)"
               @click="go(entry)"
             >

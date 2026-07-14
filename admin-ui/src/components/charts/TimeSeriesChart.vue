@@ -203,7 +203,7 @@ const tooltipStyle = computed(() => {
         :viewBox="`0 0 ${width} ${heightPx}`"
         class="ts-svg"
         role="img"
-        :aria-label="`${effectivePrimaryLabel} over time`"
+        :aria-label="t('components.charts.series_over_time', { label: effectivePrimaryLabel })"
       >
         <defs>
           <linearGradient :id="gradientId" x1="0" y1="0" x2="0" y2="1">

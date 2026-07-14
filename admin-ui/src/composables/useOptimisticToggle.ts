@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 
 /**
  * Generalizes the optimistic enable/disable toggle hand-rolled across
@@ -8,7 +9,7 @@ import { toErrorMessage } from "@/utils/errors";
  * double-click race the hand-rolled versions didn't: a toggle already in
  * flight for a given key is ignored rather than re-fired.
  */
-export function useOptimisticToggle<T>(keyOf: (item: T) => PropertyKey, fallbackMessage = "Failed to update.") {
+export function useOptimisticToggle<T>(keyOf: (item: T) => PropertyKey, fallbackMessage = tk("errors.update_failed")) {
   const rowError = ref<Record<PropertyKey, string>>({});
   const pendingKeys = new Set<PropertyKey>();
 

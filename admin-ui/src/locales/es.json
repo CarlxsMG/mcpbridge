@@ -142,7 +142,10 @@
   },
   "errors": {
     "load_servers_failed": "Error al cargar los servidores.",
+    "load_failed": "Error al cargar.",
     "update_failed": "Error al actualizar.",
+    "delete_failed": "Error al eliminar.",
+    "clear_failed": "Error al limpiar.",
     "action_failed": "La acción falló.",
     "preview_failed": "La vista previa falló.",
     "not_authenticated": "No autenticado",
@@ -164,7 +167,8 @@
     "group_servers": "Servidores",
     "group_bundles": "Bundles",
     "group_keys": "API keys",
-    "tools_count": "sin herramientas | 1 herramienta | {count} herramientas"
+    "tools_count": "sin herramientas | 1 herramienta | {count} herramientas",
+    "results_aria": "Resultados"
   },
   "badges": {
     "not_live": "Sin actividad",
@@ -830,7 +834,10 @@
       "no_data": "Sin datos.",
       "no_data_window": "Sin datos en esta ventana.",
       "primary": "Valor",
-      "secondary": "Secundario"
+      "secondary": "Secundario",
+      "series_over_time": "{label} a lo largo del tiempo",
+      "quota_used": "{used} de {quota} en uso",
+      "quota_unlimited": "{used} en uso, cuota ilimitada"
     },
     "overview": {
       "widget_groups": {

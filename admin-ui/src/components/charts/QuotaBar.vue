@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { tk } from "@/i18n";
 
 const props = defineProps<{
   used: number;
@@ -28,8 +29,14 @@ const tone = computed(() => {
   return "signal";
 });
 
+// `tk` (not `t`) so the SVG has an accessible name without this leaf chart
+// needing an injected i18n scope; called inside a computed it still re-resolves
+// on locale change. Named-param interpolation keeps EN output byte-identical to
+// the previous literals.
 const ariaLabel = computed(() =>
-  props.quota === null ? `${props.used} used, unlimited quota` : `${props.used} of ${props.quota} used`,
+  props.quota === null
+    ? tk("components.charts.quota_unlimited", { used: props.used })
+    : tk("components.charts.quota_used", { used: props.used, quota: props.quota }),
 );
 </script>
 

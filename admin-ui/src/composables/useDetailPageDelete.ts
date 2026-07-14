@@ -3,6 +3,7 @@ import { useRouter } from "vue-router";
 import { api } from "./useApi";
 import { useConfirmAction } from "./useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
+import { tk } from "@/i18n";
 
 /**
  * Generalizes the delete-with-confirmation flow hand-rolled in
@@ -14,7 +15,7 @@ import { toErrorMessage } from "@/utils/errors";
 export function useDetailPageDelete(
   deletePath: () => string,
   redirectTo: string,
-  fallbackMessage = "Failed to delete.",
+  fallbackMessage = tk("errors.delete_failed"),
 ) {
   const router = useRouter();
   const { pending: pendingDelete, request, cancel: cancelDelete, confirm } = useConfirmAction<true>();
