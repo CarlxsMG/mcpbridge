@@ -257,3 +257,15 @@ async function gracefulShutdown(signal: string) {
 
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
+// Last-resort safety net: a stray unhandled promise rejection (e.g. a
+// best-effort MCP notification whose target transport closed mid-stream) must
+// be logged, never crash the gateway or vanish silently. The hot paths already
+// .catch() their own fire-and-forget sends (notifyToolsChanged, onProgress);
+// this only backstops anything that slips through, so it logs and keeps serving
+// rather than exiting.
+process.on("unhandledRejection", (reason) => {
+  log("error", "Unhandled promise rejection", {
+    err: reason instanceof Error ? { message: reason.message, stack: reason.stack, name: reason.name } : reason,
+  });
+});

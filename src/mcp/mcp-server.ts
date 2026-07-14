@@ -269,10 +269,11 @@ export function createMcpServer(scope: McpServerScope): Server {
 
 export function notifyToolsChanged(): void {
   for (const server of activeServers) {
-    try {
-      server.notification({ method: "notifications/tools/list_changed" });
-    } catch {
-      // ignore failures for individual servers
-    }
+    // server.notification is async — a synchronous try/catch cannot catch its
+    // rejection (e.g. a target session whose transport closed mid-stream after
+    // the client disconnected). Swallow it explicitly so it never escapes as an
+    // unhandled rejection, matching the onProgress sendNotification discipline
+    // in the tool-call handler above.
+    void server.notification({ method: "notifications/tools/list_changed" }).catch(() => {});
   }
 }
