@@ -110,6 +110,36 @@ describe("McpUpstreamPool.call", () => {
     await pool.disconnect("up1");
   });
 
+  test("reconnects when the connection params change (re-registered URL / rotated auth), despite the name-keyed pool", async () => {
+    const { factory, connects } = makeFactory();
+    const pool = new McpUpstreamPool({ transportFactory: factory });
+
+    await pool.call(PARAMS, "echo", { msg: "a" }, { timeoutMs: 2000, maxBytes: 1_000_000 });
+    // Same name + unchanged params → reuse.
+    await pool.call(PARAMS, "echo", { msg: "b" }, { timeoutMs: 2000, maxBytes: 1_000_000 });
+    expect(connects()).toBe(1);
+
+    // Same name, changed upstream URL (a re-registration) → drop the stale
+    // connection and reconnect, so the call reaches the new backend rather than
+    // the old one. Pre-fix, the pool returned the cached connection by name and
+    // this stayed at 1.
+    const movedUrl: McpConnParams = { ...PARAMS, url: "http://moved.test/mcp" };
+    await pool.call(movedUrl, "echo", { msg: "c" }, { timeoutMs: 2000, maxBytes: 1_000_000 });
+    expect(connects()).toBe(2);
+
+    // Same name + same URL, rotated auth headers → reconnect again with the new
+    // credential instead of silently keeping the old one.
+    const rotatedAuth: McpConnParams = { ...movedUrl, authHeaders: { Authorization: "Bearer new" } };
+    await pool.call(rotatedAuth, "echo", { msg: "d" }, { timeoutMs: 2000, maxBytes: 1_000_000 });
+    expect(connects()).toBe(3);
+
+    // Unchanged again → reuse (no spurious reconnect).
+    await pool.call(rotatedAuth, "echo", { msg: "e" }, { timeoutMs: 2000, maxBytes: 1_000_000 });
+    expect(connects()).toBe(3);
+
+    await pool.disconnect("up1");
+  });
+
   test("ping returns true against a live upstream", async () => {
     const { factory } = makeFactory();
     const pool = new McpUpstreamPool({ transportFactory: factory });

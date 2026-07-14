@@ -123,9 +123,29 @@ export interface McpUpstreamPoolOptions {
   connectTimeoutMs?: number;
 }
 
+/**
+ * Stable fingerprint of the connection-defining params. A pooled connection is
+ * reused only while this is unchanged; a changed URL, pinned IP, transport, or
+ * auth-header set forces a reconnect on the next use.
+ */
+function connFingerprint(p: McpConnParams): string {
+  const auth = p.authHeaders
+    ? Object.keys(p.authHeaders)
+        .sort()
+        .map((k) => [k, p.authHeaders![k]])
+    : [];
+  // JSON.stringify escapes the values, so no separator can collide.
+  return JSON.stringify([p.url, p.transport, p.resolvedIp ?? "", auth]);
+}
+
 export class McpUpstreamPool {
   private conns = new Map<string, Client>();
   private connecting = new Map<string, Promise<Client>>();
+  // Fingerprint (url/transport/pinned-IP/auth) of the params each live
+  // connection was built with, so getClient can drop a stale connection when a
+  // client is re-registered or its upstream auth rotates — the pool is keyed by
+  // name only, which would otherwise keep hitting the old backend/credentials.
+  private connFingerprints = new Map<string, string>();
   private transportFactory: (p: McpConnParams) => Transport;
   private readonly connectTimeoutMs: number;
 
@@ -136,8 +156,16 @@ export class McpUpstreamPool {
 
   /** Returns a live Client for the upstream, connecting (once) on first use. */
   private async getClient(p: McpConnParams): Promise<Client> {
+    const fp = connFingerprint(p);
     const live = this.conns.get(p.name);
-    if (live) return live;
+    if (live) {
+      // Reuse only while the connection params are unchanged. A re-registered
+      // URL/pinned-IP or rotated upstream auth changes the fingerprint — drop
+      // the stale connection and reconnect, so the next call reaches the new
+      // backend/credentials instead of the old ones.
+      if (this.connFingerprints.get(p.name) === fp) return live;
+      await this.disconnect(p.name);
+    }
 
     const inflight = this.connecting.get(p.name);
     if (inflight) return inflight;
@@ -146,6 +174,7 @@ export class McpUpstreamPool {
       const client = new Client({ name: CLIENT_NAME, version: CLIENT_VERSION }, { capabilities: {} });
       await client.connect(this.transportFactory(p), { timeout: this.connectTimeoutMs });
       this.conns.set(p.name, client);
+      this.connFingerprints.set(p.name, fp);
       this.connecting.delete(p.name);
       return client;
     })().catch((err) => {
@@ -261,6 +290,7 @@ export class McpUpstreamPool {
   async disconnect(name: string): Promise<void> {
     const client = this.conns.get(name);
     this.conns.delete(name);
+    this.connFingerprints.delete(name);
     if (client) {
       try {
         await client.close();
@@ -280,6 +310,7 @@ export class McpUpstreamPool {
     this.transportFactory = factory;
     this.conns.clear();
     this.connecting.clear();
+    this.connFingerprints.clear();
   }
 }
 
