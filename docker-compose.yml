@@ -1,7 +1,14 @@
 # Minimal production compose file for the MCP REST Bridge.
 #
-#   cp .env.example .env   # fill in real values (BOOTSTRAP_ADMIN_*, etc.)
+#   # Create a .env with your REAL production secrets — do NOT `cp .env.example`,
+#   # that file is the local-dev profile (NODE_ENV=development, non-Secure cookies,
+#   # ALLOW_PRIVATE_IPS=true = SSRF guard off). See .env.example for the key list.
+#   printf 'BOOTSTRAP_ADMIN_USERNAME=...\nBOOTSTRAP_ADMIN_PASSWORD=...\nADMIN_API_KEYS=...\n' > .env
 #   docker compose up -d
+#
+# This file pins NODE_ENV=production (see `environment:` below), so the startup
+# guards are always on: if .env carries a dev-only relaxation (SESSION_COOKIE_SECURE=false,
+# an unsafe JWT config, …) the app fails closed at boot rather than running insecurely.
 #
 # Notes:
 # - No release image is published yet, so this builds from local source
@@ -38,6 +45,11 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"
     env_file:
       - .env
+    environment:
+      # Force the production posture regardless of what .env carries — `environment`
+      # wins over `env_file`, so a stray NODE_ENV=development (e.g. from copying the
+      # dev example) can't disable checkStartupGuards on the prod compose path.
+      NODE_ENV: production
     volumes:
       - mcp-bridge-data:/app/data
     restart: unless-stopped

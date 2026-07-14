@@ -11,7 +11,11 @@ WORKDIR /app
 # Install dependencies
 FROM base AS deps
 COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile --production
+# --ignore-scripts: the root `prepare` hook runs `lefthook install`, but lefthook
+# is a devDependency (excluded by --production) and there's no .git here anyway,
+# so the lifecycle script would fail the install. The deps stage only needs the
+# runtime dependency tree, no lifecycle scripts.
+RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # Build the admin UI (Vue 3 SPA) into static assets
 FROM base AS admin-ui-build
@@ -31,6 +35,10 @@ COPY --chown=bun:bun --from=admin-ui-build /app/admin-ui/dist ./admin-ui/dist
 
 RUN mkdir -p /app/data && chown bun:bun /app/data
 
+# Secure by default: NODE_ENV=production activates checkStartupGuards (rejects
+# SESSION_COOKIE_SECURE=false, missing JWT audience, etc.), so a bare `docker run`
+# with no compose/env can't silently boot in the relaxed development posture.
+ENV NODE_ENV=production
 ENV PORT=3000
 ENV DB_PATH=/app/data/mcp-bridge.db
 EXPOSE 3000
