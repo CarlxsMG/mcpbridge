@@ -239,15 +239,25 @@ export function decideApproval(
   const now = Date.now();
 
   if (status === "rejected") {
+    // Record the decision FIRST: its UNIQUE(approval_id, decided_by) is the guard
+    // against the same actor deciding twice (e.g. approve-then-reject). Catch that
+    // violation the way the approve branch below does — the old order flipped the
+    // ticket to 'rejected' and only THEN inserted, so a duplicate threw uncaught
+    // after the status was already committed (route 500, and the reject audit
+    // record was never written). If the insert fails we leave the ticket pending.
+    try {
+      db.query(
+        `INSERT INTO approval_decisions (approval_id, decided_by, decision, note, decided_at) VALUES (?, ?, 'rejected', ?, ?)`,
+      ).run(id, decidedBy, note, now);
+    } catch {
+      return { ok: false, message: `You already recorded a decision for approval #${id}` };
+    }
     const r = db
       .query(
         `UPDATE approvals SET status = 'rejected', decided_at = ?, decided_by = ?, note = ? WHERE id = ? AND status = 'pending'`,
       )
       .run(now, decidedBy, note, id);
     if (r.changes === 0) return { ok: false, message: `Approval #${id} is no longer pending` };
-    db.query(
-      `INSERT INTO approval_decisions (approval_id, decided_by, decision, note, decided_at) VALUES (?, ?, 'rejected', ?, ?)`,
-    ).run(id, decidedBy, note, now);
     return { ok: true, finalStatus: "rejected", approvalsReceived: 0, requiredLevels: rec.requiredLevels };
   }
 
