@@ -95,32 +95,38 @@ export async function dispatchMcpToolCall(
     { tool: mcpToolName, client: client.name, duration_ms: durationMs },
   );
 
-  // Response redaction parity with the REST path — applies to JSON text parts.
-  if (!result.isError) {
-    const paths = getRedactionPaths(client.name, tool.name);
-    if (paths.length > 0) {
-      result.content = result.content.map((item) =>
-        item.type === "text" ? { ...item, text: applyRedaction(paths, item.text) ?? item.text } : item,
-      );
-    }
-    // Response guardrail scan parity — wrap flagged text parts (after redaction).
-    if (scanResponses) {
-      let anyFlagged = false;
-      result.content = result.content.map((item) => {
-        if (item.type !== "text") return item;
-        const scan = applyResponseScan(item.text);
-        if (scan.flagged) {
-          anyFlagged = true;
-          log("warn", "MCP tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
-        }
-        return scan.flagged ? { ...item, text: scan.text } : item;
-      });
-      recordGuardrailHit(client.name, tool.name, anyFlagged);
-    }
+  // Response redaction + guardrail-scan parity with the REST path — which
+  // sanitizes its 4xx/5xx error branch too (proxy.ts, not just the success
+  // branch). An isError result from an (untrusted) MCP upstream can carry a
+  // secret at a configured redaction path, or a prompt-injection payload that
+  // scanResponses is built to spotlight, exactly like a success result — so
+  // both run over EVERY result regardless of result.isError.
+  const paths = getRedactionPaths(client.name, tool.name);
+  if (paths.length > 0) {
+    result.content = result.content.map((item) =>
+      item.type === "text" ? { ...item, text: applyRedaction(paths, item.text) ?? item.text } : item,
+    );
+  }
+  // Response guardrail scan — wrap flagged text parts (after redaction).
+  if (scanResponses) {
+    let anyFlagged = false;
+    result.content = result.content.map((item) => {
+      if (item.type !== "text") return item;
+      const scan = applyResponseScan(item.text);
+      if (scan.flagged) {
+        anyFlagged = true;
+        log("warn", "MCP tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
+      }
+      return scan.flagged ? { ...item, text: scan.text } : item;
+    });
+    recordGuardrailHit(client.name, tool.name, anyFlagged);
+  }
 
-    // Context budget parity with the REST path — MUST run after redaction and
-    // the guardrail scan above so an opt-in llm_summarize call only ever sees
-    // already-sanitized text, right before the response goes back to the caller.
+  // Context budget stays success-only — the REST path doesn't budget error
+  // bodies either — and MUST run after redaction + the guardrail scan above so
+  // an opt-in llm_summarize call only ever sees already-sanitized text, right
+  // before the response goes back to the caller.
+  if (!result.isError) {
     result.content = await Promise.all(
       result.content.map(async (item) => {
         if (item.type !== "text") return item;

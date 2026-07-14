@@ -536,7 +536,7 @@ describe("dispatchMcpToolCall — redaction, guardrail scan, and context budget 
     expect(r.content[0].text.length).toBeLessThan(2000);
   });
 
-  test("redaction, guardrail scanning, and context budget are ALL skipped when the MCP result is an error (kills L1347 full conditional/BooleanLiteral/BlockStatement)", async () => {
+  test("an error result IS redacted and guardrail-scanned (parity with the REST error path); only context budget stays success-only (kills the isError guard hoisting redaction/scan out while keeping the budget guard)", async () => {
     setRedactionPaths(CLIENT, "boom", ["secret"]);
     setGuardrails(CLIENT, "boom", { denyPatterns: [], blockSecrets: false, scanResponses: true });
     setQuarantinePolicy(CLIENT, "boom", {
@@ -550,14 +550,17 @@ describe("dispatchMcpToolCall — redaction, guardrail scan, and context budget 
 
     const r = await proxyToolCall(`${CLIENT}__boom`, {});
     expect(r.isError).toBe(true);
-    // Unredacted: the raw secret value is still present.
-    expect(r.content[0].text).toContain('"secret":"shh"');
-    // Unscanned: not wrapped in the untrusted-data envelope.
+    // Redacted: the configured `secret` path is stripped even on an error result
+    // (an untrusted upstream can carry a secret in its error body just like a 2xx).
+    expect(r.content[0].text).not.toContain("shh");
+    expect(r.content[0].text).toContain("[REDACTED]");
+    // Scanned: the injection phrase is spotlight-wrapped, and the guardrail hit
+    // escalates quarantine — recordGuardrailHit now runs on the error path too.
+    expect(r.content[0].text).toContain("UNTRUSTED TOOL OUTPUT");
     expect(r.content[0].text).toContain("ignore all previous instructions");
-    expect(r.content[0].text).not.toContain("UNTRUSTED TOOL OUTPUT");
-    // Not budgeted: no truncation marker despite the 10-byte budget configured.
+    expect(getQuarantineState(CLIENT, "boom").quarantined).toBe(true);
+    // Context budget remains success-only (the REST error path doesn't budget
+    // either): no truncation marker despite the 10-byte budget configured.
     expect(r.content[0].text).not.toContain("context-budget: response truncated");
-    // recordGuardrailHit is only ever called from inside the skipped block.
-    expect(getQuarantineState(CLIENT, "boom").quarantined).toBe(false);
   });
 });
