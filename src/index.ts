@@ -182,6 +182,15 @@ for (const key of Object.keys(redactedConfig)) {
     redactedConfig[key] = "<redacted>";
   } else if (REDACT_EXACT_KEYS.has(key) && redactedConfig[key]) {
     redactedConfig[key] = "<redacted>";
+  } else if (
+    /(secret|token|passwd|credential|private[_-]?key)/i.test(key) &&
+    !/(name|provider|kind|type|count|id|ids|enabled|url|at|ms)$/i.test(key) &&
+    redactedConfig[key]
+  ) {
+    // Generic fallback so a future secret-ish config field (oidcClientSecret,
+    // slackToken, …) is redacted even before it's added to the exact list. The
+    // safe-suffix guard keeps non-secret fields like secretsProvider visible.
+    redactedConfig[key] = "<redacted>";
   } else if (typeof redactedConfig[key] === "string" && /^https?:\/\/[^/]*@/.test(redactedConfig[key] as string)) {
     // Strip credentials embedded in a configured URL (e.g. https://user:pass@host
     // in JWT_JWKS_URL / AUDIT_SINK_URL / VAULT_ADDR) so they never hit the log.
