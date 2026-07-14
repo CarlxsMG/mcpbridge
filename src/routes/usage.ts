@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { getUsageSummary, getUsageTimeseries, getTopTools, getUsageByKey } from "../observability/usage.js";
@@ -10,7 +11,12 @@ function num(v: unknown): number | undefined {
 
 /** Read-only usage analytics endpoints (viewers may read). */
 export function usageRoutes(app: Express): void {
-  app.get("/admin-api/usage/summary", adminAuth, (req: Request, res: Response) => {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.get("/usage/summary", (req: Request, res: Response) => {
     res.status(200).json(
       getUsageSummary({
         from: num(req.query.from),
@@ -20,7 +26,7 @@ export function usageRoutes(app: Express): void {
     );
   });
 
-  app.get("/admin-api/usage/timeseries", adminAuth, (req: Request, res: Response) => {
+  r.get("/usage/timeseries", (req: Request, res: Response) => {
     res.status(200).json(
       getUsageTimeseries({
         from: num(req.query.from),
@@ -31,11 +37,13 @@ export function usageRoutes(app: Express): void {
     );
   });
 
-  app.get("/admin-api/usage/top-tools", adminAuth, (req: Request, res: Response) => {
+  r.get("/usage/top-tools", (req: Request, res: Response) => {
     res.status(200).json({ items: getTopTools({ from: num(req.query.from), limit: num(req.query.limit) }) });
   });
 
-  app.get("/admin-api/usage/by-key", adminAuth, (req: Request, res: Response) => {
+  r.get("/usage/by-key", (req: Request, res: Response) => {
     res.status(200).json({ items: getUsageByKey({ from: num(req.query.from), limit: num(req.query.limit) }) });
   });
+
+  app.use("/admin-api", r);
 }

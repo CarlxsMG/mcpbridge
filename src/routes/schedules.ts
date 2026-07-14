@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireOperator } from "../middleware/authz.js";
@@ -6,11 +7,16 @@ import { listSchedules, createSchedule, setScheduleEnabled, deleteSchedule } fro
 import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 
 export function scheduleRoutes(app: Express): void {
-  app.get("/admin-api/schedules", adminAuth, (_req: Request, res: Response) => {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.get("/schedules", (_req: Request, res: Response) => {
     res.status(200).json({ items: listSchedules() });
   });
 
-  app.post("/admin-api/schedules", adminAuth, requireOperator, (req: Request, res: Response) => {
+  r.post("/schedules", requireOperator, (req: Request, res: Response) => {
     const body = bodyOf(req);
     const targetType = body.targetType;
     const clientName = typeof body.clientName === "string" ? body.clientName : "";
@@ -47,7 +53,7 @@ export function scheduleRoutes(app: Express): void {
     res.status(201).json(result);
   });
 
-  app.patch("/admin-api/schedules/:id", adminAuth, requireOperator, (req: Request<{ id: string }>, res: Response) => {
+  r.patch("/schedules/:id", requireOperator, (req: Request<{ id: string }>, res: Response) => {
     const body = bodyOf(req);
     if (typeof body.enabled !== "boolean") {
       validationError(res, "enabled (boolean) is required");
@@ -62,7 +68,7 @@ export function scheduleRoutes(app: Express): void {
     res.status(200).json({ status: "updated", id: Number(req.params.id) });
   });
 
-  app.delete("/admin-api/schedules/:id", adminAuth, requireOperator, (req: Request<{ id: string }>, res: Response) => {
+  r.delete("/schedules/:id", requireOperator, (req: Request<{ id: string }>, res: Response) => {
     const ok = deleteSchedule(Number(req.params.id));
     if (!ok) {
       notFound(res, "SCHEDULE_NOT_FOUND", "Schedule not found");
@@ -71,4 +77,6 @@ export function scheduleRoutes(app: Express): void {
     recordAudit(actorFromRequest(req), "schedule.delete", `schedule:${req.params.id}`);
     res.status(200).json({ status: "deleted", id: Number(req.params.id) });
   });
+
+  app.use("/admin-api", r);
 }

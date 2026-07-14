@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "../middleware/authz.js";
@@ -89,13 +90,18 @@ function validateCompositeRefs(input: unknown): ValidationResult<string[]> {
 }
 
 export function bundleRoutes(app: Express): void {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
   // ── Bundles ─────────────────────────────────────────────────────────────
 
-  app.get("/admin-api/bundles", adminAuth, (_req: Request, res: Response) => {
+  r.get("/bundles", (_req: Request, res: Response) => {
     res.status(200).json({ items: listBundles() });
   });
 
-  app.get("/admin-api/bundles/:name", adminAuth, (req: Request<{ name: string }>, res: Response) => {
+  r.get("/bundles/:name", (req: Request<{ name: string }>, res: Response) => {
     const detail = getBundleDetail(req.params.name);
     if (!detail) {
       notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
@@ -104,7 +110,7 @@ export function bundleRoutes(app: Express): void {
     res.status(200).json(detail);
   });
 
-  app.post("/admin-api/bundles", adminAuth, requireAdminRole, async (req: Request, res: Response) => {
+  r.post("/bundles", requireAdminRole, async (req: Request, res: Response) => {
     const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name : "";
     const description = typeof body.description === "string" ? body.description : undefined;
@@ -139,92 +145,82 @@ export function bundleRoutes(app: Express): void {
     res.status(201).json(getBundleDetail(name));
   });
 
-  app.patch(
-    "/admin-api/bundles/:name",
-    adminAuth,
-    requireAdminRole,
-    async (req: Request<{ name: string }>, res: Response) => {
-      const { name } = req.params;
-      const body = bodyOf(req);
-      const actor = actorFromRequest(req);
+  r.patch("/bundles/:name", requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
+    const { name } = req.params;
+    const body = bodyOf(req);
+    const actor = actorFromRequest(req);
 
-      const updates: {
-        description?: string | null;
-        enabled?: boolean;
-        tools?: BundleToolRef[];
-        composites?: string[];
-      } = {};
+    const updates: {
+      description?: string | null;
+      enabled?: boolean;
+      tools?: BundleToolRef[];
+      composites?: string[];
+    } = {};
 
-      if (body.description !== undefined) {
-        if (body.description !== null && typeof body.description !== "string") {
-          validationError(res, "description must be a string or null");
-          return;
-        }
-        updates.description = body.description;
-      }
-
-      if (body.enabled !== undefined) {
-        if (typeof body.enabled !== "boolean") {
-          validationError(res, "enabled must be a boolean");
-          return;
-        }
-        updates.enabled = body.enabled;
-      }
-
-      if (body.tools !== undefined) {
-        const toolsResult = validateToolRefs(body.tools);
-        if (!toolsResult.ok) {
-          validationError(res, toolsResult.message);
-          return;
-        }
-        updates.tools = toolsResult.value;
-      }
-
-      if (body.composites !== undefined) {
-        const compositesResult = validateCompositeRefs(body.composites);
-        if (!compositesResult.ok) {
-          validationError(res, compositesResult.message);
-          return;
-        }
-        updates.composites = compositesResult.value;
-      }
-
-      const result = await updateBundle(name, updates);
-      if (!result.ok) {
-        sendError(
-          res,
-          mutationErrorToStatus(result.error.code, BUNDLE_ERROR_STATUS),
-          result.error.code,
-          result.error.message,
-        );
+    if (body.description !== undefined) {
+      if (body.description !== null && typeof body.description !== "string") {
+        validationError(res, "description must be a string or null");
         return;
       }
-      recordAudit(actor, "bundle.update", name, { fields: Object.keys(updates) });
-      res.status(200).json({ status: "updated", name });
-    },
-  );
+      updates.description = body.description;
+    }
 
-  app.delete(
-    "/admin-api/bundles/:name",
-    adminAuth,
-    requireAdminRole,
-    async (req: Request<{ name: string }>, res: Response) => {
-      const { name } = req.params;
-      // Revoke any still-active install links (and their auto-provisioned MCP
-      // keys) BEFORE the bundle row disappears — mcp_bundles' ON DELETE CASCADE
-      // only removes the link rows, it never touches the separately-owned
-      // mcp_api_keys rows they reference, so this is the one place that can
-      // still see (bundle_name -> link -> key) to close that out.
-      revokeAllInstallLinksForBundle(name);
-      const ok = await deleteBundle(name);
-      if (!ok) {
-        notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
+    if (body.enabled !== undefined) {
+      if (typeof body.enabled !== "boolean") {
+        validationError(res, "enabled must be a boolean");
         return;
       }
-      recordAudit(actorFromRequest(req), "bundle.delete", name);
-      res.status(200).json({ status: "deleted", name });
-    },
-  );
+      updates.enabled = body.enabled;
+    }
+
+    if (body.tools !== undefined) {
+      const toolsResult = validateToolRefs(body.tools);
+      if (!toolsResult.ok) {
+        validationError(res, toolsResult.message);
+        return;
+      }
+      updates.tools = toolsResult.value;
+    }
+
+    if (body.composites !== undefined) {
+      const compositesResult = validateCompositeRefs(body.composites);
+      if (!compositesResult.ok) {
+        validationError(res, compositesResult.message);
+        return;
+      }
+      updates.composites = compositesResult.value;
+    }
+
+    const result = await updateBundle(name, updates);
+    if (!result.ok) {
+      sendError(
+        res,
+        mutationErrorToStatus(result.error.code, BUNDLE_ERROR_STATUS),
+        result.error.code,
+        result.error.message,
+      );
+      return;
+    }
+    recordAudit(actor, "bundle.update", name, { fields: Object.keys(updates) });
+    res.status(200).json({ status: "updated", name });
+  });
+
+  r.delete("/bundles/:name", requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
+    const { name } = req.params;
+    // Revoke any still-active install links (and their auto-provisioned MCP
+    // keys) BEFORE the bundle row disappears — mcp_bundles' ON DELETE CASCADE
+    // only removes the link rows, it never touches the separately-owned
+    // mcp_api_keys rows they reference, so this is the one place that can
+    // still see (bundle_name -> link -> key) to close that out.
+    revokeAllInstallLinksForBundle(name);
+    const ok = await deleteBundle(name);
+    if (!ok) {
+      notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
+      return;
+    }
+    recordAudit(actorFromRequest(req), "bundle.delete", name);
+    res.status(200).json({ status: "deleted", name });
+  });
 
   // ── Install links ───────────────────────────────────────────────────────
   // Shareable, revocable "install this bundle" links — see
@@ -234,37 +230,32 @@ export function bundleRoutes(app: Express): void {
   // routes/bundles.ts above — every bundle route here is adminAuth only, no
   // ensureClientAccess/canAccessClient check), so these routes match that.
 
-  app.post(
-    "/admin-api/bundles/:name/install-links",
-    adminAuth,
-    requireAdminRole,
-    async (req: Request<{ name: string }>, res: Response) => {
-      const { name } = req.params;
-      const body = bodyOf(req);
-      const exp = validateExpiresAt(body.expiresAt);
-      if (!exp.ok) {
-        validationError(res, exp.message);
-        return;
-      }
+  r.post("/bundles/:name/install-links", requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
+    const { name } = req.params;
+    const body = bodyOf(req);
+    const exp = validateExpiresAt(body.expiresAt);
+    if (!exp.ok) {
+      validationError(res, exp.message);
+      return;
+    }
 
-      const actor = actorFromRequest(req);
-      const result = await createInstallLink(name, exp.value, actor);
-      if (!result.ok) {
-        sendError(
-          res,
-          mutationErrorToStatus(result.error.code, INSTALL_LINK_ERROR_STATUS),
-          result.error.code,
-          result.error.message,
-        );
-        return;
-      }
-      recordAudit(actor, "bundle.install_link.create", name, { installLinkId: result.record.id });
-      // The raw token is returned exactly once, here — it is never persisted or retrievable again.
-      res.status(201).json({ ...result.record, token: result.rawToken });
-    },
-  );
+    const actor = actorFromRequest(req);
+    const result = await createInstallLink(name, exp.value, actor);
+    if (!result.ok) {
+      sendError(
+        res,
+        mutationErrorToStatus(result.error.code, INSTALL_LINK_ERROR_STATUS),
+        result.error.code,
+        result.error.message,
+      );
+      return;
+    }
+    recordAudit(actor, "bundle.install_link.create", name, { installLinkId: result.record.id });
+    // The raw token is returned exactly once, here — it is never persisted or retrievable again.
+    res.status(201).json({ ...result.record, token: result.rawToken });
+  });
 
-  app.get("/admin-api/bundles/:name/install-links", adminAuth, (req: Request<{ name: string }>, res: Response) => {
+  r.get("/bundles/:name/install-links", (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
     if (!getBundleDetail(name)) {
       notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
@@ -273,9 +264,8 @@ export function bundleRoutes(app: Express): void {
     res.status(200).json({ items: listInstallLinks(name) });
   });
 
-  app.delete(
-    "/admin-api/bundles/:name/install-links/:id",
-    adminAuth,
+  r.delete(
+    "/bundles/:name/install-links/:id",
     requireAdminRole,
     (req: Request<{ name: string; id: string }>, res: Response) => {
       const { name } = req.params;
@@ -299,7 +289,9 @@ export function bundleRoutes(app: Express): void {
   // Flat listing across every registered client (live or not), unpaginated —
   // purpose-built so the admin-ui bundle picker doesn't N+1-fetch per client.
 
-  app.get("/admin-api/tools", adminAuth, (_req: Request, res: Response) => {
+  r.get("/tools", (_req: Request, res: Response) => {
     res.status(200).json({ items: registry.listAllTools() });
   });
+
+  app.use("/admin-api", r);
 }

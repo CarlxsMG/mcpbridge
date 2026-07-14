@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "../middleware/authz.js";
@@ -7,17 +8,21 @@ import { listAllTags, listToolsByTag, setToolTags, normalizeTag, TAG_RE } from "
 import { validationError, notFound, bodyOf } from "./http-errors.js";
 
 export function tagRoutes(app: Express): void {
-  app.get("/admin-api/tags", adminAuth, (_req: Request, res: Response) => {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.get("/tags", (_req: Request, res: Response) => {
     res.status(200).json({ items: listAllTags() });
   });
 
-  app.get("/admin-api/tags/:tag/tools", adminAuth, (req: Request<{ tag: string }>, res: Response) => {
+  r.get("/tags/:tag/tools", (req: Request<{ tag: string }>, res: Response) => {
     res.status(200).json({ items: listToolsByTag(req.params.tag) });
   });
 
-  app.put(
-    "/admin-api/clients/:name/tools/:tool/tags",
-    adminAuth,
+  r.put(
+    "/clients/:name/tools/:tool/tags",
     requireAdminRole,
     (req: Request<{ name: string; tool: string }>, res: Response) => {
       const { name, tool } = req.params;
@@ -41,4 +46,6 @@ export function tagRoutes(app: Express): void {
       res.status(200).json({ status: "updated", name, tool, tags: normalized });
     },
   );
+
+  app.use("/admin-api", r);
 }

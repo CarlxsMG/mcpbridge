@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole, isSuperAdminCaller, callerTeamId } from "../middleware/authz.js";
@@ -91,11 +92,16 @@ function validateAdminRole(input: unknown): ValidationResult<AdminRole | null> {
 }
 
 export function mcpKeyRoutes(app: Express): void {
-  app.get("/admin-api/mcp-keys", adminAuth, (_req: Request, res: Response) => {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.get("/mcp-keys", (_req: Request, res: Response) => {
     res.status(200).json({ items: listMcpKeys() });
   });
 
-  app.post("/admin-api/mcp-keys", adminAuth, requireAdminRole, (req: Request, res: Response) => {
+  r.post("/mcp-keys", requireAdminRole, (req: Request, res: Response) => {
     const body = bodyOf(req);
     const label = validateLabel(body.label);
     if (!label.ok) {
@@ -172,7 +178,7 @@ export function mcpKeyRoutes(app: Express): void {
     res.status(201).json({ ...record, key: rawKey });
   });
 
-  app.get("/admin-api/mcp-keys/:id", adminAuth, (req: Request<{ id: string }>, res: Response) => {
+  r.get("/mcp-keys/:id", (req: Request<{ id: string }>, res: Response) => {
     const rec = getMcpKey(Number(req.params.id));
     if (!rec) {
       notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
@@ -181,7 +187,7 @@ export function mcpKeyRoutes(app: Express): void {
     res.status(200).json(rec);
   });
 
-  app.patch("/admin-api/mcp-keys/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.patch("/mcp-keys/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     const existing = getMcpKey(id);
     if (!existing) {
@@ -282,27 +288,22 @@ export function mcpKeyRoutes(app: Express): void {
     res.status(200).json(rec);
   });
 
-  app.post(
-    "/admin-api/mcp-keys/:id/revoke",
-    adminAuth,
-    requireAdminRole,
-    (req: Request<{ id: string }>, res: Response) => {
-      const id = Number(req.params.id);
-      if (!getMcpKey(id)) {
-        notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
-        return;
-      }
-      const ok = revokeMcpKey(id);
-      if (!ok) {
-        sendError(res, 409, "ALREADY_REVOKED", "API key is already revoked");
-        return;
-      }
-      recordAudit(actorFromRequest(req), "mcp_key.revoke", String(id));
-      res.status(200).json({ status: "revoked", id });
-    },
-  );
+  r.post("/mcp-keys/:id/revoke", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+    const id = Number(req.params.id);
+    if (!getMcpKey(id)) {
+      notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
+      return;
+    }
+    const ok = revokeMcpKey(id);
+    if (!ok) {
+      sendError(res, 409, "ALREADY_REVOKED", "API key is already revoked");
+      return;
+    }
+    recordAudit(actorFromRequest(req), "mcp_key.revoke", String(id));
+    res.status(200).json({ status: "revoked", id });
+  });
 
-  app.delete("/admin-api/mcp-keys/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.delete("/mcp-keys/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     const ok = deleteMcpKey(id);
     if (!ok) {
@@ -312,4 +313,6 @@ export function mcpKeyRoutes(app: Express): void {
     recordAudit(actorFromRequest(req), "mcp_key.delete", String(id));
     res.status(200).json({ status: "deleted", id });
   });
+
+  app.use("/admin-api", r);
 }

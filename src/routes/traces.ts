@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "../middleware/authz.js";
@@ -6,7 +7,12 @@ import { listTraces, getTrace, purgeAllSpans, getTopSessions } from "../observab
 import { notFound } from "./http-errors.js";
 
 export function tracesRoutes(app: Express): void {
-  app.get("/admin-api/traces", adminAuth, (req: Request, res: Response) => {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.get("/traces", (req: Request, res: Response) => {
     const mcpToolName = typeof req.query.tool === "string" ? req.query.tool : undefined;
     const sessionId = typeof req.query.session_id === "string" ? req.query.session_id : undefined;
     const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
@@ -17,12 +23,12 @@ export function tracesRoutes(app: Express): void {
   // "Which sessions are generating the most calls" summary — powers the
   // trace-viewer's top-sessions chart. Read-only, no tenancy scoping (traces
   // aren't currently per-team like clients/tools are).
-  app.get("/admin-api/traces/top-sessions", adminAuth, (req: Request, res: Response) => {
+  r.get("/traces/top-sessions", (req: Request, res: Response) => {
     const limit = req.query.limit !== undefined ? Number(req.query.limit) : undefined;
     res.status(200).json({ items: getTopSessions(limit) });
   });
 
-  app.get("/admin-api/traces/:traceId", adminAuth, (req: Request<{ traceId: string }>, res: Response) => {
+  r.get("/traces/:traceId", (req: Request<{ traceId: string }>, res: Response) => {
     const spans = getTrace(req.params.traceId);
     if (spans.length === 0) {
       notFound(res, "TRACE_NOT_FOUND", "Trace not found");
@@ -31,9 +37,11 @@ export function tracesRoutes(app: Express): void {
     res.status(200).json({ traceId: req.params.traceId, spans });
   });
 
-  app.delete("/admin-api/traces", adminAuth, requireAdminRole, (req: Request, res: Response) => {
+  r.delete("/traces", requireAdminRole, (req: Request, res: Response) => {
     const removed = purgeAllSpans();
     recordAudit(actorFromRequest(req), "traces.purge", "traces", { removed });
     res.status(200).json({ status: "purged", removed });
   });
+
+  app.use("/admin-api", r);
 }

@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "../middleware/authz.js";
@@ -44,11 +45,16 @@ function validateToolRefs(input: unknown): LooseValidationResult<BundleToolRef[]
 }
 
 export function policyRoutes(app: Express): void {
-  app.get("/admin-api/policies", adminAuth, (_req: Request, res: Response) => {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.get("/policies", (_req: Request, res: Response) => {
     res.status(200).json({ items: listGuardPolicies() });
   });
 
-  app.post("/admin-api/policies", adminAuth, requireAdminRole, (req: Request, res: Response) => {
+  r.post("/policies", requireAdminRole, (req: Request, res: Response) => {
     const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name || name.length > 128) {
@@ -71,7 +77,7 @@ export function policyRoutes(app: Express): void {
     res.status(201).json(policy);
   });
 
-  app.patch("/admin-api/policies/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.patch("/policies/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     const existing = getGuardPolicy(id);
     if (!existing) {
@@ -112,7 +118,7 @@ export function policyRoutes(app: Express): void {
     res.status(200).json(policy);
   });
 
-  app.delete("/admin-api/policies/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.delete("/policies/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     if (!deleteGuardPolicy(id)) {
       notFound(res, "POLICY_NOT_FOUND", "Policy not found");
@@ -122,39 +128,36 @@ export function policyRoutes(app: Express): void {
     res.status(200).json({ status: "deleted", id });
   });
 
-  app.post(
-    "/admin-api/policies/:id/apply",
-    adminAuth,
-    requireAdminRole,
-    async (req: Request<{ id: string }>, res: Response) => {
-      const id = Number(req.params.id);
-      const policy = getGuardPolicy(id);
-      if (!policy) {
-        notFound(res, "POLICY_NOT_FOUND", "Policy not found");
-        return;
-      }
-      const body = bodyOf(req);
-      const actor = actorFromRequest(req);
+  r.post("/policies/:id/apply", requireAdminRole, async (req: Request<{ id: string }>, res: Response) => {
+    const id = Number(req.params.id);
+    const policy = getGuardPolicy(id);
+    if (!policy) {
+      notFound(res, "POLICY_NOT_FOUND", "Policy not found");
+      return;
+    }
+    const body = bodyOf(req);
+    const actor = actorFromRequest(req);
 
-      if (typeof body.bundle === "string" && body.bundle) {
-        const result = await applyPolicyToBundle(policy, body.bundle);
-        if (result === null) {
-          notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
-          return;
-        }
-        recordAudit(actor, "policy.apply", String(id), { bundle: body.bundle, applied: result.applied });
-        res.status(200).json(result);
+    if (typeof body.bundle === "string" && body.bundle) {
+      const result = await applyPolicyToBundle(policy, body.bundle);
+      if (result === null) {
+        notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
         return;
       }
-
-      const refs = validateToolRefs(body.tools);
-      if (!refs.ok) {
-        validationError(res, "provide either bundle (string) or tools ([{client, tool}])");
-        return;
-      }
-      const result = await applyPolicyToTools(policy, refs.value);
-      recordAudit(actor, "policy.apply", String(id), { tools: refs.value.length, applied: result.applied });
+      recordAudit(actor, "policy.apply", String(id), { bundle: body.bundle, applied: result.applied });
       res.status(200).json(result);
-    },
-  );
+      return;
+    }
+
+    const refs = validateToolRefs(body.tools);
+    if (!refs.ok) {
+      validationError(res, "provide either bundle (string) or tools ([{client, tool}])");
+      return;
+    }
+    const result = await applyPolicyToTools(policy, refs.value);
+    recordAudit(actor, "policy.apply", String(id), { tools: refs.value.length, applied: result.applied });
+    res.status(200).json(result);
+  });
+
+  app.use("/admin-api", r);
 }

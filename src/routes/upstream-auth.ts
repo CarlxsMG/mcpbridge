@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole, ensureClientAccess } from "../middleware/authz.js";
@@ -61,7 +62,12 @@ function validateBody(input: unknown): ValidationResult<ValidatedAuth> {
 }
 
 export function upstreamAuthRoutes(app: Express): void {
-  app.get("/admin-api/clients/:name/upstream-auth", adminAuth, (req: Request<{ name: string }>, res: Response) => {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.get("/clients/:name/upstream-auth", (req: Request<{ name: string }>, res: Response) => {
     // Tenancy scope first, so a caller can't even confirm another team's client
     // exists (ensureClientAccess writes the same CLIENT_NOT_FOUND on a cross-team
     // client as on a genuinely missing one).
@@ -73,45 +79,37 @@ export function upstreamAuthRoutes(app: Express): void {
     res.status(200).json(getUpstreamAuthInfo(req.params.name));
   });
 
-  app.put(
-    "/admin-api/clients/:name/upstream-auth",
-    adminAuth,
-    requireAdminRole,
-    (req: Request<{ name: string }>, res: Response) => {
-      const { name } = req.params;
-      if (!ensureClientAccess(req, res, name)) return;
-      if (!clientExists(name)) {
-        notFound(res, "CLIENT_NOT_FOUND", "Client not found");
-        return;
-      }
-      if (!isSecretBoxConfigured()) {
-        sendError(res, 501, "SECRET_BOX_NOT_CONFIGURED", "Set SECRET_ENCRYPTION_KEY to store upstream credentials");
-        return;
-      }
-      const parsed = validateBody(req.body);
-      if (!parsed.ok) {
-        validationError(res, parsed.message);
-        return;
-      }
-      setUpstreamAuth(name, parsed.value.type, parsed.value.secret, parsed.value.headerName);
-      recordAudit(actorFromRequest(req), "client.upstream_auth.set", name, { type: parsed.value.type });
-      res.status(200).json({ status: "updated", name, ...getUpstreamAuthInfo(name) });
-    },
-  );
+  r.put("/clients/:name/upstream-auth", requireAdminRole, (req: Request<{ name: string }>, res: Response) => {
+    const { name } = req.params;
+    if (!ensureClientAccess(req, res, name)) return;
+    if (!clientExists(name)) {
+      notFound(res, "CLIENT_NOT_FOUND", "Client not found");
+      return;
+    }
+    if (!isSecretBoxConfigured()) {
+      sendError(res, 501, "SECRET_BOX_NOT_CONFIGURED", "Set SECRET_ENCRYPTION_KEY to store upstream credentials");
+      return;
+    }
+    const parsed = validateBody(req.body);
+    if (!parsed.ok) {
+      validationError(res, parsed.message);
+      return;
+    }
+    setUpstreamAuth(name, parsed.value.type, parsed.value.secret, parsed.value.headerName);
+    recordAudit(actorFromRequest(req), "client.upstream_auth.set", name, { type: parsed.value.type });
+    res.status(200).json({ status: "updated", name, ...getUpstreamAuthInfo(name) });
+  });
 
-  app.delete(
-    "/admin-api/clients/:name/upstream-auth",
-    adminAuth,
-    requireAdminRole,
-    (req: Request<{ name: string }>, res: Response) => {
-      if (!ensureClientAccess(req, res, req.params.name)) return;
-      const ok = clearUpstreamAuth(req.params.name);
-      if (!ok) {
-        notFound(res, "NOT_CONFIGURED", "No upstream auth configured for this client");
-        return;
-      }
-      recordAudit(actorFromRequest(req), "client.upstream_auth.clear", req.params.name);
-      res.status(200).json({ status: "cleared", name: req.params.name });
-    },
-  );
+  r.delete("/clients/:name/upstream-auth", requireAdminRole, (req: Request<{ name: string }>, res: Response) => {
+    if (!ensureClientAccess(req, res, req.params.name)) return;
+    const ok = clearUpstreamAuth(req.params.name);
+    if (!ok) {
+      notFound(res, "NOT_CONFIGURED", "No upstream auth configured for this client");
+      return;
+    }
+    recordAudit(actorFromRequest(req), "client.upstream_auth.clear", req.params.name);
+    res.status(200).json({ status: "cleared", name: req.params.name });
+  });
+
+  app.use("/admin-api", r);
 }

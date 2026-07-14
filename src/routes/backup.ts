@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { createReadStream } from "fs";
 import { stat, unlink } from "fs/promises";
@@ -22,6 +23,11 @@ function backupDir(): string {
 }
 
 export function backupRoutes(app: Express): void {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
   /**
    * Produces a consistent, downloadable snapshot of the admin database.
    *
@@ -34,7 +40,7 @@ export function backupRoutes(app: Express): void {
    * sees a transactionally consistent view) and writes a fresh, compacted
    * file to the target path, safely even while other requests are writing.
    */
-  app.post("/admin-api/backup", adminAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  r.post("/backup", requireSuperAdmin, async (req: Request, res: Response) => {
     const filename = `mcp-bridge-backup-${Date.now()}-${randomUUID().slice(0, 8)}.db`;
     const backupPath = join(backupDir(), filename);
 
@@ -86,4 +92,6 @@ export function backupRoutes(app: Express): void {
     stream.on("close", cleanup);
     stream.pipe(res);
   });
+
+  app.use("/admin-api", r);
 }

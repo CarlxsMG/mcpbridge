@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "../middleware/authz.js";
@@ -72,9 +73,13 @@ function validateManualToolsForPreview(res: Response, tools: RestToolDefinition[
  * network-free validation below.
  */
 export function discoveryRoutes(app: Express): void {
-  app.post(
-    "/admin-api/discovery/preview",
-    adminAuth,
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.post(
+    "/discovery/preview",
     requireAdminRole,
     rateLimitRegister(config.rateLimitRegister),
     async (req: Request, res: Response) => {
@@ -155,9 +160,8 @@ export function discoveryRoutes(app: Express): void {
    * returns the discovered tools WITHOUT persisting. Introspection alone
    * cannot mutate server state, so preview is safe to run repeatedly.
    */
-  app.post(
-    "/admin-api/discovery/preview-graphql",
-    adminAuth,
+  r.post(
+    "/discovery/preview-graphql",
     requireAdminRole,
     rateLimitRegister(config.rateLimitRegister),
     async (req: Request, res: Response) => {
@@ -197,4 +201,6 @@ export function discoveryRoutes(app: Express): void {
       }
     },
   );
+
+  app.use("/admin-api", r);
 }

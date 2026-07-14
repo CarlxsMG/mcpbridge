@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "../middleware/authz.js";
@@ -78,11 +79,16 @@ function parseCustomEntryInput(
  * catalog entry is never a shortcut around that validation, curated or not.
  */
 export function catalogRoutes(app: Express): void {
-  app.get("/admin-api/catalog", adminAuth, (_req: Request, res: Response) => {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.get("/catalog", (_req: Request, res: Response) => {
     res.status(200).json({ items: listCatalog() });
   });
 
-  app.post("/admin-api/catalog", adminAuth, requireAdminRole, (req: Request, res: Response) => {
+  r.post("/catalog", requireAdminRole, (req: Request, res: Response) => {
     const body = bodyOf(req);
     const parsed = parseCustomEntryInput(body, true);
     if (!parsed.ok) {
@@ -104,7 +110,7 @@ export function catalogRoutes(app: Express): void {
     res.status(201).json({ ...result.entry, id: `custom:${result.entry.id}`, source: "custom" });
   });
 
-  app.patch("/admin-api/catalog/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.patch("/catalog/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
     if (id.startsWith("builtin:")) {
       forbidden(res, "IMMUTABLE_ENTRY", "Builtin catalog entries can't be edited at runtime");
@@ -137,7 +143,7 @@ export function catalogRoutes(app: Express): void {
     res.status(200).json({ ...result.entry, id: `custom:${result.entry.id}`, source: "custom" });
   });
 
-  app.delete("/admin-api/catalog/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.delete("/catalog/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
     if (id.startsWith("builtin:")) {
       forbidden(res, "IMMUTABLE_ENTRY", "Builtin catalog entries can't be deleted");
@@ -156,9 +162,8 @@ export function catalogRoutes(app: Express): void {
     res.status(200).json({ status: "deleted", id });
   });
 
-  app.post(
-    "/admin-api/catalog/:id/install",
-    adminAuth,
+  r.post(
+    "/catalog/:id/install",
     requireAdminRole,
     rateLimitRegister(config.rateLimitRegister),
     async (req: Request<{ id: string }>, res: Response) => {
@@ -201,4 +206,6 @@ export function catalogRoutes(app: Express): void {
       }
     },
   );
+
+  app.use("/admin-api", r);
 }

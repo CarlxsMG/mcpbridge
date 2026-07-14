@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { adminAuth } from "../middleware/auth.js";
@@ -24,7 +25,12 @@ import { errorMessage } from "../lib/error-message.js";
  * (import/rollback). Bearer/CI callers and the teamless bootstrap admin pass.
  */
 export function configIoRoutes(app: Express): void {
-  app.get("/admin-api/config/export", adminAuth, requireSuperAdmin, (req: Request, res: Response) => {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.get("/config/export", requireSuperAdmin, (req: Request, res: Response) => {
     recordAudit(actorFromRequest(req), "config.export", "config");
     const doc = exportConfig();
     if (req.query.format === "yaml") {
@@ -34,7 +40,7 @@ export function configIoRoutes(app: Express): void {
     res.status(200).json(doc);
   });
 
-  app.post("/admin-api/config/import", adminAuth, requireSuperAdmin, async (req: Request, res: Response) => {
+  r.post("/config/import", requireSuperAdmin, async (req: Request, res: Response) => {
     const body = bodyOf(req);
     const dryRun = body.dryRun === true;
     // Accept { dryRun, data }, a bare export document, or { format:"yaml", raw }
@@ -67,11 +73,11 @@ export function configIoRoutes(app: Express): void {
 
   // ── Versioned snapshots ───────────────────────────────────────────────────
 
-  app.get("/admin-api/config/snapshots", adminAuth, requireSuperAdmin, (_req: Request, res: Response) => {
+  r.get("/config/snapshots", requireSuperAdmin, (_req: Request, res: Response) => {
     res.status(200).json({ items: listSnapshots() });
   });
 
-  app.post("/admin-api/config/snapshots", adminAuth, requireSuperAdmin, (req: Request, res: Response) => {
+  r.post("/config/snapshots", requireSuperAdmin, (req: Request, res: Response) => {
     const body = bodyOf(req);
     const label = typeof body.label === "string" ? body.label.trim() : "";
     if (!label || label.length > 120) {
@@ -84,71 +90,53 @@ export function configIoRoutes(app: Express): void {
     res.status(201).json(snap);
   });
 
-  app.get(
-    "/admin-api/config/snapshots/:id",
-    adminAuth,
-    requireSuperAdmin,
-    (req: Request<{ id: string }>, res: Response) => {
-      const snap = getSnapshot(Number(req.params.id));
-      if (!snap) {
-        notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
-        return;
-      }
-      res.status(200).json(snap);
-    },
-  );
+  r.get("/config/snapshots/:id", requireSuperAdmin, (req: Request<{ id: string }>, res: Response) => {
+    const snap = getSnapshot(Number(req.params.id));
+    if (!snap) {
+      notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
+      return;
+    }
+    res.status(200).json(snap);
+  });
 
-  app.delete(
-    "/admin-api/config/snapshots/:id",
-    adminAuth,
-    requireSuperAdmin,
-    (req: Request<{ id: string }>, res: Response) => {
-      const ok = deleteSnapshot(Number(req.params.id));
-      if (!ok) {
-        notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
-        return;
-      }
-      recordAudit(actorFromRequest(req), "config.snapshot.delete", `snapshot:${req.params.id}`);
-      res.status(200).json({ status: "deleted", id: Number(req.params.id) });
-    },
-  );
+  r.delete("/config/snapshots/:id", requireSuperAdmin, (req: Request<{ id: string }>, res: Response) => {
+    const ok = deleteSnapshot(Number(req.params.id));
+    if (!ok) {
+      notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
+      return;
+    }
+    recordAudit(actorFromRequest(req), "config.snapshot.delete", `snapshot:${req.params.id}`);
+    res.status(200).json({ status: "deleted", id: Number(req.params.id) });
+  });
 
-  app.get(
-    "/admin-api/config/snapshots/:id/diff",
-    adminAuth,
-    requireSuperAdmin,
-    (req: Request<{ id: string }>, res: Response) => {
-      const againstRaw = typeof req.query.against === "string" ? req.query.against : "current";
-      const against: number | "current" = againstRaw === "current" ? "current" : Number(againstRaw);
-      if (against !== "current" && !Number.isInteger(against)) {
-        validationError(res, "against must be 'current' or a snapshot id");
-        return;
-      }
-      const result = diffSnapshot(Number(req.params.id), against);
-      if (!result) {
-        notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
-        return;
-      }
-      res.status(200).json(result);
-    },
-  );
+  r.get("/config/snapshots/:id/diff", requireSuperAdmin, (req: Request<{ id: string }>, res: Response) => {
+    const againstRaw = typeof req.query.against === "string" ? req.query.against : "current";
+    const against: number | "current" = againstRaw === "current" ? "current" : Number(againstRaw);
+    if (against !== "current" && !Number.isInteger(against)) {
+      validationError(res, "against must be 'current' or a snapshot id");
+      return;
+    }
+    const result = diffSnapshot(Number(req.params.id), against);
+    if (!result) {
+      notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
+      return;
+    }
+    res.status(200).json(result);
+  });
 
-  app.post(
-    "/admin-api/config/snapshots/:id/rollback",
-    adminAuth,
-    requireSuperAdmin,
-    async (req: Request<{ id: string }>, res: Response) => {
-      const actor = actorFromRequest(req);
-      const result = await rollbackToSnapshot(Number(req.params.id), actor);
-      if (!result) {
-        notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
-        return;
-      }
-      recordAudit(actor, "config.snapshot.rollback", `snapshot:${req.params.id}`, {
-        applied: result.applied,
-        skipped: result.skipped.length,
-      });
-      res.status(200).json(result);
-    },
-  );
+  r.post("/config/snapshots/:id/rollback", requireSuperAdmin, async (req: Request<{ id: string }>, res: Response) => {
+    const actor = actorFromRequest(req);
+    const result = await rollbackToSnapshot(Number(req.params.id), actor);
+    if (!result) {
+      notFound(res, "SNAPSHOT_NOT_FOUND", "Snapshot not found");
+      return;
+    }
+    recordAudit(actor, "config.snapshot.rollback", `snapshot:${req.params.id}`, {
+      applied: result.applied,
+      skipped: result.skipped.length,
+    });
+    res.status(200).json(result);
+  });
+
+  app.use("/admin-api", r);
 }

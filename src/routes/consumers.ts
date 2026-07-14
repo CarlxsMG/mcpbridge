@@ -1,3 +1,4 @@
+import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole } from "../middleware/authz.js";
@@ -21,12 +22,17 @@ function optPositiveIntOrNull(v: unknown): LooseValidationResult<number | null> 
 }
 
 export function consumerRoutes(app: Express): void {
-  app.get("/admin-api/consumers", adminAuth, (_req: Request, res: Response) => {
+  // One shared admin-auth gate for every route in this file (mounted under
+  // /admin-api below), instead of repeating adminAuth on each handler.
+  const r = Router();
+  r.use(adminAuth);
+
+  r.get("/consumers", (_req: Request, res: Response) => {
     const items = listConsumers().map((c) => ({ ...c, usedThisMonth: getConsumerUsageThisMonth(c.id) }));
     res.status(200).json({ items });
   });
 
-  app.post("/admin-api/consumers", adminAuth, requireAdminRole, (req: Request, res: Response) => {
+  r.post("/consumers", requireAdminRole, (req: Request, res: Response) => {
     const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name || name.length > 128) {
@@ -58,7 +64,7 @@ export function consumerRoutes(app: Express): void {
     res.status(201).json(consumer);
   });
 
-  app.patch("/admin-api/consumers/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.patch("/consumers/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     const existing = getConsumer(id);
     if (!existing) {
@@ -99,7 +105,7 @@ export function consumerRoutes(app: Express): void {
     res.status(200).json(consumer);
   });
 
-  app.delete("/admin-api/consumers/:id", adminAuth, requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.delete("/consumers/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     if (!deleteConsumer(id)) {
       notFound(res, "CONSUMER_NOT_FOUND", "Consumer not found");
@@ -109,7 +115,7 @@ export function consumerRoutes(app: Express): void {
     res.status(200).json({ status: "deleted", id });
   });
 
-  app.get("/admin-api/consumers/:id/usage", adminAuth, (req: Request<{ id: string }>, res: Response) => {
+  r.get("/consumers/:id/usage", (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     const consumer = getConsumer(id);
     if (!consumer) {
@@ -118,4 +124,6 @@ export function consumerRoutes(app: Express): void {
     }
     res.status(200).json({ used: getConsumerUsageThisMonth(id), quota: consumer.monthlyQuota });
   });
+
+  app.use("/admin-api", r);
 }
