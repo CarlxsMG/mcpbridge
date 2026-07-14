@@ -26,6 +26,7 @@ import { proxyToolCall } from "../../proxy/proxy.js";
 import { setToolWs } from "../../proxy/backends.js";
 import { setRedactionPaths } from "../../content-filtering/redaction.js";
 import { setGuardrails } from "../../tool-policies/guardrails.js";
+import { setUpstreamAuth, clearUpstreamAuth } from "../../backend-auth/upstream-auth.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
 
 const SECRET = "sk-live-must-not-leak-0123456789";
@@ -113,6 +114,32 @@ describe("REST error-body response sanitization", () => {
     expect(r.content[0].text).toContain("plain error, nothing sensitive");
     expect(r.content[0].text).not.toContain("[REDACTED]");
     expect(r.content[0].text).not.toContain("UNTRUSTED");
+  });
+
+  test("the gateway's injected upstream credential is stripped when the backend reflects it into the body", async () => {
+    const origKey = config.secretEncryptionKey;
+    (config as Record<string, unknown>).secretEncryptionKey = Buffer.alloc(32, 7).toString("base64");
+    try {
+      await reg();
+      const TOKEN = "inject3d-secret-token-1234567890";
+      setUpstreamAuth(CLIENT, "bearer", { token: TOKEN }, null);
+      // A debug/echo backend reflects the Authorization it received into its body.
+      globalThis.fetch = (async () =>
+        new Response(JSON.stringify({ received: `Bearer ${TOKEN}` }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })) as unknown as typeof fetch;
+
+      const r = await proxyToolCall(`${CLIENT}__get-item`, {});
+
+      expect(r.isError).toBeUndefined();
+      // The caller may CALL the tool but must not receive the gateway-held secret.
+      expect(r.content[0].text).not.toContain(TOKEN);
+      expect(r.content[0].text).toContain("<redacted>");
+    } finally {
+      clearUpstreamAuth(CLIENT);
+      (config as Record<string, unknown>).secretEncryptionKey = origKey;
+    }
   });
 });
 

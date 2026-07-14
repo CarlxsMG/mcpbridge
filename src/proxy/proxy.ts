@@ -637,6 +637,26 @@ async function resolvePinnedTarget(
  * No upstream response header is forwarded (Fix 1). Called by the retry loop right after
  * recordBreakerSuccess(); the retry/error control flow stays in dispatchRestToolCall.
  */
+/**
+ * Strips the gateway's OWN injected upstream-credential values from a response
+ * body before it reaches the MCP caller. Response headers are never forwarded,
+ * but a backend that reflects the request Authorization into its body (debug /
+ * echo endpoints, verbose errors) would otherwise leak the gateway-injected
+ * credential to a caller authorized to CALL the tool but not to HOLD the secret,
+ * defeating the credential-broker property. Runs unconditionally, independent of
+ * per-tool redaction config. The length guard avoids mangling legitimate content
+ * that happens to equal a trivially short header value.
+ */
+function stripInjectedCredentials(text: string, headers: Record<string, string>): string {
+  let out = text;
+  for (const value of Object.values(headers)) {
+    if (value.length >= 8 && out.includes(value)) {
+      out = out.split(value).join("<redacted>");
+    }
+  }
+  return out;
+}
+
 async function processRestSuccessResponse(
   response: Response,
   attempt: number,
@@ -778,6 +798,10 @@ async function processRestSuccessResponse(
   // so an opt-in llm_summarize call only ever sees already-sanitized text.
   const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, responseText);
   responseText = budgeted.text;
+
+  // Strip the gateway's own injected upstream credential if the backend
+  // reflected it into the body — before caching, so cache hits are safe too.
+  responseText = stripInjectedCredentials(responseText, upstreamAuthHeaders);
 
   if (responseCacheEnabled && cacheCfg && !route.useSecondary) {
     cacheSet(responseCacheKey, { content: [{ type: "text", text: responseText }] }, cacheCfg.ttlSeconds);
@@ -970,6 +994,9 @@ async function dispatchRestToolCall(
               errorBodyText = scan.text;
             }
           }
+          // Strip the gateway's own injected upstream credential if the error
+          // body reflected it (e.g. a debug 400 echoing the Authorization).
+          errorBodyText = stripInjectedCredentials(errorBodyText, upstreamAuthHeaders);
         }
         return recordFailure({
           durationMs: errDurationMs,
