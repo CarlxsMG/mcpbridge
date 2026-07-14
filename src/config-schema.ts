@@ -252,6 +252,15 @@ const EnvSchema = z.object({
   DB_PATH: z.union([z.string(), z.undefined()]).transform((v) => v ?? "./data/mcp-bridge.db"),
 });
 
+/**
+ * Every env-var name this schema validates. Exported so a test can assert that
+ * every `process.env.*` read in config.ts has a matching schema entry — a read
+ * with no schema key would be mis-reported as an "unknown env var" by
+ * validateEnv (see the schema docblock above). Locks in the "reviewers enforce
+ * it" convention as an automated check.
+ */
+export const ENV_SCHEMA_KEYS: readonly string[] = Object.keys(EnvSchema.shape);
+
 // ─── Run output ──────────────────────────────────────────────────────────────
 
 export interface EnvIssue {

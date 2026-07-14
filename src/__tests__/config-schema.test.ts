@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { validateEnv, validateEnvOrWarn, validateEnvStrict } from "../config-schema.js";
+import { readFileSync } from "node:fs";
+import { validateEnv, validateEnvOrWarn, validateEnvStrict, ENV_SCHEMA_KEYS } from "../config-schema.js";
 
 // ─── validateEnv (pure) ─────────────────────────────────────────────────────
 
@@ -103,5 +104,26 @@ describe("validateEnvStrict", () => {
 
   test("does NOT throw on fully valid env even with STRICT_CONFIG=production", () => {
     expect(() => validateEnvStrict({ STRICT_CONFIG: "production" })).not.toThrow();
+  });
+});
+
+// ─── Schema ↔ config.ts parity ───────────────────────────────────────────────
+//
+// config.ts parses env vars; config-schema.ts validates them. They are two
+// hand-maintained views of one contract, and nothing but reviewer diligence
+// keeps them in sync — until this test. If config.ts reads a `process.env.X`
+// that the schema doesn't declare, validateEnv reports X as an "unknown env
+// var" (a false operator warning). Lock the invariant in: every env var
+// config.ts reads must have a schema key.
+
+describe("EnvSchema ↔ config.ts parity", () => {
+  test("every process.env.* read in config.ts has a matching schema key", () => {
+    const configSrc = readFileSync(new URL("../config.ts", import.meta.url), "utf8");
+    const readNames = new Set([...configSrc.matchAll(/process\.env\.([A-Z][A-Z0-9_]+)/g)].map((m) => m[1]));
+    expect(readNames.size).toBeGreaterThan(0); // guards against a broken regex silently passing
+
+    const schemaKeys = new Set(ENV_SCHEMA_KEYS);
+    const missing = [...readNames].filter((name) => !schemaKeys.has(name)).sort();
+    expect(missing).toEqual([]);
   });
 });
