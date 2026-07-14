@@ -17,7 +17,7 @@
     "test:watch": "vitest",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
-    "lint:i18n": "node scripts/check-i18n.mjs"
+    "lint:i18n": "bun scripts/check-i18n.mjs"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.2.7",

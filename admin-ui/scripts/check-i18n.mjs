@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Validates the two admin-ui locale bundles two ways:
 //
 //   1. Parity — every key present in en.json is also present in es.json (and

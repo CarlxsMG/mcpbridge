@@ -51,6 +51,9 @@ jobs:
       - name: Lint (admin-ui)
         working-directory: admin-ui
         run: bun run lint
+      - name: i18n parity + orphan check (admin-ui)
+        working-directory: admin-ui
+        run: bun run lint:i18n
       - name: Typecheck (admin-ui)
         working-directory: admin-ui
         run: bun run typecheck
