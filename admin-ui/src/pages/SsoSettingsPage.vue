@@ -8,6 +8,7 @@ import type { OidcSettings } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
 import { tk } from "@/i18n";
 
 const { t } = useI18n({ useScope: "global" });
@@ -93,7 +94,8 @@ async function save() {
 
       <p v-if="loadError" class="error" role="alert">{{ loadError }}</p>
 
-      <form v-if="!loading" class="settings-form" @submit.prevent="save">
+      <SignalLoader v-if="loading" />
+      <form v-else class="settings-form" @submit.prevent="save">
         <FormField :label="t('pages.sso_settings.fields.issuer')" for="sso-issuer">
           <input
             id="sso-issuer"

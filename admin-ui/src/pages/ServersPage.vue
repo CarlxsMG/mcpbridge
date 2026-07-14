@@ -26,12 +26,9 @@ import HoverPreview from "@/components/ui/HoverPreview.vue";
 import KindBadge from "@/components/ui/KindBadge.vue";
 import FieldError from "@/components/ui/FieldError.vue";
 import { Server, Tags, ChevronRight } from "lucide-vue-next";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 
 const { t } = useI18n({ useScope: "global" });
-function tk(key: string): string {
-  return (i18n.global.t as (k: string) => string)(key);
-}
 
 const ENABLED_FILTER_OPTIONS = computed(() => [
   { value: "", label: tk("pages.servers.filter.all_states") },

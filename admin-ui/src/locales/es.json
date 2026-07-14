@@ -474,7 +474,6 @@
       },
       "errors": {
         "update_failed": "Error al actualizar.",
-        "update_sensitivity_failed": "Error al actualizar la sensibilidad.",
         "test_failed": "La prueba falló."
       }
     },

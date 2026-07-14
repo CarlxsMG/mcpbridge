@@ -7,7 +7,7 @@ import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
-import { i18n } from "../i18n";
+import { tk } from "@/i18n";
 import type { McpApiKey, Consumer } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -19,9 +19,6 @@ import StatusBadge from "@/components/ui/StatusBadge.vue";
 import { KeyRound } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
-function tk(key: string): string {
-  return (i18n.global.t as (k: string) => string)(key);
-}
 
 const keys = ref<McpApiKey[]>([]);
 const loadFallback = tk("pages.keys.errors.load_failed");

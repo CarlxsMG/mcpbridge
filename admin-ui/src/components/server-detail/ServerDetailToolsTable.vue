@@ -4,6 +4,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
+import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toolPath } from "@/utils/apiPaths";
 import { toErrorMessage } from "@/utils/errors";
 import { tk } from "@/i18n";
@@ -18,30 +19,22 @@ const props = defineProps<{ tools: ToolDetail[]; kind: UpstreamKind; clientName:
 const { t } = useI18n({ useScope: "global" });
 
 const router = useRouter();
-const rowError = ref<Record<string, string>>({});
 const testingTool = ref<string | null>(null);
 const testResult = ref<{ tool: string; text: string; isError: boolean } | null>(null);
 
-async function toggleToolField(
-  tool: ToolDetail,
-  field: "enabled" | "sensitive",
-  computeNext: (tool: ToolDetail) => boolean,
-  failureMessage: string,
-) {
-  const previous = tool[field];
-  const next = computeNext(tool);
-  (tool[field] as boolean) = next; // optimistic
-  delete rowError.value[tool.name];
-  try {
-    await api.patch(toolPath(props.clientName, tool.name), { [field]: next });
-  } catch (err) {
-    (tool[field] as boolean | null | undefined) = previous;
-    rowError.value[tool.name] = toErrorMessage(err, failureMessage);
-  }
-}
+// Shared optimistic toggle: flips the field, PATCHes, reverts + records a
+// per-row error on failure, and — keyed per tool.name — ignores a re-fired
+// toggle while one is still in flight (the double-click race the old
+// hand-rolled version didn't guard). One instance covers both the enabled
+// and sensitive toggles, so toggling either blocks the other for the same
+// tool until it settles.
+const { rowError, toggle } = useOptimisticToggle<ToolDetail>(
+  (tool) => tool.name,
+  tk("components.server_detail_tools.errors.update_failed"),
+);
 
 function toggleToolEnabled(tool: ToolDetail) {
-  return toggleToolField(tool, "enabled", (t) => !t.enabled, tk("components.server_detail_tools.errors.update_failed"));
+  return toggle(tool, "enabled", (next) => api.patch(toolPath(props.clientName, tool.name), { enabled: next }));
 }
 
 const {
@@ -66,12 +59,7 @@ function confirmToolDisable() {
 }
 
 function toggleSensitive(tool: ToolDetail) {
-  return toggleToolField(
-    tool,
-    "sensitive",
-    (t) => t.sensitive !== true,
-    tk("components.server_detail_tools.errors.update_sensitivity_failed"),
-  );
+  return toggle(tool, "sensitive", (next) => api.patch(toolPath(props.clientName, tool.name), { sensitive: next }));
 }
 
 function openGuardEditor(tool: ToolDetail) {

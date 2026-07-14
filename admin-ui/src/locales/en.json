@@ -474,7 +474,6 @@
       },
       "errors": {
         "update_failed": "Failed to update.",
-        "update_sensitivity_failed": "Failed to update sensitivity.",
         "test_failed": "Test call failed."
       }
     },
