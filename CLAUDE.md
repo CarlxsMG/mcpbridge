@@ -78,7 +78,7 @@ binaries; `deploy-docs.yml` publishes the VitePress site in `docs/`.
 ## Architecture
 
 **The request path.** Every policy (rate limit, timeout, circuit-breaker override, allowed-key
-restriction) is enforced at the **dispatch point**, `proxyToolCall()` in `src/proxy.ts` — never as
+restriction) is enforced at the **dispatch point**, `proxyToolCall()` in `src/proxy/proxy.ts` — never as
 Express middleware. MCP multiplexes many tools over one `POST /mcp` route, so the bridge only
 knows _which_ tool is being called once the JSON-RPC body is parsed; anything that needs per-tool
 behavior has to live inside `proxyToolCall`, not `app.use(...)`.
@@ -149,7 +149,7 @@ canonical feature list lives in `docs/guide/features.md`.
 ## Working in this repo
 
 - Match the module layout already in place: route handlers in `src/routes/`, DB access in
-  `src/db/`, security-sensitive logic in `src/security/`, dispatch/pipeline in `src/proxy.ts` +
+  `src/db/`, security-sensitive logic in `src/security/`, dispatch/pipeline in `src/proxy/proxy.ts` +
   `src/middleware/`.
 - TypeScript strict on both projects — avoid `any` and non-null assertions; prefer narrowing.
 - Commit convention: `type(scope): summary` (`feat` / `fix` / `docs` / `chore` / `refactor` /

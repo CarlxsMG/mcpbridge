@@ -17,7 +17,7 @@ per-tool guardrails, RBAC, circuit breaking. One binary. No Kubernetes.
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-compatible-00a99a)](https://modelcontextprotocol.io)
 [![License: MIT](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-00a99a)](#contributing)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-00a99a)](#-contributing)
 [![Mutation tested with Stryker](https://img.shields.io/badge/mutation_tested-Stryker-a2c4c9)](https://stryker-mutator.io)
 [![Star on GitHub](https://img.shields.io/github/stars/aico-dot-team-code/mcpbridge?style=social)](https://github.com/aico-dot-team-code/mcpbridge)
 

@@ -63,9 +63,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dashboard), corrected two inaccurate claims in `docs/guide/scaling.md` (load balancing is
   per-client, not per-tool; the health-check/auto-eviction loop is leader-gated too), and
   updated `CONTRIBUTING.md`'s stale "no linter configured" section.
+- Internal refactors (no behavior change): the response-pagination loop and HTTP helpers were
+  extracted out of `src/proxy/proxy.ts` into `src/proxy/pagination.ts` / `http-util.ts`;
+  `register`/`registerMcp` tool validation was de-duplicated; and the admin UI retired its
+  remaining unscoped-style leaks for shared primitives (scoped classes over inline styles, a
+  clearer `ModalShell` `label` prop).
+- Tooling: `bun run check` now enforces `typecheck:tools` and `lint:i18n` exactly like CI; the Bun
+  toolchain is pinned in the `admin-ui`/`docs` sub-projects; and four completed one-shot migration
+  helper scripts were removed.
 
 ### Fixed
 
+- **Circuit breaker — half-open probe leak fixed (could permanently brick a recovering client).**
+  A call that consumed the single `half_open` probe but then bailed before reaching the backend
+  (argument validation, post-substitution path traversal, a failed DNS-rebind pin refresh, or an
+  MCP-upstream arg-validation miss) recorded no outcome, so the probe stayed in flight forever —
+  wedging the breaker in `half_open` (every later call rejected as "Probing") and never idle-evicted,
+  because each rejected check refreshed `lastAccess`. A fully recovered backend stayed unreachable
+  until an admin reset. A new `CircuitBreaker.releaseProbe()` releases the probe on every such early
+  exit.
+- **MCP sessions — permanent "Server at capacity" leak fixed (DoS).** A POST with no session header
+  that wasn't a valid `initialize` (the SDK answers it without throwing and never assigns a session
+  id) leaked the up-front `activeSessionCount` reservation; after `MAX_SESSIONS` such requests — a
+  stray `tools/list`, a client that lost its session — the gateway rejected **all** new sessions with
+  503 until restart. The no-session branch now rolls the reservation back and closes the orphan
+  transport, mirroring the existing failed-`initialize` path.
+- **Security — response sanitization is now uniform across every dispatch path.** Redaction, the
+  guardrail response scan, and stripping of the gateway's own injected upstream credential run
+  identically on REST success **and** 4xx/5xx error bodies, MCP-upstream success **and** error
+  results, and WebSocket results. Previously an error branch or the MCP-upstream path could reflect
+  an injected `Authorization` (or a secret at a configured redaction path) back to a caller trusted
+  to CALL the tool but not to HOLD the credential — which traffic capture then persisted.
+- **Security — inbound JWT auth now requires `JWT_AUDIENCE`.** JWT bearer validation refuses a token
+  when no audience is configured (and startup fails if it's missing while JWT auth is enabled),
+  closing a cross-audience token-reuse gap; documented as a production startup requirement.
+- **Security — least-privilege & secret-redaction hardening.** The client-shard `tools/list` is
+  filtered by the calling key's scope; traffic-explorer reads require operator+; writing upstream
+  OAuth config requires admin (matching bearer/basic); logger secret redaction recurses into nested
+  values and covers CSRF tokens; captured-traffic args have configured redaction paths stripped; the
+  startup config log gained a generic-secret fallback; the audit hash-chain pre-image is now
+  injective; and catastrophic-backtracking (ReDoS) deny patterns are rejected at **every** config
+  boundary — config import, rollback, and the config-as-code CLI, not only the interactive admin
+  route (a persisted ReDoS pattern on the guardrail hot path could otherwise pin a CPU core).
+- **MCP / proxy resilience.** The failover secondary keeps being retried while the primary breaker
+  is open (instead of the retry cancelling the instant the primary's reset timer fires); a pooled MCP
+  upstream reconnects when its URL/IP/auth changes; the session-slot release is exactly-once
+  (restoring the `maxSessions` cap); a failed POST keeps its error cause in the JSON logs; malformed
+  GraphQL introspection returns a clean error instead of a `TypeError`; a 2xx response whose
+  connection resets mid-body is now recorded as a breaker failure rather than a success (so a
+  half-broken backend's breaker can still open); and the cross-instance reconcile pass no longer
+  throws (aborting the cycle) if a peer deletes a client mid-pass.
+- **Admin-UI accessibility.** Focus returns to the trigger when the guard-editor drawer closes
+  (WCAG 2.4.3); the copy-to-clipboard buttons announce success through a live region; and the trace
+  detail page now renders a proper `<h1>` page title through the shared `PageHeader`.
 - **Security:** WebSocket dials — both per-tool `tool_ws` backends and dedicated ws-proxy
   targets — are now actually pinned to the SSRF-validated IP. Each previously re-resolved the
   backend hostname at dial time (the per-tool path via a bare `new WebSocket(url)`; ws-proxy via a
