@@ -62,12 +62,21 @@ const { onKeydown: onDrawerKeydown } = useFocusTrap(drawerEl);
 
 const activeTool = computed(() => detail.value?.tools.find((tt) => tt.name === props.tool) ?? null);
 
+// Focus management, mirroring ModalShell: land focus on the close button when
+// the drawer opens (or switches tools), and restore it to whatever launched
+// the drawer when it closes (WCAG 2.4.3 — don't drop the user on <body>).
+let previouslyFocused: HTMLElement | null = null;
 watch(
   () => activeTool.value,
-  async (tool) => {
-    if (!tool) return;
-    await nextTick();
-    drawerCloseBtn.value?.focus();
+  async (tool, prevTool) => {
+    if (tool) {
+      if (!prevTool) previouslyFocused = document.activeElement as HTMLElement | null;
+      await nextTick();
+      drawerCloseBtn.value?.focus();
+    } else if (prevTool) {
+      previouslyFocused?.focus();
+      previouslyFocused = null;
+    }
   },
   { immediate: true },
 );
