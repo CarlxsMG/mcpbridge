@@ -4,6 +4,7 @@ import { toolResult } from "../lib/mcp-result.js";
 import type { ToolCallOpts } from "./proxy.js";
 import type { RegisteredClient, RegisteredTool } from "../mcp/types.js";
 import { getCircuitBreaker } from "../middleware/circuit-breaker.js";
+import { getOrCompile } from "./schema-validator.js";
 import { wsRequest, wsRequestPersistent } from "./backends.js";
 import { getRedactionPaths, applyRedaction } from "../content-filtering/redaction.js";
 import { applyResponseScan } from "../tool-policies/guardrails.js";
@@ -38,9 +39,26 @@ export async function dispatchWsToolCall(
   opts?: ToolCallOpts,
 ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
   const startTime = Date.now();
+
+  // Arg validation + unknown-key stripping parity with the REST/MCP paths. The
+  // shared Ajv instance (removeAdditional:"all") drops the sensitivity __confirm
+  // flag AND every other non-schema key — the internal __end_user / __approval_id
+  // fields and any caller-supplied extras alike — so nothing beyond the tool's
+  // declared inputs reaches the backend WS, and a missing/malformed required arg is
+  // rejected up front instead of forwarded (the old code only deleted two keys and
+  // validated nothing).
   const cleanArgs = { ...rawArgs };
-  delete cleanArgs.__confirm;
-  delete cleanArgs.__approval_id;
+  const validate = getOrCompile(client.name, tool.name, tool.inputSchema);
+  if (!validate(cleanArgs)) {
+    // Release any half-open probe consumed by breaker.canRequest() upstream so a
+    // validation failure doesn't strand it and wedge the breaker in half_open.
+    breaker.releaseProbe();
+    const firstError = validate.errors?.[0];
+    return toolResult(
+      `Argument validation failed: ${firstError ? `${firstError.instancePath || "/"}: ${firstError.message}` : "unknown error"}`,
+      { isError: true },
+    );
+  }
   try {
     let text = wsCfg.persistent
       ? await wsRequestPersistent(
