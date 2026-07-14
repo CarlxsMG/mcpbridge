@@ -124,7 +124,7 @@ export function createApp(): CreateAppResult {
   app.use(corsMiddleware);
   app.use(rateLimitGlobal(config.rateLimitGlobal));
 
-  // MCP transports (Streamable HTTP + SSE legacy)
+  // MCP transports (Streamable HTTP — the legacy inbound SSE transport was removed)
   const cleanupTransports = setupTransports(app);
 
   // REST endpoints
