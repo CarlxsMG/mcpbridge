@@ -542,7 +542,12 @@ class Registry {
       }
       // Already live — refresh enable flags (the common cross-instance admin action).
       const live = this.clients.get(name)!;
-      const crow = db.query(`SELECT enabled FROM clients WHERE name = ?`).get(name) as { enabled: number };
+      const crow = db.query(`SELECT enabled FROM clients WHERE name = ?`).get(name) as { enabled: number } | null;
+      // A peer instance may have deleted this client between the dbNames snapshot
+      // above and this read; treat a vanished row as "removed on the next pass"
+      // rather than dereferencing null, which would throw and abort the whole
+      // reconcile cycle.
+      if (!crow) continue;
       if ((crow.enabled === 1) !== live.enabled) {
         live.enabled = crow.enabled === 1;
         updated++;
