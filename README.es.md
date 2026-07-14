@@ -302,8 +302,8 @@ cd admin-ui && bun run build            # build de producción del admin UI
 ```
 
 Abre un issue para discutir cambios grandes primero. Las buenas primeras contribuciones
-están etiquetadas en el tracker. Consulta **[CONTRIBUTING.md](CONTRIBUTING.md)** para la guía
-completa.
+están etiquetadas en el tracker. Consulta la **[guía de contribución en español](docs/es/guide/contributing.md)**
+para los detalles completos (el [`CONTRIBUTING.md`](CONTRIBUTING.md) raíz es la versión canónica, en inglés).
 
 ## 📄 Licencia
 

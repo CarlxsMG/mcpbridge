@@ -47,8 +47,8 @@ bun run cli -- <command>             # the bundled config-as-code CLI (src/cli)
 
 bun run check                        # everything CI checks, in one shot (scripts/check-all.ts):
                                       # format:check → lint (root) → lint (admin-ui) → i18n parity (admin-ui)
-                                      # → typecheck (root) → test (root) → typecheck (admin-ui) → test (admin-ui)
-                                      # → build (admin-ui)
+                                      # → typecheck (root) → typecheck:tools (root) → test (root)
+                                      # → typecheck (admin-ui) → test:coverage (admin-ui) → build (admin-ui)
 
 bun run format:check && bun run lint # prettier --check + eslint, root only
 tsc --noEmit                         # backend type-check
