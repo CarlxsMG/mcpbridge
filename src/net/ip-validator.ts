@@ -95,10 +95,8 @@ function isBlockedIpv6(ip: string): boolean {
     }
   }
 
-  // 6to4 (2002::/16) — bits 16-47 (groups 1 and 2, i.e. parts[1]) encode an IPv4.
-  // parts[1] = 16-bit group carrying the high 16 bits of embedded IPv4.
-  // parts[2] = 16-bit group carrying the low 16 bits of embedded IPv4.
-  // Wait: 6to4 is 2002:<v4hi16>:<v4lo16>::/48 — parts[1] = high word, parts[2] = low word.
+  // 6to4 (2002::/16) — the embedded IPv4 sits in bits 16-47:
+  // parts[1] carries its high 16 bits, parts[2] the low 16 bits.
   if (range === "6to4") {
     try {
       const parts = parsed.parts;
