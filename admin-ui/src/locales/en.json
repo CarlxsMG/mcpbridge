@@ -1745,6 +1745,9 @@
         "timeout": "Timeout",
         "apply_to_bundle": "Apply to bundle"
       },
+      "aria": {
+        "apply_bundle": "Bundle to apply '{name}' to"
+      },
       "empty": {
         "no_policies": "No policies yet. A policy applies a rate limit and timeout across every tool at once, instead of setting each one individually."
       },

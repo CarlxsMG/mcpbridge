@@ -128,6 +128,7 @@ async function confirmDelete() {
               <SelectMenu
                 v-model="applyBundle[p.id]"
                 :options="bundleOptions"
+                :aria-label="t('pages.policies.aria.apply_bundle', { name: p.name })"
                 create-path="/bundles/new"
                 :create-label="t('pages.policies.create_bundle')"
                 :reload="load"
