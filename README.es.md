@@ -70,8 +70,8 @@ luego cada llamada pasa por la misma guard pipeline:
 | Sin spec — a mano            | `tools[]`                 | exactamente las tools que definas    |
 | Servidor MCP existente       | `kind: "mcp"` + `mcp_url` | sus tools, re-expuestas y gobernadas |
 
-Consulta **[Registrar backends →](https://aico-dot-team-code.github.io/mcpbridge/guide/registering-backends)**
-para el payload de cada uno, y **[Bundles →](https://aico-dot-team-code.github.io/mcpbridge/guide/bundles)**
+Consulta **[Registrar backends →](https://aico-dot-team-code.github.io/mcpbridge/es/guide/registering-backends)**
+para el payload de cada uno, y **[Bundles →](https://aico-dot-team-code.github.io/mcpbridge/es/guide/bundles)**
 para servir varios backends por un solo endpoint.
 
 ## ✨ Por qué MCP REST Bridge
@@ -121,7 +121,7 @@ son solo para HTTP local — en producción ejecuta sobre HTTPS y elimina ambas.
 > release publicará una imagen prebuilt, multi-arch y firmada en GHCR — entonces podrás quitar
 > el paso `docker build` y usar `ghcr.io/aico-dot-team-code/mcpbridge:latest` como imagen en
 > `docker run`. Hasta entonces, compila en local con el `docker build` de arriba. Consulta
-> [Despliegue](https://aico-dot-team-code.github.io/mcpbridge/guide/deployment).
+> [Despliegue](https://aico-dot-team-code.github.io/mcpbridge/es/guide/deployment).
 
 ### Bun (desarrollo local, con hot reload)
 
@@ -137,7 +137,7 @@ bun run dev:all                      # backend :8790 + admin UI :8791
 > **Nota:** el modo dev usa a propósito puertos distintos (8790/8791) que el 3000 por
 > defecto de Docker/producción — puertos altos y poco comunes para que un servidor dev local
 > no choque con 3000 (o con una instancia real de gateway) que también puedas tener
-> ejecutándose. Consulta [Configuración](https://aico-dot-team-code.github.io/mcpbridge/guide/configuration)
+> ejecutándose. Consulta [Configuración](https://aico-dot-team-code.github.io/mcpbridge/es/guide/configuration)
 > para la referencia completa de puertos.
 
 > **Todos los ejemplos de `curl`, config de cliente y `cli --url` de abajo usan
@@ -203,7 +203,7 @@ bun run cli -- plan    # muestra drift vs. gateway.yaml, exit no-cero si hay (CI
 bun run cli -- apply   # registra servidores + aplica config desde gateway.yaml
 ```
 
-Consulta **[CLI docs →](https://aico-dot-team-code.github.io/mcpbridge/guide/cli)** para la
+Consulta **[CLI docs →](https://aico-dot-team-code.github.io/mcpbridge/es/guide/cli)** para la
 referencia completa de comandos y el formato de `gateway.yaml`.
 
 ## 🧩 Funcionalidades
@@ -228,7 +228,7 @@ referencia completa de comandos y el formato de `gateway.yaml`.
 **Opera con confianza**
 
 - **UI de admin** (Vue 3): dashboard, servidores, bundles, keys, uso, alertas, programaciones, auditoría
-- **CLI** (`bun run cli`) para config-as-code: `login` / `pull` / `plan` / `apply` contra `gateway.yaml` — consulta [CLI docs](https://aico-dot-team-code.github.io/mcpbridge/guide/cli)
+- **CLI** (`bun run cli`) para config-as-code: `login` / `pull` / `plan` / `apply` contra `gateway.yaml` — consulta [CLI docs](https://aico-dot-team-code.github.io/mcpbridge/es/guide/cli)
 - Monitorización de salud + auto-eliminación; **canary / failover** secundarios
 - **Versionado de config + rollback**, import / export
 - Prometheus `/metrics` + tracing **OpenTelemetry (OTLP)** por llamada de tool
@@ -273,9 +273,9 @@ de ninguna herramienta específica._
 ## 📚 Documentación
 
 Las docs completas viven en la **[web del proyecto](https://aico-dot-team-code.github.io/mcpbridge/)**:
-[Primeros pasos](https://aico-dot-team-code.github.io/mcpbridge/guide/getting-started) ·
-[Funcionalidades](https://aico-dot-team-code.github.io/mcpbridge/guide/features) ·
-[¿Por qué MCP REST Bridge?](https://aico-dot-team-code.github.io/mcpbridge/guide/why-mcp-rest-bridge)
+[Primeros pasos](https://aico-dot-team-code.github.io/mcpbridge/es/guide/getting-started) ·
+[Funcionalidades](https://aico-dot-team-code.github.io/mcpbridge/es/guide/features) ·
+[¿Por qué MCP REST Bridge?](https://aico-dot-team-code.github.io/mcpbridge/es/guide/why-mcp-rest-bridge)
 
 ## 🛠️ Stack técnico
 
