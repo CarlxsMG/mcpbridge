@@ -23,12 +23,22 @@ export function useCursorPagination<T>(
   const currentCursor = ref<string | undefined>(options?.initialCursor);
   const { loading, errorMessage, run } = useLoadState(options?.fallbackMessage);
 
-  async function load(cursor: string | undefined = currentCursor.value) {
+  // Split from `load` so next()/prev() can pass an explicit cursor — including
+  // `undefined`, meaning "go back to the very first, cursor-less page" — without
+  // tripping a default parameter. `cursor: T = x` applies `x` whenever the
+  // argument is `undefined`, whether omitted or passed explicitly, so a plain
+  // `load(cursor)` here would silently ignore prev()'s popped `undefined` and
+  // reload the current page instead of navigating back to page one.
+  async function fetchAndApply(cursor: string | undefined) {
     const result = await run(() => fetchPage(cursor));
     if (result === undefined) return;
     items.value = result.items;
     nextCursor.value = result.nextCursor;
     currentCursor.value = cursor;
+  }
+
+  async function load(cursor: string | undefined = currentCursor.value) {
+    await fetchAndApply(cursor);
   }
 
   function reset() {
@@ -41,14 +51,14 @@ export function useCursorPagination<T>(
     cursorStack.value.push(currentCursor.value);
     const cursor = nextCursor.value;
     options?.onCursorChange?.(cursor);
-    await load(cursor);
+    await fetchAndApply(cursor);
   }
 
   async function prev() {
     if (cursorStack.value.length === 0) return;
     const cursor = cursorStack.value.pop();
     options?.onCursorChange?.(cursor);
-    await load(cursor);
+    await fetchAndApply(cursor);
   }
 
   // Appends instead of replacing — AuditLogPage's "Load more" button, no cursorStack involved.
