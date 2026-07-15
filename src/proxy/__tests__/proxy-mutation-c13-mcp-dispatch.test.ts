@@ -460,6 +460,33 @@ describe("dispatchMcpToolCall — circuit breaker recording (cancellation exclud
     }
     expect(getAllCircuitStates()[CLIENT]).toBe("closed");
   });
+
+  test("a cancelled call during a half-open probe releases the probe so the NEXT call can still be admitted (regression for a real stranded-probe DoS)", async () => {
+    await registry.setClientGuards(CLIENT, { circuitBreaker: { failureThreshold: 2, resetTimeoutMs: 10 } });
+    await proxyToolCall(`${CLIENT}__boom`, {});
+    await proxyToolCall(`${CLIENT}__boom`, {});
+    expect(getAllCircuitStates()[CLIENT]).toBe("open");
+
+    // Let resetTimeoutMs elapse so the NEXT canRequest() (below, inside the
+    // __hangs call) transitions open -> half_open and admits the sole probe.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const controller = new AbortController();
+    const callPromise = proxyToolCall(`${CLIENT}__hangs`, {}, undefined, { signal: controller.signal });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    controller.abort();
+    const r = await callPromise;
+    expect(r.isError).toBe(true);
+
+    // If the probe were stranded (releaseProbe() not called on the cancellation
+    // branch), this call would be rejected as "Probing" forever and never reach
+    // the fake upstream. Reaching it — and recordSuccess() closing the breaker —
+    // proves the probe slot was actually released back to the breaker.
+    const r2 = await proxyToolCall(`${CLIENT}__echo`, { msg: "ok" });
+    expect(r2.isError).toBeUndefined();
+    expect(r2.content[0].text).toBe("echo:ok");
+    expect(getAllCircuitStates()[CLIENT]).toBe("closed");
+  });
 });
 
 describe("dispatchMcpToolCall — redaction, guardrail scan, and context budget parity with the REST path", () => {

@@ -83,6 +83,16 @@ export async function dispatchMcpToolCall(
   if (!result.cancelled) {
     if (result.isError) breaker.recordFailure();
     else breaker.recordSuccess();
+  } else {
+    // Caller-initiated cancellation carries no upstream health signal, so it
+    // records neither success nor failure (above). But if this call was the
+    // half-open probe that canRequest() admitted in resolveRestRouting, it must
+    // still be released — otherwise the probe strands in-flight and wedges the
+    // breaker in half_open forever (every later call rejected as "Probing", and
+    // the idle sweep never evicts because each rejected canRequest() refreshes
+    // lastAccess). Same bail-before-recording exit class as the arg-validation
+    // failure above. No-op unless a probe is actually in flight.
+    breaker.releaseProbe();
   }
 
   recordToolCall(durationMs, result.isError === true);
