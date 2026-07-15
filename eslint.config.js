@@ -2,12 +2,14 @@
 // own eslint.config.js (Vue needs eslint-plugin-vue + vue-eslint-parser) and
 // is intentionally NOT covered here — see admin-ui/eslint.config.js.
 //
-// This is a first lint pass on a previously-unlinted codebase: we stick to
-// typescript-eslint's non-type-checked "recommended" preset (no tsconfig
-// project-service wiring required — scripts/ and e2e/ aren't part of the
-// root tsconfig.json's `include`, so type-aware linting would need extra
-// project plumbing for little payoff at this stage) plus eslint-config-prettier
-// last, so ESLint never fights Prettier over formatting.
+// The base pass uses typescript-eslint's non-type-checked "recommended" preset
+// for everything (scripts/ and e2e/ aren't in the root tsconfig's `include`, so
+// a project-wide type-aware parser would need extra plumbing). On top of that,
+// the runtime src/** tree — which IS in the tsconfig — additionally gets two
+// type-aware rules (no-floating-promises / no-misused-promises) as a backstop
+// against a future missing `await` on this async, security-sensitive server;
+// test files are excluded since they legitimately fire-and-forget. eslint-config
+// -prettier stays last so ESLint never fights Prettier over formatting.
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
@@ -59,6 +61,23 @@ export default tseslint.config(
       // common, readable convention (e.g. Express error-handling middleware
       // signatures that must keep an unused `next`).
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    },
+  },
+  {
+    // Type-aware rules, scoped to runtime src/** only (the tree that IS in the
+    // root tsconfig's `include`). Tests are excluded — they legitimately
+    // fire-and-forget promises. scripts/ and e2e/ stay non-type-checked.
+    files: ["src/**/*.ts"],
+    ignores: ["src/**/__tests__/**", "src/**/*.test.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
     },
   },
   eslintConfigPrettier,

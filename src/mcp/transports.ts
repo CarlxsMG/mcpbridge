@@ -88,7 +88,9 @@ function startSessionCleanup(): void {
         const streamable = streamableSessions.get(id);
         if (streamable) {
           try {
-            streamable.close();
+            // Fire-and-forget: a rejected close() is backstopped by the global
+            // unhandledRejection net (see index.ts); the try guards a sync throw.
+            void streamable.close();
           } catch {
             // best-effort: closing an already-torn-down transport must not block session release
           }
@@ -384,7 +386,9 @@ export function setupTransports(app: Express): () => void {
     if (cleanupTimer) clearInterval(cleanupTimer);
     for (const [id, transport] of streamableSessions) {
       try {
-        transport.close();
+        // Fire-and-forget: a rejected close() is backstopped by the global
+        // unhandledRejection net (see index.ts); the try guards a sync throw.
+        void transport.close();
       } catch {
         // best-effort: shutdown continues even if a transport is already closed
       }

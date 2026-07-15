@@ -271,8 +271,12 @@ async function gracefulShutdown(signal: string) {
   if (forceTimer.unref) forceTimer.unref();
 }
 
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => {
+  void gracefulShutdown("SIGINT");
+});
+process.on("SIGTERM", () => {
+  void gracefulShutdown("SIGTERM");
+});
 
 // Last-resort safety net: a stray unhandled promise rejection (e.g. a
 // best-effort MCP notification whose target transport closed mid-stream) must
