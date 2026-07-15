@@ -8,6 +8,7 @@ import ModalShell from "@/components/ui/ModalShell.vue";
 import CopyButton from "@/components/ui/CopyButton.vue";
 import SecretReveal from "@/components/ui/SecretReveal.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
+import StatusBadge from "@/components/ui/StatusBadge.vue";
 import { formatDateTime, formatMaybeDate } from "@/utils/format";
 import { toErrorMessage } from "@/utils/errors";
 import { bundlePath } from "@/utils/apiPaths";
@@ -98,9 +99,9 @@ async function confirmRevoke() {
 }
 
 function statusOf(link: BundleInstallLink): string {
-  if (link.revokedAt !== null) return t("components.share_install_link.status.revoked");
-  if (link.expiresAt !== null && link.expiresAt <= Date.now()) return t("components.share_install_link.status.expired");
-  return t("components.share_install_link.status.active");
+  if (link.revokedAt !== null) return "revoked";
+  if (link.expiresAt !== null && link.expiresAt <= Date.now()) return "expired";
+  return "active";
 }
 </script>
 
@@ -157,7 +158,7 @@ function statusOf(link: BundleInstallLink): string {
               <code>{{ link.tokenPrefix }}…</code>
             </td>
             <td>
-              <span class="status" :class="statusOf(link).toLowerCase()">{{ statusOf(link) }}</span>
+              <StatusBadge :status="statusOf(link)" />
             </td>
             <td>{{ formatDateTime(link.createdAt) }}</td>
             <td>{{ formatMaybeDate(link.lastUsedAt, tk("common.never")) }}</td>
@@ -231,21 +232,6 @@ h3 {
 }
 .actions {
   text-align: right;
-}
-.status {
-  font-size: 0.74rem;
-  padding: 0.1rem 0.5rem;
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-}
-.status.active {
-  background: var(--ok-soft);
-  color: var(--ok);
-}
-.status.revoked,
-.status.expired {
-  background: var(--breach-soft);
-  color: var(--breach);
 }
 .row-error {
   color: var(--breach);

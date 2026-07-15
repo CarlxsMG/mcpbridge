@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useCreateForm } from "@/composables/useCreateForm";
+import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import FieldError from "@/components/ui/FieldError.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -21,6 +23,9 @@ const { creating, error, run } = useCreateForm({
 function createTeam() {
   return run(() => (name.value.trim() ? null : t("pages.teams.new.errors.name_required")));
 }
+
+const isDirty = computed(() => Boolean(name.value.trim()));
+const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDirty, () => creating.value);
 </script>
 
 <template>
@@ -44,5 +49,15 @@ function createTeam() {
         </button>
       </form>
     </FormPage>
+
+    <ConfirmDialog
+      :open="pendingLeave"
+      :title="t('pages.teams.new.confirm.leave_title')"
+      :message="t('pages.teams.new.confirm.leave_message')"
+      :confirm-label="t('pages.teams.new.confirm.leave_cta')"
+      danger
+      @confirm="confirmLeave"
+      @cancel="cancelLeave"
+    />
   </section>
 </template>

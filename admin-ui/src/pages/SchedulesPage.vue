@@ -21,6 +21,7 @@ import { Clock } from "lucide-vue-next";
 const { t } = useI18n({ useScope: "global" });
 const loadFallback = tk("pages.schedules.errors.load_failed");
 const toggleFallback = tk("pages.schedules.errors.toggle_failed");
+const deleteFallback = tk("pages.schedules.errors.delete_failed");
 
 const {
   data: items,
@@ -52,7 +53,7 @@ function confirmDelete() {
       await api.delete(`/admin-api/schedules/${s.id}`);
       await load();
     } catch (err) {
-      rowError.value[s.id] = toErrorMessage(err, toggleFallback);
+      errorMessage.value = toErrorMessage(err, deleteFallback);
     }
   });
 }

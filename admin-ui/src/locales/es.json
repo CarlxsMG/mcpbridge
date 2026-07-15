@@ -225,11 +225,6 @@
         "created": "Creado",
         "last_used": "Último uso"
       },
-      "status": {
-        "revoked": "Revocado",
-        "expired": "Caducado",
-        "active": "Activo"
-      },
       "revoke": "Revocar",
       "confirm": {
         "revoke_title": "¿Revocar este link de instalación?",
@@ -1811,7 +1806,8 @@
       },
       "errors": {
         "load_failed": "Error al cargar programaciones.",
-        "toggle_failed": "Falló."
+        "toggle_failed": "Falló.",
+        "delete_failed": "Error al eliminar la programación."
       },
       "new": {
         "title": "Nuevo schedule",
@@ -1940,6 +1936,11 @@
         "errors": {
           "name_required": "El nombre es obligatorio.",
           "create_failed": "Error al crear el equipo."
+        },
+        "confirm": {
+          "leave_title": "¿Descartar los cambios sin guardar?",
+          "leave_message": "Tienes datos sin guardar para este equipo. Si sales ahora, se descartarán.",
+          "leave_cta": "Descartar cambios"
         }
       }
     },

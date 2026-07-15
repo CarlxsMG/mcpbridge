@@ -225,11 +225,6 @@
         "created": "Created",
         "last_used": "Last used"
       },
-      "status": {
-        "revoked": "Revoked",
-        "expired": "Expired",
-        "active": "Active"
-      },
       "revoke": "Revoke",
       "confirm": {
         "revoke_title": "Revoke this install link?",
@@ -1811,7 +1806,8 @@
       },
       "errors": {
         "load_failed": "Failed to load schedules.",
-        "toggle_failed": "Failed."
+        "toggle_failed": "Failed.",
+        "delete_failed": "Failed to delete schedule."
       },
       "new": {
         "title": "New schedule",
@@ -1940,6 +1936,11 @@
         "errors": {
           "name_required": "Name is required.",
           "create_failed": "Failed to create team."
+        },
+        "confirm": {
+          "leave_title": "Discard unsaved changes?",
+          "leave_message": "You have unsaved details for this team. Leaving now will discard them.",
+          "leave_cta": "Discard changes"
         }
       }
     },
