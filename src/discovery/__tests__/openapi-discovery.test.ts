@@ -140,6 +140,26 @@ describe("discoverToolsFromOpenApi — size cap (hardcoded 5 MB)", () => {
       /too large/i,
     );
   });
+
+  test("throws when a chunked body with NO content-length header exceeds 5 MB (cap enforced during the read, not just via the header)", async () => {
+    // The DoS the streamed cap closes: a backend that omits content-length and
+    // streams an oversized body must be rejected mid-read, never fully buffered.
+    const FIVE_MB = 5 * 1024 * 1024;
+    globalThis.fetch = (async () => {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("x".repeat(FIVE_MB + 1)));
+          controller.close();
+        },
+      });
+      return new Response(stream, { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+
+    const { discoverToolsFromOpenApi } = await import("../../discovery/openapi-discovery.js");
+    await expect(discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" })).rejects.toThrow(
+      /too large/i,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

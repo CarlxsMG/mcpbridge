@@ -5,6 +5,7 @@ import type { OpenAPIV3 } from "openapi-types";
 import type { RestToolDefinition } from "../mcp/types.js";
 import { config } from "../config.js";
 import { makePinnedFetch } from "../net/ip-validator.js";
+import { readBodyWithCap } from "../proxy/http-util.js";
 import { sanitizeToolName, uniqueToolName } from "./tool-naming.js";
 
 const VALID_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
@@ -37,9 +38,13 @@ export async function discoverToolsFromOpenApi(options: {
     throw new Error(`OpenAPI spec too large: ${contentLength} bytes (max ${MAX_SPEC_SIZE})`);
   }
 
-  const text = await res.text();
-  if (text.length > MAX_SPEC_SIZE) {
-    throw new Error(`OpenAPI spec too large: ${text.length} bytes (max ${MAX_SPEC_SIZE})`);
+  // Enforce the cap *during* the streaming read, not just from the (optional,
+  // spoofable) content-length header above — otherwise a backend that omits or
+  // understates content-length could stream an arbitrarily large body and OOM
+  // the process before this check ran.
+  const text = await readBodyWithCap(res, MAX_SPEC_SIZE);
+  if (text === null) {
+    throw new Error(`OpenAPI spec too large (max ${MAX_SPEC_SIZE} bytes)`);
   }
 
   // 2. Parse (JSON or YAML). parseYaml and JSON.parse return untyped values;

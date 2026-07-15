@@ -288,15 +288,18 @@ describe("discoverToolsFromGraphQl — content-length header boundary is exclusi
 });
 
 // ---------------------------------------------------------------------------
-// L258:7-258:34 (EqualityOperator + ConditionalExpression) + L258:36-260:4
-// BlockStatement + L259:21-259:108 StringLiteral — the SEPARATE real
-// body-length check (`text.length > MAX_SPEC_SIZE`), re-verified against the
-// actually-fetched text (no content-length header override involved).
+// The real body-size cap is now enforced *during* the streaming read via
+// `readBodyWithCap(res, MAX_SPEC_SIZE)` (proxy/http-util.ts), independent of
+// the optional/spoofable content-length header check above — so a backend that
+// omits or understates content-length can't stream an oversized body past it.
+// These two tests exercise that streamed cap directly (no content-length
+// header override involved).
 //
-// Boundary case: a real body of EXACTLY MAX_SPEC_SIZE characters succeeds.
+// Boundary case: a real body of EXACTLY MAX_SPEC_SIZE bytes succeeds (the cap
+// is exclusive — `totalBytes > MAX_SPEC_SIZE`).
 // ---------------------------------------------------------------------------
 
-describe("discoverToolsFromGraphQl — real body-length boundary is exclusive", () => {
+describe("discoverToolsFromGraphQl — streamed body-length cap is exclusive at the boundary", () => {
   test("a response body of exactly MAX_SPEC_SIZE characters is not rejected as too large", async () => {
     const MAX_SPEC_SIZE = 5 * 1024 * 1024;
     const withPlaceholder = JSON.stringify(minimalSkeleton());
@@ -311,10 +314,11 @@ describe("discoverToolsFromGraphQl — real body-length boundary is exclusive", 
     expect(tools).toEqual([]);
   });
 
-  // Over-the-boundary case: kills the `if` forced permanently false, the
-  // emptied throw-block, and the emptied error-message StringLiteral — all of
-  // which would incorrectly let an oversized body through as a success.
-  test("a response body of MAX_SPEC_SIZE + 1 characters throws a too-large error naming the byte count", async () => {
+  // Over-the-boundary case: an oversized body is rejected as it streams in,
+  // before it is ever fully buffered (the memory-DoS guard). Because the read
+  // is cancelled the instant the cap is crossed, the error names the cap
+  // rather than the deliberately-never-counted received size.
+  test("a response body of MAX_SPEC_SIZE + 1 characters is rejected as too large during the streamed read", async () => {
     const MAX_SPEC_SIZE = 5 * 1024 * 1024;
     const withPlaceholder = JSON.stringify(minimalSkeleton());
     const baseLen = withPlaceholder.length - PLACEHOLDER.length;
@@ -332,7 +336,7 @@ describe("discoverToolsFromGraphQl — real body-length boundary is exclusive", 
     }
     expect(caught).toBeInstanceOf(Error);
     expect((caught as Error).message).toMatch(/too large/i);
-    expect((caught as Error).message).toContain(String(MAX_SPEC_SIZE + 1));
+    expect((caught as Error).message).toContain(String(MAX_SPEC_SIZE));
   });
 });
 

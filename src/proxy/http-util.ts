@@ -1,9 +1,9 @@
 /**
- * Small HTTP-response helpers shared by the REST dispatch path (proxy.ts) and
- * the pagination fetch loop (pagination.ts): Retry-After parsing, status-class
- * bucketing, and a byte-capped streaming body read. Split out so pagination.ts
- * can reuse `readBodyWithCap` without importing proxy.ts (which would be a
- * circular dependency).
+ * Small HTTP-response helpers shared by the REST dispatch path (proxy.ts), the
+ * pagination fetch loop (pagination.ts), and OpenAPI/GraphQL discovery: Retry-After
+ * parsing, status-class bucketing, and a byte-capped streaming body read. Split out
+ * so those callers can reuse `readBodyWithCap` without importing proxy.ts (which
+ * would be a circular dependency).
  */
 import { config } from "../config.js";
 
@@ -43,10 +43,16 @@ export function httpStatusClass(status: number): string {
 }
 
 /**
- * Read the response body as a stream, enforcing `config.maxResponseBytes`.
- * Returns the raw text on success, or null when the limit is exceeded (after cancelling the reader).
+ * Read the response body as a stream, enforcing a byte cap (`maxBytes`, defaulting
+ * to `config.maxResponseBytes`). Returns the raw text on success, or null when the
+ * limit is exceeded (after cancelling the reader) — critically, the cap is enforced
+ * *during* the read, so an over-limit body is never fully buffered into memory even
+ * when the backend omits or understates `content-length`.
  */
-export async function readBodyWithCap(response: Response): Promise<string | null> {
+export async function readBodyWithCap(
+  response: Response,
+  maxBytes: number = config.maxResponseBytes,
+): Promise<string | null> {
   const reader = response.body?.getReader();
   if (!reader) {
     // Fallback for environments where body is not a ReadableStream
@@ -61,7 +67,7 @@ export async function readBodyWithCap(response: Response): Promise<string | null
     if (done) break;
     if (value) {
       totalBytes += value.byteLength;
-      if (totalBytes > config.maxResponseBytes) {
+      if (totalBytes > maxBytes) {
         await reader.cancel();
         return null;
       }
