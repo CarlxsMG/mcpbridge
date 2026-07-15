@@ -206,10 +206,32 @@ export function getApproval(id: number): ApprovalRecord | null {
   return row ? rowTo(row) : null;
 }
 
-export function listApprovals(status?: ApprovalStatus): ApprovalRecord[] {
-  const rows = status
-    ? (getDb().query(`SELECT * FROM approvals WHERE status = ? ORDER BY id DESC`).all(status) as ApprovalRow[])
-    : (getDb().query(`SELECT * FROM approvals ORDER BY id DESC LIMIT 500`).all() as ApprovalRow[]);
+/**
+ * Lists approval tickets, optionally filtered by status and/or scoped to a
+ * team. `teamId` as a number restricts results to tickets whose client is
+ * owned by that team (mirrors `listTraffic`'s `teamId` filter — a ticket's
+ * `argsJson` carries the same kind of unredacted, potentially sensitive
+ * payload traffic records do); null/undefined (super-admin session or bearer
+ * caller) lists tickets for every team, matching prior behavior.
+ */
+export function listApprovals(status?: ApprovalStatus, teamId?: number | null): ApprovalRecord[] {
+  const where: string[] = [];
+  const params: (string | number)[] = [];
+  if (status) {
+    where.push("status = ?");
+    params.push(status);
+  }
+  if (typeof teamId === "number") {
+    where.push("client_name IN (SELECT name FROM clients WHERE team_id = ?)");
+    params.push(teamId);
+  }
+  const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  // Preserve prior behavior: an unfiltered-by-status list caps at 500; a
+  // status-filtered list does not.
+  const limitClause = status ? "" : " LIMIT 500";
+  const rows = getDb()
+    .query(`SELECT * FROM approvals ${whereClause} ORDER BY id DESC${limitClause}`)
+    .all(...params) as ApprovalRow[];
   return rows.map(rowTo);
 }
 
