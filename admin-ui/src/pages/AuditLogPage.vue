@@ -60,6 +60,11 @@ const loadFallback = tk("pages.audit_log.errors.load_failed");
 const exportFallback = tk("pages.audit_log.errors.export_failed");
 const verifyFallback = tk("pages.audit_log.errors.verify_failed");
 
+// Filters are "apply on submit" — pagination must read this snapshot, not
+// the live filter refs, or an edited-but-unapplied filter gets mixed with a
+// cursor fetched under the previously applied filter.
+const appliedFilterParams = ref<URLSearchParams>(new URLSearchParams());
+
 const {
   items: entries,
   loading,
@@ -69,7 +74,7 @@ const {
   hasNext,
 } = useCursorPagination<AuditLogEntry>(
   (cursor) => {
-    const params = buildFilterParams();
+    const params = new URLSearchParams(appliedFilterParams.value);
     if (cursor) params.set("cursor", cursor);
     return api.get<PaginatedResult<AuditLogEntry>>(`/admin-api/audit-log?${params.toString()}`);
   },
@@ -77,6 +82,7 @@ const {
 );
 
 function applyFilter() {
+  appliedFilterParams.value = buildFilterParams();
   load();
 }
 

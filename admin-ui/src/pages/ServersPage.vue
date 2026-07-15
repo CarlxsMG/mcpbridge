@@ -45,10 +45,15 @@ const q = filters.q;
 const enabledFilter = filters.enabled;
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
 
+// Snapshot of the filters actually in effect — separate from the live q/enabledFilter
+// input refs so a pagination fetch (next/prev) never mixes an unapplied edit with a
+// cursor that was computed for the previously applied query.
+const appliedFilters = ref({ q: q.value, enabled: enabledFilter.value });
+
 function buildQuery(cursor?: string): string {
   const params = new URLSearchParams();
-  if (q.value) params.set("q", q.value);
-  if (enabledFilter.value) params.set("enabled", enabledFilter.value);
+  if (appliedFilters.value.q) params.set("q", appliedFilters.value.q);
+  if (appliedFilters.value.enabled) params.set("enabled", appliedFilters.value.enabled);
   if (cursor) params.set("cursor", cursor);
   params.set("limit", "50");
   return params.toString();
@@ -75,6 +80,8 @@ const {
 
 // debounce-free: filters apply on explicit submit here, not on every keystroke
 function applyFilters() {
+  appliedFilters.value = { q: q.value, enabled: enabledFilter.value };
+  selected.value = new Set();
   reset();
   syncUrl();
   load();
@@ -109,6 +116,20 @@ function toggleSelectAll() {
   } else {
     selected.value = new Set(items.value.map((c) => c.name));
   }
+}
+
+// Bulk selection is scoped to the currently visible page — clear it on every
+// page change so the header checkbox/indeterminate state (compared against
+// this page's items.length) can never falsely read "all selected" and wipe
+// a different page's selection.
+async function goToNextPage() {
+  selected.value = new Set();
+  await nextPage();
+}
+
+async function goToPrevPage() {
+  selected.value = new Set();
+  await prevPage();
 }
 
 async function runBulk(enabled: boolean) {
@@ -364,8 +385,8 @@ onMounted(() => load());
         :has-prev="hasPrev"
         :has-next="hasNext"
         :label="t('pages.servers.pagination_label', { count: items.length })"
-        @prev="prevPage"
-        @next="nextPage"
+        @prev="goToPrevPage"
+        @next="goToNextPage"
       />
     </div>
 

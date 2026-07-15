@@ -7,7 +7,7 @@ import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useQueryFilters } from "@/composables/useQueryFilters";
 import { useCursorPagination } from "@/composables/useCursorPagination";
 import { toErrorMessage } from "@/utils/errors";
-import { formatDateTime } from "@/utils/format";
+import { formatDateTime, formatDuration } from "@/utils/format";
 import { tk } from "@/i18n";
 import type { TrafficRecord, PaginatedResult } from "@/types/api";
 import TimeSeriesChart from "@/components/charts/TimeSeriesChart.vue";
@@ -35,11 +35,16 @@ const initialCursor = typeof route.query.cursor === "string" ? route.query.curso
 const replayingId = ref<number | null>(null);
 const replayNote = ref<{ id: number; ok: boolean; text: string } | null>(null);
 
+// Snapshot of the last *applied* filters, not the live input refs — pagination is
+// "apply on submit," so a cursor fetched mid-edit must keep using the query that
+// produced it rather than whatever the user has since typed but not submitted.
+const appliedFilters = ref({ client: clientFilter.value, tool: toolFilter.value, errors: errorsOnly.value });
+
 function buildQuery(cursor?: string): string {
   const params = new URLSearchParams();
-  if (clientFilter.value.trim()) params.set("client", clientFilter.value.trim());
-  if (toolFilter.value.trim()) params.set("tool", toolFilter.value.trim());
-  if (errorsOnly.value) params.set("errors", "true");
+  if (appliedFilters.value.client.trim()) params.set("client", appliedFilters.value.client.trim());
+  if (appliedFilters.value.tool.trim()) params.set("tool", appliedFilters.value.tool.trim());
+  if (appliedFilters.value.errors) params.set("errors", "true");
   if (cursor) params.set("cursor", cursor);
   params.set("limit", "50");
   return params.toString();
@@ -65,16 +70,13 @@ const {
 );
 
 function applyFilters() {
+  appliedFilters.value = { client: clientFilter.value, tool: toolFilter.value, errors: errorsOnly.value };
   reset();
   syncUrl({ errors: errorsOnly.value ? "true" : undefined });
   load();
 }
 
 onMounted(() => load());
-
-function formatDuration(ms: number): string {
-  return `${ms}ms`;
-}
 
 const chart = computed(() => {
   const rows = records.value;

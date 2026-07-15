@@ -27,7 +27,7 @@ const { t } = useI18n({ useScope: "global" });
 const router = useRouter();
 const route = useRoute();
 
-const { filters, syncUrl } = useQueryFilters(["tool", "session_id"] as const);
+const { filters } = useQueryFilters(["tool", "session_id"] as const);
 const toolFilter = filters.tool;
 const sessionFilter = filters.session_id;
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
@@ -40,13 +40,31 @@ const {
 const purging = ref(false);
 const topSessions = ref<TopSessionRow[]>([]);
 
+// Snapshot of the filter values actually in effect for the current result set —
+// filters are "apply on submit", so pagination (next/prev) must key off this,
+// never the live `toolFilter`/`sessionFilter` refs, or an unapplied edit in the
+// inputs would leak into a request paginated against the old applied query.
+const appliedFilters = ref({ tool: toolFilter.value.trim(), sessionId: sessionFilter.value.trim() });
+
 function buildListQuery(cursor?: string): string {
   const params = new URLSearchParams();
-  if (toolFilter.value.trim()) params.set("tool", toolFilter.value.trim());
-  if (sessionFilter.value.trim()) params.set("session_id", sessionFilter.value.trim());
+  if (appliedFilters.value.tool) params.set("tool", appliedFilters.value.tool);
+  if (appliedFilters.value.sessionId) params.set("session_id", appliedFilters.value.sessionId);
   if (cursor) params.set("cursor", cursor);
   params.set("limit", "50");
   return params.toString();
+}
+
+// Writes the URL from the applied snapshot (not the live filter refs), so pagination
+// never overwrites the query string with unapplied input text.
+function syncUrlFromSnapshot(cursor?: string) {
+  void router.replace({
+    query: {
+      tool: appliedFilters.value.tool || undefined,
+      session_id: appliedFilters.value.sessionId || undefined,
+      cursor,
+    },
+  });
 }
 
 const {
@@ -63,7 +81,7 @@ const {
   (cursor) => api.get<PaginatedResult<TraceSummary>>(`/admin-api/traces?${buildListQuery(cursor)}`),
   {
     initialCursor,
-    onCursorChange: (cursor) => syncUrl({ cursor }),
+    onCursorChange: (cursor) => syncUrlFromSnapshot(cursor),
     fallbackMessage: tk("pages.traces.errors.load_failed"),
   },
 );
@@ -79,8 +97,9 @@ async function loadTopSessions() {
 }
 
 function applyFilters() {
+  appliedFilters.value = { tool: toolFilter.value.trim(), sessionId: sessionFilter.value.trim() };
   reset();
-  syncUrl();
+  syncUrlFromSnapshot();
   loadList();
 }
 
