@@ -62,6 +62,7 @@ cd admin-ui && bun run build         # admin UI production build (also type-chec
 
 bun test path/to/one.test.ts         # run a single backend test file directly (fine — scoping only breaks with no args)
 bun run test:e2e                     # Playwright e2e (e2e/) — separate from `bun run check`, boots a real browser + backend
+bun run test:mutate                  # Stryker mutation testing (stryker.config.mjs) — separate from `bun run check`
 ```
 
 **Never run bare `bun test` (no args) from the repo root.** Bun's default test discovery
@@ -76,6 +77,21 @@ scope correctly either, since bun matches it as a path substring and `"src"` als
 CI (`.github/workflows/ci.yml`) runs format-check/lint/typecheck/test/build on every push and PR;
 `docker-publish.yml` publishes to GHCR on `v*` tags; `release-binaries.yml` builds standalone
 binaries; `deploy-docs.yml` publishes the VitePress site in `docs/`.
+
+**Mutation testing.** `bun run test:mutate` runs [Stryker](https://stryker-mutator.io)
+(`stryker.config.mjs`) against the backend test suite — it injects faults into the source and
+checks that some test actually fails, proving the suite exercises behavior rather than merely
+executing lines. It is heavier than `bun run test` (Bun's coverage report isn't natively
+Stryker-readable, so every mutant re-runs the full suite via the `scripts/stryker-test-runner.ts`
+wrapper) and is **not** part of `bun run check` or CI — run it as an occasional deep check, not a
+per-commit gate. The multi-session hardening program that brought this to completion (P2 +
+domains 2-10) is done: every file with meaningful runtime logic is effectively 100%
+mutation-killed. `stryker.config.mjs`'s `mutate` array intentionally points at a single file
+(`src/ws-proxy.ts`, the last one closed) as a stable placeholder for ad-hoc re-verification, not
+an active target — scope it to whichever file you changed before re-running against new work. As
+a byproduct of reaching that mutation-kill bar, the backend's `bun test --coverage` baseline sits
+at ~97.6% functions / ~98.5% lines — the number `bunfig.toml`'s `coverageThreshold` (deliberately
+set well below it) exists to guard against regressing, not to chase.
 
 ## Architecture
 
