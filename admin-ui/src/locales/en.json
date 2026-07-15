@@ -432,6 +432,7 @@
       "unowned": "— unowned —",
       "admin_only": "Only super-admins can change this.",
       "create_team": "Create team",
+      "change_team_aria": "Change owning team",
       "errors": {
         "assign_failed": "Failed to assign team (super-admin only)."
       }

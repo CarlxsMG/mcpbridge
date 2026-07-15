@@ -61,6 +61,7 @@ async function assignTeam(teamId: number | null) {
       <SelectMenu
         :model-value="currentTeamId"
         :options="teamOptions"
+        :aria-label="t('components.server_detail_team.change_team_aria')"
         create-path="/teams/new"
         :create-label="t('components.server_detail_team.create_team')"
         :reload="loadTeams"

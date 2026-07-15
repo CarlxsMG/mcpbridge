@@ -432,6 +432,7 @@
       "unowned": "— sin equipo —",
       "admin_only": "Solo los super-admins pueden cambiar esto.",
       "create_team": "Crear equipo",
+      "change_team_aria": "Cambiar equipo propietario",
       "errors": {
         "assign_failed": "Error al asignar el equipo (solo super-admin)."
       }
