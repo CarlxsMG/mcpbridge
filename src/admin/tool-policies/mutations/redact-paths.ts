@@ -4,6 +4,7 @@
  * See `./index.ts` for the dispatcher and the `ToolMutation` contract.
  */
 import { setRedactionPaths } from "../../../content-filtering/redaction.js";
+import { hasUnsafeSegment } from "../../../lib/object-path.js";
 import type { ToolMutation } from "./types.js";
 
 export const redactPathsMutation: ToolMutation = {
@@ -11,6 +12,9 @@ export const redactPathsMutation: ToolMutation = {
   validate: (raw) => {
     if (!Array.isArray(raw) || !raw.every((p) => typeof p === "string")) {
       return { ok: false, message: "redactPaths must be an array of strings" };
+    }
+    if ((raw as string[]).some(hasUnsafeSegment)) {
+      return { ok: false, message: "redactPaths must not contain __proto__, constructor, or prototype" };
     }
     return { ok: true, value: raw };
   },

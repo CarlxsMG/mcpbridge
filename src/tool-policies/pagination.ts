@@ -17,6 +17,7 @@
  * transport is.
  */
 import { getDb } from "../db/connection.js";
+import { getByPath, hasUnsafeSegment } from "../lib/object-path.js";
 import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 export type PaginationStrategy = "cursor" | "page" | "link";
@@ -104,17 +105,7 @@ export function setPaginationConfig(
 }
 
 // ── Pure helpers (unit-tested; used by the proxy loop) ──────────────────────
-
-/** Traverses a dot-path (empty path returns the object itself). */
-export function getByPath(obj: unknown, path: string): unknown {
-  if (path === "") return obj;
-  let cur: unknown = obj;
-  for (const key of path.split(".")) {
-    if (cur === null || typeof cur !== "object") return undefined;
-    cur = (cur as Record<string, unknown>)[key];
-  }
-  return cur;
-}
+// getByPath is the shared, prototype-pollution-safe helper from ../lib.
 
 /** Returns the array at `itemsPath`, or null when it isn't an array. */
 export function extractItems(body: unknown, itemsPath: string): unknown[] | null {
@@ -144,6 +135,7 @@ export function parseNextLink(linkHeader: string | null): string | null {
 /** Returns a shallow clone of `body` with the array at `itemsPath` replaced. */
 export function withItems(body: unknown, itemsPath: string, items: unknown[]): unknown {
   if (itemsPath === "") return items;
+  if (hasUnsafeSegment(itemsPath)) return body;
   if (body === null || typeof body !== "object") return body;
   const root: Record<string, unknown> = { ...(body as Record<string, unknown>) };
   const keys = itemsPath.split(".");

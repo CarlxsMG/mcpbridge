@@ -78,6 +78,14 @@ describe("applyRedaction", () => {
   test("returns null for non-JSON", () => {
     expect(applyRedaction(["x"], "not json")).toBeNull();
   });
+
+  test("a prototype-chain path is ignored — no Object.prototype pollution", () => {
+    for (const p of ["__proto__.polluted", "constructor.prototype.polluted", "__proto__.hasOwnProperty"]) {
+      expect(JSON.parse(applyRedaction([p], JSON.stringify({ a: 1 }))!)).toEqual({ a: 1 });
+    }
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(typeof Object.prototype.hasOwnProperty).toBe("function");
+  });
 });
 
 describe("store", () => {

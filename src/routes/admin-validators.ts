@@ -35,6 +35,7 @@ import { MAX_CACHE_TTL_SECONDS } from "../tool-policies/response-cache.js";
 import { MAX_PAGINATION_PAGES } from "../tool-policies/pagination.js";
 import { MAX_STREAM_EVENTS } from "../proxy/streaming.js";
 import { MAX_TRANSFORM_OPS } from "../proxy/transform.js";
+import { hasUnsafeSegment } from "../lib/object-path.js";
 import { MIN_CONTEXT_BUDGET_BYTES } from "../tool-policies/context-budget.js";
 import { config } from "../config.js";
 import { hashApiKey } from "../security/key-hash.js";
@@ -252,6 +253,15 @@ export function validateOps(raw: unknown, label: string): ValidationResult<Trans
   if (raw === undefined) return { ok: true, value: [] };
   if (!Array.isArray(raw)) return { ok: false, message: `${label} must be an array of ops` };
   if (raw.length > MAX_TRANSFORM_OPS) return { ok: false, message: `${label} exceeds ${MAX_TRANSFORM_OPS} ops` };
+  // A dot-path must be non-empty and free of prototype-chain segments — the
+  // latter is defence-in-depth against Object.prototype pollution (the writers
+  // in lib/object-path.js also refuse them), the former avoids a whole-object
+  // rename/copy that could build a self-referential cycle.
+  const pathIssue = (p: string): string | null => {
+    if (p === "") return "must not be empty";
+    if (hasUnsafeSegment(p)) return "must not contain __proto__, constructor, or prototype";
+    return null;
+  };
   const ops: TransformOp[] = [];
   for (const entry of raw) {
     if (entry === null || typeof entry !== "object")
@@ -260,13 +270,24 @@ export function validateOps(raw: unknown, label: string): ValidationResult<Trans
     if (o.op === "set") {
       if (typeof o.path !== "string" || !("value" in o))
         return { ok: false, message: `${label}: set requires path + value` };
+      const pi = pathIssue(o.path);
+      if (pi) return { ok: false, message: `${label}: path ${pi}` };
       ops.push({ op: "set", path: o.path, value: o.value });
     } else if (o.op === "remove") {
       if (typeof o.path !== "string") return { ok: false, message: `${label}: remove requires path` };
+      const pi = pathIssue(o.path);
+      if (pi) return { ok: false, message: `${label}: path ${pi}` };
       ops.push({ op: "remove", path: o.path });
     } else if (o.op === "rename" || o.op === "copy") {
       if (typeof o.from !== "string" || typeof o.to !== "string")
         return { ok: false, message: `${label}: ${o.op} requires from + to` };
+      for (const [field, val] of [
+        ["from", o.from],
+        ["to", o.to],
+      ] as const) {
+        const pi = pathIssue(val);
+        if (pi) return { ok: false, message: `${label}: ${field} ${pi}` };
+      }
       ops.push({ op: o.op, from: o.from, to: o.to });
     } else {
       return { ok: false, message: `${label}: unknown op '${String(o.op)}'` };

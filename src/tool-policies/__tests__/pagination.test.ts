@@ -12,12 +12,12 @@ import { proxyToolCall } from "../../proxy/proxy.js";
 import {
   getPaginationConfig,
   setPaginationConfig,
-  getByPath,
   extractItems,
   nextCursorValue,
   parseNextLink,
   withItems,
 } from "../../tool-policies/pagination.js";
+import { getByPath } from "../../lib/object-path.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
 
 const CLIENT = "svc";

@@ -1,4 +1,5 @@
 import { getDb } from "../db/connection.js";
+import { isUnsafeSegment } from "../lib/object-path.js";
 
 export const REDACTION_PLACEHOLDER = "[REDACTED]";
 
@@ -27,6 +28,7 @@ function redactInPlace(node: unknown, segments: string[]): void {
     return;
   }
 
+  if (isUnsafeSegment(head)) return; // never walk into the prototype chain
   if (Array.isArray(node)) return; // a named segment can't index an array
   const obj = node as Record<string, unknown>;
   if (rest.length === 0) {

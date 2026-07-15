@@ -577,6 +577,28 @@ describe("validateOps", () => {
     expect(validateOps([{ op: 123 }], "L")).toEqual({ ok: false, message: "L: unknown op '123'" });
     expect(validateOps([{}], "L")).toEqual({ ok: false, message: "L: unknown op 'undefined'" });
   });
+
+  test("rejects empty and prototype-polluting dot-paths (defence-in-depth vs Object.prototype pollution)", () => {
+    expect(validateOps([{ op: "set", path: "", value: 1 }], "L")).toEqual({
+      ok: false,
+      message: "L: path must not be empty",
+    });
+    expect(validateOps([{ op: "set", path: "__proto__.x", value: 1 }], "L")).toEqual({
+      ok: false,
+      message: "L: path must not contain __proto__, constructor, or prototype",
+    });
+    expect(validateOps([{ op: "remove", path: "a.constructor.b" }], "L").ok).toBe(false);
+    expect(validateOps([{ op: "rename", from: "__proto__", to: "b" }], "L")).toEqual({
+      ok: false,
+      message: "L: from must not contain __proto__, constructor, or prototype",
+    });
+    expect(validateOps([{ op: "copy", from: "a", to: "x.prototype" }], "L")).toEqual({
+      ok: false,
+      message: "L: to must not contain __proto__, constructor, or prototype",
+    });
+    // a normal nested path is still accepted
+    expect(validateOps([{ op: "set", path: "a.b.c", value: 1 }], "L").ok).toBe(true);
+  });
 });
 
 // ─── validateTransformInput ──────────────────────────────────────────────

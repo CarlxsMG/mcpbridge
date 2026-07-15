@@ -2,6 +2,7 @@ import { getDb } from "../../db/connection.js";
 import { notifyToolsChanged } from "../../mcp/mcp-server.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
 import { TOOL_KEY_SEPARATOR } from "../../lib/identifier.js";
+import { getByPath } from "../../lib/object-path.js";
 import { SEARCH_TOOL_NAME, type AdvertisedTool } from "../../mcp/tool-search.js";
 import { log } from "../../logger.js";
 import { isValidToolName } from "../../lib/identifier.js";
@@ -160,23 +161,6 @@ export function getAdvertisedComposite(name: string): AdvertisedTool | undefined
 interface RunContext {
   input: Record<string, unknown>;
   steps: { text: string; json: unknown }[];
-}
-
-function getByPath(root: unknown, path: string): unknown {
-  if (path === "") return root;
-  let node: unknown = root;
-  for (const seg of path.split(".")) {
-    if (node === null || node === undefined) return undefined;
-    if (Array.isArray(node)) {
-      const idx = Number(seg);
-      node = Number.isInteger(idx) ? node[idx] : undefined;
-    } else if (typeof node === "object") {
-      node = (node as Record<string, unknown>)[seg];
-    } else {
-      return undefined;
-    }
-  }
-  return node;
 }
 
 /** Resolves a "$ref"-style path (input.* / steps.<i>.text / steps.<i>.json.*) against the run context. */

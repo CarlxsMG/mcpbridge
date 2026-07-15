@@ -12,7 +12,8 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
-import { getPaginationConfig, setPaginationConfig, getByPath, parseNextLink, withItems } from "../pagination.js";
+import { getPaginationConfig, setPaginationConfig, parseNextLink, withItems } from "../pagination.js";
+import { getByPath } from "../../lib/object-path.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
 
 const CLIENT = "pg-mut-client";

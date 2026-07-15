@@ -9,7 +9,7 @@ import { __resetDbForTesting, getDb } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
-import { getToolTransform, setToolTransform, applyOps } from "../../proxy/transform.js";
+import { getToolTransform, setToolTransform, applyOps, type TransformOp } from "../../proxy/transform.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
 
 const CLIENT = "svc";
@@ -148,5 +148,19 @@ describe("proxy integration", () => {
       })) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-x`, {});
     expect(JSON.parse(r.content[0].text)).toEqual({ kept: 1 });
+  });
+});
+
+describe("applyOps — prototype-pollution safety", () => {
+  test("ops targeting a prototype path are no-ops and never pollute Object.prototype", () => {
+    const attacks: TransformOp[][] = [
+      [{ op: "set", path: "__proto__.polluted", value: "x" }],
+      [{ op: "set", path: "constructor.prototype.polluted", value: "x" }],
+      [{ op: "copy", from: "a", to: "__proto__.polluted" }],
+    ];
+    for (const ops of attacks) {
+      expect(applyOps({ a: "safe" }, ops)).toEqual({ a: "safe" });
+    }
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 });

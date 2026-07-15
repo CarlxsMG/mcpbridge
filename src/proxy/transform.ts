@@ -14,6 +14,7 @@
  * parsed JSON body before redaction.
  */
 import { getDb } from "../db/connection.js";
+import { getByPath, setByPath, removeByPath } from "../lib/object-path.js";
 import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
 export type TransformOp =
@@ -83,38 +84,8 @@ function safeParseOps(json: string): TransformOp[] {
 }
 
 // ── Pure application (unit-tested; used by the proxy) ───────────────────────
-
-function getByPath(obj: unknown, path: string): unknown {
-  let cur: unknown = obj;
-  for (const key of path.split(".")) {
-    if (cur === null || typeof cur !== "object") return undefined;
-    cur = (cur as Record<string, unknown>)[key];
-  }
-  return cur;
-}
-
-function setByPath(obj: Record<string, unknown>, path: string, value: unknown): void {
-  const keys = path.split(".");
-  let cur = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const k = keys[i];
-    const child = cur[k];
-    if (child === null || typeof child !== "object" || Array.isArray(child)) cur[k] = {};
-    cur = cur[k] as Record<string, unknown>;
-  }
-  cur[keys[keys.length - 1]] = value;
-}
-
-function removeByPath(obj: Record<string, unknown>, path: string): void {
-  const keys = path.split(".");
-  let cur: Record<string, unknown> = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const child = cur[keys[i]];
-    if (child === null || typeof child !== "object") return;
-    cur = child as Record<string, unknown>;
-  }
-  delete cur[keys[keys.length - 1]];
-}
+// getByPath / setByPath / removeByPath live in ../lib/object-path.js — one
+// prototype-pollution-safe implementation shared with redaction/pagination.
 
 /**
  * Applies an ordered op list to a JSON value, returning a new value (the input
