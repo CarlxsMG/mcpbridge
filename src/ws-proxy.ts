@@ -528,6 +528,8 @@ export function startWsProxyRevalidationLoop(): () => void {
         );
     }
   }, config.wsProxyRevalidateIntervalMs);
+  // Don't let the revalidation timer keep the event loop alive on shutdown.
+  if (handle.unref) handle.unref();
   return () => clearInterval(handle);
 }
 

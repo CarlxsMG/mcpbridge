@@ -81,7 +81,7 @@ function releaseSession(sessionId: string): void {
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 function startSessionCleanup(): void {
-  cleanupTimer = setInterval(() => {
+  const timer = setInterval(() => {
     const now = Date.now();
     for (const [id, lastActivity] of sessionActivity) {
       if (now - lastActivity > config.sessionTtlMs) {
@@ -98,6 +98,9 @@ function startSessionCleanup(): void {
       }
     }
   }, 60_000);
+  // Don't let this housekeeping timer keep the event loop alive on shutdown.
+  if (timer.unref) timer.unref();
+  cleanupTimer = timer;
 }
 
 /** Returns the current number of active MCP (Streamable HTTP) sessions. */

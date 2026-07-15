@@ -239,7 +239,13 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 // Graceful shutdown
+let shuttingDown = false;
 async function gracefulShutdown(signal: string) {
+  // A second signal (double SIGINT, or SIGINT then SIGTERM) must not re-run every
+  // stop*() nor install a second force-exit timer — the first shutdown is already
+  // in progress.
+  if (shuttingDown) return;
+  shuttingDown = true;
   log("info", "Graceful shutdown initiated", { signal });
   stopHealthChecks();
   stopLeaderElection();
