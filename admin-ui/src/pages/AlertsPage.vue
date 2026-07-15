@@ -104,6 +104,14 @@ function confirmDelete() {
     }
   });
 }
+
+// Mirrors NewAlertPage's per-eventType threshold semantics: circuit_breaker_open,
+// client_unreachable and schema_drift don't carry a threshold at all, and
+// usage_spike's number is a spike factor (× baseline), not a plain ratio.
+function formatThreshold(rule: AlertRule): string {
+  if (rule.threshold === null) return "—";
+  return rule.eventType === "usage_spike" ? `${rule.threshold}×` : String(rule.threshold);
+}
 </script>
 
 <template>
@@ -127,6 +135,7 @@ function confirmDelete() {
             <th>{{ t("pages.alerts.table.type") }}</th>
             <th>{{ t("pages.alerts.table.target") }}</th>
             <th>{{ t("pages.alerts.table.threshold") }}</th>
+            <th>{{ t("pages.alerts.table.last_fired") }}</th>
             <th>{{ t("pages.alerts.table.actions") }}</th>
             <th></th>
           </tr>
@@ -138,6 +147,7 @@ function confirmDelete() {
             <td>
               <HoverPreview class="cell-truncate" :text="rule.webhookUrl" mono>{{ rule.webhookUrl }}</HoverPreview>
             </td>
+            <td>{{ formatThreshold(rule) }}</td>
             <td>{{ formatMaybeDate(rule.lastFiredAt, tk("common.never")) }}</td>
             <td>
               <TogglePill

@@ -1335,6 +1335,7 @@
         "type": "Tipo",
         "target": "Target",
         "threshold": "Umbral",
+        "last_fired": "Último disparo",
         "actions": "Acciones",
         "enabled_label": "Habilitado",
         "disabled_label": "Deshabilitado"

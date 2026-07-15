@@ -1335,6 +1335,7 @@
         "type": "Type",
         "target": "Target",
         "threshold": "Threshold",
+        "last_fired": "Last fired",
         "actions": "Actions",
         "enabled_label": "Enabled",
         "disabled_label": "Disabled"

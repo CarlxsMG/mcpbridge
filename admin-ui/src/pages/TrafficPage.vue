@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useQueryFilters } from "@/composables/useQueryFilters";
@@ -25,8 +25,9 @@ import { ArrowLeftRight, Repeat, Filter } from "lucide-vue-next";
 const { t } = useI18n({ useScope: "global" });
 
 const route = useRoute();
+const router = useRouter();
 
-const { filters, syncUrl } = useQueryFilters(["client", "tool"] as const);
+const { filters } = useQueryFilters(["client", "tool"] as const);
 const clientFilter = filters.client;
 const toolFilter = filters.tool;
 const errorsOnly = ref(route.query.errors === "true");
@@ -50,6 +51,19 @@ function buildQuery(cursor?: string): string {
   return params.toString();
 }
 
+// Writes the URL from the applied snapshot (not the live filter refs), so pagination
+// never overwrites the query string with an edited-but-unapplied filter value.
+function syncUrlFromSnapshot(cursor?: string) {
+  void router.replace({
+    query: {
+      client: appliedFilters.value.client.trim() || undefined,
+      tool: appliedFilters.value.tool.trim() || undefined,
+      errors: appliedFilters.value.errors ? "true" : undefined,
+      cursor,
+    },
+  });
+}
+
 const {
   items: records,
   loading,
@@ -65,14 +79,14 @@ const {
   {
     initialCursor,
     fallbackMessage: tk("pages.traffic.errors.load_failed"),
-    onCursorChange: (cursor) => syncUrl({ errors: errorsOnly.value ? "true" : undefined, cursor }),
+    onCursorChange: (cursor) => syncUrlFromSnapshot(cursor),
   },
 );
 
 function applyFilters() {
   appliedFilters.value = { client: clientFilter.value, tool: toolFilter.value, errors: errorsOnly.value };
   reset();
-  syncUrl({ errors: errorsOnly.value ? "true" : undefined });
+  syncUrlFromSnapshot();
   load();
 }
 

@@ -30,6 +30,7 @@ const TABS = computed(() => [
   { key: "all" as TabKey, label: t("pages.approvals.tab.all") },
 ]);
 const activeTab = ref<TabKey>("pending");
+const activeTabLabel = computed(() => TABS.value.find((tb) => tb.key === activeTab.value)?.label ?? activeTab.value);
 
 const summary = ref<ApprovalRecord[]>([]);
 const tableItems = ref<ApprovalRecord[]>([]);
@@ -151,7 +152,7 @@ async function confirmReject() {
         <EmptyState :icon="ClipboardCheck" muted>
           <template v-if="activeTab === 'pending'">{{ t("pages.approvals.empty.nothing_pending") }}</template>
           <template v-else>
-            {{ t("pages.approvals.empty.no_items_for_tab", { tab: activeTab }) }}
+            {{ t("pages.approvals.empty.no_items_for_tab", { tab: activeTabLabel }) }}
           </template>
         </EmptyState>
       </template>

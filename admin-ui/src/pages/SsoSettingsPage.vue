@@ -107,7 +107,7 @@ async function save() {
           />
           <p class="hint">
             {{ t("pages.sso_settings.hints.issuer_p1") }}
-            <code>{issuer}/.well-known/openid-configuration</code>
+            <code>{{ issuer }}/.well-known/openid-configuration</code>
             {{ t("pages.sso_settings.hints.issuer_p2") }}
           </p>
         </FormField>

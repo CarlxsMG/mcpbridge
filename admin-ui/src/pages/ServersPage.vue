@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { api } from "@/composables/useApi";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useCursorPagination } from "@/composables/useCursorPagination";
@@ -37,10 +37,11 @@ const ENABLED_FILTER_OPTIONS = computed(() => [
 ]);
 
 const route = useRoute();
+const router = useRouter();
 
 const { rowError, toggle } = useOptimisticToggle<ClientSummary>((c) => c.name, tk("errors.update_failed"));
 
-const { filters, syncUrl } = useQueryFilters(["q", "enabled"] as const);
+const { filters } = useQueryFilters(["q", "enabled"] as const);
 const q = filters.q;
 const enabledFilter = filters.enabled;
 const initialCursor = typeof route.query.cursor === "string" ? route.query.cursor : undefined;
@@ -59,6 +60,18 @@ function buildQuery(cursor?: string): string {
   return params.toString();
 }
 
+// Writes the URL from the applied snapshot (not the live filter refs), so pagination
+// never overwrites the query string with an edited-but-unapplied filter value.
+function syncUrlFromSnapshot(cursor?: string) {
+  void router.replace({
+    query: {
+      q: appliedFilters.value.q || undefined,
+      enabled: appliedFilters.value.enabled || undefined,
+      cursor,
+    },
+  });
+}
+
 const {
   items,
   loading,
@@ -74,7 +87,7 @@ const {
   {
     initialCursor,
     fallbackMessage: tk("errors.load_servers_failed"),
-    onCursorChange: (cursor) => syncUrl({ cursor }),
+    onCursorChange: (cursor) => syncUrlFromSnapshot(cursor),
   },
 );
 
@@ -83,7 +96,7 @@ function applyFilters() {
   appliedFilters.value = { q: q.value, enabled: enabledFilter.value };
   selected.value = new Set();
   reset();
-  syncUrl();
+  syncUrlFromSnapshot();
   load();
 }
 
