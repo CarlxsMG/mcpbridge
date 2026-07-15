@@ -57,13 +57,17 @@ URL aimed at the internal network or cloud metadata (SSRF); DNS rebinding; an op
 
 - Every backend URL (`health_url`, `base_url`, `openapi_url`, `graphql_url`, `mcp_url`, WS,
   canary, LB-pool, webhooks, OAuth token) is validated by `validateBackendUrl`, and its
-  resolved IP is **pinned** at registration and never re-resolved.
+  resolved IP is **pinned** at registration. The pin is then re-validated on a 5-minute TTL
+  (`IP_PIN_TTL_MS`/`refreshPinIfStale` in `src/net/ip-validator.ts`) on each subsequent REST
+  call — the hostname is re-resolved and the request is rejected if it now points at a
+  private range, guarding against long-lived DNS rebinding.
 - Outbound fetches use the pinned IP, send the original hostname as `Host`, and set
   `redirect: "error"`. Loopback/private ranges are rejected unless `ALLOW_PRIVATE_IPS=true`
   (dev only). Auto-pagination follows only same-host, re-pinned URLs.
 
 **Residual risk:** a backend that is itself compromised can return malicious data (see
-boundary 5). Pinning trusts the IP resolved at registration time.
+boundary 5). Pinning trusts the IP resolved at registration time, and within the TTL window
+a rebound hostname is still trusted.
 
 ### 4. Gateway → storage (at rest)
 

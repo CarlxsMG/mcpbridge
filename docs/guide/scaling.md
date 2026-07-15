@@ -57,14 +57,25 @@ REST proxying and the admin API need no affinity.
 - **The audit hash-chain is per-instance.** Its tamper-evidence (`verifyAuditChain`) assumes
   one writer; cross-instance chain integrity is out of scope — stream to a SIEM
   (`AUDIT_SINK_URL`) for a consolidated, ordered record instead.
+- **A health-eviction hold is per-instance too, if you route with `/livez` instead of
+  `/readyz`.** Under the default (leader-only, `/readyz`-gated) topology this doesn't
+  matter — only the leader ever probes backends or serves traffic. But if you switch
+  readiness to `/livez` so every replica serves (see the Helm chart's readiness-probe
+  override), a client re-registration can land on a non-leader replica and only clear
+  _that_ replica's in-memory eviction mark, leaving the leader's own mark (and therefore
+  its `reconcileFromDb()`) stuck withholding the client. Re-register against the leader,
+  or `forgetClient`/re-register through a session pinned to it, to clear the hold.
 
 ## Checklist
 
 - [ ] All instances share one `DB_PATH`
 - [ ] `RATE_LIMIT_SHARED=true` and `REGISTRY_SYNC=true`
-- [ ] Load balancer health-checks `/readyz` (readiness — gated on leader lease + DB, so a
-      non-leader follower or DB-impaired instance is correctly taken out of rotation); use
-      `/livez` only for the orchestrator's liveness/restart probe
+- [ ] Load balancer health-checks `/health` (or `/livez`) for routing REST/MCP data-plane
+      traffic — request handling is stateless, so every instance is fit to serve regardless of
+      leadership. `/readyz` is 200 only on the current leader (leader lease + DB); pointing a
+      throughput-scaling LB at it takes every other instance out of rotation. Reserve
+      `/readyz`-gated routing for a deliberate active/passive failover topology, and use
+      `/livez` for the orchestrator's liveness/restart probe
 - [ ] Sticky sessions for the MCP endpoints `/mcp` · `/mcp/:name` · `/mcp-custom/:bundle` (if you use streaming)
 - [ ] `AUDIT_SINK_URL` set for a consolidated audit trail
 

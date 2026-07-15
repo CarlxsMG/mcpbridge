@@ -124,8 +124,10 @@ add a new one with the next sequential integer, written defensively (`CREATE TAB
 additive `ALTER TABLE`) since there's no down-migration mechanism.
 
 **Security-critical invariants** (SSRF/DNS-rebinding protection): outbound fetches to a backend
-must use `client.resolved_ip` (pinned once at registration via `Bun.dns`, never re-resolved),
-`redirect: 'error'`, and the original hostname as the `Host` header. `health_url`, `base_url`, and
+must use `client.resolved_ip` (pinned at registration via `Bun.dns`, then re-validated on a TTL —
+`refreshPinIfStale`/`IP_PIN_TTL_MS`, 5 minutes, in `src/net/ip-validator.ts` — re-resolving and
+rejecting the request if the hostname now points at a private range), `redirect: 'error'`, and the
+original hostname as the `Host` header. `health_url`, `base_url`, and
 `openapi_url` are each validated independently through `validateBackendUrl` before registration.
 Tool descriptions are sanitized (`sanitizeToolDescription`) before entering the registry
 (prompt-injection defense). All credential comparisons (API keys, session hashes, CSRF tokens) go
@@ -141,8 +143,9 @@ primary breaker opens, without falsely closing the primary's breaker. Non-idempo
 **Admin auth** (`src/middleware/auth.ts`): `adminAuth` tries a static Bearer key first,
 unconditionally; only falls back to session-cookie auth when no `Authorization` header is present
 at all, so existing Bearer/CI callers are never affected. Session-authenticated mutations require
-a matching `X-CSRF-Token` header; Bearer calls are exempt. `mcpAuth` (guarding `/mcp`, `/sse`,
-`/messages`) is Bearer-only, always — MCP clients are programs, not browsers.
+a matching `X-CSRF-Token` header; Bearer calls are exempt. `mcpAuth` (guarding the data-plane
+endpoints `/mcp/:clientName` and `/mcp-custom/:bundleName`) is Bearer-only, always — MCP clients
+are programs, not browsers.
 
 For the full request-path diagram and terminology, see `docs/guide/architecture.md` and
 `docs/guide/concepts.md` (already written, keep them in sync with structural changes) — the

@@ -19,10 +19,14 @@ docker run -d --name mcpbridge -p 3000:3000 \
 
 - The image runs on port **3000** and stores its SQLite database at **`/app/data`** — mount
   a volume there so config survives restarts.
-- A `HEALTHCHECK` hits `/livez` (liveness — always 200 if the process is responding); the
-  separate `/readyz` endpoint reports readiness (200 only when this instance holds the leader
-  lease and its SQLite handle is up) and is what load balancers should use to decide whether to
-  route traffic to an instance. The process shuts down gracefully on `SIGTERM`.
+- A `HEALTHCHECK` hits `/livez` (liveness — always 200 if the process is responding). The
+  separate `/readyz` endpoint reports readiness for this instance's **leader-only** background
+  work (200 only when it holds the leader lease and its SQLite handle is up) — it's not a
+  general request-serving signal, since REST/MCP dispatch is stateless and runs on every
+  instance. When scaling out for throughput, point your load balancer at `/health` (or
+  `/livez`) instead; see [Scaling & high availability →](/guide/scaling). Reserve
+  `/readyz`-gated routing for a deliberate active/passive failover setup. The process shuts
+  down gracefully on `SIGTERM`.
 
 Once the first release is tagged, tagged releases (`vX.Y.Z`) will also be published to GHCR at
 `ghcr.io/aico-dot-team-code/mcpbridge` (adjust the owner/repo if you forked this project — see

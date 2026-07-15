@@ -63,13 +63,17 @@ abierto.
 
 - Cada URL de backend (`health_url`, `base_url`, `openapi_url`, `graphql_url`, `mcp_url`, WS,
   canary, pool de LB, webhooks, token OAuth) se valida con `validateBackendUrl`, y su IP
-  resuelta se **ancla** en el registro y nunca se re-resuelve.
+  resuelta se **ancla** en el registro. El anclaje se re-valida luego con un TTL de 5 minutos
+  (`IP_PIN_TTL_MS`/`refreshPinIfStale` en `src/net/ip-validator.ts`) en cada llamada REST
+  posterior — el hostname se re-resuelve y la request se rechaza si ahora apunta a un rango
+  privado, lo que protege contra DNS rebinding de larga duración.
 - Los fetches salientes usan la IP anclada, envían el hostname original como `Host` y ponen
   `redirect: "error"`. Los rangos loopback/privados se rechazan salvo `ALLOW_PRIVATE_IPS=true`
   (solo dev). La auto-paginación sigue solo URLs del mismo host, re-ancladas.
 
 **Riesgo residual:** un backend que esté comprometido puede devolver datos maliciosos (ver
-frontera 5). El anclaje confía en la IP resuelta en el momento del registro.
+frontera 5). El anclaje confía en la IP resuelta en el momento del registro, y dentro de la
+ventana del TTL un hostname re-vinculado (rebound) sigue siendo de confianza.
 
 ### 4. Gateway → almacenamiento (en reposo)
 

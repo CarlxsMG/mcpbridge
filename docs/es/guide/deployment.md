@@ -20,11 +20,14 @@ docker run -d --name mcpbridge -p 3000:3000 \
 
 - La imagen corre en el puerto **3000** y almacena su base de datos SQLite en **`/app/data`**
   — monta un volumen ahí para que la config sobreviva a restarts.
-- Un `HEALTHCHECK` pega a `/livez` (liveness — siempre 200 si el proceso responde); el
-  endpoint separado `/readyz` reporta la disponibilidad (200 solo cuando esta instancia
-  mantiene el leader lease y su handle de SQLite está activo) y es el que deben usar los load
-  balancers para decidir si enrutar tráfico a una instancia. El proceso se apaga con gracia en
-  `SIGTERM`.
+- Un `HEALTHCHECK` pega a `/livez` (liveness — siempre 200 si el proceso responde). El
+  endpoint separado `/readyz` reporta la disponibilidad del trabajo en background
+  **exclusivo del líder** de esta instancia (200 solo cuando mantiene el leader lease y su
+  handle de SQLite está activo) — no es una señal general de aptitud para servir requests, ya
+  que el dispatch REST/MCP es stateless y corre en cada instancia. Si escalas por throughput,
+  apunta tu load balancer a `/health` (o `/livez`) en su lugar; consulta [Escalado y alta
+  disponibilidad →](/es/guide/scaling). Reserva el enrutado condicionado a `/readyz` para un
+  setup deliberado de failover activo/pasivo. El proceso se apaga con gracia en `SIGTERM`.
 
 Cuando se publique la primera release, las releases taggeadas (`vX.Y.Z`) también se publicarán
 a GHCR en `ghcr.io/aico-dot-team-code/mcpbridge` (ajusta el owner/repo si forkaste este

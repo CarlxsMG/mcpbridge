@@ -66,10 +66,12 @@ El proxy REST y la admin API no necesitan afinidad.
 
 - [ ] Todas las instancias comparten un `DB_PATH`
 - [ ] `RATE_LIMIT_SHARED=true` y `REGISTRY_SYNC=true`
-- [ ] El load balancer chequea `/readyz` (disponibilidad — condicionada al leader lease + la
-      base de datos, así que un follower que no es líder o una instancia con la base de datos
-      afectada se saca correctamente de la rotación); usa `/livez` solo para el probe de
-      liveness/reinicio del orquestador
+- [ ] El load balancer chequea `/health` (o `/livez`) para enrutar tráfico REST/MCP del plano
+      de datos — el manejo de requests es stateless, así que cualquier instancia sirve sin
+      importar el liderazgo. `/readyz` da 200 solo en el líder actual (leader lease + base de
+      datos); apuntar ahí un LB de escalado por throughput saca de rotación a todas las demás
+      instancias. Reserva el enrutado condicionado a `/readyz` para una topología deliberada de
+      failover activo/pasivo, y usa `/livez` para el probe de liveness/reinicio del orquestador
 - [ ] Sticky sessions para los endpoints MCP `/mcp` · `/mcp/:name` · `/mcp-custom/:bundle` (si usas streaming)
 - [ ] `AUDIT_SINK_URL` configurado para un audit trail consolidado
 
