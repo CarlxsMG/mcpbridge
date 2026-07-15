@@ -37,7 +37,12 @@ const gatewayBaseUrl = ref("");
 
 const clients = ref<ClientSummary[]>([]);
 const bundles = ref<BundleSummary[]>([]);
-const keyCount = ref<number | null>(null);
+// Keys are stored, not just counted, so the "system" scope can filter down to
+// keys that actually carry an adminRole — a plain data-plane key (the only
+// kind the generic key-count/hint below used to consider) authenticates fine
+// against /mcp/:clientName but is flatly rejected by /mcp
+// (src/security/system-role.ts's resolveSystemRole).
+const enabledKeys = ref<McpApiKey[] | null>(null);
 
 async function loadContext() {
   gatewayBaseUrl.value = window.location.origin;
@@ -61,9 +66,9 @@ async function loadContext() {
   }
   try {
     const res = await api.get<{ items: McpApiKey[] }>("/admin-api/mcp-keys");
-    keyCount.value = res.items.filter((k) => k.enabled && k.revokedAt === null).length;
+    enabledKeys.value = res.items.filter((k) => k.enabled && k.revokedAt === null);
   } catch {
-    keyCount.value = null;
+    enabledKeys.value = null;
   }
 }
 
@@ -100,6 +105,15 @@ const targetCreateLabel = computed(() =>
 
 const API_KEY_PLACEHOLDER = "<YOUR_MCP_API_KEY>";
 
+// Data-plane scopes (client/bundle) accept any active key; the system scope
+// only accepts one with an adminRole (mirrors resolveSystemRole's fail-closed
+// check), so the count driving the hint/warning below must filter for that.
+const relevantKeyCount = computed(() => {
+  if (enabledKeys.value === null) return null;
+  if (scope.value === "system") return enabledKeys.value.filter((k) => k.adminRole !== null).length;
+  return enabledKeys.value.length;
+});
+
 const result = computed(() => {
   if ((scope.value === "client" || scope.value === "bundle") && !targetName.value) return null;
   const base = (gatewayBaseUrl.value || window.location.origin).trim();
@@ -115,6 +129,7 @@ const result = computed(() => {
     url,
     transport: "streamable-http",
     apiKeyPlaceholder: API_KEY_PLACEHOLDER,
+    scope: scope.value,
   });
 });
 </script>
@@ -179,15 +194,27 @@ const result = computed(() => {
       </label>
     </div>
 
-    <p v-if="keyCount === 0" class="key-warning">
-      {{ t("components.connect_client_dialog.key_warning") }}
+    <p v-if="relevantKeyCount === 0" class="key-warning">
+      {{
+        scope === "system"
+          ? t("components.connect_client_dialog.key_warning_system")
+          : t("components.connect_client_dialog.key_warning")
+      }}
       <RouterLink to="/keys/new" @click="emit('close')">{{
         t("components.connect_client_dialog.create_one")
       }}</RouterLink>
-      {{ t("components.connect_client_dialog.key_warning_after") }}
+      {{
+        scope === "system"
+          ? t("components.connect_client_dialog.key_warning_system_after")
+          : t("components.connect_client_dialog.key_warning_after")
+      }}
     </p>
-    <p v-else-if="keyCount !== null" class="key-hint">
-      {{ t("components.connect_client_dialog.key_count", { count: keyCount }) }}
+    <p v-else-if="relevantKeyCount !== null" class="key-hint">
+      {{
+        scope === "system"
+          ? t("components.connect_client_dialog.key_count_system", { count: relevantKeyCount })
+          : t("components.connect_client_dialog.key_count", { count: relevantKeyCount })
+      }}
       <code>{{ API_KEY_PLACEHOLDER }}</code>
       {{ t("components.connect_client_dialog.key_count_after") }}
       <RouterLink to="/keys" @click="emit('close')">{{ t("nav.keys.label") }}</RouterLink

@@ -84,7 +84,11 @@ export function authRoutes(app: Express): void {
     res.status(200).json({
       authenticated: true,
       auth_method: "session",
-      user: { username: ctx.username, role: ctx.role },
+      // team_id lets the admin UI tell a super-admin session (null) apart from
+      // a team-scoped one — needed to gate UI-only affordances (e.g. minting a
+      // system-role mcp_api_keys row) that the backend already restricts via
+      // isSuperAdminCaller (src/middleware/authz.ts).
+      user: { username: ctx.username, role: ctx.role, team_id: ctx.teamId ?? null },
     });
   });
 

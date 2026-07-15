@@ -97,6 +97,7 @@ export async function connectCommand(argv: string[]): Promise<number> {
     url,
     transport,
     apiKeyPlaceholder: "<YOUR_MCP_API_KEY>",
+    scope,
   });
 
   const output = [

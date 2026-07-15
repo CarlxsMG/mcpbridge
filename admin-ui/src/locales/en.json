@@ -207,6 +207,9 @@
       "key_warning_after": "first, then come back and paste it in below.",
       "key_count": "You have {count} active MCP API key(s) — paste one in place of",
       "key_count_after": "below. Manage them under",
+      "key_warning_system": "No API key currently has a system role — a plain data-plane key is rejected by /mcp.",
+      "key_warning_system_after": "with a system role first (or use the gateway's admin Bearer key instead), then come back and paste it in below.",
+      "key_count_system": "You have {count} MCP API key(s) with a system role — paste one in place of",
       "setup": "Setup",
       "choose_target": "Choose a {kind} above to generate its config."
     },
@@ -1065,6 +1068,8 @@
         "prefix": "Prefix",
         "scope": "Scope",
         "consumer": "Consumer",
+        "admin_role": "System role",
+        "admin_role_none": "No system access",
         "status": "Status",
         "last_used": "Last used",
         "expires": "Expires",
@@ -1098,7 +1103,8 @@
           "clients": "Allowed clients (comma-separated, blank = all)",
           "tools": "Allowed tools (comma-separated client__tool)",
           "expires": "Expires (optional)",
-          "consumer": "Consumer (optional)"
+          "consumer": "Consumer (optional)",
+          "admin_role": "System role (super-admin only)"
         },
         "placeholders": {
           "label": "e.g. ci-bot",
@@ -1108,6 +1114,8 @@
         "consumer_none": "None",
         "create_consumer": "Create consumer",
         "elevated_label": "Elevated (bypasses sensitive-tool confirmation)",
+        "admin_role_none": "No system access (data-plane only)",
+        "admin_role_hint": "Grants this key a role on the /mcp system endpoint (gateway management tools), instead of just the data plane. Leave unset for a normal client key.",
         "minting": "Minting…",
         "errors": {
           "label_required": "A label is required.",

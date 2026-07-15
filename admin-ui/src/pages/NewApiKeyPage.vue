@@ -5,8 +5,9 @@ import { api } from "@/composables/useApi";
 import { useClipboard } from "@/composables/useClipboard";
 import { useCreateForm } from "@/composables/useCreateForm";
 import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
+import { useAuth, isSuperAdminUser } from "@/composables/useAuth";
 import { parseList } from "@/utils/fieldParsing";
-import type { McpApiKeyWithSecret, Consumer } from "@/types/api";
+import type { McpApiKeyWithSecret, Consumer, AdminRole } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
@@ -27,6 +28,20 @@ const consumers = ref<Consumer[]>([]);
 const consumerOptions = computed(() => [
   { value: "" as const, label: t("pages.keys.new.consumer_none") },
   ...consumers.value.map((c) => ({ value: c.id, label: c.name })),
+]);
+
+// Setting adminRole grants this key access to the /mcp system control plane —
+// the backend (POST /admin-api/mcp-keys) rejects it outright from anyone but a
+// super-admin caller, so team-scoped admins never see a field they can't use.
+const { state: authState } = useAuth();
+const isSuperAdmin = computed(() => isSuperAdminUser(authState.user));
+const adminRole = ref<AdminRole | "">("");
+const adminRoleOptions = computed(() => [
+  { value: "" as const, label: t("pages.keys.new.admin_role_none") },
+  { value: "admin" as const, label: t("pages.users.roles.admin") },
+  { value: "operator" as const, label: t("pages.users.roles.operator") },
+  { value: "auditor" as const, label: t("pages.users.roles.auditor") },
+  { value: "viewer" as const, label: t("pages.users.roles.viewer") },
 ]);
 
 async function loadConsumers() {
@@ -52,6 +67,10 @@ const { creating, error, run } = useCreateForm({
       expiresAt: expires.value ? new Date(expires.value).getTime() : null,
       consumerId: consumerId.value === "" ? null : consumerId.value,
       elevated: elevated.value,
+      // Omitted entirely (rather than sent as null) when not super-admin, so a
+      // team-scoped admin's request looks identical to one from before this
+      // field existed — the backend gate is the real enforcement either way.
+      ...(isSuperAdmin.value ? { adminRole: adminRole.value === "" ? null : adminRole.value } : {}),
     });
   },
   fallbackKey: "pages.keys.new.errors.create_failed",
@@ -73,7 +92,8 @@ const isDirty = computed(
     Boolean(tools.value.trim()) ||
     Boolean(expires.value) ||
     consumerId.value !== "" ||
-    elevated.value,
+    elevated.value ||
+    adminRole.value !== "",
 );
 const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
   isDirty,
@@ -132,6 +152,10 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
         <label class="checkbox-field"
           ><input v-model="elevated" type="checkbox" /> {{ t("pages.keys.new.elevated_label") }}</label
         >
+        <FormField v-if="isSuperAdmin" :label="t('pages.keys.new.fields.admin_role')" for="k-admin-role">
+          <SelectMenu id="k-admin-role" v-model="adminRole" :options="adminRoleOptions" />
+          <p class="hint">{{ t("pages.keys.new.admin_role_hint") }}</p>
+        </FormField>
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("pages.keys.new.minting") : t("pages.keys.new.mint_key") }}
         </button>
@@ -164,5 +188,10 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
 }
 .checkbox-field input {
   width: auto;
+}
+.hint {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 0.4rem 0 0;
 }
 </style>

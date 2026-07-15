@@ -207,6 +207,9 @@
       "key_warning_after": "primero, y vuelve para pegarla abajo.",
       "key_count": "Tienes {count} MCP API key(s) activa(s) — pega una en lugar de",
       "key_count_after": "abajo. Gestionadas en",
+      "key_warning_system": "Ninguna API key tiene actualmente un rol de sistema — una key de solo plano de datos es rechazada por /mcp.",
+      "key_warning_system_after": "con un rol de sistema primero (o usa la admin Bearer key del gateway), y vuelve para pegarla abajo.",
+      "key_count_system": "Tienes {count} MCP API key(s) con rol de sistema — pega una en lugar de",
       "setup": "Setup",
       "choose_target": "Elige un {kind} arriba para generar su config."
     },
@@ -1065,6 +1068,8 @@
         "prefix": "Prefijo",
         "scope": "Alcance",
         "consumer": "Consumidor",
+        "admin_role": "Rol de sistema",
+        "admin_role_none": "Sin acceso de sistema",
         "status": "Estado",
         "last_used": "Último uso",
         "expires": "Caduca",
@@ -1098,7 +1103,8 @@
           "clients": "Clientes permitidos (separados por coma, vacío = todos)",
           "tools": "Tools permitidos (separados por coma, client__tool)",
           "expires": "Caduca (opcional)",
-          "consumer": "Consumer (opcional)"
+          "consumer": "Consumer (opcional)",
+          "admin_role": "Rol de sistema (solo super-admin)"
         },
         "placeholders": {
           "label": "p. ej. ci-bot",
@@ -1108,6 +1114,8 @@
         "consumer_none": "Ninguno",
         "create_consumer": "Crear consumer",
         "elevated_label": "Elevated (salta la confirmación de tools sensibles)",
+        "admin_role_none": "Sin acceso de sistema (solo plano de datos)",
+        "admin_role_hint": "Otorga a esta key un rol en el endpoint de sistema /mcp (herramientas de gestión del gateway), además del plano de datos. Déjalo sin definir para una key de cliente normal.",
         "minting": "Creando…",
         "errors": {
           "label_required": "La etiqueta es obligatoria.",

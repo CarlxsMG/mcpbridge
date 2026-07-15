@@ -18,6 +18,7 @@ describe("claude-desktop template", () => {
       url: URL,
       transport: "streamable-http",
       apiKeyPlaceholder: PLACEHOLDER,
+      scope: "client",
     });
     expect(out.filename).toBe("claude_desktop_config.json");
     expect(JSON.parse(out.snippet)).toEqual({
@@ -39,6 +40,7 @@ describe("cursor template", () => {
       url: URL,
       transport: "streamable-http",
       apiKeyPlaceholder: PLACEHOLDER,
+      scope: "client",
     });
     expect(out.filename).toBe("mcp.json");
     expect(JSON.parse(out.snippet)).toEqual({
@@ -56,6 +58,7 @@ describe("windsurf template", () => {
       url: URL,
       transport: "streamable-http",
       apiKeyPlaceholder: PLACEHOLDER,
+      scope: "client",
     });
     expect(out.filename).toBe("mcp_config.json");
     expect(JSON.parse(out.snippet)).toEqual({
@@ -73,6 +76,7 @@ describe("continue template", () => {
       url: URL,
       transport: "streamable-http",
       apiKeyPlaceholder: PLACEHOLDER,
+      scope: "client",
     });
     expect(out.filename).toBe("config.yaml");
     expect(out.snippet).toBe(
@@ -96,6 +100,7 @@ describe("generic-json template", () => {
       url: URL,
       transport: "streamable-http",
       apiKeyPlaceholder: PLACEHOLDER,
+      scope: "client",
     });
     expect(JSON.parse(out.snippet)).toEqual({
       mcpServers: {
@@ -113,6 +118,7 @@ describe("every template", () => {
         url: URL,
         transport: "streamable-http",
         apiKeyPlaceholder: PLACEHOLDER,
+        scope: "client",
       });
       expect(out.snippet).toContain(PLACEHOLDER);
     }

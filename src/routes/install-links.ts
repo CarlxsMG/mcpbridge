@@ -47,6 +47,7 @@ export function installLinkRoutes(app: Express): void {
         url,
         transport: "streamable-http",
         apiKeyPlaceholder: mcpApiKey,
+        scope: "bundle",
       });
 
       res.status(200).json({

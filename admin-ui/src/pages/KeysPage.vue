@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useLoadState } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
+import { useAuth, isSuperAdminUser } from "@/composables/useAuth";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
 import { tk } from "@/i18n";
-import type { McpApiKey, Consumer } from "@/types/api";
+import type { AdminRole, McpApiKey, Consumer } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
@@ -16,6 +17,7 @@ import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
+import SelectMenu from "@/components/ui/SelectMenu.vue";
 import { KeyRound } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
@@ -30,6 +32,38 @@ const { loading, errorMessage, run } = useLoadState(loadFallback);
 const consumers = ref<Consumer[]>([]);
 
 const { rowError, toggle: toggleField } = useOptimisticToggle<McpApiKey>((k) => k.id, updateFallback);
+
+// Only a super-admin caller may grant/revoke a key's adminRole (mirrors the
+// backend gate in src/routes/mcp-keys.ts) — team-scoped admins get a
+// read-only view of the same column instead of a control they'd just get a
+// 403 from.
+const { state: authState } = useAuth();
+const isSuperAdmin = computed(() => isSuperAdminUser(authState.user));
+const adminRoleOptions = computed(() => [
+  { value: null as AdminRole | null, label: t("pages.keys.table.admin_role_none") },
+  { value: "admin" as AdminRole | null, label: t("pages.users.roles.admin") },
+  { value: "operator" as AdminRole | null, label: t("pages.users.roles.operator") },
+  { value: "auditor" as AdminRole | null, label: t("pages.users.roles.auditor") },
+  { value: "viewer" as AdminRole | null, label: t("pages.users.roles.viewer") },
+]);
+
+function adminRoleLabel(role: AdminRole | null): string {
+  if (role === null) return t("pages.keys.table.admin_role_none");
+  return t(`pages.users.roles.${role}`);
+}
+
+async function changeAdminRole(key: McpApiKey, next: AdminRole | null) {
+  if (next === key.adminRole) return;
+  const previous = key.adminRole;
+  key.adminRole = next; // optimistic
+  delete rowError.value[key.id];
+  try {
+    await api.patch(`/admin-api/mcp-keys/${key.id}`, { adminRole: next });
+  } catch (err) {
+    key.adminRole = previous; // revert on failure
+    rowError.value[key.id] = toErrorMessage(err, updateFallback);
+  }
+}
 
 const {
   pending: pendingDelete,
@@ -125,6 +159,7 @@ function confirmDelete() {
             <th>{{ t("pages.keys.table.prefix") }}</th>
             <th>{{ t("pages.keys.table.scope") }}</th>
             <th>{{ t("pages.keys.table.consumer") }}</th>
+            <th>{{ t("pages.keys.table.admin_role") }}</th>
             <th>{{ t("pages.keys.table.status") }}</th>
             <th>{{ t("pages.keys.table.last_used") }}</th>
             <th>{{ t("pages.keys.table.expires") }}</th>
@@ -161,6 +196,15 @@ function confirmDelete() {
               <template v-else>{{ scopeSummary(key) }}</template>
             </td>
             <td>{{ consumerName(key.consumerId) }}</td>
+            <td>
+              <SelectMenu
+                v-if="isSuperAdmin"
+                :model-value="key.adminRole"
+                :options="adminRoleOptions"
+                @update:model-value="(v) => changeAdminRole(key, v)"
+              />
+              <template v-else>{{ adminRoleLabel(key.adminRole) }}</template>
+            </td>
             <td>
               <StatusBadge :status="statusOf(key)" />
             </td>
