@@ -9,6 +9,9 @@
 # `--target=bun-<os>-<arch>` flag — Bun ships a prebuilt runtime blob for each
 # supported target, so no matching-OS runner is required. See:
 # https://bun.sh/docs/bundler/executables#cross-compile-to-other-platforms
+# Only the bun-linux-x64 leg can actually be executed on this runner, so it
+# alone gets a functional smoke test (boot the binary, hit /livez) before
+# upload — the other 4 legs are build-only, verified by compilation succeeding.
 #
 # The binaries only contain `./src/index.ts`'s import graph. The admin UI is
 # served at runtime via a filesystem read of `admin-ui/dist/`
@@ -82,6 +85,34 @@ jobs:
             --target=${{ matrix.target }} \
             ./src/index.ts \
             --outfile "dist/${{ matrix.asset }}"
+
+      # Functional gate: confirm the compiled binary actually boots and serves
+      # traffic, not just that cross-compilation succeeded. Only bun-linux-x64
+      # can run natively on this ubuntu-latest runner (the other 4 legs are
+      # cross-compiled for a different OS/arch and can't be executed here), so
+      # this is the one target CI can catch a broken-boot regression on before
+      # it's attached to a release — a `bun:sqlite` or other Bun-native issue
+      # baked into the compiled runtime blob would otherwise ship undetected.
+      - name: Smoke-test compiled binary boots (linux-x64 only)
+        if: matrix.target == 'bun-linux-x64'
+        run: |
+          chmod +x "dist/${{ matrix.asset }}"
+          PORT=3999 NODE_ENV=production "./dist/${{ matrix.asset }}" &
+          bin_pid=$!
+          ok=""
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3999/livez; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          kill "$bin_pid" 2>/dev/null || true
+          if [ -z "$ok" ]; then
+            echo "::error::Compiled binary failed to answer /livez within 30s"
+            exit 1
+          fi
+          echo "Compiled binary booted and answered /livez"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

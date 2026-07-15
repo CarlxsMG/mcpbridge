@@ -3,8 +3,10 @@
 # Uses the built-in GITHUB_TOKEN (no extra secrets needed) since the image is
 # published under this same repo/org. The published image is multi-arch
 # (amd64 + arm64), ships an SBOM + build provenance attestation, is signed with
-# cosign (keyless/OIDC), and is gated by a Trivy scan BEFORE publish — a fixable
-# CRITICAL/HIGH CVE fails the release, and the SARIF still lands in the Security tab.
+# cosign (keyless/OIDC), and is gated BEFORE publish by both a functional smoke
+# test (the image is actually run and must answer /livez) and a Trivy scan — a
+# fixable CRITICAL/HIGH CVE fails the release, and the SARIF still lands in the
+# Security tab.
 name: Docker Publish (GHCR)
 
 on:
@@ -96,6 +98,31 @@ jobs:
           tags: mcp-rest-bridge:scan
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Functional gate, distinct from the Trivy scan below: confirm the image
+      # actually BOOTS and serves traffic before it's scanned/pushed/signed.
+      # Trivy only checks for known CVEs — it would pass even if the CMD/
+      # ENTRYPOINT, a COPY path, tini, or the PORT/DB_PATH env wiring were
+      # broken. Hits the same /livez endpoint the Dockerfile's own HEALTHCHECK
+      # polls, so a regression there is caught here too.
+      - name: Smoke-test image boot (docker run + /livez)
+        run: |
+          docker run -d --name smoke-test -p 3000:3000 mcp-rest-bridge:scan
+          ok=""
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/livez; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          docker logs smoke-test
+          docker rm -f smoke-test
+          if [ -z "$ok" ]; then
+            echo "::error::Container failed to answer /livez within 30s"
+            exit 1
+          fi
+          echo "Container booted and answered /livez"
 
       # Gate the publish: a fixable CRITICAL/HIGH CVE fails the run here, BEFORE
       # the push below. The SARIF is written before the non-zero exit, and the

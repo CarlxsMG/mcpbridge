@@ -198,6 +198,19 @@ jobs:
         run: helm lint helm/mcp-rest-bridge
       - name: helm template (render with default values)
         run: helm template mcp-rest-bridge helm/mcp-rest-bridge > /dev/null
+      # Exercises the alternate, user-facing value combinations values.yaml
+      # documents and supports — without this, only the default `false`/""/`true`
+      # branch of every `{{- if ... }}` in templates/{secret,pvc,deployment,
+      # serviceaccount}.yaml (and the secretName/pvcName/serviceAccountName
+      # helpers in _helpers.tpl) is ever rendered in CI.
+      - name: helm template (render with alternate values — existingSecret, persistence, external serviceaccount)
+        run: |
+          helm template mcp-rest-bridge helm/mcp-rest-bridge \
+            --set existingSecret=mcp-rest-bridge-external-secret \
+            --set persistence.enabled=true \
+            --set serviceAccount.create=false \
+            --set serviceAccount.name=mcp-rest-bridge-external-sa \
+            > /dev/null
 
   test-windows:
     # The Linux `test` job above is the full gate (format/lint/build included);
