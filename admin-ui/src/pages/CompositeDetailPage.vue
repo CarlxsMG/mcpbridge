@@ -154,7 +154,7 @@ function toggleEnabled() {
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
       <p v-if="toggleError[detail.name]" class="error" role="alert">{{ toggleError[detail.name] }}</p>
-      <p v-if="deleteError" class="row-error">{{ deleteError }}</p>
+      <p v-if="deleteError" class="row-error" role="alert">{{ deleteError }}</p>
 
       <FormField
         :label="t('pages.composite_detail.description_label')"

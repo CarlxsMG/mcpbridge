@@ -98,7 +98,7 @@ function confirmDelete() {
                 :off-label="t('pages.composites.table.enable')"
                 @click="toggleEnabled(c)"
               />
-              <p v-if="toggleError[c.name]" class="row-error">{{ toggleError[c.name] }}</p>
+              <p v-if="toggleError[c.name]" class="row-error" role="alert">{{ toggleError[c.name] }}</p>
             </td>
             <td>
               <button type="button" class="link-btn danger" @click="requestDelete(c)">{{ t("common.delete") }}</button>

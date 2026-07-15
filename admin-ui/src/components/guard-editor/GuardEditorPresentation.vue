@@ -82,7 +82,7 @@ async function saveOverrideFn() {
       @keydown.enter.prevent
       @blur="displayNameTouched = true"
     />
-    <p v-if="displayNameTouched && displayNameError" class="field-error">{{ displayNameError }}</p>
+    <p v-if="displayNameTouched && displayNameError" class="field-error" role="alert">{{ displayNameError }}</p>
   </div>
 
   <div class="field">

@@ -140,7 +140,7 @@ async function testTool(tool: ToolDetail) {
             :off-label="t('common.disabled')"
             @click="onToolToggleClick(tool)"
           />
-          <p v-if="rowError[tool.name]" class="row-error">{{ rowError[tool.name] }}</p>
+          <p v-if="rowError[tool.name]" class="row-error" role="alert">{{ rowError[tool.name] }}</p>
         </td>
         <td>
           <button type="button" class="btn-secondary" :disabled="testingTool === tool.name" @click="testTool(tool)">

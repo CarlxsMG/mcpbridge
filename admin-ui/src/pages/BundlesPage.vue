@@ -81,7 +81,7 @@ function toggleEnabled(bundle: BundleSummary) {
                 :off-label="t('pages.bundles.table.enable_bundle')"
                 @click="toggleEnabled(bundle)"
               />
-              <p v-if="rowError[bundle.name]" class="row-error">{{ rowError[bundle.name] }}</p>
+              <p v-if="rowError[bundle.name]" class="row-error" role="alert">{{ rowError[bundle.name] }}</p>
             </td>
           </tr>
         </tbody>

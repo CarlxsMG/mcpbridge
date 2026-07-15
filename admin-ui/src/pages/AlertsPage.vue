@@ -147,7 +147,7 @@ function confirmDelete() {
                 :disabled="isPending(rule)"
                 @click="toggle(rule)"
               />
-              <p v-if="rowError[rule.id]" class="row-error">{{ rowError[rule.id] }}</p>
+              <p v-if="rowError[rule.id]" class="row-error" role="alert">{{ rowError[rule.id] }}</p>
             </td>
             <td>
               <div class="actions">

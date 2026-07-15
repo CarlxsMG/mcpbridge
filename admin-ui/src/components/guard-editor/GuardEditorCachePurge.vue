@@ -49,7 +49,7 @@ async function purgeCacheFn() {
           : t("components.guard_editor_cache_purge.button")
       }}
     </button>
-    <span v-if="purgedCache" class="save-ok">{{ t("components.guard_editor_cache_purge.purged") }}</span>
-    <p v-if="purgeCacheError" class="field-error">{{ purgeCacheError }}</p>
+    <span v-if="purgedCache" class="save-ok" role="status">{{ t("components.guard_editor_cache_purge.purged") }}</span>
+    <p v-if="purgeCacheError" class="field-error" role="alert">{{ purgeCacheError }}</p>
   </div>
 </template>

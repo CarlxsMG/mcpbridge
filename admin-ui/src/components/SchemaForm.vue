@@ -166,7 +166,7 @@ function emitArgs() {
         type="text"
         @input="emitArgs"
       />
-      <p v-if="f.kind === 'json' && jsonInvalid[f.name]" class="field-error">
+      <p v-if="f.kind === 'json' && jsonInvalid[f.name]" class="field-error" role="alert">
         {{ t("components.schema_form.json_invalid") }}
       </p>
     </div>

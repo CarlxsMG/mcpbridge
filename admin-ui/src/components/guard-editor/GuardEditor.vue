@@ -193,7 +193,7 @@ function confirmClear() {
         :placeholder="t('components.guard_editor.no_limit')"
         @blur="rateLimitTouched = true"
       />
-      <p v-if="rateLimitTouched && rateLimitError" class="field-error">{{ rateLimitError }}</p>
+      <p v-if="rateLimitTouched && rateLimitError" class="field-error" role="alert">{{ rateLimitError }}</p>
     </div>
 
     <div class="field">
@@ -206,7 +206,7 @@ function confirmClear() {
         :placeholder="t('components.guard_editor.use_default')"
         @blur="timeoutTouched = true"
       />
-      <p v-if="timeoutTouched && timeoutError" class="field-error">{{ timeoutError }}</p>
+      <p v-if="timeoutTouched && timeoutError" class="field-error" role="alert">{{ timeoutError }}</p>
     </div>
 
     <div class="field">
@@ -309,16 +309,16 @@ function confirmClear() {
         <button type="button" class="btn-secondary" :disabled="saving" @click="requestClear">
           {{ clearingGuards ? t("components.guard_editor.clearing") : t("components.guard_editor.clear_guards") }}
         </button>
-        <span v-if="savedClear" class="save-ok">{{ t("components.guard_editor.cleared") }}</span>
+        <span v-if="savedClear" class="save-ok" role="status">{{ t("components.guard_editor.cleared") }}</span>
       </span>
       <span class="action-group">
         <button type="submit" class="btn-primary" :disabled="!isValid || saving">
           {{ saving && !clearingGuards ? t("common.saving") : t("components.guard_editor.save_guards") }}
         </button>
-        <span v-if="savedMain" class="save-ok">{{ t("components.guard_editor.saved") }}</span>
+        <span v-if="savedMain" class="save-ok" role="status">{{ t("components.guard_editor.saved") }}</span>
       </span>
     </div>
-    <p v-if="mainError" class="field-error">{{ mainError }}</p>
+    <p v-if="mainError" class="field-error" role="alert">{{ mainError }}</p>
   </form>
 
   <ConfirmDialog

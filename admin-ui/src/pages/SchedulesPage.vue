@@ -108,7 +108,7 @@ function formatLastRun(m: number | null): string {
                 :off-label="t('pages.schedules.table.enable')"
                 @click="toggle(s)"
               />
-              <p v-if="rowError[s.id]" class="row-error">{{ rowError[s.id] }}</p>
+              <p v-if="rowError[s.id]" class="row-error" role="alert">{{ rowError[s.id] }}</p>
             </td>
             <td>
               <span :class="{ 'last-run-never': s.lastRunMinute === null }">{{ formatLastRun(s.lastRunMinute) }}</span>

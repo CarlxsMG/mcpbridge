@@ -116,7 +116,7 @@ async function saveContextBudgetFn() {
     <template v-if="contextBudgetEnabledInput">
       <label for="cb-max-bytes">{{ t("components.guard_editor_context_budget.bytes_label") }}</label>
       <input id="cb-max-bytes" v-model="contextBudgetMaxBytesInput" type="text" inputmode="numeric" />
-      <p v-if="contextBudgetBytesError" class="field-error">{{ contextBudgetBytesError }}</p>
+      <p v-if="contextBudgetBytesError" class="field-error" role="alert">{{ contextBudgetBytesError }}</p>
 
       <label for="cb-mode">{{ t("components.guard_editor_context_budget.mode_label") }}</label>
       <SelectMenu id="cb-mode" v-model="contextBudgetModeInput" :options="MODE_OPTIONS" />
@@ -162,7 +162,7 @@ async function saveContextBudgetFn() {
           :placeholder="t('components.guard_editor_context_budget.api_key_placeholder')"
           autocomplete="off"
         />
-        <p v-if="contextBudgetLlmError" class="field-error">{{ contextBudgetLlmError }}</p>
+        <p v-if="contextBudgetLlmError" class="field-error" role="alert">{{ contextBudgetLlmError }}</p>
       </template>
     </template>
     <SaveRow

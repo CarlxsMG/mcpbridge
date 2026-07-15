@@ -222,7 +222,7 @@ function confirmRemoveTarget() {
               <button type="button" class="link-btn danger" @click="requestRemoveTarget(target)">
                 {{ t("components.server_detail_lb.remove") }}
               </button>
-              <p v-if="targetRowError[target.id]" class="row-error">{{ targetRowError[target.id] }}</p>
+              <p v-if="targetRowError[target.id]" class="row-error" role="alert">{{ targetRowError[target.id] }}</p>
             </td>
           </tr>
         </tbody>

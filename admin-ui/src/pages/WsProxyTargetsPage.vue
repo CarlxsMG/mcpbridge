@@ -221,7 +221,7 @@ async function confirmDelete() {
                 :off-label="t('pages.ws_proxy_targets.disabled')"
                 @click="toggleEnabled(target)"
               />
-              <p v-if="rowError[target.name]" class="row-error">{{ rowError[target.name] }}</p>
+              <p v-if="rowError[target.name]" class="row-error" role="alert">{{ rowError[target.name] }}</p>
             </td>
             <td>
               <div class="actions">

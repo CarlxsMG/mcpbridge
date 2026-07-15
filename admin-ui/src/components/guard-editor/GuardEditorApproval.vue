@@ -63,7 +63,9 @@ async function saveApprovalFn() {
       inputmode="numeric"
       :disabled="!approvalRequiredInput"
     />
-    <p v-if="approvalRequiredInput && approvalLevelsError" class="field-error">{{ approvalLevelsError }}</p>
+    <p v-if="approvalRequiredInput && approvalLevelsError" class="field-error" role="alert">
+      {{ approvalLevelsError }}
+    </p>
     <SaveRow
       :label="t('components.guard_editor_approval.save')"
       :saving="saving"

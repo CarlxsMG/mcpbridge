@@ -142,7 +142,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
       </PageHeader>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
-      <p v-if="deleteError" class="row-error">{{ deleteError }}</p>
+      <p v-if="deleteError" class="row-error" role="alert">{{ deleteError }}</p>
 
       <FormField :label="t('pages.bundle_detail.description_label')" for="bundle-description" class="description-field">
         <div class="description-row">
@@ -161,7 +161,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
             {{ savingDescription ? t("common.saving") : t("common.save") }}
           </button>
         </div>
-        <p v-if="descriptionError" class="row-error">{{ descriptionError }}</p>
+        <p v-if="descriptionError" class="row-error" role="alert">{{ descriptionError }}</p>
       </FormField>
 
       <h2>{{ t("pages.bundle_detail.tools_heading", { count: toolsDraft.length }) }}</h2>
@@ -172,7 +172,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
         </button>
         <span v-if="toolsDirty" class="hint">{{ t("pages.bundle_detail.unsaved_tools") }}</span>
       </div>
-      <p v-if="toolsError" class="row-error">{{ toolsError }}</p>
+      <p v-if="toolsError" class="row-error" role="alert">{{ toolsError }}</p>
     </template>
 
     <ConfirmDialog

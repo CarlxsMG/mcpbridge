@@ -133,10 +133,10 @@ function statusOf(link: BundleInstallLink): string {
     <button type="button" class="btn-primary create-btn" :disabled="creating" @click="createLink">
       {{ creating ? t("common.creating") : t("components.share_install_link.create_new") }}
     </button>
-    <p v-if="createError" class="row-error">{{ createError }}</p>
+    <p v-if="createError" class="row-error" role="alert">{{ createError }}</p>
 
     <h3>{{ t("components.share_install_link.existing_heading") }}</h3>
-    <p v-if="listError" class="row-error">{{ listError }}</p>
+    <p v-if="listError" class="row-error" role="alert">{{ listError }}</p>
     <p v-else-if="loading" class="hint">{{ t("common.loading") }}</p>
     <p v-else-if="links.length === 0" class="hint">{{ t("components.share_install_link.empty") }}</p>
     <div v-else class="table-wrap">
@@ -176,7 +176,7 @@ function statusOf(link: BundleInstallLink): string {
         </tbody>
       </table>
     </div>
-    <p v-if="revokeError" class="row-error">{{ revokeError }}</p>
+    <p v-if="revokeError" class="row-error" role="alert">{{ revokeError }}</p>
 
     <ConfirmDialog
       :open="pendingRevoke !== null"

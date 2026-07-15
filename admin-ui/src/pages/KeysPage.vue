@@ -178,7 +178,7 @@ function confirmDelete() {
                   {{ t("pages.keys.table.delete_key") }}
                 </button>
               </div>
-              <p v-if="rowError[key.id]" class="row-error">{{ rowError[key.id] }}</p>
+              <p v-if="rowError[key.id]" class="row-error" role="alert">{{ rowError[key.id] }}</p>
             </td>
           </tr>
         </tbody>

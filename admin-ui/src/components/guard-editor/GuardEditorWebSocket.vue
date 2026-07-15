@@ -63,7 +63,7 @@ async function saveWsFn() {
     <template v-if="wsEnabledInput">
       <label for="ws-url">{{ t("components.guard_editor_websocket.url_label") }}</label>
       <input id="ws-url" v-model="wsUrlInput" type="text" placeholder="wss://example.com/socket" />
-      <p v-if="wsUrlError" class="field-error">{{ wsUrlError }}</p>
+      <p v-if="wsUrlError" class="field-error" role="alert">{{ wsUrlError }}</p>
       <label class="checkline"
         ><input v-model="wsPersistentInput" type="checkbox" />
         {{ t("components.guard_editor_websocket.persistent_label") }}</label

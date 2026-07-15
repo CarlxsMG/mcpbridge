@@ -352,7 +352,7 @@ onMounted(() => load());
                 :off-label="t('common.disabled')"
                 @click="onToggleClick(client)"
               />
-              <p v-if="rowError[client.name]" class="row-error">{{ rowError[client.name] }}</p>
+              <p v-if="rowError[client.name]" class="row-error" role="alert">{{ rowError[client.name] }}</p>
             </td>
           </tr>
         </tbody>

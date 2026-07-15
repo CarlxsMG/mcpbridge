@@ -136,7 +136,7 @@ async function clearQuarantineFn() {
     <template v-if="quarantineEnabledInput">
       <label for="q-threshold">{{ t("components.guard_editor_quarantine.threshold_label") }}</label>
       <input id="q-threshold" v-model="quarantineThresholdInput" type="text" inputmode="numeric" />
-      <p v-if="quarantineThresholdError" class="field-error">{{ quarantineThresholdError }}</p>
+      <p v-if="quarantineThresholdError" class="field-error" role="alert">{{ quarantineThresholdError }}</p>
 
       <label for="q-action">{{ t("components.guard_editor_quarantine.action_label") }}</label>
       <SelectMenu id="q-action" v-model="quarantineActionInput" :options="ACTION_OPTIONS" />
@@ -153,7 +153,7 @@ async function clearQuarantineFn() {
           inputmode="decimal"
           :placeholder="t('components.guard_editor_quarantine.cooldown_placeholder')"
         />
-        <p v-if="quarantineCooldownError" class="field-error">{{ quarantineCooldownError }}</p>
+        <p v-if="quarantineCooldownError" class="field-error" role="alert">{{ quarantineCooldownError }}</p>
       </template>
     </template>
     <SaveRow
@@ -162,7 +162,7 @@ async function clearQuarantineFn() {
       :saved="saved"
       @save="saveQuarantineFn"
     />
-    <span v-if="clearedSaved" class="save-ok">{{ t("components.guard_editor_quarantine.cleared") }}</span>
-    <p v-if="error" class="field-error">{{ error }}</p>
+    <span v-if="clearedSaved" class="save-ok" role="status">{{ t("components.guard_editor_quarantine.cleared") }}</span>
+    <p v-if="error" class="field-error" role="alert">{{ error }}</p>
   </div>
 </template>
