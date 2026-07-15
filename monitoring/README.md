@@ -25,7 +25,7 @@ scrape_configs:
     authorization:
       credentials: "<one of ADMIN_API_KEYS>"
     static_configs:
-      - targets: ["mcp-rest-bridge:3000"]
+      - targets: ["mcp-bridge:3000"] # matches the service name in docker-compose.yml; adjust to your deployment
 
 rule_files:
   - /etc/prometheus/rules/mcp-rest-bridge.alerts.yaml
