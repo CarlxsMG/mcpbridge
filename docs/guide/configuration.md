@@ -7,14 +7,16 @@ list is the `config` object in `src/config.ts` (validated at boot by `src/config
 
 ## First-boot & authentication
 
-| Variable                      | Description                                                                                                                                                                 |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BOOTSTRAP_ADMIN_USERNAME`    | Username for the first admin user. Applied **only once**, while the users table is empty.                                                                                   |
-| `BOOTSTRAP_ADMIN_PASSWORD`    | Password for that first admin (min 12 chars). Remove after the user exists.                                                                                                 |
-| `ADMIN_API_KEYS`              | Comma-separated static Bearer keys for the JSON admin API (`/admin-api`, `/register`). Optional — the Vue UI uses session login.                                            |
-| `MCP_API_KEYS`                | Comma-separated keys MCP clients present to call tools. Empty = no key required (combine with per-tool guards as needed).                                                   |
-| `REQUIRE_MCP_AUTH`            | `true` forces the MCP data plane to fail **closed** even before a key exists (otherwise, with no keys/JWT configured, the data plane is open and a boot warning is logged). |
-| `EXPOSE_DOCS_UNAUTHENTICATED` | `true` serves `/docs` (Swagger UI + full OpenAPI spec) publicly. Off by default — `/docs` is admin-authenticated.                                                           |
+| Variable                      | Description                                                                                                                                                                                                                                    |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BOOTSTRAP_ADMIN_USERNAME`    | Username for the first admin user. Applied **only once**, while the users table is empty.                                                                                                                                                      |
+| `BOOTSTRAP_ADMIN_PASSWORD`    | Password for that first admin (min 12 chars). Remove after the user exists.                                                                                                                                                                    |
+| `ADMIN_API_KEYS`              | Comma-separated static Bearer keys for the JSON admin API (`/admin-api`, `/register`). Optional — the Vue UI uses session login.                                                                                                               |
+| `MCP_API_KEYS`                | Comma-separated keys MCP clients present to call tools. Empty = no key required (combine with per-tool guards as needed).                                                                                                                      |
+| `REQUIRE_MCP_AUTH`            | `true` forces the MCP data plane to fail **closed** even before a key exists (otherwise, with no keys/JWT configured, the data plane is open and a boot warning is logged).                                                                    |
+| `EXPOSE_DOCS_UNAUTHENTICATED` | `true` serves `/docs` (Swagger UI + full OpenAPI spec) publicly. Off by default — `/docs` is admin-authenticated.                                                                                                                              |
+| `AUTH_DISABLED`               | `true` turns **off all authentication** (admin API, MCP, sessions). Development only — outside `NODE_ENV=development` the bridge refuses to start unless `ALLOW_UNSAFE_AUTH_DISABLED=true` is also set. Never set either in a real deployment. |
+| `ALLOW_UNSAFE_AUTH_DISABLED`  | Opt-out that lets `AUTH_DISABLED=true` take effect outside development. A deliberate footgun guard — leave unset.                                                                                                                              |
 
 ## Runtime & networking
 
@@ -25,6 +27,10 @@ list is the `config` object in `src/config.ts` (validated at boot by `src/config
 | `NODE_ENV`              | —                              | `development` relaxes startup guards for local dev. **Never** in production.                                                                                                                                          |
 | `TRUST_PROXY`           | `false`                        | Hop count (e.g. `1`) or CIDR/preset list matching your reverse-proxy topology — never bare `true`, which trusts every hop in `X-Forwarded-For` and lets a client spoof its IP. See [Deployment →](/guide/deployment). |
 | `ALLOW_PRIVATE_IPS`     | `false`                        | Allow registering backends on loopback/private IPs. Local dev only — never in production.                                                                                                                             |
+| `CORS_ORIGINS`          | —                              | Comma-separated origins allowed to call the admin API from a browser (CORS). Unset = no cross-origin admin access.                                                                                                    |
+| `ALLOWED_ORIGINS`       | —                              | Comma-separated origins allowed to open an MCP session (`Origin`-header check on the data plane).                                                                                                                     |
+| `ALLOWED_HOSTS`         | —                              | Comma-separated `Host` header values the gateway accepts, rejecting others — anti-DNS-rebinding for the gateway itself.                                                                                               |
+| `STRICT_CONFIG`         | —                              | `production` upgrades config-validation warnings to hard errors and aborts boot — recommended in production so a misconfiguration fails fast instead of only logging a warning.                                       |
 
 ## Persistence
 

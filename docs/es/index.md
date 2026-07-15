@@ -63,7 +63,7 @@ features:
     details: Proceso único Bun con almacenamiento bun:sqlite. Sin base de datos externa, sin Kubernetes. Una imagen Docker, o `bun src/index.ts`.
 ---
 
-## Véalo en acción
+## Míralo en acción
 
 Todo el bridge se gestiona desde un dashboard integrado — registra backends, cura lo que
 ve cada cliente y observa salud, uso y rastros de auditoría en vivo.

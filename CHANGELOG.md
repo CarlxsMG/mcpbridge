@@ -53,6 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Design-system consistency: the always-dark layout chrome (sidebar, mobile topbar, demo ribbon,
+  command palette) and the overlay/radius values now render from design tokens instead of hardcoded
+  colors, and dropdown/listbox overlays get a dedicated `--z-popover` z-index.
+- i18n tooling: the source→bundle key check is folded into `admin-ui/scripts/check-i18n.mjs` (the
+  standalone Python i18n-audit workflow and its scripts are retired), run by `bun run check` and CI.
+- Developer workflow: the pre-push git hook now typechecks, the local `bun run check` enforces the
+  backend coverage floor (matching CI), and Dependabot commits are conventional-commit-compliant,
+  grouped, and skip the load-bearing version pins (`ajv`, `zod`, `@scalar/openapi-parser`).
 - Internal: the REST dispatcher's three terminal-failure exits (non-retryable error, network
   throw, retries exhausted) in `src/proxy/proxy.ts` now share one `recordFailure()` helper instead
   of hand-rolling the same metrics/breaker/log/usage/mock-fallback sequence three times — removing
@@ -239,6 +247,31 @@ NODE_ENV=production`, and the prod compose pins it so a copied dev `.env` can't 
   process, matching the existing `SESSION_COOKIE_SECURE` handling.
 - `e2e/smoke.spec.ts` now targets stable `#preview-table`/`#tools-table` ids instead of the
   CSS classes removed by the admin-ui reusability refactor.
+- Graceful shutdown is now re-entrant-safe (a second `SIGTERM` during shutdown is ignored) and every
+  housekeeping timer — the health/alert/schedule loops, the circuit-breaker and rate-limiter sweeps,
+  the registry-reconcile loop, and the leader-election loop — is `unref`'d, so background work never
+  keeps the process alive on its own.
+- The OpenAI context-budget summarizer sends `max_tokens`, bounding the summary response size.
+- Accessibility: inline save errors and success confirmations are announced to assistive tech
+  (`role="alert"` / `role="status"`); the command palette exposes correct combobox/listbox semantics;
+  form controls are properly labelled; and required schema-form fields are marked programmatically.
+- Localization: eight previously-English error messages and the command palette's leaked UI strings
+  are translated, and the Spanish README's "read more" links now point at the Spanish (`/es/`) docs.
+
+### Security
+
+- Per-tool **transform** ops and response **redaction** paths now refuse the dot-path segments
+  `__proto__`, `constructor`, and `prototype` — both at the admin validator boundary (a clear `400`)
+  and in the shared traversal helpers themselves — closing an operator/team-scoped prototype-pollution
+  vector that could otherwise mutate `Object.prototype` process-wide (a cross-tenant escape).
+- The WebSocket proxy caps inbound frame size at the protocol layer on both the tool-backend and
+  ws-proxy legs, so an oversized frame can't exhaust memory before the app-level guard runs.
+- The pinned resolved-IP cache is invalidated when a client re-registers, so a re-registration to a
+  new address can't be dispatched against a stale (DNS-rebinding-relevant) pinned IP.
+- OpenAPI/Swagger discovery enforces the 5 MB spec cap **during** the streamed read rather than only
+  after buffering, bounding memory on a hostile or oversized spec URL.
+- The Helm chart runs under a dedicated `ServiceAccount` with `automountServiceAccountToken: false`,
+  so pods no longer get the namespace default service-account token mounted.
 
 ## [1.0.0] - 2026-07-03
 
