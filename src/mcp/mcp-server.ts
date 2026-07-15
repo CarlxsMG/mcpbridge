@@ -20,8 +20,11 @@ import { config } from "../config.js";
 import { SEARCH_TOOL_NAME, searchToolDefinition, runSearchTool, type AdvertisedTool } from "./tool-search.js";
 import { hasComposite, getAdvertisedComposite, runComposite } from "../admin/tool-composition/composites.js";
 import { resolveSystemRole } from "../security/system-role.js";
-import { resolveMcpKeyByToken, isToolInKeyScope } from "../security/mcp-key-store.js";
+import { resolveMcpKeyByToken, isToolInKeyScope, isClientInKeyScope } from "../security/mcp-key-store.js";
 import { listSystemTools, runSystemTool } from "./system-tools.js";
+import { applyResponseScan } from "../tool-policies/guardrails.js";
+import { stripInjectedCredentials } from "../content-filtering/redaction.js";
+import { log } from "../logger.js";
 // Bun parses JSON modules at bundle time (like YAML — see docs.ts), so this
 // works identically under `bun src/index.ts` and under `bun build --compile`.
 // The previous `createRequire(import.meta.url)("../package.json")` approach
@@ -105,20 +108,85 @@ function scopedToolList(scope: McpServerScope, callerToken?: string): Advertised
 
 /**
  * McpConnParams for a client-scoped MCP upstream, or null when the scope isn't a
- * single live MCP-kind client. Resources/prompts are passthrough only for a
- * sharded /mcp/:clientName session pointed at an MCP upstream — bundle/system
- * scopes stay tools-only (cross-client resource-URI namespacing is a later design).
+ * single live MCP-kind client, or the caller's managed key is scoped away from
+ * it. Resources/prompts are passthrough only for a sharded /mcp/:clientName
+ * session pointed at an MCP upstream — bundle/system scopes stay tools-only
+ * (cross-client resource-URI namespacing is a later design).
+ *
+ * The key-scope check mirrors checkKeyScopeGate/isToolInKeyScope, which already
+ * gate tool calls on this same /mcp/:clientName route — without it, a managed
+ * key scoped to a *different* client could still open this client's route and
+ * read its resources/prompts through the bridge's own broker-held upstream
+ * credential, even though it could never call any of this client's tools.
  */
-function mcpParamsForScope(scope: McpServerScope): McpConnParams | null {
+function mcpParamsForScope(scope: McpServerScope, callerToken?: string): McpConnParams | null {
   if (scope.kind !== "client") return null;
   const client = registry.listClients().find((c) => c.name === scope.name);
   if (!client || client.kind !== "mcp" || !client.enabled) return null;
+  const key = callerToken ? resolveMcpKeyByToken(callerToken) : null;
+  if (key && !isClientInKeyScope(key.scopes, scope.name)) return null;
   return {
     name: client.name,
     url: client.mcpUrl ?? client.base_url,
     transport: client.mcpTransport ?? "streamable-http",
     resolvedIp: client.resolved_ip,
     authHeaders: getUpstreamAuthHeaders(client.name) ?? undefined,
+  };
+}
+
+/**
+ * Runs the same guardrail response-scan + injected-credential-strip the
+ * tool-call path (dispatch-mcp.ts) applies to every result, over one
+ * text-bearing resource/prompt content part. Unlike a tool call, a resource or
+ * prompt has no per-tool `tool_guardrails` row to opt in from (scanResponses
+ * is a tool_guardrails column, keyed by tool name), so the scan always runs —
+ * an untrusted MCP upstream can smuggle a prompt-injection payload through a
+ * resource/prompt exactly as easily as through a tool result. Redaction is
+ * skipped for the same reason: tool_redactions paths are configured per tool
+ * and there is no equivalent per-resource/per-prompt config to look up.
+ */
+function sanitizeText(
+  text: string,
+  clientName: string,
+  label: string,
+  authHeaders: Record<string, string> | undefined,
+): string {
+  const scan = applyResponseScan(text);
+  if (scan.flagged) {
+    log("warn", "MCP resource/prompt content flagged by guardrail scan", { client: clientName, label });
+  }
+  return authHeaders ? stripInjectedCredentials(scan.text, authHeaders) : scan.text;
+}
+
+function sanitizeResourceContent(
+  result: ReadResourceResult,
+  clientName: string,
+  authHeaders: Record<string, string> | undefined,
+): ReadResourceResult {
+  return {
+    ...result,
+    contents: result.contents.map((item) =>
+      "text" in item ? { ...item, text: sanitizeText(item.text, clientName, item.uri, authHeaders) } : item,
+    ),
+  };
+}
+
+function sanitizePromptContent(
+  result: GetPromptResult,
+  clientName: string,
+  promptName: string,
+  authHeaders: Record<string, string> | undefined,
+): GetPromptResult {
+  return {
+    ...result,
+    messages: result.messages.map((msg) =>
+      msg.content.type === "text"
+        ? {
+            ...msg,
+            content: { ...msg.content, text: sanitizeText(msg.content.text, clientName, promptName, authHeaders) },
+          }
+        : msg,
+    ),
   };
 }
 
@@ -248,27 +316,38 @@ export function createMcpServer(scope: McpServerScope): Server {
   // Resources & prompts — passthrough for a client-scoped MCP upstream; empty /
   // not-found otherwise. The upstream's own capabilities decide what's returned
   // (listResources/listPrompts degrade to [] when the upstream lacks them).
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    const p = mcpParamsForScope(scope);
+  server.setRequestHandler(ListResourcesRequestSchema, async (_request, extra) => {
+    const p = mcpParamsForScope(scope, callerTokenFromExtra(extra));
     return { resources: p ? await mcpUpstream.listResources(p, config.toolCallTimeoutMs) : [] } as ListResourcesResult;
   });
 
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const p = mcpParamsForScope(scope);
+  server.setRequestHandler(ReadResourceRequestSchema, async (request, extra) => {
+    const p = mcpParamsForScope(scope, callerTokenFromExtra(extra));
     if (!p) throw new Error(`Resource not available: ${request.params.uri}`);
-    return (await mcpUpstream.readResource(p, request.params.uri, config.toolCallTimeoutMs)) as ReadResourceResult;
+    const result = (await mcpUpstream.readResource(
+      p,
+      request.params.uri,
+      config.toolCallTimeoutMs,
+    )) as ReadResourceResult;
+    return sanitizeResourceContent(result, p.name, p.authHeaders);
   });
 
-  server.setRequestHandler(ListPromptsRequestSchema, async () => {
-    const p = mcpParamsForScope(scope);
+  server.setRequestHandler(ListPromptsRequestSchema, async (_request, extra) => {
+    const p = mcpParamsForScope(scope, callerTokenFromExtra(extra));
     return { prompts: p ? await mcpUpstream.listPrompts(p, config.toolCallTimeoutMs) : [] } as ListPromptsResult;
   });
 
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-    const p = mcpParamsForScope(scope);
+  server.setRequestHandler(GetPromptRequestSchema, async (request, extra) => {
+    const p = mcpParamsForScope(scope, callerTokenFromExtra(extra));
     if (!p) throw new Error(`Prompt not available: ${request.params.name}`);
     const args = (request.params.arguments ?? {}) as Record<string, string>;
-    return (await mcpUpstream.getPrompt(p, request.params.name, args, config.toolCallTimeoutMs)) as GetPromptResult;
+    const result = (await mcpUpstream.getPrompt(
+      p,
+      request.params.name,
+      args,
+      config.toolCallTimeoutMs,
+    )) as GetPromptResult;
+    return sanitizePromptContent(result, p.name, request.params.name, p.authHeaders);
   });
 
   activeServers.add(server);
