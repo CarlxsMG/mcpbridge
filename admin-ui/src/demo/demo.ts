@@ -28,6 +28,7 @@
 // new locale on the next response.
 // ─────────────────────────────────────────────────────────────────────────────
 import type {
+  AdminRole,
   AdminSession,
   ApprovalStatus,
   BundleDetail,
@@ -71,6 +72,11 @@ let installLinkNextId = 1;
 
 function ok<T>(v: T): T {
   return v;
+}
+
+const ADMIN_ROLE_VALUES: AdminRole[] = ["admin", "operator", "auditor", "viewer"];
+function asAdminRole(v: unknown): AdminRole | null {
+  return typeof v === "string" && (ADMIN_ROLE_VALUES as string[]).includes(v) ? (v as AdminRole) : null;
 }
 
 /**
@@ -377,6 +383,7 @@ function route(
       keyPrefix: "mcp_live_new0",
       consumerId: null,
       elevated: Boolean(body?.elevated),
+      adminRole: asAdminRole(body?.adminRole),
       scopes: null,
       enabled: true,
       expiresAt: null,

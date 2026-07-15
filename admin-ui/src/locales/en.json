@@ -1064,6 +1064,8 @@
         "prefix": "Prefix",
         "scope": "Scope",
         "consumer": "Consumer",
+        "admin_role": "System role",
+        "admin_role_none": "No system access",
         "status": "Status",
         "last_used": "Last used",
         "expires": "Expires",
@@ -1097,7 +1099,8 @@
           "clients": "Allowed clients (comma-separated, blank = all)",
           "tools": "Allowed tools (comma-separated client__tool)",
           "expires": "Expires (optional)",
-          "consumer": "Consumer (optional)"
+          "consumer": "Consumer (optional)",
+          "admin_role": "System role (super-admin only)"
         },
         "placeholders": {
           "label": "e.g. ci-bot",
@@ -1107,6 +1110,8 @@
         "consumer_none": "None",
         "create_consumer": "Create consumer",
         "elevated_label": "Elevated (bypasses sensitive-tool confirmation)",
+        "admin_role_none": "No system access (data-plane only)",
+        "admin_role_hint": "Grants this key a role on the /mcp system endpoint (gateway management tools), instead of just the data plane. Leave unset for a normal client key.",
         "minting": "Minting…",
         "errors": {
           "label_required": "A label is required.",

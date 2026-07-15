@@ -317,7 +317,8 @@ export interface OverviewStats {
 export interface CurrentUser {
   authenticated: true;
   auth_method: "bearer" | "session";
-  user?: { username: string; role: AdminRole };
+  /** team_id is absent for a bearer caller; null means a super-admin session. */
+  user?: { username: string; role: AdminRole; team_id?: number | null };
 }
 
 /** GET /admin-api/auth/sessions item — mirrors SessionSummary in src/security/session-store.ts. */
@@ -465,6 +466,8 @@ export interface McpApiKey {
   keyPrefix: string;
   consumerId: number | null;
   elevated: boolean;
+  /** Role this key carries on the /mcp system endpoint. null = no system access (data-plane only). */
+  adminRole: AdminRole | null;
   scopes: McpKeyScopes | null;
   enabled: boolean;
   expiresAt: number | null;

@@ -11,6 +11,18 @@ interface AuthState {
 
 const state = reactive<AuthState>({ loading: false, checked: false, user: null, authMethod: null });
 
+/**
+ * True for a super-admin session (admin role, no team) — mirrors the backend's
+ * isSuperAdminCaller (src/middleware/authz.ts), which is the actual enforcement
+ * point. This is a UI-only mirror for gating affordances the caller would
+ * otherwise just get a 403 from (e.g. setting an mcp_api_keys row's adminRole);
+ * it grants no access on its own. `team_id` absent (e.g. a bearer-style demo
+ * user) is treated as super-admin, same as the backend's `?? null` default.
+ */
+export function isSuperAdminUser(user: AuthState["user"]): boolean {
+  return user !== null && user.role === "admin" && (user.team_id ?? null) === null;
+}
+
 export function useAuth() {
   async function checkSession(): Promise<boolean> {
     state.loading = true;
