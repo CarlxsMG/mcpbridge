@@ -1,6 +1,6 @@
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import { toolResult } from "../lib/mcp-result.js";
+import { toolResult, type ToolCallResult } from "../lib/mcp-result.js";
 import type { ToolCallOpts } from "./proxy.js";
 import type { RegisteredClient, RegisteredTool } from "../mcp/types.js";
 import {
@@ -132,6 +132,30 @@ export function checkConsumerQuotaGate(
 }
 
 /**
+ * Transport-agnostic step-up check — a sensitive operation requires an explicit
+ * `__confirm: true` argument or an elevated credential. Shared by
+ * `checkSensitiveToolGate` (below, for backend REST/MCP-upstream tool calls) and
+ * `runSystemTool` (src/mcp/system-tools.ts, for the /mcp system-tool catalog) so
+ * the confirm/elevated semantics and the exact rejection message are defined in
+ * exactly one place and can't drift between the two dispatch paths. Returns a
+ * reject result, or null to proceed.
+ */
+export function checkConfirmGate(
+  sensitive: boolean,
+  args: Record<string, unknown>,
+  elevated: boolean,
+  toolLabel: string,
+): ToolCallResult | null {
+  if (!sensitive) return null;
+  const confirmed = args.__confirm === true;
+  if (confirmed || elevated) return null;
+  return toolResult(
+    `Tool '${toolLabel}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.`,
+    { isError: true },
+  );
+}
+
+/**
  * Destructive-action gate — a sensitive tool requires an explicit `__confirm: true`
  * argument or an elevated key. Returns a reject result, or null to proceed.
  */
@@ -142,15 +166,12 @@ export function checkSensitiveToolGate(
   callerKey: ReturnType<typeof resolveMcpKeyByToken>,
   mcpToolName: string,
 ): ToolResult | null {
-  if (!isToolSensitive(client.name, tool.name, tool.method)) return null;
-  const confirmed = args.__confirm === true;
-  if (!confirmed && callerKey?.elevated !== true) {
-    return toolResult(
-      `Tool '${mcpToolName}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.`,
-      { isError: true },
-    );
-  }
-  return null;
+  return checkConfirmGate(
+    isToolSensitive(client.name, tool.name, tool.method),
+    args,
+    callerKey?.elevated === true,
+    mcpToolName,
+  );
 }
 
 /**

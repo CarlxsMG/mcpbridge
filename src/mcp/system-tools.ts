@@ -22,6 +22,7 @@ import type { AdminRole } from "../security/user-store.js";
 import type { SystemAuthResult } from "../security/system-role.js";
 import type { AdvertisedTool } from "./tool-search.js";
 import { toolResult, type ToolCallResult } from "../lib/mcp-result.js";
+import { checkConfirmGate } from "../proxy/gates.js";
 import { registry } from "./registry.js";
 import { listBundles } from "../admin/tool-composition/bundles.js";
 import { listMcpKeys, createMcpKey, revokeMcpKey, getMcpKey, type McpKeyScopes } from "../security/mcp-key-store.js";
@@ -395,15 +396,8 @@ export async function runSystemTool(
   if (tool.envBearerOnly && !auth.isEnvBearer) {
     return toolResult(`Tool '${name}' requires the environment admin Bearer credential`, { isError: true });
   }
-  if (tool.sensitive) {
-    const confirmed = args.__confirm === true;
-    if (!confirmed && !auth.elevated) {
-      return toolResult(
-        `Tool '${name}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.`,
-        { isError: true },
-      );
-    }
-  }
+  const confirmGate = checkConfirmGate(tool.sensitive === true, args, auth.elevated, name);
+  if (confirmGate) return confirmGate;
 
   try {
     return await tool.handler(args, auth);
