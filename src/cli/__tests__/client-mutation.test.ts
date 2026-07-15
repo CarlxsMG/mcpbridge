@@ -261,6 +261,47 @@ describe("makeClient / get / post (doFetch behavior)", () => {
     }
   });
 
+  test("a non-JSON body (e.g. an HTML error page from a wrong --url/reverse proxy) throws a clean CliApiError instead of a bare JSON.parse SyntaxError", async () => {
+    const readSpy = stubReadFile(JSON.stringify({ url: "http://gw.example.com", token: "tok" }));
+    stubFetch(new Response("<html><body>502 Bad Gateway</body></html>", { status: 502 }));
+    try {
+      const client = await makeClient();
+      let caught: unknown;
+      try {
+        await client.get("/x");
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(CliApiError);
+      expect(caught).not.toBeInstanceOf(SyntaxError);
+      expect((caught as CliApiError).status).toBe(502);
+      expect((caught as CliApiError).message).toContain("502 Bad Gateway");
+    } finally {
+      readSpy.mockRestore();
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("a non-JSON body on an OK (2xx) response also throws a CliApiError, not a bare JSON.parse SyntaxError", async () => {
+    const readSpy = stubReadFile(JSON.stringify({ url: "http://gw.example.com", token: "tok" }));
+    stubFetch(new Response("not json", { status: 200 }));
+    try {
+      const client = await makeClient();
+      let caught: unknown;
+      try {
+        await client.get("/x");
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(CliApiError);
+      expect((caught as CliApiError).status).toBe(200);
+      expect((caught as CliApiError).message).toBe("not json");
+    } finally {
+      readSpy.mockRestore();
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test("an empty-string error message is preserved as-is — proves `??` (not `||`) is used for the fallback", async () => {
     const readSpy = stubReadFile(JSON.stringify({ url: "http://gw.example.com", token: "tok" }));
     stubFetch(new Response(JSON.stringify({ error: { message: "" } }), { status: 500 }));

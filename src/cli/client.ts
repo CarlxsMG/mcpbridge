@@ -58,7 +58,18 @@ export async function makeClient(): Promise<CliClient> {
       headers: { ...init.headers, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     });
     const text = await res.text();
-    const body = text ? (JSON.parse(text) as unknown) : undefined;
+    let body: unknown;
+    if (text) {
+      try {
+        body = JSON.parse(text) as unknown;
+      } catch {
+        // Not every non-2xx (or misconfigured --url) response is JSON — a
+        // wrong port, reverse proxy, or load balancer can return an HTML/plain
+        // error page. Surface it as a normal CliApiError instead of letting a
+        // bare JSON.parse SyntaxError escape to the top-level catch.
+        throw new CliApiError(res.status, text.slice(0, 200) || `HTTP ${res.status}`);
+      }
+    }
     if (!res.ok) {
       const message = (body as { error?: { message?: string } } | undefined)?.error?.message ?? `HTTP ${res.status}`;
       throw new CliApiError(res.status, message);
