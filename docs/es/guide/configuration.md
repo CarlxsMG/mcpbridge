@@ -65,13 +65,14 @@ nunca cae silenciosamente a almacenar el secreto en plaintext.
 
 ## Feature flags e integraciones
 
-| Variable                      | Descripción                                                              |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| `ENABLE_SEARCH_TOOL`          | Toggle de la meta-tool sintética `search_tools` (por defecto activada).  |
-| `AUDIT_SINK_URL`              | Streamea cada evento de auditoría a un sink SIEM/HTTP.                   |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Exporta un trace span por llamada de tool (OTLP/HTTP).                   |
-| `RATE_LIMIT_SHARED`           | `true` = contadores de rate cross-instancia respaldados por SQLite (HA). |
-| `REGISTRY_SYNC`               | `true` = reconcilia el registry desde SQLite entre instancias (HA).      |
+| Variable                      | Descripción                                                                                                                                              |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ENABLE_SEARCH_TOOL`          | Toggle de la meta-tool sintética `search_tools` (por defecto activada).                                                                                  |
+| `AUDIT_SINK_URL`              | Streamea cada evento de auditoría a un sink SIEM/HTTP.                                                                                                   |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Exporta un trace span por llamada de tool (OTLP/HTTP).                                                                                                   |
+| `RATE_LIMIT_SHARED`           | `true` = contadores de rate cross-instancia respaldados por SQLite (HA).                                                                                 |
+| `REGISTRY_SYNC`               | `true` = reconcilia el registry desde SQLite entre instancias (HA).                                                                                      |
+| `AUTO_GATE_WRITE_METHODS`     | `true` = trata las tools DELETE/PUT como sensibles por defecto, exigiendo confirmación step-up (los overrides por tool siguen ganando). Default `false`. |
 
 ## Comportamiento del proxy
 

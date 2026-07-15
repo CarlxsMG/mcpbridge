@@ -47,8 +47,11 @@ verificación de la cadena de hashes.
 
 ## Salud
 
-`GET /health` es un chequeo de liveness barato para load balancers. La salud de cada
-backend se monitoriza continuamente, con auto-eliminación de backends no saludables y
-un probe `ping` para upstreams MCP.
+`GET /livez` es un chequeo de liveness barato — siempre 200 si el proceso responde.
+`GET /readyz` es el chequeo de disponibilidad: 200 solo cuando esta instancia mantiene el
+leader lease y su handle de SQLite responde `SELECT 1`, así que un load balancer que lo use
+dejará de enrutar correctamente hacia un follower que no es líder o hacia una instancia con
+la base de datos afectada. La salud de cada backend se monitoriza continuamente, con
+auto-eliminación de backends no saludables y un probe `ping` para upstreams MCP.
 
 Siguiente: **[Escalado →](/es/guide/scaling)** · **[Solución de problemas →](/es/guide/troubleshooting)**

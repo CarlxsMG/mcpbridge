@@ -114,6 +114,15 @@ de generar nada, así que un nombre con typo falla con un mensaje claro en lugar
 config que silenciosamente devuelve cero tools. Sin `--out` el snippet se imprime a stdout;
 con él, se escribe directamente al fichero.
 
+## Flags globales
+
+Independientemente de cualquier subcomando, `gateway` también entiende:
+
+- `help`, `-h`, `--help` — imprime el uso y sale con `0` (también es el comportamiento por
+  defecto cuando no se pasa ningún comando)
+- `version`, `-v`, `--version` — imprime la versión del CLI (desde `package.json`) y sale
+  con `0`
+
 ## Formato de `gateway.yaml`
 
 ```yaml

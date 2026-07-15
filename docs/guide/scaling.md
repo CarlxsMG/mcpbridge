@@ -62,7 +62,9 @@ REST proxying and the admin API need no affinity.
 
 - [ ] All instances share one `DB_PATH`
 - [ ] `RATE_LIMIT_SHARED=true` and `REGISTRY_SYNC=true`
-- [ ] Load balancer health-checks `/health`
+- [ ] Load balancer health-checks `/readyz` (readiness — gated on leader lease + DB, so a
+      non-leader follower or DB-impaired instance is correctly taken out of rotation); use
+      `/livez` only for the orchestrator's liveness/restart probe
 - [ ] Sticky sessions for the MCP endpoints `/mcp` · `/mcp/:name` · `/mcp-custom/:bundle` (if you use streaming)
 - [ ] `AUDIT_SINK_URL` set for a consolidated audit trail
 

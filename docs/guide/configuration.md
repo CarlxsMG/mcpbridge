@@ -63,13 +63,14 @@ silently falls back to storing a secret in plaintext.
 
 ## Feature flags & integrations
 
-| Variable                      | Description                                                        |
-| ----------------------------- | ------------------------------------------------------------------ |
-| `ENABLE_SEARCH_TOOL`          | Toggle the synthetic `search_tools` meta-tool (default on).        |
-| `AUDIT_SINK_URL`              | Stream every audit event to a SIEM/HTTP sink.                      |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Export a trace span per tool call (OTLP/HTTP).                     |
-| `RATE_LIMIT_SHARED`           | `true` = SQLite-backed cross-instance rate counters (HA).          |
-| `REGISTRY_SYNC`               | `true` = reconcile the registry from SQLite across instances (HA). |
+| Variable                      | Description                                                                                                                              |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ENABLE_SEARCH_TOOL`          | Toggle the synthetic `search_tools` meta-tool (default on).                                                                              |
+| `AUDIT_SINK_URL`              | Stream every audit event to a SIEM/HTTP sink.                                                                                            |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Export a trace span per tool call (OTLP/HTTP).                                                                                           |
+| `RATE_LIMIT_SHARED`           | `true` = SQLite-backed cross-instance rate counters (HA).                                                                                |
+| `REGISTRY_SYNC`               | `true` = reconcile the registry from SQLite across instances (HA).                                                                       |
+| `AUTO_GATE_WRITE_METHODS`     | `true` = treat DELETE/PUT tools as sensitive by default, requiring step-up confirmation (per-tool overrides still win). Default `false`. |
 
 ## Proxy behavior
 

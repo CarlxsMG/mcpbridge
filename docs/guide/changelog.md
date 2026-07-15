@@ -13,7 +13,27 @@ file with meaningful runtime logic is now effectively 100% mutation-killed), plu
 real user- and operator-facing changes: W3C `traceparent` propagation through the proxy pipeline, a public
 [SLO reliability contract](/architecture/slos), expanded Playwright e2e coverage gated in CI, and
 a security fix so the startup config log no longer leaks `SECRET_ENCRYPTION_KEY`/`VAULT_TOKEN` in
-plaintext. See the root [`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
+plaintext.
+
+Several rounds of security hardening followed: a **Docker image build break (P0)** that stopped
+every container image from building at all; a **team-tenancy escape** where a team-scoped admin
+could reach global routes (user CRUD, DB backup, config export/import) meant for super-admins
+only; a **prototype-pollution guard** on every tool dot-path writer/reader, unified behind one
+hardened `src/lib/object-path.ts`; a requirement that inbound **JWT auth set `JWT_AUDIENCE`**,
+closing a cross-audience token-reuse gap; a **permanent MCP session-capacity leak (DoS)** where a
+session-less non-`initialize` POST never released its reservation; a **circuit-breaker half-open
+probe leak** that could permanently wedge a recovering client; uniform response sanitization
+across REST/MCP-upstream/WebSocket success **and** error paths; actual IP-pinning for WebSocket
+dials (Bun's `ws` shim silently ignored the old DNS-rebinding guard); and a JWKS refetch on an
+unrecognized `kid` so a routine IdP key rotation no longer locks out JWT/SSO auth. Operationally:
+the Helm/Docker health probes now point at the purpose-built `/livez` (liveness) and `/readyz`
+(readiness, leader-gated) endpoints instead of the legacy always-200 `/health`; the CLI gained a
+top-level `--help`/`--version`; a runnable `examples/` directory ships sample configs and
+`/register` bodies for every registration mode; `monitoring/` ships deployable Prometheus alert
+rules and a Grafana dashboard for the SLOs; and the admin UI got a coverage-ratchet gate plus a
+round of accessibility fixes (ARIA tabs keyboard model, focus management, translated error
+strings). See the root
+[`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
 for the full curated list.
 
 ## [1.0.0] - 2026-07-03

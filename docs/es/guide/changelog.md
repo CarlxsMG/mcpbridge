@@ -14,7 +14,29 @@ eliminados), además de varios cambios reales de cara al usuario/operador: propa
 pipeline del proxy, un [contrato público de SLOs](/es/architecture/slos) de fiabilidad, cobertura
 e2e ampliada con Playwright integrada en CI, y una corrección de seguridad para que el log de
 configuración de arranque ya no filtre `SECRET_ENCRYPTION_KEY`/`VAULT_TOKEN` en texto plano.
-Consulta el [`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
+
+Después llegaron varias rondas de hardening de seguridad: una **rotura del build de la imagen
+Docker (P0)** que impedía construir cualquier imagen del contenedor; un **escape de tenancy por
+equipos** donde un admin con alcance de equipo podía llegar a rutas globales (CRUD de usuarios,
+backup de la BD, export/import de config) reservadas a super-admins; una **guarda contra
+prototype-pollution** en cada lector/escritor de dot-paths de tools, unificada en un único
+`src/lib/object-path.ts` reforzado; el requisito de que la autenticación JWT entrante configure
+**`JWT_AUDIENCE`**, cerrando un hueco de reuso de token entre audiencias; una **fuga permanente de
+capacidad de sesiones MCP (DoS)** donde un POST sin sesión que no era un `initialize` nunca
+liberaba su reserva; una **fuga de la sonda half-open del circuit breaker** que podía dejar
+atascado para siempre un cliente en recuperación; sanitización de respuestas uniforme en los
+caminos de éxito **y** error de REST/MCP-upstream/WebSocket; anclaje real de IP para las conexiones
+WebSocket (el shim `ws` de Bun ignoraba silenciosamente la protección anti DNS-rebinding
+existente); y un refetch de JWKS ante un `kid` desconocido para que una rotación normal de clave
+del IdP ya no bloquee la autenticación JWT/SSO. A nivel operativo: los health probes de Helm/Docker
+ahora apuntan a los endpoints propósito-específico `/livez` (liveness) y `/readyz` (readiness, con
+leader-gating) en lugar del legacy `/health` (siempre 200); el CLI ganó `--help`/`--version` de
+nivel superior; un directorio `examples/` listo para ejecutar aporta configs de muestra y cuerpos
+de `/register` para cada modo de registro; `monitoring/` aporta reglas de alerta de Prometheus y un
+dashboard de Grafana desplegables para los SLOs; y la admin UI recibió una compuerta de cobertura
+tipo ratchet más una ronda de correcciones de accesibilidad (modelo de teclado ARIA para tabs,
+gestión de foco, strings de error traducidos). Consulta el
+[`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
 raíz para la lista curada completa.
 
 ## [1.0.0] - 2026-07-03

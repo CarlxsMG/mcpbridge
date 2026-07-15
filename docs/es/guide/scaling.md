@@ -66,7 +66,10 @@ El proxy REST y la admin API no necesitan afinidad.
 
 - [ ] Todas las instancias comparten un `DB_PATH`
 - [ ] `RATE_LIMIT_SHARED=true` y `REGISTRY_SYNC=true`
-- [ ] El load balancer chequea `/health`
+- [ ] El load balancer chequea `/readyz` (disponibilidad — condicionada al leader lease + la
+      base de datos, así que un follower que no es líder o una instancia con la base de datos
+      afectada se saca correctamente de la rotación); usa `/livez` solo para el probe de
+      liveness/reinicio del orquestador
 - [ ] Sticky sessions para los endpoints MCP `/mcp` · `/mcp/:name` · `/mcp-custom/:bundle` (si usas streaming)
 - [ ] `AUDIT_SINK_URL` configurado para un audit trail consolidado
 

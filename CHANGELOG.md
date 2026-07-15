@@ -50,6 +50,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   statements 62 / functions 58 / branches 48), wired into CI and `bun run check`. The SPA previously
   ran `vitest` with no threshold at all, so its coverage could silently decay; the backend already
   gates at 90/85.
+- **CLI — top-level `--help`/`-h` and `version`/`--version`/`-v`.** `gateway --help` (or a bare
+  invocation) now prints usage to stdout and exits 0 instead of falling through to the
+  unknown-command path and exiting 1; `version` prints the package version, read via the same
+  static `package.json` import the MCP server uses so it resolves under both `bun run cli` and a
+  compiled standalone binary. The usage string gains a Flags section and lists the shipped
+  `connect` and `version` commands.
+- `examples/` — a copy-and-run directory of sample configs: `gateway.yaml` (annotated
+  config-as-code matching the exact `ConfigExport` shape `gateway pull` emits), one
+  `register/*.json` body per registration mode (openapi, curl, postman, manual, graphql,
+  mcp-upstream — `openapi.json` targets the real Swagger Petstore and works unedited), and
+  paste-ready `mcp-clients/{claude-desktop,cursor}.json` client configs matching `gateway connect`
+  output.
 
 ### Changed
 
@@ -96,6 +108,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Ops — health probes pointed at the wrong endpoint.** The Helm chart's startup/liveness/readiness
+  probes and the Dockerfile `HEALTHCHECK` all targeted the legacy always-200 `/health`, even though
+  the gateway ships a purpose-built probe trio — `/livez` (always-200 liveness) and `/readyz` (200
+  only when SQLite answers and the leader lease is held) — so neither Kubernetes readiness nor the
+  container healthcheck could detect a wedged/locked SQLite handle. Liveness and startup now probe
+  `/livez`, readiness probes `/readyz` (documented in `values.yaml` as leader-gated — switch back to
+  `/livez` if scaling past one replica).
 - **Docker image build was broken (P0).** The deps-stage `bun install --production` ran the root
   `prepare` hook (`lefthook install`), but `lefthook` is a devDependency `--production` omits (and
   the stage has no `.git`), so the script exited 1 and `docker build` failed outright — breaking

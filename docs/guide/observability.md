@@ -44,7 +44,10 @@ report that embeds the hash-chain verification verdict.
 
 ## Health
 
-`GET /health` is a cheap liveness check for load balancers. Per-backend health is monitored
+`GET /livez` is a cheap liveness check — always 200 if the process is responding. `GET /readyz`
+is the readiness check: 200 only when this instance holds the leader lease and its SQLite
+handle answers `SELECT 1`, so a load balancer using it will correctly stop routing to a
+non-leader follower or a database-impaired instance. Per-backend health is monitored
 continuously, with automatic eviction of unhealthy backends and a `ping` probe for MCP
 upstreams.
 

@@ -191,6 +191,9 @@ bun run cli -- apply   # register servers + apply config from gateway.yaml
 bun run cli -- connect --client claude-desktop --scope system   # print MCP client config to paste
 ```
 
+Global flags, independent of any subcommand: `help` / `-h` / `--help` (also the default with
+no command) and `version` / `-v` / `--version`, both exiting `0`.
+
 See **[CLI docs →](https://aico-dot-team-code.github.io/mcpbridge/guide/cli)** for the full
 command reference and `gateway.yaml` format.
 

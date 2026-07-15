@@ -110,6 +110,14 @@ generating anything, so a typo'd name fails with a clear message instead of a co
 silently returns no tools. Without `--out` the snippet prints to stdout; with it, it's written
 straight to the file.
 
+## Global flags
+
+Independent of any subcommand, `gateway` also understands:
+
+- `help`, `-h`, `--help` — print usage and exit `0` (also the default when no command is
+  given)
+- `version`, `-v`, `--version` — print the CLI's version (from `package.json`) and exit `0`
+
 ## `gateway.yaml` format
 
 ```yaml
