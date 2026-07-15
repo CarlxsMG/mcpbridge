@@ -9,23 +9,6 @@ export type UpstreamKind = "rest" | "mcp";
 /** Transport used to reach an MCP-kind upstream. */
 export type McpTransport = "streamable-http" | "sse";
 
-export interface RegistrationPayload {
-  name: string;
-  health_url: string;
-  base_url?: string;
-  // Manual mode
-  tools?: RestToolDefinition[];
-  // OpenAPI auto-discovery mode
-  openapi_url?: string;
-  include_tags?: string[];
-  exclude_operations?: string[];
-  // cURL / Postman modes — parsed into 'tools' (see curl-postman-discovery.ts)
-  // and registered exactly like manual mode. Exactly one of tools/openapi_url/
-  // curl_input/postman_collection may be provided.
-  curl_input?: string;
-  postman_collection?: unknown;
-}
-
 export interface RestToolDefinition {
   name: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";

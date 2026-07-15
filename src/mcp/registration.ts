@@ -70,7 +70,7 @@ try {
   _schemaComponents = spec.components.schemas;
   _resolvedSchema = resolveRefs(JSON.parse(JSON.stringify(_schemaComponents["RegistrationPayload"]))) as SchemaObject;
 } catch (err) {
-  log("warn", "Failed to pre-load /register/schema", { error: String(err) });
+  log("warn", "Failed to pre-load /register/schema", { error: errorMessage(err) });
 }
 
 /** The resolved (all `$ref`s inlined) JSON schema for the /register payload, or null if it couldn't be loaded at module init — see the try/catch above. Consumed by GET /register/schema. */

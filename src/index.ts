@@ -264,7 +264,6 @@ async function gracefulShutdown(signal: string) {
   const forceTimer = setTimeout(() => {
     log("warn", "Force exit triggered after transport cleanup timeout", {
       activeSessions: getActiveSessionCount(),
-      inflightRequests: 0,
     });
     process.exit(1);
   }, config.shutdownForceExitMs);

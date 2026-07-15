@@ -30,14 +30,15 @@
  */
 import { log } from "../logger.js";
 import { isLeader } from "../db/leader-lease.js";
+import { errorMessage } from "./error-message.js";
 
 type LoopFn = () => void | Promise<void>;
 
-async function runSafely(fn: LoopFn, errorMessage: string): Promise<void> {
+async function runSafely(fn: LoopFn, logMessage: string): Promise<void> {
   try {
     await fn();
   } catch (err) {
-    log("error", errorMessage, { error: err instanceof Error ? err.message : String(err) });
+    log("error", logMessage, { error: errorMessage(err) });
   }
 }
 

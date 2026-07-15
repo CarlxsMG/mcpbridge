@@ -28,6 +28,19 @@ import { log } from "./logger.js";
  */
 const envBool = z.union([z.literal("true"), z.literal("false"), z.undefined()]).transform((v) => v === "true");
 
+/**
+ * Same accepted values as envBool, but for the handful of config.ts fields
+ * that default to `true` when unset (the `!== "false"` idiom — anything other
+ * than the literal string "false" leaves the feature on). Keeps this schema's
+ * parsed default in agreement with config.ts's actual runtime default for
+ * those fields; using plain envBool for them would silently disagree (both
+ * "unset" and "false" would parse to `false` here, even though unset means
+ * `true` at runtime).
+ */
+const envBoolDefaultTrue = z
+  .union([z.literal("true"), z.literal("false"), z.undefined()])
+  .transform((v) => v !== "false");
+
 /** Non-negative integer in [min, max], with a default. */
 const envInt = (def: number, min: number, max: number) =>
   z.union([z.string(), z.undefined()]).transform((raw, ctx) => {
@@ -130,7 +143,7 @@ const EnvSchema = z.object({
   MAX_SESSIONS: envInt(100, 1, 100_000),
   SESSION_IDLE_TIMEOUT_MS: envInt(30 * 60_000, 60_000, 86_400_000),
   SESSION_ABSOLUTE_TTL_MS: envInt(12 * 60 * 60_000, 300_000, 30 * 86_400_000),
-  SESSION_COOKIE_SECURE: envBool,
+  SESSION_COOKIE_SECURE: envBoolDefaultTrue,
   ALLOW_UNSAFE_INSECURE_SESSION_COOKIE: envBool,
   ALLOW_UNSAFE_AUTH_DISABLED: envBool,
   ALLOW_UNSAFE_JWT_NO_AUDIENCE: envBool,
@@ -201,14 +214,14 @@ const EnvSchema = z.object({
 
   // ── Tool guards ──────────────────────────────────────────────────────────
   AUTO_GATE_WRITE_METHODS: envBool,
-  ENABLE_SEARCH_TOOL: envBool,
+  ENABLE_SEARCH_TOOL: envBoolDefaultTrue,
   GATEWAY_PUBLIC_URL: envUrl,
 
   // ── Context budget / LLM ─────────────────────────────────────────────────
   CONTEXT_BUDGET_LLM_TIMEOUT_MS: envInt(15_000, 100, 300_000),
 
   // ── Observability ────────────────────────────────────────────────────────
-  METRICS_ENABLED: envBool,
+  METRICS_ENABLED: envBoolDefaultTrue,
   LOG_FORMAT: envEnum(["json", "text"] as const, "json"),
   OTEL_EXPORTER_OTLP_ENDPOINT: envUrl,
   OTEL_SERVICE_NAME: z.union([z.string(), z.undefined()]).transform((v) => v ?? "mcp-rest-bridge"),

@@ -301,7 +301,6 @@ export function decInflight(key: string): void {
   else inflight.set(key, n);
 }
 
-/** Test-only: reset all runtime state. */
 /**
  * Drops all runtime LB state for a client — its round-robin cursor and every
  * per-target cooldown/in-flight entry (keyed `clientName#baseUrl`). Called when a
@@ -316,6 +315,7 @@ export function clearLbState(clientName: string): void {
   for (const key of inflight.keys()) if (key.startsWith(prefix)) inflight.delete(key);
 }
 
+/** Test-only: reset all runtime state. */
 export function __resetLbForTesting(): void {
   rrCursor.clear();
   cooldownUntil.clear();

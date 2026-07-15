@@ -163,6 +163,20 @@ class Registry {
    * re-registration of the same name (register/registerMcp), never by
    * explicit admin unregister() — that's a deliberate removal, not a symptom
    * of an unhealthy backend, and should propagate normally on reconcile.
+   *
+   * Known limitation in a multi-replica HA deployment: this Set is local,
+   * in-memory, per-process state, not shared via SQLite like the rest of the
+   * registry. The health-check loop that populates it is leader-gated (only
+   * one instance ever calls evictUnhealthy), but the re-registration that
+   * clears it can land on ANY instance (whichever the load balancer routes
+   * it to) — clearing only that instance's (already-empty) entry, not the
+   * leader's. This is harmless under the documented default topology
+   * (`/readyz`-gated LB routing, so only the leader ever serves), but if
+   * `/livez` is used for readiness instead so every replica serves (see
+   * helm values.yaml's readiness-probe override comment), a re-registration
+   * routed to a non-leader replica can leave the leader's mark in place,
+   * and the leader's own reconcileFromDb() will keep withholding the client
+   * indefinitely. See docs/guide/scaling.md.
    */
   private readonly healthEvicted = new Set<string>();
   private toolIndex = new ToolIndex();

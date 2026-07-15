@@ -10,8 +10,9 @@ import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
  * split, or failover → secondary only when primary breaker is open).
  * The proxy reads this in src/proxy/proxy.ts:decideSecondary().
  *
- * Storage is in-memory; configuration is per-instance. Cross-instance
- * propagation would need to be added if running HA.
+ * Storage is the `client_canary` SQLite table (src/tool-policies/canary.ts's
+ * getCanary/setCanary), read fresh on every dispatch — already HA-safe across
+ * instances that share DB_PATH, same as the rest of admin config.
  */
 export const canaryRoutes = Router();
 

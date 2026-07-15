@@ -48,10 +48,6 @@ export interface ProxyToolResult {
 const CLIENT_NAME = "mcp-rest-bridge";
 const CLIENT_VERSION = "1.0.0";
 
-function messageOf(err: unknown): string {
-  return errorMessage(err);
-}
-
 /** Default transport factory — real network transports. Overridable for tests. */
 export function buildTransport(p: McpConnParams): Transport {
   const url = new URL(p.url);
@@ -208,7 +204,7 @@ export class McpUpstreamPool {
     try {
       client = await this.getClient(p);
     } catch (err) {
-      return toolResult(`Failed to connect to MCP upstream '${p.name}': ${messageOf(err)}`, { isError: true });
+      return toolResult(`Failed to connect to MCP upstream '${p.name}': ${errorMessage(err)}`, { isError: true });
     }
 
     try {
@@ -226,7 +222,7 @@ export class McpUpstreamPool {
         return { isError: true, cancelled: true, content: [{ type: "text", text: "Tool call cancelled by caller" }] };
       }
       await this.disconnect(p.name);
-      return toolResult(`MCP tool call failed for '${p.name}': ${messageOf(err)}`, { isError: true });
+      return toolResult(`MCP tool call failed for '${p.name}': ${errorMessage(err)}`, { isError: true });
     }
   }
 
