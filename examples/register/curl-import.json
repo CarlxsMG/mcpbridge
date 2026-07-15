@@ -1,0 +1,5 @@
+{
+  "name": "internal-search",
+  "health_url": "https://search.example.com/health",
+  "curl_input": "curl -X GET 'https://search.example.com/v1/query?q=hello' -H 'Authorization: Bearer TOKEN'"
+}

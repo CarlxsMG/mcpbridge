@@ -1,0 +1,5 @@
+{
+  "name": "storefront",
+  "kind": "graphql",
+  "graphql_url": "https://storefront.example.com/graphql"
+}

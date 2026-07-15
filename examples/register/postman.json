@@ -1,0 +1,30 @@
+{
+  "name": "team-api",
+  "health_url": "https://team-api.example.com/health",
+  "postman_collection": {
+    "info": {
+      "name": "Team API",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+      {
+        "name": "Get order",
+        "request": {
+          "method": "GET",
+          "url": "https://team-api.example.com/orders/:id"
+        }
+      },
+      {
+        "name": "Create order",
+        "request": {
+          "method": "POST",
+          "url": "https://team-api.example.com/orders",
+          "body": {
+            "mode": "raw",
+            "raw": "{ \"sku\": \"ABC-1\", \"quantity\": 1 }"
+          }
+        }
+      }
+    ]
+  }
+}

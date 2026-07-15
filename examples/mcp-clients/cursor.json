@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "petstore": {
+      "url": "https://bridge.example.com/mcp/petstore",
+      "headers": {
+        "Authorization": "Bearer <YOUR_MCP_API_KEY>"
+      }
+    }
+  }
+}

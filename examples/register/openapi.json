@@ -1,0 +1,6 @@
+{
+  "name": "petstore",
+  "health_url": "https://petstore3.swagger.io/",
+  "openapi_url": "https://petstore3.swagger.io/api/v3/openapi.json",
+  "include_tags": ["pet"]
+}

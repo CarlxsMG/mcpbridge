@@ -1,0 +1,115 @@
+# gateway.yaml — config-as-code for MCP REST Bridge.
+#
+# Apply it with the bundled CLI (run from the repo root; log in once first):
+#
+#   bun run cli -- login --url http://localhost:3000 --token $ADMIN_API_KEY
+#   bun run cli -- plan  --file examples/gateway.yaml   # preview only (non-zero exit on drift)
+#   bun run cli -- apply --file examples/gateway.yaml   # register servers, then apply config
+#
+# Two independent, hand-authored sections:
+#   servers: — CLI-only. Registered via POST /register (phase 1 of `apply`).
+#             `gateway pull` never derives this section — it only rewrites `config:`.
+#   config:  — the verbatim shape of GET /admin-api/config/export (phase 2 of `apply`).
+#             Normally you `gateway pull` this and then edit it, rather than hand-writing it.
+#
+# See docs/guide/cli.md and docs/guide/registering-backends.md.
+version: 1
+
+servers:
+  # A REST backend, tools auto-discovered from its OpenAPI spec. `include_tags`
+  # keeps only operations tagged "pet", so the discovered tool set is small and
+  # predictable (add_pet, get_pet_by_id, find_pets_by_status, ...). This one is
+  # a real public spec, so it registers as-is.
+  - name: petstore
+    health_url: https://petstore3.swagger.io/
+    openapi_url: https://petstore3.swagger.io/api/v3/openapi.json
+    include_tags:
+      - pet
+
+  # An existing MCP server, re-exposed through the same guard stack. Its tools
+  # are discovered from the upstream at registration time. Placeholder URL —
+  # point it at a real MCP endpoint before applying, or delete this entry.
+  - name: github
+    kind: mcp
+    mcp_url: https://your-mcp-server.example.com/mcp
+    mcp_transport: streamable-http
+
+config:
+  # ── Everything below is the GET /admin-api/config/export document. ──
+  # importConfig only *configures already-registered* clients/tools; it never
+  # creates a backend or a tool. Any client/tool/guardrail whose target doesn't
+  # exist yet is reported as "skipped" by `apply` (never a hard error). Because
+  # `apply` registers `servers:` first, the petstore config below lands on top
+  # of the freshly-registered backend in a single run.
+  version: 1
+  # Informational only (epoch ms). Ignored on import — only `version` is checked.
+  exportedAt: 1720000000000
+
+  # Admin-curated cross-backend tool subsets, served at /mcp-custom/:name.
+  bundles:
+    - name: pet-tools
+      description: Read-only pet lookups from the petstore backend.
+      enabled: true
+      tools:
+        - client: petstore
+          tool: get_pet_by_id
+        - client: petstore
+          tool: find_pets_by_status
+
+  # Webhook alert rules. eventType is one of: circuit_breaker_open,
+  # client_unreachable, error_rate, usage_spike, schema_drift.
+  alertRules:
+    - name: petstore-breaker-open
+      eventType: circuit_breaker_open
+      enabled: true
+      webhookUrl: https://alerts.example.com/hooks/mcpbridge
+      threshold: null
+      minCalls: null
+
+  # Per-client and per-tool configuration. Tool names are the *discovered* names
+  # (OpenAPI operationId, lowercased + snake_cased — e.g. getPetById becomes
+  # get_pet_by_id). If a name here doesn't match a discovered tool, `apply`
+  # skips just that entry and tells you.
+  clients:
+    - name: petstore
+      enabled: true
+      # Client-level circuit-breaker override (every field optional).
+      guards:
+        circuitBreaker:
+          failureThreshold: 5
+          resetTimeoutMs: 30000
+          halfOpenTimeoutMs: 10000
+          windowMs: 60000
+      tools:
+        - name: get_pet_by_id
+          enabled: true
+          # Per-tool rate limit + timeout — enforced at dispatch in proxyToolCall.
+          guards:
+            rateLimitPerMin: 60
+            timeoutMs: 8000
+          # Presentation-only override of the advertised description (no re-registration).
+          override:
+            description: Look up a single pet by its numeric ID.
+        - name: find_pets_by_status
+          enabled: true
+          guards:
+            rateLimitPerMin: 30
+            timeoutMs: 5000
+          override: null
+
+  # Content guardrails per (client, tool): input deny-list + secret gate + response scan.
+  guardrails:
+    - client: petstore
+      tool: get_pet_by_id
+      guardrails:
+        denyPatterns:
+          - ignore previous instructions
+        blockSecrets: true
+        scanResponses: true
+
+  # API consumers (end-user quota + rate-limit tiers). Each value must be a
+  # positive integer or null.
+  consumers:
+    - name: analytics-team
+      monthlyQuota: 100000
+      endUserRateLimitPerMin: 60

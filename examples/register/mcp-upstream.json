@@ -1,0 +1,6 @@
+{
+  "name": "github",
+  "kind": "mcp",
+  "mcp_url": "https://your-mcp-server.example.com/mcp",
+  "mcp_transport": "streamable-http"
+}

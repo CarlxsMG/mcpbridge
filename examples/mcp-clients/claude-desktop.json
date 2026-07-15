@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "petstore": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://bridge.example.com/mcp/petstore",
+        "--header",
+        "Authorization:${AUTH_HEADER}"
+      ],
+      "env": {
+        "AUTH_HEADER": "Bearer <YOUR_MCP_API_KEY>"
+      }
+    }
+  }
+}
