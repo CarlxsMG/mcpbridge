@@ -17,6 +17,7 @@ import { isAdminRole, type AdminRole } from "../security/user-store.js";
 import { getConsumer } from "../admin/entities/consumers.js";
 import { sendError, validationError, notFound, forbidden, bodyOf } from "./http-errors.js";
 import type { ValidationResult } from "./validation.js";
+import { validateExpiresAt } from "./admin-validators.js";
 
 function validateConsumerId(v: unknown): ValidationResult<number | null> {
   if (v === undefined || v === null) return { ok: true, value: null };
@@ -66,14 +67,6 @@ function scopeConfinementError(req: Request, scopes: McpKeyScopes | null): strin
     }
   }
   return null;
-}
-
-function validateExpiresAt(input: unknown): ValidationResult<number | null> {
-  if (input === undefined || input === null) return { ok: true, value: null };
-  if (typeof input !== "number" || !Number.isFinite(input) || input <= 0) {
-    return { ok: false, message: "expiresAt must be a positive epoch-ms number or null" };
-  }
-  return { ok: true, value: input };
 }
 
 function validateLabel(input: unknown): ValidationResult<string> {

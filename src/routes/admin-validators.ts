@@ -458,6 +458,15 @@ export function validateGuardrailsInput(input: unknown): ValidationResult<ToolGu
   return { ok: true, value };
 }
 
+/** expiresAt is optional and, when present, must be a positive epoch-ms number. */
+export function validateExpiresAt(input: unknown): ValidationResult<number | null> {
+  if (input === undefined || input === null) return { ok: true, value: null };
+  if (typeof input !== "number" || !Number.isFinite(input) || input <= 0) {
+    return { ok: false, message: "expiresAt must be a positive epoch-ms number or null" };
+  }
+  return { ok: true, value: input };
+}
+
 /** Per-client guards — currently a circuit-breaker policy only. */
 export function validateClientGuardInput(input: unknown): ValidationResult<ClientGuardConfig | null> {
   if (input === null) return { ok: true, value: null };

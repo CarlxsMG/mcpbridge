@@ -55,7 +55,7 @@ export default tseslint.config(
       "no-console": "off",
       // Best-effort cleanup (closing a transport/session on shutdown or after
       // an error) deliberately swallows failures with `catch {}` throughout
-      // src/transports.ts — the close error is never actionable there.
+      // src/mcp/transports.ts — the close error is never actionable there.
       "no-empty": ["error", { allowEmptyCatch: true }],
       // Prefixing an intentionally-unused parameter/binding with `_` is a
       // common, readable convention (e.g. Express error-handling middleware

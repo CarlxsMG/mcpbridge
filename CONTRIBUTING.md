@@ -20,6 +20,16 @@ bun install
 cd admin-ui && bun install
 ```
 
+### Manual admin-UI verification
+
+To manually walk through the admin UI end-to-end (login → dashboard → guard-edit →
+logout), set:
+
+- `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD` — creates the first admin
+  account on boot. This only takes effect once, when the `admin_users` table is empty.
+- `ALLOW_PRIVATE_IPS=true` — needed to register test clients at loopback addresses,
+  since SSRF protection otherwise correctly blocks them.
+
 Common scripts (run from the repo root unless noted):
 
 | Command           | What it does                                                        |

@@ -23,6 +23,7 @@ import {
 } from "../admin/tool-composition/bundle-install-links.js";
 import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
+import { validateExpiresAt } from "./admin-validators.js";
 
 const BUNDLE_ERROR_STATUS: Record<BundleMutationError["code"], number> = {
   INVALID_NAME: 400,
@@ -39,15 +40,6 @@ const INSTALL_LINK_ERROR_STATUS: Record<InstallLinkMutationError["code"], number
   SECRETS_PROVIDER_ERROR: 502,
   ALREADY_REVOKED: 409,
 };
-
-/** expiresAt is optional and, when present, must be a positive epoch-ms number — same shape as mcp-keys' validateExpiresAt. */
-function validateExpiresAt(input: unknown): ValidationResult<number | null> {
-  if (input === undefined || input === null) return { ok: true, value: null };
-  if (typeof input !== "number" || !Number.isFinite(input) || input <= 0) {
-    return { ok: false, message: "expiresAt must be a positive epoch-ms number or null" };
-  }
-  return { ok: true, value: input };
-}
 
 /** Same maxToolsPerClient cap /register applies to a client's tools[] — a bundle's tools[] is bounded the same way. */
 function validateToolRefs(input: unknown): ValidationResult<BundleToolRef[]> {
