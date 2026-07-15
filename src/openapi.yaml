@@ -2147,7 +2147,12 @@ paths:
                     secondaryBaseUrl: { type: string, example: "http://backup.internal:4000" }
                     mode: { type: string, enum: [canary, failover], default: canary }
                     weight:
-                      { type: number, description: "Fraction (0-1) of traffic routed to the secondary in canary mode." }
+                      {
+                        type: integer,
+                        minimum: 1,
+                        maximum: 100,
+                        description: "Percentage (1-100) of traffic routed to the secondary in canary mode.",
+                      }
                     enabled: { type: boolean, default: true }
                 - type: object
                   properties:
@@ -5412,7 +5417,13 @@ components:
         secondaryBaseUrl: { type: string }
         secondaryResolvedIp: { type: string, description: IP the secondary hostname was pinned to at config time. }
         mode: { type: string, enum: [canary, failover] }
-        weight: { type: number, description: "Fraction (0-1) of traffic routed to the secondary in canary mode." }
+        weight:
+          {
+            type: integer,
+            minimum: 1,
+            maximum: 100,
+            description: "Percentage (1-100) of traffic routed to the secondary in canary mode.",
+          }
         enabled: { type: boolean }
 
     LbUpstream:
