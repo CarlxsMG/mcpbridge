@@ -138,7 +138,9 @@ probe for MCP upstreams). Per-tool circuit breakers (`closed → open → half_o
 failures — including non-2xx HTTP responses, not just thrown exceptions — and must re-check
 `canRequest()` before every retry. An optional canary/failover secondary can take over when a
 primary breaker opens, without falsely closing the primary's breaker. Non-idempotent methods
-(POST/PUT/PATCH) are never retried on failure.
+(POST/PATCH) are never retried on failure; PUT/DELETE are retried only when the client opts in via
+the per-client `retry_non_safe_methods` flag (off by default — see
+`docs/guide/registering-backends.md`).
 
 **Admin auth** (`src/middleware/auth.ts`): `adminAuth` tries a static Bearer key first,
 unconditionally; only falls back to session-cookie auth when no `Authorization` header is present
