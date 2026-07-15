@@ -19,11 +19,11 @@ import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench } from "lucide-v
 const { t } = useI18n({ useScope: "global" });
 
 const WINDOWS = [
-  { label: "24 hours", ms: 24 * 60 * 60_000, i18nKey: "last_24h" },
-  { label: "7 days", ms: 7 * 24 * 60 * 60_000, i18nKey: "last_7d" },
-  { label: "30 days", ms: 30 * 24 * 60 * 60_000, i18nKey: "last_30d" },
+  { ms: 24 * 60 * 60_000, i18nKey: "last_24h" },
+  { ms: 7 * 24 * 60 * 60_000, i18nKey: "last_7d" },
+  { ms: 30 * 24 * 60 * 60_000, i18nKey: "last_30d" },
 ] as const;
-const WINDOW_OPTIONS = WINDOWS.map((w) => ({ value: w.ms, label: t(`common.time_windows.${w.i18nKey}`, w.label) }));
+const WINDOW_OPTIONS = WINDOWS.map((w) => ({ value: w.ms, label: t(`common.time_windows.${w.i18nKey}`) }));
 const windowMs = ref(WINDOWS[1].ms);
 
 function onWindowChange(ms: number) {
@@ -40,16 +40,16 @@ const { loading, errorMessage, run } = useLoadState(tk("pages.usage.errors.load_
 async function load() {
   const from = Date.now() - windowMs.value;
   await run(async () => {
-    const [s, t, k, ts] = await Promise.all([
+    const [summaryRes, toolsRes, byKeyRes, tsRes] = await Promise.all([
       api.get<UsageSummary>(`/admin-api/usage/summary?from=${from}`),
       api.get<{ items: TopToolRow[] }>(`/admin-api/usage/top-tools?from=${from}&limit=20`),
       api.get<{ items: UsageByKeyRow[] }>(`/admin-api/usage/by-key?from=${from}&limit=20`),
       api.get<UsageTimeseries>(`/admin-api/usage/timeseries?from=${from}`),
     ]);
-    summary.value = s;
-    topTools.value = t.items;
-    byKey.value = k.items;
-    timeseries.value = ts;
+    summary.value = summaryRes;
+    topTools.value = toolsRes.items;
+    byKey.value = byKeyRes.items;
+    timeseries.value = tsRes;
   });
 }
 
