@@ -22,6 +22,10 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      serviceAccountName: {{ include "mcp-rest-bridge.serviceAccountName" . }}
+      # Pod-level override wins over the ServiceAccount setting — the app never
+      # calls the Kubernetes API, so don't mount its token.
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:

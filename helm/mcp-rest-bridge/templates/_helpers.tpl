@@ -57,3 +57,15 @@ either an existing operator-managed claim, or the one this chart creates.
 {{- define "mcp-rest-bridge.pvcName" -}}
 {{- .Values.persistence.existingClaim | default (printf "%s-data" (include "mcp-rest-bridge.fullname" .)) -}}
 {{- end -}}
+
+{{/*
+Name of the ServiceAccount the Deployment should run as — the chart-created
+one, an explicitly named one, or "default" when creation is disabled.
+*/}}
+{{- define "mcp-rest-bridge.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{- default (include "mcp-rest-bridge.fullname" .) .Values.serviceAccount.name -}}
+{{- else -}}
+{{- default "default" .Values.serviceAccount.name -}}
+{{- end -}}
+{{- end -}}

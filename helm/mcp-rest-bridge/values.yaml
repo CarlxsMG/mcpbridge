@@ -24,6 +24,18 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+# A dedicated ServiceAccount is created by default with token auto-mount
+# DISABLED: this app only serves HTTP and never calls the Kubernetes API, so a
+# mounted SA token is pure attack surface. Flip `automount: true` only if you
+# add a sidecar/feature that genuinely needs cluster-API access.
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  # Leave empty to use the chart's fullname; set to reuse an existing account
+  # (paired with create: false).
+  name: ""
+
 service:
   type: ClusterIP
   port: 80
