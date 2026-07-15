@@ -10,6 +10,20 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
+    # Match the repo's enforced Conventional Commits convention (commitlint +
+    # the commit-msg lefthook hook) — Dependabot's default "Bump x from y to z"
+    # titles would otherwise fail the commit-message check.
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(dev-deps)"
+    # Collapse the weekly dev-dependency minor/patch churn into a single PR
+    # instead of one per package.
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
     # Load-bearing version pins (see CLAUDE.md). Each of these breaks the build
     # or tests when bumped, so Dependabot must not keep re-opening PRs for them —
     # they move only behind a deliberate, tested upgrade, never a routine sweep.
@@ -37,6 +51,15 @@ updates:
     labels:
       - "dependencies"
       - "admin-ui"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(dev-deps)"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
       # Same as root: the TypeScript 7.x major is high-risk under vue-tsc; take
       # it deliberately, not on a bot PR (minors/patches still flow).
@@ -54,6 +77,15 @@ updates:
     labels:
       - "dependencies"
       - "docs"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(dev-deps)"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
 
   # GitHub Actions workflow files themselves.
   - package-ecosystem: "github-actions"
@@ -64,6 +96,13 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+    commit-message:
+      prefix: "ci(deps)"
+    # One PR per week for all action bumps rather than one per action.
+    groups:
+      actions:
+        patterns:
+          - "*"
 
   # Dockerfile base image (oven/bun:*-alpine, digest-pinned) so base-image CVEs
   # get proposed as digest bumps.
@@ -75,3 +114,5 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    commit-message:
+      prefix: "chore(deps)"
