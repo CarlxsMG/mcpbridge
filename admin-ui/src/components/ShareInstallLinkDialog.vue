@@ -7,6 +7,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ModalShell from "@/components/ui/ModalShell.vue";
 import CopyButton from "@/components/ui/CopyButton.vue";
 import SecretReveal from "@/components/ui/SecretReveal.vue";
+import SignalLoader from "@/components/ui/SignalLoader.vue";
 import { formatDateTime, formatMaybeDate } from "@/utils/format";
 import { toErrorMessage } from "@/utils/errors";
 import { bundlePath } from "@/utils/apiPaths";
@@ -137,7 +138,7 @@ function statusOf(link: BundleInstallLink): string {
 
     <h3>{{ t("components.share_install_link.existing_heading") }}</h3>
     <p v-if="listError" class="row-error" role="alert">{{ listError }}</p>
-    <p v-else-if="loading" class="hint">{{ t("common.loading") }}</p>
+    <SignalLoader v-else-if="loading" :label="t('common.loading')" />
     <p v-else-if="links.length === 0" class="hint">{{ t("components.share_install_link.empty") }}</p>
     <div v-else class="table-wrap">
       <table class="links-table">

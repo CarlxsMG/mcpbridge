@@ -30,7 +30,7 @@ const { t } = useI18n({ useScope: "global" });
   gap: var(--space-1-5);
   padding: var(--space-1-5) var(--space-3);
   background: var(--ink);
-  color: #fff;
+  color: var(--text-on-dark-strong);
   border: 1px solid var(--signal);
   border-radius: var(--radius-pill);
   font-size: var(--text-sm);

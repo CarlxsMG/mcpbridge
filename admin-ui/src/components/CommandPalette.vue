@@ -292,7 +292,7 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
 }
 .cmd-trigger:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: #3a4152;
+  border-color: var(--ink-border-hover);
 }
 .cmd-trigger span {
   flex: 1;

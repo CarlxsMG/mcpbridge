@@ -299,7 +299,7 @@ onBeforeUnmount(close);
 /* Unscoped: the listbox is teleported to <body>, outside this component's
    scoped-attribute tree, so a `scoped` block here would never match it. */
 .select-menu-listbox {
-  z-index: var(--z-command-palette);
+  z-index: var(--z-popover);
   margin: 0;
   padding: 0.25rem;
   list-style: none;

@@ -120,7 +120,7 @@ async function onLogout() {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: var(--text-md);
-  color: #fff;
+  color: var(--text-on-dark-strong);
   margin-bottom: var(--space-4);
   padding: 0 var(--space-1-5);
 }
@@ -185,8 +185,8 @@ async function onLogout() {
   color: var(--text-on-dark);
 }
 .sidebar :deep(a.router-link-active) {
-  background: rgba(0, 169, 154, 0.12);
-  color: #fff;
+  background: var(--signal-translucent);
+  color: var(--text-on-dark-strong);
   border-left-color: var(--signal);
 }
 .sidebar :deep(a.router-link-active svg) {

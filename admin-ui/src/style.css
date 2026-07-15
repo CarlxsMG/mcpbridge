@@ -7,6 +7,7 @@
   --ink: #0e1116;
   --ink-raised: #171b24;
   --ink-border: #262c3a;
+  --ink-border-hover: #3a4152; /* lifted border for hover/focus on the always-dark ink surfaces */
 
   /* Paper: warm off-white, not clinical #fff. */
   --paper: #fafaf8;
@@ -18,6 +19,7 @@
   --signal: #00a99a;
   --signal-strong: #00877b;
   --signal-soft: #e1f5f2;
+  --signal-translucent: rgba(0, 169, 154, 0.12); /* --signal at low alpha — active tint on dark surfaces */
 
   /* Solid-fill button background (.btn-primary) + its hover shade.
      Deliberately separate from --signal-strong and NOT re-themed in the
@@ -67,6 +69,7 @@
   --text-muted: #636b7a;
   --text-on-dark: #e6e8eb;
   --text-on-dark-muted: #8d94a3;
+  --text-on-dark-strong: #ffffff; /* full-white emphasis (active nav, headings) on the always-dark surfaces */
 
   --border: #e2e5ea;
   --border-strong: #cbd0d8;
@@ -149,6 +152,7 @@
   --z-mobile-backdrop: 150; /* mobile nav backdrop */
   --z-mobile-nav: 200; /* mobile sidebar panel */
   --z-banner: 250; /* persistent fixed banners (e.g. demo-mode ribbon) */
+  --z-popover: 290; /* dropdown/listbox panels — above every dialog/banner, below the command palette */
   --z-command-palette: 300; /* always reachable above everything else */
 }
 
