@@ -60,8 +60,9 @@ const rendererProps = computed(() =>
       <button
         type="button"
         class="w-btn w-grip"
+        tabindex="-1"
+        aria-hidden="true"
         :title="t('components.widget_frame.drag_to_move')"
-        :aria-label="t('components.widget_frame.drag_to_move')"
         @pointerdown="emit('pointerdown-drag', $event)"
       >
         <GripVertical :size="14" stroke-width="2" aria-hidden="true" />
@@ -110,8 +111,9 @@ const rendererProps = computed(() =>
       v-if="editing"
       type="button"
       class="w-resize"
+      tabindex="-1"
+      aria-hidden="true"
       :title="t('components.widget_frame.resize')"
-      :aria-label="t('components.widget_frame.resize_aria')"
       @pointerdown="emit('pointerdown-resize', $event)"
     />
   </div>

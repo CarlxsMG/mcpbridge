@@ -126,11 +126,13 @@ then consolidated into a clean scale.
    (e.g. clear-guards) still renders on top of the drawer on every viewport. */
 --z-drawer: 130; /* ServerDetailPage guard-editor drawer overlay */
 --z-drawer-top: 131; /* the drawer panel itself, sibling of its overlay */
+--z-tooltip: 135; /* HoverPreview panel — above drawer content, below ConfirmDialog */
 --z-overlay: 140; /* ConfirmDialog — blocks the whole page */
 --z-mobile-topbar: 120; /* sticky mobile header */
 --z-mobile-backdrop: 150; /* mobile nav backdrop */
 --z-mobile-nav: 200; /* mobile sidebar panel */
 --z-banner: 250; /* persistent fixed banners (e.g. demo-mode ribbon) */
+--z-popover: 290; /* dropdown/listbox panels — above every dialog/banner, below the command palette */
 --z-command-palette: 300; /* always reachable above everything else */
 ```
 
