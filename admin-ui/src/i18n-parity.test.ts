@@ -12,9 +12,10 @@
 // Strategy: enumerate every `t("…")` literal call across the source
 // (excluding tests, demo helpers, and documentation comments), then
 // assert each key resolves to a non-empty string in BOTH en.json AND
-// es.json. The audit script (scripts/audit-missing-translations.py)
-// is the manual-side counterpart — this test enforces the same
-// invariant automatically.
+// es.json. The `lint:i18n` gate (admin-ui/scripts/check-i18n.mjs) enforces
+// the same source→bundle invariant (plus parity + orphan detection) across
+// both t() and tk() calls; this vitest counterpart additionally smoke-tests
+// that the resolved values compile to non-empty strings.
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -185,14 +186,14 @@ describe("i18n key parity — no raw keys on the page", () => {
       const sample = [...missingEn].slice(0, 5);
       throw new Error(
         `${missingEn.size} t() keys missing in en.json. Sample: ${sample.join(", ")}. ` +
-          `Run scripts/audit-missing-translations.py to enumerate.`,
+          `Run bun run lint:i18n in admin-ui/ to enumerate.`,
       );
     }
     if (missingEs.size > 0) {
       const sample = [...missingEs].slice(0, 5);
       throw new Error(
         `${missingEs.size} t() keys missing in es.json. Sample: ${sample.join(", ")}. ` +
-          `Run scripts/audit-missing-translations.py to enumerate.`,
+          `Run bun run lint:i18n in admin-ui/ to enumerate.`,
       );
     }
   });

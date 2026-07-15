@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Validates the two admin-ui locale bundles two ways:
+// Validates the two admin-ui locale bundles three ways:
 //
 //   1. Parity — every key present in en.json is also present in es.json (and
 //      vice-versa for sanity), so a missing translation gets caught at CI
@@ -11,6 +11,14 @@
 //      they're always added/removed from both locale files together, the
 //      parity check alone can never catch them — they stay "in parity"
 //      forever while being dead weight to translate and maintain.
+//
+//   3. Source → bundle — every key passed as a *literal* to t()/tk() in the
+//      source actually exists in the bundles. Parity (1) only compares the two
+//      bundles to each other, so a key referenced in code but present in
+//      NEITHER bundle slips through both (1) and (2); vue-i18n then renders the
+//      raw key string ("pages.foo.bar") on the page. This is the check the
+//      retired Python i18n-audit workflow used to own, folded back in here so
+//      the whole invariant lives in one Bun/TS gate.
 //
 // Future languages: extend this script to load each locale under
 // `src/locales/*.json` and assert parity + orphan-freedom against en.json.
@@ -146,11 +154,16 @@ function demoDetailKey(domain, recordId, detailField, field) {
 
 function collectReferences() {
   const referenced = new Set();
+  // Keys passed as a plain string literal to t()/tk() — the subset that can be
+  // checked in the source→bundle direction (a composed/dynamic key can't be
+  // matched against the bundle as an exact string).
+  const literalReferenced = new Set();
   const dynamicPatterns = [];
 
-  function addKey(key) {
+  function addKey(key, literal = false) {
     if (placeholderRe.test(key)) return;
     referenced.add(key);
+    if (literal) literalReferenced.add(key);
   }
 
   const files = walkSourceFiles(SRC_DIR);
@@ -160,8 +173,8 @@ function collectReferences() {
     for (const line of text.split("\n")) {
       if (commentRe.test(line)) continue;
 
-      for (const m of line.matchAll(tCallRe)) addKey(m[1]);
-      for (const m of line.matchAll(castCallRe)) addKey(m[1]);
+      for (const m of line.matchAll(tCallRe)) addKey(m[1], true);
+      for (const m of line.matchAll(castCallRe)) addKey(m[1], true);
 
       for (const m of line.matchAll(navKeyCallRe)) {
         const [fn, arg] = [m[1], m[2]];
@@ -195,7 +208,7 @@ function collectReferences() {
     }
   }
 
-  return { referenced, dynamicPatterns, rawText: fileTexts.join("\n") };
+  return { referenced, literalReferenced, dynamicPatterns, rawText: fileTexts.join("\n") };
 }
 
 function findOrphans(localeKeys, { referenced, dynamicPatterns, rawText }) {
@@ -258,7 +271,28 @@ function run() {
     console.log(`i18n orphan check OK: 0 unreferenced keys out of ${enKeys.length}`);
   }
 
-  process.exit(parityOk && orphansOk ? 0 : 1);
+  // Source → bundle: a literal t()/tk() key present in NEITHER bundle is a
+  // runtime bug that parity (bundle↔bundle) and orphans (bundle→source) both
+  // miss (see the header). enKeys and esKeys are already asserted equal by the
+  // parity check above, so checking en covers both.
+  const enKeySet = new Set(enKeys);
+  const missingFromBundle = [...refs.literalReferenced].filter((k) => !enKeySet.has(k)).sort();
+  const sourceOk = missingFromBundle.length === 0;
+
+  if (!sourceOk) {
+    console.error(`\ni18n source→bundle check FAILED`);
+    console.error(
+      `\n  ${missingFromBundle.length} literal t()/tk() key(s) referenced in source but absent from en.json/es.json:`,
+    );
+    for (const k of missingFromBundle) console.error(`    - ${k}`);
+    console.error(
+      `\n  vue-i18n renders these as the raw key string at runtime — add them to both bundles (or fix the typo).`,
+    );
+  } else {
+    console.log(`i18n source→bundle check OK: every literal t()/tk() key resolves`);
+  }
+
+  process.exit(parityOk && orphansOk && sourceOk ? 0 : 1);
 }
 
 run();
