@@ -39,6 +39,7 @@ import {
 import * as loadBalancer from "../../tool-policies/load-balancer.js";
 import { setCanary } from "../../tool-policies/canary.js";
 import { setUpstreamAuth } from "../../backend-auth/upstream-auth.js";
+import * as upstreamAuth from "../../backend-auth/upstream-auth.js";
 import { setClientOAuth, __setOAuthDepsForTesting, __resetOAuthForTesting } from "../../backend-auth/oauth.js";
 
 const CLIENT = "mutc9pin";
@@ -817,6 +818,51 @@ describe("per-client upstream auth headers are spread onto the outbound request 
 // ---------------------------------------------------------------------------
 // Outbound OAuth2 client-credentials bearer injection (L879)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Regression: a throw during credential resolution (between trackRequest/
+// incInflight and buildRestRequest's return) must still release the LB
+// in-flight counter and the reqController tracking entry — not leak them.
+// See dispatch-rest.ts's buildRestRequest try/catch around the upstream-auth
+// header lookup + OAuth bearer mint.
+// ---------------------------------------------------------------------------
+
+describe("a throw during credential resolution still releases in-flight tracking", () => {
+  const NAME = `${CLIENT}-cred-throw`;
+
+  test("getUpstreamAuthHeaders throwing propagates the error AND pairs incInflight with decInflight", async () => {
+    await reg(NAME);
+    await addUpstream(NAME, "http://5.6.7.12", 1);
+    setLb(NAME, { strategy: "round-robin", primaryWeight: 1, enabled: true });
+
+    const incSpy = spyOn(loadBalancer, "incInflight");
+    const decSpy = spyOn(loadBalancer, "decInflight");
+    const authSpy = spyOn(upstreamAuth, "getUpstreamAuthHeaders").mockImplementation(() => {
+      throw new Error("boom-credential-resolution");
+    });
+    try {
+      // Before the fix, this throw happened between trackRequest/incInflight
+      // (inside buildRestRequest) and dispatchRestToolCall's try/finally
+      // (which only starts after buildRestRequest returns) — leaking the LB
+      // in-flight counter and the inflightControllers entry forever.
+      await expect(proxyToolCall(`${NAME}__get-item`, {})).rejects.toThrow(/boom-credential-resolution/);
+
+      expect(incSpy).toHaveBeenCalledTimes(1);
+      expect(decSpy).toHaveBeenCalledTimes(1);
+      expect(incSpy.mock.calls[0]?.[0]).toBe(decSpy.mock.calls[0]?.[0]);
+    } finally {
+      authSpy.mockRestore();
+      incSpy.mockRestore();
+      decSpy.mockRestore();
+    }
+
+    // A follow-up call (auth resolution no longer throwing) must succeed
+    // normally, proving no leaked in-flight/tracking state wedged the client.
+    globalThis.fetch = okFetch();
+    const r = await proxyToolCall(`${NAME}__get-item`, {});
+    expect(r.isError).toBeUndefined();
+  });
+});
 
 describe("outbound OAuth2 bearer injection (L879)", () => {
   test("a minted OAuth token is injected as Authorization: Bearer", async () => {

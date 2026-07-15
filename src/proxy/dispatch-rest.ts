@@ -337,45 +337,59 @@ async function buildRestRequest(
   const reqController = trackRequest(client.name);
   if (lbKey) incInflight(lbKey);
 
-  if (method === "GET" || method === "DELETE") {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(remainingArgs)) {
-      params.append(key, String(value));
+  // Everything from here to the return below runs after trackRequest/incInflight
+  // have already registered this request, but before dispatchRestToolCall's own
+  // try/finally (which owns the paired untrackRequest/decInflight) starts — that
+  // try only wraps the *result* of this function, not its construction. A throw
+  // in this window (e.g. getUpstreamAuthHeaders/getOAuthBearer hitting an
+  // unguarded DB query) would otherwise leak the inflightControllers entry and
+  // the LB in-flight counter forever. Release locally and rethrow so the error
+  // still propagates exactly as before.
+  try {
+    if (method === "GET" || method === "DELETE") {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(remainingArgs)) {
+        params.append(key, String(value));
+      }
+      const queryString = params.toString();
+      if (queryString) {
+        url = `${url}?${queryString}`;
+      }
+    } else if (graphqlCfg?.enabled) {
+      body = JSON.stringify({ query: graphqlCfg.query, variables: remainingArgs });
+    } else {
+      body = JSON.stringify(remainingArgs);
     }
-    const queryString = params.toString();
-    if (queryString) {
-      url = `${url}?${queryString}`;
-    }
-  } else if (graphqlCfg?.enabled) {
-    body = JSON.stringify({ query: graphqlCfg.query, variables: remainingArgs });
-  } else {
-    body = JSON.stringify(remainingArgs);
+
+    // Inject per-client upstream credentials (decrypted at call time). Spread
+    // first so the pinned Host and Content-Type set below always take precedence.
+    const upstreamAuthHeaders: Record<string, string> = { ...(getUpstreamAuthHeaders(client.name) ?? {}) };
+    // Outbound OAuth2 client-credentials — mint/reuse a short-lived token and inject
+    // it as a Bearer (the MCP caller never sees the real client secret).
+    const oauthBearer = await getOAuthBearer(client.name);
+    if (oauthBearer) upstreamAuthHeaders.Authorization = `Bearer ${oauthBearer}`;
+
+    // Response redaction paths for this tool (applied to JSON responses below).
+    const redactionPaths = getRedactionPaths(client.name, tool.name);
+    return {
+      remainingArgs,
+      resolvedPath,
+      transformCfg,
+      targetBaseUrl,
+      originalHost,
+      pinnedFetch,
+      url,
+      method,
+      body,
+      upstreamAuthHeaders,
+      redactionPaths,
+      reqController,
+    };
+  } catch (err) {
+    untrackRequest(client.name, reqController);
+    if (lbKey) decInflight(lbKey);
+    throw err;
   }
-
-  // Inject per-client upstream credentials (decrypted at call time). Spread
-  // first so the pinned Host and Content-Type set below always take precedence.
-  const upstreamAuthHeaders: Record<string, string> = { ...(getUpstreamAuthHeaders(client.name) ?? {}) };
-  // Outbound OAuth2 client-credentials — mint/reuse a short-lived token and inject
-  // it as a Bearer (the MCP caller never sees the real client secret).
-  const oauthBearer = await getOAuthBearer(client.name);
-  if (oauthBearer) upstreamAuthHeaders.Authorization = `Bearer ${oauthBearer}`;
-
-  // Response redaction paths for this tool (applied to JSON responses below).
-  const redactionPaths = getRedactionPaths(client.name, tool.name);
-  return {
-    remainingArgs,
-    resolvedPath,
-    transformCfg,
-    targetBaseUrl,
-    originalHost,
-    pinnedFetch,
-    url,
-    method,
-    body,
-    upstreamAuthHeaders,
-    redactionPaths,
-    reqController,
-  };
 }
 
 /**
