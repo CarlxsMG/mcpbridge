@@ -18,3 +18,15 @@ commit-msg:
   jobs:
     - name: commitlint
       run: bunx commitlint --edit {1}
+
+# Typecheck before a push — the cheapest CI gate to run locally (both are plain
+# `tsc --noEmit`), so a type error is caught before the PR round-trip instead of
+# after. Kept off pre-commit deliberately: typecheck is too slow to run on every
+# single commit, but fine once per push. (admin-ui's vue-tsc is left to CI.)
+pre-push:
+  parallel: true
+  jobs:
+    - name: typecheck (root)
+      run: bun run typecheck
+    - name: typecheck (tools)
+      run: bun run typecheck:tools
