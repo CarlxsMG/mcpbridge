@@ -325,7 +325,7 @@ async function resetBreaker() {
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 18, 22, 0.45);
+  background: var(--overlay-backdrop);
   z-index: var(--z-drawer);
 }
 .drawer {
@@ -372,7 +372,7 @@ async function resetBreaker() {
 .test-result {
   margin-top: 1rem;
   padding: 0.75rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .test-ok {
   background: var(--ok-soft);
@@ -411,7 +411,7 @@ async function resetBreaker() {
   align-items: center;
   gap: 0.2rem;
   background: var(--surface-sunken);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 0.1rem 0.5rem;
 }
 .ex-chip .del {
@@ -432,7 +432,7 @@ async function resetBreaker() {
 .save-ex input {
   padding: 0.4rem 0.55rem;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.85rem;
 }
 .resync-body {
@@ -447,7 +447,7 @@ async function resetBreaker() {
   flex: 1;
   padding: 0.4rem 0.55rem;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .diff {
   margin-top: 0.75rem;
@@ -470,7 +470,7 @@ async function resetBreaker() {
   padding: 0.05rem 0.45rem;
   background: var(--signal-soft);
   color: var(--signal-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.72rem;
   vertical-align: middle;
 }

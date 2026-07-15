@@ -140,7 +140,7 @@ onUnmounted(() => {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(14, 17, 22, 0.45);
+    background: var(--overlay-backdrop);
     z-index: var(--z-mobile-backdrop);
   }
   .content {

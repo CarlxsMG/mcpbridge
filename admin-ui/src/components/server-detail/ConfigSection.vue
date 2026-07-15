@@ -28,7 +28,7 @@ defineProps<{ title: string }>();
   margin: 0 0 1.75rem;
   padding: 1rem 1.25rem;
   background: var(--surface-sunken);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .ua-head {
   display: flex;
@@ -67,7 +67,7 @@ defineProps<{ title: string }>();
 .ua-form select {
   padding: 0.4rem 0.55rem;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-weight: 400;
 }
 .link-btn.danger {
