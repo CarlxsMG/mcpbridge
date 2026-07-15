@@ -3,7 +3,8 @@
 # Uses the built-in GITHUB_TOKEN (no extra secrets needed) since the image is
 # published under this same repo/org. The published image is multi-arch
 # (amd64 + arm64), ships an SBOM + build provenance attestation, is signed with
-# cosign (keyless/OIDC), and is scanned by Trivy with results in the Security tab.
+# cosign (keyless/OIDC), and is gated by a Trivy scan BEFORE publish — a fixable
+# CRITICAL/HIGH CVE fails the release, and the SARIF still lands in the Security tab.
 name: Docker Publish (GHCR)
 
 on:
@@ -28,6 +29,10 @@ concurrency:
 
 jobs:
   build-and-push:
+    # Only ever publish from a release tag. A manual workflow_dispatch must be
+    # run against a vX.Y.Z tag ref — never a feature branch, which would push a
+    # branch-named image to GHCR. Mirrors release-binaries.yml's tag guard.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -78,6 +83,39 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
+      # Build the amd64 image into the local daemon FIRST so Trivy can gate on
+      # it before anything is published. The multi-arch push below reuses these
+      # cached layers (cache-to gha), so the second build is fast.
+      - name: Build image for scanning (amd64, local)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          platforms: linux/amd64
+          tags: mcp-rest-bridge:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Gate the publish: a fixable CRITICAL/HIGH CVE fails the run here, BEFORE
+      # the push below. The SARIF is written before the non-zero exit, and the
+      # upload step's `if: always()` still records it in the Security tab.
+      - name: Scan image with Trivy (gates the publish)
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
+        with:
+          image-ref: mcp-rest-bridge:scan
+          format: sarif
+          output: trivy-results.sarif
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Upload Trivy results to the Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3
+        with:
+          sarif_file: trivy-results.sarif
+
       - name: Build and push image
         id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
@@ -103,21 +141,6 @@ jobs:
           DIGEST: ${{ steps.build.outputs.digest }}
           IMAGE: ${{ steps.image.outputs.name }}
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
-
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
-        with:
-          image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
-          format: sarif
-          output: trivy-results.sarif
-          ignore-unfixed: true
-          severity: CRITICAL,HIGH
-
-      - name: Upload Trivy results to the Security tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3
-        with:
-          sarif_file: trivy-results.sarif
 
       - name: Job summary
         run: |

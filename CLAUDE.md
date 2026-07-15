@@ -45,10 +45,12 @@ cd admin-ui && bun run dev           # admin UI dev server (vite)
 bun run dev:all                      # both together (scripts/dev-all.ts)
 bun run cli -- <command>             # the bundled config-as-code CLI (src/cli)
 
-bun run check                        # everything CI checks, in one shot (scripts/check-all.ts):
+bun run check                        # everything CI's `test` job checks, in one shot (scripts/check-all.ts):
                                       # format:check → lint (root) → lint (admin-ui) → i18n parity (admin-ui)
                                       # → typecheck (root) → typecheck:tools (root) → test (root)
                                       # → typecheck (admin-ui) → test:coverage (admin-ui) → build (admin-ui)
+                                      # (CI ALSO gates docs-build, docker-build, helm-lint, and a Windows
+                                      #  test leg on every push/PR — those are not part of `bun run check`)
 
 bun run format:check && bun run lint # prettier --check + eslint, root only
 tsc --noEmit                         # backend type-check
