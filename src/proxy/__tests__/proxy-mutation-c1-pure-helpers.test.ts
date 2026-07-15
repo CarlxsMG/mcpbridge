@@ -149,8 +149,44 @@ describe("Ajv singleton options", () => {
 // ---------------------------------------------------------------------------
 
 describe("getOrCompile validator cache", () => {
-  test("compiled validator is cached per client+tool key and reused after re-registration with a looser schema (kills L94 cache-bypass mutant)", async () => {
+  // Regression coverage for the P1 fix: registry.register()/registerMcp()/
+  // teardownLiveClient() now call invalidateCompiledSchemasForClient() (see
+  // schema-validator.ts) at every point they already bust invalidatePinnedIp/
+  // removeCircuitBreaker/clearLbState/purgeClientCache, so a re-registration
+  // under the same client+tool key always recompiles against the CURRENT
+  // schema instead of serving a stale cached validator.
+
+  test("re-registration with a STRICTER schema is enforced immediately — the security-relevant direction (an admin tightening a schema to close off a dangerous value must not leave the old permissive validator live)", async () => {
     const TOOL_NAME = "cache-poison-tool";
+    const looseSchema = { type: "object", properties: {} };
+    const strictSchema = { type: "object", properties: { a: { type: "string" } }, required: ["a"] };
+
+    await reg([makeTool({ name: TOOL_NAME, method: "POST", endpoint: "/cache", inputSchema: looseSchema })]);
+    let fetchCalls = 0;
+    globalThis.fetch = (async () => {
+      fetchCalls++;
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+
+    const first = await proxyToolCall(`${CLIENT}__${TOOL_NAME}`, {});
+    expect(first.isError).toBeUndefined(); // loose schema allows the empty call through — compiles + caches it
+    expect(fetchCalls).toBe(1);
+
+    // Re-register the SAME client+tool name with a schema that now requires 'a'.
+    await registry.unregister(CLIENT);
+    await reg([makeTool({ name: TOOL_NAME, method: "POST", endpoint: "/cache", inputSchema: strictSchema })]);
+
+    // With the cache correctly invalidated on teardown/re-registration, this
+    // call is validated against the CURRENT strict schema and rejected —
+    // proving the stale, more-permissive validator is no longer reachable.
+    const second = await proxyToolCall(`${CLIENT}__${TOOL_NAME}`, {});
+    expect(second.isError).toBe(true);
+    expect(second.content[0].text).toContain("Argument validation failed");
+    expect(fetchCalls).toBe(1); // still 1 — the second call never reached fetch
+  });
+
+  test("re-registration with a LOOSER schema is also picked up immediately (cache invalidation is unconditional, not direction-specific)", async () => {
+    const TOOL_NAME = "cache-poison-tool-loosen";
     const strictSchema = { type: "object", properties: { a: { type: "string" } }, required: ["a"] };
     const looseSchema = { type: "object", properties: {} };
 
@@ -165,19 +201,12 @@ describe("getOrCompile validator cache", () => {
     expect(first.isError).toBe(true); // missing required 'a' — compiles + caches the strict validator
     expect(fetchCalls).toBe(0);
 
-    // Re-register the SAME client+tool name with a schema that no longer requires 'a'.
     await registry.unregister(CLIENT);
     await reg([makeTool({ name: TOOL_NAME, method: "POST", endpoint: "/cache", inputSchema: looseSchema })]);
 
-    // Real code: getOrCompile's cache HIT on "mutC1helpers::cache-poison-tool"
-    // returns the already-compiled STRICT validator, so this still fails —
-    // even though the currently-registered schema no longer requires 'a'.
-    // A mutant that always recompiles would pick up the loose schema instead
-    // and let this call through.
     const second = await proxyToolCall(`${CLIENT}__${TOOL_NAME}`, {});
-    expect(second.isError).toBe(true);
-    expect(second.content[0].text).toContain("Argument validation failed");
-    expect(fetchCalls).toBe(0);
+    expect(second.isError).toBeUndefined();
+    expect(fetchCalls).toBe(1);
   });
 });
 

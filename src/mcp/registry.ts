@@ -11,6 +11,7 @@ import type {
 } from "./types.js";
 import { sanitizeToolDescription } from "../content-filtering/sanitize.js";
 import { abortClientRequests, invalidatePinnedIp } from "../proxy/proxy.js";
+import { invalidateCompiledSchemasForClient } from "../proxy/schema-validator.js";
 import { removeCircuitBreaker } from "../middleware/circuit-breaker.js";
 import { clearLbState } from "../tool-policies/load-balancer.js";
 import { notifyToolsChanged } from "./mcp-server.js";
@@ -347,6 +348,10 @@ class Registry {
         // drop the stale pinned IP so the new resolved_ip below is what gets used
         // (this path does not go through teardownLiveClient).
         invalidatePinnedIp(name);
+        // Drop compiled Ajv validators too — a re-registration may carry a
+        // tightened/loosened inputSchema for a tool name that stays the same,
+        // and getOrCompile's cache is keyed only by clientName::toolName.
+        invalidateCompiledSchemasForClient(name);
       }
 
       const persisted = this.persistence.persistRestRegistration(
@@ -427,6 +432,9 @@ class Registry {
         for (const tool of existing.tools) {
           this.toolIndex.deleteTool(name, tool.name);
         }
+        // Same reasoning as register(): a re-discovery may carry a
+        // tightened/loosened inputSchema for a tool name that stays the same.
+        invalidateCompiledSchemasForClient(name);
       }
 
       const persisted = this.persistence.persistMcpRegistration(
@@ -485,6 +493,12 @@ class Registry {
       // 1a. Forget the pinned-IP cache entry so a later re-registration under the
       // same name re-seeds from its fresh resolved_ip instead of the old pin.
       invalidatePinnedIp(name);
+
+      // 1c. Drop compiled Ajv validators for this client's tools — otherwise
+      // they'd linger in the module-level cache indefinitely across
+      // client/tool churn, and a same-named re-registration later would
+      // still risk hitting a stale entry if any tool name is reused.
+      invalidateCompiledSchemasForClient(name);
 
       // 1b. Close any outbound MCP upstream connection (no-op for REST clients).
       void mcpUpstream.disconnect(name);

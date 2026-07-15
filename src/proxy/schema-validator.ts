@@ -36,3 +36,19 @@ export function getOrCompile(
   }
   return validate;
 }
+
+/**
+ * Drops every compiled validator for a client (all its tools). Must be called
+ * whenever a client's live tool set changes out from under a stable key —
+ * re-registration (schema may have been tightened/loosened) and teardown —
+ * mirroring invalidatePinnedIp/removeCircuitBreaker/clearLbState/
+ * purgeClientCache, which registry.ts already calls at those same points.
+ * Without this, getOrCompile's cache hit on the unchanged `${clientName}::${toolName}`
+ * key silently keeps enforcing a stale schema until process restart.
+ */
+export function invalidateCompiledSchemasForClient(clientName: string): void {
+  const prefix = `${clientName}::`;
+  for (const key of validatorCache.keys()) {
+    if (key.startsWith(prefix)) validatorCache.delete(key);
+  }
+}
