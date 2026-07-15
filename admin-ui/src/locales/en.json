@@ -1018,6 +1018,9 @@
     },
     "bundles": {
       "title": "Bundles",
+      "errors": {
+        "load_failed": "Failed to load bundles."
+      },
       "create": "Create bundle",
       "subtitle": "Cross-client tool selections, each served at its own /mcp-custom/{name} endpoint.",
       "table": {
@@ -1514,6 +1517,11 @@
         "tools": "Tools",
         "settings": "Settings"
       },
+      "errors": {
+        "load_failed": "Failed to load server.",
+        "toggle_failed": "Failed to update.",
+        "reset_breaker_failed": "Failed to reset the circuit breaker."
+      },
       "not_connected": "Server is not currently connected.",
       "resetting": "Resetting…",
       "reset_breaker": "Reset circuit breaker",
@@ -1899,7 +1907,10 @@
       "empty": "No users yet.",
       "errors": {
         "load_failed": "Failed to load users.",
-        "delete_failed": "Failed to delete user."
+        "delete_failed": "Failed to delete user.",
+        "teams_load_failed": "Failed to load teams.",
+        "update_role_failed": "Failed to update role.",
+        "assign_team_failed": "Failed to assign team."
       },
       "new": {
         "title": "Add user",
@@ -2006,7 +2017,8 @@
         "status_ok": "OK"
       },
       "errors": {
-        "load_failed": "Failed to load traffic."
+        "load_failed": "Failed to load traffic.",
+        "replay_failed": "Failed to replay the call."
       },
       "subtitle_p1": "Every tool call that hits this admin gateway lands here — both successful and failed.",
       "subtitle_p2": "Filter by client or tool, drill into a record to see the exact request/response, or replay it against the current upstream.",

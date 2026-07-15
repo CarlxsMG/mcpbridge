@@ -1018,6 +1018,9 @@
     },
     "bundles": {
       "title": "Bundles",
+      "errors": {
+        "load_failed": "Error al cargar los bundles."
+      },
       "create": "Crear bundle",
       "subtitle": "Selecciones de herramientas entre clientes, servidas cada una en su propio endpoint /mcp-custom/{name}.",
       "table": {
@@ -1514,6 +1517,11 @@
         "tools": "Tools",
         "settings": "Configuración"
       },
+      "errors": {
+        "load_failed": "Error al cargar el servidor.",
+        "toggle_failed": "Error al actualizar.",
+        "reset_breaker_failed": "Error al reiniciar el disyuntor."
+      },
       "not_connected": "El servidor no está conectado actualmente.",
       "resetting": "Reiniciando…",
       "reset_breaker": "Reiniciar disyuntor",
@@ -1899,7 +1907,10 @@
       "empty": "No hay usuarios todavía.",
       "errors": {
         "load_failed": "Error al cargar usuarios.",
-        "delete_failed": "Error al eliminar el usuario."
+        "delete_failed": "Error al eliminar el usuario.",
+        "teams_load_failed": "Error al cargar los teams.",
+        "update_role_failed": "Error al actualizar el rol.",
+        "assign_team_failed": "Error al asignar el team."
       },
       "new": {
         "title": "Añadir usuario",
@@ -2006,7 +2017,8 @@
         "status_ok": "OK"
       },
       "errors": {
-        "load_failed": "Error al cargar tráfico."
+        "load_failed": "Error al cargar tráfico.",
+        "replay_failed": "Error al re-ejecutar la llamada."
       },
       "subtitle_p1": "Cada llamada de tool que llega a este gateway admin aparece aquí — exitosa o fallida.",
       "subtitle_p2": "Filtra por cliente o tool, profundiza en un registro para ver la request/response exacta, o replícala contra el upstream actual.",
