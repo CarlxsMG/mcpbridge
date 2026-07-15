@@ -105,6 +105,19 @@ async function decide(a: ApprovalRecord, status: "approved" | "rejected") {
 }
 
 const {
+  pending: pendingApprove,
+  request: requestApprove,
+  cancel: cancelApprove,
+  confirm: confirmActionApprove,
+} = useConfirmAction<ApprovalRecord>();
+
+async function confirmApprove() {
+  await confirmActionApprove(async (a) => {
+    await decide(a, "approved");
+  });
+}
+
+const {
   pending: pendingReject,
   request: requestReject,
   cancel: cancelReject,
@@ -202,7 +215,7 @@ async function confirmReject() {
                     :aria-label="t('pages.approvals.aria.note_for_id', { id: a.id })"
                     :disabled="decidingId === a.id"
                   />
-                  <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="decide(a, 'approved')">
+                  <button type="button" class="link-btn" :disabled="decidingId === a.id" @click="requestApprove(a)">
                     <Check :size="13" stroke-width="2" aria-hidden="true" /> {{ t("pages.approvals.table.approve") }}
                   </button>
                   <button
@@ -220,6 +233,23 @@ async function confirmReject() {
         </tbody>
       </TableCard>
     </ListLayout>
+
+    <ConfirmDialog
+      :open="pendingApprove !== null"
+      :title="t('pages.approvals.confirm.approve_title')"
+      :message="
+        pendingApprove
+          ? t('pages.approvals.confirm.approve_message', {
+              client: pendingApprove.clientName,
+              tool: pendingApprove.toolName,
+            })
+          : ''
+      "
+      :confirm-label="t('pages.approvals.confirm.approve_cta')"
+      danger
+      @confirm="confirmApprove"
+      @cancel="cancelApprove"
+    />
 
     <ConfirmDialog
       :open="pendingReject !== null"

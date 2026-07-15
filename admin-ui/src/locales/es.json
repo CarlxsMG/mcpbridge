@@ -705,8 +705,7 @@
       "move_later": "Mover después",
       "configure": "Configurar widget",
       "remove": "Eliminar widget",
-      "resize": "Arrastrar para redimensionar",
-      "resize_aria": "Redimensionar widget (usa Configurar para redimensionar con teclado)"
+      "resize": "Arrastrar para redimensionar"
     },
     "widget_config": {
       "title": "Configurar widget",
@@ -1052,6 +1051,11 @@
         "errors": {
           "name_required": "El nombre es obligatorio.",
           "create_failed": "Error al crear el bundle."
+        },
+        "confirm": {
+          "leave_title": "¿Descartar los cambios sin guardar?",
+          "leave_message": "Tienes datos sin guardar para este bundle. Si sales ahora, se descartarán.",
+          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1113,7 +1117,12 @@
           "label_required": "La etiqueta es obligatoria.",
           "create_failed": "Error al crear la API key."
         },
-        "mint_key": "Generar key"
+        "mint_key": "Generar key",
+        "confirm": {
+          "leave_title": "¿Descartar los cambios sin guardar?",
+          "leave_message": "Tienes datos sin guardar para esta API key. Si sales ahora, se descartarán.",
+          "leave_cta": "Descartar cambios"
+        }
       }
     },
     "register_server": {
@@ -1173,6 +1182,11 @@
         "name_and_graphql_required": "El nombre y la URL de GraphQL son obligatorios.",
         "name_and_health_required": "El nombre y la URL de health son obligatorios.",
         "registration_failed": "El registro falló."
+      },
+      "confirm": {
+        "leave_title": "¿Descartar los cambios sin guardar?",
+        "leave_message": "Tienes datos de registro sin guardar para este servidor. Si sales ahora, se descartarán.",
+        "leave_cta": "Descartar cambios"
       }
     },
     "account": {
@@ -1310,7 +1324,10 @@
         "delete_label": "Eliminar {name}",
         "disable_title": "¿Deshabilitar esta regla de alerta?",
         "disable_message": "'{name}' dejará de dispararse hasta que se vuelva a habilitar.",
-        "disable_label": "Deshabilitar {name}"
+        "disable_label": "Deshabilitar {name}",
+        "leave_title": "¿Descartar los cambios sin guardar?",
+        "leave_message": "Tienes datos sin guardar para esta regla de alerta. Si sales ahora, se descartarán.",
+        "leave_cta": "Descartar cambios"
       },
       "create_alert": "Nueva alerta",
       "table": {
@@ -1392,6 +1409,9 @@
         "no_items_for_tab": "Aún no hay aprobaciones {tab}. Las peticiones aparecen aquí cuando una tool se configura para requerir aprobación antes de ejecutarse."
       },
       "confirm": {
+        "approve_title": "¿Aprobar esta llamada?",
+        "approve_message": "Esto permitirá que la llamada pendiente de {client} a {tool} se ejecute de inmediato. No se puede deshacer.",
+        "approve_cta": "Aprobar llamada",
         "reject_title": "¿Rechazar esta llamada?",
         "reject_message": "Esto denegará la llamada pendiente de {client} a {tool}. No se puede deshacer.",
         "reject_cta": "Rechazar llamada"
@@ -1450,6 +1470,11 @@
           "schema_invalid": "inputSchema no es JSON válido.",
           "steps_invalid": "steps no es JSON válido.",
           "create_failed": "Error al crear el composite."
+        },
+        "confirm": {
+          "leave_title": "¿Descartar los cambios sin guardar?",
+          "leave_message": "Tienes datos sin guardar para este composite. Si sales ahora, se descartarán.",
+          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1593,6 +1618,11 @@
         "errors": {
           "slug_name_required": "El slug y el nombre son obligatorios.",
           "create_failed": "Error al guardar la entrada del catálogo."
+        },
+        "confirm": {
+          "leave_title": "¿Descartar los cambios sin guardar?",
+          "leave_message": "Tienes datos sin guardar para esta entrada del catálogo. Si sales ahora, se descartarán.",
+          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1667,6 +1697,11 @@
           "quota_invalid": "La cuota mensual debe ser un número plano, o vacío.",
           "end_user_limit_invalid": "El rate limit por end-user debe ser un número plano, o vacío.",
           "create_failed": "Error al crear el consumer."
+        },
+        "confirm": {
+          "leave_title": "¿Descartar los cambios sin guardar?",
+          "leave_message": "Tienes datos sin guardar para este consumidor. Si sales ahora, se descartarán.",
+          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1745,6 +1780,11 @@
           "rate_invalid": "El rate limit debe ser un número plano (sin unidades), o vacío.",
           "timeout_invalid": "El timeout debe ser un número plano (sin unidades), o vacío.",
           "create_failed": "Error al crear la policy."
+        },
+        "confirm": {
+          "leave_title": "¿Descartar los cambios sin guardar?",
+          "leave_message": "Tienes datos sin guardar para esta política. Si sales ahora, se descartarán.",
+          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1822,6 +1862,11 @@
           "weekdays_required": "Selecciona al menos un día.",
           "cron_required": "La expresión cron es obligatoria.",
           "create_failed": "Error al crear el schedule."
+        },
+        "confirm": {
+          "leave_title": "¿Descartar los cambios sin guardar?",
+          "leave_message": "Tienes datos sin guardar para este schedule. Si sales ahora, se descartarán.",
+          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1931,6 +1976,11 @@
         "errors": {
           "password_too_short": "La contraseña debe tener al menos 12 caracteres.",
           "create_failed": "Error al crear el usuario."
+        },
+        "confirm": {
+          "leave_title": "¿Descartar los cambios sin guardar?",
+          "leave_message": "Tienes datos sin guardar para este usuario. Si sales ahora, se descartarán.",
+          "leave_cta": "Descartar cambios"
         }
       },
       "add_user": "Añadir usuario",
@@ -2084,7 +2134,10 @@
         "delete_message": "'{name}' se eliminará y cualquier conexión activa se cerrará forzada.",
         "delete_cta": "Eliminar {name}",
         "disconnect_title": "¿Desconectar todas las sesiones?",
-        "disconnect_message": "'{name}' tiene {count} conexión(es) activa(s); desconectar cerrará todas forzosamente y soltará cualquier mensaje en vuelo."
+        "disconnect_message": "'{name}' tiene {count} conexión(es) activa(s); desconectar cerrará todas forzosamente y soltará cualquier mensaje en vuelo.",
+        "leave_title": "¿Descartar los cambios sin guardar?",
+        "leave_message": "Tienes datos sin guardar para este target WS proxy. Si sales ahora, se descartarán.",
+        "leave_cta": "Descartar cambios"
       },
       "errors": {
         "load_failed": "Error al cargar los targets WS proxy.",
@@ -2130,7 +2183,7 @@
       "back_to_list": "Volver a trazas",
       "detail_title": "Trace {id}",
       "detail_not_found": "Trace no encontrada.",
-      "detail_attributes_summary": "Atributos (último span)",
+      "detail_attributes_summary": "Atributos — {name}",
       "confirm": {
         "purge_title": "¿Purgar todas las trazas?",
         "purge_message": "Elimina cada span persistido. Esto no se puede deshacer.",

@@ -705,8 +705,7 @@
       "move_later": "Move later",
       "configure": "Configure widget",
       "remove": "Remove widget",
-      "resize": "Drag to resize",
-      "resize_aria": "Resize widget (use Configure for keyboard sizing)"
+      "resize": "Drag to resize"
     },
     "widget_config": {
       "title": "Configure widget",
@@ -1052,6 +1051,11 @@
         "errors": {
           "name_required": "Name is required.",
           "create_failed": "Failed to create bundle."
+        },
+        "confirm": {
+          "leave_title": "Discard unsaved changes?",
+          "leave_message": "You have unsaved details for this bundle. Leaving now will discard them.",
+          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1113,7 +1117,12 @@
           "label_required": "A label is required.",
           "create_failed": "Failed to create API key."
         },
-        "mint_key": "Mint key"
+        "mint_key": "Mint key",
+        "confirm": {
+          "leave_title": "Discard unsaved changes?",
+          "leave_message": "You have unsaved details for this API key. Leaving now will discard them.",
+          "leave_cta": "Discard changes"
+        }
       }
     },
     "register_server": {
@@ -1173,6 +1182,11 @@
         "name_and_graphql_required": "Name and GraphQL URL are required.",
         "name_and_health_required": "Name and health URL are required.",
         "registration_failed": "Registration failed."
+      },
+      "confirm": {
+        "leave_title": "Discard unsaved changes?",
+        "leave_message": "You have unsaved registration details for this server. Leaving now will discard them.",
+        "leave_cta": "Discard changes"
       }
     },
     "account": {
@@ -1310,7 +1324,10 @@
         "delete_label": "Delete {name}",
         "disable_title": "Disable this alert rule?",
         "disable_message": "'{name}' will stop firing until re-enabled.",
-        "disable_label": "Disable {name}"
+        "disable_label": "Disable {name}",
+        "leave_title": "Discard unsaved changes?",
+        "leave_message": "You have unsaved details for this alert rule. Leaving now will discard them.",
+        "leave_cta": "Discard changes"
       },
       "create_alert": "New alert",
       "table": {
@@ -1392,6 +1409,9 @@
         "no_items_for_tab": "No {tab} approvals yet. Requests show up here once a tool is configured to require approval before its upstream call runs."
       },
       "confirm": {
+        "approve_title": "Approve this call?",
+        "approve_message": "This will let {client}'s pending call to {tool} run immediately. This cannot be undone.",
+        "approve_cta": "Approve call",
         "reject_title": "Reject this call?",
         "reject_message": "This will deny {client}'s pending call to {tool}. This cannot be undone.",
         "reject_cta": "Reject call"
@@ -1450,6 +1470,11 @@
           "schema_invalid": "inputSchema is not valid JSON.",
           "steps_invalid": "steps is not valid JSON.",
           "create_failed": "Failed to create composite."
+        },
+        "confirm": {
+          "leave_title": "Discard unsaved changes?",
+          "leave_message": "You have unsaved details for this composite. Leaving now will discard them.",
+          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1593,6 +1618,11 @@
         "errors": {
           "slug_name_required": "Slug and name are required.",
           "create_failed": "Failed to save catalog entry."
+        },
+        "confirm": {
+          "leave_title": "Discard unsaved changes?",
+          "leave_message": "You have unsaved details for this catalog entry. Leaving now will discard them.",
+          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1667,6 +1697,11 @@
           "quota_invalid": "Monthly quota must be a plain number, or blank.",
           "end_user_limit_invalid": "Per-end-user rate limit must be a plain number, or blank.",
           "create_failed": "Failed to create consumer."
+        },
+        "confirm": {
+          "leave_title": "Discard unsaved changes?",
+          "leave_message": "You have unsaved details for this consumer. Leaving now will discard them.",
+          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1745,6 +1780,11 @@
           "rate_invalid": "Rate limit must be a plain number (no units), or blank.",
           "timeout_invalid": "Timeout must be a plain number (no units), or blank.",
           "create_failed": "Failed to create policy."
+        },
+        "confirm": {
+          "leave_title": "Discard unsaved changes?",
+          "leave_message": "You have unsaved details for this policy. Leaving now will discard them.",
+          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1822,6 +1862,11 @@
           "weekdays_required": "Select at least one day.",
           "cron_required": "Cron expression is required.",
           "create_failed": "Failed to create schedule."
+        },
+        "confirm": {
+          "leave_title": "Discard unsaved changes?",
+          "leave_message": "You have unsaved details for this schedule. Leaving now will discard them.",
+          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1931,6 +1976,11 @@
         "errors": {
           "password_too_short": "Password must be at least 12 characters.",
           "create_failed": "Failed to create user."
+        },
+        "confirm": {
+          "leave_title": "Discard unsaved changes?",
+          "leave_message": "You have unsaved details for this user. Leaving now will discard them.",
+          "leave_cta": "Discard changes"
         }
       },
       "add_user": "Add user",
@@ -2084,7 +2134,10 @@
         "delete_message": "'{name}' will be removed and any live connections force-closed.",
         "delete_cta": "Delete {name}",
         "disconnect_title": "Disconnect all sessions?",
-        "disconnect_message": "'{name}' has {count} live connection(s); disconnecting will force-close all of them and drop any in-flight messages."
+        "disconnect_message": "'{name}' has {count} live connection(s); disconnecting will force-close all of them and drop any in-flight messages.",
+        "leave_title": "Discard unsaved changes?",
+        "leave_message": "You have unsaved details for this WS proxy target. Leaving now will discard them.",
+        "leave_cta": "Discard changes"
       },
       "errors": {
         "load_failed": "Failed to load WS proxy targets.",
@@ -2130,7 +2183,7 @@
       "back_to_list": "Back to traces",
       "detail_title": "Trace {id}",
       "detail_not_found": "Trace not found.",
-      "detail_attributes_summary": "Attributes (last span)",
+      "detail_attributes_summary": "Attributes — {name}",
       "confirm": {
         "purge_title": "Purge all traces?",
         "purge_message": "Deletes every persisted span. This cannot be undone.",

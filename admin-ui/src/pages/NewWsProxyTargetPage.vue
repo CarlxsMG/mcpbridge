@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useCreateForm } from "@/composables/useCreateForm";
+import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import FieldError from "@/components/ui/FieldError.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -48,6 +50,16 @@ function createTarget() {
     return null;
   });
 }
+
+const isDirty = computed(
+  () =>
+    Boolean(name.value.trim()) ||
+    Boolean(backendUrl.value.trim()) ||
+    Boolean(maxConnections.value.trim()) ||
+    Boolean(maxMessageBytes.value.trim()) ||
+    Boolean(idleTimeoutMinutes.value.trim()),
+);
+const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDirty, () => creating.value);
 </script>
 
 <template>
@@ -85,5 +97,15 @@ function createTarget() {
         </button>
       </form>
     </FormPage>
+
+    <ConfirmDialog
+      :open="pendingLeave"
+      :title="t('pages.ws_proxy_targets.confirm.leave_title')"
+      :message="t('pages.ws_proxy_targets.confirm.leave_message')"
+      :confirm-label="t('pages.ws_proxy_targets.confirm.leave_cta')"
+      danger
+      @confirm="confirmLeave"
+      @cancel="cancelLeave"
+    />
   </section>
 </template>

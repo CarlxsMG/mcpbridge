@@ -3,21 +3,25 @@ import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useCreateForm } from "@/composables/useCreateForm";
+import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import type { CompositeDetail, CompositeStep } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import FieldError from "@/components/ui/FieldError.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 
 const { t } = useI18n({ useScope: "global" });
+
+const DEFAULT_SCHEMA = '{\n  "type": "object",\n  "properties": {}\n}';
+const DEFAULT_STEPS =
+  '[\n  { "targetClient": "docs", "targetTool": "search", "argsTemplate": { "query": "${input.query}" } },\n  { "targetClient": "docs", "targetTool": "get", "argsTemplate": { "id": { "$ref": "steps.0.json.id" } } }\n]';
 
 const name = ref("");
 const nameTouched = ref(false);
 const description = ref("");
-const schema = ref('{\n  "type": "object",\n  "properties": {}\n}');
-const steps = ref(
-  '[\n  { "targetClient": "docs", "targetTool": "search", "argsTemplate": { "query": "${input.query}" } },\n  { "targetClient": "docs", "targetTool": "get", "argsTemplate": { "id": { "$ref": "steps.0.json.id" } } }\n]',
-);
+const schema = ref(DEFAULT_SCHEMA);
+const steps = ref(DEFAULT_STEPS);
 const schemaError = ref("");
 const stepsError = ref("");
 
@@ -67,6 +71,15 @@ function createComposite() {
   }
   return run();
 }
+
+const isDirty = computed(
+  () =>
+    Boolean(name.value.trim()) ||
+    Boolean(description.value.trim()) ||
+    schema.value !== DEFAULT_SCHEMA ||
+    steps.value !== DEFAULT_STEPS,
+);
+const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDirty, () => creating.value);
 </script>
 
 <template>
@@ -126,6 +139,16 @@ function createComposite() {
         </button>
       </form>
     </FormPage>
+
+    <ConfirmDialog
+      :open="pendingLeave"
+      :title="t('pages.composites.new.confirm.leave_title')"
+      :message="t('pages.composites.new.confirm.leave_message')"
+      :confirm-label="t('pages.composites.new.confirm.leave_cta')"
+      danger
+      @confirm="confirmLeave"
+      @cancel="cancelLeave"
+    />
   </section>
 </template>
 

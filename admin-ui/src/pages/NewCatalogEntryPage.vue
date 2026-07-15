@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useCreateForm } from "@/composables/useCreateForm";
+import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import FieldError from "@/components/ui/FieldError.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -36,6 +38,18 @@ const { creating, error, run } = useCreateForm({
 function createEntry() {
   return run(() => (slug.value.trim() && name.value.trim() ? null : t("pages.catalog.new.errors.slug_name_required")));
 }
+
+const isDirty = computed(
+  () =>
+    Boolean(slug.value.trim()) ||
+    Boolean(name.value.trim()) ||
+    Boolean(description.value.trim()) ||
+    kind.value !== "rest" ||
+    Boolean(healthUrl.value.trim()) ||
+    Boolean(openapiUrl.value.trim()) ||
+    Boolean(mcpUrl.value.trim()),
+);
+const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDirty, () => creating.value);
 </script>
 
 <template>
@@ -110,6 +124,16 @@ function createEntry() {
         </button>
       </form>
     </FormPage>
+
+    <ConfirmDialog
+      :open="pendingLeave"
+      :title="t('pages.catalog.new.confirm.leave_title')"
+      :message="t('pages.catalog.new.confirm.leave_message')"
+      :confirm-label="t('pages.catalog.new.confirm.leave_cta')"
+      danger
+      @confirm="confirmLeave"
+      @cancel="cancelLeave"
+    />
   </section>
 </template>
 

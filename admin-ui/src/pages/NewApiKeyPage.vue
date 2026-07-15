@@ -4,6 +4,7 @@ import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useClipboard } from "@/composables/useClipboard";
 import { useCreateForm } from "@/composables/useCreateForm";
+import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { parseList } from "@/utils/fieldParsing";
 import type { McpApiKeyWithSecret, Consumer } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -12,6 +13,7 @@ import SelectMenu from "@/components/ui/SelectMenu.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import FieldError from "@/components/ui/FieldError.vue";
 import SecretReveal from "@/components/ui/SecretReveal.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -63,6 +65,20 @@ async function copyKey() {
   if (!mintedKey.value) return;
   await copy(mintedKey.value.key);
 }
+
+const isDirty = computed(
+  () =>
+    Boolean(label.value.trim()) ||
+    Boolean(clients.value.trim()) ||
+    Boolean(tools.value.trim()) ||
+    Boolean(expires.value) ||
+    consumerId.value !== "" ||
+    elevated.value,
+);
+const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
+  isDirty,
+  () => creating.value || Boolean(mintedKey.value),
+);
 </script>
 
 <template>
@@ -121,6 +137,16 @@ async function copyKey() {
         </button>
       </form>
     </FormPage>
+
+    <ConfirmDialog
+      :open="pendingLeave"
+      :title="t('pages.keys.new.confirm.leave_title')"
+      :message="t('pages.keys.new.confirm.leave_message')"
+      :confirm-label="t('pages.keys.new.confirm.leave_cta')"
+      danger
+      @confirm="confirmLeave"
+      @cancel="cancelLeave"
+    />
   </section>
 </template>
 
