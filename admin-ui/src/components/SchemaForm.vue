@@ -143,6 +143,7 @@ function emitArgs() {
         v-else-if="f.kind === 'json'"
         :id="`sf-${f.name}`"
         v-model="values[f.name] as string"
+        :required="f.required"
         rows="2"
         spellcheck="false"
         :placeholder="t('components.schema_form.json_placeholder')"
@@ -153,10 +154,18 @@ function emitArgs() {
         v-else-if="f.kind === 'number'"
         :id="`sf-${f.name}`"
         v-model="values[f.name] as string"
+        :required="f.required"
         type="number"
         @input="emitArgs"
       />
-      <input v-else :id="`sf-${f.name}`" v-model="values[f.name] as string" type="text" @input="emitArgs" />
+      <input
+        v-else
+        :id="`sf-${f.name}`"
+        v-model="values[f.name] as string"
+        :required="f.required"
+        type="text"
+        @input="emitArgs"
+      />
       <p v-if="f.kind === 'json' && jsonInvalid[f.name]" class="field-error">
         {{ t("components.schema_form.json_invalid") }}
       </p>
