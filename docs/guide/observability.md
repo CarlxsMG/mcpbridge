@@ -46,9 +46,11 @@ report that embeds the hash-chain verification verdict.
 
 `GET /livez` is a cheap liveness check — always 200 if the process is responding. `GET /readyz`
 is the readiness check: 200 only when this instance holds the leader lease and its SQLite
-handle answers `SELECT 1`, so a load balancer using it will correctly stop routing to a
-non-leader follower or a database-impaired instance. Per-backend health is monitored
-continuously, with automatic eviction of unhealthy backends and a `ping` probe for MCP
-upstreams.
+handle answers `SELECT 1`. Request handling (REST/MCP dispatch) is stateless and runs on every
+instance regardless of leadership, so a load balancer scaling throughput should route on
+`/health` or `/livez` — pointing it at `/readyz` takes every non-leader instance out of
+rotation. Reserve `/readyz`-gated routing for a deliberate active/passive failover topology.
+Per-backend health is monitored continuously, with automatic eviction of unhealthy backends and
+a `ping` probe for MCP upstreams.
 
 Next: **[Scaling →](/guide/scaling)** · **[Troubleshooting →](/guide/troubleshooting)**

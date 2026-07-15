@@ -49,9 +49,12 @@ verificación de la cadena de hashes.
 
 `GET /livez` es un chequeo de liveness barato — siempre 200 si el proceso responde.
 `GET /readyz` es el chequeo de disponibilidad: 200 solo cuando esta instancia mantiene el
-leader lease y su handle de SQLite responde `SELECT 1`, así que un load balancer que lo use
-dejará de enrutar correctamente hacia un follower que no es líder o hacia una instancia con
-la base de datos afectada. La salud de cada backend se monitoriza continuamente, con
-auto-eliminación de backends no saludables y un probe `ping` para upstreams MCP.
+leader lease y su handle de SQLite responde `SELECT 1`. El manejo de requests (dispatch
+REST/MCP) es stateless y corre en cada instancia sin importar el liderazgo, así que un load
+balancer que escala throughput debería enrutar sobre `/health` o `/livez` — apuntarlo a
+`/readyz` saca de rotación a cada instancia que no es líder. Reserva el enrutamiento
+condicionado a `/readyz` para una topología deliberada de failover activo/pasivo. La salud de
+cada backend se monitoriza continuamente, con auto-eliminación de backends no saludables y un
+probe `ping` para upstreams MCP.
 
 Siguiente: **[Escalado →](/es/guide/scaling)** · **[Solución de problemas →](/es/guide/troubleshooting)**

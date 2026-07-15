@@ -126,7 +126,6 @@ version: 1
 servers:
   - name: petstore
     health_url: https://petstore3.swagger.io/
-    base_url: https://petstore3.swagger.io/api/v3
     openapi_url: https://petstore3.swagger.io/api/v3/openapi.json
     include_tags: [pet]
   - name: github
