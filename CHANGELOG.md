@@ -62,6 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mcp-upstream — `openapi.json` targets the real Swagger Petstore and works unedited), and
   paste-ready `mcp-clients/{claude-desktop,cursor}.json` client configs matching `gateway connect`
   output.
+- CI now **boots the built artifact and polls `/livez`** before the Trivy scan, for both
+  `docker-publish.yml`'s container image and `release-binaries.yml`'s standalone `bun`-compiled
+  binaries (the `bun-linux-x64` leg, the one this runner can natively execute) — previously both
+  pipelines built, scanned, and published purely on the strength of the build succeeding, so a
+  broken `CMD`/`ENTRYPOINT`, `COPY` path, or env-wiring mistake would pass every gate undetected.
+  The Helm lint job also renders a second `values` file exercising `existingSecret`,
+  `persistence`, and an external `ServiceAccount`, which the default-only render left untouched.
 
 ### Changed
 
@@ -100,6 +107,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   connection-refuses; the `bun run check` step list in CONTRIBUTING gained the missing
   `typecheck (tools)` step; and `.env.example` documents the `AUTH_DISABLED` /
   `ALLOW_UNSAFE_AUTH_DISABLED` escape hatch it already referenced.
+- Documentation: corrected several more stale/inaccurate claims (EN+ES where a Spanish
+  counterpart exists) — CLAUDE.md and `threat-model.md` said the pinned backend IP is "never
+  re-resolved" (it's actually re-validated on a 5-minute TTL, `IP_PIN_TTL_MS`/
+  `refreshPinIfStale`); CLAUDE.md attributed root `/mcp` to `mcpAuth` instead of `rootMcpAuth`
+  (and still listed the removed `/sse`/`/messages` routes under it); `scaling.md`/`deployment.md`/
+  `observability.md` told operators to point a general throughput-scaling load balancer at
+  `/readyz`, which is 200 only on the current leader — reworded to recommend `/health`/`/livez`
+  for routing and reserve `/readyz` for a deliberate active/passive failover topology; the CLI
+  guide's `gateway.yaml` Petstore example doubled a path prefix OpenAPI discovery already folds
+  in; the Dockerfile header overstated what a `BUN_VERSION` bump without a matching digest bump
+  does (it goes silently stale, it doesn't fail the pull); `monitoring/README.md`'s example
+  Prometheus scrape target didn't match `docker-compose.yml`'s real service name; and the OpenAPI
+  spec documented the canary `weight` field as a 0-1 fraction instead of the actual 1-100 integer
+  percentage `setCanary()` requires.
+- Internal: deduped `errorMessage()` usage across `registration.ts`/`leader-loop.ts`/
+  `mcp-upstream.ts`, dropped an unused `RegistrationPayload` interface and an always-0
+  `inflightRequests` shutdown-log field, corrected stale doc comments, and reconciled
+  `config-schema.ts`'s parsed defaults for `SESSION_COOKIE_SECURE`/`ENABLE_SEARCH_TOOL`/
+  `METRICS_ENABLED` with `config.ts`'s actual `!== "false"` runtime default (both previously
+  defaulted to `false` when unset).
+- Internal: `response-cache.ts` replaced six literal embedded NUL-byte cache-key separators
+  (which made git treat the whole file as binary — `git diff`/`git blame` silently skipped it)
+  with a named constant, and dropped a private `stableStringify` that duplicated the one already
+  exported from `lib/stable-json.ts`; cache keys are byte-identical, behavior unchanged.
+- Internal: deduped a byte-identical `validateExpiresAt` from `bundles.ts`/`mcp-keys.ts` into
+  the shared `admin-validators.ts`, fixed a stale `eslint.config.js` comment referencing the old
+  `src/transports.ts` path, documented `BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD`/
+  `ALLOW_PRIVATE_IPS` in `CONTRIBUTING.md` (previously only in CLAUDE.md), and removed three
+  one-shot i18n Python scripts confirmed to have zero remaining references.
 
 ### Removed
 
@@ -108,6 +144,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Security — MCP `resources`/`prompts` reads bypassed a managed key's client scope (P0).**
+  `mcpParamsForScope()` already restricted tool calls to a key's allowed client
+  (`isToolInKeyScope`), but ignored that same scope for `resources/read` and `prompts/get` on the
+  shared `/mcp/:clientName` route, so a key restricted to one client could still read another
+  client's resources and prompts. That content also skipped the guardrail scan and credential-strip
+  the tool-call path already applies — letting an untrusted MCP upstream smuggle a
+  prompt-injection payload through resource/prompt content as easily as through a tool result.
+  Both gaps are now closed: resources/prompts are scope-checked and sanitized identically to tool
+  calls.
+- **Security — the IPv4 SSRF blocklist was missing ranges the IPv6 path already covered (P1).**
+  `BLOCKED_IPV4_CIDRS` omitted TEST-NET-2/3, RFC-2544 benchmarking, RFC-1112 multicast, reserved,
+  and limited-broadcast ranges, so a backend registered against an address in one of them passed
+  SSRF validation. Now matches the IPv6 blocklist's coverage.
 - **Ops — health probes pointed at the wrong endpoint.** The Helm chart's startup/liveness/readiness
   probes and the Dockerfile `HEALTHCHECK` all targeted the legacy always-200 `/health`, even though
   the gateway ships a purpose-built probe trio — `/livez` (always-200 liveness) and `/readyz` (200
@@ -276,6 +325,42 @@ NODE_ENV=production`, and the prod compose pins it so a copied dev `.env` can't 
   form controls are properly labelled; and required schema-form fields are marked programmatically.
 - Localization: eight previously-English error messages and the command palette's leaked UI strings
   are translated, and the Spanish README's "read more" links now point at the Spanish (`/es/`) docs.
+- **The compiled Ajv schema-validator cache wasn't invalidated on tool re-registration or
+  teardown.** Unlike every other piece of per-client runtime state (pinned IP, circuit breaker, LB
+  state, response cache) that `registry.ts` already cleans up on `register()`/`registerMcp()`'s
+  re-registration branch and `teardownLiveClient()`, `getOrCompile()`'s validator cache was keyed
+  only by `clientName::toolName` and never busted — so tightening a tool's `inputSchema` (e.g.
+  adding an enum allowlist) on re-registration silently kept enforcing the old, looser schema until
+  process restart. Added `invalidateCompiledSchemasForClient()`, wired into the same three call
+  sites the sibling invalidations use.
+- **Admin UI — pagination `Prev` could get stuck before page one.** `useCursorPagination`'s
+  `load()` applied its `cursor = currentCursor.value` default parameter whenever the argument was
+  `undefined` — including when `prev()` explicitly passed the popped `undefined` sentinel meaning
+  "go back to the cursor-less first page" — silently replacing it with the stale current cursor, so
+  clicking Prev enough times never actually returned to page 1. Affected every page using the
+  composable (Servers/Traces/Traffic/AuditLog); split into a default-applying wrapper plus a
+  `fetchAndApply(cursor)` that `next()`/`prev()` call directly with the exact cursor.
+- **Admin UI — a mislabeled column, a stale-filter URL-sync bug, and a couple of i18n gaps.**
+  `AlertsPage`'s "Threshold" column actually rendered `lastFiredAt` (now a real threshold
+  formatter, correctly labeled "Last fired"); `ServersPage`/`TrafficPage` wrote the live
+  (unsubmitted) filter value into the URL when paginating right after typing but before submitting
+  a filter change, instead of the applied-filter snapshot; `ApprovalsPage`'s empty state
+  interpolated a raw tab key instead of its translated label; and `SsoSettingsPage` had a literal
+  `{issuer}` placeholder (needed `{{ issuer }}`) that never interpolated the admin's typed value.
+- **Admin UI — an unsaved-changes guard gap, misrouted delete errors, and a locale-dependent
+  status badge.** `NewTeamPage` was the only one of 11 `New*Page` create forms missing the
+  `useUnsavedChangesGuard` + `ConfirmDialog` wiring every sibling page has; `SchedulesPage` routed
+  delete failures into the row-level toggle error slot instead of the page-level error banner every
+  other list page uses; and `ShareInstallLinkDialog` derived its status badge's CSS class from the
+  already-translated label text, which only matched by coincidence in English and silently dropped
+  color-coding under a Spanish locale — switched to the shared `StatusBadge`, keyed off the raw
+  status enum.
+- **CLI — a non-JSON admin-API response now raises a `CliApiError` instead of a bare
+  `JSON.parse` error.** `makeClient()`'s `doFetch` always ran `JSON.parse` on the response body
+  before checking `res.ok`; every admin-API route returns JSON, but the CLI talks to an
+  operator-supplied `--url` over the network, so a wrong port, reverse proxy, or load-balancer
+  error page produced a cryptic `SyntaxError` instead of the HTTP-status-aware `CliApiError` every
+  other CLI failure path relies on.
 
 ### Security
 
