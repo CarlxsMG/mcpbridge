@@ -49,8 +49,9 @@ bun run check                        # everything CI's `test` job checks, in one
                                       # format:check → lint (root) → lint (admin-ui) → i18n parity (admin-ui)
                                       # → typecheck (root) → typecheck:tools (root) → test (root)
                                       # → typecheck (admin-ui) → test:coverage (admin-ui) → build (admin-ui)
-                                      # (CI ALSO gates docs-build, docker-build, helm-lint, and a Windows
-                                      #  test leg on every push/PR — those are not part of `bun run check`)
+                                      # (CI ALSO gates e2e (Playwright, needs: test), docs-build, docker-build,
+                                      #  helm-lint, and a Windows test leg on every push/PR — those are not
+                                      #  part of `bun run check`)
 
 bun run format:check && bun run lint # prettier --check + eslint, root only
 tsc --noEmit                         # backend type-check
@@ -73,9 +74,12 @@ scope correctly either, since bun matches it as a path substring and `"src"` als
 `"admin-ui/src/..."`. Always use `bun run test`, which passes
 `--path-ignore-patterns={admin-ui,e2e}/**`.
 
-CI (`.github/workflows/ci.yml`) runs format-check/lint/typecheck/test/build on every push and PR;
-`docker-publish.yml` publishes to GHCR on `v*` tags; `release-binaries.yml` builds standalone
-binaries; `deploy-docs.yml` publishes the VitePress site in `docs/`.
+CI (`.github/workflows/ci.yml`) runs format-check/lint/typecheck/test/build on every push and PR,
+plus a required `e2e` job (full Playwright suite, `needs: test`); `codeql.yml` runs GitHub CodeQL
+SAST on every push/PR to `main` plus a weekly cron; `security.yml` runs a PR dependency review
+plus a `bun audit` (root, admin-ui, docs) on every push/PR and weekly; `docker-publish.yml`
+publishes to GHCR on `v*` tags; `release-binaries.yml` builds standalone binaries; `deploy-docs.yml`
+publishes the VitePress site in `docs/`.
 
 ## Architecture
 
