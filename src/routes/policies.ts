@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "../middleware/authz.js";
+import { requireAdminRole, canCallerAccessClient } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import {
   listGuardPolicies,
@@ -137,9 +137,14 @@ export function policyRoutes(app: Express): void {
     }
     const body = bodyOf(req);
     const actor = actorFromRequest(req);
+    // Tenancy: a team-scoped admin may only apply guards to clients their team
+    // owns. Refs outside the caller's team are reported as skipped/"not found"
+    // (see applyPolicyToTools), the same way `ensureClientAccess` hides a
+    // cross-team client behind a uniform 404 elsewhere in this codebase.
+    const isAllowed = (clientName: string): boolean => canCallerAccessClient(req, clientName);
 
     if (typeof body.bundle === "string" && body.bundle) {
-      const result = await applyPolicyToBundle(policy, body.bundle);
+      const result = await applyPolicyToBundle(policy, body.bundle, isAllowed);
       if (result === null) {
         notFound(res, "BUNDLE_NOT_FOUND", "Bundle not found");
         return;
@@ -154,7 +159,7 @@ export function policyRoutes(app: Express): void {
       validationError(res, "provide either bundle (string) or tools ([{client, tool}])");
       return;
     }
-    const result = await applyPolicyToTools(policy, refs.value);
+    const result = await applyPolicyToTools(policy, refs.value, isAllowed);
     recordAudit(actor, "policy.apply", String(id), { tools: refs.value.length, applied: result.applied });
     res.status(200).json(result);
   });

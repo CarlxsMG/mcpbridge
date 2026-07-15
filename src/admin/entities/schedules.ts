@@ -128,8 +128,27 @@ export function cronMatches(expr: string, date: Date): boolean {
 // CRUD
 // ---------------------------------------------------------------------------
 
-export function listSchedules(): Schedule[] {
-  return (getDb().query(`SELECT * FROM schedules ORDER BY id`).all() as ScheduleRow[]).map(rowTo);
+/**
+ * Lists schedules, optionally scoped to a team. A number restricts results to
+ * schedules whose target client is owned by that team (mirrors `listTraffic`'s
+ * `teamId` filter); null/undefined (super-admin session, bearer caller, or the
+ * evaluator's own internal calls) lists every schedule.
+ */
+export function listSchedules(filter: { teamId?: number | null } = {}): Schedule[] {
+  const db = getDb();
+  if (typeof filter.teamId === "number") {
+    return (
+      db
+        .query(`SELECT * FROM schedules WHERE client_name IN (SELECT name FROM clients WHERE team_id = ?) ORDER BY id`)
+        .all(filter.teamId) as ScheduleRow[]
+    ).map(rowTo);
+  }
+  return (db.query(`SELECT * FROM schedules ORDER BY id`).all() as ScheduleRow[]).map(rowTo);
+}
+
+export function getSchedule(id: number): Schedule | null {
+  const row = getDb().query(`SELECT * FROM schedules WHERE id = ?`).get(id) as ScheduleRow | null;
+  return row ? rowTo(row) : null;
 }
 
 export type ScheduleCreateError = "INVALID_CRON" | "INVALID_TARGET";

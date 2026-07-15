@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { listApprovals, getApproval, decideApproval, type ApprovalStatus } from "../../admin/entities/approvals.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import { sendError, notFound, bodyOf } from "../http-errors.js";
-import { ensureClientAccess, requireOperator } from "../../middleware/authz.js";
+import { ensureClientAccess, requireOperator, callerTeamId } from "../../middleware/authz.js";
 import { toolKey } from "../../lib/identifier.js";
 
 /**
@@ -17,7 +17,11 @@ export const approvalsRoutes = Router();
 approvalsRoutes.get("/approvals", (req: Request, res: Response) => {
   const q = req.query.status;
   const status: ApprovalStatus | undefined = q === "pending" || q === "approved" || q === "rejected" ? q : undefined;
-  res.status(200).json({ items: listApprovals(status) });
+  const teamId = callerTeamId(req);
+  // Tenancy: a team-scoped caller only sees approval tickets for clients their
+  // team owns — a ticket's argsJson carries the same unredacted, potentially
+  // sensitive call payload traffic records do (see traffic.ts's equivalent scope).
+  res.status(200).json({ items: listApprovals(status, typeof teamId === "number" ? teamId : undefined) });
 });
 
 approvalsRoutes.post("/approvals/:id/approve", requireOperator, (req: Request<{ id: string }>, res: Response) => {

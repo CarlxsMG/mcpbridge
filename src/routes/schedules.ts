@@ -1,9 +1,15 @@
 import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireOperator } from "../middleware/authz.js";
+import { requireOperator, ensureClientAccess, callerTeamId } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
-import { listSchedules, createSchedule, setScheduleEnabled, deleteSchedule } from "../admin/entities/schedules.js";
+import {
+  listSchedules,
+  createSchedule,
+  setScheduleEnabled,
+  deleteSchedule,
+  getSchedule,
+} from "../admin/entities/schedules.js";
 import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 
 export function scheduleRoutes(app: Express): void {
@@ -12,8 +18,11 @@ export function scheduleRoutes(app: Express): void {
   const r = Router();
   r.use(adminAuth);
 
-  r.get("/schedules", (_req: Request, res: Response) => {
-    res.status(200).json({ items: listSchedules() });
+  r.get("/schedules", (req: Request, res: Response) => {
+    const teamId = callerTeamId(req);
+    // Tenancy: a team-scoped caller only sees schedules targeting their own
+    // team's clients; super-admins/bearer callers (undefined/null) see all.
+    res.status(200).json({ items: listSchedules({ teamId: typeof teamId === "number" ? teamId : undefined }) });
   });
 
   r.post("/schedules", requireOperator, (req: Request, res: Response) => {
@@ -33,6 +42,9 @@ export function scheduleRoutes(app: Express): void {
       validationError(res, "targetType (client|tool), clientName, action (enable|disable) and cron are required");
       return;
     }
+    // Tenancy: a team-scoped caller can't schedule an enable/disable against a
+    // client outside their team.
+    if (!ensureClientAccess(req, res, clientName)) return;
 
     const result = createSchedule({ targetType, clientName, toolName, action, cron, actor: actorFromRequest(req) });
     if (result === "INVALID_CRON") {
@@ -59,23 +71,40 @@ export function scheduleRoutes(app: Express): void {
       validationError(res, "enabled (boolean) is required");
       return;
     }
-    const ok = setScheduleEnabled(Number(req.params.id), body.enabled);
+    const id = Number(req.params.id);
+    const existing = getSchedule(id);
+    if (!existing) {
+      notFound(res, "SCHEDULE_NOT_FOUND", "Schedule not found");
+      return;
+    }
+    // Tenancy: a team-scoped caller can't enable/disable a schedule targeting
+    // another team's client — same uniform 404 as a genuinely-missing schedule.
+    if (!ensureClientAccess(req, res, existing.clientName)) return;
+    const ok = setScheduleEnabled(id, body.enabled);
     if (!ok) {
       notFound(res, "SCHEDULE_NOT_FOUND", "Schedule not found");
       return;
     }
-    recordAudit(actorFromRequest(req), "schedule.update", `schedule:${req.params.id}`, { enabled: body.enabled });
-    res.status(200).json({ status: "updated", id: Number(req.params.id) });
+    recordAudit(actorFromRequest(req), "schedule.update", `schedule:${id}`, { enabled: body.enabled });
+    res.status(200).json({ status: "updated", id });
   });
 
   r.delete("/schedules/:id", requireOperator, (req: Request<{ id: string }>, res: Response) => {
-    const ok = deleteSchedule(Number(req.params.id));
+    const id = Number(req.params.id);
+    const existing = getSchedule(id);
+    if (!existing) {
+      notFound(res, "SCHEDULE_NOT_FOUND", "Schedule not found");
+      return;
+    }
+    // Tenancy: a team-scoped caller can't delete another team's schedule.
+    if (!ensureClientAccess(req, res, existing.clientName)) return;
+    const ok = deleteSchedule(id);
     if (!ok) {
       notFound(res, "SCHEDULE_NOT_FOUND", "Schedule not found");
       return;
     }
-    recordAudit(actorFromRequest(req), "schedule.delete", `schedule:${req.params.id}`);
-    res.status(200).json({ status: "deleted", id: Number(req.params.id) });
+    recordAudit(actorFromRequest(req), "schedule.delete", `schedule:${id}`);
+    res.status(200).json({ status: "deleted", id });
   });
 
   app.use("/admin-api", r);
