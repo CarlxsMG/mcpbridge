@@ -31,6 +31,26 @@ docker-compose*.yml
 *.log
 **/dist
 
+# Source dirs no build stage COPYs (only package.json/bun.lock/tsconfig.json/
+# src/admin-ui reach the image). Keeping these out of the build context shrinks
+# the daemon upload and stabilizes layer caching. docs/ in particular carries
+# its own bulky VitePress toolchain and markdown.
+docs/
+e2e/
+helm/
+monitoring/
+scripts/
+tests/
+
+# Local-only test/coverage/mutation artifacts (also gitignored, but they'd
+# still ship in the build context)
+coverage/
+reports/
+test-results/
+playwright-report/
+blob-report/
+.stryker-tmp/
+
 # SQLite (admin config store) — never bake local dev DB into the image
 data/
 *.db
