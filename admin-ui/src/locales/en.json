@@ -207,6 +207,9 @@
       "key_warning_after": "first, then come back and paste it in below.",
       "key_count": "You have {count} active MCP API key(s) — paste one in place of",
       "key_count_after": "below. Manage them under",
+      "key_warning_system": "No API key currently has a system role — a plain data-plane key is rejected by /mcp.",
+      "key_warning_system_after": "with a system role first (or use the gateway's admin Bearer key instead), then come back and paste it in below.",
+      "key_count_system": "You have {count} MCP API key(s) with a system role — paste one in place of",
       "setup": "Setup",
       "choose_target": "Choose a {kind} above to generate its config."
     },

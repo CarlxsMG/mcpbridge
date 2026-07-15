@@ -362,6 +362,7 @@ describe("connectCommand — output wiring into connect-templates.js", () => {
       url: `${GATEWAY_URL}/mcp`,
       transport: "streamable-http",
       apiKeyPlaceholder: "<YOUR_MCP_API_KEY>",
+      scope: "system",
     });
 
     expect(code).toBe(0);
@@ -377,6 +378,7 @@ describe("connectCommand — output wiring into connect-templates.js", () => {
       url: `${GATEWAY_URL}/mcp`,
       transport: "streamable-http",
       apiKeyPlaceholder: "<YOUR_MCP_API_KEY>",
+      scope: "system",
     });
 
     expect(code).toBe(0);
@@ -393,6 +395,7 @@ describe("connectCommand — output wiring into connect-templates.js", () => {
       url: `${GATEWAY_URL}/mcp/acme`,
       transport: "streamable-http",
       apiKeyPlaceholder: "<YOUR_MCP_API_KEY>",
+      scope: "client",
     });
 
     expect(code).toBe(0);
@@ -409,6 +412,7 @@ describe("connectCommand — output wiring into connect-templates.js", () => {
       url: `${GATEWAY_URL}/mcp-custom/acme-bundle`,
       transport: "streamable-http",
       apiKeyPlaceholder: "<YOUR_MCP_API_KEY>",
+      scope: "bundle",
     });
 
     expect(code).toBe(0);
@@ -426,6 +430,7 @@ describe("connectCommand — output wiring into connect-templates.js", () => {
         url: `${GATEWAY_URL}/mcp`,
         transport: "streamable-http",
         apiKeyPlaceholder: "<YOUR_MCP_API_KEY>",
+        scope: "system",
       });
 
       expect(code).toBe(0);
@@ -451,6 +456,7 @@ describe("connectCommand — --out flag: write-to-file vs. print-to-stdout", () 
       url: `${GATEWAY_URL}/mcp`,
       transport: "streamable-http",
       apiKeyPlaceholder: "<YOUR_MCP_API_KEY>",
+      scope: "system",
     });
 
     expect(code).toBe(0);

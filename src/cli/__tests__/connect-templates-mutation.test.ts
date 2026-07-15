@@ -46,6 +46,7 @@ function generate(id: ConnectClientId, transport: "streamable-http" | "sse" = "s
     url: URL,
     transport,
     apiKeyPlaceholder: PLACEHOLDER,
+    scope: "client",
   });
 }
 

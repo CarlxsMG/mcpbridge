@@ -207,6 +207,9 @@
       "key_warning_after": "primero, y vuelve para pegarla abajo.",
       "key_count": "Tienes {count} MCP API key(s) activa(s) — pega una en lugar de",
       "key_count_after": "abajo. Gestionadas en",
+      "key_warning_system": "Ninguna API key tiene actualmente un rol de sistema — una key de solo plano de datos es rechazada por /mcp.",
+      "key_warning_system_after": "con un rol de sistema primero (o usa la admin Bearer key del gateway), y vuelve para pegarla abajo.",
+      "key_count_system": "Tienes {count} MCP API key(s) con rol de sistema — pega una en lugar de",
       "setup": "Setup",
       "choose_target": "Elige un {kind} arriba para generar su config."
     },

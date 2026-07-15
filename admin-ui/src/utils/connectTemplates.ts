@@ -78,6 +78,8 @@ export interface ConnectTemplateInput {
   transport: ConnectTransport;
   /** Always a placeholder like "<YOUR_MCP_API_KEY>" — callers must never pass a real key here. */
   apiKeyPlaceholder: string;
+  /** Drives the wording of the generated apiKeyHint — a "system" key needs an adminRole, a plain data-plane key is rejected by /mcp (src/security/system-role.ts). */
+  scope: ConnectScope;
 }
 
 export interface ConnectTemplateOutput {
@@ -99,14 +101,25 @@ function jsonBlock(obj: unknown): string {
   return JSON.stringify(obj, null, 2);
 }
 
-function apiKeyHint(apiKeyPlaceholder: string): string {
+/**
+ * A "system" (scope="system") connection targets the fail-closed /mcp control
+ * plane (src/security/system-role.ts's resolveSystemRole), which rejects a
+ * plain data-plane key outright — it needs a managed key with `adminRole` set
+ * (or the env admin Bearer). Every other scope just needs any active key, so
+ * this branches on scope to avoid pointing a "system" caller at instructions
+ * that produce a key /mcp will reject.
+ */
+function apiKeyHint(apiKeyPlaceholder: string, scope: ConnectScope): string {
+  if (scope === "system") {
+    return `Replace ${apiKeyPlaceholder} with an MCP API key that has a system role (admin/operator/auditor/viewer) — mint one under "API keys" in the admin UI and set its "System role" field, or use the gateway's env admin Bearer key instead. A plain data-plane key has no system role and is rejected by /mcp.`;
+  }
   return `Replace ${apiKeyPlaceholder} with a real MCP API key — create one first under "API keys" in the admin UI if you don't have one yet.`;
 }
 
 const claudeDesktop: ConnectTemplate = {
   id: "claude-desktop",
   label: "Claude Desktop",
-  generate({ name, url, apiKeyPlaceholder }) {
+  generate({ name, url, apiKeyPlaceholder, scope }) {
     const snippet = jsonBlock({
       mcpServers: {
         [name]: {
@@ -129,7 +142,7 @@ const claudeDesktop: ConnectTemplate = {
       instructions: [
         "Open (or create) claude_desktop_config.json — macOS: ~/Library/Application Support/Claude/claude_desktop_config.json · Windows: %APPDATA%\\Claude\\claude_desktop_config.json",
         `Merge the snippet below into its top-level "mcpServers" object (add that key if the file is new/empty).`,
-        apiKeyHint(apiKeyPlaceholder),
+        apiKeyHint(apiKeyPlaceholder, scope),
         "Completely quit and restart Claude Desktop (not just close the window) for the new server to load.",
       ],
     };
@@ -139,7 +152,7 @@ const claudeDesktop: ConnectTemplate = {
 const cursor: ConnectTemplate = {
   id: "cursor",
   label: "Cursor",
-  generate({ name, url, apiKeyPlaceholder }) {
+  generate({ name, url, apiKeyPlaceholder, scope }) {
     const snippet = jsonBlock({
       mcpServers: {
         [name]: {
@@ -155,7 +168,7 @@ const cursor: ConnectTemplate = {
       snippet,
       instructions: [
         "Save as .cursor/mcp.json in this project, or ~/.cursor/mcp.json to make it available in every project.",
-        apiKeyHint(apiKeyPlaceholder),
+        apiKeyHint(apiKeyPlaceholder, scope),
         "Cursor picks up mcp.json changes automatically — reopen the MCP settings panel to confirm it connected.",
       ],
     };
@@ -165,7 +178,7 @@ const cursor: ConnectTemplate = {
 const windsurf: ConnectTemplate = {
   id: "windsurf",
   label: "Windsurf",
-  generate({ name, url, apiKeyPlaceholder }) {
+  generate({ name, url, apiKeyPlaceholder, scope }) {
     const snippet = jsonBlock({
       mcpServers: {
         [name]: {
@@ -181,7 +194,7 @@ const windsurf: ConnectTemplate = {
       snippet,
       instructions: [
         "Save as ~/.codeium/windsurf/mcp_config.json (Cascade's MCP panel > Configure also opens this file for you).",
-        apiKeyHint(apiKeyPlaceholder),
+        apiKeyHint(apiKeyPlaceholder, scope),
         "Click the refresh icon in Cascade's MCP panel (or restart Windsurf) to load the new server.",
       ],
     };
@@ -191,7 +204,7 @@ const windsurf: ConnectTemplate = {
 const continueDev: ConnectTemplate = {
   id: "continue",
   label: "Continue",
-  generate({ name, url, transport, apiKeyPlaceholder }) {
+  generate({ name, url, transport, apiKeyPlaceholder, scope }) {
     // Continue's mcpServers is a YAML array, not a name-keyed map — see the
     // file-level comment above.
     const snippet = [
@@ -209,7 +222,7 @@ const continueDev: ConnectTemplate = {
       instructions: [
         "Save under .continue/config.yaml in this workspace, or ~/.continue/config.yaml to make it available everywhere.",
         "If the file already has a top-level mcpServers: list, append this entry to it rather than duplicating the key.",
-        apiKeyHint(apiKeyPlaceholder),
+        apiKeyHint(apiKeyPlaceholder, scope),
         "Continue reloads config.yaml automatically — check the MCP Servers panel to confirm it connected.",
       ],
     };
@@ -219,7 +232,7 @@ const continueDev: ConnectTemplate = {
 const genericJson: ConnectTemplate = {
   id: "generic-json",
   label: "Generic (url + headers)",
-  generate({ name, url, transport, apiKeyPlaceholder }) {
+  generate({ name, url, transport, apiKeyPlaceholder, scope }) {
     const snippet = jsonBlock({
       mcpServers: {
         [name]: {
@@ -236,7 +249,7 @@ const genericJson: ConnectTemplate = {
       snippet,
       instructions: [
         'This is a reference shape (the "url" + "headers" convention several clients share), not a guaranteed exact match for every client — check your specific client\'s MCP docs for its precise field names.',
-        apiKeyHint(apiKeyPlaceholder),
+        apiKeyHint(apiKeyPlaceholder, scope),
       ],
     };
   },
