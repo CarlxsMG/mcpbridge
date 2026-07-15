@@ -850,6 +850,8 @@
       },
       "widgets": {
         "note_preset_label": "Text / note",
+        "note_default_title": "Note",
+        "note_default_text": "# Notes\n\nWrite anything here — **markdown** and https://links work.",
         "descriptions": {
           "stat": "Single number",
           "timeseries": "Line + area over the selected time window",

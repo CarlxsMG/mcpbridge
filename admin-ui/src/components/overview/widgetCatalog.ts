@@ -819,7 +819,10 @@ export function noteInstance(id = genId()): WidgetInstance {
     id,
     type: "note",
     ...DEFAULT_SIZE.note,
-    options: { title: "Note", text: "# Notes\n\nWrite anything here — **markdown** and https://links work." },
+    options: {
+      title: tk("components.overview.widgets.note_default_title"),
+      text: tk("components.overview.widgets.note_default_text"),
+    },
   };
 }
 
