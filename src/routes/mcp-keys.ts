@@ -12,6 +12,7 @@ import {
   revokeMcpKey,
   deleteMcpKey,
   type McpKeyScopes,
+  type McpApiKeyRecord,
 } from "../security/mcp-key-store.js";
 import { isAdminRole, type AdminRole } from "../security/user-store.js";
 import { getConsumer } from "../admin/entities/consumers.js";
@@ -69,6 +70,26 @@ function scopeConfinementError(req: Request, scopes: McpKeyScopes | null): strin
   return null;
 }
 
+/**
+ * Whether a non-super-admin caller may see this key in list/detail views.
+ * Mirrors the write-side `scopeConfinementError`: a team-scoped caller may
+ * only see keys explicitly confined (via `scopes.clients`) to clients their
+ * team owns, and never a key carrying `adminRole` — control-plane access is a
+ * super-admin-only concern regardless of scope. A key with no scopes, or with
+ * an empty/unresolvable `scopes.clients`, can't be attributed to a team, so it
+ * is hidden from team-scoped callers (fail closed, the same default this
+ * codebase uses everywhere else — e.g. `ensureClientAccess`). Super-admin and
+ * bearer callers always see every key, unchanged.
+ */
+function keyVisibleToCaller(req: Request, key: McpApiKeyRecord): boolean {
+  if (isSuperAdminCaller(req)) return true;
+  if (key.adminRole !== null) return false;
+  const clients = key.scopes?.clients;
+  if (!clients || clients.length === 0) return false;
+  const team = callerTeamId(req);
+  return clients.every((name) => getClientTeam(name) === team);
+}
+
 function validateLabel(input: unknown): ValidationResult<string> {
   if (typeof input !== "string" || input.trim().length === 0 || input.trim().length > 128) {
     return { ok: false, message: "label is required and must be 1-128 characters" };
@@ -90,8 +111,8 @@ export function mcpKeyRoutes(app: Express): void {
   const r = Router();
   r.use(adminAuth);
 
-  r.get("/mcp-keys", (_req: Request, res: Response) => {
-    res.status(200).json({ items: listMcpKeys() });
+  r.get("/mcp-keys", (req: Request, res: Response) => {
+    res.status(200).json({ items: listMcpKeys().filter((k) => keyVisibleToCaller(req, k)) });
   });
 
   r.post("/mcp-keys", requireAdminRole, (req: Request, res: Response) => {
@@ -173,7 +194,7 @@ export function mcpKeyRoutes(app: Express): void {
 
   r.get("/mcp-keys/:id", (req: Request<{ id: string }>, res: Response) => {
     const rec = getMcpKey(Number(req.params.id));
-    if (!rec) {
+    if (!rec || !keyVisibleToCaller(req, rec)) {
       notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
       return;
     }
