@@ -32,6 +32,7 @@ import { startScheduleLoop } from "./admin/entities/schedules.js";
 import { initBundles } from "./admin/tool-composition/bundles.js";
 import { initComposites } from "./admin/tool-composition/composites.js";
 import { startLeaderElection } from "./db/leader-lease.js";
+import { startPeriodicSweep } from "./lib/leader-loop.js";
 import { flush as flushTraces } from "./observability/tracing.js";
 import { registry } from "./mcp/registry.js";
 import { startCircuitBreakerCleanup } from "./middleware/circuit-breaker.js";
@@ -159,13 +160,13 @@ const stopSchedules = startScheduleLoop();
 // its own view from SQLite so registrations/removals on peers propagate).
 let stopRegistrySync: () => void = () => {};
 if (config.registrySyncEnabled) {
-  const t = setInterval(() => {
-    registry
+  // The inner .catch keeps the existing warn-level message; startPeriodicSweep
+  // provides the shared setInterval + unref + stop() scaffold.
+  stopRegistrySync = startPeriodicSweep(() => {
+    void registry
       .reconcileFromDb()
       .catch((err) => log("warn", "Registry reconciliation failed", { error: errorMessage(err) }));
   }, config.registrySyncIntervalMs);
-  if (t.unref) t.unref();
-  stopRegistrySync = () => clearInterval(t);
   log("info", "Registry cross-instance sync enabled", { intervalMs: config.registrySyncIntervalMs });
 }
 

@@ -89,7 +89,9 @@ function startSessionCleanup(): void {
         if (streamable) {
           try {
             streamable.close();
-          } catch {}
+          } catch {
+            // best-effort: closing an already-torn-down transport must not block session release
+          }
         }
         // Single idempotent release — close() above fires onclose, which also
         // releases; whichever runs first decrements, the other is a no-op.
@@ -383,7 +385,9 @@ export function setupTransports(app: Express): () => void {
     for (const [id, transport] of streamableSessions) {
       try {
         transport.close();
-      } catch {}
+      } catch {
+        // best-effort: shutdown continues even if a transport is already closed
+      }
       releaseSession(id);
     }
   };

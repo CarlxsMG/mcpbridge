@@ -51,6 +51,7 @@ export function startPeriodicSweep(fn: LoopFn, intervalMs: number): () => void {
   const timer = setInterval(() => {
     void runSafely(fn, "Periodic sweep encountered an unhandled error");
   }, intervalMs);
+  if (timer.unref) timer.unref(); // never keep the process alive on its own (parity with the gated loop)
   return () => clearInterval(timer);
 }
 

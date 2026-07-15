@@ -3,7 +3,7 @@ import { config } from "../config.js";
 import { adminAuth } from "../middleware/auth.js";
 import { requireOperator } from "../middleware/authz.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
-import { validationError, bodyOf, sendError } from "./http-errors.js";
+import { validationError, bodyOf, sendError, requestId as getRequestId } from "./http-errors.js";
 import {
   performRestRegistration,
   performMcpRegistration,
@@ -19,7 +19,7 @@ export function registerRoutes(app: Express): void {
     requireOperator,
     rateLimitRegister(config.rateLimitRegister),
     async (req: Request, res: Response) => {
-      const requestId = (res.locals.requestId as string) ?? null;
+      const requestId = getRequestId(res);
 
       // Change A — guard against non-object bodies ([], "string", null, etc.)
       if (req.body === null || typeof req.body !== "object" || Array.isArray(req.body)) {

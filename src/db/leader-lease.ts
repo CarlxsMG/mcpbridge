@@ -58,6 +58,7 @@ export function startLeaderElection(): () => void {
   refreshLeaderStatus();
   const intervalMs = Math.max(1000, Math.floor(config.leaderLeaseDurationMs / 3));
   const timer = setInterval(refreshLeaderStatus, intervalMs);
+  if (timer.unref) timer.unref(); // never keep the process alive on its own (parity with the other loops)
 
   return () => clearInterval(timer);
 }

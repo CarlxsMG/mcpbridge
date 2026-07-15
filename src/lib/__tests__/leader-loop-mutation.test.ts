@@ -42,10 +42,12 @@ async function flushMicrotasks(): Promise<void> {
 }
 
 describe("startPeriodicSweep", () => {
-  test("registers via setInterval with the exact intervalMs given, and does NOT run fn immediately", () => {
+  test("registers via setInterval with the exact intervalMs given, unrefs the timer, and does NOT run fn immediately", () => {
     let capturedFn: (() => void) | undefined;
     let capturedMs: number | undefined;
-    const timer = fakeTimer();
+    const unrefHolder = { unref: () => {} };
+    const unrefSpy = spyOn(unrefHolder, "unref");
+    const timer = { unref: unrefSpy } as unknown as FakeTimer;
     const setIntervalSpy = spyOn(global, "setInterval").mockImplementation(
       asSetIntervalImpl((cb, ms) => {
         capturedFn = cb;
@@ -59,6 +61,7 @@ describe("startPeriodicSweep", () => {
       startPeriodicSweep(fn, 12345);
       expect(setIntervalSpy).toHaveBeenCalledTimes(1);
       expect(capturedMs).toBe(12345);
+      expect(unrefSpy).toHaveBeenCalledTimes(1);
       expect(fn).not.toHaveBeenCalled();
       expect(capturedFn).toBeDefined();
     } finally {
