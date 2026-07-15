@@ -22,10 +22,10 @@
 # - `env_file` injects .env into the container's process env (same file
 #   Compose also reads for ${VAR} substitution below, so PORT stays in sync
 #   on both sides of the port mapping).
-# - The image already declares a HEALTHCHECK (wget .../health) in the
+# - The image already declares a HEALTHCHECK (wget .../livez) in the
 #   Dockerfile — Compose picks that up automatically, no need to redeclare
 #   it here. That healthcheck runs *inside* the container and always probes
-#   the container's own `$PORT` env var (`http://localhost:$PORT/health`),
+#   the container's own `$PORT` env var (`http://localhost:$PORT/livez`),
 #   never the host-side port mapping above — so the mapping alone overriding
 #   PORT is not enough. `env_file: .env` is what makes an overridden PORT
 #   actually reach the container's process env, which is what keeps the

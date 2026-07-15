@@ -109,28 +109,36 @@ securityContext:
   # still leaves SQLite's temp space (and any other scratch) writable.
   readOnlyRootFilesystem: true
 
-# Gates liveness/readiness until the app answers /health once — covers a slow
+# Gates liveness/readiness until the app answers /livez once — covers a slow
 # first boot (DB migrations run at startup, see src/db/migrations.ts) without
 # needing a large initialDelaySeconds on livenessProbe below, which would
 # otherwise slow down detecting a genuinely hung pod on every later restart.
 # 30 * 5s = up to 150s to come up before Kubernetes gives up and restarts it.
 startupProbe:
   httpGet:
-    path: /health
+    path: /livez
     port: http
   failureThreshold: 30
   periodSeconds: 5
 
+# Liveness = "is the process alive and answering HTTP?" — /livez is always-200
+# while the HTTP server is up, so a not-ready (DB/leader) blip never restarts a
+# healthy pod.
 livenessProbe:
   httpGet:
-    path: /health
+    path: /livez
     port: http
   initialDelaySeconds: 5
   periodSeconds: 15
 
+# Readiness = "should this pod get traffic?" — /readyz returns 200 only when the
+# SQLite handle answers and this instance holds the leader lease, so a wedged DB
+# pulls the pod from the Service. NOTE: /readyz is leader-gated, so with
+# replicaCount > 1 only the leader reports ready; if you scale out and want every
+# replica to serve, switch this back to /livez (or make /readyz non-leader-gated).
 readinessProbe:
   httpGet:
-    path: /health
+    path: /readyz
     port: http
   initialDelaySeconds: 5
   periodSeconds: 10

@@ -47,7 +47,7 @@ VOLUME /app/data
 USER bun
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:$PORT/health || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:$PORT/livez || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["bun", "src/index.ts"]
