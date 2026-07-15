@@ -50,8 +50,12 @@ const testI18n = createI18n({
   globalInjection: true,
   locale: "en",
   fallbackLocale: "en",
-  silentFallbackWarn: true,
-  silentTranslationWarn: true,
+  // See admin-ui/src/i18n.ts: under `legacy: false` these are the Composer-mode
+  // option names that actually suppress "Not found key" console warnings —
+  // `silentFallbackWarn`/`silentTranslationWarn` are legacy-mode-only and are
+  // silently ignored here.
+  fallbackWarn: false,
+  missingWarn: false,
   messages: { en, es },
 });
 

@@ -432,6 +432,7 @@
       "unowned": "— sin equipo —",
       "admin_only": "Solo los super-admins pueden cambiar esto.",
       "create_team": "Crear equipo",
+      "change_team_aria": "Cambiar equipo propietario",
       "errors": {
         "assign_failed": "Error al asignar el equipo (solo super-admin)."
       }
@@ -1743,6 +1744,9 @@
         "rate_limit": "Rate/min",
         "timeout": "Timeout",
         "apply_to_bundle": "Aplicar al bundle"
+      },
+      "aria": {
+        "apply_bundle": "Bundle al que aplicar '{name}'"
       },
       "empty": {
         "no_policies": "Aún no hay políticas. Una política aplica rate limit y timeout a todas las tools a la vez, en lugar de configurar cada una individualmente."

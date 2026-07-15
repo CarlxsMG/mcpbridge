@@ -34,8 +34,13 @@ export const i18n = createI18n({
   // Fallback to EN when a key is missing in ES — `missing()` would log to
   // console in production builds and confuse users; silent fallback is the
   // documented vue-i18n pattern for "key present in EN, missing in ES".
-  silentFallbackWarn: true,
-  silentTranslationWarn: true,
+  //
+  // NOTE: `silentFallbackWarn`/`silentTranslationWarn` are legacy-mode
+  // (`legacy: true`) option names and are silently ignored under
+  // `legacy: false` (Composition API mode, used here). The Composer-mode
+  // equivalents actually read by vue-i18n are `fallbackWarn`/`missingWarn`.
+  fallbackWarn: false,
+  missingWarn: false,
   messages: {
     en,
     es,
