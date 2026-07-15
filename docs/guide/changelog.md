@@ -32,7 +32,21 @@ top-level `--help`/`--version`; a runnable `examples/` directory ships sample co
 `/register` bodies for every registration mode; `monitoring/` ships deployable Prometheus alert
 rules and a Grafana dashboard for the SLOs; and the admin UI got a coverage-ratchet gate plus a
 round of accessibility fixes (ARIA tabs keyboard model, focus management, translated error
-strings). See the root
+strings).
+
+Most recently: a **P0 fix** closed an MCP `resources`/`prompts` bypass where a managed key
+restricted to one client could still read another client's resources and prompts through the
+shared `/mcp/:clientName` route (that content is now also guardrail-scanned and credential-stripped
+like tool results); a **P1 fix** broadened the IPv4 SSRF blocklist to cover several reserved ranges
+the IPv6 path already blocked; and a **P1 fix** made the compiled per-tool schema-validator cache
+invalidate on re-registration, so tightening a tool's `inputSchema` no longer keeps enforcing the
+old, looser schema until a process restart. Alongside those: a handful of admin-UI correctness
+fixes (pagination `Prev` getting stuck before page one, a mislabeled AlertsPage column, a
+stale-filter URL-sync bug, a missing unsaved-changes guard), a CLI fix so a non-JSON admin-API
+response raises a proper `CliApiError` instead of a raw parse error, CI smoke tests that actually
+boot the Docker image and release binaries before publishing, and several documentation
+corrections (health-probe/load-balancer routing guidance, IP-pin re-resolution behavior, the
+OpenAPI canary-weight range). See the root
 [`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
 for the full curated list.
 

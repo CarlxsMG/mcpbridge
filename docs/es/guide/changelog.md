@@ -35,7 +35,23 @@ nivel superior; un directorio `examples/` listo para ejecutar aporta configs de 
 de `/register` para cada modo de registro; `monitoring/` aporta reglas de alerta de Prometheus y un
 dashboard de Grafana desplegables para los SLOs; y la admin UI recibió una compuerta de cobertura
 tipo ratchet más una ronda de correcciones de accesibilidad (modelo de teclado ARIA para tabs,
-gestión de foco, strings de error traducidos). Consulta el
+gestión de foco, strings de error traducidos).
+
+Más recientemente: una **corrección P0** cerró un bypass en `resources`/`prompts` de MCP donde una
+clave gestionada restringida a un cliente aún podía leer los resources y prompts de otro cliente a
+través de la ruta compartida `/mcp/:clientName` (ese contenido ahora también pasa por el escaneo de
+guardrails y el credential-strip igual que los resultados de tools); una **corrección P1** amplió
+la lista de bloqueo IPv4 para SSRF para cubrir varios rangos reservados que la ruta IPv6 ya
+bloqueaba; y una **corrección P1** hizo que la caché del validador de schema compilado por tool se
+invalide al re-registrar, de forma que endurecer el `inputSchema` de una tool ya no sigue aplicando
+el schema anterior, más laxo, hasta un reinicio del proceso. Junto a eso: varias correcciones de
+corrección en la admin UI (el botón `Prev` de paginación quedándose atascado antes de la página
+uno, una columna mal etiquetada en AlertsPage, un bug de sincronización de filtro obsoleto con la
+URL, una guarda de cambios sin guardar que faltaba), una corrección del CLI para que una respuesta
+no-JSON de la admin API lance un `CliApiError` propio en vez de un error de parseo crudo, smoke
+tests de CI que ahora arrancan de verdad la imagen Docker y los binarios de release antes de
+publicarlos, y varias correcciones de documentación (guía de health-probes/balanceo de carga,
+comportamiento de re-resolución del IP-pin, el rango del canary weight en OpenAPI). Consulta el
 [`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
 raíz para la lista curada completa.
 
