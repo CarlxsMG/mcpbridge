@@ -91,12 +91,29 @@ export interface ApplyResult {
   skipped: { tool: string; reason: string }[];
 }
 
-/** Applies a policy's rate-limit/timeout to each tool, preserving key allow-lists. */
-export async function applyPolicyToTools(policy: GuardPolicy, refs: BundleToolRef[]): Promise<ApplyResult> {
+/**
+ * Applies a policy's rate-limit/timeout to each tool, preserving key allow-lists.
+ *
+ * `isAllowed`, when given, is a per-client tenancy check (the route layer passes
+ * `canCallerAccessClient` bound to the request — this module has no notion of an
+ * HTTP request). A ref the caller isn't allowed to touch is reported as
+ * skipped/"not found", the same shape as a ref that genuinely doesn't exist, so
+ * a team-scoped caller can't distinguish "not yours" from "doesn't exist"
+ * (mirrors `ensureClientAccess`'s uniform 404).
+ */
+export async function applyPolicyToTools(
+  policy: GuardPolicy,
+  refs: BundleToolRef[],
+  isAllowed?: (clientName: string) => boolean,
+): Promise<ApplyResult> {
   const patch = { rateLimitPerMin: policy.rateLimitPerMin, timeoutMs: policy.timeoutMs };
   let applied = 0;
   const skipped: { tool: string; reason: string }[] = [];
   for (const r of refs) {
+    if (isAllowed && !isAllowed(r.client)) {
+      skipped.push({ tool: `${r.client}__${r.tool}`, reason: "not found" });
+      continue;
+    }
     const ok = await registry.applyGuardPolicy(r.client, r.tool, patch);
     if (ok) applied++;
     else skipped.push({ tool: `${r.client}__${r.tool}`, reason: "not found" });
@@ -105,8 +122,12 @@ export async function applyPolicyToTools(policy: GuardPolicy, refs: BundleToolRe
 }
 
 /** Applies a policy to every tool in a bundle (bundle-level guard semantics). Null if the bundle is unknown. */
-export async function applyPolicyToBundle(policy: GuardPolicy, bundleName: string): Promise<ApplyResult | null> {
+export async function applyPolicyToBundle(
+  policy: GuardPolicy,
+  bundleName: string,
+  isAllowed?: (clientName: string) => boolean,
+): Promise<ApplyResult | null> {
   const bundle = getBundleDetail(bundleName);
   if (!bundle) return null;
-  return applyPolicyToTools(policy, bundle.tools);
+  return applyPolicyToTools(policy, bundle.tools, isAllowed);
 }
