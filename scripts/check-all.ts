@@ -72,8 +72,12 @@ const steps: Step[] = [
   // The admin-ui steps below cover that package; `bun run test:e2e` covers
   // the Playwright suite separately.
   {
+    // --coverage so the backend coverage floor (bunfig.toml) is enforced here
+    // too, not only in CI — otherwise a coverage regression that fails CI passes
+    // this local aggregate check silently (the admin-ui step already uses
+    // test:coverage; this keeps the two halves symmetric).
     label: "root tests",
-    cmd: [bunExe, "test", "--path-ignore-patterns={admin-ui,e2e}/**"],
+    cmd: [bunExe, "test", "--coverage", "--path-ignore-patterns={admin-ui,e2e}/**"],
     cwd: root,
     env: testEnv,
   },
