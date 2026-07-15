@@ -20,7 +20,7 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
 import { registry } from "../../mcp/registry.js";
 import { config } from "../../config.js";
-import { __resetDbForTesting } from "../../db/connection.js";
+import { __resetDbForTesting, getDb } from "../../db/connection.js";
 import { refreshLeaderStatus } from "../../db/leader-lease.js";
 import * as loggerMod from "../../logger.js";
 import * as mcpServerMod from "../../mcp/mcp-server.js";
@@ -338,6 +338,71 @@ describe("startHealthCheckLoop — outer catch logs the exact error message", ()
       (registry as { listClients: () => readonly { name: string }[] }).listClients = origListClients;
       logSpy.mockRestore();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression (P1 HA bug) — a health-evicted client must not be immediately
+// resurrected by reconcileFromDb(). handleFailure() used to call the generic
+// registry.unregister(), which only tears down live state and deliberately
+// never touches the client's SQLite row. The next reconcileFromDb() pass then
+// saw "row present in DB, not live" and re-hydrated it with
+// `existing?.status ?? "healthy"` -- existing is undefined right after
+// eviction, so it came back "healthy" -- and the health-check loop would
+// re-fail and re-evict it on the very next tick, forever (spamming
+// notifyToolsChanged to every connected MCP session). handleFailure() now
+// calls registry.evictUnhealthy(), which marks the name so reconcileFromDb()
+// withholds it until a genuine re-registration proves the backend is
+// reachable again.
+// ---------------------------------------------------------------------------
+
+describe("evictUnhealthy + reconcileFromDb — no resurrect-then-refail loop", () => {
+  test("a health-evicted client stays evicted across reconcileFromDb while its DB row still exists, and a genuine re-registration brings it back", async () => {
+    const name = "hc4-evict-then-reconcile";
+    (config as Record<string, unknown>).maxConsecutiveFailures = 1;
+    await registerClient(name);
+
+    globalThis.fetch = (async () => new Response("fail", { status: 500 })) as unknown as typeof fetch;
+
+    const { startHealthCheckLoop } = await import("../../observability/health.js");
+    const stop = startHealthCheckLoop();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    stop();
+
+    // Evicted from the live registry, but its SQLite row is untouched by design.
+    expect(registry.getClient(name)).toBeUndefined();
+    const row = getDb().query(`SELECT name FROM clients WHERE name = ?`).get(name);
+    expect(row).not.toBeNull();
+
+    // The bug: reconcileFromDb() would see "row present, not live" and
+    // immediately re-hydrate it as healthy, undoing the eviction outright.
+    const result = await registry.reconcileFromDb();
+    expect(result.added).toBe(0);
+    expect(registry.getClient(name)).toBeUndefined();
+
+    // Not a one-tick fluke -- the hold persists across repeated reconciles.
+    const result2 = await registry.reconcileFromDb();
+    expect(result2.added).toBe(0);
+    expect(registry.getClient(name)).toBeUndefined();
+
+    // A genuine re-registration of the same name (the backend is reachable
+    // again) must succeed and mark it healthy again.
+    await registerClient(name);
+    expect(registry.getClient(name)).toBeDefined();
+    expect(registry.getClient(name)?.status).toBe("healthy");
+
+    // Prove the re-registration actually cleared the hold (not just that
+    // register() itself re-added the client): drop it from the live map the
+    // way a peer instance's own teardown would (plain unregister(), which
+    // never sets the hold), then confirm reconcileFromDb() treats it as an
+    // ordinary "seen in DB, not live" case again -- i.e. re-hydrates it --
+    // instead of continuing to withhold it.
+    await registry.unregister(name);
+    expect(registry.getClient(name)).toBeUndefined();
+    const result3 = await registry.reconcileFromDb();
+    expect(result3.added).toBe(1);
+    expect(registry.getClient(name)).toBeDefined();
+    expect(registry.getClient(name)?.status).toBe("healthy");
   });
 });
 

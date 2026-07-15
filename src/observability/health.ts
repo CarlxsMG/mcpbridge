@@ -93,9 +93,11 @@ async function handleFailure(name: string, previousStatus: ClientStatus): Promis
 
     healthEvictionsTotal.inc({ client: name });
 
-    // unregister() handles abort of in-flight requests, circuit-breaker cleanup,
-    // toolIndex cleanup, and notifyToolsChanged — no duplication needed here.
-    await registry.unregister(name);
+    // evictUnhealthy() handles abort of in-flight requests, circuit-breaker
+    // cleanup, toolIndex cleanup, and notifyToolsChanged (same teardown as
+    // unregister()), plus marks the name so reconcileFromDb() won't
+    // immediately re-hydrate it as "healthy" while its SQLite row still exists.
+    await registry.evictUnhealthy(name);
   } else {
     registry.markClientStatus(name, "unreachable");
     if (previousStatus !== "unreachable") {
