@@ -188,6 +188,7 @@ bun run cli -- login --url http://localhost:3000 --token $ADMIN_API_KEY
 bun run cli -- pull    # write the live config to gateway.yaml
 bun run cli -- plan    # show drift vs. gateway.yaml, non-zero exit if any (CI-friendly)
 bun run cli -- apply   # register servers + apply config from gateway.yaml
+bun run cli -- connect --client claude-desktop --scope system   # print MCP client config to paste
 ```
 
 See **[CLI docs →](https://aico-dot-team-code.github.io/mcpbridge/guide/cli)** for the full
@@ -215,7 +216,7 @@ command reference and `gateway.yaml` format.
 **Operate with confidence**
 
 - **Admin UI** (Vue 3): dashboard, servers, bundles, keys, usage, alerts, schedules, audit
-- **CLI** (`bun run cli`) for config-as-code: `login` / `pull` / `plan` / `apply` against a `gateway.yaml` — see [CLI docs](https://aico-dot-team-code.github.io/mcpbridge/guide/cli)
+- **CLI** (`bun run cli`) for config-as-code: `login` / `pull` / `plan` / `apply` against a `gateway.yaml`, plus `connect` to generate MCP-client configs — see [CLI docs](https://aico-dot-team-code.github.io/mcpbridge/guide/cli)
 - Health monitoring + auto-eviction; **canary / failover** secondaries
 - **Config versioning + rollback**, import / export
 - Prometheus `/metrics` + **OpenTelemetry (OTLP)** tracing per tool call
