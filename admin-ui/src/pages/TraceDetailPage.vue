@@ -43,6 +43,27 @@ const waterfall = computed(() => {
     })),
   };
 });
+
+const selectedSpanId = ref<number | null>(null);
+watch(
+  () => waterfall.value.rows,
+  (rows) => {
+    if (rows.length === 0) {
+      selectedSpanId.value = null;
+      return;
+    }
+    if (!rows.some((row) => row.span.id === selectedSpanId.value)) {
+      selectedSpanId.value = rows[rows.length - 1].span.id;
+    }
+  },
+  { immediate: true },
+);
+
+const selectedRow = computed(() => waterfall.value.rows.find((row) => row.span.id === selectedSpanId.value) ?? null);
+
+function selectSpan(spanId: number) {
+  selectedSpanId.value = spanId;
+}
 </script>
 
 <template>
@@ -58,7 +79,15 @@ const waterfall = computed(() => {
 
       <div class="waterfall-card">
         <div class="waterfall">
-          <div v-for="row in waterfall.rows" :key="row.span.id" class="waterfall-row">
+          <button
+            v-for="row in waterfall.rows"
+            :key="row.span.id"
+            type="button"
+            class="waterfall-row"
+            :class="{ selected: row.span.id === selectedSpanId }"
+            :aria-pressed="row.span.id === selectedSpanId"
+            @click="selectSpan(row.span.id)"
+          >
             <div class="waterfall-label" :title="row.span.name">{{ row.span.name }}</div>
             <div class="waterfall-track">
               <div
@@ -69,12 +98,14 @@ const waterfall = computed(() => {
               ></div>
             </div>
             <div class="waterfall-duration">{{ row.durationMs }}ms</div>
-          </div>
+          </button>
         </div>
-        <details class="attrs">
-          <summary>{{ t("pages.traces.detail_attributes_summary") }}</summary>
-          <pre>{{ prettyJson(waterfall.rows[waterfall.rows.length - 1]?.span.attributes ?? {}) }}</pre>
-        </details>
+        <div v-if="selectedRow" class="attrs">
+          <h3 class="attrs-heading">
+            {{ t("pages.traces.detail_attributes_summary", { name: selectedRow.span.name }) }}
+          </h3>
+          <pre>{{ prettyJson(selectedRow.span.attributes ?? {}) }}</pre>
+        </div>
       </div>
     </ListLayout>
   </section>
@@ -98,6 +129,22 @@ const waterfall = computed(() => {
   grid-template-columns: 12.5rem 1fr 4.375rem;
   align-items: center;
   gap: 0.75rem;
+  width: 100%;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.375rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.waterfall-row:hover {
+  background: var(--surface-sunken);
+}
+.waterfall-row.selected {
+  border-color: var(--signal);
+  background: var(--surface-sunken);
 }
 .waterfall-label {
   font-size: 0.82rem;
@@ -131,6 +178,11 @@ const waterfall = computed(() => {
 .attrs {
   margin-top: 1rem;
   font-size: 0.8rem;
+}
+.attrs-heading {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 .attrs pre {
   background: var(--surface-sunken);
