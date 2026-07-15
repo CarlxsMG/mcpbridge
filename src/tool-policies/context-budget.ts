@@ -256,6 +256,10 @@ async function callOpenAiCompatible(
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: llm.model,
+      // Bound the generated summary at the request level, mirroring the Anthropic
+      // path — a summarizer whose whole job is to fit a byte budget must not be
+      // free to emit an unbounded response.
+      max_tokens: estimateMaxTokens(maxResponseBytes),
       messages: [
         { role: "system", content: SUMMARIZE_SYSTEM_PROMPT },
         { role: "user", content: summarizePrompt(text, maxResponseBytes) },
