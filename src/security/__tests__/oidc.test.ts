@@ -202,6 +202,34 @@ describe("findOrProvisionSsoUser", () => {
     expect(countAfterSecond).toBe(countAfterFirst);
   });
 
+  test("two concurrent first-time logins for the same (provider, subject) never race: exactly one admin_users row, both resolve to it", async () => {
+    // Regression test: without a per-(provider, subject) mutex, both calls
+    // would pass the pre-checks (findIdentityUserId → null) before either
+    // committed, then race createUser's INSERT on admin_users' UNIQUE
+    // username constraint (or linkIdentity's on admin_user_identities'
+    // UNIQUE(provider, subject)) — one call would throw instead of both
+    // resolving to the same user.
+    const claims = { sub: "subject-race", email: "race@example.com" };
+    const [a, b] = await Promise.all([
+      findOrProvisionSsoUser("oidc", "subject-race", claims),
+      findOrProvisionSsoUser("oidc", "subject-race", claims),
+    ]);
+    expect(a.id).toBe(b.id);
+    expect(a.username).toBe(b.username);
+
+    const userCount = (
+      getDb().query(`SELECT COUNT(*) AS n FROM admin_users WHERE username = ?`).get(a.username) as { n: number }
+    ).n;
+    expect(userCount).toBe(1);
+
+    const identityCount = (
+      getDb().query(`SELECT COUNT(*) AS n FROM admin_user_identities WHERE provider = 'oidc' AND subject = ?`).get(
+        "subject-race",
+      ) as { n: number }
+    ).n;
+    expect(identityCount).toBe(1);
+  });
+
   test("a username collision with a pre-existing, unrelated account never attaches the new identity to it", async () => {
     const hash = await Bun.password.hash("irrelevant-password-1234");
     const { createUser } = await import("../../security/user-store.js");

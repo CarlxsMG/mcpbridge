@@ -26,6 +26,7 @@ import { getDb } from "../db/connection.js";
 import { getSecretsProvider } from "../secrets/index.js";
 import { log } from "../logger.js";
 import { createUser, findUserByUsername, findUserById, type AdminUser } from "./user-store.js";
+import { createKeyedMutex } from "../lib/async-lock.js";
 import {
   createJwksFetcher,
   verifyJwtSignatureWithKeys,
@@ -417,6 +418,14 @@ function deriveUsername(provider: string, subject: string, claims: JwtClaims): s
   return `${base}-${provider}-${shortSubjectHash(subject)}`;
 }
 
+// Per-(provider, subject) async mutex (see lib/async-lock.ts's
+// createKeyedMutex, the same shape bundles.ts/composites.ts use for their
+// own admin mutations) so two concurrent first-time SSO logins for the same
+// subject (e.g. two browser tabs, or a retried slow IdP callback) serialise
+// instead of racing on admin_users' UNIQUE username / admin_user_identities'
+// UNIQUE(provider, subject) constraints.
+const { withLock } = createKeyedMutex();
+
 /**
  * Looks up the admin_users row for (provider, subject), auto-provisioning a
  * brand-new one on first login.
@@ -437,13 +446,25 @@ export async function findOrProvisionSsoUser(provider: string, subject: string, 
     if (existing) return existing;
   }
 
-  const username = deriveUsername(provider, subject, claims);
-  // Random, never-surfaced password — SSO users authenticate via the IdP
-  // only; this just satisfies admin_users.password_hash NOT NULL with a hash
-  // nobody can ever produce a matching plaintext for.
-  const passwordHash = await Bun.password.hash(randomBytes(32).toString("base64url"));
-  const user = createUser(username, passwordHash, "viewer", `oidc:${provider}`);
-  linkIdentity(provider, subject, user.id);
-  log("info", "Auto-provisioned admin user from SSO login", { username, provider, role: "viewer" });
-  return user;
+  // Serialise the create+link sequence per (provider, subject): a second
+  // concurrent call for the same not-yet-provisioned subject waits here,
+  // then re-checks findIdentityUserId (below) and resolves to the winner's
+  // user instead of racing createUser/linkIdentity against it.
+  return withLock(`${provider}:${subject}`, async () => {
+    const raced = findIdentityUserId(provider, subject);
+    if (raced !== null) {
+      const existing = findUserById(raced);
+      if (existing) return existing;
+    }
+
+    const username = deriveUsername(provider, subject, claims);
+    // Random, never-surfaced password — SSO users authenticate via the IdP
+    // only; this just satisfies admin_users.password_hash NOT NULL with a hash
+    // nobody can ever produce a matching plaintext for.
+    const passwordHash = await Bun.password.hash(randomBytes(32).toString("base64url"));
+    const user = createUser(username, passwordHash, "viewer", `oidc:${provider}`);
+    linkIdentity(provider, subject, user.id);
+    log("info", "Auto-provisioned admin user from SSO login", { username, provider, role: "viewer" });
+    return user;
+  });
 }
