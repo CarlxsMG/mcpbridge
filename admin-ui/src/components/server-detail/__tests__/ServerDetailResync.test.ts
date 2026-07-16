@@ -96,4 +96,35 @@ describe("ServerDetailResync", () => {
     expect(wrapper.find(".diff-rem").exists()).toBe(false);
     expect(wrapper.find(".diff-summary").text()).toBe("0 added · 0 removed · 2 unchanged");
   });
+
+  it("requires confirmation before applying a resync that removes tools, and surfaces the removed count", async () => {
+    apiPost.mockResolvedValueOnce({
+      count: 2,
+      tools: [
+        { name: "fetch", method: "GET", endpoint: "/fetch", description: "" },
+        { name: "delete", method: "DELETE", endpoint: "/delete", description: "" },
+      ],
+    } satisfies DiscoveryPreview);
+    const wrapper = mountResync(makeDetail());
+
+    await wrapper.find(".ua-actions button").trigger("click");
+    await wrapper.find(".field-inline input").setValue("https://api.example.com/openapi.json");
+    await wrapper.find(".field-inline button").trigger("click");
+    await flushPromises();
+
+    apiPost.mockClear();
+    await wrapper.find(".diff .btn-primary").trigger("click");
+
+    // No /register call yet, and the dialog names the removed-tool count.
+    expect(apiPost).not.toHaveBeenCalled();
+    const dialog = wrapper.find('[role="alertdialog"]');
+    expect(dialog.exists()).toBe(true);
+    expect(dialog.text()).toContain("1");
+
+    apiPost.mockResolvedValueOnce({});
+    await dialog.find(".btn-danger").trigger("click");
+    await flushPromises();
+
+    expect(apiPost).toHaveBeenCalledWith("/register", expect.objectContaining({ name: "acme" }));
+  });
 });
