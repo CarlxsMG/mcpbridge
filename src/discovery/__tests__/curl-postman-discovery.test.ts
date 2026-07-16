@@ -107,6 +107,13 @@ curl -X POST https://api.example.com/users \\
     expect(tool.method).toBe("POST");
   });
 
+  test("a literal '--' end-of-options marker doesn't swallow the following URL (P2 regression)", () => {
+    const [tool] = parseCurlCommand(`curl -H "Authorization: Bearer x" -- https://api.example.com/-weird-path`);
+    expect(tool).toBeDefined();
+    expect(tool.endpoint).toBe("/-weird-path");
+    expect(tool.method).toBe("GET");
+  });
+
   test("skips a HEAD/OPTIONS request (not a registrable tool method) rather than crashing", () => {
     const paste = `curl -X HEAD https://api.example.com/ping\ncurl https://api.example.com/status`;
     const tools = parseCurlCommand(paste);
