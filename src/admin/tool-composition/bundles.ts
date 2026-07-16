@@ -5,6 +5,7 @@ import { log } from "../../logger.js";
 import { isValidToolName } from "../../lib/identifier.js";
 import { createKeyedMutex, reloadLiveCache } from "../../lib/async-lock.js";
 import { hasComposite } from "./composites.js";
+import { reScopeInstallLinksForBundle } from "./bundle-install-links.js";
 
 export interface BundleToolRef {
   client: string;
@@ -327,6 +328,14 @@ export async function updateBundle(
       }
     });
     txn();
+
+    // Keep any still-active install link's auto-provisioned MCP key in sync
+    // with the bundle's current tool set — otherwise a link minted before this
+    // update keeps granting access to a tool the bundle no longer includes
+    // (see reScopeInstallLinksForBundle's docstring).
+    if (deduped !== undefined) {
+      reScopeInstallLinksForBundle(name, deduped);
+    }
 
     // Only re-notify connected MCP sessions when visible scope actually
     // changed — description-only edits don't affect tools/list, mirroring

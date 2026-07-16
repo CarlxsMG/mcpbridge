@@ -153,11 +153,11 @@ export function recordGuardrailHit(clientName: string, toolName: string, hit: bo
   const policy = getQuarantinePolicy(clientName, toolName);
   if (!policy) return; // no policy configured -> nothing to escalate
 
-  ensureStateRow(clientName, toolName);
   const db = getDb();
   const now = nowFn();
 
   if (!hit) {
+    ensureStateRow(clientName, toolName);
     db.query(`UPDATE tool_quarantine_state SET consecutive_hits = 0 WHERE client_name = ? AND tool_name = ?`).run(
       clientName,
       toolName,
@@ -165,26 +165,27 @@ export function recordGuardrailHit(clientName: string, toolName: string, hit: bo
     return;
   }
 
-  const state = getQuarantineState(clientName, toolName);
-  const consecutiveHits = state.consecutiveHits + 1;
+  // Atomically increment in SQL (INSERT...ON CONFLICT...RETURNING) instead of a
+  // read-then-write in JS, so concurrent guardrail hits on the same (client, tool)
+  // — plausible under load, or across multiple gateway instances sharing this
+  // SQLite file — can't lose an increment. Mirrors the atomic UPSERT...RETURNING
+  // idiom already used for the identical cross-instance-safety problem in
+  // db/rate-counters.ts.
+  const row = db
+    .query(
+      `INSERT INTO tool_quarantine_state (client_name, tool_name, quarantined, consecutive_hits)
+       VALUES (?, ?, 0, 1)
+       ON CONFLICT(client_name, tool_name) DO UPDATE SET consecutive_hits = consecutive_hits + 1
+       RETURNING consecutive_hits`,
+    )
+    .get(clientName, toolName) as { consecutive_hits: number };
+  const consecutiveHits = row.consecutive_hits;
+
   if (consecutiveHits >= policy.consecutiveThreshold) {
     const cooldownUntil = policy.recoveryMode === "auto" && policy.cooldownMs ? now + policy.cooldownMs : null;
     db.query(
-      `UPDATE tool_quarantine_state SET consecutive_hits = ?, quarantined = 1, quarantined_at = ?, reason = ?, cooldown_until = ? WHERE client_name = ? AND tool_name = ?`,
-    ).run(
-      consecutiveHits,
-      now,
-      `${consecutiveHits} consecutive guardrail violations`,
-      cooldownUntil,
-      clientName,
-      toolName,
-    );
-  } else {
-    db.query(`UPDATE tool_quarantine_state SET consecutive_hits = ? WHERE client_name = ? AND tool_name = ?`).run(
-      consecutiveHits,
-      clientName,
-      toolName,
-    );
+      `UPDATE tool_quarantine_state SET quarantined = 1, quarantined_at = ?, reason = ?, cooldown_until = ? WHERE client_name = ? AND tool_name = ?`,
+    ).run(now, `${consecutiveHits} consecutive guardrail violations`, cooldownUntil, clientName, toolName);
   }
 }
 
