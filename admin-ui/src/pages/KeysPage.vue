@@ -164,15 +164,15 @@ function confirmDelete() {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.keys.table.label") }}</th>
-            <th>{{ t("pages.keys.table.prefix") }}</th>
-            <th>{{ t("pages.keys.table.scope") }}</th>
-            <th>{{ t("pages.keys.table.consumer") }}</th>
-            <th>{{ t("pages.keys.table.admin_role") }}</th>
-            <th>{{ t("pages.keys.table.status") }}</th>
-            <th>{{ t("pages.keys.table.last_used") }}</th>
-            <th>{{ t("pages.keys.table.expires") }}</th>
-            <th></th>
+            <th scope="col">{{ t("pages.keys.table.label") }}</th>
+            <th scope="col">{{ t("pages.keys.table.prefix") }}</th>
+            <th scope="col">{{ t("pages.keys.table.scope") }}</th>
+            <th scope="col">{{ t("pages.keys.table.consumer") }}</th>
+            <th scope="col">{{ t("pages.keys.table.admin_role") }}</th>
+            <th scope="col">{{ t("pages.keys.table.status") }}</th>
+            <th scope="col">{{ t("pages.keys.table.last_used") }}</th>
+            <th scope="col">{{ t("pages.keys.table.expires") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

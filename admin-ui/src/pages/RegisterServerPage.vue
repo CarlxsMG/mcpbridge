@@ -135,6 +135,12 @@ watch([graphqlUrl, includeMutations], () => {
   previewTools.value = null;
 });
 
+watch(kind, () => {
+  previewTools.value = null;
+  previewStale.value = false;
+  previewError.value = "";
+});
+
 const previewFn = computed(() => (kind.value === "graphql" ? previewGraphql : preview));
 
 async function register() {
@@ -278,9 +284,9 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
           <TableCard v-if="previewTools && previewTools.length" id="preview-table">
             <thead>
               <tr>
-                <th>{{ t("common.name") }}</th>
-                <th>{{ t("common.method") }}</th>
-                <th>{{ t("common.endpoint") }}</th>
+                <th scope="col">{{ t("common.name") }}</th>
+                <th scope="col">{{ t("common.method") }}</th>
+                <th scope="col">{{ t("common.endpoint") }}</th>
               </tr>
             </thead>
             <tbody>

@@ -75,11 +75,11 @@ function confirmDelete() {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.composites.table.name") }}</th>
-            <th>{{ t("pages.composites.table.description") }}</th>
-            <th>{{ t("pages.composites.table.steps") }}</th>
-            <th>{{ t("pages.composites.table.enabled") }}</th>
-            <th></th>
+            <th scope="col">{{ t("pages.composites.table.name") }}</th>
+            <th scope="col">{{ t("pages.composites.table.description") }}</th>
+            <th scope="col">{{ t("pages.composites.table.steps") }}</th>
+            <th scope="col">{{ t("pages.composites.table.enabled") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

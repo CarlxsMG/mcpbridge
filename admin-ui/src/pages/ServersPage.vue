@@ -344,7 +344,7 @@ onMounted(() => load());
       <TableCard>
         <thead>
           <tr>
-            <th class="checkbox-col">
+            <th scope="col" class="checkbox-col">
               <input
                 type="checkbox"
                 :checked="selected.size > 0 && selected.size === items.length"
@@ -353,11 +353,11 @@ onMounted(() => load());
                 @change="toggleSelectAll"
               />
             </th>
-            <th>{{ t("common.name") }}</th>
-            <th>{{ t("common.status") }}</th>
-            <th>{{ t("pages.servers.col_tools") }}</th>
-            <th>{{ t("pages.servers.col_health_url") }}</th>
-            <th>{{ t("common.enabled") }}</th>
+            <th scope="col">{{ t("common.name") }}</th>
+            <th scope="col">{{ t("common.status") }}</th>
+            <th scope="col">{{ t("pages.servers.col_tools") }}</th>
+            <th scope="col">{{ t("pages.servers.col_health_url") }}</th>
+            <th scope="col">{{ t("common.enabled") }}</th>
           </tr>
         </thead>
         <tbody>

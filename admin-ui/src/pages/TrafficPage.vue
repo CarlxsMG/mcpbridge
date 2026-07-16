@@ -210,12 +210,12 @@ function confirmReplay() {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.traffic.table.time") }}</th>
-            <th>{{ t("pages.traffic.table.client_tool") }}</th>
-            <th>{{ t("pages.traffic.table.duration") }}</th>
-            <th>{{ t("pages.traffic.table.status") }}</th>
-            <th>{{ t("pages.traffic.table.preview") }}</th>
-            <th></th>
+            <th scope="col">{{ t("pages.traffic.table.time") }}</th>
+            <th scope="col">{{ t("pages.traffic.table.client_tool") }}</th>
+            <th scope="col">{{ t("pages.traffic.table.duration") }}</th>
+            <th scope="col">{{ t("pages.traffic.table.status") }}</th>
+            <th scope="col">{{ t("pages.traffic.table.preview") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

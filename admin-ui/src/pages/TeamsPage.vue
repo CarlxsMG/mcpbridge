@@ -64,10 +64,10 @@ async function confirmRemove() {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.teams.table.id") }}</th>
-            <th>{{ t("pages.teams.table.name") }}</th>
-            <th>{{ t("pages.teams.table.created") }}</th>
-            <th></th>
+            <th scope="col">{{ t("pages.teams.table.id") }}</th>
+            <th scope="col">{{ t("pages.teams.table.name") }}</th>
+            <th scope="col">{{ t("pages.teams.table.created") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

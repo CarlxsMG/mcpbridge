@@ -7,6 +7,9 @@ const props = defineProps<{
   // Accessible name for the dialog. Named `label` (not `ariaLabel`) so callers
   // bind `:label` without tripping vue/attribute-hyphenation on `:ariaLabel`.
   label: string;
+  // Optional id of an element inside the panel describing it (bound as
+  // aria-describedby so screen readers announce the body when the dialog opens).
+  describedById?: string;
   alert?: boolean;
   maxWidth?: string;
 }>();
@@ -45,6 +48,7 @@ watch(
       :role="alert ? 'alertdialog' : 'dialog'"
       aria-modal="true"
       :aria-label="label"
+      :aria-describedby="describedById"
       :style="{ maxWidth: maxWidth ?? '40rem' }"
     >
       <slot />

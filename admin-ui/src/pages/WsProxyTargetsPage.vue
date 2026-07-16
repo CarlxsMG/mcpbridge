@@ -214,11 +214,11 @@ async function confirmDelete() {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.ws_proxy_targets.table.name") }}</th>
-            <th>{{ t("pages.ws_proxy_targets.table.backend_url") }}</th>
-            <th>{{ t("pages.ws_proxy_targets.table.connections") }}</th>
-            <th>{{ t("pages.ws_proxy_targets.table.enabled") }}</th>
-            <th></th>
+            <th scope="col">{{ t("pages.ws_proxy_targets.table.name") }}</th>
+            <th scope="col">{{ t("pages.ws_proxy_targets.table.backend_url") }}</th>
+            <th scope="col">{{ t("pages.ws_proxy_targets.table.connections") }}</th>
+            <th scope="col">{{ t("pages.ws_proxy_targets.table.enabled") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

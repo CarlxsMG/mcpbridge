@@ -79,11 +79,11 @@ const segments = computed(() => {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.monitors.table.client_tool") }}</th>
-            <th>{{ t("pages.monitors.table.state") }}</th>
-            <th>{{ t("pages.monitors.table.interval") }}</th>
-            <th>{{ t("pages.monitors.table.last_checked") }}</th>
-            <th>{{ t("pages.monitors.table.last_error") }}</th>
+            <th scope="col">{{ t("pages.monitors.table.client_tool") }}</th>
+            <th scope="col">{{ t("pages.monitors.table.state") }}</th>
+            <th scope="col">{{ t("pages.monitors.table.interval") }}</th>
+            <th scope="col">{{ t("pages.monitors.table.last_checked") }}</th>
+            <th scope="col">{{ t("pages.monitors.table.last_error") }}</th>
           </tr>
         </thead>
         <tbody>

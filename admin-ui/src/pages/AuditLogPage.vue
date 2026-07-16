@@ -230,11 +230,11 @@ onMounted(() => {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.audit_log.table.when") }}</th>
-            <th>{{ t("pages.audit_log.table.actor") }}</th>
-            <th>{{ t("pages.audit_log.table.action") }}</th>
-            <th>{{ t("pages.audit_log.table.target") }}</th>
-            <th>{{ t("pages.audit_log.table.detail") }}</th>
+            <th scope="col">{{ t("pages.audit_log.table.when") }}</th>
+            <th scope="col">{{ t("pages.audit_log.table.actor") }}</th>
+            <th scope="col">{{ t("pages.audit_log.table.action") }}</th>
+            <th scope="col">{{ t("pages.audit_log.table.target") }}</th>
+            <th scope="col">{{ t("pages.audit_log.table.detail") }}</th>
           </tr>
         </thead>
         <tbody>

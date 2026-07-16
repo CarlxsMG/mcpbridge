@@ -191,11 +191,11 @@ onMounted(loadSessions);
         <TableCard>
           <thead>
             <tr>
-              <th>{{ t("pages.account.table.device") }}</th>
-              <th>{{ t("pages.account.table.ip") }}</th>
-              <th>{{ t("pages.account.table.last_active") }}</th>
-              <th>{{ t("pages.account.table.signed_in") }}</th>
-              <th></th>
+              <th scope="col">{{ t("pages.account.table.device") }}</th>
+              <th scope="col">{{ t("pages.account.table.ip") }}</th>
+              <th scope="col">{{ t("pages.account.table.last_active") }}</th>
+              <th scope="col">{{ t("pages.account.table.signed_in") }}</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody>

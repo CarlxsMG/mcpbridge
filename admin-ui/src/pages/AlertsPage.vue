@@ -131,13 +131,13 @@ function formatThreshold(rule: AlertRule): string {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.alerts.table.name") }}</th>
-            <th>{{ t("pages.alerts.table.type") }}</th>
-            <th>{{ t("pages.alerts.table.target") }}</th>
-            <th>{{ t("pages.alerts.table.threshold") }}</th>
-            <th>{{ t("pages.alerts.table.last_fired") }}</th>
-            <th>{{ t("pages.alerts.table.actions") }}</th>
-            <th></th>
+            <th scope="col">{{ t("pages.alerts.table.name") }}</th>
+            <th scope="col">{{ t("pages.alerts.table.type") }}</th>
+            <th scope="col">{{ t("pages.alerts.table.target") }}</th>
+            <th scope="col">{{ t("pages.alerts.table.threshold") }}</th>
+            <th scope="col">{{ t("pages.alerts.table.last_fired") }}</th>
+            <th scope="col">{{ t("pages.alerts.table.actions") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

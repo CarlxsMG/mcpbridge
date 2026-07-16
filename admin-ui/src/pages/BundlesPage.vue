@@ -57,10 +57,10 @@ function toggleEnabled(bundle: BundleSummary) {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.bundles.table.name") }}</th>
-            <th>{{ t("pages.bundles.table.description") }}</th>
-            <th>{{ t("pages.bundles.table.tools") }}</th>
-            <th>{{ t("pages.bundles.table.enabled") }}</th>
+            <th scope="col">{{ t("pages.bundles.table.name") }}</th>
+            <th scope="col">{{ t("pages.bundles.table.description") }}</th>
+            <th scope="col">{{ t("pages.bundles.table.tools") }}</th>
+            <th scope="col">{{ t("pages.bundles.table.enabled") }}</th>
           </tr>
         </thead>
         <tbody>

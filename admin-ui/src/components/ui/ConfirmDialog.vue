@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useId } from "vue";
 import { useI18n } from "vue-i18n";
 import ModalShell from "./ModalShell.vue";
 
@@ -12,12 +13,20 @@ defineProps<{
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
 const { t } = useI18n({ useScope: "global" });
+const messageId = useId();
 </script>
 
 <template>
-  <ModalShell :open="open" :label="title" alert :max-width="'26.25rem'" @close="emit('cancel')">
+  <ModalShell
+    :open="open"
+    :label="title"
+    :described-by-id="messageId"
+    alert
+    :max-width="'26.25rem'"
+    @close="emit('cancel')"
+  >
     <h2>{{ title }}</h2>
-    <p>{{ message }}</p>
+    <p :id="messageId">{{ message }}</p>
     <div class="actions">
       <button type="button" class="btn-secondary" @click="emit('cancel')">{{ t("common.cancel") }}</button>
       <button type="button" :class="danger ? 'btn-danger' : 'btn-primary'" @click="emit('confirm')">

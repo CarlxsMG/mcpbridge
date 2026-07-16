@@ -112,11 +112,11 @@ async function confirmDelete() {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.policies.table.name") }}</th>
-            <th>{{ t("pages.policies.table.rate_limit") }}</th>
-            <th>{{ t("pages.policies.table.timeout") }}</th>
-            <th>{{ t("pages.policies.table.apply_to_bundle") }}</th>
-            <th></th>
+            <th scope="col">{{ t("pages.policies.table.name") }}</th>
+            <th scope="col">{{ t("pages.policies.table.rate_limit") }}</th>
+            <th scope="col">{{ t("pages.policies.table.timeout") }}</th>
+            <th scope="col">{{ t("pages.policies.table.apply_to_bundle") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

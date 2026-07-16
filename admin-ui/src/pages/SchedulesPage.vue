@@ -79,12 +79,12 @@ function formatLastRun(m: number | null): string {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.schedules.table.target") }}</th>
-            <th>{{ t("pages.schedules.table.action") }}</th>
-            <th>{{ t("pages.schedules.table.schedule") }}</th>
-            <th>{{ t("pages.schedules.table.enabled") }}</th>
-            <th>{{ t("pages.schedules.table.last_run") }}</th>
-            <th></th>
+            <th scope="col">{{ t("pages.schedules.table.target") }}</th>
+            <th scope="col">{{ t("pages.schedules.table.action") }}</th>
+            <th scope="col">{{ t("pages.schedules.table.schedule") }}</th>
+            <th scope="col">{{ t("pages.schedules.table.enabled") }}</th>
+            <th scope="col">{{ t("pages.schedules.table.last_run") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

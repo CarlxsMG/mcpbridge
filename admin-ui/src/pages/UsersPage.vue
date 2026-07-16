@@ -178,12 +178,12 @@ function confirmDelete() {
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.users.table.username") }}</th>
-            <th>{{ t("pages.users.table.role") }}</th>
-            <th>{{ t("pages.users.table.team") }}</th>
-            <th>{{ t("pages.users.table.active") }}</th>
-            <th>{{ t("pages.users.table.last_login") }}</th>
-            <th></th>
+            <th scope="col">{{ t("pages.users.table.username") }}</th>
+            <th scope="col">{{ t("pages.users.table.role") }}</th>
+            <th scope="col">{{ t("pages.users.table.team") }}</th>
+            <th scope="col">{{ t("pages.users.table.active") }}</th>
+            <th scope="col">{{ t("pages.users.table.last_login") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>
@@ -196,6 +196,7 @@ function confirmDelete() {
             </td>
             <td>
               <SelectMenu
+                :key="user.role"
                 :model-value="user.role"
                 :options="ROLE_OPTIONS"
                 :disabled="isLastActiveAdmin(user)"
@@ -208,6 +209,7 @@ function confirmDelete() {
             </td>
             <td>
               <SelectMenu
+                :key="user.team_id ?? 'none'"
                 :model-value="user.team_id"
                 :options="teamOptions"
                 :title="t('pages.users.team.change_locked')"
@@ -253,7 +255,9 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingRoleChange !== null"
-      :title="t('pages.users.confirm.role_title')"
+      :title="
+        pendingRoleChange ? t('pages.users.confirm.role_title', { username: pendingRoleChange.user.username }) : ''
+      "
       :message="pendingRoleChange ? roleChangeMessage(pendingRoleChange.user, pendingRoleChange.nextRole) : ''"
       :confirm-label="
         pendingRoleChange
@@ -266,7 +270,9 @@ function confirmDelete() {
 
     <ConfirmDialog
       :open="pendingTeamChange !== null"
-      :title="t('pages.users.confirm.team_title')"
+      :title="
+        pendingTeamChange ? t('pages.users.confirm.team_title', { username: pendingTeamChange.user.username }) : ''
+      "
       :message="pendingTeamChange ? teamChangeMessage(pendingTeamChange.user, pendingTeamChange.nextTeamId) : ''"
       :confirm-label="
         pendingTeamChange

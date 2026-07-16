@@ -142,13 +142,13 @@ onMounted(load);
       <TableCard v-if="topTools.length">
         <thead>
           <tr>
-            <th>{{ t("pages.usage.table.client") }}</th>
-            <th>{{ t("pages.usage.table.tool") }}</th>
-            <th>{{ t("pages.usage.table.calls") }}</th>
-            <th>{{ t("pages.usage.table.errors") }}</th>
-            <th>{{ t("pages.usage.table.error_rate") }}</th>
-            <th>{{ t("pages.usage.table.avg") }}</th>
-            <th>{{ t("pages.usage.table.max") }}</th>
+            <th scope="col">{{ t("pages.usage.table.client") }}</th>
+            <th scope="col">{{ t("pages.usage.table.tool") }}</th>
+            <th scope="col">{{ t("pages.usage.table.calls") }}</th>
+            <th scope="col">{{ t("pages.usage.table.errors") }}</th>
+            <th scope="col">{{ t("pages.usage.table.error_rate") }}</th>
+            <th scope="col">{{ t("pages.usage.table.avg") }}</th>
+            <th scope="col">{{ t("pages.usage.table.max") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -172,9 +172,9 @@ onMounted(load);
       <TableCard v-if="byKey.length">
         <thead>
           <tr>
-            <th>{{ t("pages.usage.table.key") }}</th>
-            <th>{{ t("pages.usage.table.calls") }}</th>
-            <th>{{ t("pages.usage.table.errors") }}</th>
+            <th scope="col">{{ t("pages.usage.table.key") }}</th>
+            <th scope="col">{{ t("pages.usage.table.calls") }}</th>
+            <th scope="col">{{ t("pages.usage.table.errors") }}</th>
           </tr>
         </thead>
         <tbody>

@@ -160,12 +160,12 @@ async function confirmReject() {
       <TableCard>
         <thead>
           <tr>
-            <th>#</th>
-            <th>{{ t("pages.approvals.table.client_tool") }}</th>
-            <th>{{ t("pages.approvals.table.args") }}</th>
-            <th>{{ t("pages.approvals.table.requested") }}</th>
-            <th>{{ t("pages.approvals.table.decision") }}</th>
-            <th></th>
+            <th scope="col">#</th>
+            <th scope="col">{{ t("pages.approvals.table.client_tool") }}</th>
+            <th scope="col">{{ t("pages.approvals.table.args") }}</th>
+            <th scope="col">{{ t("pages.approvals.table.requested") }}</th>
+            <th scope="col">{{ t("pages.approvals.table.decision") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

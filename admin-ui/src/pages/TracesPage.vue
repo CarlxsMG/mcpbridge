@@ -180,12 +180,12 @@ const topSessionsChart = computed(() =>
       <TableCard>
         <thead>
           <tr>
-            <th>{{ t("pages.traces.table.started") }}</th>
-            <th>{{ t("pages.traces.table.tool") }}</th>
-            <th>{{ t("pages.traces.table.session") }}</th>
-            <th>{{ t("pages.traces.table.spans") }}</th>
-            <th>{{ t("pages.traces.table.duration") }}</th>
-            <th>{{ t("pages.traces.table.status") }}</th>
+            <th scope="col">{{ t("pages.traces.table.started") }}</th>
+            <th scope="col">{{ t("pages.traces.table.tool") }}</th>
+            <th scope="col">{{ t("pages.traces.table.session") }}</th>
+            <th scope="col">{{ t("pages.traces.table.spans") }}</th>
+            <th scope="col">{{ t("pages.traces.table.duration") }}</th>
+            <th scope="col">{{ t("pages.traces.table.status") }}</th>
           </tr>
         </thead>
         <tbody>

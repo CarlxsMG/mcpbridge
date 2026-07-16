@@ -199,12 +199,12 @@ function confirmDelete() {
       <TableCard>
         <thead>
           <tr>
-            <th></th>
-            <th>{{ t("common.name") }}</th>
-            <th>{{ t("pages.consumers.table.quota") }}</th>
-            <th>{{ t("pages.consumers.table.end_user_limit") }}</th>
-            <th>{{ t("pages.consumers.table.used_this_month") }}</th>
-            <th></th>
+            <th scope="col"></th>
+            <th scope="col">{{ t("common.name") }}</th>
+            <th scope="col">{{ t("pages.consumers.table.quota") }}</th>
+            <th scope="col">{{ t("pages.consumers.table.end_user_limit") }}</th>
+            <th scope="col">{{ t("pages.consumers.table.used_this_month") }}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>
