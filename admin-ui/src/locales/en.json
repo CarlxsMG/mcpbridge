@@ -1992,12 +1992,6 @@
           "password": "Password (min 12 chars)",
           "role": "Role"
         },
-        "roles": {
-          "admin": "Admin",
-          "operator": "Operator",
-          "auditor": "Auditor",
-          "viewer": "Viewer"
-        },
         "create": "Create user",
         "errors": {
           "password_too_short": "Password must be at least 12 characters.",

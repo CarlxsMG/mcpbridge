@@ -15,10 +15,10 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 const { t } = useI18n({ useScope: "global" });
 
 const NEW_ROLE_OPTIONS: { value: AdminRole; label: string }[] = [
-  { value: "admin", label: t("pages.users.new.roles.admin") },
-  { value: "operator", label: t("pages.users.new.roles.operator") },
-  { value: "auditor", label: t("pages.users.new.roles.auditor") },
-  { value: "viewer", label: t("pages.users.new.roles.viewer") },
+  { value: "admin", label: t("pages.users.roles.admin") },
+  { value: "operator", label: t("pages.users.roles.operator") },
+  { value: "auditor", label: t("pages.users.roles.auditor") },
+  { value: "viewer", label: t("pages.users.roles.viewer") },
 ];
 
 const username = ref("");
