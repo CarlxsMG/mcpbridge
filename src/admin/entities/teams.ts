@@ -74,6 +74,14 @@ export function getClientTeam(clientName: string): number | null | undefined {
   return r ? r.team_id : undefined;
 }
 
+/** The team id owning a consumer (null = unowned). Undefined when the consumer doesn't exist. */
+export function getConsumerTeam(consumerId: number): number | null | undefined {
+  const r = getDb().query(`SELECT team_id FROM consumers WHERE id = ?`).get(consumerId) as {
+    team_id: number | null;
+  } | null;
+  return r ? r.team_id : undefined;
+}
+
 /** Assigns (or, with null, clears) a client's owning team. Returns false for an unknown client/team. */
 export function setClientTeam(clientName: string, teamId: number | null): boolean {
   const db = getDb();
@@ -109,4 +117,14 @@ export function setUserTeam(username: string, teamId: number | null): boolean {
 export function canAccessClient(callerTeamId: number | null | undefined, clientTeamId: number | null): boolean {
   if (callerTeamId === undefined || callerTeamId === null) return true;
   return clientTeamId === callerTeamId;
+}
+
+/**
+ * Whether a caller may access a consumer. Same decision rule as
+ * canAccessClient (undefined/null callerTeamId => super-admin, sees
+ * everything; otherwise the consumer must be owned by that exact team) —
+ * named separately so the consumers call sites read clearly.
+ */
+export function canAccessConsumer(callerTeamId: number | null | undefined, consumerTeamId: number | null): boolean {
+  return canAccessClient(callerTeamId, consumerTeamId);
 }

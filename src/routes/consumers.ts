@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "../middleware/authz.js";
+import { requireAdminRole, callerTeamId, ensureConsumerAccess } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import {
   listConsumers,
@@ -27,8 +27,14 @@ export function consumerRoutes(app: Express): void {
   const r = Router();
   r.use(adminAuth);
 
-  r.get("/consumers", (_req: Request, res: Response) => {
-    const items = listConsumers().map((c) => ({ ...c, usedThisMonth: getConsumerUsageThisMonth(c.id) }));
+  r.get("/consumers", (req: Request, res: Response) => {
+    const teamId = callerTeamId(req);
+    // Tenancy: a team-scoped caller only sees consumers owned by their own
+    // team; super-admins/bearer callers (undefined/null) see all.
+    const items = listConsumers({ teamId: typeof teamId === "number" ? teamId : undefined }).map((c) => ({
+      ...c,
+      usedThisMonth: getConsumerUsageThisMonth(c.id),
+    }));
     res.status(200).json({ items });
   });
 
@@ -54,11 +60,17 @@ export function consumerRoutes(app: Express): void {
       return;
     }
     const actor = actorFromRequest(req);
+    const teamId = callerTeamId(req);
+    // Tenancy: a team-scoped caller's consumer is owned by their own team
+    // (mirroring how a team-scoped session's other created resources stay
+    // within their team); super-admin/bearer callers create an unowned
+    // consumer, same default as a newly-registered client.
     const consumer = createConsumer({
       name,
       monthlyQuota: quota.value,
       endUserRateLimitPerMin: endUserRateLimit.value,
       actor,
+      teamId: typeof teamId === "number" ? teamId : null,
     });
     recordAudit(actor, "consumer.create", String(consumer.id), { name });
     res.status(201).json(consumer);
@@ -71,6 +83,9 @@ export function consumerRoutes(app: Express): void {
       notFound(res, "CONSUMER_NOT_FOUND", "Consumer not found");
       return;
     }
+    // Tenancy: a team-scoped caller can't mutate another team's (or an
+    // unowned) consumer — same uniform 404 as a genuinely-missing id.
+    if (!ensureConsumerAccess(req, res, id)) return;
     const body = bodyOf(req);
     const updates: { name?: string; monthlyQuota?: number | null; endUserRateLimitPerMin?: number | null } = {};
     if (body.name !== undefined) {
@@ -107,6 +122,13 @@ export function consumerRoutes(app: Express): void {
 
   r.delete("/consumers/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
+    if (!getConsumer(id)) {
+      notFound(res, "CONSUMER_NOT_FOUND", "Consumer not found");
+      return;
+    }
+    // Tenancy: a team-scoped caller can't delete another team's (or an
+    // unowned) consumer — same uniform 404 as a genuinely-missing id.
+    if (!ensureConsumerAccess(req, res, id)) return;
     if (!deleteConsumer(id)) {
       notFound(res, "CONSUMER_NOT_FOUND", "Consumer not found");
       return;
@@ -122,6 +144,9 @@ export function consumerRoutes(app: Express): void {
       notFound(res, "CONSUMER_NOT_FOUND", "Consumer not found");
       return;
     }
+    // Tenancy: a team-scoped caller can't read another team's (or an
+    // unowned) consumer's usage — same uniform 404 as a genuinely-missing id.
+    if (!ensureConsumerAccess(req, res, id)) return;
     res.status(200).json({ used: getConsumerUsageThisMonth(id), quota: consumer.monthlyQuota });
   });
 

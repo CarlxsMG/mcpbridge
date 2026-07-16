@@ -996,6 +996,17 @@ export const migrations: Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    id: 53,
+    name: "consumers_team_id",
+    sql: `
+      -- Mirrors clients.team_id (migration 26): consumers were previously
+      -- un-owned and globally visible/mutable by any admin session,
+      -- including a team-scoped one. NULL = unowned (only a super-admin
+      -- session, or a bearer caller, can see/manage it) until assigned.
+      ALTER TABLE consumers ADD COLUMN team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL;
+    `,
+  },
 ];
 
 /**
