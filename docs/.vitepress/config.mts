@@ -137,8 +137,8 @@ const sidebarGuideEs = sidebarGuideEn.map((group) => ({
 
 // Architecture sidebar — ADRs + SLOs live outside /guide/ (they're reference
 // material, not part of the linear guide), so they get their own sidebar shown
-// when you land on an /architecture/ page. The ADRs are English-only; only the
-// SLO doc has a Spanish mirror, so the ES architecture sidebar lists just that.
+// when you land on an /architecture/ page. Both the ADRs and the SLO doc have
+// Spanish mirrors, so the ES architecture sidebar lists all of them too.
 const sidebarArchitecture = [
   {
     text: "Architecture",
@@ -232,7 +232,25 @@ export default defineConfig({
         sidebar: {
           "/es/guide/": sidebarGuideEs,
           "/es/architecture/": [
-            { text: textEs["Architecture"], items: [{ text: "SLOs", link: "/es/architecture/slos" }] },
+            {
+              text: textEs["Architecture"],
+              items: [
+                { text: "SLOs (contrato público)", link: "/es/architecture/slos" },
+                {
+                  text: "ADR-0001 · Dos planos, tres endpoints",
+                  link: "/es/architecture/decisions/0001-two-planes-three-endpoints",
+                },
+                {
+                  text: "ADR-0002 · Propagación de traceparent W3C",
+                  link: "/es/architecture/decisions/0002-w3c-traceparent-propagation",
+                },
+                {
+                  text: "ADR-0003 · SLOs como contrato público",
+                  link: "/es/architecture/decisions/0003-slos-public-contract",
+                },
+                { text: "ADR-0004 · E2E como puerta de CI", link: "/es/architecture/decisions/0004-e2e-as-ci-gate" },
+              ],
+            },
           ],
         },
         editLink: {

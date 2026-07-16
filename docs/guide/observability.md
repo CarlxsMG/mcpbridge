@@ -5,10 +5,12 @@ tamper-evident audit trail, all from the same instance.
 
 ## Metrics (Prometheus)
 
-Scrape `GET /metrics` for Prometheus-format metrics, including
-`mcp_tool_calls_total{outcome}` alongside process and HTTP metrics. Wire it into your usual
-dashboards and alerting — or start from the ready-to-apply Prometheus rules and Grafana
-dashboard in the repo's `monitoring/` directory.
+Scrape `GET /metrics` for Prometheus-format metrics. The endpoint exposes only the gateway's
+own `mcp_*` metrics — its registry, resilience, health-check, and WS-proxy instrumentation
+(for example `mcp_tool_calls_total{outcome}`). It does **not** export default process or HTTP
+metrics (there is no `prom-client` / `collectDefaultMetrics` — no `process_*`, `nodejs_*`, or
+per-route request metrics). Wire it into your usual dashboards and alerting — or start from the
+ready-to-apply Prometheus rules and Grafana dashboard in the repo's `monitoring/` directory.
 
 ## Tracing (OpenTelemetry)
 
