@@ -1082,6 +1082,9 @@
         "client_count": "{count} cliente(s)",
         "tool_count": "{count} herramienta(s)"
       },
+      "aria": {
+        "change_admin_role": "Rol de sistema para '{label}'"
+      },
       "confirm": {
         "delete_title": "¿Eliminar esta API key?",
         "delete_message": "'{label}' dejará de funcionar inmediatamente y se eliminará permanentemente.",
@@ -2027,6 +2030,10 @@
         "team_cta": "Cambiar team",
         "team_cta_default": "Cambiar team a {team}",
         "team_self_warning": "Estás a punto de cambiar tu propio team."
+      },
+      "aria": {
+        "change_role": "Rol de {username}",
+        "change_team": "Team de {username}"
       }
     },
     "usage": {

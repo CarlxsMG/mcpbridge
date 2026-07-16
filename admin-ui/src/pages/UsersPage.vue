@@ -200,6 +200,7 @@ function confirmDelete() {
                 :options="ROLE_OPTIONS"
                 :disabled="isLastActiveAdmin(user)"
                 :title="isLastActiveAdmin(user) ? t('pages.users.last_admin_locked') : ''"
+                :aria-label="t('pages.users.aria.change_role', { username: user.username })"
                 @update:model-value="(v) => requestRoleChange(user, v)"
               />
               <br />
@@ -210,6 +211,7 @@ function confirmDelete() {
                 :model-value="user.team_id"
                 :options="teamOptions"
                 :title="t('pages.users.team.change_locked')"
+                :aria-label="t('pages.users.aria.change_team', { username: user.username })"
                 create-path="/teams/new"
                 :create-label="t('pages.users.team.create')"
                 :reload="loadTeams"

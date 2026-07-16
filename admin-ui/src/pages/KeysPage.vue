@@ -201,6 +201,7 @@ function confirmDelete() {
                 v-if="isSuperAdmin"
                 :model-value="key.adminRole"
                 :options="adminRoleOptions"
+                :aria-label="t('pages.keys.aria.change_admin_role', { label: key.label })"
                 @update:model-value="(v) => changeAdminRole(key, v)"
               />
               <template v-else>{{ adminRoleLabel(key.adminRole) }}</template>
