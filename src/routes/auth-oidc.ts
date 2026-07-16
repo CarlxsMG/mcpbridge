@@ -161,7 +161,14 @@ export function authOidcRoutes(app: Express): void {
       return;
     }
 
-    const user = await findOrProvisionSsoUser("oidc", subject, verdict.claims);
+    let user;
+    try {
+      user = await findOrProvisionSsoUser("oidc", subject, verdict.claims);
+    } catch (err) {
+      log("error", "SSO auto-provisioning failed", { error: errorMessage(err) });
+      redirectToLoginWithError(res, "server_error");
+      return;
+    }
     if (!user.isActive) {
       redirectToLoginWithError(res, "account_disabled");
       return;

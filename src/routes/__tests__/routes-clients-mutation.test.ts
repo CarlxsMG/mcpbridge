@@ -209,6 +209,21 @@ describe("GET /admin-api/clients — query filters", () => {
     });
   });
 
+  // Regression test: `Number("abc")` is NaN, and `NaN ?? 50` is still NaN
+  // (`??` only falls back on null/undefined) — without a Number.isFinite
+  // guard in registry-read-models.ts's inline limit-clamp, this NaN would
+  // reach bun:sqlite as a `LIMIT ?` param and throw a raw 'datatype mismatch'
+  // 500 instead of clamping to the default.
+  test("a malformed ?limit= value (NaN) is clamped to the default instead of crashing the request", async () => {
+    await withApp(async (baseUrl) => {
+      await reg("svc-clients-limit-nan");
+      const res = await fetch(`${baseUrl}/admin-api/clients?limit=abc`, { headers: bearer() });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { items: unknown[] };
+      expect(body.items.length).toBeGreaterThan(0);
+    });
+  });
+
   // Kills 29/30/31/32 (the `teamId` ternary's forced/equality/string
   // directions): a team-scoped session must only see its own team's
   // clients, while a bearer/super-admin caller sees everything.
