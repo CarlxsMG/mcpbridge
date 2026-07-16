@@ -139,13 +139,13 @@ function fmt(v: unknown): string {
           <td>{{ formatDateTime(s.createdAt) }}</td>
           <td>{{ s.createdBy }}</td>
           <td class="row-actions">
-            <button type="button" class="link-btn" @click="showDiff(s)">
+            <button type="button" class="link-btn" :disabled="snapshotBusy" @click="showDiff(s)">
               {{ t("components.config_snapshots.diff_vs_current") }}
             </button>
-            <button type="button" class="link-btn" @click="requestRollback(s)">
+            <button type="button" class="link-btn" :disabled="snapshotBusy" @click="requestRollback(s)">
               {{ t("components.config_snapshots.rollback") }}
             </button>
-            <button type="button" class="link-btn del" @click="requestDeleteSnapshot(s)">
+            <button type="button" class="link-btn del" :disabled="snapshotBusy" @click="requestDeleteSnapshot(s)">
               {{ t("common.delete") }}
             </button>
           </td>
