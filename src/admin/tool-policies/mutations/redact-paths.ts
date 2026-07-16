@@ -9,6 +9,7 @@ import type { ToolMutation } from "./types.js";
 
 export const redactPathsMutation: ToolMutation = {
   key: "redactPaths",
+  purgesCache: true,
   validate: (raw) => {
     if (!Array.isArray(raw) || !raw.every((p) => typeof p === "string")) {
       return { ok: false, message: "redactPaths must be an array of strings" };

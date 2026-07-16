@@ -49,6 +49,16 @@ export interface ToolMutation {
   key: string;
 
   /**
+   * When true, a successful application of this mutation changes how the
+   * tool's responses are shaped (redaction, guardrail scanning, transforms,
+   * streaming framing, pagination, context budget). Any already-cached
+   * response predates the new policy and would keep serving the old shape,
+   * so the dispatcher purges the tool's response cache once after applying
+   * all mutations (see {@link ./index.ts}).
+   */
+  purgesCache?: boolean;
+
+  /**
    * Validates `body[key]`. May inspect the whole body for co-dependent
    * fields (e.g. `requiresApproval` reads `approvalLevels` from the same
    * body). Returns a `ValidationResult` so 400s flow through the same

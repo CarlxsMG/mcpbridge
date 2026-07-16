@@ -14,6 +14,7 @@ import type { ToolMutation } from "./types.js";
 
 export const guardrailsMutation: ToolMutation = {
   key: "guardrails",
+  purgesCache: true,
   validate: (raw) => validateGuardrailsInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
     const ok = setGuardrails(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setGuardrails>[2]);

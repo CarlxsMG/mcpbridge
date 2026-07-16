@@ -9,6 +9,7 @@ import type { ToolMutation } from "./types.js";
 
 export const transformMutation: ToolMutation = {
   key: "transform",
+  purgesCache: true,
   validate: (raw) => validateTransformInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
     const ok = setToolTransform(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setToolTransform>[2]);

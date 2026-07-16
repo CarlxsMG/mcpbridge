@@ -9,6 +9,7 @@ import type { ToolMutation } from "./types.js";
 
 export const paginationMutation: ToolMutation = {
   key: "pagination",
+  purgesCache: true,
   validate: (raw) => validatePaginationInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
     const ok = setPaginationConfig(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setPaginationConfig>[2]);

@@ -15,6 +15,7 @@
  */
 import { TOOL_KEY_SEPARATOR } from "../../../lib/identifier.js";
 import { recordAudit } from "../../../admin/audit/audit.js";
+import { purgeToolCache } from "../../../tool-policies/response-cache.js";
 import { sendError, validationError, notFound } from "../../../routes/http-errors.js";
 import type {
   DispatchOutcome,
@@ -90,6 +91,7 @@ export async function dispatchToolMutations(
   ctx: MutationContext,
   res: DispatcherResponse,
 ): Promise<DispatchOutcome> {
+  let purgeCache = false;
   for (const mutation of TOOL_MUTATIONS) {
     if (body[mutation.key] === undefined) continue;
 
@@ -109,8 +111,13 @@ export async function dispatchToolMutations(
       return "downstream_error";
     }
 
+    if (mutation.purgesCache) purgeCache = true;
+
     const { action, meta } = mutation.audit(body[mutation.key], parsed.value);
     recordAudit(ctx.actor, action, auditTarget(ctx), meta);
   }
+  // A response-shaping policy changed: drop any responses cached under the old
+  // policy so a hit can't keep serving the pre-change (e.g. un-redacted) body.
+  if (purgeCache) purgeToolCache(ctx.clientName, ctx.toolName);
   return null;
 }

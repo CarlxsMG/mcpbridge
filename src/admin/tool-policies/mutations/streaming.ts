@@ -9,6 +9,7 @@ import type { ToolMutation } from "./types.js";
 
 export const streamingMutation: ToolMutation = {
   key: "streaming",
+  purgesCache: true,
   validate: (raw) => validateStreamingInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
     const ok = setStreamingConfig(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setStreamingConfig>[2]);

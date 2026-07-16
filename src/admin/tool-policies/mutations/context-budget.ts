@@ -15,6 +15,7 @@ import type { ToolMutation } from "./types.js";
 
 export const contextBudgetMutation: ToolMutation = {
   key: "contextBudget",
+  purgesCache: true,
   validate: (raw) => validateContextBudgetInput(raw) as ReturnType<ToolMutation["validate"]>,
   apply: async (ctx, parsed) => {
     const result = await setToolContextBudget(
