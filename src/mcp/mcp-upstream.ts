@@ -114,6 +114,21 @@ export function mcpResultToProxyResult(result: unknown, maxBytes: number): Proxy
   return { content, isError: r.isError === true ? true : undefined };
 }
 
+/**
+ * Sums the UTF-8 byte length of `texts`, returning true as soon as the running
+ * total exceeds `maxBytes`. Mirrors the aggregate-byte accounting
+ * mcpResultToProxyResult applies to the tool-call path so the resource-read /
+ * prompt-get relay paths enforce the same MAX_RESPONSE_BYTES ceiling.
+ */
+function textBytesExceed(texts: string[], maxBytes: number): boolean {
+  let total = 0;
+  for (const t of texts) {
+    total += Buffer.byteLength(t, "utf8");
+    if (total > maxBytes) return true;
+  }
+  return false;
+}
+
 export interface McpUpstreamPoolOptions {
   transportFactory?: (p: McpConnParams) => Transport;
   connectTimeoutMs?: number;
@@ -237,15 +252,41 @@ export class McpUpstreamPool {
     }
   }
 
-  /** Reads one upstream resource by URI. Throws + drops the connection on error. */
-  async readResource(p: McpConnParams, uri: string, timeoutMs: number): Promise<unknown> {
+  /**
+   * Reads one upstream resource by URI. Throws + drops the connection on error.
+   *
+   * When `maxBytes` is provided, the aggregate UTF-8 length of the returned
+   * text contents is enforced against it BEFORE the content is relayed (or
+   * scanned by the server handler) — an isError result is returned instead of
+   * the oversized body, mirroring mcpResultToProxyResult's cap on the tool-call
+   * path so an untrusted upstream can't smuggle an unbounded body through the
+   * resource-read route.
+   */
+  async readResource(p: McpConnParams, uri: string, timeoutMs: number, maxBytes?: number): Promise<unknown> {
     const client = await this.getClient(p);
+    let result: unknown;
     try {
-      return await client.readResource({ uri }, { timeout: timeoutMs });
+      result = await client.readResource({ uri }, { timeout: timeoutMs });
     } catch (err) {
       await this.disconnect(p.name);
       throw err;
     }
+    if (maxBytes !== undefined) {
+      const contents = (result as { contents?: unknown }).contents;
+      const texts = Array.isArray(contents)
+        ? contents.flatMap((c) => {
+            const t = (c as { text?: unknown }).text;
+            return typeof t === "string" ? [t] : [];
+          })
+        : [];
+      if (textBytesExceed(texts, maxBytes)) {
+        return {
+          contents: [{ uri, mimeType: "text/plain", text: "Upstream MCP resource exceeded MAX_RESPONSE_BYTES limit" }],
+          isError: true,
+        };
+      }
+    }
+    return result;
   }
 
   /** Lists the upstream's prompts. Returns [] on error or when unsupported. */
@@ -259,15 +300,46 @@ export class McpUpstreamPool {
     }
   }
 
-  /** Gets one upstream prompt by name. Throws + drops the connection on error. */
-  async getPrompt(p: McpConnParams, name: string, args: Record<string, string>, timeoutMs: number): Promise<unknown> {
+  /**
+   * Gets one upstream prompt by name. Throws + drops the connection on error.
+   *
+   * `maxBytes` enforces the same aggregate MAX_RESPONSE_BYTES ceiling the
+   * tool-call and resource-read paths apply, over the prompt messages' text
+   * content, before it is relayed/scanned.
+   */
+  async getPrompt(
+    p: McpConnParams,
+    name: string,
+    args: Record<string, string>,
+    timeoutMs: number,
+    maxBytes?: number,
+  ): Promise<unknown> {
     const client = await this.getClient(p);
+    let result: unknown;
     try {
-      return await client.getPrompt({ name, arguments: args }, { timeout: timeoutMs });
+      result = await client.getPrompt({ name, arguments: args }, { timeout: timeoutMs });
     } catch (err) {
       await this.disconnect(p.name);
       throw err;
     }
+    if (maxBytes !== undefined) {
+      const messages = (result as { messages?: unknown }).messages;
+      const texts = Array.isArray(messages)
+        ? messages.flatMap((m) => {
+            const content = (m as { content?: { type?: unknown; text?: unknown } }).content;
+            return content && content.type === "text" && typeof content.text === "string" ? [content.text] : [];
+          })
+        : [];
+      if (textBytesExceed(texts, maxBytes)) {
+        return {
+          messages: [
+            { role: "user", content: { type: "text", text: "Upstream MCP prompt exceeded MAX_RESPONSE_BYTES limit" } },
+          ],
+          isError: true,
+        };
+      }
+    }
+    return result;
   }
 
   /** Liveness probe used by the health loop for MCP upstreams. */

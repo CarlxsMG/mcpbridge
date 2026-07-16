@@ -269,6 +269,11 @@ async function handleStreamableGet(req: Request, res: Response, scope: McpServer
     });
     return;
   }
+  // Opening the long-lived SSE stream is itself activity: without this touch a
+  // POST-idle notification session (client that only holds the GET stream open)
+  // would be force-closed by the TTL cleanup loop after sessionTtlMs, tearing
+  // down its live stream.
+  touchSession(sessionId);
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("X-Accel-Buffering", "no");
   await transport.handleRequest(req, res);

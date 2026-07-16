@@ -158,6 +158,66 @@ function sanitizeText(
   return authHeaders ? stripInjectedCredentials(scan.text, authHeaders) : scan.text;
 }
 
+/**
+ * Scans the human-readable metadata of each listed resource (name/description/
+ * uri) through the same guardrail scan + injected-credential strip applied to
+ * resource/prompt READ content. listResources/listPrompts otherwise relay
+ * upstream-controlled metadata verbatim, so an untrusted MCP upstream could
+ * smuggle a prompt-injection payload through a resource description exactly as
+ * easily as through a tool description or read content. Non-object / non-string
+ * entries are passed through untouched.
+ */
+function sanitizeResourceList(
+  resources: unknown[],
+  clientName: string,
+  authHeaders: Record<string, string> | undefined,
+): unknown[] {
+  return resources.map((raw) => {
+    if (typeof raw !== "object" || raw === null) return raw;
+    const r = raw as Record<string, unknown>;
+    const label = typeof r.uri === "string" ? r.uri : typeof r.name === "string" ? r.name : "resource";
+    const out: Record<string, unknown> = { ...r };
+    if (typeof r.name === "string") out.name = sanitizeText(r.name, clientName, label, authHeaders);
+    if (typeof r.description === "string")
+      out.description = sanitizeText(r.description, clientName, label, authHeaders);
+    if (typeof r.uri === "string") out.uri = sanitizeText(r.uri, clientName, label, authHeaders);
+    return out;
+  });
+}
+
+/**
+ * Metadata-scan counterpart to sanitizeResourceList for listed prompts: scans
+ * each prompt's description and every argument's name/description. See
+ * sanitizeResourceList for the rationale.
+ */
+function sanitizePromptList(
+  prompts: unknown[],
+  clientName: string,
+  authHeaders: Record<string, string> | undefined,
+): unknown[] {
+  return prompts.map((raw) => {
+    if (typeof raw !== "object" || raw === null) return raw;
+    const p = raw as Record<string, unknown>;
+    const label = typeof p.name === "string" ? p.name : "prompt";
+    const out: Record<string, unknown> = { ...p };
+    if (typeof p.description === "string")
+      out.description = sanitizeText(p.description, clientName, label, authHeaders);
+    if (Array.isArray(p.arguments)) {
+      out.arguments = p.arguments.map((rawArg) => {
+        if (typeof rawArg !== "object" || rawArg === null) return rawArg;
+        const arg = rawArg as Record<string, unknown>;
+        const argOut: Record<string, unknown> = { ...arg };
+        if (typeof arg.name === "string") argOut.name = sanitizeText(arg.name, clientName, label, authHeaders);
+        if (typeof arg.description === "string") {
+          argOut.description = sanitizeText(arg.description, clientName, label, authHeaders);
+        }
+        return argOut;
+      });
+    }
+    return out;
+  });
+}
+
 function sanitizeResourceContent(
   result: ReadResourceResult,
   clientName: string,
@@ -318,7 +378,9 @@ export function createMcpServer(scope: McpServerScope): Server {
   // (listResources/listPrompts degrade to [] when the upstream lacks them).
   server.setRequestHandler(ListResourcesRequestSchema, async (_request, extra) => {
     const p = mcpParamsForScope(scope, callerTokenFromExtra(extra));
-    return { resources: p ? await mcpUpstream.listResources(p, config.toolCallTimeoutMs) : [] } as ListResourcesResult;
+    if (!p) return { resources: [] } as ListResourcesResult;
+    const resources = await mcpUpstream.listResources(p, config.toolCallTimeoutMs);
+    return { resources: sanitizeResourceList(resources, p.name, p.authHeaders) } as ListResourcesResult;
   });
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request, extra) => {
@@ -328,13 +390,16 @@ export function createMcpServer(scope: McpServerScope): Server {
       p,
       request.params.uri,
       config.toolCallTimeoutMs,
+      config.maxResponseBytes,
     )) as ReadResourceResult;
     return sanitizeResourceContent(result, p.name, p.authHeaders);
   });
 
   server.setRequestHandler(ListPromptsRequestSchema, async (_request, extra) => {
     const p = mcpParamsForScope(scope, callerTokenFromExtra(extra));
-    return { prompts: p ? await mcpUpstream.listPrompts(p, config.toolCallTimeoutMs) : [] } as ListPromptsResult;
+    if (!p) return { prompts: [] } as ListPromptsResult;
+    const prompts = await mcpUpstream.listPrompts(p, config.toolCallTimeoutMs);
+    return { prompts: sanitizePromptList(prompts, p.name, p.authHeaders) } as ListPromptsResult;
   });
 
   server.setRequestHandler(GetPromptRequestSchema, async (request, extra) => {
@@ -346,6 +411,7 @@ export function createMcpServer(scope: McpServerScope): Server {
       request.params.name,
       args,
       config.toolCallTimeoutMs,
+      config.maxResponseBytes,
     )) as GetPromptResult;
     return sanitizePromptContent(result, p.name, request.params.name, p.authHeaders);
   });
