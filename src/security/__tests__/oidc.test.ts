@@ -223,9 +223,9 @@ describe("findOrProvisionSsoUser", () => {
     expect(userCount).toBe(1);
 
     const identityCount = (
-      getDb().query(`SELECT COUNT(*) AS n FROM admin_user_identities WHERE provider = 'oidc' AND subject = ?`).get(
-        "subject-race",
-      ) as { n: number }
+      getDb()
+        .query(`SELECT COUNT(*) AS n FROM admin_user_identities WHERE provider = 'oidc' AND subject = ?`)
+        .get("subject-race") as { n: number }
     ).n;
     expect(identityCount).toBe(1);
   });

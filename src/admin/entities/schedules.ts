@@ -70,6 +70,12 @@ function parseField(field: string, min: number, max: number): Set<number> | null
   const out = new Set<number>();
   for (const part of field.split(",")) {
     const [rangePart, stepPart] = part.split("/");
+    // A stray/double comma (or a lone comma) splits into an empty segment
+    // here (e.g. "0,,5" -> ["0", "", "5"]) — reject it explicitly rather than
+    // falling through to `Number("")`, which is 0, not NaN: that would
+    // silently accept the empty segment as an implicit, unintended match at
+    // the field's minimum value instead of failing INVALID_CRON.
+    if (rangePart === "") return null;
     const step = stepPart === undefined ? 1 : Number(stepPart);
     if (!Number.isInteger(step) || step < 1) return null;
     let lo = min;

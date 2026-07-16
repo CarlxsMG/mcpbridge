@@ -62,6 +62,15 @@ describe("cron matcher", () => {
     expect(parseCron("99 * * * *")).toBeNull();
     expect(parseCron("* * * * 8")).toBeNull();
   });
+  test("a stray/double comma or a lone comma in a field is rejected, not silently treated as an implicit 0", () => {
+    // Regression test: `Number("")` is 0, not NaN — an empty comma-list
+    // segment (from a typo'd double comma, or a lone comma) used to parse
+    // successfully with an unintended extra match at the field's minimum
+    // value instead of failing INVALID_CRON.
+    expect(parseCron("0,,5 * * * *")).toBeNull();
+    expect(parseCron(", * * * *")).toBeNull();
+    expect(parseCron("* * * , *")).toBeNull();
+  });
 });
 
 describe("schedule evaluator", () => {
