@@ -509,28 +509,30 @@ describe("importConfig — bundles", () => {
     expect(getBundleDetail("empty-bundle")?.tools).toEqual([]);
   });
 
-  test("a bundle whose 'tools' key is entirely absent (undefined) currently throws — a pre-existing gap, pinned here rather than papered over", async () => {
-    // `(b.tools ?? []).filter(...)` (the missing-tools check) correctly
-    // treats an absent `tools` key as empty (so it's never skipped for
-    // "unknown tools"), but createBundle/updateBundle are then called with
-    // the raw `b.tools` — no `?? []` fallback at THAT call site — which
-    // crashes inside dedupeToolRefs's `for (const t of tools)` over
-    // undefined. Verified empirically (not asserted from reasoning alone):
-    // hand-applying the mutant's replacement array
-    // (`b.tools ?? ["Stryker was here"]`) to a scratch copy of the source
-    // and re-running an equivalent probe showed the mutated code does NOT
-    // throw here (the bogus one-element array fails the tool-existence
-    // check instead, producing a graceful "1 unknown tool(s)" skip) — so
-    // this exact "expect a throw" assertion is what distinguishes real vs.
-    // mutated behavior for that array-literal mutant. Out of scope to fix
-    // the underlying source gap in a mutation-testing-only pass.
-    await expect(
-      importConfig(
-        baseDoc({ bundles: [{ name: "crash-bundle", description: null, enabled: true, tools: undefined }] }),
-        { dryRun: false },
-        null,
-      ),
-    ).rejects.toThrow();
+  test("a bundle whose 'tools' key is entirely absent (undefined), or any other non-array value, is skipped gracefully instead of throwing (P2 fix)", async () => {
+    // Previously `(b.tools ?? []).filter(...)` (the missing-tools check)
+    // treated an absent `tools` key as empty and let it through to
+    // createBundle/updateBundle with the raw (undefined) `b.tools` — no `?? []`
+    // fallback at that call site — which crashed inside dedupeToolRefs's
+    // `for (const t of tools)` over undefined. An explicit `Array.isArray`
+    // guard now degrades any non-array `tools` (undefined, a string, etc.) to
+    // a reported skip instead of aborting the whole import mid-flight.
+    const result = await importConfig(
+      baseDoc({
+        bundles: [
+          { name: "crash-bundle", description: null, enabled: true, tools: undefined },
+          { name: "string-tools-bundle", description: null, enabled: true, tools: "not-an-array" },
+        ],
+      }),
+      { dryRun: false },
+      null,
+    );
+    expect(result.applied.bundles).toBe(0);
+    expect(result.skipped).toEqual([
+      { type: "bundle", id: "crash-bundle", reason: "tools field is not an array" },
+      { type: "bundle", id: "string-tools-bundle", reason: "tools field is not an array" },
+    ]);
+    expect(getBundleDetail("crash-bundle")).toBeUndefined();
   });
 
   test("dryRun:true plans a new bundle (applied count) without creating it", async () => {
