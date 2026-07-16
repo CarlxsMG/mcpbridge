@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "../middleware/authz.js";
+import { requireAdminRole, requireSuperAdmin } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { registry } from "../mcp/registry.js";
 import { config } from "../config.js";
@@ -102,7 +102,16 @@ export function bundleRoutes(app: Express): void {
     res.status(200).json(detail);
   });
 
-  r.post("/bundles", requireAdminRole, async (req: Request, res: Response) => {
+  // POST/PATCH require a super-admin: findUnknownTool/findUnknownComposite
+  // (bundles.ts) check target existence against the GLOBAL tools/composites
+  // tables with no team filter, and a distinguishable UNKNOWN_TOOL vs.
+  // success response would otherwise let a team-scoped admin enumerate other
+  // teams' private client/tool names (an existence oracle). Bundles carry no
+  // tenancy of their own (cross-client curation is a deliberately global
+  // capability — see the install-links comment below), so gating
+  // creation/mutation to super-admin closes the oracle without fighting
+  // that design.
+  r.post("/bundles", requireSuperAdmin, async (req: Request, res: Response) => {
     const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name : "";
     const description = typeof body.description === "string" ? body.description : undefined;
@@ -137,7 +146,9 @@ export function bundleRoutes(app: Express): void {
     res.status(201).json(getBundleDetail(name));
   });
 
-  r.patch("/bundles/:name", requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
+  // Same reasoning as POST above: updateBundle re-runs findUnknownTool/
+  // findUnknownComposite when `tools`/`composites` are included in the body.
+  r.patch("/bundles/:name", requireSuperAdmin, async (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
     const body = bodyOf(req);
     const actor = actorFromRequest(req);
