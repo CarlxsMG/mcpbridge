@@ -107,7 +107,21 @@ const {
 );
 
 async function load() {
-  await syncAfterLoad(loadDetail, syncDescription, syncSchema, syncSteps);
+  // Only resync drafts that aren't currently holding unsaved edits — a save
+  // in one field (which calls load() as part of its own commit) must not
+  // clobber in-progress edits pending in the other two fields.
+  await syncAfterLoad(
+    loadDetail,
+    () => {
+      if (!descriptionDirty.value) syncDescription();
+    },
+    () => {
+      if (!schemaDirty.value) syncSchema();
+    },
+    () => {
+      if (!stepsDirty.value) syncSteps();
+    },
+  );
 }
 watch(() => props.name, load);
 onMounted(load);
