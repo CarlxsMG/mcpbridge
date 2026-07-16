@@ -22,6 +22,10 @@ import * as auditMod from "../../admin/audit/audit.js";
 import { getGuardPolicy } from "../../admin/entities/policies.js";
 import { createBundle } from "../../admin/tool-composition/bundles.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
+import { createTeam, setUserTeam, setClientTeam } from "../../admin/entities/teams.js";
+import { createUser } from "../../security/user-store.js";
+import { createSession } from "../../security/session-store.js";
+import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "../../security/cookies.js";
 
 const ADMIN_KEY = "test-admin-key-policies-mut";
 
@@ -59,6 +63,20 @@ async function startApp(): Promise<void> {
 
 function bearer(): Record<string, string> {
   return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
+}
+
+/** Session headers for a team-scoped admin — mirrors the pattern in routes-approvals-mutation.test.ts. */
+function teamSessionHeaders(username: string): Record<string, string> {
+  const team = createTeam(`team-${username}`, "test");
+  if (typeof team === "string") throw new Error(`createTeam failed: ${team}`);
+  const user = createUser(username, "irrelevant-hash", "admin", null);
+  setUserTeam(user.username, team.id);
+  const session = createSession(user.id, "127.0.0.1", "test-agent");
+  return {
+    "Content-Type": "application/json",
+    Cookie: `${SESSION_COOKIE_NAME}=${session.token}; ${CSRF_COOKIE_NAME}=${session.csrfToken}`,
+    "X-CSRF-Token": session.csrfToken,
+  };
 }
 
 async function reg(name: string): Promise<void> {
@@ -784,6 +802,65 @@ describe("POST /admin-api/policies/:id/apply — tools branch validation", () =>
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("POST /admin-api/policies/:id/apply — tenancy (isAllowed rejection branch)", () => {
+  // Regression coverage for the P0 fix in applyPolicyToTools (commit
+  // d87133f): a team-scoped caller applying a policy to a `tools` ref that
+  // points at a client owned by a DIFFERENT team must have that ref rejected
+  // by the `isAllowed` check (src/admin/entities/policies.ts:113) and
+  // reported as skipped/"not found" — never applied, never a 403/500 that
+  // would leak the client's existence.
+  test("a tools ref pointing at another team's client is skipped as not-found, not applied", async () => {
+    await startApp();
+    await reg("svc-foreign-tools");
+    const otherTeam = createTeam("other-team-policy-tools", "test");
+    if (typeof otherTeam === "string") throw new Error("createTeam failed");
+    setClientTeam("svc-foreign-tools", otherTeam.id);
+    const created = await createPolicy({ name: "cross-tenant-tools-policy", rateLimitPerMin: 9 });
+
+    const headers = teamSessionHeaders("policy-tools-caller");
+    const res = await fetch(`${baseUrl}/admin-api/policies/${created.id}/apply`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ tools: [{ client: "svc-foreign-tools", tool: "t" }] }),
+    });
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as { applied: number; skipped: { tool: string; reason: string }[] };
+    expect(result.applied).toBe(0);
+    expect(result.skipped).toEqual([{ tool: "svc-foreign-tools__t", reason: "not found" }]);
+    // The guard itself must be untouched — proves the policy was never
+    // actually applied to the foreign client's tool.
+    expect(registry.resolveTool("svc-foreign-tools__t")?.tool.guards?.rateLimitPerMin).toBeUndefined();
+  });
+
+  test("a bundle whose tools point at another team's client skips those refs as not-found", async () => {
+    await startApp();
+    await reg("svc-foreign-bundle");
+    const otherTeam = createTeam("other-team-policy-bundle", "test");
+    if (typeof otherTeam === "string") throw new Error("createTeam failed");
+    setClientTeam("svc-foreign-bundle", otherTeam.id);
+    const bundleResult = await createBundle(
+      "cross-tenant-bundle",
+      undefined,
+      [{ client: "svc-foreign-bundle", tool: "t" }],
+      "tester",
+    );
+    expect(bundleResult.ok).toBe(true);
+    const created = await createPolicy({ name: "cross-tenant-bundle-policy", rateLimitPerMin: 12 });
+
+    const headers = teamSessionHeaders("policy-bundle-caller");
+    const res = await fetch(`${baseUrl}/admin-api/policies/${created.id}/apply`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ bundle: "cross-tenant-bundle" }),
+    });
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as { applied: number; skipped: { tool: string; reason: string }[] };
+    expect(result.applied).toBe(0);
+    expect(result.skipped).toEqual([{ tool: "svc-foreign-bundle__t", reason: "not found" }]);
+    expect(registry.resolveTool("svc-foreign-bundle__t")?.tool.guards?.rateLimitPerMin).toBeUndefined();
   });
 });
 
