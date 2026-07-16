@@ -1,14 +1,17 @@
-import { describe, test, expect, afterEach } from "bun:test";
+import { describe, test, expect, afterEach, afterAll } from "bun:test";
 import { Database } from "bun:sqlite";
-import { existsSync, rmSync, mkdirSync } from "fs";
+import { existsSync, rmSync, mkdirSync, mkdtempSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { tryAcquireOrRenewLease, refreshLeaderStatus, isLeader } from "../../db/leader-lease.js";
 
 const realNow = Date.now.bind(Date);
-const dbDir =
-  "C:\\Users\\carlo\\AppData\\Local\\Temp\\claude\\C--Users-carlo-Desktop-test-1\\389c3acb-7605-40d2-86eb-81b21edd9c9a\\scratchpad";
-const dbPath = `${dbDir}\\leader-election-test.db`;
+// Per-file unique temp dir (mirrors src/cli/__tests__/cli.test.ts) — no
+// machine/session-specific absolute path, so this runs on any host/CI.
+const dbDir = mkdtempSync(join(tmpdir(), "mcpbridge-leader-election-"));
+const dbPath = join(dbDir, "leader-election-test.db");
 
 const originalInstanceId = config.instanceId;
 
@@ -37,6 +40,14 @@ afterEach(() => {
   (config as Record<string, unknown>).instanceId = originalInstanceId;
   __resetDbForTesting();
   cleanupFile();
+});
+
+afterAll(() => {
+  try {
+    rmSync(dbDir, { recursive: true, force: true });
+  } catch {
+    // Best-effort — the OS temp dir is ephemeral anyway.
+  }
 });
 
 describe("tryAcquireOrRenewLease — single instance (trivial case)", () => {

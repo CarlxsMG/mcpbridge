@@ -5,13 +5,14 @@
  * exercises the actual VACUUM INTO path against a live on-disk DB — the
  * scenario the endpoint exists to make safe.
  */
-import { describe, test, expect, afterEach } from "bun:test";
+import { describe, test, expect, afterEach, afterAll } from "bun:test";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { Database } from "bun:sqlite";
-import { existsSync, rmSync } from "fs";
-import { dirname } from "path";
+import { existsSync, rmSync, mkdtempSync } from "fs";
+import { dirname, join } from "path";
+import { tmpdir } from "os";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { requestIdMiddleware } from "../../middleware/request-id.js";
@@ -23,9 +24,16 @@ import { recordAudit } from "../../admin/audit/audit.js";
 let baseUrl = "";
 let server: Server | null = null;
 const ADMIN_KEY = "test-backup-admin-key";
-const scratchDir =
-  "C:\\Users\\carlo\\AppData\\Local\\Temp\\claude\\C--Users-carlo-Desktop-test-1\\7ba44e1b-d5fb-449a-a74d-5c6ac6f7c43f\\scratchpad";
-const dbPath = `${scratchDir}\\backup-route-test.db`;
+// Per-file unique temp dir (mirrors src/cli/__tests__/cli.test.ts) — no
+// machine/session-specific absolute path, so this runs on any host/CI.
+const scratchDir = mkdtempSync(join(tmpdir(), "mcpbridge-backup-"));
+const dbPath = join(scratchDir, "backup-route-test.db");
+// startApp() overwrites the global config.dbPath; capture the original so
+// afterAll can restore it. Otherwise this file leaves config.dbPath pointing at
+// our scratchDir, which afterAll then deletes — and the next file to run,
+// routes-backup-mutation.test.ts, derives its backup dir from
+// dirname(config.dbPath) and would VACUUM into the now-missing directory.
+const originalDbPath = config.dbPath;
 
 function cleanupDbFiles(path: string): void {
   for (const suffix of ["", "-wal", "-shm", "-journal"]) {
@@ -79,6 +87,18 @@ afterEach(async () => {
   cleanupDbFiles(dbPath);
 });
 
+afterAll(() => {
+  try {
+    rmSync(scratchDir, { recursive: true, force: true });
+  } catch {
+    // Best-effort — the OS temp dir is ephemeral anyway.
+  }
+  // Restore the global config.dbPath / connection we mutated, so a subsequent
+  // test file doesn't inherit a path into our just-deleted scratchDir.
+  (config as Record<string, unknown>).dbPath = originalDbPath;
+  __resetDbForTesting();
+});
+
 describe("POST /admin-api/backup", () => {
   test("returns a valid, openable SQLite snapshot with the right headers", async () => {
     await startApp();
@@ -96,7 +116,7 @@ describe("POST /admin-api/backup", () => {
     const buf = Buffer.from(await res.arrayBuffer());
     expect(buf.length).toBeGreaterThan(0);
 
-    const outPath = `${scratchDir}\\backup-route-downloaded.db`;
+    const outPath = join(scratchDir, "backup-route-downloaded.db");
     cleanupDbFiles(outPath);
     await Bun.write(outPath, buf);
     try {
@@ -125,7 +145,7 @@ describe("POST /admin-api/backup", () => {
     const disposition = res.headers.get("content-disposition") ?? "";
     const match = disposition.match(/filename="([^"]+)"/);
     expect(match).not.toBeNull();
-    const filePath = `${dirname(dbPath)}\\${match![1]}`;
+    const filePath = join(dirname(dbPath), match![1]);
 
     // The unlink is fired from the stream's 'close' handler asynchronously —
     // poll (generously, since a busy test-suite run can add I/O latency)

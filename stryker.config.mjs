@@ -53,12 +53,20 @@ export default {
   coverageAnalysis: "off",
   // Console + JSON + HTML.
   reporters: ["progress-append-only", "json", "html"],
-  // MUST be 1 with the FULL suite (fixed-port / DB-file tests collide between
-  // workers). Safe at >1 when scoped to src/security/__tests__ — none of those
-  // tests bind a fixed port (the one server test uses listen(0)) or a shared
-  // DB file (all :memory:), and none use snapshots.
-  // Validated empirically: user-store scores identically at 1 and 8.
-  concurrency: 8,
+  // MUST be 1 with the FULL suite. The old "fixed-port" half of this rationale
+  // is stale — every test server now binds via app.listen(0) (ephemeral port),
+  // so there is no fixed-port collision left. The real collision vector was
+  // shared on-disk DB files: a few tests point __resetDbForTesting() at a real
+  // file path (backup / leader-election / registry-reload), and with
+  // coverageAnalysis:"off" Stryker re-runs the WHOLE suite per mutant, so two
+  // workers would have raced on the same SQLite file. Those paths are now
+  // per-file-unique temp dirs (mkdtempSync), but the full suite still mutates
+  // process-global singletons in place (the `config` object, the module-level
+  // registry), so keep 1 as the conservative default. Safe at >1 only when
+  // scoped to a subtree whose tests all use :memory: DBs and listen(0) (e.g.
+  // src/security/__tests__ — validated empirically: user-store scores
+  // identically at 1 and 8).
+  concurrency: 1,
   jsonReporter: { fileName: "reports/mutation/result.json" },
   htmlReporter: { fileName: "reports/mutation/index.html" },
   // Don't run snapshot files. Do NOT add `**/__tests__/**` here as a

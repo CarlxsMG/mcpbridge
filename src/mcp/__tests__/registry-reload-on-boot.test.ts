@@ -11,8 +11,10 @@
  * fresh process boot) and then re-registering exercises the identical code
  * path a real restart would.
  */
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, rmSync } from "fs";
+import { describe, test, expect, beforeEach, afterEach, afterAll } from "bun:test";
+import { existsSync, mkdirSync, rmSync, mkdtempSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { registry } from "../../mcp/registry.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
@@ -77,15 +79,24 @@ describe("Persisted enabled/guards survive re-registration after this process 'f
 });
 
 describe("Persisted enabled state survives a real SQLite file close + reopen", () => {
-  const dbDir =
-    "C:\\Users\\carlo\\AppData\\Local\\Temp\\claude\\C--Users-carlo-Desktop-test-1\\389c3acb-7605-40d2-86eb-81b21edd9c9a\\scratchpad";
-  const dbPath = `${dbDir}\\registry-reload-test.db`;
+  // Per-file unique temp dir (mirrors src/cli/__tests__/cli.test.ts) — no
+  // machine/session-specific absolute path, so this runs on any host/CI.
+  const dbDir = mkdtempSync(join(tmpdir(), "mcpbridge-registry-reload-"));
+  const dbPath = join(dbDir, "registry-reload-test.db");
 
   afterEach(() => {
     __resetDbForTesting();
     if (existsSync(dbPath)) rmSync(dbPath);
     if (existsSync(`${dbPath}-wal`)) rmSync(`${dbPath}-wal`);
     if (existsSync(`${dbPath}-shm`)) rmSync(`${dbPath}-shm`);
+  });
+
+  afterAll(() => {
+    try {
+      rmSync(dbDir, { recursive: true, force: true });
+    } catch {
+      // Best-effort — the OS temp dir is ephemeral anyway.
+    }
   });
 
   test("enabled: false written before a close is read back after reopening the same file", async () => {
