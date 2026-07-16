@@ -130,6 +130,7 @@ describe("checkConsumerQuota", () => {
       createdAt: 0,
       updatedAt: 0,
       createdBy: null,
+      teamId: null,
     };
     // consumerId 4242424 doesn't exist in the db at all -- if the passed
     // `consumer` were ignored in favor of a fresh getConsumer() lookup, this
@@ -150,6 +151,7 @@ describe("checkEndUserRateLimit", () => {
       createdAt: 0,
       updatedAt: 0,
       createdBy: null,
+      teamId: null,
     };
     // If the passed `consumer` were ignored in favor of a fresh
     // getConsumer(4242425) lookup (null, since it doesn't exist), this would

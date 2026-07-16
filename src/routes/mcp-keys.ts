@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireAdminRole, isSuperAdminCaller, callerTeamId } from "../middleware/authz.js";
-import { getClientTeam } from "../admin/entities/teams.js";
+import { getClientTeam, getConsumerTeam } from "../admin/entities/teams.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import {
   listMcpKeys,
@@ -20,11 +20,25 @@ import { sendError, validationError, notFound, forbidden, bodyOf } from "./http-
 import type { ValidationResult } from "./validation.js";
 import { validateExpiresAt } from "./admin-validators.js";
 
-function validateConsumerId(v: unknown): ValidationResult<number | null> {
+/**
+ * A team-scoped caller must not be able to attach a key to another team's
+ * consumer — that consumer's quota/rate-limit config would then apply to a
+ * key the foreign team never provisioned, and the caller could read that
+ * consumer's usage via GET /consumers/:id/usage. For a non-super-admin
+ * caller we therefore confine consumerId to a consumer their own team owns;
+ * an out-of-team id gets the exact same message as a genuinely-unknown one
+ * (fail closed, same "can't distinguish existence" contract as
+ * scopeConfinementError below). Super-admins and bearer callers may
+ * reference any consumer, unchanged.
+ */
+function validateConsumerId(req: Request, v: unknown): ValidationResult<number | null> {
   if (v === undefined || v === null) return { ok: true, value: null };
   if (typeof v !== "number" || !Number.isInteger(v))
     return { ok: false, message: "consumerId must be an integer or null" };
   if (!getConsumer(v)) return { ok: false, message: "consumerId does not reference an existing consumer" };
+  if (!isSuperAdminCaller(req) && getConsumerTeam(v) !== callerTeamId(req)) {
+    return { ok: false, message: "consumerId does not reference an existing consumer" };
+  }
   return { ok: true, value: v };
 }
 
@@ -148,7 +162,7 @@ export function mcpKeyRoutes(app: Express): void {
       return;
     }
 
-    const consumer = validateConsumerId(body.consumerId);
+    const consumer = validateConsumerId(req, body.consumerId);
     if (!consumer.ok) {
       validationError(res, consumer.message);
       return;
@@ -277,7 +291,7 @@ export function mcpKeyRoutes(app: Express): void {
       updates.scopes = scopes.value;
     }
     if (body.consumerId !== undefined) {
-      const consumer = validateConsumerId(body.consumerId);
+      const consumer = validateConsumerId(req, body.consumerId);
       if (!consumer.ok) {
         validationError(res, consumer.message);
         return;

@@ -14,6 +14,8 @@ export interface Consumer {
   createdAt: number;
   updatedAt: number;
   createdBy: string | null;
+  /** Owning team id, or null for an unowned (super-admin-only) consumer. */
+  teamId: number | null;
 }
 
 interface ConsumerRow {
@@ -24,9 +26,10 @@ interface ConsumerRow {
   created_at: number;
   updated_at: number;
   created_by: string | null;
+  team_id: number | null;
 }
 
-const COLS = "id, name, monthly_quota, end_user_rate_limit_per_min, created_at, updated_at, created_by";
+const COLS = "id, name, monthly_quota, end_user_rate_limit_per_min, created_at, updated_at, created_by, team_id";
 
 function rowToConsumer(row: ConsumerRow): Consumer {
   return {
@@ -37,6 +40,7 @@ function rowToConsumer(row: ConsumerRow): Consumer {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     createdBy: row.created_by,
+    teamId: row.team_id ?? null,
   };
 }
 
@@ -46,7 +50,18 @@ function monthStart(): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
 }
 
-export function listConsumers(): Consumer[] {
+/**
+ * Lists consumers, optionally scoped to a team. Pass `teamId` for a
+ * team-scoped caller (mirrors listClientsSummary's tenancy filter) — omit it
+ * (or pass undefined) for a super-admin/bearer caller, who sees every
+ * consumer regardless of ownership.
+ */
+export function listConsumers(filter: { teamId?: number } = {}): Consumer[] {
+  if (typeof filter.teamId === "number") {
+    return (
+      getDb().query(`SELECT ${COLS} FROM consumers WHERE team_id = ? ORDER BY name`).all(filter.teamId) as ConsumerRow[]
+    ).map(rowToConsumer);
+  }
   return (getDb().query(`SELECT ${COLS} FROM consumers ORDER BY name`).all() as ConsumerRow[]).map(rowToConsumer);
 }
 
@@ -70,13 +85,23 @@ export function createConsumer(input: {
   monthlyQuota: number | null;
   endUserRateLimitPerMin?: number | null;
   actor: string | null;
+  /** Owning team id for a team-scoped creator; omit/null for an unowned (super-admin-only) consumer. */
+  teamId?: number | null;
 }): Consumer {
   const now = Date.now();
   const row = getDb()
     .query(
-      `INSERT INTO consumers (name, monthly_quota, end_user_rate_limit_per_min, created_at, updated_at, created_by) VALUES (?, ?, ?, ?, ?, ?) RETURNING ${COLS}`,
+      `INSERT INTO consumers (name, monthly_quota, end_user_rate_limit_per_min, created_at, updated_at, created_by, team_id) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING ${COLS}`,
     )
-    .get(input.name, input.monthlyQuota, input.endUserRateLimitPerMin ?? null, now, now, input.actor) as ConsumerRow;
+    .get(
+      input.name,
+      input.monthlyQuota,
+      input.endUserRateLimitPerMin ?? null,
+      now,
+      now,
+      input.actor,
+      input.teamId ?? null,
+    ) as ConsumerRow;
   return rowToConsumer(row);
 }
 

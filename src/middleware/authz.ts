@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { getClientTeam, canAccessClient } from "../admin/entities/teams.js";
+import { getClientTeam, canAccessClient, getConsumerTeam, canAccessConsumer } from "../admin/entities/teams.js";
 import { notFound, forbidden } from "../routes/http-errors.js";
 
 /** The caller's tenancy scope: a team id, null for a super-admin session, or undefined for a bearer caller (super-admin). */
@@ -31,6 +31,21 @@ export function canCallerAccessClient(req: Request, clientName: string): boolean
   const clientTeam = getClientTeam(clientName);
   if (clientTeam === undefined) return true; // unknown client — handled as not-found by the caller
   return canAccessClient(callerTeamId(req), clientTeam);
+}
+
+/**
+ * Tenancy guard for a single-consumer route — same contract as
+ * ensureClientAccess: true when the caller may act on the consumer (or the
+ * consumer doesn't exist, letting the route's own 404 handle that);
+ * otherwise writes a 404 identical to "consumer not found" so a scoped
+ * caller can't distinguish existence.
+ */
+export function ensureConsumerAccess(req: Request, res: Response, consumerId: number): boolean {
+  const consumerTeam = getConsumerTeam(consumerId);
+  if (consumerTeam === undefined) return true; // unknown consumer — let the handler 404 normally
+  if (canAccessConsumer(callerTeamId(req), consumerTeam)) return true;
+  notFound(res, "CONSUMER_NOT_FOUND", "Consumer not found");
+  return false;
 }
 
 /** Admin-only for session callers (viewer/operator/auditor are rejected). Bearer callers always pass. */

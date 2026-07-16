@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "../middleware/authz.js";
+import { requireAdminRole, requireSuperAdmin } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import {
   listComposites,
@@ -74,7 +74,16 @@ export function compositeRoutes(app: Express): void {
     res.status(200).json(detail);
   });
 
-  r.post("/composites", requireAdminRole, async (req: Request, res: Response) => {
+  // POST/PATCH require a super-admin: validateSteps (composites.ts) checks
+  // target-tool existence against the GLOBAL tools table with no team
+  // filter, and a distinguishable UNKNOWN_TOOL vs. success response would
+  // otherwise let a team-scoped admin enumerate other teams' private
+  // client/tool names (an existence oracle) — see composites.ts's
+  // validateSteps doc comment. Composites/bundles carry no tenancy of their
+  // own (cross-client composition is a deliberately global capability), so
+  // gating creation/mutation to super-admin closes the oracle without
+  // fighting that design.
+  r.post("/composites", requireSuperAdmin, async (req: Request, res: Response) => {
     const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name : "";
     const description = typeof body.description === "string" ? body.description : undefined;
@@ -105,7 +114,9 @@ export function compositeRoutes(app: Express): void {
     res.status(201).json(getCompositeDetail(name));
   });
 
-  r.patch("/composites/:name", requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
+  // Same reasoning as POST above: updateComposite re-runs validateSteps
+  // when `steps` is included in the body.
+  r.patch("/composites/:name", requireSuperAdmin, async (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
     const body = bodyOf(req);
     const updates: {
