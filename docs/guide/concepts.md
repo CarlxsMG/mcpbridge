@@ -13,7 +13,7 @@ the vocabulary that shows up across these docs and the admin UI.
 
 | Term                         | What it means                                                                                                                                                                                |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Client** (backend)         | A registered backend — a **REST** API (tools discovered from OpenAPI) or an **MCP upstream** (`kind: "mcp"`).                                                                                |
+| **Client** (backend)         | A registered backend — a **REST** API (tools discovered from OpenAPI), a **GraphQL** API (`kind: "graphql"`, tools discovered from the introspected schema), or an **MCP upstream** (`kind: "mcp"`).                                                                                |
 | **Tool**                     | A single callable operation, namespaced as `clientName__toolName`.                                                                                                                           |
 | **Serving mode**             | How a client reaches _backend_ tools: **per-client shard** (`/mcp/:name`) or **curated bundle** (`/mcp-custom/:bundle`). `/mcp` itself is the control plane, not a serving mode — see below. |
 | **System tool**              | A `sys_*` tool over the gateway itself (management + data retrieval), served only at the `/mcp` control-plane root — never a backend tool.                                                   |

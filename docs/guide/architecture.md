@@ -33,15 +33,17 @@ guards, breakers and SSRF checks behave identically regardless of which data end
 came through. The legacy SSE transport (`GET /sse` + `POST /messages`) was removed alongside
 aggregation; Streamable HTTP is the only inbound MCP transport now.
 
-## Two kinds of backend
+## Three kinds of backend
 
 - **REST clients** — registered from an OpenAPI/Swagger spec (auto-discovery) or a manual
   tool list. Each tool maps to an HTTP method + path on the backend's base URL.
+- **GraphQL clients** — registered as `kind: "graphql"`. The bridge introspects the schema
+  and generates one tool per query/mutation.
 - **MCP upstreams** — existing MCP servers (Streamable HTTP or SSE) registered as
   `kind: "mcp"`. The bridge connects out, discovers their tools, and re-exposes them.
 
-Both are keyed by the same abstract `client__tool` identity, so every governance
-feature — guards, guardrails, RBAC, bundles, usage, audit — applies to both unchanged.
+All three are keyed by the same abstract `client__tool` identity, so every governance
+feature — guards, guardrails, RBAC, bundles, usage, audit — applies to all of them unchanged.
 
 ## Storage & runtime
 
