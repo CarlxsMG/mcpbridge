@@ -381,9 +381,13 @@ export function annotateToolDriftMutation(
  * Reads a tool's existing guards and merges in a rate-limit / timeout patch
  * (preserving its API-key allow-list), without persisting. Returns `null`
  * for an unknown client/tool so the caller (Registry.applyGuardPolicy) can
- * short-circuit before calling `setToolGuards` (which does the actual
- * persist+apply, and takes the per-client-name lock itself — this helper
- * deliberately does not, mirroring the original inlined logic).
+ * short-circuit before calling `setToolGuardsMutation` (which does the
+ * actual persist+apply). This function does not take the per-client-name
+ * lock itself — the caller MUST run this read and the follow-up
+ * setToolGuardsMutation write inside the SAME withLock(clientName, ...)
+ * acquisition (see Registry.applyGuardPolicy), otherwise two concurrent
+ * callers can both read the same pre-update state and the second write
+ * silently clobbers the first's change with stale data.
  */
 export function computeMergedToolGuards(
   clientName: string,

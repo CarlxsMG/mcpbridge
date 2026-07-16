@@ -322,19 +322,21 @@ describe("applyGuardPolicy — unknown client/tool guard (L922/924)", () => {
   // false;`, ConditionalExpression -> false): the "unknown tool on a known
   // client" case above already exercises the one-of-two-missing combination,
   // but the mutant still survives — traced empirically, this guard is
-  // REDUNDANT with an identical existence check `setToolGuards()` performs
-  // itself (same table, same WHERE clause, same params — see L710-711)
-  // before every write. applyGuardPolicy does no synchronous work and no
-  // `await` between its own L924 check and the tail call `return
-  // this.setToolGuards(clientName, toolName, merged)`, so there is no way
+  // REDUNDANT with an identical existence check `setToolGuardsMutation()`
+  // performs itself (same table, same WHERE clause, same params) before
+  // every write. Both the read (computeMergedToolGuards, including this
+  // guard) and the write (setToolGuardsMutation) now run synchronously
+  // inside the SAME withLock(clientName, ...) acquisition in
+  // Registry.applyGuardPolicy — no `await` between them — so there is no way
   // for the two checks to observe different DB state, and bypassing L924
   // entirely (forcing `if (false)`) only ever skips straight to
-  // setToolGuards' own guard, which independently returns `false` with no
-  // observable side effect either way. Confirmed by manually applying the
-  // `false` replacement at L924 and re-running this file's existing
-  // unknown-client / unknown-tool tests unmodified — both still pass, for
-  // every combination of missing client/tool, because setToolGuards' guard
-  // masks it. Equivalent mutant, not a coverage gap.
+  // setToolGuardsMutation's own guard, which independently returns `false`
+  // with no observable side effect either way. Confirmed by manually
+  // applying the `false` replacement at L924 and re-running this file's
+  // existing unknown-client / unknown-tool tests unmodified — both still
+  // pass, for every combination of missing client/tool, because
+  // setToolGuardsMutation's guard masks it. Equivalent mutant, not a
+  // coverage gap.
 });
 
 // ---------------------------------------------------------------------------
