@@ -21,6 +21,20 @@
  *     rather than silently falling back to the SDK's own much larger
  *     default.
  *
+ * FIXED (2026-07-16): discoverMapTools's collision-suffix loop used to be
+ * hand-rolled here and could infinite-loop (freezing the whole gateway, no
+ * `await` in the loop body) whenever the normalized base name was already 63
+ * characters — every `${name}_${i}`.slice(0, 63)` candidate collapsed back to
+ * the identical string, so `used.has(...)` never went false. It now delegates
+ * to the shared `uniqueToolName` helper (src/discovery/tool-naming.ts,
+ * already used by openapi-discovery.ts/graphql-discovery.ts), which
+ * truncates the BASE name first and is proven to terminate within
+ * `used.size + 1` iterations. The mutants below that targeted the old inline
+ * loop no longer apply to this file; `uniqueToolName` has its own dedicated
+ * mutation-test backstop (tool-naming-mutation.test.ts). The "three tools"
+ * test below is kept as an integration-level check that discoverMapTools
+ * still produces the right suffixes end-to-end.
+ *
  * NOT CHASED (documented per task instructions rather than dropped silently
  * — verified after a verify1 Stryker run against this file's first pass):
  *
@@ -33,26 +47,11 @@
  *     options object and the real `{ capabilities: {} }` both leave
  *     `_capabilities` as `{}` either way — the SDK's own default subsumes
  *     ours.
- *   - 62:23-62:50 MethodExpression (the collision-check candidate's
- *     `.slice(0, 63)` removed, so the while-loop's `used.has(...)` guard
- *     checks the UNTRUNCATED `` `${name}_${i}` `` instead of the truncated
- *     form line 63's actual assignment uses). Investigated a precise
- *     construction to distinguish this (a base name exactly long enough
- *     that two DIFFERENT single-digit suffixes truncate to the SAME
- *     63-char string, e.g. a 62-char base name where `_2` and `_3` both
- *     lose their digit to truncation and collapse to the identical
- *     `"<base>_"`) — but that construction hits a PRE-EXISTING, mutant-
- *     INDEPENDENT edge case in the real (unmutated) code first: for a
- *     base name where every viable single-digit suffix truncates to the
- *     identical string, the real while-loop's own `used.has(...)` check
- *     never advances past that same collision either, i.e. it genuinely
- *     infinite-loops on both the real code AND the mutant for that input
- *     shape. Constructing a test around this would hang the suite (and
- *     Stryker's own dry run) rather than cleanly isolate the mutant — an
- *     orthogonal, out-of-scope latent limitation of the truncate-then-
- *     dedupe strategy for near-63-char names, not something to paper over
- *     with new test infrastructure. Left undistinguished; flagged here for
- *     any future work specifically hardening long-name collision handling.
+ *   - [RESOLVED — see FIXED note below] this bullet used to document a
+ *     genuine infinite loop for near-63-char collisions in this file's own
+ *     hand-rolled collision-suffix loop; that loop has since been replaced
+ *     by the shared `uniqueToolName` helper, which owns (and has its own
+ *     dedicated mutation-test backstop for) this logic now.
  *   - 102:52-102:62 ObjectLiteral, tagged `[Timeout]` rather than
  *     `[Survived]` — Stryker's own genuine-hang detection (the same
  *     "detected via timeout" pattern documented for transports.ts/
@@ -86,17 +85,11 @@ function delayMethod(transport: Transport, delayedMethod: string, delayMs: numbe
 // ===========================================================================
 
 describe("discoverMapTools — multi-way name collisions", () => {
-  // 62:14-62:51 ConditionalExpression [Survived] "false" (the while-loop's
-  // guard "used.has(...)" forced permanently false — the loop body would
-  // never run a SECOND time), 62:23-62:50 MethodExpression [Survived]
-  // (the template-literal candidate name), 62:53-62:56 UpdateOperator
-  // [Survived] "i--" (increments the wrong way), 63:14-63:41
-  // MethodExpression [Survived] (the final assigned name). The existing
-  // sibling coverage (mcp-upstream.test.ts) only has a TWO-way collision
-  // (one retry: "weird_name" -> "weird_name_2"), which can't distinguish
-  // "i-- " from "i++" (both would produce SOME distinct suffix on the
-  // first retry) or prove the loop condition genuinely re-checks on each
-  // pass. A THREE-way collision forces a second loop iteration.
+  // Integration-level check that discoverMapTools + uniqueToolName produce
+  // the right suffixes end-to-end across more than one collision (the
+  // existing sibling coverage in mcp-upstream.test.ts only exercises a
+  // TWO-way collision, one retry). uniqueToolName's own mutants are covered
+  // directly by tool-naming-mutation.test.ts.
   test("three tools that all normalize to the same name get _2 and _3 suffixes, in order", () => {
     const mapped = discoverMapTools([
       { name: "Get.Item", inputSchema: {} },

@@ -3,6 +3,7 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { buildTransport } from "./mcp-upstream.js";
 import type { McpConnParams } from "./mcp-upstream.js";
 import { config } from "../config.js";
+import { uniqueToolName } from "../discovery/tool-naming.js";
 
 // ---------------------------------------------------------------------------
 // MCP upstream tool discovery — the MCP counterpart of openapi-discovery.ts.
@@ -48,7 +49,13 @@ export function normalizeToolName(raw: string): string {
 /**
  * Maps raw MCP tools/list entries to DiscoveredMcpTool[], normalizing names and
  * de-duplicating collisions with a numeric suffix (e.g. two upstream tools that
- * both normalize to "get_item" become "get_item" and "get_item_2").
+ * both normalize to "get_item" become "get_item" and "get_item_2"). Uses the
+ * shared `uniqueToolName` helper (src/discovery/tool-naming.ts) rather than a
+ * hand-rolled loop — a bespoke version here previously checked the suffixed
+ * candidate against the un-truncated base name, which infinite-looped
+ * whenever the base was already 63 characters (every candidate collapsed back
+ * to the same string). `uniqueToolName` truncates the base first, guaranteeing
+ * termination within `used.size + 1` iterations.
  */
 export function discoverMapTools(
   mcpTools: Array<{ name: string; description?: string; inputSchema: Record<string, unknown> }>,
@@ -57,13 +64,7 @@ export function discoverMapTools(
   const out: DiscoveredMcpTool[] = [];
 
   for (const t of mcpTools) {
-    let name = normalizeToolName(t.name);
-    if (used.has(name)) {
-      let i = 2;
-      while (used.has(`${name}_${i}`.slice(0, 63))) i++;
-      name = `${name}_${i}`.slice(0, 63);
-    }
-    used.add(name);
+    const name = uniqueToolName(normalizeToolName(t.name), used);
 
     const description =
       t.description && t.description.trim().length > 0 ? t.description : `Tool "${t.name}" from upstream MCP server`;
