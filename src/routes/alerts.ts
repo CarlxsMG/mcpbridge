@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "../middleware/authz.js";
+import { requireOperator, requireSuperAdmin } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import {
   listAlertRules,
@@ -49,11 +49,20 @@ export function alertRoutes(app: Express): void {
   const r = Router();
   r.use(adminAuth);
 
-  r.get("/alerts", (_req: Request, res: Response) => {
+  // Operator+ tier: a rule's webhookUrl is an internal delivery destination,
+  // not something the lowest viewer/auditor tiers should be able to read.
+  r.get("/alerts", requireOperator, (_req: Request, res: Response) => {
     res.status(200).json({ items: listAlertRules() });
   });
 
-  r.post("/alerts", requireAdminRole, async (req: Request, res: Response) => {
+  // POST/PATCH/DELETE/test require a super-admin: alert_rules carries no
+  // tenancy of its own (no team_id column — migration 9) and every event type
+  // evaluates gateway-wide state across every tenant's clients/tools, so a
+  // team-scoped admin must not be able to create, retarget (webhookUrl),
+  // silence (delete/disable), or redirect (test) alerting that covers the
+  // whole platform's incidents (same rationale as composites.ts/bundles.ts's
+  // requireSuperAdmin gate).
+  r.post("/alerts", requireSuperAdmin, async (req: Request, res: Response) => {
     const body = bodyOf(req);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name || name.length > 128) {
@@ -92,7 +101,7 @@ export function alertRoutes(app: Express): void {
     res.status(201).json(rule);
   });
 
-  r.patch("/alerts/:id", requireAdminRole, async (req: Request<{ id: string }>, res: Response) => {
+  r.patch("/alerts/:id", requireSuperAdmin, async (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     if (!getAlertRule(id)) {
       notFound(res, "ALERT_NOT_FOUND", "Alert rule not found");
@@ -153,7 +162,7 @@ export function alertRoutes(app: Express): void {
     res.status(200).json(rule);
   });
 
-  r.delete("/alerts/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.delete("/alerts/:id", requireSuperAdmin, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     if (!deleteAlertRule(id)) {
       notFound(res, "ALERT_NOT_FOUND", "Alert rule not found");
@@ -163,7 +172,7 @@ export function alertRoutes(app: Express): void {
     res.status(200).json({ status: "deleted", id });
   });
 
-  r.post("/alerts/:id/test", requireAdminRole, async (req: Request<{ id: string }>, res: Response) => {
+  r.post("/alerts/:id/test", requireSuperAdmin, async (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
     if (!getAlertRule(id)) {
       notFound(res, "ALERT_NOT_FOUND", "Alert rule not found");
