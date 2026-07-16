@@ -111,6 +111,29 @@ export function persistSpan(span: FinishedSpan): void {
 }
 
 /**
+ * Tenancy scope for a team-bound caller, mirroring audit.ts's
+ * teamScopeCondition: `mcp_tool_name` is always a `clientName__toolName`
+ * composite key (every persisted span comes from proxyToolCall's single
+ * startSpan call site), so — unlike audit's free-form `target` — this only
+ * needs the composite-key branch, matched against the caller's team's own
+ * clients. A span whose `mcp_tool_name` is NULL (shouldn't happen in
+ * practice, but the schema allows it) or doesn't match any of the caller's
+ * team's clients is hidden/excluded — fail-closed, same as the rest of the
+ * tenancy model.
+ */
+function traceTeamScopeCondition(
+  conditions: string[],
+  params: (string | number)[],
+  teamId: number | null | undefined,
+): void {
+  if (typeof teamId !== "number") return;
+  conditions.push(
+    `EXISTS (SELECT 1 FROM clients c WHERE c.team_id = ? AND substr(mcp_tool_name, 1, length(c.name) + 2) = c.name || '__')`,
+  );
+  params.push(teamId);
+}
+
+/**
  * Recent traces (one row per trace_id), most recent first.
  *
  * Keyset-paginated on `MAX(id)` per trace group rather than `start_ms`: `id`
@@ -118,9 +141,13 @@ export function persistSpan(span: FinishedSpan): void {
  * spans can share a millisecond-resolution `start_ms` and silently collide as
  * a cursor. `cursor` is the `lastId` of the last trace returned to the caller.
  * Fetches one extra group to determine `nextCursor` without a second query.
+ *
+ * `teamId`: pass the caller's team id to scope the listing to spans for that
+ * team's own clients (see traceTeamScopeCondition); omit for an
+ * unrestricted, system-wide listing (super-admin/bearer callers).
  */
 export function listTraces(
-  filter: { mcpToolName?: string; sessionId?: string; cursor?: string; limit?: number } = {},
+  filter: { mcpToolName?: string; sessionId?: string; cursor?: string; limit?: number; teamId?: number } = {},
 ): {
   items: TraceSummary[];
   nextCursor?: string;
@@ -135,6 +162,7 @@ export function listTraces(
     where.push("session_id = ?");
     params.push(filter.sessionId);
   }
+  traceTeamScopeCondition(where, params, filter.teamId);
   const having = filter.cursor ? "HAVING MAX(id) < ?" : "";
   if (filter.cursor) params.push(Number(filter.cursor));
   const limit = clampLimit(filter.limit, 50, 500);
@@ -187,25 +215,49 @@ export interface TopSessionRow {
 /** Top MCP session ids by span (tool call) volume — powers the "which session
  *  is causing this spike" trace-viewer summary. Sessions are ephemeral
  *  (transports.ts evicts them on TTL/close), so this is always scoped to
- *  whatever spans are still within the retention window. */
-export function getTopSessions(limit = 10): TopSessionRow[] {
+ *  whatever spans are still within the retention window.
+ *
+ *  `teamId`: pass the caller's team id to count only spans for that team's
+ *  own clients (see traceTeamScopeCondition) — a session that also called
+ *  another tenant's tools still appears, but its `calls`/`hasError` only
+ *  reflect the caller's own team's spans. Omit for an unrestricted count. */
+export function getTopSessions(limit = 10, teamId?: number): TopSessionRow[] {
+  const where = ["session_id IS NOT NULL"];
+  const params: number[] = [];
+  traceTeamScopeCondition(where, params, teamId);
   const rows = getDb()
     .query(
       `SELECT session_id, COUNT(*) as calls, MAX(status_code) as max_status
        FROM tool_spans
-       WHERE session_id IS NOT NULL
+       WHERE ${where.join(" AND ")}
        GROUP BY session_id
        ORDER BY calls DESC
        LIMIT ?`,
     )
-    .all(Math.min(Math.max(limit, 1), 100)) as { session_id: string; calls: number; max_status: number }[];
+    .all(...params, Math.min(Math.max(limit, 1), 100)) as {
+    session_id: string;
+    calls: number;
+    max_status: number;
+  }[];
   return rows.map((r) => ({ sessionId: r.session_id, calls: r.calls, hasError: r.max_status === 2 }));
 }
 
-/** Every span belonging to one trace, in chronological order (the waterfall view's data). */
-export function getTrace(traceId: string): StoredSpan[] {
+/**
+ * Every span belonging to one trace, in chronological order (the waterfall
+ * view's data). `teamId`: pass the caller's team id to only return spans
+ * belonging to that team's own clients — a trace with no spans owned by the
+ * caller's team comes back empty, which the route already treats identically
+ * to "trace not found" (fail-closed, same as ensureClientAccess elsewhere).
+ * Omit for an unrestricted lookup.
+ */
+export function getTrace(traceId: string, teamId?: number): StoredSpan[] {
+  const where = ["trace_id = ?"];
+  const params: (string | number)[] = [traceId];
+  traceTeamScopeCondition(where, params, teamId);
   return (
-    getDb().query(`SELECT * FROM tool_spans WHERE trace_id = ? ORDER BY start_ms ASC`).all(traceId) as SpanRow[]
+    getDb()
+      .query(`SELECT * FROM tool_spans WHERE ${where.join(" AND ")} ORDER BY start_ms ASC`)
+      .all(...params) as SpanRow[]
   ).map(rowTo);
 }
 
@@ -215,8 +267,20 @@ export function pruneSpans(now: number = Date.now()): number {
   return getDb().query(`DELETE FROM tool_spans WHERE created_at < ?`).run(cutoff).changes;
 }
 
-/** Deletes every persisted span (manual admin purge). */
-export function purgeAllSpans(): number {
+/**
+ * Deletes persisted spans (manual admin purge). `teamId`: pass the caller's
+ * team id to delete only that team's own spans (a team-scoped admin must not
+ * be able to wipe another tenant's trace history); omit for a full,
+ * system-wide purge (super-admin/bearer callers).
+ */
+export function purgeAllSpans(teamId?: number): number {
+  if (typeof teamId === "number") {
+    return getDb()
+      .query(
+        `DELETE FROM tool_spans WHERE EXISTS (SELECT 1 FROM clients c WHERE c.team_id = ? AND substr(mcp_tool_name, 1, length(c.name) + 2) = c.name || '__')`,
+      )
+      .run(teamId).changes;
+  }
   return getDb().query(`DELETE FROM tool_spans`).run().changes;
 }
 

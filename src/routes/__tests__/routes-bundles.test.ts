@@ -16,6 +16,7 @@ import { requestIdMiddleware } from "../../middleware/request-id.js";
 import { createUser } from "../../security/user-store.js";
 import { createSession } from "../../security/session-store.js";
 import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "../../security/cookies.js";
+import { createTeam, setUserTeam, setClientTeam } from "../../admin/entities/teams.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
 
 let baseUrl = "";
@@ -278,6 +279,31 @@ describe("GET /admin-api/tools", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { items: { client: string; tool: string }[] };
     expect(body.items.map((i) => `${i.client}__${i.tool}`).sort()).toEqual(["svc-a__t1", "svc-b__t2"]);
+  });
+
+  // Tenancy regression: this bundle-picker listing must not let a team-scoped
+  // admin enumerate every other tenant's client/tool names — it previously had
+  // no scoping at all (any authenticated admin, of any team, saw every
+  // registered client's tools system-wide).
+  test("a team-scoped caller only sees its own team's clients' tools", async () => {
+    await startApp();
+    await reg("svc-a", [makeTool({ name: "t1" })]);
+    await reg("svc-b", [makeTool({ name: "t2" })]);
+
+    const team = createTeam("bundles-tools-team", "test");
+    if (typeof team === "string") throw new Error(`createTeam failed: ${team}`);
+    const user = createUser("bundles-tools-user", "irrelevant-hash", "admin", null);
+    setUserTeam(user.username, team.id);
+    setClientTeam("svc-a", team.id);
+    // svc-b left unowned (null team) — must not be visible to the team-scoped caller.
+    const session = createSession(user.id, "127.0.0.1", "test-agent");
+
+    const res = await fetch(`${baseUrl}/admin-api/tools`, {
+      headers: { Cookie: `${SESSION_COOKIE_NAME}=${session.token}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: { client: string; tool: string }[] };
+    expect(body.items.map((i) => `${i.client}__${i.tool}`)).toEqual(["svc-a__t1"]);
   });
 });
 

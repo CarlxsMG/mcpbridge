@@ -903,10 +903,12 @@ class Registry {
 
   /**
    * Flat listing of every (client, tool) pair across every registered client.
-   * Thin wrapper — logic lives in registry-read-models.ts.
+   * Thin wrapper — logic lives in registry-read-models.ts. Pass `teamId` to
+   * scope the listing to one team's clients (see listAllToolsReadModel's doc
+   * comment); omit it for an unrestricted, system-wide listing.
    */
-  listAllTools(): ToolListItem[] {
-    return listAllToolsReadModel();
+  listAllTools(teamId?: number): ToolListItem[] {
+    return listAllToolsReadModel(teamId);
   }
 
   /**

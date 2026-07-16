@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole, requireSuperAdmin } from "../middleware/authz.js";
+import { requireAdminRole, requireSuperAdmin, callerTeamId } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { registry } from "../mcp/registry.js";
 import { config } from "../config.js";
@@ -291,9 +291,13 @@ export function bundleRoutes(app: Express): void {
   // ── Tool picker ─────────────────────────────────────────────────────────
   // Flat listing across every registered client (live or not), unpaginated —
   // purpose-built so the admin-ui bundle picker doesn't N+1-fetch per client.
+  // Tenancy: scoped to the caller's own team, same as GET /clients — a
+  // team-scoped admin must not be able to enumerate every other tenant's
+  // client/tool names and descriptions via the bundle picker.
 
-  r.get("/tools", (_req: Request, res: Response) => {
-    res.status(200).json({ items: registry.listAllTools() });
+  r.get("/tools", (req: Request, res: Response) => {
+    const teamId = callerTeamId(req);
+    res.status(200).json({ items: registry.listAllTools(typeof teamId === "number" ? teamId : undefined) });
   });
 
   app.use("/admin-api", r);

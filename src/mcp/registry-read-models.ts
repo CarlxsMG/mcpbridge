@@ -170,16 +170,33 @@ export function listClientsSummaryReadModel(
  * with bundles.ts checking existence rather than "currently enabled" when
  * validating membership) should let an admin pick a tool belonging to a
  * temporarily-down client.
+ *
+ * Tenancy scoping: when `teamId` is a number, only tools belonging to that
+ * team's clients are returned — same `c.team_id = ?` rule as
+ * listClientsSummaryReadModel/canAccessClient (exact match; a team-scoped
+ * caller does not see unowned/null-team clients). `undefined` (the default)
+ * means unrestricted — callers must pass a real team id or leave it
+ * undefined for a super-admin/bearer caller; never pass through an
+ * unvalidated value.
  */
-export function listAllToolsReadModel(): ToolListItem[] {
+export function listAllToolsReadModel(teamId?: number): ToolListItem[] {
   const db = getDb();
+  const conditions: string[] = [];
+  const params: number[] = [];
+  if (typeof teamId === "number") {
+    conditions.push("c.team_id = ?");
+    params.push(teamId);
+  }
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
   const rows = db
     .query(
       `SELECT c.name as client_name, c.enabled as client_enabled, t.name as tool_name, t.description, t.enabled
        FROM tools t JOIN clients c ON c.name = t.client_name
+       ${whereClause}
        ORDER BY c.name, t.name`,
     )
-    .all() as {
+    .all(...params) as {
     client_name: string;
     client_enabled: number;
     tool_name: string;
