@@ -75,7 +75,8 @@ const byKeyChart = computed(() =>
   byKey.value.slice(0, 8).map((k) => ({
     label: k.label,
     value: k.calls,
-    danger: false,
+    hint: k.errors ? t("pages.usage.errors_hint", { count: k.errors }) : undefined,
+    danger: k.calls > 0 && k.errors / k.calls > 0.1,
   })),
 );
 

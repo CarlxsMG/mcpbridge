@@ -1409,6 +1409,7 @@
       },
       "breakdown_title": "Status breakdown",
       "by": "by",
+      "levels_badge_short": "{approved}/{total} approved",
       "note_placeholder": "Note…",
       "aria": {
         "note_for_id": "Note for approval #{id}"
@@ -1865,9 +1866,9 @@
           "tool": "Tool",
           "action": "Action",
           "frequency": "Frequency",
-          "time": "Time",
+          "time": "Time (UTC)",
           "days": "Days",
-          "minute": "At minute",
+          "minute": "At minute (UTC)",
           "cron": "Cron expression"
         },
         "placeholders": {
