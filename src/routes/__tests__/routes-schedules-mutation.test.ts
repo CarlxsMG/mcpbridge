@@ -12,8 +12,12 @@ import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { requestIdMiddleware } from "../../middleware/request-id.js";
-import { createSchedule } from "../../admin/entities/schedules.js";
+import { createSchedule, getSchedule } from "../../admin/entities/schedules.js";
 import * as auditMod from "../../admin/audit/audit.js";
+import { createTeam, setUserTeam, setClientTeam } from "../../admin/entities/teams.js";
+import { createUser } from "../../security/user-store.js";
+import { createSession } from "../../security/session-store.js";
+import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "../../security/cookies.js";
 
 const ADMIN_KEY = "test-admin-key-schedules-mut";
 
@@ -36,6 +40,28 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
 
 function bearer(): Record<string, string> {
   return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
+}
+
+/** Creates a fresh team + operator user in it, and returns both the team id and its session headers. */
+function createTeamSession(username: string): { teamId: number; headers: Record<string, string> } {
+  const team = createTeam(`team-${username}`, "test");
+  if (typeof team === "string") throw new Error(`createTeam failed: ${team}`);
+  const user = createUser(username, "irrelevant-hash", "operator", null);
+  setUserTeam(user.username, team.id);
+  const session = createSession(user.id, "127.0.0.1", "test-agent");
+  return {
+    teamId: team.id,
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: `${SESSION_COOKIE_NAME}=${session.token}; ${CSRF_COOKIE_NAME}=${session.csrfToken}`,
+      "X-CSRF-Token": session.csrfToken,
+    },
+  };
+}
+
+/** Session headers for a team-scoped operator — mirrors the pattern in routes-approvals-mutation.test.ts. */
+function teamSessionHeaders(username: string): Record<string, string> {
+  return createTeamSession(username).headers;
 }
 
 async function reg(name: string, tools: string[] = ["t"]): Promise<void> {
@@ -91,6 +117,30 @@ describe("GET /admin-api/schedules", () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as { items: unknown[] };
       expect(body.items.length).toBeGreaterThan(0);
+    });
+  });
+
+  // Regression coverage for the P1 tenancy fix in commit 2036715: the
+  // teamId branch of listSchedules (admin/entities/schedules.ts) must
+  // actually filter results for a team-scoped caller, not just exist.
+  test("a team-scoped caller only sees schedules for clients their own team owns", async () => {
+    await withApp(async (baseUrl) => {
+      await reg("svc-schedules-own");
+      await reg("svc-schedules-foreign");
+      const caller = createTeamSession("schedules-list-caller");
+      setClientTeam("svc-schedules-own", caller.teamId);
+      const otherTeam = createTeam("team-schedules-list-other", "test");
+      if (typeof otherTeam === "string") throw new Error("createTeam failed");
+      setClientTeam("svc-schedules-foreign", otherTeam.id);
+
+      const ownSchedule = seedSchedule("svc-schedules-own");
+      seedSchedule("svc-schedules-foreign");
+
+      const res = await fetch(`${baseUrl}/admin-api/schedules`, { headers: caller.headers });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { items: { id: number; clientName: string }[] };
+      expect(body.items.map((i) => i.clientName)).toEqual(["svc-schedules-own"]);
+      expect(body.items.some((i) => i.id === ownSchedule.id)).toBe(true);
     });
   });
 });
@@ -497,6 +547,34 @@ describe("PATCH /admin-api/schedules/:id", () => {
       }
     });
   });
+
+  // Regression coverage for the P1 tenancy fix in commit 2036715:
+  // ensureClientAccess must actually block a team-scoped caller from
+  // toggling a schedule targeting another team's client. ensureClientAccess
+  // writes its OWN CLIENT_NOT_FOUND envelope (same uniform-404 convention as
+  // routes-approvals-mutation.test.ts), distinct from this route's own
+  // SCHEDULE_NOT_FOUND (used only for a genuinely unknown schedule id).
+  test("a team-scoped caller PATCHing another team's schedule gets the exact CLIENT_NOT_FOUND 404", async () => {
+    await withApp(async (baseUrl) => {
+      await reg("svc-schedules-patch-foreign");
+      const otherTeam = createTeam("team-schedules-patch-other", "test");
+      if (typeof otherTeam === "string") throw new Error("createTeam failed");
+      setClientTeam("svc-schedules-patch-foreign", otherTeam.id);
+      const s = seedSchedule("svc-schedules-patch-foreign");
+
+      const headers = teamSessionHeaders("schedules-patch-caller");
+      const res = await fetch(`${baseUrl}/admin-api/schedules/${s.id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ enabled: false }),
+      });
+      expect(res.status).toBe(404);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("CLIENT_NOT_FOUND");
+      // Untouched — proves the mutation never actually ran.
+      expect(getSchedule(s.id)?.enabled).toBe(true);
+    });
+  });
 });
 
 describe("DELETE /admin-api/schedules/:id", () => {
@@ -537,6 +615,28 @@ describe("DELETE /admin-api/schedules/:id", () => {
       } finally {
         spy.mockRestore();
       }
+    });
+  });
+
+  // Regression coverage for the P1 tenancy fix in commit 2036715:
+  // ensureClientAccess must actually block a team-scoped caller from
+  // deleting a schedule targeting another team's client (its own
+  // CLIENT_NOT_FOUND envelope, distinct from this route's SCHEDULE_NOT_FOUND).
+  test("a team-scoped caller DELETEing another team's schedule gets the exact CLIENT_NOT_FOUND 404", async () => {
+    await withApp(async (baseUrl) => {
+      await reg("svc-schedules-delete-foreign");
+      const otherTeam = createTeam("team-schedules-delete-other", "test");
+      if (typeof otherTeam === "string") throw new Error("createTeam failed");
+      setClientTeam("svc-schedules-delete-foreign", otherTeam.id);
+      const s = seedSchedule("svc-schedules-delete-foreign");
+
+      const headers = teamSessionHeaders("schedules-delete-caller");
+      const res = await fetch(`${baseUrl}/admin-api/schedules/${s.id}`, { method: "DELETE", headers });
+      expect(res.status).toBe(404);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("CLIENT_NOT_FOUND");
+      // Still present — proves the delete never actually ran.
+      expect(getSchedule(s.id)).not.toBeNull();
     });
   });
 });
