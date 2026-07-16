@@ -300,6 +300,13 @@ describe("hostname clients actually re-resolve once stale, and reject a private-
     await registry.register(NAME, [makeTool()], "http://1.2.3.4/health", "1.2.3.4", "http://localhost", "127.0.0.1");
     globalThis.fetch = okFetch();
 
+    // dispatch-rest now threads config.allowPrivateIps into refreshPinIfStale, so
+    // the rebind-rejection branch under test only fires under the strict posture.
+    // Pin it to false so this exercises L834-841 regardless of the ambient
+    // ALLOW_PRIVATE_IPS (a dev .env may set it true).
+    const prevAllow = config.allowPrivateIps;
+    (config as Record<string, unknown>).allowPrivateIps = false;
+
     // Fresh pin -> refreshPinIfStale short-circuits before any DNS lookup.
     const r1 = await proxyToolCall(`${NAME}__get-item`, {});
     expect(r1.isError).toBeUndefined();
@@ -315,6 +322,7 @@ describe("hostname clients actually re-resolve once stale, and reject a private-
       expect(r2.content[0].text).toMatch(/private ip/i);
     } finally {
       dateSpy.mockRestore();
+      (config as Record<string, unknown>).allowPrivateIps = prevAllow;
     }
   }, 15000);
 });

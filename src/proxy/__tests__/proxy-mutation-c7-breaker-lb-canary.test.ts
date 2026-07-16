@@ -422,31 +422,37 @@ describe("runRest — per-call breaker/LB-health bookkeeping closures (L740-746)
     expect(hosts).toEqual(["1.2.3.4", "5.6.7.8", "1.2.3.4", "1.2.3.4"]);
   });
 
-  test("a canary (non-bypassed) secondary failure DOES open the primary breaker", async () => {
+  test("a canary (non-bypassed) secondary failure must NOT open the primary breaker (Fix 5)", async () => {
     const CLIENT = `${PREFIX}-canfail`;
     await reg(CLIENT);
     await registry.setClientGuards(CLIENT, { circuitBreaker: { failureThreshold: 1 } });
-    // mode "canary" (not "failover"): decideSecondary sets bypassBreaker=false
-    // even when the call is routed to the secondary, so this outcome SHOULD
-    // count against the primary breaker (see the code comment above L733).
+    // mode "canary": the call is routed to the SECONDARY, whose health is not a
+    // signal about the PRIMARY backend — so a secondary failure must NEVER be
+    // recorded against the primary breaker (Fix 5). Previously the recordFailure
+    // guard only skipped bypassBreaker=failover calls, so a canary secondary's
+    // failure wrongly opened the primary breaker (breaker flapping driven by the
+    // wrong backend's health).
     await setCanary(CLIENT, { secondaryBaseUrl: "http://9.9.9.9", mode: "canary", weight: 100, enabled: true });
 
-    globalThis.fetch = (async () => new Response("down", { status: 500 })) as unknown as typeof fetch;
+    const hosts: string[] = [];
+    globalThis.fetch = (async (url: string) => {
+      hosts.push(new URL(String(url)).hostname);
+      return new Response("down", { status: 500 });
+    }) as unknown as typeof fetch;
 
     const first = await proxyToolCall(`${CLIENT}__get-item`, {});
     expect(first.isError).toBe(true); // routed to the (failing) secondary
+    expect(hosts[0]).toBe("9.9.9.9");
 
-    // Real: recordFailure() ran normally (bypassBreaker=false for canary
-    // mode) -> breaker opens -> call 2 fast-fails with the generic message,
-    // WITHOUT re-attempting the secondary (canary mode doesn't fail over on
-    // an open breaker — only "failover" mode does).
-    // Mutant (`!route.bypassBreaker` forced false / recordFailure always
-    // skipped): the breaker never opens, so call 2 goes through the exact
-    // same canary-probability routing again and returns a raw 500 REST
-    // error instead.
+    // The primary breaker stayed CLOSED (the secondary's failure was not
+    // recorded against it), so call 2 runs the exact same canary-probability
+    // routing again — to the secondary — and returns the raw upstream 500,
+    // NOT a "circuit breaker OPEN" fast-fail.
     const second = await proxyToolCall(`${CLIENT}__get-item`, {});
     expect(second.isError).toBe(true);
-    expect(second.content[0].text).toMatch(/circuit breaker open/i);
+    expect(hosts[1]).toBe("9.9.9.9");
+    expect(second.content[0].text).not.toMatch(/circuit breaker open/i);
+    expect(second.content[0].text).toMatch(/500/);
   });
 
   test("a failover (bypassed) secondary failure must NOT push back the primary breaker's recovery clock", async () => {

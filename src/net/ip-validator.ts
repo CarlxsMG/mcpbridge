@@ -218,16 +218,27 @@ export interface PinnedIp {
  *
  * Throws when the freshly resolved IP lands in a blocked private range so the
  * caller can reject the request.
+ *
+ * `allowPrivateIps`/`allowedHosts` MUST reflect the same policy that admitted
+ * the backend at registration — the dispatch caller threads config.allowPrivateIps
+ * / config.allowedHosts (mirroring ws-proxy.ts's revalidation and registration.ts),
+ * so a hostname-registered private backend admitted under ALLOW_PRIVATE_IPS=true
+ * survives its TTL re-pin instead of being permanently rejected 5 minutes after
+ * registration. They default to the strict/no-filter posture (never widen a
+ * caller's intent) and stay injectable for deterministic tests.
  */
 export async function refreshPinIfStale(
   hostname: string,
   current: PinnedIp,
   now: number = Date.now(),
+  allowPrivateIps = false,
+  allowedHosts: string[] = [],
 ): Promise<PinnedIp> {
   if (now - current.resolvedAt < IP_PIN_TTL_MS) return current;
 
-  // Re-resolve via the existing dual-stack validator (allowPrivateIps=false, no host filter).
-  const result = await validateBackendUrl(`http://${hostname}/`, false, []);
+  // Re-resolve via the existing dual-stack validator, honouring the same
+  // allow-private / allowed-host policy that admitted the backend at registration.
+  const result = await validateBackendUrl(`http://${hostname}/`, allowPrivateIps, allowedHosts);
 
   if (!result.valid) {
     throw new Error(`Backend hostname now resolves to private IP or failed DNS: ${result.reason ?? hostname}`);

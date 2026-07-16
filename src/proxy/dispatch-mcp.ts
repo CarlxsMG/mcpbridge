@@ -142,10 +142,25 @@ export async function dispatchMcpToolCall(
     recordGuardrailHit(client.name, tool.name, anyFlagged);
   }
 
+  // Strip the gateway's own injected upstream credential if the (untrusted)
+  // upstream reflected it into a result part — parity with the REST path
+  // (dispatch-rest.ts). Runs over EVERY result (success AND isError),
+  // independent of redaction config, so a caller authorized to CALL this
+  // MCP-upstream tool can never harvest the gateway-held credential it was never
+  // trusted to HOLD (nor can traffic capture then persist it). MUST run BEFORE
+  // the context budget below, whose opt-in llm_summarize can ship the result
+  // text to a third-party LLM — stripping after that would leak a reflected
+  // credential to the summarizer.
+  if (injectedAuthHeaders) {
+    result.content = result.content.map((item) =>
+      item.type === "text" ? { ...item, text: stripInjectedCredentials(item.text, injectedAuthHeaders) } : item,
+    );
+  }
+
   // Context budget stays success-only — the REST path doesn't budget error
-  // bodies either — and MUST run after redaction + the guardrail scan above so
-  // an opt-in llm_summarize call only ever sees already-sanitized text, right
-  // before the response goes back to the caller.
+  // bodies either — and MUST run after redaction, the guardrail scan, AND the
+  // credential strip above so an opt-in llm_summarize call only ever sees
+  // already-sanitized text, right before the response goes back to the caller.
   if (!result.isError) {
     result.content = await Promise.all(
       result.content.map(async (item) => {
@@ -153,18 +168,6 @@ export async function dispatchMcpToolCall(
         const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, item.text);
         return budgeted.applied === "none" ? item : { ...item, text: budgeted.text };
       }),
-    );
-  }
-
-  // Strip the gateway's own injected upstream credential if the (untrusted)
-  // upstream reflected it into a result part — parity with the REST path
-  // (proxy.ts). Runs over EVERY result (success AND isError), independent of
-  // redaction config, so a caller authorized to CALL this MCP-upstream tool can
-  // never harvest the gateway-held credential it was never trusted to HOLD (nor
-  // can traffic capture then persist it).
-  if (injectedAuthHeaders) {
-    result.content = result.content.map((item) =>
-      item.type === "text" ? { ...item, text: stripInjectedCredentials(item.text, injectedAuthHeaders) } : item,
     );
   }
 

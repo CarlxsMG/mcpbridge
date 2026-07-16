@@ -189,6 +189,13 @@ async function resolveRestRouting(
   // Use shorter timeout if half-open probe, else the tool's guard override, else the global default.
   const effectiveTimeout = circuitCheck.timeout ?? tool.guards?.timeoutMs ?? config.toolCallTimeoutMs;
 
+  // Whether THIS call was the one canRequest() admitted as the half-open probe:
+  // that grant is the only branch that returns a `timeout` (the half-open probe
+  // timeout) alongside allowed, so its presence uniquely identifies the probe
+  // holder. A concurrent call rejected as "Probing" (allowed=false) never held
+  // the probe, so it must never release the real probe holder's slot (Fix 5).
+  const probeGranted = circuitCheck.allowed && circuitCheck.timeout !== undefined;
+
   // MCP-kind upstream: forward to the outbound MCP client pool. Every
   // transport-agnostic gate above (enable/deleting/status/key-scope/quota/
   // sensitivity/rate-limit/circuit-breaker) has already applied; only the
@@ -226,19 +233,34 @@ async function resolveRestRouting(
     );
   }
 
-  // When bypassing the primary breaker (failover call to the secondary), the
-  // breaker must not record this call's outcome — a secondary success must not
-  // prematurely close the breaker and send the next call back to the down
-  // primary. Canary calls (breaker was allowed) record normally.
-  // When an LB target served the call, mark it healthy/unhealthy for future
-  // selection (independent of the client-level breaker).
+  // Any call routed to the SECONDARY (canary OR failover) carries no health
+  // signal about the PRIMARY, so it must neither record an outcome against the
+  // primary breaker nor resolve its half-open probe. Recording a secondary's
+  // success/failure against the primary breaker would flap it (a healthy
+  // secondary prematurely closing an open primary's breaker, or a failing
+  // secondary opening a healthy primary's). Guarding on route.useSecondary (a
+  // superset of route.bypassBreaker, which is set only for failover+open)
+  // covers the canary case the old bypassBreaker guard missed. When this same
+  // call was itself admitted as the half-open probe (probeGranted — a canary
+  // call routed to the secondary can hold one), release it so it isn't stranded
+  // in-flight; but ONLY when this call held it, never on behalf of a concurrent
+  // probe holder. When an LB target served the call, mark it healthy/unhealthy
+  // for future selection (independent of the client-level breaker).
   const lbKey = lbChoice?.key;
   const recordBreakerSuccess = () => {
-    if (!route.bypassBreaker) breaker.recordSuccess();
+    if (route.useSecondary) {
+      if (probeGranted) breaker.releaseProbe();
+    } else {
+      breaker.recordSuccess();
+    }
     if (lbKey) markTargetUp(lbKey);
   };
   const recordBreakerFailure = () => {
-    if (!route.bypassBreaker) breaker.recordFailure();
+    if (route.useSecondary) {
+      if (probeGranted) breaker.releaseProbe();
+    } else {
+      breaker.recordFailure();
+    }
     if (lbKey) markTargetDown(lbKey);
   };
   return { breaker, effectiveTimeout, route, lbChoice, lbKey, recordBreakerSuccess, recordBreakerFailure };
@@ -442,7 +464,11 @@ async function resolvePinnedTarget(
     // Only attempt re-resolution for hostnames (not raw IP literals).
     if (!isRawIpLiteral(hostname)) {
       try {
-        pin = await refreshPinIfStale(hostname, pin);
+        // Thread the same allow-private / allowed-host policy that admitted this
+        // backend at registration — otherwise a hostname-registered private
+        // backend (ALLOW_PRIVATE_IPS=true) would be wrongly rejected 5 minutes
+        // after registration when its pin first goes stale (Fix 8).
+        pin = await refreshPinIfStale(hostname, pin, Date.now(), config.allowPrivateIps, config.allowedHosts);
         pinnedIpCache.set(client.name, pin);
       } catch (err) {
         return toolResult(`Backend hostname now resolves to private IP: ${errorMessage(err)}`, { isError: true });
@@ -604,15 +630,19 @@ async function processRestSuccessResponse(
     }
   }
 
-  // Context budget — MUST run after redaction and the guardrail scan above:
-  // this is the last transformation before the response is cached/returned,
-  // so an opt-in llm_summarize call only ever sees already-sanitized text.
+  // Strip the gateway's own injected upstream credential if the backend
+  // reflected it into the body — BEFORE the context budget below, whose opt-in
+  // llm_summarize can ship the response text to a third-party LLM: an unstripped
+  // reflected credential would otherwise leave the gateway. Also runs before
+  // caching, so cache hits stay safe too.
+  responseText = stripInjectedCredentials(responseText, upstreamAuthHeaders);
+
+  // Context budget — the last transformation before the response is
+  // cached/returned; MUST run after redaction, the guardrail scan, AND the
+  // credential strip above so an opt-in llm_summarize call only ever sees text
+  // with the gateway's own injected credential already removed.
   const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, responseText);
   responseText = budgeted.text;
-
-  // Strip the gateway's own injected upstream credential if the backend
-  // reflected it into the body — before caching, so cache hits are safe too.
-  responseText = stripInjectedCredentials(responseText, upstreamAuthHeaders);
 
   if (responseCacheEnabled && cacheCfg && !route.useSecondary) {
     cacheSet(responseCacheKey, { content: [{ type: "text", text: responseText }] }, cacheCfg.ttlSeconds);
@@ -736,8 +766,16 @@ export async function dispatchRestToolCall(
       }
 
       // A1: build a fresh composed signal per attempt so the timeout is renewed each time.
-      // reqController.signal stays persistent (external client cancellation).
-      const attemptSignal = AbortSignal.any([reqController.signal, AbortSignal.timeout(effectiveTimeout)]);
+      // reqController.signal stays persistent (client-teardown cancellation);
+      // opts.signal is the downstream MCP caller's own cancellation (auto-aborted
+      // by the SDK on notifications/cancelled) — include it so an in-flight REST
+      // call actually aborts, matching the MCP/WS paths (Fix 6). Filter undefined
+      // so a caller with no signal composes only the two internal ones.
+      const attemptSignal = AbortSignal.any(
+        [reqController.signal, AbortSignal.timeout(effectiveTimeout), opts?.signal].filter(
+          (s): s is AbortSignal => s !== undefined,
+        ),
+      );
 
       // Host header + redirect:"error" + hostname->IP pinning are all applied by
       // pinnedFetch (makePinnedFetch); the options below carry only method, the
@@ -834,6 +872,33 @@ export async function dispatchRestToolCall(
           resultMessage: `REST API returned ${response.status}: ${errorBodyText}`,
         });
       } catch (error) {
+        // Caller-initiated cancellation (MCP notifications/cancelled → opts.signal)
+        // is not an upstream health signal, exactly like dispatch-mcp.ts's
+        // result.cancelled branch: don't record a breaker failure (which would
+        // push a healthy backend toward opening), don't retry, and release any
+        // half-open probe canRequest() granted in resolveRestRouting so it can't
+        // strand. reqController/timeout aborts fall through to the normal
+        // failure path below.
+        if (opts?.signal?.aborted) {
+          breaker.releaseProbe();
+          const durationMs = Date.now() - startTime;
+          proxyRequestDuration.observe({ client: client.name, method, status_class: "cancelled" }, durationMs / 1000);
+          recordToolCall(durationMs, false);
+          recordUsage({
+            clientName: client.name,
+            toolName: tool.name,
+            keyId: callerKey?.id ?? null,
+            statusClass: "cancelled",
+            isError: false,
+            durationMs,
+          });
+          log("info", "Tool call cancelled by caller", {
+            tool: mcpToolName,
+            client: client.name,
+            duration_ms: durationMs,
+          });
+          return toolResult("Tool call cancelled by caller", { isError: true });
+        }
         lastError = errorMessage(error);
         if (!isIdempotent || attempt >= MAX_RETRIES) {
           return recordFailure({
