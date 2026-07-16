@@ -78,8 +78,10 @@ bun run check
 
 Runs the full gate in order — format check → root lint → admin-ui lint → admin-ui i18n parity →
 root typecheck → root typecheck (tools) → root tests → admin-ui typecheck → admin-ui tests →
-admin-ui build — stopping at the first failure. This is what CI runs; treat a clean `bun run check` as the actual bar for "ready to
-open a PR," not just a green package-scoped run.
+admin-ui build — stopping at the first failure. This covers CI's `test` job; treat a clean
+`bun run check` as the bar for "ready to open a PR," not just a green package-scoped run. CI
+additionally requires a Playwright `e2e` job (`needs: test`) plus docs-build, docker-build, and
+helm-lint checks, and a Windows test leg on every push/PR — those aren't part of `bun run check`.
 
 ## Code style & conventions
 
