@@ -212,6 +212,25 @@ jobs:
             --set serviceAccount.name=mcp-rest-bridge-external-sa \
             > /dev/null
 
+  monitoring:
+    # Validates the Prometheus alerting/recording rules on every push/PR. Both
+    # alerts.yaml's own header comment and monitoring/README.md instruct
+    # contributors to run `promtool check rules` before shipping, but nothing
+    # enforced that automatically — a bad duration, PromQL typo, or duplicate
+    # `alert:` name would merge unnoticed and only surface when a self-hoster's
+    # Prometheus rejects the whole rule_files reload. `promtool` isn't
+    # preinstalled on ubuntu-latest, so run it via the official image (pinned
+    # to a specific release, not `:latest`, for reproducible CI runs).
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: promtool check rules
+        run: |
+          docker run --rm -v "${{ github.workspace }}/monitoring:/rules" \
+            prom/prometheus:v3.8.1 \
+            promtool check rules /rules/prometheus/alerts.yaml
+
   test-windows:
     # The Linux `test` job above is the full gate (format/lint/build included);
     # this leg re-runs typecheck + the backend and admin-ui test suites on
