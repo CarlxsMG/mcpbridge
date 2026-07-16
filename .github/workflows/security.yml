@@ -51,6 +51,17 @@ jobs:
       # (see git history / CI logs for the full report) that shouldn't block
       # unrelated work, so the gate is scoped to high/critical severity via
       # --audit-level=high; anything at that level fails the build.
+      #
+      # Known, accepted moderate finding (won't surface here, but documented so
+      # it isn't re-investigated from scratch): GHSA-q8mj-m7cp-5q26 (qs DoS) in
+      # qs@6.15.1, nested under @stryker-mutator/core -> typed-rest-client,
+      # which hard-pins "qs": "6.15.1" as an EXACT version (unlike every other
+      # consumer in the tree, which already resolve to the patched qs@6.15.3) —
+      # `bun update` cannot move an exact-pinned nested dep, only an upstream
+      # typed-rest-client release that widens its own pin can. devDependency
+      # only (bun run test:mutate), excluded from the production image by the
+      # Dockerfile's `bun install --production` deps stage, so there is no
+      # production exposure.
       - name: Audit root dependencies
         run: bun audit --audit-level=high
       - name: Audit admin-ui dependencies
