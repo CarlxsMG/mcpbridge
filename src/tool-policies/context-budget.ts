@@ -18,7 +18,12 @@ import { errorMessage } from "../lib/error-message.js";
  *   - "llm_summarize" (opt-in, bring-your-own-key): ask an admin-configured
  *     OpenAI- or Anthropic-compatible endpoint to compress the response
  *     instead. Any failure (network, non-2xx, timeout) falls back to the
- *     deterministic truncate behavior rather than failing the tool call.
+ *     deterministic truncate behavior rather than failing the tool call. The
+ *     request's `max_tokens` is only a rough (~3 bytes/token) hint, never a
+ *     guarantee — the byte budget is re-checked after the LLM responds, and
+ *     a still-oversized summary is itself truncated deterministically
+ *     (`applied: "llm_summarize_truncated"`) so the budget invariant always
+ *     holds regardless of how the provider behaves.
  *
  * SECURITY-CRITICAL: enforcement (`applyContextBudget`) must only ever be
  * called by proxy.ts AFTER redaction and AFTER the guardrails output-scan —
@@ -319,7 +324,8 @@ async function summarizeWithLlm(
 
 // ── Enforcement entry point (called from proxy.ts) ──────────────────────────
 
-export type ContextBudgetOutcome = "none" | "truncate" | "llm_summarize" | "llm_summarize_fallback_truncate";
+export type ContextBudgetOutcome =
+  "none" | "truncate" | "llm_summarize" | "llm_summarize_fallback_truncate" | "llm_summarize_truncated";
 
 export interface ContextBudgetResult {
   text: string;
@@ -346,6 +352,24 @@ export async function applyContextBudget(
   if (cfg.mode === "llm_summarize" && cfg.llm) {
     try {
       const summarized = await summarizeWithLlm(text, cfg.llm, cfg.maxResponseBytes);
+      if (byteLength(summarized) > cfg.maxResponseBytes) {
+        // The LLM's max_tokens is only a rough (~3 bytes/token) request-side
+        // hint, not a guarantee — never trust it to have actually enforced
+        // the byte budget. Fall back to the same deterministic truncation
+        // used elsewhere so the budget invariant always holds, and report a
+        // distinct outcome so callers/metrics can see the LLM undershot.
+        log("warn", "Context budget: LLM summary still exceeded the byte budget — truncating deterministically", {
+          tool: mcpToolName,
+          client: clientName,
+          provider: cfg.llm.provider,
+          summarizedBytes: byteLength(summarized),
+          maxResponseBytes: cfg.maxResponseBytes,
+        });
+        return {
+          text: truncateToBudget(summarized, cfg.maxResponseBytes).text,
+          applied: "llm_summarize_truncated",
+        };
+      }
       log("info", "Context budget: response compressed by configured LLM", {
         tool: mcpToolName,
         client: clientName,

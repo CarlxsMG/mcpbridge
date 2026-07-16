@@ -185,7 +185,10 @@ describe("callAnthropic — non-2xx response error message", () => {
 
 describe("callAnthropic — content[] find predicate", () => {
   test("skips a non-'text' typed block and finds the later correct text block", async () => {
-    await configureAnthropicBudget("https://api.anthropic.com");
+    // Budget raised past the default 10 bytes — "real answer" is 11 bytes, and
+    // this test's point is the find-predicate mutant, not the (separately
+    // covered) still-oversized-summary truncation path.
+    await configureAnthropicBudget("https://api.anthropic.com", 12);
     __setContextBudgetFetchForTesting((async () =>
       Response.json({
         content: [
@@ -203,7 +206,7 @@ describe("callAnthropic — content[] find predicate", () => {
   });
 
   test("skips a 'text' typed block whose text is not a string (number) and finds the later valid one", async () => {
-    await configureAnthropicBudget("https://api.anthropic.com");
+    await configureAnthropicBudget("https://api.anthropic.com", 12);
     __setContextBudgetFetchForTesting((async () =>
       Response.json({
         content: [
@@ -222,7 +225,7 @@ describe("callAnthropic — content[] find predicate", () => {
   });
 
   test("skips a 'text' typed block with a missing text field and finds the later valid one", async () => {
-    await configureAnthropicBudget("https://api.anthropic.com");
+    await configureAnthropicBudget("https://api.anthropic.com", 12);
     __setContextBudgetFetchForTesting((async () =>
       Response.json({
         content: [{ type: "text" }, { type: "text", text: "real answer" }],
@@ -238,7 +241,7 @@ describe("callAnthropic — content[] find predicate", () => {
     // "found" behavior that a forced-false half would break (both halves
     // forced false collapse `.find` to always-false, producing fallback
     // truncate instead of "llm_summarize" for an otherwise-valid response).
-    await configureAnthropicBudget("https://api.anthropic.com");
+    await configureAnthropicBudget("https://api.anthropic.com", 12);
     __setContextBudgetFetchForTesting((async () =>
       Response.json({ content: [{ type: "text", text: "solo answer" }] })) as unknown as typeof fetch);
 

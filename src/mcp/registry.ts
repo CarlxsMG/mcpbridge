@@ -739,17 +739,25 @@ class Registry {
    * (preserving its API-key allow-list) and persists. Used to apply named
    * guard policies in bulk. A null patch field clears that guard. Returns
    * false for an unknown client/tool. The merge computation lives in
-   * registry-mutations.ts; setToolGuards takes the per-name lock itself —
-   * do not wrap this in withLock.
+   * registry-mutations.ts. The read (computeMergedToolGuards) and the write
+   * (setToolGuardsMutation) MUST run inside the SAME withLock acquisition —
+   * two concurrent applyGuardPolicy calls against the same tool would
+   * otherwise both read the same pre-update base state and the second
+   * write would silently clobber the first's change with stale data. Calls
+   * setToolGuardsMutation directly (not the locked this.setToolGuards
+   * wrapper) since this.withLock is not reentrant for the same key and
+   * nesting it here would deadlock.
    */
   async applyGuardPolicy(
     clientName: string,
     toolName: string,
     patch: { rateLimitPerMin?: number | null; timeoutMs?: number | null },
   ): Promise<boolean> {
-    const merged = computeMergedToolGuards(clientName, toolName, patch);
-    if (merged === null) return false;
-    return this.setToolGuards(clientName, toolName, merged);
+    return this.withLock(clientName, async () => {
+      const merged = computeMergedToolGuards(clientName, toolName, patch);
+      if (merged === null) return false;
+      return setToolGuardsMutation(this.clients, clientName, toolName, merged);
+    });
   }
 
   // -------------------------------------------------------------------------
