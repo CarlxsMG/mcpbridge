@@ -2,8 +2,8 @@ import { randomBytes } from "node:crypto";
 import { getDb } from "../../db/connection.js";
 import { hashApiKey } from "../../security/key-hash.js";
 import { getSecretsProvider } from "../../secrets/index.js";
-import { createMcpKey, revokeMcpKey, type McpKeyScopes } from "../../security/mcp-key-store.js";
-import { getBundleDetail, type BundleDetail } from "./bundles.js";
+import { createMcpKey, revokeMcpKey, updateMcpKey, type McpKeyScopes } from "../../security/mcp-key-store.js";
+import { getBundleDetail, type BundleDetail, type BundleToolRef } from "./bundles.js";
 import { TOOL_KEY_SEPARATOR } from "../../lib/identifier.js";
 import { log } from "../../logger.js";
 import { errorMessage } from "../../lib/error-message.js";
@@ -109,8 +109,27 @@ function generateRawToken(): string {
   return `bil_${randomBytes(32).toString("base64url")}`;
 }
 
-function toolScopesFor(bundle: BundleDetail): McpKeyScopes {
-  return { tools: bundle.tools.map((t) => `${t.client}${TOOL_KEY_SEPARATOR}${t.tool}`) };
+function toolScopesFor(tools: BundleToolRef[]): McpKeyScopes {
+  return { tools: tools.map((t) => `${t.client}${TOOL_KEY_SEPARATOR}${t.tool}`) };
+}
+
+/**
+ * Re-scopes every still-active install link's underlying MCP key to a bundle's
+ * CURRENT tool set. Called from bundles.ts's updateBundle whenever a bundle's
+ * tools[] actually changes. Without this, a link's key stays frozen at
+ * whatever toolScopesFor computed at link-creation time: mcp-key-store.ts's
+ * isToolInKeyScope enforces access purely off the key's own persisted
+ * scopes.tools, not a live bundle-membership check, so narrowing a bundle's
+ * tools would otherwise silently fail to revoke access already granted
+ * through any existing install link for it.
+ */
+export function reScopeInstallLinksForBundle(bundleName: string, tools: BundleToolRef[]): void {
+  const links = listInstallLinks(bundleName).filter((l) => l.revokedAt === null);
+  if (links.length === 0) return;
+  const scopes = toolScopesFor(tools);
+  for (const link of links) {
+    updateMcpKey(link.mcpKeyId, { scopes });
+  }
 }
 
 /**
@@ -147,7 +166,7 @@ export async function createInstallLink(
 
   const { record: keyRecord, rawKey } = createMcpKey(
     `install-link:${bundleName}`,
-    toolScopesFor(bundle),
+    toolScopesFor(bundle.tools),
     expiresAt,
     actor,
     null,
