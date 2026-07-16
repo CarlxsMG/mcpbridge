@@ -390,6 +390,9 @@ describe("PUT /admin-api/users/:username/team", () => {
 
   test("teamId=<number> assigns a user to that team", async () => {
     await withApp(async (baseUrl) => {
+      // A second teamless active admin so this isn't the last-superadmin
+      // guard's protected case (see the dedicated describe block below).
+      createUser("teams-mut-user-assign-other-admin", "irrelevant-hash", "admin", null);
       const user = createUser("teams-mut-user-assign", "irrelevant-hash", "admin", null);
       const t = seedTeam("svc-teams-user-assign-team");
       const res = await fetch(`${baseUrl}/admin-api/users/${user.username}/team`, {
@@ -429,6 +432,49 @@ describe("PUT /admin-api/users/:username/team", () => {
       const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe("NOT_FOUND");
       expect(body.error.message).toBe("User or team not found");
+    });
+  });
+});
+
+describe("PUT /admin-api/users/:username/team — last-superadmin protection", () => {
+  test("assigning a team to the sole active teamless admin returns the exact LAST_SUPERADMIN_PROTECTED 409", async () => {
+    await withApp(async (baseUrl) => {
+      const user = createUser("teams-mut-sole-superadmin", "irrelevant-hash", "admin", null);
+      const t = seedTeam("svc-teams-sole-superadmin-team");
+      const res = await fetch(`${baseUrl}/admin-api/users/${user.username}/team`, {
+        method: "PUT",
+        headers: bearer(),
+        body: JSON.stringify({ teamId: t.id }),
+      });
+      expect(res.status).toBe(409);
+      const body = (await res.json()) as { error: { code: string; message: string } };
+      expect(body.error.code).toBe("LAST_SUPERADMIN_PROTECTED");
+      expect(body.error.message).toBe("Cannot assign a team to the last active super-admin (admin role, no team)");
+    });
+  });
+
+  test("clearing (teamId=null) the sole active teamless admin's team is unaffected by the guard", async () => {
+    await withApp(async (baseUrl) => {
+      const user = createUser("teams-mut-sole-superadmin-clear", "irrelevant-hash", "admin", null);
+      const res = await fetch(`${baseUrl}/admin-api/users/${user.username}/team`, {
+        method: "PUT",
+        headers: bearer(),
+        body: JSON.stringify({ teamId: null }),
+      });
+      expect(res.status).toBe(200);
+    });
+  });
+
+  test("a non-admin or already-teamed user is unaffected by the guard even when alone", async () => {
+    await withApp(async (baseUrl) => {
+      const operator = createUser("teams-mut-sole-operator", "irrelevant-hash", "operator", null);
+      const t = seedTeam("svc-teams-sole-operator-team");
+      const res = await fetch(`${baseUrl}/admin-api/users/${operator.username}/team`, {
+        method: "PUT",
+        headers: bearer(),
+        body: JSON.stringify({ teamId: t.id }),
+      });
+      expect(res.status).toBe(200);
     });
   });
 });

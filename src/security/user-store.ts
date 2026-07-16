@@ -63,6 +63,22 @@ export function countActiveAdmins(): number {
   return row.count;
 }
 
+/**
+ * Number of *active, teamless* admin-role users — i.e. real super-admins
+ * (role='admin' && team_id IS NULL). Every super-admin-only action (team
+ * CRUD, client/user team assignment, SSO config...) requires exactly this
+ * combination (see isSuperAdminCaller), so assigning the last one of these
+ * away to a team would strand tenancy administration with no session-based
+ * path back. Used to guard team assignment the same way countActiveAdmins
+ * guards role/active-state changes.
+ */
+export function countActiveTeamlessAdmins(): number {
+  const row = getDb()
+    .query(`SELECT COUNT(*) as count FROM admin_users WHERE role = 'admin' AND is_active = 1 AND team_id IS NULL`)
+    .get() as { count: number };
+  return row.count;
+}
+
 export function findUserByUsername(username: string): AdminUser | null {
   const row = getDb().query(`SELECT * FROM admin_users WHERE username = ?`).get(username) as UserRow | null;
   return row ? rowToUser(row) : null;

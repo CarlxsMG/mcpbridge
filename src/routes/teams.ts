@@ -4,6 +4,7 @@ import { adminAuth } from "../middleware/auth.js";
 import { requireSuperAdmin } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { listTeams, getTeam, createTeam, deleteTeam, setClientTeam, setUserTeam } from "../admin/entities/teams.js";
+import { findUserByUsername, countActiveTeamlessAdmins } from "../security/user-store.js";
 import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
 
 export function teamRoutes(app: Express): void {
@@ -86,6 +87,30 @@ export function teamRoutes(app: Express): void {
     if (teamId === undefined) {
       validationError(res, "teamId must be a number or null");
       return;
+    }
+    // Guard against assigning away the last active teamless (super-admin)
+    // user: every super-admin-only action (team CRUD, ownership assignment,
+    // SSO config...) requires role==='admin' && team_id===null, and there is
+    // no session-based path back once every admin has a team — same hazard
+    // class routes/admin/users.ts already guards for role/active-state via
+    // countActiveAdmins().
+    if (teamId !== null) {
+      const target = findUserByUsername(req.params.username);
+      if (
+        target &&
+        target.role === "admin" &&
+        target.isActive &&
+        target.teamId === null &&
+        countActiveTeamlessAdmins() <= 1
+      ) {
+        sendError(
+          res,
+          409,
+          "LAST_SUPERADMIN_PROTECTED",
+          "Cannot assign a team to the last active super-admin (admin role, no team)",
+        );
+        return;
+      }
     }
     const ok = setUserTeam(req.params.username, teamId);
     if (!ok) {
