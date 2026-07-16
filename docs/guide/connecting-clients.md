@@ -28,6 +28,9 @@ one URL, [curate a bundle](/guide/bundles). The third endpoint is the **control 
 | ----------- | ----------------------------------------------------------- | ------------------------------------------ |
 | `POST /mcp` | `sys_*` tools to manage the gateway — **not** backend tools | An agent should operate the gateway itself |
 
+> **Note:** `POST /mcp` does **not** accept a plain `MCP_API_KEYS` credential — see
+> [Authentication](#authentication) below for what it actually requires.
+
 Every endpoint speaks **Streamable HTTP** (the legacy `GET /sse` + `POST /messages`
 transport was removed).
 
@@ -68,6 +71,13 @@ Clients that support custom headers can set this directly; for others, put the b
 behind a proxy that injects it. Keys can be **scoped** to specific clients/tools and given
 an expiry — see [Access control](/guide/access-control). The bridge can also accept
 **OAuth2/OIDC JWTs** as the credential when `JWT_JWKS_URL` is configured.
+
+This applies to the two **data-plane** endpoints only. `POST /mcp` (the control plane) has
+its own fail-closed check (`resolveSystemRole`) that never consults `MCP_API_KEYS`/JWTs at
+all: it only accepts the `ADMIN_API_KEYS` env Bearer, or a managed key with a **system
+role** (`adminRole`) set — mintable from the admin UI's Keys page. An ordinary
+`MCP_API_KEYS` key, or a managed key with no `adminRole`, is rejected outright against
+`/mcp` even though it works fine against `/mcp/:clientName` or `/mcp-custom/:bundleName`.
 
 ## Verify the connection
 
