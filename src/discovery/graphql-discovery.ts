@@ -133,6 +133,19 @@ function unwrap(t: GqlTypeRef): { named: GqlTypeRef; required: boolean; list: bo
   return { named: cur, required, list };
 }
 
+/**
+ * Fully unwraps NON_NULL/LIST wrappers of arbitrary nesting depth down to the
+ * named type — unlike `unwrap()` above (which only peels one NON_NULL and one
+ * LIST layer and is kept solely for its top-level `required` flag), this
+ * recurses through every layer so doubly-(or more)-nested lists like
+ * `[[Int]]` resolve to their true leaf type rather than the still-wrapped
+ * inner LIST type-ref.
+ */
+function fullyUnwrapNamed(t: GqlTypeRef): GqlTypeRef {
+  if (t.kind === "NON_NULL" || t.kind === "LIST") return fullyUnwrapNamed(requireOfType(t));
+  return t;
+}
+
 /** Prints the canonical GraphQL type signature for a variable declaration, e.g. "[ID!]!". */
 function printTypeRef(t: GqlTypeRef): string {
   if (t.kind === "NON_NULL") return `${printTypeRef(requireOfType(t))}!`;
@@ -149,17 +162,24 @@ function scalarToJsonType(scalarName: string | null): string {
   return "string"; // String, ID, and any custom scalar pass through as a string
 }
 
-/** Arg/input type -> JSON Schema. Depth-capped to bound recursive INPUT_OBJECT graphs. */
+/**
+ * Arg/input type -> JSON Schema. Depth-capped to bound recursive INPUT_OBJECT graphs.
+ * Recurses directly on NON_NULL/LIST (rather than going through the single-level
+ * `unwrap()`) so a doubly-(or more)-nested list like `[[Int]]` produces a correctly
+ * nested `{ type: "array", items: { type: "array", items: { type: "number" } } }`
+ * instead of collapsing to a wrong `{ type: "array", items: { type: "string" } }`.
+ */
 function typeToJsonSchema(t: GqlTypeRef, typeMap: Map<string, GqlFullType>, depth: number): Record<string, unknown> {
-  const { named, list } = unwrap(t);
+  if (t.kind === "NON_NULL") return typeToJsonSchema(requireOfType(t), typeMap, depth);
+  if (t.kind === "LIST") return { type: "array", items: typeToJsonSchema(requireOfType(t), typeMap, depth) };
   if (depth > config.graphqlInputMaxDepth) {
     return { type: "string", description: "(nested input truncated)" };
   }
   let schema: Record<string, unknown>;
-  const full = named.name ? typeMap.get(named.name) : undefined;
-  if (named.kind === "ENUM" && full?.enumValues) {
+  const full = t.name ? typeMap.get(t.name) : undefined;
+  if (t.kind === "ENUM" && full?.enumValues) {
     schema = { type: "string", enum: full.enumValues.map((v) => v.name) };
-  } else if (named.kind === "INPUT_OBJECT" && full?.inputFields) {
+  } else if (t.kind === "INPUT_OBJECT" && full?.inputFields) {
     const properties: Record<string, unknown> = {};
     const required: string[] = [];
     for (const f of full.inputFields) {
@@ -171,14 +191,19 @@ function typeToJsonSchema(t: GqlTypeRef, typeMap: Map<string, GqlFullType>, dept
     }
     schema = { type: "object", properties, ...(required.length ? { required } : {}) };
   } else {
-    schema = { type: scalarToJsonType(named.name) };
+    schema = { type: scalarToJsonType(t.name) };
   }
-  return list ? { type: "array", items: schema } : schema;
+  return schema;
 }
 
-/** Synthesizes a shallow default selection set for an object/interface return type. Unions/deep nesting fall back to `{ __typename }`. */
+/**
+ * Synthesizes a shallow default selection set for an object/interface return type.
+ * Unions/deep nesting fall back to `{ __typename }`. Uses `fullyUnwrapNamed` (not the
+ * single-level `unwrap()`) so a nested-list return type like `[[User]]` still resolves
+ * to the real `User` object type and gets a proper sub-selection.
+ */
 function buildSelectionSet(t: GqlTypeRef, typeMap: Map<string, GqlFullType>, depth: number): string {
-  const { named } = unwrap(t);
+  const named = fullyUnwrapNamed(t);
   const full = named.name ? typeMap.get(named.name) : undefined;
   if (!full || named.kind === "SCALAR" || named.kind === "ENUM") return "";
   if (named.kind === "UNION" || depth > config.graphqlSelectionMaxDepth) return "{ __typename }";
@@ -187,9 +212,9 @@ function buildSelectionSet(t: GqlTypeRef, typeMap: Map<string, GqlFullType>, dep
   for (const f of full.fields ?? []) {
     // Can't auto-satisfy a sub-field that itself requires args with no default.
     if (f.args.some((a) => unwrap(a.type).required && a.defaultValue == null)) continue;
-    const sub = unwrap(f.type);
-    const subFull = sub.named.name ? typeMap.get(sub.named.name) : undefined;
-    if (!subFull || sub.named.kind === "SCALAR" || sub.named.kind === "ENUM") {
+    const subNamed = fullyUnwrapNamed(f.type);
+    const subFull = subNamed.name ? typeMap.get(subNamed.name) : undefined;
+    if (!subFull || subNamed.kind === "SCALAR" || subNamed.kind === "ENUM") {
       picks.push(f.name);
     } else if (depth < config.graphqlSelectionMaxDepth) {
       const nested = buildSelectionSet(f.type, typeMap, depth + 1);
