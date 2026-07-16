@@ -39,7 +39,7 @@ const {
   dirty: descriptionDirty,
   saving: savingDescription,
   errorMessage: descriptionError,
-  sync: syncDescription,
+  syncIfUntouched: syncDescription,
   commit: saveDescription,
 } = useFieldDraft(
   () => detail.value?.description ?? "",
@@ -55,7 +55,7 @@ const {
   dirty: toolsDirty,
   saving: savingTools,
   errorMessage: toolsError,
-  sync: syncTools,
+  syncIfUntouched: syncTools,
   commit: saveTools,
 } = useFieldDraft<BundleToolRef[]>(
   () => detail.value?.tools ?? [],

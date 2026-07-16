@@ -37,7 +37,7 @@ const {
   dirty: descriptionDirty,
   saving: savingDescription,
   errorMessage: descriptionError,
-  sync: syncDescription,
+  syncIfUntouched: syncDescription,
   commit: saveDescription,
 } = useFieldDraft(
   () => detail.value?.description ?? "",
@@ -53,7 +53,7 @@ const {
   dirty: schemaDirty,
   saving: savingSchema,
   errorMessage: schemaError,
-  sync: syncSchema,
+  syncIfUntouched: syncSchema,
   commit: saveSchema,
 } = useFieldDraft(
   () => prettyJson(detail.value?.inputSchema ?? {}),
@@ -75,7 +75,7 @@ const {
   dirty: stepsDirty,
   saving: savingSteps,
   errorMessage: stepsError,
-  sync: syncSteps,
+  syncIfUntouched: syncSteps,
   commit: saveSteps,
 } = useFieldDraft(
   () => prettyJson(detail.value?.steps ?? []),
@@ -107,21 +107,11 @@ const {
 );
 
 async function load() {
-  // Only resync drafts that aren't currently holding unsaved edits — a save
-  // in one field (which calls load() as part of its own commit) must not
-  // clobber in-progress edits pending in the other two fields.
-  await syncAfterLoad(
-    loadDetail,
-    () => {
-      if (!descriptionDirty.value) syncDescription();
-    },
-    () => {
-      if (!schemaDirty.value) syncSchema();
-    },
-    () => {
-      if (!stepsDirty.value) syncSteps();
-    },
-  );
+  // syncIfUntouched() only overwrites a draft that still matches its own
+  // last-synced value — a save in one field (which calls load() as part of
+  // its own commit) can't clobber an in-progress edit pending in the other
+  // two fields, and the very first load (nothing edited yet) still syncs.
+  await syncAfterLoad(loadDetail, syncDescription, syncSchema, syncSteps);
 }
 watch(() => props.name, load);
 onMounted(load);
