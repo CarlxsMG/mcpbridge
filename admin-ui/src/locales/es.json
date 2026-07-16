@@ -791,8 +791,8 @@
       "snapshot_placeholder": "Etiqueta del snapshot (p. ej. antes-de-migracion)",
       "snapshot_now": "Snapshot ahora",
       "empty": "Aún no hay snapshots. Un snapshot captura la config completa — bundles, guardrails, consumers y más — para que puedas comparar o hacer rollback después.",
-      "diff_vs_current": "diff vs current",
-      "rollback": "rollback",
+      "diff_vs_current": "diff vs. actual",
+      "rollback": "revertir",
       "diff_heading": "Diff: #{id} \"{label}\" → {to}",
       "no_differences": "Sin diferencias.",
       "table": {
@@ -1478,7 +1478,7 @@
           "description": "Opcional"
         },
         "templates": {
-          "label": "Templates:",
+          "label": "Plantillas:",
           "or": "o"
         },
         "create": "Crear composite",
@@ -1504,7 +1504,7 @@
       "steps_label": "Pasos (array JSON)",
       "save_steps": "Guardar pasos",
       "templates": {
-        "label": "Templates:",
+        "label": "Plantillas:",
         "or": "o"
       },
       "enable": "Habilitar composite",
@@ -1842,8 +1842,8 @@
           "tool": "Herramienta"
         },
         "actions": {
-          "enable": "enable",
-          "disable": "disable"
+          "enable": "activar",
+          "disable": "desactivar"
         },
         "frequencies": {
           "daily": "Cada día",
@@ -1893,7 +1893,7 @@
       }
     },
     "sso_settings": {
-      "title": "Single sign-on (OIDC)",
+      "title": "Inicio de sesión único (OIDC)",
       "subtitle": "Permite a los admins iniciar sesión mediante un proveedor de identidad externo (Okta, Azure AD, Google Workspace, Auth0 o cualquier IdP compatible con OIDC) vía Authorization Code + PKCE, en lugar de — o junto con — el login usuario/contraseña nativo. SAML no está soportado.",
       "fields": {
         "issuer": "Issuer URL",
@@ -2057,7 +2057,7 @@
         "active_tools": "Tools activas"
       },
       "section": {
-        "top_tools": "Top tools",
+        "top_tools": "Herramientas más usadas",
         "by_key": "Por API key"
       },
       "table": {
@@ -2073,7 +2073,7 @@
       "chart": {
         "calls_errors": "Llamadas vs errores",
         "calls_by_key": "Llamadas por API key",
-        "top_tools": "Top tools",
+        "top_tools": "Herramientas más usadas",
         "primary_label": "Llamadas",
         "secondary_label": "Errores"
       },

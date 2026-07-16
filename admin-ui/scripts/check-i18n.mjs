@@ -20,6 +20,17 @@
 //      retired Python i18n-audit workflow used to own, folded back in here so
 //      the whole invariant lives in one Bun/TS gate.
 //
+//   4. Value equality — every key whose es.json value is byte-for-byte
+//      identical to its en.json value is flagged UNLESS it's in the curated
+//      allowlist (scripts/i18n-identical-allowlist.mjs). Parity (1) only
+//      asserts a key EXISTS in both bundles, never that its Spanish value was
+//      actually translated — so a string copy-pasted into es.json and never
+//      localized ships as English on live Spanish pages and passes (1)-(3)
+//      forever. The allowlist enumerates the strings that are SUPPOSED to read
+//      identically (brand/feature nouns, technical terms, code examples,
+//      format skeletons, proper names); anything else that matches is a real
+//      missing translation.
+//
 // Future languages: extend this script to load each locale under
 // `src/locales/*.json` and assert parity + orphan-freedom against en.json.
 //
@@ -27,6 +38,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { identicalAllowlist } from "./i18n-identical-allowlist.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOCALES_DIR = path.resolve(__dirname, "..", "src", "locales");
@@ -50,6 +62,21 @@ function* walk(obj, prefix = "") {
 function diff(enKeys, esKeys) {
   const esSet = new Set(esKeys);
   return enKeys.filter((k) => !esSet.has(k));
+}
+
+// Flatten a locale bundle to a Map of dotted-key → value (same key shape
+// `walk()` yields), keeping the leaf value so the value-equality check (4) can
+// compare es against en per key.
+function flatten(obj, prefix = "", out = new Map()) {
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) {
+    out.set(prefix, obj);
+    return out;
+  }
+  for (const key of Object.keys(obj)) {
+    const next = prefix ? `${prefix}.${key}` : key;
+    flatten(obj[key], next, out);
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -292,7 +319,40 @@ function run() {
     console.log(`i18n source→bundle check OK: every literal t()/tk() key resolves`);
   }
 
-  process.exit(parityOk && orphansOk && sourceOk ? 0 : 1);
+  // Value equality: an es value byte-for-byte identical to its en value is an
+  // untranslated string unless it's a deliberately-identical term/example in
+  // the allowlist. Only meaningful for keys present (and equal-length) in both
+  // bundles, which parity above already asserts; guard on presence anyway so a
+  // parity failure doesn't cascade into noise here.
+  const enFlat = flatten(en);
+  const esFlat = flatten(es);
+  const untranslated = [];
+  for (const key of enKeys) {
+    if (identicalAllowlist.has(key)) continue;
+    const enVal = enFlat.get(key);
+    const esVal = esFlat.get(key);
+    if (typeof enVal === "string" && typeof esVal === "string" && enVal === esVal) {
+      untranslated.push(key);
+    }
+  }
+  const valuesOk = untranslated.length === 0;
+
+  if (!valuesOk) {
+    console.error(`\ni18n value-equality check FAILED`);
+    console.error(
+      `\n  ${untranslated.length} key(s) have an es.json value identical to en.json (likely untranslated):`,
+    );
+    for (const k of untranslated) console.error(`    - ${k} => ${JSON.stringify(enFlat.get(k))}`);
+    console.error(
+      `\n  Translate each in es.json. If a string is SUPPOSED to read identically in both ` +
+        `languages (brand/feature noun, technical term, code example, format skeleton, proper ` +
+        `name), add its key to scripts/i18n-identical-allowlist.mjs instead.`,
+    );
+  } else {
+    console.log(`i18n value-equality check OK: every es value differs from en (or is allowlisted)`);
+  }
+
+  process.exit(parityOk && orphansOk && sourceOk && valuesOk ? 0 : 1);
 }
 
 run();
