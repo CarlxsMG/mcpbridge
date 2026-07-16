@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
@@ -84,6 +84,20 @@ const {
 
 onMounted(load);
 
+const editFormEl = ref<HTMLFormElement | null>(null);
+
+// The edit form is rendered statically above a potentially long table with
+// no visual cue that it appeared — scroll it into view and move focus into
+// its first editable field so opening it is actually noticeable.
+watch(showEdit, async (open) => {
+  if (!open) return;
+  await nextTick();
+  editFormEl.value?.scrollIntoView({ behavior: "smooth", block: "start" });
+  editFormEl.value
+    ?.querySelector<HTMLElement>("input:not(:disabled), select:not(:disabled), textarea:not(:disabled)")
+    ?.focus();
+});
+
 async function submitTarget() {
   createError.value = "";
   if (!newName.value.trim() || !newBackendUrl.value.trim()) {
@@ -165,7 +179,7 @@ async function confirmDelete() {
       {{ t("pages.ws_proxy_targets.subtitle_p2") }}
     </p>
 
-    <form v-if="showEdit" class="create-form" @submit.prevent="submitTarget">
+    <form v-if="showEdit" ref="editFormEl" class="create-form" @submit.prevent="submitTarget">
       <FormField :label="t('pages.ws_proxy_targets.fields.name')" for="wp-name">
         <input id="wp-name" v-model="newName" type="text" placeholder="iot-gateway" disabled />
       </FormField>

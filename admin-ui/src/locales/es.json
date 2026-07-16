@@ -1992,12 +1992,6 @@
           "password": "Contraseña (mín. 12 chars)",
           "role": "Rol"
         },
-        "roles": {
-          "admin": "Admin",
-          "operator": "Operator",
-          "auditor": "Auditor",
-          "viewer": "Viewer"
-        },
         "create": "Crear usuario",
         "errors": {
           "password_too_short": "La contraseña debe tener al menos 12 caracteres.",

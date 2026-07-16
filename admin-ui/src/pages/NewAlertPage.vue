@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useCreateForm } from "@/composables/useCreateForm";
@@ -28,14 +28,37 @@ const EVENT_OPTIONS = (Object.keys(EVENT_LABELS) as AlertEventType[]).map((value
 }));
 
 const NUMERIC_EVENTS = new Set<AlertEventType>(["error_rate", "usage_spike"]);
+// Per-event-type sane defaults for threshold/minCalls — error_rate's
+// threshold is a 0..1 ratio, usage_spike's is a ×baseline spike factor, so a
+// value carried over verbatim from the other event type is silently
+// scale-mismatched (see NewAlertPage finding).
+const NUMERIC_DEFAULTS: Record<"error_rate" | "usage_spike", { threshold: string; minCalls: string }> = {
+  error_rate: { threshold: "0.5", minCalls: "10" },
+  usage_spike: { threshold: "3", minCalls: "20" },
+};
 
 const name = ref("");
 const event = ref<AlertEventType>("circuit_breaker_open");
 const url = ref("");
-const threshold = ref("0.5");
-const minCalls = ref("10");
+const threshold = ref(NUMERIC_DEFAULTS.error_rate.threshold);
+const minCalls = ref(NUMERIC_DEFAULTS.error_rate.minCalls);
 const nameError = ref("");
 const urlError = ref("");
+
+// Tracks the values we last set programmatically so a later event-type
+// switch only resets threshold/minCalls when the user hasn't customized them
+// since the previous switch — manual edits are left alone.
+let lastAutoThreshold = threshold.value;
+let lastAutoMinCalls = minCalls.value;
+
+watch(event, (next) => {
+  if (next !== "error_rate" && next !== "usage_spike") return;
+  const defaults = NUMERIC_DEFAULTS[next];
+  if (threshold.value === lastAutoThreshold) threshold.value = defaults.threshold;
+  if (minCalls.value === lastAutoMinCalls) minCalls.value = defaults.minCalls;
+  lastAutoThreshold = threshold.value;
+  lastAutoMinCalls = minCalls.value;
+});
 
 const { creating, error, run } = useCreateForm({
   submit: () => {

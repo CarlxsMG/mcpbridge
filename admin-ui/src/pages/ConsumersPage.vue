@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
@@ -105,6 +105,20 @@ async function toggleUsage(consumer: ConsumerWithUsage) {
 
 onMounted(load);
 
+const editFormEl = ref<HTMLFormElement | null>(null);
+
+// The edit form is rendered statically above a potentially long table with
+// no visual cue that it appeared — scroll it into view and move focus into
+// its first editable field so opening it is actually noticeable.
+watch(showEdit, async (open) => {
+  if (!open) return;
+  await nextTick();
+  editFormEl.value?.scrollIntoView({ behavior: "smooth", block: "start" });
+  editFormEl.value
+    ?.querySelector<HTMLElement>("input:not(:disabled), select:not(:disabled), textarea:not(:disabled)")
+    ?.focus();
+});
+
 async function submitConsumer() {
   nameError.value = "";
   quotaError.value = "";
@@ -153,7 +167,7 @@ function confirmDelete() {
       <RouterLink to="/consumers/new" class="btn-primary">{{ t("pages.consumers.create") }}</RouterLink>
     </PageHeader>
 
-    <form v-if="showEdit" class="create-form" @submit.prevent="submitConsumer">
+    <form v-if="showEdit" ref="editFormEl" class="create-form" @submit.prevent="submitConsumer">
       <FormField :label="t('common.name')" for="c-name">
         <input id="c-name" v-model="newName" type="text" :placeholder="t('pages.consumers.name_placeholder')" />
         <FieldError :message="nameError" />
