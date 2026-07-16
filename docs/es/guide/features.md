@@ -119,7 +119,8 @@ Consulta **[Observabilidad y monitorización →](/es/guide/observability)**.
 - **Tracing OpenTelemetry (OTLP/HTTP)** — un span por llamada de tool cuando hay un endpoint OTLP.
 - **Analítica de uso** y **detección de anomalías / picos de uso** que dispara alertas vía webhooks.
 - **Audit log a prueba de manipulaciones** — cada acción admin está encadenada por hash
-  (`hash = SHA256(prev | …)`) y es verificable; opcionalmente streameada a un SIEM.
+  (`hash = SHA256(JSON.stringify([prev_hash, …]))`, una pre-imagen JSON inyectiva, no una unión
+  por delimitador) y es verificable; opcionalmente streameada a un SIEM.
 - **Explorador de tráfico + replay** — captura opt-in por llamada (argumentos + un preview del
   resultado) que puedes inspeccionar y re-ejecutar desde la admin API.
 - **Monitorización sintética + schema-drift** — reproduce periódicamente un ejemplo guardado a

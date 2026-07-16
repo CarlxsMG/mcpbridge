@@ -42,7 +42,9 @@ team isolation.
 ## Tamper-evident audit
 
 Every admin mutation is written to a **hash-chained** audit log
-(`hash = SHA256(prev_hash | actor | action | target | detail | created_at)`), so any
+(`hash = SHA256(JSON.stringify([prev_hash, actor, action, target, detail, created_at]))`) —
+a JSON-encoded pre-image rather than a bare delimiter join, since caller-influenced fields
+like `target` and `detail` could otherwise collide across distinct rows — so any
 retroactive edit or deletion breaks the chain and is detectable via a verify endpoint.
 Events can also be streamed to a SIEM in real time (`AUDIT_SINK_URL`).
 

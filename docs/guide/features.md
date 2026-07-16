@@ -113,8 +113,9 @@ See **[Observability & monitoring →](/guide/observability)**.
 - **Prometheus `/metrics`**, including `mcp_tool_calls_total{outcome}`.
 - **OpenTelemetry (OTLP/HTTP) tracing** — a span per tool call when an OTLP endpoint is set.
 - **Usage analytics** and **usage-anomaly / spike detection** that fires alerts via webhooks.
-- **Tamper-evident audit log** — every admin action is hash-chained (`hash = SHA256(prev | …)`)
-  and can be verified; optionally streamed to a SIEM.
+- **Tamper-evident audit log** — every admin action is hash-chained
+  (`hash = SHA256(JSON.stringify([prev_hash, …]))`, an injective JSON pre-image rather than a
+  bare delimiter join) and can be verified; optionally streamed to a SIEM.
 - **Traffic explorer + replay** — opt-in per-call capture (arguments + a result preview) you can
   inspect and re-run from the admin API.
 - **Synthetic monitoring + schema-drift** — periodically replay a saved example through a tool and

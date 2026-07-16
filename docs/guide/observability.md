@@ -37,7 +37,9 @@ Create alert rules that POST to a webhook on:
 ## Audit trail
 
 Every admin mutation is written to a **hash-chained** audit log
-(`hash = SHA256(prev | actor | action | target | detail | created_at)`). Any retroactive
+(`hash = SHA256(JSON.stringify([prev_hash, actor, action, target, detail, created_at]))`) —
+a JSON-encoded pre-image rather than a bare delimiter join, since caller-influenced fields
+like `target` and `detail` could otherwise collide across distinct rows. Any retroactive
 edit breaks the chain and is caught by the verify endpoint. Stream events to a SIEM in real
 time with `AUDIT_SINK_URL`. Export the log as JSON, CSV, or a self-contained HTML compliance
 report that embeds the hash-chain verification verdict.

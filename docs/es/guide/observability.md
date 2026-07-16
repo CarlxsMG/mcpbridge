@@ -39,7 +39,9 @@ Los **monitores sintéticos** pueden adicionalmente probar tools en schedule y n
 ## Log de auditoría
 
 Cada mutación admin se escribe en un **log de auditoría encadenado por hash**
-(`hash = SHA256(prev | actor | action | target | detail | created_at)`). Cualquier
+(`hash = SHA256(JSON.stringify([prev_hash, actor, action, target, detail, created_at]))`) —
+una pre-imagen codificada en JSON, no una unión por delimitador, ya que campos influenciados
+por el caller como `target` y `detail` podrían colisionar entre filas distintas. Cualquier
 edición retroactiva rompe la cadena y se detecta por el endpoint de verificación.
 Streamea eventos a un SIEM en tiempo real con `AUDIT_SINK_URL`. Exporta el log como
 JSON, CSV, o un reporte de compliance HTML autocontenido que embebe el veredicto de
