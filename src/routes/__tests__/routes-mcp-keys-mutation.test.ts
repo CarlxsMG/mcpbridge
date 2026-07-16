@@ -16,12 +16,13 @@ import type { Server } from "http";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { requestIdMiddleware } from "../../middleware/request-id.js";
+import { registry } from "../../mcp/registry.js";
 import { createUser } from "../../security/user-store.js";
 import { createSession } from "../../security/session-store.js";
 import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "../../security/cookies.js";
-import { createTeam, setUserTeam } from "../../admin/entities/teams.js";
+import { createTeam, setUserTeam, setClientTeam } from "../../admin/entities/teams.js";
 import { createConsumer } from "../../admin/entities/consumers.js";
-import { getMcpKey } from "../../security/mcp-key-store.js";
+import { getMcpKey, createMcpKey } from "../../security/mcp-key-store.js";
 import * as auditMod from "../../admin/audit/audit.js";
 
 let baseUrl = "";
@@ -90,7 +91,37 @@ async function mint(body: Record<string, unknown> = { label: "k" }): Promise<Rec
   return (await res.json()) as Record<string, unknown>;
 }
 
+/** Registers a minimal client so setClientTeam has a row to target. */
+async function reg(name: string): Promise<void> {
+  await registry.register(
+    name,
+    [{ name: "t", method: "GET", endpoint: "/t", description: "d", inputSchema: { type: "object", properties: {} } }],
+    "http://example.com/health",
+    "1.2.3.4",
+    "http://example.com",
+    "1.2.3.4",
+  );
+}
+
+/** Same as teamAdminSessionHeaders, but also returns the team id so a test can assign clients to it. */
+function createTeamAdminSession(username: string): { teamId: number; headers: Record<string, string> } {
+  const team = createTeam(`team-${username}`, "test");
+  if (typeof team === "string") throw new Error(`createTeam failed: ${team}`);
+  const user = createUser(username, "irrelevant-hash", "admin", null);
+  setUserTeam(user.username, team.id);
+  const session = createSession(user.id, "127.0.0.1", "test-agent");
+  return {
+    teamId: team.id,
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: `${SESSION_COOKIE_NAME}=${session.token}; ${CSRF_COOKIE_NAME}=${session.csrfToken}`,
+      "X-CSRF-Token": session.csrfToken,
+    },
+  };
+}
+
 afterEach(async () => {
+  for (const c of registry.listClients()) await registry.unregister(c.name);
   await stopServer();
 });
 
@@ -793,5 +824,85 @@ describe("adminRole forbidden envelopes (exact message, both call sites)", () =>
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { message: string } };
     expect(body.error.message).toBe("adminRole must be one of admin, operator, auditor, viewer, or null");
+  });
+});
+
+describe("keyVisibleToCaller — GET /admin-api/mcp-keys team-scoping (commit 5f32ffb)", () => {
+  // Regression coverage: a team-scoped admin session must only see keys whose
+  // scopes.clients resolve entirely to their own team, and never a key
+  // carrying adminRole — while a super-admin/bearer session still sees
+  // everything unfiltered. Keys are created directly via createMcpKey
+  // (bypassing the route's own scope-confinement validation) so the test
+  // isolates keyVisibleToCaller's filtering logic specifically.
+  test("a team-scoped caller sees only their own scoped key, never a foreign-scoped or adminRole key", async () => {
+    await startApp();
+    await reg("svc-mcpkeys-own");
+    await reg("svc-mcpkeys-foreign");
+    const caller = createTeamAdminSession("mcpkeys-list-caller");
+    setClientTeam("svc-mcpkeys-own", caller.teamId);
+    const otherTeam = createTeam("team-mcpkeys-list-other", "test");
+    if (typeof otherTeam === "string") throw new Error("createTeam failed");
+    setClientTeam("svc-mcpkeys-foreign", otherTeam.id);
+
+    const { record: ownKey } = createMcpKey("own-key", { clients: ["svc-mcpkeys-own"] }, null, "test");
+    const { record: foreignKey } = createMcpKey("foreign-key", { clients: ["svc-mcpkeys-foreign"] }, null, "test");
+    const { record: adminKey } = createMcpKey(
+      "admin-key",
+      { clients: ["svc-mcpkeys-own"] },
+      null,
+      "test",
+      null,
+      false,
+      "viewer",
+    );
+
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys`, { headers: caller.headers });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: { id: number }[] };
+    const ids = body.items.map((i) => i.id);
+    expect(ids).toContain(ownKey.id);
+    expect(ids).not.toContain(foreignKey.id);
+    expect(ids).not.toContain(adminKey.id);
+
+    // A super-admin/bearer caller still sees every key, unfiltered.
+    const allRes = await fetch(`${baseUrl}/admin-api/mcp-keys`, { headers: bearer() });
+    const allBody = (await allRes.json()) as { items: { id: number }[] };
+    const allIds = allBody.items.map((i) => i.id);
+    expect(allIds).toEqual(expect.arrayContaining([ownKey.id, foreignKey.id, adminKey.id]));
+  });
+});
+
+describe("keyVisibleToCaller — GET /admin-api/mcp-keys/:id team-scoping (commit 5f32ffb)", () => {
+  test("a team-scoped caller gets 200 for their own key and the exact MCP_KEY_NOT_FOUND 404 for another team's key", async () => {
+    await startApp();
+    await reg("svc-mcpkeys-single-own");
+    await reg("svc-mcpkeys-single-foreign");
+    const caller = createTeamAdminSession("mcpkeys-single-caller");
+    setClientTeam("svc-mcpkeys-single-own", caller.teamId);
+    const otherTeam = createTeam("team-mcpkeys-single-other", "test");
+    if (typeof otherTeam === "string") throw new Error("createTeam failed");
+    setClientTeam("svc-mcpkeys-single-foreign", otherTeam.id);
+
+    const { record: ownKey } = createMcpKey("single-own-key", { clients: ["svc-mcpkeys-single-own"] }, null, "test");
+    const { record: foreignKey } = createMcpKey(
+      "single-foreign-key",
+      { clients: ["svc-mcpkeys-single-foreign"] },
+      null,
+      "test",
+    );
+
+    const ownRes = await fetch(`${baseUrl}/admin-api/mcp-keys/${ownKey.id}`, { headers: caller.headers });
+    expect(ownRes.status).toBe(200);
+    expect(((await ownRes.json()) as { id: number }).id).toBe(ownKey.id);
+
+    const foreignRes = await fetch(`${baseUrl}/admin-api/mcp-keys/${foreignKey.id}`, { headers: caller.headers });
+    expect(foreignRes.status).toBe(404);
+    const body = (await foreignRes.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("MCP_KEY_NOT_FOUND");
+    expect(body.error.message).toBe("API key not found");
+
+    // A super-admin/bearer caller still sees the foreign key unfiltered.
+    const bearerRes = await fetch(`${baseUrl}/admin-api/mcp-keys/${foreignKey.id}`, { headers: bearer() });
+    expect(bearerRes.status).toBe(200);
   });
 });
