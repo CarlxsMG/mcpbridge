@@ -37,6 +37,12 @@ interface ExportedBundle {
   description: string | null;
   enabled: boolean;
   tools: BundleToolRef[];
+  /**
+   * Composite (macro) tool names this bundle also exposes — carried so a bundle
+   * round-trips losslessly. Optional for back-compat: pre-composite export
+   * documents (and CLI callers) omit it, and import treats absent as none.
+   */
+  composites?: string[];
 }
 interface ExportedAlert {
   name: string;
@@ -86,9 +92,18 @@ export interface ImportResult {
 }
 
 /**
- * Serializes all admin-authored config into a portable document. Excludes
- * decrypted secrets (upstream credentials stay in their own encrypted table);
- * tool key-allowlists are exported as their SHA-256 hashes, which round-trip.
+ * Serializes a defined subset of admin-authored config into a portable
+ * document. The entity types that round-trip through export→import are exactly:
+ *   - bundles (name, description, enabled, member tools, and composite macros)
+ *   - alert rules
+ *   - per-client config: enabled flag, client guards, and per-tool
+ *     enabled/guards/overrides
+ *   - guardrails (per tool)
+ *   - consumers (name, monthlyQuota, endUserRateLimitPerMin)
+ * Deliberately NOT included: schedules, per-tool approval requirements
+ * (tool_approval), guard policies, teams, and any decrypted secret (upstream
+ * credentials stay in their own encrypted table). Tool key-allowlists are
+ * exported as their SHA-256 hashes, which round-trip.
  */
 export function exportConfig(): ConfigExport {
   const db = getDb();
@@ -96,7 +111,13 @@ export function exportConfig(): ConfigExport {
   const bundles: ExportedBundle[] = listBundles()
     .map((b) => getBundleDetail(b.name))
     .filter((b): b is NonNullable<typeof b> => b != null)
-    .map((b) => ({ name: b.name, description: b.description, enabled: b.enabled, tools: b.tools }));
+    .map((b) => ({
+      name: b.name,
+      description: b.description,
+      enabled: b.enabled,
+      tools: b.tools,
+      composites: b.composites,
+    }));
 
   const alertRules: ExportedAlert[] = listAlertRules().map((r) => ({
     name: r.name,
@@ -212,11 +233,19 @@ export async function importConfig(
       skipped.push({ type: "bundle", id: b.name, reason: `${missing.length} unknown tool(s)` });
       continue;
     }
+    // Composites round-trip too; a foreign/hand-edited doc may omit the field
+    // or make it a non-array — treat that as "no composites", never throw.
+    const composites = Array.isArray(b.composites) ? b.composites : [];
     if (!dryRun) {
       if (db.query(`SELECT 1 FROM mcp_bundles WHERE name = ?`).get(b.name)) {
-        await updateBundle(b.name, { description: b.description ?? null, enabled: b.enabled, tools: b.tools });
+        await updateBundle(b.name, {
+          description: b.description ?? null,
+          enabled: b.enabled,
+          tools: b.tools,
+          composites,
+        });
       } else {
-        await createBundle(b.name, b.description ?? undefined, b.tools, actor ?? "import");
+        await createBundle(b.name, b.description ?? undefined, b.tools, actor ?? "import", composites);
       }
     }
     applied.bundles++;
@@ -234,6 +263,15 @@ export async function importConfig(
     }
     applied.clientsConfigured++;
 
+    // A hand-edited/foreign-schema document may carry a present-but-non-array
+    // `tools` (e.g. `{}`); iterating it would throw mid-import (this loop isn't
+    // transactional). Degrade to a reported skip, matching the bundles loop's
+    // fail-soft contract above. An absent/null `tools` stays legitimate — it
+    // simply means "no per-tool config" and iterates zero via `?? []`.
+    if (c.tools != null && !Array.isArray(c.tools)) {
+      skipped.push({ type: "client", id: c.name, reason: "tools field is not an array" });
+      continue;
+    }
     for (const t of c.tools ?? []) {
       if (!toolExists.get(c.name, t.name)) {
         skipped.push({ type: "tool", id: `${c.name}__${t.name}`, reason: "not found" });

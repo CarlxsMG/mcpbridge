@@ -128,15 +128,18 @@ export function deleteConsumer(id: number): boolean {
   return getDb().query(`DELETE FROM consumers WHERE id = ?`).run(id).changes > 0;
 }
 
-/** Number of proxied calls this calendar month attributed to any of a consumer's keys. */
+/**
+ * Number of proxied calls this calendar month attributed to any of a consumer's
+ * keys. Reads the incrementally-maintained consumer_usage_counters row (kept in
+ * sync by recordUsage in src/observability/usage.ts) — an O(1) lookup rather
+ * than the former COUNT(*) scan over tool_call_log, since this runs on the
+ * dispatch hot path via checkConsumerQuota.
+ */
 export function getConsumerUsageThisMonth(consumerId: number): number {
   const row = getDb()
-    .query(
-      `SELECT COUNT(*) as c FROM tool_call_log
-       WHERE created_at >= ? AND key_id IN (SELECT id FROM mcp_api_keys WHERE consumer_id = ?)`,
-    )
-    .get(monthStart(), consumerId) as { c: number };
-  return row.c;
+    .query(`SELECT count FROM consumer_usage_counters WHERE consumer_id = ? AND period_start = ?`)
+    .get(consumerId, monthStart()) as { count: number } | null;
+  return row?.count ?? 0;
 }
 
 export interface QuotaStatus {

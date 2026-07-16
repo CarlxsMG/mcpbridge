@@ -1007,6 +1007,48 @@ export const migrations: Migration[] = [
       ALTER TABLE consumers ADD COLUMN team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL;
     `,
   },
+  {
+    id: 54,
+    name: "rate_counters_window_index",
+    sql: `
+      -- rate_counters' PRIMARY KEY (key, window_start) is useless for the
+      -- retention DELETE, which filters on window_start alone (leading column
+      -- is 'key', so the DELETE was a full-table scan). Add a dedicated index
+      -- on the pruned column.
+      CREATE INDEX IF NOT EXISTS idx_rate_counters_window ON rate_counters(window_start);
+    `,
+  },
+  {
+    id: 55,
+    name: "consumer_usage_counters",
+    sql: `
+      -- Incrementally-maintained per-(consumer, month) call counter, so the
+      -- quota check on the dispatch hot path reads one O(1) row instead of a
+      -- COUNT(*) scan over tool_call_log. period_start is the epoch-ms start of
+      -- the calendar month (UTC), matching consumers.ts's monthStart(). Kept in
+      -- sync by an UPSERT inside recordUsage (src/observability/usage.ts).
+      CREATE TABLE IF NOT EXISTS consumer_usage_counters (
+        consumer_id  INTEGER NOT NULL,
+        period_start INTEGER NOT NULL,
+        count        INTEGER NOT NULL,
+        PRIMARY KEY (consumer_id, period_start)
+      ) STRICT;
+
+      -- Backfill the current month from the existing log so an upgrade doesn't
+      -- momentarily under-count (and thus under-enforce) a consumer already
+      -- partway through its monthly quota. strftime(...,'start of month') is the
+      -- UTC month start in seconds; *1000 matches monthStart()'s epoch ms.
+      INSERT INTO consumer_usage_counters (consumer_id, period_start, count)
+        SELECT k.consumer_id,
+               CAST(strftime('%s', 'now', 'start of month') AS INTEGER) * 1000,
+               COUNT(*)
+        FROM tool_call_log l
+        JOIN mcp_api_keys k ON k.id = l.key_id
+        WHERE k.consumer_id IS NOT NULL
+          AND l.created_at >= CAST(strftime('%s', 'now', 'start of month') AS INTEGER) * 1000
+        GROUP BY k.consumer_id;
+    `,
+  },
 ];
 
 /**

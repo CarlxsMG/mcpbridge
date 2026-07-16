@@ -13,6 +13,12 @@ export interface UsageEvent {
 
 let insertCount = 0;
 
+/** Start of the current calendar month, UTC (epoch ms). Mirrors consumers.ts's monthStart(). */
+function monthStart(): number {
+  const d = new Date();
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+}
+
 /**
  * Records one proxied tool call. Best-effort: any failure is swallowed so
  * analytics can never break a live call. Every 500th insert opportunistically
@@ -33,6 +39,18 @@ export function recordUsage(e: UsageEvent): void {
       Math.max(0, Math.round(e.durationMs)),
       Date.now(),
     );
+
+    // Keep the per-(consumer, month) usage counter in lockstep with the log
+    // insert above so checkConsumerQuota reads one O(1) row instead of a
+    // COUNT(*) scan. The SELECT resolves the call's owning consumer from its
+    // key; a null key_id or a key with no consumer matches no row, so this is a
+    // no-op for unattributed/consumerless calls (mirrors the rate_counters
+    // UPSERT idiom in src/db/rate-counters.ts).
+    db.query(
+      `INSERT INTO consumer_usage_counters (consumer_id, period_start, count)
+       SELECT consumer_id, ?, 1 FROM mcp_api_keys WHERE id = ? AND consumer_id IS NOT NULL
+       ON CONFLICT(consumer_id, period_start) DO UPDATE SET count = count + 1`,
+    ).run(monthStart(), e.keyId);
 
     if (++insertCount % 500 === 0) {
       db.query(`DELETE FROM tool_call_log WHERE created_at < ?`).run(Date.now() - config.usageRetentionMs);

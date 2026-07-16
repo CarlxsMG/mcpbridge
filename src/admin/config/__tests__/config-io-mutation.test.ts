@@ -109,12 +109,14 @@ describe("exportConfig — bundles", () => {
       description: "first bundle",
       enabled: true,
       tools: [{ client: "svc-a", tool: "get-a" }],
+      composites: [],
     });
     expect(two).toEqual({
       name: "bundle-two",
       description: null,
       enabled: true,
       tools: [{ client: "svc-b", tool: "get-b" }],
+      composites: [],
     });
   });
 

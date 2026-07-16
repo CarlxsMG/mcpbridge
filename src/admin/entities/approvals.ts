@@ -326,7 +326,16 @@ export function consumeApproval(
   if (rec.status === "rejected")
     return { ok: false, message: `Approval #${id} was rejected${rec.note ? `: ${rec.note}` : ""}` };
   if (rec.consumedAt !== null) return { ok: false, message: `Approval #${id} was already used` };
-  getDb().query(`UPDATE approvals SET consumed_at = ? WHERE id = ?`).run(Date.now(), id);
+  // Atomic compare-and-swap: only the first caller whose UPDATE sees
+  // consumed_at still NULL wins the single-use ticket. Without the `AND
+  // consumed_at IS NULL` guard, two callers racing past the read above (a real
+  // window under multi-instance HA, where the SELECT and UPDATE aren't one
+  // transaction) would both mark it consumed and both proceed. Mirrors
+  // decideApproval's `WHERE ... AND status = 'pending'` CAS idiom above.
+  const r = getDb()
+    .query(`UPDATE approvals SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL`)
+    .run(Date.now(), id);
+  if (r.changes === 0) return { ok: false, message: `Approval #${id} was already used` };
   return { ok: true };
 }
 
