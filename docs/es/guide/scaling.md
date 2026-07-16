@@ -61,6 +61,15 @@ El proxy REST y la admin API no necesitan afinidad.
   asume un único escritor; la integridad de la cadena cross-instancia está fuera de scope
   — streamea a un SIEM (`AUDIT_SINK_URL`) para un registro consolidado y ordenado en su
   lugar.
+- **Un health-eviction hold también es por instancia, si enrutas con `/livez` en vez de
+  `/readyz`.** Bajo la topología por defecto (solo-líder, gateada por `/readyz`) esto no
+  importa — solo el líder llega a probar backends o servir tráfico. Pero si cambias el
+  readiness a `/livez` para que cada réplica sirva (consulta el override del
+  readiness-probe del Helm chart), un re-registro de cliente puede aterrizar en una
+  réplica que no es el líder y solo limpiar la marca de eviction en memoria _de esa_
+  réplica, dejando la propia marca del líder (y por tanto su `reconcileFromDb()`)
+  atascada reteniendo el cliente. Vuelve a registrar contra el líder, o usa
+  `forgetClient`/re-regístralo a través de una sesión anclada a él, para limpiar el hold.
 
 ## Checklist
 
