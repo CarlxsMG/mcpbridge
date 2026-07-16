@@ -95,7 +95,12 @@ export function listClientsSummaryReadModel(
   opts: ListClientsSummaryOpts = {},
 ): { items: ClientSummary[]; nextCursor?: string } {
   const db = getDb();
-  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  // `opts.limit` may be NaN (e.g. `Number("abc")` from a malformed `?limit=`
+  // query param) — `??` only falls back on null/undefined, so guard with
+  // Number.isFinite first, or a NaN would reach bun:sqlite as a `LIMIT ?`
+  // param and throw a raw 'datatype mismatch' instead of clamping.
+  const rawLimit = Number.isFinite(opts.limit) ? (opts.limit as number) : 50;
+  const limit = Math.min(Math.max(rawLimit, 1), 200);
 
   const conditions: string[] = [];
   const params: (string | number)[] = [];

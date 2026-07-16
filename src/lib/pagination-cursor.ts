@@ -25,9 +25,17 @@ export interface KeysetPage<Item> {
   nextCursor?: string;
 }
 
-/** `Math.min(Math.max(value ?? defaultValue, 1), max)` — the clamp every caller reimplemented for its own `limit`/`maxRows`. */
+/**
+ * `Math.min(Math.max(value ?? defaultValue, 1), max)` — the clamp every caller
+ * reimplemented for its own `limit`/`maxRows`. `value` is also guarded with
+ * `Number.isFinite`: `??` only falls back on null/undefined, so a NaN (e.g.
+ * from `Number("abc")` on a malformed `?limit=` query param) would otherwise
+ * pass straight through and later get bound as a `LIMIT ?` param to
+ * bun:sqlite, which throws a raw 'datatype mismatch' instead of clamping.
+ */
 export function clampLimit(value: number | undefined, defaultValue: number, max: number): number {
-  return Math.min(Math.max(value ?? defaultValue, 1), max);
+  const n = Number.isFinite(value) ? (value as number) : defaultValue;
+  return Math.min(Math.max(n, 1), max);
 }
 
 /**

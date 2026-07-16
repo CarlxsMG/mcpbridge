@@ -72,6 +72,19 @@ describe("clampLimit", () => {
   test("null is treated the same as undefined (?? covers both nullish values)", () => {
     expect(clampLimit(null as unknown as undefined, 33, 100)).toBe(33);
   });
+
+  test("NaN (e.g. Number('abc') from a malformed ?limit= query param) falls back to defaultValue instead of propagating", () => {
+    // Regression test: `NaN ?? defaultValue` is NaN (nullish coalescing only
+    // triggers on null/undefined), so without an explicit Number.isFinite
+    // guard this would return NaN and later be bound as a `LIMIT ?` param to
+    // bun:sqlite, which throws 'datatype mismatch' instead of clamping.
+    expect(clampLimit(NaN, 25, 100)).toBe(25);
+  });
+
+  test("Infinity is not treated as a present finite value — falls back to defaultValue then clamped", () => {
+    expect(clampLimit(Infinity, 25, 100)).toBe(25);
+    expect(clampLimit(-Infinity, 0, 100)).toBe(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
