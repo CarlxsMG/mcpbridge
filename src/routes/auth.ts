@@ -62,7 +62,10 @@ export function authRoutes(app: Express): void {
 
     log("info", "Admin login succeeded", { username: user.username, request_id: requestId(res) });
     res.status(200).json({
-      user: { username: user.username, role: user.role },
+      // team_id mirrors /auth/me — needed so the admin UI can tell a super-admin
+      // session (null) apart from a team-scoped one immediately after login,
+      // without relying on a follow-up /auth/me fetch.
+      user: { username: user.username, role: user.role, team_id: user.teamId ?? null },
       csrf_token: session.csrfToken,
     });
   });
