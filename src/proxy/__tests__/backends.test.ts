@@ -429,7 +429,7 @@ describe("backends — wsRequest timeout rejection", () => {
 });
 
 describe("backends — wsRequest binary payload + cap boundary", () => {
-  test("a non-string (binary) WS message is treated as an empty string, not passed through raw (kills L163 ConditionalExpression -> true + StringLiteral fallback -> 'Stryker was here!')", async () => {
+  test("a binary WS frame is rejected as an error, not silently coerced to an empty-string success (P1 regression)", async () => {
     const server = Bun.serve({
       port: 0,
       fetch: (req, s) => (s.upgrade(req) ? undefined : new Response("no")),
@@ -441,8 +441,9 @@ describe("backends — wsRequest binary payload + cap boundary", () => {
       },
     });
     try {
-      const result = await wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 100);
-      expect(result).toBe("");
+      await expect(wsRequest(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 100)).rejects.toThrow(
+        "binary frame",
+      );
     } finally {
       server.stop(true);
     }
@@ -632,7 +633,7 @@ describe("backends — wsRequestPersistent closes before any message", () => {
 });
 
 describe("backends — wsRequestPersistent binary payload + cap boundary", () => {
-  test("a non-string (binary) WS message is treated as an empty string, not passed through raw (kills L219 ConditionalExpression -> true + StringLiteral fallback -> 'Stryker was here!')", async () => {
+  test("a binary WS frame is rejected as an error, not silently coerced to an empty-string success (P1 regression)", async () => {
     const server = Bun.serve({
       port: 0,
       fetch: (req, s) => (s.upgrade(req) ? undefined : new Response("no")),
@@ -645,8 +646,9 @@ describe("backends — wsRequestPersistent binary payload + cap boundary", () =>
       },
     });
     try {
-      const result = await wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 100);
-      expect(result).toBe("");
+      await expect(wsRequestPersistent(`ws://localhost:${server.port}`, "127.0.0.1", "hi", 2000, 100)).rejects.toThrow(
+        "binary frame",
+      );
     } finally {
       server.stop(true);
     }
