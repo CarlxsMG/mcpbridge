@@ -4,13 +4,15 @@ import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useAuth } from "./composables/useAuth";
 import { useLiveSignal } from "./composables/useLiveSignal";
-// Side-effect-only imports: useTheme/useDensity apply the saved theme/density
-// preference to the document at module-load time. App.vue is the one component
-// guaranteed to be in every route's chunk graph, so importing them here (rather
-// than only from AccountPage.vue, where the toggles live) is what makes the
-// preference actually apply on a fresh load of any page, not just /account.
+// Side-effect-only imports: useTheme/useDensity/useLocale apply the saved
+// theme/density/locale preference to the document at module-load time.
+// App.vue is the one component guaranteed to be in every route's chunk
+// graph, so importing them here (rather than only from AccountPage.vue,
+// where the toggles live) is what makes the preference actually apply on a
+// fresh load of any page, not just /account.
 import "./composables/useTheme";
 import "./composables/useDensity";
+import "./composables/useLocale";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import DemoRibbon from "./components/layout/DemoRibbon.vue";
 import TheMobileTopbar from "./components/layout/TheMobileTopbar.vue";
