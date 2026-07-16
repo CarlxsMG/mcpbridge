@@ -346,6 +346,12 @@
       "unchanged": "sin cambios",
       "applying": "Aplicando…",
       "apply_resync": "Aplicar re-sync",
+      "confirm": {
+        "apply_title": "¿Aplicar este re-sync?",
+        "apply_message": "Esto vuelve a registrar el servidor a partir del spec de OpenAPI actualizado.",
+        "apply_message_removed": "Esto vuelve a registrar el servidor a partir del spec de OpenAPI actualizado y elimina {count} tool(s) que ya no están presentes. Cualquier bundle, guard, schedule o política de aprobación que referencie esos tools quedará huérfana.",
+        "apply_cta": "Aplicar resync"
+      },
       "errors": {
         "url_required": "Introduce la URL de OpenAPI.",
         "preview_failed": "Error en la vista previa.",
@@ -473,7 +479,10 @@
       "confirm": {
         "disable_title": "¿Deshabilitar este tool?",
         "disable_message": "'{name}' dejará de funcionar para todos los agentes MCP conectados hasta que se vuelva a habilitar.",
-        "disable_cta": "Deshabilitar {name}"
+        "disable_cta": "Deshabilitar {name}",
+        "unmark_sensitive_title": "¿Desmarcar este tool como sensible?",
+        "unmark_sensitive_message": "Las llamadas a '{name}' ya no requerirán confirmación adicional (step-up) antes de ejecutarse.",
+        "unmark_sensitive_cta": "Desmarcar {name}"
       },
       "errors": {
         "update_failed": "Error al actualizar.",

@@ -2,9 +2,11 @@
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
+import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toErrorMessage } from "@/utils/errors";
 import { tk } from "@/i18n";
 import type { ClientDetail, DiscoveredTool, DiscoveryPreview } from "@/types/api";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import ConfigSection from "./ConfigSection.vue";
 import FieldError from "@/components/ui/FieldError.vue";
 
@@ -69,6 +71,19 @@ async function applyResync() {
   } finally {
     applyingResync.value = false;
   }
+}
+
+const {
+  pending: pendingApplyResync,
+  request: requestApplyResync,
+  cancel: cancelApplyResync,
+  confirm: confirmApplyResyncAction,
+} = useConfirmAction<true>();
+
+function confirmApplyResync() {
+  return confirmApplyResyncAction(async () => {
+    await applyResync();
+  });
 }
 
 async function rediscoverMcp() {
@@ -139,7 +154,7 @@ async function rediscoverMcp() {
         </p>
         <p v-if="resyncDiff.added.length" class="diff-add">+ {{ resyncDiff.added.join(", ") }}</p>
         <p v-if="resyncDiff.removed.length" class="diff-rem">− {{ resyncDiff.removed.join(", ") }}</p>
-        <button type="button" class="btn-primary" :disabled="applyingResync" @click="applyResync">
+        <button type="button" class="btn-primary" :disabled="applyingResync" @click="requestApplyResync(true)">
           {{
             applyingResync
               ? t("components.server_detail_resync.applying")
@@ -149,4 +164,18 @@ async function rediscoverMcp() {
       </div>
     </div>
   </ConfigSection>
+
+  <ConfirmDialog
+    :open="pendingApplyResync !== null"
+    :title="t('components.server_detail_resync.confirm.apply_title')"
+    :message="
+      resyncDiff && resyncDiff.removed.length
+        ? t('components.server_detail_resync.confirm.apply_message_removed', { count: resyncDiff.removed.length })
+        : t('components.server_detail_resync.confirm.apply_message')
+    "
+    :confirm-label="t('components.server_detail_resync.confirm.apply_cta')"
+    danger
+    @confirm="confirmApplyResync"
+    @cancel="cancelApplyResync"
+  />
 </template>

@@ -41,7 +41,11 @@ async function loadCanary() {
 }
 onMounted(loadCanary);
 
-const { error: canaryError, run: runCanary } = usePatchResource(() => clientPath(props.clientName, "canary"));
+const {
+  saving: canarySaving,
+  error: canaryError,
+  run: runCanary,
+} = usePatchResource(() => clientPath(props.clientName, "canary"));
 
 async function saveCanary() {
   const ok = await runCanary(
@@ -104,7 +108,9 @@ const {
         ><input v-model="canaryForm.enabled" type="checkbox" />
         {{ t("components.server_detail_canary.fields.enabled") }}</label
       >
-      <button type="submit" class="btn-secondary">{{ t("components.server_detail_canary.save") }}</button>
+      <button type="submit" class="btn-secondary" :disabled="canarySaving">
+        {{ canarySaving ? t("common.saving") : t("components.server_detail_canary.save") }}
+      </button>
     </form>
     <FieldError :message="canaryError || clearCanaryError" />
   </ConfigSection>

@@ -123,4 +123,33 @@ describe("ServerDetailToolsTable", () => {
     expect(sensitiveBtn.text()).toBe("Mark sensitive");
     expect(wrapper.find(".row-error").text()).toBe("Could not mark sensitive.");
   });
+
+  it("requires confirmation before unmarking a tool as sensitive, since that removes its step-up gate", async () => {
+    const wrapper = mountTable([makeTool({ sensitive: true })]);
+
+    const sensitiveBtn = wrapper.find("tbody tr td:nth-child(5) button");
+    await sensitiveBtn.trigger("click");
+
+    // No PATCH fires, and the flag stays put, until the dialog is confirmed.
+    expect(apiPatch).not.toHaveBeenCalled();
+    expect(wrapper.find('[role="alertdialog"]').exists()).toBe(true);
+    expect(sensitiveBtn.text()).toBe("🔒 Sensitive");
+
+    apiPatch.mockResolvedValueOnce(undefined);
+    await wrapper.find('[role="alertdialog"] .btn-danger').trigger("click");
+    await flushPromises();
+
+    expect(apiPatch).toHaveBeenCalledWith("/admin-api/clients/acme/tools/search", { sensitive: false });
+    expect(wrapper.find("tbody tr td:nth-child(5) button").text()).toBe("Mark sensitive");
+  });
+
+  it("marks a tool sensitive with no confirmation dialog (only the removal direction is gated)", async () => {
+    apiPatch.mockResolvedValueOnce(undefined);
+    const wrapper = mountTable([makeTool({ sensitive: false })]);
+
+    await wrapper.find("tbody tr td:nth-child(5) button").trigger("click");
+
+    expect(wrapper.find('[role="alertdialog"]').exists()).toBe(false);
+    expect(apiPatch).toHaveBeenCalledWith("/admin-api/clients/acme/tools/search", { sensitive: true });
+  });
 });
