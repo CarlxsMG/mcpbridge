@@ -52,8 +52,15 @@ function adminRoleLabel(role: AdminRole | null): string {
   return t(`pages.users.roles.${role}`);
 }
 
+// Mirrors useOptimisticToggle's in-flight guard (which is boolean-only and so
+// can't be reused directly for a role value): a change already in flight for
+// a given key is ignored rather than re-fired, so a fast second selection
+// can't have its own success clobbered by the first request's late revert.
+const pendingAdminRoleKeys = new Set<number>();
+
 async function changeAdminRole(key: McpApiKey, next: AdminRole | null) {
-  if (next === key.adminRole) return;
+  if (next === key.adminRole || pendingAdminRoleKeys.has(key.id)) return;
+  pendingAdminRoleKeys.add(key.id);
   const previous = key.adminRole;
   key.adminRole = next; // optimistic
   delete rowError.value[key.id];
@@ -62,6 +69,8 @@ async function changeAdminRole(key: McpApiKey, next: AdminRole | null) {
   } catch (err) {
     key.adminRole = previous; // revert on failure
     rowError.value[key.id] = toErrorMessage(err, updateFallback);
+  } finally {
+    pendingAdminRoleKeys.delete(key.id);
   }
 }
 
