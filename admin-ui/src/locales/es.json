@@ -1409,6 +1409,7 @@
       },
       "breakdown_title": "Desglose por estado",
       "by": "por",
+      "levels_badge_short": "{approved}/{total} aprobados",
       "note_placeholder": "Nota…",
       "aria": {
         "note_for_id": "Nota para la aprobación #{id}"

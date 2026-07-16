@@ -1409,6 +1409,7 @@
       },
       "breakdown_title": "Status breakdown",
       "by": "by",
+      "levels_badge_short": "{approved}/{total} approved",
       "note_placeholder": "Note…",
       "aria": {
         "note_for_id": "Note for approval #{id}"

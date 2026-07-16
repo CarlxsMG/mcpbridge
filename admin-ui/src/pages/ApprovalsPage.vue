@@ -185,9 +185,9 @@ async function confirmReject() {
                 :style="{ color: `var(${toneColorVar(statusTone(a.status))})` }"
               >
                 {{ t("pages.approvals.status.pending") }}<br />
-                <span v-if="a.requiredLevels > 1" class="levels-badge"
-                  >{{ approvedCount(a) }}/{{ a.requiredLevels }} approved</span
-                >
+                <span v-if="a.requiredLevels > 1" class="levels-badge">{{
+                  t("pages.approvals.levels_badge_short", { approved: approvedCount(a), total: a.requiredLevels })
+                }}</span>
               </span>
               <span v-else :style="{ color: `var(${toneColorVar(statusTone(a.status))})` }">
                 {{
