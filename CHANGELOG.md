@@ -69,6 +69,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   broken `CMD`/`ENTRYPOINT`, `COPY` path, or env-wiring mistake would pass every gate undetected.
   The Helm lint job also renders a second `values` file exercising `existingSecret`,
   `persistence`, and an external `ServiceAccount`, which the default-only render left untouched.
+- **Admin UI — a super-admin can now grant or edit a managed key's system role** directly (a
+  "System role" select on the New API Key form, plus an inline edit control on the Keys table),
+  instead of needing a raw `curl` call to `PATCH /admin-api/mcp-keys/:id` to mint a key with
+  `/mcp` control-plane access. Both controls are gated to super-admin callers, mirroring the
+  backend's `isSuperAdminCaller` check, so a team-scoped admin never sees a control it would
+  just get a 403 from; `GET /admin-api/auth/me` now reports the session's `team_id` (`null` =
+  super-admin) so the UI can decide when to show it.
 
 ### Changed
 
@@ -136,6 +143,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `src/transports.ts` path, documented `BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD`/
   `ALLOW_PRIVATE_IPS` in `CONTRIBUTING.md` (previously only in CLAUDE.md), and removed three
   one-shot i18n Python scripts confirmed to have zero remaining references.
+- Internal: `checkSensitiveToolGate` (the REST/MCP-upstream dispatch path in `proxy.ts`) and
+  `runSystemTool`'s `/mcp` system-tool catalog each hand-rolled an identical `__confirm`/elevated
+  step-up check. Extracted into a shared `checkConfirmGate()` in `src/proxy/gates.ts` so the
+  step-up semantics and rejection message can only be defined once.
+- Docs: `gateway connect --scope system` (CLI and the admin UI's "Connect client" dialog) now
+  gives scope-aware key guidance — a system-scope connection needs a key with an `adminRole` set
+  (or the env admin Bearer), not just any enabled MCP API key, which the previous one-size-fits-all
+  hint didn't make clear. The admin-UI key-count hint/warning is filtered the same way.
+- Docs: CLAUDE.md's Resilience section overstated that POST/PUT/PATCH are never retried on
+  failure — PUT/DELETE are retried when a client opts into the per-client
+  `retry_non_safe_methods` flag, matching `src/proxy/dispatch-rest.ts` and
+  `docs/guide/registering-backends.md`, which already documented the flag. CLAUDE.md's Commands
+  section also gained the previously-undocumented `bun run test:mutate` (Stryker) command, and
+  its CI summary now covers the required `e2e` job plus `codeql.yml` and `security.yml`.
 
 ### Removed
 
@@ -361,6 +382,40 @@ NODE_ENV=production`, and the prod compose pins it so a copied dev `.env` can't 
   operator-supplied `--url` over the network, so a wrong port, reverse proxy, or load-balancer
   error page produced a cryptic `SyntaxError` instead of the HTTP-status-aware `CliApiError` every
   other CLI failure path relies on.
+- **Security — team-scoped admins could overwrite another tenant's guard policy (P0).**
+  `POST /admin-api/policies/:id/apply` accepted a caller-supplied `{client, tool}` list (or a
+  bundle's resolved tool list) and applied it straight to `registry.applyGuardPolicy()` with no
+  ownership check, even though the route is gated only by `requireAdminRole` (a role check, not
+  tenancy). A team-scoped admin could silently overwrite or null out another tenant's
+  rate-limit/timeout guard on a client they don't own and can't see in their own dashboard.
+  `applyPolicyToTools`/`applyPolicyToBundle` now take an optional per-caller team confinement.
+- **Security — schedule CRUD had no tenancy check (P1).** The `POST`/`PATCH`/`DELETE` schedule
+  routes were gated only by `requireOperator` (role, not team) and never verified the target
+  client's ownership, so a team-scoped operator could create a schedule against another tenant's
+  client, or enable/disable/delete any schedule by id regardless of which team's client it
+  targets; `GET /admin-api/schedules` also returned every tenant's schedules unfiltered. Added
+  `getSchedule()` and a `teamId` filter to `listSchedules()`.
+- **Security — `GET /admin-api/approvals` leaked every tenant's approval tickets (P1),**
+  including `argsJson` — the raw, unredacted arguments of the tool call that triggered the
+  approval requirement — despite having no role gate or team filter at all, unlike the two
+  mutation routes in the same file that already call `ensureClientAccess`. `listApprovals()` now
+  takes an optional `teamId`, mirroring `listTraffic`'s existing pattern.
+- **Security — the two `GET /admin-api/mcp-keys` routes returned every managed key unfiltered
+  (P2),** regardless of the caller's role or team, unlike every mutation in the same file. A
+  team-scoped session of any role could enumerate every key in the system, including other
+  tenants' `scopes.clients` (which `ensureClientAccess` elsewhere deliberately hides behind a
+  uniform 404) and which keys carry `adminRole`/`elevated` (control-plane privilege). Both routes
+  are now team-scoped.
+- **Admin UI — accessibility.** The server-detail page's team-ownership `SelectMenu` and the
+  Policies page's per-row "Apply to bundle" `SelectMenu` both rendered with no accessible name
+  (no `id`/`aria-label`/`title`/wrapping `<label>`), unlike their sibling Mode/Strategy selects;
+  both now get an `aria-label` matching that established pattern (the Policies one interpolates
+  the policy name, since it repeats once per row).
+- **Admin UI — i18n missing-key console warnings weren't actually silenced.**
+  `silentFallbackWarn`/`silentTranslationWarn` are legacy vue-i18n option names ignored under
+  `legacy: false`; the real "Not found key" warning is gated by `fallbackWarn`/`missingWarn`,
+  which fired on every route whose name isn't a `nav.*` key despite the code comment claiming it
+  was suppressed. Fixed in `admin-ui/src/i18n.ts` and its `test-setup.ts` duplicate.
 
 ### Security
 
