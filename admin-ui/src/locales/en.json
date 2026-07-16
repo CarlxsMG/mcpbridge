@@ -1082,6 +1082,9 @@
         "client_count": "{count} client(s)",
         "tool_count": "{count} tool(s)"
       },
+      "aria": {
+        "change_admin_role": "System role for '{label}'"
+      },
       "confirm": {
         "delete_title": "Delete this API key?",
         "delete_message": "'{label}' will stop working immediately and be removed permanently.",
@@ -2027,6 +2030,10 @@
         "team_cta": "Change team",
         "team_cta_default": "Change team to {team}",
         "team_self_warning": "You are about to change your own team."
+      },
+      "aria": {
+        "change_role": "Role for {username}",
+        "change_team": "Team for {username}"
       }
     },
     "usage": {

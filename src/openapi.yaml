@@ -1197,6 +1197,9 @@ paths:
                     properties:
                       username: { type: string, example: admin }
                       role: { type: string, enum: [admin, operator, auditor, viewer], example: admin }
+                      team_id:
+                        type: [integer, "null"]
+                        description: null means a super-admin session; otherwise the id of the team this session is scoped to.
                   csrf_token:
                     type: string
                     description: Same value as the (non-httpOnly) CSRF cookie, for convenience.

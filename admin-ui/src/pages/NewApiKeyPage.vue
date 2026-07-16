@@ -149,7 +149,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
             :reload="loadConsumers"
           />
         </FormField>
-        <label class="checkbox-field"
+        <label v-if="isSuperAdmin" class="checkbox-field"
           ><input v-model="elevated" type="checkbox" /> {{ t("pages.keys.new.elevated_label") }}</label
         >
         <FormField v-if="isSuperAdmin" :label="t('pages.keys.new.fields.admin_role')" for="k-admin-role">

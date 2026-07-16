@@ -84,8 +84,11 @@ describe("POST /admin-api/auth/login", () => {
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { user: { username: string; role: string }; csrf_token: string };
-    expect(body.user).toEqual({ username: "alice", role: "admin" });
+    const body = (await res.json()) as {
+      user: { username: string; role: string; team_id: number | null };
+      csrf_token: string;
+    };
+    expect(body.user).toEqual({ username: "alice", role: "admin", team_id: null });
     expect(typeof body.csrf_token).toBe("string");
 
     const setCookies = res.headers.getSetCookie();
