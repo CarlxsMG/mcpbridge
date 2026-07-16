@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { getUsageSummary, getUsageTimeseries, getTopTools, getUsageByKey } from "../observability/usage.js";
+import { callerTeamId, ensureClientAccess } from "../middleware/authz.js";
 
 function num(v: unknown): number | undefined {
   if (typeof v !== "string") return undefined;
@@ -9,7 +10,13 @@ function num(v: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-/** Read-only usage analytics endpoints (viewers may read). */
+/**
+ * Read-only usage analytics endpoints (viewers may read) — but every query is
+ * scoped to the caller's own team (mirrors clients.ts/traffic.ts's `teamId`
+ * pattern): an explicit `?client=` is checked via `ensureClientAccess` so a
+ * team-scoped caller can't probe another tenant's client by name, and the
+ * aggregate/by-key views are restricted to the caller's team's clients.
+ */
 export function usageRoutes(app: Express): void {
   // One shared admin-auth gate for every route in this file (mounted under
   // /admin-api below), instead of repeating adminAuth on each handler.
@@ -17,32 +24,54 @@ export function usageRoutes(app: Express): void {
   r.use(adminAuth);
 
   r.get("/usage/summary", (req: Request, res: Response) => {
+    const clientName = typeof req.query.client === "string" ? req.query.client : undefined;
+    if (clientName && !ensureClientAccess(req, res, clientName)) return;
+    const teamId = callerTeamId(req);
     res.status(200).json(
       getUsageSummary({
         from: num(req.query.from),
         to: num(req.query.to),
-        clientName: typeof req.query.client === "string" ? req.query.client : undefined,
+        clientName,
+        teamId: typeof teamId === "number" ? teamId : undefined,
       }),
     );
   });
 
   r.get("/usage/timeseries", (req: Request, res: Response) => {
+    const clientName = typeof req.query.client === "string" ? req.query.client : undefined;
+    if (clientName && !ensureClientAccess(req, res, clientName)) return;
+    const teamId = callerTeamId(req);
     res.status(200).json(
       getUsageTimeseries({
         from: num(req.query.from),
         to: num(req.query.to),
         bucketMs: num(req.query.bucketMs),
-        clientName: typeof req.query.client === "string" ? req.query.client : undefined,
+        clientName,
+        teamId: typeof teamId === "number" ? teamId : undefined,
       }),
     );
   });
 
   r.get("/usage/top-tools", (req: Request, res: Response) => {
-    res.status(200).json({ items: getTopTools({ from: num(req.query.from), limit: num(req.query.limit) }) });
+    const teamId = callerTeamId(req);
+    res.status(200).json({
+      items: getTopTools({
+        from: num(req.query.from),
+        limit: num(req.query.limit),
+        teamId: typeof teamId === "number" ? teamId : undefined,
+      }),
+    });
   });
 
   r.get("/usage/by-key", (req: Request, res: Response) => {
-    res.status(200).json({ items: getUsageByKey({ from: num(req.query.from), limit: num(req.query.limit) }) });
+    const teamId = callerTeamId(req);
+    res.status(200).json({
+      items: getUsageByKey({
+        from: num(req.query.from),
+        limit: num(req.query.limit),
+        teamId: typeof teamId === "number" ? teamId : undefined,
+      }),
+    });
   });
 
   app.use("/admin-api", r);
