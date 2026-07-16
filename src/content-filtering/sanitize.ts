@@ -35,13 +35,21 @@ export function sanitizeToolDescription(description: string): string {
     wasSanitized = true;
   }
 
-  // Strip suspicious patterns
-  for (const pattern of SUSPICIOUS_PATTERNS) {
-    const replaced = sanitized.replace(pattern, "");
-    if (replaced !== sanitized) {
-      sanitized = replaced;
-      wasSanitized = true;
+  // Strip suspicious patterns, repeatedly to a fixpoint. A single pass leaves
+  // interleaved tokens ("you you must must ...") that reconstruct the banned
+  // phrase once whitespace collapses below, so re-run the strip loop until the
+  // string stops changing. Capped at 8 iterations to bound worst-case work.
+  for (let iter = 0; iter < 8; iter++) {
+    let changedThisPass = false;
+    for (const pattern of SUSPICIOUS_PATTERNS) {
+      const replaced = sanitized.replace(pattern, "");
+      if (replaced !== sanitized) {
+        sanitized = replaced;
+        changedThisPass = true;
+        wasSanitized = true;
+      }
     }
+    if (!changedThisPass) break;
   }
 
   // Collapse multiple spaces left by removals

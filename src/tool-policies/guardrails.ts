@@ -22,22 +22,45 @@ interface GuardrailRow {
 
 export const MAX_DENY_PATTERNS = 20;
 export const MAX_DENY_PATTERN_LENGTH = 200;
-// Cap the string an operator-configured deny pattern is run against: a
-// catastrophic-backtracking regex could otherwise pin a CPU core on a large
-// caller-supplied args payload (ReDoS on the hot path). 16 KiB is far above any
-// legitimate argument set that a deny pattern meaningfully inspects.
+// Cap the string an operator-configured deny pattern is run against. This bounds
+// the LINEAR scan cost of a well-behaved pattern over a large caller-supplied args
+// payload; it does NOT tame exponential/catastrophic backtracking — an evil regex
+// blows up on a tiny input, so the cap can't help there. Rejecting such patterns
+// at config time (looksReDoSProne) is the real ReDoS defense. 16 KiB is far above
+// any legitimate argument set that a deny pattern meaningfully inspects.
 export const MAX_DENY_SCAN_BYTES = 16_384;
 
 /**
- * Conservative ReDoS heuristic — flags a group that both contains an unbounded
- * quantifier AND is itself quantified (the classic catastrophic-backtracking
- * shape: `(a+)+`, `(a*)*`, `(a+)*`, `(\w+){2,}`). Intentionally narrow to avoid
- * rejecting legitimate operator patterns; the MAX_DENY_SCAN_BYTES eval-time cap
- * is the runtime backstop for anything it misses. Used to reject such a pattern
- * at config time before it ever reaches the DB / hot path.
+ * Conservative ReDoS heuristic — rejects the regex shapes that induce
+ * exponential backtracking, at config time, before a pattern reaches the DB /
+ * hot path. Flags three families:
+ *   (1) a quantified group whose body itself contains an unbounded quantifier —
+ *       the classic `(a+)+`, `(a*)*`, `(a+)*`, `(\w+){2,}` shape, plus the
+ *       `{n,}`-nested variant `(a{2,})+`;
+ *   (2) a quantified group with duplicate/overlapping alternation branches —
+ *       the ambiguous `(a|a)+`, `(foo|foo)*`, `(ab|ab){2,}` shape, whose
+ *       blow-up comes from branch ambiguity rather than a nested quantifier.
+ * Intentionally narrow otherwise: a plain quantified group like `(abc)+` is
+ * linear and stays allowed.
  */
 export function looksReDoSProne(pattern: string): boolean {
-  return /\([^)]*[+*][^)]*\)[+*{]/.test(pattern);
+  // (1) Nested quantifier: group body carries `+`, `*`, or an open `{n,}`/`{n,m}`
+  //     quantifier, and the group itself is quantified.
+  if (/\([^)]*(?:[+*]|\{\d+,\d*\})[^)]*\)\s*(?:[+*]|\{)/.test(pattern)) return true;
+
+  // (2) Quantified group with a duplicated alternation branch (overlapping
+  //     alternatives that make the match ambiguous).
+  const quantifiedAlt = /\(([^()|]+(?:\|[^()|]+)+)\)\s*(?:[+*]|\{)/g;
+  let m: RegExpExecArray | null;
+  while ((m = quantifiedAlt.exec(pattern)) !== null) {
+    const branches = m[1].split("|").map((b) => b.trim());
+    const seen = new Set<string>();
+    for (const b of branches) {
+      if (seen.has(b)) return true;
+      seen.add(b);
+    }
+  }
+  return false;
 }
 
 /**
