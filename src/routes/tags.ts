@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "../middleware/authz.js";
+import { requireAdminRole, ensureClientAccess, callerTeamId } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { TOOL_KEY_SEPARATOR } from "../lib/identifier.js";
 import { listAllTags, listToolsByTag, setToolTags, normalizeTag, TAG_RE } from "../tool-meta/tool-tags.js";
@@ -13,12 +13,14 @@ export function tagRoutes(app: Express): void {
   const r = Router();
   r.use(adminAuth);
 
-  r.get("/tags", (_req: Request, res: Response) => {
-    res.status(200).json({ items: listAllTags() });
+  r.get("/tags", (req: Request, res: Response) => {
+    const teamId = callerTeamId(req);
+    res.status(200).json({ items: listAllTags(typeof teamId === "number" ? teamId : undefined) });
   });
 
   r.get("/tags/:tag/tools", (req: Request<{ tag: string }>, res: Response) => {
-    res.status(200).json({ items: listToolsByTag(req.params.tag) });
+    const teamId = callerTeamId(req);
+    res.status(200).json({ items: listToolsByTag(req.params.tag, typeof teamId === "number" ? teamId : undefined) });
   });
 
   r.put(
@@ -26,6 +28,7 @@ export function tagRoutes(app: Express): void {
     requireAdminRole,
     (req: Request<{ name: string; tool: string }>, res: Response) => {
       const { name, tool } = req.params;
+      if (!ensureClientAccess(req, res, name)) return;
       const body = bodyOf(req);
       if (!Array.isArray(body.tags) || !body.tags.every((t) => typeof t === "string")) {
         validationError(res, "tags must be an array of strings");

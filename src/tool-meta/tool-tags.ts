@@ -23,21 +23,51 @@ export function setToolTags(clientName: string, toolName: string, tags: string[]
   return true;
 }
 
-/** All distinct tags with the number of tools carrying each. */
-export function listAllTags(): { tag: string; count: number }[] {
-  return getDb().query(`SELECT tag, COUNT(*) as count FROM tool_tags GROUP BY tag ORDER BY count DESC, tag`).all() as {
-    tag: string;
-    count: number;
-  }[];
+/**
+ * All distinct tags with the number of tools carrying each. When `teamId` is a
+ * number the result is scoped to that team's clients (JOIN clients on
+ * client_name); super-admin/bearer callers pass undefined for an unfiltered
+ * view.
+ */
+export function listAllTags(teamId?: number): { tag: string; count: number }[] {
+  if (teamId === undefined) {
+    return getDb()
+      .query(`SELECT tag, COUNT(*) as count FROM tool_tags GROUP BY tag ORDER BY count DESC, tag`)
+      .all() as {
+      tag: string;
+      count: number;
+    }[];
+  }
+  return getDb()
+    .query(
+      `SELECT tag, COUNT(*) as count FROM tool_tags
+       JOIN clients ON clients.name = tool_tags.client_name
+       WHERE clients.team_id = ?
+       GROUP BY tag ORDER BY count DESC, tag`,
+    )
+    .all(teamId) as { tag: string; count: number }[];
 }
 
-/** Every (client, tool) carrying a given tag. */
-export function listToolsByTag(tag: string): { client: string; tool: string }[] {
-  return (
-    getDb()
-      .query(`SELECT client_name, tool_name FROM tool_tags WHERE tag = ? ORDER BY client_name, tool_name`)
-      .all(normalizeTag(tag)) as { client_name: string; tool_name: string }[]
-  ).map((r) => ({ client: r.client_name, tool: r.tool_name }));
+/**
+ * Every (client, tool) carrying a given tag. When `teamId` is a number the
+ * result is scoped to that team's clients; super-admin/bearer callers pass
+ * undefined for an unfiltered view.
+ */
+export function listToolsByTag(tag: string, teamId?: number): { client: string; tool: string }[] {
+  const rows =
+    teamId === undefined
+      ? (getDb()
+          .query(`SELECT client_name, tool_name FROM tool_tags WHERE tag = ? ORDER BY client_name, tool_name`)
+          .all(normalizeTag(tag)) as { client_name: string; tool_name: string }[])
+      : (getDb()
+          .query(
+            `SELECT tool_tags.client_name AS client_name, tool_tags.tool_name AS tool_name FROM tool_tags
+             JOIN clients ON clients.name = tool_tags.client_name
+             WHERE tool_tags.tag = ? AND clients.team_id = ?
+             ORDER BY tool_tags.client_name, tool_tags.tool_name`,
+          )
+          .all(normalizeTag(tag), teamId) as { client_name: string; tool_name: string }[]);
+  return rows.map((r) => ({ client: r.client_name, tool: r.tool_name }));
 }
 
 /** Tags for every tool of a client, keyed by tool name — batched for detail views. */
