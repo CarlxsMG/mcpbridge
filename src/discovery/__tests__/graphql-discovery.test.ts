@@ -205,4 +205,58 @@ describe("discoverToolsFromGraphQl", () => {
     // No crash, and no tool derived from a subscription (there's no Subscription type in `types`, proving it's never consulted).
     expect(tools.length).toBeGreaterThan(0);
   });
+
+  test("a doubly-nested list arg/return type ([[Int]] / [[Pet]]) resolves the true leaf type instead of collapsing to string (P2 regression)", async () => {
+    const nestedSchema = {
+      data: {
+        __schema: {
+          queryType: { name: "Query" },
+          mutationType: null,
+          types: [
+            {
+              kind: "OBJECT",
+              name: "Query",
+              fields: [
+                {
+                  name: "matrix",
+                  description: "Takes and returns nested lists",
+                  args: [{ name: "grid", description: null, type: LIST(LIST(SCALAR("Int"))), defaultValue: null }],
+                  type: LIST(LIST(NAMED("OBJECT", "Pet"))),
+                },
+              ],
+              inputFields: null,
+              enumValues: null,
+            },
+            {
+              kind: "OBJECT",
+              name: "Pet",
+              fields: [
+                { name: "id", description: null, args: [], type: NON_NULL(SCALAR("ID")) },
+                { name: "name", description: null, args: [], type: NON_NULL(SCALAR("String")) },
+              ],
+              inputFields: null,
+              enumValues: null,
+            },
+            { kind: "SCALAR", name: "ID", fields: null, inputFields: null, enumValues: null },
+            { kind: "SCALAR", name: "String", fields: null, inputFields: null, enumValues: null },
+            { kind: "SCALAR", name: "Int", fields: null, inputFields: null, enumValues: null },
+          ],
+        },
+      },
+    };
+
+    mockFetch(nestedSchema);
+    const tools = await discoverToolsFromGraphQl({ graphqlUrl: "http://example.test/graphql" });
+    const matrix = tools.find((t) => t.name === "matrix")!;
+    expect(matrix).toBeDefined();
+
+    // Arg schema: nested array of numbers, not the buggy `{ type: "array", items: { type: "string" } }`.
+    const props = matrix.inputSchema.properties as Record<string, unknown>;
+    expect(props.grid).toEqual({ type: "array", items: { type: "array", items: { type: "number" } } });
+
+    // Selection set: the nested-list Pet return type must still get a real sub-selection,
+    // not fall through to no selection at all (which would emit invalid GraphQL).
+    expect(matrix.query).toContain("matrix(grid: $grid)");
+    expect(matrix.query).toMatch(/matrix\(grid: \$grid\)\s*\{[^}]*\bid\b[^}]*\bname\b[^}]*\}/);
+  });
 });

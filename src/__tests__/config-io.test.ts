@@ -192,6 +192,26 @@ describe("config export/import", () => {
     expect(result.skipped).toHaveLength(0);
   });
 
+  test("skips a bundle whose tools field isn't an array instead of throwing (P2 regression)", async () => {
+    const doc = {
+      version: 1,
+      exportedAt: Date.now(),
+      bundles: [
+        { name: "malformed", description: null, enabled: true, tools: "not-an-array" },
+        { name: "also-malformed", description: null, enabled: true, tools: { client: "svc", tool: "get-users" } },
+      ],
+      alertRules: [],
+      clients: [],
+      guardrails: [],
+      consumers: [],
+    };
+    const result = await importConfig(doc, { dryRun: false }, "t");
+    expect(result.applied.bundles).toBe(0);
+    expect(result.skipped.filter((s) => s.type === "bundle")).toHaveLength(2);
+    expect(result.skipped.find((s) => s.id === "malformed")?.reason).toBe("tools field is not an array");
+    expect(getBundleDetail("malformed")).toBeUndefined();
+  });
+
   test("skips guardrails for a tool that doesn't exist", async () => {
     const doc = {
       version: 1,

@@ -185,7 +185,11 @@ export function wsRequest(
       }
     });
     ws.on("message", (data: RawData, isBinary: boolean) => {
-      const text = isBinary ? "" : data.toString();
+      if (isBinary) {
+        finish(() => reject(new Error("WS tool backend sent a binary frame — only text/JSON responses are supported")));
+        return;
+      }
+      const text = data.toString();
       if (text.length > maxBytes) {
         finish(() => reject(new Error("WS response exceeded MAX_RESPONSE_BYTES limit")));
         return;
@@ -242,7 +246,11 @@ export function wsRequestPersistent(
       }
     });
     ws.on("message", (data: RawData, isBinary: boolean) => {
-      const text = isBinary ? "" : data.toString();
+      if (isBinary) {
+        finish(() => reject(new Error("WS tool backend sent a binary frame — only text/JSON responses are supported")));
+        return;
+      }
+      const text = data.toString();
       if (text.length > maxBytes) {
         finish(() => reject(new Error("WS response exceeded MAX_RESPONSE_BYTES limit")));
         return;

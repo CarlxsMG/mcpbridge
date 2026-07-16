@@ -199,9 +199,15 @@ export async function importConfig(
     applied.alertRules++;
   }
 
-  // Bundles — created or replaced. Skipped when they reference unknown tools.
+  // Bundles — created or replaced. Skipped when they reference unknown tools
+  // (or when `tools` isn't an array at all — a hand-edited/foreign-schema
+  // document must degrade to a reported skip, not throw mid-import).
   for (const b of asArray<ExportedBundle>(doc.bundles)) {
-    const missing = (b.tools ?? []).filter((t) => !toolExists.get(t.client, t.tool));
+    if (!Array.isArray(b.tools)) {
+      skipped.push({ type: "bundle", id: b.name, reason: "tools field is not an array" });
+      continue;
+    }
+    const missing = b.tools.filter((t) => !toolExists.get(t.client, t.tool));
     if (missing.length > 0) {
       skipped.push({ type: "bundle", id: b.name, reason: `${missing.length} unknown tool(s)` });
       continue;

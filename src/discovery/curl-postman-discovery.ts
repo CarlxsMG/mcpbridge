@@ -234,6 +234,11 @@ function parseSingleCurlCommand(
     } else if (t === "-u" || t === "--user") {
       i++; // consume the "user:pass" value — never inspected or persisted (see file-level doc comment)
       sawUser = true;
+    } else if (t === "--") {
+      // curl's standard end-of-options marker (recommended before a URL that could
+      // otherwise be misread as a flag, e.g. one starting with `-`) — not a flag
+      // itself, so it must not swallow the following token as a "value".
+      continue;
     } else if (t.startsWith("-") && t !== "-") {
       if (!isBooleanFlagToken(t)) i++; // best-effort: assume unknown flags take a value and skip it
     } else if (!url) {
