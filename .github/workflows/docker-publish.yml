@@ -105,9 +105,16 @@ jobs:
       # ENTRYPOINT, a COPY path, tini, or the PORT/DB_PATH env wiring were
       # broken. Hits the same /livez endpoint the Dockerfile's own HEALTHCHECK
       # polls, so a regression there is caught here too.
+      # --read-only + a /tmp tmpfs mirror docker-compose.yml's `read_only: true`
+      # / `tmpfs: [/tmp]` and the Helm chart's default
+      # `securityContext.readOnlyRootFilesystem: true` — both real deployment
+      # paths run the root filesystem locked, so the published image must be
+      # proven to boot under that same constraint, not just a writable one.
       - name: Smoke-test image boot (docker run + /livez)
         run: |
-          docker run -d --name smoke-test -p 3000:3000 mcp-rest-bridge:scan
+          docker run -d --name smoke-test -p 3000:3000 \
+            --read-only --tmpfs /tmp:rw,size=64m \
+            mcp-rest-bridge:scan
           ok=""
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:3000/livez; then
