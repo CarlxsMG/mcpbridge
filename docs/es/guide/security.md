@@ -47,7 +47,9 @@ keys y aislamiento por equipos.
 ## Auditoría a prueba de manipulaciones
 
 Cada mutación admin se escribe en un **log de auditoría encadenado por hash**
-(`hash = SHA256(prev_hash | actor | action | target | detail | created_at)`), de modo que
+(`hash = SHA256(JSON.stringify([prev_hash, actor, action, target, detail, created_at]))`) —
+una pre-imagen codificada en JSON, no una unión por delimitador, ya que campos influenciados
+por el caller como `target` y `detail` podrían colisionar entre filas distintas — de modo que
 cualquier edición o eliminación retroactiva rompe la cadena y es detectable vía un endpoint
 de verificación. Los eventos también pueden streamarse a un SIEM en tiempo real
 (`AUDIT_SINK_URL`).

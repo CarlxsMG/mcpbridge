@@ -105,18 +105,20 @@ Express middleware. MCP multiplexes many tools over one `POST /mcp` route, so th
 knows _which_ tool is being called once the JSON-RPC body is parsed; anything that needs per-tool
 behavior has to live inside `proxyToolCall`, not `app.use(...)`.
 
-**Two kinds of backend, one identity.** Both are keyed the same way, `clientName__toolName`
+**Three kinds of backend, one identity.** All are keyed the same way, `clientName__toolName`
 (double underscore is the separator — the client/tool name regex is constrained so this can't
 collide):
 
 - **REST clients** — registered from an OpenAPI/Swagger spec (auto-discovery via
   `src/discovery/`), a cURL/Postman import, or a manual tool list. Each tool maps to an HTTP
   method + path on the backend's base URL.
+- **GraphQL clients** (`kind: "graphql"`) — the bridge introspects the schema and generates one
+  tool per query/mutation.
 - **MCP upstreams** (`kind: "mcp"`) — existing MCP servers (Streamable HTTP or SSE); the bridge
   connects out, discovers their tools/resources/prompts, and re-exposes them.
 
-Every governance feature (guards, guardrails, RBAC, bundles, usage, audit) applies to both kinds
-unchanged because they share this identity.
+Every governance feature (guards, guardrails, RBAC, bundles, usage, audit) applies to all three
+kinds unchanged because they share this identity.
 
 **Two planes, three endpoints.** `POST /mcp` is the **control plane**: gateway management +
 data retrieval over the gateway itself (`sys_*` tools — `src/mcp/system-tools.ts`), never

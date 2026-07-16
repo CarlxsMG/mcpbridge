@@ -35,17 +35,19 @@ sin importar por qué endpoint de datos llegó la llamada. El transporte SSE leg
 (`GET /sse` y `POST /messages`) se eliminó junto con la agregación; Streamable HTTP es ahora
 el único transporte MCP entrante.
 
-## Dos tipos de backend
+## Tres tipos de backend
 
 - **Clientes REST** — registrados desde un spec OpenAPI/Swagger (auto-descubrimiento) o
   una lista manual de tools. Cada tool mapea a un método + path HTTP sobre la URL base
   del backend.
+- **Clientes GraphQL** — registrados como `kind: "graphql"`. El bridge introspecciona el
+  schema y genera una tool por query/mutation.
 - **Upstreams MCP** — servidores MCP existentes (Streamable HTTP o SSE) registrados como
   `kind: "mcp"`. El bridge se conecta hacia fuera, descubre sus tools y las re-expone.
 
-Ambos se identifican por la misma identidad abstracta `client__tool`, así que toda
+Los tres se identifican por la misma identidad abstracta `client__tool`, así que toda
 funcionalidad de governance — guards, guardrails, RBAC, bundles, uso, auditoría — se
-aplica a ambos sin cambios.
+aplica a los tres sin cambios.
 
 ## Almacenamiento y runtime
 
