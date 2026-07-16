@@ -33,6 +33,10 @@ value is shown exactly once at creation.
 - **Lifecycle** — set an expiry, revoke instantly, see last-used timestamps.
 - **Fail-closed** — a per-tool allowed-key restriction is enforced even if global auth is
   disabled: configuring one clearly signals intent.
+- **System role** — optionally grant a key `admin`/`operator`/`auditor`/`viewer` access to the
+  `/mcp` control plane (super-admin only to set, from the admin UI's Keys page) — a separate,
+  additive grant from the scoping above, since it authorizes gateway-management `sys_*` tools,
+  not backend tool calls. See the "Control plane" section of the [API reference →](/guide/api-reference).
 
 ## Consumers & quotas
 

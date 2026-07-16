@@ -46,7 +46,20 @@ stale-filter URL-sync bug, a missing unsaved-changes guard), a CLI fix so a non-
 response raises a proper `CliApiError` instead of a raw parse error, CI smoke tests that actually
 boot the Docker image and release binaries before publishing, and several documentation
 corrections (health-probe/load-balancer routing guidance, IP-pin re-resolution behavior, the
-OpenAPI canary-weight range). See the root
+OpenAPI canary-weight range).
+
+Since then: a **P0 fix** closed a team-scoped-admin tenancy escape in `POST
+/admin-api/policies/:id/apply` (a caller-supplied tool/bundle list was applied with no ownership
+check, letting a team admin overwrite another tenant's guard policy), followed by three more
+tenancy fixes in the same family — schedule CRUD (P1), the approvals list leaking unredacted tool
+arguments across tenants (P1), and the managed-keys list (P2) — plus a real feature: a super-admin
+can now grant or edit a managed key's **system role** directly from the admin UI's Keys page,
+instead of needing a raw `curl` call to mint a key with `/mcp` control-plane access. Also: two
+admin-UI accessibility fixes (unnamed SelectMenu comboboxes on the server-detail and Policies
+pages), a fix so the admin UI's i18n missing-key console warning is actually silenced, a CLI/admin-UI
+fix so `gateway connect --scope system` hints at the right kind of key, and CLAUDE.md corrections
+(the PUT/DELETE retry-flag caveat, the previously-undocumented `bun run test:mutate` command, and
+full CI-job coverage including `e2e`/CodeQL/`security.yml`). See the root
 [`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
 for the full curated list.
 

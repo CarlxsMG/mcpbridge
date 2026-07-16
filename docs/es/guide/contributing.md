@@ -82,9 +82,11 @@ bun run check
 Ejecuta el gate completo en orden — check de formato → root lint → admin-ui lint →
 admin-ui i18n parity → root typecheck → root typecheck (tools) → root tests → admin-ui typecheck →
 admin-ui tests → admin-ui build —
-deteniéndose en el primer fallo. Esto es lo que corre CI; trata un `bun run check`
-limpio como la barra real para "listo para abrir un PR", no solo un run package-scoped
-verde.
+deteniéndose en el primer fallo. Esto cubre el job `test` de CI; trata un `bun run check`
+limpio como la barra para "listo para abrir un PR", no solo un run package-scoped
+verde. CI además exige un job `e2e` de Playwright (`needs: test`), los checks de
+docs-build/docker-build/helm-lint, y un leg de tests en Windows en cada push/PR — nada de
+eso corre como parte de `bun run check`.
 
 ## Estilo de código y convenciones
 
@@ -214,7 +216,8 @@ respuesta del demo se localice contra el locale activo de vue-i18n.
 
 ## Checklist de PR
 
-- [ ] `bun run check` pasa (este es el CI gate real — mira la nota root-vs-package arriba)
+- [ ] `bun run check` pasa (cubre el job `test` de CI — mira la nota root-vs-package arriba;
+      CI también exige `e2e`, docs-build, docker-build, helm-lint y un leg en Windows)
 - [ ] El schema nuevo/cambiado es una entrada nueva y appendeada en `src/db/migrations.ts`,
       testeada contra una DB fresca — nunca una edición de una existente
 - [ ] Docs actualizadas si cambió el comportamiento user-facing, config o API

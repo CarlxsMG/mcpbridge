@@ -153,10 +153,12 @@ change in, if there was one.
 
 Before opening a PR, please confirm:
 
-- [ ] `bun run check` passes — the one-shot local CI gate (format:check → root lint →
-      admin-ui lint → admin-ui i18n parity → root typecheck → root typecheck (tools) → root tests →
-      admin-ui typecheck → admin-ui tests → admin-ui build, in order). Run this before opening a PR;
-      it's what CI actually checks.
+- [ ] `bun run check` passes — the one-shot local gate for CI's `test` job (format:check →
+      root lint → admin-ui lint → admin-ui i18n parity → root typecheck → root typecheck (tools) →
+      root tests → admin-ui typecheck → admin-ui tests → admin-ui build, in order). Run this
+      before opening a PR. CI also gates a required `e2e` (Playwright) job plus docs-build,
+      docker-build, and helm-lint checks, and a Windows test leg on every push/PR — none of those
+      run as part of `bun run check`.
 - [ ] If `bun run check` fails, the granular commands below can help narrow down which stage:
   - [ ] `bun run test` passes (backend)
   - [ ] `bun run typecheck` passes (backend)

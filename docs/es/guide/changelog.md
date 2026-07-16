@@ -51,7 +51,23 @@ URL, una guarda de cambios sin guardar que faltaba), una corrección del CLI par
 no-JSON de la admin API lance un `CliApiError` propio en vez de un error de parseo crudo, smoke
 tests de CI que ahora arrancan de verdad la imagen Docker y los binarios de release antes de
 publicarlos, y varias correcciones de documentación (guía de health-probes/balanceo de carga,
-comportamiento de re-resolución del IP-pin, el rango del canary weight en OpenAPI). Consulta el
+comportamiento de re-resolución del IP-pin, el rango del canary weight en OpenAPI).
+
+Después de eso: una **corrección P0** cerró un escape de tenancy de admins con scope de equipo en
+`POST /admin-api/policies/:id/apply` (una lista de tools/bundle enviada por el caller se aplicaba
+sin ningún check de propiedad, dejando que un admin de equipo sobreescribiera la guard policy de
+otro tenant), seguida de tres correcciones más de tenancy de la misma familia — CRUD de schedules
+(P1), el listado de approvals filtrando argumentos de tool sin redactar entre tenants (P1), y el
+listado de managed keys (P2) — más una feature real: un super-admin ahora puede otorgar o editar
+el **rol de sistema** de una key gestionada directamente desde la página Keys de la admin UI, en
+vez de necesitar una llamada `curl` cruda para emitir una key con acceso al control plane `/mcp`.
+También: dos correcciones de accesibilidad en la admin UI (SelectMenu sin nombre accesible en las
+páginas de detalle de servidor y de Policies), una corrección para que la advertencia de consola
+por missing-key de i18n en la admin UI realmente se silencie, una corrección del CLI/admin-UI para
+que `gateway connect --scope system` sugiera el tipo de key correcto, y correcciones en CLAUDE.md
+(la salvedad del flag de retry para PUT/DELETE, el comando antes no documentado `bun run
+test:mutate`, y la cobertura completa de los jobs de CI incluyendo `e2e`/CodeQL/`security.yml`).
+Consulta el
 [`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
 raíz para la lista curada completa.
 

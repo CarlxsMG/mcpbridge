@@ -29,6 +29,9 @@ No hay un endpoint "todo aplanado junto": para exponer varios backends por una s
 | ----------- | ----------------------------------------------------------------- | -------------------------------------- |
 | `POST /mcp` | Tools `sys_*` para gestionar el gateway — **no** tools de backend | Un agente debe operar el gateway mismo |
 
+> **Nota:** `POST /mcp` **no** acepta una credencial `MCP_API_KEYS` normal — consulta la
+> sección "Autenticación" más abajo para lo que realmente requiere.
+
 Todos los endpoints hablan **Streamable HTTP** (el transporte SSE legacy `GET /sse` +
 `POST /messages` fue eliminado).
 
@@ -71,6 +74,14 @@ el bridge detrás de un proxy que lo inyecte. Las keys pueden tener **scope** a
 clientes/tools específicos y recibir una expiración — consulta [Control de acceso](/es/guide/access-control).
 El bridge también puede aceptar **JWTs OAuth2/OIDC** como credencial cuando
 `JWT_JWKS_URL` está configurado.
+
+Esto aplica solo a los dos endpoints del **plano de datos**. `POST /mcp` (el control plane)
+tiene su propio check fail-closed (`resolveSystemRole`) que nunca consulta
+`MCP_API_KEYS`/JWTs: solo acepta el Bearer de entorno `ADMIN_API_KEYS`, o una key
+gestionada con un **rol de sistema** (`adminRole`) configurado — que se puede asignar desde
+la página Keys de la admin UI. Una key `MCP_API_KEYS` normal, o una key gestionada sin
+`adminRole`, se rechaza sin más contra `/mcp`, aunque funcione bien contra
+`/mcp/:clientName` o `/mcp-custom/:bundleName`.
 
 ## Verificar la conexión
 
