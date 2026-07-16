@@ -57,7 +57,25 @@ export interface UsageSummary {
   keys: number;
 }
 
-export function getUsageSummary(opts: { from?: number; to?: number; clientName?: string } = {}): UsageSummary {
+/**
+ * Tenancy scope shared by every function below: a number restricts results to
+ * calls against a client owned by that team (mirrors `listTraffic`/
+ * `listApprovals`'s `teamId` filter); null/undefined (super-admin session or
+ * bearer caller) sees every team's usage, matching prior behavior.
+ */
+function teamScopeCondition(
+  conditions: string[],
+  params: (string | number)[],
+  teamId: number | null | undefined,
+): void {
+  if (typeof teamId !== "number") return;
+  conditions.push("client_name IN (SELECT name FROM clients WHERE team_id = ?)");
+  params.push(teamId);
+}
+
+export function getUsageSummary(
+  opts: { from?: number; to?: number; clientName?: string; teamId?: number | null } = {},
+): UsageSummary {
   const db = getDb();
   const from = windowFrom(opts.from);
   const conditions = ["created_at >= ?"];
@@ -70,6 +88,7 @@ export function getUsageSummary(opts: { from?: number; to?: number; clientName?:
     conditions.push("client_name = ?");
     params.push(opts.clientName);
   }
+  teamScopeCondition(conditions, params, opts.teamId);
   const where = `WHERE ${conditions.join(" AND ")}`;
   const row = db
     .query(
@@ -112,7 +131,7 @@ const MAX_TIMESERIES_POINTS = 1000;
 
 /** Bucketed calls/errors/avgMs over the window, zero-filled so charts never see gaps. */
 export function getUsageTimeseries(
-  opts: { from?: number; to?: number; bucketMs?: number; clientName?: string } = {},
+  opts: { from?: number; to?: number; bucketMs?: number; clientName?: string; teamId?: number | null } = {},
 ): UsageTimeseries {
   const db = getDb();
   const from = windowFrom(opts.from);
@@ -124,6 +143,7 @@ export function getUsageTimeseries(
     conditions.push("client_name = ?");
     params.push(opts.clientName);
   }
+  teamScopeCondition(conditions, params, opts.teamId);
   const where = `WHERE ${conditions.join(" AND ")}`;
   const rows = db
     .query(
@@ -155,19 +175,23 @@ export interface TopToolRow {
   maxMs: number;
 }
 
-export function getTopTools(opts: { from?: number; limit?: number } = {}): TopToolRow[] {
+export function getTopTools(opts: { from?: number; limit?: number; teamId?: number | null } = {}): TopToolRow[] {
   const from = windowFrom(opts.from);
   const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100);
+  const conditions = ["created_at >= ?"];
+  const params: (string | number)[] = [from];
+  teamScopeCondition(conditions, params, opts.teamId);
+  const where = `WHERE ${conditions.join(" AND ")}`;
   const rows = getDb()
     .query(
       `SELECT client_name, tool_name, COUNT(*) as calls, COALESCE(SUM(is_error), 0) as errors,
               COALESCE(AVG(duration_ms), 0) as avg_ms, COALESCE(MAX(duration_ms), 0) as max_ms
-       FROM tool_call_log WHERE created_at >= ?
+       FROM tool_call_log ${where}
        GROUP BY client_name, tool_name
        ORDER BY calls DESC
        LIMIT ?`,
     )
-    .all(from, limit) as {
+    .all(...params, limit) as {
     client_name: string;
     tool_name: string;
     calls: number;
@@ -193,19 +217,29 @@ export interface UsageByKeyRow {
   errors: number;
 }
 
-export function getUsageByKey(opts: { from?: number; limit?: number } = {}): UsageByKeyRow[] {
+export function getUsageByKey(opts: { from?: number; limit?: number; teamId?: number | null } = {}): UsageByKeyRow[] {
   const from = windowFrom(opts.from);
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  const conditions = ["l.created_at >= ?"];
+  const params: (string | number)[] = [from];
+  // teamScopeCondition assumes an unqualified `client_name` column, but this
+  // query aliases tool_call_log as `l` (joined against mcp_api_keys `k`) — add
+  // the equivalent qualified condition directly instead of reusing the helper.
+  if (typeof opts.teamId === "number") {
+    conditions.push("l.client_name IN (SELECT name FROM clients WHERE team_id = ?)");
+    params.push(opts.teamId);
+  }
+  const where = `WHERE ${conditions.join(" AND ")}`;
   const rows = getDb()
     .query(
       `SELECT l.key_id, k.label, COUNT(*) as calls, COALESCE(SUM(l.is_error), 0) as errors
        FROM tool_call_log l LEFT JOIN mcp_api_keys k ON k.id = l.key_id
-       WHERE l.created_at >= ?
+       ${where}
        GROUP BY l.key_id
        ORDER BY calls DESC
        LIMIT ?`,
     )
-    .all(from, limit) as { key_id: number | null; label: string | null; calls: number; errors: number }[];
+    .all(...params, limit) as { key_id: number | null; label: string | null; calls: number; errors: number }[];
   return rows.map((r) => ({
     keyId: r.key_id,
     label: r.key_id === null ? "(unattributed)" : (r.label ?? `key #${r.key_id}`),

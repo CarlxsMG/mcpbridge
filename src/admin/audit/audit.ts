@@ -106,6 +106,31 @@ export function recordAudit(actor: string, action: string, target: string, detai
 }
 
 /**
+ * Tenancy scope for a team-bound caller: matches rows whose `target` is either
+ * exactly one of the caller's team's client names (e.g. `client.enable`'s
+ * target) or a `clientName__toolName` composite key owned by one of them (e.g.
+ * `tool.disable`/`traffic.replay`'s target) — the same two target shapes
+ * `ensureClientAccess`'s callers already special-case elsewhere. `target` is a
+ * free-form string across very different action types (policy ids, schedule
+ * ids, catalog slugs, team ids, ...), so this can't be a clean join the way
+ * `traffic.tool_call_log.client_name` is; it deliberately only *recognizes*
+ * client-owned targets and hides everything else from a team-scoped caller
+ * rather than risk a false-positive cross-tenant match — fail-closed, not a
+ * complete per-action-type mapping.
+ */
+function teamScopeCondition(
+  conditions: string[],
+  params: (string | number)[],
+  teamId: number | null | undefined,
+): void {
+  if (typeof teamId !== "number") return;
+  conditions.push(
+    `EXISTS (SELECT 1 FROM clients c WHERE c.team_id = ? AND (target = c.name OR substr(target, 1, length(c.name) + 2) = c.name || '__'))`,
+  );
+  params.push(teamId);
+}
+
+/**
  * Walks the hash chain (rows written since the hash-chain migration) and returns
  * the first inconsistency, if any: a broken prev_hash linkage or a row whose
  * recomputed content hash doesn't match its stored hash — either of which means
@@ -139,7 +164,16 @@ export function verifyAuditChain(): { ok: boolean; checked: number; brokenAtId?:
 }
 
 export function listAuditLog(
-  opts: { actor?: string; action?: string; from?: number; to?: number; cursor?: string; limit?: number } = {},
+  opts: {
+    actor?: string;
+    action?: string;
+    from?: number;
+    to?: number;
+    cursor?: string;
+    limit?: number;
+    /** Tenancy scope — see {@link teamScopeCondition}. A number restricts to the caller's team's clients; undefined/null (super-admin/bearer) sees everything. */
+    teamId?: number | null;
+  } = {},
 ): {
   items: AuditLogEntry[];
   nextCursor?: string;
@@ -170,6 +204,7 @@ export function listAuditLog(
     conditions.push("created_at <= ?");
     params.push(opts.to);
   }
+  teamScopeCondition(conditions, params, opts.teamId);
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const sql = `SELECT id, actor, action, target, detail_json, created_at, hash FROM admin_audit_log ${whereClause} ORDER BY id DESC`;
@@ -218,7 +253,14 @@ export function listAuditActions(): string[] {
 
 /** Bulk export of audit entries (up to `maxRows`) for download — same filters as listAuditLog, no pagination. */
 export function exportAuditLog(
-  opts: { actor?: string; action?: string; from?: number; to?: number } = {},
+  opts: {
+    actor?: string;
+    action?: string;
+    from?: number;
+    to?: number;
+    /** Tenancy scope — see {@link teamScopeCondition}. */
+    teamId?: number | null;
+  } = {},
   maxRows = 10000,
 ): AuditLogEntry[] {
   const db = getDb();
@@ -240,6 +282,7 @@ export function exportAuditLog(
     conditions.push("created_at <= ?");
     params.push(opts.to);
   }
+  teamScopeCondition(conditions, params, opts.teamId);
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = db
     .query(

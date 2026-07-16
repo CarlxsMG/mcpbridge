@@ -123,7 +123,25 @@ export async function deleteMonitor(clientName: string, toolName: string): Promi
   return deleted;
 }
 
-export function listMonitors(): MonitorRecord[] {
+/**
+ * Lists synthetic monitors, optionally scoped to a team. `tool_monitor` has no
+ * team_id of its own, but each row's `client_name` maps to one via `clients`
+ * (the same join `registry.listClientsSummary`/`listTraffic` use) — pass
+ * `teamId` for a team-scoped caller to restrict to monitors on clients that
+ * team owns; null/undefined (super-admin session or bearer caller) lists
+ * every team's monitors, matching prior behavior.
+ */
+export function listMonitors(teamId?: number | null): MonitorRecord[] {
+  if (typeof teamId === "number") {
+    return (
+      getDb()
+        .query(
+          `SELECT m.* FROM tool_monitor m JOIN clients c ON c.name = m.client_name
+           WHERE c.team_id = ? ORDER BY m.client_name, m.tool_name`,
+        )
+        .all(teamId) as MonitorRow[]
+    ).map(rowTo);
+  }
   return (getDb().query(`SELECT * FROM tool_monitor ORDER BY client_name, tool_name`).all() as MonitorRow[]).map(rowTo);
 }
 
