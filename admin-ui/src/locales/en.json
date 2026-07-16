@@ -473,7 +473,10 @@
       "confirm": {
         "disable_title": "Disable this tool?",
         "disable_message": "'{name}' will stop working for all connected MCP agents until re-enabled.",
-        "disable_cta": "Disable {name}"
+        "disable_cta": "Disable {name}",
+        "unmark_sensitive_title": "Unmark this tool as sensitive?",
+        "unmark_sensitive_message": "Calls to '{name}' will no longer require step-up confirmation before they run.",
+        "unmark_sensitive_cta": "Unmark {name}"
       },
       "errors": {
         "update_failed": "Failed to update.",

@@ -473,7 +473,10 @@
       "confirm": {
         "disable_title": "¿Deshabilitar este tool?",
         "disable_message": "'{name}' dejará de funcionar para todos los agentes MCP conectados hasta que se vuelva a habilitar.",
-        "disable_cta": "Deshabilitar {name}"
+        "disable_cta": "Deshabilitar {name}",
+        "unmark_sensitive_title": "¿Desmarcar este tool como sensible?",
+        "unmark_sensitive_message": "Las llamadas a '{name}' ya no requerirán confirmación adicional (step-up) antes de ejecutarse.",
+        "unmark_sensitive_cta": "Desmarcar {name}"
       },
       "errors": {
         "update_failed": "Error al actualizar.",

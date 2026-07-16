@@ -62,6 +62,27 @@ function toggleSensitive(tool: ToolDetail) {
   return toggle(tool, "sensitive", (next) => api.patch(toolPath(props.clientName, tool.name), { sensitive: next }));
 }
 
+const {
+  pending: pendingSensitiveDisable,
+  request: requestSensitiveDisable,
+  cancel: cancelSensitiveDisable,
+  confirm: confirmSensitiveDisableAction,
+} = useConfirmAction<ToolDetail>();
+
+function onSensitiveToggleClick(tool: ToolDetail) {
+  if (tool.sensitive === true) {
+    requestSensitiveDisable(tool);
+  } else {
+    toggleSensitive(tool);
+  }
+}
+
+function confirmSensitiveDisable() {
+  return confirmSensitiveDisableAction(async (tool) => {
+    await toggleSensitive(tool);
+  });
+}
+
 function openGuardEditor(tool: ToolDetail) {
   router.push(`/servers/${encodeURIComponent(props.clientName)}/tools/${encodeURIComponent(tool.name)}`);
 }
@@ -125,7 +146,7 @@ async function testTool(tool: ToolDetail) {
           </button>
         </td>
         <td>
-          <button type="button" class="link-btn" @click="toggleSensitive(tool)">
+          <button type="button" class="link-btn" @click="onSensitiveToggleClick(tool)">
             {{
               tool.sensitive === true
                 ? t("components.server_detail_tools.sensitive_marked")
@@ -177,5 +198,23 @@ async function testTool(tool: ToolDetail) {
     danger
     @confirm="confirmToolDisable"
     @cancel="cancelToolDisable"
+  />
+
+  <ConfirmDialog
+    :open="pendingSensitiveDisable !== null"
+    :title="t('components.server_detail_tools.confirm.unmark_sensitive_title')"
+    :message="
+      pendingSensitiveDisable
+        ? t('components.server_detail_tools.confirm.unmark_sensitive_message', { name: pendingSensitiveDisable.name })
+        : ''
+    "
+    :confirm-label="
+      pendingSensitiveDisable
+        ? t('components.server_detail_tools.confirm.unmark_sensitive_cta', { name: pendingSensitiveDisable.name })
+        : ''
+    "
+    danger
+    @confirm="confirmSensitiveDisable"
+    @cancel="cancelSensitiveDisable"
   />
 </template>
