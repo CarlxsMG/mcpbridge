@@ -234,6 +234,16 @@ function parseSingleCurlCommand(
     } else if (t === "-u" || t === "--user") {
       i++; // consume the "user:pass" value — never inspected or persisted (see file-level doc comment)
       sawUser = true;
+    } else if (t === "--url") {
+      // curl's explicit URL flag. Without this special-case the generic
+      // "unknown flag takes a value" branch below would consume the URL token
+      // as --url's swallowed value and the command would fail to import.
+      const val = tokens[++i];
+      if (val && !url) url = val;
+    } else if (t.startsWith("--url=")) {
+      // curl also accepts the `--url=<URL>` long-option form.
+      const val = t.slice("--url=".length);
+      if (val && !url) url = val;
     } else if (t === "--") {
       // curl's standard end-of-options marker (recommended before a URL that could
       // otherwise be misread as a flag, e.g. one starting with `-`) — not a flag

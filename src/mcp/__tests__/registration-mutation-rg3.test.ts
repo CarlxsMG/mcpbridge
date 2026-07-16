@@ -3,7 +3,7 @@ import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
 // Stryker mutation backstop — RG3 (src/mcp/registration.ts lines 279-391): the
 // REST of performRestRegistration — tool resolution (four branches: OpenAPI
 // discovery, cURL parsing, Postman parsing, or a hand-written 'tools' array),
-// the curl/postman-only tools-count cap, endpoint path-traversal validation,
+// the tools-count cap (now applied to all REST sources), endpoint path-traversal validation,
 // the registry.register(...) call, and the success/error response shapes.
 //
 // A sibling agent covers the SAME function's earlier validation gauntlet
@@ -295,20 +295,36 @@ describe("openapi_url branch — zero tools discovered (L308/L309/L314)", () => 
 });
 
 // ---------------------------------------------------------------------------
-// L343-352 — the curl/postman-only tools-count cap does NOT apply to the
-// openapi branch (no cap check anywhere in this function for it — confirmed
-// by source inspection). A huge openapi-discovered tool set must still
-// register successfully.
+// finalizeRestRegistration now caps EVERY REST source, including openapi_url
+// (Finding #12) — an OpenAPI spec resolving to more than maxToolsPerClient
+// tools is rejected with VALIDATION_ERROR, in parity with the curl/postman and
+// MCP/GraphQL branches. (Previously the openapi branch was the lone uncapped
+// source and this test documented that gap.)
 // ---------------------------------------------------------------------------
 
-describe("openapi_url branch — no tools-count cap applies here (L343 LogicalOperator)", () => {
-  test("openapi tool count exceeding maxToolsPerClient still succeeds (uncapped for this source)", async () => {
+describe("openapi_url branch — tools-count cap now applies (Finding #12)", () => {
+  test("openapi tool count exceeding maxToolsPerClient is rejected with the cap message", async () => {
     (config as Record<string, unknown>).maxToolsPerClient = 1;
     openapiSpy.mockResolvedValueOnce([makeTool("tool-x"), makeTool("tool-y"), makeTool("tool-z")]);
     const result = await performRestRegistration(
-      body({ name: "rg3-openapi-uncapped", openapi_url: "https://big.rg3.test/openapi.json" }),
+      body({ name: "rg3-openapi-capped", openapi_url: "https://big.rg3.test/openapi.json" }),
       undefined,
-      "req-openapi-uncapped",
+      "req-openapi-capped",
+    );
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(400);
+    expect(result.body).toMatchObject({
+      error: { code: "VALIDATION_ERROR", message: "Parsed 3 tools, exceeds maximum of 1" },
+    });
+  });
+
+  test("openapi tool count at or under maxToolsPerClient still registers", async () => {
+    (config as Record<string, unknown>).maxToolsPerClient = 3;
+    openapiSpy.mockResolvedValueOnce([makeTool("tool-x"), makeTool("tool-y"), makeTool("tool-z")]);
+    const result = await performRestRegistration(
+      body({ name: "rg3-openapi-under-cap", openapi_url: "https://ok.rg3.test/openapi.json" }),
+      undefined,
+      "req-openapi-under-cap",
     );
     expect(result.ok).toBe(true);
     expect(result.body).toMatchObject({ tools_count: 3, source: "openapi" });
@@ -486,16 +502,15 @@ describe("manual 'tools' array branch (L329/L330)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// L343-352 — `if (hasCurl || hasPostman) { const capError = ...; if
-// (capError) return {...}; }`. This cap ONLY applies to curl/postman results:
-// a curl/postman result exceeding config.maxToolsPerClient is rejected with
-// the cap error INCLUDING request_id (unlike toolsCountCapError's own bare
-// message); a manual result of the same size is NOT capped here (that's
-// enforced earlier, at the Express route layer — out of scope for this
-// function, per the source comment above L343).
+// finalizeRestRegistration's tools-count cap now applies to EVERY REST source
+// (Finding #12): `const capError = toolsCountCapError(...); if (capError)
+// return {...}`. Any resolved tool list exceeding config.maxToolsPerClient is
+// rejected with the cap error INCLUDING request_id (unlike toolsCountCapError's
+// own bare message). A hand-written manual 'tools' array is ALSO capped here
+// now (previously it was only capped at the Express route layer).
 // ---------------------------------------------------------------------------
 
-describe("tools-count cap — curl/postman only (L343-352)", () => {
+describe("tools-count cap — all REST sources (Finding #12)", () => {
   test("curl result exceeding maxToolsPerClient is rejected with the exact capped message + request_id", async () => {
     (config as Record<string, unknown>).maxToolsPerClient = 2;
     curlSpy.mockReturnValueOnce([makeTool("tool-1"), makeTool("tool-2"), makeTool("tool-3")]);
@@ -533,15 +548,35 @@ describe("tools-count cap — curl/postman only (L343-352)", () => {
     });
   });
 
-  test("a manual 'tools' array of the same oversized length is NOT capped inside performRestRegistration", async () => {
+  test("a manual 'tools' array exceeding maxToolsPerClient is now also capped inside performRestRegistration", async () => {
     (config as Record<string, unknown>).maxToolsPerClient = 1;
     const result = await performRestRegistration(
       body({
-        name: "rg3-manual-uncapped",
+        name: "rg3-manual-capped",
         tools: [makeTool("tool-m1"), makeTool("tool-m2"), makeTool("tool-m3")],
       }),
       undefined,
-      "req-manual-uncapped",
+      "req-manual-capped",
+    );
+    expect(result.ok).toBe(false);
+    expect(result.body).toEqual({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Parsed 3 tools, exceeds maximum of 1",
+        request_id: "req-manual-capped",
+      },
+    });
+  });
+
+  test("a manual 'tools' array at or under maxToolsPerClient still registers", async () => {
+    (config as Record<string, unknown>).maxToolsPerClient = 3;
+    const result = await performRestRegistration(
+      body({
+        name: "rg3-manual-under-cap",
+        tools: [makeTool("tool-m1"), makeTool("tool-m2"), makeTool("tool-m3")],
+      }),
+      undefined,
+      "req-manual-under-cap",
     );
     expect(result.ok).toBe(true);
     expect(result.body).toMatchObject({ tools_count: 3, source: "manual" });

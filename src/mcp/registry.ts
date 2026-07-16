@@ -107,6 +107,14 @@ function validateClientName(name: string): void {
   if (!isValidToolName(name)) {
     throw new Error("Client name must match /^[a-z0-9][a-z0-9_-]{0,62}$/");
   }
+  // Explicitly forbid the composite-key separator inside a client name: distinct
+  // (client, tool) pairs must never collide on `clientName__toolName` (see
+  // lib/identifier.ts's toolKey), or one client could shadow / tear down another
+  // client's tool. TOOL_NAME_RE alone permits interior/consecutive underscores,
+  // so this has to be rejected here — mirrors composites.ts's isValidCompositeName.
+  if (name.includes(TOOL_KEY_SEPARATOR)) {
+    throw new Error(`Client name must not contain '${TOOL_KEY_SEPARATOR}' (reserved tool-key separator)`);
+  }
 }
 
 /**
@@ -123,6 +131,12 @@ function validateToolIdentity(clientName: string, tool: { name: string }, seenTo
   }
   if (!isValidToolName(tool.name)) {
     throw new Error(`Tool '${tool.name}': name must be lowercase alphanumeric with hyphens/underscores, 1-63 chars`);
+  }
+  // Reject the composite-key separator inside a tool name for the same reason as
+  // in validateClientName above: `clientName__toolName` (toolKey) must be an
+  // injective encoding, or two distinct (client, tool) pairs could collide.
+  if (tool.name.includes(TOOL_KEY_SEPARATOR)) {
+    throw new Error(`Tool '${tool.name}': name must not contain '${TOOL_KEY_SEPARATOR}' (reserved tool-key separator)`);
   }
   if (seenToolNames.has(tool.name)) {
     throw new Error(`Duplicate tool name "${tool.name}" found for client "${clientName}"`);

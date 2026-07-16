@@ -266,13 +266,14 @@ const EnvSchema = z.object({
 });
 
 /**
- * Every env-var name this schema validates. Exported so a test can assert that
- * every `process.env.*` read in config.ts has a matching schema entry — a read
- * with no schema key would be mis-reported as an "unknown env var" by
- * validateEnv (see the schema docblock above). Locks in the "reviewers enforce
- * it" convention as an automated check.
+ * Every env-var name this schema validates. Test-only accessor (hence the
+ * `__*ForTesting` name — it is not part of the module's production surface):
+ * the config.ts↔schema parity test asserts that every `process.env.*` read in
+ * config.ts has a matching schema entry — a read with no schema key would be
+ * mis-reported as an "unknown env var" by validateEnv (see the schema docblock
+ * above). Locks in the "reviewers enforce it" convention as an automated check.
  */
-export const ENV_SCHEMA_KEYS: readonly string[] = Object.keys(EnvSchema.shape);
+export const __envSchemaKeysForTesting: readonly string[] = Object.keys(EnvSchema.shape);
 
 // ─── Run output ──────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { readFileSync } from "node:fs";
-import { validateEnv, validateEnvOrWarn, validateEnvStrict, ENV_SCHEMA_KEYS } from "../config-schema.js";
+import { validateEnv, validateEnvOrWarn, validateEnvStrict, __envSchemaKeysForTesting } from "../config-schema.js";
 
 // ─── validateEnv (pure) ─────────────────────────────────────────────────────
 
@@ -122,7 +122,7 @@ describe("EnvSchema ↔ config.ts parity", () => {
     const readNames = new Set([...configSrc.matchAll(/process\.env\.([A-Z][A-Z0-9_]+)/g)].map((m) => m[1]));
     expect(readNames.size).toBeGreaterThan(0); // guards against a broken regex silently passing
 
-    const schemaKeys = new Set(ENV_SCHEMA_KEYS);
+    const schemaKeys = new Set(__envSchemaKeysForTesting);
     const missing = [...readNames].filter((name) => !schemaKeys.has(name)).sort();
     expect(missing).toEqual([]);
   });

@@ -309,10 +309,10 @@ describe("system-tools — session reuse with a different credential", () => {
 });
 
 describe("regression — client-scope tools/call uses exact tool->client membership, not a name-prefix test", () => {
-  test("a session scoped to /mcp/acme cannot reach a tool belonging to an unrelated client named 'acme__evil'", async () => {
+  test("a session scoped to /mcp/acme cannot reach a tool belonging to an unrelated client via its fully-qualified key", async () => {
     await startApp();
     await reg("acme", [makeTool({ name: "safe-op" })]);
-    await reg("acme__evil", [makeTool({ name: "steal" })]);
+    await reg("evilco", [makeTool({ name: "steal" })]);
 
     const sessionId = await initSession("/mcp/acme");
     expect(sessionId).not.toBeNull();
@@ -321,10 +321,12 @@ describe("regression — client-scope tools/call uses exact tool->client members
     const list = await toolsList("/mcp/acme", sessionId!);
     expect(list.body?.tools.map((t) => t.name).filter((n) => n !== "search_tools")).toEqual(["acme__safe-op"]);
 
-    // tools/call must reject the sibling client's tool even though its name
-    // extends "acme" across the "__" separator.
-    const result = await toolsCall("/mcp/acme", sessionId!, "acme__evil__steal");
+    // tools/call must reject a different client's tool even when addressed by its
+    // fully-qualified key — exact tool->client membership, not a name-prefix test.
+    // (The sharper "acme__evil" name-collision variant is now rejected outright at
+    // registration; see registry-separator-rejection.test.ts.)
+    const result = await toolsCall("/mcp/acme", sessionId!, "evilco__steal");
     expect(result.body?.isError).toBe(true);
-    expect(result.body?.content?.[0]?.text).toBe("Unknown tool: acme__evil__steal");
+    expect(result.body?.content?.[0]?.text).toBe("Unknown tool: evilco__steal");
   });
 });

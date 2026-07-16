@@ -106,8 +106,8 @@ knows _which_ tool is being called once the JSON-RPC body is parsed; anything th
 behavior has to live inside `proxyToolCall`, not `app.use(...)`.
 
 **Three kinds of backend, one identity.** All are keyed the same way, `clientName__toolName`
-(double underscore is the separator — the client/tool name regex is constrained so this can't
-collide):
+(double underscore is the separator — client and tool names explicitly reject the `__`
+separator at registration, so distinct pairs can't collide on this key):
 
 - **REST clients** — registered from an OpenAPI/Swagger spec (auto-discovery via
   `src/discovery/`), a cURL/Postman import, or a manual tool list. Each tool maps to an HTTP
@@ -141,7 +141,7 @@ mechanism `proxyToolCall`'s sensitive-tool gate already uses.
 **Storage.** `bun:sqlite`, one file, no ORM, no external database. Admin config (enable flags,
 guards, bundles, keys, audit, users, teams, policies, schedules...) lives here; the live registry
 (`src/mcp/registry.ts`) is hydrated from it at boot. Schema changes are an **append-only** array
-in `src/db/migrations.ts` (currently up to id 53) — never edit or renumber a shipped migration;
+in `src/db/migrations.ts` (currently up to id 55) — never edit or renumber a shipped migration;
 add a new one with the next sequential integer, written defensively (`CREATE TABLE IF NOT EXISTS`,
 additive `ALTER TABLE`) since there's no down-migration mechanism.
 

@@ -228,14 +228,11 @@ function buildInputSchema(
 
   if (bodySchema && !("$ref" in bodySchema)) {
     const bodySchemaObj = bodySchema as OpenAPIV3.SchemaObject;
-    if (bodySchemaObj.properties) {
-      for (const [key, val] of Object.entries(bodySchemaObj.properties)) {
-        properties[key] = val as Record<string, unknown>;
-      }
+    const flattened = flattenComposedSchema(bodySchemaObj);
+    for (const [key, val] of Object.entries(flattened.properties)) {
+      properties[key] = val;
     }
-    if (Array.isArray(bodySchemaObj.required)) {
-      required.push(...bodySchemaObj.required);
-    }
+    required.push(...flattened.required);
   }
 
   return {
@@ -243,4 +240,60 @@ function buildInputSchema(
     properties,
     ...(required.length > 0 ? { required } : {}),
   };
+}
+
+/**
+ * Flattens a (possibly composed) object schema into a single properties/required
+ * pair. @scalar/openapi-parser dereferences `$ref` but does NOT merge
+ * `allOf`/`oneOf`/`anyOf`, so a request body defined purely via composition
+ * yields `properties: {}` and the discovered tool is silently unusable. Merge
+ * the composition members here:
+ *   - allOf: intersection semantics — merge every member's properties and union
+ *     their required (a field required by any member is required overall).
+ *   - oneOf/anyOf: union each branch's properties, but propagate none as
+ *     required (a caller satisfies only one branch, so no single field is
+ *     universally mandatory).
+ * The schema's own inline properties/required are merged in last so they take
+ * precedence over composed members. Recursion handles nested composition
+ * (allOf of an allOf); genuine cycles are already rejected upstream by the
+ * spec-level depth/cycle caps in discoverToolsFromOpenApi.
+ */
+function flattenComposedSchema(schema: OpenAPIV3.SchemaObject): {
+  properties: Record<string, Record<string, unknown>>;
+  required: string[];
+} {
+  const properties: Record<string, Record<string, unknown>> = {};
+  const requiredSet = new Set<string>();
+
+  const mergeMember = (member: unknown, propagateRequired: boolean): void => {
+    if (member === null || typeof member !== "object" || "$ref" in (member as object)) return;
+    const sub = flattenComposedSchema(member as OpenAPIV3.SchemaObject);
+    for (const [k, v] of Object.entries(sub.properties)) properties[k] = v;
+    if (propagateRequired) {
+      for (const r of sub.required) requiredSet.add(r);
+    }
+  };
+
+  const composed = schema as Record<string, unknown>;
+  if (Array.isArray(composed["allOf"])) {
+    for (const m of composed["allOf"]) mergeMember(m, true);
+  }
+  if (Array.isArray(composed["oneOf"])) {
+    for (const m of composed["oneOf"]) mergeMember(m, false);
+  }
+  if (Array.isArray(composed["anyOf"])) {
+    for (const m of composed["anyOf"]) mergeMember(m, false);
+  }
+
+  // Own inline properties/required last so they win over composed members.
+  if (schema.properties) {
+    for (const [key, val] of Object.entries(schema.properties)) {
+      properties[key] = val as Record<string, unknown>;
+    }
+  }
+  if (Array.isArray(schema.required)) {
+    for (const r of schema.required) requiredSet.add(r);
+  }
+
+  return { properties, required: [...requiredSet] };
 }

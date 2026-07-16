@@ -114,11 +114,11 @@ function registerError(status: number, code: string, message: string, requestId?
 
 /**
  * Cap-check on a resolved tools array, shared between performRestRegistration
- * (only invoked there for the curl/postman-parsed branches — a hand-written
- * 'tools' array is already capped earlier, before this module is reached) and
- * the discovery preview route (POST /admin-api/discovery/preview), which
- * enforces it unconditionally so a preview can never show a tool set that
- * would then be rejected at actual registration time.
+ * (invoked unconditionally in finalizeRestRegistration for every REST source —
+ * OpenAPI discovery, cURL/Postman parses, and hand-written 'tools' arrays alike)
+ * and the discovery preview route (POST /admin-api/discovery/preview), which
+ * enforces it so a preview can never show a tool set that would then be rejected
+ * at actual registration time.
  */
 export function toolsCountCapError(toolsLength: number, maxToolsPerClient: number): string | null {
   if (toolsLength > maxToolsPerClient) {
@@ -277,8 +277,6 @@ async function resolveRestTools(
 async function finalizeRestRegistration(
   name: string,
   resolvedTools: RestToolDefinition[],
-  hasCurl: boolean,
-  hasPostman: boolean,
   resolvedHealthUrl: string,
   ip: string,
   resolvedBaseUrl: string,
@@ -286,15 +284,16 @@ async function finalizeRestRegistration(
   retry_non_safe_methods: unknown,
   requestId: string | null,
 ): Promise<RegisterOutcome | null> {
-  // A curl_input/postman_collection paste can legitimately produce far more
-  // tools than a hand-written 'tools' array ever would (Change B above only
-  // caps a literal 'tools' array, before either parser has run) — enforce
-  // the same cap here for parity with the OpenAPI/MCP/GraphQL branches.
-  if (hasCurl || hasPostman) {
-    const capError = toolsCountCapError(resolvedTools.length, config.maxToolsPerClient);
-    if (capError) {
-      return registerError(400, "VALIDATION_ERROR", capError, requestId);
-    }
+  // Cap the resolved tool count for EVERY REST source — a hand-written 'tools'
+  // array is already capped earlier in performRestRegistration, but a
+  // curl_input/postman_collection paste OR OpenAPI auto-discovery can each
+  // resolve to far more tools than that. Capping unconditionally here gives all
+  // three parity with the MCP/GraphQL branches (which cap their own discovery
+  // output), and closes the gap where an OpenAPI spec exceeding maxToolsPerClient
+  // still registered successfully.
+  const capError = toolsCountCapError(resolvedTools.length, config.maxToolsPerClient);
+  if (capError) {
+    return registerError(400, "VALIDATION_ERROR", capError, requestId);
   }
 
   // Validate resolved tool endpoints for path-traversal segments before registering.
@@ -418,8 +417,6 @@ export async function performRestRegistration(
     const finalizeOutcome = await finalizeRestRegistration(
       name,
       resolvedTools,
-      hasCurl,
-      hasPostman,
       resolvedHealthUrl,
       ip,
       resolvedBaseUrl,

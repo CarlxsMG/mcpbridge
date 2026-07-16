@@ -109,7 +109,7 @@ function text(result: unknown): string | undefined {
 
 const OBJ_SCHEMA = { type: "object", properties: {} };
 
-const CLIENT_NAMES = ["s3-acme", "s3-acme__evil", "s3-widget", "s3-svc", "s3-other", "s3-chain"];
+const CLIENT_NAMES = ["s3-acme", "s3-evil", "s3-widget", "s3-svc", "s3-other", "s3-chain"];
 
 const originalFetch = globalThis.fetch;
 
@@ -140,22 +140,31 @@ afterEach(async () => {
 // ===========================================================================
 
 describe("client-scope confused-deputy defense (L168)", () => {
-  test("an independently-registered client whose name extends this scope's across the '__' separator is rejected, not admitted by a prefix match", async () => {
-    // "s3-acme" (this scope) and "s3-acme__evil" (a totally separate,
-    // independently-registered client) — a naive `name.startsWith("s3-acme__")`
-    // check would wrongly admit "s3-acme__evil__sometool" too, exactly the
-    // confused-deputy class the file's own L161-166 comment describes.
+  test("a fully-qualified tool key belonging to a different client is rejected by exact membership, not admitted by a name-prefix match", async () => {
+    // "s3-acme" (this scope) and "s3-evil" (a totally separate client). A session
+    // scoped to /mcp/s3-acme must not be able to reach s3-evil's tool by sending
+    // its fully-qualified key "s3-evil__sometool" — resolveTool canonically maps
+    // it to the OTHER client s3-evil, and the L168 check must reject it because
+    // resolved.client.name !== scope.name (kills the "!==" -> "===" inversion,
+    // which would otherwise let the confused-deputy call through).
+    //
+    // Note: the sharper "s3-acme__evil" variant (a client whose NAME extends this
+    // scope's across the "__" separator) is now blocked at the door by
+    // validateClientName/validateToolIdentity — see registry-separator-rejection
+    // .test.ts. The runtime exact-membership check remains the second layer and
+    // still guards every cross-client fully-qualified call, which is what this
+    // test exercises.
     await reg("s3-acme", [tool("sometool")]);
-    await reg("s3-acme__evil", [tool("sometool")]);
+    await reg("s3-evil", [tool("sometool")]);
     globalThis.fetch = okFetch({ from: "whichever-client-actually-ran" });
 
     const { client, close } = await connect({ kind: "client", name: "s3-acme" });
     try {
-      // registry.resolveTool("s3-acme__evil__sometool") canonically resolves to
-      // the OTHER client "s3-acme__evil" — the exact-match check must reject it.
-      const evil = await client.callTool({ name: "s3-acme__evil__sometool", arguments: {} });
+      // registry.resolveTool("s3-evil__sometool") canonically resolves to the
+      // OTHER client "s3-evil" — the exact-match check must reject it.
+      const evil = await client.callTool({ name: "s3-evil__sometool", arguments: {} });
       expect(evil.isError).toBe(true);
-      expect(text(evil)).toBe("Unknown tool: s3-acme__evil__sometool");
+      expect(text(evil)).toBe("Unknown tool: s3-evil__sometool");
 
       // Positive case: a tool that DOES canonically belong to "s3-acme" must
       // still succeed — proves this isn't simply "always reject" under the
