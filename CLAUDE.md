@@ -141,7 +141,7 @@ mechanism `proxyToolCall`'s sensitive-tool gate already uses.
 **Storage.** `bun:sqlite`, one file, no ORM, no external database. Admin config (enable flags,
 guards, bundles, keys, audit, users, teams, policies, schedules...) lives here; the live registry
 (`src/mcp/registry.ts`) is hydrated from it at boot. Schema changes are an **append-only** array
-in `src/db/migrations.ts` (currently up to id 52) — never edit or renumber a shipped migration;
+in `src/db/migrations.ts` (currently up to id 53) — never edit or renumber a shipped migration;
 add a new one with the next sequential integer, written defensively (`CREATE TABLE IF NOT EXISTS`,
 additive `ALTER TABLE`) since there's no down-migration mechanism.
 
