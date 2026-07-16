@@ -126,6 +126,18 @@ function toolScopesFor(tools: BundleToolRef[]): McpKeyScopes {
 export function reScopeInstallLinksForBundle(bundleName: string, tools: BundleToolRef[]): void {
   const links = listInstallLinks(bundleName).filter((l) => l.revokedAt === null);
   if (links.length === 0) return;
+  // Fail closed on an empty tool set. toolScopesFor([]) is `{ tools: [] }`,
+  // which mcp-key-store.normalizeScopes() collapses to `null` (== unrestricted)
+  // — re-scoping to that would silently WIDEN every already-issued
+  // bundle-scoped install-link credential to gateway-wide access across all
+  // clients/teams. This is the exact case createInstallLink() refuses via
+  // EMPTY_BUNDLE; here the link already exists, so revoke it (and its
+  // underlying MCP key) the same way every other revoke path in this module
+  // does, rather than let a shared credential escalate.
+  if (tools.length === 0) {
+    revokeAllInstallLinksForBundle(bundleName);
+    return;
+  }
   const scopes = toolScopesFor(tools);
   for (const link of links) {
     updateMcpKey(link.mcpKeyId, { scopes });
