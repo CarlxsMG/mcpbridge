@@ -90,6 +90,21 @@ function keyVisibleToCaller(req: Request, key: McpApiKeyRecord): boolean {
   return clients.every((name) => getClientTeam(name) === team);
 }
 
+/**
+ * Tenancy guard for the mutating routes (PATCH/revoke/DELETE), mirroring
+ * `ensureClientAccess`: returns true when the caller may act on this key
+ * (per `keyVisibleToCaller` — the same rule GET already applies). Otherwise
+ * writes the same 404 used for a genuinely-missing id, so a team-scoped
+ * caller can't blind-mutate a key by id and can't distinguish "doesn't
+ * exist" from "not yours" (fail closed, same pattern as
+ * `schedules.ts`/`approvals.ts`).
+ */
+function ensureKeyAccess(req: Request, res: Response, key: McpApiKeyRecord): boolean {
+  if (keyVisibleToCaller(req, key)) return true;
+  notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
+  return false;
+}
+
 function validateLabel(input: unknown): ValidationResult<string> {
   if (typeof input !== "string" || input.trim().length === 0 || input.trim().length > 128) {
     return { ok: false, message: "label is required and must be 1-128 characters" };
@@ -208,6 +223,10 @@ export function mcpKeyRoutes(app: Express): void {
       notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
       return;
     }
+    // Tenancy: a team-scoped caller can't mutate a key it can't otherwise see
+    // (same uniform 404 as a genuinely-missing key) — closes the blind-mutate-
+    // by-id gap GET's keyVisibleToCaller filter already guards against.
+    if (!ensureKeyAccess(req, res, existing)) return;
     const body = bodyOf(req);
     const updates: {
       label?: string;
@@ -304,10 +323,13 @@ export function mcpKeyRoutes(app: Express): void {
 
   r.post("/mcp-keys/:id/revoke", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
-    if (!getMcpKey(id)) {
+    const existing = getMcpKey(id);
+    if (!existing) {
       notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
       return;
     }
+    // Tenancy: a team-scoped caller can't revoke (DoS) a key it can't see.
+    if (!ensureKeyAccess(req, res, existing)) return;
     const ok = revokeMcpKey(id);
     if (!ok) {
       sendError(res, 409, "ALREADY_REVOKED", "API key is already revoked");
@@ -319,6 +341,13 @@ export function mcpKeyRoutes(app: Express): void {
 
   r.delete("/mcp-keys/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
     const id = Number(req.params.id);
+    const existing = getMcpKey(id);
+    if (!existing) {
+      notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
+      return;
+    }
+    // Tenancy: a team-scoped caller can't permanently delete a key it can't see.
+    if (!ensureKeyAccess(req, res, existing)) return;
     const ok = deleteMcpKey(id);
     if (!ok) {
       notFound(res, "MCP_KEY_NOT_FOUND", "API key not found");
