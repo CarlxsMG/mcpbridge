@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "../middleware/authz.js";
+import { requireAdminRole, requireSuperAdmin } from "../middleware/authz.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { config } from "../config.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
@@ -88,7 +88,14 @@ export function catalogRoutes(app: Express): void {
     res.status(200).json({ items: listCatalog() });
   });
 
-  r.post("/catalog", requireAdminRole, (req: Request, res: Response) => {
+  // POST/PATCH/DELETE require a super-admin: catalog_entries carries no
+  // tenancy of its own (no team_id column) — it's a single shared marketplace
+  // every tenant's admin sees and one-click installs from — so a team-scoped
+  // admin must not be able to plant, retarget, or remove an entry another
+  // team relies on (same rationale as composites.ts/bundles.ts's
+  // requireSuperAdmin gate, extended here to DELETE too since a catalog entry
+  // itself, not just its creation, is the shared/global resource).
+  r.post("/catalog", requireSuperAdmin, (req: Request, res: Response) => {
     const body = bodyOf(req);
     const parsed = parseCustomEntryInput(body, true);
     if (!parsed.ok) {
@@ -110,7 +117,7 @@ export function catalogRoutes(app: Express): void {
     res.status(201).json({ ...result.entry, id: `custom:${result.entry.id}`, source: "custom" });
   });
 
-  r.patch("/catalog/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.patch("/catalog/:id", requireSuperAdmin, (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
     if (id.startsWith("builtin:")) {
       forbidden(res, "IMMUTABLE_ENTRY", "Builtin catalog entries can't be edited at runtime");
@@ -143,7 +150,7 @@ export function catalogRoutes(app: Express): void {
     res.status(200).json({ ...result.entry, id: `custom:${result.entry.id}`, source: "custom" });
   });
 
-  r.delete("/catalog/:id", requireAdminRole, (req: Request<{ id: string }>, res: Response) => {
+  r.delete("/catalog/:id", requireSuperAdmin, (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
     if (id.startsWith("builtin:")) {
       forbidden(res, "IMMUTABLE_ENTRY", "Builtin catalog entries can't be deleted");
