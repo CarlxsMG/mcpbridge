@@ -356,10 +356,13 @@ describe("proxy integration — ordering (security-critical)", () => {
     await reg();
     setRedactionPaths(CLIENT, getTool.name, ["apiSecret"]);
     configureSecretBox();
-    // A tiny budget forces summarization even though the (redacted) body is small.
+    // A tiny budget forces summarization even though the (redacted) body is
+    // small — but still comfortably >= the mocked "summary" response below,
+    // so this test isolates redaction ordering rather than the separate
+    // still-oversized-summary truncation path.
     await setToolContextBudget(CLIENT, getTool.name, {
       mode: "llm_summarize",
-      maxResponseBytes: 5,
+      maxResponseBytes: 20,
       llm: { provider: "openai", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", apiKey: "sk-x" },
     });
 
