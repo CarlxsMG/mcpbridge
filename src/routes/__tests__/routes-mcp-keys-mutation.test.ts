@@ -19,9 +19,10 @@ import { requestIdMiddleware } from "../../middleware/request-id.js";
 import { createUser } from "../../security/user-store.js";
 import { createSession } from "../../security/session-store.js";
 import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "../../security/cookies.js";
-import { createTeam, setUserTeam } from "../../admin/entities/teams.js";
+import { createTeam, setUserTeam, setClientTeam } from "../../admin/entities/teams.js";
 import { createConsumer } from "../../admin/entities/consumers.js";
 import { getMcpKey } from "../../security/mcp-key-store.js";
+import { registry } from "../../mcp/registry.js";
 import * as auditMod from "../../admin/audit/audit.js";
 
 let baseUrl = "";
@@ -68,23 +69,41 @@ function bearer(): Record<string, string> {
 }
 
 /** A non-super-admin (team-scoped) admin-role session — for grant-gating tests. */
-function teamAdminSessionHeaders(username: string): Record<string, string> {
+function teamAdminSessionHeaders(username: string): { headers: Record<string, string>; teamId: number } {
   const team = createTeam(`team-${username}`, "test");
   if (typeof team === "string") throw new Error(`createTeam failed: ${team}`);
   const user = createUser(username, "irrelevant-hash", "admin", null);
   setUserTeam(user.username, team.id);
   const session = createSession(user.id, "127.0.0.1", "test-agent");
   return {
-    "Content-Type": "application/json",
-    Cookie: `${SESSION_COOKIE_NAME}=${session.token}; ${CSRF_COOKIE_NAME}=${session.csrfToken}`,
-    "X-CSRF-Token": session.csrfToken,
+    teamId: team.id,
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: `${SESSION_COOKIE_NAME}=${session.token}; ${CSRF_COOKIE_NAME}=${session.csrfToken}`,
+      "X-CSRF-Token": session.csrfToken,
+    },
   };
 }
 
-async function mint(body: Record<string, unknown> = { label: "k" }): Promise<Record<string, unknown>> {
+/** Registers a bare client (fixed loopback-adjacent IPs, no real network I/O) so it can be assigned to a team via `setClientTeam`. */
+async function reg(name: string): Promise<void> {
+  await registry.register(
+    name,
+    [{ name: "t", method: "GET", endpoint: "/t", description: "d", inputSchema: { type: "object", properties: {} } }],
+    "http://example.com/health",
+    "1.2.3.4",
+    "http://example.com",
+    "1.2.3.4",
+  );
+}
+
+async function mint(
+  body: Record<string, unknown> = { label: "k" },
+  headers: Record<string, string> = bearer(),
+): Promise<Record<string, unknown>> {
   const res = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
     method: "POST",
-    headers: bearer(),
+    headers,
     body: JSON.stringify(body),
   });
   return (await res.json()) as Record<string, unknown>;
@@ -92,6 +111,7 @@ async function mint(body: Record<string, unknown> = { label: "k" }): Promise<Rec
 
 afterEach(async () => {
   await stopServer();
+  for (const c of registry.listClients()) await registry.unregister(c.name);
 });
 
 describe("validateConsumerId", () => {
@@ -467,7 +487,7 @@ describe("elevated grant gating", () => {
     await startApp();
     const res = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
       method: "POST",
-      headers: teamAdminSessionHeaders("team-admin-elev"),
+      headers: teamAdminSessionHeaders("team-admin-elev").headers,
       body: JSON.stringify({ label: "escalate", elevated: true }),
     });
     expect(res.status).toBe(403);
@@ -505,13 +525,18 @@ describe("elevated grant gating", () => {
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe("elevated must be a boolean");
   });
 
-  test("PATCH: a team-scoped admin cannot set elevated true (403), but a super-admin can", async () => {
+  test("PATCH: a team-scoped admin cannot set elevated true on a key it owns (403), but a super-admin can", async () => {
     await startApp();
-    const { id } = await mint({ label: "target" });
+    await reg("svc-mcpkeys-elev3");
+    const { headers, teamId } = teamAdminSessionHeaders("team-admin-elev3");
+    setClientTeam("svc-mcpkeys-elev3", teamId);
+    // The key must be visible to (owned by) the team admin, so this test
+    // exercises the elevated-escalation gate itself, not the ownership check.
+    const { id } = await mint({ label: "target", scopes: { clients: ["svc-mcpkeys-elev3"] } }, headers);
 
     const forbiddenRes = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
       method: "PATCH",
-      headers: teamAdminSessionHeaders("team-admin-elev3"),
+      headers,
       body: JSON.stringify({ elevated: true }),
     });
     expect(forbiddenRes.status).toBe(403);
@@ -528,13 +553,17 @@ describe("elevated grant gating", () => {
     expect(((await okRes.json()) as { elevated: boolean }).elevated).toBe(true);
   });
 
-  test("PATCH: a team-scoped admin CAN set elevated false (the super-admin gate only guards the truthy branch)", async () => {
+  test("PATCH: a team-scoped admin CAN set elevated false on a key it owns (the super-admin gate only guards the truthy branch)", async () => {
     await startApp();
-    // Mint with elevated already true (as a super-admin) so setting it false is a real change.
-    const { id } = await mint({ label: "target", elevated: true });
+    await reg("svc-mcpkeys-elev4");
+    const { headers, teamId } = teamAdminSessionHeaders("team-admin-elev4");
+    setClientTeam("svc-mcpkeys-elev4", teamId);
+    // Only a super-admin can mint with elevated: true, but scoping it to the
+    // team's own client means the team admin still owns (and can see) it.
+    const { id } = await mint({ label: "target", elevated: true, scopes: { clients: ["svc-mcpkeys-elev4"] } });
     const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
       method: "PATCH",
-      headers: teamAdminSessionHeaders("team-admin-elev4"),
+      headers,
       body: JSON.stringify({ elevated: false }),
     });
     expect(res.status).toBe(200);
@@ -543,12 +572,17 @@ describe("elevated grant gating", () => {
 });
 
 describe("adminRole — explicit null is not gated (only a non-null grant is)", () => {
-  test("PATCH: a team-scoped admin can explicitly clear adminRole to null", async () => {
+  test("PATCH: a team-scoped admin can explicitly clear adminRole to null on a key it owns", async () => {
     await startApp();
-    const { id } = await mint({ label: "target" }); // adminRole already null
+    await reg("svc-mcpkeys-role-null");
+    const { headers, teamId } = teamAdminSessionHeaders("team-admin-role-null");
+    setClientTeam("svc-mcpkeys-role-null", teamId);
+    // adminRole already null; the key must be visible to (owned by) the team
+    // admin so this exercises the null-clear path, not the ownership check.
+    const { id } = await mint({ label: "target", scopes: { clients: ["svc-mcpkeys-role-null"] } }, headers);
     const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
       method: "PATCH",
-      headers: teamAdminSessionHeaders("team-admin-role-null"),
+      headers,
       body: JSON.stringify({ adminRole: null }),
     });
     expect(res.status).toBe(200);
@@ -747,7 +781,7 @@ describe("adminRole forbidden envelopes (exact message, both call sites)", () =>
     await startApp();
     const res = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
       method: "POST",
-      headers: teamAdminSessionHeaders("team-admin-role-post"),
+      headers: teamAdminSessionHeaders("team-admin-role-post").headers,
       body: JSON.stringify({ label: "escalate", adminRole: "admin" }),
     });
     expect(res.status).toBe(403);
@@ -756,12 +790,17 @@ describe("adminRole forbidden envelopes (exact message, both call sites)", () =>
     expect(body.error.message).toBe("Setting adminRole requires a super-admin (admin role, no team)");
   });
 
-  test("PATCH: exact FORBIDDEN envelope when a team-scoped admin sets adminRole", async () => {
+  test("PATCH: exact FORBIDDEN envelope when a team-scoped admin sets adminRole on a key it owns", async () => {
     await startApp();
-    const { id } = await mint({ label: "target" });
+    await reg("svc-mcpkeys-role-patch");
+    const { headers, teamId } = teamAdminSessionHeaders("team-admin-role-patch");
+    setClientTeam("svc-mcpkeys-role-patch", teamId);
+    // The key must be visible to (owned by) the team admin, so this test
+    // exercises the adminRole-escalation gate itself, not the ownership check.
+    const { id } = await mint({ label: "target", scopes: { clients: ["svc-mcpkeys-role-patch"] } }, headers);
     const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
       method: "PATCH",
-      headers: teamAdminSessionHeaders("team-admin-role-patch"),
+      headers,
       body: JSON.stringify({ adminRole: "admin" }),
     });
     expect(res.status).toBe(403);
@@ -793,5 +832,132 @@ describe("adminRole forbidden envelopes (exact message, both call sites)", () =>
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { message: string } };
     expect(body.error.message).toBe("adminRole must be one of admin, operator, auditor, viewer, or null");
+  });
+});
+
+// Regression coverage for the cross-tenant blind-mutate finding: PATCH/revoke/
+// DELETE must apply the same `keyVisibleToCaller` visibility GET already uses
+// before mutating anything, mirroring schedules.ts/approvals.ts's
+// ensureClientAccess pattern. Before the fix, a team-scoped admin could act on
+// any key by id (an unscoped key, or one owned by a different team) even
+// though GET correctly 404s it — including stripping adminRole/elevated,
+// revoking (DoS), deleting, or re-pointing scopes toward its own clients.
+describe("tenancy — PATCH/revoke/DELETE can't blind-mutate a key the caller can't see", () => {
+  test("PATCH on an unscoped key: a team-scoped admin gets 404, not 200, and the key is untouched", async () => {
+    await startApp();
+    const { id } = await mint({ label: "target" }); // unscoped — bearer-minted, hidden from every team
+    const { headers } = teamAdminSessionHeaders("team-admin-tenancy-patch");
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ label: "renamed" }),
+    });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("MCP_KEY_NOT_FOUND");
+    expect(body.error.message).toBe("API key not found");
+    expect(getMcpKey(id as number)?.label).toBe("target");
+  });
+
+  test("PATCH {adminRole: null} on another team's key: 404, not a silent 200 (the exact reported exploit)", async () => {
+    await startApp();
+    await reg("svc-mcpkeys-tenancy-role-a");
+    const teamA = teamAdminSessionHeaders("team-admin-tenancy-role-a");
+    setClientTeam("svc-mcpkeys-tenancy-role-a", teamA.teamId);
+    // Team A's own key, carrying a system-role grant (minted by a super-admin, scoped to team A).
+    const { id } = await mint({
+      label: "team-a-system-key",
+      scopes: { clients: ["svc-mcpkeys-tenancy-role-a"] },
+      adminRole: "operator",
+    });
+    const teamB = teamAdminSessionHeaders("team-admin-tenancy-role-b");
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
+      method: "PATCH",
+      headers: teamB.headers,
+      body: JSON.stringify({ adminRole: null }),
+    });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("MCP_KEY_NOT_FOUND");
+    expect(getMcpKey(id as number)?.adminRole).toBe("operator"); // untouched
+  });
+
+  test("PATCH {elevated: false} on another team's key: 404, not a silent 200 (the exact reported exploit)", async () => {
+    await startApp();
+    await reg("svc-mcpkeys-tenancy-elev-a");
+    const teamA = teamAdminSessionHeaders("team-admin-tenancy-elev-a");
+    setClientTeam("svc-mcpkeys-tenancy-elev-a", teamA.teamId);
+    const { id } = await mint({
+      label: "team-a-elevated-key",
+      scopes: { clients: ["svc-mcpkeys-tenancy-elev-a"] },
+      elevated: true,
+    });
+    const teamB = teamAdminSessionHeaders("team-admin-tenancy-elev-b");
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
+      method: "PATCH",
+      headers: teamB.headers,
+      body: JSON.stringify({ elevated: false }),
+    });
+    expect(res.status).toBe(404);
+    expect(getMcpKey(id as number)?.elevated).toBe(true); // untouched
+  });
+
+  test("PATCH {scopes} can't re-point another team's key toward the caller's own clients", async () => {
+    await startApp();
+    await reg("svc-mcpkeys-tenancy-repoint-a");
+    await reg("svc-mcpkeys-tenancy-repoint-b");
+    const teamA = teamAdminSessionHeaders("team-admin-tenancy-repoint-a");
+    setClientTeam("svc-mcpkeys-tenancy-repoint-a", teamA.teamId);
+    const { id } = await mint({ label: "team-a-key", scopes: { clients: ["svc-mcpkeys-tenancy-repoint-a"] } });
+    const teamB = teamAdminSessionHeaders("team-admin-tenancy-repoint-b");
+    setClientTeam("svc-mcpkeys-tenancy-repoint-b", teamB.teamId);
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
+      method: "PATCH",
+      headers: teamB.headers,
+      body: JSON.stringify({ scopes: { clients: ["svc-mcpkeys-tenancy-repoint-b"] } }),
+    });
+    expect(res.status).toBe(404);
+    expect(getMcpKey(id as number)?.scopes).toEqual({ clients: ["svc-mcpkeys-tenancy-repoint-a"] }); // untouched
+  });
+
+  test("revoke: a team-scoped admin can't revoke (DoS) a key it can't see", async () => {
+    await startApp();
+    const { id } = await mint({ label: "target" }); // unscoped
+    const { headers } = teamAdminSessionHeaders("team-admin-tenancy-revoke");
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}/revoke`, { method: "POST", headers });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("MCP_KEY_NOT_FOUND");
+    expect(getMcpKey(id as number)?.revokedAt).toBeNull();
+  });
+
+  test("DELETE: a team-scoped admin can't permanently delete another team's key", async () => {
+    await startApp();
+    await reg("svc-mcpkeys-tenancy-delete-a");
+    const teamA = teamAdminSessionHeaders("team-admin-tenancy-delete-a");
+    setClientTeam("svc-mcpkeys-tenancy-delete-a", teamA.teamId);
+    const { id } = await mint({ label: "team-a-key", scopes: { clients: ["svc-mcpkeys-tenancy-delete-a"] } });
+    const teamB = teamAdminSessionHeaders("team-admin-tenancy-delete-b");
+    const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, { method: "DELETE", headers: teamB.headers });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("MCP_KEY_NOT_FOUND");
+    expect(getMcpKey(id as number)).not.toBeNull(); // still exists
+  });
+
+  test("PATCH/revoke/DELETE still work normally for a super-admin (bearer) on any key", async () => {
+    await startApp();
+    const { id } = await mint({ label: "target" });
+    const patched = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
+      method: "PATCH",
+      headers: bearer(),
+      body: JSON.stringify({ label: "renamed" }),
+    });
+    expect(patched.status).toBe(200);
+    const revoked = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}/revoke`, { method: "POST", headers: bearer() });
+    expect(revoked.status).toBe(200);
+    const deleted = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, { method: "DELETE", headers: bearer() });
+    expect(deleted.status).toBe(200);
+    expect(getMcpKey(id as number)).toBeNull();
   });
 });

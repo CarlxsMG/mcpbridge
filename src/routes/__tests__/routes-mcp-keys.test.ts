@@ -12,20 +12,36 @@ import { requestIdMiddleware } from "../../middleware/request-id.js";
 import { createUser } from "../../security/user-store.js";
 import { createSession } from "../../security/session-store.js";
 import { SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } from "../../security/cookies.js";
-import { createTeam, setUserTeam } from "../../admin/entities/teams.js";
+import { createTeam, setUserTeam, setClientTeam } from "../../admin/entities/teams.js";
+import { registry } from "../../mcp/registry.js";
 
 /** Creates an admin-role session scoped to a real team (not a super-admin) — for adminRole-grant gating tests. */
-function teamAdminSessionHeaders(username: string): Record<string, string> {
+function teamAdminSessionHeaders(username: string): { headers: Record<string, string>; teamId: number } {
   const team = createTeam(`team-${username}`, "test");
   if (typeof team === "string") throw new Error(`createTeam failed: ${team}`);
   const user = createUser(username, "irrelevant-hash", "admin", null);
   setUserTeam(user.username, team.id);
   const session = createSession(user.id, "127.0.0.1", "test-agent");
   return {
-    "Content-Type": "application/json",
-    Cookie: `${SESSION_COOKIE_NAME}=${session.token}; ${CSRF_COOKIE_NAME}=${session.csrfToken}`,
-    "X-CSRF-Token": session.csrfToken,
+    teamId: team.id,
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: `${SESSION_COOKIE_NAME}=${session.token}; ${CSRF_COOKIE_NAME}=${session.csrfToken}`,
+      "X-CSRF-Token": session.csrfToken,
+    },
   };
+}
+
+/** Registers a bare client (fixed loopback-adjacent IPs, no real network I/O) so it can be assigned to a team via `setClientTeam`. */
+async function reg(name: string): Promise<void> {
+  await registry.register(
+    name,
+    [{ name: "t", method: "GET", endpoint: "/t", description: "d", inputSchema: { type: "object", properties: {} } }],
+    "http://example.com/health",
+    "1.2.3.4",
+    "http://example.com",
+    "1.2.3.4",
+  );
 }
 
 let baseUrl = "";
@@ -73,6 +89,7 @@ function bearer(): Record<string, string> {
 
 afterEach(async () => {
   await stopServer();
+  for (const c of registry.listClients()) await registry.unregister(c.name);
 });
 
 describe("POST /admin-api/mcp-keys", () => {
@@ -229,7 +246,7 @@ describe("adminRole — /mcp system control-plane grants", () => {
 
   test("a team-scoped admin can grant neither adminRole nor an unscoped/foreign-scoped key", async () => {
     await startApp();
-    const headers = teamAdminSessionHeaders("team-admin");
+    const { headers } = teamAdminSessionHeaders("team-admin");
 
     // Control-plane role: super-admin only.
     const withRole = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
@@ -260,8 +277,12 @@ describe("adminRole — /mcp system control-plane grants", () => {
 
   test("PATCH also requires a super-admin to set adminRole", async () => {
     await startApp();
-    const { id } = await mintViaFetch();
-    const headers = teamAdminSessionHeaders("team-admin-2");
+    await reg("svc-mcpkeys-role-patch-basic");
+    const { headers, teamId } = teamAdminSessionHeaders("team-admin-2");
+    setClientTeam("svc-mcpkeys-role-patch-basic", teamId);
+    // The key must be visible to (owned by) the team admin, so this exercises
+    // the adminRole-escalation gate itself, not the tenancy-ownership check.
+    const { id } = await mintViaFetch({ scopes: { clients: ["svc-mcpkeys-role-patch-basic"] } }, headers);
 
     const res = await fetch(`${baseUrl}/admin-api/mcp-keys/${id}`, {
       method: "PATCH",
@@ -271,11 +292,14 @@ describe("adminRole — /mcp system control-plane grants", () => {
     expect(res.status).toBe(403);
   });
 
-  async function mintViaFetch(): Promise<{ id: number }> {
+  async function mintViaFetch(
+    extra: Record<string, unknown> = {},
+    headers: Record<string, string> = bearer(),
+  ): Promise<{ id: number }> {
     const res = await fetch(`${baseUrl}/admin-api/mcp-keys`, {
       method: "POST",
-      headers: bearer(),
-      body: JSON.stringify({ label: "target" }),
+      headers,
+      body: JSON.stringify({ label: "target", ...extra }),
     });
     return (await res.json()) as { id: number };
   }
