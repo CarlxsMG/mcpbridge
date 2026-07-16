@@ -2791,7 +2791,7 @@ paths:
     post:
       operationId: createBundle
       summary: Create a new bundle
-      description: A bundle is served on its own MCP endpoint at /mcp-custom/{name} once created. Requires the admin role for session callers.
+      description: A bundle is served on its own MCP endpoint at /mcp-custom/{name} once created. Requires a super-admin session (admin role, no team) — team-scoped admins are rejected.
       tags: [Bundles]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       requestBody:
@@ -2823,6 +2823,9 @@ paths:
         "400":
           description: Invalid name, tools[]/composites[] shape, or an entry references an unknown client/tool/composite.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "403":
+          description: Caller is not a super-admin.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
         "409":
           description: A bundle with that name already exists.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
@@ -2845,7 +2848,7 @@ paths:
     patch:
       operationId: updateBundle
       summary: Update a bundle's description, enabled state, tool list, and/or composite list
-      description: Requires the admin role for session callers.
+      description: Requires a super-admin session (admin role, no team) — team-scoped admins are rejected.
       tags: [Bundles]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       parameters:
@@ -2870,6 +2873,9 @@ paths:
             }
         "400":
           description: Invalid tools[]/composites[] shape, or an entry references an unknown client/tool/composite.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "403":
+          description: Caller is not a super-admin.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
         "404":
           description: No such bundle.
@@ -3090,8 +3096,8 @@ paths:
         orchestration. A composite is not reachable anywhere until it's added
         to a bundle's `composites[]` (see PATCH /admin-api/bundles/{name});
         it cannot be exposed on a sharded /mcp/{clientName} endpoint or
-        reference another composite. Requires the admin role for session
-        callers.
+        reference another composite. Requires a super-admin session (admin
+        role, no team) — team-scoped admins are rejected.
       tags: [Composites]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       requestBody:
@@ -3117,6 +3123,9 @@ paths:
         "400":
           description: Invalid name/inputSchema/steps, or a step references an unknown client/tool.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "403":
+          description: Caller is not a super-admin.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
         "409":
           description: A composite with that name already exists.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
@@ -3139,7 +3148,7 @@ paths:
     patch:
       operationId: updateComposite
       summary: Update a composite's description, enabled state, input schema, and/or steps
-      description: Requires the admin role for session callers.
+      description: Requires a super-admin session (admin role, no team) — team-scoped admins are rejected.
       tags: [Composites]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       parameters:
@@ -3164,6 +3173,9 @@ paths:
             }
         "400":
           description: Invalid inputSchema/steps, or a step references an unknown client/tool.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "403":
+          description: Caller is not a super-admin.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
         "404":
           description: No such composite.
@@ -3897,6 +3909,9 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
         "404":
           description: No such user or team.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+        "409":
+          description: LAST_SUPERADMIN_PROTECTED — cannot assign a team to the last active super-admin (admin role, no team).
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
 
   # ── Traces ────────────────────────────────────────────────────────────────
