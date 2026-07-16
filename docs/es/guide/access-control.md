@@ -36,6 +36,11 @@ plaintext) y el valor crudo se muestra exactamente una vez al crearse.
 - **Lifecycle** — define expiración, revoca al instante, ve timestamps de último uso.
 - **Fail-closed** — una restricción de allowed-key por herramienta se aplica incluso si la
   auth global está deshabilitada: configurarla señaliza claramente la intención.
+- **Rol de sistema** — opcionalmente otorga a una key acceso `admin`/`operator`/`auditor`/
+  `viewer` al control plane `/mcp` (solo super-admin puede configurarlo, desde la página Keys
+  de la admin UI) — un permiso separado y aditivo al scope de arriba, ya que autoriza las
+  tools `sys_*` de gestión del gateway, no llamadas a tools de backend. Consulta la sección
+  "Control plane" de la [Referencia de API →](/es/guide/api-reference).
 
 ## Consumidores y cuotas
 
