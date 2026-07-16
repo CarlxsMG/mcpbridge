@@ -261,12 +261,18 @@ async function buildRestRequest(
   route: ReturnType<typeof decideSecondary>,
   lbKey: string | undefined,
 ): Promise<ToolResult | RestRequest> {
-  // Build URL with path param substitution
+  // Build URL with path param substitution. Consumed path-param names are
+  // tracked (not deleted yet) so the Ajv validation below still sees them —
+  // openapi-discovery.ts's buildInputSchema always marks a path-in parameter
+  // as required in the generated inputSchema, so validating the post-deletion
+  // object would always fail with "missing required property" even when the
+  // caller correctly supplied it. Deletion happens after validation instead.
   let remainingArgs = { ...args };
+  const consumedPathParams = new Set<string>();
   const resolvedPath = tool.endpoint.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (_, paramName) => {
     const value = remainingArgs[paramName];
     if (value !== undefined) {
-      delete remainingArgs[paramName];
+      consumedPathParams.add(paramName);
       return encodeURIComponent(String(value));
     }
     return `:${paramName}`;
@@ -297,6 +303,8 @@ async function buildRestRequest(
 
   // Validate args against inputSchema via Ajv (handles enum, format, null, nested objects, etc.)
   // removeAdditional:"all" on the Ajv instance means unknown keys are stripped from remainingArgs.
+  // Consumed path params are still present here (see above) so a schema that requires them
+  // validates correctly against what the caller actually supplied.
   {
     const validate = getOrCompile(client.name, tool.name, tool.inputSchema);
     const valid = validate(remainingArgs);
@@ -308,6 +316,10 @@ async function buildRestRequest(
       );
     }
   }
+
+  // Now that validation has run against the caller's full args, strip the
+  // consumed path params so they don't leak into the query string / request body.
+  for (const name of consumedPathParams) delete remainingArgs[name];
 
   // Declarative request transform — runs AFTER Ajv strip so an injected field
   // the MCP inputSchema doesn't declare still reaches the backend.
