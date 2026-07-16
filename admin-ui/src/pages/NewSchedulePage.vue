@@ -5,6 +5,7 @@ import { api } from "@/composables/useApi";
 import { useCreateForm } from "@/composables/useCreateForm";
 import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { describeCron } from "@/utils/cron";
+import { targetTypeLabel, scheduleActionLabel } from "@/utils/scheduleLabels";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
@@ -17,12 +18,12 @@ const { t } = useI18n({ useScope: "global" });
 type Frequency = "daily" | "weekly" | "hourly" | "custom";
 
 const TARGET_TYPE_OPTIONS: { value: "client" | "tool"; label: string }[] = [
-  { value: "client", label: t("pages.schedules.new.target_types.client") },
-  { value: "tool", label: t("pages.schedules.new.target_types.tool") },
+  { value: "client", label: targetTypeLabel("client") },
+  { value: "tool", label: targetTypeLabel("tool") },
 ];
 const ACTION_OPTIONS: { value: "enable" | "disable"; label: string }[] = [
-  { value: "disable", label: t("pages.schedules.new.actions.disable") },
-  { value: "enable", label: t("pages.schedules.new.actions.enable") },
+  { value: "disable", label: scheduleActionLabel("disable") },
+  { value: "enable", label: scheduleActionLabel("enable") },
 ];
 const FREQUENCY_OPTIONS: { value: Frequency; label: string }[] = [
   { value: "daily", label: t("pages.schedules.new.frequencies.daily") },

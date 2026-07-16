@@ -8,6 +8,7 @@ import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
 import { toErrorMessage } from "@/utils/errors";
 import { formatMaybeDate } from "@/utils/format";
 import { describeCron } from "@/utils/cron";
+import { targetTypeLabel, scheduleActionLabel } from "@/utils/scheduleLabels";
 import { tk } from "@/i18n";
 import type { Schedule } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -93,9 +94,9 @@ function formatLastRun(m: number | null): string {
               ><template v-if="s.toolName">
                 → <code>{{ s.toolName }}</code></template
               >
-              <span class="tag">{{ s.targetType }}</span>
+              <span class="tag">{{ targetTypeLabel(s.targetType) }}</span>
             </td>
-            <td>{{ s.action }}</td>
+            <td>{{ scheduleActionLabel(s.action) }}</td>
             <td>
               <div class="schedule-cell">
                 <span>{{ describeCron(s.cron) }}</span>

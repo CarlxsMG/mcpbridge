@@ -1866,9 +1866,9 @@
           "tool": "Tool",
           "action": "Action",
           "frequency": "Frequency",
-          "time": "Time",
+          "time": "Time (UTC)",
           "days": "Days",
-          "minute": "At minute",
+          "minute": "At minute (UTC)",
           "cron": "Cron expression"
         },
         "placeholders": {
