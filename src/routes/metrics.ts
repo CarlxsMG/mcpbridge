@@ -41,11 +41,16 @@ function snapshotGauges(): void {
     clients.reduce((sum, c) => sum + (c.tools?.length ?? 0), 0),
   );
 
-  // Rate limiter bucket sizes
+  // Rate limiter bucket sizes — one series per tier. Every tier
+  // getRateLimitBucketSizes() reports must be surfaced, else its live bucket
+  // pressure (and any LRU-eviction churn) is invisible to dashboards/alerts.
   const sizes = getRateLimitBucketSizes();
   rateLimitBuckets.set({ tier: "global" }, sizes.global);
   rateLimitBuckets.set({ tier: "mcp" }, sizes.mcp);
   rateLimitBuckets.set({ tier: "register" }, sizes.register);
+  rateLimitBuckets.set({ tier: "tool" }, sizes.tool);
+  rateLimitBuckets.set({ tier: "login" }, sizes.login);
+  rateLimitBuckets.set({ tier: "install_link" }, sizes.install_link);
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────

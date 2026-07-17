@@ -182,11 +182,12 @@ describe("GET /metrics", () => {
   });
 
   // Kills 31-36 (the three `{tier: "..."}` label object/string literals for
-  // global/mcp/register). Uses real `checkRateLimit` insertions (via the
-  // test-only map handles) with DIFFERENT counts per tier so a swapped or
-  // emptied tier label is observable. Delta-based (not absolute) because
-  // these bucket maps are process-wide, never-reset state shared with every
-  // other test file in a full suite run.
+  // global/mcp/register) plus the three tool/login/install_link tiers added in
+  // finding #43. Uses real `checkRateLimit` insertions (via the test-only map
+  // handles) with DIFFERENT counts per tier so a swapped or emptied tier label
+  // is observable. Delta-based (not absolute) because these bucket maps are
+  // process-wide, never-reset state shared with every other test file in a full
+  // suite run.
   test("computes rateLimitBuckets per-tier from real bucket insertions", async () => {
     await withApp(async (baseUrl) => {
       const before = getRateLimitBucketSizes();
@@ -196,11 +197,26 @@ describe("GET /metrics", () => {
       checkRateLimit(_internalsForTesting.mcpBuckets, 100_000, "metrics-test-rl-mcp-1", 1000, "mcp");
       checkRateLimit(_internalsForTesting.mcpBuckets, 100_000, "metrics-test-rl-mcp-2", 1000, "mcp");
       checkRateLimit(_internalsForTesting.registerBuckets, 100_000, "metrics-test-rl-register-1", 1000, "register");
+      checkRateLimit(_internalsForTesting.toolBuckets, 100_000, "metrics-test-rl-tool-1", 1000, "tool");
+      checkRateLimit(_internalsForTesting.toolBuckets, 100_000, "metrics-test-rl-tool-2", 1000, "tool");
+      checkRateLimit(_internalsForTesting.toolBuckets, 100_000, "metrics-test-rl-tool-3", 1000, "tool");
+      checkRateLimit(_internalsForTesting.toolBuckets, 100_000, "metrics-test-rl-tool-4", 1000, "tool");
+      checkRateLimit(_internalsForTesting.loginBuckets, 100_000, "metrics-test-rl-login-1", 1000, "login");
+      checkRateLimit(_internalsForTesting.loginBuckets, 100_000, "metrics-test-rl-login-2", 1000, "login");
+      checkRateLimit(_internalsForTesting.loginBuckets, 100_000, "metrics-test-rl-login-3", 1000, "login");
+      checkRateLimit(_internalsForTesting.loginBuckets, 100_000, "metrics-test-rl-login-4", 1000, "login");
+      checkRateLimit(_internalsForTesting.loginBuckets, 100_000, "metrics-test-rl-login-5", 1000, "login");
+      checkRateLimit(_internalsForTesting.installLinkBuckets, 100_000, "metrics-test-rl-il-1", 1000, "install_link");
       const res = await fetch(`${baseUrl}/metrics`, { headers: bearer() });
       const body = await res.text();
+      // Distinct delta per tier so a swapped/emptied tier label lands the wrong
+      // count and fails: global+3, mcp+2, register+1, tool+4, login+5, install_link+1.
       expect(gaugeValueFor(body, "mcp_rate_limit_buckets", 'tier="global"')).toBe(before.global + 3);
       expect(gaugeValueFor(body, "mcp_rate_limit_buckets", 'tier="mcp"')).toBe(before.mcp + 2);
       expect(gaugeValueFor(body, "mcp_rate_limit_buckets", 'tier="register"')).toBe(before.register + 1);
+      expect(gaugeValueFor(body, "mcp_rate_limit_buckets", 'tier="tool"')).toBe(before.tool + 4);
+      expect(gaugeValueFor(body, "mcp_rate_limit_buckets", 'tier="login"')).toBe(before.login + 5);
+      expect(gaugeValueFor(body, "mcp_rate_limit_buckets", 'tier="install_link"')).toBe(before.install_link + 1);
     });
   });
 });

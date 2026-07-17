@@ -257,7 +257,11 @@ async function gracefulShutdown(signal: string) {
   stopRegistrySync();
   stopWsProxyRevalidation();
   closeAllWsProxyConnections();
-  void flushTraces();
+  // Await the final OTLP export so a scale-down doesn't drop the last batch.
+  // Bounded by flush()'s own AbortSignal.timeout, and a no-op (instant) when
+  // OTLP export isn't configured — so this can't stall shutdown. The
+  // force-exit safety timer below still bounds the transport-cleanup phase.
+  await flushTraces();
   cleanupTransports();
   server.close(() => process.exit(0));
   // Fallback: force exit after configured timeout
