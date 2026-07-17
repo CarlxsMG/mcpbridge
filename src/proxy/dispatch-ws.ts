@@ -1,6 +1,6 @@
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import { toolResult } from "../lib/mcp-result.js";
+import { toolResult, type ToolResult } from "../lib/mcp-result.js";
 import type { ToolCallOpts } from "./proxy.js";
 import type { RegisteredClient, RegisteredTool } from "../mcp/types.js";
 import { getCircuitBreaker } from "../middleware/circuit-breaker.js";
@@ -37,7 +37,7 @@ export async function dispatchWsToolCall(
   callerKey: { id: number } | null,
   scanResponses: boolean,
   opts?: ToolCallOpts,
-): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+): Promise<ToolResult> {
   const startTime = Date.now();
 
   // Arg validation + unknown-key stripping parity with the REST/MCP paths. The

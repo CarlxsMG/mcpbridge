@@ -1,6 +1,6 @@
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import { toolResult } from "../lib/mcp-result.js";
+import { toolResult, type ToolResult, type ToolResultContent } from "../lib/mcp-result.js";
 import type { ToolCallOpts } from "./proxy.js";
 import type { RegisteredClient, RegisteredTool } from "../mcp/types.js";
 import { getCircuitBreaker } from "../middleware/circuit-breaker.js";
@@ -9,6 +9,7 @@ import { mcpUpstream } from "../mcp/mcp-upstream.js";
 import type { McpConnParams } from "../mcp/mcp-upstream.js";
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { getRedactionPaths, applyRedaction, stripInjectedCredentials } from "../content-filtering/redaction.js";
+import { mapStringLeaves } from "../content-filtering/walk-strings.js";
 import { applyResponseScan } from "../tool-policies/guardrails.js";
 import { recordGuardrailHit } from "../tool-policies/quarantine.js";
 import { applyContextBudget } from "../tool-policies/context-budget.js";
@@ -32,7 +33,7 @@ export async function dispatchMcpToolCall(
   callerKey: { id: number } | null,
   scanResponses: boolean,
   opts?: ToolCallOpts,
-): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+): Promise<ToolResult> {
   const startTime = Date.now();
 
   // Same Ajv instance/behaviour as the REST path — removeAdditional strips
@@ -115,56 +116,87 @@ export async function dispatchMcpToolCall(
     { tool: mcpToolName, client: client.name, duration_ms: durationMs },
   );
 
-  // Response redaction + guardrail-scan parity with the REST path — which
-  // sanitizes its 4xx/5xx error branch too (proxy.ts, not just the success
-  // branch). An isError result from an (untrusted) MCP upstream can carry a
-  // secret at a configured redaction path, or a prompt-injection payload that
-  // scanResponses is built to spotlight, exactly like a success result — so
-  // both run over EVERY result regardless of result.isError.
+  // Response sanitization — redaction + guardrail scan + injected-credential
+  // strip — extended to cover the ENTIRE rich MCP 2025-06-18 result surface the
+  // passthrough now preserves: text parts, embedded-resource `resource.text`,
+  // AND every string leaf of `structuredContent`. Nothing reaches the caller
+  // unscanned. All three run over EVERY result (success AND isError), matching
+  // the REST path which sanitizes its 4xx/5xx branch too — an untrusted upstream
+  // can carry a secret or a prompt-injection payload in an error body just as
+  // easily as in a success one.
+
+  // (1) Redaction — path-based, over the content blocks only (text parts,
+  // resource.text/uri, resource_link fields — none of which are schema-validated).
+  // structuredContent is DELIBERATELY not redaction-mutated: it is the typed
+  // output validated by the caller's SDK against the advertised outputSchema, and
+  // swapping a matched value for the "[REDACTED]" string would violate that schema
+  // (e.g. a numeric field), making the SDK reject the whole call. Redaction paths
+  // still apply to the text mirror of the data; the one structuredContent leak
+  // that matters — a reflected gateway credential — is closed by the
+  // type-preserving credential strip in (3).
   const paths = getRedactionPaths(client.name, tool.name);
   if (paths.length > 0) {
-    result.content = result.content.map((item) =>
-      item.type === "text" ? { ...item, text: applyRedaction(paths, item.text) ?? item.text } : item,
-    );
+    const redact = (s: string): string => applyRedaction(paths, s) ?? s;
+    result.content = result.content.map((item) => mapItemStrings(item, redact));
   }
-  // Response guardrail scan — wrap flagged text parts (after redaction).
+
+  // (2) Guardrail response scan — spotlight-wrap any flagged string in the content
+  // blocks. structuredContent is scanned DETECT-ONLY (flag + quarantine signal,
+  // no mutation): wrapping a flagged leaf would break the advertised outputSchema
+  // the same way redaction would. A single hit anywhere records exactly one
+  // guardrail hit + one warn log.
   if (scanResponses) {
     let anyFlagged = false;
-    result.content = result.content.map((item) => {
-      if (item.type !== "text") return item;
-      const scan = applyResponseScan(item.text);
-      if (scan.flagged) {
-        anyFlagged = true;
-        log("warn", "MCP tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
-      }
-      return scan.flagged ? { ...item, text: scan.text } : item;
-    });
+    const scan = (s: string): string => {
+      const scanned = applyResponseScan(s);
+      if (scanned.flagged) anyFlagged = true;
+      return scanned.text;
+    };
+    result.content = result.content.map((item) => mapItemStrings(item, scan));
+    if (result.structuredContent) {
+      // Detect only — run the scan to raise the flag/quarantine signal, but keep
+      // the original typed value so it still conforms to the outputSchema.
+      void mapStringLeaves(result.structuredContent, scan);
+    }
+    if (anyFlagged) {
+      log("warn", "MCP tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
+    }
     recordGuardrailHit(client.name, tool.name, anyFlagged);
   }
 
-  // Strip the gateway's own injected upstream credential if the (untrusted)
-  // upstream reflected it into a result part — parity with the REST path
-  // (dispatch-rest.ts). Runs over EVERY result (success AND isError),
+  // (3) Strip the gateway's own injected upstream credential if the (untrusted)
+  // upstream reflected it — over text parts, resource.text, AND every
+  // structuredContent string leaf (a reflected credential is just as harvestable
+  // from structured output as from a text part). Runs over EVERY result,
   // independent of redaction config, so a caller authorized to CALL this
   // MCP-upstream tool can never harvest the gateway-held credential it was never
-  // trusted to HOLD (nor can traffic capture then persist it). MUST run BEFORE
-  // the context budget below, whose opt-in llm_summarize can ship the result
-  // text to a third-party LLM — stripping after that would leak a reflected
-  // credential to the summarizer.
+  // trusted to HOLD (nor can traffic capture then persist it). Binary
+  // `data`/`blob` (base64) is deliberately NOT scanned here: it is not
+  // prompt-injection-scannable, and a reflected plaintext credential would have
+  // to survive base64 transport verbatim — the needle-match strip below only
+  // matches the raw credential string, which the text/resource-text surfaces it
+  // could actually be reflected into already cover. MUST run BEFORE the context
+  // budget below, whose opt-in llm_summarize can ship result text to a
+  // third-party LLM — stripping after that would leak a reflected credential to
+  // the summarizer.
   if (injectedAuthHeaders) {
-    result.content = result.content.map((item) =>
-      item.type === "text" ? { ...item, text: stripInjectedCredentials(item.text, injectedAuthHeaders) } : item,
-    );
+    const strip = (s: string): string => stripInjectedCredentials(s, injectedAuthHeaders);
+    result.content = result.content.map((item) => mapItemStrings(item, strip));
+    if (result.structuredContent) {
+      result.structuredContent = mapStringLeaves(result.structuredContent, strip) as Record<string, unknown>;
+    }
   }
 
-  // Context budget stays success-only — the REST path doesn't budget error
-  // bodies either — and MUST run after redaction, the guardrail scan, AND the
-  // credential strip above so an opt-in llm_summarize call only ever sees
-  // already-sanitized text, right before the response goes back to the caller.
+  // (4) Context budget stays success-only (the REST path doesn't budget error
+  // bodies either) and TEXT-only, and MUST run after redaction, the guardrail
+  // scan, AND the credential strip above so an opt-in llm_summarize call only
+  // ever sees already-sanitized text, right before the response goes back to the
+  // caller. structuredContent is intentionally not budgeted (truncating
+  // structured output would break its outputSchema contract).
   if (!result.isError) {
     result.content = await Promise.all(
       result.content.map(async (item) => {
-        if (item.type !== "text") return item;
+        if (item.type !== "text" || typeof item.text !== "string") return item;
         const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, item.text);
         return budgeted.applied === "none" ? item : { ...item, text: budgeted.text };
       }),
@@ -172,4 +204,27 @@ export async function dispatchMcpToolCall(
   }
 
   return result;
+}
+
+/**
+ * Content-item string leaves that must NOT be transformed: the block
+ * discriminator `type` (transforming it would corrupt the block), and the binary
+ * base64 payloads `data`/`blob` (not prompt-injection-scannable, and a reflected
+ * plaintext credential can't survive base64 verbatim — the string surfaces it
+ * could be reflected into are covered below).
+ */
+const CONTENT_ITEM_SKIP_KEYS: ReadonlySet<string> = new Set(["type", "data", "blob"]);
+
+/**
+ * Applies a string transform to EVERY non-binary caller-visible string inside one
+ * content item — a text block's `text`, an embedded-resource's `resource.text`
+ * AND `resource.uri`/`mimeType`, and a `resource_link`'s `uri`/`name`/`title`/
+ * `description` — since an untrusted upstream can smuggle a prompt-injection
+ * payload or a reflected credential through ANY of them, not just `text`. Content
+ * items are not validated against the tool's outputSchema (only structuredContent
+ * is), so mutating these strings is safe. Binary `data`/`blob` and the block
+ * `type` discriminator are left untouched (CONTENT_ITEM_SKIP_KEYS).
+ */
+function mapItemStrings(item: ToolResultContent, fn: (s: string) => string): ToolResultContent {
+  return mapStringLeaves(item, fn, CONTENT_ITEM_SKIP_KEYS) as ToolResultContent;
 }

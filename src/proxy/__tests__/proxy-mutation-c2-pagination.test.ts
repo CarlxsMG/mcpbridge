@@ -101,7 +101,7 @@ describe("fetchAllPages — cursor strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2, 3, 4, 5]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2, 3, 4, 5]);
       expect(calls).toBe(3);
       expect(seenCursors).toEqual([null, "c1", "c2"]);
     },
@@ -130,7 +130,7 @@ describe("fetchAllPages — cursor strategy", () => {
         return json({ data: [2], next: null });
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2]);
       expect(sawCursorKey).toBe(true);
       expect(calls).toBe(2);
     },
@@ -156,7 +156,7 @@ describe("fetchAllPages — cursor strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2]);
       expect(calls).toBe(1);
     },
   );
@@ -185,7 +185,7 @@ describe("fetchAllPages — cursor strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2]);
       expect(calls).toBe(1);
     },
   );
@@ -214,7 +214,7 @@ describe("fetchAllPages — cursor strategy", () => {
         return json({ data: [], next: "c2" });
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2]);
       expect(calls).toBe(2);
     },
   );
@@ -246,7 +246,7 @@ describe("fetchAllPages — cursor strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2]);
       expect(calls).toBe(2);
     },
   );
@@ -273,7 +273,7 @@ describe("fetchAllPages — cursor strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2]);
       expect(calls).toBe(2);
     },
   );
@@ -300,7 +300,7 @@ describe("fetchAllPages — cursor strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2]);
       expect(calls).toBe(2);
     },
   );
@@ -339,7 +339,7 @@ describe("fetchAllPages — cursor strategy", () => {
         }) as unknown as typeof fetch;
         const r = await proxyToolCall(`${CLIENT}__get-list`, {});
         expect(r.isError).toBeUndefined();
-        expect(JSON.parse(r.content[0].text).data).toEqual([1, 2, 3]);
+        expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2, 3]);
         expect(calls).toBe(2);
       } finally {
         (config as Record<string, unknown>).maxResponseBytes = original;
@@ -381,7 +381,7 @@ describe("fetchAllPages — cursor strategy", () => {
         }) as unknown as typeof fetch;
         const r = await proxyToolCall(`${CLIENT}__get-list`, {});
         expect(r.isError).toBeUndefined();
-        expect(JSON.parse(r.content[0].text).data).toEqual([1, 2, 3, 4]);
+        expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2, 3, 4]);
         expect(calls).toBe(3);
       } finally {
         (config as Record<string, unknown>).maxResponseBytes = original;
@@ -421,7 +421,7 @@ describe("fetchAllPages — cursor strategy", () => {
         }) as unknown as typeof fetch;
         const r = await proxyToolCall(`${CLIENT}__get-list`, {});
         expect(r.isError).toBeUndefined();
-        expect(JSON.parse(r.content[0].text).data).toEqual([1, 2]);
+        expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2]);
         expect(calls).toBe(2);
       } finally {
         (config as Record<string, unknown>).maxResponseBytes = original;
@@ -454,7 +454,7 @@ describe("fetchAllPages — cursor strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2, 3, 4]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2, 3, 4]);
       expect(calls).toBe(2);
     },
   );
@@ -500,7 +500,7 @@ describe("fetchAllPages — cursor strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2]);
       expect(calls).toBe(2);
     },
   );
@@ -525,7 +525,7 @@ describe("fetchAllPages — cursor strategy", () => {
         return json({ data: [calls], next: `c${calls}` }); // never-ending cursor
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
-      expect(JSON.parse(r.content[0].text).data).toEqual([1]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1]);
       expect(calls).toBe(1);
     },
   );
@@ -549,7 +549,7 @@ describe("fetchAllPages — cursor strategy", () => {
         return json({ data: [calls], next: `c${calls}` }); // never-ending cursor
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
-      expect(JSON.parse(r.content[0].text).data).toEqual([1, 2, 3]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2, 3]);
       expect(calls).toBe(3);
     },
   );
@@ -641,7 +641,7 @@ describe("fetchAllPages — page strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).items).toEqual([1, 2, 3]);
+      expect(JSON.parse(r.content[0].text ?? "").items).toEqual([1, 2, 3]);
       expect(calls).toBe(3);
       // The follow-up sequence must be exactly page=2 then page=3 — a
       // decrement (page--) or a stuck-at-2 (empty else branch) would diverge.
@@ -679,7 +679,7 @@ describe("fetchAllPages — page strategy", () => {
         }) as unknown as typeof fetch;
         const r = await proxyToolCall(`${CLIENT}__get-list`, {});
         expect(r.isError).toBeUndefined();
-        expect(JSON.parse(r.content[0].text).items).toEqual([1, 2, 3]);
+        expect(JSON.parse(r.content[0].text ?? "").items).toEqual([1, 2, 3]);
         expect(calls).toBe(3);
         expect(cursorSpy).not.toHaveBeenCalled();
         expect(linkSpy).not.toHaveBeenCalled();
@@ -712,7 +712,7 @@ describe("fetchAllPages — link strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text)).toEqual([1, 2, 3, 4, 5]);
+      expect(JSON.parse(r.content[0].text ?? "")).toEqual([1, 2, 3, 4, 5]);
       expect(calls).toBe(3);
     },
   );
@@ -730,7 +730,7 @@ describe("fetchAllPages — link strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text)).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "")).toEqual([1, 2]);
       expect(calls).toBe(1);
     },
   );
@@ -750,7 +750,7 @@ describe("fetchAllPages — link strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text)).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "")).toEqual([1, 2]);
       expect(calls).toBe(1);
     },
   );
@@ -772,7 +772,7 @@ describe("fetchAllPages — link strategy", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text)).toEqual([1, 2]);
+      expect(JSON.parse(r.content[0].text ?? "")).toEqual([1, 2]);
       expect(calls).toBe(1);
     },
   );
@@ -830,7 +830,7 @@ describe("fetchAllPages — first body not paginable", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).data).toEqual([]);
+      expect(JSON.parse(r.content[0].text ?? "").data).toEqual([]);
       expect(calls).toBe(1);
     },
   );
@@ -856,7 +856,7 @@ describe("fetchAllPages — first body not paginable", () => {
       }) as unknown as typeof fetch;
       const r = await proxyToolCall(`${CLIENT}__get-list`, {});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).data).toBe("not-an-array");
+      expect(JSON.parse(r.content[0].text ?? "").data).toBe("not-an-array");
       expect(calls).toBe(1);
     },
   );

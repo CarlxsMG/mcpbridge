@@ -289,10 +289,31 @@ describe("discovery", () => {
 });
 
 describe("mcpResultToProxyResult", () => {
-  test("JSON-encodes non-text content instead of dropping it", () => {
-    const r = mcpResultToProxyResult({ content: [{ type: "image", data: "AAAA", mimeType: "image/png" }] }, 1_000_000);
+  test("preserves a non-text content item as a real block (not a JSON text blob)", () => {
+    const image = { type: "image", data: "AAAA", mimeType: "image/png" };
+    const r = mcpResultToProxyResult({ content: [image] }, 1_000_000);
     expect(r.isError).toBeUndefined();
-    expect(r.content[0].type).toBe("text");
-    expect(r.content[0].text).toContain("image/png");
+    // The image block survives intact — same type/data/mimeType — instead of
+    // being flattened into a { type: "text" } part.
+    expect(r.content[0]).toEqual(image);
+    expect(r.content[0].type).toBe("image");
+    expect(r.content[0].data).toBe("AAAA");
+  });
+
+  test("carries structuredContent through to the caller", () => {
+    const r = mcpResultToProxyResult(
+      { content: [{ type: "text", text: "ok" }], structuredContent: { total: 3, items: ["a", "b"] } },
+      1_000_000,
+    );
+    expect(r.isError).toBeUndefined();
+    expect(r.structuredContent).toEqual({ total: 3, items: ["a", "b"] });
+    expect(r.content[0]).toEqual({ type: "text", text: "ok" });
+  });
+
+  test("byte cap counts an oversized structuredContent and rejects it", () => {
+    const big = { blob: "x".repeat(5000) };
+    const r = mcpResultToProxyResult({ content: [{ type: "text", text: "ok" }], structuredContent: big }, 1000);
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toContain("exceeded");
   });
 });

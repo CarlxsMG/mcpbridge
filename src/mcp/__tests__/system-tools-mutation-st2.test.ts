@@ -163,7 +163,7 @@ describe("read-tier tool schemas — bulk toEqual kill via listSystemTools()", (
   test("sys_list_keys L140 — handler calls through to listMcpKeys(), not undefined", async () => {
     const result = await runSystemTool("sys_list_keys", {}, READ_AUTH);
     expect(typeof result.content[0].text).toBe("string");
-    const parsed = JSON.parse(result.content[0].text) as unknown[];
+    const parsed = JSON.parse(result.content[0].text ?? "") as unknown[];
     expect(Array.isArray(parsed)).toBe(true);
   });
 
@@ -211,7 +211,7 @@ describe("sys_list_clients — handler logic", () => {
     await reg("delta");
     const result = await runSystemTool("sys_list_clients", {}, READ_AUTH);
     expect(result.isError).toBeUndefined();
-    const parsed = JSON.parse(result.content[0].text) as { items: { name: string }[] };
+    const parsed = JSON.parse(result.content[0].text ?? "") as { items: { name: string }[] };
     expect(Array.isArray(parsed.items)).toBe(true);
     expect(parsed.items.map((i) => i.name)).toContain("delta");
   });
@@ -229,14 +229,14 @@ describe("sys_list_clients — handler logic", () => {
 
     // An emptied filter object ({}) would ignore `q` entirely and return all 3.
     const byQ = await runSystemTool("sys_list_clients", { q: "alpha" }, READ_AUTH);
-    const byQParsed = JSON.parse(byQ.content[0].text) as { items: { name: string }[] };
+    const byQParsed = JSON.parse(byQ.content[0].text ?? "") as { items: { name: string }[] };
     expect(byQParsed.items.map((i) => i.name).sort()).toEqual(["alpha-one", "alpha-two"]);
 
     // Corrupting the "enabled" lookup key means bool(args, "") is always
     // undefined regardless of what args.enabled holds, so the enabled
     // filter would never apply and the disabled client would still show up.
     const byEnabled = await runSystemTool("sys_list_clients", { enabled: true }, READ_AUTH);
-    const byEnabledParsed = JSON.parse(byEnabled.content[0].text) as { items: { name: string }[] };
+    const byEnabledParsed = JSON.parse(byEnabled.content[0].text ?? "") as { items: { name: string }[] };
     expect(byEnabledParsed.items.map((i) => i.name).sort()).toEqual(["alpha-one", "beta-one"]);
   });
 });
@@ -278,7 +278,7 @@ describe("sys_get_client — handler logic", () => {
     await reg("beta", [makeTool({ name: "get-thing" })]);
     const result = await runSystemTool("sys_get_client", { name: "beta" }, READ_AUTH);
     expect(result.isError).toBeUndefined();
-    const parsed = JSON.parse(result.content[0].text) as { name: string; tools: { name: string }[] };
+    const parsed = JSON.parse(result.content[0].text ?? "") as { name: string; tools: { name: string }[] };
     expect(parsed.name).toBe("beta");
     expect(parsed.tools.map((t) => t.name)).toContain("get-thing");
   });
@@ -309,7 +309,7 @@ describe("sys_list_tools / sys_list_bundles / sys_metrics — trivial handlers",
     await reg("gamma", [makeTool({ name: "get-thing" })]);
     const result = await runSystemTool("sys_list_tools", {}, READ_AUTH);
     expect(typeof result.content[0].text).toBe("string");
-    const parsed = JSON.parse(result.content[0].text) as { client: string; tool: string }[];
+    const parsed = JSON.parse(result.content[0].text ?? "") as { client: string; tool: string }[];
     expect(Array.isArray(parsed)).toBe(true);
     expect(parsed).toContainEqual(expect.objectContaining({ client: "gamma", tool: "get-thing" }));
   });
@@ -319,7 +319,7 @@ describe("sys_list_tools / sys_list_bundles / sys_metrics — trivial handlers",
   test("sys_list_bundles L133:14 — handler calls through to listBundles(), not undefined", async () => {
     const result = await runSystemTool("sys_list_bundles", {}, READ_AUTH);
     expect(typeof result.content[0].text).toBe("string");
-    const parsed = JSON.parse(result.content[0].text) as unknown[];
+    const parsed = JSON.parse(result.content[0].text ?? "") as unknown[];
     expect(Array.isArray(parsed)).toBe(true);
   });
 
@@ -328,7 +328,7 @@ describe("sys_list_tools / sys_list_bundles / sys_metrics — trivial handlers",
   test("sys_metrics L147:14 — handler calls through to getLegacyMetricsSnapshot(), not undefined", async () => {
     const result = await runSystemTool("sys_metrics", {}, READ_AUTH);
     expect(typeof result.content[0].text).toBe("string");
-    const parsed = JSON.parse(result.content[0].text) as { uptimeSeconds: number; totalToolCalls: number };
+    const parsed = JSON.parse(result.content[0].text ?? "") as { uptimeSeconds: number; totalToolCalls: number };
     expect(typeof parsed.uptimeSeconds).toBe("number");
     expect(typeof parsed.totalToolCalls).toBe("number");
   });

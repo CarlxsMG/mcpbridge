@@ -436,8 +436,8 @@ describe("coalesce eligibility and key derivation (L674-677)", () => {
       proxyToolCall(`${CLIENT_COAL}__get-item`, { id: "2" }),
     ]);
     expect(getCalls()).toBe(2);
-    expect((JSON.parse(r1.content[0].text) as { id: string }).id).toBe("1");
-    expect((JSON.parse(r2.content[0].text) as { id: string }).id).toBe("2");
+    expect((JSON.parse(r1.content[0].text ?? "") as { id: string }).id).toBe("1");
+    expect((JSON.parse(r2.content[0].text ?? "") as { id: string }).id).toBe("2");
   });
 
   test("coalescing disabled entirely: two concurrent identical GET calls are NOT coalesced (sanity check for the coalesceCfg?.enabled gate)", async () => {

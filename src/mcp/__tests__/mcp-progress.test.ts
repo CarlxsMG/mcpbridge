@@ -135,7 +135,7 @@ describe("proxyToolCall — MCP-kind dispatch integration", () => {
 
     const r = await callPromise;
     expect(r.isError).toBe(true);
-    expect(r.content[0].text.toLowerCase()).toContain("cancel");
+    expect((r.content[0].text ?? "").toLowerCase()).toContain("cancel");
     expect(getAllCircuitStates()[CLIENT]).toBe("closed");
   });
 });

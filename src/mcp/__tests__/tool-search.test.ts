@@ -89,7 +89,7 @@ describe("runSearchTool", () => {
   test("returns a JSON payload of matches", () => {
     const res = runSearchTool({ query: "message" }, SAMPLE);
     expect(res.isError).toBeUndefined();
-    const parsed = JSON.parse(res.content[0].text) as { count: number; matches: { name: string }[] };
+    const parsed = JSON.parse(res.content[0].text ?? "") as { count: number; matches: { name: string }[] };
     expect(parsed.matches[0].name).toBe("slack__post_message");
     expect(parsed.count).toBe(1);
   });

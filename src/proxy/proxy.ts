@@ -8,7 +8,7 @@ import { recordTraffic } from "../observability/traffic.js";
 import { resolveMcpKeyByToken } from "../security/mcp-key-store.js";
 import { getGuardrails } from "../tool-policies/guardrails.js";
 import { tracingEnabled, startSpan, endSpan } from "../observability/tracing.js";
-import { toolResult } from "../lib/mcp-result.js";
+import { toolResult, type ToolResult } from "../lib/mcp-result.js";
 import {
   checkConsumerQuotaGate,
   checkSensitiveToolGate,
@@ -61,11 +61,11 @@ export async function proxyToolCall(
   args: Record<string, unknown> = {},
   callerToken?: string,
   opts?: ToolCallOpts,
-): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+): Promise<ToolResult> {
   const capture = config.trafficCaptureEnabled;
   const started = capture ? Date.now() : 0;
 
-  let result: { content: Array<{ type: string; text: string }>; isError?: boolean };
+  let result: ToolResult;
   if (!tracingEnabled()) {
     result = await dispatchToolCall(mcpToolName, args, callerToken, opts);
   } else {
@@ -102,7 +102,7 @@ async function dispatchToolCall(
   args: Record<string, unknown> = {},
   callerToken?: string,
   opts?: ToolCallOpts,
-): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+): Promise<ToolResult> {
   const resolved = registry.resolveTool(mcpToolName);
 
   if (resolved === undefined) {

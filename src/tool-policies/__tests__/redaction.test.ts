@@ -152,7 +152,7 @@ describe("proxy redaction", () => {
         headers: { "content-type": "application/json" },
       })) as unknown as typeof fetch;
     const res = await proxyToolCall("svc__get-users", {});
-    const body = JSON.parse(res.content[0].text);
+    const body = JSON.parse(res.content[0].text ?? "");
     expect(body.password).toBe("[REDACTED]");
     expect(body.user).toBe("a");
   });

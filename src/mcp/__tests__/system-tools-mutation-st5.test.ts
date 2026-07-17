@@ -288,7 +288,7 @@ describe("sys_mint_key — L343 audit target is String(record.id); L344-345 raw 
     try {
       const result = await runSystemTool("sys_mint_key", { label: "k-full-response" }, ADMIN_AUTH);
       expect(result.isError).toBeUndefined();
-      const body = JSON.parse(result.content[0]!.text) as Record<string, unknown>;
+      const body = JSON.parse(result.content[0]!.text ?? "") as Record<string, unknown>;
 
       expect(body.label).toBe("k-full-response");
       expect(typeof body.id).toBe("number");

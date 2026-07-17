@@ -296,19 +296,19 @@ describe("runSearchTool — limit coercion", () => {
 
   test("a non-number limit (string) falls back to the default of 10, not NaN/uncapped", () => {
     const res = runSearchTool({ query: "match", limit: "5" }, manyTools);
-    const parsed = JSON.parse(res.content[0]!.text) as { matches: unknown[] };
+    const parsed = JSON.parse(res.content[0]!.text ?? "") as { matches: unknown[] };
     expect(parsed.matches).toHaveLength(10);
   });
 
   test("a non-finite limit (Infinity) falls back to the default of 10", () => {
     const res = runSearchTool({ query: "match", limit: Infinity }, manyTools);
-    const parsed = JSON.parse(res.content[0]!.text) as { matches: unknown[] };
+    const parsed = JSON.parse(res.content[0]!.text ?? "") as { matches: unknown[] };
     expect(parsed.matches).toHaveLength(10);
   });
 
   test("a real finite number limit is floored and honored, not replaced by the default", () => {
     const res = runSearchTool({ query: "match", limit: 3.7 }, manyTools);
-    const parsed = JSON.parse(res.content[0]!.text) as { matches: unknown[] };
+    const parsed = JSON.parse(res.content[0]!.text ?? "") as { matches: unknown[] };
     expect(parsed.matches).toHaveLength(3);
   });
 });

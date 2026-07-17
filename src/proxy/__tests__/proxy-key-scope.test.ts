@@ -59,7 +59,7 @@ describe("proxy MCP key scope enforcement", () => {
     // Intentionally do NOT mock fetch — the call must be rejected before reaching it.
     const res = await proxyToolCall("svc__get-users", {}, rawKey);
     expect(res.isError).toBe(true);
-    expect(res.content[0].text.toLowerCase()).toContain("not authorized");
+    expect((res.content[0].text ?? "").toLowerCase()).toContain("not authorized");
   });
 
   test("a tool-scoped key can call exactly the granted tool", async () => {

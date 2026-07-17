@@ -421,7 +421,7 @@ describe("dispatchMcpToolCall — status classification, breaker recording, and 
     const r = await callPromise;
 
     expect(r.isError).toBe(true);
-    expect(r.content[0].text.toLowerCase()).toContain("cancel");
+    expect((r.content[0].text ?? "").toLowerCase()).toContain("cancel");
 
     const row = lastLogRow("hangs");
     expect(row?.status_class).toBe("cancelled");
@@ -508,7 +508,7 @@ describe("dispatchMcpToolCall — redaction, guardrail scan, and context budget 
     setRedactionPaths(CLIENT, "redact", ["secret"]);
     const r = await proxyToolCall(`${CLIENT}__redact`, {});
     expect(r.isError).toBeUndefined();
-    const parsed = JSON.parse(r.content[0].text) as { secret: string; ok: boolean };
+    const parsed = JSON.parse(r.content[0].text ?? "") as { secret: string; ok: boolean };
     // A `applyRedaction(...) ?? item.text` -> `&& item.text` mutant would keep
     // the original ("shh") since applyRedaction's result is truthy.
     expect(parsed.secret).toBe(REDACTION_PLACEHOLDER);
@@ -560,7 +560,7 @@ describe("dispatchMcpToolCall — redaction, guardrail scan, and context budget 
     const r = await proxyToolCall(`${CLIENT}__budget`, {});
     expect(r.isError).toBeUndefined();
     expect(r.content[0].text).toContain("context-budget: response truncated");
-    expect(r.content[0].text.length).toBeLessThan(2000);
+    expect((r.content[0].text ?? "").length).toBeLessThan(2000);
   });
 
   test("an error result IS redacted and guardrail-scanned (parity with the REST error path); only context budget stays success-only (kills the isError guard hoisting redaction/scan out while keeping the budget guard)", async () => {

@@ -117,7 +117,7 @@ describe("natural approval gate (L583, L585, L552 initial value)", () => {
     expect(r1.isError).toBe(true);
     expect(r1.content[0].text).toContain("requires human approval");
     expect(fetched).toBe(0);
-    const id = Number(r1.content[0].text.match(/#(\d+)/)![1]);
+    const id = Number((r1.content[0].text ?? "").match(/#(\d+)/)![1]);
 
     // Second call: ticket still pending -> must return the gated result, not
     // proceed to fetch (kills L585's `if (gated) return gated` conditional).
@@ -236,7 +236,7 @@ describe("quarantine action=force_approval (L566, L568, L569, L583 skip)", () =>
     }) as unknown as typeof fetch;
 
     const r1 = await proxyToolCall(`${CLIENT}__do-x`, { a: "clean" });
-    const id = Number(r1.content[0].text.match(/#(\d+)/)![1]);
+    const id = Number((r1.content[0].text ?? "").match(/#(\d+)/)![1]);
 
     const r2 = await proxyToolCall(`${CLIENT}__do-x`, { a: "clean", __approval_id: id });
     expect(r2.isError).toBe(true);
@@ -257,7 +257,7 @@ describe("quarantine action=force_approval (L566, L568, L569, L583 skip)", () =>
     expect(r1.isError).toBe(true);
     expect(r1.content[0].text).toContain("requires human approval");
     expect(listApprovals("pending")).toHaveLength(1); // exactly one ticket, not two
-    const id = Number(r1.content[0].text.match(/#(\d+)/)![1]);
+    const id = Number((r1.content[0].text ?? "").match(/#(\d+)/)![1]);
 
     expect(decideApproval(id, "approved", "admin", null).ok).toBe(true);
 

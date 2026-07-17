@@ -318,7 +318,7 @@ describe("pagination follow-up integration", () => {
     const r = await proxyToolCall(`${CLIENT}__get-list`, { tag: "abc" });
     expect(r.isError).toBeUndefined();
     expect(calls).toBe(2);
-    expect(JSON.parse(r.content[0].text).data).toEqual([1, 2, 3]);
+    expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2, 3]);
   });
 
   test("link strategy follows the response's link header for a 2nd page (kills L1029 'link' header key)", async () => {
@@ -339,7 +339,7 @@ describe("pagination follow-up integration", () => {
     const r = await proxyToolCall(`${CLIENT}__get-linked`, {});
     expect(r.isError).toBeUndefined();
     expect(calls).toBe(2);
-    expect(JSON.parse(r.content[0].text)).toEqual([1, 2, 3]);
+    expect(JSON.parse(r.content[0].text ?? "")).toEqual([1, 2, 3]);
   });
 
   test("non-GET method skips pagination even when configured+enabled and the body is genuinely paginable (kills L1013 'GET' StringLiteral / '&&'->'||')", async () => {
@@ -364,7 +364,7 @@ describe("pagination follow-up integration", () => {
     const r = await proxyToolCall(`${CLIENT}__post-list`, {});
     expect(r.isError).toBeUndefined();
     expect(calls).toBe(1); // no follow-up fetch — pagination must not run for POST
-    expect(JSON.parse(r.content[0].text)).toEqual({ items: [1, 2], next: "c1" });
+    expect(JSON.parse(r.content[0].text ?? "")).toEqual({ items: [1, 2], next: "c1" });
   });
 
   test("a non-JSON content-type skips pagination even for a genuinely-paginable GET JSON body (kills L1013 'application/json' StringLiteral, L997 header-name read)", async () => {
@@ -455,7 +455,7 @@ describe("pagination follow-up integration", () => {
     const r = await proxyToolCall(`${CLIENT}__get-empty`, {});
     expect(r.isError).toBeUndefined();
     expect(calls).toBe(1); // fetchAllPages returns null before issuing any follow-up fetch
-    expect(JSON.parse(r.content[0].text)).toEqual({ data: [], next: null });
+    expect(JSON.parse(r.content[0].text ?? "")).toEqual({ data: [], next: null });
   });
 });
 
@@ -517,7 +517,7 @@ describe("redaction JSON-only gating", () => {
       })) as unknown as typeof fetch;
 
     const r = await proxyToolCall(`${CLIENT}__get-item`, {});
-    const body = JSON.parse(r.content[0].text);
+    const body = JSON.parse(r.content[0].text ?? "");
     expect(body.secret).toBe("[REDACTED]");
     expect(body.keep).toBe(1);
   });

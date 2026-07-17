@@ -773,7 +773,7 @@ describe("readBodyWithCap — streaming body read bounded by maxResponseBytes", 
     }) as unknown as typeof fetch;
     const result = await proxyToolCall(`${CLIENT}__get-item`, {});
     expect(result.isError).toBeUndefined();
-    expect(JSON.parse(result.content[0].text)).toEqual({ a: 1 });
+    expect(JSON.parse(result.content[0].text ?? "")).toEqual({ a: 1 });
   });
 
   test("a body exactly at maxResponseBytes is NOT capped (exclusive '>' boundary — kills L185 EqualityOperator '>' -> '>=')", async () => {
@@ -891,7 +891,7 @@ describe("buildPinnedUrl via pagination follow-up pages", () => {
     }) as unknown as typeof fetch;
 
     const result = await proxyToolCall(`${CLIENT}__get-list`, {});
-    expect(JSON.parse(result.content[0].text).items).toEqual([1, 2, 3]);
+    expect(JSON.parse(result.content[0].text ?? "").items).toEqual([1, 2, 3]);
     expect(calls).toBe(3);
   });
 });

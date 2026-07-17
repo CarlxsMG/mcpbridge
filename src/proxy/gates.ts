@@ -1,6 +1,6 @@
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import { toolResult, type ToolCallResult } from "../lib/mcp-result.js";
+import { toolResult, type ToolCallResult, type ToolResult } from "../lib/mcp-result.js";
 import type { ToolCallOpts } from "./proxy.js";
 import type { RegisteredClient, RegisteredTool } from "../mcp/types.js";
 import {
@@ -66,7 +66,7 @@ export function runApprovalGate(
   args: Record<string, unknown>,
   mcpToolName: string,
   callerKey: { id: number } | null,
-): { content: Array<{ type: string; text: string }>; isError?: boolean } | null {
+): ToolResult | null {
   const rawApprovalId = (args as Record<string, unknown>).__approval_id;
   const approvalId = typeof rawApprovalId === "number" ? rawApprovalId : null;
   const argsHash = approvalArgsHash(args as Record<string, unknown>);
@@ -93,8 +93,10 @@ export function runApprovalGate(
   return null;
 }
 
-/** The uniform tool-call result shape returned throughout the dispatch pipeline. */
-export type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
+// The uniform tool-call result shape (`ToolResult`) is now the single canonical
+// type in lib/mcp-result.ts (dedup #51). Re-exported here so existing importers
+// (dispatch-rest.ts et al.) that reach for it via `./gates.js` keep working.
+export type { ToolResult };
 
 /**
  * Multi-tenant monthly quota + optional caller-asserted per-end-user rate limit.

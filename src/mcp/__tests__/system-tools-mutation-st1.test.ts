@@ -232,7 +232,7 @@ describe("runSystemTool — envBearerOnly gate (L423:35, L425:23/72)", () => {
     );
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).not.toContain("requires the environment admin Bearer credential");
-    expect(JSON.parse(result.content[0].text)).toMatchObject({ label: "ok" });
+    expect(JSON.parse(result.content[0].text ?? "")).toMatchObject({ label: "ok" });
   });
 });
 

@@ -4,7 +4,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { ProgressCallback } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { makePinnedFetch } from "../net/ip-validator.js";
-import { toolResult } from "../lib/mcp-result.js";
+import { toolResult, type ToolResult, type ToolResultContent } from "../lib/mcp-result.js";
 import { outboundTraceHeaders } from "../observability/trace-context.js";
 import { errorMessage } from "../lib/error-message.js";
 
@@ -37,13 +37,11 @@ export interface McpConnParams {
   authHeaders?: Record<string, string>;
 }
 
-/** The shape proxyToolCall() returns — kept identical so the MCP branch is a drop-in. */
-export interface ProxyToolResult {
-  content: Array<{ type: string; text: string }>;
-  isError?: boolean;
-  /** True when this result came from a caller-initiated cancellation, not an upstream failure — the caller must not penalize the circuit breaker for it. */
-  cancelled?: boolean;
-}
+/**
+ * @deprecated The upstream call path now returns the shared {@link ToolResult}
+ * envelope directly. Retained as an alias for any external importer.
+ */
+export type ProxyToolResult = ToolResult;
 
 const CLIENT_NAME = "mcp-rest-bridge";
 const CLIENT_VERSION = "1.0.0";
@@ -86,32 +84,76 @@ export function buildTransport(p: McpConnParams): Transport {
 }
 
 /**
- * Maps a Client.callTool() result into proxyToolCall()'s return shape,
- * enforcing a byte cap on the aggregate text content (mirrors proxy.ts's
- * MAX_RESPONSE_BYTES streaming cap intent). Non-text content items are
- * preserved by JSON-encoding them into a text part so nothing is silently
- * dropped when re-served over MCP.
+ * Bytes one content item contributes to the aggregate response cap: a text block
+ * is billed by its `text` (matching the pre-passthrough accounting, so the
+ * text-only cap is byte-for-byte unchanged); any other block is billed by its
+ * serialized JSON, so an oversized image/audio `data` or embedded-resource
+ * `blob`/`text` still trips the cap.
  */
-export function mcpResultToProxyResult(result: unknown, maxBytes: number): ProxyToolResult {
-  const r = result as { content?: unknown; isError?: boolean };
+function contentItemBytes(item: ToolResultContent): number {
+  if (item.type === "text" && typeof item.text === "string") {
+    return Buffer.byteLength(item.text, "utf8");
+  }
+  return Buffer.byteLength(JSON.stringify(item), "utf8");
+}
+
+/**
+ * Maps a Client.callTool() result into the shared {@link ToolResult} envelope,
+ * PRESERVING rich MCP 2025-06-18 content: non-text content items
+ * (image/audio/embedded-resource/resource_link) are carried through as real
+ * blocks rather than flattened into a JSON text blob, and `structuredContent` is
+ * threaded through untouched.
+ *
+ * A MAX_RESPONSE_BYTES ceiling is enforced over the AGGREGATE serialized size
+ * (every content item's bytes plus structuredContent's bytes), so an untrusted
+ * upstream still can't smuggle an unbounded body through the wider surface — an
+ * oversized data blob or structuredContent is rejected with an isError result
+ * exactly like an oversized text part.
+ *
+ * The returned content and structuredContent are still UNSANITIZED here:
+ * response redaction, the guardrail scan, and injected-credential stripping run
+ * afterward in dispatch-mcp.ts, which now covers text parts, embedded-resource
+ * text, AND every structuredContent string leaf. Nothing reaches the caller
+ * unscanned.
+ */
+export function mcpResultToProxyResult(result: unknown, maxBytes: number): ToolResult {
+  const r = result as { content?: unknown; isError?: boolean; structuredContent?: unknown };
   const items = Array.isArray(r.content) ? r.content : [];
 
-  const content: Array<{ type: string; text: string }> = [];
+  const content: ToolResultContent[] = [];
   let totalBytes = 0;
+  const overCap = (): ToolResult =>
+    toolResult("Upstream MCP response exceeded MAX_RESPONSE_BYTES limit", { isError: true });
 
   for (const raw of items) {
-    const item = raw as { type?: unknown; text?: unknown };
-    const text = item.type === "text" && typeof item.text === "string" ? item.text : JSON.stringify(raw);
-    totalBytes += Buffer.byteLength(text, "utf8");
-    if (totalBytes > maxBytes) {
-      return toolResult("Upstream MCP response exceeded MAX_RESPONSE_BYTES limit", { isError: true });
-    }
-    // Everything is normalized to a text part so the result stays assignable to
-    // proxyToolCall()'s return type; non-text items were JSON-encoded above.
-    content.push({ type: "text", text });
+    // Preserve each content item as-is. A well-formed MCP content block is an
+    // object (text OR non-text); a malformed non-object entry is wrapped as a
+    // text part so it is neither silently dropped nor allowed to violate the
+    // content type.
+    const item: ToolResultContent =
+      raw !== null && typeof raw === "object" && !Array.isArray(raw)
+        ? (raw as ToolResultContent)
+        : { type: "text", text: JSON.stringify(raw) };
+    totalBytes += contentItemBytes(item);
+    if (totalBytes > maxBytes) return overCap();
+    content.push(item);
   }
 
-  return { content, isError: r.isError === true ? true : undefined };
+  // structuredContent counts against the SAME aggregate cap — an oversized
+  // structured payload must be rejected just like an oversized content blob.
+  const structured =
+    r.structuredContent !== null && typeof r.structuredContent === "object" && !Array.isArray(r.structuredContent)
+      ? (r.structuredContent as Record<string, unknown>)
+      : undefined;
+  if (structured !== undefined) {
+    totalBytes += Buffer.byteLength(JSON.stringify(structured), "utf8");
+    if (totalBytes > maxBytes) return overCap();
+  }
+
+  const out: ToolResult = { content };
+  if (structured !== undefined) out.structuredContent = structured;
+  if (r.isError === true) out.isError = true;
+  return out;
 }
 
 /**

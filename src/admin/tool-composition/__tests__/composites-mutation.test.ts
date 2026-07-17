@@ -956,7 +956,7 @@ describe("runComposite — guard clauses and error paths", () => {
     expect(r.isError).toBeUndefined();
     // itemId resolved to undefined (dropped by JSON.stringify), proving the
     // catch path assigned json = undefined instead of throwing or crashing.
-    expect(JSON.parse(r.content[0]!.text)).toEqual({});
+    expect(JSON.parse(r.content[0]!.text ?? "")).toEqual({});
   });
 
   test("underlying-tool failure short-circuits and names the exact failing step + target key + response text", async () => {
@@ -985,7 +985,7 @@ describe("runComposite — guard clauses and error paths", () => {
     // formatting; the suffix is whatever text the underlying REST dispatch
     // produced, which is proxy.ts's concern, not composites.ts's — assert the
     // exact prefix and just that the underlying message is included.
-    expect(result.content[0]!.text.startsWith("Composite 'flow' failed at step 2 (svc__second): ")).toBe(true);
+    expect((result.content[0]!.text ?? "").startsWith("Composite 'flow' failed at step 2 (svc__second): ")).toBe(true);
     expect(result.content[0]!.text).toContain("kaboom");
   });
 
@@ -1020,7 +1020,7 @@ describe("runComposite — guard clauses and error paths", () => {
     );
     const result = await runComposite("flow", {});
     expect(result.isError).toBeUndefined();
-    expect(JSON.parse(result.content[0]!.text)).toEqual({ tag: "three" });
+    expect(JSON.parse(result.content[0]!.text ?? "")).toEqual({ tag: "three" });
   });
 
   test("runComposite defaults args to {} — not left as the caller's original falsy value — via the `args ?? {}` fallback", async () => {
@@ -1051,15 +1051,18 @@ describe("runComposite — guard clauses and error paths", () => {
     expect(result.isError).toBeUndefined();
   });
 
-  test("extractText filters to only text-type content and joins with a newline (observed via a mocked multi-content step)", async () => {
+  test("extractText serializes non-text content and joins text blocks with a newline (observed via a mocked multi-content step)", async () => {
     // proxyToolCall's real REST/WS dispatch paths only ever synthesize a
     // single `{type:"text"}` content entry (verified by inspection of
-    // proxy.ts), so extractText's filter/join logic is unreachable through a
+    // proxy.ts), so extractText's serialize/join logic is unreachable through a
     // genuine REST-backed step — mock proxyToolCall directly (the same
     // technique used by src/routes/__tests__/routes-tools-mutation.test.ts)
     // to feed composites.ts's real extractText function a heterogeneous,
     // multi-item content array and observe how the NEXT step's template
-    // actually resolves it.
+    // actually resolves it. Since the MCP passthrough preserves non-text blocks,
+    // extractText JSON-serializes them (instead of dropping them) so a composite
+    // chaining on such a step still sees the block, matching the pre-passthrough
+    // flatten behavior.
     await regSvc();
     await createComposite(
       "flow",
@@ -1075,7 +1078,7 @@ describe("runComposite — guard clauses and error paths", () => {
     try {
       proxySpy.mockResolvedValueOnce({
         content: [
-          { type: "image", text: "should-be-filtered-out" },
+          { type: "image", data: "AAAA", mimeType: "image/png" },
           { type: "text", text: "line one" },
           { type: "text", text: "line two" },
         ],
@@ -1087,7 +1090,11 @@ describe("runComposite — guard clauses and error paths", () => {
       expect(result.isError).toBeUndefined();
       expect(proxySpy).toHaveBeenCalledTimes(2);
       const secondCallArgs = proxySpy.mock.calls[1]![1] as Record<string, unknown>;
-      expect(secondCallArgs.captured).toBe("line one\nline two");
+      // The non-text image block is JSON-serialized (not dropped); the two text
+      // blocks contribute their text; all joined with a newline in order.
+      expect(secondCallArgs.captured).toBe(
+        `${JSON.stringify({ type: "image", data: "AAAA", mimeType: "image/png" })}\nline one\nline two`,
+      );
     } finally {
       proxySpy.mockRestore();
     }

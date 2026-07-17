@@ -94,7 +94,7 @@ describe("proxy integration", () => {
         headers: { "content-type": "application/x-ndjson" },
       })) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-stream`, {});
-    expect(JSON.parse(r.content[0].text).events).toEqual([{ a: 1 }, { a: 2 }, { a: 3 }]);
+    expect(JSON.parse(r.content[0].text ?? "").events).toEqual([{ a: 1 }, { a: 2 }, { a: 3 }]);
   });
 
   test("an SSE body is normalized, dropping the [DONE] sentinel", async () => {
@@ -106,6 +106,6 @@ describe("proxy integration", () => {
         headers: { "content-type": "text/event-stream" },
       })) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-stream`, {});
-    expect(JSON.parse(r.content[0].text).events).toEqual([{ t: "a" }, { t: "b" }]);
+    expect(JSON.parse(r.content[0].text ?? "").events).toEqual([{ t: "a" }, { t: "b" }]);
   });
 });

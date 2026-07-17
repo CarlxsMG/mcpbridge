@@ -147,7 +147,7 @@ describe("proxy integration", () => {
         headers: { "content-type": "application/json" },
       })) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-x`, {});
-    expect(JSON.parse(r.content[0].text)).toEqual({ kept: 1 });
+    expect(JSON.parse(r.content[0].text ?? "")).toEqual({ kept: 1 });
   });
 });
 

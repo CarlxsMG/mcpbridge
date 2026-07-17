@@ -90,7 +90,7 @@ describe("proxy flow", () => {
     const r1 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1" });
     expect(r1.isError).toBe(true);
     expect(fetched).toBe(0);
-    const id = Number(r1.content[0].text.match(/#(\d+)/)![1]);
+    const id = Number((r1.content[0].text ?? "").match(/#(\d+)/)![1]);
 
     const r2 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1", __approval_id: id });
     expect(r2.content[0].text).toContain("still pending");
@@ -105,7 +105,7 @@ describe("proxy flow", () => {
 
     const r3 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1", __approval_id: id });
     expect(r3.isError).toBeUndefined();
-    expect(JSON.parse(r3.content[0].text)).toEqual({ done: true });
+    expect(JSON.parse(r3.content[0].text ?? "")).toEqual({ done: true });
     expect(fetched).toBe(1);
 
     const r4 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1", __approval_id: id });
@@ -119,7 +119,7 @@ describe("proxy flow", () => {
     globalThis.fetch = (async () =>
       new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
     const r1 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1" });
-    const id = Number(r1.content[0].text.match(/#(\d+)/)![1]);
+    const id = Number((r1.content[0].text ?? "").match(/#(\d+)/)![1]);
     decideApproval(id, "rejected", "admin", "not allowed");
     const r = await proxyToolCall(`${CLIENT}__do-x`, { a: "1", __approval_id: id });
     expect(r.isError).toBe(true);
@@ -135,7 +135,7 @@ describe("proxy flow", () => {
       return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
     }) as unknown as typeof fetch;
     const r1 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1" });
-    const id = Number(r1.content[0].text.match(/#(\d+)/)![1]);
+    const id = Number((r1.content[0].text ?? "").match(/#(\d+)/)![1]);
     decideApproval(id, "approved", "admin", null);
     const r = await proxyToolCall(`${CLIENT}__do-x`, { a: "2", __approval_id: id });
     expect(r.isError).toBe(true);
@@ -199,7 +199,7 @@ describe("multi-level (N-of-M) approvals", () => {
     expect(setApprovalRequired(CLIENT, "do-x", true, 5)).toBe(true);
     expect(getRequiredLevels(CLIENT, "do-x")).toBe(5);
     const r1 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1" });
-    const id = Number(r1.content[0].text.match(/#(\d+)/)![1]);
+    const id = Number((r1.content[0].text ?? "").match(/#(\d+)/)![1]);
     expect(getApproval(id)?.requiredLevels).toBe(5);
 
     // Out-of-range/absent levels are not silently clamped or reset here —

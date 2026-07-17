@@ -789,7 +789,7 @@ export async function dispatchRestToolCall(
   responseCacheKey: string,
   cacheCfg: ReturnType<typeof getToolCacheConfig> | null,
   opts: ToolCallOpts | undefined,
-): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+): Promise<ToolResult> {
   const call: RestCallCtx = {
     client,
     tool,

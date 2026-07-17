@@ -145,7 +145,7 @@ describe("proxy integration", () => {
       return json({ data: [5], next: null });
     }) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-list`, {});
-    expect(JSON.parse(r.content[0].text).data).toEqual([1, 2, 3, 4, 5]);
+    expect(JSON.parse(r.content[0].text ?? "").data).toEqual([1, 2, 3, 4, 5]);
     expect(calls).toBe(3);
   });
 
@@ -167,7 +167,7 @@ describe("proxy integration", () => {
       return json({ items: [] });
     }) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-list`, {});
-    expect(JSON.parse(r.content[0].text).items).toEqual([1, 2, 3]);
+    expect(JSON.parse(r.content[0].text ?? "").items).toEqual([1, 2, 3]);
     expect(calls).toBe(3);
   });
 
@@ -183,7 +183,7 @@ describe("proxy integration", () => {
       return json([5]);
     }) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-list`, {});
-    expect(JSON.parse(r.content[0].text)).toEqual([1, 2, 3, 4, 5]);
+    expect(JSON.parse(r.content[0].text ?? "")).toEqual([1, 2, 3, 4, 5]);
     expect(calls).toBe(3);
   });
 
@@ -196,7 +196,7 @@ describe("proxy integration", () => {
       return json([1, 2], { link: '<http://9.9.9.9/list?page=2>; rel="next"' });
     }) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__get-list`, {});
-    expect(JSON.parse(r.content[0].text)).toEqual([1, 2]);
+    expect(JSON.parse(r.content[0].text ?? "")).toEqual([1, 2]);
     expect(calls).toBe(1);
   });
 

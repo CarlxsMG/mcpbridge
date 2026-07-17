@@ -77,7 +77,7 @@ describe("GraphQL", () => {
     }) as unknown as typeof fetch;
     const r = await proxyToolCall(`${CLIENT}__gql`, { q: "hi" });
     expect(sentBody).toEqual({ query: "query($q:String){f(q:$q)}", variables: { q: "hi" } });
-    expect(JSON.parse(r.content[0].text)).toEqual({ data: { f: 1 } });
+    expect(JSON.parse(r.content[0].text ?? "")).toEqual({ data: { f: 1 } });
   });
 });
 

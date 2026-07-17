@@ -1,6 +1,7 @@
 import { getDb } from "../../db/connection.js";
 import { notifyToolsChanged } from "../../mcp/mcp-server.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
+import type { ToolResult } from "../../lib/mcp-result.js";
 import { TOOL_KEY_SEPARATOR } from "../../lib/identifier.js";
 import { getByPath } from "../../lib/object-path.js";
 import { SEARCH_TOOL_NAME, type AdvertisedTool } from "../../mcp/tool-search.js";
@@ -205,11 +206,12 @@ export function resolveTemplate(node: unknown, ctx: RunContext): unknown {
   return node;
 }
 
-function extractText(result: { content: Array<{ type: string; text: string }> }): string {
-  return result.content
-    .filter((c) => c.type === "text")
-    .map((c) => c.text)
-    .join("\n");
+function extractText(result: ToolResult): string {
+  // Text blocks contribute their text; a non-text block (image/resource/…) is
+  // JSON-serialized so a composite chaining on a step's output still sees
+  // *something* — matching the prior behavior when the MCP branch flattened all
+  // non-text content into a JSON text part before this passthrough change.
+  return result.content.map((c) => (c.type === "text" ? (c.text ?? "") : JSON.stringify(c))).join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -226,7 +228,7 @@ export async function runComposite(
   name: string,
   args: Record<string, unknown>,
   callerToken?: string,
-): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+): Promise<ToolResult> {
   const comp = liveComposites.get(name);
   if (!comp) return { isError: true, content: [{ type: "text", text: `Unknown composite tool: ${name}` }] };
   if (!comp.enabled)
@@ -235,7 +237,7 @@ export async function runComposite(
     return { isError: true, content: [{ type: "text", text: `Composite tool '${name}' has no steps` }] };
 
   const ctx: RunContext = { input: args ?? {}, steps: [] };
-  let last: { content: Array<{ type: string; text: string }>; isError?: boolean } = { content: [] };
+  let last: ToolResult = { content: [] };
 
   for (let i = 0; i < comp.steps.length; i++) {
     const step = comp.steps[i];

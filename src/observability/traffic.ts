@@ -19,6 +19,7 @@ import { log } from "../logger.js";
 import { clampLimit, keysetPaginate } from "../lib/pagination-cursor.js";
 import { errorMessage } from "../lib/error-message.js";
 import { getRedactionPaths, applyRedaction } from "../content-filtering/redaction.js";
+import type { ToolResult } from "../lib/mcp-result.js";
 
 export interface TrafficRecord {
   id: number;
@@ -67,12 +68,15 @@ export function recordTraffic(input: {
   toolName: string | null;
   keyId: number | null;
   args: Record<string, unknown>;
-  result: { content: Array<{ type: string; text: string }>; isError?: boolean };
+  result: ToolResult;
   durationMs: number;
 }): void {
   let argsJson = safeJson(input.args);
+  // Text blocks preview their text; a non-text block (image/resource/…) is
+  // JSON-serialized so the persisted preview still reflects that a non-text
+  // response was returned instead of storing an empty string.
   const preview = truncate(
-    (input.result.content ?? []).map((c) => c.text ?? "").join("\n"),
+    (input.result.content ?? []).map((c) => (c.type === "text" ? (c.text ?? "") : JSON.stringify(c))).join("\n"),
     config.trafficMaxBodyBytes,
   );
   try {

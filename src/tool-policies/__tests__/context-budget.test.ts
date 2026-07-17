@@ -426,7 +426,7 @@ describe("proxy integration — ordering (security-critical)", () => {
         headers: { "content-type": "application/json" },
       })) as unknown as typeof fetch;
     const res = await proxyToolCall(`${CLIENT}__${getTool.name}`, {});
-    expect(JSON.parse(res.content[0].text).data).toBe("x".repeat(50_000));
+    expect(JSON.parse(res.content[0].text ?? "").data).toBe("x".repeat(50_000));
   });
 });
 

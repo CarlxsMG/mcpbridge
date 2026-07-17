@@ -52,7 +52,7 @@ describe("destructive-tool gating", () => {
 
     const noConfirm = await proxyToolCall("svc__get-users", {});
     expect(noConfirm.isError).toBe(true);
-    expect(noConfirm.content[0].text.toLowerCase()).toContain("sensitive");
+    expect((noConfirm.content[0].text ?? "").toLowerCase()).toContain("sensitive");
 
     const confirmed = await proxyToolCall("svc__get-users", { __confirm: true });
     expect(confirmed.isError).toBeUndefined();

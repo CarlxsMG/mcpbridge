@@ -465,17 +465,17 @@ class Registry {
       );
 
       // Fold the upstream-declared 2025-06-18 passthrough fields (annotations /
-      // title) onto the live tools. Persistence rebuilds a RegisteredTool from a
-      // fixed column set and doesn't carry these, so they live in-memory only —
-      // re-populated on each (re-)discovery, absent after a cold restart until the
-      // next discovery. effectiveAdvertised reads them.
+      // title / outputSchema) onto the live tools. Persistence rebuilds a
+      // RegisteredTool from a fixed column set and doesn't carry these, so they
+      // live in-memory only — re-populated on each (re-)discovery, absent after a
+      // cold restart until the next discovery. effectiveAdvertised reads them.
       //
       // A malicious/compromised upstream can embed prompt-injection payloads in
-      // `title` and `annotations.title` exactly as it could in `description`, so
-      // both run through sanitizeToolDescription here (the same security invariant
-      // the description path enforces). `outputSchema` is intentionally NOT folded
-      // in — it is not advertised (see effectiveAdvertised) until the result path
-      // can carry structuredContent, so storing it would be dead weight.
+      // `title`, `annotations.title`, and every `outputSchema` property
+      // description exactly as it could in `description`, so all run through
+      // sanitizeToolDescription here (the same security invariant the description
+      // path enforces — outputSchema via sanitizeSchemaPropertyDescriptions, the
+      // same helper inputSchema uses).
       const discoveredByName = new Map(sanitizedTools.map((t) => [t.name, t]));
       for (const t of persisted.tools) {
         const d = discoveredByName.get(t.name);
@@ -486,6 +486,14 @@ class Registry {
           t.upstreamAnnotations = ann;
         }
         if (d.title) t.title = sanitizeToolDescription(d.title);
+        if (d.outputSchema) {
+          // Deep-clone before sanitizing so we never mutate the caller's
+          // discovered object, then sanitize each property `.description` exactly
+          // like inputSchema.
+          const os = JSON.parse(JSON.stringify(d.outputSchema)) as Record<string, unknown>;
+          sanitizeSchemaPropertyDescriptions(os);
+          t.outputSchema = os;
+        }
       }
 
       const client: RegisteredClient = {
@@ -876,16 +884,25 @@ class Registry {
     const annotations = this.deriveAnnotations(clientName, tool);
     const ov = tool.override;
     const withPassthrough = (advertised: AdvertisedTool): AdvertisedTool => {
-      // `title` is an upstream-only 2025-06-18 field (MCP-kind tools); include it
-      // only when the upstream declared it (already sanitized at fold-time).
+      // `title` and `outputSchema` are upstream-only 2025-06-18 fields (MCP-kind
+      // tools); include each only when the upstream declared it (already
+      // sanitized at fold-time).
       //
-      // `outputSchema` is deliberately NOT advertised: the result path drops
-      // structuredContent (mcpResultToProxyResult is text-only), and the official
-      // MCP SDK client throws InvalidRequest when a tool advertises an outputSchema
-      // but the call returns no structuredContent — i.e. advertising it would break
-      // EVERY call to an outputSchema-bearing bridged tool. Re-enable it only
-      // together with result-side structuredContent passthrough.
+      // `outputSchema` is now advertised because the result path carries
+      // `structuredContent` through unchanged (mcpResultToProxyResult +
+      // dispatch-mcp.ts). The official MCP SDK client validates a non-error call's
+      // `structuredContent` against a declared `outputSchema` and throws
+      // InvalidRequest when it is absent — so advertise + return must stay
+      // consistent. They are: a spec-compliant 2025-06-18 upstream MUST return
+      // structuredContent conforming to its own outputSchema on every successful
+      // call, and we pass that through, so the downstream client's validation
+      // passes. Residual risk (documented, not fixable here): a NON-compliant
+      // upstream that declares outputSchema yet omits structuredContent on a
+      // successful call would trip the downstream client's InvalidRequest — we
+      // cannot fabricate conforming structured output, so we surface the
+      // upstream's own contract violation rather than mask it.
       if (tool.title !== undefined) advertised.title = tool.title;
+      if (tool.outputSchema !== undefined) advertised.outputSchema = tool.outputSchema;
       return advertised;
     };
     if (!ov)

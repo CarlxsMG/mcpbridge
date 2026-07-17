@@ -185,7 +185,7 @@ describe("composites — runComposite", () => {
     );
     const result = await runComposite("flow", {});
     expect(result.isError).toBeUndefined();
-    expect(JSON.parse(result.content[0].text)).toEqual({ itemId: 42 });
+    expect(JSON.parse(result.content[0].text ?? "")).toEqual({ itemId: 42 });
   });
 
   test("short-circuits and reports the failing step", async () => {

@@ -110,7 +110,7 @@ describe("proxy quota enforcement", () => {
     expect((await proxyToolCall("svc__get-users", {}, rawKey)).isError).toBeUndefined();
     const third = await proxyToolCall("svc__get-users", {}, rawKey);
     expect(third.isError).toBe(true);
-    expect(third.content[0].text.toLowerCase()).toContain("quota");
+    expect((third.content[0].text ?? "").toLowerCase()).toContain("quota");
   });
 
   test("an unlimited consumer is never blocked", async () => {
@@ -144,7 +144,7 @@ describe("proxy end-user rate limit enforcement", () => {
     expect((await proxyToolCall("svc__get-users", {}, rawKey, { endUserId: "alice" })).isError).toBeUndefined();
     const third = await proxyToolCall("svc__get-users", {}, rawKey, { endUserId: "alice" });
     expect(third.isError).toBe(true);
-    expect(third.content[0].text.toLowerCase()).toContain("end-user rate limit");
+    expect((third.content[0].text ?? "").toLowerCase()).toContain("end-user rate limit");
 
     // A different end-user under the same key/consumer is unaffected.
     expect((await proxyToolCall("svc__get-users", {}, rawKey, { endUserId: "bob" })).isError).toBeUndefined();

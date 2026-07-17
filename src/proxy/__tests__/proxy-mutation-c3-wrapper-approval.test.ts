@@ -275,7 +275,7 @@ describe("resolveEndUserId — header vs __end_user arg precedence", () => {
     // Same identity once trimmed -> the single-per-minute budget is already spent.
     const r2 = await proxyToolCall(`${CLIENT}__get-x`, {}, rawKey, { endUserId: "padded-user" });
     expect(r2.isError).toBe(true);
-    expect(r2.content[0].text.toLowerCase()).toContain("end-user rate limit");
+    expect((r2.content[0].text ?? "").toLowerCase()).toContain("end-user rate limit");
   });
 
   test("__end_user arg value is trimmed before use as the rate-limit identity (kills L366 MethodExpression .trim() removed)", async () => {
@@ -337,7 +337,7 @@ describe("runApprovalGate — ticket lifecycle internals", () => {
       const r = await proxyToolCall(`${CLIENT}__do-x`, { a: "1" });
       expect(r.isError).toBe(true);
       expect(fetched).toBe(0);
-      const id = Number(r.content[0].text.match(/#(\d+)/)![1]);
+      const id = Number((r.content[0].text ?? "").match(/#(\d+)/)![1]);
       expect(r.content[0].text).toBe(
         `Tool '${CLIENT}__do-x' requires human approval. Queued as approval #${id}. Once approved, re-call with {"__approval_id": ${id}}.`,
       );
@@ -356,13 +356,13 @@ describe("runApprovalGate — ticket lifecycle internals", () => {
 
     // No callerToken at all -> requestedBy must be null.
     const rAnon = await proxyToolCall(`${CLIENT}__do-x`, { a: "anon" });
-    const idAnon = Number(rAnon.content[0].text.match(/#(\d+)/)![1]);
+    const idAnon = Number((rAnon.content[0].text ?? "").match(/#(\d+)/)![1]);
     expect(getApproval(idAnon)?.requestedBy).toBeNull();
 
     // A real managed key -> requestedBy must be that key's numeric id (never null).
     const { rawKey, record } = createMcpKey("approver-caller", null, null, "tester");
     const rKeyed = await proxyToolCall(`${CLIENT}__do-x`, { a: "keyed" }, rawKey);
-    const idKeyed = Number(rKeyed.content[0].text.match(/#(\d+)/)![1]);
+    const idKeyed = Number((rKeyed.content[0].text ?? "").match(/#(\d+)/)![1]);
     expect(getApproval(idKeyed)?.requestedBy).toBe(record.id);
   });
 
@@ -399,7 +399,7 @@ describe("runApprovalGate — ticket lifecycle internals", () => {
     }) as unknown as typeof fetch;
 
     const r1 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1" });
-    const id = Number(r1.content[0].text.match(/#(\d+)/)![1]);
+    const id = Number((r1.content[0].text ?? "").match(/#(\d+)/)![1]);
     decideApproval(id, "approved", "admin", null);
 
     const r2 = await proxyToolCall(`${CLIENT}__do-x`, { a: "1", __approval_id: id });

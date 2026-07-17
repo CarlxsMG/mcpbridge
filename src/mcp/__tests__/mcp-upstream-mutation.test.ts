@@ -563,10 +563,10 @@ describe("listPrompts()", () => {
 });
 
 // ===========================================================================
-// mcpResultToProxyResult — 100:56-100:58 ArrayDeclaration (non-array content
-// fallback), 107:18-107:71 LogicalOperator / 107:42-107:71
-// ConditionalExpression (the text/type narrowing), 109:9-109:30
-// EqualityOperator ("> " -> ">=" byte-cap boundary).
+// mcpResultToProxyResult — rich-content passthrough (2025-06-18). Content items
+// are now PRESERVED as-is (text OR non-text) rather than flattened to text, and
+// structuredContent is carried through; the aggregate byte cap still holds over
+// content + structuredContent, boundary strictly-greater-than.
 // ===========================================================================
 
 describe("mcpResultToProxyResult edge cases", () => {
@@ -575,16 +575,24 @@ describe("mcpResultToProxyResult edge cases", () => {
     expect(r.content).toEqual([]);
   });
 
-  test("a 'text'-typed item whose text field is NOT a string is JSON-stringified as a whole, not passed through raw", () => {
-    const item = { type: "text", text: 12345 };
+  test("a non-text content item is preserved verbatim as a real block, not flattened to text", () => {
+    const item = { type: "image", text: "not-really-text", data: "AAAA", mimeType: "image/png" };
     const r = mcpResultToProxyResult({ content: [item] }, 1_000_000);
-    expect(r.content[0]!.text).toBe(JSON.stringify(item));
+    // The whole block survives untouched — its type stays "image", every field
+    // (data/mimeType, and even the stray "text") is carried through as-is rather
+    // than JSON-stringified into a single { type: "text" } part.
+    expect(r.content[0]).toEqual(item);
+    expect(r.content[0]!.type).toBe("image");
   });
 
-  test("a non-'text' item whose 'text' field happens to be a string is still JSON-stringified as a whole, not passed through raw", () => {
-    const item = { type: "image", text: "not-really-text", data: "AAAA" };
-    const r = mcpResultToProxyResult({ content: [item] }, 1_000_000);
-    expect(r.content[0]!.text).toBe(JSON.stringify(item));
+  test("a malformed non-object content entry is wrapped as a text part rather than dropped", () => {
+    const r = mcpResultToProxyResult({ content: ["bare-string"] }, 1_000_000);
+    expect(r.content[0]).toEqual({ type: "text", text: JSON.stringify("bare-string") });
+  });
+
+  test("structuredContent is threaded through untouched", () => {
+    const r = mcpResultToProxyResult({ content: [], structuredContent: { ok: true, n: 7 } }, 1_000_000);
+    expect(r.structuredContent).toEqual({ ok: true, n: 7 });
   });
 
   test("the byte cap boundary is strictly-greater-than, not greater-or-equal", () => {
@@ -598,5 +606,14 @@ describe("mcpResultToProxyResult edge cases", () => {
     const oneUnderCap = mcpResultToProxyResult({ content: [{ type: "text", text }] }, exactBytes - 1);
     expect(oneUnderCap.isError).toBe(true);
     expect(oneUnderCap.content[0]!.text).toContain("exceeded");
+  });
+
+  test("the aggregate byte cap counts structuredContent, rejecting an oversized structured payload", () => {
+    const r = mcpResultToProxyResult(
+      { content: [{ type: "text", text: "ok" }], structuredContent: { blob: "x".repeat(5000) } },
+      1000,
+    );
+    expect(r.isError).toBe(true);
+    expect(r.content[0]!.text).toContain("exceeded");
   });
 });
