@@ -280,11 +280,14 @@ jobs:
             promtool check rules /rules/prometheus/alerts.yaml
 
   version-parity:
-    # Fails if the project version drifts between the places it's duplicated:
-    # root/admin-ui/docs package.json, the Helm chart's appVersion, and
-    # docker-compose.yml's default image tag. scripts/bump-version.ts keeps these
-    # in sync when cutting a release, but nothing re-checked they STAYED in sync —
-    # a hand-edit (or a half-finished bump) to any one file would otherwise ship a
+    # Fails if either duplicated version set drifts between the places it lives.
+    # (1) The app version: root/admin-ui/docs package.json, the Helm chart's
+    # appVersion, and docker-compose.yml's default image tag (scripts/bump-version.ts
+    # keeps these in sync when cutting a release, but nothing re-checked they STAYED
+    # in sync). (2) The Bun runtime version: .bun-version, the three packageManager
+    # fields, root's exact-pinned bun-types, and the Dockerfile's ARG BUN_VERSION —
+    # a mismatch here builds CI/dev/types/image against different Bun releases. A
+    # hand-edit (or a half-finished bump) to any one file would otherwise ship a
     # mismatched set. The script only reads files (no external deps), so this job
     # skips `bun install` entirely.
     runs-on: ubuntu-latest

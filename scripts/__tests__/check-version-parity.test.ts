@@ -2,9 +2,14 @@ import { describe, expect, test } from "bun:test";
 
 import {
   checkParity,
+  extractBunTypesVersion,
+  extractBunVersionFile,
   extractChartAppVersion,
   extractComposeDefaultTag,
+  extractDockerfileBunVersion,
   extractPackageJsonVersion,
+  extractPackageManagerBunVersion,
+  readBunVersionSources,
   readVersionSources,
   type VersionSource,
 } from "../check-version-parity.js";
@@ -65,6 +70,86 @@ describe("extractComposeDefaultTag", () => {
   });
 });
 
+describe("extractBunVersionFile", () => {
+  test("reads the trimmed file content", () => {
+    expect(extractBunVersionFile("1.3.11\n")).toBe("1.3.11");
+  });
+
+  test("tolerates surrounding whitespace and a CRLF line ending", () => {
+    expect(extractBunVersionFile("  1.3.11  \r\n")).toBe("1.3.11");
+  });
+
+  test("throws on an empty file", () => {
+    expect(() => extractBunVersionFile("   \n")).toThrow(/empty/);
+  });
+});
+
+describe("extractPackageManagerBunVersion", () => {
+  test("reads a bun@<version> spec", () => {
+    expect(extractPackageManagerBunVersion('{ "packageManager": "bun@1.3.11" }', "x")).toBe("1.3.11");
+  });
+
+  test("tolerates a Corepack integrity suffix", () => {
+    expect(extractPackageManagerBunVersion('{ "packageManager": "bun@1.3.11+sha256.abc" }', "x")).toBe("1.3.11");
+  });
+
+  test("throws on invalid JSON", () => {
+    expect(() => extractPackageManagerBunVersion("{ not json", "x")).toThrow(/valid JSON/);
+  });
+
+  test("throws when there is no packageManager field", () => {
+    expect(() => extractPackageManagerBunVersion('{ "name": "x" }', "x")).toThrow(/packageManager/);
+  });
+
+  test("throws when packageManager is not a string", () => {
+    expect(() => extractPackageManagerBunVersion('{ "packageManager": 123 }', "x")).toThrow(/string/);
+  });
+
+  test("throws when packageManager does not name bun", () => {
+    expect(() => extractPackageManagerBunVersion('{ "packageManager": "pnpm@9.0.0" }', "x")).toThrow(/bun@/);
+  });
+});
+
+describe("extractBunTypesVersion", () => {
+  test("reads bun-types from devDependencies", () => {
+    expect(extractBunTypesVersion('{ "devDependencies": { "bun-types": "1.3.11" } }', "x")).toBe("1.3.11");
+  });
+
+  test("falls back to dependencies", () => {
+    expect(extractBunTypesVersion('{ "dependencies": { "bun-types": "1.3.11" } }', "x")).toBe("1.3.11");
+  });
+
+  test("returns the raw spec so a range prefix trips the parity gate", () => {
+    expect(extractBunTypesVersion('{ "devDependencies": { "bun-types": "^1.3.11" } }', "x")).toBe("^1.3.11");
+  });
+
+  test("throws on invalid JSON", () => {
+    expect(() => extractBunTypesVersion("{ not json", "x")).toThrow(/valid JSON/);
+  });
+
+  test("throws when there is no bun-types dependency", () => {
+    expect(() => extractBunTypesVersion('{ "devDependencies": { "typescript": "5" } }', "x")).toThrow(/bun-types/);
+  });
+
+  test("throws when bun-types is not a string", () => {
+    expect(() => extractBunTypesVersion('{ "devDependencies": { "bun-types": 1 } }', "x")).toThrow(/string/);
+  });
+});
+
+describe("extractDockerfileBunVersion", () => {
+  test("reads the ARG BUN_VERSION default", () => {
+    expect(extractDockerfileBunVersion("ARG BUN_VERSION=1.3.11\nFROM oven/bun:${BUN_VERSION}-alpine\n")).toBe("1.3.11");
+  });
+
+  test("tolerates a CRLF line ending", () => {
+    expect(extractDockerfileBunVersion("ARG BUN_VERSION=1.3.11\r\n")).toBe("1.3.11");
+  });
+
+  test("throws when there is no ARG BUN_VERSION", () => {
+    expect(() => extractDockerfileBunVersion("FROM oven/bun:alpine\n")).toThrow(/BUN_VERSION/);
+  });
+});
+
 describe("checkParity", () => {
   const src = (label: string, version: string): VersionSource => ({ label, path: `/${label}`, version });
 
@@ -104,5 +189,23 @@ describe("readVersionSources (real tree — read-only)", () => {
 
   test("the current tree is in parity", () => {
     expect(checkParity(readVersionSources()).ok).toBe(true);
+  });
+});
+
+describe("readBunVersionSources (real tree — read-only)", () => {
+  test("reads all six tracked sources", () => {
+    const sources = readBunVersionSources();
+    expect(sources.map((s) => s.label)).toEqual([
+      ".bun-version",
+      "root package.json [packageManager]",
+      "admin-ui/package.json [packageManager]",
+      "docs/package.json [packageManager]",
+      "root package.json [bun-types]",
+      "Dockerfile [ARG BUN_VERSION]",
+    ]);
+  });
+
+  test("the current tree's Bun runtime version is in parity", () => {
+    expect(checkParity(readBunVersionSources()).ok).toBe(true);
   });
 });

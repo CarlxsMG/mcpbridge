@@ -43,6 +43,8 @@ jobs:
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('admin-ui/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
       - name: Build interactive demo
         working-directory: admin-ui
         env:
@@ -63,6 +65,8 @@ jobs:
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('docs/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
       - name: Install docs dependencies
         working-directory: docs
         run: bun install --frozen-lockfile
