@@ -30,3 +30,14 @@ export function parseFlags(argv: string[]): ParsedArgs {
   }
   return { positionals, flags };
 }
+
+/**
+ * True when `argv` asks for help (`-h` or `--help`). The parser above turns
+ * `--help` into `flags.help` but leaves a single-dash `-h` as a positional, so
+ * help detection can't rely on `flags` alone — it scans the raw argv for
+ * either spelling. Commands call this BEFORE any I/O so `--help` prints usage
+ * and exits 0 instead of running (and failing) the real command.
+ */
+export function wantsHelp(argv: string[]): boolean {
+  return argv.includes("-h") || argv.includes("--help");
+}

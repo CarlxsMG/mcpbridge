@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
-import { pullCommand } from "../pull.js";
+import { pullCommand, USAGE as PULL_USAGE } from "../pull.js";
 import * as clientMod from "../../client.js";
 import * as configFileMod from "../../config-file.js";
 import type { CliClient } from "../../client.js";
@@ -65,6 +65,29 @@ afterEach(() => {
   saveGatewayFileSpy.mockRestore();
   loadGatewayFileSpy.mockRestore();
   consoleLogSpy.mockRestore();
+});
+
+describe("pullCommand — help", () => {
+  test("--help prints usage and returns 0 without any network or filesystem I/O", async () => {
+    const code = await pullCommand(["--help"]);
+
+    expect(code).toBe(0);
+    expect(makeClientSpy).not.toHaveBeenCalled();
+    expect(loadGatewayFileSpy).not.toHaveBeenCalled();
+    expect(saveGatewayFileSpy).not.toHaveBeenCalled();
+    expect(getCalls).toEqual([]);
+    expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+    expect(consoleLogSpy).toHaveBeenCalledWith(PULL_USAGE);
+  });
+
+  test("-h behaves the same as --help", async () => {
+    const code = await pullCommand(["-h"]);
+
+    expect(code).toBe(0);
+    expect(makeClientSpy).not.toHaveBeenCalled();
+    expect(saveGatewayFileSpy).not.toHaveBeenCalled();
+    expect(consoleLogSpy).toHaveBeenCalledWith(PULL_USAGE);
+  });
 });
 
 describe("pullCommand", () => {

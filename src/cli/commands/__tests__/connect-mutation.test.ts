@@ -96,6 +96,30 @@ afterEach(() => {
   consoleErrorSpy.mockRestore();
 });
 
+describe("connectCommand — help", () => {
+  test("--help prints usage, returns 0, and never reaches loadCliCredentials/makeClient/writeFile", async () => {
+    const code = await connectCommand(["--help"]);
+
+    expect(code).toBe(0);
+    expect(loggedLines(consoleLogSpy)).toEqual([USAGE]);
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(loadCliCredentialsSpy).not.toHaveBeenCalled();
+    expect(makeClientSpy).not.toHaveBeenCalled();
+    expect(writeFileSpy).not.toHaveBeenCalled();
+  });
+
+  // Help wins over the --client/--scope validation: `-h` with no other flags
+  // must print usage (exit 0), NOT the "missing --client" usage error (exit 1).
+  test("-h wins over the otherwise-missing --client validation error", async () => {
+    const code = await connectCommand(["-h"]);
+
+    expect(code).toBe(0);
+    expect(loggedLines(consoleLogSpy)).toEqual([USAGE]);
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(loadCliCredentialsSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe("connectCommand — --client validation", () => {
   test("missing --client entirely: usage error, returns 1, never reaches loadCliCredentials/makeClient", async () => {
     const code = await connectCommand(["--scope", "system"]);

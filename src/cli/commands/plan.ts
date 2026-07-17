@@ -1,8 +1,10 @@
-import { parseFlags } from "../args.js";
+import { parseFlags, wantsHelp } from "../args.js";
 import { makeClient, clientExists } from "../client.js";
 import { loadGatewayFile } from "../config-file.js";
 import { diffConfigs } from "../../admin/config/config-diff.js";
 import type { ConfigExport } from "../../admin/config/config-io.js";
+
+export const USAGE = `Usage: gateway plan [--file gateway.yaml]`;
 
 /** Drops fields that legitimately differ between any two exports (a fresh timestamp) so they never register as config drift. */
 function stripVolatile(c: ConfigExport): Omit<ConfigExport, "exportedAt"> {
@@ -12,6 +14,10 @@ function stripVolatile(c: ConfigExport): Omit<ConfigExport, "exportedAt"> {
 
 /** Shows what `apply` would change, without changing anything. Exits non-zero when there's drift, so CI can gate on it (e.g. `gateway plan --file gateway.yaml || echo "drift detected"`). */
 export async function planCommand(argv: string[]): Promise<number> {
+  if (wantsHelp(argv)) {
+    console.log(USAGE);
+    return 0;
+  }
   const { flags } = parseFlags(argv);
   const file = typeof flags.file === "string" ? flags.file : "gateway.yaml";
   const gatewayFile = await loadGatewayFile(file);

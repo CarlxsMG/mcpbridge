@@ -1,7 +1,9 @@
-import { parseFlags } from "../args.js";
+import { parseFlags, wantsHelp } from "../args.js";
 import { makeClient, clientExists, CliApiError } from "../client.js";
 import { loadGatewayFile, type GatewayServerEntry } from "../config-file.js";
 import { errorMessage } from "../../lib/error-message.js";
+
+export const USAGE = `Usage: gateway apply [--file gateway.yaml] [--dry-run]`;
 
 interface ImportResult {
   dryRun: boolean;
@@ -40,6 +42,10 @@ function toRegistrationPayload(s: GatewayServerEntry): Record<string, unknown> {
  * silently no-op the guard-setting if applied the other way around.
  */
 export async function applyCommand(argv: string[]): Promise<number> {
+  if (wantsHelp(argv)) {
+    console.log(USAGE);
+    return 0;
+  }
   const { flags } = parseFlags(argv);
   const file = typeof flags.file === "string" ? flags.file : "gateway.yaml";
   const dryRun = flags["dry-run"] === true;

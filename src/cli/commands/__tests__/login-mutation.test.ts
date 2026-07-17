@@ -1,6 +1,41 @@
 import { describe, test, expect, spyOn } from "bun:test";
-import { loginCommand } from "../login.js";
+import { loginCommand, USAGE as LOGIN_USAGE } from "../login.js";
 import * as clientMod from "../../client.js";
+
+describe("loginCommand — help", () => {
+  test("--help prints usage to stdout, returns 0, and never saves credentials", async () => {
+    const saveSpy = spyOn(clientMod, "saveCliCredentials").mockResolvedValue(undefined);
+    const logSpy = spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      const code = await loginCommand(["--help"]);
+
+      expect(code).toBe(0);
+      expect(saveSpy).not.toHaveBeenCalled();
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logSpy.mock.calls[0]![0]).toBe(LOGIN_USAGE);
+    } finally {
+      saveSpy.mockRestore();
+      logSpy.mockRestore();
+    }
+  });
+
+  // `-h` is left as a positional by parseFlags (single dash), so this proves
+  // help detection scans the raw argv rather than relying on flags.help.
+  test("-h behaves the same as --help", async () => {
+    const saveSpy = spyOn(clientMod, "saveCliCredentials").mockResolvedValue(undefined);
+    const logSpy = spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      const code = await loginCommand(["-h"]);
+
+      expect(code).toBe(0);
+      expect(saveSpy).not.toHaveBeenCalled();
+      expect(logSpy.mock.calls[0]![0]).toBe(LOGIN_USAGE);
+    } finally {
+      saveSpy.mockRestore();
+      logSpy.mockRestore();
+    }
+  });
+});
 
 describe("loginCommand", () => {
   test("valid --url and --token saves credentials and returns 0", async () => {

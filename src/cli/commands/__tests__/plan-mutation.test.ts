@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
-import { planCommand } from "../plan.js";
+import { planCommand, USAGE as PLAN_USAGE } from "../plan.js";
 import * as clientMod from "../../client.js";
 import * as configFileMod from "../../config-file.js";
 import { CliApiError, type CliClient } from "../../client.js";
@@ -88,6 +88,44 @@ beforeEach(() => {
 
 afterEach(() => {
   consoleLogSpy.mockRestore();
+});
+
+describe("planCommand — help", () => {
+  test("--help prints usage, returns 0, and never touches loadGatewayFile or makeClient", async () => {
+    const loadGatewayFileSpy = spyOn(configFileMod, "loadGatewayFile").mockResolvedValue({
+      version: 1,
+    } as GatewayFile);
+    const makeClientSpy = spyOn(clientMod, "makeClient").mockResolvedValue(makeFakeClient());
+    try {
+      const code = await planCommand(["--help"]);
+
+      expect(code).toBe(0);
+      expect(loadGatewayFileSpy).not.toHaveBeenCalled();
+      expect(makeClientSpy).not.toHaveBeenCalled();
+      expect(loggedLines(consoleLogSpy)).toEqual([PLAN_USAGE]);
+    } finally {
+      loadGatewayFileSpy.mockRestore();
+      makeClientSpy.mockRestore();
+    }
+  });
+
+  test("-h behaves the same as --help", async () => {
+    const loadGatewayFileSpy = spyOn(configFileMod, "loadGatewayFile").mockResolvedValue({
+      version: 1,
+    } as GatewayFile);
+    const makeClientSpy = spyOn(clientMod, "makeClient").mockResolvedValue(makeFakeClient());
+    try {
+      const code = await planCommand(["-h"]);
+
+      expect(code).toBe(0);
+      expect(loadGatewayFileSpy).not.toHaveBeenCalled();
+      expect(makeClientSpy).not.toHaveBeenCalled();
+      expect(loggedLines(consoleLogSpy)).toEqual([PLAN_USAGE]);
+    } finally {
+      loadGatewayFileSpy.mockRestore();
+      makeClientSpy.mockRestore();
+    }
+  });
 });
 
 describe("planCommand — --file flag handling", () => {

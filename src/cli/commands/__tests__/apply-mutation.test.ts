@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
-import { applyCommand } from "../apply.js";
+import { applyCommand, USAGE as APPLY_USAGE } from "../apply.js";
 import * as clientMod from "../../client.js";
 import * as configFileMod from "../../config-file.js";
 import { CliApiError, type CliClient } from "../../client.js";
@@ -83,6 +83,37 @@ function restoreDeps(deps: { loadGatewayFileSpy: ReturnType<typeof spyOn>; makeC
   deps.loadGatewayFileSpy.mockRestore();
   deps.makeClientSpy.mockRestore();
 }
+
+describe("applyCommand — help", () => {
+  test("--help prints usage, returns 0, and never touches loadGatewayFile or makeClient", async () => {
+    const deps = mockDeps({ version: 1 });
+    try {
+      const code = await applyCommand(["--help"]);
+
+      expect(code).toBe(0);
+      expect(deps.loadGatewayFileSpy).not.toHaveBeenCalled();
+      expect(deps.makeClientSpy).not.toHaveBeenCalled();
+      expect(loggedLines(consoleLogSpy)).toEqual([APPLY_USAGE]);
+      expect(loggedLines(consoleErrorSpy)).toEqual([]);
+    } finally {
+      restoreDeps(deps);
+    }
+  });
+
+  test("-h behaves the same as --help", async () => {
+    const deps = mockDeps({ version: 1 });
+    try {
+      const code = await applyCommand(["-h"]);
+
+      expect(code).toBe(0);
+      expect(deps.loadGatewayFileSpy).not.toHaveBeenCalled();
+      expect(deps.makeClientSpy).not.toHaveBeenCalled();
+      expect(loggedLines(consoleLogSpy)).toEqual([APPLY_USAGE]);
+    } finally {
+      restoreDeps(deps);
+    }
+  });
+});
 
 describe("applyCommand — --file flag handling", () => {
   test("defaults to gateway.yaml when --file is absent", async () => {

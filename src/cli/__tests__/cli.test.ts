@@ -2,7 +2,7 @@ import { describe, test, expect, afterEach } from "bun:test";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { parseFlags } from "../../cli/args.js";
+import { parseFlags, wantsHelp } from "../../cli/args.js";
 import { loadGatewayFile, saveGatewayFile, type GatewayFile } from "../../cli/config-file.js";
 import { diffConfigs } from "../../admin/config/config-diff.js";
 
@@ -19,6 +19,24 @@ describe("parseFlags", () => {
     const { flags } = parseFlags(["--a", "--b", "value"]);
     expect(flags.a).toBe(true);
     expect(flags.b).toBe("value");
+  });
+});
+
+describe("wantsHelp", () => {
+  test("detects both -h and --help, anywhere in argv", () => {
+    expect(wantsHelp(["--help"])).toBe(true);
+    expect(wantsHelp(["-h"])).toBe(true);
+    // Not necessarily the first token — a command's other flags may precede it.
+    expect(wantsHelp(["--file", "x.yaml", "--help"])).toBe(true);
+    expect(wantsHelp(["-h", "--file", "x.yaml"])).toBe(true);
+  });
+
+  test("returns false when no help flag is present", () => {
+    expect(wantsHelp([])).toBe(false);
+    expect(wantsHelp(["--file", "gateway.yaml", "--dry-run"])).toBe(false);
+    // Exact-token match only — a longer flag that merely starts with the help
+    // spelling (e.g. a hypothetical `--helper`) must not be mistaken for help.
+    expect(wantsHelp(["--helper"])).toBe(false);
   });
 });
 

@@ -1,5 +1,5 @@
 import { writeFile } from "fs/promises";
-import { parseFlags } from "../args.js";
+import { parseFlags, wantsHelp } from "../args.js";
 import { makeClient, loadCliCredentials, CliApiError } from "../client.js";
 import {
   CONNECT_CLIENT_IDS,
@@ -9,7 +9,7 @@ import {
   type ConnectScope,
 } from "../connect-templates.js";
 
-const USAGE = `Usage: gateway connect --client <${CONNECT_CLIENT_IDS.join("|")}> --scope <client|bundle|system> [--name <clientOrBundleName>] [--out <file>]`;
+export const USAGE = `Usage: gateway connect --client <${CONNECT_CLIENT_IDS.join("|")}> --scope <client|bundle|system> [--name <clientOrBundleName>] [--out <file>]`;
 
 interface ClientDetailLike {
   enabled: boolean;
@@ -26,6 +26,10 @@ interface BundleDetailLike {
  * than trusting the name blindly — see the 404/disabled handling below.
  */
 export async function connectCommand(argv: string[]): Promise<number> {
+  if (wantsHelp(argv)) {
+    console.log(USAGE);
+    return 0;
+  }
   const { flags } = parseFlags(argv);
   const clientFlag = typeof flags.client === "string" ? flags.client : "";
   const scopeFlag = typeof flags.scope === "string" ? flags.scope : "";
