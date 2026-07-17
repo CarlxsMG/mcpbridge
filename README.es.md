@@ -226,7 +226,7 @@ referencia completa de comandos y el formato de `gateway.yaml`.
 
 - Protección SSRF + DNS-rebinding, **anclaje de IP** por upstream
 - **Guardrails**: sanitización de prompt-injection, detección de secretos, reglas de denegación de inputs
-- **Rate limits, timeouts, circuit breakers, restricciones de keys permitidas** por herramienta
+- **Rate limits, timeouts, restricciones de keys permitidas** por herramienta + **circuit breakers** por cliente
 - **RBAC** (admin / operator / auditor / viewer) + **multi-tenancy por equipos**
 - **Log de auditoría a prueba de manipulaciones** (encadenado por hash) + streaming a SIEM
 

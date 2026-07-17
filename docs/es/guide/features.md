@@ -41,6 +41,13 @@ Consulta **[Registrar backends →](/es/guide/registering-backends)**.
   cada conexión activa.
 - **Recursos y prompts upstream** — un endpoint `/mcp/:name` por cliente apuntado a un servidor
   MCP ahora pasa a través de sus recursos y prompts, no solo de sus tools.
+- **Anotaciones de tools MCP (2025-06-18)** — cada tool anunciada lleva los hints estándar de
+  gobernanza/presentación (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` y
+  un `title` de visualización), derivados de su método HTTP y de su gating de
+  sensibilidad/aprobación; el `title` y las anotaciones propias que declara un upstream MCP se
+  pasan a través fielmente. Son hints **advisory** que un cliente puede usar para presentar o
+  pre-gatear una tool — complementan, nunca reemplazan, la aplicación en tiempo de llamada del
+  gateway.
 - **Enlaces de instalación de bundles** — un enlace compartible y revocable de un clic que
   crea una API key MCP con scope de bundle y resuelve a un snippet de conexión listo para
   pegar, para que los usuarios finales nunca necesiten una key provisionada a mano.

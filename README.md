@@ -212,7 +212,7 @@ command reference and `gateway.yaml` format.
 
 - SSRF + DNS-rebinding protection, per-upstream **IP pinning**
 - **Guardrails**: prompt-injection sanitizing, secret detection, input deny-rules
-- Per-tool **rate limits, timeouts, circuit breakers, allowed-key** restrictions
+- Per-tool **rate limits, timeouts, allowed-key** restrictions + per-client **circuit breakers**
 - **RBAC** (admin / operator / auditor / viewer) + **team multi-tenancy**
 - **Tamper-evident audit log** (hash-chained) + SIEM streaming
 

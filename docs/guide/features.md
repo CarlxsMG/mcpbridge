@@ -39,6 +39,12 @@ See **[Registering backends →](/guide/registering-backends)**.
   connection to one in bulk.
 - **Upstream resources & prompts** — a per-client `/mcp/:name` endpoint pointed at an MCP server now
   passes through its resources and prompts, not only its tools.
+- **MCP tool annotations (2025-06-18)** — every advertised tool carries the standard
+  governance/presentation hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
+  `openWorldHint`, and a display `title`), derived from its HTTP method and its
+  sensitivity/approval gating; an MCP upstream's own declared `title` and annotations are passed
+  through faithfully. These are **advisory** hints a client may use to present or pre-gate a tool —
+  they complement, never replace, the gateway's call-time enforcement.
 - **Bundle install links** — a shareable, revocable one-click link that mints a bundle-scoped
   MCP API key and resolves to a ready-to-paste connection snippet, so end users never need a
   manually provisioned key.

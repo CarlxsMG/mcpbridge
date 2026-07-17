@@ -71,6 +71,25 @@ Consulta el
 [`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
 raíz para la lista curada completa.
 
+Lo más reciente: el bridge ahora anuncia las **anotaciones de tools MCP (2025-06-18)** estándar —
+`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` y un `title` de visualización,
+derivados del método HTTP de una tool y de su gating de sensibilidad/aprobación — y pasa a través
+fielmente el `title`/anotaciones propios que declara un upstream MCP (hints advisory que
+complementan, nunca reemplazan, la aplicación en tiempo de llamada). La observabilidad ganó
+**correlación de logs por `request_id`** (filtra un único request de principio a fin) y un gauge
+constante **`mcp_build_info`** que fija la versión/runtime en ejecución. En el lado de las
+correcciones: los parámetros descubiertos por OpenAPI ahora se enrutan a la parte del request que
+declara su spec (`in: query`/`header`/`cookie`) en vez de caer por defecto en el query string o el
+body; un backend GraphQL que falla tras un HTTP 200 (un `errors[]` de nivel superior con `data`
+nula) ahora dispara su circuit breaker en vez de contar como éxito; y el bridge dejó de anunciar un
+`outputSchema` upstream que no puede honrar (que hacía que el cliente oficial del SDK de MCP
+rechazara cada llamada a esa tool). En seguridad: las lecturas de introspección se confinan al
+tenant del caller, los pins SSRF IPv6 se ponen entre corchetes correctamente, la ruta de dispatch
+WebSocket libera una sonda de breaker consumida, la credencial upstream inyectada se elimina de las
+respuestas reflejadas sin importar el esquema de auth, el `title`/anotaciones upstream se sanitizan
+contra prompt-injection, y un argumento de tool enrutado a un header o cookie no puede inyectar un
+header prohibido ni sobreescribir un header de auth gestionado por el gateway.
+
 ## [1.0.0] - 2026-07-03
 
 Primera release etiquetada de **MCP REST Bridge** — un gateway MCP self-hosted que

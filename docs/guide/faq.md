@@ -41,7 +41,7 @@ several backends (REST and/or MCP) through **one** MCP endpoint, curate a
 
 ## What happens if a backend goes down?
 
-Health checks auto-evict unreachable backends, and per-tool circuit breakers fail calls fast
+Health checks auto-evict unreachable backends, and per-client circuit breakers fail calls fast
 once a backend is clearly unhealthy instead of piling up timeouts. If you've configured a
 canary/failover secondary, traffic can route there automatically. See
 [Guardrails & resilience →](/guide/guardrails-resilience).

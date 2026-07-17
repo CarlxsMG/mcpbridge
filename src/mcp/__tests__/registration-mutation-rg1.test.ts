@@ -220,7 +220,14 @@ describe("resolvedRegistrationSchema — proves resolveRefs's object/array recur
     // — no `type`, no `properties` — so these would be undefined instead.
     expect(items.type).toBe("object");
     const itemProps = asObj(items.properties);
-    expect(Object.keys(itemProps).sort()).toEqual(["description", "endpoint", "inputSchema", "method", "name"]);
+    expect(Object.keys(itemProps).sort()).toEqual([
+      "description",
+      "endpoint",
+      "inputSchema",
+      "method",
+      "name",
+      "paramLocations",
+    ]);
     // required is itself an array nested inside the $ref-resolved object —
     // pins array-recursion running INSIDE a $ref-resolved subtree too, not
     // just at the top level.

@@ -185,7 +185,7 @@ groups:
           severity: warning
         annotations:
           summary: "Circuit breaker open for {{ $labels.client }}"
-          description: "A per-tool breaker on client {{ $labels.client }} has been open ≥5m — its backend is failing repeatedly."
+          description: "The per-client breaker for client {{ $labels.client }} has been open ≥5m — its backend is failing repeatedly."
 
       - alert: MCPClientEvicted
         expr: increase(mcp_health_evictions_total[15m]) > 0

@@ -63,6 +63,24 @@ full CI-job coverage including `e2e`/CodeQL/`security.yml`). See the root
 [`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
 for the full curated list.
 
+Most recently: the bridge now advertises the standard **MCP tool annotations (2025-06-18)** —
+`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` and a display `title`, derived
+from a tool's HTTP method and its sensitivity/approval gating — and passes an MCP upstream's own
+declared `title`/annotations through faithfully (advisory hints that complement, never replace,
+call-time enforcement). Observability gained **`request_id` log correlation** (grep a single
+request end to end) and a constant **`mcp_build_info`** gauge that pins the running
+version/runtime. On the fix side: OpenAPI-discovered parameters are now routed to the request
+location their spec declares (`in: query`/`header`/`cookie`) instead of defaulting into the query
+string or body; a GraphQL backend that fails behind an HTTP 200 (a top-level `errors[]` with null
+`data`) now trips its circuit breaker instead of counting as a success; and the bridge stopped
+advertising an upstream `outputSchema` it can't honor (which made the official MCP SDK client
+reject every call to such a tool). Security-wise: introspection reads are confined to the caller's
+tenant, IPv6 SSRF pins are bracketed correctly, the WebSocket dispatch path releases a consumed
+breaker probe, the injected upstream credential is stripped from reflected responses regardless of
+auth scheme, upstream `title`/annotations are prompt-injection-sanitized, and a tool argument
+routed to a header or cookie can't inject a forbidden header or overwrite a gateway-managed auth
+header.
+
 ## [1.0.0] - 2026-07-03
 
 Initial tagged release of **MCP REST Bridge** — a self-hosted MCP gateway that turns

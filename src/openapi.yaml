@@ -486,9 +486,12 @@ paths:
         Returns the JSON Schema (as defined in this OpenAPI document's
         components) that describes a valid POST /register body. Clients can
         fetch this schema at runtime to perform local validation before
-        attempting registration.
+        attempting registration. Requires AdminAuth (registration itself is
+        admin-gated, so its schema is too).
       tags:
         - Schema
+      security:
+        - AdminAuth: []
       responses:
         "200":
           description: >
@@ -521,6 +524,38 @@ paths:
                       health. Relative paths are resolved against the
                       registering client's IP address.
                     example: /health
+        "401":
+          description: Missing Authorization header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Missing Authorization header
+        "403":
+          description: Invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: Invalid API key
+        "503":
+          description: >
+            The registration schema could not be loaded at startup, so it
+            cannot be served.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: SCHEMA_UNAVAILABLE
+                  message: Schema could not be loaded
 
   # ---------------------------------------------------------------------------
   # MCP Transport — Streamable HTTP (POST /mcp)
@@ -1030,9 +1065,6 @@ paths:
                       streamable:
                         type: integer
                         example: 5
-                      sse:
-                        type: integer
-                        example: 2
                   registered_clients:
                     type: object
                     properties:
@@ -5211,6 +5243,24 @@ components:
           example: Retrieve a single customer record by ID.
         inputSchema:
           $ref: "#/components/schemas/InputSchema"
+        paramLocations:
+          type: object
+          description: >
+            Read-only. Maps a tool input argument name to the part of the
+            outbound HTTP request it is placed into (a `:placeholder` path
+            segment is templated directly and is NOT listed here). Auto-filled
+            only for tools discovered from an OpenAPI/Swagger spec — it is not
+            accepted on a POST /register body — and returned by
+            GET /clients/{name}/tools. Omitted entirely when empty.
+          additionalProperties:
+            type: string
+            enum:
+              - query
+              - header
+              - cookie
+          example:
+            notify: query
+            X-Trace: header
       example:
         name: get_customer
         method: GET

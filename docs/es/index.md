@@ -46,7 +46,7 @@ features:
       height: 28
       wrap: true
     title: Gobernanza por herramienta
-    details: Rate limits, timeouts, circuit breakers y reglas de keys permitidas en cualquier herramienta. RBAC (admin / operator / auditor / viewer) más multi-tenancy por equipos.
+    details: Rate limits, timeouts y reglas de keys permitidas en cualquier herramienta, más circuit breakers por cliente. RBAC (admin / operator / auditor / viewer) más multi-tenancy por equipos.
   - icon:
       src: /icons/activity.svg
       width: 28

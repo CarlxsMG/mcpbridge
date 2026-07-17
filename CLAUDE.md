@@ -142,7 +142,7 @@ mechanism `proxyToolCall`'s sensitive-tool gate already uses.
 **Storage.** `bun:sqlite`, one file, no ORM, no external database. Admin config (enable flags,
 guards, bundles, keys, audit, users, teams, policies, schedules...) lives here; the live registry
 (`src/mcp/registry.ts`) is hydrated from it at boot. Schema changes are an **append-only** array
-in `src/db/migrations.ts` (currently up to id 55) — never edit or renumber a shipped migration;
+in `src/db/migrations.ts` (currently up to id 56) — never edit or renumber a shipped migration;
 add a new one with the next sequential integer, written defensively (`CREATE TABLE IF NOT EXISTS`,
 additive `ALTER TABLE`) since there's no down-migration mechanism.
 
@@ -157,7 +157,7 @@ Tool descriptions are sanitized (`sanitizeToolDescription`) before entering the 
 through `src/security/compare.ts`'s `safeCompare` — never `===`.
 
 **Resilience.** A background loop health-checks each client and auto-evicts unhealthy ones (ping
-probe for MCP upstreams). Per-tool circuit breakers (`closed → open → half_open`) trip on repeated
+probe for MCP upstreams). Per-client circuit breakers (`closed → open → half_open`) trip on repeated
 failures — including non-2xx HTTP responses, not just thrown exceptions — and must re-check
 `canRequest()` before every retry. An optional canary/failover secondary can take over when a
 primary breaker opens, without falsely closing the primary's breaker. Non-idempotent methods

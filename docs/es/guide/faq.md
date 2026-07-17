@@ -43,7 +43,7 @@ cura un [bundle →](/es/guide/bundles).
 ## ¿Qué pasa si un backend cae?
 
 Los health checks auto-eliminan backends inaccesibles, y los circuit breakers por
-herramienta fallan las llamadas rápido cuando un backend está claramente caído, en lugar
+cliente fallan las llamadas rápido cuando un backend está claramente caído, en lugar
 de acumular timeouts. Si configuras un canary/failover secundario, el tráfico puede
 enrutarse allí automáticamente. Consulta [Guardrails y resiliencia →](/es/guide/guardrails-resilience).
 

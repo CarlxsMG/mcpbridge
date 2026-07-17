@@ -7,15 +7,33 @@ tamper-evident audit trail, all from the same instance.
 
 Scrape `GET /metrics` for Prometheus-format metrics. The endpoint exposes only the gateway's
 own `mcp_*` metrics — its registry, resilience, health-check, and WS-proxy instrumentation
-(for example `mcp_tool_calls_total{outcome}`). It does **not** export default process or HTTP
-metrics (there is no `prom-client` / `collectDefaultMetrics` — no `process_*`, `nodejs_*`, or
-per-route request metrics). Wire it into your usual dashboards and alerting — or start from the
-ready-to-apply Prometheus rules and Grafana dashboard in the repo's `monitoring/` directory.
+(for example `mcp_tool_calls_total{outcome}`). One constant `mcp_build_info` gauge (always `1`)
+carries the running `version` and `bun` runtime as labels, so a dashboard can pin exactly which
+build is live and spot a version skew across replicas. The endpoint does **not** export default
+process or HTTP metrics (there is no `prom-client` / `collectDefaultMetrics` — no `process_*`,
+`nodejs_*`, or per-route request metrics). Wire it into your usual dashboards and alerting — or
+start from the ready-to-apply Prometheus rules and Grafana dashboard in the repo's `monitoring/`
+directory.
 
 ## Tracing (OpenTelemetry)
 
 Set `OTEL_EXPORTER_OTLP_ENDPOINT` and the bridge exports one OTLP/HTTP span **per tool call**
 — dependency-free, so you can send spans to any OTLP collector (Jaeger, Tempo, Honeycomb, …).
+
+## Log correlation
+
+Every request is assigned a correlation id — taken from an inbound `X-Request-Id` header when
+present, otherwise a fresh UUID — echoed back on the `X-Request-ID` response header and stamped
+onto **every** structured log line emitted while handling that request as a `request_id` field.
+To follow a single request end to end, grep your logs for it:
+
+```bash
+grep '"request_id":"<id>"' gateway.log
+```
+
+Hand the id from the `X-Request-ID` response header (or a client-supplied one) straight to that
+grep to pull every log line for the call. The same middleware also honors a W3C `traceparent`
+header, so the OTLP span for the call inherits the caller's trace.
 
 ## Usage analytics & anomaly detection
 
@@ -28,7 +46,7 @@ Create alert rules that POST to a webhook on:
 
 | Event                  | Fires when                                          |
 | ---------------------- | --------------------------------------------------- |
-| `circuit_breaker_open` | A tool's breaker trips open                         |
+| `circuit_breaker_open` | A client's breaker trips open                       |
 | `client_unreachable`   | A backend fails health checks                       |
 | `error_rate`           | Errors exceed a threshold over a minimum call count |
 | `usage_spike`          | Traffic spikes vs. baseline                         |

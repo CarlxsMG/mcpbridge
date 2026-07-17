@@ -76,6 +76,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   backend's `isSuperAdminCaller` check, so a team-scoped admin never sees a control it would
   just get a 403 from; `GET /admin-api/auth/me` now reports the session's `team_id` (`null` =
   super-admin) so the UI can decide when to show it.
+- **MCP tool annotations (2025-06-18) on `tools/list`, plus faithful upstream passthrough.** Every
+  bridged tool now advertises the standard governance/presentation hints —
+  `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` and a display `title` — derived
+  from its HTTP method and its sensitivity/approval gating, and an MCP upstream's own declared
+  `title`/`annotations` are folded through verbatim. The hints are advisory: they COMPLEMENT
+  `proxyToolCall`'s call-time enforcement, never replace it.
+- **Request-log correlation and a build-info metric.** Every structured log line emitted while
+  handling a request is stamped with a `request_id` (taken from an inbound `X-Request-Id` header
+  or a fresh UUID, and echoed on the `X-Request-ID` response header), so a single request can be
+  grepped end to end; and a constant `mcp_build_info` gauge carries the running `version`/`bun`
+  runtime as labels for a dashboard to pin the live build and spot replica skew.
+- A structural tenancy-route matrix test asserting every admin-API route carries its expected
+  role/team gate, so a newly added route can't silently ship without tenancy scoping.
 
 ### Changed
 
@@ -416,6 +429,22 @@ NODE_ENV=production`, and the prod compose pins it so a copied dev `.env` can't 
   `legacy: false`; the real "Not found key" warning is gated by `fallbackWarn`/`missingWarn`,
   which fired on every route whose name isn't a `nav.*` key despite the code comment claiming it
   was suppressed. Fixed in `admin-ui/src/i18n.ts` and its `test-setup.ts` duplicate.
+- **OpenAPI parameter routing honors each parameter's declared `in:` location.** A discovered tool
+  now places every argument into the request part its spec declares (`in: query`, `header`, or
+  `cookie`) instead of defaulting every non-path param into the query string or POST body; the
+  resolved mapping (`paramLocations`) round-trips through the DB (migration 56) and is returned by
+  `GET /clients/{name}/tools`. Includes the follow-up fixes to that initial routing change.
+- **A GraphQL backend's HTTP-200-with-`errors` response now trips the circuit breaker.** A
+  GraphQL-over-HTTP operation that fails answers 200 with a top-level `errors[]` (and null/absent
+  `data`); that is now recorded as a breaker/usage failure and surfaced as an error instead of
+  counting as a success, so a consistently-failing GraphQL tool can still open its breaker.
+  Ordinary JSON that merely carries an `errors` field is unaffected (the check is gated on
+  GraphQL-backed tools).
+- **Stopped advertising an unusable upstream `outputSchema`.** A bridged MCP-upstream tool no
+  longer advertises the upstream's `outputSchema` on `tools/list`: the result path is text-only
+  (no `structuredContent` passthrough) and the official MCP SDK client throws `InvalidRequest`
+  when a tool advertises an `outputSchema` but the call returns no structured content — which would
+  have broken every call to such a tool.
 
 ### Security
 
@@ -431,6 +460,16 @@ NODE_ENV=production`, and the prod compose pins it so a copied dev `.env` can't 
   after buffering, bounding memory on a hostile or oversized spec URL.
 - The Helm chart runs under a dedicated `ServiceAccount` with `automountServiceAccountToken: false`,
   so pods no longer get the namespace default service-account token mounted.
+- Introspection reads are confined to the caller's tenant, an IPv6 literal is bracketed correctly
+  when it is pinned into the outbound connect target / `Host` header (closing an SSRF-pin
+  edge the IPv4 path didn't hit), and a WebSocket tool call that consumes the single half-open
+  circuit-breaker probe but bails before dispatch now releases it, matching the REST/MCP paths.
+- The gateway strips its own injected upstream credential from a reflected response independently
+  of the auth scheme (not only `Bearer`), closing a reflection gap for custom-scheme credentials.
+- An MCP upstream's faithfully-passed-through `title`/`annotations` are prompt-injection-sanitized
+  before entering the registry (the same treatment `description` already gets), and a tool argument
+  routed to a `header`/`cookie` location can no longer inject a forbidden header, smuggle CRLF/`;`
+  into a cookie, or overwrite a gateway-managed auth header.
 
 ## [1.0.0] - 2026-07-03
 

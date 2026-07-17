@@ -57,7 +57,7 @@ feature — guards, guardrails, RBAC, bundles, usage, audit — applies to all o
 ## Health & resilience
 
 A background loop health-checks each client and auto-evicts unhealthy ones (with a `ping`
-probe for MCP upstreams). Per-tool **circuit breakers** trip on repeated failures, and an
+probe for MCP upstreams). Per-client **circuit breakers** trip on repeated failures, and an
 optional **canary/failover** secondary can take over when a primary breaker opens — without
 falsely closing the primary's breaker.
 

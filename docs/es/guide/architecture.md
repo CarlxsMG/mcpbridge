@@ -61,7 +61,7 @@ aplica a los tres sin cambios.
 ## Salud y resiliencia
 
 Un loop en background chequea la salud de cada cliente y auto-elimina los no saludables
-(con un `ping` probe para upstreams MCP). Los **circuit breakers** por herramienta se
+(con un `ping` probe para upstreams MCP). Los **circuit breakers** por cliente se
 disparan ante fallos repetidos, y un **canary/failover** secundario opcional puede tomar
 el relevo cuando se abre el breaker primario — sin cerrar falsamente el breaker primario.
 

@@ -7,17 +7,36 @@ alertas y un log de auditoría a prueba de manipulaciones, todo desde la misma i
 
 Scrape `GET /metrics` para métricas en formato Prometheus. El endpoint expone únicamente las
 métricas `mcp_*` propias del gateway — las de su registro, resiliencia, chequeos de salud y
-proxy WS (por ejemplo `mcp_tool_calls_total{outcome}`). **No** exporta métricas de proceso ni
-de HTTP por defecto (no hay `prom-client` / `collectDefaultMetrics` — sin `process_*`,
-`nodejs_*` ni métricas de request por ruta). Cablea en tus dashboards y alertas habituales — o
-parte de las reglas Prometheus y el dashboard Grafana listos para aplicar en el directorio
-`monitoring/` del repo.
+proxy WS (por ejemplo `mcp_tool_calls_total{outcome}`). Un gauge constante `mcp_build_info`
+(siempre `1`) lleva la `version` en ejecución y el runtime `bun` como labels, para que un
+dashboard pueda fijar exactamente qué build está vivo y detectar un desfase de versión entre
+réplicas. El endpoint **no** exporta métricas de proceso ni de HTTP por defecto (no hay
+`prom-client` / `collectDefaultMetrics` — sin `process_*`, `nodejs_*` ni métricas de request por
+ruta). Cablea en tus dashboards y alertas habituales — o parte de las reglas Prometheus y el
+dashboard Grafana listos para aplicar en el directorio `monitoring/` del repo.
 
 ## Tracing (OpenTelemetry)
 
 Define `OTEL_EXPORTER_OTLP_ENDPOINT` y el bridge exporta un span OTLP/HTTP
 **por cada llamada de tool** — sin dependencias, así que puedes enviar spans a cualquier
 collector OTLP (Jaeger, Tempo, Honeycomb, …).
+
+## Correlación de logs
+
+A cada request se le asigna un id de correlación — tomado de una cabecera entrante
+`X-Request-Id` cuando está presente, o un UUID nuevo en caso contrario — devuelto en la cabecera
+de respuesta `X-Request-ID` y estampado en **cada** línea de log estructurado emitida durante el
+manejo de ese request como un campo `request_id`. Para seguir un único request de principio a
+fin, filtra tus logs por él:
+
+```bash
+grep '"request_id":"<id>"' gateway.log
+```
+
+Pasa el id de la cabecera de respuesta `X-Request-ID` (o uno suministrado por el cliente)
+directamente a ese grep para sacar todas las líneas de log de la llamada. El mismo middleware
+también respeta una cabecera W3C `traceparent`, de modo que el span OTLP de la llamada hereda el
+trace del caller.
 
 ## Analytics de uso y detección de anomalías
 
@@ -31,7 +50,7 @@ Crea reglas de alerta que POSTean a un webhook en:
 
 | Evento                 | Se dispara cuando                                            |
 | ---------------------- | ------------------------------------------------------------ |
-| `circuit_breaker_open` | El breaker de una tool se dispara y abre                     |
+| `circuit_breaker_open` | El breaker de un cliente se dispara y abre                   |
 | `client_unreachable`   | Un backend falla los chequeos de salud                       |
 | `error_rate`           | Los errores superan un threshold sobre un mínimo de llamadas |
 | `usage_spike`          | Picos de tráfico vs. baseline                                |

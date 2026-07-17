@@ -46,7 +46,7 @@ features:
       height: 28
       wrap: true
     title: Per-tool governance
-    details: Rate limits, timeouts, circuit breakers and allowed-key rules on any single tool. RBAC (admin / operator / auditor / viewer) plus team multi-tenancy.
+    details: Rate limits, timeouts and allowed-key rules on any single tool, plus per-client circuit breakers. RBAC (admin / operator / auditor / viewer) plus team multi-tenancy.
   - icon:
       src: /icons/activity.svg
       width: 28
