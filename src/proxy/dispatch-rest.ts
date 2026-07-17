@@ -120,6 +120,8 @@ interface RestRouting {
 /** Stage-2 built request returned by buildRestRequest (pinned fetch + URL/body + auth + response config). */
 interface RestRequest {
   remainingArgs: Record<string, unknown>;
+  /** Only the args routed to the query string (in:query, or the GET/DELETE default) — used to rebuild the query for pagination follow-ups without leaking header/cookie params into the URL. */
+  queryParams: URLSearchParams;
   resolvedPath: string;
   transformCfg: ReturnType<typeof getToolTransform>;
   targetBaseUrl: string;
@@ -400,9 +402,22 @@ async function buildRestRequest(
   // the JSON body for POST/PUT/PATCH. This is the fix for in:query/header/cookie
   // params on body methods previously landing in the JSON body instead of the URL.
   const isBodyMethod = method !== "GET" && method !== "DELETE";
-  // Header params a caller may never set — they'd break the pinned-Host SSRF
-  // invariant or the JSON framing. (Mirrors upstream-auth's FORBIDDEN_HEADERS.)
-  const FORBIDDEN_PARAM_HEADERS = new Set(["host", "content-length", "content-type"]);
+  // Header params the UNTRUSTED MCP caller may never set: host/content-* break
+  // the pinned-Host SSRF invariant or the JSON framing; authorization/
+  // proxy-authorization/cookie would let the caller speak auth to the backend —
+  // but the gateway is a credential broker, callers don't get to.
+  const FORBIDDEN_PARAM_HEADERS = new Set([
+    "host",
+    "content-length",
+    "content-type",
+    "authorization",
+    "proxy-authorization",
+    "cookie",
+  ]);
+  // Cookie-octet per RFC 6265 excludes these; a caller value carrying one could
+  // inject an extra cookie (;), split the header (CR/LF), or smuggle via , — so
+  // reject the call rather than pass it through.
+  const UNSAFE_COOKIE_CHAR = /[;,\s"\\]/;
   const paramHeaders: Record<string, string> = {};
   const cookiePairs: string[] = [];
   try {
@@ -413,7 +428,15 @@ async function buildRestRequest(
       if (loc === "header") {
         if (!FORBIDDEN_PARAM_HEADERS.has(key.toLowerCase())) paramHeaders[key] = String(value);
       } else if (loc === "cookie") {
-        cookiePairs.push(`${key}=${String(value)}`);
+        const cookieValue = String(value);
+        if (UNSAFE_COOKIE_CHAR.test(cookieValue)) {
+          // Release the trackRequest/incInflight bookkeeping this branch skips
+          // (mirrors the catch below) before the fail-closed early return.
+          untrackRequest(client.name, reqController);
+          if (lbKey) decInflight(lbKey);
+          return toolResult(`Cookie parameter '${key}' contains a disallowed character`, { isError: true });
+        }
+        cookiePairs.push(`${key}=${cookieValue}`);
       } else if (loc === "query") {
         queryParams.append(key, String(value));
       } else {
@@ -439,10 +462,22 @@ async function buildRestRequest(
     const oauthBearer = await getOAuthBearer(client.name);
     if (oauthBearer) upstreamAuthHeaders.Authorization = `Bearer ${oauthBearer}`;
 
+    // Defense in depth beyond the static set above: drop any caller-supplied
+    // header param that collides case-insensitively with a gateway-managed auth
+    // header (covers custom header-name auth, e.g. X-Api-Key). Headers merge
+    // case-insensitively by APPENDING, so a lowercase `authorization` param would
+    // otherwise become `caller-value, Bearer <secret>` and hand the caller
+    // control of the credential on any first-token-wins backend.
+    const managedHeaderNames = new Set(Object.keys(upstreamAuthHeaders).map((k) => k.toLowerCase()));
+    for (const name of Object.keys(paramHeaders)) {
+      if (managedHeaderNames.has(name.toLowerCase())) delete paramHeaders[name];
+    }
+
     // Response redaction paths for this tool (applied to JSON responses below).
     const redactionPaths = getRedactionPaths(client.name, tool.name);
     return {
       remainingArgs,
+      queryParams,
       resolvedPath,
       transformCfg,
       targetBaseUrl,
@@ -571,10 +606,11 @@ async function processRestSuccessResponse(
     method,
     targetBaseUrl,
     resolvedPath,
-    remainingArgs,
+    queryParams,
     pinnedFetch,
     originalHost,
     upstreamAuthHeaders,
+    paramHeaders,
     transformCfg,
     redactionPaths,
     graphqlEnabled,
@@ -665,12 +701,15 @@ async function processRestSuccessResponse(
       const aggregated = await fetchAllPages(rawText, paginationCfg, {
         targetBaseUrl,
         resolvedPath,
-        baseQuery: new URLSearchParams(
-          Object.entries(remainingArgs).map(([k, v]) => [k, String(v)] as [string, string]),
-        ),
+        // Only the query-located args — NOT header/cookie params, which must not
+        // leak into follow-up page URLs (they're carried as headers below).
+        baseQuery: new URLSearchParams(queryParams),
         pinnedFetch,
         originalHost,
-        headers: upstreamAuthHeaders,
+        // Same header set + precedence as page 1: in:header/cookie params first,
+        // gateway-managed auth wins. Without this, pages 2+ drop those headers
+        // and the backend rejects them (silent truncation to page 1).
+        headers: { ...paramHeaders, ...upstreamAuthHeaders },
         timeoutMs: effectiveTimeout,
         externalSignal: reqController.signal,
         maxBytes: config.maxResponseBytes,

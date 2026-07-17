@@ -121,4 +121,61 @@ describe("REST dispatch — parameter locations", () => {
     expect(c.url).not.toContain("?");
     expect(JSON.parse(c.body!)).toEqual({ a: "1" });
   });
+
+  test("a caller-supplied Authorization/Cookie header param is dropped (credential-broker invariant)", async () => {
+    await reg({
+      name: "authparam",
+      method: "POST",
+      endpoint: "/a",
+      description: "d",
+      inputSchema: {
+        type: "object",
+        properties: { authorization: { type: "string" }, cookie: { type: "string" }, ok: { type: "string" } },
+      },
+      paramLocations: { authorization: "header", cookie: "header", ok: "header" },
+    });
+    const cap = captureFetch();
+    await proxyToolCall(`${CLIENT}__authparam`, { authorization: "Bearer attacker", cookie: "sid=x", ok: "yes" });
+
+    const c = cap.get()!;
+    // The gateway is a credential broker: the caller may not set auth/cookie
+    // headers, but a benign header param still passes through.
+    expect(c.headers.get("Authorization")).toBeNull();
+    expect(c.headers.get("ok")).toBe("yes");
+  });
+
+  test("in:cookie params become a Cookie header (not body/query), joined with '; '", async () => {
+    await reg({
+      name: "cookied",
+      method: "GET",
+      endpoint: "/c",
+      description: "d",
+      inputSchema: { type: "object", properties: { sid: { type: "string" }, theme: { type: "string" } } },
+      paramLocations: { sid: "cookie", theme: "cookie" },
+    });
+    const cap = captureFetch();
+    await proxyToolCall(`${CLIENT}__cookied`, { sid: "abc", theme: "dark" });
+
+    const c = cap.get()!;
+    expect(c.headers.get("Cookie")).toBe("sid=abc; theme=dark");
+    expect(c.url).not.toContain("sid=");
+  });
+
+  test("a cookie param value with a delimiter is rejected (no cookie injection)", async () => {
+    await reg({
+      name: "cookieinj",
+      method: "GET",
+      endpoint: "/ci",
+      description: "d",
+      inputSchema: { type: "object", properties: { sid: { type: "string" } } },
+      paramLocations: { sid: "cookie" },
+    });
+    const cap = captureFetch();
+    const res = await proxyToolCall(`${CLIENT}__cookieinj`, { sid: "abc; admin=true" });
+
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/disallowed character/i);
+    // The backend was never called.
+    expect(cap.get()).toBeNull();
+  });
 });
