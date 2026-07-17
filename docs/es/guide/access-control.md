@@ -12,8 +12,18 @@ por rol y auditada.
 | ---------- | -------------------------------------------------------------------------------- |
 | `admin`    | Todo, incluida la gestión de usuarios, equipos y config global                   |
 | `operator` | Registrar/configurar backends, guards, bundles, keys — operaciones del día a día |
-| `auditor`  | Solo lectura más el log de auditoría y su verificación de integridad             |
+| `auditor`  | Dashboards de solo lectura (hoy idéntico a `viewer` — ver la nota de abajo)      |
 | `viewer`   | Dashboards de solo lectura                                                       |
+
+::: warning `auditor` hoy es redundante con `viewer`
+Pese al nombre, `auditor` no otorga ningún acceso extra hoy: tiene exactamente el mismo rango que
+`viewer`, y **leer el log de auditoría requiere `operator`+**, no `auditor`. Cada ruta del log de
+auditoría (`GET /admin-api/audit-log`, `.../verify`, `.../export`) está restringida por
+`requireOperator`, porque el `detail_json` de un registro de auditoría capturado puede llevar los
+mismos datos sensibles de payload que un registro de tráfico — así que los tiers más bajos
+`viewer`/`auditor` no deben leerlo. El rol existe en el schema por compatibilidad futura; concede
+`operator` a quien necesite el rastro de auditoría.
+:::
 
 Los callers programáticos/CI pueden usar un token Bearer estático `ADMIN_API_KEYS` en lugar
 de una sesión; las llamadas Bearer están exentas de CSRF (no son cookie-based).

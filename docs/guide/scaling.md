@@ -60,8 +60,9 @@ REST proxying and the admin API need no affinity.
 - **A health-eviction hold is per-instance too, if you route with `/livez` instead of
   `/readyz`.** Under the default (leader-only, `/readyz`-gated) topology this doesn't
   matter — only the leader ever probes backends or serves traffic. But if you switch
-  readiness to `/livez` so every replica serves (see the Helm chart's readiness-probe
-  override), a client re-registration can land on a non-leader replica and only clear
+  readiness to `/livez` so every replica serves (see the
+  [Helm chart's readiness-probe override →](/guide/deployment#kubernetes-helm)), a client
+  re-registration can land on a non-leader replica and only clear
   _that_ replica's in-memory eviction mark, leaving the leader's own mark (and therefore
   its `reconcileFromDb()`) stuck withholding the client. Re-register against the leader,
   or `forgetClient`/re-register through a session pinned to it, to clear the hold.

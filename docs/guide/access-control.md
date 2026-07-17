@@ -7,12 +7,21 @@ The bridge separates **who administers it** (admin users, roles) from **who call
 
 Admin users sign in to the Vue admin UI; every mutating action is role-gated and audited.
 
-| Role       | Can do                                                                     |
-| ---------- | -------------------------------------------------------------------------- |
-| `admin`    | Everything, including managing users, teams and global config              |
-| `operator` | Register/configure backends, guards, bundles, keys — day-to-day operations |
-| `auditor`  | Read-only plus the audit log and its integrity check                       |
-| `viewer`   | Read-only dashboards                                                       |
+| Role       | Can do                                                                      |
+| ---------- | --------------------------------------------------------------------------- |
+| `admin`    | Everything, including managing users, teams and global config               |
+| `operator` | Register/configure backends, guards, bundles, keys — day-to-day operations  |
+| `auditor`  | Read-only dashboards (currently identical to `viewer` — see the note below) |
+| `viewer`   | Read-only dashboards                                                        |
+
+::: warning `auditor` is currently redundant with `viewer`
+Despite the name, `auditor` grants no extra access today: it ranks exactly the same as `viewer`,
+and **reading the audit log requires `operator`+**, not `auditor`. Every audit-log route
+(`GET /admin-api/audit-log`, `.../verify`, `.../export`) is gated by `requireOperator`, because a
+captured audit record's `detail_json` can carry the same sensitive payload data as a traffic
+record — so the lowest `viewer`/`auditor` tiers must not read it. The role exists in the schema
+for forward compatibility; grant `operator` to anyone who needs the audit trail.
+:::
 
 Programmatic/CI callers can use a static `ADMIN_API_KEYS` Bearer token instead of a session;
 Bearer calls are exempt from CSRF (they aren't cookie-based).

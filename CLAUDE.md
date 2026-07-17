@@ -129,8 +129,9 @@ it) was removed. The **data plane** is two narrowing filters applied _before_ di
 per-client shard `/mcp/:clientName`, and curated bundle `/mcp-custom/:bundleName`
 (admin-curated cross-client subset of tools and/or composite macros).
 
-`/mcp` has its own fail-closed auth (`rootMcpAuth`/`resolveSystemRole` in
-`src/security/system-role.ts`) — unlike the data plane's `mcpAuth`, there is **no**
+`/mcp` has its own fail-closed auth (`rootMcpAuth` in `src/middleware/auth.ts`, resolving the
+caller's system role via `resolveSystemRole` in `src/security/system-role.ts`) — unlike the
+data plane's `mcpAuth`, there is **no**
 "no auth material configured => allow all" fallback; a caller must resolve to a real system
 role (the env admin Bearer, or a managed `mcp_api_keys` row with `adminRole` set) or the
 request is rejected outright. Each system tool additionally carries its own role tier

@@ -282,6 +282,10 @@ Las docs completas viven en la **[web del proyecto](https://aico-dot-team-code.g
 [Funcionalidades](https://aico-dot-team-code.github.io/mcpbridge/es/guide/features) ·
 [¿Por qué MCP REST Bridge?](https://aico-dot-team-code.github.io/mcpbridge/es/guide/why-mcp-rest-bridge)
 
+¿Prefieres aprender con ejemplos? El directorio **[`examples/`](examples/)** trae muestras listas
+para copiar y ejecutar: un body de `POST /register` por cada modo de registro, un `gateway.yaml`
+config-as-code, y configs drop-in de clientes MCP.
+
 ## 🛠️ Stack técnico
 
 [Bun](https://bun.sh) · TypeScript (strict) · Express 5 ·

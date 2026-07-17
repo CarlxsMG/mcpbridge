@@ -152,5 +152,9 @@ That's a **bundle** — see [Aggregating backends into one endpoint →](/guide/
 - **[Features →](/guide/features)** — the full capability list (guardrails, RBAC, canary,
   tracing, audit, and more).
 - **[Why MCP REST Bridge →](/guide/why-mcp-rest-bridge)** — how it compares and where it fits.
+- **Copy-and-run samples** — the repo's
+  [`examples/`](https://github.com/aico-dot-team-code/mcpbridge/tree/main/examples) directory has
+  a ready-to-send `POST /register` body per registration mode, a config-as-code `gateway.yaml`,
+  and drop-in MCP client configs (Claude Desktop, Cursor).
 - Lock things down for production: set `MCP_API_KEYS`, configure per-tool guardrails, and
   serve behind HTTPS.

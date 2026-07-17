@@ -48,6 +48,60 @@ Same env vars as the local-build example above — only the image differs. Witho
 `BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD`, the container starts with an empty
 `admin_users` table and no way to log in.
 
+## Docker Compose
+
+The repo ships a minimal production `docker-compose.yml` at its root: one `mcp-bridge` service,
+a named volume for the SQLite database, and the runtime hardening (`no-new-privileges`, read-only
+root filesystem with a `/tmp` tmpfs) that mirrors the Helm chart's `securityContext`.
+
+It reads secrets from a **`.env` file you write yourself** — do **not** `cp .env.example`. That
+example is the local-dev profile (`NODE_ENV=development`, non-Secure cookies,
+`ALLOW_PRIVATE_IPS=true` = SSRF guard off); Compose pins `NODE_ENV=production` via its
+`environment:` block (which wins over `env_file`), so the startup guards stay on and a stray
+dev-only relaxation makes the app **fail closed at boot** rather than run insecurely.
+
+```bash
+# Write real production secrets — NOT a copy of .env.example.
+printf 'BOOTSTRAP_ADMIN_USERNAME=admin\nBOOTSTRAP_ADMIN_PASSWORD=<a strong 12+ char password>\nADMIN_API_KEYS=<key1,key2>\n' > .env
+
+docker compose up -d
+```
+
+No release image is published yet, so the file builds from local source (`build: .`); once the
+first tagged release exists you can comment `build:` out and let it pull the pinned
+`image:` from GHCR instead. The image's own `HEALTHCHECK` (hitting `/livez`) is picked up
+automatically. The database lives on the `mcp-bridge-data` named volume, so it survives
+`docker compose down`/recreation.
+
+## Kubernetes (Helm)
+
+A minimal Helm chart lives at `helm/mcp-rest-bridge` — a Deployment + Service + ConfigMap, plus
+an optional Secret and PVC. It deliberately ships **no** Ingress/HPA/NetworkPolicy; front it with
+whatever your cluster already uses for those.
+
+```bash
+helm install my-bridge ./helm/mcp-rest-bridge \
+  --set-string secretEnv.BOOTSTRAP_ADMIN_USERNAME=admin \
+  --set-string secretEnv.BOOTSTRAP_ADMIN_PASSWORD='<a strong 12+ char password>' \
+  --set persistence.enabled=true
+```
+
+Key `values.yaml` knobs:
+
+| Value                                                                    | Default                                                      | Purpose                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `image.repository` / `image.tag`                                         | `ghcr.io/aico-dot-team-code/mcpbridge` / `.Chart.appVersion` | Image to run — point at your own fork's GHCR path if you publish it yourself.                                                                                                                              |
+| `replicaCount`                                                           | `1`                                                          | Keep at `1` unless `persistence` is `ReadWriteMany` **and** you set `REGISTRY_SYNC`/`RATE_LIMIT_SHARED` (see [Scaling](/guide/scaling)) — SQLite has a single writer, so extra replicas otherwise diverge. |
+| `persistence.enabled` / `.size` / `.storageClassName` / `.existingClaim` | `false` / `1Gi`                                              | Provision (or reuse) a PVC for the SQLite file at `/app/data`. Disabled = an `emptyDir` that is **lost on every pod reschedule** — enable for anything real.                                               |
+| `env` (ConfigMap) / `secretEnv` (Secret) / `existingSecret`              | `NODE_ENV=production`, `SESSION_COOKIE_SECURE=true`, …       | Non-sensitive vs. sensitive environment. Reference a pre-existing Secret (external-secrets/Vault) via `existingSecret` to skip templating `secretEnv`.                                                     |
+| `securityContext`                                                        | non-root uid 1000, all caps dropped, read-only rootfs        | Hardened by default; matches the `bun` user in the image.                                                                                                                                                  |
+| `readinessProbe.httpGet.path`                                            | `/readyz`                                                    | Leader-gated — only the leader reports ready, so with `replicaCount > 1` switch this to `/livez` if you want every replica to serve traffic (see [Scaling](/guide/scaling)).                               |
+| `resources`                                                              | `100m` CPU / `128Mi`–`512Mi` memory                          | Sized for a single Bun + SQLite process; override for your own load, or set `{}` to remove limits.                                                                                                         |
+
+The `serviceAccount` is created with token auto-mount **disabled** (the app never calls the
+Kubernetes API); flip `serviceAccount.automount: true` only if you add something that genuinely
+needs cluster-API access.
+
 ## Behind a reverse proxy (HTTPS)
 
 Terminate TLS at your proxy (nginx, Caddy, Traefik, a cloud LB) and forward to the bridge.

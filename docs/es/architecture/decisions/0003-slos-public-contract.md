@@ -127,5 +127,4 @@ significa que un backend está obsoleto pero sigue en el registro.
 - Commit: `d2e491f` — `docs(slos): initial public reliability contract (P1-8)`
 - Doc: `docs/architecture/slos.md` (y el espejo en español)
 - Código relacionado: `src/observability/metrics.ts`,
-`src/observability/tracing.ts`, `src/admin/audit/audit.ts`.
-</content>
+  `src/observability/tracing.ts`, `src/admin/audit/audit.ts`.

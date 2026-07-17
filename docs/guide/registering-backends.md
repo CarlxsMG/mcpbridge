@@ -5,6 +5,13 @@ into (or re-exposing) MCP tools through the same guard stack. Register from the 
 (**Add server**) or the `POST /register` API. Registration requires admin auth — a session,
 or an `ADMIN_API_KEYS` Bearer token.
 
+::: tip Ready-to-send samples
+The repo's [`examples/register/`](https://github.com/aico-dot-team-code/mcpbridge/tree/main/examples/register)
+directory has a complete `POST /register` body for each mode below (OpenAPI, cURL import, Postman,
+manual, GraphQL, MCP upstream), plus an [`examples/gateway.yaml`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/examples/gateway.yaml)
+for registering the same backends as config-as-code.
+:::
+
 ## REST from an OpenAPI spec
 
 Point at the spec and the bridge generates one tool per operation:

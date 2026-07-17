@@ -144,4 +144,3 @@ on every PR`
   bundle-install — ambos esperan una sesión futura; necesitan fixtures reales
   de canary / bundle-install, que es más que un drop-in de 1 hora.
 - Código relacionado: `e2e/*.spec.ts`, `.github/workflows/ci.yml`.
-</content>

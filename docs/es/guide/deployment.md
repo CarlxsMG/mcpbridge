@@ -50,6 +50,62 @@ Las mismas env vars que el ejemplo de build local de arriba — solo cambia la i
 `BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD`, el contenedor arranca con la tabla
 `admin_users` vacía y sin forma de iniciar sesión.
 
+## Docker Compose
+
+El repo trae un `docker-compose.yml` de producción minimalista en su raíz: un único servicio
+`mcp-bridge`, un volumen nombrado para la base de datos SQLite, y el endurecimiento de runtime
+(`no-new-privileges`, root filesystem de solo lectura con un tmpfs en `/tmp`) que refleja el
+`securityContext` del Helm chart.
+
+Lee los secretos de un **fichero `.env` que escribes tú mismo** — **no** hagas `cp .env.example`.
+Ese ejemplo es el perfil de dev local (`NODE_ENV=development`, cookies no Secure,
+`ALLOW_PRIVATE_IPS=true` = guarda SSRF apagada); Compose fija `NODE_ENV=production` vía su bloque
+`environment:` (que gana sobre `env_file`), así que las guardas de arranque siguen activas y una
+relajación dev-only extraviada hace que la app **falle cerrada en el arranque** en vez de correr
+insegura.
+
+```bash
+# Escribe secretos de producción reales — NO una copia de .env.example.
+printf 'BOOTSTRAP_ADMIN_USERNAME=admin\nBOOTSTRAP_ADMIN_PASSWORD=<una contraseña fuerte de 12+ chars>\nADMIN_API_KEYS=<key1,key2>\n' > .env
+
+docker compose up -d
+```
+
+Aún no se publica imagen de release, así que el fichero buildea desde el código local
+(`build: .`); una vez exista la primera release taggeada puedes comentar `build:` y dejar que
+tire la `image:` fijada desde GHCR. El propio `HEALTHCHECK` de la imagen (que pega a `/livez`) se
+detecta automáticamente. La base de datos vive en el volumen nombrado `mcp-bridge-data`, así que
+sobrevive a `docker compose down`/recreación.
+
+## Kubernetes (Helm)
+
+Un Helm chart minimalista vive en `helm/mcp-rest-bridge` — un Deployment + Service + ConfigMap,
+más un Secret y un PVC opcionales. Deliberadamente **no** trae Ingress/HPA/NetworkPolicy; ponle
+delante lo que tu clúster ya use para eso.
+
+```bash
+helm install my-bridge ./helm/mcp-rest-bridge \
+  --set-string secretEnv.BOOTSTRAP_ADMIN_USERNAME=admin \
+  --set-string secretEnv.BOOTSTRAP_ADMIN_PASSWORD='<una contraseña fuerte de 12+ chars>' \
+  --set persistence.enabled=true
+```
+
+Knobs clave de `values.yaml`:
+
+| Valor                                                                    | Default                                                           | Propósito                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `image.repository` / `image.tag`                                         | `ghcr.io/aico-dot-team-code/mcpbridge` / `.Chart.appVersion`      | Imagen a ejecutar — apúntala a la ruta GHCR de tu propio fork si la publicas tú.                                                                                                                                   |
+| `replicaCount`                                                           | `1`                                                               | Déjalo en `1` salvo que `persistence` sea `ReadWriteMany` **y** definas `REGISTRY_SYNC`/`RATE_LIMIT_SHARED` (ver [Escalado](/es/guide/scaling)) — SQLite tiene un único escritor, así que réplicas extra divergen. |
+| `persistence.enabled` / `.size` / `.storageClassName` / `.existingClaim` | `false` / `1Gi`                                                   | Provisiona (o reutiliza) un PVC para el fichero SQLite en `/app/data`. Deshabilitado = un `emptyDir` que se **pierde en cada reprogramación del pod** — habilítalo para cualquier cosa real.                       |
+| `env` (ConfigMap) / `secretEnv` (Secret) / `existingSecret`              | `NODE_ENV=production`, `SESSION_COOKIE_SECURE=true`, …            | Entorno no sensible vs. sensible. Referencia un Secret preexistente (external-secrets/Vault) vía `existingSecret` para saltar el templating de `secretEnv`.                                                        |
+| `securityContext`                                                        | non-root uid 1000, todas las caps dropped, rootfs de solo lectura | Endurecido por defecto; coincide con el usuario `bun` de la imagen.                                                                                                                                                |
+| `readinessProbe.httpGet.path`                                            | `/readyz`                                                         | Gateado por el líder — solo el líder reporta ready, así que con `replicaCount > 1` cambia esto a `/livez` si quieres que cada réplica sirva tráfico (ver [Escalado](/es/guide/scaling)).                           |
+| `resources`                                                              | `100m` CPU / `128Mi`–`512Mi` memoria                              | Dimensionado para un único proceso Bun + SQLite; ajústalo a tu carga, o pon `{}` para quitar límites.                                                                                                              |
+
+El `serviceAccount` se crea con el auto-mount de token **deshabilitado** (la app nunca llama a la
+API de Kubernetes); pon `serviceAccount.automount: true` solo si añades algo que de verdad
+necesite acceso a la API del clúster.
+
 ## Detrás de un reverse proxy (HTTPS)
 
 Termina TLS en tu proxy (nginx, Caddy, Traefik, un LB en la nube) y reenvía al bridge.

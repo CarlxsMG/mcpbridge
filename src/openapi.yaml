@@ -226,7 +226,6 @@ paths:
                     error:
                       code: VALIDATION_ERROR
                       message: "'CONNECT' is not a valid HTTP method."
-                      field: tools[0].method
                 openapi_fetch_failed:
                   summary: OpenAPI spec could not be fetched or parsed
                   value:
@@ -1784,8 +1783,17 @@ paths:
           content:
             {
               application/json:
-                { schema: { type: object, properties: { username: { type: string }, role: { type: string } } } },
+                {
+                  schema:
+                    {
+                      type: object,
+                      properties: { username: { type: string }, role: { type: string }, is_active: { type: boolean } },
+                    },
+                },
             }
+        "400":
+          description: Missing username or a password shorter than 12 characters (VALIDATION_ERROR).
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
         "409":
           description: Username already taken.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
@@ -6404,13 +6412,13 @@ components:
                 Human-readable description of what went wrong, suitable for
                 displaying in a developer console or log.
               example: "Missing required fields: name, health_url"
-            field:
-              type: string
+            retry_after:
+              type: integer
               description: >
-                Optional dot/bracket-notation path to the specific field that
-                caused the error. Omitted when the error is not tied to a
-                single field.
-              example: "tools[0].name"
+                Seconds the caller should wait before retrying. Present only on
+                a 429 RATE_LIMITED response (also echoed in the Retry-After
+                header); omitted on every other error.
+              example: 45
             request_id:
               type: [string, "null"]
               description: >

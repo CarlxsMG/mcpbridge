@@ -120,6 +120,5 @@ preserva al serializar para que un upstream v00 reciba un saliente v00.
 proxy pipeline (P1-6)`
 - Spec W3C: <https://www.w3.org/TR/trace-context/>
 - Código relacionado: `src/observability/trace-context.ts`,
-`src/middleware/request-id.ts`, `src/proxy/proxy.ts`,
-`src/mcp/mcp-upstream.ts`.
-</content>
+  `src/middleware/request-id.ts`, `src/proxy/proxy.ts`,
+  `src/mcp/mcp-upstream.ts`.

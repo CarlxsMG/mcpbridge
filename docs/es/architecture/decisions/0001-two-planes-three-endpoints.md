@@ -123,7 +123,4 @@ puerta de step-up sensible / `__confirm`, reutilizando el mismo mecanismo que
 - Commit: `69fd8eb` — `feat(mcp): split /mcp into a system control plane,
 separate from data-plane shards`
 - Código relacionado: `src/mcp/system-tools.ts`,
-`src/security/system-role.ts`, `src/mcp/transports.ts`.
-</content>
-
-</invoke>
+  `src/security/system-role.ts`, `src/mcp/transports.ts`.
