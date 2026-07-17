@@ -315,6 +315,34 @@ describe("buildPersistedClientFromDb — row->DTO mapping (L381/L384/L402/L406/L
     expect(detail!.tools[0]!.upstreamName).toBeUndefined();
   });
 
+  test("paramLocations round-trips through the DB (migration 56) — present map and absent both hydrate correctly", () => {
+    persistence.persistRestRegistration(
+      "svc-paramloc",
+      [
+        makeRestTool({
+          name: "with-loc",
+          method: "POST",
+          paramLocations: { notify: "query", "X-Trace": "header", sid: "cookie" },
+        }),
+        makeRestTool({ name: "no-loc", method: "POST" }),
+      ],
+      "http://example.com/health",
+      "1.2.3.4",
+      "http://example.com",
+      "1.2.3.4",
+      false,
+    );
+    const detail = persistence.buildPersistedClientFromDb("svc-paramloc")!;
+    // A persistence round-trip regression here would silently revert routing to
+    // the JSON body on every restart, with no other test failing.
+    expect(detail.tools.find((t) => t.name === "with-loc")!.paramLocations).toEqual({
+      notify: "query",
+      "X-Trace": "header",
+      sid: "cookie",
+    });
+    expect(detail.tools.find((t) => t.name === "no-loc")!.paramLocations).toBeUndefined();
+  });
+
   test("a disabled tool hydrates as enabled:false, an enabled one as true (L384)", () => {
     persistence.persistRestRegistration(
       "svc-hydrate-toolenabled",

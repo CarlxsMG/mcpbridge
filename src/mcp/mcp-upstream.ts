@@ -186,7 +186,16 @@ export class McpUpstreamPool {
     const inflight = this.connecting.get(p.name);
     // Reuse an in-flight attempt ONLY when it targets the same fingerprint. A
     // concurrent call whose fingerprint differs (rotated auth / re-registered
-    // URL/IP) must open its own connection rather than inherit the pending one.
+    // URL/IP) must open its own connection rather than inherit the pending one —
+    // this keeps each call's credential correct (call isolation).
+    //
+    // Known minor trade-off (rare): if two different-fingerprint calls race, both
+    // connect and the second's conns[p.name] overwrites the first's, orphaning the
+    // first Client (an open socket that isn't .close()'d). We accept this over
+    // serializing — serializing would let the second call disconnect the first's
+    // client mid tools/call. The orphaned socket is reclaimed by the upstream's
+    // idle timeout / process restart; the leak is bounded to concurrent auth
+    // rotations, and no call ever uses the wrong credential.
     if (inflight && inflight.fp === fp) return inflight.promise;
 
     const promise = (async () => {

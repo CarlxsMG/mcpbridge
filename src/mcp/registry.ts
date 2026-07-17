@@ -465,17 +465,27 @@ class Registry {
       );
 
       // Fold the upstream-declared 2025-06-18 passthrough fields (annotations /
-      // outputSchema / title) onto the live tools. Persistence rebuilds a
-      // RegisteredTool from a fixed column set and doesn't carry these, so they
-      // live in-memory only — re-populated on each (re-)discovery, absent after a
-      // cold restart until the next discovery. effectiveAdvertised reads them.
+      // title) onto the live tools. Persistence rebuilds a RegisteredTool from a
+      // fixed column set and doesn't carry these, so they live in-memory only —
+      // re-populated on each (re-)discovery, absent after a cold restart until the
+      // next discovery. effectiveAdvertised reads them.
+      //
+      // A malicious/compromised upstream can embed prompt-injection payloads in
+      // `title` and `annotations.title` exactly as it could in `description`, so
+      // both run through sanitizeToolDescription here (the same security invariant
+      // the description path enforces). `outputSchema` is intentionally NOT folded
+      // in — it is not advertised (see effectiveAdvertised) until the result path
+      // can carry structuredContent, so storing it would be dead weight.
       const discoveredByName = new Map(sanitizedTools.map((t) => [t.name, t]));
       for (const t of persisted.tools) {
         const d = discoveredByName.get(t.name);
         if (!d) continue;
-        if (d.annotations) t.upstreamAnnotations = d.annotations;
-        if (d.outputSchema) t.outputSchema = d.outputSchema;
-        if (d.title) t.title = d.title;
+        if (d.annotations) {
+          const ann = { ...d.annotations };
+          if (typeof ann.title === "string") ann.title = sanitizeToolDescription(ann.title);
+          t.upstreamAnnotations = ann;
+        }
+        if (d.title) t.title = sanitizeToolDescription(d.title);
       }
 
       const client: RegisteredClient = {
@@ -866,9 +876,15 @@ class Registry {
     const annotations = this.deriveAnnotations(clientName, tool);
     const ov = tool.override;
     const withPassthrough = (advertised: AdvertisedTool): AdvertisedTool => {
-      // outputSchema/title are upstream-only 2025-06-18 fields (MCP-kind tools);
-      // include them only when the upstream declared them.
-      if (tool.outputSchema) advertised.outputSchema = tool.outputSchema;
+      // `title` is an upstream-only 2025-06-18 field (MCP-kind tools); include it
+      // only when the upstream declared it (already sanitized at fold-time).
+      //
+      // `outputSchema` is deliberately NOT advertised: the result path drops
+      // structuredContent (mcpResultToProxyResult is text-only), and the official
+      // MCP SDK client throws InvalidRequest when a tool advertises an outputSchema
+      // but the call returns no structuredContent — i.e. advertising it would break
+      // EVERY call to an outputSchema-bearing bridged tool. Re-enable it only
+      // together with result-side structuredContent passthrough.
       if (tool.title !== undefined) advertised.title = tool.title;
       return advertised;
     };
