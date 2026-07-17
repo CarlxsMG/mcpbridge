@@ -35,7 +35,7 @@ function copyText() {
          class/attrs landing on the button itself (e.g. HoverPreview positions
          it via a passed-in absolute class). -->
     <Teleport to="body">
-      <span class="copy-sr-status" role="status">{{ copied ? t("common.copied") : "" }}</span>
+      <span class="sr-only" role="status">{{ copied ? t("common.copied") : "" }}</span>
     </Teleport>
   </button>
 </template>
@@ -48,21 +48,7 @@ function copyText() {
   padding: 0.3rem 0.7rem;
   font-size: var(--text-sm);
 }
-</style>
-
-<style>
-/* Unscoped: the status region is teleported to <body>, outside this component's
-   scoped-attribute tree, so a scoped rule would never match it (same reason
-   HoverPreview styles its teleported panel unscoped). */
-.copy-sr-status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* The teleported role="status" region uses the global `.sr-only` utility
+   (style.css) — unscoped there so it reaches the node once it's mounted under
+   <body>, outside this component's scoped-attribute tree. */
 </style>

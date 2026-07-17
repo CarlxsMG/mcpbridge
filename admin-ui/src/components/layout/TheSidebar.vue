@@ -5,7 +5,7 @@ import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { useLiveSignal } from "@/composables/useLiveSignal";
 import { useNavEntries } from "@/composables/useNavEntries";
-import { useFocusTrap } from "@/composables/useFocusTrap";
+import { useFocusTrap, focusFirst } from "@/composables/useFocusTrap";
 import CommandPalette from "@/components/CommandPalette.vue";
 import { ChevronRight, Activity } from "lucide-vue-next";
 
@@ -26,8 +26,6 @@ const { entries: navItems, groupLabel } = useNavEntries({ role: state.user?.role
 // rest of the app here — this app has never used that pattern on its overlays.
 const navEl = ref<HTMLElement | null>(null);
 const { onKeydown: trapKeydown } = useFocusTrap(navEl);
-const FOCUSABLE_SELECTOR =
-  'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 let previouslyFocused: HTMLElement | null = null;
 
 // Only contain Tab when the overlay is actually open — on desktop the sidebar is
@@ -42,7 +40,7 @@ watch(
     if (open) {
       previouslyFocused = document.activeElement as HTMLElement | null;
       await nextTick();
-      navEl.value?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
+      focusFirst(navEl.value);
     } else if (previouslyFocused) {
       // Return focus to whatever opened the nav (the topbar hamburger). On a
       // close triggered by navigation, the router's own afterEach focuses

@@ -43,10 +43,9 @@ function toggleEnabled(bundle: BundleSummary) {
     <PageHeader :title="t('pages.bundles.title')">
       <RouterLink to="/bundles/new" class="btn-primary">{{ t("pages.bundles.create") }}</RouterLink>
     </PageHeader>
-    <p class="subtitle">
-      {{ t("pages.bundles.subtitle_p1") }} <code>/mcp-custom/&lt;name&gt;</code>
-      {{ t("pages.bundles.subtitle_p2") }}
-    </p>
+    <i18n-t keypath="pages.bundles.subtitle" tag="p" class="subtitle" scope="global">
+      <template #endpoint><code>/mcp-custom/&lt;name&gt;</code></template>
+    </i18n-t>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
       <template #empty>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from "vue";
-import { useFocusTrap } from "@/composables/useFocusTrap";
+import { useFocusTrap, focusFirst } from "@/composables/useFocusTrap";
 
 const props = defineProps<{
   open: boolean;
@@ -19,9 +19,6 @@ const panelEl = ref<HTMLElement | null>(null);
 const { onKeydown } = useFocusTrap(panelEl);
 let previouslyFocused: HTMLElement | null = null;
 
-const FOCUSABLE_SELECTOR =
-  'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
-
 // Mirrors the focus-restore behavior of the 3 dialogs this shell replaces:
 // stash whatever had focus before opening, land focus on the first focusable
 // element inside the panel once it's mounted, then give it back on close.
@@ -31,7 +28,7 @@ watch(
     if (isOpen) {
       previouslyFocused = document.activeElement as HTMLElement | null;
       await nextTick();
-      panelEl.value?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
+      focusFirst(panelEl.value);
     } else {
       previouslyFocused?.focus();
       previouslyFocused = null;

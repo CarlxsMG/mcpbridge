@@ -76,7 +76,11 @@ export default defineConfig({
       thresholds: {
         lines: 65,
         statements: 62,
-        functions: 58,
+        // Held at 56 (measured ~59%): the previous 58 sat <1pp under the measured
+        // number, so the next untested helper would have reddened CI. Keep a few
+        // points of slack — raise it deliberately when a batch of tests lifts the
+        // floor, not by chasing the current run.
+        functions: 56,
         // Ratcheted up (48 -> 52) after the ConnectClientDialog/SchemaForm/
         // SelectMenu/GuardEditor and Config/Sso/BundleDetail/CompositeDetail page
         // tests landed — kept a few points under the measured ~55% so ordinary

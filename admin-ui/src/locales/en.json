@@ -501,6 +501,11 @@
       "result_failed": "Failed",
       "save_placeholder": "Save as… (label)",
       "save_aria": "Save the current run as a named example",
+      "confirm": {
+        "delete_example_title": "Delete saved example?",
+        "delete_example_message": "Delete the saved example \"{label}\"? This can't be undone.",
+        "delete_example_cta": "Delete example"
+      },
       "errors": {
         "test_failed": "Test call failed.",
         "save_failed": "Failed to save example.",
@@ -1033,8 +1038,7 @@
         "load_failed": "Failed to load bundles."
       },
       "create": "Create bundle",
-      "subtitle_p1": "Cross-client tool selections, each served at its own",
-      "subtitle_p2": "endpoint.",
+      "subtitle": "Cross-client tool selections, each served at its own {endpoint} endpoint.",
       "table": {
         "name": "Name",
         "description": "Description",
@@ -1048,8 +1052,7 @@
       },
       "new": {
         "title": "Create bundle",
-        "subtitle_p1": "Cross-client tool selections, each served at its own",
-        "subtitle_p2": "endpoint.",
+        "subtitle": "Cross-client tool selections, each served at its own {endpoint} endpoint.",
         "fields": {
           "name": "Name",
           "description": "Description (optional)",

@@ -7,7 +7,7 @@
 // plumbing needed since onKeydown is just a function.
 import { afterEach, describe, expect, it } from "vitest";
 import { ref } from "vue";
-import { useFocusTrap } from "../useFocusTrap";
+import { useFocusTrap, focusFirst } from "../useFocusTrap";
 
 function makeButton(label: string): HTMLButtonElement {
   const btn = document.createElement("button");
@@ -118,5 +118,53 @@ describe("useFocusTrap", () => {
     const event = tabEvent(false);
     expect(() => onKeydown(event)).not.toThrow();
     expect(event.defaultPrevented).toBe(false);
+  });
+});
+
+// focusFirst is the "land focus on open" half of the shared overlay pattern —
+// promoted out of ModalShell/TheSidebar's duplicated querySelector calls.
+describe("focusFirst", () => {
+  let container: HTMLDivElement | null = null;
+
+  afterEach(() => {
+    container?.remove();
+    container = null;
+  });
+
+  function mount(children: HTMLElement[]) {
+    container = document.createElement("div");
+    for (const child of children) container.appendChild(child);
+    document.body.appendChild(container);
+    return container;
+  }
+
+  it("focuses the first focusable element in the container", () => {
+    const [first, last] = [makeButton("first"), makeButton("last")];
+    const el = mount([first, last]);
+
+    focusFirst(el);
+
+    expect(document.activeElement).toBe(first);
+  });
+
+  it("skips a disabled leading element and focuses the first enabled one", () => {
+    const disabled = makeButton("disabled");
+    disabled.disabled = true;
+    const enabled = makeButton("enabled");
+    const el = mount([disabled, enabled]);
+
+    focusFirst(el);
+
+    expect(document.activeElement).toBe(enabled);
+  });
+
+  it("is a no-op without throwing when the container is null", () => {
+    expect(() => focusFirst(null)).not.toThrow();
+  });
+
+  it("is a no-op without throwing when the container has no focusable elements", () => {
+    const el = mount([]);
+
+    expect(() => focusFirst(el)).not.toThrow();
   });
 });

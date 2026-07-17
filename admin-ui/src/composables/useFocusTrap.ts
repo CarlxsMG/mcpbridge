@@ -2,9 +2,17 @@ import type { Ref } from "vue";
 
 // Selector matches the broadest of the three hand-rolled trapFocus copies
 // this composable replaces (ConnectClientDialog's) — includes select/textarea
-// so it stays correct for dialogs that have them.
-const FOCUSABLE_SELECTOR =
+// so it stays correct for dialogs that have them. Exported through `focusFirst`
+// below so consumers (ModalShell, TheSidebar) don't each re-declare it.
+export const FOCUSABLE_SELECTOR =
   'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
+// Move focus to the first focusable element inside `container` (a no-op if the
+// container is null or empty). The "focus the first focusable on open" half of
+// the pattern the overlays share — the trap below is the "keep Tab inside" half.
+export function focusFirst(container: HTMLElement | null): void {
+  container?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
+}
 
 // Cycles Tab/Shift+Tab within `container.value` only — never the whole
 // document — so multiple traps can be nested (e.g. ShareInstallLinkDialog

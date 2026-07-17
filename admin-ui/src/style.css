@@ -303,6 +303,25 @@ button {
   color: var(--breach);
 }
 
+/* ---- Screen-reader-only: visually hidden, still in the accessibility tree.
+   Promoted from 4 hand-rolled copies of this exact clip-rect recipe that lived
+   under 3 different names (App.vue's + ServerDetailPlayground.vue's `.sr-only`,
+   OverviewPage.vue's `.visually-hidden`, CopyButton.vue's teleported
+   `.copy-sr-status`). Global (not scoped) on purpose: CopyButton's status node
+   is teleported to <body>, outside any component's scoped-attribute tree, so
+   only an unscoped rule reaches it. ---------------------------------------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .table-scroll {
   overflow-x: auto;
 }

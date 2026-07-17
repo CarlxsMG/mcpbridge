@@ -46,10 +46,9 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
         :title="t('pages.bundles.new.title')"
         :back-link="{ to: '/bundles', label: t('nav.bundles.label') }"
       />
-      <p class="subtitle">
-        {{ t("pages.bundles.new.subtitle_p1") }} <code>/mcp-custom/&lt;name&gt;</code>
-        {{ t("pages.bundles.new.subtitle_p2") }}
-      </p>
+      <i18n-t keypath="pages.bundles.new.subtitle" tag="p" class="subtitle" scope="global">
+        <template #endpoint><code>/mcp-custom/&lt;name&gt;</code></template>
+      </i18n-t>
 
       <form class="form-card" @submit.prevent="createBundle">
         <FormField :label="t('pages.bundles.new.fields.name')" for="new-bundle-name">

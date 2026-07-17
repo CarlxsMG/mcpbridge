@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
+import { useConfirmAction } from "@/composables/useConfirmAction";
 import { toolPath } from "@/utils/apiPaths";
 import { toErrorMessage } from "@/utils/errors";
 import { tk } from "@/i18n";
 import SchemaForm from "@/components/SchemaForm.vue";
+import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import type { ToolDetail } from "@/types/api";
 
 interface ToolExample {
@@ -25,6 +27,18 @@ const newExampleLabel = ref("");
 const savingExample = ref(false);
 const playgroundResult = ref<{ text: string; isError: boolean } | null>(null);
 const playgroundRunning = ref(false);
+
+// The outcome word ("Succeeded"/"Failed") announced by the persistent live
+// region in the template — empty until a run produces a result. Kept separate
+// from the result blob so the screen reader hears a terse pass/fail, not the
+// whole payload read back.
+const resultOutcome = computed(() =>
+  playgroundResult.value === null
+    ? ""
+    : playgroundResult.value.isError
+      ? t("components.server_detail_playground.result_failed")
+      : t("components.server_detail_playground.result_succeeded"),
+);
 
 watch(
   () => props.tool.name,
@@ -104,6 +118,20 @@ async function deleteExampleFn(ex: ToolExample) {
     };
   }
 }
+
+// Gate example deletion behind a confirmation, like every other destructive
+// action in the app — a saved example represents real work and the × chip is a
+// small, easily-misclicked target.
+const {
+  pending: pendingExampleDelete,
+  request: requestExampleDelete,
+  cancel: cancelExampleDelete,
+  confirm: confirmExampleDeleteAction,
+} = useConfirmAction<ToolExample>();
+
+function confirmExampleDelete() {
+  return confirmExampleDeleteAction((ex) => deleteExampleFn(ex));
+}
 </script>
 
 <template>
@@ -120,7 +148,7 @@ async function deleteExampleFn(ex: ToolExample) {
           class="link-btn del"
           :title="t('components.server_detail_playground.delete_example')"
           :aria-label="t('components.server_detail_playground.delete_example_aria', { label: ex.label })"
-          @click="deleteExampleFn(ex)"
+          @click="requestExampleDelete(ex)"
         >
           ×
         </button>
@@ -155,34 +183,43 @@ async function deleteExampleFn(ex: ToolExample) {
       </span>
     </div>
 
+    <!-- Persistent (always-mounted) live region carrying ONLY the outcome word.
+         A screen reader reliably announces text that changes inside a region
+         that was already in the DOM — a v-if'd region can miss its own
+         insertion — so this stays rendered and only its text swaps. role and
+         aria-live escalate to an assertive alert on failure; a success is a
+         polite status. The colour-coded blob below is left out of the region so
+         the announcement stays a terse "Succeeded"/"Failed". -->
     <div
-      v-if="playgroundResult"
-      class="test-result"
-      :class="playgroundResult.isError ? 'test-error' : 'test-ok'"
-      :role="playgroundResult.isError ? 'alert' : 'status'"
-      :aria-live="playgroundResult.isError ? 'assertive' : 'polite'"
+      class="sr-only"
+      :role="playgroundResult && playgroundResult.isError ? 'alert' : 'status'"
+      :aria-live="playgroundResult && playgroundResult.isError ? 'assertive' : 'polite'"
     >
-      <!-- sr-only outcome word so the pass/fail state isn't conveyed by colour alone -->
-      <span class="sr-only">{{
-        playgroundResult.isError
-          ? t("components.server_detail_playground.result_failed")
-          : t("components.server_detail_playground.result_succeeded")
-      }}</span>
+      {{ resultOutcome }}
+    </div>
+
+    <div v-if="playgroundResult" class="test-result" :class="playgroundResult.isError ? 'test-error' : 'test-ok'">
       <pre>{{ playgroundResult.text }}</pre>
     </div>
+
+    <ConfirmDialog
+      :open="pendingExampleDelete !== null"
+      :title="t('components.server_detail_playground.confirm.delete_example_title')"
+      :message="
+        pendingExampleDelete
+          ? t('components.server_detail_playground.confirm.delete_example_message', {
+              label: pendingExampleDelete.label,
+            })
+          : ''
+      "
+      :confirm-label="t('components.server_detail_playground.confirm.delete_example_cta')"
+      danger
+      @confirm="confirmExampleDelete"
+      @cancel="cancelExampleDelete"
+    />
   </section>
 </template>
 
 <style scoped>
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* The result-outcome live region uses the global `.sr-only` utility (style.css). */
 </style>

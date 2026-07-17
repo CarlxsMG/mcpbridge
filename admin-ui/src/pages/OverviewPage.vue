@@ -131,7 +131,7 @@ onMounted(() => data.refresh());
           ref="importInput"
           type="file"
           accept="application/json,.json"
-          class="visually-hidden"
+          class="sr-only"
           :aria-label="t('pages.overview.import_layout')"
           @change="onImportFile"
         />
@@ -234,16 +234,5 @@ onMounted(() => data.refresh());
   margin: 0 0 var(--space-4);
   color: var(--text-secondary);
   font-size: var(--text-sm);
-}
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 </style>

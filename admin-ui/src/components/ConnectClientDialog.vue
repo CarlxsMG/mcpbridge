@@ -72,16 +72,37 @@ async function loadContext() {
   }
 }
 
+// True only while the open-watcher is applying the parent's presets (it sets
+// `scope` and `targetName` together). The scope watcher below must not treat
+// that programmatic scope assignment as a user switching scopes — doing so
+// would wipe the just-applied preset target (the clobber the round-1 fix
+// deliberately avoided).
+let applyingPreset = false;
+
 watch(
   () => props.open,
   async (isOpen) => {
     if (isOpen) {
+      applyingPreset = true;
       scope.value = props.presetScope;
       targetName.value = props.presetName ?? "";
       await loadContext();
+      applyingPreset = false;
     }
   },
 );
+
+// When the user switches the "Connect to" scope, clear the selected target: a
+// name valid for the previous scope (e.g. a client) is not a member of the new
+// scope's option list (e.g. bundles), so leaving it selected shows a stale,
+// unselectable name in the dropdown (and the round-1 membership guard on the
+// emitted snippet already suppresses the snippet for it). Skipped while the
+// open-watcher is programmatically applying presets, so an applied preset
+// survives the dialog opening.
+watch(scope, () => {
+  if (applyingPreset) return;
+  targetName.value = "";
+});
 
 const targetSelectOptions = computed(() => {
   const names =

@@ -501,6 +501,11 @@
       "result_failed": "Fallido",
       "save_placeholder": "Guardar como… (etiqueta)",
       "save_aria": "Guardar la ejecución actual como ejemplo con nombre",
+      "confirm": {
+        "delete_example_title": "¿Eliminar el ejemplo guardado?",
+        "delete_example_message": "¿Eliminar el ejemplo guardado «{label}»? Esta acción no se puede deshacer.",
+        "delete_example_cta": "Eliminar ejemplo"
+      },
       "errors": {
         "test_failed": "La prueba falló.",
         "save_failed": "Error al guardar el ejemplo.",
@@ -1033,8 +1038,7 @@
         "load_failed": "Error al cargar los bundles."
       },
       "create": "Crear bundle",
-      "subtitle_p1": "Selecciones de herramientas entre clientes, servidas cada una en su propio",
-      "subtitle_p2": "endpoint.",
+      "subtitle": "Selecciones de herramientas entre clientes, servida cada una en su propio endpoint {endpoint}.",
       "table": {
         "name": "Nombre",
         "description": "Descripción",
@@ -1048,8 +1052,7 @@
       },
       "new": {
         "title": "Crear bundle",
-        "subtitle_p1": "Selecciones de tools cross-client, cada una servida en su propio",
-        "subtitle_p2": "endpoint.",
+        "subtitle": "Selecciones de tools cross-client, servida cada una en su propio endpoint {endpoint}.",
         "fields": {
           "name": "Nombre",
           "description": "Descripción (opcional)",
