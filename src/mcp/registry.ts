@@ -7,8 +7,12 @@ import type {
   ClientGuardConfig,
   ToolGuardConfig,
   ToolOverride,
+  ToolAnnotations,
   McpTransport,
 } from "./types.js";
+import type { AdvertisedTool } from "./tool-search.js";
+import { isToolSensitive } from "../tool-meta/tool-sensitivity.js";
+import { requiresApproval } from "../admin/entities/approvals.js";
 import { sanitizeToolDescription } from "../content-filtering/sanitize.js";
 import { abortClientRequests, invalidatePinnedIp } from "../proxy/proxy.js";
 import { invalidateCompiledSchemasForClient } from "../proxy/schema-validator.js";
@@ -460,6 +464,20 @@ class Registry {
         resolvedIp,
       );
 
+      // Fold the upstream-declared 2025-06-18 passthrough fields (annotations /
+      // outputSchema / title) onto the live tools. Persistence rebuilds a
+      // RegisteredTool from a fixed column set and doesn't carry these, so they
+      // live in-memory only — re-populated on each (re-)discovery, absent after a
+      // cold restart until the next discovery. effectiveAdvertised reads them.
+      const discoveredByName = new Map(sanitizedTools.map((t) => [t.name, t]));
+      for (const t of persisted.tools) {
+        const d = discoveredByName.get(t.name);
+        if (!d) continue;
+        if (d.annotations) t.upstreamAnnotations = d.annotations;
+        if (d.outputSchema) t.outputSchema = d.outputSchema;
+        if (d.title) t.title = d.title;
+      }
+
       const client: RegisteredClient = {
         name,
         ip,
@@ -800,18 +818,62 @@ class Registry {
   }
 
   /**
+   * Derives the advertised MCP tool annotations (2025-06-18) for a tool. These
+   * are advisory hints only — they COMPLEMENT proxyToolCall's call-time
+   * enforcement (guards/sensitivity/approval), never replace it.
+   *
+   *  - Any upstream-declared annotations form the base (a native MCP tool knows
+   *    its own semantics best); our heuristics only FILL fields it omitted.
+   *  - Method-derived REST hints: GET => readOnly + idempotent; PUT/DELETE =>
+   *    idempotent. (MCP-upstream tools carry a 'POST' sentinel method and rely
+   *    on their passed-through upstream annotations instead.)
+   *  - A tool that is sensitive (admin-flagged OR the method-based auto-gate —
+   *    the tri-state null case resolves through isToolSensitive) or requires
+   *    approval is marked destructive. This is a call-time-enforced property, so
+   *    it OVERRIDES any upstream read-only claim rather than merely filling a gap.
+   *  - openWorldHint is true for every bridged tool (they all reach an external
+   *    backend / MCP upstream).
+   */
+  private deriveAnnotations(clientName: string, tool: RegisteredTool): ToolAnnotations {
+    const ann: ToolAnnotations = { ...(tool.upstreamAnnotations ?? {}) };
+
+    if (tool.method === "GET") {
+      ann.readOnlyHint ??= true;
+      ann.idempotentHint ??= true;
+    } else if (tool.method === "PUT" || tool.method === "DELETE") {
+      ann.idempotentHint ??= true;
+    }
+
+    if (isToolSensitive(clientName, tool.name, tool.method) || requiresApproval(clientName, tool.name)) {
+      ann.destructiveHint = true;
+      ann.readOnlyHint = false;
+    }
+
+    ann.openWorldHint ??= true;
+    return ann;
+  }
+
+  /**
    * Advertised (tools/list) shape for a tool, applying any admin presentation
    * override (description + per-param descriptions) without mutating the stored
-   * definition. Only clones the schema when param overrides are present.
+   * definition. Only clones the schema when param overrides are present. Also
+   * emits derived tool annotations (see deriveAnnotations) plus any upstream
+   * outputSchema/title for MCP-upstream tools.
    */
-  private effectiveAdvertised(
-    clientName: string,
-    tool: RegisteredTool,
-  ): { name: string; description: string; inputSchema: Record<string, unknown> } {
+  private effectiveAdvertised(clientName: string, tool: RegisteredTool): AdvertisedTool {
     const segment = tool.override?.displayName ?? tool.name;
     const name = `${clientName}${TOOL_KEY_SEPARATOR}${segment}`;
+    const annotations = this.deriveAnnotations(clientName, tool);
     const ov = tool.override;
-    if (!ov) return { name, description: tool.description, inputSchema: tool.inputSchema };
+    const withPassthrough = (advertised: AdvertisedTool): AdvertisedTool => {
+      // outputSchema/title are upstream-only 2025-06-18 fields (MCP-kind tools);
+      // include them only when the upstream declared them.
+      if (tool.outputSchema) advertised.outputSchema = tool.outputSchema;
+      if (tool.title !== undefined) advertised.title = tool.title;
+      return advertised;
+    };
+    if (!ov)
+      return withPassthrough({ name, description: tool.description, inputSchema: tool.inputSchema, annotations });
     const base = ov.description ?? tool.description;
     // The drift-note prefix is concatenated here, at advertise-time only — it
     // is never merged into the stored `description`, so it can be added/removed
@@ -829,7 +891,7 @@ class Registry {
       }
       inputSchema = clone;
     }
-    return { name, description, inputSchema };
+    return withPassthrough({ name, description, inputSchema, annotations });
   }
 
   /**
@@ -840,8 +902,8 @@ class Registry {
    * backstops assert against "everything currently advertised" through this one
    * call rather than aggregating getMcpToolsForClient across clients by hand.
    */
-  getAllMcpTools(): { name: string; description: string; inputSchema: Record<string, unknown> }[] {
-    const result: { name: string; description: string; inputSchema: Record<string, unknown> }[] = [];
+  getAllMcpTools(): AdvertisedTool[] {
+    const result: AdvertisedTool[] = [];
 
     for (const [clientName, client] of this.clients) {
       for (const tool of client.tools) {
@@ -854,13 +916,11 @@ class Registry {
   }
 
   /** Servable (enabled) tools for a single client, for the sharded /mcp/:clientName endpoint. */
-  getMcpToolsForClient(
-    clientName: string,
-  ): { name: string; description: string; inputSchema: Record<string, unknown> }[] {
+  getMcpToolsForClient(clientName: string): AdvertisedTool[] {
     const client = this.clients.get(clientName);
     if (!client) return [];
 
-    const result: { name: string; description: string; inputSchema: Record<string, unknown> }[] = [];
+    const result: AdvertisedTool[] = [];
     for (const tool of client.tools) {
       if (!this.isServable(client, tool)) continue;
       result.push(this.effectiveAdvertised(clientName, tool));
@@ -879,8 +939,8 @@ class Registry {
    * automatically reflects live enabled/disabled state of its member tools
    * without the caller needing to duplicate that logic.
    */
-  getMcpToolsForKeys(keys: Set<string>): { name: string; description: string; inputSchema: Record<string, unknown> }[] {
-    const result: { name: string; description: string; inputSchema: Record<string, unknown> }[] = [];
+  getMcpToolsForKeys(keys: Set<string>): AdvertisedTool[] {
+    const result: AdvertisedTool[] = [];
 
     for (const [clientName, client] of this.clients) {
       for (const tool of client.tools) {

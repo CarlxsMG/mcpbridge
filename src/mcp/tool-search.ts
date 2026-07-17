@@ -11,6 +11,7 @@
  */
 
 import { toolResult, type ToolCallResult } from "../lib/mcp-result.js";
+import type { ToolAnnotations } from "./types.js";
 
 export const SEARCH_TOOL_NAME = "search_tools";
 
@@ -22,6 +23,17 @@ export interface AdvertisedTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /**
+   * MCP tool annotations (2025-06-18) advertised in tools/list — governance-
+   * derived hints (readOnly/idempotent/destructive/openWorld) merged with any
+   * upstream-declared annotations. See registry.effectiveAdvertised. Optional:
+   * the search meta-tool, composites, and sys_* tools omit it.
+   */
+  annotations?: ToolAnnotations;
+  /** Upstream-declared MCP tool `outputSchema` (2025-06-18), advertised when present (MCP-upstream tools only). */
+  outputSchema?: Record<string, unknown>;
+  /** Upstream-declared MCP tool `title` (2025-06-18), advertised when present (MCP-upstream tools only). */
+  title?: string;
 }
 
 /** The tools/list shape advertised for the meta-tool. */

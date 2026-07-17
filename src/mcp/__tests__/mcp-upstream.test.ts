@@ -148,6 +148,63 @@ describe("McpUpstreamPool.call", () => {
   });
 });
 
+// A factory that records the Authorization header each connection was built
+// with, so a test can prove which fingerprint(s) actually opened a transport.
+function authRecordingFactory(seen: Array<string | undefined>): (p: McpConnParams) => Transport {
+  return (p: McpConnParams): Transport => {
+    seen.push(p.authHeaders?.Authorization);
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+    const server = new Server({ name: "test-upstream", version: "1.0.0" }, { capabilities: { tools: {} } });
+    server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [] }));
+    server.setRequestHandler(CallToolRequestSchema, async (req) =>
+      handleCall(req.params.name, req.params.arguments ?? {}),
+    );
+    void server.connect(serverT);
+    return clientT;
+  };
+}
+
+describe("McpUpstreamPool connection fingerprint isolation (#44)", () => {
+  test("a concurrent call with a DIFFERENT fingerprint does not ride the in-flight connection", async () => {
+    const seenAuth: Array<string | undefined> = [];
+    const pool = new McpUpstreamPool({ transportFactory: authRecordingFactory(seenAuth) });
+
+    const pA: McpConnParams = { ...PARAMS, authHeaders: { Authorization: "Bearer A" } };
+    const pB: McpConnParams = { ...PARAMS, authHeaders: { Authorization: "Bearer B" } };
+
+    // Both target the same pool key ("up1") but carry different auth. The second
+    // must open its OWN connection with Bearer B rather than inherit the first's
+    // still-connecting attempt (Bearer A) — pre-fix it rode the pending promise
+    // and reached the upstream with the wrong credential, so the factory saw
+    // Bearer A only.
+    const [rA, rB] = await Promise.all([
+      pool.call(pA, "echo", { msg: "a" }, { timeoutMs: 2000, maxBytes: 1_000_000 }),
+      pool.call(pB, "echo", { msg: "b" }, { timeoutMs: 2000, maxBytes: 1_000_000 }),
+    ]);
+
+    expect(rA.isError).toBeUndefined();
+    expect(rB.isError).toBeUndefined();
+    expect([...seenAuth].sort()).toEqual(["Bearer A", "Bearer B"]);
+    await pool.disconnect("up1");
+  });
+
+  test("a concurrent call with the SAME fingerprint still shares one in-flight attempt", async () => {
+    const seenAuth: Array<string | undefined> = [];
+    const pool = new McpUpstreamPool({ transportFactory: authRecordingFactory(seenAuth) });
+    const p: McpConnParams = { ...PARAMS, authHeaders: { Authorization: "Bearer same" } };
+
+    await Promise.all([
+      pool.call(p, "echo", { msg: "a" }, { timeoutMs: 2000, maxBytes: 1_000_000 }),
+      pool.call(p, "echo", { msg: "b" }, { timeoutMs: 2000, maxBytes: 1_000_000 }),
+    ]);
+
+    // Identical fingerprint → the second call rode the first's in-flight attempt,
+    // so exactly one transport was built.
+    expect(seenAuth).toEqual(["Bearer same"]);
+    await pool.disconnect("up1");
+  });
+});
+
 describe("discovery", () => {
   test("normalizeToolName conforms to the registry regex", () => {
     expect(normalizeToolName("echo")).toBe("echo");
@@ -172,6 +229,62 @@ describe("discovery", () => {
     const tools = await discoverToolsFromMcpServer(PARAMS, { transportFactory: factory, timeoutMs: 2000 });
     expect(tools).toHaveLength(3);
     expect(tools[0]).toMatchObject({ name: "echo", upstreamName: "echo" });
+  });
+
+  test("discoverMapTools threads upstream annotations, outputSchema, and title (#15)", () => {
+    const mapped = discoverMapTools([
+      {
+        name: "read.thing",
+        description: "Reads a thing",
+        inputSchema: { type: "object" },
+        annotations: { readOnlyHint: true, idempotentHint: true },
+        outputSchema: { type: "object", properties: { ok: { type: "boolean" } } },
+        title: "Read Thing",
+      },
+      { name: "plain", description: "no extras", inputSchema: { type: "object" } },
+    ]);
+    expect(mapped[0]).toMatchObject({
+      name: "read_thing",
+      upstreamName: "read.thing",
+      annotations: { readOnlyHint: true, idempotentHint: true },
+      outputSchema: { type: "object", properties: { ok: { type: "boolean" } } },
+      title: "Read Thing",
+    });
+    // A tool without the optional fields carries none of them (not empty stubs).
+    expect(mapped[1].annotations).toBeUndefined();
+    expect(mapped[1].outputSchema).toBeUndefined();
+    expect(mapped[1].title).toBeUndefined();
+  });
+
+  test("discoverToolsFromMcpServer reads annotations/title/outputSchema off the wire (#15)", async () => {
+    const factory = (_p: McpConnParams): Transport => {
+      const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+      const server = new Server({ name: "annotated", version: "1.0.0" }, { capabilities: { tools: {} } });
+      server.setRequestHandler(ListToolsRequestSchema, async () => ({
+        tools: [
+          {
+            name: "search",
+            description: "Search",
+            inputSchema: { type: "object" },
+            annotations: { readOnlyHint: true, title: "Search" },
+            outputSchema: { type: "object" },
+            title: "Search Tool",
+          },
+        ],
+      }));
+      server.setRequestHandler(CallToolRequestSchema, async (req) =>
+        handleCall(req.params.name, req.params.arguments ?? {}),
+      );
+      void server.connect(serverT);
+      return clientT;
+    };
+    const tools = await discoverToolsFromMcpServer(PARAMS, { transportFactory: factory, timeoutMs: 2000 });
+    expect(tools[0]).toMatchObject({
+      name: "search",
+      annotations: { readOnlyHint: true, title: "Search" },
+      outputSchema: { type: "object" },
+      title: "Search Tool",
+    });
   });
 });
 

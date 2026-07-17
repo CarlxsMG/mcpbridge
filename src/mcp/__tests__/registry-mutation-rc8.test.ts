@@ -352,15 +352,19 @@ describe("effectiveAdvertised — L985/987 params-patch loop edge cases", () => 
 });
 
 // L992:12 ObjectLiteral -> '{}' — the function's final `return { name, description, inputSchema };`
-describe("effectiveAdvertised — L992 return object has exactly {name, description, inputSchema}", () => {
-  test("advertised tool has all three fields present and correct", async () => {
+describe("effectiveAdvertised — return object carries {name, description, inputSchema, annotations}", () => {
+  test("advertised tool has all core fields present and correct, plus derived annotations", async () => {
     await reg("svc-shape", [makeTool({ name: "t1", description: "Shape description" })]);
     const [advertised] = registry.getMcpToolsForClient("svc-shape");
 
-    expect(Object.keys(advertised).sort()).toEqual(["description", "inputSchema", "name"]);
+    // A no-override REST GET tool: the three core fields plus the always-present
+    // derived `annotations` (outputSchema/title are MCP-upstream-only and absent
+    // here). Guards the mutant that empties the final return object.
+    expect(Object.keys(advertised).sort()).toEqual(["annotations", "description", "inputSchema", "name"]);
     expect(advertised.name).toBe("svc-shape__t1");
     expect(advertised.description).toBe("Shape description");
     expect(advertised.inputSchema).toEqual({ type: "object", properties: {} });
+    expect(advertised.annotations).toEqual({ readOnlyHint: true, idempotentHint: true, openWorldHint: true });
   });
 });
 

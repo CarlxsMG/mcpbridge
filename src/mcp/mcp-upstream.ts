@@ -151,7 +151,12 @@ function connFingerprint(p: McpConnParams): string {
 
 export class McpUpstreamPool {
   private conns = new Map<string, Client>();
-  private connecting = new Map<string, Promise<Client>>();
+  // In-flight connection attempts, keyed by client name. The fingerprint the
+  // attempt is connecting WITH is tracked alongside the promise so a concurrent
+  // getClient for a DIFFERENT fingerprint (rotated auth / re-registered URL/IP)
+  // never rides an attempt opened against the old params — it would otherwise
+  // reach the wrong backend/credentials during the initial connect window.
+  private connecting = new Map<string, { fp: string; promise: Promise<Client> }>();
   // Fingerprint (url/transport/pinned-IP/auth) of the params each live
   // connection was built with, so getClient can drop a stale connection when a
   // client is re-registered or its upstream auth rotates — the pool is keyed by
@@ -179,21 +184,31 @@ export class McpUpstreamPool {
     }
 
     const inflight = this.connecting.get(p.name);
-    if (inflight) return inflight;
+    // Reuse an in-flight attempt ONLY when it targets the same fingerprint. A
+    // concurrent call whose fingerprint differs (rotated auth / re-registered
+    // URL/IP) must open its own connection rather than inherit the pending one.
+    if (inflight && inflight.fp === fp) return inflight.promise;
 
     const promise = (async () => {
       const client = new Client({ name: CLIENT_NAME, version: CLIENT_VERSION }, { capabilities: {} });
       await client.connect(this.transportFactory(p), { timeout: this.connectTimeoutMs });
       this.conns.set(p.name, client);
       this.connFingerprints.set(p.name, fp);
-      this.connecting.delete(p.name);
       return client;
-    })().catch((err) => {
-      this.connecting.delete(p.name);
-      throw err;
-    });
+    })();
 
-    this.connecting.set(p.name, promise);
+    const entry = { fp, promise };
+    this.connecting.set(p.name, entry);
+    // Clear the attempt when it settles, but ONLY if it is still the current
+    // entry for this name — a later attempt for a different fingerprint may have
+    // replaced it, and an unconditional delete-by-name would orphan that newer
+    // attempt (leaving a live connect the pool no longer tracks). Runs on both
+    // success and failure so a failed connect doesn't wedge the name.
+    void promise
+      .catch(() => undefined)
+      .finally(() => {
+        if (this.connecting.get(p.name) === entry) this.connecting.delete(p.name);
+      });
     return promise;
   }
 

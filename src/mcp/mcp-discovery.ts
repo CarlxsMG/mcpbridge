@@ -4,6 +4,7 @@ import { buildTransport } from "./mcp-upstream.js";
 import type { McpConnParams } from "./mcp-upstream.js";
 import { config } from "../config.js";
 import { uniqueToolName } from "../discovery/tool-naming.js";
+import type { ToolAnnotations } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // MCP upstream tool discovery — the MCP counterpart of openapi-discovery.ts.
@@ -28,6 +29,22 @@ export interface DiscoveredMcpTool {
   upstreamName: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /** Upstream-declared MCP tool annotations (2025-06-18), passed through verbatim when present. */
+  annotations?: ToolAnnotations;
+  /** Upstream-declared MCP tool `outputSchema` (2025-06-18), passed through when present. */
+  outputSchema?: Record<string, unknown>;
+  /** Upstream-declared MCP tool `title` (2025-06-18), passed through when present. */
+  title?: string;
+}
+
+/** The upstream tools/list fields we thread through discovery — a subset of the MCP `Tool` wire shape. */
+interface UpstreamListedTool {
+  name: string;
+  description?: string;
+  inputSchema: Record<string, unknown>;
+  annotations?: ToolAnnotations;
+  outputSchema?: Record<string, unknown>;
+  title?: string;
 }
 
 const CLIENT_NAME = "mcp-rest-bridge";
@@ -57,9 +74,7 @@ export function normalizeToolName(raw: string): string {
  * to the same string). `uniqueToolName` truncates the base first, guaranteeing
  * termination within `used.size + 1` iterations.
  */
-export function discoverMapTools(
-  mcpTools: Array<{ name: string; description?: string; inputSchema: Record<string, unknown> }>,
-): DiscoveredMcpTool[] {
+export function discoverMapTools(mcpTools: UpstreamListedTool[]): DiscoveredMcpTool[] {
   const used = new Set<string>();
   const out: DiscoveredMcpTool[] = [];
 
@@ -69,7 +84,14 @@ export function discoverMapTools(
     const description =
       t.description && t.description.trim().length > 0 ? t.description : `Tool "${t.name}" from upstream MCP server`;
 
-    out.push({ name, upstreamName: t.name, description, inputSchema: t.inputSchema });
+    // Pass through the 2025-06-18 governance/presentation fields verbatim when
+    // the upstream declared them, so a native MCP tool's own annotations,
+    // outputSchema, and title survive the bridge (see registry.effectiveAdvertised).
+    const mapped: DiscoveredMcpTool = { name, upstreamName: t.name, description, inputSchema: t.inputSchema };
+    if (t.annotations) mapped.annotations = t.annotations;
+    if (t.outputSchema) mapped.outputSchema = t.outputSchema;
+    if (t.title) mapped.title = t.title;
+    out.push(mapped);
   }
 
   return out;
@@ -98,7 +120,7 @@ export async function discoverToolsFromMcpServer(
   await client.connect(factory(params), { timeout });
 
   try {
-    const collected: Array<{ name: string; description?: string; inputSchema: Record<string, unknown> }> = [];
+    const collected: UpstreamListedTool[] = [];
     let cursor: string | undefined;
     // Bound the paginated read so a malicious/compromised upstream can't OOM or
     // hang the gateway. `maxTools` mirrors the per-client cap registration enforces
@@ -112,11 +134,17 @@ export async function discoverToolsFromMcpServer(
     do {
       const page = await client.listTools(cursor ? { cursor } : undefined, { timeout });
       for (const t of page.tools) {
-        collected.push({
+        const entry: UpstreamListedTool = {
           name: t.name,
           description: t.description,
           inputSchema: t.inputSchema as Record<string, unknown>,
-        });
+        };
+        // Thread the optional 2025-06-18 fields through when the upstream sends
+        // them (the SDK's Tool type carries all three).
+        if (t.annotations) entry.annotations = t.annotations as ToolAnnotations;
+        if (t.outputSchema) entry.outputSchema = t.outputSchema as Record<string, unknown>;
+        if (typeof t.title === "string") entry.title = t.title;
+        collected.push(entry);
       }
       cursor = page.nextCursor;
       if (collected.length > maxTools) break; // over the cap — registration will reject anyway

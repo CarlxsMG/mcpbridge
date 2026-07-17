@@ -81,6 +81,26 @@ export interface ToolOverride {
   driftNote?: string;
 }
 
+/**
+ * MCP tool annotations (the 2025-06-18 `ToolAnnotations` shape) — advisory hints
+ * a client MAY use to decide how to present or gate a tool. Every field is
+ * optional. These COMPLEMENT, never replace, proxyToolCall's call-time
+ * enforcement: a client that ignores them changes nothing about what the
+ * gateway actually allows.
+ */
+export interface ToolAnnotations {
+  /** Human-readable display title for the tool. */
+  title?: string;
+  /** The tool does not modify its environment. */
+  readOnlyHint?: boolean;
+  /** The tool may perform destructive updates (only meaningful when `readOnlyHint` is false). */
+  destructiveHint?: boolean;
+  /** Repeated calls with the same arguments have no additional effect (only meaningful when `readOnlyHint` is false). */
+  idempotentHint?: boolean;
+  /** The tool interacts with an open world of external entities. */
+  openWorldHint?: boolean;
+}
+
 /** Per-tool content guardrails (input deny/secret gate + response injection scan). */
 export interface ToolGuardrails {
   /** Admin regex deny-list. A call whose JSON-serialized args match any pattern is rejected. */
@@ -106,6 +126,25 @@ export interface RegisteredTool extends RestToolDefinition {
   guardrails?: ToolGuardrails;
   /** Raw upstream MCP tool name used for dispatch (only when the client is kind "mcp"). Absent for REST tools. */
   upstreamName?: string;
+  /**
+   * Upstream-declared MCP tool annotations (kind "mcp" only), passed through
+   * verbatim from discovery. In-memory only: re-populated on each (re-)discovery
+   * and NOT persisted, so after a cold restart the advertise path falls back to
+   * the governance-derived hints alone until the upstream is re-discovered.
+   */
+  upstreamAnnotations?: ToolAnnotations;
+  /**
+   * Upstream-declared MCP tool `outputSchema` (2025-06-18, kind "mcp" only),
+   * passed through from discovery. Same in-memory-only lifecycle as
+   * `upstreamAnnotations`.
+   */
+  outputSchema?: Record<string, unknown>;
+  /**
+   * Upstream-declared MCP tool `title` (2025-06-18, kind "mcp" only), passed
+   * through from discovery. Same in-memory-only lifecycle as
+   * `upstreamAnnotations`.
+   */
+  title?: string;
   /** Request-coalescing config (populated on read): dedupe concurrent identical in-flight REST GET calls. */
   coalesce?: { enabled: boolean };
   /** Human-in-the-loop approval config (populated on read): whether required, and the N-of-M distinct-approver threshold. */
