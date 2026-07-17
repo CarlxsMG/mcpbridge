@@ -11,8 +11,9 @@ import type {
   McpTransport,
 } from "./types.js";
 import type { AdvertisedTool } from "./tool-search.js";
-import { isToolSensitive } from "../tool-meta/tool-sensitivity.js";
-import { requiresApproval } from "../admin/entities/approvals.js";
+import { config } from "../config.js";
+import { getSensitivityForClient } from "../tool-meta/tool-sensitivity.js";
+import { getApprovalConfigForClient } from "../admin/entities/approvals.js";
 import { sanitizeToolDescription } from "../content-filtering/sanitize.js";
 import { abortClientRequests, invalidatePinnedIp } from "../proxy/proxy.js";
 import { invalidateCompiledSchemasForClient } from "../proxy/schema-validator.js";
@@ -167,6 +168,12 @@ function validateCommonToolSchema(tool: { name: string; description: string; inp
   if (JSON.stringify(tool.inputSchema).length > 10240) {
     throw new Error(`Tool '${tool.name}': inputSchema exceeds 10KB size limit`);
   }
+}
+
+/** Per-client tool-policy lookups, batched once per tools/list for annotation derivation. */
+interface ToolPolicyMaps {
+  sensitivity: ReturnType<typeof getSensitivityForClient>;
+  approval: ReturnType<typeof getApprovalConfigForClient>;
 }
 
 class Registry {
@@ -846,13 +853,13 @@ class Registry {
    *    idempotent. (MCP-upstream tools carry a 'POST' sentinel method and rely
    *    on their passed-through upstream annotations instead.)
    *  - A tool that is sensitive (admin-flagged OR the method-based auto-gate —
-   *    the tri-state null case resolves through isToolSensitive) or requires
-   *    approval is marked destructive. This is a call-time-enforced property, so
+   *    the tri-state null case is resolved inline against the batched maps) or
+   *    requires approval is marked destructive. This is a call-time-enforced property, so
    *    it OVERRIDES any upstream read-only claim rather than merely filling a gap.
    *  - openWorldHint is true for every bridged tool (they all reach an external
    *    backend / MCP upstream).
    */
-  private deriveAnnotations(clientName: string, tool: RegisteredTool): ToolAnnotations {
+  private deriveAnnotations(tool: RegisteredTool, maps: ToolPolicyMaps): ToolAnnotations {
     const ann: ToolAnnotations = { ...(tool.upstreamAnnotations ?? {}) };
 
     if (tool.method === "GET") {
@@ -862,13 +869,28 @@ class Registry {
       ann.idempotentHint ??= true;
     }
 
-    if (isToolSensitive(clientName, tool.name, tool.method) || requiresApproval(clientName, tool.name)) {
+    // Effective sensitivity mirrors isToolSensitive(): an explicit tool_sensitivity
+    // flag wins, else the config auto-gate for write methods. Read from the
+    // per-client batch (maps) instead of a per-tool SELECT on every tools/list.
+    // hasOwnProperty (not `in`) so a tool literally named "constructor"/"toString"
+    // can't pick up an inherited Object.prototype value as its "explicit" flag.
+    const hasExplicit = Object.prototype.hasOwnProperty.call(maps.sensitivity, tool.name);
+    const sensitive = hasExplicit
+      ? maps.sensitivity[tool.name]
+      : config.autoGateWriteMethods && (tool.method === "DELETE" || tool.method === "PUT");
+    const requiresApproval = maps.approval[tool.name]?.required === true;
+    if (sensitive || requiresApproval) {
       ann.destructiveHint = true;
       ann.readOnlyHint = false;
     }
 
     ann.openWorldHint ??= true;
     return ann;
+  }
+
+  /** Per-client sensitivity + approval config, fetched once per tools/list instead of per tool. */
+  private toolPolicyMaps(clientName: string): ToolPolicyMaps {
+    return { sensitivity: getSensitivityForClient(clientName), approval: getApprovalConfigForClient(clientName) };
   }
 
   /**
@@ -878,10 +900,10 @@ class Registry {
    * emits derived tool annotations (see deriveAnnotations) plus any upstream
    * outputSchema/title for MCP-upstream tools.
    */
-  private effectiveAdvertised(clientName: string, tool: RegisteredTool): AdvertisedTool {
+  private effectiveAdvertised(clientName: string, tool: RegisteredTool, maps: ToolPolicyMaps): AdvertisedTool {
     const segment = tool.override?.displayName ?? tool.name;
     const name = `${clientName}${TOOL_KEY_SEPARATOR}${segment}`;
-    const annotations = this.deriveAnnotations(clientName, tool);
+    const annotations = this.deriveAnnotations(tool, maps);
     const ov = tool.override;
     const withPassthrough = (advertised: AdvertisedTool): AdvertisedTool => {
       // `title` and `outputSchema` are upstream-only 2025-06-18 fields (MCP-kind
@@ -939,9 +961,10 @@ class Registry {
     const result: AdvertisedTool[] = [];
 
     for (const [clientName, client] of this.clients) {
+      const maps = this.toolPolicyMaps(clientName);
       for (const tool of client.tools) {
         if (!this.isServable(client, tool)) continue;
-        result.push(this.effectiveAdvertised(clientName, tool));
+        result.push(this.effectiveAdvertised(clientName, tool, maps));
       }
     }
 
@@ -953,10 +976,11 @@ class Registry {
     const client = this.clients.get(clientName);
     if (!client) return [];
 
+    const maps = this.toolPolicyMaps(clientName);
     const result: AdvertisedTool[] = [];
     for (const tool of client.tools) {
       if (!this.isServable(client, tool)) continue;
-      result.push(this.effectiveAdvertised(clientName, tool));
+      result.push(this.effectiveAdvertised(clientName, tool, maps));
     }
     return result;
   }
@@ -976,10 +1000,14 @@ class Registry {
     const result: AdvertisedTool[] = [];
 
     for (const [clientName, client] of this.clients) {
+      let maps: ToolPolicyMaps | null = null;
       for (const tool of client.tools) {
         const key = `${clientName}${TOOL_KEY_SEPARATOR}${tool.name}`;
         if (!keys.has(key) || !this.isServable(client, tool)) continue;
-        result.push(this.effectiveAdvertised(clientName, tool));
+        // Fetch the client's policy maps lazily — only once, and only for a client
+        // that actually contributes a tool to this bundle.
+        maps ??= this.toolPolicyMaps(clientName);
+        result.push(this.effectiveAdvertised(clientName, tool, maps));
       }
     }
 
