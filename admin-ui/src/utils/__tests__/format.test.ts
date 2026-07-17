@@ -1,39 +1,51 @@
 import { describe, test, expect } from "vitest";
 import { formatDateTime, formatMaybeDate, formatDuration, pct, prettyJson } from "../format";
+import { i18n } from "../../i18n";
 
 describe("formatDateTime", () => {
-  test("formats an epoch-ms value the same way Date#toLocaleString does", () => {
+  test("formats an epoch-ms value the same way Date#toLocaleString does for the given locale", () => {
     const ms = Date.UTC(2026, 0, 15, 12, 30);
-    expect(formatDateTime(ms)).toBe(new Date(ms).toLocaleString());
+    expect(formatDateTime(ms, "en")).toBe(new Date(ms).toLocaleString("en"));
   });
 
   test("formats an ISO string", () => {
     const iso = "2026-07-04T00:00:00.000Z";
-    expect(formatDateTime(iso)).toBe(new Date(iso).toLocaleString());
+    expect(formatDateTime(iso, "en")).toBe(new Date(iso).toLocaleString("en"));
   });
 
   test("formats a Date instance", () => {
     const d = new Date(2026, 0, 1);
-    expect(formatDateTime(d)).toBe(d.toLocaleString());
+    expect(formatDateTime(d, "en")).toBe(d.toLocaleString("en"));
+  });
+
+  test("defaults to the app's active locale (es formats differently from en)", () => {
+    const ms = Date.UTC(2026, 0, 15, 12, 30);
+    const prev = i18n.global.locale.value;
+    try {
+      (i18n.global.locale as unknown as { value: string }).value = "es";
+      expect(formatDateTime(ms)).toBe(new Date(ms).toLocaleString("es"));
+    } finally {
+      (i18n.global.locale as unknown as { value: string }).value = prev;
+    }
   });
 });
 
 describe("formatMaybeDate", () => {
-  test("returns the default fallback for null", () => {
-    expect(formatMaybeDate(null)).toBe("Never");
+  test("returns the supplied fallback for null", () => {
+    expect(formatMaybeDate(null, "Never")).toBe("Never");
   });
 
-  test("returns the default fallback for undefined", () => {
-    expect(formatMaybeDate(undefined)).toBe("Never");
+  test("returns the supplied fallback for undefined", () => {
+    expect(formatMaybeDate(undefined, "Never")).toBe("Never");
   });
 
-  test("returns a caller-supplied fallback", () => {
+  test("returns a caller-supplied fallback verbatim", () => {
     expect(formatMaybeDate(null, "Not yet")).toBe("Not yet");
   });
 
   test("delegates to formatDateTime for a real value", () => {
     const ms = Date.UTC(2026, 5, 1);
-    expect(formatMaybeDate(ms)).toBe(formatDateTime(ms));
+    expect(formatMaybeDate(ms, "Never")).toBe(formatDateTime(ms));
   });
 });
 

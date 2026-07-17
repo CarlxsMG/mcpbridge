@@ -147,7 +147,7 @@ onMounted(() => data.refresh());
     <p v-if="showNoServers" class="onboarding-note">
       <Server :size="15" stroke-width="2" aria-hidden="true" />
       {{ t("pages.overview.empty.no_servers") }}
-      <RouterLink to="/register-server">{{ t("pages.overview.empty.add_server") }}</RouterLink> or
+      <RouterLink to="/register-server">{{ t("pages.overview.empty.add_server") }}</RouterLink> {{ t("common.or") }}
       <RouterLink to="/catalog">{{ t("pages.overview.empty.browse_catalog") }}</RouterLink>
     </p>
 

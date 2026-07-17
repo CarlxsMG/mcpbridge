@@ -14,8 +14,10 @@ export class ApiError extends Error {
 // Light-weight wrappers around the global i18n singleton: composables that
 // raise ApiError live outside Vue's setup() tree, so useI18n() is unreachable
 // from them. These helpers share the same instance main.ts installs on the app.
-function t(key: string): string {
-  return (i18n.global.t as (k: string) => string)(key);
+function t(key: string, params?: Record<string, unknown>): string {
+  return params !== undefined
+    ? (i18n.global.t as (k: string, p: Record<string, unknown>) => string)(key, params)
+    : (i18n.global.t as (k: string) => string)(key);
 }
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -73,7 +75,7 @@ async function rawFetch(path: string, init: RequestInit = {}): Promise<Response>
 
   if (!res.ok) {
     let code = "UNKNOWN_ERROR";
-    let message = t("errors.request_failed_with_status").replace("{status}", String(res.status));
+    let message = t("errors.request_failed_with_status", { status: res.status });
     try {
       const body = (await res.clone().json()) as { error?: { code?: string; message?: string } };
       if (body.error?.code) code = body.error.code;

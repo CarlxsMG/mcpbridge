@@ -155,8 +155,34 @@ async function deleteExampleFn(ex: ToolExample) {
       </span>
     </div>
 
-    <div v-if="playgroundResult" class="test-result" :class="playgroundResult.isError ? 'test-error' : 'test-ok'">
+    <div
+      v-if="playgroundResult"
+      class="test-result"
+      :class="playgroundResult.isError ? 'test-error' : 'test-ok'"
+      :role="playgroundResult.isError ? 'alert' : 'status'"
+      :aria-live="playgroundResult.isError ? 'assertive' : 'polite'"
+    >
+      <!-- sr-only outcome word so the pass/fail state isn't conveyed by colour alone -->
+      <span class="sr-only">{{
+        playgroundResult.isError
+          ? t("components.server_detail_playground.result_failed")
+          : t("components.server_detail_playground.result_succeeded")
+      }}</span>
       <pre>{{ playgroundResult.text }}</pre>
     </div>
   </section>
 </template>
+
+<style scoped>
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+</style>

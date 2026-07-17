@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { useLiveSignal } from "@/composables/useLiveSignal";
 import { useNavEntries } from "@/composables/useNavEntries";
+import { useFocusTrap } from "@/composables/useFocusTrap";
 import CommandPalette from "@/components/CommandPalette.vue";
 import { ChevronRight, Activity } from "lucide-vue-next";
 
-defineProps<{ navOpen: boolean }>();
+const props = defineProps<{ navOpen: boolean }>();
 
 const router = useRouter();
 const { state, logout } = useAuth();
@@ -16,6 +17,41 @@ const { isLive } = useLiveSignal();
 const { t } = useI18n({ useScope: "global" });
 
 const { entries: navItems, groupLabel } = useNavEntries({ role: state.user?.role });
+
+// On mobile the sidebar slides in as a modal-style overlay (see the
+// max-width:768px block below); on desktop it's a static column and `navOpen`
+// never toggles (the hamburger driving it is hidden). So the focus management
+// below only ever engages on mobile: move focus in on open, trap Tab while open,
+// restore it on close. There is deliberately no inert/aria-hidden applied to the
+// rest of the app here — this app has never used that pattern on its overlays.
+const navEl = ref<HTMLElement | null>(null);
+const { onKeydown: trapKeydown } = useFocusTrap(navEl);
+const FOCUSABLE_SELECTOR =
+  'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+let previouslyFocused: HTMLElement | null = null;
+
+// Only contain Tab when the overlay is actually open — on desktop the sidebar is
+// permanent and tabbing must flow naturally out of it into the page content.
+function onNavKeydown(e: KeyboardEvent): void {
+  if (props.navOpen) trapKeydown(e);
+}
+
+watch(
+  () => props.navOpen,
+  async (open) => {
+    if (open) {
+      previouslyFocused = document.activeElement as HTMLElement | null;
+      await nextTick();
+      navEl.value?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
+    } else if (previouslyFocused) {
+      // Return focus to whatever opened the nav (the topbar hamburger). On a
+      // close triggered by navigation, the router's own afterEach focuses
+      // #main-content in a later nextTick, so that (correctly) wins.
+      previouslyFocused.focus();
+      previouslyFocused = null;
+    }
+  },
+);
 
 // Group ordering drives the visual sidebar order. Hard-coded (kept in sync
 // with the group header translations through NAV_GROUP_KEYS).
@@ -54,7 +90,7 @@ async function onLogout() {
 </script>
 
 <template>
-  <nav id="sidebar-nav" class="sidebar" :class="{ 'sidebar-open': navOpen }">
+  <nav id="sidebar-nav" ref="navEl" class="sidebar" :class="{ 'sidebar-open': navOpen }" @keydown="onNavKeydown">
     <div class="brand">
       <Activity
         class="brand-icon"

@@ -497,6 +497,8 @@
       "delete_example_aria": "Delete {label}",
       "running": "Running…",
       "run": "Run test",
+      "result_succeeded": "Succeeded",
+      "result_failed": "Failed",
       "save_placeholder": "Save as… (label)",
       "save_aria": "Save the current run as a named example",
       "errors": {
@@ -654,8 +656,8 @@
       "llm_hint": "One extra call per oversized response, made only after this tool's own redaction and guardrail scan have already run — the LLM never sees pre-redaction data. Any failure (network, non-2xx, timeout) silently falls back to truncation; the tool call itself never fails because of this.",
       "provider_label": "Provider",
       "provider": {
-        "openai": "OpenAI-compatible (POST {base}/chat/completions)",
-        "anthropic": "Anthropic-compatible (POST {base}/v1/messages)"
+        "openai": "OpenAI-compatible (POST {'{'}base{'}'}/chat/completions)",
+        "anthropic": "Anthropic-compatible (POST {'{'}base{'}'}/v1/messages)"
       },
       "base_url_label": "Base URL",
       "model_label": "Model",
@@ -1031,7 +1033,8 @@
         "load_failed": "Failed to load bundles."
       },
       "create": "Create bundle",
-      "subtitle": "Cross-client tool selections, each served at its own /mcp-custom/{name} endpoint.",
+      "subtitle_p1": "Cross-client tool selections, each served at its own",
+      "subtitle_p2": "endpoint.",
       "table": {
         "name": "Name",
         "description": "Description",
@@ -1420,7 +1423,7 @@
         "requested": "Requested",
         "decision": "Decision",
         "approve": "Approve",
-        "deny": "Deny"
+        "reject": "Reject"
       },
       "empty": {
         "nothing_pending": "Nothing waiting for review right now.",
@@ -1431,7 +1434,7 @@
         "approve_message": "This will let {client}'s pending call to {tool} run immediately. This cannot be undone.",
         "approve_cta": "Approve call",
         "reject_title": "Reject this call?",
-        "reject_message": "This will deny {client}'s pending call to {tool}. This cannot be undone.",
+        "reject_message": "This will reject {client}'s pending call to {tool}. This cannot be undone.",
         "reject_cta": "Reject call"
       },
       "errors": {
@@ -1877,6 +1880,7 @@
         },
         "days_aria": "Days of the week",
         "cron_hint": "Fields:",
+        "cron_fields": "min hour day-of-month month day-of-week",
         "runs": "Runs:",
         "create": "Add schedule",
         "errors": {
@@ -2026,13 +2030,13 @@
         "delete_cta": "Delete user",
         "role_title": "Change role for {username}?",
         "role_cta": "Change role",
-        "role_cta_default": "Change role to {role}",
+        "role_cta_default": "Change role",
         "role_self": "You are about to change your own role.",
         "role_other": "You are about to change {username}'s role from {current} to {next}.",
         "team_title": "Change team for {username}?",
         "team_base": "Change {username}'s team?",
         "team_cta": "Change team",
-        "team_cta_default": "Change team to {team}",
+        "team_cta_default": "Change team",
         "team_self_warning": "You are about to change your own team."
       },
       "aria": {

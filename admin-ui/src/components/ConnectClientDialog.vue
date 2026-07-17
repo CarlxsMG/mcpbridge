@@ -92,7 +92,7 @@ const targetSelectOptions = computed(() => {
         : [];
   return [
     { value: "", label: t("components.connect_client_dialog.choose_one"), disabled: true },
-    ...names.map((n) => ({ value: n, label: n })),
+    ...names.map((n) => ({ value: n, label: n, disabled: false })),
   ];
 });
 
@@ -115,7 +115,16 @@ const relevantKeyCount = computed(() => {
 });
 
 const result = computed(() => {
-  if ((scope.value === "client" || scope.value === "bundle") && !targetName.value) return null;
+  if (scope.value === "client" || scope.value === "bundle") {
+    // A data-plane snippet is only valid for a target that actually exists in the
+    // current scope's list. Switching the "Connect to" scope deliberately keeps
+    // the previous targetName around (no watch clears it, so a preset the parent
+    // applied survives a reopen), so guard on *membership* here rather than mere
+    // non-emptiness — a client name left selected after switching to bundle scope
+    // must not generate a snippet to a non-existent /mcp-custom/<name> endpoint.
+    const isSelectable = targetSelectOptions.value.some((o) => !o.disabled && o.value === targetName.value);
+    if (!isSelectable) return null;
+  }
   const base = (gatewayBaseUrl.value || window.location.origin).trim();
   if (!base) return null;
   let url: string;

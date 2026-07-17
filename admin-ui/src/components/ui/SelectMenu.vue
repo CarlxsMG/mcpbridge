@@ -16,6 +16,12 @@ const props = defineProps<{
   disabled?: boolean;
   title?: string;
   ariaLabel?: string;
+  // aria-required / aria-describedby are declared as explicit props (not left to
+  // fall through as attrs) so they land on the role="combobox" BUTTON below —
+  // inheritAttrs would otherwise drop them on the wrapper <div>, where a screen
+  // reader never sees them relative to the combobox.
+  ariaRequired?: boolean;
+  ariaDescribedby?: string;
   /** Route path of the page that creates this entity, e.g. "/teams". Renders a trailing "+ create" row in the list. */
   createPath?: string;
   /** e.g. "Create team" — rendered with a trailing "↗" to signal the new tab. */
@@ -48,12 +54,19 @@ const floatingPanel = useFloatingPanel(triggerEl, listboxEl, {
 const { isOpen, style: listboxStyle } = floatingPanel;
 
 const selectableCount = computed(() => props.options.length + (props.createPath ? 1 : 0));
-// Mirrors a native <select>'s behavior of always displaying *some* option
-// (falling back to the first) when the bound value matches none — e.g. a
-// per-row v-model like `record[id]` that's `undefined` until first touched.
-const selectedLabel = computed(
-  () => props.options.find((o) => o.value === model.value)?.label ?? props.options[0]?.label ?? "",
-);
+const selectedLabel = computed(() => {
+  const match = props.options.find((o) => o.value === model.value);
+  if (match) return match.label;
+  // Mirror a native <select>'s "display the first option" behavior ONLY when the
+  // bound value is genuinely unset (a per-row v-model like `record[id]` that's
+  // `undefined`/`null` until first touched). When the model holds a concrete
+  // value that matches no option — a stale team id whose team list hasn't loaded
+  // yet, a target left selected after a scope switch — falling back to
+  // options[0] would advertise a selection the model does not hold, so surface
+  // the raw value instead.
+  if (model.value === null || model.value === undefined) return props.options[0]?.label ?? "";
+  return String(model.value);
+});
 
 function optionId(i: number) {
   return `${listboxId}-opt-${i}`;
@@ -200,6 +213,8 @@ onBeforeUnmount(close);
       :aria-controls="listboxId"
       :aria-activedescendant="activeOptionId"
       :aria-label="ariaLabel"
+      :aria-required="ariaRequired"
+      :aria-describedby="ariaDescribedby"
       :title="title"
       :disabled="disabled"
       @click="toggle"

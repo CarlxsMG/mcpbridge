@@ -145,6 +145,7 @@ export const identicalAllowlist = new Set([
   "components.guard_editor_redaction.placeholder",
   "components.guard_editor_tags.placeholder",
   "components.schema_form.json_placeholder",
+  "pages.bundles.subtitle_p2",
   "pages.bundles.new.subtitle_p2",
   "pages.keys.new.placeholders.clients",
   "pages.keys.new.placeholders.tools",

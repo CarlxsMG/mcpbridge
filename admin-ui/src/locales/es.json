@@ -497,6 +497,8 @@
       "delete_example_aria": "Eliminar {label}",
       "running": "Ejecutando…",
       "run": "Ejecutar prueba",
+      "result_succeeded": "Correcto",
+      "result_failed": "Fallido",
       "save_placeholder": "Guardar como… (etiqueta)",
       "save_aria": "Guardar la ejecución actual como ejemplo con nombre",
       "errors": {
@@ -654,8 +656,8 @@
       "llm_hint": "Una llamada extra por response demasiado grande, hecha solo después de que la redaction y el escaneo de guardrails de este tool ya hayan corrido — el LLM nunca ve datos pre-redaction. Cualquier fallo (red, no-2xx, timeout) cae silenciosamente a truncation; la llamada al tool nunca falla por esto.",
       "provider_label": "Proveedor",
       "provider": {
-        "openai": "OpenAI-compatible (POST {base}/chat/completions)",
-        "anthropic": "Anthropic-compatible (POST {base}/v1/messages)"
+        "openai": "OpenAI-compatible (POST {'{'}base{'}'}/chat/completions)",
+        "anthropic": "Anthropic-compatible (POST {'{'}base{'}'}/v1/messages)"
       },
       "base_url_label": "Base URL",
       "model_label": "Model",
@@ -1031,7 +1033,8 @@
         "load_failed": "Error al cargar los bundles."
       },
       "create": "Crear bundle",
-      "subtitle": "Selecciones de herramientas entre clientes, servidas cada una en su propio endpoint /mcp-custom/{name}.",
+      "subtitle_p1": "Selecciones de herramientas entre clientes, servidas cada una en su propio",
+      "subtitle_p2": "endpoint.",
       "table": {
         "name": "Nombre",
         "description": "Descripción",
@@ -1420,7 +1423,7 @@
         "requested": "Solicitada",
         "decision": "Decisión",
         "approve": "Aprobar",
-        "deny": "Denegar"
+        "reject": "Rechazar"
       },
       "empty": {
         "nothing_pending": "Nada esperando revisión ahora mismo.",
@@ -1431,7 +1434,7 @@
         "approve_message": "Esto permitirá que la llamada pendiente de {client} a {tool} se ejecute de inmediato. No se puede deshacer.",
         "approve_cta": "Aprobar llamada",
         "reject_title": "¿Rechazar esta llamada?",
-        "reject_message": "Esto denegará la llamada pendiente de {client} a {tool}. No se puede deshacer.",
+        "reject_message": "Esto rechazará la llamada pendiente de {client} a {tool}. No se puede deshacer.",
         "reject_cta": "Rechazar llamada"
       },
       "errors": {
@@ -1877,6 +1880,7 @@
         },
         "days_aria": "Días de la semana",
         "cron_hint": "Campos:",
+        "cron_fields": "min hora día-del-mes mes día-de-semana",
         "runs": "Corre:",
         "create": "Añadir schedule",
         "errors": {
@@ -2026,13 +2030,13 @@
         "delete_cta": "Eliminar usuario",
         "role_title": "¿Cambiar rol de {username}?",
         "role_cta": "Cambiar rol",
-        "role_cta_default": "Cambiar rol a {role}",
+        "role_cta_default": "Cambiar rol",
         "role_self": "Estás a punto de cambiar tu propio rol.",
         "role_other": "Estás a punto de cambiar el rol de {username} de {current} a {next}.",
         "team_title": "¿Cambiar team de {username}?",
         "team_base": "¿Cambiar el team de {username}?",
         "team_cta": "Cambiar team",
-        "team_cta_default": "Cambiar team a {team}",
+        "team_cta_default": "Cambiar team",
         "team_self_warning": "Estás a punto de cambiar tu propio team."
       },
       "aria": {

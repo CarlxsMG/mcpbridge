@@ -225,7 +225,7 @@ async function confirmReject() {
                     :disabled="decidingId === a.id"
                     @click="requestReject(a)"
                   >
-                    <X :size="13" stroke-width="2" aria-hidden="true" /> {{ t("pages.approvals.table.deny") }}
+                    <X :size="13" stroke-width="2" aria-hidden="true" /> {{ t("pages.approvals.table.reject") }}
                   </button>
                 </template>
               </div>

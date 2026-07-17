@@ -44,7 +44,8 @@ function toggleEnabled(bundle: BundleSummary) {
       <RouterLink to="/bundles/new" class="btn-primary">{{ t("pages.bundles.create") }}</RouterLink>
     </PageHeader>
     <p class="subtitle">
-      {{ t("pages.bundles.subtitle") }}
+      {{ t("pages.bundles.subtitle_p1") }} <code>/mcp-custom/&lt;name&gt;</code>
+      {{ t("pages.bundles.subtitle_p2") }}
     </p>
 
     <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">

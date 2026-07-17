@@ -198,7 +198,8 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
         <FormField v-if="frequency === 'custom'" :label="t('pages.schedules.new.fields.cron')" for="sched-cron">
           <input id="sched-cron" v-model="customCron" type="text" placeholder="0 3 * * *" class="cron" />
           <p class="hint">
-            {{ t("pages.schedules.new.cron_hint") }} <code>min hour day-of-month month day-of-week</code>.
+            {{ t("pages.schedules.new.cron_hint") }} <code>{{ t("pages.schedules.new.cron_fields") }}</code
+            >.
           </p>
         </FormField>
 

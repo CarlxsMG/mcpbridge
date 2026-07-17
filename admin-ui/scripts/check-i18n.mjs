@@ -31,6 +31,17 @@
 //      format skeletons, proper names); anything else that matches is a real
 //      missing translation.
 //
+//   5. Eaten literals — every key whose value carries a vue-i18n named
+//      placeholder ({ident}) but that is only ever referenced as a bare literal
+//      t()/tk() with NO params object renders that placeholder verbatim on the
+//      page. Checks (1)-(4) all pass such a key (it exists in both bundles, is
+//      referenced, resolves, and its es value can differ), yet a user sees the
+//      raw "{name}"/"{base}" text. When the braces are meant to render
+//      literally, escape them in BOTH bundles with vue-i18n literal
+//      interpolation ({'{'}base{'}'}); otherwise pass the param at the call
+//      site. Keys reached only through dynamic key-construction are skipped
+//      (their params can't be seen statically).
+//
 // Future languages: extend this script to load each locale under
 // `src/locales/*.json` and assert parity + orphan-freedom against en.json.
 //
@@ -235,7 +246,21 @@ function collectReferences() {
     }
   }
 
-  return { referenced, literalReferenced, dynamicPatterns, rawText: fileTexts.join("\n") };
+  const rawText = fileTexts.join("\n");
+
+  // Keys passed a params object — a literal t()/tk() call with a second argument
+  // (a comma after the key literal). A vue-i18n `{placeholder}` in a message only
+  // renders when its call site supplies these params; recording "was ever called
+  // with params" lets the eaten-literal check (5) tell a real interpolation from a
+  // placeholder that ships verbatim. Scanned over the whole joined source (not
+  // line-by-line) so a params object wrapped onto the next line still counts; the
+  // bias toward marking a key param-referenced (even from a comment) matches this
+  // file's overall lean toward NOT flagging when in doubt.
+  const paramReferenced = new Set();
+  const tCallParamRe = /\b(?:t|tk)\(\s*['"]([^'"]+)['"]\s*,/g;
+  for (const m of rawText.matchAll(tCallParamRe)) paramReferenced.add(m[1]);
+
+  return { referenced, literalReferenced, paramReferenced, dynamicPatterns, rawText };
 }
 
 function findOrphans(localeKeys, { referenced, dynamicPatterns, rawText }) {
@@ -352,7 +377,36 @@ function run() {
     console.log(`i18n value-equality check OK: every es value differs from en (or is allowlisted)`);
   }
 
-  process.exit(parityOk && orphansOk && sourceOk && valuesOk ? 0 : 1);
+  // Eaten literals: a value with a vue-i18n {placeholder} that is only ever
+  // referenced as a bare literal t()/tk() (no params object anywhere) renders the
+  // placeholder verbatim at runtime — the bug that shipped "{name}" on the
+  // Bundles subtitle and "{base}" on the context-budget provider labels. Only
+  // literal-referenced keys are considered (a placeholder passed via a dynamic
+  // key can't have its params inspected here); enFlat/enKeys are reused from the
+  // value-equality section above.
+  const namedPlaceholderRe = /\{[A-Za-z_]\w*\}/;
+  const eatenLiterals = enKeys.filter((key) => {
+    const val = enFlat.get(key);
+    if (typeof val !== "string" || !namedPlaceholderRe.test(val)) return false;
+    return refs.literalReferenced.has(key) && !refs.paramReferenced.has(key);
+  });
+  const eatenOk = eatenLiterals.length === 0;
+
+  if (!eatenOk) {
+    console.error(`\ni18n eaten-literal check FAILED`);
+    console.error(
+      `\n  ${eatenLiterals.length} key(s) carry a vue-i18n {placeholder} but are called as a bare literal t()/tk() with no params — the placeholder ships verbatim on the page:`,
+    );
+    for (const k of eatenLiterals) console.error(`    - ${k} => ${JSON.stringify(enFlat.get(k))}`);
+    console.error(
+      `\n  Pass the interpolation param at the call site, or — if the braces must render literally — escape ` +
+        `them in en.json AND es.json with vue-i18n literal interpolation, e.g. {'{'}base{'}'}.`,
+    );
+  } else {
+    console.log(`i18n eaten-literal check OK: every {placeholder} key is passed params (or escaped)`);
+  }
+
+  process.exit(parityOk && orphansOk && sourceOk && valuesOk && eatenOk ? 0 : 1);
 }
 
 run();

@@ -124,12 +124,14 @@ function emitArgs() {
     <p v-if="fields.length === 0" class="hint">{{ t("components.schema_form.empty") }}</p>
     <div v-for="f in fields" :key="f.name" class="sf-field">
       <label :for="`sf-${f.name}`"> {{ f.name }}<span v-if="f.required" class="req">*</span> </label>
-      <p v-if="f.description" class="hint">{{ f.description }}</p>
+      <p v-if="f.description" :id="`sf-${f.name}-desc`" class="hint">{{ f.description }}</p>
       <input
         v-if="f.kind === 'boolean'"
         :id="`sf-${f.name}`"
         v-model="values[f.name]"
         type="checkbox"
+        :aria-required="f.required"
+        :aria-describedby="f.description ? `sf-${f.name}-desc` : undefined"
         @change="emitArgs"
       />
       <SelectMenu
@@ -137,6 +139,8 @@ function emitArgs() {
         :id="`sf-${f.name}`"
         :model-value="values[f.name] as string"
         :options="enumOptions(f)"
+        :aria-required="f.required"
+        :aria-describedby="f.description ? `sf-${f.name}-desc` : undefined"
         @update:model-value="(v) => setEnumValue(f.name, v)"
       />
       <textarea
@@ -144,6 +148,7 @@ function emitArgs() {
         :id="`sf-${f.name}`"
         v-model="values[f.name] as string"
         :required="f.required"
+        :aria-describedby="f.description ? `sf-${f.name}-desc` : undefined"
         rows="2"
         spellcheck="false"
         :placeholder="t('components.schema_form.json_placeholder')"
@@ -155,6 +160,7 @@ function emitArgs() {
         :id="`sf-${f.name}`"
         v-model="values[f.name] as string"
         :required="f.required"
+        :aria-describedby="f.description ? `sf-${f.name}-desc` : undefined"
         type="number"
         @input="emitArgs"
       />
@@ -163,6 +169,7 @@ function emitArgs() {
         :id="`sf-${f.name}`"
         v-model="values[f.name] as string"
         :required="f.required"
+        :aria-describedby="f.description ? `sf-${f.name}-desc` : undefined"
         type="text"
         @input="emitArgs"
       />

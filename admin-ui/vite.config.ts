@@ -77,7 +77,11 @@ export default defineConfig({
         lines: 65,
         statements: 62,
         functions: 58,
-        branches: 48,
+        // Ratcheted up (48 -> 52) after the ConnectClientDialog/SchemaForm/
+        // SelectMenu/GuardEditor and Config/Sso/BundleDetail/CompositeDetail page
+        // tests landed — kept a few points under the measured ~55% so ordinary
+        // branch-coverage jitter can't red the gate.
+        branches: 52,
       },
     },
   },

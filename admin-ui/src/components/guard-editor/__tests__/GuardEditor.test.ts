@@ -118,4 +118,30 @@ describe("GuardEditor", () => {
     expect(wrapper.find('[role="alertdialog"]').exists()).toBe(false);
     expect(apiPatch).not.toHaveBeenCalled();
   });
+
+  it("PATCHes the assembled rate-limit + timeout guards on submit and emits toolChanged", async () => {
+    apiPatch.mockResolvedValueOnce(undefined);
+    const wrapper = mountEditor();
+
+    await wrapper.find("#rate-limit").setValue("60");
+    await wrapper.find("#timeout").setValue("5000");
+    await wrapper.find("form.guard-editor").trigger("submit");
+    await flushPromises();
+
+    expect(apiPatch).toHaveBeenCalledWith("/admin-api/clients/acme/tools/search", {
+      guards: { rateLimitPerMin: 60, timeoutMs: 5000 },
+    });
+    expect(wrapper.emitted("toolChanged")).toHaveLength(1);
+  });
+
+  it("omits rate-limit and timeout from the payload when both fields are left blank", async () => {
+    apiPatch.mockResolvedValueOnce(undefined);
+    const wrapper = mountEditor();
+
+    await wrapper.find("form.guard-editor").trigger("submit");
+    await flushPromises();
+
+    expect(apiPatch).toHaveBeenCalledWith("/admin-api/clients/acme/tools/search", { guards: {} });
+    expect(wrapper.emitted("toolChanged")).toHaveLength(1);
+  });
 });
