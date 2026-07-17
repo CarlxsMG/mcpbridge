@@ -127,6 +127,8 @@ interface RestRequest {
   method: string;
   body: string | undefined;
   upstreamAuthHeaders: Record<string, string>;
+  /** OpenAPI in:header / in:cookie params for this call, already forbidden-header-filtered. Lowest header precedence. */
+  paramHeaders: Record<string, string>;
   redactionPaths: ReturnType<typeof getRedactionPaths>;
   reqController: AbortController;
 }
@@ -379,20 +381,41 @@ async function buildRestRequest(
   // unguarded DB query) would otherwise leak the inflightControllers entry and
   // the LB in-flight counter forever. Release locally and rethrow so the error
   // still propagates exactly as before.
+  // Route each remaining arg to its OpenAPI-declared location. Path params were
+  // already substituted into the endpoint and removed above; anything without an
+  // explicit location defaults to the query string for GET/DELETE (no body) and
+  // the JSON body for POST/PUT/PATCH. This is the fix for in:query/header/cookie
+  // params on body methods previously landing in the JSON body instead of the URL.
+  const isBodyMethod = method !== "GET" && method !== "DELETE";
+  // Header params a caller may never set — they'd break the pinned-Host SSRF
+  // invariant or the JSON framing. (Mirrors upstream-auth's FORBIDDEN_HEADERS.)
+  const FORBIDDEN_PARAM_HEADERS = new Set(["host", "content-length", "content-type"]);
+  const paramHeaders: Record<string, string> = {};
+  const cookiePairs: string[] = [];
   try {
-    if (method === "GET" || method === "DELETE") {
-      const params = new URLSearchParams();
-      for (const [key, value] of Object.entries(remainingArgs)) {
-        params.append(key, String(value));
+    const queryParams = new URLSearchParams();
+    const bodyArgs: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(remainingArgs)) {
+      const loc = tool.paramLocations?.[key] ?? (isBodyMethod ? "body" : "query");
+      if (loc === "header") {
+        if (!FORBIDDEN_PARAM_HEADERS.has(key.toLowerCase())) paramHeaders[key] = String(value);
+      } else if (loc === "cookie") {
+        cookiePairs.push(`${key}=${String(value)}`);
+      } else if (loc === "query") {
+        queryParams.append(key, String(value));
+      } else {
+        bodyArgs[key] = value;
       }
-      const queryString = params.toString();
-      if (queryString) {
-        url = `${url}?${queryString}`;
-      }
-    } else if (graphqlCfg?.enabled) {
+    }
+    const queryString = queryParams.toString();
+    if (queryString) url = `${url}${url.includes("?") ? "&" : "?"}${queryString}`;
+    if (cookiePairs.length > 0) paramHeaders["Cookie"] = cookiePairs.join("; ");
+
+    if (graphqlCfg?.enabled) {
+      // GraphQL tools carry no path/query params — all args are variables.
       body = JSON.stringify({ query: graphqlCfg.query, variables: remainingArgs });
-    } else {
-      body = JSON.stringify(remainingArgs);
+    } else if (isBodyMethod) {
+      body = JSON.stringify(bodyArgs);
     }
 
     // Inject per-client upstream credentials (decrypted at call time). Spread
@@ -416,6 +439,7 @@ async function buildRestRequest(
       method,
       body,
       upstreamAuthHeaders,
+      paramHeaders,
       redactionPaths,
       reqController,
     };
@@ -695,7 +719,7 @@ export async function dispatchRestToolCall(
     breaker.releaseProbe();
     return built;
   }
-  const { method, url, body, upstreamAuthHeaders, reqController, pinnedFetch } = built;
+  const { method, url, body, upstreamAuthHeaders, paramHeaders, reqController, pinnedFetch } = built;
 
   const startTime = Date.now();
 
@@ -749,6 +773,9 @@ export async function dispatchRestToolCall(
     return toolResult(f.resultMessage, { isError: true });
   };
 
+  // Set when the previous attempt already slept for a 429 Retry-After, so this
+  // attempt skips the exponential backoff instead of summing the two waits.
+  let retryAfterHonored = false;
   try {
     for (let attempt = 0; attempt <= (isIdempotent ? MAX_RETRIES : 0); attempt++) {
       if (attempt > 0) {
@@ -761,8 +788,15 @@ export async function dispatchRestToolCall(
         // fired during the backoff — a probe the secondary call then never
         // clears (recordBreaker* skip the breaker when bypassing).
         if (!route.bypassBreaker && !breaker.canRequest().allowed) break;
-        const delay = BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * BASE_DELAY;
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        if (retryAfterHonored) {
+          // The backend already told us exactly how long to wait via Retry-After
+          // and we slept it; adding the exponential backoff on top would double
+          // the delay. Honor the server's hint alone for this transition.
+          retryAfterHonored = false;
+        } else {
+          const delay = BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * BASE_DELAY;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
       }
 
       // A1: build a fresh composed signal per attempt so the timeout is renewed each time.
@@ -780,11 +814,15 @@ export async function dispatchRestToolCall(
       // Host header + redirect:"error" + hostname->IP pinning are all applied by
       // pinnedFetch (makePinnedFetch); the options below carry only method, the
       // trace/auth/content-type headers, the body, and the per-attempt signal.
+      // paramHeaders (OpenAPI in:header/cookie params) go first so injected
+      // upstream auth, the pinned Host, and Content-Type always win over any
+      // caller-supplied param that happens to share a header name.
       const fetchOptions: RequestInit =
         body !== undefined
           ? {
               method,
               headers: outboundTraceHeaders(undefined, {
+                ...paramHeaders,
                 ...upstreamAuthHeaders,
                 "Content-Type": "application/json",
               }),
@@ -794,6 +832,7 @@ export async function dispatchRestToolCall(
           : {
               method,
               headers: outboundTraceHeaders(undefined, {
+                ...paramHeaders,
                 ...upstreamAuthHeaders,
                 "Content-Type": "application/json",
               }),
@@ -819,11 +858,14 @@ export async function dispatchRestToolCall(
         // Check if retryable
         if (isIdempotent && RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
           proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
-          // A3: handle Retry-After header (integer seconds OR HTTP-date)
+          // A3: handle Retry-After header (integer seconds OR HTTP-date). When
+          // honored, flag it so the next iteration's exponential backoff is
+          // skipped (the two waits must not stack).
           if (response.status === 429) {
             const waitMs = parseRetryAfter(response.headers.get("retry-after"));
             if (waitMs !== null && waitMs > 0) {
               await new Promise((resolve) => setTimeout(resolve, waitMs));
+              retryAfterHonored = true;
             }
           }
           continue;

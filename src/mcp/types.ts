@@ -15,6 +15,16 @@ export interface RestToolDefinition {
   endpoint: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /**
+   * OpenAPI `in:` location for each non-path parameter that is NOT a request-body
+   * property, keyed by parameter name. Path params are handled by `:name`
+   * templating in the endpoint and never appear here. Absent/unmapped params
+   * default to the query string for GET/DELETE and the JSON body for
+   * POST/PUT/PATCH — so a `in: query` param on a POST reaches the URL, not the
+   * body (dispatch-rest.ts). Optional: legacy/manual/cURL tools omit it and keep
+   * the method-based default.
+   */
+  paramLocations?: Record<string, "query" | "header" | "cookie">;
 }
 
 /** Per-tool admin-configurable overrides. All fields optional — absent means "use the global default". */

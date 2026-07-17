@@ -1049,6 +1049,19 @@ export const migrations: Migration[] = [
         GROUP BY k.consumer_id;
     `,
   },
+  {
+    id: 56,
+    name: "tool_param_locations",
+    sql: `
+      -- OpenAPI 'in:' location (query/header/cookie) for each non-path, non-body
+      -- parameter of a REST tool, as a JSON object keyed by parameter name.
+      -- NULL/absent means "use the method-based default" (query for GET/DELETE,
+      -- JSON body for POST/PUT/PATCH) — the legacy behavior, so existing tools
+      -- are unaffected until re-discovered. Lets dispatch route an in:query param
+      -- on a POST/PUT/PATCH to the URL instead of silently into the JSON body.
+      ALTER TABLE tools ADD COLUMN param_locations TEXT;
+    `,
+  },
 ];
 
 /**

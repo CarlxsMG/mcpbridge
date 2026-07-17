@@ -175,13 +175,14 @@ export class RegistryPersistence {
       for (const tool of tools) {
         const toolRow = db
           .query(
-            `INSERT INTO tools (client_name, name, method, endpoint, description, input_schema, enabled, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+            `INSERT INTO tools (client_name, name, method, endpoint, description, input_schema, param_locations, enabled, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
              ON CONFLICT(client_name, name) DO UPDATE SET
                method = excluded.method,
                endpoint = excluded.endpoint,
                description = excluded.description,
                input_schema = excluded.input_schema,
+               param_locations = excluded.param_locations,
                updated_at = excluded.updated_at
              RETURNING enabled`,
           )
@@ -192,6 +193,7 @@ export class RegistryPersistence {
             tool.endpoint,
             tool.description,
             JSON.stringify(tool.inputSchema),
+            tool.paramLocations ? JSON.stringify(tool.paramLocations) : null,
             now,
             now,
           ) as {
@@ -352,7 +354,7 @@ export class RegistryPersistence {
 
     const toolRows = db
       .query(
-        `SELECT name, method, endpoint, description, input_schema, enabled, upstream_name FROM tools WHERE client_name = ?`,
+        `SELECT name, method, endpoint, description, input_schema, param_locations, enabled, upstream_name FROM tools WHERE client_name = ?`,
       )
       .all(name) as {
       name: string;
@@ -360,6 +362,7 @@ export class RegistryPersistence {
       endpoint: string;
       description: string;
       input_schema: string;
+      param_locations: string | null;
       enabled: number;
       upstream_name: string | null;
     }[];
@@ -381,6 +384,9 @@ export class RegistryPersistence {
         upstreamName: t.upstream_name ?? undefined,
         description: t.description,
         inputSchema: JSON.parse(t.input_schema) as Record<string, unknown>,
+        paramLocations: t.param_locations
+          ? (JSON.parse(t.param_locations) as RestToolDefinition["paramLocations"])
+          : undefined,
         enabled: t.enabled === 1,
         guards: rowToToolGuards(tg),
         override: rowToToolOverride(to),

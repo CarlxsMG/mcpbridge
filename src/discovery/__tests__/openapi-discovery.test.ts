@@ -64,6 +64,46 @@ describe("discoverToolsFromOpenApi — happy path JSON", () => {
 });
 
 // ---------------------------------------------------------------------------
+// paramLocations — non-path query/header/cookie params are recorded so dispatch
+// routes them out of the JSON body on POST/PUT/PATCH.
+// ---------------------------------------------------------------------------
+
+describe("discoverToolsFromOpenApi — parameter locations", () => {
+  const SPEC = JSON.stringify({
+    openapi: "3.0.0",
+    info: { title: "t", version: "1" },
+    paths: {
+      "/orders/{id}": {
+        post: {
+          operationId: "createOrder",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string" } },
+            { name: "notify", in: "query", schema: { type: "boolean" } },
+            { name: "X-Trace", in: "header", schema: { type: "string" } },
+          ],
+          requestBody: {
+            content: { "application/json": { schema: { type: "object", properties: { item: { type: "string" } } } } },
+          },
+          responses: { "200": { description: "ok" } },
+        },
+      },
+    },
+  });
+
+  test("records query/header params but not path or body params", async () => {
+    mockFetch(SPEC);
+    const { discoverToolsFromOpenApi } = await import("../../discovery/openapi-discovery.js");
+    const tools = await discoverToolsFromOpenApi({ openapiUrl: "http://example.com/openapi.json" });
+    const tool = tools.find((t) => t.name === "createOrder" || t.endpoint.includes("/orders/"));
+    expect(tool).toBeDefined();
+    expect(tool!.paramLocations).toEqual({ notify: "query", "X-Trace": "header" });
+    // Path param handled by :id templating, not paramLocations.
+    expect(tool!.endpoint).toContain(":id");
+    expect(tool!.paramLocations!.id).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // TEST 2: YAML content type parses correctly
 // ---------------------------------------------------------------------------
 

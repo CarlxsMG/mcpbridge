@@ -166,8 +166,9 @@ export async function discoverToolsFromOpenApi(options: {
       // Build description
       const description = operation.summary || operation.description || "No description";
 
-      // Build inputSchema
-      const inputSchema = buildInputSchema(operation, pathItem);
+      // Build inputSchema (+ the query/header/cookie location of each non-path,
+      // non-body parameter, so dispatch routes them correctly on body methods).
+      const { inputSchema, paramLocations } = buildInputSchema(operation, pathItem);
 
       tools.push({
         name,
@@ -175,6 +176,7 @@ export async function discoverToolsFromOpenApi(options: {
         endpoint,
         description,
         inputSchema,
+        ...(Object.keys(paramLocations).length > 0 ? { paramLocations } : {}),
       });
     }
   }
@@ -193,9 +195,10 @@ function generateToolName(method: string, path: string): string {
 function buildInputSchema(
   operation: OpenAPIV3.OperationObject,
   pathItem: OpenAPIV3.PathItemObject,
-): Record<string, unknown> {
+): { inputSchema: Record<string, unknown>; paramLocations: Record<string, "query" | "header" | "cookie"> } {
   const properties: Record<string, Record<string, unknown>> = {};
   const required: string[] = [];
+  const paramLocations: Record<string, "query" | "header" | "cookie"> = {};
 
   // Merge path-level and operation-level parameters
   const rawParams: (OpenAPIV3.ReferenceObject | OpenAPIV3.ParameterObject)[] = [
@@ -217,6 +220,12 @@ function buildInputSchema(
     }
     properties[p.name] = prop;
     if (p.required || p.in === "path") required.push(p.name);
+    // Record the non-path location so dispatch sends it as query/header/cookie
+    // rather than defaulting it into the JSON body on POST/PUT/PATCH. Path params
+    // are consumed by `:name` endpoint templating and never need routing here.
+    if (p.in === "query" || p.in === "header" || p.in === "cookie") {
+      paramLocations[p.name] = p.in;
+    }
   }
 
   // Merge request body
@@ -236,9 +245,12 @@ function buildInputSchema(
   }
 
   return {
-    type: "object" as const,
-    properties,
-    ...(required.length > 0 ? { required } : {}),
+    inputSchema: {
+      type: "object" as const,
+      properties,
+      ...(required.length > 0 ? { required } : {}),
+    },
+    paramLocations,
   };
 }
 
