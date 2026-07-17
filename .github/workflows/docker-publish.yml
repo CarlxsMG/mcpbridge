@@ -85,6 +85,38 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
+      # Assert the Dockerfile's pinned base-image digest still matches the live
+      # tag BEFORE building/scanning/pushing. The Dockerfile pins
+      # oven/bun:${BUN_VERSION}-alpine BY DIGEST, and Docker resolves
+      # `image:tag@digest` purely by digest — so bumping BUN_VERSION without also
+      # updating the @sha256 silently keeps building the OLD image content under a
+      # now-misleading tag (see the Dockerfile header comment). This resolves the
+      # tag's current multi-arch manifest-list digest via `docker buildx
+      # imagetools inspect` and fails the release if it differs from the pinned
+      # one, so a drifted pin can never be published. Version + digest are parsed
+      # straight out of the Dockerfile, its single source of truth. This lives on
+      # the rare tag-triggered publish path, not ci.yml's per-PR docker job — an
+      # anonymous Docker Hub call on every PR/push would let a Hub rate-limit or a
+      # base-tag republish redden an unrelated required check.
+      - name: Assert pinned base-image digest matches the live tag
+        run: |
+          set -euo pipefail
+          bun_version="$(sed -n 's/^ARG BUN_VERSION=//p' Dockerfile | head -n1)"
+          pinned_digest="$(sed -n 's/.*@\(sha256:[0-9a-f]\{64\}\).*/\1/p' Dockerfile | head -n1)"
+          if [ -z "$bun_version" ] || [ -z "$pinned_digest" ]; then
+            echo "::error::Could not parse BUN_VERSION / pinned @sha256 digest from Dockerfile."
+            exit 1
+          fi
+          tag="oven/bun:${bun_version}-alpine"
+          echo "Resolving ${tag} (Dockerfile pins ${pinned_digest})"
+          live_digest="$(docker buildx imagetools inspect "$tag" --format '{{.Manifest.Digest}}')"
+          echo "Live manifest-list digest: ${live_digest}"
+          if [ "$live_digest" != "$pinned_digest" ]; then
+            echo "::error::${tag} now resolves to ${live_digest}, but the Dockerfile pins ${pinned_digest}. Update the @sha256 on the FROM line (and keep BUN_VERSION/.bun-version in sync)."
+            exit 1
+          fi
+          echo "Base-image digest is in sync."
+
       # Build the amd64 image into the local daemon FIRST so Trivy can gate on
       # it before anything is published. The multi-arch push below reuses these
       # cached layers (cache-to gha), so the second build is fast.

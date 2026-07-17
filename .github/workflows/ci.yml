@@ -102,10 +102,10 @@ jobs:
     # dedicated test port, then runs the Playwright suite. The smoke test
     # alone was the only e2e gate for months; this job runs the full set
     # (12 specs: 1 smoke + 5 auth-fail-closed + 6 mcp-protocol — see
-    # e2e/README in your head). The webServer in playwright.config.ts
-    # builds admin-ui itself; the explicit build step here is a fast
-    # no-op that pre-warms the artifact so the test step doesn't pay
-    # for the build inside its own 120s timeout.
+    # e2e/README in your head). The webServer in playwright.config.ts runs
+    # `bun run build` itself (a full admin-ui rebuild — vite's emptyOutDir
+    # wipes dist first), so this job only installs deps; a separate build
+    # step here would just be thrown away and rebuilt inside the webServer.
     runs-on: ubuntu-latest
     needs: test
     timeout-minutes: 25
@@ -130,16 +130,25 @@ jobs:
         working-directory: admin-ui
         run: bun install --frozen-lockfile
 
-      - name: Build admin-ui
-        working-directory: admin-ui
-        run: bun run build
+      # Key the browser cache by the RESOLVED @playwright/test version, not the
+      # whole bun.lock: a lock bump that doesn't move Playwright still hits the
+      # cache and skips the (slow) Chromium download, while a Playwright bump
+      # correctly misses so the matching browser is fetched. restore-keys is the
+      # floor — a near-miss restores a warm dir instead of re-downloading.
+      - name: Resolve Playwright version
+        id: playwright-version
+        run: |
+          version="$(bun --print "require('@playwright/test/package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
 
       # System libraries Chromium needs are NOT stored in the browser cache, so
       # install them unconditionally; only the browser binary is cache-gated.
@@ -206,33 +215,13 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-      - name: Assert pinned base-image digest matches the live tag
-        # The Dockerfile pins oven/bun:${BUN_VERSION}-alpine BY DIGEST, and Docker
-        # resolves `image:tag@digest` purely by digest — so bumping BUN_VERSION
-        # without also updating the @sha256 silently keeps building the OLD image
-        # content under a now-misleading tag (see the Dockerfile header comment).
-        # Nothing else caught that drift; this step does: it resolves the tag's
-        # current multi-arch manifest-list digest via `docker buildx imagetools
-        # inspect` and fails the build if it differs from the pinned one. Both the
-        # version and the digest are parsed straight out of the Dockerfile so the
-        # check has a single source of truth.
-        run: |
-          set -euo pipefail
-          bun_version="$(sed -n 's/^ARG BUN_VERSION=//p' Dockerfile | head -n1)"
-          pinned_digest="$(sed -n 's/.*@\(sha256:[0-9a-f]\{64\}\).*/\1/p' Dockerfile | head -n1)"
-          if [ -z "$bun_version" ] || [ -z "$pinned_digest" ]; then
-            echo "::error::Could not parse BUN_VERSION / pinned @sha256 digest from Dockerfile."
-            exit 1
-          fi
-          tag="oven/bun:${bun_version}-alpine"
-          echo "Resolving ${tag} (Dockerfile pins ${pinned_digest})"
-          live_digest="$(docker buildx imagetools inspect "$tag" --format '{{.Manifest.Digest}}')"
-          echo "Live manifest-list digest: ${live_digest}"
-          if [ "$live_digest" != "$pinned_digest" ]; then
-            echo "::error::${tag} now resolves to ${live_digest}, but the Dockerfile pins ${pinned_digest}. Update the @sha256 on the FROM line (and keep BUN_VERSION/.bun-version in sync)."
-            exit 1
-          fi
-          echo "Base-image digest is in sync."
+      # NOTE: the base-image digest-drift assertion that used to live here was
+      # moved to docker-publish.yml (it now gates the actual publish). It made an
+      # anonymous Docker Hub API call (`docker buildx imagetools inspect`) on
+      # every PR/push, so a Hub rate-limit or a base-tag republish could redden
+      # this required gate on changes that never touched the Dockerfile. The
+      # release path is the right place for it: a drifted pin can't be published,
+      # and that path runs rarely enough that the anonymous Hub call is harmless.
       - name: Build image (no push)
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
@@ -289,6 +278,24 @@ jobs:
           docker run --rm -v "${{ github.workspace }}/monitoring:/rules" \
             prom/prometheus:v3.8.1 \
             promtool check rules /rules/prometheus/alerts.yaml
+
+  version-parity:
+    # Fails if the project version drifts between the places it's duplicated:
+    # root/admin-ui/docs package.json, the Helm chart's appVersion, and
+    # docker-compose.yml's default image tag. scripts/bump-version.ts keeps these
+    # in sync when cutting a release, but nothing re-checked they STAYED in sync —
+    # a hand-edit (or a half-finished bump) to any one file would otherwise ship a
+    # mismatched set. The script only reads files (no external deps), so this job
+    # skips `bun install` entirely.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - name: Check version parity
+        run: bun scripts/check-version-parity.ts
 
   test-windows:
     # The Linux `test` job above is the full gate (format/lint/build included);
