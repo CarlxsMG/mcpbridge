@@ -20,7 +20,7 @@ import { validateBackendUrl, isRawIpLiteral, pinnedWsDial } from "./net/ip-valid
 import { evaluateMcpAuth } from "./middleware/auth.js";
 import { isClientInKeyScope } from "./security/mcp-key-store.js";
 import { isOriginAllowed } from "./middleware/origin-validator.js";
-import { getCircuitBreaker } from "./middleware/circuit-breaker.js";
+import { getCircuitBreaker, removeCircuitBreaker } from "./middleware/circuit-breaker.js";
 import { registry } from "./mcp/registry.js";
 import { log } from "./logger.js";
 import { wsProxyActiveConnections, wsProxyBytesTotal } from "./observability/metrics.js";
@@ -194,6 +194,9 @@ export function deleteWsProxyTarget(name: string): boolean {
   if (result.changes === 0) return false;
   targets.delete(name);
   closeAllConnectionsForTarget(name);
+  // Drop the target's breaker so a wedged/open state can't survive a
+  // delete+recreate — a fresh target must start from a clean closed breaker.
+  removeCircuitBreaker(name);
   return true;
 }
 
@@ -351,9 +354,22 @@ export async function handleWsProxyUpgrade(req: IncomingMessage, socket: Duplex,
   }
 
   const wss = getSharedWss(target.maxMessageBytes);
+  // handleUpgrade invokes the callback synchronously on a successful upgrade, but
+  // on a malformed handshake (bad/missing Sec-WebSocket-Key or -Version, socket
+  // died mid-101) it calls abortHandshake and NEVER runs the callback. Since
+  // canRequest() above may have consumed the single half-open probe, a callback
+  // that doesn't fire would strand probeInFlight forever — wedging the target in
+  // half_open so every future connection is rejected as "Probing" (a per-target
+  // 503 DoS the idle sweep can't reclaim, because each rejection refreshes
+  // lastAccess). Release the unused probe grant when no dial started.
+  let dialStarted = false;
   wss.handleUpgrade(req, socket, head, (clientWs) => {
+    dialStarted = true;
     void dialBackendAndPipe(clientWs, target, breaker);
   });
+  if (!dialStarted) {
+    breaker.releaseProbe();
+  }
 }
 
 /** Caps how many caller messages can queue up while the backend dial is still in flight (a chatty caller during a slow/stalled dial shouldn't grow unbounded). */

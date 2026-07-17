@@ -137,6 +137,18 @@ export function isRawIpLiteral(hostname: string): boolean {
   return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[") || hostname.includes(":");
 }
 
+/**
+ * Render a pinned IP as a URL host component. A bare IPv6 literal (contains `:`)
+ * MUST be bracketed — assigning an unbracketed IPv6 to `URL.hostname` is silently
+ * ignored by the WHATWG host parser (the `:` reads as a port delimiter and the
+ * setter aborts), which would leave the original hostname in place and turn the
+ * whole DNS-rebinding pin into a no-op. IPv4 and already-bracketed literals pass
+ * through unchanged.
+ */
+export function toUrlHost(ip: string): string {
+  return ip.includes(":") && !ip.startsWith("[") ? `[${ip}]` : ip;
+}
+
 export async function validateBackendUrl(
   url: string,
   allowPrivateIps: boolean,
@@ -270,7 +282,7 @@ export function makePinnedFetch(originalHostname: string, ip: string, baseFetch:
     const u = new URL(typeof input === "string" ? input : input.toString());
     const host = u.host; // host:port, preserved as the Host header
     if (u.hostname === originalHostname) {
-      u.hostname = ip;
+      u.hostname = toUrlHost(ip); // bracket bare IPv6 so the pin isn't silently dropped
     }
     const headers = new Headers(init?.headers);
     headers.set("Host", host);
@@ -306,7 +318,7 @@ export function pinnedWsDial(wsUrl: string, ip: string): PinnedWsDial {
   const u = new URL(wsUrl.replace(/^ws/, "http"));
   if (isRawIpLiteral(u.hostname)) return { url: wsUrl, options: {} };
   const scheme = wsUrl.startsWith("wss") ? "wss" : "ws";
-  const dialUrl = `${scheme}://${ip}${u.port ? `:${u.port}` : ""}${u.pathname}${u.search}`;
+  const dialUrl = `${scheme}://${toUrlHost(ip)}${u.port ? `:${u.port}` : ""}${u.pathname}${u.search}`;
   const options: PinnedWsDial["options"] = { headers: { host: u.host } };
   if (scheme === "wss") options.servername = u.hostname;
   return { url: dialUrl, options };

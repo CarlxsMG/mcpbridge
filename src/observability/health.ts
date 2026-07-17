@@ -7,6 +7,7 @@ import { startLeaderGatedInterval } from "../lib/leader-loop.js";
 import { mcpUpstream } from "../mcp/mcp-upstream.js";
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
 import { healthCheckDuration, healthCheckRunsTotal, healthLoopErrorsTotal, healthEvictionsTotal } from "./metrics.js";
+import { toUrlHost } from "../net/ip-validator.js";
 import { errorMessage } from "../lib/error-message.js";
 
 async function checkBatch(clients: ReturnType<typeof registry.listClients>): Promise<void> {
@@ -35,7 +36,7 @@ async function checkBatch(clients: ReturnType<typeof registry.listClients>): Pro
             // Use pinned IP to prevent DNS rebinding
             const healthParsed = new URL(client.health_url);
             const originalHealthHost = healthParsed.host;
-            healthParsed.hostname = client.resolved_ip;
+            healthParsed.hostname = toUrlHost(client.resolved_ip); // bracket bare IPv6 or the pin no-ops
             const pinnedHealthUrl = healthParsed.toString();
 
             const res = await fetch(pinnedHealthUrl, {

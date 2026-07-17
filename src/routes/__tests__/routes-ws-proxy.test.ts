@@ -9,7 +9,7 @@ import type { AddressInfo } from "net";
 import type { Server as HttpServer } from "http";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
-import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
+import { removeCircuitBreaker, getCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import {
   upsertWsProxyTarget,
   handleWsProxyUpgrade,
@@ -195,5 +195,28 @@ describe("WS proxy passthrough", () => {
       setTimeout(() => resolve(false), 4000);
     });
     expect(closed).toBe(true);
+  });
+});
+
+describe("WS proxy — circuit-breaker probe lifecycle (regression)", () => {
+  // The probe-release-on-aborted-handshake fix (handleWsProxyUpgrade releases the
+  // half-open probe grant when handleUpgrade never invokes its callback) is
+  // deliberately NOT exercised through a raw malformed-handshake here: Bun's `ws`
+  // shim's handleUpgrade abort semantics diverge from Node's, making such an e2e
+  // non-deterministic. The fix is a defensive `if (!dialStarted) releaseProbe()`,
+  // correct under both semantics. The operator escape hatch below IS pinned.
+
+  test("deleteWsProxyTarget clears the breaker so a recreate starts closed", async () => {
+    await startApp();
+    const breaker = getCircuitBreaker("echo-target", { failureThreshold: 1, resetTimeoutMs: 60_000 });
+    await upsertWsProxyTarget("echo-target", { backendWsUrl: `ws://127.0.0.1:${backend!.port}` });
+    breaker.recordFailure();
+    expect(breaker.getState()).toBe("open");
+
+    const { deleteWsProxyTarget } = await import("../../ws-proxy.js");
+    expect(deleteWsProxyTarget("echo-target")).toBe(true);
+
+    // removeCircuitBreaker dropped the wedged instance; a fresh one is closed.
+    expect(getCircuitBreaker("echo-target").getState()).toBe("closed");
   });
 });

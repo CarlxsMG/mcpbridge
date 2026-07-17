@@ -59,6 +59,7 @@ import {
   validateBackendUrl,
   makePinnedFetch,
   pinnedWsDial,
+  toUrlHost,
   refreshPinIfStale,
   IP_PIN_TTL_MS,
   type PinnedIp,
@@ -379,6 +380,55 @@ describe("pinnedWsDial", () => {
   test("leaves a raw-IP-literal URL unchanged — no host rewrite, no header/SNI override", () => {
     const pin = pinnedWsDial("ws://127.0.0.1:9000/x", "127.0.0.1");
     expect(pin).toEqual({ url: "ws://127.0.0.1:9000/x", options: {} });
+  });
+
+  test("brackets a bare IPv6 pinned IP so the dial URL is valid (regression: bare IPv6 host is malformed)", () => {
+    const pin = pinnedWsDial("wss://backend.example/socket", "2606:4700::6810:85e5");
+    expect(pin.url).toBe("wss://[2606:4700::6810:85e5]/socket");
+    expect(pin.options).toEqual({ headers: { host: "backend.example" }, servername: "backend.example" });
+  });
+});
+
+// ===========================================================================
+// IPv6-literal bracketing regression — a bare IPv6 assigned to URL.hostname is
+// silently dropped by the WHATWG host parser (the `:` reads as a port
+// delimiter), so an unbracketed pin left the original hostname in place and
+// turned the whole DNS-rebinding pin into a no-op for AAAA-resolved backends.
+// ===========================================================================
+
+describe("toUrlHost — bracket bare IPv6, pass IPv4/bracketed through", () => {
+  test("brackets a bare IPv6 literal", () => {
+    expect(toUrlHost("2606:4700::6810:85e5")).toBe("[2606:4700::6810:85e5]");
+  });
+  test("leaves IPv4 untouched", () => {
+    expect(toUrlHost("93.184.216.34")).toBe("93.184.216.34");
+  });
+  test("does not double-bracket an already-bracketed literal", () => {
+    expect(toUrlHost("[2606:4700::6810:85e5]")).toBe("[2606:4700::6810:85e5]");
+  });
+});
+
+describe("makePinnedFetch — IPv6 pinned IP actually rewrites the hostname", () => {
+  test("brackets a bare IPv6 pin so the connect host changes (not a silent no-op)", async () => {
+    const originalFetch = globalThis.fetch;
+    let capturedUrl: string | undefined;
+    let capturedHost: string | undefined;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      capturedUrl = typeof input === "string" ? input : input.toString();
+      capturedHost = new Headers(init?.headers).get("Host") ?? undefined;
+      return new Response("ok");
+    }) as typeof fetch;
+
+    try {
+      const pinnedFetch = makePinnedFetch("example.com", "2606:4700::6810:85e5");
+      await pinnedFetch("http://example.com/some/path?x=1");
+      // The connect host MUST be the bracketed IPv6 — if the pin were dropped it
+      // would still read "example.com" and re-resolve at connect time.
+      expect(capturedUrl).toBe("http://[2606:4700::6810:85e5]/some/path?x=1");
+      expect(capturedHost).toBe("example.com");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
 
