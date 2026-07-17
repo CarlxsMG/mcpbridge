@@ -1,11 +1,16 @@
 import type { Request, Response, NextFunction } from "express";
 import { randomUUID } from "crypto";
 import { parseTraceparent, withTraceContext } from "../observability/trace-context.js";
+import { runWithRequestId } from "../logger.js";
 
 /**
  * Per-request middleware:
  *   - Stamps every request with an `X-Request-ID` (echoed in the response),
  *     generating one if the caller didn't supply one.
+ *   - Binds that id as the ambient correlation id (`runWithRequestId`) so every
+ *     `log()` call in this request's async tree — dispatch, proxy, guards — is
+ *     auto-tagged with `request_id`, without threading it through each layer.
+ *     This works with tracing OFF; it's independent of the trace context below.
  *   - Parses a W3C `traceparent` header (when present and well-formed) and
  *     stashes the parent in an AsyncLocalStorage context, so any code that
  *     later calls `startSpan(...)` from this request's async tree inherits
@@ -23,5 +28,7 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
   const tracestateRaw = req.headers["tracestate"];
   const tracestate = typeof tracestateRaw === "string" && tracestateRaw.length > 0 ? tracestateRaw : null;
 
-  withTraceContext({ traceparent, tracestate, currentSpan: null }, () => next());
+  runWithRequestId(requestId, () => {
+    withTraceContext({ traceparent, tracestate, currentSpan: null }, () => next());
+  });
 }

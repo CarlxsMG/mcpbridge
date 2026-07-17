@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { Counter, Gauge, Histogram, MetricsRegistry } from "../../observability/metrics.js";
+import { Counter, Gauge, Histogram, MetricsRegistry, buildInfo, metricsRegistry } from "../../observability/metrics.js";
 import express from "express";
 import { createServer } from "http";
 import { metricsRoutes } from "../../routes/metrics.js";
 import { config } from "../../config.js";
+import pkg from "../../../package.json";
 
 const TEST_ADMIN_KEY = "test-admin-key-metrics";
 const AUTH_HEADER = { Authorization: `Bearer ${TEST_ADMIN_KEY}` };
@@ -111,6 +112,28 @@ describe("MetricsRegistry", () => {
     const r = new MetricsRegistry();
     r.register(new Counter("nl_counter", "nl"));
     expect(r.render().endsWith("\n")).toBe(true);
+  });
+});
+
+// ── Build info gauge ────────────────────────────────────────────────────────
+
+describe("mcp_build_info", () => {
+  it("is populated at module load with the package version, at a constant 1", () => {
+    const line = buildInfo
+      .render()
+      .split("\n")
+      .find((l) => l.startsWith("mcp_build_info{"));
+    expect(line).toBeDefined();
+    expect(line).toContain(`version="${pkg.version}"`);
+    expect(line).toContain('bun="');
+    // The value is always 1 — the labels carry the payload.
+    expect(line?.endsWith(" 1")).toBe(true);
+  });
+
+  it("declares HELP/TYPE metadata and is part of the global registry render", () => {
+    const rendered = buildInfo.render();
+    expect(rendered).toContain("# TYPE mcp_build_info gauge");
+    expect(metricsRegistry.render()).toContain("mcp_build_info{");
   });
 });
 

@@ -1,6 +1,26 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { config } from "./config.js";
 
 type LogLevel = "info" | "warn" | "error";
+
+// Per-request correlation id. `requestIdMiddleware` seeds it via
+// `runWithRequestId`, and `log()` (below) auto-attaches it to every line
+// emitted inside that request's async tree — so dispatch/proxy/guard logs all
+// carry the same id already echoed in the `X-Request-ID` response header,
+// without threading it through every call site. Kept here, next to its only
+// reader, rather than in the middleware: independent of tracing (populated
+// whether or not OTLP export is enabled or a `traceparent` was supplied).
+const requestIdStorage = new AsyncLocalStorage<string>();
+
+/**
+ * Runs `fn` (and everything it awaits) with `requestId` bound as the ambient
+ * correlation id, so any `log()` call inside it is auto-tagged with
+ * `request_id`. Used by `requestIdMiddleware`; safe to nest (an inner run
+ * shadows the outer for its own subtree).
+ */
+export function runWithRequestId<T>(requestId: string, fn: () => T): T {
+  return requestIdStorage.run(requestId, fn);
+}
 
 // Defense-in-depth secret redaction: if a log meta key *names* a credential, its
 // value is replaced with "<redacted>" before it ever reaches stdout / the SIEM,
@@ -68,12 +88,18 @@ function redactMeta(meta: Record<string, unknown>): Record<string, unknown> {
 
 export function log(level: LogLevel, message: string, meta?: Record<string, unknown>): void {
   const safeMeta = meta ? redactMeta(meta) : undefined;
+  // Auto-attach the active request's correlation id (seeded by
+  // requestIdMiddleware). An explicit `request_id` in `meta` still wins — it's
+  // spread last — so call sites that already pass one (e.g. the global error
+  // handler) are unchanged. Outside any request, nothing is added.
+  const requestId = requestIdStorage.getStore();
+  const enriched = requestId !== undefined ? { request_id: requestId, ...safeMeta } : safeMeta;
   if (config.logFormat === "json") {
-    const entry = { timestamp: new Date().toISOString(), level, message, ...safeMeta };
+    const entry = { timestamp: new Date().toISOString(), level, message, ...enriched };
     console[level === "error" ? "error" : "log"](JSON.stringify(entry));
   } else {
     const prefix = `[${new Date().toISOString()}] [${level.toUpperCase()}]`;
-    const metaStr = safeMeta ? " " + JSON.stringify(safeMeta) : "";
+    const metaStr = enriched ? " " + JSON.stringify(enriched) : "";
     console[level === "error" ? "error" : "log"](`${prefix} ${message}${metaStr}`);
   }
 }

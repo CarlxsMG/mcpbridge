@@ -300,4 +300,87 @@ describe("startLeaderGatedInterval", () => {
       logSpy.mockRestore();
     }
   });
+
+  // Re-entry guard: a pass slower than the interval must not overlap itself
+  // (which would double-count consecutive failures / duplicate probes in the
+  // health loop, and double-fire alerts/schedules). Ticks that arrive while the
+  // previous `fn` is still in flight are skipped; once it settles, a fresh tick
+  // runs again.
+  test("skips overlapping runs while the previous fn is still in flight, then resumes once it settles", async () => {
+    const isLeaderSpy = spyOn(leaderLeaseMod, "isLeader").mockReturnValue(true);
+    let capturedFn: (() => void) | undefined;
+    const setIntervalSpy = spyOn(global, "setInterval").mockImplementation(
+      asSetIntervalImpl((cb) => {
+        capturedFn = cb;
+        return fakeTimer();
+      }),
+    );
+    let starts = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // Each run parks on `gate` — it stays in flight until we call release().
+    const fn = (): Promise<void> => {
+      starts++;
+      return gate;
+    };
+    try {
+      // The immediate tick at start begins run #1; it parks on the gate.
+      startLeaderGatedInterval(fn, 1000);
+      expect(starts).toBe(1);
+      expect(capturedFn).toBeDefined();
+
+      // Fire several more ticks while run #1 is still parked — all skipped.
+      capturedFn!();
+      capturedFn!();
+      await flushMicrotasks();
+      expect(starts).toBe(1);
+
+      // Let run #1 finish and the in-flight guard clear, then a fresh tick runs.
+      release();
+      await flushMicrotasks();
+      capturedFn!();
+      expect(starts).toBe(2);
+    } finally {
+      setIntervalSpy.mockRestore();
+      isLeaderSpy.mockRestore();
+    }
+  });
+
+  test("re-entry guard is cleared even when fn rejects, so a stuck run can't wedge the loop permanently", async () => {
+    const isLeaderSpy = spyOn(leaderLeaseMod, "isLeader").mockReturnValue(true);
+    const logSpy = spyOn(loggerMod, "log").mockImplementation(() => {});
+    let capturedFn: (() => void) | undefined;
+    const setIntervalSpy = spyOn(global, "setInterval").mockImplementation(
+      asSetIntervalImpl((cb) => {
+        capturedFn = cb;
+        return fakeTimer();
+      }),
+    );
+    let starts = 0;
+    try {
+      // Immediate run rejects → runSafely swallows+logs, and the `.finally`
+      // must still reset the guard.
+      startLeaderGatedInterval(() => {
+        starts++;
+        return Promise.reject(new Error("boom"));
+      }, 1000);
+      expect(starts).toBe(1);
+      await flushMicrotasks();
+      expect(logSpy).toHaveBeenCalledTimes(1);
+
+      // A later tick is NOT blocked by the failed run.
+      capturedFn!();
+      expect(starts).toBe(2);
+      // Drain the second rejection's swallow+log while the spy is still active,
+      // so it's counted here rather than leaking to the real logger after restore.
+      await flushMicrotasks();
+      expect(logSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      setIntervalSpy.mockRestore();
+      isLeaderSpy.mockRestore();
+      logSpy.mockRestore();
+    }
+  });
 });

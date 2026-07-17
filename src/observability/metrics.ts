@@ -3,6 +3,11 @@
  * No external dependencies. Supports Counter, Gauge, and Histogram.
  */
 
+// Bun parses JSON modules at bundle time, so this resolves identically under
+// `bun src/index.ts` and a `bun build --compile` binary (see the note in
+// src/mcp/mcp-server.ts). Used only for the mcp_build_info gauge below.
+import pkg from "../../package.json";
+
 // ── Label helpers ─────────────────────────────────────────────────────────────
 
 function formatLabels(labels: Record<string, string>): string {
@@ -171,6 +176,21 @@ export class MetricsRegistry {
 }
 
 export const metricsRegistry = new MetricsRegistry();
+
+// ── Build info ────────────────────────────────────────────────────────────────
+
+/**
+ * A constant `1` gauge whose labels pin the running build, so a dashboard can
+ * display exactly which version/runtime is live. Populated once at module load
+ * — i.e. at server boot, since every entrypoint imports this registry. The
+ * version comes from package.json (the same source the CLI and MCP server
+ * advertise), never hardcoded; `bun` is cheap and useful for spotting a runtime
+ * skew across replicas.
+ */
+export const buildInfo = metricsRegistry.register(
+  new Gauge("mcp_build_info", "Build and runtime info; constant 1, the labels carry the version"),
+);
+buildInfo.set({ version: pkg.version, bun: Bun.version }, 1);
 
 // ── Metric constants ──────────────────────────────────────────────────────────
 

@@ -28,10 +28,11 @@
  * `src/index.ts` today) can hook it into its graceful-shutdown sequence;
  * tests can ignore it.
  */
-import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import express, { type Express, type Request, type Response, type NextFunction, type RequestHandler } from "express";
 import { config } from "./config.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { enforceJsonDepth } from "./middleware/json-depth.js";
+import { requestId } from "./routes/http-errors.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { rateLimitGlobal } from "./middleware/rate-limiter.js";
 import { log } from "./logger.js";
@@ -69,6 +70,45 @@ export interface CreateAppResult {
   cleanupTransports: () => void;
 }
 
+/**
+ * `enforceJsonDepth` (400 JSON_TOO_DEEP) and `rateLimitGlobal` (429
+ * RATE_LIMITED) short-circuit the request with their own hand-built
+ * `{ error: {...} }` body and never reach the global error handler below, so —
+ * alone among the app's error responses — their bodies would omit the
+ * `request_id`. Rather than fork those shared middlewares, wrap them so any
+ * error envelope they emit is backfilled with the current request id.
+ *
+ * `res.json` is restored the instant the wrapped middleware sends its body or
+ * passes control on, so nothing downstream (notably the MCP JSON-RPC
+ * transports, whose own `error` payloads must be left untouched) ever observes
+ * the patched method. Bodies that already carry a `request_id` are left as-is.
+ */
+function withRequestIdError(mw: RequestHandler): RequestHandler {
+  return (req, res, next) => {
+    const originalJson = res.json.bind(res);
+    // Idempotent: the wrapped middleware either sends its body (patched path) or
+    // passes control on, never both, and re-assigning the same function is a
+    // no-op regardless.
+    const restore = (): void => {
+      res.json = originalJson;
+    };
+    res.json = ((body?: unknown): Response => {
+      restore();
+      if (body !== null && typeof body === "object" && "error" in body) {
+        const errField = (body as { error: unknown }).error;
+        if (errField !== null && typeof errField === "object" && !("request_id" in errField)) {
+          (errField as Record<string, unknown>).request_id = requestId(res);
+        }
+      }
+      return originalJson(body);
+    }) as typeof res.json;
+    mw(req, res, (err?: unknown) => {
+      restore();
+      next(err);
+    });
+  };
+}
+
 export function createApp(): CreateAppResult {
   const app = express();
   app.disable("x-powered-by");
@@ -82,9 +122,14 @@ export function createApp(): CreateAppResult {
       "SECRETS_PROVIDER=vault: OIDC client secrets use Vault, but backend upstream credentials (client_upstream_auth) still use the local SECRET_ENCRYPTION_KEY — setting one is refused to avoid a false compliance guarantee",
     );
   }
-  app.use(express.json({ limit: "64kb", strict: true }));
-  app.use(enforceJsonDepth(config.maxJsonDepth));
+  // request-id is the FIRST middleware so every downstream error can carry the
+  // correlation id: the body-parser's own 413/malformed-400 and any router
+  // throw reach the global error envelope with `res.locals.requestId` set,
+  // while JSON-depth (400) and rate-limit (429) — which write their own body
+  // and never reach that handler — get it via `withRequestIdError`.
   app.use(requestIdMiddleware);
+  app.use(express.json({ limit: "64kb", strict: true }));
+  app.use(withRequestIdError(enforceJsonDepth(config.maxJsonDepth)));
 
   // ─── Baseline security headers ────────────────────────────────────────────
   app.use((req, res, next) => {
@@ -128,7 +173,7 @@ export function createApp(): CreateAppResult {
   });
 
   app.use(corsMiddleware);
-  app.use(rateLimitGlobal(config.rateLimitGlobal));
+  app.use(withRequestIdError(rateLimitGlobal(config.rateLimitGlobal)));
 
   // MCP transports (Streamable HTTP — the legacy inbound SSE transport was removed)
   const cleanupTransports = setupTransports(app);

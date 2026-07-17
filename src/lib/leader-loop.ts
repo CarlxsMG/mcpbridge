@@ -60,11 +60,23 @@ export function startPeriodicSweep(fn: LoopFn, intervalMs: number): () => void {
  * Starts a leader-gated periodic loop: runs `fn` immediately, then again
  * every `intervalMs`, but only when `isLeader()` is true. Returns a stop
  * function.
+ *
+ * A re-entry guard skips any tick that fires while the previous `fn` is still
+ * in flight, so a pass slower than `intervalMs` can't overlap itself — which
+ * would otherwise double-count consecutive failures / duplicate probes in the
+ * health loop, and fire alerts/schedules twice for the loops that share this
+ * scaffold. The guard is reset in a `finally` so a throwing/rejecting `fn`
+ * (already swallowed by `runSafely`) can never wedge it permanently.
  */
 export function startLeaderGatedInterval(fn: LoopFn, intervalMs: number): () => void {
+  let running = false;
   const tick = (): void => {
     if (!isLeader()) return;
-    void runSafely(fn, "Leader-gated loop encountered an unhandled error");
+    if (running) return; // previous pass still in flight — skip to avoid overlap
+    running = true;
+    void runSafely(fn, "Leader-gated loop encountered an unhandled error").finally(() => {
+      running = false;
+    });
   };
 
   tick();

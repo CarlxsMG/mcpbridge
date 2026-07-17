@@ -33,6 +33,7 @@ import { __resetDbForTesting } from "../db/connection.js";
 import { __resetLeaderFlagForTesting } from "../db/leader-lease.js";
 import { createApp } from "../server.js";
 import * as loggerMod from "../logger.js";
+import { _internalsForTesting as rateLimiterInternals } from "../middleware/rate-limiter.js";
 
 let activeServer: Server | null = null;
 let baseUrl = "";
@@ -222,6 +223,76 @@ describe("baseline security headers — exact values", () => {
     await startApp();
     const res = await fetch(`${baseUrl}/livez`, { headers: { "X-Forwarded-Proto": "http" } });
     expect(res.headers.get("Strict-Transport-Security")).toBeNull();
+  });
+});
+
+// ─── Error-envelope request_id (finding #52) ─────────────────────────────────
+//
+// requestIdMiddleware is now the FIRST middleware, so the two error responses
+// that write their own body and never reach the global handler — JSON-depth's
+// 400 and the global rate-limit's 429 — are wrapped so they still carry the
+// request_id (via withRequestIdError). The body-parser's own errors reach the
+// global handler with res.locals.requestId already set, so those carry it too.
+
+describe("error-envelope request_id", () => {
+  // Any path works — these middlewares run before routing, so the request never
+  // needs to match a real route.
+  const probePath = "/__envelope_probe__";
+
+  test("400 JSON_TOO_DEEP body carries the request_id", async () => {
+    await startApp();
+    let payload: unknown = { leaf: true };
+    for (let i = 0; i < config.maxJsonDepth + 5; i++) payload = { nested: payload };
+    const res = await fetch(`${baseUrl}${probePath}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Request-ID": "depth-req-id" },
+      body: JSON.stringify(payload),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string; request_id: string } };
+    expect(body.error.code).toBe("JSON_TOO_DEEP");
+    expect(body.error.request_id).toBe("depth-req-id");
+  });
+
+  test("429 RATE_LIMITED body carries the request_id and keeps its retry_after", async () => {
+    const originalGlobal = config.rateLimitGlobal;
+    (config as Record<string, unknown>).rateLimitGlobal = 1;
+    rateLimiterInternals.globalBuckets.clear();
+    try {
+      await startApp(); // captures the limit of 1 in the rateLimitGlobal closure
+      const first = await fetch(`${baseUrl}/livez`);
+      expect(first.status).toBe(200); // consumes the single token
+      const res = await fetch(`${baseUrl}/livez`, { headers: { "X-Request-ID": "rl-req-id" } });
+      expect(res.status).toBe(429);
+      const body = (await res.json()) as { error: { code: string; request_id: string; retry_after?: number } };
+      expect(body.error.code).toBe("RATE_LIMITED");
+      expect(body.error.request_id).toBe("rl-req-id");
+      expect(typeof body.error.retry_after).toBe("number");
+    } finally {
+      (config as Record<string, unknown>).rateLimitGlobal = originalGlobal;
+      rateLimiterInternals.globalBuckets.clear();
+    }
+  });
+
+  test("a malformed-JSON 400 (via the global error handler) now carries the request_id after the reorder", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}${probePath}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Request-ID": "malformed-req-id" },
+      body: '{"a":}',
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { request_id: string | null } };
+    expect(body.error.request_id).toBe("malformed-req-id");
+  });
+
+  test("a normal 200 JSON response is left untouched by the backfill wrapper (res.json restored, no error field injected)", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/livez`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect("error" in body).toBe(false);
+    expect(body.status).toBe("alive");
   });
 });
 

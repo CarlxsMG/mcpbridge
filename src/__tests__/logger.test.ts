@@ -5,7 +5,7 @@
  */
 import { describe, test, expect, spyOn } from "bun:test";
 import { config } from "../config.js";
-import { log } from "../logger.js";
+import { log, runWithRequestId } from "../logger.js";
 
 /** Runs log() in JSON mode and returns the parsed entry it wrote. */
 function captured(meta: Record<string, unknown>): Record<string, unknown> {
@@ -60,5 +60,59 @@ describe("logger — secret redaction", () => {
   test("redacts a top-level secret-named key whole, without descending", () => {
     const e = captured({ authorization: { scheme: "Bearer", value: "xyz" } });
     expect(e.authorization).toBe("<redacted>");
+  });
+});
+
+describe("logger — request-id correlation (ALS)", () => {
+  test("auto-attaches the ambient request_id to a log line emitted inside runWithRequestId", () => {
+    let entry: Record<string, unknown> | undefined;
+    runWithRequestId("req-abc-123", () => {
+      entry = captured({ foo: "bar" });
+    });
+    expect(entry?.request_id).toBe("req-abc-123");
+    // Meta is preserved alongside the injected id.
+    expect(entry?.foo).toBe("bar");
+  });
+
+  test("attaches request_id even when no meta object is supplied", () => {
+    const original = config.logFormat;
+    (config as Record<string, unknown>).logFormat = "json";
+    const spy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      runWithRequestId("solo-id", () => log("info", "no-meta"));
+      const line = spy.mock.calls.at(-1)?.[0];
+      const entry = JSON.parse(String(line)) as Record<string, unknown>;
+      expect(entry.request_id).toBe("solo-id");
+    } finally {
+      spy.mockRestore();
+      (config as Record<string, unknown>).logFormat = original;
+    }
+  });
+
+  test("omits request_id entirely when logging outside any request context", () => {
+    const e = captured({ note: "outside" });
+    expect("request_id" in e).toBe(false);
+    expect(e.note).toBe("outside");
+  });
+
+  test("an explicit request_id in meta overrides the ambient one (spread last wins)", () => {
+    let entry: Record<string, unknown> | undefined;
+    runWithRequestId("ambient-id", () => {
+      entry = captured({ request_id: "explicit-id" });
+    });
+    expect(entry?.request_id).toBe("explicit-id");
+  });
+
+  test("nested runWithRequestId shadows the outer id for its own subtree", () => {
+    let outer: Record<string, unknown> | undefined;
+    let inner: Record<string, unknown> | undefined;
+    runWithRequestId("outer-id", () => {
+      runWithRequestId("inner-id", () => {
+        inner = captured({});
+      });
+      outer = captured({});
+    });
+    expect(inner?.request_id).toBe("inner-id");
+    expect(outer?.request_id).toBe("outer-id");
   });
 });
