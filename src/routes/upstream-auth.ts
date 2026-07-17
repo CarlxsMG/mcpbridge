@@ -5,6 +5,7 @@ import { requireAdminRole, ensureClientAccess } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { getDb } from "../db/connection.js";
 import { isSecretBoxConfigured } from "../security/secret-box.js";
+import { config } from "../config.js";
 import {
   getUpstreamAuthInfo,
   setUpstreamAuth,
@@ -84,6 +85,22 @@ export function upstreamAuthRoutes(app: Express): void {
     if (!ensureClientAccess(req, res, name)) return;
     if (!clientExists(name)) {
       notFound(res, "CLIENT_NOT_FOUND", "Client not found");
+      return;
+    }
+    // Backend upstream credentials are stored via the synchronous local
+    // secret-box (SECRET_ENCRYPTION_KEY), NOT through the pluggable
+    // SecretsProvider — unlike OIDC client secrets. Under SECRETS_PROVIDER=vault
+    // an operator (rightly) expects backend secrets to live in Vault; silently
+    // encrypting them with the local key instead would be a false compliance
+    // guarantee. Fail loudly rather than lie: refuse the write until this path
+    // is migrated onto getSecretsProvider().
+    if (config.secretsProvider === "vault") {
+      sendError(
+        res,
+        501,
+        "UPSTREAM_AUTH_VAULT_UNSUPPORTED",
+        "Backend upstream credentials are not yet stored via Vault; they would use the local SECRET_ENCRYPTION_KEY. Refusing to avoid a false compliance guarantee.",
+      );
       return;
     }
     if (!isSecretBoxConfigured()) {

@@ -21,7 +21,7 @@ import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { requestIdMiddleware } from "../../middleware/request-id.js";
-import { getCircuitBreaker } from "../../middleware/circuit-breaker.js";
+import { getCircuitBreaker, removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import { checkRateLimit, getRateLimitBucketSizes, _internalsForTesting } from "../../middleware/rate-limiter.js";
 import { recordToolCall } from "../../observability/metrics.js";
 
@@ -127,6 +127,23 @@ describe("GET /metrics", () => {
       const res = await fetch(`${baseUrl}/metrics`, { headers: bearer() });
       const body = await res.text();
       expect(body).toContain(`mcp_breaker_current_state{client="${clientName}"} 2`);
+    });
+  });
+
+  // Regression: the breaker gauge must be reset before each snapshot so an
+  // evicted client's series doesn't linger at its last value (a permanent false
+  // MCPCircuitBreakerOpen alert + unbounded cardinality). Without the reset the
+  // second scrape would still show the stale `... 2` line.
+  test("drops an evicted breaker's gauge series on the next scrape", async () => {
+    await withApp(async (baseUrl) => {
+      const clientName = "metrics-test-evicted-breaker";
+      getCircuitBreaker(clientName, { failureThreshold: 1 }).recordFailure();
+      const first = await (await fetch(`${baseUrl}/metrics`, { headers: bearer() })).text();
+      expect(first).toContain(`mcp_breaker_current_state{client="${clientName}"}`);
+
+      removeCircuitBreaker(clientName); // simulate idle eviction / unregister
+      const second = await (await fetch(`${baseUrl}/metrics`, { headers: bearer() })).text();
+      expect(second).not.toContain(`mcp_breaker_current_state{client="${clientName}"}`);
     });
   });
 

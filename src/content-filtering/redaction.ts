@@ -87,6 +87,29 @@ export function getRedactionForClient(clientName: string): Record<string, string
   return out;
 }
 
+/** HTTP auth schemes whose bare token is worth stripping on its own (see below). Scheme match is case-insensitive per RFC 7235. */
+const CREDENTIAL_SCHEMES = ["bearer ", "basic ", "token ", "digest "];
+
+/**
+ * Every distinct secret substring worth redacting for a single injected header
+ * value: the full value, plus — when it carries a known auth scheme — the bare
+ * token after the scheme word. A backend that echoes only `<token>` (not the
+ * whole `Authorization: Bearer <token>`) would otherwise slip past a full-value
+ * match and leak the credential.
+ */
+function credentialNeedles(value: string): string[] {
+  const needles = [value];
+  const lower = value.toLowerCase();
+  for (const scheme of CREDENTIAL_SCHEMES) {
+    if (lower.startsWith(scheme)) {
+      const token = value.slice(scheme.length).trim();
+      if (token) needles.push(token);
+      break;
+    }
+  }
+  return needles;
+}
+
 /**
  * Strips the gateway's OWN injected upstream-credential values from a response
  * body before it reaches the MCP caller. Response headers are never forwarded,
@@ -94,15 +117,19 @@ export function getRedactionForClient(clientName: string): Record<string, string
  * body (debug / echo endpoints, verbose errors) would otherwise leak the
  * gateway-injected credential to a caller authorized to CALL the tool but not to
  * HOLD the secret, defeating the credential-broker property. Runs
- * unconditionally, independent of per-tool redaction config. The length guard
- * avoids mangling legitimate content that happens to equal a trivially short
- * header value.
+ * unconditionally, independent of per-tool redaction config. Redacts both the
+ * full header value AND, for scheme-prefixed values (`Bearer <token>` etc.), the
+ * bare token — a backend reflecting only the token would otherwise leak it. The
+ * length guard avoids mangling legitimate content that happens to equal a
+ * trivially short header value/token.
  */
 export function stripInjectedCredentials(text: string, headers: Record<string, string>): string {
   let out = text;
   for (const value of Object.values(headers)) {
-    if (value.length >= 8 && out.includes(value)) {
-      out = out.split(value).join("<redacted>");
+    for (const needle of credentialNeedles(value)) {
+      if (needle.length >= 8 && out.includes(needle)) {
+        out = out.split(needle).join("<redacted>");
+      }
     }
   }
   return out;

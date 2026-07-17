@@ -9,7 +9,12 @@ import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
-import { applyRedaction, setRedactionPaths, getRedactionPaths } from "../../content-filtering/redaction.js";
+import {
+  applyRedaction,
+  setRedactionPaths,
+  getRedactionPaths,
+  stripInjectedCredentials,
+} from "../../content-filtering/redaction.js";
 import { requestIdMiddleware } from "../../middleware/request-id.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
 
@@ -85,6 +90,44 @@ describe("applyRedaction", () => {
     }
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
     expect(typeof Object.prototype.hasOwnProperty).toBe("function");
+  });
+});
+
+describe("stripInjectedCredentials", () => {
+  test("redacts the full injected header value when reflected", () => {
+    const out = stripInjectedCredentials(`{"seen":"Bearer sk-abc123def456"}`, {
+      Authorization: "Bearer sk-abc123def456",
+    });
+    expect(out).not.toContain("sk-abc123def456");
+    expect(out).toContain("<redacted>");
+  });
+
+  test("redacts the BARE token when a backend echoes it without the scheme prefix", () => {
+    // The exploit this closes: backend reflects only "sk-abc123def456", not the
+    // whole "Bearer sk-abc123def456", which a full-value match would miss.
+    const out = stripInjectedCredentials(`{"token":"sk-abc123def456"}`, {
+      Authorization: "Bearer sk-abc123def456",
+    });
+    expect(out).not.toContain("sk-abc123def456");
+    expect(out).toContain("<redacted>");
+  });
+
+  test("scheme match is case-insensitive (bearer/Bearer)", () => {
+    const out = stripInjectedCredentials(`{"t":"tok-longenough-1234"}`, {
+      Authorization: "bearer tok-longenough-1234",
+    });
+    expect(out).not.toContain("tok-longenough-1234");
+  });
+
+  test("strips the base64 blob of a Basic credential reflected on its own", () => {
+    const blob = Buffer.from("user:password").toString("base64");
+    const out = stripInjectedCredentials(`{"decoded":"${blob}"}`, { Authorization: `Basic ${blob}` });
+    expect(out).not.toContain(blob);
+  });
+
+  test("does not redact a short (<8 char) token, avoiding mangling legitimate content", () => {
+    const out = stripInjectedCredentials(`{"msg":"abc appears here"}`, { Authorization: "Bearer abc" });
+    expect(out).toContain("abc appears here");
   });
 });
 

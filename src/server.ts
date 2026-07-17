@@ -76,6 +76,12 @@ export function createApp(): CreateAppResult {
   if (config.trustProxy) {
     log("warn", "TRUST_PROXY is enabled — ensure this server is behind a trusted reverse proxy");
   }
+  if (config.secretsProvider === "vault") {
+    log(
+      "warn",
+      "SECRETS_PROVIDER=vault: OIDC client secrets use Vault, but backend upstream credentials (client_upstream_auth) still use the local SECRET_ENCRYPTION_KEY — setting one is refused to avoid a false compliance guarantee",
+    );
+  }
   app.use(express.json({ limit: "64kb", strict: true }));
   app.use(enforceJsonDepth(config.maxJsonDepth));
   app.use(requestIdMiddleware);

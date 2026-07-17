@@ -68,6 +68,17 @@ export class Gauge {
     this.data.set(seriesKey(labels), value);
   }
 
+  /**
+   * Drops every series. For gauges whose label set is dynamic (e.g. one series
+   * per circuit-breaker client), call this before re-populating from the live
+   * source each scrape so a series for an evicted client doesn't linger at its
+   * last value forever — which would keep firing alerts and grow cardinality
+   * without bound.
+   */
+  reset(): void {
+    this.data.clear();
+  }
+
   /** @internal */
   render(): string {
     const lines: string[] = [`# HELP ${this.name} ${this.help}`, `# TYPE ${this.name} gauge`];

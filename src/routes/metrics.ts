@@ -17,7 +17,11 @@ import { notFound } from "./http-errors.js";
 // ── Prometheus snapshot helpers ───────────────────────────────────────────────
 
 function snapshotGauges(): void {
-  // Circuit breaker current states
+  // Circuit breaker current states. Reset first: the `client` label is dynamic,
+  // so an evicted client's series would otherwise linger at its last value
+  // (e.g. 2=open) forever — a permanent false MCPCircuitBreakerOpen alert plus
+  // unbounded cardinality. Repopulate only from live breakers.
+  breakerCurrentState.reset();
   for (const { client, value } of getAllBreakerStateGauges()) {
     breakerCurrentState.set({ client }, value);
   }
