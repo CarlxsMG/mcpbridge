@@ -111,6 +111,8 @@ interface RestRouting {
   route: ReturnType<typeof decideSecondary>;
   lbChoice: LbChoice | null;
   lbKey: string | undefined;
+  /** True iff canRequest() admitted THIS call as the breaker's one half-open probe (see probeGranted below). */
+  probeGranted: boolean;
   recordBreakerSuccess: () => void;
   recordBreakerFailure: () => void;
 }
@@ -130,6 +132,8 @@ interface RestRequest {
   /** OpenAPI in:header / in:cookie params for this call, already forbidden-header-filtered. Lowest header precedence. */
   paramHeaders: Record<string, string>;
   redactionPaths: ReturnType<typeof getRedactionPaths>;
+  /** True iff this tool is GraphQL-backed — gates the 200-with-errors failure detection in stage 3 (non-GraphQL tools skip it). */
+  graphqlEnabled: boolean;
   reqController: AbortController;
 }
 
@@ -265,7 +269,16 @@ async function resolveRestRouting(
     }
     if (lbKey) markTargetDown(lbKey);
   };
-  return { breaker, effectiveTimeout, route, lbChoice, lbKey, recordBreakerSuccess, recordBreakerFailure };
+  return {
+    breaker,
+    effectiveTimeout,
+    route,
+    lbChoice,
+    lbKey,
+    probeGranted,
+    recordBreakerSuccess,
+    recordBreakerFailure,
+  };
 }
 
 /**
@@ -441,6 +454,7 @@ async function buildRestRequest(
       upstreamAuthHeaders,
       paramHeaders,
       redactionPaths,
+      graphqlEnabled: graphqlCfg?.enabled ?? false,
       reqController,
     };
   } catch (err) {
@@ -510,13 +524,39 @@ async function resolvePinnedTarget(
 }
 
 /**
+ * True when a GraphQL-over-HTTP 200 body represents an execution FAILURE: a
+ * non-empty top-level `errors[]` with `data` null or absent. GraphQL endpoints
+ * answer 200 even for a failed query/mutation, signalling the failure only in
+ * the body — so the transport-level `response.ok` hides it and the breaker would
+ * never see it. Conservative by design: a partial success (some `data` present
+ * alongside `errors`) returns false and stays a success. Called only for
+ * GraphQL-configured tools (gated on RestRequest.graphqlEnabled), so ordinary
+ * JSON that happens to carry an `errors` field is never affected.
+ */
+function isGraphqlErrorBody(rawText: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    return false;
+  }
+  if (typeof parsed !== "object" || parsed === null) return false;
+  const obj = parsed as Record<string, unknown>;
+  if (!Array.isArray(obj.errors) || obj.errors.length === 0) return false;
+  return obj.data === null || obj.data === undefined;
+}
+
+/**
  * Stage 3 of dispatchRestToolCall — success-response processing. Given a known-good (2xx) Response,
  * reads the body under the streaming size cap (rejecting oversize — proxyBodyCapRejections), records
- * success metrics/usage, then runs the streaming-normalize / paginate → response-transform →
- * redaction → guardrail-scan → context-budget → cache-set pipeline and returns the final ToolResult.
- * No upstream response header is forwarded (Fix 1). The caller records breaker/LB success only
- * AFTER this returns, so a 2xx whose body then resets mid-stream counts as a failure, not a
- * success; the retry/error control flow stays in dispatchRestToolCall.
+ * metrics/usage, then runs the streaming-normalize / paginate → response-transform → redaction →
+ * guardrail-scan → context-budget → cache-set pipeline and returns the final ToolResult. No upstream
+ * response header is forwarded (Fix 1). Returns `graphqlError` alongside the result: a GraphQL-backed
+ * tool answers 200 even for a failed operation (top-level `errors[]` with null/absent `data`), so the
+ * caller records a breaker FAILURE (not success) for that case even though the HTTP status was 2xx.
+ * The caller otherwise records breaker/LB success only AFTER this returns, so a 2xx whose body then
+ * resets mid-stream counts as a failure, not a success; the retry/error control flow stays in
+ * dispatchRestToolCall.
  */
 async function processRestSuccessResponse(
   response: Response,
@@ -525,7 +565,7 @@ async function processRestSuccessResponse(
   routing: RestRouting,
   req: RestRequest,
   call: RestCallCtx,
-): Promise<ToolResult> {
+): Promise<{ result: ToolResult; graphqlError: boolean }> {
   const { effectiveTimeout, route } = routing;
   const {
     method,
@@ -537,6 +577,7 @@ async function processRestSuccessResponse(
     upstreamAuthHeaders,
     transformCfg,
     redactionPaths,
+    graphqlEnabled,
     reqController,
   } = req;
   const { client, tool, mcpToolName, callerKey, guardrails, responseCacheEnabled, responseCacheKey, cacheCfg } = call;
@@ -559,28 +600,42 @@ async function processRestSuccessResponse(
       durationMs: Date.now() - startTime,
     });
     proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, (Date.now() - startTime) / 1000);
-    return toolResult("Upstream response exceeded MAX_RESPONSE_BYTES limit", { isError: true });
+    return {
+      result: toolResult("Upstream response exceeded MAX_RESPONSE_BYTES limit", { isError: true }),
+      graphqlError: false,
+    };
   }
+
+  // GraphQL-over-HTTP failure hiding behind a 200 — only for GraphQL-backed
+  // tools, and only when `data` is null/absent (a partial success stays a
+  // success). The body still flows through the processing pipeline below (so the
+  // caller sees the errors payload), but isError/breaker/usage below all treat it
+  // as a failure.
+  const graphqlError = graphqlEnabled && isGraphqlErrorBody(rawText);
 
   const durationSuccess = (Date.now() - startTime) / 1000;
   proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, durationSuccess);
   if (attempt > 0) {
     proxyRetryAttempts.inc({ client: client.name, method, outcome: "success" });
   }
-  log("info", "Tool call succeeded", {
-    tool: mcpToolName,
-    client: client.name,
-    status: response.status,
-    duration_ms: Date.now() - startTime,
-    attempts: attempt + 1,
-  });
-  recordToolCall(Date.now() - startTime, false);
+  log(
+    graphqlError ? "warn" : "info",
+    graphqlError ? "GraphQL tool returned errors with null data" : "Tool call succeeded",
+    {
+      tool: mcpToolName,
+      client: client.name,
+      status: response.status,
+      duration_ms: Date.now() - startTime,
+      attempts: attempt + 1,
+    },
+  );
+  recordToolCall(Date.now() - startTime, graphqlError);
   recordUsage({
     clientName: client.name,
     toolName: tool.name,
     keyId: callerKey?.id ?? null,
     statusClass: "2xx",
-    isError: false,
+    isError: graphqlError,
     durationMs: Date.now() - startTime,
   });
 
@@ -668,11 +723,13 @@ async function processRestSuccessResponse(
   const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, responseText);
   responseText = budgeted.text;
 
-  if (responseCacheEnabled && cacheCfg && !route.useSecondary) {
+  // Never cache a GraphQL error body — a cache hit would then serve the failure
+  // as a success (breaker/usage bypassed) for the whole TTL.
+  if (responseCacheEnabled && cacheCfg && !route.useSecondary && !graphqlError) {
     cacheSet(responseCacheKey, { content: [{ type: "text", text: responseText }] }, cacheCfg.ttlSeconds);
     cacheEvents.inc({ client: client.name, outcome: "store" });
   }
-  return toolResult(responseText);
+  return { result: toolResult(responseText, { isError: graphqlError }), graphqlError };
 }
 
 /**
@@ -707,270 +764,307 @@ export async function dispatchRestToolCall(
 
   const routing = await resolveRestRouting(client, tool, mcpToolName, args, callerKey, guardrails, mockCfg, opts);
   if ("content" in routing) return routing;
-  const { breaker, effectiveTimeout, route, lbChoice, lbKey, recordBreakerSuccess, recordBreakerFailure } = routing;
+  const {
+    breaker,
+    effectiveTimeout,
+    route,
+    lbChoice,
+    lbKey,
+    probeGranted,
+    recordBreakerSuccess,
+    recordBreakerFailure,
+  } = routing;
 
-  const built = await buildRestRequest(client, tool, args, lbChoice, route, lbKey);
-  if ("content" in built) {
+  // Single obligation to release a consumed half-open probe, covering every exit
+  // from the dispatch body below. canRequest() (in resolveRestRouting) may have
+  // admitted THIS call as the breaker's one half-open probe; if it did
+  // (probeGranted), every path out — buildRestRequest bailing (arg validation /
+  // path traversal / failed pin refresh / mid-unregister), a throw during request
+  // building before the backend dial, caller cancellation, or a normal
+  // success/failure — must release that probe rather than strand it in-flight
+  // (which would wedge the breaker in half_open: every later call is rejected as
+  // "Probing" and the idle sweep never evicts it because each rejected
+  // canRequest() refreshes lastAccess). Consolidating it into one finally
+  // replaces the previously-scattered manual releaseProbe() calls. releaseProbe()
+  // is a no-op after record* (the breaker has already left half_open) and when no
+  // probe is in flight, so it stays correct even after a recorded success/failure.
+  // It is guarded by probeGranted so a concurrent call that never held the probe
+  // (e.g. one rejected as "Probing" then routed to a canary/failover secondary)
+  // can never release the real probe holder's slot — the same Fix 5 invariant
+  // recordBreakerSuccess/Failure keep.
+  try {
+    const built = await buildRestRequest(client, tool, args, lbChoice, route, lbKey);
     // buildRestRequest bailed before reaching the backend (arg validation, path
     // traversal, a failed pin refresh, or mid-unregister) — no signal about
-    // backend health, so release any half-open probe consumed by canRequest() in
-    // resolveRestRouting rather than stranding it (which would wedge the breaker
-    // in half_open forever). No-op when no probe is in flight.
-    breaker.releaseProbe();
-    return built;
-  }
-  const { method, url, body, upstreamAuthHeaders, paramHeaders, reqController, pinnedFetch } = built;
+    // backend health; the finally below releases any consumed half-open probe.
+    if ("content" in built) return built;
+    const { method, url, body, upstreamAuthHeaders, paramHeaders, reqController, pinnedFetch } = built;
 
-  const startTime = Date.now();
+    const startTime = Date.now();
 
-  // GET / HEAD / OPTIONS are always retried.
-  // DELETE / PUT are only retried when the client opts in via retry_non_safe_methods.
-  const alwaysSafe = method === "GET" || method === "HEAD" || method === "OPTIONS";
-  const optedIn = client.retry_non_safe_methods === true && (method === "DELETE" || method === "PUT");
-  const isIdempotent = alwaysSafe || optedIn;
+    // GET / HEAD / OPTIONS are always retried.
+    // DELETE / PUT are only retried when the client opts in via retry_non_safe_methods.
+    const alwaysSafe = method === "GET" || method === "HEAD" || method === "OPTIONS";
+    const optedIn = client.retry_non_safe_methods === true && (method === "DELETE" || method === "PUT");
+    const isIdempotent = alwaysSafe || optedIn;
 
-  const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504]);
-  const MAX_RETRIES = config.retryMaxAttempts;
-  const BASE_DELAY = config.retryBaseDelayMs;
+    const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504]);
+    const MAX_RETRIES = config.retryMaxAttempts;
+    const BASE_DELAY = config.retryBaseDelayMs;
 
-  let lastError: string | undefined;
-  let lastStatus: number | undefined;
+    let lastError: string | undefined;
+    let lastStatus: number | undefined;
 
-  // Terminal-failure recording, shared by all three REST failure exits
-  // (non-retryable error response, network throw, retries exhausted). Each used
-  // to hand-roll the same quintet — duration metric, breaker failure, log,
-  // recordToolCall, recordUsage — followed by the mock-fallback-or-error result;
-  // keeping three copies in lockstep was a standing drift hazard. `durationMs` is
-  // passed in rather than measured here so the non-retryable branch can record
-  // BEFORE it reads the (capped, potentially large) error body.
-  const recordFailure = (f: {
-    durationMs: number;
-    statusClass: string;
-    logLevel: "warn" | "error";
-    logMessage: string;
-    logExtra: Record<string, unknown>;
-    mockResult: string | null;
-    resultMessage: string;
-  }) => {
-    proxyRequestDuration.observe({ client: client.name, method, status_class: f.statusClass }, f.durationMs / 1000);
-    recordBreakerFailure();
-    log(f.logLevel, f.logMessage, {
-      tool: mcpToolName,
-      client: client.name,
-      duration_ms: f.durationMs,
-      ...f.logExtra,
-    });
-    recordToolCall(f.durationMs, true);
-    recordUsage({
-      clientName: client.name,
-      toolName: tool.name,
-      keyId: callerKey?.id ?? null,
-      statusClass: f.statusClass,
-      isError: true,
-      durationMs: f.durationMs,
-    });
-    if (f.mockResult !== null) return toolResult(f.mockResult);
-    return toolResult(f.resultMessage, { isError: true });
-  };
+    // Terminal-failure recording, shared by all three REST failure exits
+    // (non-retryable error response, network throw, retries exhausted). Each used
+    // to hand-roll the same quintet — duration metric, breaker failure, log,
+    // recordToolCall, recordUsage — followed by the mock-fallback-or-error result;
+    // keeping three copies in lockstep was a standing drift hazard. `durationMs` is
+    // passed in rather than measured here so the non-retryable branch can record
+    // BEFORE it reads the (capped, potentially large) error body.
+    const recordFailure = (f: {
+      durationMs: number;
+      statusClass: string;
+      logLevel: "warn" | "error";
+      logMessage: string;
+      logExtra: Record<string, unknown>;
+      mockResult: string | null;
+      resultMessage: string;
+    }) => {
+      proxyRequestDuration.observe({ client: client.name, method, status_class: f.statusClass }, f.durationMs / 1000);
+      recordBreakerFailure();
+      log(f.logLevel, f.logMessage, {
+        tool: mcpToolName,
+        client: client.name,
+        duration_ms: f.durationMs,
+        ...f.logExtra,
+      });
+      recordToolCall(f.durationMs, true);
+      recordUsage({
+        clientName: client.name,
+        toolName: tool.name,
+        keyId: callerKey?.id ?? null,
+        statusClass: f.statusClass,
+        isError: true,
+        durationMs: f.durationMs,
+      });
+      if (f.mockResult !== null) return toolResult(f.mockResult);
+      return toolResult(f.resultMessage, { isError: true });
+    };
 
-  // Set when the previous attempt already slept for a 429 Retry-After, so this
-  // attempt skips the exponential backoff instead of summing the two waits.
-  let retryAfterHonored = false;
-  try {
-    for (let attempt = 0; attempt <= (isIdempotent ? MAX_RETRIES : 0); attempt++) {
-      if (attempt > 0) {
-        // Don't retry if the circuit is now open — but ONLY for a normal
-        // (primary) call. When this call is deliberately routed to the failover
-        // secondary (route.bypassBreaker), the primary breaker is open by
-        // definition, so re-checking it here would (a) cancel every retry to a
-        // healthy secondary exactly when the primary is down, and (b) risk
-        // consuming the primary's half-open probe slot if its reset timeout
-        // fired during the backoff — a probe the secondary call then never
-        // clears (recordBreaker* skip the breaker when bypassing).
-        if (!route.bypassBreaker && !breaker.canRequest().allowed) break;
-        if (retryAfterHonored) {
-          // The backend already told us exactly how long to wait via Retry-After
-          // and we slept it; adding the exponential backoff on top would double
-          // the delay. Honor the server's hint alone for this transition.
-          retryAfterHonored = false;
-        } else {
-          const delay = BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * BASE_DELAY;
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-      }
-
-      // A1: build a fresh composed signal per attempt so the timeout is renewed each time.
-      // reqController.signal stays persistent (client-teardown cancellation);
-      // opts.signal is the downstream MCP caller's own cancellation (auto-aborted
-      // by the SDK on notifications/cancelled) — include it so an in-flight REST
-      // call actually aborts, matching the MCP/WS paths (Fix 6). Filter undefined
-      // so a caller with no signal composes only the two internal ones.
-      const attemptSignal = AbortSignal.any(
-        [reqController.signal, AbortSignal.timeout(effectiveTimeout), opts?.signal].filter(
-          (s): s is AbortSignal => s !== undefined,
-        ),
-      );
-
-      // Host header + redirect:"error" + hostname->IP pinning are all applied by
-      // pinnedFetch (makePinnedFetch); the options below carry only method, the
-      // trace/auth/content-type headers, the body, and the per-attempt signal.
-      // paramHeaders (OpenAPI in:header/cookie params) go first so injected
-      // upstream auth, the pinned Host, and Content-Type always win over any
-      // caller-supplied param that happens to share a header name.
-      const fetchOptions: RequestInit =
-        body !== undefined
-          ? {
-              method,
-              headers: outboundTraceHeaders(undefined, {
-                ...paramHeaders,
-                ...upstreamAuthHeaders,
-                "Content-Type": "application/json",
-              }),
-              body,
-              signal: attemptSignal,
-            }
-          : {
-              method,
-              headers: outboundTraceHeaders(undefined, {
-                ...paramHeaders,
-                ...upstreamAuthHeaders,
-                "Content-Type": "application/json",
-              }),
-              signal: attemptSignal,
-            };
-
-      try {
-        const response = await pinnedFetch(url, fetchOptions);
-
-        if (response.ok) {
-          // Record breaker/LB success only AFTER the body is fully read: if the
-          // connection resets mid-stream, processRestSuccessResponse throws and
-          // control falls to the catch below (a failure) — so one call can never
-          // log both a success and a failure, which would otherwise keep a
-          // half-broken backend's breaker from ever opening.
-          const success = await processRestSuccessResponse(response, attempt, startTime, routing, built, call);
-          recordBreakerSuccess();
-          return success;
-        }
-
-        lastStatus = response.status;
-
-        // Check if retryable
-        if (isIdempotent && RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
-          proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
-          // A3: handle Retry-After header (integer seconds OR HTTP-date). When
-          // honored, flag it so the next iteration's exponential backoff is
-          // skipped (the two waits must not stack).
-          if (response.status === 429) {
-            const waitMs = parseRetryAfter(response.headers.get("retry-after"));
-            if (waitMs !== null && waitMs > 0) {
-              await new Promise((resolve) => setTimeout(resolve, waitMs));
-              retryAfterHonored = true;
-            }
+    // Set when the previous attempt already slept for a 429 Retry-After, so this
+    // attempt skips the exponential backoff instead of summing the two waits.
+    let retryAfterHonored = false;
+    try {
+      for (let attempt = 0; attempt <= (isIdempotent ? MAX_RETRIES : 0); attempt++) {
+        if (attempt > 0) {
+          // Don't retry if the circuit is now open — but ONLY for a normal
+          // (primary) call. When this call is deliberately routed to the failover
+          // secondary (route.bypassBreaker), the primary breaker is open by
+          // definition, so re-checking it here would (a) cancel every retry to a
+          // healthy secondary exactly when the primary is down, and (b) risk
+          // consuming the primary's half-open probe slot if its reset timeout
+          // fired during the backoff — a probe the secondary call then never
+          // clears (recordBreaker* skip the breaker when bypassing).
+          if (!route.bypassBreaker && !breaker.canRequest().allowed) break;
+          if (retryAfterHonored) {
+            // The backend already told us exactly how long to wait via Retry-After
+            // and we slept it; adding the exponential backoff on top would double
+            // the delay. Honor the server's hint alone for this transition.
+            retryAfterHonored = false;
+          } else {
+            const delay = BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * BASE_DELAY;
+            await new Promise((resolve) => setTimeout(resolve, delay));
           }
-          continue;
         }
 
-        // Non-retryable error response — measure first, then read the (capped)
-        // error body for the result message, then record the failure.
-        const errDurationMs = Date.now() - startTime;
-        // Fix 3 — cap error-response body via the same readBodyWithCap helper used for
-        // success responses, preventing a malicious upstream from OOM-ing the bridge with
-        // an oversized error body (e.g. a 400 with a 10 GB payload).
-        const errorBody = await readBodyWithCap(response);
-        let errorBodyText =
-          errorBody === null ? `[body truncated — exceeded ${config.maxResponseBytes} byte limit]` : errorBody;
-        // Response-sanitization parity with the success path: a 4xx/5xx body can
-        // carry the same secrets (e.g. a debug 400 echoing the gateway-injected
-        // Authorization) or a prompt-injection payload as a 2xx body, so run the
-        // configured redaction paths + guardrail scan over it before it reaches
-        // the caller. (Skip the truncation-placeholder case — nothing to redact.)
-        if (errorBody !== null) {
-          const redacted = applyRedaction(built.redactionPaths, errorBodyText);
-          if (redacted !== null) errorBodyText = redacted;
-          if (guardrails?.scanResponses) {
-            const scan = applyResponseScan(errorBodyText);
-            recordGuardrailHit(client.name, tool.name, scan.flagged);
-            if (scan.flagged) {
-              log("warn", "Tool error response flagged by guardrail scan", {
-                tool: mcpToolName,
-                client: client.name,
-              });
-              errorBodyText = scan.text;
-            }
+        // A1: build a fresh composed signal per attempt so the timeout is renewed each time.
+        // reqController.signal stays persistent (client-teardown cancellation);
+        // opts.signal is the downstream MCP caller's own cancellation (auto-aborted
+        // by the SDK on notifications/cancelled) — include it so an in-flight REST
+        // call actually aborts, matching the MCP/WS paths (Fix 6). Filter undefined
+        // so a caller with no signal composes only the two internal ones.
+        const attemptSignal = AbortSignal.any(
+          [reqController.signal, AbortSignal.timeout(effectiveTimeout), opts?.signal].filter(
+            (s): s is AbortSignal => s !== undefined,
+          ),
+        );
+
+        // Host header + redirect:"error" + hostname->IP pinning are all applied by
+        // pinnedFetch (makePinnedFetch); the options below carry only method, the
+        // trace/auth/content-type headers, the body, and the per-attempt signal.
+        // paramHeaders (OpenAPI in:header/cookie params) go first so injected
+        // upstream auth, the pinned Host, and Content-Type always win over any
+        // caller-supplied param that happens to share a header name.
+        const fetchOptions: RequestInit =
+          body !== undefined
+            ? {
+                method,
+                headers: outboundTraceHeaders(undefined, {
+                  ...paramHeaders,
+                  ...upstreamAuthHeaders,
+                  "Content-Type": "application/json",
+                }),
+                body,
+                signal: attemptSignal,
+              }
+            : {
+                method,
+                headers: outboundTraceHeaders(undefined, {
+                  ...paramHeaders,
+                  ...upstreamAuthHeaders,
+                  "Content-Type": "application/json",
+                }),
+                signal: attemptSignal,
+              };
+
+        try {
+          const response = await pinnedFetch(url, fetchOptions);
+
+          if (response.ok) {
+            // Record breaker/LB outcome only AFTER the body is fully read: if the
+            // connection resets mid-stream, processRestSuccessResponse throws and
+            // control falls to the catch below (a failure) — so one call can never
+            // log both a success and a failure, which would otherwise keep a
+            // half-broken backend's breaker from ever opening. A GraphQL-backed
+            // tool can also answer 200 with a top-level errors[] and null data;
+            // processRestSuccessResponse flags that as graphqlError so it records a
+            // breaker FAILURE despite the 2xx status.
+            const { result, graphqlError } = await processRestSuccessResponse(
+              response,
+              attempt,
+              startTime,
+              routing,
+              built,
+              call,
+            );
+            if (graphqlError) recordBreakerFailure();
+            else recordBreakerSuccess();
+            return result;
           }
-          // Strip the gateway's own injected upstream credential if the error
-          // body reflected it (e.g. a debug 400 echoing the Authorization).
-          errorBodyText = stripInjectedCredentials(errorBodyText, upstreamAuthHeaders);
-        }
-        return recordFailure({
-          durationMs: errDurationMs,
-          statusClass: httpStatusClass(response.status),
-          logLevel: "warn",
-          logMessage: "Tool call returned error",
-          logExtra: { status: response.status, attempts: attempt + 1 },
-          mockResult:
-            mockCfg?.enabled && mockCfg.mode === "fallback" && response.status >= 500 ? mockCfg.response : null,
-          resultMessage: `REST API returned ${response.status}: ${errorBodyText}`,
-        });
-      } catch (error) {
-        // Caller-initiated cancellation (MCP notifications/cancelled → opts.signal)
-        // is not an upstream health signal, exactly like dispatch-mcp.ts's
-        // result.cancelled branch: don't record a breaker failure (which would
-        // push a healthy backend toward opening), don't retry, and release any
-        // half-open probe canRequest() granted in resolveRestRouting so it can't
-        // strand. reqController/timeout aborts fall through to the normal
-        // failure path below.
-        if (opts?.signal?.aborted) {
-          breaker.releaseProbe();
-          const durationMs = Date.now() - startTime;
-          proxyRequestDuration.observe({ client: client.name, method, status_class: "cancelled" }, durationMs / 1000);
-          recordToolCall(durationMs, false);
-          recordUsage({
-            clientName: client.name,
-            toolName: tool.name,
-            keyId: callerKey?.id ?? null,
-            statusClass: "cancelled",
-            isError: false,
-            durationMs,
-          });
-          log("info", "Tool call cancelled by caller", {
-            tool: mcpToolName,
-            client: client.name,
-            duration_ms: durationMs,
-          });
-          return toolResult("Tool call cancelled by caller", { isError: true });
-        }
-        lastError = errorMessage(error);
-        if (!isIdempotent || attempt >= MAX_RETRIES) {
+
+          lastStatus = response.status;
+
+          // Check if retryable
+          if (isIdempotent && RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
+            proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
+            // A3: handle Retry-After header (integer seconds OR HTTP-date). When
+            // honored, flag it so the next iteration's exponential backoff is
+            // skipped (the two waits must not stack).
+            if (response.status === 429) {
+              const waitMs = parseRetryAfter(response.headers.get("retry-after"));
+              if (waitMs !== null && waitMs > 0) {
+                await new Promise((resolve) => setTimeout(resolve, waitMs));
+                retryAfterHonored = true;
+              }
+            }
+            continue;
+          }
+
+          // Non-retryable error response — measure first, then read the (capped)
+          // error body for the result message, then record the failure.
+          const errDurationMs = Date.now() - startTime;
+          // Fix 3 — cap error-response body via the same readBodyWithCap helper used for
+          // success responses, preventing a malicious upstream from OOM-ing the bridge with
+          // an oversized error body (e.g. a 400 with a 10 GB payload).
+          const errorBody = await readBodyWithCap(response);
+          let errorBodyText =
+            errorBody === null ? `[body truncated — exceeded ${config.maxResponseBytes} byte limit]` : errorBody;
+          // Response-sanitization parity with the success path: a 4xx/5xx body can
+          // carry the same secrets (e.g. a debug 400 echoing the gateway-injected
+          // Authorization) or a prompt-injection payload as a 2xx body, so run the
+          // configured redaction paths + guardrail scan over it before it reaches
+          // the caller. (Skip the truncation-placeholder case — nothing to redact.)
+          if (errorBody !== null) {
+            const redacted = applyRedaction(built.redactionPaths, errorBodyText);
+            if (redacted !== null) errorBodyText = redacted;
+            if (guardrails?.scanResponses) {
+              const scan = applyResponseScan(errorBodyText);
+              recordGuardrailHit(client.name, tool.name, scan.flagged);
+              if (scan.flagged) {
+                log("warn", "Tool error response flagged by guardrail scan", {
+                  tool: mcpToolName,
+                  client: client.name,
+                });
+                errorBodyText = scan.text;
+              }
+            }
+            // Strip the gateway's own injected upstream credential if the error
+            // body reflected it (e.g. a debug 400 echoing the Authorization).
+            errorBodyText = stripInjectedCredentials(errorBodyText, upstreamAuthHeaders);
+          }
           return recordFailure({
-            durationMs: Date.now() - startTime,
-            statusClass: "error",
-            logLevel: "error",
-            logMessage: "Tool call failed",
-            logExtra: { error: lastError, attempts: attempt + 1 },
-            mockResult: mockCfg?.enabled && mockCfg.mode === "fallback" ? mockCfg.response : null,
-            resultMessage: `Failed to reach ${client.name}: ${lastError}`,
+            durationMs: errDurationMs,
+            statusClass: httpStatusClass(response.status),
+            logLevel: "warn",
+            logMessage: "Tool call returned error",
+            logExtra: { status: response.status, attempts: attempt + 1 },
+            mockResult:
+              mockCfg?.enabled && mockCfg.mode === "fallback" && response.status >= 500 ? mockCfg.response : null,
+            resultMessage: `REST API returned ${response.status}: ${errorBodyText}`,
           });
+        } catch (error) {
+          // Caller-initiated cancellation (MCP notifications/cancelled → opts.signal)
+          // is not an upstream health signal, exactly like dispatch-mcp.ts's
+          // result.cancelled branch: don't record a breaker failure (which would
+          // push a healthy backend toward opening) and don't retry. Any half-open
+          // probe canRequest() granted in resolveRestRouting is released by the
+          // finally at the end of dispatchRestToolCall, so it can't strand.
+          // reqController/timeout aborts fall through to the normal failure path below.
+          if (opts?.signal?.aborted) {
+            const durationMs = Date.now() - startTime;
+            proxyRequestDuration.observe({ client: client.name, method, status_class: "cancelled" }, durationMs / 1000);
+            recordToolCall(durationMs, false);
+            recordUsage({
+              clientName: client.name,
+              toolName: tool.name,
+              keyId: callerKey?.id ?? null,
+              statusClass: "cancelled",
+              isError: false,
+              durationMs,
+            });
+            log("info", "Tool call cancelled by caller", {
+              tool: mcpToolName,
+              client: client.name,
+              duration_ms: durationMs,
+            });
+            return toolResult("Tool call cancelled by caller", { isError: true });
+          }
+          lastError = errorMessage(error);
+          if (!isIdempotent || attempt >= MAX_RETRIES) {
+            return recordFailure({
+              durationMs: Date.now() - startTime,
+              statusClass: "error",
+              logLevel: "error",
+              logMessage: "Tool call failed",
+              logExtra: { error: lastError, attempts: attempt + 1 },
+              mockResult: mockCfg?.enabled && mockCfg.mode === "fallback" ? mockCfg.response : null,
+              resultMessage: `Failed to reach ${client.name}: ${lastError}`,
+            });
+          }
+          proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
         }
-        proxyRetryAttempts.inc({ client: client.name, method, outcome: "retry" });
       }
-    }
 
-    // Exhausted retries
-    proxyRetryAttempts.inc({ client: client.name, method, outcome: "exhausted" });
-    const errorMsg = lastError || `REST API returned ${lastStatus}`;
-    return recordFailure({
-      durationMs: Date.now() - startTime,
-      statusClass: lastError ? "error" : httpStatusClass(lastStatus ?? 0),
-      logLevel: "error",
-      logMessage: "Tool call failed after retries",
-      logExtra: { error: errorMsg, attempts: MAX_RETRIES + 1 },
-      mockResult: mockCfg?.enabled && mockCfg.mode === "fallback" ? mockCfg.response : null,
-      resultMessage: `Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}`,
-    });
+      // Exhausted retries
+      proxyRetryAttempts.inc({ client: client.name, method, outcome: "exhausted" });
+      const errorMsg = lastError || `REST API returned ${lastStatus}`;
+      return recordFailure({
+        durationMs: Date.now() - startTime,
+        statusClass: lastError ? "error" : httpStatusClass(lastStatus ?? 0),
+        logLevel: "error",
+        logMessage: "Tool call failed after retries",
+        logExtra: { error: errorMsg, attempts: MAX_RETRIES + 1 },
+        mockResult: mockCfg?.enabled && mockCfg.mode === "fallback" ? mockCfg.response : null,
+        resultMessage: `Failed after ${MAX_RETRIES + 1} attempts to reach ${client.name}: ${errorMsg}`,
+      });
+    } finally {
+      untrackRequest(client.name, reqController);
+      if (lbKey) decInflight(lbKey);
+    }
   } finally {
-    untrackRequest(client.name, reqController);
-    if (lbKey) decInflight(lbKey);
+    // See the block comment above the outer try: release the consumed half-open
+    // probe on every exit path, but only if THIS call was the probe holder.
+    if (probeGranted) breaker.releaseProbe();
   }
 }
