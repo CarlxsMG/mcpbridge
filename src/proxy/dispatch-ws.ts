@@ -10,8 +10,7 @@ import { getRedactionPaths, applyRedaction } from "../content-filtering/redactio
 import { applyResponseScan } from "../tool-policies/guardrails.js";
 import { recordGuardrailHit } from "../tool-policies/quarantine.js";
 import { applyContextBudget } from "../tool-policies/context-budget.js";
-import { recordToolCall, proxyRequestDuration } from "../observability/metrics.js";
-import { recordUsage } from "../observability/usage.js";
+import { recordCallOutcome } from "../observability/call-outcome.js";
 import { errorMessage } from "../lib/error-message.js";
 
 /**
@@ -72,16 +71,15 @@ export async function dispatchWsToolCall(
       : await wsRequest(wsCfg.wsUrl, wsCfg.resolvedIp, JSON.stringify(cleanArgs), timeoutMs, config.maxResponseBytes);
     breaker.recordSuccess();
     const durationMs = Date.now() - startTime;
-    recordToolCall(durationMs, false);
-    recordUsage({
-      clientName: client.name,
-      toolName: tool.name,
+    recordCallOutcome({
+      client: client.name,
+      tool: tool.name,
       keyId: callerKey?.id ?? null,
       statusClass: "2xx",
       isError: false,
       durationMs,
+      method: "WS",
     });
-    proxyRequestDuration.observe({ client: client.name, method: "WS", status_class: "2xx" }, durationMs / 1000);
 
     // Response redaction parity with the REST/MCP paths — applyRedaction parses
     // JSON, redacts the configured dot-paths, and returns null on non-JSON so we
@@ -109,16 +107,15 @@ export async function dispatchWsToolCall(
   } catch (err) {
     breaker.recordFailure();
     const durationMs = Date.now() - startTime;
-    recordToolCall(durationMs, true);
-    recordUsage({
-      clientName: client.name,
-      toolName: tool.name,
+    recordCallOutcome({
+      client: client.name,
+      tool: tool.name,
       keyId: callerKey?.id ?? null,
       statusClass: "error",
       isError: true,
       durationMs,
+      method: "WS",
     });
-    proxyRequestDuration.observe({ client: client.name, method: "WS", status_class: "error" }, durationMs / 1000);
     return toolResult(`WebSocket call failed for '${client.name}': ${errorMessage(err)}`, { isError: true });
   }
 }

@@ -13,8 +13,7 @@ import { mapStringLeaves } from "../content-filtering/walk-strings.js";
 import { applyResponseScan } from "../tool-policies/guardrails.js";
 import { recordGuardrailHit } from "../tool-policies/quarantine.js";
 import { applyContextBudget } from "../tool-policies/context-budget.js";
-import { recordToolCall, proxyRequestDuration } from "../observability/metrics.js";
-import { recordUsage } from "../observability/usage.js";
+import { recordCallOutcome } from "../observability/call-outcome.js";
 
 /**
  * Dispatches a tool call to an MCP-kind upstream via the outbound client pool.
@@ -96,16 +95,15 @@ export async function dispatchMcpToolCall(
     breaker.releaseProbe();
   }
 
-  recordToolCall(durationMs, result.isError === true);
-  recordUsage({
-    clientName: client.name,
-    toolName: tool.name,
+  recordCallOutcome({
+    client: client.name,
+    tool: tool.name,
     keyId: callerKey?.id ?? null,
     statusClass,
     isError: result.isError === true,
     durationMs,
+    method: "MCP",
   });
-  proxyRequestDuration.observe({ client: client.name, method: "MCP", status_class: statusClass }, durationMs / 1000);
   log(
     result.cancelled ? "info" : result.isError ? "warn" : "info",
     result.cancelled

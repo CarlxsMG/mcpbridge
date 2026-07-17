@@ -22,8 +22,8 @@ import { checkSharedToolRateLimit } from "../db/rate-counters.js";
 import { checkQuarantine, recordGuardrailHit } from "../tool-policies/quarantine.js";
 import { getGuardrails, checkInputGuardrails } from "../tool-policies/guardrails.js";
 import { cacheGet } from "../tool-policies/response-cache.js";
-import { recordToolCall, cacheEvents } from "../observability/metrics.js";
-import { recordUsage } from "../observability/usage.js";
+import { cacheEvents } from "../observability/metrics.js";
+import { recordCallOutcome } from "../observability/call-outcome.js";
 
 /**
  * Resolves the caller-asserted end-user identity for this call, if any. The
@@ -323,10 +323,10 @@ export function checkMockAlwaysShortCircuit(
   callerKey: ReturnType<typeof resolveMcpKeyByToken>,
 ): ToolResult | null {
   if (!(mockCfg?.enabled && mockCfg.mode === "always")) return null;
-  recordToolCall(0, false);
-  recordUsage({
-    clientName: client.name,
-    toolName: tool.name,
+  // No `method` → the duration histogram is skipped: a mock carries no upstream latency.
+  recordCallOutcome({
+    client: client.name,
+    tool: tool.name,
     keyId: callerKey?.id ?? null,
     statusClass: "2xx",
     isError: false,
@@ -349,10 +349,10 @@ export function checkResponseCacheShortCircuit(
   const hit = cacheGet(responseCacheKey);
   if (hit) {
     cacheEvents.inc({ client: client.name, outcome: "hit" });
-    recordToolCall(0, false);
-    recordUsage({
-      clientName: client.name,
-      toolName: tool.name,
+    // No `method` → the duration histogram is skipped: a cache hit carries no upstream latency.
+    recordCallOutcome({
+      client: client.name,
+      tool: tool.name,
       keyId: callerKey?.id ?? null,
       statusClass: "2xx",
       isError: false,

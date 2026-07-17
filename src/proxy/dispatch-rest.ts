@@ -4,14 +4,7 @@ import { log } from "../logger.js";
 import { isRawIpLiteral, refreshPinIfStale, makePinnedFetch } from "../net/ip-validator.js";
 import type { PinnedIp, PinnedFetch } from "../net/ip-validator.js";
 import { getCircuitBreaker } from "../middleware/circuit-breaker.js";
-import {
-  recordToolCall,
-  proxyBodyCapRejections,
-  proxyRetryAttempts,
-  proxyRequestDuration,
-  cacheEvents,
-  lbRequests,
-} from "../observability/metrics.js";
+import { proxyBodyCapRejections, proxyRetryAttempts, cacheEvents, lbRequests } from "../observability/metrics.js";
 import { getToolCacheConfig, cacheSet } from "../tool-policies/response-cache.js";
 import {
   getLb,
@@ -33,7 +26,7 @@ import { getToolGraphql, getToolWs } from "./backends.js";
 import { getOAuthBearer } from "../backend-auth/oauth.js";
 import { resolveMcpKeyByToken } from "../security/mcp-key-store.js";
 import { getUpstreamAuthHeaders } from "../backend-auth/upstream-auth.js";
-import { recordUsage } from "../observability/usage.js";
+import { recordCallOutcome } from "../observability/call-outcome.js";
 import { getRedactionPaths, applyRedaction, stripInjectedCredentials } from "../content-filtering/redaction.js";
 import { getGuardrails, applyResponseScan } from "../tool-policies/guardrails.js";
 import { recordGuardrailHit } from "../tool-policies/quarantine.js";
@@ -582,6 +575,49 @@ function isGraphqlErrorBody(rawText: string): boolean {
 }
 
 /**
+ * The response-sanitization pipeline shared by the REST success and error exits,
+ * in the ONE fixed order they must both run — redaction → guardrail scan →
+ * injected-credential strip → (optional) context budget — kept here so the order
+ * can't drift between the two copies (the hazard that motivated this extraction).
+ * The credential strip runs BEFORE the context budget so an opt-in llm_summarize
+ * never ships an un-stripped reflected credential to a third-party LLM.
+ */
+async function sanitizeRestResponse(
+  text: string,
+  o: {
+    redact: boolean;
+    redactionPaths: ReturnType<typeof getRedactionPaths>;
+    scanResponses: boolean;
+    injectedAuthHeaders: Record<string, string>;
+    client: string;
+    tool: string;
+    mcpToolName: string;
+    flaggedLogMessage: string;
+    applyBudget: boolean;
+  },
+): Promise<string> {
+  let out = text;
+  if (o.redact) {
+    const redacted = applyRedaction(o.redactionPaths, out);
+    if (redacted !== null) out = redacted;
+  }
+  if (o.scanResponses) {
+    const scan = applyResponseScan(out);
+    recordGuardrailHit(o.client, o.tool, scan.flagged);
+    if (scan.flagged) {
+      log("warn", o.flaggedLogMessage, { tool: o.mcpToolName, client: o.client });
+      out = scan.text;
+    }
+  }
+  out = stripInjectedCredentials(out, o.injectedAuthHeaders);
+  if (o.applyBudget) {
+    const budgeted = await applyContextBudget(o.client, o.tool, o.mcpToolName, out);
+    out = budgeted.text;
+  }
+  return out;
+}
+
+/**
  * Stage 3 of dispatchRestToolCall — success-response processing. Given a known-good (2xx) Response,
  * reads the body under the streaming size cap (rejecting oversize — proxyBodyCapRejections), records
  * metrics/usage, then runs the streaming-normalize / paginate → response-transform → redaction →
@@ -626,16 +662,15 @@ async function processRestSuccessResponse(
       client: client.name,
       limit: config.maxResponseBytes,
     });
-    recordToolCall(Date.now() - startTime, true);
-    recordUsage({
-      clientName: client.name,
-      toolName: tool.name,
+    recordCallOutcome({
+      client: client.name,
+      tool: tool.name,
       keyId: callerKey?.id ?? null,
       statusClass: "2xx",
       isError: true,
       durationMs: Date.now() - startTime,
+      method,
     });
-    proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, (Date.now() - startTime) / 1000);
     return {
       result: toolResult("Upstream response exceeded MAX_RESPONSE_BYTES limit", { isError: true }),
       graphqlError: false,
@@ -649,8 +684,6 @@ async function processRestSuccessResponse(
   // as a failure.
   const graphqlError = graphqlEnabled && isGraphqlErrorBody(rawText);
 
-  const durationSuccess = (Date.now() - startTime) / 1000;
-  proxyRequestDuration.observe({ client: client.name, method, status_class: "2xx" }, durationSuccess);
   if (attempt > 0) {
     proxyRetryAttempts.inc({ client: client.name, method, outcome: "success" });
   }
@@ -665,14 +698,14 @@ async function processRestSuccessResponse(
       attempts: attempt + 1,
     },
   );
-  recordToolCall(Date.now() - startTime, graphqlError);
-  recordUsage({
-    clientName: client.name,
-    toolName: tool.name,
+  recordCallOutcome({
+    client: client.name,
+    tool: tool.name,
     keyId: callerKey?.id ?? null,
     statusClass: "2xx",
     isError: graphqlError,
     durationMs: Date.now() - startTime,
+    method,
   });
 
   // Fix 1 — Response header allowlist (no-op confirmation).
@@ -729,38 +762,19 @@ async function processRestSuccessResponse(
     }
   }
 
-  let responseText = bodyText;
-  if (contentType.includes("application/json")) {
-    // applyRedaction parses, redacts configured paths, and pretty-prints;
-    // returns null on non-JSON so we fall back to the raw text.
-    const processed = applyRedaction(redactionPaths, bodyText);
-    if (processed !== null) responseText = processed;
-  }
-
-  // Response guardrail scan (spotlighting) — runs after redaction so the
-  // envelope wraps the already-redacted text, not raw secrets.
-  if (guardrails?.scanResponses) {
-    const scan = applyResponseScan(responseText);
-    recordGuardrailHit(client.name, tool.name, scan.flagged);
-    if (scan.flagged) {
-      log("warn", "Tool response flagged by guardrail scan", { tool: mcpToolName, client: client.name });
-      responseText = scan.text;
-    }
-  }
-
-  // Strip the gateway's own injected upstream credential if the backend
-  // reflected it into the body — BEFORE the context budget below, whose opt-in
-  // llm_summarize can ship the response text to a third-party LLM: an unstripped
-  // reflected credential would otherwise leave the gateway. Also runs before
-  // caching, so cache hits stay safe too.
-  responseText = stripInjectedCredentials(responseText, upstreamAuthHeaders);
-
-  // Context budget — the last transformation before the response is
-  // cached/returned; MUST run after redaction, the guardrail scan, AND the
-  // credential strip above so an opt-in llm_summarize call only ever sees text
-  // with the gateway's own injected credential already removed.
-  const budgeted = await applyContextBudget(client.name, tool.name, mcpToolName, responseText);
-  responseText = budgeted.text;
+  // Redaction only parses/pretty-prints a JSON body; the guardrail scan +
+  // credential strip + context budget always run (see sanitizeRestResponse).
+  const responseText = await sanitizeRestResponse(bodyText, {
+    redact: contentType.includes("application/json"),
+    redactionPaths,
+    scanResponses: guardrails?.scanResponses ?? false,
+    injectedAuthHeaders: upstreamAuthHeaders,
+    client: client.name,
+    tool: tool.name,
+    mcpToolName,
+    flaggedLogMessage: "Tool response flagged by guardrail scan",
+    applyBudget: true,
+  });
 
   // Never cache a GraphQL error body — a cache hit would then serve the failure
   // as a success (breaker/usage bypassed) for the whole TTL.
@@ -870,7 +884,6 @@ export async function dispatchRestToolCall(
       mockResult: string | null;
       resultMessage: string;
     }) => {
-      proxyRequestDuration.observe({ client: client.name, method, status_class: f.statusClass }, f.durationMs / 1000);
       recordBreakerFailure();
       log(f.logLevel, f.logMessage, {
         tool: mcpToolName,
@@ -878,14 +891,14 @@ export async function dispatchRestToolCall(
         duration_ms: f.durationMs,
         ...f.logExtra,
       });
-      recordToolCall(f.durationMs, true);
-      recordUsage({
-        clientName: client.name,
-        toolName: tool.name,
+      recordCallOutcome({
+        client: client.name,
+        tool: tool.name,
         keyId: callerKey?.id ?? null,
         statusClass: f.statusClass,
         isError: true,
         durationMs: f.durationMs,
+        method,
       });
       if (f.mockResult !== null) return toolResult(f.mockResult);
       return toolResult(f.resultMessage, { isError: true });
@@ -1015,22 +1028,17 @@ export async function dispatchRestToolCall(
           // configured redaction paths + guardrail scan over it before it reaches
           // the caller. (Skip the truncation-placeholder case — nothing to redact.)
           if (errorBody !== null) {
-            const redacted = applyRedaction(built.redactionPaths, errorBodyText);
-            if (redacted !== null) errorBodyText = redacted;
-            if (guardrails?.scanResponses) {
-              const scan = applyResponseScan(errorBodyText);
-              recordGuardrailHit(client.name, tool.name, scan.flagged);
-              if (scan.flagged) {
-                log("warn", "Tool error response flagged by guardrail scan", {
-                  tool: mcpToolName,
-                  client: client.name,
-                });
-                errorBodyText = scan.text;
-              }
-            }
-            // Strip the gateway's own injected upstream credential if the error
-            // body reflected it (e.g. a debug 400 echoing the Authorization).
-            errorBodyText = stripInjectedCredentials(errorBodyText, upstreamAuthHeaders);
+            errorBodyText = await sanitizeRestResponse(errorBodyText, {
+              redact: true,
+              redactionPaths: built.redactionPaths,
+              scanResponses: guardrails?.scanResponses ?? false,
+              injectedAuthHeaders: upstreamAuthHeaders,
+              client: client.name,
+              tool: tool.name,
+              mcpToolName,
+              flaggedLogMessage: "Tool error response flagged by guardrail scan",
+              applyBudget: false,
+            });
           }
           return recordFailure({
             durationMs: errDurationMs,
@@ -1052,15 +1060,14 @@ export async function dispatchRestToolCall(
           // reqController/timeout aborts fall through to the normal failure path below.
           if (opts?.signal?.aborted) {
             const durationMs = Date.now() - startTime;
-            proxyRequestDuration.observe({ client: client.name, method, status_class: "cancelled" }, durationMs / 1000);
-            recordToolCall(durationMs, false);
-            recordUsage({
-              clientName: client.name,
-              toolName: tool.name,
+            recordCallOutcome({
+              client: client.name,
+              tool: tool.name,
               keyId: callerKey?.id ?? null,
               statusClass: "cancelled",
               isError: false,
               durationMs,
+              method,
             });
             log("info", "Tool call cancelled by caller", {
               tool: mcpToolName,
