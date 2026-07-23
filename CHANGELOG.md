@@ -185,6 +185,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CI's `monitoring` job never validated the alerting rules (P2).** The `prom/prometheus` image
+  entrypoint is `/bin/prometheus`, so `docker run … prom/prometheus:v3.8.1 promtool check rules …`
+  handed `promtool check rules …` to Prometheus as _arguments_ and died with
+  `error: unexpected promtool` before opening the file. The job was therefore red for a reason
+  unrelated to its subject, and a genuinely malformed rule would have been indistinguishable from
+  this. Fixed with `--entrypoint promtool`, passing only promtool's own arguments after the image
+  name. The rules themselves were fine all along — `SUCCESS: 11 rules found` once the command
+  actually runs. `monitoring/README.md` and the `alerts.yaml` header are unaffected: they document
+  a natively-installed `promtool`, which was always correct.
 - **The container image could not be built at all (P0).** The `admin-ui-build` stage runs
   `bun run build`, whose first half is `vue-tsc -b`. `vue-tsc` is a Node CLI that hooks the Vue
   language plugin into TypeScript so `.vue` becomes a resolvable extension — but the

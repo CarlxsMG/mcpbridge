@@ -273,11 +273,17 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      # --entrypoint is required: the image's entrypoint is /bin/prometheus, so a
+      # trailing `promtool check rules ...` is parsed as ARGUMENTS TO PROMETHEUS,
+      # not as the command to run, and the step dies with "unexpected promtool"
+      # before ever reading the rules. Override the entrypoint and pass only
+      # promtool's own arguments after the image name.
       - name: promtool check rules
         run: |
-          docker run --rm -v "${{ github.workspace }}/monitoring:/rules" \
+          docker run --rm --entrypoint promtool \
+            -v "${{ github.workspace }}/monitoring:/rules" \
             prom/prometheus:v3.8.1 \
-            promtool check rules /rules/prometheus/alerts.yaml
+            check rules /rules/prometheus/alerts.yaml
 
   version-parity:
     # Fails if either duplicated version set drifts between the places it lives.
