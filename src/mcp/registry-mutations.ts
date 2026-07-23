@@ -224,7 +224,8 @@ export function setToolOverrideMutation(
     const description = override.description ? sanitizeToolDescription(override.description) : undefined;
     let params: ToolOverride["params"] | undefined;
     if (override.params) {
-      params = {};
+      // Null-prototype: keyed by caller-supplied parameter names (see cookies.ts).
+      params = Object.create(null) as NonNullable<ToolOverride["params"]>;
       for (const [p, o] of Object.entries(override.params)) {
         if (o?.description) params[p] = { description: sanitizeToolDescription(o.description) };
       }

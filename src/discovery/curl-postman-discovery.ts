@@ -494,7 +494,9 @@ function extractBodyKeys(data: string | undefined): string[] {
 }
 
 function buildPermissiveSchema(queryKeys: string[], bodyKeys: string[]): Record<string, unknown> {
-  const properties: Record<string, { type: string }> = {};
+  // Null-prototype: keyed by parameter names parsed out of an imported cURL or
+  // Postman payload, i.e. attacker-influenced input (see cookies.ts).
+  const properties: Record<string, { type: string }> = Object.create(null) as Record<string, { type: string }>;
   for (const key of [...queryKeys, ...bodyKeys]) {
     properties[key] = { type: "string" };
   }

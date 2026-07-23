@@ -28,7 +28,13 @@ export const CSRF_COOKIE_NAME = csrfCookieName(config.sessionCookieSecure);
  * implementation: we only ever need to read our own two cookies by exact name.
  */
 export function parseCookies(header: string | undefined): Record<string, string> {
-  const result: Record<string, string> = {};
+  // Null-prototype: the keys come straight from an attacker-controlled Cookie
+  // header, and a plain `{}` would answer lookups for inherited names —
+  // `cookies["constructor"]` returning a function rather than undefined — and
+  // silently drop a `__proto__=...` pair instead of storing it as an own key.
+  // Nothing here merges into a shared object, so this was not exploitable; it is
+  // the correct shape for a map keyed by untrusted input regardless.
+  const result: Record<string, string> = Object.create(null) as Record<string, string>;
   if (!header) return result;
   for (const part of header.split(";")) {
     const idx = part.indexOf("=");

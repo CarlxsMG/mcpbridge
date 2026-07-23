@@ -64,7 +64,8 @@ toolsRoutes.patch("/clients/:name/tools", requireOperator, async (req: Request<{
     return;
   }
   const actor = actorFromRequest(req);
-  const results: Record<string, boolean> = {};
+  // Null-prototype: keyed by caller-supplied tool names (see cookies.ts).
+  const results: Record<string, boolean> = Object.create(null) as Record<string, boolean>;
   for (const toolName of toolNames as string[]) {
     results[toolName] = await registry.setToolEnabled(name, toolName, enabled);
     if (results[toolName]) {

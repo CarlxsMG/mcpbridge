@@ -411,11 +411,15 @@ async function buildRestRequest(
   // inject an extra cookie (;), split the header (CR/LF), or smuggle via , — so
   // reject the call rather than pass it through.
   const UNSAFE_COOKIE_CHAR = /[;,\s"\\]/;
-  const paramHeaders: Record<string, string> = {};
+  // Null-prototype: both maps are keyed by tool-call argument names, which the
+  // caller controls. With a plain `{}`, an argument literally named `__proto__`
+  // would be swallowed by the prototype setter instead of being sent, and an
+  // argument named `constructor` would collide with an inherited member.
+  const paramHeaders: Record<string, string> = Object.create(null) as Record<string, string>;
   const cookiePairs: string[] = [];
   try {
     const queryParams = new URLSearchParams();
-    const bodyArgs: Record<string, unknown> = {};
+    const bodyArgs: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
     for (const [key, value] of Object.entries(remainingArgs)) {
       const loc = tool.paramLocations?.[key] ?? (isBodyMethod ? "body" : "query");
       if (loc === "header") {

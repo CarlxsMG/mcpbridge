@@ -83,5 +83,9 @@ export function demoDetailKey(domain: string, recordId: number | string, detailF
  */
 function bracket(value: string): string {
   if (/^[A-Za-z0-9_]+$/.test(value)) return value;
-  return `['${value.replace(/'/g, "\\'")}']`;
+  // Backslashes must be escaped BEFORE quotes, or the backslash this adds in
+  // front of a quote gets re-escaped and the quote escapes itself away. Escaping
+  // only quotes (the previous behaviour) also left a literal backslash in the
+  // value free to start an escape sequence of its own in the emitted source.
+  return `['${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}']`;
 }

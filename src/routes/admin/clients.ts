@@ -109,7 +109,8 @@ clientsRoutes.patch("/clients", requireOperator, async (req: Request, res: Respo
     return;
   }
   const actor = actorFromRequest(req);
-  const results: Record<string, boolean> = {};
+  // Null-prototype: keyed by caller-supplied client names (see cookies.ts).
+  const results: Record<string, boolean> = Object.create(null) as Record<string, boolean>;
   for (const name of names as string[]) {
     // Tenancy: a team-scoped caller can't toggle clients outside its team —
     // report them as not-found (false), the same way ensureClientAccess hides
