@@ -265,12 +265,15 @@ describe("bumpChangelog", () => {
     const real = readFileSync(CHANGELOG_MD, "utf8");
     const { content, oldVersion } = bumpChangelog(real, "99.99.99");
 
-    // The newest released section in the real CHANGELOG. This is inherently
-    // version-coupled: it must be bumped whenever a release is cut (see
-    // RELEASING.md step 2). v1.1.0 is the first PUBLISHED artifact — 1.0.0 was
-    // the pre-publication milestone and was never tagged, which is why its
-    // footer link is intentionally absent (a releases/tag/v1.0.0 link would 404).
-    expect(oldVersion).toBe("1.1.0");
+    // Derived from package.json rather than hardcoded: the newest released
+    // CHANGELOG section always matches the shipped version, so this assertion
+    // stays true across releases instead of failing on every version bump (it
+    // did exactly that when v1.1.0 was cut). What it pins is the invariant —
+    // "the changelog's newest release is the version we ship" — which is
+    // stronger than any single literal, and it also catches a half-finished
+    // bump where package.json moved but the CHANGELOG didn't.
+    const shipped = (JSON.parse(readFileSync(ROOT_PACKAGE_JSON, "utf8")) as { version: string }).version;
+    expect(oldVersion).toBe(shipped);
     expect(content).toContain(`## [99.99.99] - ${DATE_PLACEHOLDER}`);
     expect(content.match(/## \[Unreleased\]/g)).toHaveLength(1);
     expect(content).toContain("[Unreleased]: https://github.com/CarlxsMG/mcpbridge/compare/v99.99.99...HEAD");
@@ -278,9 +281,12 @@ describe("bumpChangelog", () => {
     // The prior release's section AND its footer link must survive untouched —
     // the property this test exists to protect (a bump must never clobber
     // published history).
-    expect(content).toContain("## [1.1.0] - 2026-07-24");
-    expect(content).toContain("[1.1.0]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.1.0");
-    // The untagged 1.0.0 milestone section survives too, just without a link.
+    expect(content).toMatch(new RegExp(`^## \\[${shipped.replace(/\./g, "\\.")}\\] - \\d{4}-\\d{2}-\\d{2}$`, "m"));
+    expect(content).toContain(`[${shipped}]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v${shipped}`);
+    // The untagged 1.0.0 milestone section survives too, just without a link —
+    // it was the pre-publication milestone and was never cut as a tag, so a
+    // releases/tag/v1.0.0 footer link would 404. Safe to pin as a literal: it
+    // is frozen history, not a moving version.
     expect(content).toContain("## [1.0.0] - 2026-07-03");
 
     // Headings still nest in strictly descending "recency" order: fresh
@@ -288,7 +294,7 @@ describe("bumpChangelog", () => {
     const headings = [...content.matchAll(/^## .+$/gm)].map((m) => m[0]);
     expect(headings[0]).toBe("## [Unreleased]");
     expect(headings[1]).toBe(`## [99.99.99] - ${DATE_PLACEHOLDER}`);
-    expect(headings).toContain("## [1.1.0] - 2026-07-24");
+    expect(headings.some((h) => h.startsWith(`## [${shipped}] - `))).toBe(true);
     expect(headings).toContain("## [1.0.0] - 2026-07-03");
   });
 });

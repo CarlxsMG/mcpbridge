@@ -11,6 +11,19 @@
 # both by hand when you bump.
 ARG BUN_VERSION=1.3.11
 FROM oven/bun:${BUN_VERSION}-alpine@sha256:7ed9f74c326d1c260abe247ac423ccbf5ac92af62bb442d515d1f92f21e8ea9b AS base
+
+# Patch the OS packages the base image was built with. The digest pin above is
+# deliberate and stays — it makes the Bun runtime reproducible — but it also
+# freezes Alpine's package set at whatever that build snapshotted, so a zlib or
+# musl CVE fixed upstream never reaches us no matter how long we wait. That is
+# not hypothetical: it blocked the v1.1.0 image publish (fixable HIGH
+# CVE-2026-22184 in zlib and CVE-2026-40200 in musl), because
+# docker-publish.yml's Trivy step gates the release on fixable CRITICAL/HIGH.
+# Upgrading here keeps the runtime pinned while letting security patches
+# through — the one axis that should float. Runs in `base`, so every derived
+# stage (deps, admin-ui-build, and the final runtime image) inherits it.
+RUN apk --no-cache upgrade
+
 WORKDIR /app
 
 # Install dependencies

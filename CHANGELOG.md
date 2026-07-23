@@ -13,6 +13,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [1.1.1] - 2026-07-24
+
+### Fixed
+
+- **The container image could never be published: the pinned base froze Alpine's package set.**
+  `Dockerfile` pins `oven/bun:1.3.11-alpine` by digest so the Bun runtime is reproducible — but a
+  digest also freezes the OS packages that build snapshotted, so upstream security patches never
+  arrive. `docker-publish.yml` gates the release on fixable CRITICAL/HIGH CVEs, and v1.1.0's image
+  was blocked by two: **CVE-2026-22184** (`zlib` 1.3.1-r2, fixed in 1.3.2-r0) and
+  **CVE-2026-40200** (`musl`/`musl-utils` 1.2.5-r10, fixed in 1.2.5-r12). The base stage now runs
+  `apk --no-cache upgrade`, keeping the runtime pinned while letting security patches through —
+  the one axis that should float. v1.1.0 shipped binaries but no image; this is the first release
+  with both.
+- The `bump-version` test asserted the shipped version as a hardcoded literal, so it failed on
+  every release bump. It now derives the expected version from `package.json`, which pins the
+  stronger invariant — the changelog's newest release section matches the version actually
+  shipped — and additionally catches a half-finished bump where one moved without the other.
+
 ## [1.1.0] - 2026-07-24
 
 ### Added
@@ -653,7 +671,8 @@ below shipped incrementally on `main` and is being released together as `1.0.0`.
 - **Docs & site.** A VitePress-based documentation and marketing site with an
   interactive, mock-backed admin UI demo, published via GitHub Pages.
 
-[Unreleased]: https://github.com/CarlxsMG/mcpbridge/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/CarlxsMG/mcpbridge/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.1.1
 [1.1.0]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.1.0
 
 <!-- 1.0.0 is intentionally unlinked: it was the pre-publication development milestone and was
