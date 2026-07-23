@@ -147,20 +147,21 @@ valores se validan por rangos en el arranque (`src/config-schema.ts`).
 Los valores `*_MAX_BUCKETS_*` limitan los mapas LRU que guardan los contadores por origen —
 súbelos solo si sirves a muchísimas IPs de origen distintas y ves churn de evicción de buckets.
 
-| Variable                              | Default  | Propósito                                                        |
-| ------------------------------------- | -------- | ---------------------------------------------------------------- |
-| `RATE_LIMIT_MCP`                      | `100`    | Límite por sesión de llamadas al plano de datos MCP.             |
-| `RATE_LIMIT_REGISTER`                 | `10`     | Límite por IP de `POST /register`.                               |
-| `RATE_LIMIT_GLOBAL`                   | `1000`   | Techo global de requests por IP.                                 |
-| `RATE_LIMIT_LOGIN`                    | `10`     | Límite por IP de `POST /admin-api/auth/login`.                   |
-| `RATE_LIMIT_INSTALL_LINK`             | `20`     | Límite por IP de la ruta pública `GET /install/:token`.          |
-| `RATE_LIMIT_CLEANUP_INTERVAL_MS`      | `300000` | Intervalo entre pasadas de limpieza de buckets del rate-limiter. |
-| `RATE_LIMIT_MAX_BUCKETS_GLOBAL`       | `50000`  | Máximo de buckets LRU en el mapa del limiter global.             |
-| `RATE_LIMIT_MAX_BUCKETS_MCP`          | `100000` | Máximo de buckets LRU en el mapa del limiter de sesión MCP.      |
-| `RATE_LIMIT_MAX_BUCKETS_REGISTER`     | `10000`  | Máximo de buckets LRU en el mapa del limiter de register.        |
-| `RATE_LIMIT_MAX_BUCKETS_TOOL`         | `20000`  | Máximo de buckets LRU en el mapa del limiter de guard por tool.  |
-| `RATE_LIMIT_MAX_BUCKETS_LOGIN`        | `5000`   | Máximo de buckets LRU en el mapa del limiter de login.           |
-| `RATE_LIMIT_MAX_BUCKETS_INSTALL_LINK` | `5000`   | Máximo de buckets LRU en el mapa del limiter de install-link.    |
+| Variable                              | Default  | Propósito                                                                         |
+| ------------------------------------- | -------- | --------------------------------------------------------------------------------- |
+| `RATE_LIMIT_MCP`                      | `100`    | Límite por sesión de llamadas al plano de datos MCP.                              |
+| `RATE_LIMIT_REGISTER`                 | `10`     | Límite por IP de `POST /register`.                                                |
+| `RATE_LIMIT_GLOBAL`                   | `1000`   | Techo global de requests por IP.                                                  |
+| `RATE_LIMIT_LOGIN`                    | `10`     | Límite por IP de `POST /admin-api/auth/login`.                                    |
+| `RATE_LIMIT_INSTALL_LINK`             | `20`     | Límite por IP de la ruta pública `GET /install/:token`.                           |
+| `RATE_LIMIT_BACKUP`                   | `5`      | Límite por IP de `POST /admin-api/backup`, que ejecuta un `VACUUM INTO` síncrono. |
+| `RATE_LIMIT_CLEANUP_INTERVAL_MS`      | `300000` | Intervalo entre pasadas de limpieza de buckets del rate-limiter.                  |
+| `RATE_LIMIT_MAX_BUCKETS_GLOBAL`       | `50000`  | Máximo de buckets LRU en el mapa del limiter global.                              |
+| `RATE_LIMIT_MAX_BUCKETS_MCP`          | `100000` | Máximo de buckets LRU en el mapa del limiter de sesión MCP.                       |
+| `RATE_LIMIT_MAX_BUCKETS_REGISTER`     | `10000`  | Máximo de buckets LRU en el mapa del limiter de register.                         |
+| `RATE_LIMIT_MAX_BUCKETS_TOOL`         | `20000`  | Máximo de buckets LRU en el mapa del limiter de guard por tool.                   |
+| `RATE_LIMIT_MAX_BUCKETS_LOGIN`        | `5000`   | Máximo de buckets LRU en el mapa del limiter de login.                            |
+| `RATE_LIMIT_MAX_BUCKETS_INSTALL_LINK` | `5000`   | Máximo de buckets LRU en el mapa del limiter de install-link.                     |
 
 ### Capacidad y sesiones
 

@@ -385,6 +385,15 @@ export const config = {
    */
   rateLimitInstallLink: envInt(process.env.RATE_LIMIT_INSTALL_LINK, 20),
   rateLimitMaxBucketsInstallLink: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_INSTALL_LINK, 5_000),
+  /**
+   * Per-IP limit for POST /admin-api/backup. Deliberately low: the route runs a
+   * synchronous `VACUUM INTO` that writes a full copy of the database to disk
+   * before streaming it, so the global limit (1000/min) is far too coarse to
+   * bound it. Super-admin already gates access; this bounds a looping script or
+   * a leaked token. Backups are a human-scale operation — 5/min is generous.
+   */
+  rateLimitBackup: envInt(process.env.RATE_LIMIT_BACKUP, 5),
+  rateLimitMaxBucketsBackup: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_BACKUP, 1_000),
   /** Optional bootstrap credentials — only consumed once, when admin_users is empty. */
   bootstrapAdminUsername: process.env.BOOTSTRAP_ADMIN_USERNAME || undefined,
   bootstrapAdminPassword: process.env.BOOTSTRAP_ADMIN_PASSWORD || undefined,

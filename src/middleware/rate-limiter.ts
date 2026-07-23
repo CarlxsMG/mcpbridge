@@ -35,6 +35,7 @@ const registerBuckets = new Map<string, Bucket>();
 const toolBuckets = new Map<string, Bucket>();
 const loginBuckets = new Map<string, Bucket>();
 const installLinkBuckets = new Map<string, Bucket>();
+const backupBuckets = new Map<string, Bucket>();
 
 const WINDOW_MS = 60_000;
 
@@ -148,7 +149,7 @@ function checkLimit(
  * Returns current bucket map sizes per tier for Prometheus gauge snapshots.
  */
 export function getRateLimitBucketSizes(): Record<
-  "global" | "mcp" | "register" | "tool" | "login" | "install_link",
+  "global" | "mcp" | "register" | "tool" | "login" | "install_link" | "backup",
   number
 > {
   return {
@@ -158,6 +159,7 @@ export function getRateLimitBucketSizes(): Record<
     tool: toolBuckets.size,
     login: loginBuckets.size,
     install_link: installLinkBuckets.size,
+    backup: backupBuckets.size,
   };
 }
 
@@ -170,6 +172,7 @@ export const _internalsForTesting = {
   toolBuckets,
   loginBuckets,
   installLinkBuckets,
+  backupBuckets,
   lruGet,
   lruSet,
   checkLimit,
@@ -199,6 +202,7 @@ export function startRateLimiterCleanup(): () => void {
     evictEmpty(toolBuckets, "tool");
     evictEmpty(loginBuckets, "login");
     evictEmpty(installLinkBuckets, "install_link");
+    evictEmpty(backupBuckets, "backup");
   }, config.rateLimitCleanupIntervalMs);
 }
 
@@ -229,6 +233,25 @@ export function rateLimitInstallLink(maxPerMinute: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const key = `install_link:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
     if (checkLimit(installLinkBuckets, config.rateLimitMaxBucketsInstallLink, key, maxPerMinute, "install_link", res)) {
+      next();
+    }
+  };
+}
+
+/**
+ * Per-IP rate limit for POST /admin-api/backup.
+ *
+ * That route runs `VACUUM INTO`, which is synchronous and writes a full copy of
+ * the database to disk before streaming it back. `requireSuperAdmin` already
+ * gates who may call it, so this is not an anonymous-abuse control — it bounds
+ * what a looping script or a leaked super-admin token can do, which the global
+ * limit (1000/min by default) is far too coarse to contain for an operation
+ * this expensive. See config.rateLimitBackup.
+ */
+export function rateLimitBackup(maxPerMinute: number) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const key = `backup:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
+    if (checkLimit(backupBuckets, config.rateLimitMaxBucketsBackup, key, maxPerMinute, "backup", res)) {
       next();
     }
   };

@@ -6,6 +6,7 @@ import { dirname, join } from "path";
 import { randomUUID } from "crypto";
 import { adminAuth } from "../middleware/auth.js";
 import { requireSuperAdmin } from "../middleware/authz.js";
+import { rateLimitBackup } from "../middleware/rate-limiter.js";
 import { getDb } from "../db/connection.js";
 import { config } from "../config.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
@@ -40,7 +41,7 @@ export function backupRoutes(app: Express): void {
    * sees a transactionally consistent view) and writes a fresh, compacted
    * file to the target path, safely even while other requests are writing.
    */
-  r.post("/backup", requireSuperAdmin, async (req: Request, res: Response) => {
+  r.post("/backup", requireSuperAdmin, rateLimitBackup(config.rateLimitBackup), async (req: Request, res: Response) => {
     const filename = `mcp-bridge-backup-${Date.now()}-${randomUUID().slice(0, 8)}.db`;
     const backupPath = join(backupDir(), filename);
 

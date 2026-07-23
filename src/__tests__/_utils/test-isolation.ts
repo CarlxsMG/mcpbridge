@@ -56,6 +56,7 @@ const buckets = [
   rateLimiter.toolBuckets,
   rateLimiter.loginBuckets,
   rateLimiter.installLinkBuckets,
+  rateLimiter.backupBuckets,
 ];
 
 let snapshot: MutableConfig | null = null;
