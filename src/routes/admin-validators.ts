@@ -18,7 +18,7 @@
  * Field names mirror the wire format (`cache.ttlSeconds`, `pagination.strategy`,
  * etc.) so error messages line up one-to-one with what the admin UI sent.
  */
-import type { ValidationResult } from "./validation.js";
+import { MAX_GUARD_TIMEOUT_MS, type ValidationResult } from "./validation.js";
 import type { ClientGuardConfig, ToolGuardConfig, ToolGuardrails, ToolOverride } from "../mcp/types.js";
 import type { MockMode } from "../tool-meta/tool-mock.js";
 import type { StreamFormat } from "../proxy/streaming.js";
@@ -348,6 +348,9 @@ export function validateToolGuardInput(input: unknown): ValidationResult<ToolGua
   if (g.timeoutMs !== undefined) {
     if (typeof g.timeoutMs !== "number" || !Number.isFinite(g.timeoutMs) || g.timeoutMs <= 0) {
       return { ok: false, message: "guards.timeoutMs must be a positive number" };
+    }
+    if (g.timeoutMs > MAX_GUARD_TIMEOUT_MS) {
+      return { ok: false, message: `guards.timeoutMs must be at most ${MAX_GUARD_TIMEOUT_MS} ms` };
     }
     value.timeoutMs = g.timeoutMs;
   }

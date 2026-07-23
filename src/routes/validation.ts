@@ -12,6 +12,21 @@
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; message: string };
 
 /**
+ * Upper bound for any admin-settable per-tool call timeout, in milliseconds.
+ *
+ * A tool's `guards.timeoutMs` (and the equivalent field on a guard policy)
+ * substitutes directly for `config.toolCallTimeoutMs` at dispatch —
+ * `dispatch-rest.ts` reads `circuitCheck.timeout ?? tool.guards?.timeoutMs ??
+ * config.toolCallTimeoutMs`. The env-var form is range-checked to this same
+ * ceiling by `config-schema.ts` (`TOOL_CALL_TIMEOUT_MS: envInt(30_000, 100,
+ * 600_000)`), but the per-tool overrides only required "a positive number", so
+ * they could set a timer far beyond it and pin a request — and a WebSocket probe
+ * in `proxy/backends.ts` — open effectively forever. Both paths now share the
+ * env schema's ceiling instead of silently escaping it.
+ */
+export const MAX_GUARD_TIMEOUT_MS = 600_000;
+
+/**
  * Same shape as ValidationResult, but for the handful of validators (small
  * `optPositiveOrNull`-style helpers) whose call sites always report one
  * generic message covering every failure mode for that field, so the

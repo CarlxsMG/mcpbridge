@@ -12,6 +12,7 @@ import { describe, test, expect, afterEach } from "bun:test";
 import { config } from "../../config.js";
 import { hashApiKey } from "../../security/key-hash.js";
 import { MAX_CACHE_TTL_SECONDS } from "../../tool-policies/response-cache.js";
+import { MAX_GUARD_TIMEOUT_MS } from "../validation.js";
 import { MAX_PAGINATION_PAGES } from "../../tool-policies/pagination.js";
 import { MAX_STREAM_EVENTS } from "../../proxy/streaming.js";
 import { MAX_TRANSFORM_OPS } from "../../proxy/transform.js";
@@ -738,6 +739,22 @@ describe("validateToolGuardInput", () => {
     expect(validateToolGuardInput({ timeoutMs: -1 }).ok).toBe(false);
     expect(validateToolGuardInput({ timeoutMs: Infinity }).ok).toBe(false);
     expect(validateToolGuardInput({ timeoutMs: "5000" }).ok).toBe(false);
+  });
+
+  // guards.timeoutMs substitutes for config.toolCallTimeoutMs at dispatch
+  // (dispatch-rest.ts), whose env form config-schema.ts caps at this same
+  // ceiling. Before the cap, "a positive number" let an override escape it and
+  // hold a request — and a WebSocket probe in proxy/backends.ts — open
+  // effectively forever. Pin the exact boundary in both directions.
+  test("timeoutMs is capped at MAX_GUARD_TIMEOUT_MS — at the cap passes, one over fails", () => {
+    expect(validateToolGuardInput({ timeoutMs: MAX_GUARD_TIMEOUT_MS })).toEqual({
+      ok: true,
+      value: { timeoutMs: MAX_GUARD_TIMEOUT_MS },
+    });
+    expect(validateToolGuardInput({ timeoutMs: MAX_GUARD_TIMEOUT_MS + 1 })).toEqual({
+      ok: false,
+      message: `guards.timeoutMs must be at most ${MAX_GUARD_TIMEOUT_MS} ms`,
+    });
   });
 
   test("allowedApiKeys must be an array of non-empty strings, hashed via the real hashApiKey()", () => {

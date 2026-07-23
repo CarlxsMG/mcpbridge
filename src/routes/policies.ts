@@ -15,13 +15,25 @@ import {
 } from "../admin/entities/policies.js";
 import type { BundleToolRef } from "../admin/tool-composition/bundles.js";
 import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
-import type { LooseValidationResult } from "./validation.js";
+import { MAX_GUARD_TIMEOUT_MS, type LooseValidationResult } from "./validation.js";
 
 /** Accepts a positive number, or null (clears the guard). Rejects anything else. */
 function optPositiveOrNull(v: unknown): LooseValidationResult<number | null> {
   if (v === undefined || v === null) return { ok: true, value: null };
   if (typeof v === "number" && Number.isFinite(v) && v > 0) return { ok: true, value: v };
   return { ok: false };
+}
+
+/**
+ * As above, but additionally capped — a policy's timeoutMs substitutes for
+ * `config.toolCallTimeoutMs` at dispatch exactly like a per-tool guard does, so
+ * it gets the same ceiling instead of being able to escape the env schema's.
+ */
+function optTimeoutOrNull(v: unknown): LooseValidationResult<number | null> {
+  const parsed = optPositiveOrNull(v);
+  if (!parsed.ok) return parsed;
+  if (parsed.value !== null && parsed.value > MAX_GUARD_TIMEOUT_MS) return { ok: false };
+  return parsed;
 }
 
 function validateToolRefs(input: unknown): LooseValidationResult<BundleToolRef[]> {
@@ -66,9 +78,12 @@ export function policyRoutes(app: Express): void {
       return;
     }
     const rate = optPositiveOrNull(body.rateLimitPerMin);
-    const timeout = optPositiveOrNull(body.timeoutMs);
+    const timeout = optTimeoutOrNull(body.timeoutMs);
     if (!rate.ok || !timeout.ok) {
-      validationError(res, "rateLimitPerMin and timeoutMs must be positive numbers or null");
+      validationError(
+        res,
+        `rateLimitPerMin and timeoutMs must be positive numbers or null (timeoutMs at most ${MAX_GUARD_TIMEOUT_MS} ms)`,
+      );
       return;
     }
     const actor = actorFromRequest(req);
@@ -106,9 +121,9 @@ export function policyRoutes(app: Express): void {
       updates.rateLimitPerMin = r.value;
     }
     if (body.timeoutMs !== undefined) {
-      const t = optPositiveOrNull(body.timeoutMs);
+      const t = optTimeoutOrNull(body.timeoutMs);
       if (!t.ok) {
-        validationError(res, "timeoutMs must be a positive number or null");
+        validationError(res, `timeoutMs must be a positive number or null, at most ${MAX_GUARD_TIMEOUT_MS} ms`);
         return;
       }
       updates.timeoutMs = t.value;

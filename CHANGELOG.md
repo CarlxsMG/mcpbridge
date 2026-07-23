@@ -185,6 +185,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An admin-settable call timeout could escape the ceiling its env-var form is held to (P2).**
+  A tool's `guards.timeoutMs` — and the equivalent field on a guard policy — substitutes directly
+  for `config.toolCallTimeoutMs` at dispatch (`circuitCheck.timeout ?? tool.guards?.timeoutMs ??
+config.toolCallTimeoutMs`). `config-schema.ts` range-checks the env form to 600 000 ms, but both
+  overrides only required "a positive number", so either could set a timer orders of magnitude
+  beyond it and hold a request — and a WebSocket probe in `proxy/backends.ts` — open effectively
+  forever. Not remotely exploitable (both paths are admin-gated), but it left a looping script or
+  a leaked token far more room than intended. Both now share the env schema's ceiling via
+  `MAX_GUARD_TIMEOUT_MS`, with boundary tests pinning at-the-cap and one-over on each path.
+- **`POST /admin-api/backup` had no bound beyond the global rate limit (P2).** It runs a
+  synchronous `VACUUM INTO`, writing a full copy of the database to disk before streaming it, so
+  the 1000/min global ceiling was orders of magnitude too coarse. Adds a dedicated `backup`
+  limiter tier (`RATE_LIMIT_BACKUP`, default 5/min) following the existing per-endpoint pattern.
 - **The test suite was order-dependent, so it passed or failed by platform (P1).** All 372 test
   files run in one `bun test` process, sharing one `bun:sqlite` connection, one `config` object,
   and one set of rate-limiter counters. Files that mutated those without restoring leaked into

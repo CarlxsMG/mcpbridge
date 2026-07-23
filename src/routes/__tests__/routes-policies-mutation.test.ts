@@ -18,6 +18,7 @@ import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { requestIdMiddleware } from "../../middleware/request-id.js";
+import { MAX_GUARD_TIMEOUT_MS } from "../validation.js";
 import * as auditMod from "../../admin/audit/audit.js";
 import { getGuardPolicy } from "../../admin/entities/policies.js";
 import { createBundle } from "../../admin/tool-composition/bundles.js";
@@ -193,7 +194,9 @@ describe("POST /admin-api/policies — rateLimitPerMin/timeoutMs validation", ()
     });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { message: string } };
-    expect(body.error.message).toBe("rateLimitPerMin and timeoutMs must be positive numbers or null");
+    expect(body.error.message).toBe(
+      `rateLimitPerMin and timeoutMs must be positive numbers or null (timeoutMs at most ${MAX_GUARD_TIMEOUT_MS} ms)`,
+    );
   });
 
   test("zero is rejected (must be strictly > 0)", async () => {
@@ -473,7 +476,27 @@ describe("PATCH /admin-api/policies/:id — rateLimitPerMin/timeoutMs updates", 
     });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { message: string } };
-    expect(body.error.message).toBe("timeoutMs must be a positive number or null");
+    expect(body.error.message).toBe(`timeoutMs must be a positive number or null, at most ${MAX_GUARD_TIMEOUT_MS} ms`);
+  });
+
+  // A policy's timeoutMs substitutes for config.toolCallTimeoutMs at dispatch,
+  // whose env form is capped at the same ceiling by config-schema.ts. Without
+  // this bound an admin could set a timer far beyond it and hold a request — and
+  // a WebSocket probe in proxy/backends.ts — open effectively forever. Pin the
+  // exact boundary: at the cap must be accepted, one millisecond over rejected.
+  test("timeoutMs exactly at the cap is accepted, one over is rejected", async () => {
+    await startApp();
+    const created = await createPolicy({ name: "cap" });
+    const patch = async (timeoutMs: number): Promise<number> => {
+      const res = await fetch(`${baseUrl}/admin-api/policies/${created.id}`, {
+        method: "PATCH",
+        headers: bearer(),
+        body: JSON.stringify({ timeoutMs }),
+      });
+      return res.status;
+    };
+    expect(await patch(MAX_GUARD_TIMEOUT_MS)).toBe(200);
+    expect(await patch(MAX_GUARD_TIMEOUT_MS + 1)).toBe(400);
   });
 
   test("clearing rateLimitPerMin to null is accepted and persisted", async () => {
