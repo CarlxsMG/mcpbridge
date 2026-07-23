@@ -265,20 +265,30 @@ describe("bumpChangelog", () => {
     const real = readFileSync(CHANGELOG_MD, "utf8");
     const { content, oldVersion } = bumpChangelog(real, "99.99.99");
 
-    expect(oldVersion).toBe("1.0.0");
+    // The newest released section in the real CHANGELOG. This is inherently
+    // version-coupled: it must be bumped whenever a release is cut (see
+    // RELEASING.md step 2). v1.1.0 is the first PUBLISHED artifact — 1.0.0 was
+    // the pre-publication milestone and was never tagged, which is why its
+    // footer link is intentionally absent (a releases/tag/v1.0.0 link would 404).
+    expect(oldVersion).toBe("1.1.0");
     expect(content).toContain(`## [99.99.99] - ${DATE_PLACEHOLDER}`);
     expect(content.match(/## \[Unreleased\]/g)).toHaveLength(1);
     expect(content).toContain("[Unreleased]: https://github.com/CarlxsMG/mcpbridge/compare/v99.99.99...HEAD");
     expect(content).toContain("[99.99.99]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v99.99.99");
-    // Original 1.0.0 release section/link must survive untouched.
+    // The prior release's section AND its footer link must survive untouched —
+    // the property this test exists to protect (a bump must never clobber
+    // published history).
+    expect(content).toContain("## [1.1.0] - 2026-07-24");
+    expect(content).toContain("[1.1.0]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.1.0");
+    // The untagged 1.0.0 milestone section survives too, just without a link.
     expect(content).toContain("## [1.0.0] - 2026-07-03");
-    expect(content).toContain("[1.0.0]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.0.0");
 
     // Headings still nest in strictly descending "recency" order: fresh
     // Unreleased, then the newly-cut version, then every prior release.
     const headings = [...content.matchAll(/^## .+$/gm)].map((m) => m[0]);
     expect(headings[0]).toBe("## [Unreleased]");
     expect(headings[1]).toBe(`## [99.99.99] - ${DATE_PLACEHOLDER}`);
+    expect(headings).toContain("## [1.1.0] - 2026-07-24");
     expect(headings).toContain("## [1.0.0] - 2026-07-03");
   });
 });

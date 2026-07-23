@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.1.0] - 2026-07-24
+
+### Added
+
 - **`SUPPORT.md`** — routes each kind of question to the right place (docs, Discussions, bug vs
   feature templates, private security advisories) and spells out what makes a gateway bug report
   actionable: the endpoint the call took, the backend kind, and a redacted request/response trace.
@@ -645,5 +653,9 @@ below shipped incrementally on `main` and is being released together as `1.0.0`.
 - **Docs & site.** A VitePress-based documentation and marketing site with an
   interactive, mock-backed admin UI demo, published via GitHub Pages.
 
-[Unreleased]: https://github.com/CarlxsMG/mcpbridge/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.0.0
+[Unreleased]: https://github.com/CarlxsMG/mcpbridge/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.1.0
+
+<!-- 1.0.0 is intentionally unlinked: it was the pre-publication development milestone and was
+     never cut as a tag or release, so a releases/tag/v1.0.0 link would 404. v1.1.0 is the first
+     published artifact (see RELEASING.md, "First release decision" — roll forward). -->
