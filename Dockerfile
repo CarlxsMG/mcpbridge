@@ -24,6 +24,16 @@ RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # Build the admin UI (Vue 3 SPA) into static assets
 FROM base AS admin-ui-build
+# `bun run build` runs `vue-tsc -b`, and vue-tsc is a Node CLI that hooks the Vue
+# language plugin into TypeScript. The oven/bun Alpine image ships no real Node —
+# only a fallback shim at /usr/local/bun-node-fallback-bin/node — under which that
+# plugin never registers `.vue` as a resolvable extension, so every `.vue` import
+# failed with TS2307 and the image could not be built at all. It went unnoticed
+# because a developer machine (and the GitHub runner) has real Node on PATH, so
+# `bun run build` worked everywhere except inside this image. This stage is
+# discarded after the build — only admin-ui/dist is copied into the final image —
+# so nodejs adds nothing to what ships.
+RUN apk add --no-cache nodejs
 WORKDIR /app/admin-ui
 COPY admin-ui/package.json admin-ui/bun.lock* ./
 RUN bun install --frozen-lockfile

@@ -185,6 +185,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The container image could not be built at all (P0).** The `admin-ui-build` stage runs
+  `bun run build`, whose first half is `vue-tsc -b`. `vue-tsc` is a Node CLI that hooks the Vue
+  language plugin into TypeScript so `.vue` becomes a resolvable extension — but the
+  `oven/bun:*-alpine` base ships no real Node, only a fallback shim at
+  `/usr/local/bun-node-fallback-bin/node`. Under that shim the plugin never registers, so the
+  TypeScript program contained no `.vue` files and all 42 `.vue` imports failed with TS2307,
+  taking the whole build down at `Dockerfile:31`. Fixed by installing `nodejs` in that stage.
+  The stage is discarded after building — only `admin-ui/dist` is copied into the final image —
+  so nothing is added to what ships. It hid because every machine that ran the build outside
+  Docker (developer laptops, the GitHub runner) has real Node on `PATH`; verified by reproducing
+  in the container, then confirming the full image builds and boots with `/livez`, `/readyz`,
+  and `/admin/` all answering 200.
 - **`bun run typecheck` failed on any clean install, breaking CI's `test` leg (P1).** Dropping the
   unused `@scalar/types` dependency (see Removed above) also removed the only thing satisfying the
   `import ... from "@scalar/types/utils"` that `@scalar/openapi-parser` and `@scalar/openapi-upgrader`
