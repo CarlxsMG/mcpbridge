@@ -185,6 +185,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **5 backup tests silently depended on a local `./data` directory (P1).** `backup.ts` writes its
+  snapshot to `dirname(config.dbPath)`, and SQLite will not create a missing parent directory.
+  Under test the database is in-memory (`__resetDbForTesting` defaults to `":memory:"`), so
+  `db/connection.ts`'s own `mkdirSync` — what creates that directory when the real app boots —
+  never runs. `./data` is gitignored, so it exists only on a machine that has previously run the
+  gateway; on a clean checkout every backup failed with `unable to open database`. The test setup
+  now creates it the same way the app does at boot. The product itself was never affected: by the
+  time a backup can be requested, the boot-time `mkdirSync` has already run.
 - **26 backend tests silently depended on a contributor's local `.env` (P1).**
   `routes-alerts-mutation.test.ts` posts alert rules whose `webhookUrl` is `http://127.0.0.1:9/x`,
   and `registration-mutation-rg1.test.ts` registers ws-proxy targets at `ws://127.0.0.1:9`. Both

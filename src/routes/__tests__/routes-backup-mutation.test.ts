@@ -9,7 +9,7 @@ import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { Readable } from "stream";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import * as fsMod from "fs";
 import * as fsPromisesMod from "fs/promises";
 import { dirname, join } from "path";
@@ -25,6 +25,16 @@ const FILENAME_RE = /^mcp-bridge-backup-\d+-[0-9a-f]{8}\.db$/;
 
 async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   __resetDbForTesting();
+  // backup.ts writes its snapshot to backupDir() === dirname(config.dbPath),
+  // and SQLite will not create a missing parent directory. Under test the DB is
+  // in-memory (__resetDbForTesting defaults to ":memory:"), so db/connection.ts's
+  // own mkdirSync — which is what creates that directory when the real app boots
+  // — never runs, and the directory only exists on a machine that has previously
+  // run the gateway. A clean checkout (CI, a fresh clone) has no ./data, so every
+  // backup here failed with "unable to open database". Create it the same way the
+  // app does at boot; it is gitignored, and this mirrors production rather than
+  // working around it.
+  mkdirSync(dirname(config.dbPath), { recursive: true });
   (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
   (config as Record<string, unknown>).authDisabled = false;
   const { backupRoutes } = await import("../../routes/backup.js");
