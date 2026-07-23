@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T extends string | number | boolean | null">
-import { ref, computed, nextTick, onBeforeUnmount } from "vue";
+import { ref, computed, nextTick, onBeforeUnmount, useId } from "vue";
 import { useRouter } from "vue-router";
 import { ChevronDown, Plus } from "lucide-vue-next";
 import { useFloatingPanel } from "@/composables/useFloatingPanel";
@@ -40,8 +40,11 @@ const router = props.createPath ? useRouter() : undefined;
 const activeIndex = ref(0);
 const triggerEl = ref<HTMLButtonElement | null>(null);
 const listboxEl = ref<HTMLUListElement | null>(null);
-const uid = Math.random().toString(36).slice(2, 9);
-const listboxId = `select-menu-${uid}`;
+// Vue's own collision-free id generator (3.5+). Replaces a Math.random() slice,
+// which CodeQL flagged as insecure randomness: harmless here since this only
+// links the trigger to its listbox for ARIA, but useId() is both the idiomatic
+// answer and genuinely collision-free.
+const listboxId = `select-menu-${useId()}`;
 
 const floatingPanel = useFloatingPanel(triggerEl, listboxEl, {
   matchTriggerWidth: true,

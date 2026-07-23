@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, useSlots } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, useId, useSlots } from "vue";
 import { useFloatingPanel, FLOATING_PANEL_MARGIN } from "@/composables/useFloatingPanel";
 import CopyButton from "@/components/ui/CopyButton.vue";
 
@@ -25,8 +25,11 @@ const panelEl = ref<HTMLElement | null>(null);
 const contentEl = ref<HTMLElement | null>(null);
 const hasOverflow = ref(false);
 const previewText = ref("");
-const uid = Math.random().toString(36).slice(2, 9);
-const panelId = `hover-preview-${uid}`;
+// See the matching note in SelectMenu.vue: Vue's useId() replaces a
+// Math.random() slice that CodeQL flagged as insecure randomness. The id only
+// links the trigger to its preview panel for ARIA, but useId() is idiomatic and
+// collision-free.
+const panelId = `hover-preview-${useId()}`;
 
 const shouldPreview = computed(() => props.alwaysShow || hasOverflow.value);
 const hasContent = computed(() => !!slots.content || !!props.text);

@@ -1,0 +1,24 @@
+name: "MCP REST Bridge CodeQL config"
+
+# Scope the analysis to code that actually ships.
+#
+# The default scan includes test files, which produced alerts that cannot mean
+# anything: "Missing rate limiting" on an Express app a unit test spins up on an
+# ephemeral port (src/security/__tests__/mcp-auth-keys.test.ts), and
+# "Prototype-polluting function" on a fixture that deliberately builds a
+# polluting payload to prove the code under test resists it
+# (admin-ui/src/demo/__tests__/resolve.test.ts). Neither is deployed, reachable
+# by an attacker, or something a fix would improve — they only make the real
+# alert list harder to read.
+#
+# This narrows WHERE CodeQL looks; it does not disable any query. Everything
+# under src/ and admin-ui/src/ that ships is still analysed with the full
+# security-and-quality suite.
+paths-ignore:
+  - "**/__tests__/**"
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "e2e/**"
+  - "scripts/**"
+  - "docs/**"
+  - "examples/**"
