@@ -98,11 +98,20 @@ updates:
       - "ci"
     commit-message:
       prefix: "ci(deps)"
-    # One PR per week for all action bumps rather than one per action.
+    # One PR per week for the routine minor/patch action churn, rather than one PR
+    # per action. Majors are deliberately EXCLUDED from the group so each arrives
+    # as its own reviewable PR: action majors carry breaking changes (renamed
+    # inputs, a new runner Node version, changed artifact semantics), and grouping
+    # them means a single red PR with no way to tell which of N bumps broke what.
+    # The first grouped run produced exactly that — 19 majors in one PR, five
+    # failing jobs. Mirrors the minor/patch scoping the npm groups above already use.
     groups:
       actions:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # Dockerfile base image (oven/bun:*-alpine, digest-pinned) so base-image CVEs
   # get proposed as digest bumps.
