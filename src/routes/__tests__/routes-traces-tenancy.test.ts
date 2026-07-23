@@ -25,6 +25,13 @@ import { createTeam, setUserTeam, setClientTeam } from "../../admin/entities/tea
 let baseUrl = "";
 let activeServer: Server | null = null;
 const ADMIN_KEY = "test-admin-key-traces-tenancy";
+// startApp() turns trace storage on. All test files share one process and one
+// `config` object, so leaving it on leaks into every file that runs afterwards —
+// `tracingEnabled()` is `Boolean(otelEndpoint) || traceStorageEnabled`, so a test
+// elsewhere asserting that tracing is OFF then fails, and which file gets hit
+// depends on the filesystem's discovery order (it was CI's Linux ordering, not
+// the maintainer's Windows one). Mirrors the sibling routes-traces-mutation.test.ts.
+const originalTraceStorage = config.traceStorageEnabled;
 
 async function startApp(): Promise<void> {
   __resetDbForTesting();
@@ -96,6 +103,7 @@ afterEach(async () => {
   for (const c of registry.listClients()) await registry.unregister(c.name);
   __clearSpansForTesting();
   tracingInternals.clear();
+  (config as Record<string, unknown>).traceStorageEnabled = originalTraceStorage;
   await new Promise<void>((resolve) => {
     if (activeServer)
       activeServer.close(() => {
