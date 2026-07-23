@@ -4,7 +4,7 @@ This is the project's vulnerability-reporting policy — how to report a securit
 what's already hardened. For configuring the bridge's built-in security features (SSRF
 protection, guardrails, RBAC), see **[Security →](/guide/security)** instead.
 
-Mirrors the repo's root [`SECURITY.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/SECURITY.md).
+Mirrors the repo's root [`SECURITY.md`](https://github.com/CarlxsMG/mcpbridge/blob/main/SECURITY.md).
 
 ## Supported versions
 
@@ -23,7 +23,7 @@ receive backported security fixes.
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Use [GitHub's private vulnerability reporting](https://github.com/aico-dot-team-code/mcpbridge/security/advisories/new)
+Use [GitHub's private vulnerability reporting](https://github.com/CarlxsMG/mcpbridge/security/advisories/new)
 for this repository ("Security" tab → "Report a vulnerability"). This opens a private advisory
 thread with maintainers only, so you can disclose details without a public issue.
 

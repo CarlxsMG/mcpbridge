@@ -6,10 +6,10 @@ Registra desde la UI de admin (**Añadir servidor**) o la API `POST /register`. 
 requiere auth admin — una sesión, o un token Bearer `ADMIN_API_KEYS`.
 
 ::: tip Muestras listas para enviar
-El directorio [`examples/register/`](https://github.com/aico-dot-team-code/mcpbridge/tree/main/examples/register)
+El directorio [`examples/register/`](https://github.com/CarlxsMG/mcpbridge/tree/main/examples/register)
 del repo trae un body completo de `POST /register` para cada modo de abajo (OpenAPI, importación
 cURL, Postman, manual, GraphQL, MCP upstream), más un
-[`examples/gateway.yaml`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/examples/gateway.yaml)
+[`examples/gateway.yaml`](https://github.com/CarlxsMG/mcpbridge/blob/main/examples/gateway.yaml)
 para registrar los mismos backends como config-as-code.
 :::
 

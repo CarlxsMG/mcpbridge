@@ -10,13 +10,13 @@ hero:
   actions:
     - theme: brand
       text: Probar la demo en vivo ↗
-      link: https://aico-dot-team-code.github.io/mcpbridge/demo/
+      link: https://carlxsmg.github.io/mcpbridge/demo/
     - theme: alt
       text: Primeros pasos
       link: /es/guide/getting-started
     - theme: alt
       text: ⭐ Destacar en GitHub
-      link: https://github.com/aico-dot-team-code/mcpbridge
+      link: https://github.com/CarlxsMG/mcpbridge
 
 features:
   - icon:
@@ -70,7 +70,7 @@ ve cada cliente y observa salud, uso y rastros de auditoría en vivo.
 
 <DemoReel />
 
-> 🎮 **[Prueba la demo en vivo →](https://aico-dot-team-code.github.io/mcpbridge/demo/)** — la UI
+> 🎮 **[Prueba la demo en vivo →](https://carlxsmg.github.io/mcpbridge/demo/)** — la UI
 > de administración real ejecutándose con datos mock, directamente en tu navegador. Sin
 > instalación, sin registro.
 
@@ -126,6 +126,6 @@ tools de backend. ([Cómo los bundles agregan varios backends →](/es/guide/bun
 <div style="margin-top: 2.5rem; text-align: center;">
 
 **[Empezar en 60 segundos →](/es/guide/getting-started)** &nbsp;·&nbsp;
-**[⭐ Destacar en GitHub](https://github.com/aico-dot-team-code/mcpbridge)**
+**[⭐ Destacar en GitHub](https://github.com/CarlxsMG/mcpbridge)**
 
 </div>

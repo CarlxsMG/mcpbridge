@@ -15,7 +15,7 @@ image:
   # Published by .github/workflows/docker-publish.yml to GHCR on every
   # `vX.Y.Z` tag push. Point this at your own fork's GHCR path if you build
   # and publish the image yourself.
-  repository: ghcr.io/aico-dot-team-code/mcpbridge
+  repository: ghcr.io/carlxsmg/mcpbridge
   # Defaults to .Chart.appVersion when empty.
   tag: ""
   pullPolicy: IfNotPresent

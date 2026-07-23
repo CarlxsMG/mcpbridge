@@ -60,7 +60,7 @@ rollback, so back up your SQLite database before upgrading to a new version. See
 
 ## Can I try it without installing anything?
 
-Yes — the **[live demo](https://aico-dot-team-code.github.io/mcpbridge/demo/)** runs the real
+Yes — the **[live demo](https://carlxsmg.github.io/mcpbridge/demo/)** runs the real
 admin UI against mock data, right in your browser. No install, no signup.
 
 The demo is fully localized to Spanish as well — flip the locale switcher in
@@ -70,7 +70,7 @@ catalog descriptions) updates in place without losing your tab state.
 
 ## What license is this?
 
-MIT. See [`LICENSE`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/LICENSE).
+MIT. See [`LICENSE`](https://github.com/CarlxsMG/mcpbridge/blob/main/LICENSE).
 
 ## Something's not working — where do I look?
 

@@ -10,13 +10,13 @@ hero:
   actions:
     - theme: brand
       text: Try the live demo ↗
-      link: https://aico-dot-team-code.github.io/mcpbridge/demo/
+      link: https://carlxsmg.github.io/mcpbridge/demo/
     - theme: alt
       text: Get started
       link: /guide/getting-started
     - theme: alt
       text: ⭐ Star on GitHub
-      link: https://github.com/aico-dot-team-code/mcpbridge
+      link: https://github.com/CarlxsMG/mcpbridge
 
 features:
   - icon:
@@ -70,7 +70,7 @@ each client sees, and watch health, usage and audit trails live.
 
 <DemoReel />
 
-> 🎮 **[Try the live demo →](https://aico-dot-team-code.github.io/mcpbridge/demo/)** — the real
+> 🎮 **[Try the live demo →](https://carlxsmg.github.io/mcpbridge/demo/)** — the real
 > admin UI running on mock data, right in your browser. No install, no signup.
 
 <ConvertAnything />
@@ -123,6 +123,6 @@ tools. ([How bundles aggregate several backends →](/guide/bundles))
 <div style="margin-top: 2.5rem; text-align: center;">
 
 **[Get started in 60 seconds →](/guide/getting-started)** &nbsp;·&nbsp;
-**[⭐ Star on GitHub](https://github.com/aico-dot-team-code/mcpbridge)**
+**[⭐ Star on GitHub](https://github.com/CarlxsMG/mcpbridge)**
 
 </div>

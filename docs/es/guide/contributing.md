@@ -1,6 +1,6 @@
 # Contribuir
 
-El [`CONTRIBUTING.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CONTRIBUTING.md)
+El [`CONTRIBUTING.md`](https://github.com/CarlxsMG/mcpbridge/blob/main/CONTRIBUTING.md)
 raíz es la referencia canónica estilo GitHub (es a la que enlaza GitHub desde el banner de
 "new PR" y los Estándares de Comunidad del repo). Esta página es la versión buscable y
 cross-linked para lectores ya dentro del sitio de docs — un superset que enlaza fuera a
@@ -26,7 +26,7 @@ de escribir código — ahorra retrabajo a ambas partes.
 ### Clonar, instalar, configurar
 
 ```bash
-git clone https://github.com/aico-dot-team-code/mcpbridge.git
+git clone https://github.com/CarlxsMG/mcpbridge.git
 cd mcpbridge
 bun install
 cp .env.example .env                 # luego configura BOOTSTRAP_ADMIN_PASSWORD (mín 12 chars)

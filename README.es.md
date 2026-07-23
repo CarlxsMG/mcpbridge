@@ -2,9 +2,6 @@
   Versión en español. El repo canónico en inglés sigue siendo README.md.
   Esta duplicación se mantiene sincronizada a mano; si haces un cambio
   significativo en cualquiera de los dos, replica el cambio aquí.
-
-  Repo slug usado en los enlaces/badges de abajo: `aico-dot-team-code/mcpbridge`.
-  Si tu repo de GitHub se llama diferente, busca-y-reemplaza ese slug aquí.
 -->
 <div align="center">
 
@@ -18,16 +15,17 @@
 OpenAPI-a-MCP, guardrails por herramienta, RBAC, circuit breaking. Un único binario. Sin
 Kubernetes.
 
+[![CI](https://github.com/CarlxsMG/mcpbridge/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlxsMG/mcpbridge/actions/workflows/ci.yml)
 [![Bun](https://img.shields.io/badge/runtime-Bun-black?logo=bun)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-compatible-00a99a)](https://modelcontextprotocol.io)
 [![Licencia: MIT](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
 [![PRs bienvenidos](https://img.shields.io/badge/PRs-welcome-00a99a)](#-contribuir)
 [![Mutation tested con Stryker](https://img.shields.io/badge/mutation_tested-Stryker-a2c4c9)](https://stryker-mutator.io)
-[![Estrella en GitHub](https://img.shields.io/github/stars/aico-dot-team-code/mcpbridge?style=social)](https://github.com/aico-dot-team-code/mcpbridge)
+[![Estrella en GitHub](https://img.shields.io/github/stars/CarlxsMG/mcpbridge?style=social)](https://github.com/CarlxsMG/mcpbridge)
 
-[**🎮 Demo en vivo**](https://aico-dot-team-code.github.io/mcpbridge/demo/) ·
-[**Web y docs**](https://aico-dot-team-code.github.io/mcpbridge/) ·
+[**🎮 Demo en vivo**](https://carlxsmg.github.io/mcpbridge/demo/) ·
+[**Web y docs**](https://carlxsmg.github.io/mcpbridge/) ·
 [Primeros pasos](#-quickstart-de-60-segundos) ·
 [Funcionalidades](#-funcionalidades) ·
 [¿Por qué esto frente a las alternativas?](#-mcp-rest-bridge-vs-las-alternativas)
@@ -51,7 +49,7 @@ un montón de YAML. Probado contra **Claude Desktop**, **Cursor** y agentes MCP 
 
 ![MCP REST Bridge admin UI — servidores, herramientas y salud registrados](docs/public/screenshots/servers.png)
 
-**▶ [Prueba la demo en vivo](https://aico-dot-team-code.github.io/mcpbridge/demo/)** — la UI
+**▶ [Prueba la demo en vivo](https://carlxsmg.github.io/mcpbridge/demo/)** — la UI
 de administración completa funcionando con datos mock, sin instalar nada.
 
 </div>
@@ -70,8 +68,8 @@ luego cada llamada pasa por la misma guard pipeline:
 | Sin spec — a mano            | `tools[]`                 | exactamente las tools que definas    |
 | Servidor MCP existente       | `kind: "mcp"` + `mcp_url` | sus tools, re-expuestas y gobernadas |
 
-Consulta **[Registrar backends →](https://aico-dot-team-code.github.io/mcpbridge/es/guide/registering-backends)**
-para el payload de cada uno, y **[Bundles →](https://aico-dot-team-code.github.io/mcpbridge/es/guide/bundles)**
+Consulta **[Registrar backends →](https://carlxsmg.github.io/mcpbridge/es/guide/registering-backends)**
+para el payload de cada uno, y **[Bundles →](https://carlxsmg.github.io/mcpbridge/es/guide/bundles)**
 para servir varios backends por un solo endpoint.
 
 ## ✨ Por qué MCP REST Bridge
@@ -119,9 +117,9 @@ son solo para HTTP local — en producción ejecuta sobre HTTPS y elimina ambas.
 
 > **¿Prefieres no compilar desde el código?** Cuando se publique la primera release, cada
 > release publicará una imagen prebuilt, multi-arch y firmada en GHCR — entonces podrás quitar
-> el paso `docker build` y usar `ghcr.io/aico-dot-team-code/mcpbridge:latest` como imagen en
+> el paso `docker build` y usar `ghcr.io/carlxsmg/mcpbridge:latest` como imagen en
 > `docker run`. Hasta entonces, compila en local con el `docker build` de arriba. Consulta
-> [Despliegue](https://aico-dot-team-code.github.io/mcpbridge/es/guide/deployment).
+> [Despliegue](https://carlxsmg.github.io/mcpbridge/es/guide/deployment).
 
 ### Bun (desarrollo local, con hot reload)
 
@@ -137,7 +135,7 @@ bun run dev:all                      # backend :8790 + admin UI :8791
 > **Nota:** el modo dev usa a propósito puertos distintos (8790/8791) que el 3000 por
 > defecto de Docker/producción — puertos altos y poco comunes para que un servidor dev local
 > no choque con 3000 (o con una instancia real de gateway) que también puedas tener
-> ejecutándose. Consulta [Configuración](https://aico-dot-team-code.github.io/mcpbridge/es/guide/configuration)
+> ejecutándose. Consulta [Configuración](https://carlxsmg.github.io/mcpbridge/es/guide/configuration)
 > para la referencia completa de puertos.
 
 > **Todos los ejemplos de `curl`, config de cliente y `cli --url` de abajo usan
@@ -208,7 +206,7 @@ Flags globales, independientes de cualquier subcomando: `help` / `-h` / `--help`
 comportamiento por defecto sin ningún comando) y `version` / `-v` / `--version`, ambos
 saliendo con `0`.
 
-Consulta **[CLI docs →](https://aico-dot-team-code.github.io/mcpbridge/es/guide/cli)** para la
+Consulta **[CLI docs →](https://carlxsmg.github.io/mcpbridge/es/guide/cli)** para la
 referencia completa de comandos y el formato de `gateway.yaml`.
 
 ## 🧩 Funcionalidades
@@ -233,7 +231,7 @@ referencia completa de comandos y el formato de `gateway.yaml`.
 **Opera con confianza**
 
 - **UI de admin** (Vue 3): dashboard, servidores, bundles, keys, uso, alertas, programaciones, auditoría
-- **CLI** (`bun run cli`) para config-as-code: `login` / `pull` / `plan` / `apply` contra `gateway.yaml`, más `connect` para generar configs de cliente MCP — consulta [CLI docs](https://aico-dot-team-code.github.io/mcpbridge/es/guide/cli)
+- **CLI** (`bun run cli`) para config-as-code: `login` / `pull` / `plan` / `apply` contra `gateway.yaml`, más `connect` para generar configs de cliente MCP — consulta [CLI docs](https://carlxsmg.github.io/mcpbridge/es/guide/cli)
 - Monitorización de salud + auto-eliminación; **canary / failover** secundarios
 - **Versionado de config + rollback**, import / export
 - Prometheus `/metrics` + tracing **OpenTelemetry (OTLP)** por llamada de tool
@@ -277,10 +275,10 @@ de ninguna herramienta específica._
 
 ## 📚 Documentación
 
-Las docs completas viven en la **[web del proyecto](https://aico-dot-team-code.github.io/mcpbridge/)**:
-[Primeros pasos](https://aico-dot-team-code.github.io/mcpbridge/es/guide/getting-started) ·
-[Funcionalidades](https://aico-dot-team-code.github.io/mcpbridge/es/guide/features) ·
-[¿Por qué MCP REST Bridge?](https://aico-dot-team-code.github.io/mcpbridge/es/guide/why-mcp-rest-bridge)
+Las docs completas viven en la **[web del proyecto](https://carlxsmg.github.io/mcpbridge/)**:
+[Primeros pasos](https://carlxsmg.github.io/mcpbridge/es/guide/getting-started) ·
+[Funcionalidades](https://carlxsmg.github.io/mcpbridge/es/guide/features) ·
+[¿Por qué MCP REST Bridge?](https://carlxsmg.github.io/mcpbridge/es/guide/why-mcp-rest-bridge)
 
 ¿Prefieres aprender con ejemplos? El directorio **[`examples/`](examples/)** trae muestras listas
 para copiar y ejecutar: un body de `POST /register` por cada modo de registro, un `gateway.yaml`
@@ -325,7 +323,7 @@ MIT — consulta [`LICENSE`](LICENSE).
 **Palabras clave:** MCP gateway · MCP proxy · MCP aggregator · Model Context Protocol ·
 OpenAPI to MCP · REST to MCP · self-hosted MCP · MCP admin UI · MCP RBAC · AI tool gateway
 
-Si este proyecto te ayuda, por favor ⭐ **[destácalo en GitHub](https://github.com/aico-dot-team-code/mcpbridge)**
+Si este proyecto te ayuda, por favor ⭐ **[destácalo en GitHub](https://github.com/CarlxsMG/mcpbridge)**
 — es la mayor señal que ayuda a otros a descubrirlo.
 
 </div>

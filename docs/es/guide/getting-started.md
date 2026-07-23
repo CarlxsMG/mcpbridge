@@ -37,7 +37,7 @@ sobre HTTPS y elimina ambas** — la cookie se vuelve `__Host-`/`Secure` automá
 ::: tip ¿Prefieres no compilar desde el código?
 Cuando se publique la primera release, cada release publicará una imagen prebuilt, multi-arch
 y firmada en GHCR — entonces podrás quitar el `docker build` y usar
-`ghcr.io/aico-dot-team-code/mcpbridge:latest` como imagen en `docker run`. Hasta entonces,
+`ghcr.io/carlxsmg/mcpbridge:latest` como imagen en `docker run`. Hasta entonces,
 compila en local con el `docker build` de arriba. Consulta [Despliegue →](/es/guide/deployment).
 :::
 
@@ -152,7 +152,7 @@ Eso es un **bundle** — consulta [Agregar backends en un solo endpoint →](/es
   RBAC, canary, tracing, audit y más).
 - **[Por qué MCP REST Bridge →](/es/guide/why-mcp-rest-bridge)** — cómo se compara y dónde encaja.
 - **Muestras listas para copiar y ejecutar** — el directorio
-  [`examples/`](https://github.com/aico-dot-team-code/mcpbridge/tree/main/examples) del repo trae
+  [`examples/`](https://github.com/CarlxsMG/mcpbridge/tree/main/examples) del repo trae
   un body de `POST /register` por cada modo de registro, un `gateway.yaml` config-as-code, y
   configs drop-in de clientes MCP (Claude Desktop, Cursor).
 - Blinda el despliegue para producción: define `MCP_API_KEYS`, configura guardrails por tool y

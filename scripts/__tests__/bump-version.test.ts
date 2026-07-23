@@ -268,11 +268,11 @@ describe("bumpChangelog", () => {
     expect(oldVersion).toBe("1.0.0");
     expect(content).toContain(`## [99.99.99] - ${DATE_PLACEHOLDER}`);
     expect(content.match(/## \[Unreleased\]/g)).toHaveLength(1);
-    expect(content).toContain("[Unreleased]: https://github.com/aico-dot-team-code/mcpbridge/compare/v99.99.99...HEAD");
-    expect(content).toContain("[99.99.99]: https://github.com/aico-dot-team-code/mcpbridge/releases/tag/v99.99.99");
+    expect(content).toContain("[Unreleased]: https://github.com/CarlxsMG/mcpbridge/compare/v99.99.99...HEAD");
+    expect(content).toContain("[99.99.99]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v99.99.99");
     // Original 1.0.0 release section/link must survive untouched.
     expect(content).toContain("## [1.0.0] - 2026-07-03");
-    expect(content).toContain("[1.0.0]: https://github.com/aico-dot-team-code/mcpbridge/releases/tag/v1.0.0");
+    expect(content).toContain("[1.0.0]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.0.0");
 
     // Headings still nest in strictly descending "recency" order: fresh
     // Unreleased, then the newly-cut version, then every prior release.

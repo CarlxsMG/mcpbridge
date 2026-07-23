@@ -1,10 +1,10 @@
 # Changelog
 
-Refleja el [`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md)
+Refleja el [`CHANGELOG.md`](https://github.com/CarlxsMG/mcpbridge/blob/main/CHANGELOG.md)
 raíz del repo para que sea buscable junto al resto de las docs. El formato se basa en
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); este proyecto sigue
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Para el historial completo a
-nivel de commit, consulta [GitHub Releases →](https://github.com/aico-dot-team-code/mcpbridge/releases).
+nivel de commit, consulta [GitHub Releases →](https://github.com/CarlxsMG/mcpbridge/releases).
 
 ## [Unreleased]
 
@@ -68,7 +68,7 @@ que `gateway connect --scope system` sugiera el tipo de key correcto, y correcci
 (la salvedad del flag de retry para PUT/DELETE, el comando antes no documentado `bun run
 test:mutate`, y la cobertura completa de los jobs de CI incluyendo `e2e`/CodeQL/`security.yml`).
 Consulta el
-[`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
+[`CHANGELOG.md`](https://github.com/CarlxsMG/mcpbridge/blob/main/CHANGELOG.md#unreleased)
 raíz para la lista curada completa.
 
 Lo más reciente: el bridge ahora anuncia las **anotaciones de tools MCP (2025-06-18)** estándar —

@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement via
-[GitHub's private vulnerability reporting](https://github.com/aico-dot-team-code/mcpbridge/security/advisories/new)
+[GitHub's private vulnerability reporting](https://github.com/CarlxsMG/mcpbridge/security/advisories/new)
 for this repository ("Security" tab → "Report a vulnerability"). This opens a
 private advisory thread visible only to maintainers; it's this project's only
 GitHub-native private channel, so it's also used to report Code of Conduct

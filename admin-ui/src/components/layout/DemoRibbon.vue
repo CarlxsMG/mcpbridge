@@ -7,13 +7,7 @@ const { t } = useI18n({ useScope: "global" });
 </script>
 
 <template>
-  <a
-    v-if="isDemo"
-    class="demo-ribbon"
-    href="https://github.com/aico-dot-team-code/mcpbridge"
-    target="_blank"
-    rel="noopener"
-  >
+  <a v-if="isDemo" class="demo-ribbon" href="https://github.com/CarlxsMG/mcpbridge" target="_blank" rel="noopener">
     <GitBranch :size="13" stroke-width="2.5" aria-hidden="true" /> {{ t("components.demo_ribbon.label") }}
   </a>
 </template>

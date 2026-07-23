@@ -14,7 +14,7 @@ Para eso está un **bundle**: un subconjunto curado por un admin, entre backends
 `/mcp` es el [control plane](/es/guide/architecture) — tools `sys_*` para gestionar el gateway
 mismo, no tools de backend. **No** existe, a propósito, un endpoint "todas las tools de backend
 aplanadas" (hacía ambiguas las API keys, el RBAC y la superficie de tools de cada bundle —
-consulta [ADR-0001](https://github.com/aico-dot-team-code/mcpbridge/blob/main/docs/architecture/decisions/0001-two-planes-three-endpoints.md)).
+consulta [ADR-0001](https://github.com/CarlxsMG/mcpbridge/blob/main/docs/architecture/decisions/0001-two-planes-three-endpoints.md)).
 Un bundle te da exactamente la superficie entre backends que querías, y nada más.
 :::
 

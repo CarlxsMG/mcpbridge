@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`SUPPORT.md`** — routes each kind of question to the right place (docs, Discussions, bug vs
+  feature templates, private security advisories) and spells out what makes a gateway bug report
+  actionable: the endpoint the call took, the backend kind, and a redacted request/response trace.
+  GitHub surfaces it automatically from the issue composer. A commented-out `.github/FUNDING.yml`
+  ships alongside it, ready to enable once GitHub Sponsors is set up on the account.
+- The Helm chart now declares an `icon`, the last thing `helm lint` was flagging.
 - CI now **lints and renders the Helm chart** (`helm lint` + `helm template`) and runs a **Windows
   test leg** (typecheck + backend/admin-ui suites on `windows-latest`) on every push/PR — the chart
   was previously only hand-checked, and CI was Linux-only despite shipping a Windows binary and the
@@ -178,6 +184,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A high-severity advisory in a transitive dependency would have failed CI on the first push
+  (P1).** GHSA-v2hh-gcrm-f6hx (host confusion via a literal backslash authority delimiter) affects
+  `fast-uri` `>=3.0.0 <=3.1.3`; the lockfile pinned `3.1.3` under `ajv`, so
+  `bun audit --audit-level=high` — the gate `security.yml` runs on every push and PR — exited 1.
+  Moved only the lockfile's `fast-uri` entry to `3.1.4`, which satisfies `ajv`'s declared
+  `^3.0.1` in place: no direct dependency added, the load-bearing exact `ajv@8.18.0` pin
+  untouched, and no second physical copy of `fast-uri` in the tree. The two remaining moderate
+  advisories (`qs` under Stryker, `@hono/node-server` under the MCP SDK) are now both documented
+  as accepted in `security.yml`, with the reasoning for why neither is reachable in production.
 - **Security — MCP `resources`/`prompts` reads bypassed a managed key's client scope (P0).**
   `mcpParamsForScope()` already restricted tool calls to a key's allowed client
   (`isToolInKeyScope`), but ignored that same scope for `resources/read` and `prompts/get` on the
@@ -509,5 +524,5 @@ below shipped incrementally on `main` and is being released together as `1.0.0`.
 - **Docs & site.** A VitePress-based documentation and marketing site with an
   interactive, mock-backed admin UI demo, published via GitHub Pages.
 
-[Unreleased]: https://github.com/aico-dot-team-code/mcpbridge/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/aico-dot-team-code/mcpbridge/releases/tag/v1.0.0
+[Unreleased]: https://github.com/CarlxsMG/mcpbridge/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.0.0

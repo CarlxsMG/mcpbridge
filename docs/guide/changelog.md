@@ -1,10 +1,10 @@
 # Changelog
 
-Mirrors the repo's root [`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md)
+Mirrors the repo's root [`CHANGELOG.md`](https://github.com/CarlxsMG/mcpbridge/blob/main/CHANGELOG.md)
 so it's searchable alongside the rest of the docs. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). For the full commit-level
-history, see [GitHub Releases →](https://github.com/aico-dot-team-code/mcpbridge/releases).
+history, see [GitHub Releases →](https://github.com/CarlxsMG/mcpbridge/releases).
 
 ## [Unreleased]
 
@@ -60,7 +60,7 @@ pages), a fix so the admin UI's i18n missing-key console warning is actually sil
 fix so `gateway connect --scope system` hints at the right kind of key, and CLAUDE.md corrections
 (the PUT/DELETE retry-flag caveat, the previously-undocumented `bun run test:mutate` command, and
 full CI-job coverage including `e2e`/CodeQL/`security.yml`). See the root
-[`CHANGELOG.md`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/CHANGELOG.md#unreleased)
+[`CHANGELOG.md`](https://github.com/CarlxsMG/mcpbridge/blob/main/CHANGELOG.md#unreleased)
 for the full curated list.
 
 Most recently: the bridge now advertises the standard **MCP tool annotations (2025-06-18)** —

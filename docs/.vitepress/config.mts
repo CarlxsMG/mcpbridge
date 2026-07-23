@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Change these two if your GitHub repo differs. Everything else derives from them.
-const GH_USER = "aico-dot-team-code";
+const GH_USER = "CarlxsMG";
 const GH_REPO = "mcpbridge";
 // ─────────────────────────────────────────────────────────────────────────────
 

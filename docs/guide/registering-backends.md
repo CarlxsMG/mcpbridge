@@ -6,9 +6,9 @@ into (or re-exposing) MCP tools through the same guard stack. Register from the 
 or an `ADMIN_API_KEYS` Bearer token.
 
 ::: tip Ready-to-send samples
-The repo's [`examples/register/`](https://github.com/aico-dot-team-code/mcpbridge/tree/main/examples/register)
+The repo's [`examples/register/`](https://github.com/CarlxsMG/mcpbridge/tree/main/examples/register)
 directory has a complete `POST /register` body for each mode below (OpenAPI, cURL import, Postman,
-manual, GraphQL, MCP upstream), plus an [`examples/gateway.yaml`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/examples/gateway.yaml)
+manual, GraphQL, MCP upstream), plus an [`examples/gateway.yaml`](https://github.com/CarlxsMG/mcpbridge/blob/main/examples/gateway.yaml)
 for registering the same backends as config-as-code.
 :::
 

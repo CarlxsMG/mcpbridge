@@ -8,9 +8,11 @@ type: application
 version: 0.1.0
 # Tracks the app's package.json "version" — bump alongside it.
 appVersion: "1.0.0"
-home: https://github.com/aico-dot-team-code/mcpbridge
+home: https://github.com/CarlxsMG/mcpbridge
+# Resolves once the repository is public; `helm lint` warns when it's absent.
+icon: https://raw.githubusercontent.com/CarlxsMG/mcpbridge/main/docs/public/favicon.svg
 sources:
-  - https://github.com/aico-dot-team-code/mcpbridge
+  - https://github.com/CarlxsMG/mcpbridge
 keywords:
   - mcp
   - model-context-protocol

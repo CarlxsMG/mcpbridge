@@ -63,5 +63,5 @@ response-size-cap rejections) are not SLOs — they are early-warning signals dr
 gateway's richer metric set.
 
 > **Note on placeholders.** `runbook_url` links in `alerts.yaml` point at
-> `github.com/aico-dot-team-code/mcpbridge`. If you fork or rehost, sweep that slug to your
+> `github.com/CarlxsMG/mcpbridge`. If you fork or rehost, sweep that slug to your
 > own so the runbook links resolve.

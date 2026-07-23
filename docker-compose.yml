@@ -18,7 +18,7 @@
 #   pinned to a specific released version rather than `:latest` (a mutable tag
 #   would let a `docker compose pull` silently swap the running version out from
 #   under you). Bump MCPBRIDGE_VERSION (env or .env) to pick the tag once images
-#   exist at https://github.com/aico-dot-team-code/mcpbridge/pkgs/container/mcpbridge.
+#   exist at https://github.com/CarlxsMG/mcpbridge/pkgs/container/mcpbridge.
 # - `env_file` injects .env into the container's process env (same file
 #   Compose also reads for ${VAR} substitution below, so PORT stays in sync
 #   on both sides of the port mapping).
@@ -39,7 +39,7 @@
 
 services:
   mcp-bridge:
-    image: ghcr.io/aico-dot-team-code/mcpbridge:${MCPBRIDGE_VERSION:-1.0.0}
+    image: ghcr.io/carlxsmg/mcpbridge:${MCPBRIDGE_VERSION:-1.0.0}
     build: . # builds from local source (no release image is published yet); comment this out to pull the signed GHCR image once the first release is tagged
     ports:
       - "${PORT:-3000}:${PORT:-3000}"

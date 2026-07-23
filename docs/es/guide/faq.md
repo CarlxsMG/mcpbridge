@@ -62,7 +62,7 @@ una nueva versión. Consulta [Despliegue → Actualizar](/es/guide/deployment#ac
 
 ## ¿Puedo probarlo sin instalar nada?
 
-Sí — la **[demo en vivo](https://aico-dot-team-code.github.io/mcpbridge/demo/)** ejecuta
+Sí — la **[demo en vivo](https://carlxsmg.github.io/mcpbridge/demo/)** ejecuta
 la UI de admin real con datos mock, directamente en tu navegador. Sin instalación, sin registro.
 
 La demo también está localizada al español — cambia el selector de idioma en
@@ -73,7 +73,7 @@ en el sitio sin perder el estado de tu pestaña.
 
 ## ¿Qué licencia tiene?
 
-MIT. Consulta [`LICENSE`](https://github.com/aico-dot-team-code/mcpbridge/blob/main/LICENSE).
+MIT. Consulta [`LICENSE`](https://github.com/CarlxsMG/mcpbridge/blob/main/LICENSE).
 
 ## Algo no funciona — ¿dónde miro?
 

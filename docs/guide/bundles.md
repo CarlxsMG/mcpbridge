@@ -14,7 +14,7 @@ governed MCP endpoint.
 `/mcp` is the [control plane](/guide/architecture) — `sys_*` tools for managing the gateway
 itself, not backend tools. There is deliberately **no** "every backend tool, flattened"
 endpoint (it made API keys, RBAC and each bundle's tool surface ambiguous — see
-[ADR-0001](https://github.com/aico-dot-team-code/mcpbridge/blob/main/docs/architecture/decisions/0001-two-planes-three-endpoints.md)).
+[ADR-0001](https://github.com/CarlxsMG/mcpbridge/blob/main/docs/architecture/decisions/0001-two-planes-three-endpoints.md)).
 A bundle gives you exactly the cross-backend surface you meant, and nothing else.
 :::
 

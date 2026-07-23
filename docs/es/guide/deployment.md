@@ -30,12 +30,12 @@ docker run -d --name mcpbridge -p 3000:3000 \
   setup deliberado de failover activo/pasivo. El proceso se apaga con gracia en `SIGTERM`.
 
 Cuando se publique la primera release, las releases taggeadas (`vX.Y.Z`) también se publicarán
-a GHCR en `ghcr.io/aico-dot-team-code/mcpbridge` (ajusta el owner/repo si forkaste este
+a GHCR en `ghcr.io/carlxsmg/mcpbridge` (ajusta el owner/repo si forkaste este
 proyecto — consulta la nota al inicio del README) — entonces podrás saltarte el build local por
 completo:
 
 ```bash
-docker pull ghcr.io/aico-dot-team-code/mcpbridge:latest
+docker pull ghcr.io/carlxsmg/mcpbridge:latest
 
 docker run -d --name mcpbridge -p 3000:3000 \
   -e SESSION_COOKIE_SECURE=true \
@@ -43,7 +43,7 @@ docker run -d --name mcpbridge -p 3000:3000 \
   -e BOOTSTRAP_ADMIN_PASSWORD='<una contraseña fuerte de 12+ chars>' \
   -e MCP_API_KEYS='<key1,key2>' \
   -v mcpbridge-data:/app/data \
-  ghcr.io/aico-dot-team-code/mcpbridge:latest
+  ghcr.io/carlxsmg/mcpbridge:latest
 ```
 
 Las mismas env vars que el ejemplo de build local de arriba — solo cambia la imagen. Sin
@@ -94,7 +94,7 @@ Knobs clave de `values.yaml`:
 
 | Valor                                                                    | Default                                                           | Propósito                                                                                                                                                                                                          |
 | ------------------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `image.repository` / `image.tag`                                         | `ghcr.io/aico-dot-team-code/mcpbridge` / `.Chart.appVersion`      | Imagen a ejecutar — apúntala a la ruta GHCR de tu propio fork si la publicas tú.                                                                                                                                   |
+| `image.repository` / `image.tag`                                         | `ghcr.io/carlxsmg/mcpbridge` / `.Chart.appVersion`                | Imagen a ejecutar — apúntala a la ruta GHCR de tu propio fork si la publicas tú.                                                                                                                                   |
 | `replicaCount`                                                           | `1`                                                               | Déjalo en `1` salvo que `persistence` sea `ReadWriteMany` **y** definas `REGISTRY_SYNC`/`RATE_LIMIT_SHARED` (ver [Escalado](/es/guide/scaling)) — SQLite tiene un único escritor, así que réplicas extra divergen. |
 | `persistence.enabled` / `.size` / `.storageClassName` / `.existingClaim` | `false` / `1Gi`                                                   | Provisiona (o reutiliza) un PVC para el fichero SQLite en `/app/data`. Deshabilitado = un `emptyDir` que se **pierde en cada reprogramación del pod** — habilítalo para cualquier cosa real.                       |
 | `env` (ConfigMap) / `secretEnv` (Secret) / `existingSecret`              | `NODE_ENV=production`, `SESSION_COOKIE_SECURE=true`, …            | Entorno no sensible vs. sensible. Referencia un Secret preexistente (external-secrets/Vault) vía `existingSecret` para saltar el templating de `secretEnv`.                                                        |

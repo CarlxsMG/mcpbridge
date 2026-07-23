@@ -4,13 +4,13 @@
   "description": "Bun + TypeScript MCP gateway that bridges MCP clients to REST/OpenAPI backends and other MCP servers through one SSRF-safe, governed guard pipeline.",
   "private": true,
   "license": "MIT",
-  "homepage": "https://github.com/aico-dot-team-code/mcpbridge#readme",
+  "homepage": "https://github.com/CarlxsMG/mcpbridge#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aico-dot-team-code/mcpbridge.git"
+    "url": "git+https://github.com/CarlxsMG/mcpbridge.git"
   },
   "bugs": {
-    "url": "https://github.com/aico-dot-team-code/mcpbridge/issues"
+    "url": "https://github.com/CarlxsMG/mcpbridge/issues"
   },
   "keywords": [
     "mcp",

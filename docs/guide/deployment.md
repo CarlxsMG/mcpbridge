@@ -29,11 +29,11 @@ docker run -d --name mcpbridge -p 3000:3000 \
   down gracefully on `SIGTERM`.
 
 Once the first release is tagged, tagged releases (`vX.Y.Z`) will also be published to GHCR at
-`ghcr.io/aico-dot-team-code/mcpbridge` (adjust the owner/repo if you forked this project — see
+`ghcr.io/carlxsmg/mcpbridge` (adjust the owner/repo if you forked this project — see
 the note atop the README) — you'll then be able to skip the local build entirely:
 
 ```bash
-docker pull ghcr.io/aico-dot-team-code/mcpbridge:latest
+docker pull ghcr.io/carlxsmg/mcpbridge:latest
 
 docker run -d --name mcpbridge -p 3000:3000 \
   -e SESSION_COOKIE_SECURE=true \
@@ -41,7 +41,7 @@ docker run -d --name mcpbridge -p 3000:3000 \
   -e BOOTSTRAP_ADMIN_PASSWORD='<a strong 12+ char password>' \
   -e MCP_API_KEYS='<key1,key2>' \
   -v mcpbridge-data:/app/data \
-  ghcr.io/aico-dot-team-code/mcpbridge:latest
+  ghcr.io/carlxsmg/mcpbridge:latest
 ```
 
 Same env vars as the local-build example above — only the image differs. Without
@@ -88,15 +88,15 @@ helm install my-bridge ./helm/mcp-rest-bridge \
 
 Key `values.yaml` knobs:
 
-| Value                                                                    | Default                                                      | Purpose                                                                                                                                                                                                    |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `image.repository` / `image.tag`                                         | `ghcr.io/aico-dot-team-code/mcpbridge` / `.Chart.appVersion` | Image to run — point at your own fork's GHCR path if you publish it yourself.                                                                                                                              |
-| `replicaCount`                                                           | `1`                                                          | Keep at `1` unless `persistence` is `ReadWriteMany` **and** you set `REGISTRY_SYNC`/`RATE_LIMIT_SHARED` (see [Scaling](/guide/scaling)) — SQLite has a single writer, so extra replicas otherwise diverge. |
-| `persistence.enabled` / `.size` / `.storageClassName` / `.existingClaim` | `false` / `1Gi`                                              | Provision (or reuse) a PVC for the SQLite file at `/app/data`. Disabled = an `emptyDir` that is **lost on every pod reschedule** — enable for anything real.                                               |
-| `env` (ConfigMap) / `secretEnv` (Secret) / `existingSecret`              | `NODE_ENV=production`, `SESSION_COOKIE_SECURE=true`, …       | Non-sensitive vs. sensitive environment. Reference a pre-existing Secret (external-secrets/Vault) via `existingSecret` to skip templating `secretEnv`.                                                     |
-| `securityContext`                                                        | non-root uid 1000, all caps dropped, read-only rootfs        | Hardened by default; matches the `bun` user in the image.                                                                                                                                                  |
-| `readinessProbe.httpGet.path`                                            | `/readyz`                                                    | Leader-gated — only the leader reports ready, so with `replicaCount > 1` switch this to `/livez` if you want every replica to serve traffic (see [Scaling](/guide/scaling)).                               |
-| `resources`                                                              | `100m` CPU / `128Mi`–`512Mi` memory                          | Sized for a single Bun + SQLite process; override for your own load, or set `{}` to remove limits.                                                                                                         |
+| Value                                                                    | Default                                                | Purpose                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `image.repository` / `image.tag`                                         | `ghcr.io/carlxsmg/mcpbridge` / `.Chart.appVersion`     | Image to run — point at your own fork's GHCR path if you publish it yourself.                                                                                                                              |
+| `replicaCount`                                                           | `1`                                                    | Keep at `1` unless `persistence` is `ReadWriteMany` **and** you set `REGISTRY_SYNC`/`RATE_LIMIT_SHARED` (see [Scaling](/guide/scaling)) — SQLite has a single writer, so extra replicas otherwise diverge. |
+| `persistence.enabled` / `.size` / `.storageClassName` / `.existingClaim` | `false` / `1Gi`                                        | Provision (or reuse) a PVC for the SQLite file at `/app/data`. Disabled = an `emptyDir` that is **lost on every pod reschedule** — enable for anything real.                                               |
+| `env` (ConfigMap) / `secretEnv` (Secret) / `existingSecret`              | `NODE_ENV=production`, `SESSION_COOKIE_SECURE=true`, … | Non-sensitive vs. sensitive environment. Reference a pre-existing Secret (external-secrets/Vault) via `existingSecret` to skip templating `secretEnv`.                                                     |
+| `securityContext`                                                        | non-root uid 1000, all caps dropped, read-only rootfs  | Hardened by default; matches the `bun` user in the image.                                                                                                                                                  |
+| `readinessProbe.httpGet.path`                                            | `/readyz`                                              | Leader-gated — only the leader reports ready, so with `replicaCount > 1` switch this to `/livez` if you want every replica to serve traffic (see [Scaling](/guide/scaling)).                               |
+| `resources`                                                              | `100m` CPU / `128Mi`–`512Mi` memory                    | Sized for a single Bun + SQLite process; override for your own load, or set `{}` to remove limits.                                                                                                         |
 
 The `serviceAccount` is created with token auto-mount **disabled** (the app never calls the
 Kubernetes API); flip `serviceAccount.automount: true` only if you add something that genuinely

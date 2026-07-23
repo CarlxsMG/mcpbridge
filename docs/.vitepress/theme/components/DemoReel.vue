@@ -4,7 +4,7 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 // An auto-crossfading reel of real screenshots from the live demo, framed as an
 // app window. Crisper than a GIF, tiny, and it pauses for reduced-motion users.
 const base = import.meta.env.BASE_URL;
-const demoUrl = "https://aico-dot-team-code.github.io/mcpbridge/demo/";
+const demoUrl = "https://carlxsmg.github.io/mcpbridge/demo/";
 
 const frames = [
   { src: "reel-overview.png", label: "Overview" },
