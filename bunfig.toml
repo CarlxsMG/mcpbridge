@@ -5,6 +5,14 @@
 # that baseline so routine work doesn't flake the gate, while still catching
 # a real coverage collapse.
 [test]
+# Per-test reset of the process-wide state every test file shares: the bun:sqlite
+# connection, the rate-limiter counters, and the `config` object. All 372 files run
+# in one process, so anything left behind leaked across file boundaries and made the
+# suite order-dependent — and discovery order comes from the filesystem, so which
+# test failed changed per platform (green on Windows, different failures on two
+# different Linux orderings). See the file's header for the evidence behind each of
+# the three resets.
+preload = ["./src/__tests__/_utils/test-isolation.ts"]
 coverageSkipTestFiles = true
 coverageThreshold = { lines = 0.90, functions = 0.85 }
 # src/config.ts is under-reported by Bun's coverage instrumentation even when

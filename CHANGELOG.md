@@ -185,6 +185,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The test suite was order-dependent, so it passed or failed by platform (P1).** All 372 test
+  files run in one `bun test` process, sharing one `bun:sqlite` connection, one `config` object,
+  and one set of rate-limiter counters. Files that mutated those without restoring leaked into
+  everything that ran after them, and since file-discovery order comes from the filesystem, the
+  victims changed per platform: green on the maintainer's Windows checkout, one failing file on
+  CI's Linux ordering, three entirely different ones in a Linux container — every one of them
+  passing in isolation. A new `bunfig.toml` `preload`
+  (`src/__tests__/_utils/test-isolation.ts`) now resets all three before each test. Each reset
+  was added only after a specific failure proved it necessary: a leftover managed key made
+  `mcpAuth`'s "no keys configured" path fail through `hasAnyMcpKeys()`; an exhausted quota made
+  `routes-discovery` receive 429 where it asserted 400; and several files snapshot config at
+  module-load time, which faithfully restores someone else's pollution when it happened first.
+  Removing the accidental crutch then exposed one more latent bug of its own — a register test
+  relying on `allowPrivateIps` being left on by someone else — now pinned explicitly. Verified on
+  Linux, which reliably reproduced the failures: 5266 pass, 0 fail. Costs roughly 70s of suite
+  wall-clock (150s → 220s) for a suite that no longer depends on the order it happens to run in.
 - **5 backup tests silently depended on a local `./data` directory (P1).** `backup.ts` writes its
   snapshot to `dirname(config.dbPath)`, and SQLite will not create a missing parent directory.
   Under test the database is in-memory (`__resetDbForTesting` defaults to `":memory:"`), so

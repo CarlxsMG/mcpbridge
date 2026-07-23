@@ -50,6 +50,11 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   _internalsForTesting.registerBuckets.clear();
   (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
   (config as Record<string, unknown>).authDisabled = false;
+  // Every fixture here registers a backend at a loopback health_url, which the
+  // SSRF validator rejects unless this is on. Pin it rather than inheriting it:
+  // the value otherwise comes from a contributor's gitignored .env, or from
+  // whatever an earlier test file happened to leave behind.
+  (config as Record<string, unknown>).allowPrivateIps = true;
   const { registerRoutes } = await import("../../routes/register.js");
   const app = express();
   app.use(express.json({ limit: "64kb", strict: false }));

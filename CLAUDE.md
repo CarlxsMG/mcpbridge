@@ -75,6 +75,17 @@ scope correctly either, since bun matches it as a path substring and `"src"` als
 `"admin-ui/src/..."`. Always use `bun run test`, which passes
 `--path-ignore-patterns={admin-ui,e2e}/**`.
 
+**Never let a test depend on ambient state.** All 372 backend test files run in a **single**
+`bun test` process, sharing one `bun:sqlite` connection, one `config` object, and one set of
+rate-limiter counters. `bunfig.toml` preloads `src/__tests__/_utils/test-isolation.ts`, which
+resets all three before every test — that is a safety net, not a licence: pin what a test needs
+(`config.allowPrivateIps = true` for loopback fixtures, and so on) inside its own setup, and
+prefer `withConfig()` for scoped overrides. Two consequences worth knowing: a `beforeAll` that
+seeds the **database** will not survive (the reset runs before each test — seed from
+`beforeEach`), and snapshotting a config value at module-load time is unreliable, since it
+captures whatever an earlier file already left behind. Reading a value from a gitignored `.env`
+is the other trap: it makes the suite pass locally and fail in CI, which has none.
+
 CI (`.github/workflows/ci.yml`) runs format-check/lint/typecheck/test/build on every push and PR,
 plus a required `e2e` job (full Playwright suite, `needs: test`); `codeql.yml` runs GitHub CodeQL
 SAST on every push/PR to `main` plus a weekly cron; `security.yml` runs a PR dependency review
