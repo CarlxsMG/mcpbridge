@@ -17,7 +17,9 @@ import {
   setToolWs,
   wsRequest,
   wsRequestPersistent,
+  MAX_WS_TIMEOUT_MS,
 } from "../../proxy/backends.js";
+import { MAX_GUARD_TIMEOUT_MS } from "../../routes/validation.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
 
 const CLIENT = "svc";
@@ -747,5 +749,23 @@ describe("backends — wsRequestPersistent send() cannot throw in practice (equi
     } finally {
       server.stop(true);
     }
+  });
+});
+
+describe("backends — WS deadline ceiling cannot drift from the canonical timeout cap", () => {
+  // wsRequest/wsRequestPersistent clamp their (admin-settable) timeout with
+  // Math.min(timeoutMs, MAX_WS_TIMEOUT_MS), co-located with the setTimeout so
+  // the socket can never be held open past the ceiling. That local constant is
+  // a deliberate copy of MAX_GUARD_TIMEOUT_MS (routes/validation.ts), which the
+  // admin validators cap guards.timeoutMs at; if the two silently diverged the
+  // clamp would either under-cut a legitimate deadline or stop enforcing the
+  // real ceiling. Pin them equal, and pin the literal, so a change to either
+  // side fails here.
+  test("MAX_WS_TIMEOUT_MS equals MAX_GUARD_TIMEOUT_MS", () => {
+    expect(MAX_WS_TIMEOUT_MS).toBe(MAX_GUARD_TIMEOUT_MS);
+  });
+
+  test("the ceiling is the documented 600_000 ms (10 min)", () => {
+    expect(MAX_WS_TIMEOUT_MS).toBe(600_000);
   });
 });

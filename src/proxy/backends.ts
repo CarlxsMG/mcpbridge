@@ -15,6 +15,20 @@ import { config } from "../config.js";
 import { validateBackendUrl, pinnedWsDial } from "../net/ip-validator.js";
 import { toolExists, upsertConfig } from "../lib/tool-config.js";
 
+/**
+ * Hard ceiling for a WebSocket tool call's deadline (ms). Mirrors the
+ * `TOOL_CALL_TIMEOUT_MS` env ceiling in `config-schema.ts` and
+ * `MAX_GUARD_TIMEOUT_MS` in `routes/validation.ts`: the admin validators
+ * already cap `guards.timeoutMs` there, but re-clamping the value here — right
+ * where the socket's timer is armed — co-locates the bound with the sink it
+ * protects, so even a caller that reaches {@link wsRequest} without passing
+ * through that validation cannot hold the socket (and its timer) open past this.
+ * Kept as a local literal rather than importing `MAX_GUARD_TIMEOUT_MS`, which
+ * would introduce a backwards `proxy -> routes` dependency; a unit test pins the
+ * two equal so they can't drift.
+ */
+export const MAX_WS_TIMEOUT_MS = 600_000;
+
 // ── GraphQL ─────────────────────────────────────────────────────────────────
 
 export interface GraphqlConfig {
@@ -175,7 +189,10 @@ export function wsRequest(
       fn();
     };
     const ws = openPinnedWs(url, resolvedIp, maxBytes);
-    const timer = setTimeout(() => finish(() => reject(new Error("timeout"))), timeoutMs);
+    // Clamp the (admin-settable) deadline to the WS ceiling right at the sink —
+    // defense in depth co-located with the timer it arms. See MAX_WS_TIMEOUT_MS.
+    const deadlineMs = Math.min(timeoutMs, MAX_WS_TIMEOUT_MS);
+    const timer = setTimeout(() => finish(() => reject(new Error("timeout"))), deadlineMs);
 
     ws.on("open", () => {
       try {
@@ -233,9 +250,11 @@ export function wsRequestPersistent(
       fn();
     };
     const ws = openPinnedWs(url, resolvedIp, maxBytes);
+    // Same co-located deadline clamp as wsRequest — see MAX_WS_TIMEOUT_MS.
+    const deadlineMs = Math.min(timeoutMs, MAX_WS_TIMEOUT_MS);
     const timer = setTimeout(
       () => finish(() => (lastData !== null ? resolve(lastData) : reject(new Error("timeout")))),
-      timeoutMs,
+      deadlineMs,
     );
 
     ws.on("open", () => {

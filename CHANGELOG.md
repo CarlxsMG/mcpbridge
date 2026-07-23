@@ -185,6 +185,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A WebSocket tool call's deadline was clamped only at the admin-validator boundary, not at the
+  timer itself (P2).** `wsRequest`/`wsRequestPersistent` armed their `setTimeout` with the
+  admin-settable `guards.timeoutMs`, which the previous release already caps at
+  `MAX_GUARD_TIMEOUT_MS` (600 s) — but at the validation layer, not co-located with the socket. The
+  clamp is now re-applied at the sink (`Math.min(timeoutMs, MAX_WS_TIMEOUT_MS)`), so a caller that
+  ever reached `wsRequest` without passing through that validation still cannot hold the socket and
+  its timer open past the ceiling. A test pins `MAX_WS_TIMEOUT_MS` equal to `MAX_GUARD_TIMEOUT_MS`
+  so the two cannot drift.
+- **Env API keys had no minimum-length floor (P2, hardening).** `ADMIN_API_KEYS` / `MCP_API_KEYS`
+  are hashed with SHA-256 for lookup/comparison — the correct, standard choice for high-entropy
+  tokens, but only sound if the keys actually are high-entropy. `config-schema.ts` now flags any
+  key shorter than 16 characters (warn-only by default, a hard error under
+  `STRICT_CONFIG=production`), catching an operator who pastes a short, guessable value. An empty
+  value still means "no keys configured", unchanged.
 - **A `SECRET_ENCRYPTION_KEY` passphrase was stretched with a single SHA-256 pass (P2).**
   `secret-box.ts` uses a base64 32-byte key verbatim, but treats anything else as an
   operator-chosen passphrase — and derived the AES key from it with one unsalted SHA-256. SHA-256

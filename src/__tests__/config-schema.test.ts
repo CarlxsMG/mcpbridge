@@ -59,6 +59,34 @@ describe("validateEnv — schema basics", () => {
   });
 });
 
+// ─── API-key minimum-length guard ───────────────────────────────────────────
+
+describe("validateEnv — API key minimum length", () => {
+  // Upholds the high-entropy assumption that makes SHA-256 the right hash for
+  // these keys (security/key-hash.ts): a short, guessable key is flagged.
+  test("a short ADMIN_API_KEYS entry is flagged", () => {
+    const report = validateEnv({ ADMIN_API_KEYS: "admin" });
+    expect(report.ok).toBe(false);
+    expect(report.errors.some((e) => e.key === "ADMIN_API_KEYS")).toBe(true);
+  });
+
+  test("a short MCP_API_KEYS entry is flagged (one short key among longer ones still fails)", () => {
+    const report = validateEnv({ MCP_API_KEYS: "this-one-is-long-enough,short" });
+    expect(report.ok).toBe(false);
+    expect(report.errors.some((e) => e.key === "MCP_API_KEYS")).toBe(true);
+  });
+
+  test("a sufficiently long key is accepted", () => {
+    const report = validateEnv({ ADMIN_API_KEYS: "kQ8x2m9Zr4Lp7Ns1Wc6Vd0" });
+    expect(report.errors.filter((e) => e.key === "ADMIN_API_KEYS")).toEqual([]);
+  });
+
+  test("empty (no keys configured) stays valid — the guard never changes 'open' semantics", () => {
+    const report = validateEnv({ ADMIN_API_KEYS: "", MCP_API_KEYS: "" });
+    expect(report.errors.filter((e) => e.key === "ADMIN_API_KEYS" || e.key === "MCP_API_KEYS")).toEqual([]);
+  });
+});
+
 // ─── Unknown env detection (typo guard) ─────────────────────────────────────
 
 describe("validateEnv — unknown env detection (typo guard)", () => {

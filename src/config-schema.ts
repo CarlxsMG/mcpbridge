@@ -70,6 +70,42 @@ const envCsv = z.union([z.string(), z.undefined()]).transform((raw) =>
     : [],
 );
 
+/**
+ * Shortest an API key may be before it stops being a plausibly high-entropy
+ * secret. 16 chars is a deliberately low bar — a generated key (e.g. base64 of
+ * 24 random bytes) clears it by a wide margin — chosen to catch an operator
+ * pasting a short, guessable value, not to mandate a specific format.
+ */
+const MIN_API_KEY_LENGTH = 16;
+
+/**
+ * CSV of API keys — same shape as {@link envCsv}, but each key must reach
+ * {@link MIN_API_KEY_LENGTH}. The gateway hashes keys with SHA-256 for
+ * lookup/comparison (`security/key-hash.ts`), which is the correct, standard
+ * choice for high-entropy tokens — but *only* if the keys really are
+ * high-entropy. This boot-time floor is what upholds that assumption: SHA-256
+ * would do nothing to protect a key like "admin". Warn-only by default (an
+ * empty value stays "no keys configured", unchanged); `STRICT_CONFIG=production`
+ * upgrades it to a hard boot error like every other schema issue.
+ */
+const envApiKeys = z.union([z.string(), z.undefined()]).transform((raw, ctx) => {
+  const keys = raw
+    ? raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  for (const k of keys) {
+    if (k.length < MIN_API_KEY_LENGTH) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `each API key must be at least ${MIN_API_KEY_LENGTH} characters (high-entropy); got one of length ${k.length}`,
+      });
+    }
+  }
+  return keys;
+});
+
 /** Optional URL — must parse with the WHATWG URL parser. */
 const envUrl = z.union([z.string(), z.undefined()]).transform((raw, ctx) => {
   if (!raw) return undefined;
@@ -137,8 +173,8 @@ const EnvSchema = z.object({
   AUTH_DISABLED: envBool,
   REQUIRE_MCP_AUTH: envBool,
   EXPOSE_DOCS_UNAUTHENTICATED: envBool,
-  ADMIN_API_KEYS: envCsv,
-  MCP_API_KEYS: envCsv,
+  ADMIN_API_KEYS: envApiKeys,
+  MCP_API_KEYS: envApiKeys,
   SESSION_TTL_MS: envInt(1_800_000, 60_000, 86_400_000),
   MAX_SESSIONS: envInt(100, 1, 100_000),
   SESSION_IDLE_TIMEOUT_MS: envInt(30 * 60_000, 60_000, 86_400_000),
