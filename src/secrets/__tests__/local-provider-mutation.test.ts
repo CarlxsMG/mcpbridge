@@ -53,13 +53,13 @@ describe("localProvider.isConfigured()", () => {
 });
 
 describe("localProvider.encryptSecret()", () => {
-  test("returns a Promise resolving to a v1.<iv>.<tag>.<ct> blob", async () => {
+  test("returns a Promise resolving to a v2.<iv>.<tag>.<ct> blob", async () => {
     (config as Record<string, unknown>).secretEncryptionKey = KEY_A;
     const result = localProvider.encryptSecret("hello world");
     expect(result).toBeInstanceOf(Promise);
     const blob = await result;
     expect(typeof blob).toBe("string");
-    expect(blob.startsWith("v1.")).toBe(true);
+    expect(blob.startsWith("v2.")).toBe(true);
     expect(blob.split(".").length).toBe(4);
   });
 

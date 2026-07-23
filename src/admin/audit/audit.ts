@@ -131,36 +131,63 @@ function teamScopeCondition(
 }
 
 /**
+ * How many chain rows verifyAuditChain holds in memory at once. The chain has to
+ * be walked in full from the genesis row — a hash chain verified from an
+ * arbitrary midpoint proves nothing, since the starting prev_hash would itself
+ * be unverified — so this bounds the *working set*, not the total work.
+ */
+const CHAIN_VERIFY_BATCH = 1_000;
+
+interface ChainRow {
+  id: number;
+  actor: string;
+  action: string;
+  target: string;
+  detail_json: string | null;
+  created_at: number;
+  prev_hash: string | null;
+  hash: string;
+}
+
+/**
  * Walks the hash chain (rows written since the hash-chain migration) and returns
  * the first inconsistency, if any: a broken prev_hash linkage or a row whose
  * recomputed content hash doesn't match its stored hash — either of which means
  * the log was edited, reordered, or had rows inserted/deleted out of band.
+ *
+ * Reads in keyset-paginated batches (`id > last`, which rides the primary-key
+ * index — not OFFSET, whose cost grows quadratically over a full walk) rather
+ * than materialising the whole table. The audit log grows without bound on a
+ * busy gateway, so the single `.all()` this replaced meant one request could
+ * pull an arbitrarily large result set into memory at once; the route is also
+ * rate-limited (config.rateLimitExpensive) to bound how often the O(n) walk
+ * itself can be triggered.
  */
 export function verifyAuditChain(): { ok: boolean; checked: number; brokenAtId?: number } {
-  const rows = getDb()
-    .query(
-      `SELECT id, actor, action, target, detail_json, created_at, prev_hash, hash FROM admin_audit_log WHERE hash IS NOT NULL ORDER BY id ASC`,
-    )
-    .all() as {
-    id: number;
-    actor: string;
-    action: string;
-    target: string;
-    detail_json: string | null;
-    created_at: number;
-    prev_hash: string | null;
-    hash: string;
-  }[];
+  const query = getDb().query(
+    `SELECT id, actor, action, target, detail_json, created_at, prev_hash, hash
+       FROM admin_audit_log
+      WHERE hash IS NOT NULL AND id > ?
+      ORDER BY id ASC
+      LIMIT ?`,
+  );
   let prevHash = "";
   let checked = 0;
-  for (const r of rows) {
-    if ((r.prev_hash ?? "") !== prevHash) return { ok: false, checked, brokenAtId: r.id };
-    const expected = computeAuditHash(prevHash, r.actor, r.action, r.target, r.detail_json, r.created_at);
-    if (expected !== r.hash) return { ok: false, checked, brokenAtId: r.id };
-    prevHash = r.hash;
-    checked++;
+  let lastId = 0;
+  for (;;) {
+    const rows = query.all(lastId, CHAIN_VERIFY_BATCH) as ChainRow[];
+    if (rows.length === 0) return { ok: true, checked };
+    for (const r of rows) {
+      if ((r.prev_hash ?? "") !== prevHash) return { ok: false, checked, brokenAtId: r.id };
+      const expected = computeAuditHash(prevHash, r.actor, r.action, r.target, r.detail_json, r.created_at);
+      if (expected !== r.hash) return { ok: false, checked, brokenAtId: r.id };
+      prevHash = r.hash;
+      checked++;
+      lastId = r.id;
+    }
+    // A short page means the table is exhausted — skip the extra empty round-trip.
+    if (rows.length < CHAIN_VERIFY_BATCH) return { ok: true, checked };
   }
-  return { ok: true, checked };
 }
 
 export function listAuditLog(

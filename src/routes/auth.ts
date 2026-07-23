@@ -2,7 +2,7 @@ import type { Request, Response, Express } from "express";
 import { config } from "../config.js";
 import { log } from "../logger.js";
 import { adminAuth } from "../middleware/auth.js";
-import { rateLimitLogin } from "../middleware/rate-limiter.js";
+import { rateLimitLogin, rateLimitExpensive } from "../middleware/rate-limiter.js";
 import { findUserByUsername, touchLastLogin, updatePassword } from "../security/user-store.js";
 import {
   createSession,
@@ -95,40 +95,50 @@ export function authRoutes(app: Express): void {
     });
   });
 
-  app.patch("/admin-api/auth/me/password", adminAuth, async (req: Request, res: Response) => {
-    const ctx = req.authContext;
-    if (!ctx || ctx.method !== "session" || !ctx.username) {
-      forbidden(res, "FORBIDDEN", "Password change requires a session-authenticated user");
-      return;
-    }
+  // Rate-limited like the login route above, and for the same reason: this
+  // handler runs a full argon2id verify (and then a hash), each of which is
+  // deliberately slow and allocates ~64 MiB. Being session-gated bounds who can
+  // reach it, not how often — without a limit one authenticated caller can loop
+  // it and saturate CPU and memory for everyone.
+  app.patch(
+    "/admin-api/auth/me/password",
+    adminAuth,
+    rateLimitExpensive("password_change", config.rateLimitExpensive),
+    async (req: Request, res: Response) => {
+      const ctx = req.authContext;
+      if (!ctx || ctx.method !== "session" || !ctx.username) {
+        forbidden(res, "FORBIDDEN", "Password change requires a session-authenticated user");
+        return;
+      }
 
-    const body = bodyOrNull(req);
-    const currentPassword = typeof body?.current_password === "string" ? body.current_password : "";
-    const newPassword = typeof body?.new_password === "string" ? body.new_password : "";
+      const body = bodyOrNull(req);
+      const currentPassword = typeof body?.current_password === "string" ? body.current_password : "";
+      const newPassword = typeof body?.new_password === "string" ? body.new_password : "";
 
-    if (!currentPassword || !newPassword || newPassword.length < 12) {
-      validationError(res, "current_password and new_password (min 12 chars) are required");
-      return;
-    }
+      if (!currentPassword || !newPassword || newPassword.length < 12) {
+        validationError(res, "current_password and new_password (min 12 chars) are required");
+        return;
+      }
 
-    const user = findUserByUsername(ctx.username);
-    const valid = user ? await Bun.password.verify(currentPassword, user.passwordHash).catch(() => false) : false;
-    if (!user || !valid) {
-      sendError(res, 401, "INVALID_CREDENTIALS", "Current password is incorrect");
-      return;
-    }
+      const user = findUserByUsername(ctx.username);
+      const valid = user ? await Bun.password.verify(currentPassword, user.passwordHash).catch(() => false) : false;
+      if (!user || !valid) {
+        sendError(res, 401, "INVALID_CREDENTIALS", "Current password is incorrect");
+        return;
+      }
 
-    const newHash = await Bun.password.hash(newPassword);
-    updatePassword(user.username, newHash);
-    revokeAllSessionsForUser(user.id);
+      const newHash = await Bun.password.hash(newPassword);
+      updatePassword(user.username, newHash);
+      revokeAllSessionsForUser(user.id);
 
-    // The caller's own session was just revoked — issue a fresh one so they stay logged in.
-    const session = createSession(user.id, req.socket?.remoteAddress, req.headers["user-agent"]);
-    setSessionCookies(res, session.token, session.csrfToken, session.expiresAt);
+      // The caller's own session was just revoked — issue a fresh one so they stay logged in.
+      const session = createSession(user.id, req.socket?.remoteAddress, req.headers["user-agent"]);
+      setSessionCookies(res, session.token, session.csrfToken, session.expiresAt);
 
-    log("info", "Admin password changed", { username: user.username, request_id: requestId(res) });
-    res.status(200).json({ status: "password_changed", csrf_token: session.csrfToken });
-  });
+      log("info", "Admin password changed", { username: user.username, request_id: requestId(res) });
+      res.status(200).json({ status: "password_changed", csrf_token: session.csrfToken });
+    },
+  );
 
   app.get("/admin-api/auth/sessions", adminAuth, (req: Request, res: Response) => {
     const ctx = req.authContext;

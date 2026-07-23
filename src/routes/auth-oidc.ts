@@ -11,6 +11,8 @@
 import type { Request, Response, Express } from "express";
 import { adminAuth } from "../middleware/auth.js";
 import { requireSuperAdmin } from "../middleware/authz.js";
+import { rateLimitSso } from "../middleware/rate-limiter.js";
+import { config } from "../config.js";
 import { setSessionCookies } from "./auth.js";
 import { createSession } from "../security/session-store.js";
 import { touchLastLogin } from "../security/user-store.js";
@@ -46,7 +48,9 @@ export function authOidcRoutes(app: Express): void {
   });
 
   // PUBLIC — a browser navigates here directly (full-page, not fetch/XHR).
-  app.get("/admin-api/auth/oidc/start", async (_req: Request, res: Response) => {
+  // Rate-limited: unauthenticated, and every hit costs an outbound discovery
+  // request to the IdP plus a server-side PKCE state entry.
+  app.get("/admin-api/auth/oidc/start", rateLimitSso(config.rateLimitSso), async (_req: Request, res: Response) => {
     const cfg = getOidcConfigInternal();
     if (!cfg || !cfg.enabled) {
       sendError(res, 404, "SSO_NOT_CONFIGURED", "SSO is not enabled");
@@ -77,7 +81,10 @@ export function authOidcRoutes(app: Express): void {
   });
 
   // PUBLIC — the IdP redirects the browser here after the user authenticates.
-  app.get("/admin-api/auth/oidc/callback", async (req: Request, res: Response) => {
+  // Rate-limited for the same reason as /start: unauthenticated, and a bogus
+  // call still costs a discovery request, a token exchange and a JWKS fetch
+  // before it can be rejected.
+  app.get("/admin-api/auth/oidc/callback", rateLimitSso(config.rateLimitSso), async (req: Request, res: Response) => {
     const query = req.query as Record<string, unknown>;
     const idpError = typeof query.error === "string" ? query.error : null;
     const state = typeof query.state === "string" ? query.state : null;

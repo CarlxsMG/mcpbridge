@@ -51,14 +51,14 @@ describe("getSecretsProvider — selection", () => {
 });
 
 describe("getSecretsProvider — default-local regression", () => {
-  test("the local provider's blob format is unchanged from calling secret-box directly (v1.<iv>.<tag>.<ct>)", async () => {
+  test("the local provider's blob format is unchanged from calling secret-box directly (v2.<iv>.<tag>.<ct>)", async () => {
     const c = config as Record<string, unknown>;
     c.secretsProvider = "local";
     c.secretEncryptionKey = Buffer.alloc(32, 3).toString("base64");
 
     const provider = getSecretsProvider();
     const blob = await provider.encryptSecret("a very secret value");
-    expect(blob.startsWith("v1.")).toBe(true);
+    expect(blob.startsWith("v2.")).toBe(true);
     expect(blob.split(".").length).toBe(4);
     expect(await provider.decryptSecret(blob)).toBe("a very secret value");
   });

@@ -19,6 +19,42 @@ afterEach(() => {
   (config as Record<string, unknown>).auditSinkUrl = undefined;
 });
 
+describe("audit hash chain — batched walk", () => {
+  // verifyAuditChain reads in keyset-paginated batches of CHAIN_VERIFY_BATCH
+  // (1,000) rather than materialising the whole table, so the audit log can grow
+  // without one request pulling all of it into memory. The batching must be
+  // invisible to the result: crossing a page boundary has to carry prevHash
+  // across, and the terminating conditions (short page / empty page) must not
+  // truncate the walk. 2,001 rows exercises two full pages plus a short one.
+  test("verifies a chain spanning several batches, with no rows lost at the boundaries", () => {
+    const total = 2_001;
+    for (let i = 0; i < total; i++) recordAudit(`actor-${i}`, "act", `t${i}`);
+
+    const v = verifyAuditChain();
+    expect(v.ok).toBe(true);
+    expect(v.checked).toBe(total);
+  });
+
+  // A tamper past the first page must still be caught — i.e. the walk really
+  // does continue across batches rather than stopping after page one.
+  test("detects tampering in a later batch (not just the first page)", () => {
+    for (let i = 0; i < 1_500; i++) recordAudit(`actor-${i}`, "act", `t${i}`);
+    const victim = (
+      getDb().query(`SELECT id FROM admin_audit_log ORDER BY id ASC LIMIT 1 OFFSET 1200`).get() as { id: number }
+    ).id;
+    getDb().query(`UPDATE admin_audit_log SET target = 'evil' WHERE id = ?`).run(victim);
+
+    const v = verifyAuditChain();
+    expect(v.ok).toBe(false);
+    expect(v.brokenAtId).toBe(victim);
+    expect(v.checked).toBe(1_200);
+  });
+
+  test("an empty log verifies as ok with nothing checked", () => {
+    expect(verifyAuditChain()).toEqual({ ok: true, checked: 0 });
+  });
+});
+
 describe("audit hash chain", () => {
   test("consecutive events form a verifiable chain", () => {
     recordAudit("alice", "client.enable", "svc");

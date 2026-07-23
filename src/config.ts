@@ -394,6 +394,25 @@ export const config = {
    */
   rateLimitBackup: envInt(process.env.RATE_LIMIT_BACKUP, 5),
   rateLimitMaxBucketsBackup: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_BACKUP, 1_000),
+  /**
+   * Per-IP limit for the two public OIDC SSO endpoints (/auth/oidc/start and
+   * /callback). Both are unauthenticated by necessity — a browser has no
+   * session cookie yet — and both make outbound requests to the identity
+   * provider before they can reject a bogus call, so they get their own tier
+   * rather than leaning on the coarse global limit. Interactive SSO is a
+   * human-scale flow; 20/min leaves ample room for retries and several users
+   * behind one NAT.
+   */
+  rateLimitSso: envInt(process.env.RATE_LIMIT_SSO, 20),
+  rateLimitMaxBucketsSso: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_SSO, 5_000),
+  /**
+   * Per-IP, per-route limit for authenticated admin routes whose single-request
+   * cost is far above a normal read: the argon2id verify+hash behind a password
+   * change, and the audit-log chain verification and bulk export. Auth gates who
+   * may call them; this bounds a looping script or a leaked token.
+   */
+  rateLimitExpensive: envInt(process.env.RATE_LIMIT_EXPENSIVE, 10),
+  rateLimitMaxBucketsExpensive: envInt(process.env.RATE_LIMIT_MAX_BUCKETS_EXPENSIVE, 5_000),
   /** Optional bootstrap credentials — only consumed once, when admin_users is empty. */
   bootstrapAdminUsername: process.env.BOOTSTRAP_ADMIN_USERNAME || undefined,
   bootstrapAdminPassword: process.env.BOOTSTRAP_ADMIN_PASSWORD || undefined,

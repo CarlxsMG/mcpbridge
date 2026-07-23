@@ -39,10 +39,10 @@ depending on `STRICT_CONFIG`) on an out-of-range value.
 
 ## Persistence
 
-| Variable                | Description                                                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `DB_PATH`               | SQLite file path (Docker default `/app/data/mcp-bridge.db`). Use `:memory:` for an ephemeral store.                            |
-| `SECRET_ENCRYPTION_KEY` | Enables encrypting per-client upstream credentials at rest (AES-256-GCM). Base64 32 bytes, or any string (hashed to 32 bytes). |
+| Variable                | Description                                                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DB_PATH`               | SQLite file path (Docker default `/app/data/mcp-bridge.db`). Use `:memory:` for an ephemeral store.                                                                                                                 |
+| `SECRET_ENCRYPTION_KEY` | Enables encrypting per-client upstream credentials at rest (AES-256-GCM). Prefer base64 32 bytes (`openssl rand -base64 32`), used verbatim; any other string is treated as a passphrase and stretched with scrypt. |
 
 ### External secrets manager (optional)
 
@@ -145,21 +145,25 @@ boot (`src/config-schema.ts`).
 The `*_MAX_BUCKETS_*` values cap the LRU maps that hold per-source counters — raise them only if
 you serve very many distinct source IPs and see bucket eviction churn.
 
-| Variable                              | Default  | Purpose                                                                           |
-| ------------------------------------- | -------- | --------------------------------------------------------------------------------- |
-| `RATE_LIMIT_MCP`                      | `100`    | Per-session limit on MCP data-plane calls.                                        |
-| `RATE_LIMIT_REGISTER`                 | `10`     | Per-IP limit on `POST /register`.                                                 |
-| `RATE_LIMIT_GLOBAL`                   | `1000`   | Per-IP global request ceiling.                                                    |
-| `RATE_LIMIT_LOGIN`                    | `10`     | Per-IP limit on `POST /admin-api/auth/login`.                                     |
-| `RATE_LIMIT_INSTALL_LINK`             | `20`     | Per-IP limit on the public `GET /install/:token` route.                           |
-| `RATE_LIMIT_BACKUP`                   | `5`      | Per-IP limit on `POST /admin-api/backup`, which runs a synchronous `VACUUM INTO`. |
-| `RATE_LIMIT_CLEANUP_INTERVAL_MS`      | `300000` | Interval between rate-limiter bucket-cleanup passes.                              |
-| `RATE_LIMIT_MAX_BUCKETS_GLOBAL`       | `50000`  | Max LRU buckets in the global limiter map.                                        |
-| `RATE_LIMIT_MAX_BUCKETS_MCP`          | `100000` | Max LRU buckets in the MCP-session limiter map.                                   |
-| `RATE_LIMIT_MAX_BUCKETS_REGISTER`     | `10000`  | Max LRU buckets in the register limiter map.                                      |
-| `RATE_LIMIT_MAX_BUCKETS_TOOL`         | `20000`  | Max LRU buckets in the per-tool guard limiter map.                                |
-| `RATE_LIMIT_MAX_BUCKETS_LOGIN`        | `5000`   | Max LRU buckets in the login limiter map.                                         |
-| `RATE_LIMIT_MAX_BUCKETS_INSTALL_LINK` | `5000`   | Max LRU buckets in the install-link limiter map.                                  |
+| Variable                              | Default  | Purpose                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RATE_LIMIT_MCP`                      | `100`    | Per-session limit on MCP data-plane calls.                                                                                                                                                                                                                                                                         |
+| `RATE_LIMIT_REGISTER`                 | `10`     | Per-IP limit on `POST /register`.                                                                                                                                                                                                                                                                                  |
+| `RATE_LIMIT_GLOBAL`                   | `1000`   | Per-IP global request ceiling.                                                                                                                                                                                                                                                                                     |
+| `RATE_LIMIT_LOGIN`                    | `10`     | Per-IP limit on `POST /admin-api/auth/login`.                                                                                                                                                                                                                                                                      |
+| `RATE_LIMIT_INSTALL_LINK`             | `20`     | Per-IP limit on the public `GET /install/:token` route.                                                                                                                                                                                                                                                            |
+| `RATE_LIMIT_BACKUP`                   | `5`      | Per-IP limit on `POST /admin-api/backup`, which runs a synchronous `VACUUM INTO`.                                                                                                                                                                                                                                  |
+| `RATE_LIMIT_SSO`                      | `20`     | Per-IP limit on the public `GET /admin-api/auth/oidc/start` and `/callback` routes. Both are unauthenticated by necessity and make outbound requests to the identity provider before they can reject a bogus call.                                                                                                 |
+| `RATE_LIMIT_EXPENSIVE`                | `10`     | Per-IP, **per-route** limit on the authenticated admin routes whose single-request cost is far above a normal read: `PATCH /admin-api/auth/me/password` (argon2id verify + hash), `GET /admin-api/audit-log/verify` (full hash-chain rehash) and `GET /admin-api/audit-log/export`. Each route has its own budget. |
+| `RATE_LIMIT_CLEANUP_INTERVAL_MS`      | `300000` | Interval between rate-limiter bucket-cleanup passes.                                                                                                                                                                                                                                                               |
+| `RATE_LIMIT_MAX_BUCKETS_GLOBAL`       | `50000`  | Max LRU buckets in the global limiter map.                                                                                                                                                                                                                                                                         |
+| `RATE_LIMIT_MAX_BUCKETS_MCP`          | `100000` | Max LRU buckets in the MCP-session limiter map.                                                                                                                                                                                                                                                                    |
+| `RATE_LIMIT_MAX_BUCKETS_REGISTER`     | `10000`  | Max LRU buckets in the register limiter map.                                                                                                                                                                                                                                                                       |
+| `RATE_LIMIT_MAX_BUCKETS_TOOL`         | `20000`  | Max LRU buckets in the per-tool guard limiter map.                                                                                                                                                                                                                                                                 |
+| `RATE_LIMIT_MAX_BUCKETS_LOGIN`        | `5000`   | Max LRU buckets in the login limiter map.                                                                                                                                                                                                                                                                          |
+| `RATE_LIMIT_MAX_BUCKETS_INSTALL_LINK` | `5000`   | Max LRU buckets in the install-link limiter map.                                                                                                                                                                                                                                                                   |
+| `RATE_LIMIT_MAX_BUCKETS_SSO`          | `5000`   | Max LRU buckets in the SSO limiter map.                                                                                                                                                                                                                                                                            |
+| `RATE_LIMIT_MAX_BUCKETS_EXPENSIVE`    | `5000`   | Max LRU buckets in the expensive-route limiter map.                                                                                                                                                                                                                                                                |
 
 ### Capacity & sessions
 

@@ -36,6 +36,8 @@ const toolBuckets = new Map<string, Bucket>();
 const loginBuckets = new Map<string, Bucket>();
 const installLinkBuckets = new Map<string, Bucket>();
 const backupBuckets = new Map<string, Bucket>();
+const ssoBuckets = new Map<string, Bucket>();
+const expensiveBuckets = new Map<string, Bucket>();
 
 const WINDOW_MS = 60_000;
 
@@ -149,7 +151,7 @@ function checkLimit(
  * Returns current bucket map sizes per tier for Prometheus gauge snapshots.
  */
 export function getRateLimitBucketSizes(): Record<
-  "global" | "mcp" | "register" | "tool" | "login" | "install_link" | "backup",
+  "global" | "mcp" | "register" | "tool" | "login" | "install_link" | "backup" | "sso" | "expensive",
   number
 > {
   return {
@@ -160,6 +162,8 @@ export function getRateLimitBucketSizes(): Record<
     login: loginBuckets.size,
     install_link: installLinkBuckets.size,
     backup: backupBuckets.size,
+    sso: ssoBuckets.size,
+    expensive: expensiveBuckets.size,
   };
 }
 
@@ -173,6 +177,8 @@ export const _internalsForTesting = {
   loginBuckets,
   installLinkBuckets,
   backupBuckets,
+  ssoBuckets,
+  expensiveBuckets,
   lruGet,
   lruSet,
   checkLimit,
@@ -203,6 +209,8 @@ export function startRateLimiterCleanup(): () => void {
     evictEmpty(loginBuckets, "login");
     evictEmpty(installLinkBuckets, "install_link");
     evictEmpty(backupBuckets, "backup");
+    evictEmpty(ssoBuckets, "sso");
+    evictEmpty(expensiveBuckets, "expensive");
   }, config.rateLimitCleanupIntervalMs);
 }
 
@@ -252,6 +260,52 @@ export function rateLimitBackup(maxPerMinute: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const key = `backup:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
     if (checkLimit(backupBuckets, config.rateLimitMaxBucketsBackup, key, maxPerMinute, "backup", res)) {
+      next();
+    }
+  };
+}
+
+/**
+ * Per-IP rate limit for the two PUBLIC OIDC SSO endpoints
+ * (`GET /admin-api/auth/oidc/start` and `/callback`).
+ *
+ * Alongside `/install/:token`, these are the only routes a fully anonymous
+ * caller can reach, and they are markedly more expensive than that one: `start`
+ * makes an outbound discovery request to the identity provider and allocates a
+ * server-side PKCE state entry per hit; `callback` makes a discovery request, a
+ * token exchange, and a JWKS fetch before it can even decide the request is
+ * bogus. So an unauthenticated caller can drive gateway-outbound traffic (and
+ * grow the state store) at whatever rate it likes, with only the coarse global
+ * limit — one bucket shared by every route — in the way. Same reasoning as the
+ * install-link and backup tiers: an endpoint whose per-request cost is this far
+ * above average gets its own budget. See config.rateLimitSso.
+ */
+export function rateLimitSso(maxPerMinute: number) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const key = `sso:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
+    if (checkLimit(ssoBuckets, config.rateLimitMaxBucketsSso, key, maxPerMinute, "sso", res)) {
+      next();
+    }
+  };
+}
+
+/**
+ * Per-IP rate limit for authenticated-but-costly admin routes, keyed by
+ * `routeTag` so each route gets its own independent budget rather than sharing
+ * one bucket (a caller exporting the audit log must not consume the allowance
+ * for changing their password).
+ *
+ * A shared tier rather than one more `rateLimitX` per route: the routes it
+ * covers have nothing in common except that a single request costs far more
+ * than a typical admin read, and that list will keep growing. Auth already
+ * gates *who* may call them; this bounds what a looping script or a leaked
+ * token can do — the same argument the backup tier makes. See
+ * config.rateLimitExpensive.
+ */
+export function rateLimitExpensive(routeTag: string, maxPerMinute: number) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const key = `expensive:${routeTag}:${normalizeIp(req.ip ?? req.socket?.remoteAddress)}`;
+    if (checkLimit(expensiveBuckets, config.rateLimitMaxBucketsExpensive, key, maxPerMinute, "expensive", res)) {
       next();
     }
   };

@@ -185,6 +185,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A `SECRET_ENCRYPTION_KEY` passphrase was stretched with a single SHA-256 pass (P2).**
+  `secret-box.ts` uses a base64 32-byte key verbatim, but treats anything else as an
+  operator-chosen passphrase — and derived the AES key from it with one unsalted SHA-256. SHA-256
+  is built to be fast, so anyone who obtained the database could brute-force a human-chosen
+  passphrase against the stored ciphertext at billions of guesses per second. The passphrase
+  branch now uses scrypt (N=2¹⁶, ~64 MiB), memoised so `decryptSecret` on the proxy dispatch hot
+  path pays nothing after the first call. New blobs are tagged `v2`; `v1` blobs still decrypt
+  under the old derivation, so existing secrets at rest keep working with no re-encryption
+  migration and upgrade the next time they're rewritten. A base64 32-byte key is unaffected in
+  both versions — it never needed stretching.
+- **Three route groups had no bound beyond the global rate limit (P2).** Continuing the triage that
+  produced the `backup` tier below — the rest of the "Missing rate limiting" alerts were not all
+  false positives either. Two new limiter tiers: `sso` (`RATE_LIMIT_SSO`, default 20/min) for the
+  public `GET /admin-api/auth/oidc/start` and `/callback`, which are unauthenticated by necessity
+  and make outbound IdP requests plus server-side PKCE state allocations before they can reject a
+  bogus call; and `expensive` (`RATE_LIMIT_EXPENSIVE`, default 10/min, keyed **per route** so one
+  route can't spend another's budget) for `PATCH /admin-api/auth/me/password` (a full argon2id
+  verify + hash, ~64 MiB each), `GET /admin-api/audit-log/verify` and `GET /admin-api/audit-log/export`.
+- **`verifyAuditChain()` materialised the entire audit table in one query (P2).** It walked the
+  hash chain with a single unbounded `SELECT … ORDER BY id ASC`, and the audit log grows without
+  bound on a busy gateway, so one request could pull an arbitrarily large result set into memory.
+  Now reads in keyset-paginated batches of 1 000 (`id > last`, riding the primary-key index rather
+  than OFFSET). The chain is still verified in full from the genesis row — verifying from an
+  arbitrary midpoint would prove nothing — so this bounds the working set, not the guarantee.
 - **An admin-settable call timeout could escape the ceiling its env-var form is held to (P2).**
   A tool's `guards.timeoutMs` — and the equivalent field on a guard policy — substitutes directly
   for `config.toolCallTimeoutMs` at dispatch (`circuitCheck.timeout ?? tool.guards?.timeoutMs ??

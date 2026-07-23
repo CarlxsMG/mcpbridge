@@ -22,11 +22,11 @@ describe("secret-box", () => {
   test("roundtrip with a base64 32-byte key", () => {
     setKey(Buffer.alloc(32, 7).toString("base64"));
     const blob = encryptSecret("hello world");
-    expect(blob.startsWith("v1.")).toBe(true);
+    expect(blob.startsWith("v2.")).toBe(true);
     expect(decryptSecret(blob)).toBe("hello world");
   });
 
-  test("roundtrip with a passphrase (SHA-256 derived)", () => {
+  test("roundtrip with a passphrase (scrypt derived)", () => {
     setKey("some-passphrase");
     const blob = encryptSecret("s3cr3t");
     expect(decryptSecret(blob)).toBe("s3cr3t");
