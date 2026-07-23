@@ -28,6 +28,13 @@ async function startApp(): Promise<void> {
   __resetDbForTesting();
   (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
   (config as Record<string, unknown>).authDisabled = false;
+  // VALID's webhookUrl is http://127.0.0.1:9/x, and the alerts routes run every
+  // webhook URL through the SSRF validator, so a private-range address is
+  // rejected with a 400 unless this is on. Pin it explicitly rather than
+  // inheriting it: ALLOW_PRIVATE_IPS is commonly set in a contributor's
+  // gitignored .env, so depending on the ambient value passes locally and fails
+  // in CI, where no .env exists.
+  (config as Record<string, unknown>).allowPrivateIps = true;
   const { alertRoutes } = await import("../../routes/alerts.js");
   const app = express();
   app.use(express.json());

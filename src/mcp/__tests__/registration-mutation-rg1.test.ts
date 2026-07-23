@@ -22,12 +22,20 @@ import {
   resolvedRegistrationSchema,
 } from "../../mcp/registration.js";
 import { registry } from "../../mcp/registry.js";
+import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { upsertWsProxyTarget, __resetWsProxyForTesting } from "../../ws-proxy.js";
 
 beforeEach(async () => {
   __resetDbForTesting();
   __resetWsProxyForTesting();
+  // The collision fixtures below register ws-proxy targets at ws://127.0.0.1,
+  // which `upsertWsProxyTarget` runs through the SSRF validator. Pin this
+  // explicitly instead of inheriting it: ALLOW_PRIVATE_IPS is commonly set in a
+  // contributor's gitignored .env, so relying on the ambient value passes
+  // locally and fails in CI, where no .env exists (same ambient-env gotcha
+  // documented in src/lib/__tests__/webhook-mutation.test.ts).
+  (config as Record<string, unknown>).allowPrivateIps = true;
   for (const client of registry.listClients()) {
     await registry.unregister(client.name);
   }

@@ -185,6 +185,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **26 backend tests silently depended on a contributor's local `.env` (P1).**
+  `routes-alerts-mutation.test.ts` posts alert rules whose `webhookUrl` is `http://127.0.0.1:9/x`,
+  and `registration-mutation-rg1.test.ts` registers ws-proxy targets at `ws://127.0.0.1:9`. Both
+  addresses go through the SSRF validator, which rejects private ranges unless
+  `ALLOW_PRIVATE_IPS` is on — and that variable is typically set in the gitignored `.env` a
+  maintainer keeps for local admin-UI work. The suite therefore passed on the maintainer's machine
+  and failed in CI, where no `.env` exists, with a 400 instead of a 201 and no hint that ambient
+  configuration was the cause. Both files now pin `config.allowPrivateIps` explicitly in their
+  setup, the same way the tests that assert SSRF _blocking_ already pin it to `false`. Verified by
+  running the full suite with `.env` moved aside: 5266 pass, 0 fail. The fix is deliberately local
+  to the two files rather than a blanket `ALLOW_PRIVATE_IPS=true` in `.env.test`, which would have
+  flipped a security control's default to permissive for every test in the suite.
 - **CI's `monitoring` job never validated the alerting rules (P2).** The `prom/prometheus` image
   entrypoint is `/bin/prometheus`, so `docker run … prom/prometheus:v3.8.1 promtool check rules …`
   handed `promtool check rules …` to Prometheus as _arguments_ and died with
