@@ -3,6 +3,13 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    // Don't type-check dependencies' shipped .d.ts files. `@scalar/openapi-parser` and
+    // `@scalar/openapi-upgrader` declare `import ... from "@scalar/types/utils"` in their
+    // declarations without listing `@scalar/types` as a dependency or peer dependency, so a
+    // clean install resolves neither — `tsc` then fails with TS2307 on files we don't own.
+    // Mirrors admin-ui/tsconfig.json, which has always set this. Only .d.ts files are
+    // skipped; `strict` and every other check below still apply in full to src/.
+    "skipLibCheck": true,
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,

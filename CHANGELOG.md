@@ -180,10 +180,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - `@scalar/types` — an unused direct dependency (never imported in `src/`, not a peer requirement of
-  `@scalar/openapi-parser`).
+  `@scalar/openapi-parser`). It is genuinely unused at runtime, but removing it broke `tsc` on a
+  clean install — see the `skipLibCheck` entry under Fixed below.
 
 ### Fixed
 
+- **`bun run typecheck` failed on any clean install, breaking CI's `test` leg (P1).** Dropping the
+  unused `@scalar/types` dependency (see Removed above) also removed the only thing satisfying the
+  `import ... from "@scalar/types/utils"` that `@scalar/openapi-parser` and `@scalar/openapi-upgrader`
+  ship inside their `.d.ts` files — neither declares `@scalar/types` as a dependency or a peer
+  dependency, so nothing reinstalls it. `tsc` then failed with four TS2307s on files we don't own.
+  It went unnoticed because a developer machine that had installed the package before the removal
+  keeps a stale copy in `node_modules`; only a from-scratch install (CI, a fresh clone, the Docker
+  build) actually reproduces it — and until this repository had a remote, CI had never run.
+  Fixed by setting `skipLibCheck: true` in the root `tsconfig.json`, which `admin-ui/tsconfig.json`
+  has always set. The dependency is **not** re-added: it is referenced only from type declarations,
+  never from the shipped JavaScript, so there is no runtime need for it. `strict` and every other
+  check still apply in full to `src/` — only dependencies' `.d.ts` files are skipped.
 - **A high-severity advisory in a transitive dependency would have failed CI on the first push
   (P1).** GHSA-v2hh-gcrm-f6hx (host confusion via a literal backslash authority delimiter) affects
   `fast-uri` `>=3.0.0 <=3.1.3`; the lockfile pinned `3.1.3` under `ajv`, so
