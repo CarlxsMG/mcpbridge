@@ -175,6 +175,10 @@ jobs:
           ignore-unfixed: true
           severity: CRITICAL,HIGH
           exit-code: "1"
+          # Time-boxed, justified suppressions (each entry carries an expiry) —
+          # currently one unreachable transitive advisory pinned by the MCP SDK.
+          # See .trivyignore.yaml for the reasoning and the re-evaluation date.
+          trivyignores: .trivyignore.yaml
 
       - name: Upload Trivy results to the Security tab
         if: always()

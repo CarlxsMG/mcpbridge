@@ -13,7 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [1.1.1] - 2026-07-24
+## [1.1.2] - 2026-07-24
+
+### Fixed
+
+- **The container image publish was still blocked, now by an unreachable transitive advisory.**
+  With the OS packages patched in 1.1.1, Trivy's release gate was left failing on a single finding:
+  **GHSA-frvp-7c67-39w9** in `@hono/node-server` (1.19.14, fixed in 2.0.5). It's a transitive
+  dependency of `@modelcontextprotocol/sdk`, pinned there at `^1.19.9` — a range that can't reach
+  the 2.x fix without an upstream bump — and it is **unreachable** in this project: the gateway
+  serves over Express and never imports or instantiates `hono`. Added a time-boxed, justified
+  `.trivyignore.yaml` entry (expires 2026-10-24, so it re-blocks if not revisited) and wired
+  `docker-publish.yml`'s scan step to it. This unblocks the first published container image.
 
 ### Fixed
 
@@ -671,7 +682,8 @@ below shipped incrementally on `main` and is being released together as `1.0.0`.
 - **Docs & site.** A VitePress-based documentation and marketing site with an
   interactive, mock-backed admin UI demo, published via GitHub Pages.
 
-[Unreleased]: https://github.com/CarlxsMG/mcpbridge/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/CarlxsMG/mcpbridge/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.1.2
 [1.1.1]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.1.1
 [1.1.0]: https://github.com/CarlxsMG/mcpbridge/releases/tag/v1.1.0
 

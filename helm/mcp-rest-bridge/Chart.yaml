@@ -7,7 +7,7 @@ type: application
 # Chart version (bump on any template/values change).
 version: 0.1.0
 # Tracks the app's package.json "version" — bump alongside it.
-appVersion: "1.1.1"
+appVersion: "1.1.2"
 home: https://github.com/CarlxsMG/mcpbridge
 # Resolves once the repository is public; `helm lint` warns when it's absent.
 icon: https://raw.githubusercontent.com/CarlxsMG/mcpbridge/main/docs/public/favicon.svg

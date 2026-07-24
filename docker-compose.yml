@@ -39,7 +39,7 @@
 
 services:
   mcp-bridge:
-    image: ghcr.io/carlxsmg/mcpbridge:${MCPBRIDGE_VERSION:-1.1.1}
+    image: ghcr.io/carlxsmg/mcpbridge:${MCPBRIDGE_VERSION:-1.1.2}
     build: . # builds from local source (no release image is published yet); comment this out to pull the signed GHCR image once the first release is tagged
     ports:
       - "${PORT:-3000}:${PORT:-3000}"

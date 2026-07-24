@@ -1,0 +1,23 @@
+# Trivy vulnerability ignore policy (YAML format — the plain `.trivyignore` list
+# has no expiry support, this does). Consumed by docker-publish.yml's image-scan
+# gate via its `trivyignores:` input. Every entry MUST carry a `statement` (why
+# it's safe to defer) and an `expired_at` (when it must be re-evaluated) — after
+# that date Trivy stops honouring the entry and the finding re-blocks the release,
+# so nothing is suppressed silently forever.
+
+vulnerabilities:
+  - id: GHSA-frvp-7c67-39w9
+    # @hono/node-server 1.19.14 -> fixed in 2.0.5 (a MAJOR bump). It is a
+    # transitive dependency of @modelcontextprotocol/sdk, which pins it at
+    # `^1.19.9` — a range that can never resolve 2.x — so we cannot advance it
+    # without the SDK doing so upstream. Crucially it is UNREACHABLE here: the
+    # gateway's HTTP surface is Express (see src/server.ts), there is not a
+    # single `hono` import anywhere in src/, and @hono/node-server's code is
+    # never instantiated at runtime. Revisit when @modelcontextprotocol/sdk
+    # widens the range or ships 2.x; drop this entry once `bun why
+    # @hono/node-server` shows >= 2.0.5.
+    statement: >-
+      Unreachable transitive dep of @modelcontextprotocol/sdk (pinned ^1.19.9);
+      the gateway serves over Express and never imports or instantiates hono.
+      Fix is a major the SDK's range can't reach — waiting on an upstream bump.
+    expired_at: 2026-10-24
