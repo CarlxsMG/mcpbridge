@@ -34,6 +34,7 @@
     "dev:demo": "cd admin-ui && VITE_DEMO=true bun run dev",
     "dev:all": "bun scripts/dev-all.ts",
     "version:bump": "bun scripts/bump-version.ts",
+    "og:render": "node scripts/render-og-cover.ts",
     "start": "bun src/index.ts",
     "cli": "bun src/cli/index.ts",
     "build": "cd admin-ui && bun run build",

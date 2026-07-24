@@ -1,0 +1,180 @@
+<!doctype html>
+<!--
+  Source for docs/public/og-cover.png — the 1200×630 social-share card
+  (og:image / twitter:image, wired in docs/.vitepress/config.mts).
+
+  It lives as HTML, not just a flat PNG, so the card is REGENERABLE and every
+  bit of text in it — crucially the URL — is grep-able. (The previous PNG had a
+  stale project slug baked into its pixels, which no find-and-replace could
+  catch; keeping the source here fixes that class of bug.)
+
+  Regenerate after editing:
+    bun run og:render
+  which renders this file at exactly 1200×630 to docs/public/og-cover.png.
+
+  Brand tokens mirror docs/.vitepress/theme/custom.css: ink #0e1116,
+  signal teal #00a99a (lifted to #2fd4c4 for contrast on ink), Space Grotesk
+  + IBM Plex type.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+      }
+      .card {
+        position: relative;
+        width: 1200px;
+        height: 630px;
+        background: #0e1116;
+        /* Two soft glows: signal teal from the right, a faint warm ember bottom-left. */
+        background-image:
+          radial-gradient(60% 80% at 100% 22%, rgba(0, 169, 154, 0.22), transparent 60%),
+          radial-gradient(45% 60% at 2% 100%, rgba(196, 122, 60, 0.14), transparent 62%);
+        color: #fff;
+        font-family:
+          "IBM Plex Sans",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        padding: 66px 72px;
+        display: flex;
+        flex-direction: column;
+      }
+      /* ── Wordmark ─────────────────────────────────────────────── */
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .brand .logo {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        background: #171b24;
+        border: 1px solid #262c3a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .brand .name {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 700;
+        font-size: 27px;
+        letter-spacing: 0.2px;
+        color: #eef2f6;
+      }
+      /* ── Headline block, vertically centered ──────────────────── */
+      .middle {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      h1 {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 700;
+        font-size: 68px;
+        line-height: 1.06;
+        letter-spacing: -1px;
+      }
+      h1 .arrow {
+        color: #2fd4c4;
+      }
+      h1 .accent {
+        background: linear-gradient(100deg, #2fd4c4 20%, #00a99a 72%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .subtitle {
+        margin-top: 30px;
+        font-size: 25px;
+        line-height: 1.4;
+        font-weight: 400;
+        color: #9aa7b8;
+        max-width: 960px;
+      }
+      .subtitle .dot {
+        color: #3f4a5a;
+        padding: 0 10px;
+      }
+      /* ── Footer ───────────────────────────────────────────────── */
+      .footer {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+      }
+      .url {
+        font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+        font-weight: 500;
+        font-size: 23px;
+        color: #6b7789;
+        letter-spacing: 0.3px;
+      }
+      .url .host {
+        color: #8b97a8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="brand">
+        <div class="logo">
+          <svg width="30" height="30" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <g
+              transform="translate(4 4)"
+              fill="none"
+              stroke="#2fd4c4"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </g>
+          </svg>
+        </div>
+        <div class="name">MCP REST Bridge</div>
+      </div>
+
+      <div class="middle">
+        <h1>
+          Any REST API or MCP server <span class="arrow">&rarr;</span><br />
+          <span class="accent">secure, governed AI tools.</span>
+        </h1>
+        <div class="subtitle">
+          The self-hosted MCP gateway with a real admin UI <span class="dot">·</span> OpenAPI&rarr;MCP
+          <span class="dot">·</span> RBAC <span class="dot">·</span> No Kubernetes
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="url"><span class="host">carlxsmg.github.io</span>/mcpbridge</div>
+        <svg width="220" height="34" viewBox="0 0 220 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <line x1="18" y1="17" x2="202" y2="17" stroke="#00a99a" stroke-width="2.5" opacity="0.65" />
+          <circle cx="18" cy="17" r="8" fill="#2fd4c4" />
+          <circle cx="64" cy="17" r="7" fill="#0e1116" stroke="#00a99a" stroke-width="2.5" />
+          <circle cx="110" cy="17" r="8" fill="#00a99a" />
+          <circle cx="156" cy="17" r="7" fill="#0e1116" stroke="#00a99a" stroke-width="2.5" />
+          <circle cx="202" cy="17" r="8" fill="#2fd4c4" />
+        </svg>
+      </div>
+    </div>
+  </body>
+</html>
