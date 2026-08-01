@@ -98,20 +98,39 @@ describe("Persisted enabled state survives a real SQLite file close + reopen", (
     }
   });
 
-  test("enabled: false written before a close is read back after reopening the same file", async () => {
-    mkdirSync(dbDir, { recursive: true });
-    if (existsSync(dbPath)) rmSync(dbPath);
+  // Raised from Bun's 5000ms default. This is the only test in the suite that
+  // closes and reopens a REAL file, so the only one that can contend on a
+  // Windows file lock — and every connection sets `busy_timeout = 5000`, which
+  // is exactly that default budget. A single contended reopen therefore eats
+  // the whole allowance and the test times out instead of asserting, which is
+  // precisely how this failed on the Windows CI leg (green on Linux, roughly
+  // half the time on Windows, always "timed out after 5000ms").
+  //
+  // __resetDbForTesting now drops out of WAL before closing so the sidecars are
+  // genuinely released (see the comment there) — that removes the cause. This
+  // is the belt to that pair of braces: room to survive one full busy wait if
+  // it ever contends anyway. It costs nothing when it doesn't; the body runs in
+  // ~100ms.
+  const REOPEN_TIMEOUT_MS = 20_000;
 
-    __resetDbForTesting(dbPath);
-    await reg("svc", [makeTool({ name: "get-users" })]);
-    await registry.setClientEnabled("svc", false);
+  test(
+    "enabled: false written before a close is read back after reopening the same file",
+    async () => {
+      mkdirSync(dbDir, { recursive: true });
+      if (existsSync(dbPath)) rmSync(dbPath);
 
-    // Close and reopen at the SAME file path — this is a real durability
-    // test, not just an in-memory-Map-reset simulation.
-    __resetDbForTesting(dbPath);
-    await registry.unregister("svc"); // clear whatever the reopen left in-memory, if anything
-    await reg("svc", [makeTool({ name: "get-users" })]);
+      __resetDbForTesting(dbPath);
+      await reg("svc", [makeTool({ name: "get-users" })]);
+      await registry.setClientEnabled("svc", false);
 
-    expect(registry.getClient("svc")?.enabled).toBe(false);
-  });
+      // Close and reopen at the SAME file path — this is a real durability
+      // test, not just an in-memory-Map-reset simulation.
+      __resetDbForTesting(dbPath);
+      await registry.unregister("svc"); // clear whatever the reopen left in-memory, if anything
+      await reg("svc", [makeTool({ name: "get-users" })]);
+
+      expect(registry.getClient("svc")?.enabled).toBe(false);
+    },
+    REOPEN_TIMEOUT_MS,
+  );
 });
