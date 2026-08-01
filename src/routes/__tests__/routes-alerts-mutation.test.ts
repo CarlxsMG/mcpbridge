@@ -11,6 +11,7 @@
  * reports/mutation/result.json.
  */
 import { describe, test, expect, afterEach, spyOn } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -26,7 +27,7 @@ const ADMIN_KEY = "test-admin-key-alerts-mut";
 
 async function startApp(): Promise<void> {
   __resetDbForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   // VALID's webhookUrl is http://127.0.0.1:9/x, and the alerts routes run every
   // webhook URL through the SSRF validator, so a private-range address is
@@ -50,9 +51,7 @@ async function startApp(): Promise<void> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {

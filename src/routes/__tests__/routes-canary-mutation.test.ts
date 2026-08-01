@@ -21,6 +21,7 @@
  * agree on genuine numbers.
  */
 import { describe, test, expect, spyOn } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -50,7 +51,7 @@ function makeTool(name: string): RestToolDefinition {
 
 async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   __resetDbForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
@@ -65,9 +66,7 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 /** Creates an admin-role session scoped to a real team -- for cross-team-denial tests. */
 function teamSessionHeaders(username: string): { headers: Record<string, string>; teamId: number } {

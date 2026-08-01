@@ -32,6 +32,7 @@
  * loudly rather than silently discovering nothing.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -196,7 +197,7 @@ describe("structural tenancy matrix — every GET /admin-api route is classified
 
   beforeEach(() => {
     __resetDbForTesting();
-    (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+    setAdminApiKeys([ADMIN_KEY]);
     (config as Record<string, unknown>).authDisabled = false;
     const { app } = createApp();
     discovered = enumerateAdminGetRoutes(app);
@@ -253,7 +254,7 @@ let activeServer: Server | null = null;
 async function startScopedApp(): Promise<void> {
   __resetDbForTesting();
   __clearUsageForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
 
   // Only the routers whose GET list endpoints we exercise below — mounting the
@@ -281,9 +282,7 @@ async function startScopedApp(): Promise<void> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}` };
-}
+const bearer = (): Record<string, string> => bearerHeaders(ADMIN_KEY);
 
 async function reg(name: string): Promise<void> {
   await registry.register(

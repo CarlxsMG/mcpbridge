@@ -2,6 +2,7 @@
  * HTTP-level tests for src/routes/usage.ts.
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -16,7 +17,7 @@ const ADMIN_KEY = "test-admin-key";
 
 async function startApp(): Promise<void> {
   __resetDbForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
 
   const { usageRoutes } = await import("../../routes/usage.js");
@@ -35,9 +36,7 @@ async function startApp(): Promise<void> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}` };
-}
+const bearer = (): Record<string, string> => bearerHeaders(ADMIN_KEY);
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {

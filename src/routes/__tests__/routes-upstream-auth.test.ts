@@ -3,6 +3,7 @@
  * harness (real express() + native fetch, Bearer admin auth, in-memory DB).
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -32,7 +33,7 @@ function makeTool(): RestToolDefinition {
 
 async function startApp(withSecretBox = true): Promise<void> {
   __resetDbForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   (config as Record<string, unknown>).secretEncryptionKey = withSecretBox
     ? Buffer.alloc(32, 3).toString("base64")
@@ -65,9 +66,7 @@ function stopServer(): Promise<void> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 async function reg(name: string): Promise<void> {
   await registry.register(name, [makeTool()], "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
