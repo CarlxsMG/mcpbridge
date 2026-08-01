@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation-testing backstop — cluster RG5b (src/mcp/registration.ts
 // L600-667): the DISCOVERY+REGISTER half of performGraphqlRegistration —
@@ -61,9 +62,7 @@ let setGraphqlSpy: ReturnType<typeof spyOn<typeof backendsMod, "setToolGraphql">
 let discoverSpy: ReturnType<typeof spyOn<typeof graphqlDiscoveryMod, "discoverToolsFromGraphQl">>;
 
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   (config as Record<string, unknown>).maxToolsPerClient = originalMaxTools;
 

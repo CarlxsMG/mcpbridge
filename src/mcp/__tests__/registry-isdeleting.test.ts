@@ -10,6 +10,7 @@
  *   5. Concurrent unregister('a') and unregister('b') both clear correctly (no leak).
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry, isDeleting } from "../../mcp/registry.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import type { RestToolDefinition } from "../../mcp/types.js";
@@ -40,16 +41,12 @@ async function reg(name: string, toolName = "do-thing") {
 }
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
 });
 

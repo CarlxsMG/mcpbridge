@@ -89,6 +89,7 @@
  * ---------------------------------------------------------------------------
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import express from "express";
 import type { Server } from "http";
@@ -165,15 +166,11 @@ async function initSession(path: string): Promise<string | null> {
 }
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   await stopApp();
 });
 

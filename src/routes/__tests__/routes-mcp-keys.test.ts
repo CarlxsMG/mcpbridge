@@ -3,6 +3,7 @@
  * harness (real express() + native fetch, Bearer admin auth, in-memory DB).
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -80,7 +81,7 @@ const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 afterEach(async () => {
   await stopServer();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("POST /admin-api/mcp-keys", () => {

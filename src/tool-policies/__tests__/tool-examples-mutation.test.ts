@@ -7,6 +7,7 @@
  * an array was ever tried), or either side of the MAX_ARGS_BYTES boundary.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { createExample } from "../../tool-meta/tool-examples.js";
@@ -29,10 +30,10 @@ async function reg(): Promise<void> {
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
 });
 

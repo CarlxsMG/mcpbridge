@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation-testing backstop — cluster RG5a (src/mcp/registration.ts
 // L510-599): the VALIDATION half of performGraphqlRegistration — the
@@ -71,9 +72,7 @@ let validateSpy: ReturnType<typeof spyOn<typeof ipValidatorMod, "validateBackend
 let discoverSpy: ReturnType<typeof spyOn<typeof graphqlDiscoveryMod, "discoverToolsFromGraphQl">>;
 
 async function drainRegistry(): Promise<void> {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   __resetWsProxyForTesting();
 }

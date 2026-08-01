@@ -18,6 +18,7 @@
  * mutation-testing conventions.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import { config } from "../../config.js";
@@ -52,11 +53,11 @@ function resetAll(): void {
   usedClients.clear();
 }
 beforeEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   resetAll();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   resetAll();
 });
 

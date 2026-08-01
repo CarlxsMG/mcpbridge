@@ -2,6 +2,7 @@
  * Granular RBAC: operator/auditor/viewer capability gating + audit export.
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { clearRegistry } from "../../../__tests__/_utils/registry.js";
 import { listen } from "../../../__tests__/_utils/app.js";
 import express from "express";
 import type { Server } from "http";
@@ -53,7 +54,7 @@ function sessionHeaders(role: AdminRole, username: string): Record<string, strin
 }
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   await new Promise<void>((resolve) => {
     if (server)
       server.close(() => {

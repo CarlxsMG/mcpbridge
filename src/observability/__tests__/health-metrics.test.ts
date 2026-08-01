@@ -6,6 +6,7 @@
  *   2. healthEvictionsTotal increments when a client is evicted after threshold failures.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
@@ -43,18 +44,14 @@ function parseCounterTotal(rendered: string, metricName: string): number {
 const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   refreshLeaderStatus(); // health.ts's loop only probes backends when isLeader() is true
   globalThis.fetch = originalFetch;
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   globalThis.fetch = originalFetch;
 });

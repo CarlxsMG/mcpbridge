@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "./_utils/registry.js";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
@@ -29,12 +30,12 @@ function makeTool(): RestToolDefinition {
 beforeEach(async () => {
   __resetDbForTesting();
   __resetWsProxyForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   (config as Record<string, unknown>).allowPrivateIps = true;
 });
 afterEach(async () => {
   (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   removeCircuitBreaker("echo-target");
   removeCircuitBreaker("dup-name");
 });

@@ -32,6 +32,7 @@
  * targeted tests (no reasoning-only equivalence claims needed for hc3).
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import { config } from "../../config.js";
 import * as loggerMod from "../../logger.js";
@@ -97,18 +98,14 @@ function parseCounterForLabel(rendered: string, metricName: string, labelStr: st
 const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   refreshLeaderStatus(); // health.ts's loop only probes backends when isLeader() is true
   globalThis.fetch = originalFetch;
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   globalThis.fetch = originalFetch;
 });

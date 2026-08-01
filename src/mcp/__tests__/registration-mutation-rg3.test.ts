@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation backstop — RG3 (src/mcp/registration.ts lines 279-391): the
 // REST of performRestRegistration — tool resolution (four branches: OpenAPI
@@ -76,7 +77,7 @@ let postmanSpy: ReturnType<typeof spyOn>;
 let logSpy: ReturnType<typeof spyOn>;
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   (config as Record<string, unknown>).maxToolsPerClient = ORIGINAL_MAX_TOOLS;
 

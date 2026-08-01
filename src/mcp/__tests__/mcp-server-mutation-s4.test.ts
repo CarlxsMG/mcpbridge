@@ -79,6 +79,7 @@
  * enumerated in the task description is killed by a test below.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import express from "express";
 import type { Server as HttpServer } from "http";
@@ -517,7 +518,7 @@ describe("mcp-server.ts CallToolRequestSchema — cluster S4 (Harness B: real HT
   }
 
   beforeEach(async () => {
-    for (const c of registry.listClients()) await registry.unregister(c.name);
+    await clearRegistry();
     __resetDbForTesting();
     _internalsForTesting.clear();
     // Base mock: any call to the pinned backend IP resolves instantly
@@ -533,7 +534,7 @@ describe("mcp-server.ts CallToolRequestSchema — cluster S4 (Harness B: real HT
   });
 
   afterEach(async () => {
-    for (const c of registry.listClients()) await registry.unregister(c.name);
+    await clearRegistry();
     await stopApp();
     _internalsForTesting.clear();
     globalThis.fetch = originalFetch;

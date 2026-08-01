@@ -5,6 +5,7 @@
  * were read directly from reports/mutation/result.json.
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -47,11 +48,11 @@ async function reg(name: string, tools: RestToolDefinition[]): Promise<void> {
 }
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   await new Promise<void>((resolve) => {
     if (server)
       server.close(() => {

@@ -2,6 +2,7 @@
  * Config export/import: snapshot fidelity, dry-run safety, promotion round-trip.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "./_utils/registry.js";
 import { __resetDbForTesting } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
 import { createBundle, getBundleDetail } from "../admin/tool-composition/bundles.js";
@@ -26,10 +27,10 @@ async function reg(name = "svc", tools: RestToolDefinition[] = [makeTool()]): Pr
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("config export/import", () => {
@@ -83,7 +84,7 @@ describe("config export/import", () => {
 
     // Fresh environment: reset DB, re-register the client with no admin config.
     __resetDbForTesting();
-    for (const c of registry.listClients()) await registry.unregister(c.name);
+    await clearRegistry();
     await reg("svc");
     expect(registry.resolveTool("svc__get-users")?.tool.guards?.rateLimitPerMin).toBeUndefined();
 
@@ -134,7 +135,7 @@ describe("config export/import", () => {
 
     // Fresh environment: guardrails/consumers must be recreated by import.
     __resetDbForTesting();
-    for (const c of registry.listClients()) await registry.unregister(c.name);
+    await clearRegistry();
     await reg("svc");
 
     const result = await importConfig(doc, { dryRun: false }, "t");

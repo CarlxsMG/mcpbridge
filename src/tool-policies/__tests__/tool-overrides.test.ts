@@ -2,6 +2,7 @@
  * Tool presentation overrides — registry application + admin route.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -27,10 +28,10 @@ async function reg(name: string): Promise<void> {
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("tool overrides — registry", () => {

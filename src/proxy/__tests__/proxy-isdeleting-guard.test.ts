@@ -12,6 +12,7 @@
  * We also verify the guard is conditional (fetch IS called when not deleting).
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry, isDeleting } from "../../mcp/registry.js";
 import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import { __resetDbForTesting } from "../../db/connection.js";
@@ -37,18 +38,14 @@ function makeTool(): RestToolDefinition {
 const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
   globalThis.fetch = originalFetch;
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
   globalThis.fetch = originalFetch;

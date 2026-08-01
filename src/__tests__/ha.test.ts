@@ -3,6 +3,7 @@
  * cross-instance registry reconciliation.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "./_utils/registry.js";
 import { __resetDbForTesting, getDb } from "../db/connection.js";
 import { registry } from "../mcp/registry.js";
 import {
@@ -39,11 +40,11 @@ function insertPeerClient(name: string, toolName: string): void {
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __clearRateCountersForTesting();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
 });
 

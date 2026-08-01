@@ -2,6 +2,7 @@
  * Usage analytics: store aggregations + proxy attribution.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { proxyToolCall } from "../../proxy/proxy.js";
@@ -32,11 +33,11 @@ const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
   globalThis.fetch = originalFetch;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("usage store aggregations", () => {

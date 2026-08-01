@@ -32,6 +32,7 @@
  *   503 path is unreachable in any realistic test run here.
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen, closeServer } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -40,14 +41,13 @@ import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { requestIdMiddleware } from "../../middleware/request-id.js";
 import { _internalsForTesting } from "../../middleware/rate-limiter.js";
-import { registry } from "../../mcp/registry.js";
 import { resolvedRegistrationSchema } from "../../mcp/registration.js";
 
 const ADMIN_KEY = "test-admin-key-register-mut";
 
 async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   _internalsForTesting.registerBuckets.clear();
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
@@ -67,7 +67,7 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
 const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 async function withApp(fn: (baseUrl: string) => Promise<void>): Promise<void> {

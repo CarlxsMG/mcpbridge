@@ -8,6 +8,7 @@
  * write method, and never calls getSensitivityForClient at all.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { getDb } from "../../db/connection.js";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
@@ -32,11 +33,11 @@ async function reg(tools: RestToolDefinition[]): Promise<void> {
 const originalAutoGate = config.autoGateWriteMethods;
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
   (config as Record<string, unknown>).autoGateWriteMethods = originalAutoGate;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 // 19:7-19:40 ConditionalExpression [Survived] false (`!toolExists(...)`

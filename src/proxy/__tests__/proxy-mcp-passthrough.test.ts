@@ -14,6 +14,7 @@
  * longer trips the SDK's InvalidRequest guard.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -151,7 +152,7 @@ const TOOLS: DiscoveredMcpTool[] = [
 const originalSecretKey = config.secretEncryptionKey;
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   (config as Record<string, unknown>).secretEncryptionKey = Buffer.alloc(32, 9).toString("base64");
   mcpUpstream.__setTransportFactoryForTesting(upstreamFactory);

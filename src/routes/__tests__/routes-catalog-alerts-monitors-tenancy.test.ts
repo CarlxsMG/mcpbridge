@@ -18,6 +18,7 @@
  * scoping until this file.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -95,12 +96,12 @@ function teamAdminHeaders(username: string): Record<string, string> {
 const VALID_ALERT = { name: "cb", eventType: "circuit_breaker_open", webhookUrl: "http://127.0.0.1:9/x" };
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
   await new Promise<void>((resolve) => {
     if (activeServer)

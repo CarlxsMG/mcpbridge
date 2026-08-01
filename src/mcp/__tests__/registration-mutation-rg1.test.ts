@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation backstop — RG1 (registration.ts lines 1-140): the module-
 // private wsProxyNameCollision(name, requestId) helper (tested indirectly via
@@ -21,7 +22,6 @@ import {
   findToolEndpointError,
   resolvedRegistrationSchema,
 } from "../../mcp/registration.js";
-import { registry } from "../../mcp/registry.js";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { upsertWsProxyTarget, __resetWsProxyForTesting } from "../../ws-proxy.js";
@@ -36,9 +36,7 @@ beforeEach(async () => {
   // locally and fails in CI, where no .env exists (same ambient-env gotcha
   // documented in src/lib/__tests__/webhook-mutation.test.ts).
   (config as Record<string, unknown>).allowPrivateIps = true;
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
 });
 
 // ---------------------------------------------------------------------------

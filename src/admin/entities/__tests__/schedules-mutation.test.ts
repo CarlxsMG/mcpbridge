@@ -16,6 +16,7 @@
  * startScheduleLoop's leader-gated immediate tick.
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../../__tests__/_utils/registry.js";
 import { __resetDbForTesting, getDb } from "../../../db/connection.js";
 import { __resetLeaderFlagForTesting, refreshLeaderStatus } from "../../../db/leader-lease.js";
 import { registry } from "../../../mcp/registry.js";
@@ -52,10 +53,10 @@ async function reg(name: string, toolName = "get-x"): Promise<void> {
 beforeEach(async () => {
   __resetDbForTesting();
   __resetLeaderFlagForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   __resetLeaderFlagForTesting();
 });

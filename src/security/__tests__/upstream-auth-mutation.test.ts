@@ -9,6 +9,7 @@
  * getUpstreamAuthHeaders for a client with no row at all.
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
@@ -43,11 +44,11 @@ async function reg(): Promise<void> {
 beforeEach(async () => {
   __resetDbForTesting();
   (config as Record<string, unknown>).secretEncryptionKey = Buffer.alloc(32, 9).toString("base64");
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
   (config as Record<string, unknown>).secretEncryptionKey = originalKey;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 // 72:7-72:11 ConditionalExpression [Survived] false (`!row` forced false).

@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import { __resetDbForTesting, getDb } from "../../db/connection.js";
 import { createBundle, getBundleDetail } from "../../admin/tool-composition/bundles.js";
@@ -21,9 +22,7 @@ async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]) {
 }
 
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
 });
 

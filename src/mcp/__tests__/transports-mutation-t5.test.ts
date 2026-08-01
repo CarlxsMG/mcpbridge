@@ -67,6 +67,7 @@
  *     one mutant. Left undistinguished.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import express from "express";
 import type { Server } from "http";
@@ -150,17 +151,13 @@ async function initSession(path: string, extraHeaders: Record<string, string> = 
 }
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   initBundles();
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   await stopApp();
 });
 

@@ -11,6 +11,7 @@
  * tests only ever call as the env Bearer (always a super-admin).
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -105,7 +106,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __clearUsageForTesting();
   await new Promise<void>((resolve) => {
     if (activeServer)

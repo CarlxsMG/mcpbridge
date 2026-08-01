@@ -51,6 +51,7 @@
  *     undistinguished by design.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { config } from "../../config.js";
@@ -115,7 +116,7 @@ const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
   (config as Record<string, unknown>).retryMaxAttempts = 0;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   initComposites();
   initBundles();
@@ -124,7 +125,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   initComposites();
   initBundles();

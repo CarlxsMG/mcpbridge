@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation-testing backstop — cluster ST3 (src/mcp/system-tools.ts):
 // the four smaller operate-tier tools, self-verified against the live source
@@ -68,7 +69,7 @@ async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]): Pr
 let auditSpy: ReturnType<typeof spyOn>;
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   auditSpy = spyOn(auditMod, "recordAudit").mockImplementation(() => {});
 });

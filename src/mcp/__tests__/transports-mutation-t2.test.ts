@@ -86,6 +86,7 @@
  */
 
 import { describe, test, expect } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -174,9 +175,7 @@ async function initSession(path: string, extraHeaders: Record<string, string> = 
 }
 
 async function cleanupClients(): Promise<void> {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
 }
 
 // ---------------------------------------------------------------------------

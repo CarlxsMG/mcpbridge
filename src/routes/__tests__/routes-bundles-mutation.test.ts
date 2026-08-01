@@ -56,6 +56,7 @@
  * timeout", not a real gap.
  */
 import { describe, test, expect, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -137,9 +138,7 @@ async function makeValidComposite(compositeName: string, clientName: string): Pr
 }
 
 async function teardown(): Promise<void> {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   await stopServer();
   (config as Record<string, unknown>).secretEncryptionKey = originalSecretKey;
 }

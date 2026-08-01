@@ -6,6 +6,7 @@
  * forced always-true was never observed.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
 import { getToolMock, setToolMock } from "../../tool-meta/tool-mock.js";
@@ -28,10 +29,10 @@ async function reg(): Promise<void> {
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 // 36:21-36:38 ConditionalExpression [Survived] true (`row.enabled === 1`

@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import * as mcpServerMod from "../../mcp/mcp-server.js";
 import { __resetDbForTesting, getDb } from "../../db/connection.js";
@@ -62,9 +63,7 @@ function insertDbOnlyClient(name: string, toolName = "get-users", clientEnabled 
 }
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
 });
 

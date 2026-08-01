@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation backstop — RC8 (registry.ts lines 941-1052): resolveTool,
 // effectiveAdvertised (private — drives getAllMcpTools/getMcpToolsForClient/
@@ -56,9 +57,7 @@ async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]) {
 }
 
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   // Fresh in-memory SQLite per test — unregister() deliberately doesn't purge
   // persisted enabled/guards/override state, so a shared DB would leak it
   // across tests that reuse generic client names like "svc".

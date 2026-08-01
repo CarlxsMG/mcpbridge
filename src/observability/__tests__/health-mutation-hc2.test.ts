@@ -44,6 +44,7 @@
  * Run: bun run test (never bare `bun test` — see CLAUDE.md).
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import * as mcpServerMod from "../../mcp/mcp-server.js";
 import { __resetDbForTesting } from "../../db/connection.js";
@@ -139,18 +140,14 @@ function parseHistogramSumCount(
 const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   refreshLeaderStatus(); // health.ts's loop only probes backends when isLeader() is true
   globalThis.fetch = originalFetch;
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   globalThis.fetch = originalFetch;
 });

@@ -39,6 +39,7 @@
  * No equivalents found in this cluster — all 22 are killed below by observable tests.
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../../__tests__/_utils/registry.js";
 import { config } from "../../../config.js";
 import { __resetDbForTesting } from "../../../db/connection.js";
 import { refreshLeaderStatus } from "../../../db/leader-lease.js";
@@ -75,13 +76,13 @@ beforeEach(async () => {
   __resetDbForTesting();
   __resetAlertStateForTesting();
   (config as Record<string, unknown>).allowPrivateIps = true;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 afterEach(async () => {
   globalThis.fetch = originalFetch;
   (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("markFired — persists last_fired_at (kills 121, 122, 123)", () => {

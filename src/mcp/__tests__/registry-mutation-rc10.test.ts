@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import { __resetDbForTesting, getDb } from "../../db/connection.js";
 import { getCircuitBreaker, removeCircuitBreaker, getAllCircuitStates } from "../../middleware/circuit-breaker.js";
@@ -58,9 +59,7 @@ async function reg(
 }
 
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   // Fresh in-memory SQLite per test — unregister() deliberately doesn't purge
   // persisted state, so a shared DB would leak tags/guards/overrides/teams
   // across tests that reuse generic names like "svc".

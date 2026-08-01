@@ -32,6 +32,7 @@
  * loudly rather than silently discovering nothing.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -334,7 +335,7 @@ describe("structural tenancy matrix — scoped list endpoints exclude another te
   });
 
   afterEach(async () => {
-    for (const c of registry.listClients()) await registry.unregister(c.name);
+    await clearRegistry();
     __clearUsageForTesting();
     await new Promise<void>((resolve) => {
       if (activeServer)
