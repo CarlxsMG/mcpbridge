@@ -4,7 +4,7 @@
  * be executed by either runtime depending on how `playwright test` was
  * invoked) that serves:
  *   - GET /health        -> 200 (backend health-check target)
- *   - GET /openapi.json  -> the repo's existing tests/fixtures/simple-openapi.json,
+ *   - GET /openapi.json  -> the repo's existing fixtures/simple-openapi.json,
  *                           unchanged, so discovery exercises the same fixture
  *                           the backend unit tests already use
  *   - GET /api/v1/users  -> a canned 200 response for the "list-users" tool
@@ -26,7 +26,7 @@ import { dirname, join } from "node:path";
 import { FIXTURE_PORT } from "./env";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OPENAPI_SPEC = readFileSync(join(__dirname, "../tests/fixtures/simple-openapi.json"), "utf-8");
+const OPENAPI_SPEC = readFileSync(join(__dirname, "../fixtures/simple-openapi.json"), "utf-8");
 
 export default async function globalSetup(): Promise<() => Promise<void>> {
   const server = createServer((req, res) => {

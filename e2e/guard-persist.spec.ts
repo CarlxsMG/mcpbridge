@@ -17,7 +17,7 @@ import { BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME, FIXTURE_BASE_URL } 
 
 /** Unique server name per spec run so this file can run alongside the other specs. */
 const SERVER_NAME = "e2e-guard-persist-api";
-/** The tool discovered from tests/fixtures/simple-openapi.json (served by global-setup.ts). */
+/** The tool discovered from fixtures/simple-openapi.json (served by global-setup.ts). */
 const TOOL_NAME = "list-users";
 /** The rate limit we type, save, and expect to read back after a reload. */
 const RATE_LIMIT = "42";

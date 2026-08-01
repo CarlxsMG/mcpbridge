@@ -37,10 +37,10 @@ docker-compose*.yml
 # its own bulky VitePress toolchain and markdown.
 docs/
 e2e/
+fixtures/
 helm/
 monitoring/
 scripts/
-tests/
 
 # Local-only test/coverage/mutation artifacts (also gitignored, but they'd
 # still ship in the build context)

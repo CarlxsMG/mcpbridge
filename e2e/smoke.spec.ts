@@ -3,7 +3,7 @@
  *
  *   1. Log in to the admin UI with the bootstrap admin account.
  *   2. Register a REST backend discovered from an OpenAPI doc (the repo's
- *      existing tests/fixtures/simple-openapi.json, served locally by
+ *      existing fixtures/simple-openapi.json, served locally by
  *      global-setup.ts) and confirm it shows up with its discovered tool.
  *   3. Mint a managed MCP key (so the data plane is in a known
  *      auth-required state, independent of any other spec that ran first).
