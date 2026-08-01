@@ -85,9 +85,9 @@
  * the single most direct possible observation of this exact object literal.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { listen } from "../../__tests__/_utils/app.js";
 import express from "express";
 import { randomUUID } from "crypto";
-import type { AddressInfo } from "net";
 import type { Server as HttpServer } from "http";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -306,15 +306,7 @@ describe("tools/call — system-scope authorization gate (no credential reaching
       if (transport.sessionId) transports.set(transport.sessionId, transport);
     });
 
-    await new Promise<void>((resolve, reject) => {
-      const srv = app.listen(0, "127.0.0.1", () => {
-        const addr = srv.address() as AddressInfo;
-        baseUrl = `http://127.0.0.1:${addr.port}`;
-        activeServer = srv;
-        resolve();
-      });
-      srv.on("error", reject);
-    });
+    ({ baseUrl, server: activeServer } = await listen(app));
   }
 
   function stopApp(): Promise<void> {

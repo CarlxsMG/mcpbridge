@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
+import { closeServer } from "../../__tests__/_utils/app.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -43,7 +44,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await closeServer(server);
 });
 
 // Save/restore the mutable config singleton around every test so nothing leaks.

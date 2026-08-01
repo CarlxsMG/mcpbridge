@@ -32,9 +32,9 @@
  *   503 path is unreachable in any realistic test run here.
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { listen, closeServer } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
-import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
@@ -61,12 +61,7 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   app.use(express.json({ limit: "64kb", strict: false }));
   app.use(requestIdMiddleware);
   registerRoutes(app);
-  return new Promise((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      resolve({ baseUrl: `http://127.0.0.1:${(srv.address() as AddressInfo).port}`, server: srv });
-    });
-    srv.on("error", reject);
-  });
+  return listen(app);
 }
 
 const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
@@ -80,7 +75,7 @@ async function withApp(fn: (baseUrl: string) => Promise<void>): Promise<void> {
   try {
     await fn(baseUrl);
   } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await closeServer(server);
   }
 }
 
