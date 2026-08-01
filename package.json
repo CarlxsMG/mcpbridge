@@ -46,6 +46,7 @@
     "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
     "test:mutate": "stryker run",
     "check": "bun scripts/check-all.ts",
+    "check:full": "bun scripts/check-all.ts --full",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
