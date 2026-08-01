@@ -20,6 +20,7 @@
  * both assertions side by side so the contrast is self-contained.
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { setAdminApiKeys } from "./_utils/admin-auth.js";
 import { randomUUID } from "crypto";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -37,7 +38,7 @@ let baseUrl = "";
 async function startApp(): Promise<void> {
   __resetDbForTesting();
   __resetLeaderFlagForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   const { app, cleanupTransports } = createApp();
   void cleanupTransports; // sessions aren't opened here; afterEach closes the listener

@@ -3,6 +3,7 @@
  * end-to-end route enforcement via real team-scoped sessions.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { setAdminApiKeys } from "../../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -105,7 +106,7 @@ describe("teams — route enforcement", () => {
   let baseUrl = "";
   let server: Server | null = null;
   async function startApp(): Promise<void> {
-    (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+    setAdminApiKeys([ADMIN_KEY]);
     (config as Record<string, unknown>).authDisabled = false;
     const { adminRoutes } = await import("../../../routes/admin.js");
     const { teamRoutes } = await import("../../../routes/teams.js");
