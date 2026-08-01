@@ -21,27 +21,10 @@ import { createBundle, getBundleDetail } from "../../tool-composition/bundles.js
 import * as bundlesMod from "../../tool-composition/bundles.js";
 import { createConsumer, getConsumerByName } from "../../entities/consumers.js";
 import { CONFIG_EXPORT_VERSION, exportConfig, importConfig } from "../config-io.js";
-import type { RestToolDefinition } from "../../../mcp/types.js";
-
-function makeTool(name: string): RestToolDefinition {
-  return {
-    name,
-    method: "GET",
-    endpoint: `/${name}`,
-    description: name,
-    inputSchema: { type: "object", properties: {} },
-  };
-}
+import { clearRegistry, makeTools, registerTestClient } from "../../../__tests__/_utils/registry.js";
 
 async function reg(name: string, toolNames: string[] = ["tool-a"]): Promise<void> {
-  await registry.register(
-    name,
-    toolNames.map(makeTool),
-    "http://1.2.3.4/health",
-    "1.2.3.4",
-    "http://1.2.3.4",
-    "1.2.3.4",
-  );
+  await registerTestClient(name, makeTools(...toolNames));
 }
 
 function baseDoc(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -59,10 +42,10 @@ function baseDoc(overrides: Record<string, unknown> = {}): Record<string, unknow
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
 });
 

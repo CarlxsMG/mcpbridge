@@ -4,31 +4,17 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../../../db/connection.js";
-import { registry } from "../../../mcp/registry.js";
 import { createBundle, getBundleDetail, deleteBundle } from "../../tool-composition/bundles.js";
 import { createComposite } from "../../tool-composition/composites.js";
 import { exportConfig, importConfig } from "../config-io.js";
-import type { RestToolDefinition } from "../../../mcp/types.js";
-
-function makeTool(name = "get-users"): RestToolDefinition {
-  return {
-    name,
-    method: "GET",
-    endpoint: "/users",
-    description: "list",
-    inputSchema: { type: "object", properties: {} },
-  };
-}
-async function reg(): Promise<void> {
-  await registry.register("svc", [makeTool()], "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
-}
+import { clearRegistry, registerTestClient } from "../../../__tests__/_utils/registry.js";
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 async function seedComposite(): Promise<void> {
@@ -44,7 +30,7 @@ async function seedComposite(): Promise<void> {
 
 describe("bundle composites round-trip (#18)", () => {
   test("export carries composites", async () => {
-    await reg();
+    await registerTestClient();
     await seedComposite();
     const r = await createBundle("bnd", "d", [{ client: "svc", tool: "get-users" }], "t", ["macro1"]);
     expect(r.ok).toBe(true);
@@ -55,7 +41,7 @@ describe("bundle composites round-trip (#18)", () => {
   });
 
   test("import (create path) restores composites", async () => {
-    await reg();
+    await registerTestClient();
     await seedComposite();
     await createBundle("bnd", "d", [{ client: "svc", tool: "get-users" }], "t", ["macro1"]);
     const doc = exportConfig();
@@ -70,7 +56,7 @@ describe("bundle composites round-trip (#18)", () => {
   });
 
   test("import (update path) restores composites onto an existing bundle", async () => {
-    await reg();
+    await registerTestClient();
     await seedComposite();
     await createBundle("bnd", "d", [{ client: "svc", tool: "get-users" }], "t", ["macro1"]);
     const doc = exportConfig();
@@ -82,7 +68,7 @@ describe("bundle composites round-trip (#18)", () => {
   });
 
   test("a bundle document with no composites field imports cleanly (back-compat)", async () => {
-    await reg();
+    await registerTestClient();
     const doc = {
       version: 1,
       exportedAt: Date.now(),

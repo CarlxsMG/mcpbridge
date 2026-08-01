@@ -28,28 +28,19 @@ import {
   diffSnapshot,
   rollbackToSnapshot,
 } from "../config-versions.js";
-import type { RestToolDefinition } from "../../../mcp/types.js";
+import { clearRegistry, makeTool, registerTestClient } from "../../../__tests__/_utils/registry.js";
 
-function makeTool(): RestToolDefinition {
-  return {
-    name: "get-x",
-    method: "GET",
-    endpoint: "/x",
-    description: "x",
-    inputSchema: { type: "object", properties: {} },
-  };
-}
-
+/** Every test here registers one client whose single tool is "get-x". */
 async function reg(name = "svc"): Promise<void> {
-  await registry.register(name, [makeTool()], "http://1.2.3.4/health", "1.2.3.4", "http://1.2.3.4", "1.2.3.4");
+  await registerTestClient(name, [makeTool({ name: "get-x" })]);
 }
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
 });
 
