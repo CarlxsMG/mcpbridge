@@ -11,27 +11,10 @@ import {
   isBundleEnabled,
   getBundleToolKeys,
 } from "../../../admin/tool-composition/bundles.js";
-import type { RestToolDefinition } from "../../../mcp/types.js";
-
-function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
-  return {
-    name: "get-users",
-    method: "GET",
-    endpoint: "/users",
-    description: "Returns a list of users",
-    inputSchema: { type: "object", properties: {} },
-    ...overrides,
-  };
-}
-
-async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]) {
-  await registry.register(name, tools, "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
-}
+import { clearRegistry, makeTool, registerTestClient as reg } from "../../../__tests__/_utils/registry.js";
 
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   initBundles();
 });

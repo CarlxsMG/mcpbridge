@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, spyOn } from "bun:test";
-import { registry } from "../../../mcp/registry.js";
+import { clearRegistry, makeTool, registerTestClient as reg } from "../../../__tests__/_utils/registry.js";
 import { __resetDbForTesting, getDb } from "../../../db/connection.js";
 import {
   initBundles,
@@ -15,7 +15,6 @@ import {
 import { createComposite, initComposites } from "../../../admin/tool-composition/composites.js";
 import * as mcpServerMod from "../../../mcp/mcp-server.js";
 import * as loggerMod from "../../../logger.js";
-import type { RestToolDefinition } from "../../../mcp/types.js";
 
 /**
  * Gap-fill for bundles.test.ts (left untouched). That file already covers the
@@ -32,21 +31,6 @@ import type { RestToolDefinition } from "../../../mcp/types.js";
  * initBundles() log call.
  */
 
-function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
-  return {
-    name: "get-users",
-    method: "GET",
-    endpoint: "/users",
-    description: "Returns a list of users",
-    inputSchema: { type: "object", properties: {} },
-    ...overrides,
-  };
-}
-
-async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]) {
-  await registry.register(name, tools, "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
-}
-
 /** Registers a composite with a single step targeting an already-registered tool. */
 async function addComposite(name: string, targetClient: string, targetTool: string): Promise<void> {
   const result = await createComposite(
@@ -60,9 +44,7 @@ async function addComposite(name: string, targetClient: string, targetTool: stri
 }
 
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   initBundles();
   initComposites();

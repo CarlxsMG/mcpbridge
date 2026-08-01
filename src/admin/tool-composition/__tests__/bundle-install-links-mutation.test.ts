@@ -11,7 +11,7 @@
  */
 import { describe, test, expect, beforeEach, afterAll, spyOn } from "bun:test";
 import { __resetDbForTesting, getDb } from "../../../db/connection.js";
-import { registry } from "../../../mcp/registry.js";
+import { clearRegistry, makeTool as sharedMakeTool, registerTestClient } from "../../../__tests__/_utils/registry.js";
 import { initBundles, createBundle } from "../bundles.js";
 import {
   createInstallLink,
@@ -29,19 +29,13 @@ import type { RestToolDefinition } from "../../../mcp/types.js";
 
 const ORIGINAL_SECRET_KEY = config.secretEncryptionKey;
 
+/** This spec asserts on the tool name (it appears in key scopes), so pin it here. */
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
-  return {
-    name: "install-link-tool",
-    method: "GET",
-    endpoint: "/things",
-    description: "a real description",
-    inputSchema: { type: "object", properties: {} },
-    ...overrides,
-  };
+  return sharedMakeTool({ name: "install-link-tool", ...overrides });
 }
 
 async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]): Promise<void> {
-  await registry.register(name, tools, "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
+  await registerTestClient(name, tools);
 }
 
 /** Registers a client + tool and creates a bundle referencing it. Returns the bundle name. */
@@ -58,9 +52,7 @@ async function makeBundleWithOneTool(bundleName: string, clientName = `${bundleN
 }
 
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   initBundles();
   (config as Record<string, unknown>).secretEncryptionKey = Buffer.alloc(32, 7).toString("base64");
