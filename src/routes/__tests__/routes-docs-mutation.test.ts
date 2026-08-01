@@ -8,6 +8,7 @@
  * the explicit opt-in is fail-secure.)
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -22,7 +23,7 @@ const originalAuthDisabled = config.authDisabled;
 async function startApp(exposeDocs: boolean): Promise<string> {
   if (exposeDocs) process.env.EXPOSE_DOCS_UNAUTHENTICATED = "true";
   else delete process.env.EXPOSE_DOCS_UNAUTHENTICATED;
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
 
   const { docsRoutes } = await import("../../routes/docs.js");
