@@ -23,6 +23,7 @@
  * genuinely reachable (an absent body leaves `req.body` `undefined`).
  */
 import { describe, test, expect, spyOn, afterEach } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -42,7 +43,7 @@ afterEach(() => {
 
 async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   __resetDbForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   (config as Record<string, unknown>).secretEncryptionKey = Buffer.alloc(32, 7).toString("base64");
   const { upstreamAuthRoutes } = await import("../../routes/upstream-auth.js");
@@ -58,9 +59,7 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 async function reg(name: string): Promise<void> {
   await registry.register(

@@ -5,6 +5,7 @@
  * from reports/mutation/result.json.
  */
 import { describe, test, expect, spyOn } from "bun:test";
+import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -35,7 +36,7 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   // app does at boot; it is gitignored, and this mirrors production rather than
   // working around it.
   mkdirSync(dirname(config.dbPath), { recursive: true });
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   const { backupRoutes } = await import("../../routes/backup.js");
   const app = express();
@@ -48,9 +49,7 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}` };
-}
+const bearer = (): Record<string, string> => bearerHeaders(ADMIN_KEY);
 
 function filenameFromContentDisposition(header: string | null): string {
   const m = header?.match(/filename="([^"]+)"/);

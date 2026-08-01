@@ -19,6 +19,7 @@
  * call's exact arguments, or the /start redirect's "scope" query param.
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -69,9 +70,7 @@ function stopServer(): Promise<void> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 function cookieHeaderFrom(res: Response): string {
   const setCookies = res.headers.getSetCookie ? res.headers.getSetCookie() : [];
@@ -174,7 +173,7 @@ function configureSecretBox(key = 9): void {
 
 beforeEach(() => {
   (config as Record<string, unknown>).secretEncryptionKey = origSecretKey;
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   _internalsForTesting.loginBuckets.clear();
 });

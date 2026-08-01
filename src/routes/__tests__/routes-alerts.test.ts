@@ -2,6 +2,7 @@
  * HTTP-level tests for src/routes/alerts.ts.
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -17,7 +18,7 @@ const originalAllowPrivate = config.allowPrivateIps;
 
 async function startApp(): Promise<void> {
   __resetDbForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   (config as Record<string, unknown>).allowPrivateIps = true;
 
@@ -37,9 +38,7 @@ async function startApp(): Promise<void> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {

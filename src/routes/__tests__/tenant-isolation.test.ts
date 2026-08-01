@@ -14,6 +14,7 @@
  * team-scoped-admin rejection until this file.
  */
 import { describe, test, expect } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -28,7 +29,7 @@ const ADMIN_KEY = "test-admin-key-tenant-iso";
 
 async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   __resetDbForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   // users lives under adminRoutes; backup + config-io self-mount (own adminAuth).
   const { adminRoutes } = await import("../../routes/admin.js");
@@ -47,9 +48,7 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 /** A session for an admin-role user scoped to a real team — i.e. NOT a super-admin. */
 function teamAdminHeaders(username: string): Record<string, string> {

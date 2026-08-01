@@ -3,6 +3,7 @@
  * (each step through the full proxyToolCall guard stack), and MCP integration.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server as HttpServer } from "http";
@@ -324,7 +325,7 @@ describe("composites — admin route", () => {
   let baseUrl = "";
   let server: HttpServer | null = null;
   async function startApp(): Promise<void> {
-    (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+    setAdminApiKeys([ADMIN_KEY]);
     (config as Record<string, unknown>).authDisabled = false;
     const { compositeRoutes } = await import("../../../routes/composites.js");
     const app = express();
@@ -349,9 +350,7 @@ describe("composites — admin route", () => {
       else resolve();
     });
   });
-  function bearer(): Record<string, string> {
-    return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-  }
+  const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
   test("POST creates, GET returns detail, DELETE removes", async () => {
     await regSvc();

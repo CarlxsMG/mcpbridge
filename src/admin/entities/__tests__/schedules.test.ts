@@ -3,6 +3,7 @@
  * minute, no double-fire), and the admin routes.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -138,7 +139,7 @@ describe("schedules — admin route", () => {
   let baseUrl = "";
   let server: Server | null = null;
   async function startApp(): Promise<void> {
-    (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+    setAdminApiKeys([ADMIN_KEY]);
     (config as Record<string, unknown>).authDisabled = false;
     const { scheduleRoutes } = await import("../../../routes/schedules.js");
     const app = express();
@@ -163,9 +164,7 @@ describe("schedules — admin route", () => {
       else resolve();
     });
   });
-  function bearer(): Record<string, string> {
-    return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-  }
+  const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
   test("POST valid, list, PATCH, DELETE", async () => {
     await reg();

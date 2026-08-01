@@ -10,6 +10,7 @@
  * Asserts the DENIED half: a team-B session cannot see or read team-A's client.
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -27,7 +28,7 @@ let server: Server | null = null;
 
 async function startApp(): Promise<string> {
   __resetDbForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   const { introspectionRoutes } = await import("../../routes/introspection.js");
   const app = express();
@@ -50,9 +51,7 @@ afterEach(async () => {
   });
 });
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}` };
-}
+const bearer = (): Record<string, string> => bearerHeaders(ADMIN_KEY);
 
 /** A session for an admin-role user scoped to a real team (not a super-admin). Returns headers + the team id. */
 function teamAdminSession(username: string): { headers: Record<string, string>; teamId: number } {

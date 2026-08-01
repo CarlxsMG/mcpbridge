@@ -5,6 +5,7 @@
  * be verified via the existing /admin-api/audit-log endpoint.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -26,7 +27,7 @@ const ADMIN_KEY = "test-admin-key";
 async function startApp(): Promise<void> {
   __resetDbForTesting();
   initBundles();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
 
   const { adminRoutes } = await import("../../routes/admin.js");
@@ -61,9 +62,7 @@ function stopServer(): Promise<void> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
   return {

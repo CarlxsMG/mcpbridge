@@ -4,6 +4,7 @@
  * the preview returns discovered tools without persisting anything.
  */
 import { describe, test, expect, beforeAll, afterAll, afterEach } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -84,7 +85,7 @@ afterAll(() => {
 
 async function startApp(): Promise<void> {
   __resetDbForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   (config as Record<string, unknown>).allowPrivateIps = true;
 
@@ -104,9 +105,7 @@ async function startApp(): Promise<void> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {

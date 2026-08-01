@@ -6,6 +6,7 @@
  * scenario the endpoint exists to make safe.
  */
 import { describe, test, expect, afterEach, afterAll } from "bun:test";
+import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -53,7 +54,7 @@ async function startApp(): Promise<void> {
   cleanupDbFiles(dbPath);
   (config as Record<string, unknown>).dbPath = dbPath;
   __resetDbForTesting(dbPath);
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   const { backupRoutes } = await import("../../routes/backup.js");
   const app = express();
@@ -70,9 +71,7 @@ async function startApp(): Promise<void> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}` };
-}
+const bearer = (): Record<string, string> => bearerHeaders(ADMIN_KEY);
 
 afterEach(async () => {
   await new Promise<void>((resolve) => {

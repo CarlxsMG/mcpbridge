@@ -12,6 +12,7 @@
  * reports/mutation/result.json.
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -28,7 +29,7 @@ const ADMIN_KEY = "test-admin-key-auth-mut";
 
 async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   __resetDbForTesting();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   const { authRoutes } = await import("../../routes/auth.js");
   const app = express();
@@ -42,9 +43,7 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 async function withApp(fn: (baseUrl: string) => Promise<void>): Promise<void> {
   const { baseUrl, server } = await startApp();

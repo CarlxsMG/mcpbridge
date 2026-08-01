@@ -4,6 +4,7 @@
  * resolves the alias back to canonical at call time.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -171,7 +172,7 @@ describe("display-name alias — admin route", () => {
   let server: Server | null = null;
 
   async function startApp(): Promise<void> {
-    (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+    setAdminApiKeys([ADMIN_KEY]);
     (config as Record<string, unknown>).authDisabled = false;
     const { adminRoutes } = await import("../../routes/admin.js");
     const app = express();
@@ -196,9 +197,7 @@ describe("display-name alias — admin route", () => {
       else resolve();
     });
   });
-  function bearer(): Record<string, string> {
-    return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-  }
+  const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
   test("PATCH displayName updates the advertised name", async () => {
     await reg("github", [tool("list_issues_for_repo_v2")]);

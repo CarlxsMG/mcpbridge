@@ -56,6 +56,7 @@
  * timeout", not a real gap.
  */
 import { describe, test, expect, spyOn } from "bun:test";
+import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
 import type { Server } from "http";
@@ -77,7 +78,7 @@ async function startApp(): Promise<void> {
   __resetDbForTesting();
   initBundles();
   initComposites();
-  (config as Record<string, unknown>).adminApiKeys = [ADMIN_KEY];
+  setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   // A real 32-byte key so POST .../install-links' SECRET_BOX_NOT_CONFIGURED
   // branch is never in play here (it's already covered by the sibling file).
@@ -113,9 +114,7 @@ function stopServer(): Promise<void> {
   });
 }
 
-function bearer(): Record<string, string> {
-  return { Authorization: `Bearer ${ADMIN_KEY}`, "Content-Type": "application/json" };
-}
+const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
   return {
