@@ -20,9 +20,9 @@
  * both assertions side by side so the contrast is self-contained.
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { listen } from "./_utils/app.js";
 import { setAdminApiKeys } from "./_utils/admin-auth.js";
 import { randomUUID } from "crypto";
-import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../config.js";
 import { __resetDbForTesting } from "../db/connection.js";
@@ -42,14 +42,7 @@ async function startApp(): Promise<void> {
   (config as Record<string, unknown>).authDisabled = false;
   const { app, cleanupTransports } = createApp();
   void cleanupTransports; // sessions aren't opened here; afterEach closes the listener
-  await new Promise<void>((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
-      activeServer = srv;
-      resolve();
-    });
-    srv.on("error", reject);
-  });
+  ({ baseUrl, server: activeServer } = await listen(app));
 }
 
 afterEach(async () => {

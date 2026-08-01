@@ -4,6 +4,7 @@
  * the preview returns discovered tools without persisting anything.
  */
 import { describe, test, expect, beforeAll, afterAll, afterEach } from "bun:test";
+import { listen } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
@@ -95,14 +96,7 @@ async function startApp(): Promise<void> {
   app.use(requestIdMiddleware);
   discoveryRoutes(app);
 
-  return new Promise((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      adminBase = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
-      adminServer = srv;
-      resolve();
-    });
-    srv.on("error", reject);
-  });
+  ({ baseUrl: adminBase, server: adminServer } = await listen(app));
 }
 
 const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);

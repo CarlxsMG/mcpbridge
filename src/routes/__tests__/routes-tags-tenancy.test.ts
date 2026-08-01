@@ -8,9 +8,9 @@
  * GET /tags or GET /tags/:tag/tools. Bearer/super-admin callers still see all.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { listen } from "../../__tests__/_utils/app.js";
 import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
-import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
@@ -35,14 +35,7 @@ async function startApp(): Promise<void> {
   app.use(express.json());
   tagRoutes(app);
 
-  return new Promise((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      activeServer = srv;
-      baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
-      resolve();
-    });
-    srv.on("error", reject);
-  });
+  ({ baseUrl, server: activeServer } = await listen(app));
 }
 
 const bearer = (): Record<string, string> => bearerHeaders(ADMIN_KEY);

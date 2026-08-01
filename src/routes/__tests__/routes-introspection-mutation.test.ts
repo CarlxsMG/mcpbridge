@@ -5,9 +5,9 @@
  * were read directly from reports/mutation/result.json.
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { listen } from "../../__tests__/_utils/app.js";
 import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
-import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
@@ -27,14 +27,7 @@ async function startApp(): Promise<void> {
   const app = express();
   app.use(express.json());
   introspectionRoutes(app);
-  return new Promise((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
-      server = srv;
-      resolve();
-    });
-    srv.on("error", reject);
-  });
+  ({ baseUrl, server } = await listen(app));
 }
 
 const bearer = (): Record<string, string> => bearerHeaders(ADMIN_KEY);
