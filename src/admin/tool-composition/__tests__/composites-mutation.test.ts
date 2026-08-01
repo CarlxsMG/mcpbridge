@@ -17,7 +17,7 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
 import { config } from "../../../config.js";
 import { __resetDbForTesting, getDb } from "../../../db/connection.js";
-import { registry } from "../../../mcp/registry.js";
+import { clearRegistry, registerTestClient } from "../../../__tests__/_utils/registry.js";
 import { removeCircuitBreaker } from "../../../middleware/circuit-breaker.js";
 import * as mcpServerMod from "../../../mcp/mcp-server.js";
 import * as loggerMod from "../../../logger.js";
@@ -51,14 +51,11 @@ function tool(name: string, properties: Record<string, unknown> = {}): RestToolD
 }
 
 async function regSvc(clientName = "svc"): Promise<void> {
-  await registry.register(
-    clientName,
-    [tool("first"), tool("second", { itemId: { type: "number" }, msg: { type: "string" } }), tool("third")],
-    `http://1.2.3.4/health`,
-    "1.2.3.4",
-    "http://1.2.3.4",
-    "1.2.3.4",
-  );
+  await registerTestClient(clientName, [
+    tool("first"),
+    tool("second", { itemId: { type: "number" }, msg: { type: "string" } }),
+    tool("third"),
+  ]);
 }
 
 const OBJ_SCHEMA = { type: "object", properties: {} };
@@ -70,14 +67,14 @@ function oneStep(overrides: Partial<CompositeStep> = {}): CompositeStep[] {
 
 beforeEach(async () => {
   (config as Record<string, unknown>).retryMaxAttempts = 0;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   initComposites();
   removeCircuitBreaker("svc");
   globalThis.fetch = originalFetch;
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   initComposites();
   globalThis.fetch = originalFetch;

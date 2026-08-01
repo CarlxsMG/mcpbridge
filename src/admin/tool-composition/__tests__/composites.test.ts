@@ -9,6 +9,7 @@ import type { Server as HttpServer } from "http";
 import { config } from "../../../config.js";
 import { __resetDbForTesting } from "../../../db/connection.js";
 import { registry } from "../../../mcp/registry.js";
+import { clearRegistry, registerTestClient } from "../../../__tests__/_utils/registry.js";
 import { removeCircuitBreaker } from "../../../middleware/circuit-breaker.js";
 import { createMcpServer } from "../../../mcp/mcp-server.js";
 import { requestIdMiddleware } from "../../../middleware/request-id.js";
@@ -41,21 +42,17 @@ function tool(name: string, properties: Record<string, unknown> = {}): RestToolD
 async function regSvc(): Promise<void> {
   // `second` declares itemId/msg so the proxy's Ajv (removeAdditional) doesn't
   // strip them — proving the composite feeds real args through the guard stack.
-  await registry.register(
-    "svc",
-    [tool("first"), tool("second", { itemId: { type: "number" }, msg: { type: "string" } })],
-    "http://1.2.3.4/health",
-    "1.2.3.4",
-    "http://1.2.3.4",
-    "1.2.3.4",
-  );
+  await registerTestClient("svc", [
+    tool("first"),
+    tool("second", { itemId: { type: "number" }, msg: { type: "string" } }),
+  ]);
 }
 
 const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
   (config as Record<string, unknown>).retryMaxAttempts = 0;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   initComposites();
   initBundles();
@@ -63,7 +60,7 @@ beforeEach(async () => {
   globalThis.fetch = originalFetch;
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   initComposites();
   initBundles();

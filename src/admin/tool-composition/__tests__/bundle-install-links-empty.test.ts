@@ -13,7 +13,7 @@
  */
 import { describe, test, expect, beforeEach, afterAll } from "bun:test";
 import { __resetDbForTesting } from "../../../db/connection.js";
-import { registry } from "../../../mcp/registry.js";
+import { clearRegistry, makeTool as sharedMakeTool, registerTestClient } from "../../../__tests__/_utils/registry.js";
 import { initBundles, createBundle, updateBundle } from "../bundles.js";
 import { createInstallLink, listInstallLinks } from "../bundle-install-links.js";
 import { getMcpKey, isToolInKeyScope } from "../../../security/mcp-key-store.js";
@@ -22,21 +22,13 @@ import type { RestToolDefinition } from "../../../mcp/types.js";
 
 const ORIGINAL_SECRET_KEY = config.secretEncryptionKey;
 
+/** This spec asserts on the tool name (it appears in key scopes), so pin it here. */
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
-  return {
-    name: "empty-scope-tool",
-    method: "GET",
-    endpoint: "/things",
-    description: "a real description",
-    inputSchema: { type: "object", properties: {} },
-    ...overrides,
-  };
+  return sharedMakeTool({ name: "empty-scope-tool", ...overrides });
 }
 
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   initBundles();
   (config as Record<string, unknown>).secretEncryptionKey = Buffer.alloc(32, 7).toString("base64");
@@ -49,14 +41,7 @@ afterAll(() => {
 describe("reScopeInstallLinksForBundle — empty tool set fails closed", () => {
   test("editing a bundle to zero tools revokes live install links instead of widening their key to unrestricted", async () => {
     const clientName = "empty-scope-client";
-    await registry.register(
-      clientName,
-      [makeTool()],
-      "http://example.com/health",
-      "1.2.3.4",
-      "http://example.com",
-      "1.2.3.4",
-    );
+    await registerTestClient(clientName, [makeTool()]);
     const bundleName = "empty-scope-bundle";
     const created = await createBundle(
       bundleName,
@@ -96,14 +81,7 @@ describe("reScopeInstallLinksForBundle — empty tool set fails closed", () => {
 
   test("editing a bundle to a smaller NON-empty tool set still narrows (not revokes) the key", async () => {
     const clientName = "narrow-scope-client";
-    await registry.register(
-      clientName,
-      [makeTool({ name: "tool-a" }), makeTool({ name: "tool-b" })],
-      "http://example.com/health",
-      "1.2.3.4",
-      "http://example.com",
-      "1.2.3.4",
-    );
+    await registerTestClient(clientName, [makeTool({ name: "tool-a" }), makeTool({ name: "tool-b" })]);
     const bundleName = "narrow-scope-bundle";
     await createBundle(
       bundleName,
