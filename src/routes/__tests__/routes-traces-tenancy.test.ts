@@ -9,6 +9,7 @@
  * tool-call history via the trace viewer.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -92,7 +93,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __clearSpansForTesting();
   tracingInternals.clear();
   (config as Record<string, unknown>).traceStorageEnabled = originalTraceStorage;

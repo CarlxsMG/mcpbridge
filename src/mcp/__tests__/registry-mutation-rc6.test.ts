@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation backstop — RC6 (registry.ts lines 751-842): Registry.setToolOverride,
 // the admin-authored tool presentation override (description / per-param descriptions /
@@ -93,9 +94,7 @@ const TOOL = "get-users";
 // in beforeEach — unregister() deliberately does not purge SQLite, so state would
 // otherwise leak across tests/files that reuse generic names.
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
 });
 

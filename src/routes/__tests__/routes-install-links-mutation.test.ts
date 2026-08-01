@@ -25,6 +25,7 @@
  *   never contain a tool reference absent from the live registry.
  */
 import { describe, test, expect } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen, closeServer } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -95,7 +96,7 @@ async function withApp(fn: (baseUrl: string) => Promise<void>): Promise<void> {
   try {
     await fn(baseUrl);
   } finally {
-    for (const c of registry.listClients()) await registry.unregister(c.name);
+    await clearRegistry();
     (config as Record<string, unknown>).secretEncryptionKey = originalSecretKey;
     (config as Record<string, unknown>).gatewayPublicUrl = originalGatewayPublicUrl;
     await closeServer(server);

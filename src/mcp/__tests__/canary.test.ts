@@ -3,6 +3,7 @@
  * validation + IP pinning, and proxy integration (canary %, failover on open).
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
@@ -36,13 +37,13 @@ const cfg = (enabled: boolean, mode: "canary" | "failover", weight: number): Can
 
 beforeEach(async () => {
   (config as Record<string, unknown>).retryMaxAttempts = 0;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
   globalThis.fetch = originalFetch;
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
   globalThis.fetch = originalFetch;

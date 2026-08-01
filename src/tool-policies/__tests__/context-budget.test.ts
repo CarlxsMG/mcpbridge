@@ -5,6 +5,7 @@
  * integration test proving enforcement only ever sees POST-redaction data.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -58,11 +59,11 @@ function resetAll(): void {
 }
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   resetAll();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   resetAll();
 });
 

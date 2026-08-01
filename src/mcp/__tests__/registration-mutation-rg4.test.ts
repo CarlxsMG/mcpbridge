@@ -27,6 +27,7 @@
  * Client-name prefix: rg4-
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 import { performMcpRegistration } from "../../mcp/registration.js";
 import { registry } from "../../mcp/registry.js";
@@ -62,9 +63,7 @@ let discoverSpy: ReturnType<typeof spyOn<typeof mcpDiscoveryMod, "discoverToolsF
 let authSpy: ReturnType<typeof spyOn<typeof upstreamAuthMod, "getUpstreamAuthHeaders">>;
 
 async function drainRegistry(): Promise<void> {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
 }
 

@@ -2,6 +2,7 @@
  * Response redaction: path redaction unit tests + proxy application + admin route.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -36,11 +37,11 @@ const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
   globalThis.fetch = originalFetch;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("applyRedaction", () => {

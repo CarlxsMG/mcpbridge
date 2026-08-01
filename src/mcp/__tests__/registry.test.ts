@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Registry exports a singleton; import the class by instantiating via the module's
 // internal class. Because the class is not exported we exercise it through a fresh
@@ -45,9 +46,7 @@ async function reg(
 // Clear the singleton registry between every test so tests are isolated.
 // ---------------------------------------------------------------------------
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   // Fresh in-memory SQLite per test — unregister() deliberately doesn't purge
   // persisted enabled/guards state, so a shared DB would leak it across tests
   // that reuse generic client names like "svc".

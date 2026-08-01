@@ -11,6 +11,7 @@
  * applied+skipped applyPolicyToTools() case.
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../../__tests__/_utils/registry.js";
 import { __resetDbForTesting, getDb } from "../../../db/connection.js";
 import { registry } from "../../../mcp/registry.js";
 import {
@@ -39,10 +40,10 @@ async function reg(name: string, tools: RestToolDefinition[]): Promise<void> {
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("getGuardPolicy", () => {

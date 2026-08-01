@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation backstop — RC7 (registry.ts lines 862-935): annotateToolDrift
 // (system-authored schema-drift note, stored in the SEPARATE tool_overrides.drift_note
@@ -49,9 +50,7 @@ function driftNoteRow(clientName: string, toolName: string): { drift_note: strin
 // singleton) in beforeEach — unregister() deliberately does not purge SQLite,
 // so state would otherwise leak across tests/files that reuse generic names.
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
 });
 

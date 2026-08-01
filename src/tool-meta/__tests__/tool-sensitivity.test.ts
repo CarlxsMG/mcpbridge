@@ -3,6 +3,7 @@
  * auto-gate config, explicit override, and __confirm stripping.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -37,12 +38,12 @@ function mockOkFetch(): void {
 beforeEach(async () => {
   __resetDbForTesting();
   (config as Record<string, unknown>).autoGateWriteMethods = false;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
   globalThis.fetch = originalFetch;
   (config as Record<string, unknown>).autoGateWriteMethods = originalAutoGate;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("destructive-tool gating", () => {

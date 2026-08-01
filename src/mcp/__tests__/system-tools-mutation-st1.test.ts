@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation-testing backstop — cluster ST1 (src/mcp/system-tools.ts):
 //   (a) module-level helpers, L1-85: ROLE_RANK/TIER_RANK, roleMeetsTier,
@@ -48,7 +49,7 @@ async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]): Pr
 }
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
 });
 

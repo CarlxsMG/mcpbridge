@@ -2,6 +2,7 @@
  * OTLP/HTTP span export + the Prometheus tool-call counter.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
@@ -17,7 +18,7 @@ const originalEndpoint = config.otelEndpoint;
 
 beforeEach(async () => {
   (config as Record<string, unknown>).retryMaxAttempts = 0;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   removeCircuitBreaker("svc");
   _internalsForTesting.clear();
@@ -25,7 +26,7 @@ beforeEach(async () => {
   (config as Record<string, unknown>).otelEndpoint = undefined;
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   _internalsForTesting.clear();
   globalThis.fetch = originalFetch;

@@ -4,6 +4,7 @@
  * path against a local mock upstream, same pattern as routes-register.test.ts).
  */
 import { describe, test, expect, beforeAll, afterAll, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -54,7 +55,7 @@ afterAll(() => {
 
 async function startApp(): Promise<void> {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   _internalsForTesting.registerBuckets.clear();
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
@@ -81,7 +82,7 @@ afterEach(async () => {
     else resolve();
   });
   (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("GET /admin-api/catalog", () => {

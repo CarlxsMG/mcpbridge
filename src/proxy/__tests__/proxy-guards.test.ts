@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import { config } from "../../config.js";
@@ -31,9 +32,7 @@ const originalRetryMaxAttempts = config.retryMaxAttempts;
 beforeEach(async () => {
   (config as Record<string, unknown>).retryBaseDelayMs = 1;
   (config as Record<string, unknown>).retryMaxAttempts = 0; // guards are the thing under test, not retry backoff
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
   globalThis.fetch = originalFetch;
@@ -42,9 +41,7 @@ beforeEach(async () => {
 afterEach(async () => {
   (config as Record<string, unknown>).retryBaseDelayMs = originalRetryBaseDelayMs;
   (config as Record<string, unknown>).retryMaxAttempts = originalRetryMaxAttempts;
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
   globalThis.fetch = originalFetch;

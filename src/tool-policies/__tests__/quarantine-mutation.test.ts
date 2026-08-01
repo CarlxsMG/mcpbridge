@@ -16,6 +16,7 @@
  * initial declaration is overwritten before any test's assertions ever run.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { config } from "../../config.js";
 import { getDb, __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
@@ -58,13 +59,13 @@ function policy(overrides: Partial<QuarantinePolicy> = {}): QuarantinePolicy {
 
 beforeEach(async () => {
   (config as Record<string, unknown>).retryMaxAttempts = 0;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   __setClockForTesting(null);
   removeCircuitBreaker(CLIENT);
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   __setClockForTesting(null);
   removeCircuitBreaker(CLIENT);

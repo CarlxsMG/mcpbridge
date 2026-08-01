@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation backstop — ST4 (src/mcp/system-tools.ts lines 233-280): the
 // `sys_register_client` tool definition + handler — the densest single tool
@@ -29,7 +30,6 @@ import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
 
 import { listSystemTools, runSystemTool } from "../system-tools.js";
 import type { SystemAuthResult } from "../../security/system-role.js";
-import { registry } from "../registry.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { config } from "../../config.js";
 import * as registrationMod from "../registration.js";
@@ -77,7 +77,7 @@ let auditSpy: ReturnType<typeof spyOn>;
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   (config as Record<string, unknown>).maxToolsPerClient = ORIGINAL_MAX_TOOLS;
 
   // Default: every registration function resolves a generic success unless a

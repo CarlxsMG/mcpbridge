@@ -3,6 +3,7 @@
  * harness (real express() + native fetch, Bearer admin auth, in-memory DB).
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -66,7 +67,7 @@ async function reg(name: string): Promise<void> {
 }
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   await stopServer();
   (config as Record<string, unknown>).secretEncryptionKey = originalKey;
 });

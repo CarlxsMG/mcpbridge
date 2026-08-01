@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import type { DiscoveredMcpTool } from "../../mcp/mcp-discovery.js";
@@ -43,9 +44,7 @@ async function regMcp(
 // singleton) in beforeEach — unregister() deliberately does not purge SQLite,
 // so state would otherwise leak across tests/files that reuse generic names.
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
 });
 

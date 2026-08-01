@@ -12,6 +12,7 @@
  * path a real restart would.
  */
 import { describe, test, expect, beforeEach, afterEach, afterAll } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { existsSync, mkdirSync, rmSync, mkdtempSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -35,9 +36,7 @@ async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]) {
 }
 
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
 });
 

@@ -10,6 +10,7 @@
  * Asserts the DENIED half: a team-B session cannot see or read team-A's client.
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
@@ -44,7 +45,7 @@ async function startApp(): Promise<string> {
 }
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   await new Promise<void>((resolve) => {
     if (server) server.close(() => ((server = null), resolve()));
     else resolve();

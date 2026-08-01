@@ -18,6 +18,7 @@
  * Every one of the 23 is targeted below (no equivalents found in this range).
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import { config } from "../../config.js";
 import { __resetDbForTesting, getDb } from "../../db/connection.js";
@@ -59,9 +60,7 @@ const originalFetch = globalThis.fetch;
 const origThreshold = config.maxConsecutiveFailures;
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   refreshLeaderStatus(); // health.ts's loop only probes backends when isLeader() is true
   globalThis.fetch = originalFetch;
@@ -69,9 +68,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   globalThis.fetch = originalFetch;
   (config as Record<string, unknown>).maxConsecutiveFailures = origThreshold;

@@ -3,6 +3,7 @@
  * minute, no double-fire), and the admin routes.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../../__tests__/_utils/registry.js";
 import { listen } from "../../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -37,10 +38,10 @@ async function reg(): Promise<void> {
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
 });
 

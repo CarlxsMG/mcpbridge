@@ -8,6 +8,7 @@
  * citations below were read directly from reports/mutation/result.json.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -68,13 +69,13 @@ async function getOverview(): Promise<OverviewBody> {
 }
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetCacheForTesting();
   __resetWsProxyForTesting();
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetCacheForTesting();
   __resetWsProxyForTesting();
   removeCircuitBreaker("ov-fresh-closed");

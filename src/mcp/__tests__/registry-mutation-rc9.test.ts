@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation-testing backstop — cluster RC9 (registry.ts L1060-1192):
 // resetCircuitBreaker, listClientsSummary (paginated/searchable admin
@@ -45,9 +46,7 @@ async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]): Pr
 }
 
 beforeEach(async () => {
-  for (const client of registry.listClients()) {
-    await registry.unregister(client.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
 });
 

@@ -16,6 +16,7 @@
  * Left completely untouched: routes-catalog.test.ts.
  */
 import { describe, test, expect, spyOn, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
@@ -24,7 +25,6 @@ import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { requestIdMiddleware } from "../../middleware/request-id.js";
 import { _internalsForTesting } from "../../middleware/rate-limiter.js";
-import { registry } from "../../mcp/registry.js";
 import { createCustomEntry, type CustomCatalogEntryInput, type CustomCatalogEntry } from "../../catalog/index.js";
 import * as auditMod from "../../admin/audit/audit.js";
 import * as registrationMod from "../../mcp/registration.js";
@@ -38,7 +38,7 @@ let adminServer: Server | null = null;
 
 async function startApp(): Promise<void> {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   _internalsForTesting.registerBuckets.clear();
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
@@ -69,7 +69,7 @@ afterEach(async () => {
     else resolve();
   });
   (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 function createRestEntry(slug: string, overrides: Partial<CustomCatalogEntryInput> = {}): CustomCatalogEntry {

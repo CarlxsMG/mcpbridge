@@ -2,6 +2,7 @@
  * Store-level tests + proxy header injection for per-client upstream auth.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
@@ -53,13 +54,13 @@ function capturedHeaders(): Record<string, string> {
 beforeEach(async () => {
   __resetDbForTesting();
   (config as Record<string, unknown>).secretEncryptionKey = Buffer.alloc(32, 9).toString("base64");
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 afterEach(async () => {
   globalThis.fetch = originalFetch;
   (config as Record<string, unknown>).secretEncryptionKey = originalKey;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("upstream-auth store", () => {

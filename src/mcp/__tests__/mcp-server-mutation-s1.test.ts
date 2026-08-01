@@ -129,6 +129,7 @@
  *     be observed.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { listen } from "../../__tests__/_utils/app.js";
 import express from "express";
 import type { Server as HttpServer } from "http";
@@ -185,7 +186,7 @@ async function connectClient(scope: McpServerScope): Promise<{ client: Client; s
 const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   initBundles();
   initComposites();
@@ -193,7 +194,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   globalThis.fetch = originalFetch;
 });
 

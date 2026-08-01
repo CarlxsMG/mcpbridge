@@ -43,6 +43,7 @@
  * this file's own alerts-mutation-ac3.test.ts.
  */
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../../__tests__/_utils/registry.js";
 import { config } from "../../../config.js";
 import { __resetDbForTesting } from "../../../db/connection.js";
 import { registry } from "../../../mcp/registry.js";
@@ -76,12 +77,12 @@ beforeEach(async () => {
   __resetDbForTesting();
   __resetAlertStateForTesting();
   (config as Record<string, unknown>).allowPrivateIps = true;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   clearAllBreakers();
 });
 afterEach(async () => {
   (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   clearAllBreakers();
 });
 

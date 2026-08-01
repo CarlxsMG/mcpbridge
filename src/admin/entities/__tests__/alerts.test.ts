@@ -2,6 +2,7 @@
  * Alert rule CRUD + periodic evaluation (edge-triggered webhook dispatch).
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../../__tests__/_utils/registry.js";
 import { config } from "../../../config.js";
 import { __resetDbForTesting, getDb } from "../../../db/connection.js";
 import { registry } from "../../../mcp/registry.js";
@@ -44,12 +45,12 @@ beforeEach(async () => {
   __resetDbForTesting();
   __resetAlertStateForTesting();
   (config as Record<string, unknown>).allowPrivateIps = true;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
   globalThis.fetch = originalFetch;
   (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("alert rule CRUD", () => {

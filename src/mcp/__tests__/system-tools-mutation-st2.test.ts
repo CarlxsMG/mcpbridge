@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, spyOn } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 
 // Stryker mutation backstop — ST2 (system-tools.ts lines 86-159, the 7
 // READ-TIER tools: sys_list_clients, sys_get_client, sys_list_tools,
@@ -67,7 +68,7 @@ const READ_AUTH: SystemAuthResult = { role: "viewer", elevated: false, keyId: 7,
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 function findTool(name: string) {

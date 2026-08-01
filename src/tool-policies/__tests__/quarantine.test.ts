@@ -5,6 +5,7 @@
  * breaker while a call is blocked.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { registry } from "../../mcp/registry.js";
@@ -51,14 +52,14 @@ const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
   (config as Record<string, unknown>).retryMaxAttempts = 0;
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   __setClockForTesting(null);
   removeCircuitBreaker(CLIENT);
   globalThis.fetch = originalFetch;
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
   __resetDbForTesting();
   __setClockForTesting(null);
   removeCircuitBreaker(CLIENT);

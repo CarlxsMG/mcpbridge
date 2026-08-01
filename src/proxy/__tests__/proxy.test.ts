@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { clearRegistry } from "../../__tests__/_utils/registry.js";
 import { registry } from "../../mcp/registry.js";
 import { removeCircuitBreaker } from "../../middleware/circuit-breaker.js";
 import { config } from "../../config.js";
@@ -23,9 +24,7 @@ beforeEach(async () => {
   (config as Record<string, unknown>).retryBaseDelayMs = 1;
   (config as Record<string, unknown>).retryMaxAttempts = 2;
   // Clean slate
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
 
@@ -50,9 +49,7 @@ beforeEach(async () => {
 afterEach(async () => {
   (config as Record<string, unknown>).retryBaseDelayMs = originalRetryBaseDelayMs;
   (config as Record<string, unknown>).retryMaxAttempts = originalRetryMaxAttempts;
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   __resetDbForTesting();
   removeCircuitBreaker(CLIENT);
 });
@@ -244,9 +241,7 @@ describe("proxyToolCall — Fix 3: body cap on error response path", () => {
 const AJV_CLIENT = "ajv-test-client";
 
 async function registerAjvClient(toolName: string, schema: Record<string, unknown>): Promise<void> {
-  for (const c of registry.listClients()) {
-    await registry.unregister(c.name);
-  }
+  await clearRegistry();
   removeCircuitBreaker(AJV_CLIENT);
   await registry.register(
     AJV_CLIENT,
@@ -280,9 +275,7 @@ describe("proxyToolCall — Ajv validation: email format", () => {
   });
 
   afterEach(async () => {
-    for (const c of registry.listClients()) {
-      await registry.unregister(c.name);
-    }
+    await clearRegistry();
     removeCircuitBreaker(AJV_CLIENT);
     // Restore the default registration for outer afterEach
     await registry.register(
@@ -341,9 +334,7 @@ describe("proxyToolCall — Ajv validation: enum constraint", () => {
   });
 
   afterEach(async () => {
-    for (const c of registry.listClients()) {
-      await registry.unregister(c.name);
-    }
+    await clearRegistry();
     removeCircuitBreaker(AJV_CLIENT);
     await registry.register(
       CLIENT,
@@ -384,9 +375,7 @@ describe("proxyToolCall — Ajv validation: nullable field", () => {
   });
 
   afterEach(async () => {
-    for (const c of registry.listClients()) {
-      await registry.unregister(c.name);
-    }
+    await clearRegistry();
     removeCircuitBreaker(AJV_CLIENT);
     await registry.register(
       CLIENT,
@@ -443,9 +432,7 @@ describe("proxyToolCall — Ajv validation: nested object", () => {
   });
 
   afterEach(async () => {
-    for (const c of registry.listClients()) {
-      await registry.unregister(c.name);
-    }
+    await clearRegistry();
     removeCircuitBreaker(AJV_CLIENT);
     await registry.register(
       CLIENT,
@@ -486,9 +473,7 @@ describe("proxyToolCall — Ajv validation: unknown additional property stripped
   });
 
   afterEach(async () => {
-    for (const c of registry.listClients()) {
-      await registry.unregister(c.name);
-    }
+    await clearRegistry();
     removeCircuitBreaker(AJV_CLIENT);
     await registry.register(
       CLIENT,
