@@ -6,34 +6,20 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { __resetDbForTesting } from "../../../db/connection.js";
-import { registry } from "../../../mcp/registry.js";
 import { importConfig } from "../config-io.js";
-import type { RestToolDefinition } from "../../../mcp/types.js";
-
-function makeTool(name = "get-users"): RestToolDefinition {
-  return {
-    name,
-    method: "GET",
-    endpoint: "/users",
-    description: "list",
-    inputSchema: { type: "object", properties: {} },
-  };
-}
-async function reg(name: string): Promise<void> {
-  await registry.register(name, [makeTool()], "http://example.com/health", "1.2.3.4", "http://example.com", "1.2.3.4");
-}
+import { clearRegistry, registerTestClient } from "../../../__tests__/_utils/registry.js";
 
 beforeEach(async () => {
   __resetDbForTesting();
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 afterEach(async () => {
-  for (const c of registry.listClients()) await registry.unregister(c.name);
+  await clearRegistry();
 });
 
 describe("client tools non-array guard (#19)", () => {
   test("a client whose tools field isn't an array reports a skip instead of throwing", async () => {
-    await reg("svc");
+    await registerTestClient("svc");
     const doc = {
       version: 1,
       exportedAt: Date.now(),
@@ -53,8 +39,8 @@ describe("client tools non-array guard (#19)", () => {
   });
 
   test("does not abort a subsequent well-formed client in the same import", async () => {
-    await reg("svca");
-    await reg("svcb");
+    await registerTestClient("svca");
+    await registerTestClient("svcb");
     const doc = {
       version: 1,
       exportedAt: Date.now(),
