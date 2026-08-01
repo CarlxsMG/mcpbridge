@@ -2,8 +2,8 @@
  * Granular RBAC: operator/auditor/viewer capability gating + audit export.
  */
 import { describe, test, expect, afterEach } from "bun:test";
+import { listen } from "../../../__tests__/_utils/app.js";
 import express from "express";
-import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../../../config.js";
 import { __resetDbForTesting } from "../../../db/connection.js";
@@ -39,13 +39,7 @@ async function startApp(): Promise<void> {
   app.use(express.json());
   app.use(requestIdMiddleware);
   adminRoutes(app);
-  await new Promise<void>((resolve) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
-      server = srv;
-      resolve();
-    });
-  });
+  ({ baseUrl, server } = await listen(app));
 }
 
 function sessionHeaders(role: AdminRole, username: string): Record<string, string> {

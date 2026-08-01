@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { closeServer } from "../../__tests__/_utils/app.js";
 import { Counter, Gauge, Histogram, MetricsRegistry, buildInfo, metricsRegistry } from "../../observability/metrics.js";
 import express from "express";
 import { createServer } from "http";
@@ -150,7 +151,7 @@ describe("/metrics endpoint", () => {
     const port = (server.address() as { port: number }).port;
 
     const response = await fetch(`http://localhost:${port}/metrics`, { headers: AUTH_HEADER });
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await closeServer(server);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/plain");
@@ -170,7 +171,7 @@ describe("/metrics endpoint", () => {
     const port2 = (server2.address() as { port: number }).port;
 
     const response2 = await fetch(`http://localhost:${port2}/metrics`, { headers: AUTH_HEADER });
-    await new Promise<void>((resolve) => server2.close(() => resolve()));
+    await closeServer(server2);
 
     expect(response2.status).toBe(404);
 

@@ -13,8 +13,8 @@
  * cross-file leakage through the shared module-level DB singleton.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { listen } from "../../__tests__/_utils/app.js";
 import express from "express";
-import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../../config.js";
 import { registry } from "../../mcp/registry.js";
@@ -32,15 +32,7 @@ async function startApp(): Promise<void> {
   app.use(express.json({ limit: "64kb", strict: true }));
   cleanupFn = setupTransports(app);
 
-  await new Promise<void>((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      const addr = srv.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${addr.port}`;
-      activeServer = srv;
-      resolve();
-    });
-    srv.on("error", reject);
-  });
+  ({ baseUrl, server: activeServer } = await listen(app));
 }
 
 function stopApp(): Promise<void> {

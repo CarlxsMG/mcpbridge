@@ -5,9 +5,9 @@
  * integration test proving enforcement only ever sees POST-redaction data.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { listen } from "../../__tests__/_utils/app.js";
 import { setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
-import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
@@ -446,13 +446,7 @@ describe("admin route", () => {
     app.use(express.json());
     app.use(requestIdMiddleware);
     adminRoutes(app);
-    await new Promise<void>((resolve) => {
-      const srv = app.listen(0, "127.0.0.1", () => {
-        baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
-        server = srv;
-        resolve();
-      });
-    });
+    ({ baseUrl, server } = await listen(app));
   }
 
   afterEach(async () => {

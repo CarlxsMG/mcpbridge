@@ -23,9 +23,9 @@
  * for every input actually reachable over HTTP.
  */
 import { describe, test, expect } from "bun:test";
+import { listen, closeServer } from "../../__tests__/_utils/app.js";
 import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
-import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
@@ -43,12 +43,7 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   app.use(express.json());
   app.use(requestIdMiddleware);
   usageRoutes(app);
-  return new Promise((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      resolve({ baseUrl: `http://127.0.0.1:${(srv.address() as AddressInfo).port}`, server: srv });
-    });
-    srv.on("error", reject);
-  });
+  return listen(app);
 }
 
 const bearer = (): Record<string, string> => bearerHeaders(ADMIN_KEY);
@@ -58,7 +53,7 @@ async function withApp(fn: (baseUrl: string) => Promise<void>): Promise<void> {
   try {
     await fn(baseUrl);
   } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await closeServer(server);
   }
 }
 

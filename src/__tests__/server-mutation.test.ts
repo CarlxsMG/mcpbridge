@@ -25,7 +25,7 @@
  *     `cleanupTransports`).
  */
 import { describe, test, expect, afterEach, spyOn } from "bun:test";
-import type { AddressInfo } from "net";
+import { listen } from "./_utils/app.js";
 import type { Server } from "http";
 import type { Express } from "express";
 import { config } from "../config.js";
@@ -51,15 +51,7 @@ async function startApp(): Promise<Express> {
   const app = buildApp();
   (config as Record<string, unknown>).adminApiKeys = ["test-admin-key"];
   (config as Record<string, unknown>).authDisabled = false;
-  await new Promise<void>((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      const addr = srv.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${addr.port}`;
-      activeServer = srv;
-      resolve();
-    });
-    srv.on("error", reject);
-  });
+  ({ baseUrl, server: activeServer } = await listen(app));
   return app;
 }
 

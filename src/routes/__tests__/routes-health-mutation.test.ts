@@ -15,8 +15,8 @@
  * value.
  */
 import { describe, test, expect, spyOn } from "bun:test";
+import { listen, closeServer } from "../../__tests__/_utils/app.js";
 import express from "express";
-import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { __resetDbForTesting } from "../../db/connection.js";
 import * as dbConnMod from "../../db/connection.js";
@@ -28,12 +28,7 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   const { healthRoutes } = await import("../../routes/health.js");
   const app = express();
   healthRoutes(app);
-  return new Promise((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      resolve({ baseUrl: `http://127.0.0.1:${(srv.address() as AddressInfo).port}`, server: srv });
-    });
-    srv.on("error", reject);
-  });
+  return listen(app);
 }
 
 async function withApp(fn: (baseUrl: string) => Promise<void>): Promise<void> {
@@ -41,7 +36,7 @@ async function withApp(fn: (baseUrl: string) => Promise<void>): Promise<void> {
   try {
     await fn(baseUrl);
   } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await closeServer(server);
   }
 }
 
