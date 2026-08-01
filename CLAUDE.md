@@ -64,9 +64,15 @@ bun run check                        # everything CI's `test` job checks, in one
                                       # format:check → lint (root) → lint (admin-ui) → i18n parity (admin-ui)
                                       # → typecheck (root) → typecheck:tools (root) → test (root)
                                       # → typecheck (admin-ui) → test:coverage (admin-ui) → build (admin-ui)
-                                      # (CI ALSO gates e2e (Playwright, needs: test), docs-build, docker-build,
-                                      #  helm-lint, and a Windows test leg on every push/PR — those are not
-                                      #  part of `bun run check`)
+bun run check:full                   # the above PLUS the CI jobs outside `test`: version-parity,
+                                      # docs build, helm lint/template ×3, promtool rule check.
+                                      # helm/docker steps SKIP with a notice when the binary is
+                                      # missing — they still gate in CI. Run this before pushing
+                                      # anything that touches helm/, monitoring/, docs/ or a
+                                      # version-pinned file; plain `check` cannot see those.
+                                      # Still not covered by either: e2e (`bun run test:e2e`),
+                                      # docker-build, the Windows test leg, and commitlint (the
+                                      # lefthook commit-msg hook already runs it per commit).
 
 bun run format:check && bun run lint # prettier --check + eslint, root only
 tsc --noEmit                         # backend type-check
@@ -122,6 +128,17 @@ an active target — scope it to whichever file you changed before re-running ag
 a byproduct of reaching that mutation-kill bar, the backend's `bun test --coverage` baseline sits
 at ~97.6% functions / ~98.5% lines — the number `bunfig.toml`'s `coverageThreshold` (deliberately
 set well below it) exists to guard against regressing, not to chase.
+
+**`bun run check` can fail with a green test suite — that is the coverage gate, not a broken
+test.** Its "root tests" step runs `bun test --coverage`, and Bun applies `coverageThreshold`
+**per file**, not just to the global total. So one file under the floor fails the whole check
+while every test passes, and the output reads `5286 pass / 0 fail` immediately followed by
+`✗ root tests failed (exit 1)` — which sends you hunting for a failing test that does not exist.
+Read the coverage table for the file below the line. The cheapest way to hit this is adding an
+**unused** export to a new `src/__tests__/_utils/` module: one dead function put that file at 75%
+functions while the global total was still 99.4%. Two consequences: don't add a shared test helper
+before something calls it, and note `bun run test` (no `--coverage`) exits 0 in that state, so
+reproducing needs `bun run test:coverage`.
 
 ## Architecture
 

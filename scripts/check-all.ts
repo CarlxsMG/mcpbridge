@@ -8,6 +8,9 @@
  */
 const root = `${import.meta.dir}/..`;
 
+/** `root` with separators normalised and `..` resolved — for Docker volume mounts. */
+const dockerRoot = root.replace(/\\/g, "/").replace(/\/scripts\/\.\.$/, "");
+
 // See dev-all.ts for why we spawn by resolved path instead of bare "bun".
 const bunExe = process.execPath;
 
@@ -33,11 +36,24 @@ const testEnv = { ...process.env };
 delete testEnv.SESSION_COOKIE_SECURE;
 delete testEnv.SECRET_ENCRYPTION_KEY;
 
+// `--full` additionally runs the CI jobs that live OUTSIDE the `test` job.
+// Default `check` deliberately mirrors `test` alone (see CLAUDE.md); this flag
+// exists because "check is green" was never the same claim as "CI is green".
+const full = process.argv.includes("--full");
+
 interface Step {
   label: string;
   cmd: string[];
   cwd: string;
   env?: Record<string, string | undefined>;
+  /**
+   * External binary this step needs. When it is missing the step is SKIPPED
+   * with a visible notice rather than failing — these gates still run in CI,
+   * so a local machine without helm or docker should not be blocked. The
+   * notice matters: a silently-dropped step would make `check:full` claim
+   * more coverage than it delivered.
+   */
+  requires?: string;
 }
 
 const steps: Step[] = [
@@ -86,7 +102,104 @@ const steps: Step[] = [
   { label: "admin-ui build", cmd: [bunExe, "run", "build"], cwd: `${root}/admin-ui` },
 ];
 
+// ---------------------------------------------------------------------------
+// --full: the other CI gates.
+//
+// CI runs nine jobs; everything above only reproduces `test`. The rest are
+// reproducible locally except for the two that need a container/toolchain, and
+// those are skipped-with-a-notice rather than silently dropped.
+//
+// commitlint is deliberately NOT here: the lefthook `commit-msg` hook already
+// validates every commit as it is written, so by the time you run this there is
+// nothing left for it to catch. CI's job re-checks the PR range because a
+// commit can reach GitHub without ever passing through a local hook.
+//
+// e2e, docker-build and the Windows test leg are also absent: e2e has its own
+// `bun run test:e2e` (it boots a browser and a real backend — too heavy to fold
+// into an aggregate check), docker-build needs a full image build, and the
+// Windows leg is a platform, not a command.
+// ---------------------------------------------------------------------------
+if (full) {
+  steps.push(
+    // Instant, and catches a real drift class: the Bun version is repeated
+    // across package.json, .bun-version, the Dockerfile and CI.
+    { label: "version parity", cmd: [bunExe, "scripts/check-version-parity.ts"], cwd: root },
+    { label: "docs build", cmd: [bunExe, "run", "docs:build"], cwd: `${root}/docs` },
+    { label: "helm lint", cmd: ["helm", "lint", "helm/mcp-rest-bridge"], cwd: root, requires: "helm" },
+    {
+      label: "helm template (defaults)",
+      cmd: ["helm", "template", "mcp-rest-bridge", "helm/mcp-rest-bridge"],
+      cwd: root,
+      requires: "helm",
+    },
+    {
+      label: "helm template (existingSecret + persistence + external SA)",
+      cmd: [
+        "helm",
+        "template",
+        "mcp-rest-bridge",
+        "helm/mcp-rest-bridge",
+        "--set",
+        "existingSecret=mcp-rest-bridge-external-secret",
+        "--set",
+        "persistence.enabled=true",
+        "--set",
+        "serviceAccount.create=false",
+        "--set",
+        "serviceAccount.name=mcp-rest-bridge-external-sa",
+      ],
+      cwd: root,
+      requires: "helm",
+    },
+    {
+      // promtool is not a normal install, so CI reaches it through the pinned
+      // Prometheus image; mirror that exactly rather than requiring a local
+      // promtool that would drift from the version CI validates against.
+      // --entrypoint is load-bearing: the image's entrypoint is /bin/prometheus,
+      // so a trailing `promtool ...` would be parsed as arguments to prometheus.
+      label: "promtool check rules",
+      cmd: [
+        "docker",
+        "run",
+        "--rm",
+        "--entrypoint",
+        "promtool",
+        "-v",
+        // Normalised: import.meta.dir yields backslashes on Windows, and a
+        // `-v C:\a\b\scripts\..\monitoring:/rules` mount is not something to
+        // hand Docker and hope. Spawning by argv (not through a shell) is what
+        // keeps the CONTAINER-side `/rules` intact — Git Bash would otherwise
+        // rewrite it to C:/Program Files/Git/rules before docker ever saw it.
+        `${dockerRoot}/monitoring:/rules`,
+        "prom/prometheus:v3.8.1",
+        "check",
+        "rules",
+        "/rules/prometheus/alerts.yaml",
+      ],
+      cwd: root,
+      requires: "docker",
+    },
+  );
+}
+
+/** True when `bin` is resolvable on PATH. */
+async function hasBinary(bin: string): Promise<boolean> {
+  const probe = Bun.spawn([process.platform === "win32" ? "where" : "which", bin], {
+    stdout: "ignore",
+    stderr: "ignore",
+    stdin: "ignore",
+  });
+  return (await probe.exited) === 0;
+}
+
+const skipped: string[] = [];
+
 for (const step of steps) {
+  if (step.requires && !(await hasBinary(step.requires))) {
+    console.log(`\n[check] ⊘ ${step.label} — skipped, \`${step.requires}\` not on PATH (CI still gates this)`);
+    skipped.push(`${step.label} (needs ${step.requires})`);
+    continue;
+  }
   console.log(`\n[check] ▶ ${step.label}`);
   const proc = Bun.spawn(step.cmd, {
     cwd: step.cwd,
@@ -103,4 +216,10 @@ for (const step of steps) {
   console.log(`[check] ✓ ${step.label}`);
 }
 
-console.log("\n[check] all checks passed");
+console.log(`\n[check] all checks passed${full ? " (--full)" : ""}`);
+if (skipped.length > 0) {
+  console.log(`[check] ${skipped.length} step(s) skipped for missing tooling: ${skipped.join(", ")}`);
+}
+if (!full) {
+  console.log("[check] this mirrors CI's `test` job only — run `bun run check:full` for the other gates");
+}
