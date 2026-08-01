@@ -31,6 +31,21 @@ load-bearing; change them only behind a deliberate test pass, never in a routine
 sweep. (`bun-types` is exact-pinned too, but self-evidently — it must match
 `packageManager`/`.bun-version`.)
 
+**Patching a vulnerable _transitive_ dep: use `overrides`, and scope it to the major.** Neither
+`bun update` form works here. Bare `bun update` rewrites every caret range in `package.json`
+(an unrelated 18-minor MCP SDK jump inside a security commit); `bun update <name>` on a
+transitive is worse — it **adds `<name>` as a new direct dependency** at the latest version
+(into `dependencies`, even for a dev-only package) and leaves the vulnerable nested copy in
+place. The working tool is an `overrides` entry, keyed **`"pkg@<major>"`, not `"pkg"`**: a bare
+key forces _every_ copy in the tree to the new version regardless of what each consumer
+declared. That is not hypothetical — `"brace-expansion": "^5.0.8"` dragged the `^2.0.2` copies
+under `minimatch@9` up to 5.x, and brace-expansion 5 dropped its default export, so
+`minimatch@9` died with `brace_expansion_1.default is not a function`. `"brace-expansion@5"`
+moves only the 5.x line and leaves 2.x alone. Two traps when verifying: a stale `node_modules`
+keeps serving the old nested copy, so re-resolve with `rm -rf node_modules && bun install`
+before believing a result; and the unit suites may never load the broken path (admin-ui's 386
+tests passed green with `minimatch@9` fully broken) — exercise the actual require chain.
+
 ## Commands
 
 Run from the repo root unless noted. `admin-ui/` is a separate TypeScript project with its own

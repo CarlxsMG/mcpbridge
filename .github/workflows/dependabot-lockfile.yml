@@ -1,0 +1,101 @@
+# Dependabot edits `package.json` but never writes `bun.lock` — its npm ecosystem
+# understands package-lock/yarn/pnpm lockfiles, not Bun's. Every npm-ecosystem
+# Dependabot PR therefore lands with a stale lockfile and dies at the first
+# `bun install --frozen-lockfile` (which CI runs in ten places), taking `test`,
+# `test-windows` and `docker` down with it. PR #3 (jsdom 29 -> 30) was the first
+# npm PR this repo ever got and failed exactly this way.
+#
+# This job re-resolves the lockfile for whichever package.json the PR touched and
+# pushes it back onto the PR branch, so the PR becomes mergeable on its own.
+#
+# WHY `pull_request_target`: workflows triggered by Dependabot on a plain
+# `pull_request` event get a read-only GITHUB_TOKEN that a workflow-level
+# `permissions:` block cannot escalate, so they cannot push. `pull_request_target`
+# runs in the base-repo context with a writable token.
+#
+# WHY THAT IS SAFE HERE: the usual danger of `pull_request_target` is executing
+# PR-controlled code with a write token. Nothing from the PR is executed —
+# `bun install --lockfile-only` only resolves a dependency graph and writes a
+# lockfile; it installs nothing, and Bun never runs dependency lifecycle scripts.
+# The job is additionally gated on the author being Dependabot AND the branch
+# living in this repository (not a fork), both evaluated in the trusted context.
+name: Dependabot lockfile
+
+on:
+  pull_request_target:
+    paths:
+      - "package.json"
+      - "admin-ui/package.json"
+      - "docs/package.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-lockfile-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  refresh-lockfile:
+    if: >-
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          # Needed to diff the PR head against the base branch below.
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+
+      # Re-resolve ONLY the workspace whose manifest this PR actually edited.
+      # Running it unconditionally in all three would let an unrelated lockfile
+      # drift to newer in-range versions inside a PR that never asked for it.
+      - name: Refresh the lockfile for each changed manifest
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          changed=0
+          # "<workspace dir>:<manifest path>" — the root workspace is "."
+          for entry in ".:package.json" "admin-ui:admin-ui/package.json" "docs:docs/package.json"; do
+            dir="${entry%%:*}"
+            manifest="${entry#*:}"
+            if ! git diff --quiet "$BASE_SHA" -- "$manifest"; then
+              echo "::group::bun install --lockfile-only ($manifest)"
+              (cd "$dir" && bun install --lockfile-only)
+              echo "::endgroup::"
+              changed=1
+            fi
+          done
+          if [ "$changed" -eq 0 ]; then
+            echo "No manifest changed against the base — nothing to re-resolve."
+          fi
+
+      - name: Commit and push the refreshed lockfile
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- '*bun.lock'; then
+            echo "Lockfiles already match the manifests — nothing to push."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- '*bun.lock'
+          # commitlint gates every commit on this repo (Conventional Commits,
+          # header <= 100 chars), and it runs over the PR's commits too.
+          git commit -m "chore(deps): refresh bun.lock to match the updated manifest"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          echo "### Lockfile refreshed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          # A push made with GITHUB_TOKEN deliberately does not trigger new
+          # workflow runs, so the PR's existing red checks stay red until they
+          # are re-run. Say so here instead of leaving a confusing PR.
+          echo "Pushed a lockfile commit to \`${{ github.event.pull_request.head.ref }}\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "GitHub does not re-trigger checks for a GITHUB_TOKEN push — **re-run the failed checks on this PR** to pick it up." >> "$GITHUB_STEP_SUMMARY"
