@@ -110,8 +110,8 @@ const SRC = join(process.cwd(), "src");
 
 // JSON import returns the AST-compiled bundle from the vite plugin.
 // Cast through unknown so we can traverse it generically.
-const en = (await import("./locales/en.json")).default as unknown as Bundle;
-const es = (await import("./locales/es.json")).default as unknown as Bundle;
+const en = (await import("../locales/en.json")).default as unknown as Bundle;
+const es = (await import("../locales/es.json")).default as unknown as Bundle;
 const enKeys = flattenBundle(en);
 const esKeys = flattenBundle(es);
 
