@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 // Fixture paths
-const FIXTURES_DIR = join(import.meta.dir, "../../../tests/fixtures");
+const FIXTURES_DIR = join(import.meta.dir, "../../../fixtures");
 const SIMPLE_JSON_SPEC = readFileSync(join(FIXTURES_DIR, "simple-openapi.json"), "utf-8");
 const SIMPLE_YAML_SPEC = readFileSync(join(FIXTURES_DIR, "simple-openapi.yaml"), "utf-8");
 
