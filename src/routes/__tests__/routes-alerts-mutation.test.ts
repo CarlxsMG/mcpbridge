@@ -11,6 +11,7 @@
  * reports/mutation/result.json.
  */
 import { describe, test, expect, afterEach, spyOn } from "bun:test";
+import { listen } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { AddressInfo } from "net";
@@ -41,14 +42,7 @@ async function startApp(): Promise<void> {
   app.use(express.json());
   app.use(requestIdMiddleware);
   alertRoutes(app);
-  return new Promise((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      baseUrl = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
-      activeServer = srv;
-      resolve();
-    });
-    srv.on("error", reject);
-  });
+  ({ baseUrl, server: activeServer } = await listen(app));
 }
 
 const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);

@@ -56,9 +56,9 @@
  * timeout", not a real gap.
  */
 import { describe, test, expect, spyOn } from "bun:test";
+import { listen } from "../../__tests__/_utils/app.js";
 import { jsonBearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
-import type { AddressInfo } from "net";
 import type { Server } from "http";
 import { config } from "../../config.js";
 import { __resetDbForTesting } from "../../db/connection.js";
@@ -90,15 +90,7 @@ async function startApp(): Promise<void> {
   app.use(express.json({ limit: "64kb", strict: true }));
   bundleRoutes(app);
 
-  return new Promise((resolve, reject) => {
-    const srv = app.listen(0, "127.0.0.1", () => {
-      const addr = srv.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${addr.port}`;
-      activeServer = srv;
-      resolve();
-    });
-    srv.on("error", reject);
-  });
+  ({ baseUrl, server: activeServer } = await listen(app));
 }
 
 function stopServer(): Promise<void> {
