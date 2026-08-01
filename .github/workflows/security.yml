@@ -41,38 +41,42 @@ jobs:
       # No `bun install` runs in this job (`bun audit` reads the committed
       # lockfiles directly), so there's deliberately no ~/.bun/install/cache step
       # here — it would cache a directory nothing populates or consumes.
-      # `bun audit` reads the committed lockfiles and reports known CVEs. Run it
-      # for both the root gateway and the admin-ui (separate lockfiles). The
-      # baseline currently has open moderate/low advisories in transitive deps
-      # (see git history / CI logs for the full report) that shouldn't block
-      # unrelated work, so the gate is scoped to high/critical severity via
-      # --audit-level=high; anything at that level fails the build.
       #
-      # Known, accepted moderate findings (won't surface here, but documented so
-      # they aren't re-investigated from scratch):
+      # Gate at MODERATE, with every accepted advisory named individually via
+      # --ignore. The previous blanket --audit-level=high swallowed the entire
+      # moderate tier to tolerate exactly two known findings, which also meant a
+      # NEW moderate advisory in a runtime dependency (express, ws, the MCP SDK)
+      # would never have failed this job. Naming them instead makes each one an
+      # explicit decision with an exit condition; anything not listed below is a
+      # build failure at moderate or above.
       #
-      # 1. GHSA-q8mj-m7cp-5q26 (qs DoS) in qs@6.15.1, nested under
-      #    @stryker-mutator/core -> typed-rest-client, which hard-pins
-      #    "qs": "6.15.1" as an EXACT version (unlike every other consumer in
-      #    the tree, which already resolve to the patched qs@6.15.3) —
-      #    `bun update` cannot move an exact-pinned nested dep, only an upstream
-      #    typed-rest-client release that widens its own pin can. devDependency
-      #    only (bun run test:mutate), excluded from the production image by the
-      #    Dockerfile's `bun install --production` deps stage, so there is no
-      #    production exposure.
-      #
-      # 2. GHSA-frvp-7c67-39w9 (path traversal in `serve-static` on Windows via
-      #    an encoded backslash) in @hono/node-server, pulled in transitively by
-      #    @modelcontextprotocol/sdk. The gateway is an Express app and never
-      #    mounts hono's `serve-static` — the only static mount is
-      #    `express.static` in src/index.ts (the /admin SPA) — so the vulnerable
-      #    code path is unreachable here. Fixed upstream in @hono/node-server
-      #    >=2.0.5; it clears once the MCP SDK widens its `^1.19.9` range.
+      # GHSA-q8mj-m7cp-5q26 — qs DoS in qs@6.15.1, nested under
+      #   @stryker-mutator/core -> typed-rest-client, which hard-pins "qs" to an
+      #   EXACT "6.15.1" (every other consumer in the tree already resolves to
+      #   the patched 6.15.3). An `overrides` entry cannot move it either: the
+      #   pin is exact, so only an upstream typed-rest-client release that
+      #   widens it will. devDependency only (bun run test:mutate) and excluded
+      #   from the production image by the Dockerfile's `bun install
+      #   --production` deps stage, so there is no production exposure.
+      #   DROP THIS IGNORE once typed-rest-client widens its qs pin.
+      # GHSA-frvp-7c67-39w9 — path traversal in hono's `serve-static` on Windows
+      #   via an encoded backslash, in @hono/node-server pulled in transitively
+      #   by @modelcontextprotocol/sdk. The gateway is an Express app and never
+      #   mounts hono's `serve-static` — the only static mount is
+      #   `express.static` in src/index.ts (the /admin SPA) — so the vulnerable
+      #   code path is unreachable here. Fixed upstream in >=2.0.5.
+      #   DROP THIS IGNORE once the MCP SDK widens its `^1.19.9` range.
       - name: Audit root dependencies
-        run: bun audit --audit-level=high
+        run: >-
+          bun audit --audit-level=moderate
+          --ignore=GHSA-q8mj-m7cp-5q26
+          --ignore=GHSA-frvp-7c67-39w9
+      # No ignores here: admin-ui audits clean at moderate. Keep it that way —
+      # reach for an `overrides` entry (see admin-ui/package.json) before an
+      # --ignore, and only ignore what genuinely cannot be moved.
       - name: Audit admin-ui dependencies
         working-directory: admin-ui
-        run: bun audit --audit-level=high
+        run: bun audit --audit-level=moderate
       # docs/ is a build-time-only VitePress toolchain that ships static HTML,
       # so its transitive dev-server advisories (vite/esbuild) never reach the
       # published product; the Dependabot /docs entry tracks the bumps. Gate
