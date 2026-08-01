@@ -12,8 +12,8 @@
  * regression that dropped the guard on write, or failed to re-read it on load,
  * would leave the reloaded field blank and fail here.
  */
-import { test, expect, type Page } from "@playwright/test";
-import { BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME, FIXTURE_BASE_URL } from "./env";
+import { test, expect } from "@playwright/test";
+import { login, registerFixtureServer } from "./support/admin";
 
 /** Unique server name per spec run so this file can run alongside the other specs. */
 const SERVER_NAME = "e2e-guard-persist-api";
@@ -21,28 +21,6 @@ const SERVER_NAME = "e2e-guard-persist-api";
 const TOOL_NAME = "list-users";
 /** The rate limit we type, save, and expect to read back after a reload. */
 const RATE_LIMIT = "42";
-
-/** Performs an admin login via the UI. Returns once the Servers heading is visible. */
-async function login(page: Page): Promise<void> {
-  await page.goto("/admin/login");
-  await page.locator("#username").fill(BOOTSTRAP_ADMIN_USERNAME);
-  await page.locator("#password").fill(BOOTSTRAP_ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible();
-}
-
-/** Registers a REST backend from the OpenAPI fixture so there is a tool to guard. */
-async function registerFixtureServer(page: Page, serverName: string): Promise<void> {
-  await page.locator("#sidebar-nav").getByRole("link", { name: "Add server" }).click();
-  await expect(page).toHaveURL(/\/admin\/register-server$/);
-  await page.locator("#r-name").fill(serverName);
-  await page.locator("#r-health").fill(`${FIXTURE_BASE_URL}/health`);
-  await page.locator("#r-openapi").fill(`${FIXTURE_BASE_URL}/openapi.json`);
-  await page.getByRole("button", { name: "Preview tools" }).click();
-  await expect(page.getByText(/tool\(s\) discovered/)).toBeVisible();
-  await page.getByRole("button", { name: "Register server" }).click();
-  await expect(page).toHaveURL(new RegExp(`/admin/servers/${serverName}$`));
-}
 
 test("edit a tool's rate-limit guard, save, reload -> the value persisted", async ({ page }) => {
   await login(page);

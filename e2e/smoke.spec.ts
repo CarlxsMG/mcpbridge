@@ -19,86 +19,13 @@
  * the control-plane auth story.
  */
 import { test, expect } from "@playwright/test";
-import {
-  APP_BASE_URL,
-  BOOTSTRAP_ADMIN_PASSWORD,
-  BOOTSTRAP_ADMIN_USERNAME,
-  DEMO_SERVER_NAME,
-  FIXTURE_BASE_URL,
-} from "./env";
-
-/** Parses the `data: {...}` line out of an MCP Streamable HTTP SSE-framed response body. */
-function parseSseJson(text: string): { result?: unknown; error?: unknown; id?: unknown } {
-  const match = text.match(/data: (.+)/);
-  if (!match) throw new Error(`Could not parse SSE body: ${text}`);
-  return JSON.parse(match[1]);
-}
-
-/** Performs the real MCP initialize handshake against `path` with the given Bearer. Returns the session id. */
-async function initMcpSession(path: string, authHeader: string): Promise<string> {
-  const initRes = await fetch(`${APP_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json, text/event-stream",
-      authorization: authHeader,
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      method: "initialize",
-      id: 1,
-      params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "e2e-smoke", version: "1.0" } },
-    }),
-  });
-  const sessionId = initRes.headers.get("mcp-session-id");
-  if (initRes.status !== 200 || !sessionId) {
-    throw new Error(`MCP initialize failed: status=${initRes.status} body=${await initRes.text()}`);
-  }
-
-  await fetch(`${APP_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json, text/event-stream",
-      "mcp-session-id": sessionId,
-      authorization: authHeader,
-    },
-    body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
-  });
-
-  return sessionId;
-}
-
-async function mcpToolsCall(
-  path: string,
-  sessionId: string,
-  toolName: string,
-  authHeader: string,
-  args: Record<string, unknown> = {},
-): Promise<{ status: number; isError?: boolean; text?: string }> {
-  const res = await fetch(`${APP_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json, text/event-stream",
-      "mcp-session-id": sessionId,
-      authorization: authHeader,
-    },
-    body: JSON.stringify({ jsonrpc: "2.0", method: "tools/call", id: 2, params: { name: toolName, arguments: args } }),
-  });
-  if (res.status !== 200) return { status: res.status };
-  const parsed = parseSseJson(await res.text());
-  const result = parsed.result as { isError?: boolean; content?: { type: string; text: string }[] } | undefined;
-  return { status: res.status, isError: result?.isError, text: result?.content?.map((c) => c.text).join("\n") };
-}
+import { APP_BASE_URL, DEMO_SERVER_NAME, FIXTURE_BASE_URL } from "./support/env";
+import { adminAuthHeaders, login } from "./support/admin";
+import { initMcpSession, mcpToolsCall } from "./support/mcp";
 
 test("login -> register a REST backend from OpenAPI -> call the discovered tool via MCP", async ({ page, request }) => {
   // ── (a) Log in ────────────────────────────────────────────────────────────
-  await page.goto("/admin/login");
-  await page.locator("#username").fill(BOOTSTRAP_ADMIN_USERNAME);
-  await page.locator("#password").fill(BOOTSTRAP_ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible();
+  await login(page);
 
   // ── (b) Register a REST backend, discovered from an OpenAPI doc ────────────
   await page.locator("#sidebar-nav").getByRole("link", { name: "Add server" }).click();
@@ -121,12 +48,9 @@ test("login -> register a REST backend from OpenAPI -> call the discovered tool 
   // The data plane is fail-closed once any auth material exists. To keep
   // this spec independent of the order in which the e2e suite runs, mint
   // a fresh key here and use it for the data-plane call below.
-  const cookies = await page.context().cookies();
-  const cookieHeader = `mcp_admin_session=${cookies.find((c) => c.name === "mcp_admin_session")?.value ?? ""}`;
-  const csrfHeader =
-    cookies.find((c) => c.name === "mcp_admin_csrf" || c.name === "__Host-mcp_admin_csrf")?.value ?? "";
+  const { cookie, csrf } = await adminAuthHeaders(page);
   const minted = await request.post(`${APP_BASE_URL}/admin-api/mcp-keys`, {
-    headers: { cookie: cookieHeader, "x-csrf-token": csrfHeader, "content-type": "application/json" },
+    headers: { cookie, "x-csrf-token": csrf, "content-type": "application/json" },
     data: { label: "e2e-smoke", scopes: null, expiresAt: null, consumerId: null, elevated: false, adminRole: null },
   });
   expect(minted.status(), `mcp-key create failed: ${await minted.text()}`).toBe(201);
@@ -140,7 +64,7 @@ test("login -> register a REST backend from OpenAPI -> call the discovered tool 
   // data-plane surface using the freshly-minted key from step (c).
   const dataPlane = `/mcp/${DEMO_SERVER_NAME}`;
   const toolName = `${DEMO_SERVER_NAME}__list-users`;
-  const sessionId = await initMcpSession(dataPlane, authHeader);
+  const { sessionId } = await initMcpSession(dataPlane, { authHeader, clientName: "e2e-smoke" });
   const call = await mcpToolsCall(dataPlane, sessionId, toolName, authHeader);
 
   expect(call.status).toBe(200);

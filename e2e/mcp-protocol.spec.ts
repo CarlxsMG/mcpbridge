@@ -21,110 +21,17 @@
  * a transport error.
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
-import { APP_BASE_URL, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME, FIXTURE_BASE_URL } from "./env";
+import { APP_BASE_URL } from "./support/env";
+import { login, registerFixtureServer } from "./support/admin";
+import { initMcpSession, mcpCall, parseSseJson } from "./support/mcp";
 
 /** Unique server name per spec run so this file can run alongside the others. */
 const SERVER_NAME = "e2e-mcp-protocol-api";
 const DATA_PLANE = `/mcp/${SERVER_NAME}`;
 
-function parseSseJson(text: string): { result?: unknown; error?: unknown; id?: unknown } {
-  const match = text.match(/data: (.+)/);
-  if (!match) throw new Error(`Could not parse SSE body: ${text}`);
-  return JSON.parse(match[1]);
-}
-
 async function loginAndRegister(page: Page): Promise<void> {
-  await page.goto("/admin/login");
-  await page.locator("#username").fill(BOOTSTRAP_ADMIN_USERNAME);
-  await page.locator("#password").fill(BOOTSTRAP_ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible();
-
-  await page.locator("#sidebar-nav").getByRole("link", { name: "Add server" }).click();
-  await page.locator("#r-name").fill(SERVER_NAME);
-  await page.locator("#r-health").fill(`${FIXTURE_BASE_URL}/health`);
-  await page.locator("#r-openapi").fill(`${FIXTURE_BASE_URL}/openapi.json`);
-  await page.getByRole("button", { name: "Preview tools" }).click();
-  await expect(page.getByText(/tool\(s\) discovered/)).toBeVisible();
-  await page.getByRole("button", { name: "Register server" }).click();
-  await expect(page).toHaveURL(new RegExp(`/admin/servers/${SERVER_NAME}$`));
-}
-
-interface McpInit {
-  sessionId: string;
-  serverInfo: { name?: string; version?: string };
-}
-
-async function initSession(path: string, authHeader?: string): Promise<McpInit> {
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-    accept: "application/json, text/event-stream",
-  };
-  if (authHeader) headers.authorization = authHeader;
-  const initRes = await fetch(`${APP_BASE_URL}${path}`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      method: "initialize",
-      id: 1,
-      params: {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "e2e-mcp-protocol", version: "1.0" },
-      },
-    }),
-  });
-  const sessionId = initRes.headers.get("mcp-session-id");
-  if (initRes.status !== 200 || !sessionId) {
-    throw new Error(`initialize failed: status=${initRes.status} body=${await initRes.text()}`);
-  }
-  const parsed = parseSseJson(await initRes.text());
-  const result = parsed.result as { serverInfo?: { name?: string; version?: string } } | undefined;
-  const notifHeaders: Record<string, string> = {
-    "content-type": "application/json",
-    accept: "application/json, text/event-stream",
-    "mcp-session-id": sessionId,
-  };
-  if (authHeader) notifHeaders.authorization = authHeader;
-  await fetch(`${APP_BASE_URL}${path}`, {
-    method: "POST",
-    headers: notifHeaders,
-    body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
-  });
-  return { sessionId, serverInfo: result?.serverInfo ?? {} };
-}
-
-interface McpCallResult {
-  status: number;
-  isError?: boolean;
-  text?: string;
-}
-
-async function mcpRequest(
-  path: string,
-  sessionId: string,
-  body: Record<string, unknown>,
-  authHeader: string,
-): Promise<McpCallResult> {
-  const res = await fetch(`${APP_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json, text/event-stream",
-      "mcp-session-id": sessionId,
-      authorization: authHeader,
-    },
-    body: JSON.stringify(body),
-  });
-  if (res.status !== 200) return { status: res.status };
-  const parsed = parseSseJson(await res.text());
-  const result = parsed.result as { isError?: boolean; content?: { type: string; text: string }[] } | undefined;
-  return {
-    status: res.status,
-    isError: result?.isError,
-    text: result?.content?.map((c) => c.text).join("\n"),
-  };
+  await login(page);
+  await registerFixtureServer(page, SERVER_NAME);
 }
 
 test.describe("MCP data plane — protocol contract", () => {
@@ -163,7 +70,10 @@ test.describe("MCP data plane — protocol contract", () => {
   });
 
   test("initialize advertises the bridge as the server (serverInfo.name)", async () => {
-    const init = await initSession(DATA_PLANE, `Bearer ${bearer.key}`);
+    const init = await initMcpSession(DATA_PLANE, {
+      authHeader: `Bearer ${bearer.key}`,
+      clientName: "e2e-mcp-protocol",
+    });
     expect(init.serverInfo.name).toBeTruthy();
   });
 
@@ -171,7 +81,10 @@ test.describe("MCP data plane — protocol contract", () => {
     // Each test establishes its own session — the data plane's Streamable
     // HTTP transport keeps per-session state and reusing one across tests
     // races with the other e2e specs running serially in the same worker.
-    const init = await initSession(DATA_PLANE, `Bearer ${bearer.key}`);
+    const init = await initMcpSession(DATA_PLANE, {
+      authHeader: `Bearer ${bearer.key}`,
+      clientName: "e2e-mcp-protocol",
+    });
     const res = await fetch(`${APP_BASE_URL}${DATA_PLANE}`, {
       method: "POST",
       headers: {
@@ -196,8 +109,11 @@ test.describe("MCP data plane — protocol contract", () => {
   });
 
   test("tools/call for a known tool returns the upstream payload (no isError)", async () => {
-    const init = await initSession(DATA_PLANE, `Bearer ${bearer.key}`);
-    const call = await mcpRequest(
+    const init = await initMcpSession(DATA_PLANE, {
+      authHeader: `Bearer ${bearer.key}`,
+      clientName: "e2e-mcp-protocol",
+    });
+    const call = await mcpCall(
       DATA_PLANE,
       init.sessionId,
       {
@@ -214,8 +130,11 @@ test.describe("MCP data plane — protocol contract", () => {
   });
 
   test("tools/call for an unknown tool surfaces isError:true (does not drop the session)", async () => {
-    const init = await initSession(DATA_PLANE, `Bearer ${bearer.key}`);
-    const call = await mcpRequest(
+    const init = await initMcpSession(DATA_PLANE, {
+      authHeader: `Bearer ${bearer.key}`,
+      clientName: "e2e-mcp-protocol",
+    });
+    const call = await mcpCall(
       DATA_PLANE,
       init.sessionId,
       {
@@ -232,8 +151,11 @@ test.describe("MCP data plane — protocol contract", () => {
   });
 
   test("tools/call with arguments that violate the input schema returns isError:true (not a transport error)", async () => {
-    const init = await initSession(DATA_PLANE, `Bearer ${bearer.key}`);
-    const call = await mcpRequest(
+    const init = await initMcpSession(DATA_PLANE, {
+      authHeader: `Bearer ${bearer.key}`,
+      clientName: "e2e-mcp-protocol",
+    });
+    const call = await mcpCall(
       DATA_PLANE,
       init.sessionId,
       {
@@ -250,8 +172,11 @@ test.describe("MCP data plane — protocol contract", () => {
   });
 
   test("a backend 404 surfaces as isError:true (the fixture has no POST /users handler)", async () => {
-    const init = await initSession(DATA_PLANE, `Bearer ${bearer.key}`);
-    const call = await mcpRequest(
+    const init = await initMcpSession(DATA_PLANE, {
+      authHeader: `Bearer ${bearer.key}`,
+      clientName: "e2e-mcp-protocol",
+    });
+    const call = await mcpCall(
       DATA_PLANE,
       init.sessionId,
       {

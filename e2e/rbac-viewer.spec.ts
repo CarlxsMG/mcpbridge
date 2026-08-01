@@ -16,31 +16,13 @@
  * viewer-visible entry ("Servers") is still present — so the absence is real
  * RBAC filtering, not an unrendered sidebar.
  */
-import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
-import { APP_BASE_URL, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME } from "./env";
+import { test, expect, type APIRequestContext } from "@playwright/test";
+import { APP_BASE_URL, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME } from "./support/env";
+import { adminAuthHeaders, login } from "./support/admin";
 
 /** Unique viewer account for this spec (username is lower-cased by the backend). */
 const VIEWER_USERNAME = "e2e-rbac-viewer";
 const VIEWER_PASSWORD = "e2e-rbac-viewer-strong-pw-2026"; // >= 12 chars (user-create rule)
-
-/** Pulls the admin session + CSRF cookies out of Playwright's storage state. */
-async function adminAuthHeaders(page: Page): Promise<{ cookie: string; csrf: string }> {
-  const cookies = await page.context().cookies();
-  const sid = cookies.find((c) => c.name === "mcp_admin_session")?.value;
-  if (!sid) throw new Error("admin session cookie not set — login step failed?");
-  const csrf = cookies.find((c) => c.name === "mcp_admin_csrf" || c.name === "__Host-mcp_admin_csrf")?.value;
-  if (!csrf) throw new Error("admin CSRF cookie not set — login step failed?");
-  return { cookie: `mcp_admin_session=${sid}`, csrf };
-}
-
-/** Logs in via the UI with the given credentials; resolves once the Servers heading shows. */
-async function login(page: Page, username: string, password: string): Promise<void> {
-  await page.goto("/admin/login");
-  await page.locator("#username").fill(username);
-  await page.locator("#password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible();
-}
 
 /** Creates the viewer account via the admin API. Tolerates a prior run's leftover (409). */
 async function ensureViewer(request: APIRequestContext, cookie: string, csrf: string): Promise<void> {

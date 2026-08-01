@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { APP_BASE_URL, APP_PORT, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME } from "./e2e/env";
+import { APP_BASE_URL, APP_PORT, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME } from "./e2e/support/env";
 
 // Fresh, isolated SQLite file per run, outside the repo entirely — never
 // touches (or races with) dev data at ./data/mcp-bridge.db, and needs no
@@ -17,7 +17,7 @@ export default defineConfig({
   retries: 0,
   timeout: 30_000,
   reporter: [["list"]],
-  globalSetup: "./e2e/global-setup.ts",
+  globalSetup: "./e2e/support/global-setup.ts",
 
   use: {
     baseURL: APP_BASE_URL,

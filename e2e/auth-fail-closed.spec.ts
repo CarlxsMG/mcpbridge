@@ -18,44 +18,11 @@
  * plane, where the open-mode-to-fail-closed transition is observable.
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
-import { APP_BASE_URL, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME, FIXTURE_BASE_URL } from "./env";
+import { APP_BASE_URL } from "./support/env";
+import { adminAuthHeaders, login, registerFixtureServer } from "./support/admin";
 
 /** Unique server name per spec run so this file can run alongside smoke.spec.ts. */
 const SERVER_NAME = "e2e-auth-fail-closed-api";
-
-/** Pulls the admin session + CSRF cookies out of Playwright's storage state. */
-async function adminAuthHeaders(page: Page): Promise<{ cookie: string; csrf: string }> {
-  const cookies = await page.context().cookies();
-  const sid = cookies.find((c) => c.name === "mcp_admin_session")?.value;
-  if (!sid) throw new Error("admin session cookie not set — login step failed?");
-  // The CSRF cookie is non-httpOnly by design (admin-ui/src/utils/cookies.ts
-  // reads it from JS) so the matching X-CSRF-Token header is available here.
-  const csrf = cookies.find((c) => c.name === "mcp_admin_csrf" || c.name === "__Host-mcp_admin_csrf")?.value;
-  if (!csrf) throw new Error("admin CSRF cookie not set — login step failed?");
-  return { cookie: `mcp_admin_session=${sid}`, csrf };
-}
-
-/** Performs an admin login via the UI. Returns once the dashboard heading is visible. */
-async function login(page: Page): Promise<void> {
-  await page.goto("/admin/login");
-  await page.locator("#username").fill(BOOTSTRAP_ADMIN_USERNAME);
-  await page.locator("#password").fill(BOOTSTRAP_ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible();
-}
-
-/** Registers a REST backend with the OpenAPI fixture so the data plane has at least one tool. */
-async function registerFixtureServer(page: Page, serverName: string): Promise<void> {
-  await page.locator("#sidebar-nav").getByRole("link", { name: "Add server" }).click();
-  await expect(page).toHaveURL(/\/admin\/register-server$/);
-  await page.locator("#r-name").fill(serverName);
-  await page.locator("#r-health").fill(`${FIXTURE_BASE_URL}/health`);
-  await page.locator("#r-openapi").fill(`${FIXTURE_BASE_URL}/openapi.json`);
-  await page.getByRole("button", { name: "Preview tools" }).click();
-  await expect(page.getByText(/tool\(s\) discovered/)).toBeVisible();
-  await page.getByRole("button", { name: "Register server" }).click();
-  await expect(page).toHaveURL(new RegExp(`/admin/servers/${serverName}$`));
-}
 
 interface McpAuthCall {
   status: number;
