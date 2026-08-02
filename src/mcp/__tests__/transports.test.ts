@@ -316,3 +316,45 @@ describe("transports — DELETE releases exactly one session slot (no double-dec
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Structural: every MCP scope carries the same guard chain.
+//
+// setupTransports mounts its three scopes through one helper (mountMcpScope),
+// so the origin check cannot be present on some and missing on others. This
+// pins that from the outside: a scope reachable without the origin guard is a
+// DNS-rebinding hole, and the previous copy-pasted form made it a one-line
+// omission away. Asserted per scope rather than once, so a future fourth
+// endpoint mounted by hand fails here instead of shipping unguarded.
+// ---------------------------------------------------------------------------
+
+describe("transports — every mounted scope enforces the origin guard", () => {
+  const scopes: { label: string; path: string }[] = [
+    { label: "client shard", path: "/mcp/some-client" },
+    { label: "bundle", path: "/mcp-custom/some-bundle" },
+    { label: "system root", path: "/mcp" },
+  ];
+
+  for (const { label, path } of scopes) {
+    test(`${label} (${path}) rejects a disallowed Origin`, async () => {
+      const cleanup = await startApp();
+      try {
+        const res = await fetch(`${baseUrl}${path}`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            Origin: "http://not-an-allowed-origin.invalid",
+            ...AUTH_HEADER,
+          },
+          body: JSON.stringify({ jsonrpc: "2.0", method: "initialize", id: 1, params: {} }),
+        });
+
+        expect(res.status).toBe(403);
+        const body = (await res.json()) as { error?: { code?: string } };
+        expect(body.error?.code).toBe("ORIGIN_NOT_ALLOWED");
+      } finally {
+        await stopServer(cleanup);
+      }
+    });
+  }
+});

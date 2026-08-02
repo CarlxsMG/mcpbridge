@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, RequestHandler, Response } from "express";
 import { randomUUID } from "crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpServer, type McpServerScope } from "./mcp-server.js";
@@ -307,6 +307,54 @@ async function handleStreamableDelete(req: Request, res: Response, scope: McpSer
   releaseSession(sessionId);
 }
 
+/**
+ * Mount one MCP Streamable-HTTP scope: the guard chain plus the three verbs.
+ *
+ * The three scopes differ in exactly three things — the path, which auth
+ * middleware guards it, and how the scope is read off the request. Everything
+ * else was copy-pasted, which is the problem this solves: the guard chain and
+ * the handlers can no longer drift apart, and a fourth scope cannot be added
+ * with the origin check or the rate limiter accidentally left off. Getting that
+ * wrong on a data-plane endpoint is a DNS-rebinding hole, not a style issue.
+ *
+ * ORDER IS LOAD-BEARING, both within a scope and between calls.
+ *
+ * Within: origin → auth → rate limit. Rejecting a bad Origin before spending
+ * an auth check, and both before the limiter, is deliberate.
+ *
+ * Between: `app.use("/mcp", ...)` prefix-matches `/mcp/<anything>`, so the
+ * system root's middleware WOULD also run for a client-shard request. It does
+ * not, only because this function registers each scope's routes alongside its
+ * middleware — so `/mcp/:clientName`'s handler is already registered and
+ * terminates the request before the later `/mcp` chain is ever reached. Mount
+ * the shards before the root, and never split a scope's `use` calls away from
+ * its routes.
+ */
+function mountMcpScope<P extends Record<string, string>>(
+  app: Express,
+  path: string,
+  auth: RequestHandler,
+  scopeOf: (req: Request<P>) => McpServerScope,
+): void {
+  app.use(path, originValidator);
+  app.use(path, auth);
+  app.use(path, rateLimitMcp(config.rateLimitMcp));
+
+  // The explicit <P> is what keeps `req.params.clientName` a `string` rather
+  // than degrading to `string | string[]`: Express infers params from a route
+  // path LITERAL, and `path` here is a variable, so the inference has to be
+  // supplied by the caller instead.
+  app.post<P>(path, async (req, res) => {
+    await handleStreamablePost(req, res, scopeOf(req));
+  });
+  app.get<P>(path, async (req, res) => {
+    await handleStreamableGet(req, res, scopeOf(req));
+  });
+  app.delete<P>(path, async (req, res) => {
+    await handleStreamableDelete(req, res, scopeOf(req));
+  });
+}
+
 export function setupTransports(app: Express): () => void {
   startSessionCleanup();
   setSessionCountGetter(() => ({
@@ -320,19 +368,10 @@ export function setupTransports(app: Express): () => void {
   // below for what /mcp itself now serves).
   // ============================================
 
-  app.use("/mcp/:clientName", originValidator);
-  app.use("/mcp/:clientName", mcpAuth);
-  app.use("/mcp/:clientName", rateLimitMcp(config.rateLimitMcp));
-
-  app.post("/mcp/:clientName", async (req, res) => {
-    await handleStreamablePost(req, res, { kind: "client", name: req.params.clientName });
-  });
-  app.get("/mcp/:clientName", async (req, res) => {
-    await handleStreamableGet(req, res, { kind: "client", name: req.params.clientName });
-  });
-  app.delete("/mcp/:clientName", async (req, res) => {
-    await handleStreamableDelete(req, res, { kind: "client", name: req.params.clientName });
-  });
+  mountMcpScope(app, "/mcp/:clientName", mcpAuth, (req) => ({
+    kind: "client",
+    name: req.params.clientName,
+  }));
 
   // ============================================
   // Bundle Streamable HTTP transport — one endpoint per admin-curated bundle
@@ -347,19 +386,10 @@ export function setupTransports(app: Express): () => void {
   // relies on below.
   // ============================================
 
-  app.use("/mcp-custom/:bundleName", originValidator);
-  app.use("/mcp-custom/:bundleName", mcpAuth);
-  app.use("/mcp-custom/:bundleName", rateLimitMcp(config.rateLimitMcp));
-
-  app.post("/mcp-custom/:bundleName", async (req, res) => {
-    await handleStreamablePost(req, res, { kind: "bundle", name: req.params.bundleName });
-  });
-  app.get("/mcp-custom/:bundleName", async (req, res) => {
-    await handleStreamableGet(req, res, { kind: "bundle", name: req.params.bundleName });
-  });
-  app.delete("/mcp-custom/:bundleName", async (req, res) => {
-    await handleStreamableDelete(req, res, { kind: "bundle", name: req.params.bundleName });
-  });
+  mountMcpScope(app, "/mcp-custom/:bundleName", mcpAuth, (req) => ({
+    kind: "bundle",
+    name: req.params.bundleName,
+  }));
 
   // ============================================
   // System root — /mcp is the gateway's own control plane: management +
@@ -372,19 +402,10 @@ export function setupTransports(app: Express): () => void {
   // access control — see resolveSystemRole/rootMcpAuth).
   // ============================================
 
-  app.use("/mcp", originValidator);
-  app.use("/mcp", rootMcpAuth);
-  app.use("/mcp", rateLimitMcp(config.rateLimitMcp));
-
-  app.post("/mcp", async (req, res) => {
-    await handleStreamablePost(req, res, { kind: "system" });
-  });
-  app.get("/mcp", async (req, res) => {
-    await handleStreamableGet(req, res, { kind: "system" });
-  });
-  app.delete("/mcp", async (req, res) => {
-    await handleStreamableDelete(req, res, { kind: "system" });
-  });
+  // Registered LAST on purpose — see mountMcpScope's note on ordering: this
+  // path prefix-matches the two shards above, and only their already-mounted
+  // routes keep this chain from also running on their requests.
+  mountMcpScope(app, "/mcp", rootMcpAuth, () => ({ kind: "system" }));
 
   // Return cleanup function for graceful shutdown
   return () => {
