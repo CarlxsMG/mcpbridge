@@ -84,10 +84,18 @@ export function apiHeaders(auth: AdminAuth, extra: Record<string, string> = {}):
   };
 }
 
-/** Sign out through the UI and wait for the login form to come back. */
+/**
+ * Sign out through the UI and wait for the login form to come back.
+ *
+ * Scoped to the sidebar and `exact`, both deliberately: Playwright's role-name
+ * match is a case-insensitive SUBSTRING, and the account page renders a "Sign
+ * out device" button per active session — so an unscoped, inexact `"Sign out"`
+ * resolves to several elements and trips strict mode as soon as that page's
+ * session table has loaded. The sidebar control (TheSidebar.vue) is present on
+ * every authenticated route, so this works from wherever the caller is.
+ */
 export async function logout(page: Page): Promise<void> {
-  await page.goto("/admin/account");
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.locator("#sidebar-nav").getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/login$/);
 }
 
@@ -165,16 +173,26 @@ export async function registerGraphqlViaApi(
 }
 
 /**
- * Register an MCP upstream. The e2e stack points this at the bridge's own data
- * plane (`/mcp/:client`) so the gateway proxies to itself — a real MCP upstream
- * without a second server to run.
+ * Register an MCP upstream (`kind: "mcp"`).
+ *
+ * The payload really is just these three fields. Two things that look like they
+ * belong here do not:
+ *   - There is no inline credential field. `performMcpRegistration` ignores one;
+ *     upstream auth comes only from the per-client secret written beforehand via
+ *     `PUT /admin-api/clients/:name/upstream-auth`, which needs
+ *     SECRET_ENCRYPTION_KEY (unset in the e2e env, so that path 501s here).
+ *   - `health_url` is ignored on this branch — `registerMcp` pins it to
+ *     `mcp_url`, because MCP upstreams are ping-probed rather than GET-probed.
+ *
+ * Returns the raw status/body rather than asserting, since the specs that use
+ * this also drive the rejection cases.
  */
 export async function registerMcpUpstreamViaApi(
   request: APIRequestContext,
   auth: AdminAuth,
   serverName: string,
   mcpUrl: string,
-  authHeader?: string,
+  transport?: "streamable-http" | "sse",
 ): Promise<{ created: boolean; status: number; body: string }> {
   const res = await request.post(`${APP_BASE_URL}/register`, {
     headers: apiHeaders(auth),
@@ -182,8 +200,7 @@ export async function registerMcpUpstreamViaApi(
       name: serverName,
       kind: "mcp",
       mcp_url: mcpUrl,
-      health_url: `${FIXTURE_BASE_URL}/health`,
-      ...(authHeader ? { auth: { type: "bearer", token: authHeader.replace(/^Bearer /, "") } } : {}),
+      ...(transport ? { mcp_transport: transport } : {}),
     },
   });
   return { created: res.status() !== 409, status: res.status(), body: await res.text() };
