@@ -221,7 +221,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       # NOTE: the base-image digest-drift assertion that used to live here was
       # moved to docker-publish.yml (it now gates the actual publish). It made an
       # anonymous Docker Hub API call (`docker buildx imagetools inspect`) on
