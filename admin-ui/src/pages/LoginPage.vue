@@ -49,7 +49,20 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="login-shell">
+  <!--
+    A `<main>`, not a `<div>`: App.vue renders the "Skip to content" link
+    unconditionally but only mounts `<main id="main-content">` inside its
+    `v-if="showShell"` branch, so before sign-in the page's first tab stop used
+    to point at an element that did not exist. This page is the only shell-less
+    route in practice (router/index.ts's guard redirects unauthenticated users
+    here), so owning the landmark here is what makes the bypass link real.
+    It also gives the login page a landmark region at all — every control on it
+    previously sat outside one — and lets router/index.ts's afterEach focus
+    handler land keyboard focus here on navigation (WCAG 2.4.3) instead of
+    silently no-opping. `tabindex="-1"` is what makes it a focus target;
+    `.login-shell` still carries every bit of the layout.
+  -->
+  <main id="main-content" class="login-shell" tabindex="-1">
     <div class="signal-trace-wrap" aria-hidden="true">
       <svg class="signal-trace-svg" viewBox="0 0 400 40" preserveAspectRatio="none">
         <polyline
@@ -86,7 +99,7 @@ async function onSubmit() {
         <a class="btn-secondary sso-link" href="/admin-api/auth/oidc/start">{{ t("pages.login.sso_submit") }}</a>
       </div>
     </div>
-  </div>
+  </main>
 </template>
 
 <style scoped>

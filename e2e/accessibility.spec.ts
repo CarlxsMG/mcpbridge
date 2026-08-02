@@ -489,25 +489,18 @@ test.describe("keyboard", () => {
     expect(focusedButton, "submit must look different when focused").not.toEqual(restingButton);
   });
 
-  // ── DEFECT (documented, not worked around) ────────────────────────────────
-  // `admin-ui/src/components/ui/SearchInput.vue:42` sets `outline: none` on its
-  // `<input>` unconditionally, and nothing anywhere puts the ring back: the
-  // `.search-input` wrapper has no `:focus-within` rule (checked in
-  // SearchInput.vue and in every `:deep(.search-input)` override —
-  // AuditLogPage.vue:297, TracesPage.vue:264, BundleToolPicker.vue:150). The
-  // scoped selector `.search-input input[data-v-…]` also outranks the global
-  // `:focus-visible` rule in style.css, so the ring never applies.
+  // Regression guard for a real defect (fixed): SearchInput.vue sets
+  // `outline: none` on its `<input>`, and as a scoped rule
+  // (`.search-input input[data-v-…]`) that outranks the global
+  // `:focus-visible` ring in style.css. Nothing put the ring back, so tabbing
+  // into the search/filter field on Servers, Audit log, Traces, Keys, Bundles
+  // and Composites produced no visual change at all — WCAG 2.4.7 (Focus
+  // Visible). The ring now lives on the `.search-input` wrapper, which is the
+  // element that actually reads as the control.
   //
-  // Result: tabbing into the search/filter field on Servers, Audit log, Traces,
-  // Keys, Bundles… produces NO visual change whatsoever — WCAG 2.4.7 (Focus
-  // Visible). The same `outline: none` exists at CommandPalette.vue:370.
-  //
-  // Fix: drop `outline: none` from SearchInput.vue, or move the ring onto the
-  // wrapper with `.search-input:focus-within { outline: 2px solid var(--signal);
-  // outline-offset: 2px }`. Then delete the `test.fail()` below.
-  test("the search field shows a focus indicator [documents a real defect]", async ({ page }) => {
-    test.fail();
-
+  // Asserted on the wrapper OR the input on purpose: which element carries the
+  // ring is a styling decision this test should not freeze.
+  test("the search field shows a focus indicator", async ({ page }) => {
     await login(page, BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_PASSWORD);
     await page.goto("/admin/servers");
     await expect(page.locator("#d-search")).toBeVisible();
@@ -591,23 +584,27 @@ test.describe("landmarks", () => {
     expect(revealed, "the skip link must become visible once focused").toBeGreaterThanOrEqual(0);
   });
 
-  // ── DEFECT (documented, not worked around) ────────────────────────────────
-  // `App.vue` renders the skip link OUTSIDE `v-if="showShell"`, but `<main
-  // id="main-content">` INSIDE it. On /admin/login the shell is not rendered, so
-  // the first tab stop of the whole page is a "Skip to content" link pointing at
-  // an element that does not exist — activating it does nothing. The login page
-  // also ends up with no landmark region at all (its root is a plain `<div
-  // class="login-shell">`), so every control on it sits outside any landmark.
+  // Regression guard for a real defect (fixed): App.vue renders the skip link
+  // OUTSIDE `v-if="showShell"` but mounted `<main id="main-content">` INSIDE
+  // it, so before sign-in the page's first tab stop was a "Skip to content"
+  // link pointing at an element that did not exist, and the login page had no
+  // landmark region at all. LoginPage.vue now owns the `<main>` itself.
   //
-  // Fix: move the skip link inside the `v-if="showShell"` branch (or give
-  // LoginPage.vue its own `<main>`). Then delete the `test.fail()` below.
-  test("the skip link's target exists wherever the link renders [documents a real defect]", async ({ page }) => {
-    test.fail();
-
+  // The assertion is deliberately "wherever the link renders, its target
+  // exists" rather than naming the fix: moving the link inside the shell would
+  // satisfy the contract too, and this test should not dictate which.
+  test("the skip link's target exists wherever the link renders", async ({ page }) => {
     await page.goto("/admin/login");
     await expect(page.locator("#password")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Skip to content" })).toHaveCount(1);
-    await expect(page.locator("#main-content")).toHaveCount(1);
+
+    const skip = page.getByRole("link", { name: "Skip to content" });
+    const target = page.locator("#main-content");
+    expect(
+      (await skip.count()) === 0 || (await target.count()) === 1,
+      "the skip link renders on /admin/login but #main-content does not exist there",
+    ).toBe(true);
+    // The login form must sit inside a landmark either way.
+    await expect(page.getByRole("main")).toHaveCount(1);
   });
 });
 
