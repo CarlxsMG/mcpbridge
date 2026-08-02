@@ -115,7 +115,7 @@ jobs:
           echo "Compiled binary booted and answered /livez"
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.asset }}
           path: dist/${{ matrix.asset }}
@@ -160,7 +160,7 @@ jobs:
         run: tar -czf admin-ui-dist.tar.gz -C admin-ui/dist .
 
       - name: Upload admin UI artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: admin-ui-dist
           path: admin-ui-dist.tar.gz
@@ -183,14 +183,22 @@ jobs:
       # run — the per-target binaries from `build` *and* admin-ui-dist.tar.gz
       # from `build-admin-ui` — each into its own artifacts/<name>/ subdir.
       - name: Download all binaries
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
 
-      # download-artifact@v4 lays each artifact out in its own
+      # Downloading every artifact (no `name:`) lays each one out in its own
       # artifacts/<name>/ subdirectory — flatten so the release step gets a
       # flat list of files to attach. admin-ui-dist.tar.gz rides along
       # automatically since this just copies everything it finds.
+      #
+      # This `find -type f` copies whatever it lands on, so it is only correct
+      # while the artifacts arrive DECOMPRESSED. That holds because the upload
+      # side does not set `archive: false` (upload-artifact v7's opt-in direct
+      # upload), so every artifact is still stored zipped and download-artifact
+      # v8 unzips it on the Content-Type check. Turning on direct uploads
+      # without revisiting this step would attach the zips themselves, and
+      # `fail_on_unmatched_files` would not notice — files would still match.
       - name: Flatten artifacts
         run: |
           mkdir -p release
@@ -214,7 +222,7 @@ jobs:
         run: cosign sign-blob --yes --output-signature SHA256SUMS.sig --output-certificate SHA256SUMS.pem SHA256SUMS
 
       - name: Create/update release with binaries
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           files: release/*
           fail_on_unmatched_files: true
