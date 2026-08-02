@@ -25,12 +25,15 @@
  *     `localStorage["mcpbridge:theme"]` via `composables/useTheme.ts`), so both
  *     themes must render readable text.
  *
- * Every test here passes. Three of them were written first as `test.fail()`
- * against real defects (a suppressed focus ring, a skip link with no target, an
- * unnamed load-balancing weight input); those are fixed, and the tests are kept
- * as regression guards. Each is written as the contract rather than as the
- * shape of its fix, so a later refactor that satisfies the contract differently
- * still passes.
+ * Every test here passes, but several were written against defects that were
+ * real when written: two as `test.fail()` (a suppressed focus ring on the
+ * search field, a skip link whose target did not exist before sign-in), and
+ * three caught by the generic sweeps once the surfaces they live on were
+ * covered (an unnamed load-balancing weight input, a suppressed ring in the
+ * command palette, an `aria-label` shadowing the visible label on three filter
+ * fields). All are fixed and kept as regression guards, each written as the
+ * contract rather than as the shape of its fix, so a later refactor that
+ * satisfies the contract differently still passes.
  *
  * A caution learned while writing this: a probe is only as good as the naming
  * rule it encodes. An earlier version of the combobox check accepted only
@@ -407,6 +410,55 @@ function hasOutlineRing(style: FocusStyle): boolean {
 }
 
 /**
+ * Every rendered form control whose `aria-label` SHADOWS its visible `<label>`.
+ *
+ * `aria-label` replaces a visible label rather than adding to it, so a field
+ * showing "Actor" while announcing "Filter by actor…" presents two different
+ * names for one control — the case WCAG 2.5.3 (Label in Name) is about, and a
+ * real problem for speech input, where the user says what they can see.
+ *
+ * Deliberately STRICTER than 2.5.3 itself, which only requires the visible text
+ * to be *contained* in the name. Containment is too weak to be a useful guard
+ * here: "Actor" is a substring of "Filter by actor…", so the shadowing this
+ * spec was written to catch would have passed a containment check. The codebase
+ * has a stronger rule anyway — SearchInput.vue omits its `aria-label` entirely
+ * when the caller supplies a visible label — so equality is the contract worth
+ * pinning. A control that genuinely needs a longer name should carry no visible
+ * `<label>` (the LB weight input is named per row exactly that way).
+ */
+async function labelShadowingViolations(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const normalize = (value: string | null): string =>
+      (value ?? "")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s]/gu, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const offenders: string[] = [];
+    const controls = document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+      "input:not([type='hidden']), select, textarea",
+    );
+    for (const el of controls) {
+      const style = getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") continue;
+      const ariaLabel = normalize(el.getAttribute("aria-label"));
+      if (!ariaLabel) continue;
+      const visible = normalize(
+        Array.from(el.labels ?? [])
+          .map((label) => label.textContent ?? "")
+          .join(" "),
+      );
+      if (!visible || visible === ariaLabel) continue;
+      offenders.push(
+        `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}: shows "${visible}", announces "${ariaLabel}"`,
+      );
+    }
+    return offenders;
+  });
+}
+
+/**
  * Every rendered `role="combobox"` with no accessible name.
  *
  * Separate from `unnamedFormControls` because a combobox is not an `<input>`
@@ -553,6 +605,10 @@ for (const route of ROUTES) {
     expect(unnamedCombos, `combobox(es) with no accessible name on ${route.path}: ${unnamedCombos.join(", ")}`).toEqual(
       [],
     );
+
+    // (5) No control announces something other than the label it displays.
+    const shadowed = await labelShadowingViolations(page);
+    expect(shadowed, `aria-label shadows the visible label on ${route.path}: ${shadowed.join(", ")}`).toEqual([]);
   });
 
   test(`responsive — ${route.key}: no horizontal scrolling at mobile or desktop`, async ({ page }) => {

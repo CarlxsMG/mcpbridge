@@ -1,22 +1,46 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { Search } from "lucide-vue-next";
 import { useI18n } from "vue-i18n";
 
-defineProps<{ placeholder?: string; ariaLabel?: string; id?: string }>();
+const props = defineProps<{ placeholder?: string; ariaLabel?: string; id?: string }>();
 const model = defineModel<string>({ default: "" });
 const { t } = useI18n({ useScope: "global" });
+
+/**
+ * The input's accessible name, or undefined to leave it to the caller's own
+ * `<label for>`.
+ *
+ * Passing an `id` is the signal that the caller has rendered a visible
+ * `<label for>` — every call site that passes one does (ServersPage's "Search",
+ * AuditLogPage's "Actor"/"Action"). In that case the component must stay out of
+ * the naming: an `aria-label` OVERRIDES the visible label rather than adding to
+ * it, so the placeholder fallback used to make the field announce "Filter by
+ * actor…" while showing "Actor". The visible text still happened to be a
+ * substring of the announced name, so it scraped past WCAG 2.5.3 (Label in
+ * Name) — but a speech-input user saying the label they can see was relying on
+ * that coincidence, and the mismatch is exactly what 2.5.3 exists to prevent.
+ *
+ * An explicit `ariaLabel` still wins, for callers that want a name different
+ * from both. With neither, the placeholder (then a generic "Search") names the
+ * field — which is why the unlabelled call sites are fine as they are.
+ *
+ * The contract is enforced, not just documented: e2e/accessibility.spec.ts
+ * fails on any rendered input with no accessible name, so passing an `id`
+ * without a matching `<label for>` shows up as a test failure rather than as a
+ * silently unnamed field.
+ */
+const accessibleName = computed<string | undefined>(() => {
+  if (props.ariaLabel) return props.ariaLabel;
+  if (props.id) return undefined;
+  return props.placeholder ?? t("common.search");
+});
 </script>
 
 <template>
   <div class="search-input">
     <Search :size="15" stroke-width="2" aria-hidden="true" />
-    <input
-      :id="id"
-      v-model="model"
-      type="search"
-      :placeholder="placeholder"
-      :aria-label="ariaLabel ?? placeholder ?? t('common.search')"
-    />
+    <input :id="id" v-model="model" type="search" :placeholder="placeholder" :aria-label="accessibleName" />
   </div>
 </template>
 
