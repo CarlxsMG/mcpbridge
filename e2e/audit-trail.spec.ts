@@ -315,6 +315,14 @@ test.describe("Audit trail — attribution, append-only storage, hash chain and 
         expect(verify.status(), `${account.role} was allowed to verify the chain`).toBe(403);
         const exported = await context.request.get(`${APP_BASE_URL}/admin-api/audit-log/export`, { headers });
         expect(exported.status(), `${account.role} was allowed to export the log`).toBe(403);
+
+        // The distinct-actions list is a projection of the very rows above, so
+        // it belongs behind the same gate. It shipped without one — the only
+        // route in the file that missed it — which let a viewer or auditor
+        // enumerate which action types a deployment had performed while being
+        // refused the entries themselves.
+        const actions = await context.request.get(`${APP_BASE_URL}/admin-api/audit-log/actions`, { headers });
+        expect(actions.status(), `${account.role} was allowed to enumerate audit actions`).toBe(403);
       } finally {
         await context.close();
       }
@@ -324,6 +332,16 @@ test.describe("Audit trail — attribution, append-only storage, hash chain and 
     // role gate and not a broken endpoint.
     const allowed = await readAuditLog(actorRequest, actorAuth, { actor: ACTOR_USERNAME, limit: "1" });
     expect(allowed.items.length).toBe(1);
+
+    const allowedActions = await actorRequest.get(`${APP_BASE_URL}/admin-api/audit-log/actions`, {
+      headers: apiHeaders(actorAuth),
+    });
+    expect(allowedActions.status(), "an operator must still be able to populate the action filter").toBe(200);
+    const actionsBody = (await allowedActions.json()) as { actions?: string[] };
+    // The admin-ui action filter is driven by this list, so an empty response
+    // would silently degrade the page rather than fail it — assert it really
+    // carries the actions this spec's own mutations produced.
+    expect(actionsBody.actions).toContain("tool.guards.update");
   });
 
   test("the SPA's audit-log page renders the entry and verifies the chain from the UI", async () => {

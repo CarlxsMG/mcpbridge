@@ -50,9 +50,20 @@ auditLogRoutes.get(
   },
 );
 
-/** Distinct action values present in the log — backs the admin-ui action filter's <select>. */
-auditLogRoutes.get("/audit-log/actions", (_req: Request, res: Response) => {
-  res.status(200).json({ actions: listAuditActions() });
+/**
+ * Distinct action values present in the log — backs the admin-ui action
+ * filter's <select>.
+ *
+ * `requireOperator` and the team scope are not optional extras here: this is a
+ * projection of the same rows /audit-log serves, so it has to sit behind the
+ * same gate. Without them a viewer or auditor — both of whom are refused the
+ * entries — could still enumerate which action types a deployment has
+ * performed, and a team-scoped operator would see action types drawn from
+ * every tenant. It only escaped the gate because it reads a single column.
+ */
+auditLogRoutes.get("/audit-log/actions", requireOperator, (req: Request, res: Response) => {
+  const teamId = callerTeamId(req);
+  res.status(200).json({ actions: listAuditActions(typeof teamId === "number" ? teamId : undefined) });
 });
 
 // Rate-limited: a single call reads up to 10,000 rows and serializes them all,

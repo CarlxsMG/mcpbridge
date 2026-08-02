@@ -270,9 +270,23 @@ export function listAuditLog(
  * backs the admin-ui action filter's <select> (a practical, always-accurate
  * "known action types" list with zero maintenance burden, vs. hand-maintaining
  * an enum of every `recordAudit(..., "some.action", ...)` call site).
+ *
+ * Takes the same `teamId` scope as listAuditLog/exportAuditLog, and for the
+ * same reason: the values are derived from the very rows those two filter, so
+ * an unscoped DISTINCT here would tell a team-scoped caller which action types
+ * occurred in *other* tenants — a narrower leak than the entries themselves,
+ * but the same kind, and it would reappear in the filter dropdown as options
+ * that match nothing the caller is allowed to see.
  */
-export function listAuditActions(): string[] {
-  const rows = getDb().query(`SELECT DISTINCT action FROM admin_audit_log ORDER BY action ASC`).all() as {
+export function listAuditActions(teamId?: number | null): string[] {
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
+  teamScopeCondition(conditions, params, teamId);
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const rows = getDb()
+    .query(`SELECT DISTINCT action FROM admin_audit_log ${whereClause} ORDER BY action ASC`)
+    .all(...params) as {
     action: string;
   }[];
   return rows.map((r) => r.action);

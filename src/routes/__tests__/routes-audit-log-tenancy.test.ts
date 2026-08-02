@@ -139,6 +139,50 @@ describe("GET /admin-api/audit-log — team scoping + role", () => {
   });
 });
 
+describe("GET /admin-api/audit-log/actions — team scoping + role", () => {
+  // The distinct-action list is a projection of the rows above, so it has to
+  // carry the same scope and the same role gate. It originally had neither —
+  // it was the one route in audit-log.ts without `requireOperator`, and its
+  // SELECT DISTINCT ran unfiltered.
+
+  test("a team-scoped operator sees only action types from its own team's entries", async () => {
+    await startApp();
+    const { teamId } = await seedTwoTeams();
+    // seedTwoTeams gives both teams the same action, which alone can't tell a
+    // scoped query from an unscoped one. This row is the discriminator: an
+    // action type that exists ONLY in the other team's entries.
+    recordAudit("actor-b", "client.disable", "svc-b");
+    const headers = sessionHeaders("audit-actions-op", "operator", teamId);
+
+    const res = await fetch(`${baseUrl}/admin-api/audit-log/actions`, { headers });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { actions: string[] };
+    expect(body.actions).toContain("client.enable");
+    expect(body.actions).not.toContain("client.disable");
+  });
+
+  test("a super-admin (bearer) sees every team's action types", async () => {
+    await startApp();
+    await seedTwoTeams();
+    recordAudit("actor-b", "client.disable", "svc-b");
+
+    const res = await fetch(`${baseUrl}/admin-api/audit-log/actions`, { headers: bearer() });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { actions: string[] };
+    expect(body.actions).toContain("client.enable");
+    expect(body.actions).toContain("client.disable");
+  });
+
+  test("a viewer is rejected (operator required)", async () => {
+    await startApp();
+    await seedTwoTeams();
+    const headers = sessionHeaders("audit-actions-viewer", "viewer", null);
+
+    const res = await fetch(`${baseUrl}/admin-api/audit-log/actions`, { headers });
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("GET /admin-api/audit-log/export — team scoping + role", () => {
   test("a team-scoped operator's export contains only its own team's entries", async () => {
     await startApp();
