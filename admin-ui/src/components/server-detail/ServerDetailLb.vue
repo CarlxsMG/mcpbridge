@@ -199,12 +199,20 @@ function confirmRemoveTarget() {
               <HoverPreview class="url-cell" :text="target.baseUrl" mono>{{ target.baseUrl }}</HoverPreview>
             </td>
             <td>
+              <!--
+                Named per row, not by the column header: every row renders one of
+                these, so a bare "Weight" would give every input in the table the
+                same name and a screen-reader user tabbing through them would
+                have no way to tell which target they were editing. The base URL
+                is the thing that distinguishes them in the adjacent cell.
+              -->
               <input
                 type="number"
                 min="1"
                 max="1000"
                 :value="target.weight"
                 :disabled="savingTargetId === target.id"
+                :aria-label="t('components.server_detail_lb.table.weight_for', { url: target.baseUrl })"
                 class="weight-input"
                 @change="updateTargetWeight(target, Number(($event.target as HTMLInputElement).value))"
               />

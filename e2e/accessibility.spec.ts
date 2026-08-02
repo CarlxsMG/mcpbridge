@@ -25,14 +25,23 @@
  *     `localStorage["mcpbridge:theme"]` via `composables/useTheme.ts`), so both
  *     themes must render readable text.
  *
- * TWO TESTS ARE `test.fail()` ON PURPOSE. They document real defects found
- * while writing this spec and are written as the assertion that *should* pass;
- * when either is fixed, Playwright reports "expected to fail, but passed" and
- * the `test.fail()` line should be deleted. See the comments on each.
+ * Every test here passes. Three of them were written first as `test.fail()`
+ * against real defects (a suppressed focus ring, a skip link with no target, an
+ * unnamed load-balancing weight input); those are fixed, and the tests are kept
+ * as regression guards. Each is written as the contract rather than as the
+ * shape of its fix, so a later refactor that satisfies the contract differently
+ * still passes.
+ *
+ * A caution learned while writing this: a probe is only as good as the naming
+ * rule it encodes. An earlier version of the combobox check accepted only
+ * `aria-label`/`aria-labelledby` and reported three correctly-named filter
+ * comboboxes as defects — a native `<label>` names them, and Chromium's own
+ * computation confirms it. Verify a suspected a11y defect against the browser's
+ * accessible name (`locator.ariaSnapshot()`) before treating it as real.
  */
 import { test, expect, type Locator, type Page } from "@playwright/test";
-import { BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME } from "./support/env";
-import { adminAuthHeaders, login, registerViaApi } from "./support/admin";
+import { APP_BASE_URL, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME, FIXTURE_BASE_URL } from "./support/env";
+import { adminAuthHeaders, apiHeaders, login, registerViaApi } from "./support/admin";
 
 /** Backend registered once for this spec so `/admin/servers/:name` has a real target. */
 const A11Y_SERVER = "e2e-a11y-api";
@@ -66,6 +75,13 @@ interface A11yRoute {
   ready(page: Page): Locator;
   /** Text of the page's single `<h1>`. */
   h1: string;
+  /**
+   * Optional in-page navigation to run after `ready`, for surfaces that are not
+   * addressable by URL. `ServerDetailPage.vue` keeps its active tab in a local
+   * `ref`, not the route, so the settings tab can only be reached by clicking
+   * it — and half the server-detail controls live there.
+   */
+  prepare?(page: Page): Promise<void>;
 }
 
 const ROUTES: A11yRoute[] = [
@@ -93,6 +109,31 @@ const ROUTES: A11yRoute[] = [
     h1: A11Y_SERVER,
   },
   {
+    key: "server detail (settings tab)",
+    path: `/admin/servers/${A11Y_SERVER}`,
+    authed: true,
+    ready: (page) => page.locator("#server-detail-panel"),
+    h1: A11Y_SERVER,
+    // Upstream auth, load balancing and canary all live behind this tab, and
+    // each renders a SelectMenu. The upstream-auth one is only mounted once its
+    // editor is open, so the edit toggle is part of getting the surface on
+    // screen rather than a separate thing being tested.
+    prepare: async (page) => {
+      await page.getByRole("tab", { name: "Settings" }).click();
+      // The LB pool table is the last of the settings sections to need data, so
+      // waiting for it means every section below has rendered too.
+      await expect(page.locator(".lb-targets").first()).toBeVisible();
+      // ServerDetailUpstreamAuth.vue keeps its form behind `v-if="uaEditing"`.
+      // The toggle reads "Set credentials" or "Change" depending on whether a
+      // credential already exists, so match either rather than a fixed label.
+      await page
+        .getByRole("button", { name: /Set credentials|Change/ })
+        .first()
+        .click();
+      await expect(page.locator("form.ua-form").first()).toBeVisible();
+    },
+  },
+  {
     key: "register server (form)",
     path: "/admin/register-server",
     authed: true,
@@ -113,6 +154,7 @@ async function openRoute(page: Page, route: A11yRoute): Promise<void> {
   if (route.authed) await login(page, BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_PASSWORD);
   await page.goto(route.path);
   await expect(route.ready(page)).toBeVisible();
+  if (route.prepare) await route.prepare(page);
 }
 
 // ── DOM probes (all run inside the page; none may capture outer scope) ───────
@@ -364,6 +406,70 @@ function hasOutlineRing(style: FocusStyle): boolean {
   return style.outlineStyle !== "none" && parseFloat(style.outlineWidth) >= 1;
 }
 
+/**
+ * Every rendered `role="combobox"` with no accessible name.
+ *
+ * Separate from `unnamedFormControls` because a combobox is not an `<input>`
+ * and so is not in that query — `SelectMenu.vue` renders a
+ * `<button role="combobox">`. It also can't be checked the way icon-only
+ * buttons are: `combobox` prohibits name-from-content, so the trigger's text
+ * (the selected option) is NOT its name, and a combobox showing "round-robin"
+ * reads as named to any content-based check while announcing only its value.
+ *
+ * A native `<label>` DOES count, whether associated by `for=` or by wrapping.
+ * That is accname step 2C (host-language labelling), which is evaluated before
+ * name-from-content and is therefore unaffected by the content prohibition —
+ * verified against Chromium's own computation, which reports `combobox "State"`
+ * for a `<label for>` pair and `combobox "Strategy"` for a wrapping label. An
+ * earlier version of this probe accepted only `aria-*` and reported three
+ * correctly-named filter comboboxes as defects.
+ */
+async function unnamedComboboxes(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const squash = (value: string | null): string => (value ?? "").replace(/\s+/g, " ").trim();
+
+    const rendered = (el: Element): boolean => {
+      const style = getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      return el.closest("[hidden]") === null && el.closest('[aria-hidden="true"]') === null;
+    };
+
+    const authorName = (el: Element): string => {
+      const labelledBy = el.getAttribute("aria-labelledby");
+      if (labelledBy) {
+        const text = labelledBy
+          .split(/\s+/)
+          .map((id) => document.getElementById(id))
+          .map((node) => (node ? squash(node.textContent) : ""))
+          .filter((value) => value.length > 0)
+          .join(" ");
+        if (text) return text;
+      }
+      const ariaLabel = squash(el.getAttribute("aria-label"));
+      if (ariaLabel) return ariaLabel;
+      // `<button>` is a labelable element, so `.labels` resolves both `for=`
+      // and ancestor `<label>` associations — the same set the browser uses.
+      const labels = (el as HTMLElement & { labels?: NodeListOf<HTMLLabelElement> | null }).labels;
+      return Array.from(labels ?? [])
+        .map((label) => squash(label.textContent))
+        .filter((value) => value.length > 0)
+        .join(" ");
+    };
+
+    const offenders: string[] = [];
+    for (const el of document.querySelectorAll('[role="combobox"]')) {
+      if (!rendered(el) || authorName(el)) continue;
+      const cls = squash(el.getAttribute("class"));
+      const owner = el.closest("section, form, fieldset");
+      const ownerHint = owner ? squash(owner.className) || owner.tagName.toLowerCase() : "?";
+      offenders.push(
+        `${el.tagName.toLowerCase()}[role=combobox]${cls ? `.${cls.split(" ").join(".")}` : ""} in ${ownerHint}`,
+      );
+    }
+    return offenders;
+  });
+}
+
 // ── Shared fixture ──────────────────────────────────────────────────────────
 
 test.beforeAll(async ({ browser }) => {
@@ -374,6 +480,30 @@ test.beforeAll(async ({ browser }) => {
     const auth = await adminAuthHeaders(page);
     // Tolerates the 409 a re-run against a reused dev server produces.
     await registerViaApi(page.context().request, auth, A11Y_SERVER);
+
+    // Stand up a load-balancing pool so the targets table renders. BOTH calls
+    // are needed, in this order: the table sits behind `v-if="lb"`, and `lb` is
+    // only non-null once the pool CONFIG exists — adding an upstream alone
+    // leaves it null and the table unmounted. Its per-row weight input is one
+    // of the controls the settings-tab sweep exists to check, so without this
+    // the sweep would pass by simply never seeing it.
+    const lbConfig = await page.context().request.put(`${APP_BASE_URL}/admin-api/clients/${A11Y_SERVER}/lb`, {
+      headers: apiHeaders(auth),
+      data: { strategy: "weighted", primaryWeight: 1, enabled: true },
+    });
+    expect(lbConfig.status(), `lb config failed: ${await lbConfig.text()}`).toBe(200);
+
+    const lbTarget = await page
+      .context()
+      .request.post(`${APP_BASE_URL}/admin-api/clients/${A11Y_SERVER}/lb/upstreams`, {
+        headers: apiHeaders(auth),
+        data: { baseUrl: FIXTURE_BASE_URL, weight: 3 },
+      });
+    // 201 the first time; a re-run against a reused server may reject a
+    // duplicate, which is fine — the target from the earlier run is still there.
+    expect([201, 400, 409], `unexpected lb upstream status: ${lbTarget.status()} ${await lbTarget.text()}`).toContain(
+      lbTarget.status(),
+    );
   } finally {
     await context.close();
   }
@@ -412,6 +542,15 @@ for (const route of ROUTES) {
     expect(altless, `<img> without an alt attribute on ${route.path}: ${altless.join(", ")}`).toEqual([]);
     const nameless = await unnamedIconButtons(page);
     expect(nameless, `icon-only button(s) with no accessible name on ${route.path}: ${nameless.join(", ")}`).toEqual(
+      [],
+    );
+
+    // (4) Comboboxes are named. Checked apart from (1) because a combobox is
+    // not an <input>, and apart from (3) because the role takes no name from
+    // its content — a SelectMenu showing its selected option reads as named to
+    // every content-based check while announcing only that value.
+    const unnamedCombos = await unnamedComboboxes(page);
+    expect(unnamedCombos, `combobox(es) with no accessible name on ${route.path}: ${unnamedCombos.join(", ")}`).toEqual(
       [],
     );
   });

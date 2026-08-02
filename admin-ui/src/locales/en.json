@@ -394,6 +394,7 @@
       "table": {
         "base_url": "Base URL",
         "weight": "Weight",
+        "weight_for": "Weight for {url}",
         "enabled": "Enabled"
       },
       "errors": {
