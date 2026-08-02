@@ -670,6 +670,36 @@ test.describe("keyboard", () => {
       "neither #d-search nor its .search-input wrapper draws a focus ring",
     ).toBe(true);
   });
+
+  // Regression guard for the same defect in the command palette, which had the
+  // identical `outline: none`. The reason it matters there is specific: the
+  // result rows are real <button>s with `role="option"`, so they sit in the tab
+  // order and Tab genuinely moves focus off the input and back. Without a ring
+  // that return is invisible — which is why "the input is focused the whole
+  // time anyway" is not a defence.
+  test("the command palette's input shows a focus indicator", async ({ page }) => {
+    await login(page, BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_PASSWORD);
+    await page.goto("/admin/servers");
+
+    await page.getByRole("button", { name: "Open command palette" }).click();
+    const panel = page.locator(".cmd-panel");
+    await expect(panel).toBeVisible();
+
+    // show() focuses the input itself, so it is already the active element.
+    const input = panel.locator("input[role='combobox']");
+    await expect(input).toBeFocused();
+    expect(
+      hasOutlineRing(await focusStyleOf(page, ".cmd-panel input[role='combobox']")),
+      "the focused command-palette input draws no focus ring",
+    ).toBe(true);
+
+    // The premise of the test above: focus really can leave the input.
+    await page.keyboard.press("Tab");
+    await expect(input).not.toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+  });
 });
 
 // ── Landmarks & bypass block ────────────────────────────────────────────────

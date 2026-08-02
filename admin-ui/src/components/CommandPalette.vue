@@ -367,7 +367,15 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
 .cmd-input-row input {
   flex: 1;
   border: none;
-  outline: none;
+  /* No `outline: none` here. The global `:focus-visible` ring in style.css is
+     what tells a keyboard user where focus is, and this input needs it: the
+     result rows are real <button>s in the tab order, so Tab moves focus out of
+     the field and back into it, and without a ring the return is invisible.
+     Unlike SearchInput.vue — where the ring is hoisted to the wrapper because
+     the wrapper owns the border, radius and background — `.cmd-input-row` is
+     just a padded header strip with a divider, so a ring around it would read
+     as a full-width band across the dialog rather than as a focused control.
+     Here the input IS the control, so the ring belongs on it. */
   font-size: var(--text-md);
   font-family: var(--font-body);
   color: var(--text-primary);
