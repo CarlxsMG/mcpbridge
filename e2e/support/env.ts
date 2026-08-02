@@ -19,3 +19,24 @@ export const BOOTSTRAP_ADMIN_PASSWORD = "e2e-admin-password-2026";
 
 /** Name under which the fixture REST API is registered as a backend client. */
 export const DEMO_SERVER_NAME = "e2e-demo-api";
+
+/**
+ * Paths served by the fixture server (see support/fixture-server.ts).
+ *
+ * `/openapi.json` serves the repo's shared fixtures/simple-openapi.json
+ * unchanged — backend unit tests assert on that file, so it must not grow new
+ * paths. `/openapi-extended.json` is the e2e-only superset that adds the
+ * endpoints the newer specs need (a failing endpoint for the circuit breaker,
+ * a secret-leaking one for the sanitizer, a slow one for timeout guards).
+ */
+export const FIXTURE_OPENAPI_PATH = "/openapi.json";
+export const FIXTURE_OPENAPI_EXTENDED_PATH = "/openapi-extended.json";
+export const FIXTURE_GRAPHQL_PATH = "/graphql";
+
+/**
+ * Control channel for toggling fixture behaviour mid-spec (used by the circuit
+ * breaker spec to make a single tool endpoint start failing without taking
+ * `/health` down with it — health-check eviction would otherwise remove the
+ * client before the breaker could trip).
+ */
+export const FIXTURE_CONTROL_PATH = "/__control";

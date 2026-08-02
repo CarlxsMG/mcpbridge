@@ -22,7 +22,7 @@
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { APP_BASE_URL } from "./support/env";
-import { login, registerFixtureServer } from "./support/admin";
+import { adminAuthHeaders, login, mintMcpKey, registerFixtureServer } from "./support/admin";
 import { initMcpSession, mcpCall, parseSseJson } from "./support/mcp";
 
 /** Unique server name per spec run so this file can run alongside the others. */
@@ -46,23 +46,8 @@ test.describe("MCP data plane — protocol contract", () => {
 
     // Mint a key so the data plane is in a known auth-required state and
     // this spec is independent of the order it runs in.
-    const cookies = await page.context().cookies();
-    const cookieHeader = `mcp_admin_session=${cookies.find((c) => c.name === "mcp_admin_session")?.value ?? ""}`;
-    const csrfHeader =
-      cookies.find((c) => c.name === "mcp_admin_csrf" || c.name === "__Host-mcp_admin_csrf")?.value ?? "";
-    const minted = await request.post(`${APP_BASE_URL}/admin-api/mcp-keys`, {
-      headers: { cookie: cookieHeader, "x-csrf-token": csrfHeader, "content-type": "application/json" },
-      data: {
-        label: "e2e-mcp-protocol",
-        scopes: null,
-        expiresAt: null,
-        consumerId: null,
-        elevated: false,
-        adminRole: null,
-      },
-    });
-    expect(minted.status(), `mcp-key create failed: ${await minted.text()}`).toBe(201);
-    bearer = (await minted.json()) as { key: string };
+    const auth = await adminAuthHeaders(page);
+    bearer = await mintMcpKey(request, auth, "e2e-mcp-protocol");
   });
 
   test.afterAll(async () => {

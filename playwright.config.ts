@@ -54,6 +54,26 @@ export default defineConfig({
       CORS_ORIGINS: "",
       METRICS_ENABLED: "false",
       LOG_FORMAT: "text",
+
+      // The whole suite hits the backend from one IP (127.0.0.1), so every
+      // spec's logins, registrations and tool calls land in the SAME rate-limit
+      // bucket. At the shipped defaults (10 logins, 10 registrations, 100 MCP
+      // calls per window) the suite throttles itself somewhere in the middle
+      // and fails with a 429 that looks nothing like the bug it interrupts.
+      // Raised well past what the suite can emit, so the only rate limiting an
+      // assertion ever sees is the PER-TOOL guard a spec configures itself
+      // (enforced in proxyToolCall from the DB, not from these env knobs) —
+      // which is exactly what guard-enforcement.spec.ts asserts on.
+      RATE_LIMIT_LOGIN: "100000",
+      RATE_LIMIT_REGISTER: "100000",
+      RATE_LIMIT_MCP: "100000",
+      RATE_LIMIT_GLOBAL: "1000000",
+      RATE_LIMIT_EXPENSIVE: "100000",
+
+      // Trip breakers on the second consecutive failure instead of the third,
+      // so circuit-breaker.spec.ts needs one less round trip to open one. Specs
+      // that care about the exact number set it per client via the admin API.
+      CIRCUIT_BREAKER_FAILURE_THRESHOLD: "2",
     },
   },
 });

@@ -1,6 +1,18 @@
 /**
  * End-to-end test for the MCP auth "fail-closed" contract.
  *
+ * ── THE `00-` PREFIX IS LOAD-BEARING ────────────────────────────────────────
+ * The first assertion below requires that NO managed MCP key exists yet: the
+ * data plane's "open mode" is a property of the whole process, and the first
+ * key minted anywhere in the suite ends it permanently. Playwright runs spec
+ * files in path-sorted order (workers: 1, fullyParallel: false), so this file
+ * has to sort first, and the numeric prefix is what guarantees that rather
+ * than the alphabetical luck the name used to rely on. Several sibling specs
+ * (audit-trail, accessibility, bundles, ...) mint keys and would otherwise
+ * silently invalidate the open-mode premise — the failure surfaces here, one
+ * file away from its cause, as an unexplained 401 on a request that should
+ * have been allowed.
+ *
  * What this exercises that the existing smoke test does not:
  *
  *   - The data plane (`/mcp/:clientName`) starts in "open mode" while no
@@ -19,7 +31,14 @@
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { APP_BASE_URL } from "./support/env";
-import { adminAuthHeaders, login, registerFixtureServer } from "./support/admin";
+import {
+  type AdminAuth,
+  adminAuthHeaders,
+  login,
+  mintMcpKey,
+  registerFixtureServer,
+  revokeMcpKey,
+} from "./support/admin";
 
 /** Unique server name per spec run so this file can run alongside smoke.spec.ts. */
 const SERVER_NAME = "e2e-auth-fail-closed-api";
@@ -71,27 +90,10 @@ async function dataPlanePost(authHeader: string | null, serverName: string): Pro
   };
 }
 
-/** Mints a managed MCP key through the admin API; returns { id, rawKey }. */
-async function mintKey(
-  request: APIRequestContext,
-  cookieHeader: string,
-  csrfHeader: string,
-  label: string,
-): Promise<{ id: number; rawKey: string }> {
-  const res = await request.post(`${APP_BASE_URL}/admin-api/mcp-keys`, {
-    headers: { cookie: cookieHeader, "x-csrf-token": csrfHeader, "content-type": "application/json" },
-    data: { label, scopes: null, expiresAt: null, consumerId: null, elevated: false, adminRole: null },
-  });
-  expect(res.status(), `mcp-key create failed: ${await res.text()}`).toBe(201);
-  const body = (await res.json()) as { id: number; key: string };
-  return { id: body.id, rawKey: body.key };
-}
-
 test.describe("MCP data plane — fail-closed lock-down after a managed key is minted", () => {
   let page: Page;
   let request: APIRequestContext;
-  let cookieHeader: string;
-  let csrfHeader: string;
+  let auth: AdminAuth;
   let rawKey: string;
   let keyId: number;
 
@@ -99,9 +101,7 @@ test.describe("MCP data plane — fail-closed lock-down after a managed key is m
     page = await browser.newPage();
     request = page.context().request;
     await login(page);
-    const auth = await adminAuthHeaders(page);
-    cookieHeader = auth.cookie;
-    csrfHeader = auth.csrf;
+    auth = await adminAuthHeaders(page);
     await registerFixtureServer(page, SERVER_NAME);
   });
 
@@ -120,8 +120,8 @@ test.describe("MCP data plane — fail-closed lock-down after a managed key is m
     expect(before.sessionId, `headers: ${JSON.stringify(before._allHeaders)}, body: ${before.bodyText}`).toBeTruthy();
 
     // Mint a key — this is the moment the surface locks down.
-    const minted = await mintKey(request, cookieHeader, csrfHeader, "e2e-auth-fail-closed");
-    rawKey = minted.rawKey;
+    const minted = await mintMcpKey(request, auth, "e2e-auth-fail-closed");
+    rawKey = minted.key;
     keyId = minted.id;
     expect(rawKey).toMatch(/^mcp_/);
     expect(keyId).toBeGreaterThan(0);
@@ -148,10 +148,7 @@ test.describe("MCP data plane — fail-closed lock-down after a managed key is m
   });
 
   test("revoking the key removes its access (subsequent call returns 403)", async () => {
-    const revoke = await request.post(`${APP_BASE_URL}/admin-api/mcp-keys/${keyId}/revoke`, {
-      headers: { cookie: cookieHeader, "x-csrf-token": csrfHeader },
-    });
-    expect(revoke.status(), `revoke failed: ${await revoke.text()}`).toBe(200);
+    await revokeMcpKey(request, auth, keyId);
 
     const res = await dataPlanePost(`Bearer ${rawKey}`, SERVER_NAME);
     expect(res.status).toBe(403);

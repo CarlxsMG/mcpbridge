@@ -19,8 +19,8 @@
  * the control-plane auth story.
  */
 import { test, expect } from "@playwright/test";
-import { APP_BASE_URL, DEMO_SERVER_NAME, FIXTURE_BASE_URL } from "./support/env";
-import { adminAuthHeaders, login } from "./support/admin";
+import { DEMO_SERVER_NAME, FIXTURE_BASE_URL } from "./support/env";
+import { adminAuthHeaders, login, mintMcpKey } from "./support/admin";
 import { initMcpSession, mcpToolsCall } from "./support/mcp";
 
 test("login -> register a REST backend from OpenAPI -> call the discovered tool via MCP", async ({ page, request }) => {
@@ -48,14 +48,8 @@ test("login -> register a REST backend from OpenAPI -> call the discovered tool 
   // The data plane is fail-closed once any auth material exists. To keep
   // this spec independent of the order in which the e2e suite runs, mint
   // a fresh key here and use it for the data-plane call below.
-  const { cookie, csrf } = await adminAuthHeaders(page);
-  const minted = await request.post(`${APP_BASE_URL}/admin-api/mcp-keys`, {
-    headers: { cookie, "x-csrf-token": csrf, "content-type": "application/json" },
-    data: { label: "e2e-smoke", scopes: null, expiresAt: null, consumerId: null, elevated: false, adminRole: null },
-  });
-  expect(minted.status(), `mcp-key create failed: ${await minted.text()}`).toBe(201);
-  const bearer = (await minted.json()) as { key: string };
-  const authHeader = `Bearer ${bearer.key}`;
+  const auth = await adminAuthHeaders(page);
+  const { authHeader } = await mintMcpKey(request, auth, "e2e-smoke");
 
   // ── (d) Call the discovered tool via the MCP data plane (raw JSON-RPC) ────
   // The data plane is one client per session — /mcp/<clientName>. The /mcp
