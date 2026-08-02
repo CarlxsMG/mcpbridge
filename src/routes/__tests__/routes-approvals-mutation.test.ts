@@ -47,6 +47,25 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
 
 const bearer = (): Record<string, string> => jsonBearerHeaders(ADMIN_KEY);
 
+/**
+ * Session headers for an arbitrary role, with NO team — so `callerTeamId`
+ * returns null, the tenancy filter is a no-op, and a role-gate test is
+ * measuring only the role. `teamSessionHeaders` below is the tenancy-scoped
+ * counterpart and always mints an admin.
+ */
+function roleSessionHeaders(
+  username: string,
+  role: "admin" | "operator" | "auditor" | "viewer",
+): Record<string, string> {
+  const user = createUser(username, "irrelevant-hash", role, null);
+  const session = createSession(user.id, "127.0.0.1", "test-agent");
+  return {
+    "Content-Type": "application/json",
+    Cookie: `${SESSION_COOKIE_NAME}=${session.token}; ${CSRF_COOKIE_NAME}=${session.csrfToken}`,
+    "X-CSRF-Token": session.csrfToken,
+  };
+}
+
 function teamSessionHeaders(username: string): Record<string, string> {
   const team = createTeam(`team-${username}`, "test");
   if (typeof team === "string") throw new Error(`createTeam failed: ${team}`);
@@ -156,6 +175,40 @@ describe("GET /admin-api/approvals — status filter", () => {
       const res = await fetch(`${baseUrl}/admin-api/approvals?status=bogus`, { headers: bearer() });
       const body = (await res.json()) as { items: unknown[] };
       expect(body.items.length).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe("GET /admin-api/approvals — role gate", () => {
+  // The list route shipped without `requireOperator` while both decision
+  // routes had it, so a viewer or auditor could read every ticket in scope —
+  // including each `args_json`, the unredacted arguments of a call somebody
+  // judged risky enough to require a human sign-off. Deliberately TEAMLESS
+  // users: `callerTeamId` then returns null and the tenancy filter is a no-op,
+  // so the role gate is the only thing under test.
+  for (const role of ["viewer", "auditor"] as const) {
+    test(`a ${role} is refused (operator required)`, async () => {
+      await withApp(async (baseUrl) => {
+        await reg("svc-approvals-role");
+        seedApproval("svc-approvals-role");
+        const res = await fetch(`${baseUrl}/admin-api/approvals`, {
+          headers: roleSessionHeaders(`approvals-${role}`, role),
+        });
+        expect(res.status).toBe(403);
+        expect(((await res.json()) as { error?: { code?: string } }).error?.code).toBe("FORBIDDEN");
+      });
+    });
+  }
+
+  test("an operator is allowed — so the refusals above are the gate, not a broken route", async () => {
+    await withApp(async (baseUrl) => {
+      await reg("svc-approvals-role-ok");
+      seedApproval("svc-approvals-role-ok");
+      const res = await fetch(`${baseUrl}/admin-api/approvals`, {
+        headers: roleSessionHeaders("approvals-operator", "operator"),
+      });
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as { items: unknown[] }).items.length).toBeGreaterThan(0);
     });
   });
 });

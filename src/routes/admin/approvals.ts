@@ -14,13 +14,18 @@ import { toolKey } from "../../lib/identifier.js";
  */
 export const approvalsRoutes = Router();
 
-approvalsRoutes.get("/approvals", (req: Request, res: Response) => {
+// `requireOperator` for the same reason the decision routes below carry it, and
+// the same reason traffic.ts's reads were raised to operator+: a ticket's
+// argsJson is the unredacted payload of a call somebody judged risky enough to
+// require a human, so the queue is at least as sensitive as the act of deciding
+// on it. This route shipped without the gate while both mutating siblings had
+// it, which let a viewer or auditor read every ticket in their team's queue.
+approvalsRoutes.get("/approvals", requireOperator, (req: Request, res: Response) => {
   const q = req.query.status;
   const status: ApprovalStatus | undefined = q === "pending" || q === "approved" || q === "rejected" ? q : undefined;
   const teamId = callerTeamId(req);
-  // Tenancy: a team-scoped caller only sees approval tickets for clients their
-  // team owns — a ticket's argsJson carries the same unredacted, potentially
-  // sensitive call payload traffic records do (see traffic.ts's equivalent scope).
+  // Tenancy, orthogonal to the role gate above: a team-scoped caller only sees
+  // approval tickets for clients their team owns.
   res.status(200).json({ items: listApprovals(status, typeof teamId === "number" ? teamId : undefined) });
 });
 

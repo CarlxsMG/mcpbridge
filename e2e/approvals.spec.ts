@@ -588,7 +588,7 @@ test.describe("multi-level approvals — the dispatch gate, the queue and the de
 
   // ── (6) Who may decide ────────────────────────────────────────────────────
 
-  test("deciding is operator-gated — a viewer and an auditor are refused (403 FORBIDDEN)", async ({ browser }) => {
+  test("reading and deciding are operator-gated — a viewer and an auditor are refused (403)", async ({ browser }) => {
     const id = await fileTicket(GATED.tool);
 
     for (const account of LOWER_PRIVILEGE) {
@@ -608,18 +608,16 @@ test.describe("multi-level approvals — the dispatch gate, the queue and the de
           expect(((await res.json()) as DecisionBody).error?.code).toBe("FORBIDDEN");
         }
 
-        // FINDING, pinned deliberately: the LIST route carries no role gate at
-        // all (src/routes/admin/approvals.ts mounts only `adminAuth` for the
-        // GET), so a viewer reads the whole queue — including each ticket's
-        // `argsJson`, the unredacted arguments of a call somebody thought risky
-        // enough to require a human. `listApprovals`'s own doc comment cites
-        // traffic.ts as its model for exactly that reason, and the traffic reads
-        // WERE raised to operator+. This assertion documents the current
-        // behaviour so tightening it is a deliberate, visible change here.
+        // READING the queue is gated too, not just deciding. It shipped without
+        // the gate — the only route in approvals.ts without one — which let a
+        // viewer or auditor read every ticket in their team's queue, including
+        // each `argsJson`: the unredacted arguments of a call somebody judged
+        // risky enough to require a human. Sensitivity is the same argument the
+        // route's own comment makes by pointing at traffic.ts, whose reads were
+        // raised to operator+ in an earlier pass.
         const queue = await context.request.get(`${APP_BASE_URL}/admin-api/approvals`, { headers: apiHeaders(auth) });
-        expect(queue.status(), `unexpected status reading the queue as ${account.role}`).toBe(200);
-        const items = ((await queue.json()) as { items: ApprovalTicket[] }).items;
-        expect(items.some((t) => t.id === id)).toBe(true);
+        expect(queue.status(), `${account.role} was allowed to read the approval queue`).toBe(403);
+        expect(((await queue.json()) as DecisionBody).error?.code).toBe("FORBIDDEN");
       } finally {
         await context.close();
       }
