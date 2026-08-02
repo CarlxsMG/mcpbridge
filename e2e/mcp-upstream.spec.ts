@@ -41,7 +41,7 @@ import { test, expect, type APIRequestContext, type Page } from "@playwright/tes
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { APP_BASE_URL, FIXTURE_BASE_URL } from "./support/env";
 import { apiHeaders, deleteClient, loginAs, mintMcpKey, type AdminAuth } from "./support/admin";
-import { initMcpSession, parseSseJson } from "./support/mcp";
+import { closeTrackedMcpSessions, initMcpSession, parseSseJson } from "./support/mcp";
 
 // ── Names ───────────────────────────────────────────────────────────────────
 
@@ -418,6 +418,8 @@ test.describe("MCP upstream gateway — MCP-to-MCP registration, discovery and d
   });
 
   test.afterAll(async () => {
+    // Hand session slots back to the process-wide maxSessions budget.
+    await closeTrackedMcpSessions();
     // Drop the client before the upstream goes away, so the health loop is not
     // left probing a dead port for the rest of the run.
     await deleteClient(request, auth, GW);

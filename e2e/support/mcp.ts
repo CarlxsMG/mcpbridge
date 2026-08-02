@@ -81,6 +81,11 @@ export async function initMcpSession(
     body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
   });
 
+  // Register for teardown. Tracking here rather than at each call site is what
+  // makes cleanup a single `afterAll` line per spec instead of an id threaded
+  // through every helper — see closeTrackedMcpSessions.
+  openSessions.push({ path, sessionId, authHeader });
+
   return { sessionId, serverInfo: result?.serverInfo ?? {} };
 }
 
@@ -124,4 +129,50 @@ export async function mcpToolsCall(
     { jsonrpc: "2.0", method: "tools/call", id: 2, params: { name: toolName, arguments: args } },
     authHeader,
   );
+}
+
+// ── Session cleanup ─────────────────────────────────────────────────────────
+
+/**
+ * Every session `initMcpSession` has opened and not yet released.
+ *
+ * Module scope, which with `workers: 1` means one registry shared by the whole
+ * run — deliberately. Playwright executes spec FILES sequentially, so by the
+ * time any file's `afterAll` runs, its own tests are done; anything still in
+ * here belongs either to that file or to an earlier one that failed to clean
+ * up, and both should be released. Closing is idempotent server-side
+ * (`releaseSession`), so a double release cannot over-credit the counter.
+ */
+const openSessions: { path: string; sessionId: string; authHeader?: string }[] = [];
+
+/**
+ * Release one session. Best-effort by design: a spec may have already closed
+ * it, the TTL sweep may have reaped it, or the client may have been deleted out
+ * from under it — none of which is a test failure, and all of which answer 404.
+ */
+export async function closeMcpSession(path: string, sessionId: string, authHeader?: string): Promise<void> {
+  const headers: Record<string, string> = { "mcp-session-id": sessionId };
+  if (authHeader) headers.authorization = authHeader;
+  try {
+    await fetch(`${APP_BASE_URL}${path}`, { method: "DELETE", headers });
+  } catch {
+    // Network-level failure during teardown is not worth failing a suite over.
+  }
+}
+
+/**
+ * Release every session opened through `initMcpSession` so far.
+ *
+ * Call from a spec's `afterAll`. This matters more than it looks: the gateway
+ * caps concurrent sessions at `config.maxSessions` (100) for the whole process,
+ * and the suite shares ONE backend across every spec file. Sessions live for a
+ * 30-minute TTL while the suite finishes in about a minute, so nothing expires
+ * mid-run and a spec that leaks simply subtracts from every later spec's
+ * headroom. Measured before this existed: the suite ended with 41 of the 100
+ * slots still held, and a spec that exhausted the rest would have made every
+ * subsequent `initialize` fail with a 503 that looked nothing like its cause.
+ */
+export async function closeTrackedMcpSessions(): Promise<void> {
+  const pending = openSessions.splice(0, openSessions.length);
+  await Promise.all(pending.map((s) => closeMcpSession(s.path, s.sessionId, s.authHeader)));
 }

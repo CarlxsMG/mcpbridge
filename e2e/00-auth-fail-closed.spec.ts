@@ -31,6 +31,7 @@
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { APP_BASE_URL } from "./support/env";
+import { closeMcpSession } from "./support/mcp";
 import {
   type AdminAuth,
   adminAuthHeaders,
@@ -51,6 +52,9 @@ interface McpAuthCall {
   sessionId: string | null;
   _allHeaders?: Record<string, string>;
 }
+
+/** Sessions `dataPlanePost` established, for release in afterAll. */
+const establishedSessions: { sessionId: string; authHeader: string | null }[] = [];
 
 /** Calls the data plane's POST without a session. We just want the auth verdict. */
 async function dataPlanePost(authHeader: string | null, serverName: string): Promise<McpAuthCall> {
@@ -82,10 +86,18 @@ async function dataPlanePost(authHeader: string | null, serverName: string): Pro
   res.headers.forEach((v, k) => {
     allHeaders[k] = v;
   });
+  const sessionId = res.headers.get("mcp-session-id");
+  // Every ACCEPTED initialize here establishes a real session and takes a slot
+  // out of the process-wide `maxSessions` budget the whole suite shares. This
+  // helper deliberately bypasses `initMcpSession` (it asserts on the raw wire
+  // response, including the rejections), so the shared registry never sees
+  // these — they have to be tracked by hand and released in afterAll.
+  if (sessionId) establishedSessions.push({ sessionId, authHeader });
+
   return {
     status: res.status,
     bodyText: await res.text(),
-    sessionId: res.headers.get("mcp-session-id"),
+    sessionId,
     _allHeaders: allHeaders,
   };
 }
@@ -106,6 +118,11 @@ test.describe("MCP data plane — fail-closed lock-down after a managed key is m
   });
 
   test.afterAll(async () => {
+    // This spec runs FIRST, so anything it leaks is subtracted from every other
+    // spec's session headroom for the rest of the run.
+    for (const s of establishedSessions) {
+      await closeMcpSession(`/mcp/${SERVER_NAME}`, s.sessionId, s.authHeader ?? undefined);
+    }
     await page.close();
   });
 

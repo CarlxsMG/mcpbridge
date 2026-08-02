@@ -21,7 +21,14 @@
 import { test, expect } from "@playwright/test";
 import { DEMO_SERVER_NAME, FIXTURE_BASE_URL } from "./support/env";
 import { adminAuthHeaders, login, mintMcpKey } from "./support/admin";
-import { initMcpSession, mcpToolsCall } from "./support/mcp";
+import { closeTrackedMcpSessions, initMcpSession, mcpToolsCall } from "./support/mcp";
+
+// Release the session this spec establishes back to the process-wide
+// `maxSessions` budget. One session is not much on its own, but the suite
+// shares a single 100-slot budget across every spec file and sessions outlive
+// the run at a 30-minute TTL, so "not much" repeated per spec is what turns
+// into a later spec's unexplained 503.
+test.afterAll(closeTrackedMcpSessions);
 
 test("login -> register a REST backend from OpenAPI -> call the discovered tool via MCP", async ({ page, request }) => {
   // ── (a) Log in ────────────────────────────────────────────────────────────

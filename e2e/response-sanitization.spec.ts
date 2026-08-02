@@ -49,7 +49,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { APP_BASE_URL, FIXTURE_OPENAPI_EXTENDED_PATH } from "./support/env";
 import { apiHeaders, loginAs, mintMcpKey, registerViaApi, type AdminAuth } from "./support/admin";
-import { initMcpSession, mcpToolsCall } from "./support/mcp";
+import { closeTrackedMcpSessions, initMcpSession, mcpToolsCall } from "./support/mcp";
 
 /** The marker `applyRedaction` writes in place of a matched leaf (REDACTION_PLACEHOLDER). */
 const REDACTED = "[REDACTED]";
@@ -235,6 +235,8 @@ test.describe("outbound response sanitization", () => {
   });
 
   test.afterAll(async () => {
+    // Hand session slots back to the process-wide maxSessions budget.
+    await closeTrackedMcpSessions();
     await page.close();
   });
 

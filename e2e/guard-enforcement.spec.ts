@@ -30,7 +30,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { APP_BASE_URL, FIXTURE_OPENAPI_EXTENDED_PATH } from "./support/env";
 import { apiHeaders, loginAs, mintMcpKey, registerViaApi, type AdminAuth } from "./support/admin";
-import { initMcpSession, mcpToolsCall, parseSseJson, type McpCallResult } from "./support/mcp";
+import { closeTrackedMcpSessions, initMcpSession, mcpToolsCall, parseSseJson, type McpCallResult } from "./support/mcp";
 
 // ── Fixtures under test ──────────────────────────────────────────────────────
 
@@ -167,6 +167,8 @@ test.describe("per-tool guards are enforced at dispatch", () => {
   });
 
   test.afterAll(async () => {
+    // Hand session slots back to the process-wide maxSessions budget.
+    await closeTrackedMcpSessions();
     await page.close();
   });
 

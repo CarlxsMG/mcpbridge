@@ -43,7 +43,7 @@ import {
   registerGraphqlViaApi,
   type AdminAuth,
 } from "./support/admin";
-import { initMcpSession, mcpCall, mcpToolsCall, parseSseJson } from "./support/mcp";
+import { closeTrackedMcpSessions, initMcpSession, mcpCall, mcpToolsCall, parseSseJson } from "./support/mcp";
 
 /** Unique names per spec run so this file can run alongside the other specs. */
 const SERVER_NAME = "e2e-gql-api";
@@ -221,6 +221,8 @@ test.describe("GraphQL backend kind — discovery, schema mapping, dispatch, gov
   });
 
   test.afterAll(async () => {
+    // Hand session slots back to the process-wide maxSessions budget.
+    await closeTrackedMcpSessions();
     await page.close();
   });
 

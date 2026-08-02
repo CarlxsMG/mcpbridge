@@ -23,7 +23,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { APP_BASE_URL } from "./support/env";
 import { adminAuthHeaders, login, mintMcpKey, registerFixtureServer } from "./support/admin";
-import { initMcpSession, mcpCall, parseSseJson } from "./support/mcp";
+import { closeTrackedMcpSessions, initMcpSession, mcpCall, parseSseJson } from "./support/mcp";
 
 /** Unique server name per spec run so this file can run alongside the others. */
 const SERVER_NAME = "e2e-mcp-protocol-api";
@@ -51,6 +51,8 @@ test.describe("MCP data plane — protocol contract", () => {
   });
 
   test.afterAll(async () => {
+    // Hand session slots back to the process-wide maxSessions budget.
+    await closeTrackedMcpSessions();
     await page.close();
   });
 

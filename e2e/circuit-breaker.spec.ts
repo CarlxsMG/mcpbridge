@@ -57,7 +57,7 @@ import {
   registerViaApi,
   type AdminAuth,
 } from "./support/admin";
-import { initMcpSession, mcpToolsCall, type McpCallResult } from "./support/mcp";
+import { closeTrackedMcpSessions, initMcpSession, mcpToolsCall, type McpCallResult } from "./support/mcp";
 
 /** The client whose breaker gets tripped. Registered against the e2e-only extended OpenAPI doc. */
 const FAILING_SERVER = "e2e-breaker-flaky-api";
@@ -192,6 +192,10 @@ test.describe.serial("per-client circuit breaker — trip, fail fast, isolate, r
       await deleteClient(request, auth, FAILING_SERVER);
       await deleteClient(request, auth, HEALTHY_SERVER);
     } finally {
+      // After the fixture restore, not before it: the sweep is best-effort and
+      // never throws, but the "up" flag is the one thing whose failure would
+      // cascade into every later spec, so nothing may be sequenced ahead of it.
+      await closeTrackedMcpSessions();
       await page.close();
     }
   });

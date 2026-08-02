@@ -47,7 +47,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { APP_BASE_URL, FIXTURE_OPENAPI_EXTENDED_PATH } from "./support/env";
 import { apiHeaders, loginAs, mintMcpKey, registerViaApi, type AdminAuth } from "./support/admin";
-import { initMcpSession, mcpCall, mcpToolsCall, parseSseJson } from "./support/mcp";
+import { closeTrackedMcpSessions, initMcpSession, mcpCall, mcpToolsCall, parseSseJson } from "./support/mcp";
 
 /** Two servers, so the bundle spans more than one client. Unique per spec file. */
 const SERVER_A = "e2e-bundle-alpha-api";
@@ -202,6 +202,8 @@ test.describe("MCP curated bundles — /mcp-custom/:bundleName", () => {
   });
 
   test.afterAll(async () => {
+    // Hand session slots back to the process-wide maxSessions budget.
+    await closeTrackedMcpSessions();
     await page.close();
   });
 

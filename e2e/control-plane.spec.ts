@@ -36,7 +36,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { APP_BASE_URL } from "./support/env";
 import { adminAuthHeaders, login, mintMcpKey, registerViaApi, revokeMcpKey, type AdminAuth } from "./support/admin";
-import { initMcpSession, mcpToolsCall, parseSseJson } from "./support/mcp";
+import { closeTrackedMcpSessions, initMcpSession, mcpToolsCall, parseSseJson } from "./support/mcp";
 
 /** The control plane. Never takes a `:clientName` — the scope IS "system". */
 const CONTROL_PLANE = "/mcp";
@@ -197,14 +197,11 @@ test.describe("MCP control plane (/mcp) — fail-closed auth, role tiers, and st
 
   test.afterAll(async () => {
     // Hand the session slots back to the process-wide `maxSessions` budget
-    // instead of letting them idle out over SESSION_TTL_MS. Best-effort: a
-    // session already torn down just 404s, which is not this spec's business.
-    for (const [authHeader, sessionId] of sessionByAuth) {
-      await fetch(`${APP_BASE_URL}${CONTROL_PLANE}`, {
-        method: "DELETE",
-        headers: { "mcp-session-id": sessionId, authorization: authHeader },
-      }).catch(() => {});
-    }
+    // instead of letting them idle out over SESSION_TTL_MS. This spec used to
+    // walk `sessionByAuth` and DELETE each one by hand; the shared helper does
+    // exactly that for every session `initMcpSession` opened, including the
+    // ones this spec establishes outside that map.
+    await closeTrackedMcpSessions();
 
     // Don't leave control-plane-capable credentials live for the rest of the
     // suite. `victimKey` is deliberately absent — the step-up test revokes it,
