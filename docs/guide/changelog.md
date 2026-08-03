@@ -81,6 +81,28 @@ auth scheme, upstream `title`/annotations are prompt-injection-sanitized, and a 
 routed to a header or cookie can't inject a forbidden header or overwrite a gateway-managed auth
 header.
 
+Then a full-system audit landed, and the three findings worth naming are all cases where the
+product promised something it did not do. **Config snapshots and rollback restored about a
+quarter of the configuration**: export carried a hand-picked set of per-tool settings while
+fifteen policies — cache, coalescing, pagination, streaming, transforms, redaction, sensitivity,
+quarantine, mocks, monitors, GraphQL, WebSocket, context budget, approval thresholds — were
+silently absent, so an operator could roll back after a bad change, see "Rollback applied", and
+still be running every one of them. Export is now driven by the same registry that backs the tool
+PATCH endpoint, and covers schedules, guard policies, teams, custom catalog entries and WebSocket
+proxy targets too. **A GraphQL endpoint persisted as `kind: "rest"`**, so the admin UI labelled it
+REST, it could not be filtered, and it could not be published to the catalog at all. **The
+correlation id in every error envelope never reached the admin UI**, leaving an operator with
+"Failed to update." and no way to find that request in the audit log or the traces.
+
+Alongside those: a read-only view of the 115 resolved settings (secrets reduced to "set"/"unset"),
+the per-tool editor grouped into four tabs with per-tab counts so grouping does not hide state,
+and "Register server" moved off its own sidebar slot to `/servers/new`. Structurally, every
+`/admin-api` route moved into one directory behind one auth gate, the **database upgrade path is
+now tested** (all 57 migrations had only ever been applied to an empty schema), and **spec-vs-UI
+type drift is a compile error** — which immediately surfaced five undocumented response fields
+and 21 API-doc descriptions that had been silently truncated mid-sentence by an unquoted comma
+inside a YAML flow mapping.
+
 ## [1.0.0] - 2026-07-03
 
 Initial tagged release of **MCP REST Bridge** — a self-hosted MCP gateway that turns
