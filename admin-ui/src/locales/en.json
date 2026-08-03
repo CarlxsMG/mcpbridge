@@ -1679,9 +1679,9 @@
       "scope": {
         "title": "What export, import and rollback cover",
         "included_label": "Included",
-        "included": "Registered servers and their enable state, client guards, and every per-tool policy — guards, overrides, guardrails, cache, coalescing, pagination, streaming, transforms, redaction, sensitivity, quarantine, mocks, monitors, context budget and approval requirements. Plus bundles, alert rules and consumer quotas.",
+        "included": "Registered servers and their enable state, client guards, and every per-tool policy — guards, overrides, guardrails, cache, coalescing, pagination, streaming, transforms, redaction, sensitivity, quarantine, mocks, monitors, context budget and approval requirements. Plus bundles, alert rules, consumer quotas, schedules, guard policies, teams, catalog entries and WebSocket proxy targets.",
         "excluded_label": "Not included",
-        "excluded": "Schedules, guard policies, teams, users, catalog entries, WebSocket proxy targets, API keys, the audit log, and stored upstream credentials.",
+        "excluded": "Users, API keys, the audit log, stored upstream credentials, and the builtin catalog gallery (which is code, not data).",
         "backup_hint": "A rollback restores only what is listed under Included. For a complete copy of the admin database, take a database backup instead."
       },
       "result": {
@@ -1694,6 +1694,11 @@
         "tools_configured": "Tools configured: {count}",
         "guardrails": "Guardrails: {count}",
         "consumers": "Consumers: {count}",
+        "schedules": "Schedules: {count}",
+        "guard_policies": "Guard policies: {count}",
+        "teams": "Teams: {count}",
+        "catalog_entries": "Catalog entries: {count}",
+        "ws_proxy_targets": "WebSocket proxy targets: {count}",
         "skipped_heading": "Skipped ({count}):"
       }
     },

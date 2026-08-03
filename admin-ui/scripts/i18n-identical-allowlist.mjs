@@ -41,6 +41,9 @@ export const identicalAllowlist = new Set([
   "nav.keys.label",
   "nav.consumers.label",
   "nav.schedules.label",
+  // Same untranslated feature noun as nav.schedules.label above, in the
+  // config-import result summary.
+  "pages.config.result.schedules",
   "nav.teams.label",
   "nav.sso.label",
   "command_palette.group_bundles",

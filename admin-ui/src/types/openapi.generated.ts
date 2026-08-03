@@ -3078,9 +3078,11 @@ export interface components {
             }[];
         };
         /**
-         * @description A portable document of part of the admin-authored config: registered servers with their client guards and every per-tool policy, plus bundles, alert rules and consumer quotas.
-         *     NOT included, so a rollback does not restore them: schedules, guard policies, teams, users, catalog entries, WebSocket proxy targets, API keys, the audit log, and decrypted upstream secrets. For a complete copy of the admin database use `POST /admin-api/backup` instead.
+         * @description A portable document of the admin-authored config: registered servers with their client guards and every per-tool policy, plus bundles, alert rules, consumer quotas, schedules, guard policies, teams, custom catalog entries and WebSocket proxy targets. Each of the latter five is keyed by its natural name, never by row id, since ids are local to one database.
+         *     NOT included, so a rollback does not restore them: users, API keys, the audit log, decrypted upstream secrets, and the BUILTIN catalog gallery (which is code, not rows — every instance already has it). For a complete copy of the admin database use `POST /admin-api/backup`.
+         *     A WebSocket proxy target's `resolvedIp` is deliberately absent: import re-resolves and re-pins the hostname through the same SSRF-validated path the admin route uses, rather than trusting a pin that travelled inside a document.
          *     Tool key-allowlists export as SHA-256 hashes, which round-trip on import since the runtime only ever compares hashes.
+         *     Every section added after the initial version is optional on the wire, so a document produced by an older gateway still imports. An absent section means "no entities of this kind", never "delete the ones you have" — import never removes what a document omits.
          */
         ConfigExport: {
             /** @example 1 */
@@ -3141,6 +3143,37 @@ export interface components {
                 monthlyQuota?: number | null;
                 endUserRateLimitPerMin?: number | null;
             }[];
+            /** @description Keyed on import by the target/action/cron tuple, so re-importing does not stack duplicates. */
+            schedules?: {
+                /** @enum {string} */
+                targetType?: "client" | "tool";
+                clientName?: string;
+                toolName?: string | null;
+                /** @enum {string} */
+                action?: "enable" | "disable";
+                cron?: string;
+                enabled?: boolean;
+            }[];
+            /** @description Reusable guard templates, keyed by name. Applying one to a tool stays a separate, tenancy-checked operation. */
+            guardPolicies?: {
+                name?: string;
+                rateLimitPerMin?: number | null;
+                timeoutMs?: number | null;
+            }[];
+            teams?: {
+                name?: string;
+            }[];
+            /** @description Custom entries only — the builtin gallery is code, and import cannot create it. */
+            catalogEntries?: components["schemas"]["CustomCatalogEntryInput"][];
+            /** @description `resolvedIp` is absent by design: import re-resolves and re-pins the hostname through the same SSRF-validated path the admin route uses. */
+            wsProxyTargets?: {
+                name?: string;
+                backendWsUrl?: string;
+                maxConnections?: number;
+                maxMessageBytes?: number;
+                idleTimeoutMs?: number;
+                enabled?: boolean;
+            }[];
         };
         ImportResult: {
             dryRun: boolean;
@@ -3151,6 +3184,11 @@ export interface components {
                 toolsConfigured?: number;
                 guardrails?: number;
                 consumers?: number;
+                schedules?: number;
+                guardPolicies?: number;
+                teams?: number;
+                catalogEntries?: number;
+                wsProxyTargets?: number;
             };
             skipped: {
                 /** @enum {string} */

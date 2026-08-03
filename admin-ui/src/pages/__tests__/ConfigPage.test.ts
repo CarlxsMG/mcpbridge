@@ -33,12 +33,28 @@ describe("ConfigPage", () => {
     const w = mountPage();
     const result: ConfigImportResult = {
       dryRun: false,
-      applied: { bundles: 1, alertRules: 0, clientsConfigured: 2, toolsConfigured: 3, guardrails: 0, consumers: 0 },
+      applied: {
+        bundles: 1,
+        alertRules: 0,
+        clientsConfigured: 2,
+        toolsConfigured: 3,
+        guardrails: 0,
+        consumers: 0,
+        schedules: 4,
+        guardPolicies: 0,
+        teams: 0,
+        catalogEntries: 0,
+        wsProxyTargets: 0,
+      },
       skipped: [],
     };
     w.findComponent(ConfigImportSection).vm.$emit("result", result);
     await flushPromises();
     expect(w.find(".result").exists()).toBe(true);
     expect(w.find(".result").text()).toContain("Bundles: 1");
+    // The sections added after the per-tool manifest are rendered too — an
+    // operator who cannot see that four schedules were applied has no way to
+    // tell a partial import from a complete one.
+    expect(w.find(".result").text()).toContain("Schedules: 4");
   });
 });

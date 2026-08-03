@@ -1679,9 +1679,9 @@
       "scope": {
         "title": "Qué abarcan el export, el import y el rollback",
         "included_label": "Incluido",
-        "included": "Los servidores registrados y si están activos, las guardas de cliente y todas las políticas por tool — guardas, overrides, guardrails, caché, coalescing, paginación, streaming, transformaciones, redacción, sensibilidad, cuarentena, mocks, monitores, presupuesto de contexto y aprobaciones. Además de bundles, reglas de alerta y quotas de consumers.",
+        "included": "Los servidores registrados y si están activos, las guardas de cliente y todas las políticas por tool — guardas, overrides, guardrails, caché, coalescing, paginación, streaming, transformaciones, redacción, sensibilidad, cuarentena, mocks, monitores, presupuesto de contexto y aprobaciones. Además de bundles, reglas de alerta, quotas de consumers, schedules, políticas de guardas, equipos, entradas del catálogo y targets del proxy WebSocket.",
         "excluded_label": "No incluido",
-        "excluded": "Schedules, políticas de guardas, equipos, usuarios, entradas del catálogo, targets del proxy WebSocket, claves de API, el registro de auditoría y las credenciales de upstream almacenadas.",
+        "excluded": "Usuarios, claves de API, el registro de auditoría, las credenciales de upstream almacenadas y la galería builtin del catálogo (que es código, no datos).",
         "backup_hint": "Un rollback restaura solo lo que aparece en Incluido. Para una copia completa de la base de datos de administración, haz una copia de seguridad de la base de datos."
       },
       "result": {
@@ -1694,6 +1694,11 @@
         "tools_configured": "Tools configuradas: {count}",
         "guardrails": "Guardrails: {count}",
         "consumers": "Consumidores: {count}",
+        "schedules": "Schedules: {count}",
+        "guard_policies": "Políticas de guardas: {count}",
+        "teams": "Equipos: {count}",
+        "catalog_entries": "Entradas del catálogo: {count}",
+        "ws_proxy_targets": "Targets del proxy WebSocket: {count}",
         "skipped_heading": "Saltados ({count}):"
       }
     },

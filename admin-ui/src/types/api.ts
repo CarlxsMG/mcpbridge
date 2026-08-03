@@ -675,6 +675,11 @@ export interface ConfigImportResult {
     toolsConfigured: number;
     guardrails: number;
     consumers: number;
+    schedules: number;
+    guardPolicies: number;
+    teams: number;
+    catalogEntries: number;
+    wsProxyTargets: number;
   };
   skipped: { type: string; id: string; reason: string }[];
 }

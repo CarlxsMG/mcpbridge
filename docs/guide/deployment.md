@@ -132,9 +132,10 @@ All durable state lives in the SQLite database (`DB_PATH`, default `/app/data/mc
 in Docker). Back it up like any SQLite file; use `:memory:` only for throwaway runs. You can
 also **export/import** configuration as JSON from the admin UI or `/admin-api/config` — that
 covers registered servers with their client guards and every per-tool policy, plus bundles,
-alert rules and consumer quotas, but **not** schedules, guard policies, teams, users, catalog
-entries, WebSocket proxy targets, API keys or the audit log. Config rollback restores that same
-subset; it is not a substitute for a database backup.
+alert rules, consumer quotas, schedules, guard policies, teams, custom catalog entries and
+WebSocket proxy targets — but **not** users, API keys, the audit log or stored upstream
+credentials. Config rollback restores that same subset; it is not a substitute for a database
+backup.
 
 For an on-demand full-database backup without shelling into the host, `POST /admin-api/backup`
 produces a transactionally-consistent snapshot (SQLite `VACUUM INTO`) and streams it back as a

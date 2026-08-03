@@ -321,7 +321,19 @@ describe("importConfig — envelope validation", () => {
     const result = await importConfig(baseDoc(), { dryRun: false }, null);
     expect(result).toEqual({
       dryRun: false,
-      applied: { bundles: 0, alertRules: 0, clientsConfigured: 0, toolsConfigured: 0, guardrails: 0, consumers: 0 },
+      applied: {
+        bundles: 0,
+        alertRules: 0,
+        clientsConfigured: 0,
+        toolsConfigured: 0,
+        guardrails: 0,
+        consumers: 0,
+        schedules: 0,
+        guardPolicies: 0,
+        teams: 0,
+        catalogEntries: 0,
+        wsProxyTargets: 0,
+      },
       skipped: [],
     });
   });
@@ -345,6 +357,11 @@ describe("importConfig — envelope validation", () => {
       toolsConfigured: 0,
       guardrails: 0,
       consumers: 0,
+      schedules: 0,
+      guardPolicies: 0,
+      teams: 0,
+      catalogEntries: 0,
+      wsProxyTargets: 0,
     });
     expect(result.skipped).toEqual([]);
   });
