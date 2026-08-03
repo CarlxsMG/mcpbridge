@@ -130,7 +130,8 @@ export interface StoredSpan {
   sessionId: string | null;
   startMs: number;
   endMs: number;
-  statusCode: number;
+  /** OTel status code convention: 0 unset, 1 ok, 2 error. Narrowed to match the spec. */
+  statusCode: 0 | 1 | 2;
   attributes: Record<string, unknown>;
   createdAt: number;
 }

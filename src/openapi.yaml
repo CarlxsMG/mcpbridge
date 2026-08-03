@@ -1441,7 +1441,7 @@ paths:
             or to /admin/login?sso_error=... on any failure.
           headers:
             Location: { schema: { type: string } }
-            Set-Cookie: { schema: { type: string }, description: Session + CSRF cookies, only on success. }
+            Set-Cookie: { schema: { type: string }, description: "Session + CSRF cookies, only on success." }
 
   /admin-api/auth/oidc/settings:
     get:
@@ -1750,7 +1750,12 @@ paths:
       requestBody:
         content:
           application/json:
-            schema: { type: object, description: Tool arguments, matching the tool's inputSchema. }
+            schema:
+              {
+                type: object,
+                additionalProperties: true,
+                description: "Tool arguments, matching the tool's inputSchema.",
+              }
       responses:
         "200":
           description: Tool-call result (may itself carry isError:true — that's the tool failing, not this endpoint).
@@ -1980,8 +1985,7 @@ paths:
                   brokenAt:
                     {
                       type: [integer, "null"],
-                      description: id of the first row whose hash doesn't match,
-                      or null if valid.,
+                      description: "id of the first row whose hash doesn't match, or null if valid.",
                     }
 
   /admin-api/audit-log/export:
@@ -2650,13 +2654,12 @@ paths:
       parameters:
         - { name: client, in: query, schema: { type: string } }
         - { name: tool, in: query, schema: { type: string } }
-        - { name: errors, in: query, schema: { type: boolean }, description: When true, only error results. }
+        - { name: errors, in: query, schema: { type: boolean }, description: "When true, only error results." }
         - {
             name: cursor,
             in: query,
             schema: { type: string },
-            description: Opaque nextCursor from a previous page (keyset,
-            by id).,
+            description: "Opaque nextCursor from a previous page (keyset, by id).",
           }
         - { name: limit, in: query, schema: { type: integer } }
       responses:
@@ -3540,8 +3543,9 @@ paths:
               required: [name]
               properties:
                 name: { type: string, maxLength: 128 }
-                monthlyQuota: { type: [integer, "null"], description: Positive integer, or null for unlimited. }
-                endUserRateLimitPerMin: { type: [integer, "null"], description: Positive integer, or null to disable. }
+                monthlyQuota: { type: [integer, "null"], description: "Positive integer, or null for unlimited." }
+                endUserRateLimitPerMin:
+                  { type: [integer, "null"], description: "Positive integer, or null to disable." }
       responses:
         "201":
           description: Created.
@@ -3975,8 +3979,7 @@ paths:
             name: cursor,
             in: query,
             schema: { type: string },
-            description: Opaque nextCursor from a previous page (keyset,
-            by underlying span id).,
+            description: "Opaque nextCursor from a previous page (keyset, by underlying span id).",
           }
         - { name: limit, in: query, schema: { type: integer } }
       responses:
@@ -5447,7 +5450,7 @@ components:
         healthUrl: { type: string }
         baseUrl: { type: string }
         kind: { $ref: "#/components/schemas/UpstreamKind" }
-        teamId: { type: [integer, "null"], description: Owning team id, or null (visible only to super-admins). }
+        teamId: { type: [integer, "null"], description: "Owning team id, or null (visible only to super-admins)." }
 
     UpstreamKind:
       type: string
@@ -5475,7 +5478,7 @@ components:
         consecutiveFailures: { type: [integer, "null"] }
         guards: { $ref: "#/components/schemas/ClientGuardConfig" }
         circuitBreakerState: { type: [string, "null"], enum: [closed, open, half_open, null] }
-        teamId: { type: [integer, "null"], description: Owning team id, or null (visible only to super-admins). }
+        teamId: { type: [integer, "null"], description: "Owning team id, or null (visible only to super-admins)." }
         tools:
           type: array
           items:
@@ -5507,6 +5510,11 @@ components:
         target: { type: string, example: "billing_service__charge_card" }
         detail: { type: [object, "null"], additionalProperties: true }
         createdAt: { type: integer, description: Unix ms epoch }
+        hash:
+          {
+            type: [string, "null"],
+            description: "This entry's link in the tamper-evident hash chain (SHA-256 over the entry plus its predecessor's hash). Null for rows written before the chain existed; verify the whole chain via GET /admin-api/audit-log/verify.",
+          }
 
     # -------------------------------------------------------------------------
     # Tool examples (playground), canary/failover, load balancing, OAuth, upstream auth
@@ -5584,7 +5592,7 @@ components:
         toolName: { type: [string, "null"] }
         keyId: { type: [integer, "null"] }
         argsJson: { type: string, description: JSON-serialized original call arguments. }
-        preview: { type: string, description: Truncated, already-redacted/guardrail-processed result preview. }
+        preview: { type: string, description: "Truncated, already-redacted/guardrail-processed result preview." }
         isError: { type: boolean }
         durationMs: { type: integer }
         createdAt: { type: integer, description: Unix ms epoch }
@@ -5612,9 +5620,26 @@ components:
         requiredLevels:
           {
             type: integer,
-            description: N-of-M distinct-approver threshold,
-            snapshotted from the tool's config at ticket creation.,
+            description: "N-of-M distinct-approver threshold, snapshotted from the tool's config at ticket creation.",
           }
+        decisions:
+          type: array
+          description: One entry per approver who has acted on this ticket so far, oldest first.
+          items: { $ref: "#/components/schemas/ApprovalDecision" }
+
+    ApprovalDecision:
+      type: object
+      description: >
+        One approver's action on a ticket. A ticket needing N distinct approvers
+        accumulates N of these before it leaves "pending"; each row is a
+        different `decidedBy`, which is what makes the threshold meaningful.
+      properties:
+        id: { type: integer }
+        approvalId: { type: integer }
+        decidedBy: { type: string }
+        decision: { type: string, enum: [approved, rejected] }
+        note: { type: [string, "null"] }
+        decidedAt: { type: integer, description: Unix ms epoch }
 
     # -------------------------------------------------------------------------
     # Bundles
@@ -5658,13 +5683,13 @@ components:
       properties:
         id: { type: integer }
         bundleName: { type: string }
-        tokenPrefix: { type: string, description: First characters of the token, for display only. }
+        tokenPrefix: { type: string, description: "First characters of the token, for display only." }
         mcpKeyId: { type: integer, description: The scoped MCP API key auto-provisioned for this link. }
         createdBy: { type: [string, "null"] }
         createdAt: { type: integer, description: Unix ms epoch. }
-        expiresAt: { type: [integer, "null"], description: Unix ms epoch, or null for no expiry. }
-        revokedAt: { type: [integer, "null"], description: Unix ms epoch when revoked, or null if active. }
-        lastUsedAt: { type: [integer, "null"], description: Unix ms epoch of last successful resolve, or null. }
+        expiresAt: { type: [integer, "null"], description: "Unix ms epoch, or null for no expiry." }
+        revokedAt: { type: [integer, "null"], description: "Unix ms epoch when revoked, or null if active." }
+        lastUsedAt: { type: [integer, "null"], description: "Unix ms epoch of last successful resolve, or null." }
 
     ToolConfigPatch:
       type: object
@@ -6036,6 +6061,10 @@ components:
         targetTool: { type: string }
         argsTemplate:
           type: object
+          # Free-form by design: without this, `type: object` alone documents an
+          # object that may have NO properties, and code generators render it as
+          # exactly that.
+          additionalProperties: true
           description: >
             JSON template resolved against {input, steps} to build this
             step's arguments. Supports {"$ref":"input.<path>"},
@@ -6078,7 +6107,7 @@ components:
       properties:
         id: { type: integer }
         label: { type: string }
-        keyPrefix: { type: string, description: First few characters of the raw key, for identification in the UI. }
+        keyPrefix: { type: string, description: "First few characters of the raw key, for identification in the UI." }
         consumerId: { type: [integer, "null"] }
         elevated:
           {
@@ -6111,8 +6140,8 @@ components:
       properties:
         id: { type: integer }
         name: { type: string }
-        monthlyQuota: { type: [integer, "null"], description: Positive integer, or null for unlimited. }
-        endUserRateLimitPerMin: { type: [integer, "null"], description: Positive integer, or null to disable. }
+        monthlyQuota: { type: [integer, "null"], description: "Positive integer, or null for unlimited." }
+        endUserRateLimitPerMin: { type: [integer, "null"], description: "Positive integer, or null to disable." }
         createdAt: { type: integer, description: Unix ms epoch }
         updatedAt: { type: integer, description: Unix ms epoch }
         createdBy: { type: [string, "null"] }
@@ -6169,8 +6198,7 @@ components:
         sessionId:
           {
             type: [string, "null"],
-            description: The calling MCP transport session id (mcp-session-id),
-            if the call happened over a live session.,
+            description: "The calling MCP transport session id (mcp-session-id), if the call happened over a live session.",
           }
         startMs: { type: integer }
         endMs: { type: integer }
@@ -6412,7 +6440,7 @@ components:
         from: { type: integer, description: Unix ms epoch — start of the window. }
         calls: { type: integer }
         errors: { type: integer }
-        errorRate: { type: number, description: errors / calls, or 0 when calls is 0. }
+        errorRate: { type: number, description: "errors / calls, or 0 when calls is 0." }
         avgMs: { type: integer }
         maxMs: { type: integer }
         tools: { type: integer, description: Distinct client__tool pairs called in the window. }
@@ -6427,7 +6455,7 @@ components:
           items:
             type: object
             properties:
-              t: { type: integer, description: Bucket start, Unix ms epoch. }
+              t: { type: integer, description: "Bucket start, Unix ms epoch." }
               calls: { type: integer }
               errors: { type: integer }
               avgMs: { type: integer }
