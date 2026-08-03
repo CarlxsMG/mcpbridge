@@ -114,6 +114,21 @@ plus a `bun audit` (root, admin-ui, docs) on every push/PR and weekly; `docker-p
 publishes to GHCR on `v*` tags; `release-binaries.yml` builds standalone binaries; `deploy-docs.yml`
 publishes the VitePress site in `docs/`.
 
+**Read CI warnings from the annotations API, not `gh run view`.** `gh run view` does not surface
+annotations for every workflow, which is how a CodeQL Action deprecation with a hard date sat
+unnoticed while three separate passes declared the same migration "complete". The reliable form is
+`gh api repos/<owner>/<repo>/check-runs/<job-id>/annotations` over each job of a run. A related
+tell: an annotation naming an action WITHOUT a SHA when every pin in these files carries one means
+the warning is transitive — it comes from inside a composite action, and bumping your own pin will
+not silence it.
+
+**A `v*` tag triggers two publishing workflows**, `release-binaries.yml` and `docker-publish.yml`
+— so a "test tag" publishes a GHCR image, a cosign signature and a Trivy SARIF, none of which is
+undone by deleting the release. To exercise the release build WITHOUT publishing, dispatch
+`release-binaries.yml` from a branch: its `build` jobs have no tag gate and their artifacts are
+downloadable from the run, while the `release` job self-skips on `startsWith(github.ref,
+'refs/tags/v')`.
+
 **Mutation testing.** `bun run test:mutate` runs [Stryker](https://stryker-mutator.io)
 (`stryker.config.mjs`) against the backend test suite — it injects faults into the source and
 checks that some test actually fails, proving the suite exercises behavior rather than merely
@@ -139,6 +154,55 @@ Read the coverage table for the file below the line. The cheapest way to hit thi
 functions while the global total was still 99.4%. Two consequences: don't add a shared test helper
 before something calls it, and note `bun run test` (no `--coverage`) exits 0 in that state, so
 reproducing needs `bun run test:coverage`.
+
+## The e2e suite (`e2e/`)
+
+`bun run test:e2e` boots the real stack — the built admin-ui served by the backend, a throwaway
+SQLite file outside the repo, and a fake upstream (`e2e/support/fixture-server.ts`) — and runs
+every spec. It is the only gate that exercises the SPA and the MCP wire protocol against a live
+server, and it lives outside `bun run check` (CI runs it as its own required job).
+
+**It is serial by construction, and that is a correctness property, not a performance choice.**
+`workers: 1, fullyParallel: false`: every spec shares ONE backend process, ONE SQLite file, ONE
+fixture upstream and ONE `maxSessions` budget. Three consequences that bite in non-obvious ways:
+
+- **`00-auth-fail-closed.spec.ts`'s numeric prefix is load-bearing.** Its first assertion needs
+  the data plane still in "open mode", i.e. that no managed MCP key exists yet — a whole-process
+  property the first mint anywhere in the suite ends permanently. Playwright orders spec files by
+  path, so it has to sort first. Don't rename it, and if the suite is ever reorganised into
+  subdirectories, replace the prefix with an explicit project `dependencies` in the config rather
+  than trusting path sort.
+- **Release every MCP session.** `initMcpSession` registers each one; call
+  `closeTrackedMcpSessions()` from your spec's `afterAll`. A leak subtracts from every LATER
+  spec's headroom, and the resulting failure is non-local: some unrelated spec 503s with "Server
+  at capacity" and nothing points back at the culprit. Measured once at 41 of 100 slots held.
+- **Global fixture state has an owner.** The `/__control` down/up flag belongs to
+  `circuit-breaker.spec.ts`; `/health` deliberately stays 200 even while "down", because the
+  health loop would otherwise evict the client before its breaker could trip.
+
+**Prove behaviour with upstream hit counts, not with the absence of an error.** `fixtureState()`
+returns per-path request counts, and a delta is the only way to distinguish "the gate refused it"
+from "it ran and then errored". A cache hit is a delta of ZERO; coalescing collapses N concurrent
+calls to exactly 1; an open breaker must not reach upstream at all; a pending approval must not
+execute the tool. Assert exact deltas against a snapshot taken immediately before the action —
+never an absolute count, since the suite shares the fixture.
+
+**Don't grow `fixtures/simple-openapi.json`** — backend unit tests assert on its exact discovered
+tool set. `e2e/support/openapi-extended.ts` is the e2e-only superset (a failing endpoint, a
+credential-leaking one, a slow one, an echo).
+
+**Ambient rate limits are raised in `playwright.config.ts` on purpose** (logins, registrations and
+MCP calls all share one bucket at 127.0.0.1), so the only limiting an assertion should ever
+observe is a per-tool guard the spec configured itself.
+
+**Local re-runs meet the previous run's database** (`reuseExistingServer` outside CI), so every
+create tolerates a 409 and no assertion may depend on a row being new.
+
+**Verify an accessibility finding against the browser's real accessible name** —
+`locator.ariaSnapshot()` — before treating it as a defect. A native `<label>`, whether `for=` or
+wrapping, DOES name a `button[role=combobox]` (accname step 2C, evaluated before the
+name-from-content prohibition). Reasoning from the ARIA spec alone produced both a false positive
+and a false negative here.
 
 ## Architecture
 
@@ -233,3 +297,13 @@ canonical feature list lives in `docs/guide/features.md`.
   `BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD` set (only takes effect once, when
   `admin_users` is empty) and `ALLOW_PRIVATE_IPS=true` to register test clients at loopback
   addresses (SSRF protection otherwise correctly blocks them).
+- **Prove a test discriminates: revert the fix and confirm it fails.** A test written against a
+  bug you just fixed passes for two different reasons, and only one of them is the test working.
+  This is cheap (`git stash push -- <src file>`, re-run, `git stash pop`) and it has changed the
+  verdict here more than once — killing a "defect" that was never real, and resurrecting one that
+  had been reasoned away.
+- **A comment naming a version or a count is a liability.** The ones that cost the most time in
+  this repo were not wrong code but confidently wrong prose: a CI comment claiming "12 specs" when
+  there were 15, a `download-artifact@v4` note surviving the bump to v8, a `workflow_dispatch`
+  fallback described in detail that the job's own `if` had made unreachable. Prefer comments that
+  say WHY something is safe and WHAT would break it — those stay true through a version bump.
