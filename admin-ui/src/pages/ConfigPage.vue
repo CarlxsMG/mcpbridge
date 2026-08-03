@@ -72,6 +72,11 @@ function onRollbackResult(r: ConfigImportResult) {
         <li>{{ t("pages.config.result.tools_configured", { count: result.applied.toolsConfigured }) }}</li>
         <li>{{ t("pages.config.result.guardrails", { count: result.applied.guardrails }) }}</li>
         <li>{{ t("pages.config.result.consumers", { count: result.applied.consumers }) }}</li>
+        <li>{{ t("pages.config.result.schedules", { count: result.applied.schedules }) }}</li>
+        <li>{{ t("pages.config.result.guard_policies", { count: result.applied.guardPolicies }) }}</li>
+        <li>{{ t("pages.config.result.teams", { count: result.applied.teams }) }}</li>
+        <li>{{ t("pages.config.result.catalog_entries", { count: result.applied.catalogEntries }) }}</li>
+        <li>{{ t("pages.config.result.ws_proxy_targets", { count: result.applied.wsProxyTargets }) }}</li>
       </ul>
       <div v-if="result.skipped.length" class="skipped">
         <strong>{{ t("pages.config.result.skipped_heading", { count: result.skipped.length }) }}</strong>

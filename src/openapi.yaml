@@ -5441,6 +5441,7 @@ components:
     ClientSummary:
       type: object
       description: Lightweight row shape for the paginated admin client list — never embeds the full tool array.
+      required: [name, enabled, live, status, toolsCount, healthUrl, baseUrl, kind, teamId]
       properties:
         name: { type: string }
         enabled: { type: boolean }
@@ -5464,6 +5465,25 @@ components:
     ClientDetail:
       type: object
       description: Full admin view of one client, including all tools with their enabled/guard state.
+      required:
+        [
+          name,
+          enabled,
+          live,
+          status,
+          ip,
+          healthUrl,
+          baseUrl,
+          resolvedIp,
+          retryNonSafeMethods,
+          kind,
+          mcpUrl,
+          mcpTransport,
+          consecutiveFailures,
+          circuitBreakerState,
+          teamId,
+          tools,
+        ]
       properties:
         name: { type: string }
         enabled: { type: boolean }
@@ -5475,6 +5495,13 @@ components:
         resolvedIp: { type: [string, "null"] }
         retryNonSafeMethods: { type: boolean }
         kind: { $ref: "#/components/schemas/UpstreamKind" }
+        mcpUrl: { type: [string, "null"], description: "Upstream MCP endpoint for a kind:mcp client; null otherwise." }
+        mcpTransport:
+          {
+            type: [string, "null"],
+            enum: [streamable-http, sse, null],
+            description: "Transport used to reach a kind:mcp upstream; null otherwise.",
+          }
         consecutiveFailures: { type: [integer, "null"] }
         guards: { $ref: "#/components/schemas/ClientGuardConfig" }
         circuitBreakerState: { type: [string, "null"], enum: [closed, open, half_open, null] }
@@ -5492,6 +5519,7 @@ components:
     AdminUserSummary:
       type: object
       description: Admin user row — password_hash is never included in API responses.
+      required: [username, role, is_active, created_at, last_login_at, team_id]
       properties:
         username: { type: string }
         role: { type: string, enum: [admin, operator, auditor, viewer] }
@@ -5503,6 +5531,7 @@ components:
 
     AuditLogEntry:
       type: object
+      required: [id, actor, action, target, detail, createdAt]
       properties:
         id: { type: integer }
         actor: { type: string, description: 'Username, or "bearer:admin-api-key" for API-key-driven changes.' }
@@ -5531,6 +5560,7 @@ components:
     CanaryConfig:
       type: object
       description: Per-client secondary-upstream routing — "canary" splits a weighted % of traffic to the secondary; "failover" only routes there while the primary's circuit breaker is open.
+      required: [secondaryBaseUrl, secondaryResolvedIp, mode, weight, enabled]
       properties:
         secondaryBaseUrl: { type: string }
         secondaryResolvedIp: { type: string, description: IP the secondary hostname was pinned to at config time. }
@@ -5547,6 +5577,7 @@ components:
     LbUpstream:
       type: object
       description: One additional upstream in a client's load-balancing pool (the primary base_url is always an implicit member, weighted by primaryWeight).
+      required: [id, baseUrl, resolvedIp, weight, enabled]
       properties:
         id: { type: integer }
         baseUrl: { type: string }
@@ -5556,6 +5587,7 @@ components:
 
     LbConfig:
       type: object
+      required: [strategy, primaryWeight, enabled, targets]
       properties:
         strategy: { type: string, enum: [round-robin, weighted, least-conn] }
         primaryWeight: { type: number }
@@ -5565,6 +5597,7 @@ components:
     OAuthConfigInfo:
       type: object
       description: Non-secret view of a client's outbound OAuth2 client-credentials config — clientSecret is never returned once set.
+      required: [tokenUrl, clientId, scope]
       properties:
         tokenUrl: { type: string }
         clientId: { type: string }
@@ -5573,6 +5606,7 @@ components:
     UpstreamAuthInfo:
       type: object
       description: Non-secret view of a client's upstream credential config — the secret itself is never returned once set.
+      required: [configured]
       properties:
         configured: { type: boolean }
         type: { type: string, enum: [bearer, basic, header] }
@@ -5585,6 +5619,7 @@ components:
     TrafficRecord:
       type: object
       description: A captured tool call (opt-in via TRAFFIC_CAPTURE). Args are stored in full for faithful replay; the result is a truncated preview.
+      required: [id, mcpToolName, clientName, toolName, keyId, argsJson, preview, isError, durationMs, createdAt]
       properties:
         id: { type: integer }
         mcpToolName: { type: string, example: "billing_service__charge_card" }
@@ -5600,6 +5635,23 @@ components:
     ApprovalRecord:
       type: object
       description: A human-in-the-loop approval ticket, filed when a tool requiring approval is called without an `__approval_id`.
+      required:
+        [
+          id,
+          clientName,
+          toolName,
+          argsHash,
+          argsJson,
+          status,
+          createdAt,
+          decidedAt,
+          decidedBy,
+          note,
+          consumedAt,
+          requestedBy,
+          requiredLevels,
+          decisions,
+        ]
       properties:
         id: { type: integer }
         clientName: { type: string }
@@ -5633,6 +5685,7 @@ components:
         One approver's action on a ticket. A ticket needing N distinct approvers
         accumulates N of these before it leaves "pending"; each row is a
         different `decidedBy`, which is what makes the threshold meaningful.
+      required: [id, approvalId, decidedBy, decision, note, decidedAt]
       properties:
         id: { type: integer }
         approvalId: { type: integer }
@@ -5653,6 +5706,7 @@ components:
 
     BundleSummary:
       type: object
+      required: [name, description, enabled, toolsCount]
       properties:
         name: { type: string }
         description: { type: [string, "null"] }
@@ -5661,6 +5715,7 @@ components:
 
     BundleDetail:
       type: object
+      required: [name, description, enabled, createdAt, updatedAt, tools, composites]
       properties:
         name: { type: string }
         description: { type: [string, "null"] }
@@ -5680,6 +5735,7 @@ components:
       description: >
         Metadata for a bundle install link. The raw token is never included in
         list/detail responses — only a short tokenPrefix for identification.
+      required: [id, bundleName, tokenPrefix, mcpKeyId, createdBy, createdAt, expiresAt, revokedAt, lastUsedAt]
       properties:
         id: { type: integer }
         bundleName: { type: string }
@@ -6054,7 +6110,7 @@ components:
     # -------------------------------------------------------------------------
     CompositeStep:
       type: object
-      required: [targetClient, targetTool]
+      required: [targetClient, targetTool, argsTemplate]
       description: "One step of a composite: forwards to a real client__tool through the normal proxyToolCall() path."
       properties:
         targetClient: { type: string }
@@ -6074,6 +6130,7 @@ components:
 
     CompositeSummary:
       type: object
+      required: [name, description, enabled, stepsCount]
       properties:
         name: { type: string }
         description: { type: [string, "null"] }
@@ -6082,11 +6139,12 @@ components:
 
     CompositeDetail:
       type: object
+      required: [name, description, enabled, inputSchema, steps, createdAt, updatedAt]
       properties:
         name: { type: string }
         description: { type: [string, "null"] }
         enabled: { type: boolean }
-        inputSchema: { type: object }
+        inputSchema: { type: object, additionalProperties: true }
         steps: { type: array, items: { $ref: "#/components/schemas/CompositeStep" } }
         createdAt: { type: integer, description: Unix ms epoch }
         updatedAt: { type: integer, description: Unix ms epoch }
@@ -6104,6 +6162,23 @@ components:
     McpApiKeyRecord:
       type: object
       description: Public shape of a managed MCP API key — never carries the hash or raw secret (except the one-time POST response, which also includes `key`).
+      required:
+        [
+          id,
+          label,
+          keyPrefix,
+          consumerId,
+          elevated,
+          adminRole,
+          scopes,
+          enabled,
+          expiresAt,
+          revokedAt,
+          lastUsedAt,
+          createdAt,
+          updatedAt,
+          createdBy,
+        ]
       properties:
         id: { type: integer }
         label: { type: string }
@@ -6137,6 +6212,7 @@ components:
     # -------------------------------------------------------------------------
     Consumer:
       type: object
+      required: [id, name, monthlyQuota, endUserRateLimitPerMin, createdAt, updatedAt, createdBy]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -6152,6 +6228,7 @@ components:
     GuardPolicy:
       type: object
       description: A reusable rate-limit/timeout pair that can be bulk-applied to a set of tools or a whole bundle.
+      required: [id, name, rateLimitPerMin, timeoutMs, createdAt, updatedAt, createdBy]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -6178,6 +6255,7 @@ components:
     # -------------------------------------------------------------------------
     Team:
       type: object
+      required: [id, name, createdAt, createdBy]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -6189,6 +6267,7 @@ components:
     # -------------------------------------------------------------------------
     StoredSpan:
       type: object
+      required: [id, traceId, spanId, name, mcpToolName, sessionId, startMs, endMs, statusCode, attributes, createdAt]
       properties:
         id: { type: integer }
         traceId: { type: string }
@@ -6209,6 +6288,7 @@ components:
 
     TraceSummary:
       type: object
+      required: [traceId, spanCount, startMs, endMs, mcpToolName, sessionId, hasError]
       properties:
         traceId: { type: string }
         spanCount: { type: integer }
@@ -6220,6 +6300,7 @@ components:
 
     TopSessionRow:
       type: object
+      required: [sessionId, calls, hasError]
       properties:
         sessionId: { type: string }
         calls: { type: integer }
@@ -6231,6 +6312,7 @@ components:
     EffectiveConfig:
       type: object
       description: The configuration this process resolved at boot. Read-only — env vars apply at boot.
+      required: [nodeEnv, entries]
       properties:
         nodeEnv: { type: string, example: production }
         entries:
@@ -6249,17 +6331,29 @@ components:
     ConfigExport:
       type: object
       description: >
-        A portable document of part of the admin-authored config: registered
-        servers with their client guards and every per-tool policy, plus
-        bundles, alert rules and consumer quotas.
+        A portable document of the admin-authored config: registered servers
+        with their client guards and every per-tool policy, plus bundles, alert
+        rules, consumer quotas, schedules, guard policies, teams, custom catalog
+        entries and WebSocket proxy targets. Each of the latter five is keyed by
+        its natural name, never by row id, since ids are local to one database.
 
-        NOT included, so a rollback does not restore them: schedules, guard
-        policies, teams, users, catalog entries, WebSocket proxy targets, API
-        keys, the audit log, and decrypted upstream secrets. For a complete copy
-        of the admin database use `POST /admin-api/backup` instead.
+        NOT included, so a rollback does not restore them: users, API keys, the
+        audit log, decrypted upstream secrets, and the BUILTIN catalog gallery
+        (which is code, not rows — every instance already has it). For a
+        complete copy of the admin database use `POST /admin-api/backup`.
+
+        A WebSocket proxy target's `resolvedIp` is deliberately absent: import
+        re-resolves and re-pins the hostname through the same SSRF-validated
+        path the admin route uses, rather than trusting a pin that travelled
+        inside a document.
 
         Tool key-allowlists export as SHA-256 hashes, which round-trip on import
         since the runtime only ever compares hashes.
+
+        Every section added after the initial version is optional on the wire,
+        so a document produced by an older gateway still imports. An absent
+        section means "no entities of this kind", never "delete the ones you
+        have" — import never removes what a document omits.
       properties:
         version: { type: integer, example: 1 }
         exportedAt: { type: integer, description: Unix ms epoch }
@@ -6348,9 +6442,55 @@ components:
               name: { type: string }
               monthlyQuota: { type: [integer, "null"] }
               endUserRateLimitPerMin: { type: [integer, "null"] }
+        schedules:
+          type: array
+          description: Keyed on import by the target/action/cron tuple, so re-importing does not stack duplicates.
+          items:
+            type: object
+            properties:
+              targetType: { type: string, enum: [client, tool] }
+              clientName: { type: string }
+              toolName: { type: [string, "null"] }
+              action: { type: string, enum: [enable, disable] }
+              cron: { type: string }
+              enabled: { type: boolean }
+        guardPolicies:
+          type: array
+          description: Reusable guard templates, keyed by name. Applying one to a tool stays a separate, tenancy-checked operation.
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              rateLimitPerMin: { type: [integer, "null"] }
+              timeoutMs: { type: [integer, "null"] }
+        teams:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+        catalogEntries:
+          type: array
+          description: Custom entries only — the builtin gallery is code, and import cannot create it.
+          items: { $ref: "#/components/schemas/CustomCatalogEntryInput" }
+        wsProxyTargets:
+          type: array
+          description: >
+            `resolvedIp` is absent by design: import re-resolves and re-pins the
+            hostname through the same SSRF-validated path the admin route uses.
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              backendWsUrl: { type: string }
+              maxConnections: { type: integer }
+              maxMessageBytes: { type: integer }
+              idleTimeoutMs: { type: integer }
+              enabled: { type: boolean }
 
     ImportResult:
       type: object
+      required: [dryRun, applied, skipped]
       properties:
         dryRun: { type: boolean }
         applied:
@@ -6362,6 +6502,11 @@ components:
             toolsConfigured: { type: integer }
             guardrails: { type: integer }
             consumers: { type: integer }
+            schedules: { type: integer }
+            guardPolicies: { type: integer }
+            teams: { type: integer }
+            catalogEntries: { type: integer }
+            wsProxyTargets: { type: integer }
         skipped:
           type: array
           items:
@@ -6373,6 +6518,7 @@ components:
 
     SnapshotSummary:
       type: object
+      required: [id, label, createdAt, createdBy]
       properties:
         id: { type: integer }
         label: { type: string }
@@ -6388,6 +6534,7 @@ components:
 
     ConfigDiffEntry:
       type: object
+      required: [path, kind, before, after]
       properties:
         path: { type: string, example: "clients.billing_service.enabled" }
         kind: { type: string, enum: [added, removed, changed] }
@@ -6399,6 +6546,8 @@ components:
     # -------------------------------------------------------------------------
     AlertRule:
       type: object
+      required:
+        [id, name, eventType, enabled, webhookUrl, threshold, minCalls, lastFiredAt, createdAt, updatedAt, createdBy]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -6418,6 +6567,7 @@ components:
     # -------------------------------------------------------------------------
     Schedule:
       type: object
+      required: [id, targetType, clientName, toolName, action, cron, enabled, lastRunMinute, createdAt, createdBy]
       properties:
         id: { type: integer }
         targetType: { type: string, enum: [client, tool] }
@@ -6436,6 +6586,7 @@ components:
     # -------------------------------------------------------------------------
     UsageSummary:
       type: object
+      required: [from, calls, errors, errorRate, avgMs, maxMs, tools, keys]
       properties:
         from: { type: integer, description: Unix ms epoch — start of the window. }
         calls: { type: integer }
@@ -6448,6 +6599,7 @@ components:
 
     UsageTimeseries:
       type: object
+      required: [bucketMs, points]
       properties:
         bucketMs: { type: integer }
         points:
@@ -6462,6 +6614,7 @@ components:
 
     TopToolRow:
       type: object
+      required: [client, tool, calls, errors, errorRate, avgMs, maxMs]
       properties:
         client: { type: string }
         tool: { type: string }
@@ -6473,6 +6626,7 @@ components:
 
     UsageByKeyRow:
       type: object
+      required: [keyId, label, calls, errors]
       properties:
         keyId: { type: [integer, "null"] }
         label:
@@ -6488,6 +6642,19 @@ components:
     # -------------------------------------------------------------------------
     WsProxyTarget:
       type: object
+      required:
+        [
+          name,
+          backendWsUrl,
+          resolvedIp,
+          maxConnections,
+          maxMessageBytes,
+          idleTimeoutMs,
+          enabled,
+          activeConnections,
+          createdAt,
+          updatedAt,
+        ]
       properties:
         name: { type: string }
         backendWsUrl: { type: string }
@@ -6530,9 +6697,22 @@ components:
       allOf:
         - $ref: "#/components/schemas/CustomCatalogEntryInput"
         - type: object
+          # A response guarantees more than the request body it extends, so the
+          # four inherited fields below are RE-DECLARED rather than only listed
+          # in `required`: a `required` entry naming a property this member does
+          # not itself declare does not tighten the merged schema, and code
+          # generators read it as still-optional.
+          #
+          # `featured` is deliberately absent from this list — 5 of the 7 builtin
+          # entries omit it, so it is genuinely optional on the wire.
+          required: [id, source, description, category, tags, icon]
           properties:
             id: { type: string, example: "custom:3" }
             source: { type: string, enum: [builtin, custom] }
+            description: { type: [string, "null"] }
+            category: { type: [string, "null"] }
+            tags: { type: array, items: { type: string } }
+            icon: { type: [string, "null"] }
             createdAt: { type: integer, description: Unix ms epoch. Absent on builtin entries. }
             updatedAt: { type: integer, description: Unix ms epoch. Absent on builtin entries. }
             createdBy: { type: [string, "null"] }

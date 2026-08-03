@@ -137,9 +137,11 @@ Stryker-readable, so every mutant re-runs the full suite via the `scripts/stryke
 wrapper) and is **not** part of `bun run check` or CI — run it as an occasional deep check, not a
 per-commit gate. The multi-session hardening program that brought this to completion (P2 +
 domains 2-10) is done: every file with meaningful runtime logic is effectively 100%
-mutation-killed. `stryker.config.mjs`'s `mutate` array intentionally points at a single file
-(`src/ws-proxy.ts`, the last one closed) as a stable placeholder for ad-hoc re-verification, not
-an active target — scope it to whichever file you changed before re-running against new work. As
+mutation-killed. `stryker.config.mjs`'s `mutate` array is a working pointer, not an active target:
+it holds whatever was last re-verified, and you scope it to the file you changed before re-running
+against new work. Set `STRYKER_TEST_SCOPE` to the relevant test dirs while you are at it — every
+mutant otherwise re-runs the whole suite (~36 min for ~110 mutants vs a few). Scoping can only
+leave a mutant undetected, never falsely killed, so the score stays conservative. As
 a byproduct of reaching that mutation-kill bar, the backend's `bun test --coverage` baseline sits
 at ~97.6% functions / ~98.5% lines — the number `bunfig.toml`'s `coverageThreshold` (deliberately
 set well below it) exists to guard against regressing, not to chase.
@@ -252,9 +254,19 @@ mechanism `proxyToolCall`'s sensitive-tool gate already uses.
 **Storage.** `bun:sqlite`, one file, no ORM, no external database. Admin config (enable flags,
 guards, bundles, keys, audit, users, teams, policies, schedules...) lives here; the live registry
 (`src/mcp/registry.ts`) is hydrated from it at boot. Schema changes are an **append-only** array
-in `src/db/migrations.ts` (currently up to id 56) — never edit or renumber a shipped migration;
-add a new one with the next sequential integer, written defensively (`CREATE TABLE IF NOT EXISTS`,
-additive `ALTER TABLE`) since there's no down-migration mechanism.
+in `src/db/migrations.ts` — never edit or renumber a shipped migration; add a new one with the next
+sequential integer, written defensively (`CREATE TABLE IF NOT EXISTS`, additive `ALTER TABLE`) since
+there's no down-migration mechanism.
+
+**A migration that REBUILDS a table needs a case in
+`src/db/__tests__/migration-upgrade-path.test.ts`, and that test will tell you so.** Every other
+test opens a fresh `:memory:` database, so migrations are otherwise only ever applied to an EMPTY
+schema — which proves the SQL parses, never that an existing deployment survives it. SQLite cannot
+alter a CHECK in place, so widening one means create/copy/drop/rename, and a wrong column list in
+the copy drops production data with no error. A structural case greps every migration for
+`DROP TABLE|RENAME TO` and fails when one is not covered. Seed a **gap** in the ids (insert three,
+delete the middle) when asserting they survive: consecutive ids come back identical even from a
+copy that omits the `id` column and lets AUTOINCREMENT re-assign.
 
 **Security-critical invariants** (SSRF/DNS-rebinding protection): outbound fetches to a backend
 must use `client.resolved_ip` (pinned at registration via `Bun.dns`, then re-validated on a TTL —

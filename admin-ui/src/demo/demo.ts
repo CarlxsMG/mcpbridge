@@ -229,6 +229,7 @@ function route(
       createdAt: NOW,
       updatedAt: NOW,
       tools: [],
+      composites: [],
     });
   }
   const bundleDetailMatch = p.match(/^\/admin-api\/bundles\/([^/]+)$/);
@@ -251,6 +252,7 @@ function route(
         createdAt: days(9),
         updatedAt: NOW,
         tools: (TOOLS[clients[0].name] ?? []).slice(0, 2).map((t) => ({ client: clients[0].name, tool: t.name })),
+        composites: [],
       }),
     );
   }

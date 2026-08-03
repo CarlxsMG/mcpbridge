@@ -290,17 +290,25 @@ export function rateLimitSso(maxPerMinute: number) {
 }
 
 /**
- * Per-IP rate limit for authenticated-but-costly admin routes, keyed by
- * `routeTag` so each route gets its own independent budget rather than sharing
- * one bucket (a caller exporting the audit log must not consume the allowance
- * for changing their password).
+ * Per-IP rate limit for admin routes that need a tighter ceiling than the
+ * global one, keyed by `routeTag` so each route gets its own independent budget
+ * rather than sharing one bucket (a caller exporting the audit log must not
+ * consume the allowance for changing their password).
  *
- * A shared tier rather than one more `rateLimitX` per route: the routes it
- * covers have nothing in common except that a single request costs far more
- * than a typical admin read, and that list will keep growing. Auth already
- * gates *who* may call them; this bounds what a looping script or a leaked
- * token can do — the same argument the backup tier makes. See
- * config.rateLimitExpensive.
+ * A shared tier rather than one more `rateLimitX` per route, because the reason
+ * a route joins it is always the same even when the trigger differs. Two
+ * triggers so far:
+ *
+ *   - the request itself is expensive (the argon2id verify+hash behind a
+ *     password change; the audit-log hash-chain verification and bulk export);
+ *   - the request writes or reads CREDENTIALS, so a looping caller matters far
+ *     below the point where cost does — `PUT/DELETE
+ *     /admin-api/clients/:name/upstream-auth` store a backend's credentials and
+ *     otherwise sat at the 1000/min global ceiling while login sat at 10.
+ *
+ * Auth already gates *who* may call these; this bounds what a looping script or
+ * a leaked token can do — the same argument the backup and login tiers make.
+ * See config.rateLimitExpensive.
  */
 export function rateLimitExpensive(routeTag: string, maxPerMinute: number) {
   return (req: Request, res: Response, next: NextFunction): void => {

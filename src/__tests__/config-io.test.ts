@@ -328,3 +328,297 @@ describe("per-tool policies round-trip through the mutation registry", () => {
     expect(restored.guardrails).toEqual({ denyPatterns: ["legacy"], blockSecrets: true, scanResponses: false });
   });
 });
+
+// ---------------------------------------------------------------------------
+// The entities the document used to omit entirely. Before this, the UI told an
+// operator plainly that schedules, guard policies, teams, catalog entries and
+// WebSocket proxy targets were NOT covered — which was honest, but the gap was
+// still a gap.
+// ---------------------------------------------------------------------------
+describe("config export covers the remaining admin-authored entities", () => {
+  test("teams, guard policies and catalog entries round-trip onto a fresh instance", async () => {
+    const { createTeam, listTeams } = await import("../admin/entities/teams.js");
+    const { createGuardPolicy, listGuardPolicies } = await import("../admin/entities/policies.js");
+    const { createCustomEntry, listCatalog } = await import("../catalog/index.js");
+
+    createTeam("platform", "t");
+    createGuardPolicy({ name: "tight", rateLimitPerMin: 30, timeoutMs: 5000, actor: "t" });
+    const entry = createCustomEntry(
+      { slug: "internal-crm", name: "Internal CRM", kind: "graphql", graphqlUrl: "https://crm.example.com/graphql" },
+      "t",
+    );
+    expect(entry.ok).toBe(true);
+
+    const doc = exportConfig();
+    expect(doc.teams).toEqual([{ name: "platform" }]);
+    expect(doc.guardPolicies).toEqual([{ name: "tight", rateLimitPerMin: 30, timeoutMs: 5000 }]);
+    expect(doc.catalogEntries?.map((e) => e.slug)).toEqual(["internal-crm"]);
+
+    __resetDbForTesting();
+    await clearRegistry();
+
+    const result = await importConfig(doc, { dryRun: false }, "t");
+    expect(result.skipped).toEqual([]);
+    expect(result.applied.teams).toBe(1);
+    expect(result.applied.guardPolicies).toBe(1);
+    expect(result.applied.catalogEntries).toBe(1);
+
+    expect(listTeams().map((t) => t.name)).toEqual(["platform"]);
+    expect(listGuardPolicies().map((p) => ({ name: p.name, rate: p.rateLimitPerMin }))).toEqual([
+      { name: "tight", rate: 30 },
+    ]);
+    const restored = listCatalog().find((e) => e.slug === "internal-crm")!;
+    expect(restored.kind).toBe("graphql");
+    expect(restored.graphqlUrl).toBe("https://crm.example.com/graphql");
+  });
+
+  test("the builtin catalog gallery is not exported — it is code, not rows", async () => {
+    const { listCatalog } = await import("../catalog/index.js");
+    expect(listCatalog().some((e) => e.source === "builtin")).toBe(true);
+    expect(exportConfig().catalogEntries).toEqual([]);
+  });
+
+  test("schedules round-trip, and are skipped when their target no longer exists", async () => {
+    await reg("svc");
+    const { createSchedule, listSchedules } = await import("../admin/entities/schedules.js");
+    const made = createSchedule({
+      targetType: "tool",
+      clientName: "svc",
+      toolName: "get-users",
+      action: "disable",
+      cron: "0 3 * * *",
+      actor: "t",
+    });
+    expect(typeof made).not.toBe("string");
+
+    const doc = exportConfig();
+    expect(doc.schedules).toHaveLength(1);
+
+    // Restored onto an instance where the client exists: applies.
+    __resetDbForTesting();
+    await clearRegistry();
+    await reg("svc");
+    const ok = await importConfig(doc, { dryRun: false }, "t");
+    expect(ok.applied.schedules).toBe(1);
+    expect(listSchedules()).toHaveLength(1);
+
+    // Re-importing the same document must not stack a duplicate — the key is
+    // the target/action/cron tuple, not a row id.
+    await importConfig(doc, { dryRun: false }, "t");
+    expect(listSchedules()).toHaveLength(1);
+
+    // Restored where the client was never registered: reported, not fabricated.
+    __resetDbForTesting();
+    await clearRegistry();
+    const missing = await importConfig(doc, { dryRun: false }, "t");
+    expect(missing.applied.schedules).toBe(0);
+    expect(missing.skipped.some((s) => s.type === "schedule" && s.reason === "client not registered")).toBe(true);
+  });
+
+  test("a ws-proxy target import is refused when the URL fails the same SSRF check the admin route applies", async () => {
+    // Import must never be a weaker path than the admin route: a document
+    // could otherwise plant a target the API itself would refuse.
+    const doc = {
+      version: 1,
+      exportedAt: Date.now(),
+      bundles: [],
+      alertRules: [],
+      clients: [],
+      consumers: [],
+      wsProxyTargets: [
+        {
+          name: "bad-scheme",
+          backendWsUrl: "http://example.com/socket",
+          maxConnections: 1,
+          maxMessageBytes: 1024,
+          idleTimeoutMs: 1000,
+          enabled: true,
+        },
+      ],
+    };
+    const result = await importConfig(doc, { dryRun: false }, "t");
+    expect(result.applied.wsProxyTargets).toBe(0);
+    expect(result.skipped.some((s) => s.type === "wsProxyTarget" && s.id === "bad-scheme")).toBe(true);
+  });
+
+  test("a document from an older gateway, with none of these sections, still imports", async () => {
+    const legacy = {
+      version: 1,
+      exportedAt: Date.now(),
+      bundles: [],
+      alertRules: [],
+      clients: [],
+      consumers: [],
+    };
+    const result = await importConfig(legacy, { dryRun: false }, "t");
+    expect(result.skipped).toEqual([]);
+    expect(result.applied.teams).toBe(0);
+    expect(result.applied.schedules).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The malformed-input branches of the five new sections. A config document can
+// be hand-edited or come from a foreign tool, so every one of these must
+// degrade to a reported skip — the import loop is not transactional, and a
+// throw halfway through would leave the instance half-configured with no
+// record of where it stopped.
+// ---------------------------------------------------------------------------
+describe("config import — malformed entries in the new sections are skipped, never thrown on", () => {
+  function docWith(sections: Record<string, unknown>) {
+    return {
+      version: 1,
+      exportedAt: Date.now(),
+      bundles: [],
+      alertRules: [],
+      clients: [],
+      consumers: [],
+      ...sections,
+    };
+  }
+
+  test("a nameless team, guard policy or catalog entry is reported, and the valid siblings still apply", async () => {
+    const result = await importConfig(
+      docWith({
+        teams: [{ name: "" }, { notName: 1 }, { name: "good-team" }],
+        guardPolicies: [{ name: "" }, { name: "good-policy", rateLimitPerMin: 5, timeoutMs: null }],
+        catalogEntries: [{ slug: "" }, { slug: "good-entry", name: "Good", kind: "rest" }],
+      }),
+      { dryRun: false },
+      "t",
+    );
+
+    expect(result.applied.teams).toBe(1);
+    expect(result.applied.guardPolicies).toBe(1);
+    expect(result.applied.catalogEntries).toBe(1);
+    expect(result.skipped.filter((s) => s.type === "team")).toHaveLength(2);
+    expect(result.skipped.filter((s) => s.type === "guardPolicy")).toHaveLength(1);
+    expect(result.skipped.filter((s) => s.type === "catalogEntry")).toHaveLength(1);
+  });
+
+  test("a catalog entry the mutation layer refuses is reported with its own message", async () => {
+    // An invalid slug is rejected by createCustomEntry, not by the guard above
+    // — this is the branch that surfaces a downstream refusal rather than a
+    // missing field.
+    const result = await importConfig(
+      docWith({ catalogEntries: [{ slug: "Not A Valid Slug", name: "X", kind: "rest" }] }),
+      { dryRun: false },
+      "t",
+    );
+    expect(result.applied.catalogEntries).toBe(0);
+    const skip = result.skipped.find((s) => s.type === "catalogEntry");
+    expect(skip?.reason).toContain("slug");
+  });
+
+  test("a schedule with an unparseable cron is reported, not persisted", async () => {
+    await reg("svc");
+    const result = await importConfig(
+      docWith({
+        schedules: [
+          {
+            targetType: "client",
+            clientName: "svc",
+            toolName: null,
+            action: "disable",
+            cron: "not a cron",
+            enabled: true,
+          },
+        ],
+      }),
+      { dryRun: false },
+      "t",
+    );
+    expect(result.applied.schedules).toBe(0);
+    expect(result.skipped.some((s) => s.type === "schedule" && s.reason === "INVALID_CRON")).toBe(true);
+  });
+
+  test("a nameless ws-proxy target is reported before any DNS work happens", async () => {
+    const result = await importConfig(
+      docWith({ wsProxyTargets: [{ backendWsUrl: "wss://x/y" }] }),
+      {
+        dryRun: false,
+      },
+      "t",
+    );
+    expect(result.applied.wsProxyTargets).toBe(0);
+    expect(result.skipped.some((s) => s.type === "wsProxyTarget")).toBe(true);
+  });
+
+  test("dry-run touches nothing in any of the new sections", async () => {
+    const { listTeams } = await import("../admin/entities/teams.js");
+    const { listGuardPolicies } = await import("../admin/entities/policies.js");
+    const result = await importConfig(
+      docWith({
+        teams: [{ name: "planned" }],
+        guardPolicies: [{ name: "planned", rateLimitPerMin: 1, timeoutMs: 1 }],
+      }),
+      { dryRun: true },
+      "t",
+    );
+    expect(result.applied.teams).toBe(1);
+    expect(result.applied.guardPolicies).toBe(1);
+    expect(listTeams()).toHaveLength(0);
+    expect(listGuardPolicies()).toHaveLength(0);
+  });
+
+  test("a disabled schedule is restored disabled, not silently re-enabled", async () => {
+    await reg("svc");
+    const { listSchedules } = await import("../admin/entities/schedules.js");
+    const result = await importConfig(
+      docWith({
+        schedules: [
+          {
+            targetType: "client",
+            clientName: "svc",
+            toolName: null,
+            action: "disable",
+            cron: "0 4 * * *",
+            enabled: false,
+          },
+        ],
+      }),
+      { dryRun: false },
+      "t",
+    );
+    expect(result.applied.schedules).toBe(1);
+    expect(listSchedules()[0]?.enabled).toBe(false);
+  });
+});
+
+describe("config export/import — WebSocket proxy targets round-trip", () => {
+  test("an existing target is exported without its pin, and re-created through the SSRF-validated path", async () => {
+    const { config } = await import("../config.js");
+    const { upsertWsProxyTarget, getWsProxyTargetDetail, __resetWsProxyForTesting } = await import("../ws-proxy.js");
+    const originalAllowPrivate = config.allowPrivateIps;
+    (config as Record<string, unknown>).allowPrivateIps = true;
+    try {
+      const made = await upsertWsProxyTarget("relay", { backendWsUrl: "ws://127.0.0.1:9", maxConnections: 3 });
+      expect(made.ok).toBe(true);
+
+      const doc = exportConfig();
+      expect(doc.wsProxyTargets).toHaveLength(1);
+      const exported = doc.wsProxyTargets![0]!;
+      expect(exported.name).toBe("relay");
+      expect(exported.maxConnections).toBe(3);
+      // The SSRF pin must NOT travel inside the document: it is resolved state,
+      // wrong wherever DNS differs, and trusting a carried value would make
+      // import a weaker path than the admin route.
+      expect(exported).not.toHaveProperty("resolvedIp");
+
+      __resetDbForTesting();
+      await clearRegistry();
+      __resetWsProxyForTesting();
+
+      const result = await importConfig(doc, { dryRun: false }, "t");
+      expect(result.skipped).toEqual([]);
+      expect(result.applied.wsProxyTargets).toBe(1);
+      const restored = getWsProxyTargetDetail("relay");
+      expect(restored?.backendWsUrl).toBe("ws://127.0.0.1:9");
+      expect(restored?.maxConnections).toBe(3);
+      // Re-resolved locally rather than copied from the document.
+      expect(restored?.resolvedIp).toBe("127.0.0.1");
+    } finally {
+      (config as Record<string, unknown>).allowPrivateIps = originalAllowPrivate;
+    }
+  });
+});

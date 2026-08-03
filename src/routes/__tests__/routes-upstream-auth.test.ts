@@ -160,3 +160,72 @@ describe("PUT/GET/DELETE /admin-api/clients/:name/upstream-auth", () => {
     expect(put.status).toBe(403);
   });
 });
+
+/**
+ * The upstream-auth writes store a backend's credentials, so they carry a
+ * per-route cap rather than sitting at the global ceiling — every other
+ * credential surface in this repo already does (login 10/min, backup 5,
+ * register 10, sso 20), and this one sat at 1000.
+ *
+ * Driving the real Express stack is the only thing that distinguishes "the
+ * middleware is imported" from "the middleware is actually mounted". The exact
+ * cutoff is deliberately not asserted: `rateLimitExpensive(...,
+ * config.rateLimitExpensive)` binds its max when the router module is first
+ * imported, so it reflects whatever config held then — which depends on file
+ * order across the shared test process. "The first call passes, some later call
+ * 429s, and it stays 429" is the property that tells a mounted limiter from an
+ * absent one.
+ *
+ * CodeQL alert #107 (js/missing-rate-limiting) named this handler. It was
+ * wrong on its own terms — `rateLimitGlobal` already covered it, the query
+ * just cannot see this repo's hand-rolled middleware — but the tighter cap it
+ * prompted is a real improvement, and this test is what keeps it.
+ */
+describe("PUT/DELETE upstream-auth — per-route credential cap", () => {
+  test("repeated writes start 429ing, and stay 429 for the rest of the window", async () => {
+    await startApp();
+    await reg("rl-svc");
+
+    const write = (): Promise<globalThis.Response> =>
+      fetch(`${baseUrl}/admin-api/clients/rl-svc/upstream-auth`, {
+        method: "PUT",
+        headers: jsonBearerHeaders(ADMIN_KEY),
+        body: JSON.stringify({ type: "bearer", token: "t" }),
+      });
+
+    expect((await write()).status, "the very first call was already limited").toBe(200);
+
+    const statuses: number[] = [];
+    for (let i = 0; i < 40; i++) statuses.push((await write()).status);
+
+    const firstLimited = statuses.indexOf(429);
+    expect(firstLimited, `no call was ever rate limited: ${JSON.stringify(statuses)}`).toBeGreaterThanOrEqual(0);
+    // Every status is one of the two expected outcomes — a 500 hiding in here
+    // would otherwise satisfy "not 200" without proving anything.
+    expect(new Set(statuses.slice(0, firstLimited))).toEqual(firstLimited === 0 ? new Set() : new Set([200]));
+    expect(new Set(statuses.slice(firstLimited))).toEqual(new Set([429]));
+  });
+
+  test("DELETE shares the PUT's bucket — alternating the two must not double the budget", async () => {
+    await startApp();
+    await reg("rl-shared");
+
+    const put = (): Promise<globalThis.Response> =>
+      fetch(`${baseUrl}/admin-api/clients/rl-shared/upstream-auth`, {
+        method: "PUT",
+        headers: jsonBearerHeaders(ADMIN_KEY),
+        body: JSON.stringify({ type: "bearer", token: "t" }),
+      });
+    const del = (): Promise<globalThis.Response> =>
+      fetch(`${baseUrl}/admin-api/clients/rl-shared/upstream-auth`, {
+        method: "DELETE",
+        headers: jsonBearerHeaders(ADMIN_KEY),
+      });
+
+    // Spend the budget on PUTs alone...
+    for (let i = 0; i < 40; i++) await put();
+    // ...then a DELETE must already be refused, which it only can be if it
+    // reads the same bucket rather than opening a second one.
+    expect((await del()).status).toBe(429);
+  });
+});

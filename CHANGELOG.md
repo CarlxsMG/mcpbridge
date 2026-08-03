@@ -9,9 +9,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GraphQL is a first-class upstream kind.** Registering a GraphQL endpoint always worked, but the
+  client persisted as `kind: "rest"` — so the admin UI labelled it REST, it could not be filtered,
+  and `catalog_entries`' CHECK constraint made publishing a GraphQL entry impossible. `UpstreamKind`
+  now includes `"graphql"`, it is written explicitly at registration, and one-click catalog install
+  routes it to the same SSRF-validated path `POST /register` uses.
+- **The failing request's correlation id reaches the admin UI.** Every error envelope has always
+  carried `request_id`, and every response repeats it in `X-Request-ID`; the SPA dropped both. Errors
+  now show a copyable ref beside the message, so an operator can find that request in the audit log,
+  the trace viewer or the server's stdout.
+- **A read-only view of the resolved settings**, at `GET /admin-api/config/effective` and behind a
+  panel on `/config`. 115 settings, several of which change behaviour invisibly, previously required
+  shell access to inspect. Secret-bearing values report only "set"/"unset" and are never returned.
+- **Config export now covers every per-tool policy, plus schedules, guard policies, teams, custom
+  catalog entries and WebSocket proxy targets.** See _Fixed_ below for what this was before.
+
 ### Changed
 
+- **The per-tool editor is grouped into four tabs** — Guards, Safety, Presentation, Advanced —
+  instead of fourteen controls in one column. Each tab shows how much is configured inside it, so
+  grouping does not hide state.
+- **Registering a server moved from its own sidebar entry to `/servers/new`**, the create-page
+  pattern every other entity already used, and the button on the Servers list.
+- **`src/openapi.yaml` declares `required`** on 45 of 52 object schemas, so the published docs say
+  which fields a consumer can rely on. Adding them also let the spec-vs-UI type gate compare
+  optionality, which is where several of the fixes below came from.
+- **Every `/admin-api` route now lives in `src/routes/admin/`** as a per-entity Router behind one
+  shared auth gate. Three registration conventions became two, and a file's directory now tells you
+  its shape. No behaviour change: mount order, and therefore path-matching precedence, is preserved.
+
 ### Fixed
+
+- **Config snapshots and rollback silently restored about a quarter of the configuration.** Export
+  carried a hand-picked set — a tool's enabled flag, guards and override, plus guardrails — while
+  fifteen per-tool policies (cache, coalescing, pagination, streaming, transforms, redaction,
+  sensitivity, quarantine, mocks, monitors, GraphQL, WebSocket, context budget, approval thresholds)
+  were absent. An operator could roll back after a bad change, see "Rollback applied", and still be
+  running every one of those exactly as the bad change left them. Export is now driven by the same
+  registry that backs the tool PATCH endpoint, so a policy added later is covered the day it is
+  added. Documents and snapshots from an older gateway still import unchanged.
+- **`ClientDetail.mcpUrl`/`mcpTransport`, `ClientSummary.kind`, `AuditLogEntry.hash`,
+  `ApprovalRecord.decisions` and the whole `ApprovalDecision` schema were returned by the backend
+  and undocumented.** `BundleDetail.composites` was documented and returned but missing from the
+  SPA's types.
+- **21 descriptions in the published API docs were truncated mid-sentence.** An unquoted
+  `description:` inside a YAML flow mapping ends at the first comma, so the rest became a junk
+  property. Valid YAML, so nothing warned. All repaired, with a test that fails on the next one.
+- **The MCP kind badge was unreadable in dark mode** — 1.99:1 contrast, because the dark theme
+  re-darkened the badge background but left the text at its light-mode violet.
+- **Credential writes to `/admin-api/clients/:name/upstream-auth` had no per-route rate limit**,
+  sitting at the 1000/min global ceiling while login sat at 10.
+- **Re-registering an existing client under a different kind left the old `kind` behind**, because
+  the upsert never updated that column.
+
+### Internal
+
+- **The database upgrade path is tested.** Every test opened a fresh in-memory database, so all 57
+  migrations were only ever applied to an empty schema — proving the SQL parses, never that an
+  existing deployment survives it. The two table-rebuilding migrations are now exercised against
+  seeded data, with a structural check that a third one cannot be added uncovered.
+- **Spec-vs-UI type drift is a compile error.** `admin-ui`'s types are asserted against types
+  generated from `src/openapi.yaml`, comparing property set, value type and optionality, and naming
+  the offending member when they diverge.
 
 ## [1.1.2] - 2026-07-24
 

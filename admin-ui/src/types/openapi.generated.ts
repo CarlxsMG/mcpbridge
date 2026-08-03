@@ -2466,18 +2466,18 @@ export interface components {
         };
         /** @description Lightweight row shape for the paginated admin client list — never embeds the full tool array. */
         ClientSummary: {
-            name?: string;
-            enabled?: boolean;
+            name: string;
+            enabled: boolean;
             /** @description Whether this client currently has an active in-memory registration. */
-            live?: boolean;
+            live: boolean;
             /** @enum {string|null} */
-            status?: "healthy" | "degraded" | "unreachable" | null;
-            toolsCount?: number;
-            healthUrl?: string;
-            baseUrl?: string;
-            kind?: components["schemas"]["UpstreamKind"];
+            status: "healthy" | "degraded" | "unreachable" | null;
+            toolsCount: number;
+            healthUrl: string;
+            baseUrl: string;
+            kind: components["schemas"]["UpstreamKind"];
             /** @description Owning team id, or null (visible only to super-admins). */
-            teamId?: number | null;
+            teamId: number | null;
         };
         /**
          * @description How the bridge reaches this client's backend. 'graphql' dispatches exactly like 'rest' (each generated tool is a POST carrying the stored introspected query) — it is an identity distinction, so the admin UI can label and filter GraphQL endpoints instead of showing them as REST.
@@ -2486,54 +2486,61 @@ export interface components {
         UpstreamKind: "rest" | "mcp" | "graphql";
         /** @description Full admin view of one client, including all tools with their enabled/guard state. */
         ClientDetail: {
-            name?: string;
-            enabled?: boolean;
-            live?: boolean;
+            name: string;
+            enabled: boolean;
+            live: boolean;
             /** @enum {string|null} */
-            status?: "healthy" | "degraded" | "unreachable" | null;
-            ip?: string | null;
-            healthUrl?: string;
-            baseUrl?: string;
-            resolvedIp?: string | null;
-            retryNonSafeMethods?: boolean;
-            kind?: components["schemas"]["UpstreamKind"];
-            consecutiveFailures?: number | null;
+            status: "healthy" | "degraded" | "unreachable" | null;
+            ip: string | null;
+            healthUrl: string;
+            baseUrl: string;
+            resolvedIp: string | null;
+            retryNonSafeMethods: boolean;
+            kind: components["schemas"]["UpstreamKind"];
+            /** @description Upstream MCP endpoint for a kind:mcp client; null otherwise. */
+            mcpUrl: string | null;
+            /**
+             * @description Transport used to reach a kind:mcp upstream; null otherwise.
+             * @enum {string|null}
+             */
+            mcpTransport: "streamable-http" | "sse" | null;
+            consecutiveFailures: number | null;
             guards?: components["schemas"]["ClientGuardConfig"];
             /** @enum {string|null} */
-            circuitBreakerState?: "closed" | "open" | "half_open" | null;
+            circuitBreakerState: "closed" | "open" | "half_open" | null;
             /** @description Owning team id, or null (visible only to super-admins). */
-            teamId?: number | null;
-            tools?: (components["schemas"]["RestToolDefinition"] & {
+            teamId: number | null;
+            tools: (components["schemas"]["RestToolDefinition"] & {
                 enabled?: boolean;
                 guards?: components["schemas"]["ToolGuardConfig"];
             })[];
         };
         /** @description Admin user row — password_hash is never included in API responses. */
         AdminUserSummary: {
-            username?: string;
+            username: string;
             /** @enum {string} */
-            role?: "admin" | "operator" | "auditor" | "viewer";
-            is_active?: boolean;
+            role: "admin" | "operator" | "auditor" | "viewer";
+            is_active: boolean;
             /** @description Unix ms epoch */
-            created_at?: number;
+            created_at: number;
             /** @description Unix ms epoch */
-            last_login_at?: number | null;
+            last_login_at: number | null;
             /** @description Owning team id, or null for a super-admin (team-unscoped) user. */
-            team_id?: number | null;
+            team_id: number | null;
         };
         AuditLogEntry: {
-            id?: number;
+            id: number;
             /** @description Username, or "bearer:admin-api-key" for API-key-driven changes. */
-            actor?: string;
+            actor: string;
             /** @example tool.guards.update */
-            action?: string;
+            action: string;
             /** @example billing_service__charge_card */
-            target?: string;
-            detail?: {
+            target: string;
+            detail: {
                 [key: string]: unknown;
             } | null;
             /** @description Unix ms epoch */
-            createdAt?: number;
+            createdAt: number;
             /** @description This entry's link in the tamper-evident hash chain (SHA-256 over the entry plus its predecessor's hash). Null for rows written before the chain existed; verify the whole chain via GET /admin-api/audit-log/verify. */
             hash?: string | null;
         };
@@ -2547,39 +2554,39 @@ export interface components {
         };
         /** @description Per-client secondary-upstream routing — "canary" splits a weighted % of traffic to the secondary; "failover" only routes there while the primary's circuit breaker is open. */
         CanaryConfig: {
-            secondaryBaseUrl?: string;
+            secondaryBaseUrl: string;
             /** @description IP the secondary hostname was pinned to at config time. */
-            secondaryResolvedIp?: string;
+            secondaryResolvedIp: string;
             /** @enum {string} */
-            mode?: "canary" | "failover";
+            mode: "canary" | "failover";
             /** @description Percentage (1-100) of traffic routed to the secondary in canary mode. */
-            weight?: number;
-            enabled?: boolean;
+            weight: number;
+            enabled: boolean;
         };
         /** @description One additional upstream in a client's load-balancing pool (the primary base_url is always an implicit member, weighted by primaryWeight). */
         LbUpstream: {
-            id?: number;
-            baseUrl?: string;
-            resolvedIp?: string;
-            weight?: number;
-            enabled?: boolean;
+            id: number;
+            baseUrl: string;
+            resolvedIp: string;
+            weight: number;
+            enabled: boolean;
         };
         LbConfig: {
             /** @enum {string} */
-            strategy?: "round-robin" | "weighted" | "least-conn";
-            primaryWeight?: number;
-            enabled?: boolean;
-            targets?: components["schemas"]["LbUpstream"][];
+            strategy: "round-robin" | "weighted" | "least-conn";
+            primaryWeight: number;
+            enabled: boolean;
+            targets: components["schemas"]["LbUpstream"][];
         };
         /** @description Non-secret view of a client's outbound OAuth2 client-credentials config — clientSecret is never returned once set. */
         OAuthConfigInfo: {
-            tokenUrl?: string;
-            clientId?: string;
-            scope?: string | null;
+            tokenUrl: string;
+            clientId: string;
+            scope: string | null;
         };
         /** @description Non-secret view of a client's upstream credential config — the secret itself is never returned once set. */
         UpstreamAuthInfo: {
-            configured?: boolean;
+            configured: boolean;
             /** @enum {string} */
             type?: "bearer" | "basic" | "header";
             headerName?: string | null;
@@ -2588,94 +2595,94 @@ export interface components {
         };
         /** @description A captured tool call (opt-in via TRAFFIC_CAPTURE). Args are stored in full for faithful replay; the result is a truncated preview. */
         TrafficRecord: {
-            id?: number;
+            id: number;
             /** @example billing_service__charge_card */
-            mcpToolName?: string;
-            clientName?: string | null;
-            toolName?: string | null;
-            keyId?: number | null;
+            mcpToolName: string;
+            clientName: string | null;
+            toolName: string | null;
+            keyId: number | null;
             /** @description JSON-serialized original call arguments. */
-            argsJson?: string;
+            argsJson: string;
             /** @description Truncated, already-redacted/guardrail-processed result preview. */
-            preview?: string;
-            isError?: boolean;
-            durationMs?: number;
+            preview: string;
+            isError: boolean;
+            durationMs: number;
             /** @description Unix ms epoch */
-            createdAt?: number;
+            createdAt: number;
         };
         /** @description A human-in-the-loop approval ticket, filed when a tool requiring approval is called without an `__approval_id`. */
         ApprovalRecord: {
-            id?: number;
-            clientName?: string;
-            toolName?: string;
+            id: number;
+            clientName: string;
+            toolName: string;
             /** @description SHA-256 of the exact arguments this ticket is bound to. */
-            argsHash?: string;
-            argsJson?: string;
+            argsHash: string;
+            argsJson: string;
             /** @enum {string} */
-            status?: "pending" | "approved" | "rejected";
+            status: "pending" | "approved" | "rejected";
             /** @description Unix ms epoch */
-            createdAt?: number;
-            decidedAt?: number | null;
-            decidedBy?: string | null;
-            note?: string | null;
+            createdAt: number;
+            decidedAt: number | null;
+            decidedBy: string | null;
+            note: string | null;
             /** @description Set once the caller re-invokes the tool with this ticket's __approval_id — a ticket is single-use. */
-            consumedAt?: number | null;
-            requestedBy?: number | null;
+            consumedAt: number | null;
+            requestedBy: number | null;
             /** @description N-of-M distinct-approver threshold, snapshotted from the tool's config at ticket creation. */
-            requiredLevels?: number;
+            requiredLevels: number;
             /** @description One entry per approver who has acted on this ticket so far, oldest first. */
-            decisions?: components["schemas"]["ApprovalDecision"][];
+            decisions: components["schemas"]["ApprovalDecision"][];
         };
         /** @description One approver's action on a ticket. A ticket needing N distinct approvers accumulates N of these before it leaves "pending"; each row is a different `decidedBy`, which is what makes the threshold meaningful. */
         ApprovalDecision: {
-            id?: number;
-            approvalId?: number;
-            decidedBy?: string;
+            id: number;
+            approvalId: number;
+            decidedBy: string;
             /** @enum {string} */
-            decision?: "approved" | "rejected";
-            note?: string | null;
+            decision: "approved" | "rejected";
+            note: string | null;
             /** @description Unix ms epoch */
-            decidedAt?: number;
+            decidedAt: number;
         };
         BundleToolRef: {
             client: string;
             tool: string;
         };
         BundleSummary: {
-            name?: string;
-            description?: string | null;
-            enabled?: boolean;
-            toolsCount?: number;
+            name: string;
+            description: string | null;
+            enabled: boolean;
+            toolsCount: number;
         };
         BundleDetail: {
-            name?: string;
-            description?: string | null;
-            enabled?: boolean;
+            name: string;
+            description: string | null;
+            enabled: boolean;
             /** @description Unix ms epoch */
-            createdAt?: number;
+            createdAt: number;
             /** @description Unix ms epoch */
-            updatedAt?: number;
-            tools?: components["schemas"]["BundleToolRef"][];
+            updatedAt: number;
+            tools: components["schemas"]["BundleToolRef"][];
             /** @description Names of composite (macro) tools this bundle also exposes. */
-            composites?: string[];
+            composites: string[];
         };
         /** @description Metadata for a bundle install link. The raw token is never included in list/detail responses — only a short tokenPrefix for identification. */
         InstallLink: {
-            id?: number;
-            bundleName?: string;
+            id: number;
+            bundleName: string;
             /** @description First characters of the token, for display only. */
-            tokenPrefix?: string;
+            tokenPrefix: string;
             /** @description The scoped MCP API key auto-provisioned for this link. */
-            mcpKeyId?: number;
-            createdBy?: string | null;
+            mcpKeyId: number;
+            createdBy: string | null;
             /** @description Unix ms epoch. */
-            createdAt?: number;
+            createdAt: number;
             /** @description Unix ms epoch, or null for no expiry. */
-            expiresAt?: number | null;
+            expiresAt: number | null;
             /** @description Unix ms epoch when revoked, or null if active. */
-            revokedAt?: number | null;
+            revokedAt: number | null;
             /** @description Unix ms epoch of last successful resolve, or null. */
-            lastUsedAt?: number | null;
+            lastUsedAt: number | null;
         };
         /** @description Request body for PATCH /admin-api/clients/{name}/tools/{tool}. Every field is optional; only the keys present in the request are applied, in the order listed here. Most object-valued policy keys accept null (and, where noted, literal false) to clear them. */
         ToolConfigPatch: {
@@ -2925,26 +2932,28 @@ export interface components {
             targetClient: string;
             targetTool: string;
             /** @description JSON template resolved against {input, steps} to build this step's arguments. Supports {"$ref":"input.<path>"}, {"$ref":"steps.<i>.text"}, {"$ref":"steps.<i>.json.<path>"}, and string interpolation like "literal ${input.x}". Max 10KB serialized. */
-            argsTemplate?: {
+            argsTemplate: {
                 [key: string]: unknown;
             };
         };
         CompositeSummary: {
-            name?: string;
-            description?: string | null;
-            enabled?: boolean;
-            stepsCount?: number;
+            name: string;
+            description: string | null;
+            enabled: boolean;
+            stepsCount: number;
         };
         CompositeDetail: {
-            name?: string;
-            description?: string | null;
-            enabled?: boolean;
-            inputSchema?: Record<string, never>;
-            steps?: components["schemas"]["CompositeStep"][];
+            name: string;
+            description: string | null;
+            enabled: boolean;
+            inputSchema: {
+                [key: string]: unknown;
+            };
+            steps: components["schemas"]["CompositeStep"][];
             /** @description Unix ms epoch */
-            createdAt?: number;
+            createdAt: number;
             /** @description Unix ms epoch */
-            updatedAt?: number;
+            updatedAt: number;
         };
         /** @description null = unrestricted (may call any enabled tool, matching a legacy MCP_API_KEYS entry). Non-null is fail-closed: only what's listed is allowed. */
         McpKeyScopes: {
@@ -2955,56 +2964,56 @@ export interface components {
         };
         /** @description Public shape of a managed MCP API key — never carries the hash or raw secret (except the one-time POST response, which also includes `key`). */
         McpApiKeyRecord: {
-            id?: number;
-            label?: string;
+            id: number;
+            label: string;
             /** @description First few characters of the raw key, for identification in the UI. */
-            keyPrefix?: string;
-            consumerId?: number | null;
+            keyPrefix: string;
+            consumerId: number | null;
             /** @description Elevated keys bypass certain guardrails/quarantine gates — see backends.ts/guardrails.ts for exact semantics. */
-            elevated?: boolean;
-            scopes?: components["schemas"]["McpKeyScopes"] | null;
+            elevated: boolean;
+            scopes: components["schemas"]["McpKeyScopes"] | null;
             /**
              * @description Control-plane role this key carries on /mcp (see RootMcpAuth). null = no system access.
              * @enum {string|null}
              */
-            adminRole?: "admin" | "operator" | "auditor" | "viewer" | null;
-            enabled?: boolean;
+            adminRole: "admin" | "operator" | "auditor" | "viewer" | null;
+            enabled: boolean;
             /** @description Epoch ms. */
-            expiresAt?: number | null;
+            expiresAt: number | null;
             /** @description Epoch ms. */
-            revokedAt?: number | null;
+            revokedAt: number | null;
             /** @description Epoch ms. */
-            lastUsedAt?: number | null;
+            lastUsedAt: number | null;
             /** @description Epoch ms. */
-            createdAt?: number;
+            createdAt: number;
             /** @description Epoch ms. */
-            updatedAt?: number;
-            createdBy?: string | null;
+            updatedAt: number;
+            createdBy: string | null;
         };
         Consumer: {
-            id?: number;
-            name?: string;
+            id: number;
+            name: string;
             /** @description Positive integer, or null for unlimited. */
-            monthlyQuota?: number | null;
+            monthlyQuota: number | null;
             /** @description Positive integer, or null to disable. */
-            endUserRateLimitPerMin?: number | null;
+            endUserRateLimitPerMin: number | null;
             /** @description Unix ms epoch */
-            createdAt?: number;
+            createdAt: number;
             /** @description Unix ms epoch */
-            updatedAt?: number;
-            createdBy?: string | null;
+            updatedAt: number;
+            createdBy: string | null;
         };
         /** @description A reusable rate-limit/timeout pair that can be bulk-applied to a set of tools or a whole bundle. */
         GuardPolicy: {
-            id?: number;
-            name?: string;
-            rateLimitPerMin?: number | null;
-            timeoutMs?: number | null;
+            id: number;
+            name: string;
+            rateLimitPerMin: number | null;
+            timeoutMs: number | null;
             /** @description Unix ms epoch */
-            createdAt?: number;
+            createdAt: number;
             /** @description Unix ms epoch */
-            updatedAt?: number;
-            createdBy?: string | null;
+            updatedAt: number;
+            createdBy: string | null;
         };
         ApplyResult: {
             applied?: number;
@@ -3014,53 +3023,53 @@ export interface components {
             }[];
         };
         Team: {
-            id?: number;
-            name?: string;
+            id: number;
+            name: string;
             /** @description Unix ms epoch */
-            createdAt?: number;
-            createdBy?: string | null;
+            createdAt: number;
+            createdBy: string | null;
         };
         StoredSpan: {
-            id?: number;
-            traceId?: string;
-            spanId?: string;
-            name?: string;
-            mcpToolName?: string | null;
+            id: number;
+            traceId: string;
+            spanId: string;
+            name: string;
+            mcpToolName: string | null;
             /** @description The calling MCP transport session id (mcp-session-id), if the call happened over a live session. */
-            sessionId?: string | null;
-            startMs?: number;
-            endMs?: number;
+            sessionId: string | null;
+            startMs: number;
+            endMs: number;
             /**
              * @description 0 unset, 1 ok, 2 error (OTel status code convention).
              * @enum {integer}
              */
-            statusCode?: 0 | 1 | 2;
-            attributes?: {
+            statusCode: 0 | 1 | 2;
+            attributes: {
                 [key: string]: unknown;
             };
             /** @description Unix ms epoch */
-            createdAt?: number;
+            createdAt: number;
         };
         TraceSummary: {
-            traceId?: string;
-            spanCount?: number;
-            startMs?: number;
-            endMs?: number;
-            mcpToolName?: string | null;
-            sessionId?: string | null;
-            hasError?: boolean;
+            traceId: string;
+            spanCount: number;
+            startMs: number;
+            endMs: number;
+            mcpToolName: string | null;
+            sessionId: string | null;
+            hasError: boolean;
         };
         TopSessionRow: {
-            sessionId?: string;
-            calls?: number;
-            hasError?: boolean;
+            sessionId: string;
+            calls: number;
+            hasError: boolean;
         };
         /** @description The configuration this process resolved at boot. Read-only — env vars apply at boot. */
         EffectiveConfig: {
             /** @example production */
-            nodeEnv?: string;
+            nodeEnv: string;
             /** @description One per config key, sorted by key so two instances diff line by line. */
-            entries?: {
+            entries: {
                 /** @example toolCallTimeoutMs */
                 key?: string;
                 /** @description The resolved value, or the string "set"/"unset" when `redacted` is true. A redacted key's real value is never serialized. */
@@ -3069,9 +3078,11 @@ export interface components {
             }[];
         };
         /**
-         * @description A portable document of part of the admin-authored config: registered servers with their client guards and every per-tool policy, plus bundles, alert rules and consumer quotas.
-         *     NOT included, so a rollback does not restore them: schedules, guard policies, teams, users, catalog entries, WebSocket proxy targets, API keys, the audit log, and decrypted upstream secrets. For a complete copy of the admin database use `POST /admin-api/backup` instead.
+         * @description A portable document of the admin-authored config: registered servers with their client guards and every per-tool policy, plus bundles, alert rules, consumer quotas, schedules, guard policies, teams, custom catalog entries and WebSocket proxy targets. Each of the latter five is keyed by its natural name, never by row id, since ids are local to one database.
+         *     NOT included, so a rollback does not restore them: users, API keys, the audit log, decrypted upstream secrets, and the BUILTIN catalog gallery (which is code, not rows — every instance already has it). For a complete copy of the admin database use `POST /admin-api/backup`.
+         *     A WebSocket proxy target's `resolvedIp` is deliberately absent: import re-resolves and re-pins the hostname through the same SSRF-validated path the admin route uses, rather than trusting a pin that travelled inside a document.
          *     Tool key-allowlists export as SHA-256 hashes, which round-trip on import since the runtime only ever compares hashes.
+         *     Every section added after the initial version is optional on the wire, so a document produced by an older gateway still imports. An absent section means "no entities of this kind", never "delete the ones you have" — import never removes what a document omits.
          */
         ConfigExport: {
             /** @example 1 */
@@ -3132,18 +3143,54 @@ export interface components {
                 monthlyQuota?: number | null;
                 endUserRateLimitPerMin?: number | null;
             }[];
+            /** @description Keyed on import by the target/action/cron tuple, so re-importing does not stack duplicates. */
+            schedules?: {
+                /** @enum {string} */
+                targetType?: "client" | "tool";
+                clientName?: string;
+                toolName?: string | null;
+                /** @enum {string} */
+                action?: "enable" | "disable";
+                cron?: string;
+                enabled?: boolean;
+            }[];
+            /** @description Reusable guard templates, keyed by name. Applying one to a tool stays a separate, tenancy-checked operation. */
+            guardPolicies?: {
+                name?: string;
+                rateLimitPerMin?: number | null;
+                timeoutMs?: number | null;
+            }[];
+            teams?: {
+                name?: string;
+            }[];
+            /** @description Custom entries only — the builtin gallery is code, and import cannot create it. */
+            catalogEntries?: components["schemas"]["CustomCatalogEntryInput"][];
+            /** @description `resolvedIp` is absent by design: import re-resolves and re-pins the hostname through the same SSRF-validated path the admin route uses. */
+            wsProxyTargets?: {
+                name?: string;
+                backendWsUrl?: string;
+                maxConnections?: number;
+                maxMessageBytes?: number;
+                idleTimeoutMs?: number;
+                enabled?: boolean;
+            }[];
         };
         ImportResult: {
-            dryRun?: boolean;
-            applied?: {
+            dryRun: boolean;
+            applied: {
                 bundles?: number;
                 alertRules?: number;
                 clientsConfigured?: number;
                 toolsConfigured?: number;
                 guardrails?: number;
                 consumers?: number;
+                schedules?: number;
+                guardPolicies?: number;
+                teams?: number;
+                catalogEntries?: number;
+                wsProxyTargets?: number;
             };
-            skipped?: {
+            skipped: {
                 /** @enum {string} */
                 type?: "bundle" | "alert" | "client" | "tool" | "guardrail" | "consumer";
                 id?: string;
@@ -3151,74 +3198,74 @@ export interface components {
             }[];
         };
         SnapshotSummary: {
-            id?: number;
-            label?: string;
+            id: number;
+            label: string;
             /** @description Unix ms epoch */
-            createdAt?: number;
-            createdBy?: string | null;
+            createdAt: number;
+            createdBy: string | null;
         };
         Snapshot: components["schemas"]["SnapshotSummary"] & {
             config?: components["schemas"]["ConfigExport"];
         };
         ConfigDiffEntry: {
             /** @example clients.billing_service.enabled */
-            path?: string;
+            path: string;
             /** @enum {string} */
-            kind?: "added" | "removed" | "changed";
-            before?: unknown;
-            after?: unknown;
+            kind: "added" | "removed" | "changed";
+            before: unknown;
+            after: unknown;
         };
         AlertRule: {
-            id?: number;
-            name?: string;
+            id: number;
+            name: string;
             /** @enum {string} */
-            eventType?: "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike" | "schema_drift";
-            enabled?: boolean;
-            webhookUrl?: string;
-            threshold?: number | null;
-            minCalls?: number | null;
+            eventType: "circuit_breaker_open" | "client_unreachable" | "error_rate" | "usage_spike" | "schema_drift";
+            enabled: boolean;
+            webhookUrl: string;
+            threshold: number | null;
+            minCalls: number | null;
             /** @description Unix ms epoch */
-            lastFiredAt?: number | null;
+            lastFiredAt: number | null;
             /** @description Unix ms epoch */
-            createdAt?: number;
+            createdAt: number;
             /** @description Unix ms epoch */
-            updatedAt?: number;
-            createdBy?: string | null;
+            updatedAt: number;
+            createdBy: string | null;
         };
         Schedule: {
-            id?: number;
+            id: number;
             /** @enum {string} */
-            targetType?: "client" | "tool";
-            clientName?: string;
-            toolName?: string | null;
+            targetType: "client" | "tool";
+            clientName: string;
+            toolName: string | null;
             /** @enum {string} */
-            action?: "enable" | "disable";
+            action: "enable" | "disable";
             /** @example 0 2 * * * */
-            cron?: string;
-            enabled?: boolean;
+            cron: string;
+            enabled: boolean;
             /** @description Epoch minute of the last fire — used to de-dupe within a minute. */
-            lastRunMinute?: number | null;
+            lastRunMinute: number | null;
             /** @description Unix ms epoch */
-            createdAt?: number;
-            createdBy?: string | null;
+            createdAt: number;
+            createdBy: string | null;
         };
         UsageSummary: {
             /** @description Unix ms epoch — start of the window. */
-            from?: number;
-            calls?: number;
-            errors?: number;
+            from: number;
+            calls: number;
+            errors: number;
             /** @description errors / calls, or 0 when calls is 0. */
-            errorRate?: number;
-            avgMs?: number;
-            maxMs?: number;
+            errorRate: number;
+            avgMs: number;
+            maxMs: number;
             /** @description Distinct client__tool pairs called in the window. */
-            tools?: number;
+            tools: number;
             /** @description Distinct MCP keys used in the window. */
-            keys?: number;
+            keys: number;
         };
         UsageTimeseries: {
-            bucketMs?: number;
-            points?: {
+            bucketMs: number;
+            points: {
                 /** @description Bucket start, Unix ms epoch. */
                 t?: number;
                 calls?: number;
@@ -3227,35 +3274,35 @@ export interface components {
             }[];
         };
         TopToolRow: {
-            client?: string;
-            tool?: string;
-            calls?: number;
-            errors?: number;
-            errorRate?: number;
-            avgMs?: number;
-            maxMs?: number;
+            client: string;
+            tool: string;
+            calls: number;
+            errors: number;
+            errorRate: number;
+            avgMs: number;
+            maxMs: number;
         };
         UsageByKeyRow: {
-            keyId?: number | null;
+            keyId: number | null;
             /** @description The key's label, "key #<id>" if the key row is gone, or "(unattributed)" for calls with no key. */
-            label?: string;
-            calls?: number;
-            errors?: number;
+            label: string;
+            calls: number;
+            errors: number;
         };
         WsProxyTarget: {
-            name?: string;
-            backendWsUrl?: string;
+            name: string;
+            backendWsUrl: string;
             /** @description IP the backend hostname was pinned to at config time. */
-            resolvedIp?: string;
-            maxConnections?: number;
-            maxMessageBytes?: number;
-            idleTimeoutMs?: number;
-            enabled?: boolean;
-            activeConnections?: number;
+            resolvedIp: string;
+            maxConnections: number;
+            maxMessageBytes: number;
+            idleTimeoutMs: number;
+            enabled: boolean;
+            activeConnections: number;
             /** @description Unix ms epoch */
-            createdAt?: number;
+            createdAt: number;
             /** @description Unix ms epoch */
-            updatedAt?: number;
+            updatedAt: number;
         };
         CustomCatalogEntryInput: {
             slug: string;
@@ -3280,9 +3327,13 @@ export interface components {
         /** @description A merged view of the static builtin gallery and admin-authored custom entries. `id` is prefixed `builtin:` or `custom:` to disambiguate; `source` tells you which. */
         CatalogEntry: components["schemas"]["CustomCatalogEntryInput"] & {
             /** @example custom:3 */
-            id?: string;
+            id: string;
             /** @enum {string} */
-            source?: "builtin" | "custom";
+            source: "builtin" | "custom";
+            description: string | null;
+            category: string | null;
+            tags: string[];
+            icon: string | null;
             /** @description Unix ms epoch. Absent on builtin entries. */
             createdAt?: number;
             /** @description Unix ms epoch. Absent on builtin entries. */

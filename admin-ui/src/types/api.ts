@@ -158,7 +158,7 @@ export interface ClientDetail {
   circuitBreakerState: CircuitBreakerState | null;
   kind: UpstreamKind;
   mcpUrl: string | null;
-  mcpTransport: string | null;
+  mcpTransport: McpTransport | null;
   teamId: number | null;
   tools: ToolDetail[];
 }
@@ -358,6 +358,8 @@ export interface BundleDetail {
   createdAt: number;
   updatedAt: number;
   tools: BundleToolRef[];
+  /** Names of the composite (macro) tools this bundle also exposes. Always present — getBundleDetail builds it from mcp_bundle_composites. */
+  composites: string[];
 }
 
 /** One row of GET /admin-api/tools — the flat cross-client listing that powers the bundle tool picker. */
@@ -425,7 +427,12 @@ export interface CatalogEntry {
   mcpUrl?: string | null;
   mcpTransport?: "streamable-http" | "sse" | null;
   graphqlUrl?: string | null;
-  featured: boolean;
+  /** Absent on the builtin entries that do not set it — 5 of 7 today. */
+  featured?: boolean;
+  /** Provenance of a `source: "custom"` entry. Absent on builtin ones, which are code, not rows. */
+  createdAt?: number;
+  updatedAt?: number;
+  createdBy?: string | null;
 }
 
 /**
@@ -668,6 +675,11 @@ export interface ConfigImportResult {
     toolsConfigured: number;
     guardrails: number;
     consumers: number;
+    schedules: number;
+    guardPolicies: number;
+    teams: number;
+    catalogEntries: number;
+    wsProxyTargets: number;
   };
   skipped: { type: string; id: string; reason: string }[];
 }

@@ -40,7 +40,8 @@ export default {
     // at the last file closed purely as a stable placeholder for ad-hoc
     // re-verification; there is no active target — scope a specific file here
     // when re-running against a change.
-    "src/ws-proxy.ts",
+    "src/admin/config/effective-config.ts",
+    "src/admin/tool-policies/mutations/index.ts",
   ],
   plugins: ["@stryker-mutator/typescript-checker"],
   tsconfigFile: "tsconfig.json",
