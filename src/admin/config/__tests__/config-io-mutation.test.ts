@@ -355,7 +355,7 @@ describe("importConfig — envelope validation", () => {
 // ---------------------------------------------------------------------------
 
 describe("importConfig — alert rules", () => {
-  test("skips (does not duplicate) a rule whose name already exists, with reason 'already exists'", async () => {
+  test("updates (does not duplicate, does not skip) a rule whose name already exists", async () => {
     createAlertRule({ name: "dup-rule", eventType: "usage_spike", webhookUrl: "https://x", actor: "seed" });
 
     const result = await importConfig(
@@ -375,10 +375,70 @@ describe("importConfig — alert rules", () => {
       "actor-1",
     );
 
+    // This section used to be create-only, reporting an existing rule as
+    // `skipped: "already exists"`. That made it the only non-idempotent part of
+    // importConfig, and since the CLI's `apply` treats any skip as a failure,
+    // `pull` followed by `apply` exited 1 on any gateway with an alert rule.
+    expect(result.applied.alertRules).toBe(1);
+    expect(result.skipped).toEqual([]);
+    // Applied in place, on the same row — the document is the desired state.
+    const matching = listAlertRules().filter((r) => r.name === "dup-rule");
+    expect(matching).toHaveLength(1);
+    expect(matching[0]?.webhookUrl).toBe("https://y");
+  });
+
+  test("a same-name rule with a DIFFERENT event type is a real skip, and is not mutated", async () => {
+    createAlertRule({ name: "retyped-rule", eventType: "usage_spike", webhookUrl: "https://x", actor: "seed" });
+
+    const result = await importConfig(
+      baseDoc({
+        alertRules: [
+          {
+            name: "retyped-rule",
+            eventType: "schema_drift",
+            enabled: true,
+            webhookUrl: "https://y",
+            threshold: null,
+            minCalls: null,
+          },
+        ],
+      }),
+      { dryRun: false },
+      "actor-1",
+    );
+
+    // event_type is immutable: updateAlertRule cannot change it, and the alert
+    // loop keys its edge-triggering state off the rule id. So this one really
+    // cannot be applied, and saying so is the point of keeping a skip here.
     expect(result.applied.alertRules).toBe(0);
-    expect(result.skipped).toEqual([{ type: "alert", id: "dup-rule", reason: "already exists" }]);
-    // Not overwritten — the original webhook URL is untouched.
-    expect(listAlertRules().find((r) => r.name === "dup-rule")?.webhookUrl).toBe("https://x");
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0]?.type).toBe("alert");
+    expect(result.skipped[0]?.id).toBe("retyped-rule");
+    expect(result.skipped[0]?.reason).toContain("cannot be changed");
+    const untouched = listAlertRules().find((r) => r.name === "retyped-rule");
+    expect(untouched?.webhookUrl).toBe("https://x");
+    expect(untouched?.eventType).toBe("usage_spike");
+  });
+
+  test("a rule exported while DISABLED is restored disabled, on both the create and update paths", async () => {
+    // createAlertRule used to hardcode enabled = 1, so a disabled rule silently
+    // came back enabled on every config round trip — a re-armed alert nobody
+    // asked for.
+    const disabled = {
+      name: "quiet-rule",
+      eventType: "usage_spike" as const,
+      enabled: false,
+      webhookUrl: "https://quiet",
+      threshold: null,
+      minCalls: null,
+    };
+
+    await importConfig(baseDoc({ alertRules: [disabled] }), { dryRun: false }, "actor-1");
+    expect(listAlertRules().find((r) => r.name === "quiet-rule")?.enabled, "create path re-enabled it").toBe(false);
+
+    // And again, now that the row exists, through the update path.
+    await importConfig(baseDoc({ alertRules: [disabled] }), { dryRun: false }, "actor-1");
+    expect(listAlertRules().find((r) => r.name === "quiet-rule")?.enabled, "update path re-enabled it").toBe(false);
   });
 
   test("dryRun:true counts a new rule as applied but does not persist it", async () => {

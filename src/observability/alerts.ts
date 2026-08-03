@@ -87,18 +87,26 @@ export function createAlertRule(input: {
   webhookUrl: string;
   threshold?: number | null;
   minCalls?: number | null;
+  /**
+   * Defaults to true, which is what the admin route wants — a rule you just
+   * created through the UI should start working. It is settable only so
+   * `importConfig` can restore a rule that was exported DISABLED; hardcoding
+   * the column to 1 silently re-enabled it on every config round trip.
+   */
+  enabled?: boolean;
   actor: string | null;
 }): AlertRule {
   const now = Date.now();
   const row = getDb()
     .query(
       `INSERT INTO alert_rules (name, event_type, enabled, webhook_url, threshold, min_calls, created_at, updated_at, created_by)
-       VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING ${COLS}`,
     )
     .get(
       input.name,
       input.eventType,
+      (input.enabled ?? true) ? 1 : 0,
       input.webhookUrl,
       input.threshold ?? null,
       input.minCalls ?? null,

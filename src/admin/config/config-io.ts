@@ -7,7 +7,7 @@ import {
   updateBundle,
   type BundleToolRef,
 } from "../tool-composition/bundles.js";
-import { listAlertRules, createAlertRule, type AlertEventType } from "../../observability/alerts.js";
+import { listAlertRules, createAlertRule, updateAlertRule, type AlertEventType } from "../../observability/alerts.js";
 import { getGuardrailsForClient, setGuardrails, firstUnsafeDenyPattern } from "../../tool-policies/guardrails.js";
 import {
   listConsumers,
@@ -201,10 +201,43 @@ export async function importConfig(
   const toolExists = db.query(`SELECT 1 FROM tools WHERE client_name = ? AND name = ?`);
   const clientExists = db.query(`SELECT 1 FROM clients WHERE name = ?`);
 
-  // Alert rules — created if a rule with the same name doesn't already exist.
+  // Alert rules — created by name, or updated in place when one already exists.
+  //
+  // The update branch is what makes `pull` -> `apply` a clean round trip. Alert
+  // rules used to be the ONLY create-only section here (consumers update,
+  // bundles/clients/tools/guardrails are configured), so re-importing a
+  // document this very gateway had just exported reported every existing rule
+  // as skipped — and the CLI's `apply` treats any skip as a failure, so the
+  // pull/edit/apply loop exited 1 on any gateway with at least one alert rule
+  // even though nothing was wrong. Making this section idempotent like all the
+  // others fixes the cause rather than teaching `apply` to ignore a skip.
   for (const r of asArray<ExportedAlert>(doc.alertRules)) {
-    if (db.query(`SELECT 1 FROM alert_rules WHERE name = ?`).get(r.name)) {
-      skipped.push({ type: "alert", id: r.name, reason: "already exists" });
+    const existing = db.query(`SELECT id, event_type FROM alert_rules WHERE name = ?`).get(r.name) as {
+      id: number;
+      event_type: string;
+    } | null;
+    if (existing) {
+      // `event_type` is immutable (updateAlertRule cannot change it, and the
+      // alert loop keys its edge-triggering state off the rule id), so a
+      // same-name/different-type rule genuinely cannot be applied. That is a
+      // REAL skip, unlike the "already exists" one this replaces.
+      if (existing.event_type !== r.eventType) {
+        skipped.push({
+          type: "alert",
+          id: r.name,
+          reason: `already exists with event type "${existing.event_type}", cannot be changed to "${r.eventType}"`,
+        });
+        continue;
+      }
+      if (!dryRun) {
+        updateAlertRule(existing.id, {
+          enabled: r.enabled,
+          webhookUrl: r.webhookUrl,
+          threshold: r.threshold ?? null,
+          minCalls: r.minCalls ?? null,
+        });
+      }
+      applied.alertRules++;
       continue;
     }
     if (!dryRun) {
@@ -214,6 +247,9 @@ export async function importConfig(
         webhookUrl: r.webhookUrl,
         threshold: r.threshold ?? null,
         minCalls: r.minCalls ?? null,
+        // Carried explicitly: a rule exported while disabled must come back
+        // disabled, not silently re-enabled by the create default.
+        enabled: r.enabled,
         actor,
       });
     }

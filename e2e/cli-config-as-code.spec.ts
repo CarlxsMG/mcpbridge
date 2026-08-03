@@ -74,6 +74,8 @@ const PULLED_CLIENT = "e2e-cli-pulled";
 /** Deliberately absent at the start: `plan` must only promise it, `apply` must actually create it. */
 const APPLIED_CLIENT = "e2e-cli-applied";
 const BUNDLE = "e2e-cli-bundle";
+/** Alert rule seeded so the export has one to replay — the pull/apply round trip used to fail on it. */
+const ALERT_RULE = "e2e-cli-alert-rule";
 /** The description the admin API sets, and the one `apply` must replace it with. */
 const DESC_FROM_API = "created-via-admin-api";
 const DESC_FROM_CLI = "applied-by-cli";
@@ -99,10 +101,17 @@ interface PulledClient {
   enabled: boolean;
   tools: { name: string }[];
 }
+interface PulledAlertRule {
+  name: string;
+  eventType: string;
+  enabled: boolean;
+  webhookUrl: string;
+}
 interface PulledConfig {
   version: number;
   bundles: PulledBundle[];
   clients: PulledClient[];
+  alertRules?: PulledAlertRule[];
 }
 interface GatewayYaml {
   version: number;
@@ -507,6 +516,50 @@ test.describe("config-as-code CLI", () => {
     expect(real.status, `apply failed: ${real.stderr}`).toBe(0);
     expect(real.stdout).toContain('config: applied {"bundles":1');
     expect(await bundleDescription(), "apply did not write the config change").toBe(DESC_FROM_CLI);
+  });
+
+  test("re-applying the gateway's own exported alert rules is clean, not a skip", async () => {
+    // The pull/edit/apply loop's core promise: a document this gateway just
+    // produced applies back to it without complaint. It used to fail — alert
+    // rules were the only create-only section of importConfig, so an existing
+    // rule came back as `skipped: "already exists"`, and `apply` treats ANY
+    // skip as a failure. One alert rule anywhere on the gateway was therefore
+    // enough to make `pull` followed by `apply` exit 1 with nothing wrong.
+    const created = await request.post(`${APP_BASE_URL}/admin-api/alerts`, {
+      headers: apiHeaders(auth),
+      data: {
+        name: ALERT_RULE,
+        eventType: "usage_spike",
+        // Points at the fixture rather than a real host: creation runs the same
+        // SSRF validation as any other outbound URL, and nothing ever posts to
+        // it here — the alert loop is not driven by this spec.
+        webhookUrl: `${FIXTURE_BASE_URL}/__control/state`,
+        threshold: 100,
+      },
+    });
+    expect([201, 409], `alert create failed: ${created.status()} ${await created.text()}`).toContain(created.status());
+
+    const pulled = await runCli(["pull", "--file", gatewayYaml]);
+    expect(pulled.status, `pull failed: ${pulled.stderr}`).toBe(0);
+
+    // Only the alertRules section is replayed. The rest of the export is every
+    // other spec's live config, and replaying that would make this test's exit
+    // code depend on what ran before it — the same reason the test above
+    // hand-authors its `config:` block.
+    const doc = parseYaml(readFileSync(gatewayYaml, "utf-8")) as GatewayYaml;
+    const alertRules = doc.config?.alertRules ?? [];
+    expect(
+      alertRules.some((r) => r.name === ALERT_RULE),
+      "the pulled export does not contain the rule that was just created",
+    ).toBe(true);
+
+    const alertsOnly = join(workDir, "alerts-only.yaml");
+    writeFileSync(alertsOnly, stringifyYaml({ version: 1, config: { version: 1, alertRules } }), "utf-8");
+
+    const applied = await runCli(["apply", "--file", alertsOnly]);
+    expect(applied.status, `re-applying an exported alert rule was not clean: ${applied.stderr}`).toBe(0);
+    expect(applied.stderr, "an existing alert rule was reported as skipped").not.toContain("skipped");
+    expect(applied.stdout).toContain(`"alertRules":${alertRules.length}`);
   });
 
   // ── (4) failure exit codes ───────────────────────────────────────────────
