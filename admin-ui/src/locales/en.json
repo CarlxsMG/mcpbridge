@@ -764,6 +764,18 @@
         "taller": "Taller"
       }
     },
+    "config_effective": {
+      "title": "Resolved settings",
+      "hint": "Every setting this gateway resolved when it started, including the ones with no screen of their own. Change them through the environment and restart. Secrets show only whether they are configured.",
+      "filter_placeholder": "Filter settings",
+      "copy_all": "Copy all",
+      "node_env": "Environment:",
+      "no_matches": "No setting matches \"{filter}\".",
+      "redacted_set": "set",
+      "redacted_unset": "not set",
+      "table": { "key": "Setting", "value": "Value" },
+      "errors": { "load_failed": "Failed to load the resolved settings." }
+    },
     "config_export": {
       "title": "Export",
       "aria_label": "Export format",

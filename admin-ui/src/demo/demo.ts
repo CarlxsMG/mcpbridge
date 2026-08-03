@@ -52,7 +52,7 @@ import { clientDetail, flatTools, tagCounts, toolsByTag, TOOLS } from "./fixture
 import { consumers, mcpKeys } from "./fixtures/keys-consumers";
 import { alerts } from "./fixtures/alerts";
 import { auditLog } from "./fixtures/audit-log";
-import { composites, policies, schedules, snapshots, teams, users } from "./fixtures/administration";
+import { composites, effectiveConfig, policies, schedules, snapshots, teams, users } from "./fixtures/administration";
 import { byKey, topTools, usageSummary, usageTimeseries } from "./fixtures/usage";
 import { overview } from "./fixtures/overview";
 import { trafficRecords } from "./fixtures/traffic";
@@ -525,6 +525,7 @@ function route(
   if (/^\/admin-api\/composites/.test(p)) return ok({});
   if (p === "/admin-api/schedules") return ok({ items: schedules });
   if (/^\/admin-api\/schedules/.test(p)) return ok({ id: 99 });
+  if (p === "/admin-api/config/effective") return ok(effectiveConfig);
   if (p === "/admin-api/config/snapshots") return ok({ items: snapshots });
   if (p === "/admin-api/config/export") return ok({ version: 1, clients: clients.length, bundles: bundles.length });
   if (/^\/admin-api\/config\/(snapshots|import)/.test(p))

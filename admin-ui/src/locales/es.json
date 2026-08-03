@@ -764,6 +764,18 @@
         "taller": "Más alto"
       }
     },
+    "config_effective": {
+      "title": "Ajustes efectivos",
+      "hint": "Todos los ajustes que este gateway resolvió al arrancar, incluidos los que no tienen pantalla propia. Se cambian por entorno y requieren reiniciar. De los secretos solo se muestra si están configurados.",
+      "filter_placeholder": "Filtrar ajustes",
+      "copy_all": "Copiar todo",
+      "node_env": "Entorno:",
+      "no_matches": "Ningún ajuste coincide con «{filter}».",
+      "redacted_set": "configurado",
+      "redacted_unset": "sin configurar",
+      "table": { "key": "Ajuste", "value": "Valor" },
+      "errors": { "load_failed": "Error al cargar los ajustes efectivos." }
+    },
     "config_export": {
       "title": "Exportar",
       "aria_label": "Formato de exportación",

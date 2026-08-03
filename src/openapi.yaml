@@ -4091,11 +4091,31 @@ paths:
 
   # ── Config export/import + versioned snapshots ───────────────────────────────
 
+  /admin-api/config/effective:
+    get:
+      operationId: getEffectiveConfig
+      summary: The environment this process resolved at boot, with secrets redacted
+      description: >
+        Read-only view of the ~115 resolved configuration values, so an operator
+        can see which timeouts, rate limits and safety flags are actually in
+        force without shelling into the container. Secret-bearing values
+        (`adminApiKeys`, `mcpApiKeys`, `secretEncryptionKey`, `vaultToken`,
+        `bootstrapAdminPassword`) are never returned — each is reported only as
+        "set" or "unset". Requires a super-admin (admin role and no team).
+      tags: [Config]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: The resolved configuration.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EffectiveConfig" }
+
   /admin-api/config/export:
     get:
       operationId: exportConfig
-      summary: Export all admin-authored config as a portable document
-      description: Excludes decrypted upstream secrets (stay in their own encrypted table); tool key-allowlists export as SHA-256 hashes, which round-trip on import. Requires the admin role for session callers.
+      summary: Export part of the admin-authored config as a portable document
+      description: Covers registered servers with their client guards and every per-tool policy, plus bundles, alert rules and consumer quotas. Excludes schedules, guard policies, teams, users, catalog entries, WebSocket proxy targets, API keys, the audit log, and decrypted upstream secrets. Tool key-allowlists export as SHA-256 hashes, which round-trip on import. Requires the admin role for session callers.
       tags: [Config]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       parameters:
@@ -6180,6 +6200,24 @@ components:
     # -------------------------------------------------------------------------
     # Config export/import + snapshots
     # -------------------------------------------------------------------------
+    EffectiveConfig:
+      type: object
+      description: The configuration this process resolved at boot. Read-only — env vars apply at boot.
+      properties:
+        nodeEnv: { type: string, example: production }
+        entries:
+          type: array
+          description: One per config key, sorted by key so two instances diff line by line.
+          items:
+            type: object
+            properties:
+              key: { type: string, example: toolCallTimeoutMs }
+              value:
+                description: >
+                  The resolved value, or the string "set"/"unset" when `redacted`
+                  is true. A redacted key's real value is never serialized.
+              redacted: { type: boolean }
+
     ConfigExport:
       type: object
       description: >

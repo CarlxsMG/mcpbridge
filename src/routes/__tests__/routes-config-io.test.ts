@@ -78,3 +78,43 @@ describe("config-io routes", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("GET /admin-api/config/effective", () => {
+  test("returns the resolved settings, sorted, with nodeEnv", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/admin-api/config/effective`, { headers: bearer() });
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as {
+      nodeEnv: string;
+      entries: { key: string; value: unknown; redacted: boolean }[];
+    };
+    expect(typeof body.nodeEnv).toBe("string");
+    expect(body.entries.length).toBeGreaterThan(50);
+
+    const keys = body.entries.map((e) => e.key);
+    expect(keys).toEqual([...keys].sort());
+    expect(body.entries.find((e) => e.key === "toolCallTimeoutMs")?.value).toBe(config.toolCallTimeoutMs);
+  });
+
+  test("never serves the admin API keys it is authenticating this very request with", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/admin-api/config/effective`, { headers: bearer() });
+    const raw = await res.text();
+
+    // The sharpest available check: the caller's own bearer token is a live
+    // ADMIN_API_KEYS value at this moment, so if redaction were bypassed the
+    // response would contain it verbatim.
+    expect(raw).not.toContain(ADMIN_KEY);
+    const body = JSON.parse(raw) as { entries: { key: string; value: unknown; redacted: boolean }[] };
+    const entry = body.entries.find((e) => e.key === "adminApiKeys")!;
+    expect(entry.redacted).toBe(true);
+    expect(entry.value).toBe("set");
+  });
+
+  test("requires auth", async () => {
+    await startApp();
+    const res = await fetch(`${baseUrl}/admin-api/config/effective`);
+    expect(res.status).toBe(401);
+  });
+});

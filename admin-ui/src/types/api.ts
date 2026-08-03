@@ -427,6 +427,21 @@ export interface CatalogEntry {
   featured: boolean;
 }
 
+/**
+ * GET /admin-api/config/effective. `value` is the resolved setting, or the
+ * literal "set"/"unset" when `redacted` is true — a redacted key's real value
+ * never leaves the backend.
+ */
+export interface EffectiveConfigEntry {
+  key: string;
+  value: unknown;
+  redacted: boolean;
+}
+export interface EffectiveConfig {
+  nodeEnv: string;
+  entries: EffectiveConfigEntry[];
+}
+
 export interface McpKeyScopes {
   clients?: string[];
   tools?: string[];

@@ -143,6 +143,8 @@ const GLOBAL_GET_ROUTES: Record<string, string> = {
   "/admin-api/composites":
     "composites are global cross-client macros (no team_id); read open, mutate super-admin (existence-oracle parity with bundles)",
   "/admin-api/composites/:name": "composite detail — same global-by-design rationale as GET /composites",
+  "/admin-api/config/effective":
+    "process-wide resolved environment (timeouts, limits, safety flags) — super-admin only, and secret-bearing values are reduced to set/unset before serialization; carries no tenant rows at all",
   "/admin-api/config/export": "whole-gateway config export — super-admin only (requireSuperAdmin)",
   "/admin-api/config/snapshots": "whole-gateway config snapshots — super-admin only",
   "/admin-api/config/snapshots/:id": "whole-gateway config snapshot detail — super-admin only",

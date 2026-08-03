@@ -6,6 +6,7 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import ConfigExportSection from "@/components/config/ConfigExportSection.vue";
 import ConfigImportSection from "@/components/config/ConfigImportSection.vue";
 import ConfigSnapshotsSection from "@/components/config/ConfigSnapshotsSection.vue";
+import ConfigEffectiveSection from "@/components/config/ConfigEffectiveSection.vue";
 import ErrorNote from "@/components/ui/ErrorNote.vue";
 
 const { t } = useI18n({ useScope: "global" });
@@ -50,6 +51,7 @@ function onRollbackResult(r: ConfigImportResult) {
     <ConfigExportSection @error="onError" />
     <ConfigImportSection @result="onImportResult" @error="onError" />
     <ConfigSnapshotsSection @result="onRollbackResult" @error="onError" />
+    <ConfigEffectiveSection />
 
     <ErrorNote v-if="errorMessage" :message="errorMessage" />
 

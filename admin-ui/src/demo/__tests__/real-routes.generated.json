@@ -351,6 +351,11 @@
   },
   {
     "method": "get",
+    "path": "/admin-api/config/effective",
+    "file": "config-io.ts"
+  },
+  {
+    "method": "get",
     "path": "/admin-api/config/export",
     "file": "config-io.ts"
   },

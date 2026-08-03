@@ -5,6 +5,7 @@ import { adminAuth } from "../middleware/auth.js";
 import { requireSuperAdmin } from "../middleware/authz.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
 import { exportConfig, importConfig } from "../admin/config/config-io.js";
+import { getEffectiveConfig } from "../admin/config/effective-config.js";
 import {
   createSnapshot,
   listSnapshots,
@@ -29,6 +30,19 @@ export function configIoRoutes(app: Express): void {
   // /admin-api below), instead of repeating adminAuth on each handler.
   const r = Router();
   r.use(adminAuth);
+
+  /**
+   * The environment this process actually resolved at boot, with secret-bearing
+   * values reduced to "set"/"unset". Super-admin like the rest of this file:
+   * these are gateway-wide settings, not any one tenant's.
+   *
+   * Read-only by design — env vars apply at boot, so a writable endpoint would
+   * be lying about when a change takes effect. Not audited: it mutates nothing
+   * and answering "which timeout is in force" should not cost an audit row.
+   */
+  r.get("/config/effective", requireSuperAdmin, (_req: Request, res: Response) => {
+    res.status(200).json(getEffectiveConfig());
+  });
 
   r.get("/config/export", requireSuperAdmin, (req: Request, res: Response) => {
     recordAudit(actorFromRequest(req), "config.export", "config");
