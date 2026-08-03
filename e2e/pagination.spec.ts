@@ -38,21 +38,33 @@
  * to page one, which is the only assertion that can tell the two apart.
  *
  * ── What is NOT covered here, and why ────────────────────────────────────────
- * Two more listings use the same idiom, but both read opt-in capture tables
- * whose feeder flags this spec does not own (they live in playwright.config.ts's
- * `webServer.env`, shared by the whole suite):
- *   - GET /admin-api/traffic  (clampLimit(limit, 100, 1000), `id < ?`)
- *     — `tool_traffic` only fills when TRAFFIC_CAPTURE is on.
- *   - GET /admin-api/traces   (clampLimit(limit, 50, 500), `HAVING MAX(id) < ?`,
- *     keyed on MAX(id) per trace group rather than a plain column)
- *     — `tool_spans` only fills when TRACE_STORAGE is on.
- * Rather than assert against a table that may be empty, this spec sticks to the
- * two listings it can seed to a known depth itself. Covering either is one row
- * in PAGINATED below plus its own seeding, once its flag is guaranteed on.
+ * GET /admin-api/traces is the fourth listing using this idiom, and the only
+ * one left out. It is genuinely different rather than merely unseeded: it keys
+ * on `HAVING MAX(id) < ?` over a GROUP BY, so a "row" is an aggregate of spans
+ * and `nextCursor` is a group's maximum id rather than any column of the row it
+ * came from. Its walk, its clamps (50/500) and its cursor are covered by
+ * traces.spec.ts, against the span fixtures that file already owns — repeating
+ * them here would mean duplicating that seeding to test a different query
+ * shape through the same generic table.
+ *
+ * The three listings below all key on a plain column, which is what makes them
+ * comparable enough to be worth driving from one table. They deliberately span
+ * all three distinct clamp pairs in the codebase (50/200 twice, 100/1000 once)
+ * and both key directions, so a change to `clampLimit` or `keysetPaginate`
+ * cannot pass by only satisfying one shape.
  */
 import { test, expect, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
 import { APP_BASE_URL, FIXTURE_BASE_URL } from "./support/env";
-import { adminAuthHeaders, apiHeaders, deleteClient, login, type AdminAuth } from "./support/admin";
+import {
+  adminAuthHeaders,
+  apiHeaders,
+  deleteClient,
+  login,
+  mintMcpKey,
+  registerViaApi,
+  type AdminAuth,
+} from "./support/admin";
+import { closeTrackedMcpSessions, initMcpSession, mcpToolsCall } from "./support/mcp";
 
 // ── Fixture identities ───────────────────────────────────────────────────────
 
@@ -81,6 +93,22 @@ const SPA_PAGE_SIZE = 50;
  */
 const AUDIT_TOGGLE_PASSES = 4;
 const SEEDED_AUDIT_ROWS = SEEDED_CLIENTS * AUDIT_TOGGLE_PASSES;
+
+/**
+ * A real, dispatchable client used only to fill `tool_traffic` — the 55 stubs
+ * above are registered from a manual tool list and have no reachable upstream,
+ * so they can seed audit rows but not traffic.
+ */
+const TRAFFIC_CLIENT = "e2e-page-traffic-api";
+const TRAFFIC_TOOL = "list-users";
+
+/**
+ * One more than the traffic listing's default page size (100), which is the
+ * floor two assertions need: `?limit=abc` must come back with a FULL default
+ * page, and it must still advertise a nextCursor. Exactly 100 would make the
+ * page terminal and quietly weaken both.
+ */
+const SEEDED_TRAFFIC_ROWS = 101;
 
 function clientName(index: number): string {
   return `${CLIENT_PREFIX}${String(index).padStart(2, "0")}`;
@@ -238,6 +266,26 @@ const PAGINATED: readonly PaginatedEndpoint[] = [
     garbageCursor: "not-a-cursor",
     garbageNote: "coerced by Number() to NaN, making the `id < ?` comparison false for every row",
   },
+  {
+    // src/observability/traffic.ts -> listTraffic, via keysetPaginate. The third
+    // distinct clamp pair in the codebase (100/1000 rather than 50/200), which
+    // is the reason it earns a row here rather than being assumed equivalent to
+    // the audit log just because both key on a descending id.
+    label: "traffic",
+    path: "/admin-api/traffic",
+    narrow: () => `client=${TRAFFIC_CLIENT}`,
+    minRows: SEEDED_TRAFFIC_ROWS,
+    defaultLimit: 100,
+    maxLimit: 1000,
+    walkPageSize: 40,
+    idOf: (row) => fieldAsString(row, "id"),
+    inOrder: (earlier, later) => Number(earlier) > Number(later),
+    order: "descending by id",
+    // Same Number() coercion as the audit log — asserted separately rather than
+    // inferred from it, since they are different call sites.
+    garbageCursor: "not-a-cursor",
+    garbageNote: "coerced by Number() to NaN, making the `id < ?` comparison false for every row",
+  },
 ];
 
 /** GET a listing and assert it answered 200 before narrowing the envelope. */
@@ -282,6 +330,21 @@ test.describe("keyset pagination — the admin list API and the SPA pager", () =
       // for the SPA test and for a local re-run against the same database.
       await bulkToggle(request, auth, pass % 2 === 1);
     }
+
+    // Traffic rows can only come from real dispatches, so this needs a client
+    // with a reachable upstream and an MCP session — unlike the two listings
+    // above, which are seeded purely through the admin API.
+    await registerViaApi(request, auth, TRAFFIC_CLIENT);
+    const { authHeader } = await mintMcpKey(request, auth, "e2e-page-traffic");
+    const dataPlane = `/mcp/${TRAFFIC_CLIENT}`;
+    const { sessionId } = await initMcpSession(dataPlane, { authHeader, clientName: "e2e-pagination" });
+    for (let i = 0; i < SEEDED_TRAFFIC_ROWS; i++) {
+      const call = await mcpToolsCall(dataPlane, sessionId, `${TRAFFIC_CLIENT}__${TRAFFIC_TOOL}`, authHeader);
+      // Asserted, not fired and forgotten: a call that never reached dispatch
+      // writes no traffic row, and the resulting "fewer rows than seeded"
+      // failure three tests later would point nowhere near here.
+      expect(call.isError, `traffic seed call ${i} failed: ${call.text}`).toBeFalsy();
+    }
   });
 
   test.afterAll(async () => {
@@ -289,6 +352,11 @@ test.describe("keyset pagination — the admin list API and the SPA pager", () =
     for (const name of SEEDED_NAMES) {
       await deleteClient(request, auth, name);
     }
+    await deleteClient(request, auth, TRAFFIC_CLIENT);
+    // Hand the session slot back to the process-wide maxSessions budget — a
+    // leak here subtracts from every later spec's headroom and surfaces as an
+    // unrelated 503 nowhere near this file.
+    await closeTrackedMcpSessions();
     await context.close();
   });
 

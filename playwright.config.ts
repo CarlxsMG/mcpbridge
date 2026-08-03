@@ -93,6 +93,13 @@ export default defineConfig({
       // has to be killed before a change here takes effect.
       TRACE_STORAGE: "true",
 
+      // Record a row per tool call in `tool_traffic`, which the traffic explorer
+      // (and pagination.spec.ts's third paginated listing) reads. Off by default
+      // in production because captured rows hold the call's full request args —
+      // which is exactly why the read route is operator+ rather than adminAuth.
+      // Neither cost applies to a fixture upstream in a throwaway database.
+      TRAFFIC_CAPTURE: "true",
+
       // Probe backends every 1.5s instead of every 30s so health-check eviction
       // (MAX_CONSECUTIVE_FAILURES consecutive failures, default 3) completes in
       // a few seconds and can be asserted inside a test timeout. Only the client
