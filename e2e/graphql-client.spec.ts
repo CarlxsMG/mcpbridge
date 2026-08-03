@@ -99,6 +99,8 @@ interface ClientDetailBody {
   kind: string;
   tools: {
     name: string;
+    /** Always "POST" for a GraphQL-discovered tool — the dispatch path is REST. */
+    method: string;
     guards?: { rateLimitPerMin?: number };
     graphql?: { enabled: boolean; query: string };
   }[];
