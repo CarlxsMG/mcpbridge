@@ -70,6 +70,29 @@ export default defineConfig({
       RATE_LIMIT_GLOBAL: "1000000",
       RATE_LIMIT_EXPENSIVE: "100000",
 
+      // Turns on the local secrets provider, which three admin surfaces refuse
+      // to work without: bundle install links (501 SECRET_BOX_NOT_CONFIGURED),
+      // upstream credential storage (same), and the SSO config write (409
+      // SECRETS_PROVIDER_UNCONFIGURED, since setOidcConfig will not degrade to
+      // storing a client secret in plaintext). Without it those features are
+      // untestable end to end, not merely untested.
+      //
+      // Exactly 32 bytes, base64: secret-box.ts uses a decoded-length-32 value
+      // AS-IS and only falls back to a scrypt derivation for anything else, so
+      // this shape keeps every encrypt/decrypt off the KDF path. Value is a
+      // throwaway for the e2e database in the OS temp dir and protects nothing.
+      SECRET_ENCRYPTION_KEY: "ZTJlLW9ubHkta2V5LW5vdC1hLXJlYWwtc2VjcmV0MzI=",
+
+      // Persist a span per tool call into `tool_spans`, which is what the whole
+      // trace-viewer surface reads. Without it `tracingEnabled()` is false and
+      // proxyToolCall short-circuits before recording anything, so every trace
+      // assertion would be testing an empty table. Chosen over
+      // OTEL_EXPORTER_OTLP_ENDPOINT, which would ALSO satisfy `tracingEnabled()`
+      // but start firing real OTLP exports at a collector that isn't there.
+      // Read once at module load — a locally reused server (reuseExistingServer)
+      // has to be killed before a change here takes effect.
+      TRACE_STORAGE: "true",
+
       // Probe backends every 1.5s instead of every 30s so health-check eviction
       // (MAX_CONSECUTIVE_FAILURES consecutive failures, default 3) completes in
       // a few seconds and can be asserted inside a test timeout. Only the client
