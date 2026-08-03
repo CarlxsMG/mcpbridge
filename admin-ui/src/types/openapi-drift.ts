@@ -24,14 +24,17 @@
  * `nodejs` the Dockerfile comment above that stage already records — it worked
  * on every developer machine and on the runner, and only the image build failed.
  *
- * ── What is deliberately NOT checked: optionality ────────────────────────────
- * The spec's schemas do not declare `required`, so openapi-typescript makes
- * every generated property optional. Comparing optionality would therefore fail
- * on all 35 types for a reason that says nothing about drift. Marking up
- * `required` across the spec would fix that and is worth doing — but it changes
- * the published docs, so it belongs in its own change, not smuggled into a
- * type-check file. Until then this compares the property SET and each shared
- * property's VALUE type, which is what catches real drift.
+ * ── Three things are compared ────────────────────────────────────────────────
+ * The property SET, each shared property's VALUE type, and — since the spec
+ * gained `required` markers — its OPTIONALITY. That last one is the sharpest of
+ * the three: a field the UI treats as guaranteed while the backend may omit it
+ * is a runtime `undefined` the type system would otherwise never mention.
+ *
+ * It could not exist before the markers did. Without `required`,
+ * openapi-typescript makes every generated property optional, so the comparison
+ * would have failed on all 35 types for a reason that says nothing about drift.
+ * A handful of schemas still carry no `required` on purpose (a PATCH body, an
+ * open-ended export document); those are simply compared on the other two axes.
  */
 import type { components } from "./openapi.generated";
 import type * as Ui from "./api";
@@ -59,6 +62,28 @@ type Keys<T> = Exclude<keyof Required<T>, DemoOnlyKeys>;
  * type 'never'` rather than as an anonymous boolean mismatch.
  */
 type KeyDrift<Spec, UiType> = Exclude<Keys<Spec>, Keys<UiType>> | Exclude<Keys<UiType>, Keys<Spec>>;
+
+/** The properties of `T` that are genuinely optional, ignoring the demo-only side-channel. */
+type OptionalKeys<T> = Exclude<
+  { [K in keyof T]-?: Record<string, never> extends Pick<T, K> ? K : never }[keyof T],
+  DemoOnlyKeys | undefined
+>;
+
+/**
+ * Resolves to the names whose OPTIONALITY differs between the two sides —
+ * required in the spec but `?` in the UI type, or the reverse.
+ *
+ * This check could not exist until the spec declared `required`: without it
+ * openapi-typescript makes every generated property optional, so the comparison
+ * would have failed on all 35 types for a reason that says nothing about drift.
+ * With the markers in place it is the sharpest half of the gate, because
+ * optionality is exactly what a consumer relies on — a field the UI treats as
+ * guaranteed while the backend may omit it is a runtime `undefined`, and the
+ * type system would have said nothing.
+ */
+type OptionalityDrift<Spec, UiType> =
+  | Exclude<OptionalKeys<Spec> & Keys<UiType>, OptionalKeys<UiType>>
+  | Exclude<OptionalKeys<UiType> & Keys<Spec>, OptionalKeys<Spec>>;
 
 /**
  * Makes every property optional at every depth. Needed because the spec's
@@ -99,11 +124,14 @@ type ValueDrift<Spec, UiType> = {
  * distributes over unions, which would make the check vacuously false whenever
  * more than one property drifted.
  */
-type Drift<Name extends string, SpecKey extends keyof Schemas, UiType> = [
-  KeyDrift<Schemas[SpecKey], UiType> | ValueDrift<Schemas[SpecKey], UiType>,
-] extends [never]
+type AnyDrift<SpecKey extends keyof Schemas, UiType> =
+  | KeyDrift<Schemas[SpecKey], UiType>
+  | ValueDrift<Schemas[SpecKey], UiType>
+  | OptionalityDrift<Schemas[SpecKey], UiType>;
+
+type Drift<Name extends string, SpecKey extends keyof Schemas, UiType> = [AnyDrift<SpecKey, UiType>] extends [never]
   ? never
-  : `${Name}.${(KeyDrift<Schemas[SpecKey], UiType> | ValueDrift<Schemas[SpecKey], UiType>) & string}`;
+  : `${Name}.${AnyDrift<SpecKey, UiType> & string}`;
 
 /**
  * Every mirrored type, unioned. Collected into ONE alias, and asserted once
@@ -123,6 +151,11 @@ type AllDrift =
   | Drift<"CanaryConfig", "CanaryConfig", Ui.CanaryConfig>
   | Drift<"ClientGuardConfig", "ClientGuardConfig", Ui.ClientGuardConfig>
   | Drift<"ClientSummary", "ClientSummary", Ui.ClientSummary>
+  | Drift<"ClientDetail", "ClientDetail", Ui.ClientDetail>
+  | Drift<"BundleDetail", "BundleDetail", Ui.BundleDetail>
+  | Drift<"CompositeDetail", "CompositeDetail", Ui.CompositeDetail>
+  | Drift<"CatalogEntry", "CatalogEntry", Ui.CatalogEntry>
+  | Drift<"ApprovalDecision", "ApprovalDecision", Ui.ApprovalDecision>
   | Drift<"CompositeStep", "CompositeStep", Ui.CompositeStep>
   | Drift<"CompositeSummary", "CompositeSummary", Ui.CompositeSummary>
   | Drift<"ConfigDiffEntry", "ConfigDiffEntry", Ui.ConfigDiffEntry>

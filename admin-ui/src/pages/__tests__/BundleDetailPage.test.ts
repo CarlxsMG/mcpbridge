@@ -30,6 +30,7 @@ function makeBundle(): BundleDetail {
     createdAt: 0,
     updatedAt: 0,
     tools: [{ client: "c", tool: "t" }],
+    composites: [],
   };
 }
 
