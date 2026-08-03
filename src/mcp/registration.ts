@@ -586,7 +586,7 @@ async function discoverAndRegisterGraphqlTools(
       inputSchema: d.inputSchema,
     }));
 
-    await registry.register(name, mappedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp, false);
+    await registry.register(name, mappedTools, resolvedHealthUrl, ip, resolvedBaseUrl, pinnedIp, false, "graphql");
     for (const d of discovered) {
       setToolGraphql(name, d.name, { enabled: true, query: d.query });
     }

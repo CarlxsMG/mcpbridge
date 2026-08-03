@@ -14,6 +14,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import BundleToolPicker from "@/components/BundleToolPicker.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ErrorNote from "@/components/ui/ErrorNote.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import ConnectClientDialog from "@/components/ConnectClientDialog.vue";
 import ShareInstallLinkDialog from "@/components/ShareInstallLinkDialog.vue";
@@ -27,6 +28,7 @@ const {
   data: detail,
   loading,
   errorMessage,
+  errorRequestId,
   load: loadDetail,
 } = useResource<BundleDetail | null>(
   () => api.get<BundleDetail>(bundlePath(props.name)),
@@ -115,7 +117,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
     </p>
 
     <SignalLoader v-if="loading && !detail" />
-    <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
+    <ErrorNote v-else-if="errorMessage && !detail" :message="errorMessage" :request-id="errorRequestId" />
 
     <template v-else-if="detail">
       <PageHeader :title="detail.name">
@@ -141,7 +143,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
         </button>
       </PageHeader>
 
-      <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+      <ErrorNote v-if="errorMessage" :message="errorMessage" :request-id="errorRequestId" />
       <p v-if="deleteError" class="row-error" role="alert">{{ deleteError }}</p>
 
       <FormField :label="t('pages.bundle_detail.description_label')" for="bundle-description" class="description-field">

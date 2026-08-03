@@ -35,8 +35,10 @@ test("login -> register a REST backend from OpenAPI -> call the discovered tool 
   await login(page);
 
   // ── (b) Register a REST backend, discovered from an OpenAPI doc ────────────
-  await page.locator("#sidebar-nav").getByRole("link", { name: "Add server" }).click();
-  await expect(page).toHaveURL(/\/admin\/register-server$/);
+  await page.locator("#sidebar-nav").getByRole("link", { name: "Servers", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/servers$/);
+  await page.getByRole("link", { name: "Add server" }).click();
+  await expect(page).toHaveURL(/\/admin\/servers\/new$/);
 
   await page.locator("#r-name").fill(DEMO_SERVER_NAME);
   await page.locator("#r-health").fill(`${FIXTURE_BASE_URL}/health`);

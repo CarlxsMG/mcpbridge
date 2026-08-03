@@ -112,8 +112,13 @@ export async function registerFixtureServer(
   serverName: string,
   openapiPath: string = FIXTURE_OPENAPI_PATH,
 ): Promise<void> {
-  await page.locator("#sidebar-nav").getByRole("link", { name: "Add server" }).click();
-  await expect(page).toHaveURL(/\/admin\/register-server$/);
+  // The real journey since "Add server" stopped being a sidebar entry of its
+  // own: reach the list, then use its create button, exactly as every other
+  // entity's create flow works.
+  await page.locator("#sidebar-nav").getByRole("link", { name: "Servers", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/servers$/);
+  await page.getByRole("link", { name: "Add server" }).click();
+  await expect(page).toHaveURL(/\/admin\/servers\/new$/);
   await page.locator("#r-name").fill(serverName);
   await page.locator("#r-health").fill(`${FIXTURE_BASE_URL}/health`);
   await page.locator("#r-openapi").fill(`${FIXTURE_BASE_URL}${openapiPath}`);

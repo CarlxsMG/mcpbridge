@@ -27,6 +27,7 @@ const {
   data: targets,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<WsProxyTarget[]>(
   async () => (await api.get<{ items: WsProxyTarget[] }>("/admin-api/ws-proxy-targets")).items,
@@ -204,7 +205,12 @@ async function confirmDelete() {
       </div>
     </form>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="targets.length === 0">
+    <ListLayout
+      :loading="loading"
+      :error="errorMessage"
+      :error-request-id="errorRequestId"
+      :empty="targets.length === 0"
+    >
       <template #empty>
         <EmptyState :icon="Waypoints">
           {{ t("pages.ws_proxy_targets.empty") }}

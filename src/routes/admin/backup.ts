@@ -1,18 +1,17 @@
 import { Router } from "express";
-import type { Request, Response, Express } from "express";
+import type { Request, Response } from "express";
 import { createReadStream } from "fs";
 import { stat, unlink } from "fs/promises";
 import { dirname, join } from "path";
 import { randomUUID } from "crypto";
-import { adminAuth } from "../middleware/auth.js";
-import { requireSuperAdmin } from "../middleware/authz.js";
-import { rateLimitBackup } from "../middleware/rate-limiter.js";
-import { getDb } from "../db/connection.js";
-import { config } from "../config.js";
-import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
-import { sendError } from "./http-errors.js";
-import { log } from "../logger.js";
-import { errorMessage } from "../lib/error-message.js";
+import { requireSuperAdmin } from "../../middleware/authz.js";
+import { rateLimitBackup } from "../../middleware/rate-limiter.js";
+import { getDb } from "../../db/connection.js";
+import { config } from "../../config.js";
+import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
+import { sendError } from "../http-errors.js";
+import { log } from "../../logger.js";
+import { errorMessage } from "../../lib/error-message.js";
 
 /**
  * Directory the temp snapshot is written to before being streamed back and
@@ -23,25 +22,25 @@ function backupDir(): string {
   return config.dbPath === ":memory:" ? process.cwd() : dirname(config.dbPath);
 }
 
-export function backupRoutes(app: Express): void {
-  // One shared admin-auth gate for every route in this file (mounted under
-  // /admin-api below), instead of repeating adminAuth on each handler.
-  const r = Router();
-  r.use(adminAuth);
+export const backupRoutes = Router();
 
-  /**
-   * Produces a consistent, downloadable snapshot of the admin database.
-   *
-   * Uses SQLite's `VACUUM INTO` rather than copying the live `.db` file: under
-   * WAL mode the on-disk file alone is not a consistent snapshot (committed
-   * data can still be sitting in the -wal file, and a raw copy can land
-   * mid-write), so a naive `fs.copyFile` can produce a corrupt or stale
-   * backup. `VACUUM INTO` is SQLite's own safe online-backup primitive — it
-   * reads through the same connection used by the rest of the app (so it
-   * sees a transactionally consistent view) and writes a fresh, compacted
-   * file to the target path, safely even while other requests are writing.
-   */
-  r.post("/backup", requireSuperAdmin, rateLimitBackup(config.rateLimitBackup), async (req: Request, res: Response) => {
+/**
+ * Produces a consistent, downloadable snapshot of the admin database.
+ *
+ * Uses SQLite's `VACUUM INTO` rather than copying the live `.db` file: under
+ * WAL mode the on-disk file alone is not a consistent snapshot (committed
+ * data can still be sitting in the -wal file, and a raw copy can land
+ * mid-write), so a naive `fs.copyFile` can produce a corrupt or stale
+ * backup. `VACUUM INTO` is SQLite's own safe online-backup primitive — it
+ * reads through the same connection used by the rest of the app (so it
+ * sees a transactionally consistent view) and writes a fresh, compacted
+ * file to the target path, safely even while other requests are writing.
+ */
+backupRoutes.post(
+  "/backup",
+  requireSuperAdmin,
+  rateLimitBackup(config.rateLimitBackup),
+  async (req: Request, res: Response) => {
     const filename = `mcp-bridge-backup-${Date.now()}-${randomUUID().slice(0, 8)}.db`;
     const backupPath = join(backupDir(), filename);
 
@@ -92,7 +91,5 @@ export function backupRoutes(app: Express): void {
     // aborted) — either way, the temp snapshot must not linger on disk.
     stream.on("close", cleanup);
     stream.pipe(res);
-  });
-
-  app.use("/admin-api", r);
-}
+  },
+);

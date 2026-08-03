@@ -71,6 +71,38 @@ export interface ToolMutation {
   apply: (ctx: MutationContext, parsed: unknown) => Promise<MutationApplyResult>;
 
   /**
+   * Reads this policy back in the SAME wire shape `validate` accepts, or
+   * `undefined` when the tool has no such policy configured (so exports stay
+   * sparse rather than carrying eighteen nulls per tool).
+   *
+   * Required, not optional, and that is the whole point. Config export/import
+   * used to hand-pick which policies it round-tripped; fifteen per-tool
+   * policies were silently absent, so a config snapshot looked complete and a
+   * rollback quietly left cache, redaction, pagination, quarantine, transform,
+   * mock, monitor, budget, tags... exactly as they were. Making `read` part of
+   * the contract means a new policy CANNOT be added without deciding how it
+   * exports — the compiler asks the question.
+   *
+   * `read` feeding straight back into `validate` is also what keeps the export
+   * format honest: the exported document is literally a PATCH body, so import
+   * replays it through the same validation and audit path an admin's PATCH
+   * takes. See `assertRoundTrips` in the registry's own test for the property
+   * this must satisfy.
+   */
+  read: (clientName: string, toolName: string) => unknown;
+
+  /**
+   * Extra body keys this mutation consumes beyond its own `key`, read back in
+   * the same wire shape. Only `requiresApproval` needs it (it co-reads
+   * `approvalLevels` from the same body), but without it that threshold would
+   * be the one field a round-trip silently dropped.
+   *
+   * Returns `undefined` when there is nothing to add. Keys returned here are
+   * merged into the exported PATCH body alongside `key`.
+   */
+  readCompanions?: (clientName: string, toolName: string) => Record<string, unknown> | undefined;
+
+  /**
    * Computes the audit action label and optional `detail` meta. Receives
    * the raw body value and the parsed value so the audit can depend on
    * either (most use `parsed`; a few use `raw` when the action label

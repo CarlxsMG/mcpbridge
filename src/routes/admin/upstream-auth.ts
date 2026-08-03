@@ -1,20 +1,19 @@
 import { Router } from "express";
-import type { Request, Response, Express } from "express";
-import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole, ensureClientAccess } from "../middleware/authz.js";
-import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
-import { getDb } from "../db/connection.js";
-import { isSecretBoxConfigured } from "../security/secret-box.js";
-import { config } from "../config.js";
+import type { Request, Response } from "express";
+import { requireAdminRole, ensureClientAccess } from "../../middleware/authz.js";
+import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
+import { getDb } from "../../db/connection.js";
+import { isSecretBoxConfigured } from "../../security/secret-box.js";
+import { config } from "../../config.js";
 import {
   getUpstreamAuthInfo,
   setUpstreamAuth,
   clearUpstreamAuth,
   type UpstreamAuthType,
   type UpstreamSecret,
-} from "../backend-auth/upstream-auth.js";
-import { sendError, validationError, notFound } from "./http-errors.js";
-import type { ValidationResult } from "./validation.js";
+} from "../../backend-auth/upstream-auth.js";
+import { sendError, validationError, notFound } from "../http-errors.js";
+import type { ValidationResult } from "../validation.js";
 
 function clientExists(name: string): boolean {
   return getDb().query(`SELECT 1 FROM clients WHERE name = ?`).get(name) != null;
@@ -62,25 +61,24 @@ function validateBody(input: unknown): ValidationResult<ValidatedAuth> {
   }
 }
 
-export function upstreamAuthRoutes(app: Express): void {
-  // One shared admin-auth gate for every route in this file (mounted under
-  // /admin-api below), instead of repeating adminAuth on each handler.
-  const r = Router();
-  r.use(adminAuth);
+export const upstreamAuthRoutes = Router();
 
-  r.get("/clients/:name/upstream-auth", (req: Request<{ name: string }>, res: Response) => {
-    // Tenancy scope first, so a caller can't even confirm another team's client
-    // exists (ensureClientAccess writes the same CLIENT_NOT_FOUND on a cross-team
-    // client as on a genuinely missing one).
-    if (!ensureClientAccess(req, res, req.params.name)) return;
-    if (!clientExists(req.params.name)) {
-      notFound(res, "CLIENT_NOT_FOUND", "Client not found");
-      return;
-    }
-    res.status(200).json(getUpstreamAuthInfo(req.params.name));
-  });
+upstreamAuthRoutes.get("/clients/:name/upstream-auth", (req: Request<{ name: string }>, res: Response) => {
+  // Tenancy scope first, so a caller can't even confirm another team's client
+  // exists (ensureClientAccess writes the same CLIENT_NOT_FOUND on a cross-team
+  // client as on a genuinely missing one).
+  if (!ensureClientAccess(req, res, req.params.name)) return;
+  if (!clientExists(req.params.name)) {
+    notFound(res, "CLIENT_NOT_FOUND", "Client not found");
+    return;
+  }
+  res.status(200).json(getUpstreamAuthInfo(req.params.name));
+});
 
-  r.put("/clients/:name/upstream-auth", requireAdminRole, (req: Request<{ name: string }>, res: Response) => {
+upstreamAuthRoutes.put(
+  "/clients/:name/upstream-auth",
+  requireAdminRole,
+  (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
     if (!ensureClientAccess(req, res, name)) return;
     if (!clientExists(name)) {
@@ -115,9 +113,13 @@ export function upstreamAuthRoutes(app: Express): void {
     setUpstreamAuth(name, parsed.value.type, parsed.value.secret, parsed.value.headerName);
     recordAudit(actorFromRequest(req), "client.upstream_auth.set", name, { type: parsed.value.type });
     res.status(200).json({ status: "updated", name, ...getUpstreamAuthInfo(name) });
-  });
+  },
+);
 
-  r.delete("/clients/:name/upstream-auth", requireAdminRole, (req: Request<{ name: string }>, res: Response) => {
+upstreamAuthRoutes.delete(
+  "/clients/:name/upstream-auth",
+  requireAdminRole,
+  (req: Request<{ name: string }>, res: Response) => {
     if (!ensureClientAccess(req, res, req.params.name)) return;
     const ok = clearUpstreamAuth(req.params.name);
     if (!ok) {
@@ -126,7 +128,5 @@ export function upstreamAuthRoutes(app: Express): void {
     }
     recordAudit(actorFromRequest(req), "client.upstream_auth.clear", req.params.name);
     res.status(200).json({ status: "cleared", name: req.params.name });
-  });
-
-  app.use("/admin-api", r);
-}
+  },
+);

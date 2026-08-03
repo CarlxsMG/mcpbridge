@@ -43,16 +43,13 @@ async function startApp(withSecretBox = true): Promise<void> {
     : undefined;
 
   const { adminRoutes } = await import("../../routes/admin.js");
-  const { bundleRoutes } = await import("../../routes/bundles.js");
   const { installLinkRoutes } = await import("../../routes/install-links.js");
-  const { mcpKeyRoutes } = await import("../../routes/mcp-keys.js");
   const app = express();
   app.use(express.json({ limit: "64kb", strict: true }));
   app.use(requestIdMiddleware);
   adminRoutes(app);
-  bundleRoutes(app);
+  adminRoutes(app);
   installLinkRoutes(app);
-  mcpKeyRoutes(app);
 
   ({ baseUrl, server: activeServer } = await listen(app));
 }

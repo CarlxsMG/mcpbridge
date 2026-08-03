@@ -1,5 +1,5 @@
 import { getDb } from "../../db/connection.js";
-import { registry, ToolOverrideError } from "../../mcp/registry.js";
+import { registry } from "../../mcp/registry.js";
 import {
   listBundles,
   getBundleDetail,
@@ -8,7 +8,8 @@ import {
   type BundleToolRef,
 } from "../tool-composition/bundles.js";
 import { listAlertRules, createAlertRule, updateAlertRule, type AlertEventType } from "../../observability/alerts.js";
-import { getGuardrailsForClient, setGuardrails, firstUnsafeDenyPattern } from "../../tool-policies/guardrails.js";
+import { setGuardrails, firstUnsafeDenyPattern } from "../../tool-policies/guardrails.js";
+import { applyToolMutations, readToolPolicies } from "../tool-policies/mutations/index.js";
 import {
   listConsumers,
   getConsumerByName,
@@ -16,15 +17,33 @@ import {
   updateConsumer,
   isValidQuotaValue,
 } from "../entities/consumers.js";
-import type { ClientGuardConfig, ToolGuardConfig, ToolOverride, ToolGuardrails } from "../../mcp/types.js";
+import type { ClientGuardConfig, ToolOverride, ToolGuardrails } from "../../mcp/types.js";
 
 export const CONFIG_EXPORT_VERSION = 1;
 
+/**
+ * One tool's exported config: its name, plus every policy in the per-tool
+ * mutation registry read back in the exact shape `PATCH
+ * /admin-api/clients/:name/tools/:tool` accepts — so this object IS a PATCH
+ * body, and import replays it through the same validate/apply/audit path an
+ * admin's PATCH takes.
+ *
+ * That is why the policy fields are an index signature rather than a
+ * hand-written list. The hand-written list is what went wrong: it named
+ * enabled/guards/override and nothing else, so cache, coalesce, pagination,
+ * streaming, transform, mock, redaction, sensitivity, quarantine, monitor,
+ * graphql, ws, context budget and approval thresholds were silently absent
+ * from every export, snapshot and rollback.
+ *
+ * `override` (singular) is the pre-manifest spelling of the `overrides` PATCH
+ * key. Still read on import so documents exported by an older gateway — and
+ * snapshots already sitting in config_snapshots — keep applying.
+ */
 interface ExportedTool {
   name: string;
-  enabled: boolean;
-  guards: ToolGuardConfig | null;
-  override: ToolOverride | null;
+  /** Legacy alias for the `overrides` key, normalized away on import. */
+  override?: ToolOverride | null;
+  [policyKey: string]: unknown;
 }
 interface ExportedClient {
   name: string;
@@ -69,7 +88,14 @@ export interface ConfigExport {
   bundles: ExportedBundle[];
   alertRules: ExportedAlert[];
   clients: ExportedClient[];
-  guardrails: ExportedGuardrail[];
+  /**
+   * Legacy top-level location for per-tool guardrails. No longer emitted —
+   * `guardrails` is an entry in the per-tool mutation registry, so it now
+   * travels inside each tool like every other policy. Still read on import, so
+   * documents exported by an older gateway (and snapshots already stored in
+   * config_snapshots) keep applying unchanged.
+   */
+  guardrails?: ExportedGuardrail[];
   consumers: ExportedConsumer[];
 }
 
@@ -92,18 +118,27 @@ export interface ImportResult {
 }
 
 /**
- * Serializes a defined subset of admin-authored config into a portable
- * document. The entity types that round-trip through export→import are exactly:
+ * Serializes admin-authored config into a portable document.
+ *
+ * What round-trips through export→import:
  *   - bundles (name, description, enabled, member tools, and composite macros)
  *   - alert rules
- *   - per-client config: enabled flag, client guards, and per-tool
- *     enabled/guards/overrides
- *   - guardrails (per tool)
+ *   - per-client config: enabled flag and client guards
+ *   - per-tool config: EVERY policy in the mutation registry
+ *     (src/admin/tool-policies/mutations), read through `readToolPolicies`.
+ *     Adding a policy there adds it here — that coupling is the point. This
+ *     used to be a hand-picked trio (enabled/guards/overrides) plus guardrails,
+ *     so fifteen policies were silently absent from every snapshot and every
+ *     rollback.
  *   - consumers (name, monthlyQuota, endUserRateLimitPerMin)
- * Deliberately NOT included: schedules, per-tool approval requirements
- * (tool_approval), guard policies, teams, and any decrypted secret (upstream
- * credentials stay in their own encrypted table). Tool key-allowlists are
- * exported as their SHA-256 hashes, which round-trip.
+ *
+ * Still deliberately NOT included, and the UI says so rather than implying a
+ * complete backup: schedules, guard policies, teams, users, catalog entries,
+ * WebSocket proxy targets, and any decrypted secret (upstream credentials stay
+ * in their own encrypted table). For a genuinely complete copy of the admin
+ * database, use `POST /admin-api/backup`, which is a full SQLite snapshot.
+ *
+ * Tool key-allowlists are exported as their SHA-256 hashes, which round-trip.
  */
 export function exportConfig(): ConfigExport {
   const db = getDb();
@@ -132,7 +167,6 @@ export function exportConfig(): ConfigExport {
     (r) => r.name,
   );
   const clients: ExportedClient[] = [];
-  const guardrails: ExportedGuardrail[] = [];
   for (const name of clientNames) {
     const d = registry.getClientDetail(name);
     if (!d) continue;
@@ -140,17 +174,11 @@ export function exportConfig(): ConfigExport {
       name: d.name,
       enabled: d.enabled,
       guards: d.guards ?? null,
-      tools: d.tools.map((t) => ({
-        name: t.name,
-        enabled: t.enabled,
-        guards: t.guards ?? null,
-        override: t.override ?? null,
-      })),
+      // Every policy the PATCH endpoint accepts, in the shape it accepts them.
+      // Unset policies are omitted by readToolPolicies, so a tool nobody has
+      // configured still exports as just `{ name, enabled }`.
+      tools: d.tools.map((t) => ({ name: t.name, ...readToolPolicies(name, t.name) })),
     });
-    const clientGuardrails = getGuardrailsForClient(name);
-    for (const [toolName, cfg] of Object.entries(clientGuardrails)) {
-      guardrails.push({ client: name, tool: toolName, guardrails: cfg });
-    }
   }
 
   const consumers: ExportedConsumer[] = listConsumers().map((c) => ({
@@ -165,13 +193,31 @@ export function exportConfig(): ConfigExport {
     bundles,
     alertRules,
     clients,
-    guardrails,
     consumers,
   };
 }
 
 function asArray<T>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
+}
+
+/**
+ * Turns one exported tool into the PATCH body `applyToolMutations` consumes:
+ * drop `name` (it identifies the target, it is not a policy) and normalize the
+ * pre-manifest `override` spelling onto the registry's `overrides` key.
+ *
+ * Everything else passes through untouched — including keys this gateway does
+ * not recognize, which `applyToolMutations` simply ignores. That is what lets a
+ * document exported by a NEWER gateway (one with a policy this build lacks)
+ * still apply the policies this build does understand, instead of being
+ * rejected wholesale.
+ */
+function toPatchBody(tool: ExportedTool): Record<string, unknown> {
+  const { name: _name, override, ...rest } = tool;
+  void _name;
+  const body: Record<string, unknown> = { ...rest };
+  if (override !== undefined && body.overrides === undefined) body.overrides = override;
+  return body;
 }
 
 /**
@@ -314,18 +360,19 @@ export async function importConfig(
         continue;
       }
       if (!dryRun) {
-        await registry.setToolEnabled(c.name, t.name, t.enabled);
-        await registry.setToolGuards(c.name, t.name, t.guards ?? null);
-        try {
-          await registry.setToolOverride(c.name, t.name, t.override ?? null);
-        } catch (err) {
-          if (err instanceof ToolOverrideError) {
-            // A hand-edited config can carry a colliding/invalid displayName alias;
-            // apply the rest of the tool config and report the override as skipped.
-            skipped.push({ type: "tool", id: `${c.name}__${t.name}`, reason: `override: ${err.message}` });
-          } else {
-            throw err;
-          }
+        // stopOnFirstFailure: false — one bad key must not discard the rest of
+        // the tool's config. A hand-edited document can carry a displayName
+        // alias that now collides, and a monitor references a tool_examples row
+        // that may not exist on the instance being restored onto. Both are
+        // reported per key and the remaining policies still apply, matching the
+        // partial-application behaviour the hand-written loop had.
+        const { failures } = await applyToolMutations(
+          toPatchBody(t),
+          { actor: actor ?? "import", clientName: c.name, toolName: t.name },
+          { stopOnFirstFailure: false },
+        );
+        for (const f of failures) {
+          skipped.push({ type: "tool", id: `${c.name}__${t.name}`, reason: `${f.key}: ${f.message}` });
         }
       }
       applied.toolsConfigured++;

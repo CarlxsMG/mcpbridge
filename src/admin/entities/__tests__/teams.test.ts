@@ -110,12 +110,11 @@ describe("teams — route enforcement", () => {
     setAdminApiKeys([ADMIN_KEY]);
     (config as Record<string, unknown>).authDisabled = false;
     const { adminRoutes } = await import("../../../routes/admin.js");
-    const { teamRoutes } = await import("../../../routes/teams.js");
     const app = express();
     app.use(express.json());
     app.use(requestIdMiddleware);
     adminRoutes(app);
-    teamRoutes(app);
+    adminRoutes(app);
     ({ baseUrl, server } = await listen(app));
   }
   afterEach(async () => {

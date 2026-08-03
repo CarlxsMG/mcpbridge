@@ -69,7 +69,8 @@ describe("exportConfig — envelope", () => {
     expect(doc.bundles).toEqual([]);
     expect(doc.alertRules).toEqual([]);
     expect(doc.clients).toEqual([]);
-    expect(doc.guardrails).toEqual([]);
+    // `guardrails` is no longer emitted at the top level — it travels inside each tool.
+    expect(doc.guardrails).toBeUndefined();
     expect(doc.consumers).toEqual([]);
   });
 });
@@ -176,7 +177,9 @@ describe("exportConfig — clients + guards + tools + guardrails", () => {
     expect(client).toBeDefined();
     expect(client?.guards).toBeNull();
     expect(client?.enabled).toBe(true);
-    expect(client?.tools).toEqual([{ name: "get-x", enabled: true, guards: null, override: null }]);
+    // Unconfigured policies are omitted rather than exported as nulls, so an
+    // untouched tool is two fields instead of twenty.
+    expect(client?.tools).toEqual([{ name: "get-x", enabled: true }]);
   });
 
   test("exports a client's guards/tool guards/tool override when set (not omitted, not defaulted)", async () => {
@@ -188,12 +191,17 @@ describe("exportConfig — clients + guards + tools + guardrails", () => {
     const doc = exportConfig();
     const client = doc.clients.find((c) => c.name === "guarded-client");
     expect(client?.guards).toEqual({ circuitBreaker: { failureThreshold: 3 } });
-    const tool = client?.tools.find((t) => t.name === "get-y");
-    expect(tool?.guards).toEqual({ rateLimitPerMin: 5 });
-    expect(tool?.override).toEqual({ description: "custom desc" });
+    const tool = client?.tools.find((t) => t.name === "get-y") as Record<string, unknown>;
+    expect(tool.guards).toEqual({ rateLimitPerMin: 5 });
+    expect(tool.overrides).toEqual({ description: "custom desc" });
   });
 
-  test("guardrails are collected per (client, tool) across two distinct clients, keyed correctly", async () => {
+  test("guardrails travel inside their own tool, per (client, tool), across two distinct clients", async () => {
+    // Guardrails used to be a flat top-level array keyed by {client, tool}.
+    // They are an entry in the per-tool mutation registry, so they now export
+    // where every other policy does — inside the tool. The old top-level array
+    // is still ACCEPTED on import (legacy documents and stored snapshots), it
+    // is simply no longer emitted.
     await reg("gr-client-a", ["tool-a"]);
     await reg("gr-client-b", ["tool-b"]);
     expect(
@@ -204,19 +212,18 @@ describe("exportConfig — clients + guards + tools + guardrails", () => {
     );
 
     const doc = exportConfig();
-    expect(doc.guardrails).toHaveLength(2);
-    const a = doc.guardrails.find((g) => g.client === "gr-client-a");
-    const b = doc.guardrails.find((g) => g.client === "gr-client-b");
-    expect(a).toEqual({
-      client: "gr-client-a",
-      tool: "tool-a",
-      guardrails: { denyPatterns: ["secret"], blockSecrets: true, scanResponses: false },
-    });
-    expect(b).toEqual({
-      client: "gr-client-b",
-      tool: "tool-b",
-      guardrails: { denyPatterns: [], blockSecrets: false, scanResponses: true },
-    });
+    expect(doc.guardrails).toBeUndefined();
+
+    const a = doc.clients.find((c) => c.name === "gr-client-a")!.tools.find((t) => t.name === "tool-a") as Record<
+      string,
+      unknown
+    >;
+    const b = doc.clients.find((c) => c.name === "gr-client-b")!.tools.find((t) => t.name === "tool-b") as Record<
+      string,
+      unknown
+    >;
+    expect(a.guardrails).toEqual({ denyPatterns: ["secret"], blockSecrets: true, scanResponses: false });
+    expect(b.guardrails).toEqual({ denyPatterns: [], blockSecrets: false, scanResponses: true });
   });
 
   test("a client for which registry.getClientDetail returns undefined is skipped entirely (name, tools, AND its guardrails)", async () => {
@@ -242,7 +249,7 @@ describe("exportConfig — clients + guards + tools + guardrails", () => {
     try {
       const doc = exportConfig();
       expect(doc.clients.map((c) => c.name)).toEqual(["kept-client"]);
-      expect(doc.guardrails).toEqual([]);
+      expect(doc.guardrails).toBeUndefined();
     } finally {
       spy.mockRestore();
     }
@@ -859,7 +866,8 @@ describe("importConfig — per-client tools", () => {
     expect(result.skipped).toHaveLength(1);
     expect(result.skipped[0]?.type).toBe("tool");
     expect(result.skipped[0]?.id).toBe("override-err-svc__tool-a");
-    expect(result.skipped[0]?.reason).toContain("override:");
+    // The skip is now keyed by the registry's body key (`overrides`, plural).
+    expect(result.skipped[0]?.reason).toContain("overrides:");
     expect(result.skipped[0]?.reason).toContain("collides with another tool");
   });
 
@@ -1147,7 +1155,9 @@ describe("exportConfig -> importConfig round trip", () => {
     expect(result.skipped.every((s) => s.reason === "already exists")).toBe(true);
     expect(result.applied.clientsConfigured).toBe(1);
     expect(result.applied.toolsConfigured).toBe(1);
-    expect(result.applied.guardrails).toBe(1);
+    // Guardrails ride inside the tool now; the top-level counter only moves for
+    // legacy documents that still carry the separate array.
+    expect(result.applied.guardrails).toBe(0);
     expect(result.applied.consumers).toBe(1);
   });
 });

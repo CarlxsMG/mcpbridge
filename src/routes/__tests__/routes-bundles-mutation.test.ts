@@ -86,10 +86,10 @@ async function startApp(): Promise<void> {
   (config as Record<string, unknown>).secretEncryptionKey = Buffer.alloc(32, 7).toString("base64");
   (config as Record<string, unknown>).maxToolsPerClient = 100;
 
-  const { bundleRoutes } = await import("../../routes/bundles.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json({ limit: "64kb", strict: true }));
-  bundleRoutes(app);
+  adminRoutes(app);
 
   ({ baseUrl, server: activeServer } = await listen(app));
 }

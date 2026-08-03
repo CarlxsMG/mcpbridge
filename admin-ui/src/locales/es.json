@@ -51,10 +51,6 @@
       "label": "Servidores",
       "hint": "Servidores upstream (REST + MCP)"
     },
-    "register-server": {
-      "label": "Añadir servidor",
-      "hint": "Registra un nuevo upstream"
-    },
     "catalog": {
       "label": "Catálogo",
       "hint": "Servidores predefinidos que puedes registrar con un clic"
@@ -149,7 +145,8 @@
     "action_failed": "La acción falló.",
     "preview_failed": "La vista previa falló.",
     "not_authenticated": "No autenticado",
-    "request_failed_with_status": "Petición fallida con código {status}"
+    "request_failed_with_status": "Petición fallida con código {status}",
+    "request_ref": "Referencia de la petición"
   },
   "sidebar": {
     "brand_live_title": "Tráfico en vivo en el último minuto",
@@ -514,6 +511,13 @@
       }
     },
     "guard_editor": {
+      "tabs": {
+        "aria": "Grupos de configuración de la herramienta",
+        "guards": "Guardas",
+        "safety": "Seguridad",
+        "presentation": "Presentación",
+        "advanced": "Avanzado"
+      },
       "positive_number": "Debe ser un número positivo",
       "rate_keys_title": "Rate limit y keys",
       "rate_label": "Rate limit (llamadas / minuto)",
@@ -763,6 +767,18 @@
         "taller": "Más alto"
       }
     },
+    "config_effective": {
+      "title": "Ajustes efectivos",
+      "hint": "Todos los ajustes que este gateway resolvió al arrancar, incluidos los que no tienen pantalla propia. Se cambian por entorno y requieren reiniciar. De los secretos solo se muestra si están configurados.",
+      "filter_placeholder": "Filtrar ajustes",
+      "copy_all": "Copiar todo",
+      "node_env": "Entorno:",
+      "no_matches": "Ningún ajuste coincide con «{filter}».",
+      "redacted_set": "configurado",
+      "redacted_unset": "sin configurar",
+      "table": { "key": "Ajuste", "value": "Valor" },
+      "errors": { "load_failed": "Error al cargar los ajustes efectivos." }
+    },
     "config_export": {
       "title": "Exportar",
       "aria_label": "Formato de exportación",
@@ -798,7 +814,7 @@
       "snapshot_label": "Etiqueta del snapshot",
       "snapshot_placeholder": "Etiqueta del snapshot (p. ej. antes-de-migracion)",
       "snapshot_now": "Snapshot ahora",
-      "empty": "Aún no hay snapshots. Un snapshot captura la config completa — bundles, guardrails, consumers y más — para que puedas comparar o hacer rollback después.",
+      "empty": "Aún no hay snapshots. Un snapshot captura la configuración indicada arriba, para que puedas comparar o hacer rollback después.",
       "diff_vs_current": "diff vs. actual",
       "rollback": "revertir",
       "diff_heading": "Diff: #{id} \"{label}\" → {to}",
@@ -1623,13 +1639,15 @@
         "kind_aria": "Tipo",
         "kind_rest": "REST API",
         "kind_mcp": "Servidor MCP",
+        "kind_graphql": "API GraphQL",
         "fields": {
           "slug": "Slug",
           "name": "Nombre",
           "description": "Descripción (opcional)",
           "health_url": "Health URL",
           "openapi_url": "OpenAPI URL",
-          "mcp_url": "URL del servidor MCP"
+          "mcp_url": "URL del servidor MCP",
+          "graphql_url": "Endpoint de GraphQL"
         },
         "placeholders": {
           "slug": "internal-crm-staging",
@@ -1637,7 +1655,11 @@
           "description": "Qué registra este template",
           "health_url": "https://api.example.com/health",
           "openapi_url": "https://api.example.com/openapi.json",
-          "mcp_url": "https://mcp.example.com/mcp"
+          "mcp_url": "https://mcp.example.com/mcp",
+          "graphql_url": "https://api.ejemplo.com/graphql"
+        },
+        "hints": {
+          "graphql_health_url": "Opcional. Por defecto usa el endpoint de GraphQL, que muchos servidores rechazan ante un GET simple — y eso se interpreta como un health check fallido."
         },
         "save": "Guardar entrada",
         "errors": {
@@ -1653,7 +1675,15 @@
     },
     "config": {
       "title": "Configuración",
-      "subtitle": "Exporta, importa y haz snapshot de la configuración en vivo del bridge.",
+      "subtitle": "Exporta, importa y haz snapshot de una parte de la configuración en vivo del bridge.",
+      "scope": {
+        "title": "Qué abarcan el export, el import y el rollback",
+        "included_label": "Incluido",
+        "included": "Los servidores registrados y si están activos, las guardas de cliente y todas las políticas por tool — guardas, overrides, guardrails, caché, coalescing, paginación, streaming, transformaciones, redacción, sensibilidad, cuarentena, mocks, monitores, presupuesto de contexto y aprobaciones. Además de bundles, reglas de alerta y quotas de consumers.",
+        "excluded_label": "No incluido",
+        "excluded": "Schedules, políticas de guardas, equipos, usuarios, entradas del catálogo, targets del proxy WebSocket, claves de API, el registro de auditoría y las credenciales de upstream almacenadas.",
+        "backup_hint": "Un rollback restaura solo lo que aparece en Incluido. Para una copia completa de la base de datos de administración, haz una copia de seguridad de la base de datos."
+      },
       "result": {
         "dry_run": "Dry run — no se cambió nada",
         "import_applied": "Import aplicado",

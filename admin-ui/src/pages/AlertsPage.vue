@@ -34,6 +34,7 @@ const {
   data: rules,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<AlertRule[]>(
   async () => (await api.get<{ items: AlertRule[] }>("/admin-api/alerts")).items,
@@ -123,7 +124,7 @@ function formatThreshold(rule: AlertRule): string {
 
     <p v-if="testMessage" class="success" role="status">{{ testMessage }}</p>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="rules.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :error-request-id="errorRequestId" :empty="rules.length === 0">
       <template #empty>
         <EmptyState :icon="BellRing">{{ t("pages.alerts.empty.no_alerts") }}</EmptyState>
       </template>

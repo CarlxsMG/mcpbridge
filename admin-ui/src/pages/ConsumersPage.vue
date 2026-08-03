@@ -31,6 +31,7 @@ const {
   data: consumers,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<ConsumerWithUsage[]>(
   async () => (await api.get<{ items: ConsumerWithUsage[] }>("/admin-api/consumers")).items,
@@ -189,7 +190,12 @@ function confirmDelete() {
       </div>
     </form>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="consumers.length === 0">
+    <ListLayout
+      :loading="loading"
+      :error="errorMessage"
+      :error-request-id="errorRequestId"
+      :empty="consumers.length === 0"
+    >
       <template #empty>
         <EmptyState :icon="Users2">
           {{ t("pages.consumers.empty.no_consumers") }}

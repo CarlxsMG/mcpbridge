@@ -8,7 +8,7 @@
  * `TOOL_NOT_LIVE` as a 404. See `./index.ts` for the dispatcher and the
  * `ToolMutation` contract.
  */
-import { setMonitor, deleteMonitor } from "../../../observability/monitor.js";
+import { setMonitor, deleteMonitor, getMonitor } from "../../../observability/monitor.js";
 import type { ToolMutation } from "./types.js";
 
 export const monitorMutation: ToolMutation = {
@@ -54,6 +54,16 @@ export const monitorMutation: ToolMutation = {
       };
     }
     return { kind: "ok" };
+  },
+  // Only the three fields `validate` accepts — the rest of MonitorRecord
+  // (driftDetected, lastStatus, lastCheckedAt) is observed runtime state, not
+  // config, and re-importing it would restore a stale verdict as if it were
+  // fresh. `exampleId` is a tool_examples row id, so a monitor imported into an
+  // instance without that example is refused by setMonitor and lands in the
+  // import's `skipped` list rather than failing the whole import.
+  read: (clientName, toolName) => {
+    const m = getMonitor(clientName, toolName);
+    return m ? { exampleId: m.exampleId, intervalMinutes: m.intervalMinutes, enabled: m.enabled } : undefined;
   },
   audit: (_raw, parsed) => {
     const v = parsed as { kind: "clear" } | { kind: "set"; exampleId: number };

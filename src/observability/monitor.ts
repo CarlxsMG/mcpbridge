@@ -131,6 +131,18 @@ export async function deleteMonitor(clientName: string, toolName: string): Promi
  * team owns; null/undefined (super-admin session or bearer caller) lists
  * every team's monitors, matching prior behavior.
  */
+/**
+ * One tool's monitor, or null when it has none. Sibling of {@link listMonitors}
+ * for the per-tool read paths (the mutation registry's `read`, which config
+ * export walks) that would otherwise have to list every monitor and filter.
+ */
+export function getMonitor(clientName: string, toolName: string): MonitorRecord | null {
+  const row = getDb()
+    .query(`SELECT * FROM tool_monitor WHERE client_name = ? AND tool_name = ?`)
+    .get(clientName, toolName) as MonitorRow | null;
+  return row ? rowTo(row) : null;
+}
+
 export function listMonitors(teamId?: number | null): MonitorRecord[] {
   if (typeof teamId === "number") {
     return (

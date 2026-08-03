@@ -220,7 +220,10 @@ separator at registration, so distinct pairs can't collide on this key):
   `src/discovery/`), a cURL/Postman import, or a manual tool list. Each tool maps to an HTTP
   method + path on the backend's base URL.
 - **GraphQL clients** (`kind: "graphql"`) — the bridge introspects the schema and generates one
-  tool per query/mutation.
+  tool per query/mutation. Dispatch reuses the REST path (each generated tool is a POST carrying
+  the stored query), so `kind` here is identity/display only — but it must still be written:
+  GraphQL registrations went through `persistRestRegistration` without one for a long time, took
+  the `clients.kind` column default, and surfaced everywhere as REST.
 - **MCP upstreams** (`kind: "mcp"`) — existing MCP servers (Streamable HTTP or SSE); the bridge
   connects out, discovers their tools/resources/prompts, and re-exposes them.
 
@@ -288,6 +291,21 @@ canonical feature list lives in `docs/guide/features.md`.
 - Match the module layout already in place: route handlers in `src/routes/`, DB access in
   `src/db/`, security-sensitive logic in `src/security/`, dispatch/pipeline in `src/proxy/proxy.ts` +
   `src/middleware/`.
+- **Where a route file goes is decided by its prefix, and there is exactly one shape per
+  directory.** Anything under `/admin-api` is a per-entity Router in `src/routes/admin/`
+  (`export const fooRoutes = Router()`, paths written relative to `/admin-api`, mounted by
+  `src/routes/admin/index.ts` behind the one shared `adminAuth`). Everything else — register,
+  health, metrics, docs, auth, introspection, install links — registers directly on the app in
+  `src/routes/*.ts`. A third shape used to exist (a top-level file building its own
+  `/admin-api` Router and applying `adminAuth` itself); those 17 files moved into
+  `src/routes/admin/`. Don't reintroduce it: `scripts/extract-routes.ts` matches these two
+  shapes only, and the OpenAPI route-parity gate reads its output.
+- **Adding a per-tool policy means one entry in `src/admin/tool-policies/mutations/`.** That
+  registry now drives the PATCH endpoint, config export/import, and snapshots/rollback together.
+  `ToolMutation.read` is required, so the compiler asks how a new policy exports; the generic
+  round-trip test (`mutations/__tests__/policy-round-trip.test.ts`) iterates the registry and
+  fails when a new policy has no fixture. Both exist because the export used to be a
+  hand-picked list and fifteen policies were silently missing from every rollback.
 - TypeScript strict on both projects — avoid `any` and non-null assertions; prefer narrowing.
 - Commit convention: `type(scope): summary` (`feat` / `fix` / `docs` / `chore` / `refactor` /
   `test`). Larger changes often land as a `feat` commit followed by `fix` hardening-pass commits;
@@ -302,6 +320,21 @@ canonical feature list lives in `docs/guide/features.md`.
   This is cheap (`git stash push -- <src file>`, re-run, `git stash pop`) and it has changed the
   verdict here more than once — killing a "defect" that was never real, and resurrecting one that
   had been reasoned away.
+- **`admin-ui/src/types/api.ts` is gated against `src/openapi.yaml`, at compile time.**
+  `openapi-typescript` regenerates `types/openapi.generated.ts` on every admin-ui `typecheck`
+  and `build`, and `types/openapi-drift.ts` asserts 30 mirrored types against it — a property
+  the UI type has and the spec doesn't (or vice versa), or whose value type diverges, fails
+  `vue-tsc` naming the member (`Type '"ClientSummary.kind"' is not assignable to type 'never'`).
+  Adding a response type to both sides means adding one line to that file's `AllDrift` union.
+  Optionality is deliberately NOT compared at any depth: the spec declares no `required`, so
+  every generated property is optional. Adding `required` markers would let the gate tighten,
+  and is worth doing on its own.
+- **An unquoted `description:` inside a YAML flow mapping ends at the first comma.** So
+  `description: Owning team id, or null (super-admins only).` parses as a truncated description
+  PLUS a junk property named `or null (super-admins only).` with a null value. It is valid YAML,
+  nothing warns, and the published docs quietly show half a sentence — 21 had accumulated before
+  anything looked. Quote any description containing a comma; the well-formedness case in
+  `src/__tests__/openapi-route-parity.test.ts` fails on the next one.
 - **A comment naming a version or a count is a liability.** The ones that cost the most time in
   this repo were not wrong code but confidently wrong prose: a CI comment claiming "12 specs" when
   there were 15, a `download-artifact@v4` note surviving the bump to v8, a `workflow_dispatch`

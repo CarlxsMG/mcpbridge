@@ -14,6 +14,7 @@ import type { ClientDetail } from "@/types/api";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
 import KindBadge from "@/components/ui/KindBadge.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ErrorNote from "@/components/ui/ErrorNote.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import TabStrip, { tabId, tabPanelId } from "@/components/ui/TabStrip.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -41,6 +42,7 @@ const {
   data: detail,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<ClientDetail | null>(
   () => api.get<ClientDetail>(clientPath(props.name)),
@@ -155,7 +157,7 @@ async function resetBreaker() {
     </p>
 
     <SignalLoader v-if="loading && !detail" />
-    <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
+    <ErrorNote v-else-if="errorMessage && !detail" :message="errorMessage" :request-id="errorRequestId" />
 
     <template v-else-if="detail">
       <PageHeader :title="detail.name">
@@ -188,7 +190,7 @@ async function resetBreaker() {
         </button>
       </PageHeader>
 
-      <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+      <ErrorNote v-if="errorMessage" :message="errorMessage" :request-id="errorRequestId" />
 
       <dl class="sd-meta">
         <template v-if="detail.kind === 'mcp'">

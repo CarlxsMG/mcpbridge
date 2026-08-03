@@ -1441,7 +1441,7 @@ paths:
             or to /admin/login?sso_error=... on any failure.
           headers:
             Location: { schema: { type: string } }
-            Set-Cookie: { schema: { type: string }, description: Session + CSRF cookies, only on success. }
+            Set-Cookie: { schema: { type: string }, description: "Session + CSRF cookies, only on success." }
 
   /admin-api/auth/oidc/settings:
     get:
@@ -1750,7 +1750,12 @@ paths:
       requestBody:
         content:
           application/json:
-            schema: { type: object, description: Tool arguments, matching the tool's inputSchema. }
+            schema:
+              {
+                type: object,
+                additionalProperties: true,
+                description: "Tool arguments, matching the tool's inputSchema.",
+              }
       responses:
         "200":
           description: Tool-call result (may itself carry isError:true — that's the tool failing, not this endpoint).
@@ -1980,8 +1985,7 @@ paths:
                   brokenAt:
                     {
                       type: [integer, "null"],
-                      description: id of the first row whose hash doesn't match,
-                      or null if valid.,
+                      description: "id of the first row whose hash doesn't match, or null if valid.",
                     }
 
   /admin-api/audit-log/export:
@@ -2650,13 +2654,12 @@ paths:
       parameters:
         - { name: client, in: query, schema: { type: string } }
         - { name: tool, in: query, schema: { type: string } }
-        - { name: errors, in: query, schema: { type: boolean }, description: When true, only error results. }
+        - { name: errors, in: query, schema: { type: boolean }, description: "When true, only error results." }
         - {
             name: cursor,
             in: query,
             schema: { type: string },
-            description: Opaque nextCursor from a previous page (keyset,
-            by id).,
+            description: "Opaque nextCursor from a previous page (keyset, by id).",
           }
         - { name: limit, in: query, schema: { type: integer } }
       responses:
@@ -3540,8 +3543,9 @@ paths:
               required: [name]
               properties:
                 name: { type: string, maxLength: 128 }
-                monthlyQuota: { type: [integer, "null"], description: Positive integer, or null for unlimited. }
-                endUserRateLimitPerMin: { type: [integer, "null"], description: Positive integer, or null to disable. }
+                monthlyQuota: { type: [integer, "null"], description: "Positive integer, or null for unlimited." }
+                endUserRateLimitPerMin:
+                  { type: [integer, "null"], description: "Positive integer, or null to disable." }
       responses:
         "201":
           description: Created.
@@ -3975,8 +3979,7 @@ paths:
             name: cursor,
             in: query,
             schema: { type: string },
-            description: Opaque nextCursor from a previous page (keyset,
-            by underlying span id).,
+            description: "Opaque nextCursor from a previous page (keyset, by underlying span id).",
           }
         - { name: limit, in: query, schema: { type: integer } }
       responses:
@@ -4091,11 +4094,31 @@ paths:
 
   # ── Config export/import + versioned snapshots ───────────────────────────────
 
+  /admin-api/config/effective:
+    get:
+      operationId: getEffectiveConfig
+      summary: The environment this process resolved at boot, with secrets redacted
+      description: >
+        Read-only view of the ~115 resolved configuration values, so an operator
+        can see which timeouts, rate limits and safety flags are actually in
+        force without shelling into the container. Secret-bearing values
+        (`adminApiKeys`, `mcpApiKeys`, `secretEncryptionKey`, `vaultToken`,
+        `bootstrapAdminPassword`) are never returned — each is reported only as
+        "set" or "unset". Requires a super-admin (admin role and no team).
+      tags: [Config]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: The resolved configuration.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EffectiveConfig" }
+
   /admin-api/config/export:
     get:
       operationId: exportConfig
-      summary: Export all admin-authored config as a portable document
-      description: Excludes decrypted upstream secrets (stay in their own encrypted table); tool key-allowlists export as SHA-256 hashes, which round-trip on import. Requires the admin role for session callers.
+      summary: Export part of the admin-authored config as a portable document
+      description: Covers registered servers with their client guards and every per-tool policy, plus bundles, alert rules and consumer quotas. Excludes schedules, guard policies, teams, users, catalog entries, WebSocket proxy targets, API keys, the audit log, and decrypted upstream secrets. Tool key-allowlists export as SHA-256 hashes, which round-trip on import. Requires the admin role for session callers.
       tags: [Config]
       security: [{ AdminAuth: [] }, { SessionAuth: [] }]
       parameters:
@@ -5426,7 +5449,17 @@ components:
         toolsCount: { type: integer }
         healthUrl: { type: string }
         baseUrl: { type: string }
-        teamId: { type: [integer, "null"], description: Owning team id, or null (visible only to super-admins). }
+        kind: { $ref: "#/components/schemas/UpstreamKind" }
+        teamId: { type: [integer, "null"], description: "Owning team id, or null (visible only to super-admins)." }
+
+    UpstreamKind:
+      type: string
+      enum: [rest, mcp, graphql]
+      description: >
+        How the bridge reaches this client's backend. 'graphql' dispatches
+        exactly like 'rest' (each generated tool is a POST carrying the stored
+        introspected query) — it is an identity distinction, so the admin UI
+        can label and filter GraphQL endpoints instead of showing them as REST.
 
     ClientDetail:
       type: object
@@ -5441,10 +5474,11 @@ components:
         baseUrl: { type: string }
         resolvedIp: { type: [string, "null"] }
         retryNonSafeMethods: { type: boolean }
+        kind: { $ref: "#/components/schemas/UpstreamKind" }
         consecutiveFailures: { type: [integer, "null"] }
         guards: { $ref: "#/components/schemas/ClientGuardConfig" }
         circuitBreakerState: { type: [string, "null"], enum: [closed, open, half_open, null] }
-        teamId: { type: [integer, "null"], description: Owning team id, or null (visible only to super-admins). }
+        teamId: { type: [integer, "null"], description: "Owning team id, or null (visible only to super-admins)." }
         tools:
           type: array
           items:
@@ -5476,6 +5510,11 @@ components:
         target: { type: string, example: "billing_service__charge_card" }
         detail: { type: [object, "null"], additionalProperties: true }
         createdAt: { type: integer, description: Unix ms epoch }
+        hash:
+          {
+            type: [string, "null"],
+            description: "This entry's link in the tamper-evident hash chain (SHA-256 over the entry plus its predecessor's hash). Null for rows written before the chain existed; verify the whole chain via GET /admin-api/audit-log/verify.",
+          }
 
     # -------------------------------------------------------------------------
     # Tool examples (playground), canary/failover, load balancing, OAuth, upstream auth
@@ -5553,7 +5592,7 @@ components:
         toolName: { type: [string, "null"] }
         keyId: { type: [integer, "null"] }
         argsJson: { type: string, description: JSON-serialized original call arguments. }
-        preview: { type: string, description: Truncated, already-redacted/guardrail-processed result preview. }
+        preview: { type: string, description: "Truncated, already-redacted/guardrail-processed result preview." }
         isError: { type: boolean }
         durationMs: { type: integer }
         createdAt: { type: integer, description: Unix ms epoch }
@@ -5581,9 +5620,26 @@ components:
         requiredLevels:
           {
             type: integer,
-            description: N-of-M distinct-approver threshold,
-            snapshotted from the tool's config at ticket creation.,
+            description: "N-of-M distinct-approver threshold, snapshotted from the tool's config at ticket creation.",
           }
+        decisions:
+          type: array
+          description: One entry per approver who has acted on this ticket so far, oldest first.
+          items: { $ref: "#/components/schemas/ApprovalDecision" }
+
+    ApprovalDecision:
+      type: object
+      description: >
+        One approver's action on a ticket. A ticket needing N distinct approvers
+        accumulates N of these before it leaves "pending"; each row is a
+        different `decidedBy`, which is what makes the threshold meaningful.
+      properties:
+        id: { type: integer }
+        approvalId: { type: integer }
+        decidedBy: { type: string }
+        decision: { type: string, enum: [approved, rejected] }
+        note: { type: [string, "null"] }
+        decidedAt: { type: integer, description: Unix ms epoch }
 
     # -------------------------------------------------------------------------
     # Bundles
@@ -5627,13 +5683,13 @@ components:
       properties:
         id: { type: integer }
         bundleName: { type: string }
-        tokenPrefix: { type: string, description: First characters of the token, for display only. }
+        tokenPrefix: { type: string, description: "First characters of the token, for display only." }
         mcpKeyId: { type: integer, description: The scoped MCP API key auto-provisioned for this link. }
         createdBy: { type: [string, "null"] }
         createdAt: { type: integer, description: Unix ms epoch. }
-        expiresAt: { type: [integer, "null"], description: Unix ms epoch, or null for no expiry. }
-        revokedAt: { type: [integer, "null"], description: Unix ms epoch when revoked, or null if active. }
-        lastUsedAt: { type: [integer, "null"], description: Unix ms epoch of last successful resolve, or null. }
+        expiresAt: { type: [integer, "null"], description: "Unix ms epoch, or null for no expiry." }
+        revokedAt: { type: [integer, "null"], description: "Unix ms epoch when revoked, or null if active." }
+        lastUsedAt: { type: [integer, "null"], description: "Unix ms epoch of last successful resolve, or null." }
 
     ToolConfigPatch:
       type: object
@@ -6005,6 +6061,10 @@ components:
         targetTool: { type: string }
         argsTemplate:
           type: object
+          # Free-form by design: without this, `type: object` alone documents an
+          # object that may have NO properties, and code generators render it as
+          # exactly that.
+          additionalProperties: true
           description: >
             JSON template resolved against {input, steps} to build this
             step's arguments. Supports {"$ref":"input.<path>"},
@@ -6047,7 +6107,7 @@ components:
       properties:
         id: { type: integer }
         label: { type: string }
-        keyPrefix: { type: string, description: First few characters of the raw key, for identification in the UI. }
+        keyPrefix: { type: string, description: "First few characters of the raw key, for identification in the UI." }
         consumerId: { type: [integer, "null"] }
         elevated:
           {
@@ -6080,8 +6140,8 @@ components:
       properties:
         id: { type: integer }
         name: { type: string }
-        monthlyQuota: { type: [integer, "null"], description: Positive integer, or null for unlimited. }
-        endUserRateLimitPerMin: { type: [integer, "null"], description: Positive integer, or null to disable. }
+        monthlyQuota: { type: [integer, "null"], description: "Positive integer, or null for unlimited." }
+        endUserRateLimitPerMin: { type: [integer, "null"], description: "Positive integer, or null to disable." }
         createdAt: { type: integer, description: Unix ms epoch }
         updatedAt: { type: integer, description: Unix ms epoch }
         createdBy: { type: [string, "null"] }
@@ -6138,8 +6198,7 @@ components:
         sessionId:
           {
             type: [string, "null"],
-            description: The calling MCP transport session id (mcp-session-id),
-            if the call happened over a live session.,
+            description: "The calling MCP transport session id (mcp-session-id), if the call happened over a live session.",
           }
         startMs: { type: integer }
         endMs: { type: integer }
@@ -6169,12 +6228,38 @@ components:
     # -------------------------------------------------------------------------
     # Config export/import + snapshots
     # -------------------------------------------------------------------------
+    EffectiveConfig:
+      type: object
+      description: The configuration this process resolved at boot. Read-only — env vars apply at boot.
+      properties:
+        nodeEnv: { type: string, example: production }
+        entries:
+          type: array
+          description: One per config key, sorted by key so two instances diff line by line.
+          items:
+            type: object
+            properties:
+              key: { type: string, example: toolCallTimeoutMs }
+              value:
+                description: >
+                  The resolved value, or the string "set"/"unset" when `redacted`
+                  is true. A redacted key's real value is never serialized.
+              redacted: { type: boolean }
+
     ConfigExport:
       type: object
       description: >
-        A portable document of all admin-authored config. Excludes decrypted
-        upstream secrets; tool key-allowlists export as SHA-256 hashes (which
-        round-trip on import, since the runtime only ever compares hashes).
+        A portable document of part of the admin-authored config: registered
+        servers with their client guards and every per-tool policy, plus
+        bundles, alert rules and consumer quotas.
+
+        NOT included, so a rollback does not restore them: schedules, guard
+        policies, teams, users, catalog entries, WebSocket proxy targets, API
+        keys, the audit log, and decrypted upstream secrets. For a complete copy
+        of the admin database use `POST /admin-api/backup` instead.
+
+        Tool key-allowlists export as SHA-256 hashes, which round-trip on import
+        since the runtime only ever compares hashes.
       properties:
         version: { type: integer, example: 1 }
         exportedAt: { type: integer, description: Unix ms epoch }
@@ -6215,6 +6300,12 @@ components:
                   - type: "null"
               tools:
                 type: array
+                description: >
+                  One entry per tool. Beyond `name`, each entry is exactly a
+                  `PATCH /admin-api/clients/{name}/tools/{tool}` body: every
+                  per-tool policy key that endpoint accepts, in the same shape,
+                  with unconfigured policies omitted. Import replays it through
+                  the same validation and audit path a PATCH takes.
                 items:
                   type: object
                   properties:
@@ -6224,11 +6315,25 @@ components:
                       oneOf:
                         - $ref: "#/components/schemas/ToolGuardConfig"
                         - type: "null"
-                    override:
+                    overrides:
                       type: [object, "null"]
                       additionalProperties: true
+                    override:
+                      deprecated: true
+                      type: [object, "null"]
+                      additionalProperties: true
+                      description: >
+                        Pre-manifest spelling of `overrides`. No longer emitted;
+                        still accepted on import so documents (and stored
+                        snapshots) from an older gateway keep applying.
+                  additionalProperties: true
         guardrails:
           type: array
+          deprecated: true
+          description: >
+            Legacy top-level location for per-tool guardrails. No longer
+            emitted — `guardrails` is one of the per-tool policy keys above and
+            now travels inside its tool. Still accepted on import.
           items:
             type: object
             properties:
@@ -6335,7 +6440,7 @@ components:
         from: { type: integer, description: Unix ms epoch — start of the window. }
         calls: { type: integer }
         errors: { type: integer }
-        errorRate: { type: number, description: errors / calls, or 0 when calls is 0. }
+        errorRate: { type: number, description: "errors / calls, or 0 when calls is 0." }
         avgMs: { type: integer }
         maxMs: { type: integer }
         tools: { type: integer, description: Distinct client__tool pairs called in the window. }
@@ -6350,7 +6455,7 @@ components:
           items:
             type: object
             properties:
-              t: { type: integer, description: Bucket start, Unix ms epoch. }
+              t: { type: integer, description: "Bucket start, Unix ms epoch." }
               calls: { type: integer }
               errors: { type: integer }
               avgMs: { type: integer }
@@ -6405,7 +6510,7 @@ components:
         slug: { type: string }
         name: { type: string }
         description: { type: [string, "null"] }
-        kind: { type: string, enum: [rest, mcp] }
+        kind: { $ref: "#/components/schemas/UpstreamKind" }
         category: { type: [string, "null"] }
         tags: { type: array, items: { type: string } }
         icon: { type: [string, "null"] }
@@ -6416,6 +6521,7 @@ components:
         excludeOperations: { type: [array, "null"], items: { type: string } }
         mcpUrl: { type: [string, "null"] }
         mcpTransport: { type: [string, "null"], enum: [streamable-http, sse, null] }
+        graphqlUrl: { type: [string, "null"], description: "Operation endpoint for a graphql-kind entry." }
         featured: { type: boolean }
 
     CatalogEntry:

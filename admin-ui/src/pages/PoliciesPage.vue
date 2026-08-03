@@ -22,7 +22,7 @@ const bundles = ref<BundleSummary[]>([]);
 const loadFallback = tk("pages.policies.errors.load_failed");
 const applyFallback = tk("pages.policies.errors.apply_failed");
 const deleteFallback = tk("pages.policies.errors.delete_failed");
-const { loading, errorMessage, run } = useLoadState(loadFallback);
+const { loading, errorMessage, errorRequestId, run } = useLoadState(loadFallback);
 const notice = ref("");
 const {
   pending: pendingDelete,
@@ -104,7 +104,12 @@ async function confirmDelete() {
 
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="policies.length === 0">
+    <ListLayout
+      :loading="loading"
+      :error="errorMessage"
+      :error-request-id="errorRequestId"
+      :empty="policies.length === 0"
+    >
       <template #empty>
         <EmptyState :icon="ShieldCheck">{{ t("pages.policies.empty.no_policies") }}</EmptyState>
       </template>

@@ -3,8 +3,19 @@ import type { ContextBudgetPublic } from "../tool-policies/context-budget.js";
 /** Canonical status values for a registered client. */
 export type ClientStatus = "healthy" | "degraded" | "unreachable";
 
-/** Upstream kind: a REST backend (bridged via HTTP) or a native MCP server proxied through this bridge. */
-export type UpstreamKind = "rest" | "mcp";
+/**
+ * Upstream kind — how the bridge reaches the backend behind a client:
+ *   - "rest":    an HTTP backend, one tool per OpenAPI operation (or manual/cURL import)
+ *   - "mcp":     a native MCP server, proxied through this bridge
+ *   - "graphql": a GraphQL endpoint, one tool per introspected query/mutation
+ *
+ * This is a display/identity distinction only. Dispatch for "graphql" goes down
+ * the same REST path as "rest" (every generated tool is a POST to the operation
+ * endpoint, with the stored query in tool_graphql) — which is exactly why the
+ * kind used to be left at its 'rest' column default and a GraphQL server showed
+ * up in the admin UI as REST, unfilterable and mislabelled.
+ */
+export type UpstreamKind = "rest" | "mcp" | "graphql";
 
 /** Transport used to reach an MCP-kind upstream. */
 export type McpTransport = "streamable-http" | "sse";

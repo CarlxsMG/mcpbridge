@@ -14,7 +14,12 @@ const props = defineProps<{ traceId: string }>();
 const { t } = useI18n({ useScope: "global" });
 
 const spans = ref<StoredSpan[] | null>(null);
-const { loading, errorMessage, run: runDetail } = useLoadState(t("pages.traces.errors.detail_load_failed"));
+const {
+  loading,
+  errorMessage,
+  errorRequestId,
+  run: runDetail,
+} = useLoadState(t("pages.traces.errors.detail_load_failed"));
 
 async function loadDetail() {
   spans.value = null;
@@ -72,7 +77,12 @@ function selectSpan(spanId: number) {
       :title="t('pages.traces.detail_title', { id: traceId })"
       :back-link="{ to: { name: 'traces' }, label: t('pages.traces.back_to_list') }"
     />
-    <ListLayout :loading="loading" :error="errorMessage" :empty="waterfall.rows.length === 0">
+    <ListLayout
+      :loading="loading"
+      :error="errorMessage"
+      :error-request-id="errorRequestId"
+      :empty="waterfall.rows.length === 0"
+    >
       <template #empty>
         <EmptyState :icon="Waypoints">{{ t("pages.traces.detail_not_found") }}</EmptyState>
       </template>

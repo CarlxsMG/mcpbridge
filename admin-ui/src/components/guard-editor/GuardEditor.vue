@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { ToolGuardConfig, ContextBudgetConfig } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import TabStrip, { tabId, tabPanelId } from "@/components/ui/TabStrip.vue";
 import GuardEditorPresentation from "./GuardEditorPresentation.vue";
 import GuardEditorTags from "./GuardEditorTags.vue";
 import GuardEditorRedaction from "./GuardEditorRedaction.vue";
@@ -176,150 +177,239 @@ function requestClear() {
 function confirmClear() {
   return confirmClearAction(doClear);
 }
+
+// ── Grouping ────────────────────────────────────────────────────────────────
+// Fourteen independent controls in one column asked an operator to scan the lot
+// to find one setting, and to scroll past twelve irrelevant ones to reach it.
+// The split follows the SAVE boundaries, not just topic: "guards" is the one
+// group the surrounding <form> actually submits (rateLimit / timeout / allowed
+// keys are literally ToolGuardConfig), so its Save and Clear buttons stay with
+// its fields. Every other section already persists itself, so it can live
+// anywhere.
+//
+// Each tab carries a count of what is configured inside it, because tabs
+// otherwise HIDE state: a redaction path set weeks ago in a tab nobody opens
+// would become invisible, which is worse than the long scroll this replaces.
+type GuardTab = "guards" | "safety" | "presentation" | "advanced";
+const activeTab = ref<GuardTab>("guards");
+
+const guardsCount = computed(
+  () =>
+    (props.guards?.rateLimitPerMin !== undefined ? 1 : 0) +
+    (props.guards?.timeoutMs !== undefined ? 1 : 0) +
+    (props.guards?.allowedKeyHashes?.length ? 1 : 0),
+);
+const safetyCount = computed(
+  () =>
+    (props.guardrails &&
+    (props.guardrails.denyPatterns.length > 0 || props.guardrails.blockSecrets || props.guardrails.scanResponses)
+      ? 1
+      : 0) +
+    (props.redactPaths?.length ? 1 : 0) +
+    (props.approval?.required ? 1 : 0) +
+    (props.quarantine?.state.quarantined ? 1 : 0),
+);
+const presentationCount = computed(
+  () =>
+    (props.override?.description || props.override?.displayName || props.override?.params ? 1 : 0) +
+    (props.tags?.length ? 1 : 0),
+);
+const advancedCount = computed(
+  () =>
+    (props.coalesce?.enabled ? 1 : 0) +
+    // ContextBudgetConfig has no `enabled` flag — its presence is the opt-in.
+    (props.contextBudget ? 1 : 0) +
+    (props.ws?.enabled ? 1 : 0) +
+    (props.graphql?.enabled ? 1 : 0),
+);
+
+/** A zero count is omitted rather than shown as "0" — an empty group needs no ornament. */
+function badge(n: number): number | undefined {
+  return n > 0 ? n : undefined;
+}
+
+const TABS = computed(() => [
+  { key: "guards" as const, label: t("components.guard_editor.tabs.guards"), badge: badge(guardsCount.value) },
+  { key: "safety" as const, label: t("components.guard_editor.tabs.safety"), badge: badge(safetyCount.value) },
+  {
+    key: "presentation" as const,
+    label: t("components.guard_editor.tabs.presentation"),
+    badge: badge(presentationCount.value),
+  },
+  { key: "advanced" as const, label: t("components.guard_editor.tabs.advanced"), badge: badge(advancedCount.value) },
+]);
 </script>
 
 <template>
-  <form class="guard-editor" @submit.prevent="submit">
-    <h3>
-      <KeyRound :size="15" stroke-width="2" aria-hidden="true" /> {{ t("components.guard_editor.rate_keys_title") }}
-    </h3>
-    <div class="field">
-      <label for="rate-limit">{{ t("components.guard_editor.rate_label") }}</label>
-      <input
-        id="rate-limit"
-        v-model="rateLimitInput"
-        type="text"
-        inputmode="numeric"
-        :placeholder="t('components.guard_editor.no_limit')"
-        @blur="rateLimitTouched = true"
-      />
-      <p v-if="rateLimitTouched && rateLimitError" class="field-error" role="alert">{{ rateLimitError }}</p>
-    </div>
+  <TabStrip
+    v-model="activeTab"
+    :tabs="TABS"
+    :aria-label="t('components.guard_editor.tabs.aria')"
+    id-base="guard-editor"
+  />
 
-    <div class="field">
-      <label for="timeout">{{ t("components.guard_editor.timeout_label") }}</label>
-      <input
-        id="timeout"
-        v-model="timeoutInput"
-        type="text"
-        inputmode="numeric"
-        :placeholder="t('components.guard_editor.use_default')"
-        @blur="timeoutTouched = true"
-      />
-      <p v-if="timeoutTouched && timeoutError" class="field-error" role="alert">{{ timeoutError }}</p>
-    </div>
-
-    <div class="field">
-      <label for="new-api-key">{{ t("components.guard_editor.allowed_keys_label") }}</label>
-      <p class="hint">
-        {{
-          existingKeyCount > 0
-            ? t("components.guard_editor.existing_keys_count", { count: existingKeyCount })
-            : t("components.guard_editor.no_restriction")
-        }}
-        {{ t("components.guard_editor.keys_hashed_hint") }}
-      </p>
-      <div class="key-input">
+  <!-- One panel for all four groups, labelled by whichever tab is active. The
+       groups use v-show rather than v-if so switching tabs never discards a
+       half-typed value in the group you are leaving. -->
+  <div
+    :id="tabPanelId('guard-editor')"
+    role="tabpanel"
+    :aria-labelledby="tabId('guard-editor', activeTab)"
+    class="guard-panel"
+  >
+    <form v-show="activeTab === 'guards'" class="guard-editor" @submit.prevent="submit">
+      <h3>
+        <KeyRound :size="15" stroke-width="2" aria-hidden="true" /> {{ t("components.guard_editor.rate_keys_title") }}
+      </h3>
+      <div class="field">
+        <label for="rate-limit">{{ t("components.guard_editor.rate_label") }}</label>
         <input
-          id="new-api-key"
-          v-model="newApiKey"
-          class="api-key-input"
-          :type="showApiKey ? 'text' : 'password'"
-          :placeholder="t('components.guard_editor.add_key_placeholder')"
-          autocomplete="off"
-          @keydown.enter.prevent="addKey"
+          id="rate-limit"
+          v-model="rateLimitInput"
+          type="text"
+          inputmode="numeric"
+          :placeholder="t('components.guard_editor.no_limit')"
+          @blur="rateLimitTouched = true"
         />
-        <button type="button" class="btn-secondary" :aria-pressed="showApiKey" @click="showApiKey = !showApiKey">
-          {{ showApiKey ? t("components.guard_editor.hide") : t("components.guard_editor.show") }}
-        </button>
-        <button type="button" class="btn-secondary" @click="addKey">{{ t("components.guard_editor.add") }}</button>
+        <p v-if="rateLimitTouched && rateLimitError" class="field-error" role="alert">{{ rateLimitError }}</p>
       </div>
-      <ul v-if="replacementKeys.length" class="key-list">
-        <li v-for="(k, i) in replacementKeys" :key="k.id">
-          {{ t("components.guard_editor.new_key_n", { n: i + 1 }) }}
-          <button type="button" class="link-btn danger" @click="removeReplacementKey(k.id)">
-            {{ t("components.guard_editor.remove") }}
+
+      <div class="field">
+        <label for="timeout">{{ t("components.guard_editor.timeout_label") }}</label>
+        <input
+          id="timeout"
+          v-model="timeoutInput"
+          type="text"
+          inputmode="numeric"
+          :placeholder="t('components.guard_editor.use_default')"
+          @blur="timeoutTouched = true"
+        />
+        <p v-if="timeoutTouched && timeoutError" class="field-error" role="alert">{{ timeoutError }}</p>
+      </div>
+
+      <div class="field">
+        <label for="new-api-key">{{ t("components.guard_editor.allowed_keys_label") }}</label>
+        <p class="hint">
+          {{
+            existingKeyCount > 0
+              ? t("components.guard_editor.existing_keys_count", { count: existingKeyCount })
+              : t("components.guard_editor.no_restriction")
+          }}
+          {{ t("components.guard_editor.keys_hashed_hint") }}
+        </p>
+        <div class="key-input">
+          <input
+            id="new-api-key"
+            v-model="newApiKey"
+            class="api-key-input"
+            :type="showApiKey ? 'text' : 'password'"
+            :placeholder="t('components.guard_editor.add_key_placeholder')"
+            autocomplete="off"
+            @keydown.enter.prevent="addKey"
+          />
+          <button type="button" class="btn-secondary" :aria-pressed="showApiKey" @click="showApiKey = !showApiKey">
+            {{ showApiKey ? t("components.guard_editor.hide") : t("components.guard_editor.show") }}
           </button>
-        </li>
-      </ul>
-      <p v-if="replacementKeys.length" class="hint warn">
-        {{ t("components.guard_editor.replace_warning", { count: replacementKeys.length }) }}
-      </p>
+          <button type="button" class="btn-secondary" @click="addKey">{{ t("components.guard_editor.add") }}</button>
+        </div>
+        <ul v-if="replacementKeys.length" class="key-list">
+          <li v-for="(k, i) in replacementKeys" :key="k.id">
+            {{ t("components.guard_editor.new_key_n", { n: i + 1 }) }}
+            <button type="button" class="link-btn danger" @click="removeReplacementKey(k.id)">
+              {{ t("components.guard_editor.remove") }}
+            </button>
+          </li>
+        </ul>
+        <p v-if="replacementKeys.length" class="hint warn">
+          {{ t("components.guard_editor.replace_warning", { count: replacementKeys.length }) }}
+        </p>
+      </div>
+
+      <details class="preview">
+        <summary>{{ t("components.guard_editor.preview") }}</summary>
+        <pre>{{ previewJson }}</pre>
+      </details>
+
+      <div class="actions">
+        <span class="action-group">
+          <button type="button" class="btn-secondary" :disabled="saving" @click="requestClear">
+            {{ clearingGuards ? t("components.guard_editor.clearing") : t("components.guard_editor.clear_guards") }}
+          </button>
+          <span v-if="savedClear" class="save-ok" role="status">{{ t("components.guard_editor.cleared") }}</span>
+        </span>
+        <span class="action-group">
+          <button type="submit" class="btn-primary" :disabled="!isValid || saving">
+            {{ saving && !clearingGuards ? t("common.saving") : t("components.guard_editor.save_guards") }}
+          </button>
+          <span v-if="savedMain" class="save-ok" role="status">{{ t("components.guard_editor.saved") }}</span>
+        </span>
+      </div>
+      <p v-if="mainError" class="field-error" role="alert">{{ mainError }}</p>
+    </form>
+
+    <!-- Who may call this tool, and what may leave it. -->
+    <div v-show="activeTab === 'safety'" class="guard-editor">
+      <GuardEditorGuardrails
+        :guardrails="guardrails"
+        :client-name="clientName"
+        :tool-name="toolName"
+        @saved="emit('toolChanged')"
+      />
+      <GuardEditorRedaction
+        :redact-paths="redactPaths"
+        :client-name="clientName"
+        :tool-name="toolName"
+        @saved="emit('toolChanged')"
+      />
+      <GuardEditorApproval
+        :approval="approval"
+        :client-name="clientName"
+        :tool-name="toolName"
+        @saved="emit('toolChanged')"
+      />
+      <GuardEditorQuarantine
+        :quarantine="quarantine"
+        :client-name="clientName"
+        :tool-name="toolName"
+        @saved="emit('toolChanged')"
+      />
     </div>
 
-    <GuardEditorPresentation
-      :override="override"
-      :client-name="clientName"
-      :tool-name="toolName"
-      @saved="emit('toolChanged')"
-    />
-    <GuardEditorTags :tags="tags" :client-name="clientName" :tool-name="toolName" @saved="emit('toolChanged')" />
-    <GuardEditorRedaction
-      :redact-paths="redactPaths"
-      :client-name="clientName"
-      :tool-name="toolName"
-      @saved="emit('toolChanged')"
-    />
-    <GuardEditorGuardrails
-      :guardrails="guardrails"
-      :client-name="clientName"
-      :tool-name="toolName"
-      @saved="emit('toolChanged')"
-    />
-    <GuardEditorApproval
-      :approval="approval"
-      :client-name="clientName"
-      :tool-name="toolName"
-      @saved="emit('toolChanged')"
-    />
-    <GuardEditorQuarantine
-      :quarantine="quarantine"
-      :client-name="clientName"
-      :tool-name="toolName"
-      @saved="emit('toolChanged')"
-    />
-    <GuardEditorWebSocket :ws="ws" :client-name="clientName" :tool-name="toolName" @saved="emit('toolChanged')" />
-    <GuardEditorGraphql
-      :graphql="graphql"
-      :client-name="clientName"
-      :tool-name="toolName"
-      @saved="emit('toolChanged')"
-    />
-    <GuardEditorCoalesce
-      :coalesce="coalesce"
-      :client-name="clientName"
-      :tool-name="toolName"
-      @saved="emit('toolChanged')"
-    />
-    <GuardEditorCachePurge :client-name="clientName" :tool-name="toolName" />
-    <GuardEditorContextBudget
-      :context-budget="contextBudget"
-      :client-name="clientName"
-      :tool-name="toolName"
-      @saved="emit('toolChanged')"
-    />
-
-    <details class="preview">
-      <summary>{{ t("components.guard_editor.preview") }}</summary>
-      <pre>{{ previewJson }}</pre>
-    </details>
-
-    <div class="actions">
-      <span class="action-group">
-        <button type="button" class="btn-secondary" :disabled="saving" @click="requestClear">
-          {{ clearingGuards ? t("components.guard_editor.clearing") : t("components.guard_editor.clear_guards") }}
-        </button>
-        <span v-if="savedClear" class="save-ok" role="status">{{ t("components.guard_editor.cleared") }}</span>
-      </span>
-      <span class="action-group">
-        <button type="submit" class="btn-primary" :disabled="!isValid || saving">
-          {{ saving && !clearingGuards ? t("common.saving") : t("components.guard_editor.save_guards") }}
-        </button>
-        <span v-if="savedMain" class="save-ok" role="status">{{ t("components.guard_editor.saved") }}</span>
-      </span>
+    <!-- How the tool appears to a calling agent. -->
+    <div v-show="activeTab === 'presentation'" class="guard-editor">
+      <GuardEditorPresentation
+        :override="override"
+        :client-name="clientName"
+        :tool-name="toolName"
+        @saved="emit('toolChanged')"
+      />
+      <GuardEditorTags :tags="tags" :client-name="clientName" :tool-name="toolName" @saved="emit('toolChanged')" />
     </div>
-    <p v-if="mainError" class="field-error" role="alert">{{ mainError }}</p>
-  </form>
+
+    <!-- Transport and response-shaping specifics most tools never need. -->
+    <div v-show="activeTab === 'advanced'" class="guard-editor">
+      <GuardEditorCoalesce
+        :coalesce="coalesce"
+        :client-name="clientName"
+        :tool-name="toolName"
+        @saved="emit('toolChanged')"
+      />
+      <GuardEditorCachePurge :client-name="clientName" :tool-name="toolName" />
+      <GuardEditorContextBudget
+        :context-budget="contextBudget"
+        :client-name="clientName"
+        :tool-name="toolName"
+        @saved="emit('toolChanged')"
+      />
+      <GuardEditorWebSocket :ws="ws" :client-name="clientName" :tool-name="toolName" @saved="emit('toolChanged')" />
+      <GuardEditorGraphql
+        :graphql="graphql"
+        :client-name="clientName"
+        :tool-name="toolName"
+        @saved="emit('toolChanged')"
+      />
+    </div>
+  </div>
 
   <ConfirmDialog
     :open="pendingClear !== null"

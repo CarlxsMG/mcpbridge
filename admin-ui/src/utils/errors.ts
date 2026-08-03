@@ -11,3 +11,16 @@ import { ApiError } from "@/composables/useApi";
 export function toErrorMessage(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback;
 }
+
+/**
+ * Companion to {@link toErrorMessage} for the correlation id, kept separate so
+ * the message stays a clean human sentence and the id can be rendered as its
+ * own copyable affordance (see `components/ui/ErrorNote.vue`) rather than
+ * being concatenated into the prose.
+ *
+ * Returns null for anything that isn't an ApiError, and for ApiErrors raised
+ * before a response existed — a network failure has no request to correlate.
+ */
+export function toErrorRequestId(err: unknown): string | null {
+  return err instanceof ApiError ? err.requestId : null;
+}

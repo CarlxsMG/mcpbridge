@@ -1,8 +1,7 @@
 import { Router } from "express";
-import type { Request, Response, Express } from "express";
-import { adminAuth } from "../middleware/auth.js";
-import { requireAdminRole } from "../middleware/authz.js";
-import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
+import type { Request, Response } from "express";
+import { requireAdminRole } from "../../middleware/authz.js";
+import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
 import {
   listWsProxyTargets,
   getWsProxyTargetDetail,
@@ -11,9 +10,9 @@ import {
   disconnectAllForTarget,
   type WsProxyTargetError,
   type WsProxyTargetInput,
-} from "../ws-proxy.js";
-import { sendError, validationError, notFound, bodyOf } from "./http-errors.js";
-import { type ValidationResult, mutationErrorToStatus } from "./validation.js";
+} from "../../ws-proxy.js";
+import { sendError, validationError, notFound, bodyOf } from "../http-errors.js";
+import { type ValidationResult, mutationErrorToStatus } from "../validation.js";
 
 const WS_PROXY_ERROR_STATUS: Record<WsProxyTargetError["code"], number> = {
   INVALID_NAME: 400,
@@ -62,48 +61,47 @@ function parseTargetInput(body: Record<string, unknown>): ValidationResult<WsPro
  * target has no tools and isn't a "server" in the tools/list sense (see
  * ws-proxy.ts's header comment for the full rationale).
  */
-export function wsProxyAdminRoutes(app: Express): void {
-  // One shared admin-auth gate for every route in this file (mounted under
-  // /admin-api below), instead of repeating adminAuth on each handler.
-  const r = Router();
-  r.use(adminAuth);
+export const wsProxyAdminRoutes = Router();
 
-  r.get("/ws-proxy-targets", (_req: Request, res: Response) => {
-    res.status(200).json({ items: listWsProxyTargets() });
-  });
+wsProxyAdminRoutes.get("/ws-proxy-targets", (_req: Request, res: Response) => {
+  res.status(200).json({ items: listWsProxyTargets() });
+});
 
-  r.get("/ws-proxy-targets/:name", (req: Request<{ name: string }>, res: Response) => {
-    const detail = getWsProxyTargetDetail(req.params.name);
-    if (!detail) {
-      notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
-      return;
-    }
-    res.status(200).json(detail);
-  });
+wsProxyAdminRoutes.get("/ws-proxy-targets/:name", (req: Request<{ name: string }>, res: Response) => {
+  const detail = getWsProxyTargetDetail(req.params.name);
+  if (!detail) {
+    notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
+    return;
+  }
+  res.status(200).json(detail);
+});
 
-  r.post("/ws-proxy-targets", requireAdminRole, async (req: Request, res: Response) => {
-    const body = bodyOf(req);
-    const name = typeof body.name === "string" ? body.name : "";
-    const parsed = parseTargetInput(body);
-    if (!parsed.ok) {
-      validationError(res, parsed.message);
-      return;
-    }
-    const result = await upsertWsProxyTarget(name, parsed.value);
-    if (!result.ok) {
-      sendError(
-        res,
-        mutationErrorToStatus(result.error.code, WS_PROXY_ERROR_STATUS),
-        result.error.code,
-        result.error.message,
-      );
-      return;
-    }
-    recordAudit(actorFromRequest(req), "ws_proxy_target.create", name, { backendWsUrl: parsed.value.backendWsUrl });
-    res.status(201).json(getWsProxyTargetDetail(name));
-  });
+wsProxyAdminRoutes.post("/ws-proxy-targets", requireAdminRole, async (req: Request, res: Response) => {
+  const body = bodyOf(req);
+  const name = typeof body.name === "string" ? body.name : "";
+  const parsed = parseTargetInput(body);
+  if (!parsed.ok) {
+    validationError(res, parsed.message);
+    return;
+  }
+  const result = await upsertWsProxyTarget(name, parsed.value);
+  if (!result.ok) {
+    sendError(
+      res,
+      mutationErrorToStatus(result.error.code, WS_PROXY_ERROR_STATUS),
+      result.error.code,
+      result.error.message,
+    );
+    return;
+  }
+  recordAudit(actorFromRequest(req), "ws_proxy_target.create", name, { backendWsUrl: parsed.value.backendWsUrl });
+  res.status(201).json(getWsProxyTargetDetail(name));
+});
 
-  r.patch("/ws-proxy-targets/:name", requireAdminRole, async (req: Request<{ name: string }>, res: Response) => {
+wsProxyAdminRoutes.patch(
+  "/ws-proxy-targets/:name",
+  requireAdminRole,
+  async (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
     if (!getWsProxyTargetDetail(name)) {
       notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
@@ -136,9 +134,13 @@ export function wsProxyAdminRoutes(app: Express): void {
     }
     recordAudit(actorFromRequest(req), "ws_proxy_target.update", name, { fields: Object.keys(body) });
     res.status(200).json(getWsProxyTargetDetail(name));
-  });
+  },
+);
 
-  r.delete("/ws-proxy-targets/:name", requireAdminRole, (req: Request<{ name: string }>, res: Response) => {
+wsProxyAdminRoutes.delete(
+  "/ws-proxy-targets/:name",
+  requireAdminRole,
+  (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
     if (!deleteWsProxyTarget(name)) {
       notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
@@ -146,22 +148,20 @@ export function wsProxyAdminRoutes(app: Express): void {
     }
     recordAudit(actorFromRequest(req), "ws_proxy_target.delete", name);
     res.status(200).json({ status: "deleted", name });
-  });
+  },
+);
 
-  r.post(
-    "/ws-proxy-targets/:name/disconnect-all",
-    requireAdminRole,
-    (req: Request<{ name: string }>, res: Response) => {
-      const { name } = req.params;
-      if (!getWsProxyTargetDetail(name)) {
-        notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
-        return;
-      }
-      const closed = disconnectAllForTarget(name);
-      recordAudit(actorFromRequest(req), "ws_proxy_target.disconnect_all", name, { closed });
-      res.status(200).json({ status: "disconnected", closed });
-    },
-  );
-
-  app.use("/admin-api", r);
-}
+wsProxyAdminRoutes.post(
+  "/ws-proxy-targets/:name/disconnect-all",
+  requireAdminRole,
+  (req: Request<{ name: string }>, res: Response) => {
+    const { name } = req.params;
+    if (!getWsProxyTargetDetail(name)) {
+      notFound(res, "WS_PROXY_TARGET_NOT_FOUND", "Target not found");
+      return;
+    }
+    const closed = disconnectAllForTarget(name);
+    recordAudit(actorFromRequest(req), "ws_proxy_target.disconnect_all", name, { closed });
+    res.status(200).json({ status: "disconnected", closed });
+  },
+);

@@ -1,5 +1,5 @@
 import { ref, type Ref } from "vue";
-import { toErrorMessage } from "@/utils/errors";
+import { useErrorState } from "./useErrorState";
 import { i18n } from "../i18n";
 
 /**
@@ -14,10 +14,10 @@ import { i18n } from "../i18n";
 export function useConfirmAction<T = true>() {
   const pending = ref<T | null>(null) as Ref<T | null>;
   const busy = ref(false);
-  const errorMessage = ref("");
+  const { message: errorMessage, requestId: errorRequestId, capture, clear } = useErrorState();
 
   function request(item: T) {
-    errorMessage.value = "";
+    clear();
     pending.value = item;
   }
 
@@ -34,11 +34,11 @@ export function useConfirmAction<T = true>() {
       await action(item);
     } catch (err) {
       const fallback = (i18n.global.t as (key: string) => string)("errors.action_failed");
-      errorMessage.value = toErrorMessage(err, fallback);
+      capture(err, fallback);
     } finally {
       busy.value = false;
     }
   }
 
-  return { pending, busy, errorMessage, request, cancel, confirm };
+  return { pending, busy, errorMessage, errorRequestId, request, cancel, confirm };
 }

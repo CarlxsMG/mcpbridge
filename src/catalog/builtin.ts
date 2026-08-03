@@ -31,11 +31,13 @@
  * MCP entry that needs auth is expected to get upstream credentials set
  * before it's actually useful.
  */
+import type { UpstreamKind } from "../mcp/types.js";
+
 export interface BuiltinCatalogEntry {
   slug: string;
   name: string;
   description: string;
-  kind: "rest" | "mcp";
+  kind: UpstreamKind;
   category: string;
   tags: string[];
   icon: string;
@@ -46,6 +48,7 @@ export interface BuiltinCatalogEntry {
   excludeOperations?: string[];
   mcpUrl?: string;
   mcpTransport?: "streamable-http" | "sse";
+  graphqlUrl?: string;
   featured?: boolean;
 }
 

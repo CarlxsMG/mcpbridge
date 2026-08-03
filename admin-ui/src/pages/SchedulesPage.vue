@@ -28,6 +28,7 @@ const {
   data: items,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<Schedule[]>(
   async () => (await api.get<{ items: Schedule[] }>("/admin-api/schedules")).items,
@@ -71,7 +72,7 @@ function formatLastRun(m: number | null): string {
     </PageHeader>
     <p class="subtitle">{{ t("pages.schedules.subtitle") }}</p>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :error-request-id="errorRequestId" :empty="items.length === 0">
       <template #empty>
         <EmptyState :icon="Clock">{{ t("pages.schedules.empty.no_schedules") }}</EmptyState>
       </template>

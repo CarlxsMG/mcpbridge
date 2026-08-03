@@ -49,10 +49,15 @@
   --ok: #1a8f4f;
   --ok-soft: #e5f6ec;
 
-  /* Kind-mcp: soft violet pair for the small "MCP" pill next to a server's
-     name — distinct from --signal, not a status/semantic color. */
+  /* Kind pills: the small "MCP"/"GraphQL" badge next to a server's name.
+     Deliberately not status/semantic colors — a kind is an identity, not a
+     health signal, so these must not read as ok/warn/breach. REST stays
+     neutral (the default), so the pill only draws the eye for the two kinds
+     that change how a server behaves. */
   --kind-mcp-soft: #ece9fb;
   --kind-mcp-text: #5a3aa8;
+  --kind-graphql-soft: #fbe9f4;
+  --kind-graphql-text: #a8306f;
 
   /* Overlay backdrop: the translucent scrim behind a modal/dialog. Was
      hardcoded as this exact rgba() in 3 dialog components' own scoped
@@ -177,7 +182,16 @@
   --canary-soft: #33230c;
   --breach-soft: #33161a;
   --ok-soft: #103322;
+  /* Both halves of each kind pill must be overridden here. The dark theme used
+     to re-darken --kind-mcp-soft while leaving --kind-mcp-text at its light-mode
+     violet (#5a3aa8), leaving the MCP badge at 1.99:1 — dark violet on dark
+     violet, well under WCAG AA's 4.5:1 for text this size (0.72rem bold is not
+     "large text"). Lightening the foreground, not darkening it further, is what
+     buys contrast on a dark surface. Now 8.33:1 and 7.96:1. */
   --kind-mcp-soft: #241c3d;
+  --kind-mcp-text: #c4b1f0;
+  --kind-graphql-soft: #3d1c30;
+  --kind-graphql-text: #f0a8ce;
 }
 
 body.density-compact {

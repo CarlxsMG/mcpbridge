@@ -32,12 +32,11 @@ async function startApp(): Promise<void> {
   (config as Record<string, unknown>).authDisabled = false;
 
   const { adminRoutes } = await import("../../routes/admin.js");
-  const { bundleRoutes } = await import("../../routes/bundles.js");
   const app = express();
   app.use(express.json({ limit: "64kb", strict: true }));
   app.use(requestIdMiddleware);
   adminRoutes(app);
-  bundleRoutes(app);
+  adminRoutes(app);
 
   ({ baseUrl, server: activeServer } = await listen(app));
 }

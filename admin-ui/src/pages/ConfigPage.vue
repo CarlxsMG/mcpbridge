@@ -6,6 +6,8 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import ConfigExportSection from "@/components/config/ConfigExportSection.vue";
 import ConfigImportSection from "@/components/config/ConfigImportSection.vue";
 import ConfigSnapshotsSection from "@/components/config/ConfigSnapshotsSection.vue";
+import ConfigEffectiveSection from "@/components/config/ConfigEffectiveSection.vue";
+import ErrorNote from "@/components/ui/ErrorNote.vue";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -32,11 +34,26 @@ function onRollbackResult(r: ConfigImportResult) {
   <section>
     <PageHeader :title="t('pages.config.title')" :subtitle="t('pages.config.subtitle')" />
 
+    <!-- Stated up front, and before the buttons, because the cost of getting it
+         wrong is asymmetric: an operator who believes a rollback is complete
+         stops looking for what it did not restore. -->
+    <section class="scope">
+      <h2>{{ t("pages.config.scope.title") }}</h2>
+      <dl>
+        <dt>{{ t("pages.config.scope.included_label") }}</dt>
+        <dd>{{ t("pages.config.scope.included") }}</dd>
+        <dt>{{ t("pages.config.scope.excluded_label") }}</dt>
+        <dd>{{ t("pages.config.scope.excluded") }}</dd>
+      </dl>
+      <p class="hint">{{ t("pages.config.scope.backup_hint") }}</p>
+    </section>
+
     <ConfigExportSection @error="onError" />
     <ConfigImportSection @result="onImportResult" @error="onError" />
     <ConfigSnapshotsSection @result="onRollbackResult" @error="onError" />
+    <ConfigEffectiveSection />
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+    <ErrorNote v-if="errorMessage" :message="errorMessage" />
 
     <div v-if="result" class="result" :class="{ dry: result.dryRun }">
       <h3>
@@ -71,6 +88,39 @@ function onRollbackResult(r: ConfigImportResult) {
 <style scoped>
 :deep(.subtitle) {
   max-width: 40rem;
+}
+/* Reads as a note, not as another action card: no surface/shadow, so it does
+   not compete with the three .config-block sections below it. */
+.scope {
+  border-left: 3px solid var(--border-strong);
+  padding: 0.25rem 0 0.25rem 1rem;
+  margin: 1.25rem 0;
+  max-width: 46rem;
+}
+.scope h2 {
+  margin: 0 0 0.5rem;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.scope dl {
+  margin: 0;
+  display: grid;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+.scope dt {
+  font-weight: 700;
+}
+.scope dd {
+  margin: 0 0 0.4rem;
+  color: var(--text-secondary);
+}
+.scope .hint {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
 }
 .result {
   border-radius: var(--radius-md);

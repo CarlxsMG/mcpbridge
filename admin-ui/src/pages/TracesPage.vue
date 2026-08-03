@@ -71,6 +71,7 @@ const {
   items: traces,
   loading,
   errorMessage,
+  errorRequestId,
   load: loadList,
   reset,
   next: nextPage,
@@ -172,7 +173,12 @@ const topSessionsChart = computed(() =>
       <MiniBarChart :rows="topSessionsChart" />
     </ChartCard>
 
-    <ListLayout :loading="loading && !traces.length" :error="errorMessage" :empty="traces.length === 0">
+    <ListLayout
+      :loading="loading && !traces.length"
+      :error="errorMessage"
+      :error-request-id="errorRequestId"
+      :empty="traces.length === 0"
+    >
       <template #empty>
         <EmptyState :icon="Waypoints">{{ t("pages.traces.empty.no_traces") }}</EmptyState>
       </template>

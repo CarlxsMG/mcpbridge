@@ -45,24 +45,7 @@ import { healthRoutes } from "./routes/health.js";
 import { authRoutes } from "./routes/auth.js";
 import { authOidcRoutes } from "./routes/auth-oidc.js";
 import { adminRoutes } from "./routes/admin.js";
-import { bundleRoutes } from "./routes/bundles.js";
 import { installLinkRoutes } from "./routes/install-links.js";
-import { mcpKeyRoutes } from "./routes/mcp-keys.js";
-import { upstreamAuthRoutes } from "./routes/upstream-auth.js";
-import { discoveryRoutes } from "./routes/discovery.js";
-import { catalogRoutes } from "./routes/catalog.js";
-import { wsProxyAdminRoutes } from "./routes/ws-proxy-admin.js";
-import { usageRoutes } from "./routes/usage.js";
-import { alertRoutes } from "./routes/alerts.js";
-import { configIoRoutes } from "./routes/config-io.js";
-import { backupRoutes } from "./routes/backup.js";
-import { policyRoutes } from "./routes/policies.js";
-import { tagRoutes } from "./routes/tags.js";
-import { consumerRoutes } from "./routes/consumers.js";
-import { compositeRoutes } from "./routes/composites.js";
-import { scheduleRoutes } from "./routes/schedules.js";
-import { teamRoutes } from "./routes/teams.js";
-import { tracesRoutes } from "./routes/traces.js";
 
 export interface CreateAppResult {
   app: Express;
@@ -186,25 +169,12 @@ export function createApp(): CreateAppResult {
   healthRoutes(app);
   authRoutes(app);
   authOidcRoutes(app);
+  // Every /admin-api surface, mounted as one group behind one adminAuth gate —
+  // see src/routes/admin/index.ts. The 17 routers that used to be registered
+  // here individually (each building its own /admin-api Router) live there now,
+  // in this same relative order.
   adminRoutes(app);
-  bundleRoutes(app);
   installLinkRoutes(app);
-  mcpKeyRoutes(app);
-  upstreamAuthRoutes(app);
-  discoveryRoutes(app);
-  catalogRoutes(app);
-  wsProxyAdminRoutes(app);
-  usageRoutes(app);
-  alertRoutes(app);
-  configIoRoutes(app);
-  backupRoutes(app);
-  policyRoutes(app);
-  tagRoutes(app);
-  consumerRoutes(app);
-  compositeRoutes(app);
-  scheduleRoutes(app);
-  teamRoutes(app);
-  tracesRoutes(app);
 
   // ─── Global error handler ────────────────────────────────────────────────
   // Registered LAST so it catches anything the routers above throw. Shape

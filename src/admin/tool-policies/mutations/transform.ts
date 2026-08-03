@@ -3,7 +3,7 @@
  * request/response transform pipelines (set/remove/rename/copy ops).
  * See `./index.ts` for the dispatcher and the `ToolMutation` contract.
  */
-import { setToolTransform } from "../../../proxy/transform.js";
+import { setToolTransform, getToolTransform } from "../../../proxy/transform.js";
 import { validateTransformInput } from "../../../routes/admin-validators.js";
 import type { ToolMutation } from "./types.js";
 
@@ -15,6 +15,7 @@ export const transformMutation: ToolMutation = {
     const ok = setToolTransform(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setToolTransform>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
+  read: (clientName, toolName) => getToolTransform(clientName, toolName) ?? undefined,
   audit: (_raw, parsed) => {
     const v = parsed as { request: unknown[]; response: unknown[] } | null;
     return {

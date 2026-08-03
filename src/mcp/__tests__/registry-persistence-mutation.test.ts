@@ -310,6 +310,7 @@ describe("buildPersistedClientFromDb — row->DTO mapping (L381/L384/L402/L406/L
       "http://example.com",
       "1.2.3.4",
       false,
+      "rest",
     );
     const detail = persistence.buildPersistedClientFromDb("svc-hydrate-rest");
     expect(detail!.tools[0]!.upstreamName).toBeUndefined();
@@ -331,6 +332,7 @@ describe("buildPersistedClientFromDb — row->DTO mapping (L381/L384/L402/L406/L
       "http://example.com",
       "1.2.3.4",
       false,
+      "rest",
     );
     const detail = persistence.buildPersistedClientFromDb("svc-paramloc")!;
     // A persistence round-trip regression here would silently revert routing to
@@ -352,6 +354,7 @@ describe("buildPersistedClientFromDb — row->DTO mapping (L381/L384/L402/L406/L
       "http://example.com",
       "1.2.3.4",
       false,
+      "rest",
     );
     getDb()
       .query(`UPDATE tools SET enabled = 0 WHERE client_name = ? AND name = ?`)
@@ -371,6 +374,7 @@ describe("buildPersistedClientFromDb — row->DTO mapping (L381/L384/L402/L406/L
       "http://example.com",
       "1.2.3.4",
       true,
+      "rest",
     );
     persistence.persistRestRegistration(
       "svc-hydrate-retry-false",
@@ -380,6 +384,7 @@ describe("buildPersistedClientFromDb — row->DTO mapping (L381/L384/L402/L406/L
       "http://example.com",
       "1.2.3.4",
       false,
+      "rest",
     );
     expect(persistence.buildPersistedClientFromDb("svc-hydrate-retry-true")!.retry_non_safe_methods).toBe(true);
     expect(persistence.buildPersistedClientFromDb("svc-hydrate-retry-false")!.retry_non_safe_methods).toBe(false);
@@ -397,6 +402,7 @@ describe("buildPersistedClientFromDb — row->DTO mapping (L381/L384/L402/L406/L
       "http://example.com",
       "1.2.3.4",
       false,
+      "rest",
     );
     getDb().query(`UPDATE clients SET enabled = 0 WHERE name = ?`).run("svc-hydrate-client-disabled");
 
@@ -413,6 +419,7 @@ describe("buildPersistedClientFromDb — row->DTO mapping (L381/L384/L402/L406/L
       "http://example.com",
       "1.2.3.4",
       false,
+      "rest",
     );
     const detail = persistence.buildPersistedClientFromDb("svc-hydrate-mcpfields")!;
     expect(detail.mcpUrl).toBeUndefined();

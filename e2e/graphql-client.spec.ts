@@ -288,22 +288,24 @@ test.describe("GraphQL backend kind — discovery, schema mapping, dispatch, gov
     expect(propOf(input, "name").description).toBe("Display name");
   });
 
-  test("each tool persists its synthesized GraphQL document, on an otherwise ordinary REST-kind client", async () => {
+  test("the client reports kind 'graphql', and each tool persists its synthesized document", async () => {
     const detail = await clientDetail(request, auth, SERVER_NAME);
 
-    // NOTE — the registry has no "graphql" upstream kind. `UpstreamKind` is
-    // "rest" | "mcp" (src/mcp/types.ts) and performGraphqlRegistration calls
-    // registry.register(), so a GraphQL backend is persisted as a REST client
-    // whose tools each carry a per-tool GraphQL config (see the module doc of
-    // src/proxy/backends.ts: "Extra backend protocols exposed as per-tool
-    // config on an existing REST client (no new registry `kind` needed)").
-    // That is exactly why every governance feature applies unchanged — there is
-    // no second code path to keep in sync.
-    expect(detail.kind).toBe("rest");
+    // A GraphQL registration is its own kind. It used to persist as "rest" —
+    // performGraphqlRegistration goes through registry.register(), which had no
+    // kind parameter, so the client took the clients.kind column default and
+    // the admin UI labelled a GraphQL endpoint "REST".
+    expect(detail.kind).toBe("graphql");
 
+    // The kind is identity only: dispatch still runs the REST path, with each
+    // tool carrying its own GraphQL config (see the module doc of
+    // src/proxy/backends.ts). That is why every governance feature applies
+    // unchanged — there is no second dispatch path to keep in sync, which the
+    // guard/breaker/approval cases further down this file exercise directly.
     for (const [toolName, document] of Object.entries(EXPECTED_DOCUMENTS)) {
       const tool = detail.tools.find((t) => t.name === toolName);
       expect(tool, `tool ${toolName} missing from client detail`).toBeDefined();
+      expect(tool?.method).toBe("POST");
       expect(tool?.graphql?.enabled).toBe(true);
       expect(tool?.graphql?.query).toBe(document);
     }

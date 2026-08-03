@@ -110,7 +110,7 @@ const allDone = computed(() => doneCount.value === steps.value.length);
           <span>{{ step.label }}</span>
         </span>
 
-        <RouterLink v-if="step.id === 'server' && !step.done" to="/register-server" class="step-cta">
+        <RouterLink v-if="step.id === 'server' && !step.done" to="/servers/new" class="step-cta">
           {{ t("components.onboarding.cta.add_server") }}
         </RouterLink>
         <RouterLink v-if="step.id === 'teammate' && !step.done" to="/users/new" class="step-cta">{{

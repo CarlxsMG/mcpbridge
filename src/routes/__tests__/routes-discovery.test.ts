@@ -90,11 +90,11 @@ async function startApp(): Promise<void> {
   (config as Record<string, unknown>).authDisabled = false;
   (config as Record<string, unknown>).allowPrivateIps = true;
 
-  const { discoveryRoutes } = await import("../../routes/discovery.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json({ limit: "64kb", strict: true }));
   app.use(requestIdMiddleware);
-  discoveryRoutes(app);
+  adminRoutes(app);
 
   ({ baseUrl: adminBase, server: adminServer } = await listen(app));
 }

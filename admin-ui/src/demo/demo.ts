@@ -38,6 +38,7 @@ import type {
   McpApiKeyWithSecret,
   OidcPublicConfig,
   OidcSettings,
+  UpstreamKind,
   WsProxyTarget,
 } from "@/types/api";
 import { localize } from "./resolve";
@@ -51,7 +52,7 @@ import { clientDetail, flatTools, tagCounts, toolsByTag, TOOLS } from "./fixture
 import { consumers, mcpKeys } from "./fixtures/keys-consumers";
 import { alerts } from "./fixtures/alerts";
 import { auditLog } from "./fixtures/audit-log";
-import { composites, policies, schedules, snapshots, teams, users } from "./fixtures/administration";
+import { composites, effectiveConfig, policies, schedules, snapshots, teams, users } from "./fixtures/administration";
 import { byKey, topTools, usageSummary, usageTimeseries } from "./fixtures/usage";
 import { overview } from "./fixtures/overview";
 import { trafficRecords } from "./fixtures/traffic";
@@ -299,13 +300,14 @@ function route(
       slug: String(body?.slug ?? "new-entry"),
       name: String(body?.name ?? "New entry"),
       description: (body?.description as string) ?? null,
-      kind: (body?.kind as "rest" | "mcp") ?? "rest",
+      kind: (body?.kind as UpstreamKind) ?? "rest",
       category: (body?.category as string) ?? null,
       tags: [],
       icon: null,
       healthUrl: (body?.healthUrl as string) ?? null,
       openapiUrl: (body?.openapiUrl as string) ?? null,
       mcpUrl: (body?.mcpUrl as string) ?? null,
+      graphqlUrl: (body?.graphqlUrl as string) ?? null,
       featured: false,
     };
     catalogEntries.push(entry);
@@ -315,7 +317,8 @@ function route(
   if (catalogInstallMatch) {
     const entry = catalogEntries.find((e) => e.id === decodeURIComponent(catalogInstallMatch[1]));
     const name = String(body?.name ?? entry?.slug ?? "new-server");
-    return ok({ status: "registered", name, tools_count: 3, source: entry?.kind === "mcp" ? "mcp" : "openapi" });
+    const source = entry?.kind === "mcp" ? "mcp" : entry?.kind === "graphql" ? "graphql" : "openapi";
+    return ok({ status: "registered", name, tools_count: 3, source });
   }
   const catalogEntryMatch = p.match(/^\/admin-api\/catalog\/([^/]+)$/);
   if (catalogEntryMatch) {
@@ -522,6 +525,7 @@ function route(
   if (/^\/admin-api\/composites/.test(p)) return ok({});
   if (p === "/admin-api/schedules") return ok({ items: schedules });
   if (/^\/admin-api\/schedules/.test(p)) return ok({ id: 99 });
+  if (p === "/admin-api/config/effective") return ok(effectiveConfig);
   if (p === "/admin-api/config/snapshots") return ok({ items: snapshots });
   if (p === "/admin-api/config/export") return ok({ version: 1, clients: clients.length, bundles: bundles.length });
   if (/^\/admin-api\/config\/(snapshots|import)/.test(p))

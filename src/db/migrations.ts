@@ -1062,6 +1062,65 @@ export const migrations: Migration[] = [
       ALTER TABLE tools ADD COLUMN param_locations TEXT;
     `,
   },
+  {
+    id: 57,
+    name: "catalog_entries_graphql",
+    sql: `
+      -- Admits GraphQL endpoints to the catalog. Two changes in one migration
+      -- because they are inseparable: the kind CHECK has to admit 'graphql',
+      -- and a GraphQL entry needs somewhere to put its endpoint (openapi_url
+      -- and mcp_url are both wrong shapes for it).
+      --
+      -- Recreated rather than ALTERed: SQLite cannot alter a CHECK constraint
+      -- in place, so widening one means the standard 12-step table rebuild.
+      -- Deliberately NOT wrapped in a PRAGMA foreign_keys dance — nothing
+      -- references catalog_entries (it is a publishing surface, not a
+      -- relational parent), so a plain rename/copy/drop is sufficient here and
+      -- runMigrations already gives each migration its own transaction.
+      --
+      -- IF NOT EXISTS on the new table would be wrong: this must fail loudly
+      -- rather than silently skip if a partial rebuild ever left one behind.
+      ALTER TABLE catalog_entries RENAME TO catalog_entries_pre57;
+
+      CREATE TABLE catalog_entries (
+        id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+        slug                    TEXT NOT NULL UNIQUE
+                                  CHECK (slug GLOB '[a-z0-9]*' AND length(slug) BETWEEN 1 AND 63),
+        name                    TEXT NOT NULL,
+        description             TEXT,
+        kind                    TEXT NOT NULL CHECK (kind IN ('rest', 'mcp', 'graphql')),
+        category                TEXT,
+        tags_json               TEXT NOT NULL DEFAULT '[]',
+        icon                    TEXT,
+        openapi_url             TEXT,
+        health_url              TEXT,
+        base_url                TEXT,
+        include_tags_json       TEXT,
+        exclude_operations_json TEXT,
+        mcp_url                 TEXT,
+        mcp_transport           TEXT CHECK (mcp_transport IN ('streamable-http', 'sse')),
+        graphql_url             TEXT,
+        featured                INTEGER NOT NULL DEFAULT 0,
+        created_at              INTEGER NOT NULL,
+        updated_at              INTEGER NOT NULL,
+        created_by              TEXT
+      ) STRICT;
+
+      INSERT INTO catalog_entries
+        (id, slug, name, description, kind, category, tags_json, icon, openapi_url, health_url,
+         base_url, include_tags_json, exclude_operations_json, mcp_url, mcp_transport, graphql_url,
+         featured, created_at, updated_at, created_by)
+      SELECT
+         id, slug, name, description, kind, category, tags_json, icon, openapi_url, health_url,
+         base_url, include_tags_json, exclude_operations_json, mcp_url, mcp_transport, NULL,
+         featured, created_at, updated_at, created_by
+      FROM catalog_entries_pre57;
+
+      DROP TABLE catalog_entries_pre57;
+
+      CREATE INDEX IF NOT EXISTS idx_catalog_entries_category ON catalog_entries(category);
+    `,
+  },
 ];
 
 /**

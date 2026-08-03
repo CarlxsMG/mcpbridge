@@ -13,7 +13,7 @@ import globals from "globals";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "dist-demo/**", "node_modules/**", "coverage/**"],
+    ignores: ["dist/**", "dist-demo/**", "node_modules/**", "coverage/**", "src/types/*.generated.ts"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

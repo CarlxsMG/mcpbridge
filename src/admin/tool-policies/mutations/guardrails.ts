@@ -8,7 +8,7 @@
  * set-vs-clear. See `./index.ts` for the dispatcher and the
  * `ToolMutation` contract.
  */
-import { setGuardrails } from "../../../tool-policies/guardrails.js";
+import { setGuardrails, getGuardrails } from "../../../tool-policies/guardrails.js";
 import { validateGuardrailsInput } from "../../../routes/admin-validators.js";
 import type { ToolMutation } from "./types.js";
 
@@ -20,6 +20,7 @@ export const guardrailsMutation: ToolMutation = {
     const ok = setGuardrails(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setGuardrails>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
+  read: (clientName, toolName) => getGuardrails(clientName, toolName) ?? undefined,
   audit: (_raw, parsed) => {
     const v = parsed as { denyPatterns: string[]; blockSecrets: boolean; scanResponses: boolean } | null;
     return {

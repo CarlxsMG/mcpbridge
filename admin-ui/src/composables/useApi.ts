@@ -4,10 +4,21 @@ import { i18n } from "../i18n";
 export class ApiError extends Error {
   status: number;
   code: string;
-  constructor(status: number, code: string, message: string) {
+  /**
+   * The failing request's correlation id, or null when the response carried
+   * none (a network-level failure, or an error synthesized client-side such as
+   * CompositeDetailPage's INVALID_JSON). Every backend error envelope carries
+   * it as `error.request_id` and every response repeats it in the
+   * `X-Request-ID` header (see src/middleware/request-id.ts), so it is what
+   * ties a message the operator is looking at to the audit log, the trace
+   * viewer and the server logs. Surfaced in the UI via `<ErrorNote>`.
+   */
+  requestId: string | null;
+  constructor(status: number, code: string, message: string, requestId: string | null = null) {
     super(message);
     this.status = status;
     this.code = code;
+    this.requestId = requestId;
   }
 }
 
@@ -70,20 +81,29 @@ async function rawFetch(path: string, init: RequestInit = {}): Promise<Response>
         import.meta.env.BASE_URL,
       );
     }
-    throw new ApiError(401, "UNAUTHORIZED", t("errors.not_authenticated"));
+    throw new ApiError(401, "UNAUTHORIZED", t("errors.not_authenticated"), res.headers.get("X-Request-ID"));
   }
 
   if (!res.ok) {
     let code = "UNKNOWN_ERROR";
     let message = t("errors.request_failed_with_status", { status: res.status });
+    // Seeded from the response header rather than the body so that error
+    // responses which never reach the JSON envelope — a proxy's 502 HTML page,
+    // a body that fails to parse — still carry a correlation id. The envelope's
+    // own request_id wins when present, but the two always agree: both come
+    // from the same res.locals value.
+    let requestId = res.headers.get("X-Request-ID");
     try {
-      const body = (await res.clone().json()) as { error?: { code?: string; message?: string } };
+      const body = (await res.clone().json()) as {
+        error?: { code?: string; message?: string; request_id?: string | null };
+      };
       if (body.error?.code) code = body.error.code;
       if (body.error?.message) message = body.error.message;
+      if (body.error?.request_id) requestId = body.error.request_id;
     } catch {
       // Non-JSON error body — keep the defaults above.
     }
-    throw new ApiError(res.status, code, message);
+    throw new ApiError(res.status, code, message, requestId);
   }
 
   return res;

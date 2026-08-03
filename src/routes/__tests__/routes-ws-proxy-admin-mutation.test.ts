@@ -32,11 +32,11 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   __resetWsProxyForTesting();
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
-  const { wsProxyAdminRoutes } = await import("../../routes/ws-proxy-admin.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json());
   app.use(requestIdMiddleware);
-  wsProxyAdminRoutes(app);
+  adminRoutes(app);
   return new Promise((resolve, reject) => {
     const srv = app.listen(0, "127.0.0.1", () => {
       resolve({ baseUrl: `http://127.0.0.1:${(srv.address() as AddressInfo).port}`, server: srv });

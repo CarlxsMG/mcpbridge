@@ -143,6 +143,8 @@ const GLOBAL_GET_ROUTES: Record<string, string> = {
   "/admin-api/composites":
     "composites are global cross-client macros (no team_id); read open, mutate super-admin (existence-oracle parity with bundles)",
   "/admin-api/composites/:name": "composite detail — same global-by-design rationale as GET /composites",
+  "/admin-api/config/effective":
+    "process-wide resolved environment (timeouts, limits, safety flags) — super-admin only, and secret-bearing values are reduced to set/unset before serialization; carries no tenant rows at all",
   "/admin-api/config/export": "whole-gateway config export — super-admin only (requireSuperAdmin)",
   "/admin-api/config/snapshots": "whole-gateway config snapshots — super-admin only",
   "/admin-api/config/snapshots/:id": "whole-gateway config snapshot detail — super-admin only",
@@ -258,20 +260,15 @@ async function startScopedApp(): Promise<void> {
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
 
-  // Only the routers whose GET list endpoints we exercise below — mounting the
-  // whole app (createApp) would also pull in MCP transports + the global rate
-  // limiter, neither of which this behavioural slice needs.
+  // The whole /admin-api surface — one mount now that every admin router is
+  // composed inside adminRoutes. Still not the full `createApp()`, which would
+  // also pull in MCP transports and the global rate limiter, neither of which
+  // this behavioural slice needs.
   const { adminRoutes } = await import("../../routes/admin.js");
-  const { bundleRoutes } = await import("../../routes/bundles.js");
-  const { tagRoutes } = await import("../../routes/tags.js");
-  const { usageRoutes } = await import("../../routes/usage.js");
   const app = express();
   app.use(express.json());
   app.use(requestIdMiddleware);
-  adminRoutes(app); // /clients, /monitors
-  bundleRoutes(app); // /tools
-  tagRoutes(app); // /tags
-  usageRoutes(app); // /usage/summary
+  adminRoutes(app);
 
   ({ baseUrl, server: activeServer } = await listen(app));
 }

@@ -106,3 +106,40 @@ describe("OpenAPI ↔ route parity", () => {
     ).toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Structural well-formedness of the spec itself.
+//
+// An UNQUOTED `description:` inside a YAML flow mapping is terminated by the
+// first comma, so `description: Owning team id, or null (super-admins only).`
+// parses as a truncated description PLUS a junk property named
+// "or null (super-admins only)." with a null value. It is valid YAML, so
+// nothing complained — and the published docs quietly showed half a sentence.
+// Twenty-one of these had accumulated by the time anything looked.
+// ─────────────────────────────────────────────────────────────────────────────
+describe("openapi.yaml well-formedness", () => {
+  test("no description was truncated by an unquoted comma", () => {
+    const spec = parse(readFileSync(OPENAPI_PATH, "utf8")) as unknown;
+    const broken: string[] = [];
+
+    // The signature: a key that reads like prose (contains whitespace) whose
+    // value is null. No legitimate OpenAPI key looks like that.
+    const walk = (node: unknown, path: string): void => {
+      if (node === null || typeof node !== "object") return;
+      if (Array.isArray(node)) {
+        node.forEach((item, i) => walk(item, `${path}[${i}]`));
+        return;
+      }
+      for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+        if (value === null && /\s/.test(key)) broken.push(`${path}.${key}`);
+        walk(value, `${path}.${key}`);
+      }
+    };
+    walk(spec, "");
+
+    expect(
+      broken,
+      `Descriptions split by an unquoted comma (wrap the whole description in quotes):\n${broken.join("\n")}`,
+    ).toEqual([]);
+  });
+});

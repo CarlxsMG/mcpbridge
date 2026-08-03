@@ -33,7 +33,7 @@ const nameError = computed(() => {
     : t("pages.composites.new.errors.name_format");
 });
 
-const { creating, error, run } = useCreateForm({
+const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () =>
     api.post<CompositeDetail>("/admin-api/composites", {
       name: name.value.trim(),
@@ -133,7 +133,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
           <textarea id="new-composite-steps" v-model="steps" class="mono-field" rows="6" spellcheck="false"></textarea>
           <FieldError :message="stepsError" />
         </FormField>
-        <FieldError :message="error" />
+        <FieldError :message="error" :request-id="errorRequestId" />
         <button class="btn-primary" type="submit" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.composites.new.create") }}
         </button>

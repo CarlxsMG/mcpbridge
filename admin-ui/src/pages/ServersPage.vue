@@ -76,6 +76,7 @@ const {
   items,
   loading,
   errorMessage,
+  errorRequestId,
   load,
   reset,
   next: nextPage,
@@ -249,7 +250,7 @@ onMounted(() => load());
       <button type="button" class="btn-secondary" :aria-expanded="showTagBrowser" @click="toggleTagBrowser">
         <Tags :size="15" stroke-width="2" aria-hidden="true" /> {{ t("pages.servers.browse_by_tag") }}
       </button>
-      <RouterLink to="/register-server" class="btn-primary">{{ t("pages.servers.add_server") }}</RouterLink>
+      <RouterLink to="/servers/new" class="btn-primary">{{ t("pages.servers.add_server") }}</RouterLink>
     </PageHeader>
 
     <OnboardingChecklist :has-servers="items.length > 0" />
@@ -318,7 +319,7 @@ onMounted(() => load());
       <span v-if="bulkError" class="error" role="alert">{{ bulkError }}</span>
     </div>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :error-request-id="errorRequestId" :empty="items.length === 0">
       <template #empty>
         <EmptyState :icon="Server">
           <template v-if="q || enabledFilter">

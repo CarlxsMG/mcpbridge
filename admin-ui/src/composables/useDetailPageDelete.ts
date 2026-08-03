@@ -2,7 +2,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { api } from "./useApi";
 import { useConfirmAction } from "./useConfirmAction";
-import { toErrorMessage } from "@/utils/errors";
+import { useErrorState } from "./useErrorState";
 import { tk } from "@/i18n";
 
 /**
@@ -21,7 +21,7 @@ export function useDetailPageDelete(
   const { pending: pendingDelete, request, cancel: cancelDelete, confirm } = useConfirmAction<true>();
   const deleting = ref(false);
   const deleted = ref(false);
-  const error = ref("");
+  const { message: error, requestId: errorRequestId, capture, clear } = useErrorState();
 
   function requestDelete() {
     request(true);
@@ -29,7 +29,7 @@ export function useDetailPageDelete(
 
   function confirmDelete() {
     return confirm(async () => {
-      error.value = "";
+      clear();
       deleting.value = true;
       try {
         await api.delete(deletePath());
@@ -39,13 +39,13 @@ export function useDetailPageDelete(
         // masquerade as a delete failure.
         void router.push(redirectTo);
       } catch (err) {
-        error.value = toErrorMessage(err, fallbackMessage);
+        capture(err, fallbackMessage);
         deleting.value = false;
       }
     });
   }
 
-  return { pendingDelete, requestDelete, cancelDelete, confirmDelete, deleting, deleted, error };
+  return { pendingDelete, requestDelete, cancelDelete, confirmDelete, deleting, deleted, error, errorRequestId };
 }
 
 /**

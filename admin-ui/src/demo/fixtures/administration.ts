@@ -2,6 +2,7 @@ import type {
   AdminUserSummary,
   CompositeSummary,
   ConfigSnapshotSummary,
+  EffectiveConfig,
   GuardPolicy,
   Schedule,
   Team,
@@ -141,3 +142,35 @@ export const snapshots: Array<ConfigSnapshotSummary & { labelKey?: string }> = [
     createdBy: "demo",
   },
 ];
+
+/**
+ * A representative slice of GET /admin-api/config/effective for the public
+ * demo. Values are the product's real defaults, not invented ones, so the demo
+ * teaches the same thing the product would. The redacted entries are included
+ * deliberately: showing "set"/"not set" IS the feature, and a demo that omitted
+ * them would misrepresent what an operator sees.
+ */
+export const effectiveConfig: EffectiveConfig = {
+  nodeEnv: "production",
+  entries: [
+    { key: "adminApiKeys", value: "set", redacted: true },
+    { key: "allowPrivateIps", value: false, redacted: false },
+    { key: "allowedOrigins", value: ["https://admin.example.com"], redacted: false },
+    { key: "circuitBreakerFailureThreshold", value: 5, redacted: false },
+    { key: "circuitBreakerResetTimeoutMs", value: 30000, redacted: false },
+    { key: "healthCheckIntervalMs", value: 30000, redacted: false },
+    { key: "maxResponseBytes", value: 10485760, redacted: false },
+    { key: "maxSessions", value: 100, redacted: false },
+    { key: "mcpApiKeys", value: "set", redacted: true },
+    { key: "port", value: 3000, redacted: false },
+    { key: "rateLimitGlobal", value: 600, redacted: false },
+    { key: "rateLimitMcp", value: 120, redacted: false },
+    { key: "requireMcpAuth", value: true, redacted: false },
+    { key: "retryMaxAttempts", value: 3, redacted: false },
+    { key: "secretEncryptionKey", value: "set", redacted: true },
+    { key: "sessionTtlMs", value: 86400000, redacted: false },
+    { key: "toolCallTimeoutMs", value: 30000, redacted: false },
+    { key: "trustProxy", value: 1, redacted: false },
+    { key: "vaultToken", value: "unset", redacted: true },
+  ],
+};

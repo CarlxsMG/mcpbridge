@@ -1,5 +1,6 @@
 import { getDb } from "../db/connection.js";
 import { BUILTIN_CATALOG, type BuiltinCatalogEntry } from "./builtin.js";
+import type { UpstreamKind } from "../mcp/types.js";
 
 const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
 
@@ -7,7 +8,7 @@ export interface CustomCatalogEntryInput {
   slug: string;
   name: string;
   description?: string | null;
-  kind: "rest" | "mcp";
+  kind: UpstreamKind;
   category?: string | null;
   tags?: string[];
   icon?: string | null;
@@ -18,6 +19,7 @@ export interface CustomCatalogEntryInput {
   excludeOperations?: string[] | null;
   mcpUrl?: string | null;
   mcpTransport?: "streamable-http" | "sse" | null;
+  graphqlUrl?: string | null;
   featured?: boolean;
 }
 
@@ -26,7 +28,7 @@ interface CustomCatalogRow {
   slug: string;
   name: string;
   description: string | null;
-  kind: "rest" | "mcp";
+  kind: UpstreamKind;
   category: string | null;
   tags_json: string;
   icon: string | null;
@@ -37,6 +39,7 @@ interface CustomCatalogRow {
   exclude_operations_json: string | null;
   mcp_url: string | null;
   mcp_transport: "streamable-http" | "sse" | null;
+  graphql_url: string | null;
   featured: number;
   created_at: number;
   updated_at: number;
@@ -48,7 +51,7 @@ export interface CustomCatalogEntry {
   slug: string;
   name: string;
   description: string | null;
-  kind: "rest" | "mcp";
+  kind: UpstreamKind;
   category: string | null;
   tags: string[];
   icon: string | null;
@@ -59,6 +62,7 @@ export interface CustomCatalogEntry {
   excludeOperations: string[] | null;
   mcpUrl: string | null;
   mcpTransport: "streamable-http" | "sse" | null;
+  graphqlUrl: string | null;
   featured: boolean;
   createdAt: number;
   updatedAt: number;
@@ -79,7 +83,7 @@ export type CatalogMutationResult =
   { ok: true; entry: CustomCatalogEntry } | { ok: false; error: CatalogMutationError };
 
 const COLS =
-  "id, slug, name, description, kind, category, tags_json, icon, openapi_url, health_url, base_url, include_tags_json, exclude_operations_json, mcp_url, mcp_transport, featured, created_at, updated_at, created_by";
+  "id, slug, name, description, kind, category, tags_json, icon, openapi_url, health_url, base_url, include_tags_json, exclude_operations_json, mcp_url, mcp_transport, graphql_url, featured, created_at, updated_at, created_by";
 
 function rowToEntry(row: CustomCatalogRow): CustomCatalogEntry {
   return {
@@ -98,6 +102,7 @@ function rowToEntry(row: CustomCatalogRow): CustomCatalogEntry {
     excludeOperations: row.exclude_operations_json ? (JSON.parse(row.exclude_operations_json) as string[]) : null,
     mcpUrl: row.mcp_url,
     mcpTransport: row.mcp_transport,
+    graphqlUrl: row.graphql_url,
     featured: row.featured === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -165,8 +170,8 @@ export function createCustomEntry(input: CustomCatalogEntryInput, actor: string 
   const row = getDb()
     .query(
       `INSERT INTO catalog_entries
-         (slug, name, description, kind, category, tags_json, icon, openapi_url, health_url, base_url, include_tags_json, exclude_operations_json, mcp_url, mcp_transport, featured, created_at, updated_at, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (slug, name, description, kind, category, tags_json, icon, openapi_url, health_url, base_url, include_tags_json, exclude_operations_json, mcp_url, mcp_transport, graphql_url, featured, created_at, updated_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING ${COLS}`,
     )
     .get(
@@ -184,6 +189,7 @@ export function createCustomEntry(input: CustomCatalogEntryInput, actor: string 
       input.excludeOperations ? JSON.stringify(input.excludeOperations) : null,
       input.mcpUrl ?? null,
       input.mcpTransport ?? null,
+      input.graphqlUrl ?? null,
       input.featured ? 1 : 0,
       now,
       now,
@@ -212,6 +218,7 @@ export function updateCustomEntry(id: number, updates: Partial<CustomCatalogEntr
     excludeOperations: updates.excludeOperations !== undefined ? updates.excludeOperations : existing.excludeOperations,
     mcpUrl: updates.mcpUrl !== undefined ? updates.mcpUrl : existing.mcpUrl,
     mcpTransport: updates.mcpTransport !== undefined ? updates.mcpTransport : existing.mcpTransport,
+    graphqlUrl: updates.graphqlUrl !== undefined ? updates.graphqlUrl : existing.graphqlUrl,
     featured: updates.featured !== undefined ? updates.featured : existing.featured,
   };
   getDb()
@@ -219,7 +226,7 @@ export function updateCustomEntry(id: number, updates: Partial<CustomCatalogEntr
       `UPDATE catalog_entries SET
          name = ?, description = ?, kind = ?, category = ?, tags_json = ?, icon = ?,
          openapi_url = ?, health_url = ?, base_url = ?, include_tags_json = ?, exclude_operations_json = ?,
-         mcp_url = ?, mcp_transport = ?, featured = ?, updated_at = ?
+         mcp_url = ?, mcp_transport = ?, graphql_url = ?, featured = ?, updated_at = ?
        WHERE id = ?`,
     )
     .run(
@@ -236,6 +243,7 @@ export function updateCustomEntry(id: number, updates: Partial<CustomCatalogEntr
       merged.excludeOperations ? JSON.stringify(merged.excludeOperations) : null,
       merged.mcpUrl ?? null,
       merged.mcpTransport ?? null,
+      merged.graphqlUrl ?? null,
       merged.featured ? 1 : 0,
       Date.now(),
       id,

@@ -8,10 +8,17 @@
  *
  * Use this for any future error-display site too, instead of re-hand-writing
  * the `<p v-if="..." class="error">` markup.
+ *
+ * Rendering delegates to `<ErrorNote>` so a create/save failure shows the same
+ * copyable correlation ref as a load failure does through ListLayout. Pass
+ * `requestId` from the form composable's `errorRequestId`; omitting it renders
+ * exactly the markup this component always did.
  */
-defineProps<{ message: string }>();
+import ErrorNote from "@/components/ui/ErrorNote.vue";
+
+defineProps<{ message: string; requestId?: string | null }>();
 </script>
 
 <template>
-  <p v-if="message" class="error" role="alert">{{ message }}</p>
+  <ErrorNote v-if="message" :message="message" :request-id="requestId" />
 </template>

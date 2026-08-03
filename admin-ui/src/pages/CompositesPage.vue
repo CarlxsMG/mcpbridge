@@ -27,6 +27,7 @@ const {
   data: items,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<CompositeSummary[]>(
   async () => (await api.get<{ items: CompositeSummary[] }>("/admin-api/composites")).items,
@@ -67,7 +68,7 @@ function confirmDelete() {
     </PageHeader>
     <p class="subtitle">{{ t("pages.composites.subtitle") }}</p>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :error-request-id="errorRequestId" :empty="items.length === 0">
       <template #empty>
         <EmptyState :icon="Combine">{{ t("pages.composites.empty.no_composites") }}</EmptyState>
       </template>

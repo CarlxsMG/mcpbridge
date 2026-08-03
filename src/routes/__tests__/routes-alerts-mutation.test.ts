@@ -37,11 +37,11 @@ async function startApp(): Promise<void> {
   // gitignored .env, so depending on the ambient value passes locally and fails
   // in CI, where no .env exists.
   (config as Record<string, unknown>).allowPrivateIps = true;
-  const { alertRoutes } = await import("../../routes/alerts.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json());
   app.use(requestIdMiddleware);
-  alertRoutes(app);
+  adminRoutes(app);
   ({ baseUrl, server: activeServer } = await listen(app));
 }
 

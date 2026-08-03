@@ -1,13 +1,20 @@
 <script setup lang="ts">
-defineProps<{
+import { computed } from "vue";
+
+const props = defineProps<{
   kind: string;
 }>();
+
+// Wordmarks, not `toUpperCase()`: "GRAPHQL" is not how GraphQL is written, and
+// an unknown kind arriving from a newer backend should still render as-is
+// rather than being mangled.
+const LABELS: Record<string, string> = { mcp: "MCP", rest: "REST", graphql: "GraphQL" };
+const label = computed(() => LABELS[props.kind] ?? props.kind);
+const variant = computed(() => (props.kind === "mcp" || props.kind === "graphql" ? props.kind : "neutral"));
 </script>
 
 <template>
-  <span class="kind-badge" :class="kind === 'mcp' ? 'kind-badge-mcp' : 'kind-badge-neutral'">
-    {{ kind === "mcp" ? "MCP" : kind.toUpperCase() }}
-  </span>
+  <span class="kind-badge" :class="`kind-badge-${variant}`">{{ label }}</span>
 </template>
 
 <style scoped>
@@ -24,6 +31,10 @@ defineProps<{
 .kind-badge-mcp {
   background: var(--kind-mcp-soft);
   color: var(--kind-mcp-text);
+}
+.kind-badge-graphql {
+  background: var(--kind-graphql-soft);
+  color: var(--kind-graphql-text);
 }
 .kind-badge-neutral {
   background: var(--surface-sunken);

@@ -4,7 +4,7 @@
  * in the validator. See `./index.ts` for the dispatcher and the
  * `ToolMutation` contract.
  */
-import { setToolMock } from "../../../tool-meta/tool-mock.js";
+import { setToolMock, getToolMock } from "../../../tool-meta/tool-mock.js";
 import { validateMockInput } from "../../../routes/admin-validators.js";
 import type { ToolMutation } from "./types.js";
 
@@ -15,6 +15,7 @@ export const mockMutation: ToolMutation = {
     const ok = setToolMock(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setToolMock>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
+  read: (clientName, toolName) => getToolMock(clientName, toolName) ?? undefined,
   audit: (_raw, parsed) => {
     const v = parsed as { mode: string } | null;
     return {

@@ -35,10 +35,10 @@ async function startApp(): Promise<void> {
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
 
-  const { usageRoutes } = await import("../../routes/usage.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json());
-  usageRoutes(app);
+  adminRoutes(app);
 
   ({ baseUrl, server: activeServer } = await listen(app));
 }

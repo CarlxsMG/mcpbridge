@@ -9,7 +9,7 @@
  * step maps them to the appropriate HTTP envelope. See `./index.ts` for
  * the dispatcher and the `ToolMutation` contract.
  */
-import { setToolContextBudget } from "../../../tool-policies/context-budget.js";
+import { setToolContextBudget, getToolContextBudget } from "../../../tool-policies/context-budget.js";
 import { validateContextBudgetInput } from "../../../routes/admin-validators.js";
 import type { ToolMutation } from "./types.js";
 
@@ -33,6 +33,7 @@ export const contextBudgetMutation: ToolMutation = {
     }
     return { kind: "ok" };
   },
+  read: (clientName, toolName) => getToolContextBudget(clientName, toolName) ?? undefined,
   audit: (_raw, parsed) => {
     const v = parsed as { mode: string; maxResponseBytes: number; llm?: { provider: string } } | null;
     return {

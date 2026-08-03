@@ -23,6 +23,7 @@ const {
   data: monitors,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<MonitorRecord[]>(
   async () => (await api.get<{ items: MonitorRecord[] }>("/admin-api/monitors")).items,
@@ -65,7 +66,12 @@ const segments = computed(() => {
       </button>
     </PageHeader>
 
-    <ListLayout :loading="loading && !monitors.length" :error="errorMessage" :empty="monitors.length === 0">
+    <ListLayout
+      :loading="loading && !monitors.length"
+      :error="errorMessage"
+      :error-request-id="errorRequestId"
+      :empty="monitors.length === 0"
+    >
       <template #empty>
         <EmptyState :icon="Radar" muted>
           {{ t("pages.monitors.empty.no_monitors") }}

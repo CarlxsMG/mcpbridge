@@ -38,9 +38,9 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   mkdirSync(dirname(config.dbPath), { recursive: true });
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
-  const { backupRoutes } = await import("../../routes/backup.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
-  backupRoutes(app);
+  adminRoutes(app);
   return listen(app);
 }
 

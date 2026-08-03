@@ -80,6 +80,7 @@ const {
   data: sessions,
   loading: sessionsLoading,
   errorMessage: sessionsError,
+  errorRequestId: sessionsErrorRequestId,
   load: loadSessions,
 } = useResource<AdminSession[]>(
   async () => (await api.get<{ sessions: AdminSession[] }>("/admin-api/auth/sessions")).sessions,
@@ -183,7 +184,12 @@ onMounted(loadSessions);
       <p class="hint warn">{{ t("pages.account.active_sessions_hint") }}</p>
 
       <p v-if="revokeError" class="error" role="alert">{{ revokeError }}</p>
-      <ListLayout :loading="sessionsLoading" :error="sessionsError" :empty="sessions.length === 0">
+      <ListLayout
+        :loading="sessionsLoading"
+        :error="sessionsError"
+        :error-request-id="sessionsErrorRequestId"
+        :empty="sessions.length === 0"
+      >
         <template #empty>
           <EmptyState :icon="Monitor">{{ t("pages.account.empty.no_sessions") }}</EmptyState>
         </template>

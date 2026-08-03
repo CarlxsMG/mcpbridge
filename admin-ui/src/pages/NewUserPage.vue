@@ -25,7 +25,7 @@ const username = ref("");
 const password = ref("");
 const role = ref<AdminRole>("viewer");
 
-const { creating, error, run } = useCreateForm({
+const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () =>
     api.post("/admin-api/users", {
       username: username.value.trim(),
@@ -59,7 +59,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
         <FormField :label="t('pages.users.new.fields.role')" for="new-role">
           <SelectMenu id="new-role" v-model="role" :options="NEW_ROLE_OPTIONS" />
         </FormField>
-        <FieldError :message="error" />
+        <FieldError :message="error" :request-id="errorRequestId" />
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.users.new.create") }}
         </button>

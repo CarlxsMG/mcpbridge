@@ -9,6 +9,7 @@ import type {
   ToolOverride,
   ToolAnnotations,
   McpTransport,
+  UpstreamKind,
 } from "./types.js";
 import type { AdvertisedTool } from "./tool-search.js";
 import { config } from "../config.js";
@@ -326,6 +327,14 @@ class Registry {
     baseUrl: string,
     resolvedIp: string,
     retryNonSafeMethods: boolean = false,
+    /**
+     * Which of the two HTTP-dispatched kinds this is. GraphQL registrations run
+     * through this same method (their generated tools are ordinary POSTs) and
+     * differ only in identity — without this they persisted, and displayed, as
+     * REST. Defaults to "rest" so the OpenAPI/manual/cURL callers are unchanged;
+     * MCP upstreams have their own entry point, `registerMcpUpstream`.
+     */
+    kind: Exclude<UpstreamKind, "mcp"> = "rest",
   ): Promise<void> {
     validateClientName(name);
 
@@ -387,6 +396,7 @@ class Registry {
         baseUrl,
         resolvedIp,
         retryNonSafeMethods,
+        kind,
       );
 
       const client: RegisteredClient = {
@@ -401,7 +411,7 @@ class Registry {
         retry_non_safe_methods: retryNonSafeMethods,
         enabled: persisted.enabled,
         guards: persisted.guards,
-        kind: "rest",
+        kind,
       };
 
       this.clients.set(name, client);

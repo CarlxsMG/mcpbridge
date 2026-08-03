@@ -1,6 +1,5 @@
-import { ref } from "vue";
 import { useConfirmAction } from "./useConfirmAction";
-import { toErrorMessage } from "@/utils/errors";
+import { useErrorState } from "./useErrorState";
 import { tk } from "@/i18n";
 
 /**
@@ -14,7 +13,7 @@ export function useClearableConfig(
   clearFn: () => Promise<unknown>,
   fallbackMessage = tk("errors.clear_failed"),
 ) {
-  const error = ref("");
+  const { message: error, requestId: errorRequestId, capture } = useErrorState();
   const { pending: pendingClear, request, cancel: cancelClear, confirm } = useConfirmAction<true>();
 
   function requestClear() {
@@ -27,10 +26,10 @@ export function useClearableConfig(
         await clearFn();
         await loadFn();
       } catch (err) {
-        error.value = toErrorMessage(err, fallbackMessage);
+        capture(err, fallbackMessage);
       }
     });
   }
 
-  return { pendingClear, requestClear, cancelClear, confirmClear, error };
+  return { pendingClear, requestClear, cancelClear, confirmClear, error, errorRequestId };
 }

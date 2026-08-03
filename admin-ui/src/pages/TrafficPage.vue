@@ -68,6 +68,7 @@ const {
   items: records,
   loading,
   errorMessage,
+  errorRequestId,
   load,
   reset,
   next: nextPage,
@@ -188,7 +189,12 @@ function confirmReplay() {
       {{ replayNote.text }}
     </p>
 
-    <ListLayout :loading="loading && !records.length" :error="errorMessage" :empty="records.length === 0">
+    <ListLayout
+      :loading="loading && !records.length"
+      :error="errorMessage"
+      :error-request-id="errorRequestId"
+      :empty="records.length === 0"
+    >
       <template #empty>
         <EmptyState :icon="ArrowLeftRight" muted>
           {{ t("pages.traffic.empty_p1") }}

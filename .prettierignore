@@ -9,6 +9,7 @@ docs/.vitepress/dist
 docs/node_modules
 data
 *.generated.json
+*.generated.ts
 bun.lock
 package-lock.json
 **/package-lock.json
