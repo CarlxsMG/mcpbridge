@@ -138,7 +138,7 @@ const ROUTES: A11yRoute[] = [
   },
   {
     key: "register server (form)",
-    path: "/admin/register-server",
+    path: "/admin/servers/new",
     authed: true,
     ready: (page) => page.locator("#r-name"),
     h1: "Register a server",
@@ -874,11 +874,12 @@ test("responsive — primary navigation stays reachable at mobile width", async 
   // we are NOT already on: App.vue closes the overlay from a `route.fullPath`
   // watcher, and re-clicking the current route is an aborted navigation that
   // never changes fullPath — so it would (correctly) leave the panel open.
-  await expect(sidebar.getByRole("link", { name: "Servers", exact: true })).toBeVisible();
-  const addServerLink = sidebar.getByRole("link", { name: "Add server", exact: true });
-  await expect(addServerLink).toBeVisible();
-  await addServerLink.click();
-  await expect(page).toHaveURL(/\/admin\/register-server$/);
+  // `login()` lands on /admin/servers, so Servers itself is disqualified;
+  // Catalog is the neighbouring entry in the same nav group.
+  const catalogLink = sidebar.getByRole("link", { name: "Catalog", exact: true });
+  await expect(catalogLink).toBeVisible();
+  await catalogLink.click();
+  await expect(page).toHaveURL(/\/admin\/catalog$/);
   await expect(sidebar).toBeHidden();
 });
 
