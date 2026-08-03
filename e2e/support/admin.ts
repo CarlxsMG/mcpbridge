@@ -218,7 +218,13 @@ export async function deleteClient(request: APIRequestContext, auth: AdminAuth, 
 
 /** Options mirroring the POST /admin-api/mcp-keys body beyond the label. */
 export interface MintKeyOptions {
-  scopes?: string[] | null;
+  /**
+   * Key confinement, mirroring `McpKeyScopes` in src/security/mcp-key-store.ts:
+   * `clients` are names the key may call any tool on, `tools` are composite
+   * `client__tool` keys. NOT a flat string[] — it was typed that way here until
+   * the first spec actually passed a scope and the compiler said otherwise.
+   */
+  scopes?: { clients?: string[]; tools?: string[] } | null;
   expiresAt?: string | null;
   consumerId?: number | null;
   elevated?: boolean;
@@ -345,11 +351,69 @@ export async function fixtureControl(request: APIRequestContext, action: "down" 
   expect(res.status(), `fixture control ${action} failed`).toBe(200);
 }
 
-/** Read the fixture's current flag plus its per-path hit counts. */
+/** One recorded WebSocket upgrade as the fixture upstream saw it. */
+export interface WsHandshake {
+  host: string | null;
+  authorization: string | null;
+  url: string | null;
+}
+
+/** Read the fixture's current flag, its per-path hit counts and its WS handshakes. */
 export async function fixtureState(
   request: APIRequestContext,
-): Promise<{ flakyDown: boolean; hits: Record<string, number> }> {
+): Promise<{ flakyDown: boolean; hits: Record<string, number>; wsHandshakes: WsHandshake[] }> {
   const res = await request.get(`${FIXTURE_BASE_URL}${FIXTURE_CONTROL_PATH}/state`);
   expect(res.status()).toBe(200);
-  return (await res.json()) as { flakyDown: boolean; hits: Record<string, number> };
+  return (await res.json()) as { flakyDown: boolean; hits: Record<string, number>; wsHandshakes: WsHandshake[] };
+}
+
+/** Clear the recorded WS handshakes so a spec can assert on its own upgrades alone. */
+export async function resetFixtureWsHandshakes(request: APIRequestContext): Promise<void> {
+  const res = await request.post(`${FIXTURE_BASE_URL}${FIXTURE_CONTROL_PATH}/ws-reset`);
+  expect(res.status()).toBe(200);
+}
+
+/**
+ * Create (or overwrite) a ws-proxy target. Requires an admin-role caller.
+ * Returns the raw status/body so a spec can also drive the rejection cases.
+ */
+export async function upsertWsProxyTarget(
+  request: APIRequestContext,
+  auth: AdminAuth,
+  name: string,
+  target: {
+    backendWsUrl: string;
+    maxConnections?: number;
+    maxMessageBytes?: number;
+    idleTimeoutMs?: number;
+    enabled?: boolean;
+  },
+): Promise<{ status: number; body: string }> {
+  const res = await request.post(`${APP_BASE_URL}/admin-api/ws-proxy-targets`, {
+    headers: apiHeaders(auth),
+    data: { name, ...target },
+  });
+  return { status: res.status(), body: await res.text() };
+}
+
+/** Patch an existing ws-proxy target (e.g. to disable it). */
+export async function patchWsProxyTarget(
+  request: APIRequestContext,
+  auth: AdminAuth,
+  name: string,
+  patch: Record<string, unknown>,
+): Promise<{ status: number; body: string }> {
+  const res = await request.patch(`${APP_BASE_URL}/admin-api/ws-proxy-targets/${name}`, {
+    headers: apiHeaders(auth),
+    data: patch,
+  });
+  return { status: res.status(), body: await res.text() };
+}
+
+/** Delete a ws-proxy target, tolerating "it was never there". */
+export async function deleteWsProxyTarget(request: APIRequestContext, auth: AdminAuth, name: string): Promise<void> {
+  const res = await request.delete(`${APP_BASE_URL}/admin-api/ws-proxy-targets/${name}`, {
+    headers: apiHeaders(auth),
+  });
+  expect([200, 204, 404], `delete ws-proxy target failed: ${res.status()}`).toContain(res.status());
 }

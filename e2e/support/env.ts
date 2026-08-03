@@ -34,6 +34,17 @@ export const FIXTURE_OPENAPI_EXTENDED_PATH = "/openapi-extended.json";
 export const FIXTURE_GRAPHQL_PATH = "/graphql";
 
 /**
+ * WebSocket upstream the ws-proxy specs point a target at.
+ *
+ * Reached as `ws://localhost:<FIXTURE_PORT>/ws` — deliberately by HOSTNAME, not
+ * by IP: `pinnedWsDial` returns a raw-IP URL unchanged, so a `127.0.0.1` target
+ * would skip the very rewrite the spec exists to pin.
+ */
+export const FIXTURE_WS_PATH = "/ws";
+export const FIXTURE_WS_HOSTNAME = "localhost";
+export const FIXTURE_WS_URL = `ws://${FIXTURE_WS_HOSTNAME}:${FIXTURE_PORT}${FIXTURE_WS_PATH}`;
+
+/**
  * Control channel for toggling fixture behaviour mid-spec (used by the circuit
  * breaker spec to make a single tool endpoint start failing without taking
  * `/health` down with it — health-check eviction would otherwise remove the

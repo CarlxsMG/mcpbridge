@@ -31,12 +31,14 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { WebSocketServer } from "ws";
 import {
   FIXTURE_CONTROL_PATH,
   FIXTURE_GRAPHQL_PATH,
   FIXTURE_OPENAPI_EXTENDED_PATH,
   FIXTURE_OPENAPI_PATH,
   FIXTURE_PORT,
+  FIXTURE_WS_PATH,
 } from "./env";
 import { EXTENDED_OPENAPI } from "./openapi-extended";
 import { handleGraphqlRequest } from "./graphql-fixture";
@@ -57,6 +59,16 @@ const state = {
   flakyDown: false,
   /** Per-path hit counts — lets a spec assert the bridge stopped calling upstream. */
   hits: {} as Record<string, number>,
+  /**
+   * What each WebSocket upgrade actually arrived with.
+   *
+   * `host` is the point of the whole record: `pinnedWsDial` dials the pinned IP
+   * literal while carrying the ORIGINAL hostname in the Host header, so a
+   * regression that "simplified" the dial to the bare IP shows up here as
+   * `127.0.0.1:<port>` instead of `localhost:<port>`. Nothing else observable
+   * from outside distinguishes the two.
+   */
+  wsHandshakes: [] as { host: string | null; authorization: string | null; url: string | null }[],
 };
 
 function recordHit(path: string): void {
@@ -97,7 +109,12 @@ export function createFixtureServer(): Server {
         return;
       }
       if (action === "/state") {
-        sendJson(res, 200, { flakyDown: state.flakyDown, hits: state.hits });
+        sendJson(res, 200, { flakyDown: state.flakyDown, hits: state.hits, wsHandshakes: state.wsHandshakes });
+        return;
+      }
+      if (action === "/ws-reset") {
+        state.wsHandshakes.length = 0;
+        sendJson(res, 200, { status: "reset" });
         return;
       }
       sendJson(res, 404, { error: "unknown_control_action" });
@@ -182,14 +199,63 @@ export function createFixtureServer(): Server {
   });
 }
 
+/**
+ * Attach the WebSocket upstream the ws-proxy specs dial through the bridge.
+ *
+ * `noServer: true` + a manual `upgrade` hook rather than `{ server }`, so this
+ * fixture keeps ONE port for both HTTP and WS and an upgrade on any other path
+ * is destroyed rather than silently accepted.
+ *
+ * The socket echoes back `echo:<text>` so a spec can prove both directions of
+ * the relay, and closes with a distinctive code when asked, so a spec can prove
+ * a close initiated UPSTREAM propagates down to the client through the bridge.
+ */
+function attachWsUpstream(server: Server): WebSocketServer {
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on("upgrade", (req, socket, head) => {
+    const [path] = (req.url ?? "").split("?");
+    if (path !== FIXTURE_WS_PATH) {
+      socket.destroy();
+      return;
+    }
+    state.wsHandshakes.push({
+      host: req.headers.host ?? null,
+      authorization: req.headers.authorization ?? null,
+      url: req.url ?? null,
+    });
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      ws.on("message", (data: Buffer | string) => {
+        const text = typeof data === "string" ? data : data.toString("utf-8");
+        if (text === "__close__") {
+          // 4001 is in the library-private range, so seeing it downstream proves
+          // the code travelled from the upstream rather than being synthesized.
+          ws.close(4001, "upstream initiated");
+          return;
+        }
+        ws.send(`echo:${text}`);
+      });
+      ws.send("ready");
+    });
+  });
+
+  return wss;
+}
+
 /** Start the fixture on FIXTURE_PORT; resolves with a stop function. */
 export async function startFixtureServer(): Promise<() => Promise<void>> {
   const server = createFixtureServer();
+  const wss = attachWsUpstream(server);
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(FIXTURE_PORT, "127.0.0.1", () => resolve());
   });
   return async () => {
+    // Close live sockets first: `server.close()` waits for connections to end,
+    // and an open WebSocket never ends on its own, so skipping this hangs
+    // globalTeardown until Playwright's own timeout fires.
+    for (const client of wss.clients) client.terminate();
+    await new Promise<void>((resolve) => wss.close(() => resolve()));
     await new Promise<void>((resolve) => server.close(() => resolve()));
   };
 }
