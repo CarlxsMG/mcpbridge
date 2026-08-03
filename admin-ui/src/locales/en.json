@@ -799,7 +799,7 @@
       "snapshot_label": "Snapshot label",
       "snapshot_placeholder": "Snapshot label (e.g. before-migration)",
       "snapshot_now": "Snapshot now",
-      "empty": "No snapshots yet. A snapshot captures the full config -- bundles, guardrails, consumers, and more -- so you can compare or roll back later.",
+      "empty": "No snapshots yet. A snapshot captures the config listed above, so you can compare or roll back later.",
       "diff_vs_current": "diff vs current",
       "rollback": "rollback",
       "diff_heading": "Diff: #{id} \"{label}\" → {to}",
@@ -1660,7 +1660,15 @@
     },
     "config": {
       "title": "Config",
-      "subtitle": "Export, import and snapshot the live bridge configuration.",
+      "subtitle": "Export, import and snapshot part of the live bridge configuration.",
+      "scope": {
+        "title": "What export, import and rollback cover",
+        "included_label": "Included",
+        "included": "Registered servers and their enable state, client guards, and every per-tool policy — guards, overrides, guardrails, cache, coalescing, pagination, streaming, transforms, redaction, sensitivity, quarantine, mocks, monitors, context budget and approval requirements. Plus bundles, alert rules and consumer quotas.",
+        "excluded_label": "Not included",
+        "excluded": "Schedules, guard policies, teams, users, catalog entries, WebSocket proxy targets, API keys, the audit log, and stored upstream credentials.",
+        "backup_hint": "A rollback restores only what is listed under Included. For a complete copy of the admin database, take a database backup instead."
+      },
       "result": {
         "dry_run": "Dry run — nothing was changed",
         "import_applied": "Import applied",

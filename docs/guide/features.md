@@ -89,7 +89,7 @@ and **[Access control →](/guide/access-control)**.
   usage, alerts, schedules, audit log, users, teams and config.
 - **Customizable widget dashboard** — a Grafana-style Overview grid: add, resize and configure
   stat/chart/note widgets from a catalog, then export or import the whole layout.
-- **Config versioning + rollback**, plus import/export of the whole configuration.
+- **Config versioning + rollback**, plus import/export of servers, per-tool policies, bundles, alert rules and consumer quotas (see [Deployment](/guide/deployment#persistence-backups) for what is out of scope).
 - **Maintenance schedules** via a built-in cron matcher (leader-gated, de-duplicated).
 
 **Resilience** — see **[Guardrails & resilience →](/guide/guardrails-resilience)**

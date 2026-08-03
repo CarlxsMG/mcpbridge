@@ -8,7 +8,11 @@
  * (turn approval on, optionally set the threshold) and the admin UI sends
  * them together. See `./index.ts` for the dispatcher contract.
  */
-import { setApprovalRequired, MAX_APPROVAL_LEVELS } from "../../../admin/entities/approvals.js";
+import {
+  setApprovalRequired,
+  getApprovalConfigForClient,
+  MAX_APPROVAL_LEVELS,
+} from "../../../admin/entities/approvals.js";
 import type { ToolMutation } from "./types.js";
 
 export const requiresApprovalMutation: ToolMutation = {
@@ -36,6 +40,14 @@ export const requiresApprovalMutation: ToolMutation = {
     const v = parsed as { enabled: boolean; approvalLevels: number | undefined };
     const ok = setApprovalRequired(ctx.clientName, ctx.toolName, v.enabled, v.approvalLevels);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
+  },
+  read: (clientName, toolName) => getApprovalConfigForClient(clientName)[toolName]?.required,
+  // The one mutation with a companion key: exporting `requiresApproval` alone
+  // would drop the N-of-M threshold, so a restored config would require one
+  // approver where the original required three.
+  readCompanions: (clientName, toolName) => {
+    const cfg = getApprovalConfigForClient(clientName)[toolName];
+    return cfg ? { approvalLevels: cfg.requiredLevels } : undefined;
   },
   audit: (_raw, parsed) => {
     const v = parsed as { enabled: boolean; approvalLevels: number | undefined };

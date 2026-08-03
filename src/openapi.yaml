@@ -6183,9 +6183,17 @@ components:
     ConfigExport:
       type: object
       description: >
-        A portable document of all admin-authored config. Excludes decrypted
-        upstream secrets; tool key-allowlists export as SHA-256 hashes (which
-        round-trip on import, since the runtime only ever compares hashes).
+        A portable document of part of the admin-authored config: registered
+        servers with their client guards and every per-tool policy, plus
+        bundles, alert rules and consumer quotas.
+
+        NOT included, so a rollback does not restore them: schedules, guard
+        policies, teams, users, catalog entries, WebSocket proxy targets, API
+        keys, the audit log, and decrypted upstream secrets. For a complete copy
+        of the admin database use `POST /admin-api/backup` instead.
+
+        Tool key-allowlists export as SHA-256 hashes, which round-trip on import
+        since the runtime only ever compares hashes.
       properties:
         version: { type: integer, example: 1 }
         exportedAt: { type: integer, description: Unix ms epoch }
@@ -6226,6 +6234,12 @@ components:
                   - type: "null"
               tools:
                 type: array
+                description: >
+                  One entry per tool. Beyond `name`, each entry is exactly a
+                  `PATCH /admin-api/clients/{name}/tools/{tool}` body: every
+                  per-tool policy key that endpoint accepts, in the same shape,
+                  with unconfigured policies omitted. Import replays it through
+                  the same validation and audit path a PATCH takes.
                 items:
                   type: object
                   properties:
@@ -6235,11 +6249,25 @@ components:
                       oneOf:
                         - $ref: "#/components/schemas/ToolGuardConfig"
                         - type: "null"
-                    override:
+                    overrides:
                       type: [object, "null"]
                       additionalProperties: true
+                    override:
+                      deprecated: true
+                      type: [object, "null"]
+                      additionalProperties: true
+                      description: >
+                        Pre-manifest spelling of `overrides`. No longer emitted;
+                        still accepted on import so documents (and stored
+                        snapshots) from an older gateway keep applying.
+                  additionalProperties: true
         guardrails:
           type: array
+          deprecated: true
+          description: >
+            Legacy top-level location for per-tool guardrails. No longer
+            emitted — `guardrails` is one of the per-tool policy keys above and
+            now travels inside its tool. Still accepted on import.
           items:
             type: object
             properties:

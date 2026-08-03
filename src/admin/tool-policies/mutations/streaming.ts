@@ -3,7 +3,7 @@
  * streaming response format (ndjson / sse) and event cap.
  * See `./index.ts` for the dispatcher and the `ToolMutation` contract.
  */
-import { setStreamingConfig } from "../../../proxy/streaming.js";
+import { setStreamingConfig, getStreamingConfig } from "../../../proxy/streaming.js";
 import { validateStreamingInput } from "../../../routes/admin-validators.js";
 import type { ToolMutation } from "./types.js";
 
@@ -15,6 +15,7 @@ export const streamingMutation: ToolMutation = {
     const ok = setStreamingConfig(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setStreamingConfig>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
+  read: (clientName, toolName) => getStreamingConfig(clientName, toolName) ?? undefined,
   audit: (_raw, parsed) => {
     const v = parsed as { format: string } | null;
     return {

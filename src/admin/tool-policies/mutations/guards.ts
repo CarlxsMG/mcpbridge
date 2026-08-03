@@ -19,5 +19,6 @@ export const guardsMutation: ToolMutation = {
     );
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
+  read: (clientName, toolName) => registry.getClientTools(clientName)?.find((t) => t.name === toolName)?.guards,
   audit: () => ({ action: "tool.guards.update" }),
 };

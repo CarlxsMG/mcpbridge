@@ -3,7 +3,7 @@
  * follow-the-X pagination (cursor / page / link strategy).
  * See `./index.ts` for the dispatcher and the `ToolMutation` contract.
  */
-import { setPaginationConfig } from "../../../tool-policies/pagination.js";
+import { setPaginationConfig, getPaginationConfig } from "../../../tool-policies/pagination.js";
 import { validatePaginationInput } from "../../../routes/admin-validators.js";
 import type { ToolMutation } from "./types.js";
 
@@ -15,6 +15,7 @@ export const paginationMutation: ToolMutation = {
     const ok = setPaginationConfig(ctx.clientName, ctx.toolName, parsed as Parameters<typeof setPaginationConfig>[2]);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
+  read: (clientName, toolName) => getPaginationConfig(clientName, toolName) ?? undefined,
   audit: (_raw, parsed) => {
     const v = parsed as { strategy: string; maxPages: number } | null;
     return {

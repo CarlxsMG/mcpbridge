@@ -799,7 +799,7 @@
       "snapshot_label": "Etiqueta del snapshot",
       "snapshot_placeholder": "Etiqueta del snapshot (p. ej. antes-de-migracion)",
       "snapshot_now": "Snapshot ahora",
-      "empty": "Aún no hay snapshots. Un snapshot captura la config completa — bundles, guardrails, consumers y más — para que puedas comparar o hacer rollback después.",
+      "empty": "Aún no hay snapshots. Un snapshot captura la configuración indicada arriba, para que puedas comparar o hacer rollback después.",
       "diff_vs_current": "diff vs. actual",
       "rollback": "revertir",
       "diff_heading": "Diff: #{id} \"{label}\" → {to}",
@@ -1660,7 +1660,15 @@
     },
     "config": {
       "title": "Configuración",
-      "subtitle": "Exporta, importa y haz snapshot de la configuración en vivo del bridge.",
+      "subtitle": "Exporta, importa y haz snapshot de una parte de la configuración en vivo del bridge.",
+      "scope": {
+        "title": "Qué abarcan el export, el import y el rollback",
+        "included_label": "Incluido",
+        "included": "Los servidores registrados y si están activos, las guardas de cliente y todas las políticas por tool — guardas, overrides, guardrails, caché, coalescing, paginación, streaming, transformaciones, redacción, sensibilidad, cuarentena, mocks, monitores, presupuesto de contexto y aprobaciones. Además de bundles, reglas de alerta y quotas de consumers.",
+        "excluded_label": "No incluido",
+        "excluded": "Schedules, políticas de guardas, equipos, usuarios, entradas del catálogo, targets del proxy WebSocket, claves de API, el registro de auditoría y las credenciales de upstream almacenadas.",
+        "backup_hint": "Un rollback restaura solo lo que aparece en Incluido. Para una copia completa de la base de datos de administración, haz una copia de seguridad de la base de datos."
+      },
       "result": {
         "dry_run": "Dry run — no se cambió nada",
         "import_applied": "Import aplicado",

@@ -55,8 +55,11 @@ describe("config export/import", () => {
     expect(doc.alertRules.map((a) => a.name)).toContain("a1");
     const svc = doc.clients.find((c) => c.name === "svc")!;
     expect(svc.enabled).toBe(false);
-    expect(svc.tools[0].guards?.rateLimitPerMin).toBe(5);
-    expect(svc.tools[0].override?.description).toBe("Override");
+    // A tool now exports as a PATCH body: policy keys are the registry's keys
+    // (`overrides`, plural), and only configured policies appear.
+    const tool = svc.tools[0] as Record<string, unknown>;
+    expect((tool.guards as { rateLimitPerMin: number }).rateLimitPerMin).toBe(5);
+    expect((tool.overrides as { description: string }).description).toBe("Override");
   });
 
   test("dry-run import reports a plan but mutates nothing", async () => {
@@ -124,13 +127,13 @@ describe("config export/import", () => {
     createConsumer({ name: "acme", monthlyQuota: 1000, actor: "t" });
 
     const doc = exportConfig();
-    expect(doc.guardrails).toEqual([
-      {
-        client: "svc",
-        tool: "get-users",
-        guardrails: { denyPatterns: ["DROP TABLE"], blockSecrets: true, scanResponses: false },
-      },
-    ]);
+    // Guardrails now travel inside their tool, like every other policy in the
+    // mutation registry, rather than in a separate top-level array.
+    const tool = doc.clients.find((c) => c.name === "svc")!.tools.find((t) => t.name === "get-users") as Record<
+      string,
+      unknown
+    >;
+    expect(tool.guardrails).toEqual({ denyPatterns: ["DROP TABLE"], blockSecrets: true, scanResponses: false });
     expect(doc.consumers).toEqual([{ name: "acme", monthlyQuota: 1000, endUserRateLimitPerMin: null }]);
 
     // Fresh environment: guardrails/consumers must be recreated by import.
@@ -139,7 +142,11 @@ describe("config export/import", () => {
     await reg("svc");
 
     const result = await importConfig(doc, { dryRun: false }, "t");
-    expect(result.applied.guardrails).toBe(1);
+    // Guardrails are applied through the tool loop now, so they count toward
+    // toolsConfigured; `applied.guardrails` only moves for a legacy document
+    // that still carries the separate top-level array.
+    expect(result.applied.guardrails).toBe(0);
+    expect(result.applied.toolsConfigured).toBeGreaterThan(0);
     expect(result.applied.consumers).toBe(1);
     expect(getGuardrails("svc", "get-users")).toEqual({
       denyPatterns: ["DROP TABLE"],
@@ -228,5 +235,96 @@ describe("config export/import", () => {
     const result = await importConfig(doc, { dryRun: false }, "t");
     expect(result.skipped.some((s) => s.type === "guardrail" && s.id === "ghost__t")).toBe(true);
     expect(result.applied.guardrails).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The gap the per-tool policy manifest closed.
+//
+// Export used to carry a hand-picked trio (enabled / guards / override) plus a
+// top-level guardrails array. Every other per-tool policy — cache, coalesce,
+// pagination, streaming, transform, mock, redaction, sensitivity, quarantine,
+// context budget, approval thresholds — was silently absent, so a snapshot
+// looked complete and a rollback quietly left all of them untouched.
+// ---------------------------------------------------------------------------
+describe("per-tool policies round-trip through the mutation registry", () => {
+  test("policies that used to be dropped now survive export -> fresh instance -> import", async () => {
+    await reg("svc");
+    const { applyToolMutations } = await import("../admin/tool-policies/mutations/index.js");
+    const configured = {
+      cache: { enabled: true, ttlSeconds: 300 },
+      coalesce: { enabled: true },
+      redactPaths: ["data.ssn"],
+      sensitive: true,
+      pagination: {
+        enabled: true,
+        strategy: "cursor",
+        itemsPath: "items",
+        cursorResponsePath: "next",
+        cursorParam: "cursor",
+        maxPages: 5,
+      },
+      streaming: { enabled: true, format: "sse", maxEvents: 25 },
+      mock: { enabled: true, mode: "fallback", response: '{"stub":true}' },
+      requiresApproval: true,
+      approvalLevels: 2,
+    };
+    const { failures } = await applyToolMutations(configured, { actor: "t", clientName: "svc", toolName: "get-users" });
+    expect(failures).toEqual([]);
+
+    const doc = exportConfig();
+
+    __resetDbForTesting();
+    await clearRegistry();
+    await reg("svc");
+
+    const result = await importConfig(doc, { dryRun: false }, "t");
+    expect(result.skipped).toEqual([]);
+
+    const { readToolPolicies } = await import("../admin/tool-policies/mutations/index.js");
+    const restored = readToolPolicies("svc", "get-users");
+    expect(restored.cache).toEqual({ enabled: true, ttlSeconds: 300 });
+    expect(restored.coalesce).toEqual({ enabled: true });
+    expect(restored.redactPaths).toEqual(["data.ssn"]);
+    expect(restored.sensitive).toBe(true);
+    expect(restored.streaming).toEqual({ enabled: true, format: "sse", maxEvents: 25 });
+    expect(restored.mock).toEqual({ enabled: true, mode: "fallback", response: '{"stub":true}' });
+    expect(restored.requiresApproval).toBe(true);
+    expect(restored.approvalLevels).toBe(2);
+  });
+
+  test("a legacy document — `override` singular and a top-level guardrails array — still applies", async () => {
+    await reg("svc");
+    const legacy = {
+      version: 1,
+      exportedAt: Date.now(),
+      bundles: [],
+      alertRules: [],
+      clients: [
+        {
+          name: "svc",
+          enabled: true,
+          guards: null,
+          tools: [{ name: "get-users", enabled: true, guards: null, override: { description: "from an old export" } }],
+        },
+      ],
+      guardrails: [
+        {
+          client: "svc",
+          tool: "get-users",
+          guardrails: { denyPatterns: ["legacy"], blockSecrets: true, scanResponses: false },
+        },
+      ],
+      consumers: [],
+    };
+
+    const result = await importConfig(legacy, { dryRun: false }, "t");
+    expect(result.skipped).toEqual([]);
+    expect(result.applied.guardrails).toBe(1);
+
+    const { readToolPolicies } = await import("../admin/tool-policies/mutations/index.js");
+    const restored = readToolPolicies("svc", "get-users");
+    expect((restored.overrides as { description: string }).description).toBe("from an old export");
+    expect(restored.guardrails).toEqual({ denyPatterns: ["legacy"], blockSecrets: true, scanResponses: false });
   });
 });

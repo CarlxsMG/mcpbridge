@@ -5,7 +5,7 @@
  * base URL. See `./index.ts` for the dispatcher and the `ToolMutation`
  * contract.
  */
-import { setToolGraphql } from "../../../proxy/backends.js";
+import { setToolGraphql, getToolGraphql } from "../../../proxy/backends.js";
 import type { ToolMutation } from "./types.js";
 
 export const graphqlMutation: ToolMutation = {
@@ -29,6 +29,7 @@ export const graphqlMutation: ToolMutation = {
     const ok = setToolGraphql(ctx.clientName, ctx.toolName, { enabled: v.enabled, query: v.query });
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
+  read: (clientName, toolName) => getToolGraphql(clientName, toolName) ?? undefined,
   audit: (_raw, parsed) => {
     const v = parsed as { kind: "clear" } | { kind: "set" };
     return { action: v.kind === "clear" ? "tool.graphql.clear" : "tool.graphql.set" };

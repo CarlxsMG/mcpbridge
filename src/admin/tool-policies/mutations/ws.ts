@@ -5,7 +5,7 @@
  * `setToolWs` against the same allow-list as REST backends.
  * See `./index.ts` for the dispatcher and the `ToolMutation` contract.
  */
-import { setToolWs } from "../../../proxy/backends.js";
+import { setToolWs, getToolWs } from "../../../proxy/backends.js";
 import type { ToolMutation } from "./types.js";
 
 export const wsMutation: ToolMutation = {
@@ -49,6 +49,7 @@ export const wsMutation: ToolMutation = {
     }
     return { kind: "ok" };
   },
+  read: (clientName, toolName) => getToolWs(clientName, toolName) ?? undefined,
   audit: (_raw, parsed) => {
     const v = parsed as { kind: "clear" } | { kind: "set"; persistent: boolean };
     if (v.kind === "clear") return { action: "tool.ws.clear" };

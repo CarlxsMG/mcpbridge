@@ -29,5 +29,6 @@ export const overridesMutation: ToolMutation = {
       throw err;
     }
   },
+  read: (clientName, toolName) => registry.getClientTools(clientName)?.find((t) => t.name === toolName)?.override,
   audit: () => ({ action: "tool.override.update" }),
 };

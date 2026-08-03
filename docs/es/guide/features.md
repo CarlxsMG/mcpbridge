@@ -95,7 +95,7 @@ y **[Control de acceso →](/es/guide/access-control)**.
 - **Dashboard de widgets personalizable** — una grid de Overview estilo Grafana: añade,
   redimensiona y configura widgets de stat/chart/nota desde un catálogo, y exporta o importa
   el layout entero.
-- **Versionado de config + rollback**, más import/export de toda la configuración.
+- **Versionado de config + rollback**, más import/export de servidores, políticas por tool, bundles, reglas de alerta y quotas de consumers (mira [Deployment](/es/guide/deployment#persistencia-y-backups) para lo que queda fuera).
 - **Programaciones de mantenimiento** vía un matcher cron integrado (gated por leader, deduplicado).
 
 **Resiliencia** — ver **[Guardrails y resiliencia →](/es/guide/guardrails-resilience)**

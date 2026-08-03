@@ -15,5 +15,9 @@ export const enabledMutation: ToolMutation = {
     const ok = await registry.setToolEnabled(ctx.clientName, ctx.toolName, parsed as boolean);
     return ok ? { kind: "ok" } : { kind: "tool_not_found" };
   },
+  // Always exported, unlike the opt-in policies: `enabled` has no "unset"
+  // state, and an export that omitted a disabled tool's flag would silently
+  // re-enable it on import.
+  read: (clientName, toolName) => registry.getClientTools(clientName)?.find((t) => t.name === toolName)?.enabled,
   audit: (_raw, parsed) => ({ action: parsed ? "tool.enable" : "tool.disable" }),
 };

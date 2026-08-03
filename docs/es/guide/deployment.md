@@ -138,8 +138,12 @@ presente.
 
 Todo el estado durable vive en la base de datos SQLite (`DB_PATH`, por defecto
 `/app/data/mcp-bridge.db` en Docker). Haz backup como cualquier fichero SQLite; usa
-`:memory:` solo para runs throwaway. También puedes **export/import** la configuración
-completa como JSON desde la UI de admin o `/admin-api/config`.
+`:memory:` solo para runs throwaway. También puedes **export/import** configuración como JSON
+desde la UI de admin o `/admin-api/config` — eso abarca los servidores registrados con sus
+guardas de cliente y todas las políticas por tool, más bundles, reglas de alerta y quotas de
+consumers, pero **no** schedules, políticas de guardas, equipos, usuarios, entradas del
+catálogo, targets del proxy WebSocket, claves de API ni el registro de auditoría. El rollback
+de config restaura ese mismo subconjunto; no sustituye a un backup de la base de datos.
 
 Para un backup full-database on-demand sin tener que entrar al host, `POST /admin-api/backup`
 produce un snapshot transaccionalmente consistente (SQLite `VACUUM INTO`) y lo streamea

@@ -77,41 +77,79 @@ export const TOOL_MUTATIONS: readonly ToolMutation[] = [
   contextBudgetMutation,
 ];
 
+/** One body key that could not be applied, with everything both callers need to report it. */
+export type MutationFailure =
+  | { kind: "validation_error"; key: string; message: string }
+  | { kind: "tool_not_found"; key: string; message: string }
+  | { kind: "downstream_error"; key: string; message: string; status: number; code: string };
+
+/** Outcome of {@link applyToolMutations}: how many keys landed, and which did not. */
+export interface ApplyToolMutationsResult {
+  applied: number;
+  failures: MutationFailure[];
+}
+
 /**
- * Runs every entry in {@link TOOL_MUTATIONS} whose `body[key]` is defined.
+ * Runs every entry in {@link TOOL_MUTATIONS} whose `body[key]` is defined, and
+ * reports what happened. Knows nothing about HTTP.
  *
- * Returns `null` on success (caller responds 200) or a sentinel string
- * identifying the failure case the dispatcher already wrote to `res`
- * (caller short-circuits). The split between null and sentinel keeps the
- * call site in the route handler short without dragging in a
- * discriminated-union result type for the rare failure case.
+ * Split out of {@link dispatchToolMutations} so config import can replay an
+ * exported policy document through the SAME validate → apply → audit path an
+ * admin's PATCH takes, instead of maintaining a second, drifting copy of the
+ * per-policy write logic. That symmetry is what makes the export format
+ * trustworthy: an exported tool document is literally a PATCH body.
+ *
+ * `stopOnFirstFailure` is the one behavioural difference between the two
+ * callers, and both defaults are deliberate:
+ *   - PATCH stops (default). A caller sent one request and gets one error
+ *     back; continuing past a rejected key would apply later keys the client
+ *     never learns about.
+ *   - Import continues. A config document covers many keys across many tools,
+ *     and one bad key — a displayName alias that now collides, a monitor whose
+ *     tool_examples row does not exist on this instance — must not discard the
+ *     other seventeen. This preserves the partial-application behaviour the
+ *     hand-written import loop had for exactly that reason.
  */
-export async function dispatchToolMutations(
+export async function applyToolMutations(
   body: Record<string, unknown>,
   ctx: MutationContext,
-  res: DispatcherResponse,
-): Promise<DispatchOutcome> {
+  opts: { stopOnFirstFailure?: boolean } = {},
+): Promise<ApplyToolMutationsResult> {
+  const stopOnFirstFailure = opts.stopOnFirstFailure ?? true;
+  const failures: MutationFailure[] = [];
   let purgeCache = false;
+  let applied = 0;
+
   for (const mutation of TOOL_MUTATIONS) {
     if (body[mutation.key] === undefined) continue;
 
     const parsed = mutation.validate(body[mutation.key], body);
     if (!parsed.ok) {
-      validationError(res, parsed.message);
-      return "validation_error";
+      failures.push({ kind: "validation_error", key: mutation.key, message: parsed.message });
+      if (stopOnFirstFailure) break;
+      continue;
     }
 
     const result: MutationApplyResult = await mutation.apply(ctx, parsed.value);
     if (result.kind === "tool_not_found") {
-      notFound(res, "TOOL_NOT_FOUND", "Client or tool not found");
-      return "tool_not_found";
+      failures.push({ kind: "tool_not_found", key: mutation.key, message: "Client or tool not found" });
+      if (stopOnFirstFailure) break;
+      continue;
     }
     if (result.kind === "error") {
-      sendError(res, result.status, result.code, result.reason ?? result.code);
-      return "downstream_error";
+      failures.push({
+        kind: "downstream_error",
+        key: mutation.key,
+        message: result.reason ?? result.code,
+        status: result.status,
+        code: result.code,
+      });
+      if (stopOnFirstFailure) break;
+      continue;
     }
 
     if (mutation.purgesCache) purgeCache = true;
+    applied++;
 
     const { action, meta } = mutation.audit(body[mutation.key], parsed.value);
     recordAudit(ctx.actor, action, auditTarget(ctx), meta);
@@ -119,5 +157,55 @@ export async function dispatchToolMutations(
   // A response-shaping policy changed: drop any responses cached under the old
   // policy so a hit can't keep serving the pre-change (e.g. un-redacted) body.
   if (purgeCache) purgeToolCache(ctx.clientName, ctx.toolName);
-  return null;
+  return { applied, failures };
+}
+
+/**
+ * Reads every policy in {@link TOOL_MUTATIONS} back for one tool, in the exact
+ * body shape {@link applyToolMutations} accepts. Unset policies are omitted, so
+ * a tool with no configuration exports as `{ enabled: true }` rather than as
+ * eighteen nulls.
+ *
+ * Because the registry drives this, a policy added later is exported the day it
+ * is added — the omission that left fifteen per-tool policies out of every
+ * config snapshot and rollback is not expressible any more.
+ */
+export function readToolPolicies(clientName: string, toolName: string): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const mutation of TOOL_MUTATIONS) {
+    const value = mutation.read(clientName, toolName);
+    if (value !== undefined) out[mutation.key] = value;
+    const companions = mutation.readCompanions?.(clientName, toolName);
+    if (companions) Object.assign(out, companions);
+  }
+  return out;
+}
+
+/**
+ * HTTP adapter over {@link applyToolMutations} for the PATCH route.
+ *
+ * Returns `null` on success (caller responds 200) or a sentinel string
+ * identifying the failure case this already wrote to `res` (caller
+ * short-circuits). The split between null and sentinel keeps the call site in
+ * the route handler short without dragging in a discriminated-union result type
+ * for the rare failure case.
+ */
+export async function dispatchToolMutations(
+  body: Record<string, unknown>,
+  ctx: MutationContext,
+  res: DispatcherResponse,
+): Promise<DispatchOutcome> {
+  const { failures } = await applyToolMutations(body, ctx, { stopOnFirstFailure: true });
+  const failure = failures[0];
+  if (!failure) return null;
+  if (failure.kind === "validation_error") {
+    validationError(res, failure.message);
+    return "validation_error";
+  }
+  if (failure.kind === "tool_not_found") {
+    notFound(res, "TOOL_NOT_FOUND", failure.message);
+    return "tool_not_found";
+  }
+  sendError(res, failure.status, failure.code, failure.message);
+  return "downstream_error";
 }
