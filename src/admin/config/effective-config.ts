@@ -64,6 +64,12 @@ export interface EffectiveConfig {
  */
 function isPresent(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return false;
+  // The array branch reads as a special case but is equivalent for every value
+  // this can actually receive: redacted keys are `string | string[] |
+  // undefined`, and `"abc".length > 0` agrees with the `return true` below on
+  // every non-empty string. Kept because `unknown` does not promise that, and
+  // because reading it as "an empty list is not auth material" is the point.
+  // Stryker reports removing it as a survivor and always will.
   if (Array.isArray(value)) return value.length > 0;
   return true;
 }
