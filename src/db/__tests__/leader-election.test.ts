@@ -31,7 +31,17 @@ function tryAcquireAsOtherInstance(db: Database, holderId: string, now: number, 
 function cleanupFile() {
   for (const suffix of ["", "-wal", "-shm", "-journal"]) {
     const p = `${dbPath}${suffix}`;
-    if (existsSync(p)) rmSync(p);
+    if (!existsSync(p)) continue;
+    try {
+      rmSync(p);
+    } catch {
+      // Best-effort, and it runs from afterEach: Windows can still hold a lock
+      // briefly after close() returns, and these tests deliberately open a
+      // SECOND handle on the same file to simulate a contending instance. An
+      // unguarded throw here fails the whole file from teardown, pointing at
+      // no assertion — the scratch dir is ephemeral, so a stray sidecar is not
+      // worth that. Mirrors backup.test.ts's cleanupDbFiles.
+    }
   }
 }
 

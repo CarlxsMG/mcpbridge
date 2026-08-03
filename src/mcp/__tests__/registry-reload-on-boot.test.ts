@@ -85,9 +85,18 @@ describe("Persisted enabled state survives a real SQLite file close + reopen", (
 
   afterEach(() => {
     __resetDbForTesting();
-    if (existsSync(dbPath)) rmSync(dbPath);
-    if (existsSync(`${dbPath}-wal`)) rmSync(`${dbPath}-wal`);
-    if (existsSync(`${dbPath}-shm`)) rmSync(`${dbPath}-shm`);
+    for (const suffix of ["", "-wal", "-shm"]) {
+      const p = `${dbPath}${suffix}`;
+      if (!existsSync(p)) continue;
+      try {
+        rmSync(p);
+      } catch {
+        // Best-effort, and it runs from afterEach: Windows can hold a lock
+        // briefly after close() returns, and an unguarded throw here fails the
+        // file from teardown while pointing at no assertion. The scratch dir is
+        // ephemeral. Mirrors backup.test.ts's cleanupDbFiles.
+      }
+    }
   });
 
   afterAll(() => {
