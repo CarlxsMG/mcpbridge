@@ -70,6 +70,14 @@ export default defineConfig({
       RATE_LIMIT_GLOBAL: "1000000",
       RATE_LIMIT_EXPENSIVE: "100000",
 
+      // Probe backends every 1.5s instead of every 30s so health-check eviction
+      // (MAX_CONSECUTIVE_FAILURES consecutive failures, default 3) completes in
+      // a few seconds and can be asserted inside a test timeout. Only the client
+      // registered against the fixture's /health-toggle endpoint can actually
+      // fail — /health is unconditionally 200 — so the faster loop costs the
+      // other clients a cheap 200 and can never evict one out from under a spec.
+      HEALTH_CHECK_INTERVAL_MS: "1500",
+
       // Trip breakers on the second consecutive failure instead of the third,
       // so circuit-breaker.spec.ts needs one less round trip to open one. Specs
       // that care about the exact number set it per client via the admin API.

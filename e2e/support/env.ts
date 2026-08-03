@@ -40,6 +40,9 @@ export const FIXTURE_GRAPHQL_PATH = "/graphql";
  * by IP: `pinnedWsDial` returns a raw-IP URL unchanged, so a `127.0.0.1` target
  * would skip the very rewrite the spec exists to pin.
  */
+/** Health endpoint that CAN be made to fail — only the eviction spec registers against it. */
+export const FIXTURE_HEALTH_TOGGLE_PATH = "/health-toggle";
+
 export const FIXTURE_WS_PATH = "/ws";
 export const FIXTURE_WS_HOSTNAME = "localhost";
 export const FIXTURE_WS_URL = `ws://${FIXTURE_WS_HOSTNAME}:${FIXTURE_PORT}${FIXTURE_WS_PATH}`;

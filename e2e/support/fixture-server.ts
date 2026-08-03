@@ -12,6 +12,12 @@
  *                                   evicts unhealthy clients, which would remove
  *                                   a client out from under the breaker spec
  *                                   before its breaker could trip.
+ *   GET  /health-toggle          -> 200, or 503 while marked health-down. A
+ *                                   SEPARATE endpoint on purpose: /health must
+ *                                   stay up for every other client, since the
+ *                                   eviction loop would otherwise tear down
+ *                                   clients belonging to specs that never asked.
+ *   GET  /ws                     -> WebSocket upstream (records each handshake)
  *   GET  /openapi.json           -> fixtures/simple-openapi.json, unchanged
  *   GET  /openapi-extended.json  -> the e2e-only superset (openapi-extended.ts)
  *   POST /graphql                -> introspection + resolved data (graphql-fixture.ts)
@@ -21,6 +27,7 @@
  *   GET  /api/v1/slow            -> responds after ?ms (capped)
  *   GET  /api/v1/echo            -> reflects the headers/query the bridge sent
  *   POST /__control/down|up      -> toggles the flaky endpoint
+ *   POST /__control/health-down|health-up -> toggles /health-toggle
  *   GET  /__control/state        -> current flag + per-endpoint hit counts
  *
  * POST /api/v1/users stays unhandled (404) on purpose — mcp-protocol.spec.ts
@@ -57,6 +64,8 @@ const MAX_SLOW_MS = 10_000;
 const state = {
   /** While true, GET /api/v1/flaky returns 500. Flipped via the control channel. */
   flakyDown: false,
+  /** While true, GET /health-toggle returns 503 — drives health-check eviction. */
+  healthDown: false,
   /** Per-path hit counts — lets a spec assert the bridge stopped calling upstream. */
   hits: {} as Record<string, number>,
   /**
@@ -108,8 +117,23 @@ export function createFixtureServer(): Server {
         sendJson(res, 200, { status: "up" });
         return;
       }
+      if (action === "/health-down") {
+        state.healthDown = true;
+        sendJson(res, 200, { status: "health-down" });
+        return;
+      }
+      if (action === "/health-up") {
+        state.healthDown = false;
+        sendJson(res, 200, { status: "health-up" });
+        return;
+      }
       if (action === "/state") {
-        sendJson(res, 200, { flakyDown: state.flakyDown, hits: state.hits, wsHandshakes: state.wsHandshakes });
+        sendJson(res, 200, {
+          flakyDown: state.flakyDown,
+          healthDown: state.healthDown,
+          hits: state.hits,
+          wsHandshakes: state.wsHandshakes,
+        });
         return;
       }
       if (action === "/ws-reset") {
@@ -123,6 +147,23 @@ export function createFixtureServer(): Server {
 
     // ── Discovery documents ──────────────────────────────────────────────────
     if (path === "/health") {
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end("ok");
+      return;
+    }
+
+    // A SECOND health endpoint that can be made to fail, for the health-check
+    // eviction spec. Deliberately not a flag on `/health`: that one must stay
+    // 200 for every other client in the suite, since the background loop evicts
+    // on consecutive failures and would tear down clients belonging to specs
+    // that never asked for it. A client registered against this path is the
+    // only one affected.
+    if (path === "/health-toggle") {
+      if (state.healthDown) {
+        res.writeHead(503, { "content-type": "text/plain" });
+        res.end("unhealthy");
+        return;
+      }
       res.writeHead(200, { "content-type": "text/plain" });
       res.end("ok");
       return;
