@@ -149,7 +149,8 @@
     "action_failed": "Action failed.",
     "preview_failed": "Preview failed.",
     "not_authenticated": "Not authenticated",
-    "request_failed_with_status": "Request failed with status {status}"
+    "request_failed_with_status": "Request failed with status {status}",
+    "request_ref": "Request ref"
   },
   "sidebar": {
     "brand_live_title": "Live traffic in the last minute",

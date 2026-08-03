@@ -23,6 +23,7 @@ const {
   data: items,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<BundleSummary[]>(
   async () => (await api.get<{ items: BundleSummary[] }>("/admin-api/bundles")).items,
@@ -47,7 +48,7 @@ function toggleEnabled(bundle: BundleSummary) {
       <template #endpoint><code>/mcp-custom/&lt;name&gt;</code></template>
     </i18n-t>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :error-request-id="errorRequestId" :empty="items.length === 0">
       <template #empty>
         <EmptyState :icon="Boxes">
           {{ t("pages.bundles.empty.no_bundles") }}

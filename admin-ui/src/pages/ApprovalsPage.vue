@@ -35,7 +35,7 @@ const activeTabLabel = computed(() => TABS.value.find((tb) => tb.key === activeT
 const summary = ref<ApprovalRecord[]>([]);
 const tableItems = ref<ApprovalRecord[]>([]);
 const loadFallback = tk("pages.approvals.errors.load_failed");
-const { loading, errorMessage, run } = useLoadState(loadFallback);
+const { loading, errorMessage, errorRequestId, run } = useLoadState(loadFallback);
 const decidingId = ref<number | null>(null);
 const noteDraft = reactive<Record<number, string>>({});
 
@@ -147,7 +147,12 @@ async function confirmReject() {
 
     <TabStrip v-model="activeTab" :tabs="TABS" :aria-label="t('pages.approvals.tab_aria')" />
 
-    <ListLayout :loading="loading && !tableItems.length" :error="errorMessage" :empty="tableItems.length === 0">
+    <ListLayout
+      :loading="loading && !tableItems.length"
+      :error="errorMessage"
+      :error-request-id="errorRequestId"
+      :empty="tableItems.length === 0"
+    >
       <template #empty>
         <EmptyState :icon="ClipboardCheck" muted>
           <template v-if="activeTab === 'pending'">{{ t("pages.approvals.empty.nothing_pending") }}</template>

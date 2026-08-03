@@ -21,6 +21,7 @@ const {
   data: teams,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<Team[]>(
   async () => (await api.get<{ items: Team[] }>("/admin-api/teams")).items,
@@ -54,7 +55,7 @@ async function confirmRemove() {
       <RouterLink to="/teams/new" class="btn-primary">{{ t("pages.teams.new_team") }}</RouterLink>
     </PageHeader>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="teams.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :error-request-id="errorRequestId" :empty="teams.length === 0">
       <template #empty>
         <EmptyState :icon="UsersRound">
           {{ t("pages.teams.empty") }}

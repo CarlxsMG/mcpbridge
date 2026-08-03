@@ -32,6 +32,7 @@ const {
   data: users,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<AdminUserSummary[]>(
   async () => (await api.get<{ users: AdminUserSummary[] }>("/admin-api/users")).users,
@@ -168,7 +169,7 @@ function confirmDelete() {
     <p v-if="teamChangeError" class="error" role="alert">{{ teamChangeError }}</p>
     <p v-if="teamsError" class="error" role="alert">{{ teamsError }}</p>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="users.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :error-request-id="errorRequestId" :empty="users.length === 0">
       <template #empty>
         <EmptyState :icon="UserCog">
           {{ t("pages.users.empty") }}

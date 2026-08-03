@@ -1,5 +1,5 @@
 import { ref, computed, watch, type Ref } from "vue";
-import { toErrorMessage } from "@/utils/errors";
+import { useErrorState } from "./useErrorState";
 
 /**
  * Generalizes the draft/dirty/save trio hand-rolled per-field in
@@ -28,7 +28,7 @@ export function useFieldDraft<T>(
   const lastSynced = ref<T>(source()) as Ref<T>;
   const dirty = computed(() => !isEqual(draft.value, source()));
   const saving = ref(false);
-  const errorMessage = ref("");
+  const { message: errorMessage, requestId: errorRequestId, capture, clear } = useErrorState();
 
   function sync() {
     draft.value = source();
@@ -42,17 +42,17 @@ export function useFieldDraft<T>(
   async function commit() {
     if (!dirty.value) return;
     saving.value = true;
-    errorMessage.value = "";
+    clear();
     try {
       await save(draft.value);
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, options?.fallbackMessage ?? "Failed to save.");
+      capture(err, options?.fallbackMessage ?? "Failed to save.");
     } finally {
       saving.value = false;
     }
   }
 
-  return { draft, dirty, saving, errorMessage, sync, syncIfUntouched, commit };
+  return { draft, dirty, saving, errorMessage, errorRequestId, sync, syncIfUntouched, commit };
 }
 
 /**

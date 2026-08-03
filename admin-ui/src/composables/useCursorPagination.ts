@@ -21,7 +21,7 @@ export function useCursorPagination<T>(
   const nextCursor = ref<string | undefined>();
   const cursorStack = ref<(string | undefined)[]>([]);
   const currentCursor = ref<string | undefined>(options?.initialCursor);
-  const { loading, errorMessage, run } = useLoadState(options?.fallbackMessage);
+  const { loading, errorMessage, errorRequestId, run } = useLoadState(options?.fallbackMessage);
 
   // Split from `load` so next()/prev() can pass an explicit cursor — including
   // `undefined`, meaning "go back to the very first, cursor-less page" — without
@@ -75,6 +75,7 @@ export function useCursorPagination<T>(
     items,
     loading,
     errorMessage,
+    errorRequestId,
     load,
     reset,
     next,

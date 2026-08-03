@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { toErrorMessage } from "@/utils/errors";
+import { useErrorState } from "./useErrorState";
 import { tk } from "@/i18n";
 
 /**
@@ -51,12 +51,15 @@ export function useCreateForm<T>(options: {
 }) {
   const router = useRouter();
   const creating = ref(false);
-  const error = ref("");
+  const { message: error, requestId: errorRequestId, capture, clear } = useErrorState();
 
   async function run(validate?: () => string | null | undefined): Promise<boolean> {
-    error.value = "";
+    clear();
     const validationError = validate?.();
     if (validationError) {
+      // Assigned straight to the message: a client-side validation failure has
+      // no request behind it, and useErrorState's derived `requestId` returns
+      // null for any message it did not itself capture.
       error.value = validationError;
       return false;
     }
@@ -69,12 +72,12 @@ export function useCreateForm<T>(options: {
       }
       return true;
     } catch (err) {
-      error.value = toErrorMessage(err, tk(options.fallbackKey));
+      capture(err, tk(options.fallbackKey));
       return false;
     } finally {
       creating.value = false;
     }
   }
 
-  return { creating, error, run };
+  return { creating, error, errorRequestId, run };
 }

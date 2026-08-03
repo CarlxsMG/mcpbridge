@@ -149,7 +149,8 @@
     "action_failed": "La acción falló.",
     "preview_failed": "La vista previa falló.",
     "not_authenticated": "No autenticado",
-    "request_failed_with_status": "Petición fallida con código {status}"
+    "request_failed_with_status": "Petición fallida con código {status}",
+    "request_ref": "Referencia de la petición"
   },
   "sidebar": {
     "brand_live_title": "Tráfico en vivo en el último minuto",

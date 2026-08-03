@@ -1,5 +1,5 @@
 import { ref, type Ref } from "vue";
-import { toErrorMessage } from "@/utils/errors";
+import { useErrorState } from "./useErrorState";
 
 /**
  * Generalizes the "create/edit inline form" quartet (open/editing/busy/error
@@ -17,12 +17,12 @@ export function useEntityForm<E>(options: { reset: () => void; fill?: (entity: E
   const open = ref(false);
   const editing = ref<E | null>(null) as Ref<E | null>;
   const busy = ref(false);
-  const error = ref("");
+  const { message: error, requestId: errorRequestId, capture, clear } = useErrorState();
 
   function openCreate(): void {
     editing.value = null;
     options.reset();
-    error.value = "";
+    clear();
     open.value = true;
   }
 
@@ -30,7 +30,7 @@ export function useEntityForm<E>(options: { reset: () => void; fill?: (entity: E
     editing.value = entity;
     options.reset();
     options.fill?.(entity);
-    error.value = "";
+    clear();
     open.value = true;
   }
 
@@ -38,23 +38,23 @@ export function useEntityForm<E>(options: { reset: () => void; fill?: (entity: E
     open.value = false;
     editing.value = null;
     options.reset();
-    error.value = "";
+    clear();
   }
 
   async function submit(action: (editing: E | null) => Promise<void>, fallbackMessage: string): Promise<boolean> {
     busy.value = true;
-    error.value = "";
+    clear();
     try {
       await action(editing.value);
       close();
       return true;
     } catch (err) {
-      error.value = toErrorMessage(err, fallbackMessage);
+      capture(err, fallbackMessage);
       return false;
     } finally {
       busy.value = false;
     }
   }
 
-  return { open, editing, busy, error, openCreate, openEdit, close, submit };
+  return { open, editing, busy, error, errorRequestId, openCreate, openEdit, close, submit };
 }

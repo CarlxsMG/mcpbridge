@@ -69,6 +69,7 @@ const {
   items: entries,
   loading,
   errorMessage,
+  errorRequestId,
   load,
   loadMore,
   hasNext,
@@ -214,7 +215,12 @@ onMounted(() => {
       }}</span>
     </p>
 
-    <ListLayout :loading="loading && !entries.length" :error="errorMessage" :empty="entries.length === 0">
+    <ListLayout
+      :loading="loading && !entries.length"
+      :error="errorMessage"
+      :error-request-id="errorRequestId"
+      :empty="entries.length === 0"
+    >
       <template #empty>
         <EmptyState :icon="ScrollText">
           <template v-if="hasActiveFilters">

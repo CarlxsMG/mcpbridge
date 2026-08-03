@@ -28,7 +28,7 @@ const revokeFallback = tk("pages.keys.errors.revoke_failed");
 const deleteFallback = tk("pages.keys.errors.delete_failed");
 const updateFallback = tk("errors.update_failed");
 
-const { loading, errorMessage, run } = useLoadState(loadFallback);
+const { loading, errorMessage, errorRequestId, run } = useLoadState(loadFallback);
 const consumers = ref<Consumer[]>([]);
 
 const { rowError, toggle: toggleField } = useOptimisticToggle<McpApiKey>((k) => k.id, updateFallback);
@@ -154,7 +154,7 @@ function confirmDelete() {
       <RouterLink to="/keys/new" class="btn-primary">{{ t("pages.keys.mint_key") }}</RouterLink>
     </PageHeader>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="keys.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :error-request-id="errorRequestId" :empty="keys.length === 0">
       <template #empty>
         <EmptyState :icon="KeyRound">
           {{ t("pages.keys.empty") }}

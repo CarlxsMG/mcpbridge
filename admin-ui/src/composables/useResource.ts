@@ -1,5 +1,5 @@
 import { ref, type Ref } from "vue";
-import { toErrorMessage } from "@/utils/errors";
+import { useErrorState } from "./useErrorState";
 import { tk } from "@/i18n";
 
 /**
@@ -15,22 +15,24 @@ import { tk } from "@/i18n";
  */
 export function useLoadState(fallbackMessage = tk("errors.load_failed")) {
   const loading = ref(false);
-  const errorMessage = ref("");
+  // `errorMessage` keeps its name (28 pages bind it to ListLayout's `error`);
+  // `errorRequestId` is its correlation id, for ListLayout's `errorRequestId`.
+  const { message: errorMessage, requestId: errorRequestId, capture, clear } = useErrorState();
 
   async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
     loading.value = true;
-    errorMessage.value = "";
+    clear();
     try {
       return await fn();
     } catch (err) {
-      errorMessage.value = toErrorMessage(err, fallbackMessage);
+      capture(err, fallbackMessage);
       return undefined;
     } finally {
       loading.value = false;
     }
   }
 
-  return { loading, errorMessage, run };
+  return { loading, errorMessage, errorRequestId, run };
 }
 
 /**
@@ -50,7 +52,7 @@ export function useLoadState(fallbackMessage = tk("errors.load_failed")) {
  *   instead of re-deriving success from `errorMessage`.
  */
 export function useResource<T>(fetcher: () => Promise<T>, initialValue: T, fallbackMessage = tk("errors.load_failed")) {
-  const { loading, errorMessage, run } = useLoadState(fallbackMessage);
+  const { loading, errorMessage, errorRequestId, run } = useLoadState(fallbackMessage);
   const data = ref(initialValue) as Ref<T>;
 
   async function load(): Promise<T | undefined> {
@@ -59,5 +61,5 @@ export function useResource<T>(fetcher: () => Promise<T>, initialValue: T, fallb
     return result;
   }
 
-  return { data, loading, errorMessage, load };
+  return { data, loading, errorMessage, errorRequestId, load };
 }

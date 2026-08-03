@@ -76,6 +76,7 @@ const {
   items,
   loading,
   errorMessage,
+  errorRequestId,
   load,
   reset,
   next: nextPage,
@@ -318,7 +319,7 @@ onMounted(() => load());
       <span v-if="bulkError" class="error" role="alert">{{ bulkError }}</span>
     </div>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :error-request-id="errorRequestId" :empty="items.length === 0">
       <template #empty>
         <EmptyState :icon="Server">
           <template v-if="q || enabledFilter">

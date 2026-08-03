@@ -27,6 +27,7 @@ const {
   data: items,
   loading,
   errorMessage,
+  errorRequestId,
   load,
 } = useResource<CatalogEntry[]>(
   async () => (await api.get<{ items: CatalogEntry[] }>("/admin-api/catalog")).items,
@@ -124,7 +125,7 @@ function confirmDelete() {
       <RouterLink to="/catalog/new" class="btn-primary">{{ t("pages.catalog.add_entry") }}</RouterLink>
     </PageHeader>
 
-    <ListLayout :loading="loading" :error="errorMessage" :empty="items.length === 0">
+    <ListLayout :loading="loading" :error="errorMessage" :error-request-id="errorRequestId" :empty="items.length === 0">
       <template #empty>
         <EmptyState :icon="LayoutGrid">{{ t("pages.catalog.empty.no_entries") }}</EmptyState>
       </template>

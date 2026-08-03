@@ -13,6 +13,22 @@ describe("ListLayout", () => {
     expect(error.text()).toBe("Failed to load servers.");
   });
 
+  it("passes errorRequestId through to the ref line", () => {
+    const wrapper = mount(ListLayout, {
+      props: { loading: false, empty: false, error: "Failed to load servers.", errorRequestId: "req-42" },
+    });
+
+    expect(wrapper.find(".error-ref code").text()).toBe("req-42");
+  });
+
+  it("renders no ref line when the page passes no errorRequestId (the 28 pre-existing call sites)", () => {
+    const wrapper = mount(ListLayout, {
+      props: { loading: false, empty: false, error: "Failed to load servers." },
+    });
+
+    expect(wrapper.find(".error-ref").exists()).toBe(false);
+  });
+
   it("does not show the error paragraph when error is undefined", () => {
     const wrapper = mount(ListLayout, {
       props: { loading: false, empty: false },
