@@ -320,6 +320,21 @@ canonical feature list lives in `docs/guide/features.md`.
   This is cheap (`git stash push -- <src file>`, re-run, `git stash pop`) and it has changed the
   verdict here more than once — killing a "defect" that was never real, and resurrecting one that
   had been reasoned away.
+- **`admin-ui/src/types/api.ts` is gated against `src/openapi.yaml`, at compile time.**
+  `openapi-typescript` regenerates `types/openapi.generated.ts` on every admin-ui `typecheck`
+  and `build`, and `types/openapi-drift.ts` asserts 30 mirrored types against it — a property
+  the UI type has and the spec doesn't (or vice versa), or whose value type diverges, fails
+  `vue-tsc` naming the member (`Type '"ClientSummary.kind"' is not assignable to type 'never'`).
+  Adding a response type to both sides means adding one line to that file's `AllDrift` union.
+  Optionality is deliberately NOT compared at any depth: the spec declares no `required`, so
+  every generated property is optional. Adding `required` markers would let the gate tighten,
+  and is worth doing on its own.
+- **An unquoted `description:` inside a YAML flow mapping ends at the first comma.** So
+  `description: Owning team id, or null (super-admins only).` parses as a truncated description
+  PLUS a junk property named `or null (super-admins only).` with a null value. It is valid YAML,
+  nothing warns, and the published docs quietly show half a sentence — 21 had accumulated before
+  anything looked. Quote any description containing a comma; the well-formedness case in
+  `src/__tests__/openapi-route-parity.test.ts` fails on the next one.
 - **A comment naming a version or a count is a liability.** The ones that cost the most time in
   this repo were not wrong code but confidently wrong prose: a CI comment claiming "12 specs" when
   there were 15, a `download-artifact@v4` note surviving the bump to v8, a `workflow_dispatch`
