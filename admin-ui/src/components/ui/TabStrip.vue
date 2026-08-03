@@ -14,7 +14,14 @@ export function tabPanelId(idBase: string): string {
 import { ref, type Component } from "vue";
 
 const props = defineProps<{
-  tabs: { key: T; label: string; icon?: Component }[];
+  /**
+   * `badge` marks a tab whose panel holds something the user should know about
+   * without opening it — the count of configured policies, for instance. It
+   * exists because grouping a long form into tabs otherwise hides state: a
+   * policy set weeks ago in a tab nobody opens becomes invisible. Rendered
+   * inside the tab's accessible name, so screen-reader users get it too.
+   */
+  tabs: { key: T; label: string; icon?: Component; badge?: string | number }[];
   ariaLabel?: string;
   // When set, each tab gets an `id` + `aria-controls` pointing at the shared
   // panel. The consumer must render its panel with `:id="tabPanelId(idBase)"`,
@@ -79,6 +86,7 @@ function onTabKeydown(e: KeyboardEvent, index: number) {
     >
       <component :is="tab.icon" v-if="tab.icon" :size="15" stroke-width="2" aria-hidden="true" />
       {{ tab.label }}
+      <span v-if="tab.badge !== undefined" class="tab-badge">{{ tab.badge }}</span>
     </button>
   </div>
 </template>
@@ -113,5 +121,22 @@ function onTabKeydown(e: KeyboardEvent, index: number) {
 .tab-btn.tab-active {
   color: var(--signal-strong);
   border-bottom-color: var(--signal);
+}
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  padding: 0 0.3rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.35;
+}
+.tab-btn.tab-active .tab-badge {
+  background: var(--signal-soft);
+  color: var(--signal-strong);
 }
 </style>

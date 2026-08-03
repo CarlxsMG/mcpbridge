@@ -82,15 +82,12 @@ export const navEntries: NavEntry[] = [
     group: "Servers",
     icon: Server,
     component: () => import("./pages/ServersPage.vue"),
-  },
-  {
-    path: "/register-server",
-    name: "register-server",
-    labelKey: l("register-server"),
-    hintKey: h("register-server"),
-    group: "Servers",
-    icon: Server,
-    component: () => import("./pages/RegisterServerPage.vue"),
+    // Registering a server is an ACTION, and it used to hold a permanent
+    // sidebar slot of its own — the only create form in the app that did.
+    // Folding it into the `newPage` pattern every other entity uses puts it
+    // where a user already looks for "add one" (the button on the list page)
+    // and gives the sidebar back a row.
+    newPage: { name: "register-server", component: () => import("./pages/RegisterServerPage.vue") },
   },
   {
     path: "/catalog",

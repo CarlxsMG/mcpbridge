@@ -11,6 +11,7 @@ import MiniBarChart from "@/components/charts/MiniBarChart.vue";
 import TimeSeriesChart from "@/components/charts/TimeSeriesChart.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ErrorNote from "@/components/ui/ErrorNote.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
@@ -35,7 +36,7 @@ const summary = ref<UsageSummary | null>(null);
 const topTools = ref<TopToolRow[]>([]);
 const byKey = ref<UsageByKeyRow[]>([]);
 const timeseries = ref<UsageTimeseries | null>(null);
-const { loading, errorMessage, run } = useLoadState(tk("pages.usage.errors.load_failed"));
+const { loading, errorMessage, errorRequestId, run } = useLoadState(tk("pages.usage.errors.load_failed"));
 
 async function load() {
   const from = Date.now() - windowMs.value;
@@ -97,7 +98,7 @@ onMounted(load);
       </div>
     </PageHeader>
 
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+    <ErrorNote v-if="errorMessage" :message="errorMessage" :request-id="errorRequestId" />
 
     <template v-if="summary">
       <div class="cards">

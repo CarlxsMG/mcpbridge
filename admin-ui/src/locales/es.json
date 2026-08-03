@@ -51,10 +51,6 @@
       "label": "Servidores",
       "hint": "Servidores upstream (REST + MCP)"
     },
-    "register-server": {
-      "label": "Añadir servidor",
-      "hint": "Registra un nuevo upstream"
-    },
     "catalog": {
       "label": "Catálogo",
       "hint": "Servidores predefinidos que puedes registrar con un clic"
@@ -515,6 +511,13 @@
       }
     },
     "guard_editor": {
+      "tabs": {
+        "aria": "Grupos de configuración de la herramienta",
+        "guards": "Guardas",
+        "safety": "Seguridad",
+        "presentation": "Presentación",
+        "advanced": "Avanzado"
+      },
       "positive_number": "Debe ser un número positivo",
       "rate_keys_title": "Rate limit y keys",
       "rate_label": "Rate limit (llamadas / minuto)",

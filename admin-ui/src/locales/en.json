@@ -51,10 +51,6 @@
       "label": "Servers",
       "hint": "Upstream servers (REST + MCP)"
     },
-    "register-server": {
-      "label": "Add server",
-      "hint": "Register a new upstream"
-    },
     "catalog": {
       "label": "Catalog",
       "hint": "Pre-built servers you can register with one click"
@@ -515,6 +511,13 @@
       }
     },
     "guard_editor": {
+      "tabs": {
+        "aria": "Tool configuration groups",
+        "guards": "Guards",
+        "safety": "Safety",
+        "presentation": "Presentation",
+        "advanced": "Advanced"
+      },
       "positive_number": "Must be a positive number",
       "rate_keys_title": "Rate limit & keys",
       "rate_label": "Rate limit (calls / minute)",

@@ -14,6 +14,7 @@ import type { CompositeDetail, CompositeStep } from "@/types/api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
 import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
+import ErrorNote from "@/components/ui/ErrorNote.vue";
 import FormField from "@/components/ui/FormField.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import FieldError from "@/components/ui/FieldError.vue";
@@ -25,6 +26,7 @@ const {
   data: detail,
   loading,
   errorMessage,
+  errorRequestId,
   load: loadDetail,
 } = useResource<CompositeDetail | null>(
   () => api.get<CompositeDetail>(compositePath(props.name)),
@@ -141,7 +143,7 @@ function toggleEnabled() {
     </p>
 
     <SignalLoader v-if="loading && !detail" />
-    <p v-else-if="errorMessage && !detail" class="error" role="alert">{{ errorMessage }}</p>
+    <ErrorNote v-else-if="errorMessage && !detail" :message="errorMessage" :request-id="errorRequestId" />
 
     <template v-else-if="detail">
       <PageHeader :title="detail.name">
@@ -156,7 +158,7 @@ function toggleEnabled() {
         </button>
       </PageHeader>
 
-      <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+      <ErrorNote v-if="errorMessage" :message="errorMessage" :request-id="errorRequestId" />
       <p v-if="toggleError[detail.name]" class="error" role="alert">{{ toggleError[detail.name] }}</p>
       <p v-if="deleteError" class="row-error" role="alert">{{ deleteError }}</p>
 

@@ -117,7 +117,7 @@ const targetSelectOptions = computed(() => {
   ];
 });
 
-const targetCreatePath = computed(() => (scope.value === "client" ? "/register-server" : "/bundles/new"));
+const targetCreatePath = computed(() => (scope.value === "client" ? "/servers/new" : "/bundles/new"));
 const targetCreateLabel = computed(() =>
   scope.value === "client"
     ? t("components.connect_client_dialog.create_server")

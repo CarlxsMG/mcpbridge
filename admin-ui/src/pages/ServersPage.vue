@@ -250,7 +250,7 @@ onMounted(() => load());
       <button type="button" class="btn-secondary" :aria-expanded="showTagBrowser" @click="toggleTagBrowser">
         <Tags :size="15" stroke-width="2" aria-hidden="true" /> {{ t("pages.servers.browse_by_tag") }}
       </button>
-      <RouterLink to="/register-server" class="btn-primary">{{ t("pages.servers.add_server") }}</RouterLink>
+      <RouterLink to="/servers/new" class="btn-primary">{{ t("pages.servers.add_server") }}</RouterLink>
     </PageHeader>
 
     <OnboardingChecklist :has-servers="items.length > 0" />
