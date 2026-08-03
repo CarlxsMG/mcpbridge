@@ -104,6 +104,27 @@ export function listWsProxyTargets(): (WsProxyTarget & { activeConnections: numb
     .map((t) => ({ ...t, activeConnections: connsByTarget.get(t.name)?.size ?? 0 }));
 }
 
+/**
+ * Targets as PERSISTED, read straight from SQLite rather than from the live
+ * cache {@link listWsProxyTargets} serves.
+ *
+ * Config export needs this one. The cache is module-level state hydrated at
+ * boot by {@link loadWsProxyTargets}, so it can legitimately hold entries the
+ * database does not: before the first load, or after anything replaces the
+ * database underneath a running process — which is exactly what
+ * `__resetDbForTesting()` does between every test. Exporting from the cache
+ * therefore emitted targets that no longer existed, and re-importing them tried
+ * to re-resolve a hostname for a target nobody asked for. CI caught it; a local
+ * run did not, because it depends on which test file ran first.
+ *
+ * `activeConnections` is deliberately absent: it is live runtime state, not
+ * config, and has no meaning in an exported document.
+ */
+export function listPersistedWsProxyTargets(): WsProxyTarget[] {
+  const rows = getDb().query(`SELECT ${COLS} FROM ws_proxy_targets ORDER BY name`).all() as WsProxyTargetRow[];
+  return rows.map(rowToTarget);
+}
+
 export function getWsProxyTargetDetail(name: string): (WsProxyTarget & { activeConnections: number }) | undefined {
   const t = targets.get(name);
   return t ? { ...t, activeConnections: connsByTarget.get(t.name)?.size ?? 0 } : undefined;

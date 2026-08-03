@@ -21,7 +21,7 @@ import { listSchedules, createSchedule, setScheduleEnabled } from "../entities/s
 import { listGuardPolicies, createGuardPolicy, updateGuardPolicy } from "../entities/policies.js";
 import { listTeams, createTeam } from "../entities/teams.js";
 import { listCatalog, createCustomEntry, updateCustomEntry } from "../../catalog/index.js";
-import { listWsProxyTargets, upsertWsProxyTarget } from "../../ws-proxy.js";
+import { listPersistedWsProxyTargets, upsertWsProxyTarget } from "../../ws-proxy.js";
 import type { ClientGuardConfig, ToolOverride, ToolGuardrails, UpstreamKind } from "../../mcp/types.js";
 
 export const CONFIG_EXPORT_VERSION = 1;
@@ -321,7 +321,7 @@ export function exportConfig(): ConfigExport {
   // re-resolves the hostname through upsertWsProxyTarget rather than trusting a
   // value that travelled inside a document. A pin carried across instances
   // would also simply be wrong wherever DNS differs.
-  const wsProxyTargets: ExportedWsProxyTarget[] = listWsProxyTargets().map((t) => ({
+  const wsProxyTargets: ExportedWsProxyTarget[] = listPersistedWsProxyTargets().map((t) => ({
     name: t.name,
     backendWsUrl: t.backendWsUrl,
     maxConnections: t.maxConnections,
@@ -703,7 +703,12 @@ export async function importConfig(
     toolName: string | null;
     action: string;
     cron: string;
-  }) => `${s.targetType} ${s.clientName} ${s.toolName ?? ""} ${s.action} ${s.cron}`;
+  }) =>
+    // JSON, not a delimiter-joined string: a cron expression CONTAINS spaces
+    // ("0 3 * * *"), so any single-character separator risks two different
+    // tuples colliding on one key — and a control byte as separator has no
+    // business in source at all.
+    JSON.stringify([s.targetType, s.clientName, s.toolName, s.action, s.cron]);
   const existingSchedules = new Map(listSchedules().map((s) => [scheduleKey(s), s]));
   for (const s of asArray<ExportedSchedule>(doc.schedules)) {
     if (typeof s?.clientName !== "string" || !clientExists.get(s.clientName)) {
