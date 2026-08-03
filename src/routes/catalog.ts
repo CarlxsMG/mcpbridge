@@ -5,7 +5,7 @@ import { requireAdminRole, requireSuperAdmin } from "../middleware/authz.js";
 import { rateLimitRegister } from "../middleware/rate-limiter.js";
 import { config } from "../config.js";
 import { recordAudit, actorFromRequest } from "../admin/audit/audit.js";
-import { performRestRegistration, performMcpRegistration } from "../mcp/registration.js";
+import { performRestRegistration, performMcpRegistration, performGraphqlRegistration } from "../mcp/registration.js";
 import {
   listCatalog,
   getCatalogEntry,
@@ -46,7 +46,9 @@ function parseCustomEntryInput(
     value.name = body.name;
   }
   if (requireSlug || body.kind !== undefined) {
-    if (body.kind !== "rest" && body.kind !== "mcp") return { ok: false, message: "kind must be 'rest' or 'mcp'" };
+    if (body.kind !== "rest" && body.kind !== "mcp" && body.kind !== "graphql") {
+      return { ok: false, message: "kind must be 'rest', 'mcp', or 'graphql'" };
+    }
     value.kind = body.kind;
   }
   if (body.description !== undefined)
@@ -61,6 +63,7 @@ function parseCustomEntryInput(
   if (body.excludeOperations !== undefined)
     value.excludeOperations = stringArrayOrUndefined(body.excludeOperations) ?? null;
   if (body.mcpUrl !== undefined) value.mcpUrl = typeof body.mcpUrl === "string" ? body.mcpUrl : null;
+  if (body.graphqlUrl !== undefined) value.graphqlUrl = typeof body.graphqlUrl === "string" ? body.graphqlUrl : null;
   if (body.mcpTransport !== undefined) {
     if (body.mcpTransport !== "streamable-http" && body.mcpTransport !== "sse" && body.mcpTransport !== null) {
       return { ok: false, message: "mcpTransport must be 'streamable-http', 'sse', or null" };
@@ -184,25 +187,36 @@ export function catalogRoutes(app: Express): void {
       const peerIp = req.socket?.remoteAddress;
       const reqId = requestId(res);
 
-      const outcome =
-        entry.kind === "mcp"
-          ? await performMcpRegistration(
-              { name, mcp_url: entry.mcpUrl, mcp_transport: entry.mcpTransport ?? "streamable-http" },
-              peerIp,
-              reqId,
-            )
-          : await performRestRegistration(
-              {
-                name,
-                health_url: entry.healthUrl ?? entry.baseUrl,
-                base_url: entry.baseUrl,
-                openapi_url: entry.openapiUrl,
-                include_tags: entry.includeTags ?? undefined,
-                exclude_operations: entry.excludeOperations ?? undefined,
-              },
-              peerIp,
-              reqId,
-            );
+      // Each kind routes to the same SSRF-validated entry point a manual
+      // POST /register would use, so an install can never be a weaker path
+      // than typing the URL in by hand.
+      let outcome;
+      if (entry.kind === "mcp") {
+        outcome = await performMcpRegistration(
+          { name, mcp_url: entry.mcpUrl, mcp_transport: entry.mcpTransport ?? "streamable-http" },
+          peerIp,
+          reqId,
+        );
+      } else if (entry.kind === "graphql") {
+        outcome = await performGraphqlRegistration(
+          { name, graphql_url: entry.graphqlUrl, health_url: entry.healthUrl ?? undefined },
+          peerIp,
+          reqId,
+        );
+      } else {
+        outcome = await performRestRegistration(
+          {
+            name,
+            health_url: entry.healthUrl ?? entry.baseUrl,
+            base_url: entry.baseUrl,
+            openapi_url: entry.openapiUrl,
+            include_tags: entry.includeTags ?? undefined,
+            exclude_operations: entry.excludeOperations ?? undefined,
+          },
+          peerIp,
+          reqId,
+        );
+      }
 
       res.status(outcome.status).json(outcome.body);
       if (outcome.ok) {

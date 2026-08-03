@@ -220,7 +220,10 @@ separator at registration, so distinct pairs can't collide on this key):
   `src/discovery/`), a cURL/Postman import, or a manual tool list. Each tool maps to an HTTP
   method + path on the backend's base URL.
 - **GraphQL clients** (`kind: "graphql"`) — the bridge introspects the schema and generates one
-  tool per query/mutation.
+  tool per query/mutation. Dispatch reuses the REST path (each generated tool is a POST carrying
+  the stored query), so `kind` here is identity/display only — but it must still be written:
+  GraphQL registrations went through `persistRestRegistration` without one for a long time, took
+  the `clients.kind` column default, and surfaced everywhere as REST.
 - **MCP upstreams** (`kind: "mcp"`) — existing MCP servers (Streamable HTTP or SSE); the bridge
   connects out, discovers their tools/resources/prompts, and re-exposes them.
 

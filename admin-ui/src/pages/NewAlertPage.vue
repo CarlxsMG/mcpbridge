@@ -60,7 +60,7 @@ watch(event, (next) => {
   lastAutoMinCalls = minCalls.value;
 });
 
-const { creating, error, run } = useCreateForm({
+const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () => {
     const body: Record<string, unknown> = {
       name: name.value.trim(),
@@ -163,7 +163,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
             />
           </FormField>
         </template>
-        <FieldError :message="error" />
+        <FieldError :message="error" :request-id="errorRequestId" />
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("pages.alerts.creating") : t("pages.alerts.create_rule") }}
         </button>

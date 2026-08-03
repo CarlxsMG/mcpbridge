@@ -17,7 +17,7 @@ const name = ref("");
 const rate = ref("");
 const timeout = ref("");
 
-const { creating, error, run } = useCreateForm({
+const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () =>
     api.post("/admin-api/policies", {
       name: name.value.trim(),
@@ -63,7 +63,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
         <FormField :label="t('pages.policies.new.fields.timeout')" for="p-timeout">
           <input id="p-timeout" v-model="timeout" type="text" inputmode="numeric" />
         </FormField>
-        <FieldError :message="error" />
+        <FieldError :message="error" :request-id="errorRequestId" />
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.policies.new.create") }}
         </button>

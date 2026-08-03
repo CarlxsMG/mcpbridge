@@ -1624,13 +1624,15 @@
         "kind_aria": "Tipo",
         "kind_rest": "REST API",
         "kind_mcp": "Servidor MCP",
+        "kind_graphql": "API GraphQL",
         "fields": {
           "slug": "Slug",
           "name": "Nombre",
           "description": "Descripción (opcional)",
           "health_url": "Health URL",
           "openapi_url": "OpenAPI URL",
-          "mcp_url": "URL del servidor MCP"
+          "mcp_url": "URL del servidor MCP",
+          "graphql_url": "Endpoint de GraphQL"
         },
         "placeholders": {
           "slug": "internal-crm-staging",
@@ -1638,7 +1640,11 @@
           "description": "Qué registra este template",
           "health_url": "https://api.example.com/health",
           "openapi_url": "https://api.example.com/openapi.json",
-          "mcp_url": "https://mcp.example.com/mcp"
+          "mcp_url": "https://mcp.example.com/mcp",
+          "graphql_url": "https://api.ejemplo.com/graphql"
+        },
+        "hints": {
+          "graphql_health_url": "Opcional. Por defecto usa el endpoint de GraphQL, que muchos servidores rechazan ante un GET simple — y eso se interpreta como un health check fallido."
         },
         "save": "Guardar entrada",
         "errors": {

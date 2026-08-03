@@ -56,7 +56,7 @@ onMounted(loadConsumers);
 const mintedKey = ref<McpApiKeyWithSecret | null>(null);
 const { copied, copy } = useClipboard();
 
-const { creating, error, run } = useCreateForm({
+const { creating, error, errorRequestId, run } = useCreateForm({
   submit: async () => {
     mintedKey.value = await api.post<McpApiKeyWithSecret>("/admin-api/mcp-keys", {
       label: label.value.trim(),
@@ -128,7 +128,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
             required
             :placeholder="t('pages.keys.new.placeholders.label')"
           />
-          <FieldError :message="error" />
+          <FieldError :message="error" :request-id="errorRequestId" />
         </FormField>
         <FormField :label="t('pages.keys.new.fields.clients')" for="k-clients">
           <input id="k-clients" v-model="clients" type="text" :placeholder="t('pages.keys.new.placeholders.clients')" />

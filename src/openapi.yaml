@@ -5426,7 +5426,17 @@ components:
         toolsCount: { type: integer }
         healthUrl: { type: string }
         baseUrl: { type: string }
+        kind: { $ref: "#/components/schemas/UpstreamKind" }
         teamId: { type: [integer, "null"], description: Owning team id, or null (visible only to super-admins). }
+
+    UpstreamKind:
+      type: string
+      enum: [rest, mcp, graphql]
+      description: >
+        How the bridge reaches this client's backend. 'graphql' dispatches
+        exactly like 'rest' (each generated tool is a POST carrying the stored
+        introspected query) — it is an identity distinction, so the admin UI
+        can label and filter GraphQL endpoints instead of showing them as REST.
 
     ClientDetail:
       type: object
@@ -5441,6 +5451,7 @@ components:
         baseUrl: { type: string }
         resolvedIp: { type: [string, "null"] }
         retryNonSafeMethods: { type: boolean }
+        kind: { $ref: "#/components/schemas/UpstreamKind" }
         consecutiveFailures: { type: [integer, "null"] }
         guards: { $ref: "#/components/schemas/ClientGuardConfig" }
         circuitBreakerState: { type: [string, "null"], enum: [closed, open, half_open, null] }
@@ -6405,7 +6416,7 @@ components:
         slug: { type: string }
         name: { type: string }
         description: { type: [string, "null"] }
-        kind: { type: string, enum: [rest, mcp] }
+        kind: { $ref: "#/components/schemas/UpstreamKind" }
         category: { type: [string, "null"] }
         tags: { type: array, items: { type: string } }
         icon: { type: [string, "null"] }
@@ -6416,6 +6427,7 @@ components:
         excludeOperations: { type: [array, "null"], items: { type: string } }
         mcpUrl: { type: [string, "null"] }
         mcpTransport: { type: [string, "null"], enum: [streamable-http, sse, null] }
+        graphqlUrl: { type: [string, "null"], description: "Operation endpoint for a graphql-kind entry." }
         featured: { type: boolean }
 
     CatalogEntry:

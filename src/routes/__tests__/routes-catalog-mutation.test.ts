@@ -178,12 +178,32 @@ describe("POST /admin-api/catalog — required-field guards (slug/name/kind)", (
     const res = await fetch(`${adminBase}/admin-api/catalog`, {
       method: "POST",
       headers: bearer(),
-      body: JSON.stringify({ slug: "valid-slug-3", name: "n", kind: "graphql" }),
+      // "graphql" used to be the rejected value here; migration 57 admits it,
+      // so this needs a kind that is genuinely not a member of UpstreamKind.
+      body: JSON.stringify({ slug: "valid-slug-3", name: "n", kind: "soap" }),
     });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe("VALIDATION_ERROR");
-    expect(body.error.message).toBe("kind must be 'rest' or 'mcp'");
+    expect(body.error.message).toBe("kind must be 'rest', 'mcp', or 'graphql'");
+  });
+
+  test("kind: 'graphql' is a genuinely accepted value", async () => {
+    await startApp();
+    const res = await fetch(`${adminBase}/admin-api/catalog`, {
+      method: "POST",
+      headers: bearer(),
+      body: JSON.stringify({
+        slug: "valid-slug-gql",
+        name: "n",
+        kind: "graphql",
+        graphqlUrl: "https://api.example.com/graphql",
+      }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { kind: string; graphqlUrl: string | null };
+    expect(body.kind).toBe("graphql");
+    expect(body.graphqlUrl).toBe("https://api.example.com/graphql");
   });
 
   test("kind: 'mcp' is a genuinely accepted value, not just 'rest'", async () => {
@@ -237,7 +257,7 @@ describe("PATCH /admin-api/catalog/:id — slug/name/kind guards fire independen
     });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: { message: string } };
-    expect(body.error.message).toBe("kind must be 'rest' or 'mcp'");
+    expect(body.error.message).toBe("kind must be 'rest', 'mcp', or 'graphql'");
   });
 });
 

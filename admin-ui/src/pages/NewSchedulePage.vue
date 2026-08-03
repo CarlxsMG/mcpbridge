@@ -82,7 +82,7 @@ const computedCron = computed(() => {
 });
 const cronPreview = computed(() => describeCron(computedCron.value));
 
-const { creating, error, run } = useCreateForm({
+const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () =>
     api.post("/admin-api/schedules", {
       targetType: targetType.value,
@@ -208,7 +208,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
           <span v-if="frequency !== 'custom'" class="cron-raw">({{ computedCron }})</span>
         </p>
 
-        <FieldError :message="error" />
+        <FieldError :message="error" :request-id="errorRequestId" />
         <button class="btn-primary" type="submit" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.schedules.new.create") }}
         </button>

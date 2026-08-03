@@ -18,7 +18,7 @@ const name = ref("");
 const description = ref("");
 const tools = ref<BundleToolRef[]>([]);
 
-const { creating, error, run } = useCreateForm({
+const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () =>
     api.post<BundleDetail>("/admin-api/bundles", {
       name: name.value.trim(),
@@ -60,7 +60,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
             required
           />
         </FormField>
-        <FieldError :message="error" />
+        <FieldError :message="error" :request-id="errorRequestId" />
         <FormField :label="t('pages.bundles.new.fields.description')" for="new-bundle-description">
           <input
             id="new-bundle-description"

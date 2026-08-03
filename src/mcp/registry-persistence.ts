@@ -133,25 +133,34 @@ export class RegistryPersistence {
     baseUrl: string,
     resolvedIp: string,
     retryNonSafeMethods: boolean,
+    kind: Exclude<UpstreamKind, "mcp">,
   ): PersistedRegistration {
     const db = getDb();
     const now = Date.now();
 
     const txn = db.transaction(() => {
+      // `kind` is written explicitly rather than left to the column default,
+      // and re-asserted on conflict. Two things depended on that: a GraphQL
+      // registration (which shares this REST persistence path) used to land as
+      // 'rest', and re-registering a name that was previously an MCP upstream
+      // as REST/GraphQL used to leave the stale 'mcp' kind behind.
       const clientRow = db
         .query(
-          `INSERT INTO clients (name, ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+          `INSERT INTO clients (name, ip, health_url, base_url, resolved_ip, retry_non_safe_methods, enabled, kind, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
            ON CONFLICT(name) DO UPDATE SET
              ip = excluded.ip,
              health_url = excluded.health_url,
              base_url = excluded.base_url,
              resolved_ip = excluded.resolved_ip,
              retry_non_safe_methods = excluded.retry_non_safe_methods,
+             kind = excluded.kind,
              updated_at = excluded.updated_at
            RETURNING enabled`,
         )
-        .get(name, ip, healthUrl, baseUrl, resolvedIp, retryNonSafeMethods ? 1 : 0, now, now) as { enabled: number };
+        .get(name, ip, healthUrl, baseUrl, resolvedIp, retryNonSafeMethods ? 1 : 0, kind, now, now) as {
+        enabled: number;
+      };
 
       const clientGuardRow = db
         .query(

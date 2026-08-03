@@ -20,7 +20,7 @@ const nameError = ref("");
 const quotaError = ref("");
 const endUserLimitError = ref("");
 
-const { creating, error, run } = useCreateForm({
+const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () =>
     api.post("/admin-api/consumers", {
       name: name.value.trim(),
@@ -75,7 +75,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
           <input id="c-end-user-limit" v-model="endUserLimit" type="text" inputmode="numeric" />
           <FieldError :message="endUserLimitError" />
         </FormField>
-        <FieldError :message="error" />
+        <FieldError :message="error" :request-id="errorRequestId" />
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.consumers.new.create") }}
         </button>

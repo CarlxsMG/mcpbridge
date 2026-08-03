@@ -14,7 +14,7 @@ const { t } = useI18n({ useScope: "global" });
 
 const name = ref("");
 
-const { creating, error, run } = useCreateForm({
+const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () => api.post("/admin-api/teams", { name: name.value.trim() }),
   redirectTo: "/teams",
   fallbackKey: "pages.teams.new.errors.create_failed",
@@ -43,7 +43,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
             required
           />
         </FormField>
-        <FieldError :message="error" />
+        <FieldError :message="error" :request-id="errorRequestId" />
         <button class="btn-primary" type="submit" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.teams.new.create") }}
         </button>

@@ -19,7 +19,7 @@ const maxConnections = ref("");
 const maxMessageBytes = ref("");
 const idleTimeoutMinutes = ref("");
 
-const { creating, error, run } = useCreateForm({
+const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () => {
     const body: Record<string, unknown> = { name: name.value.trim(), backendWsUrl: backendUrl.value.trim() };
     const maxConnectionsValue = parseOptionalNumber(maxConnections.value).value;
@@ -91,7 +91,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
         <FormField :label="t('pages.ws_proxy_targets.fields.idle_timeout')" for="wp-idle">
           <input id="wp-idle" v-model="idleTimeoutMinutes" type="text" inputmode="numeric" />
         </FormField>
-        <FieldError :message="error" />
+        <FieldError :message="error" :request-id="errorRequestId" />
         <button type="submit" class="btn-primary" :disabled="creating">
           {{ creating ? t("common.creating") : t("pages.ws_proxy_targets.new.create") }}
         </button>

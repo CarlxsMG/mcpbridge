@@ -5,7 +5,8 @@
 export type ClientStatus = "healthy" | "degraded" | "unreachable";
 export type AdminRole = "admin" | "operator" | "auditor" | "viewer";
 export type CircuitBreakerState = "closed" | "open" | "half_open";
-export type UpstreamKind = "rest" | "mcp";
+/** Mirrors src/mcp/types.ts. "graphql" dispatches like "rest" — it is an identity/display distinction. */
+export type UpstreamKind = "rest" | "mcp" | "graphql";
 export type McpTransport = "streamable-http" | "sse";
 
 // ─── Clients ─────────────────────────────────────────────────────────────────
@@ -411,7 +412,7 @@ export interface CatalogEntry {
   description: string | null;
   /** Demo-only i18n key the walker resolves per active locale — see ToolDetail.descriptionKey. */
   descriptionKey?: string;
-  kind: "rest" | "mcp";
+  kind: UpstreamKind;
   category: string | null;
   tags: string[];
   icon: string | null;
@@ -422,6 +423,7 @@ export interface CatalogEntry {
   excludeOperations?: string[] | null;
   mcpUrl?: string | null;
   mcpTransport?: "streamable-http" | "sse" | null;
+  graphqlUrl?: string | null;
   featured: boolean;
 }
 
