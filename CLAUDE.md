@@ -252,9 +252,19 @@ mechanism `proxyToolCall`'s sensitive-tool gate already uses.
 **Storage.** `bun:sqlite`, one file, no ORM, no external database. Admin config (enable flags,
 guards, bundles, keys, audit, users, teams, policies, schedules...) lives here; the live registry
 (`src/mcp/registry.ts`) is hydrated from it at boot. Schema changes are an **append-only** array
-in `src/db/migrations.ts` (currently up to id 56) — never edit or renumber a shipped migration;
-add a new one with the next sequential integer, written defensively (`CREATE TABLE IF NOT EXISTS`,
-additive `ALTER TABLE`) since there's no down-migration mechanism.
+in `src/db/migrations.ts` — never edit or renumber a shipped migration; add a new one with the next
+sequential integer, written defensively (`CREATE TABLE IF NOT EXISTS`, additive `ALTER TABLE`) since
+there's no down-migration mechanism.
+
+**A migration that REBUILDS a table needs a case in
+`src/db/__tests__/migration-upgrade-path.test.ts`, and that test will tell you so.** Every other
+test opens a fresh `:memory:` database, so migrations are otherwise only ever applied to an EMPTY
+schema — which proves the SQL parses, never that an existing deployment survives it. SQLite cannot
+alter a CHECK in place, so widening one means create/copy/drop/rename, and a wrong column list in
+the copy drops production data with no error. A structural case greps every migration for
+`DROP TABLE|RENAME TO` and fails when one is not covered. Seed a **gap** in the ids (insert three,
+delete the middle) when asserting they survive: consecutive ids come back identical even from a
+copy that omits the `id` column and lets AUTOINCREMENT re-assign.
 
 **Security-critical invariants** (SSRF/DNS-rebinding protection): outbound fetches to a backend
 must use `client.resolved_ip` (pinned at registration via `Bun.dns`, then re-validated on a TTL —
