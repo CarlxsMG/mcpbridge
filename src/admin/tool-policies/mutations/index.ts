@@ -176,6 +176,10 @@ export function readToolPolicies(clientName: string, toolName: string): Record<s
     const value = mutation.read(clientName, toolName);
     if (value !== undefined) out[mutation.key] = value;
     const companions = mutation.readCompanions?.(clientName, toolName);
+    // The `if` is readability, not behaviour: `Object.assign(out, undefined)` is
+    // a legal no-op, so dropping the guard changes nothing observable. Stryker
+    // reports the mutant that removes it as a survivor and always will —
+    // it is equivalent, not an untested branch.
     if (companions) Object.assign(out, companions);
   }
   return out;
@@ -195,6 +199,10 @@ export async function dispatchToolMutations(
   ctx: MutationContext,
   res: DispatcherResponse,
 ): Promise<DispatchOutcome> {
+  // Passed explicitly even though `true` is also the default, so the HTTP
+  // contract — one request, one error, nothing applied after it — is readable
+  // here rather than inferred from another file. Stryker reports emptying this
+  // object as a survivor for exactly that reason: it is equivalent.
   const { failures } = await applyToolMutations(body, ctx, { stopOnFirstFailure: true });
   const failure = failures[0];
   if (!failure) return null;

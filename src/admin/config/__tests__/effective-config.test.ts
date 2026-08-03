@@ -68,6 +68,28 @@ describe("effective config redaction", () => {
     }
   });
 
+  test("null and empty-string both report 'unset', like undefined", () => {
+    // The three ways a redacted key can hold nothing. `ADMIN_API_KEYS=` parses
+    // to "" before the split, and a cleared value can round-trip as null —
+    // reporting either as "set" would tell an operator auth material exists
+    // when it does not.
+    const previous = config.secretEncryptionKey;
+    const mutable = config as unknown as Record<string, unknown>;
+    try {
+      for (const empty of [null, ""]) {
+        mutable.secretEncryptionKey = empty;
+        const entry = getEffectiveConfig().entries.find((e) => e.key === "secretEncryptionKey")!;
+        expect(entry.value, `${JSON.stringify(empty)} should report unset`).toBe("unset");
+      }
+      // ...and a non-empty string is still "set", so the check above is not
+      // simply reporting everything as unset.
+      mutable.secretEncryptionKey = "x";
+      expect(getEffectiveConfig().entries.find((e) => e.key === "secretEncryptionKey")!.value).toBe("set");
+    } finally {
+      config.secretEncryptionKey = previous;
+    }
+  });
+
   test("an empty API-key array reports 'unset' — [] is no auth material, not configured auth", () => {
     const previous = config.adminApiKeys;
     try {
@@ -124,5 +146,21 @@ describe("effective config shape", () => {
 
   test("carries nodeEnv — the most common cause of 'it behaves differently here'", () => {
     expect(typeof getEffectiveConfig().nodeEnv).toBe("string");
+  });
+
+  test("reports 'development' when NODE_ENV is unset, rather than an empty string", () => {
+    // The fallback never runs in the test process (NODE_ENV is always set), so
+    // nothing exercised it until this case: an operator reading a blank
+    // environment would have no way to tell "unset" from "misconfigured".
+    const previous = process.env.NODE_ENV;
+    try {
+      delete process.env.NODE_ENV;
+      expect(getEffectiveConfig().nodeEnv).toBe("development");
+      process.env.NODE_ENV = "production";
+      expect(getEffectiveConfig().nodeEnv).toBe("production");
+    } finally {
+      if (previous === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previous;
+    }
   });
 });
