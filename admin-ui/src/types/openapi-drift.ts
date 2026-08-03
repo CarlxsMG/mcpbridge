@@ -14,6 +14,16 @@
  * names the offending property, because each check resolves to that property's
  * literal name instead of a bare `true`/`false`.
  *
+ * ── Where the generated side comes from ──────────────────────────────────────
+ * `bun run typecheck` regenerates `./openapi.generated.ts` from the spec before
+ * running vue-tsc, so that (and CI's `check`, which calls it) is what actually
+ * enforces the gate. `bun run build` deliberately does NOT regenerate and
+ * consumes the committed file instead: the Dockerfile's admin-ui stage copies
+ * only `admin-ui/`, so `../src/openapi.yaml` does not exist there and adding it
+ * would couple that stage to a backend path. Same class of trap as the missing
+ * `nodejs` the Dockerfile comment above that stage already records — it worked
+ * on every developer machine and on the runner, and only the image build failed.
+ *
  * ── What is deliberately NOT checked: optionality ────────────────────────────
  * The spec's schemas do not declare `required`, so openapi-typescript makes
  * every generated property optional. Comparing optionality would therefore fail

@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "vite",
     "types:openapi": "openapi-typescript ../src/openapi.yaml -o src/types/openapi.generated.ts",
-    "build": "bun run types:openapi && vue-tsc -b && vite build",
+    "build": "vue-tsc -b && vite build",
     "typecheck": "bun run types:openapi && vue-tsc -b --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
