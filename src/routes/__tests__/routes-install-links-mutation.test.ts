@@ -49,12 +49,12 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   (config as Record<string, unknown>).secretEncryptionKey = Buffer.alloc(32, 6).toString("base64");
-  const { bundleRoutes } = await import("../../routes/bundles.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const { installLinkRoutes } = await import("../../routes/install-links.js");
   const app = express();
   app.use(express.json());
   app.use(requestIdMiddleware);
-  bundleRoutes(app);
+  adminRoutes(app);
   installLinkRoutes(app);
   return listen(app);
 }

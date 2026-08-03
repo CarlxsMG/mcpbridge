@@ -40,11 +40,11 @@ async function startApp(withSecretBox = true): Promise<void> {
     ? Buffer.alloc(32, 3).toString("base64")
     : undefined;
 
-  const { upstreamAuthRoutes } = await import("../../routes/upstream-auth.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json({ limit: "64kb", strict: true }));
   app.use(requestIdMiddleware);
-  upstreamAuthRoutes(app);
+  adminRoutes(app);
 
   ({ baseUrl, server: activeServer } = await listen(app));
 }

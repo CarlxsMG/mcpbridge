@@ -13,6 +13,23 @@ import { canaryRoutes } from "./canary.js";
 import { lbRoutes } from "./lb.js";
 import { clientsRoutes } from "./clients.js";
 import { toolsRoutes } from "./tools.js";
+import { bundleRoutes } from "./bundles.js";
+import { mcpKeyRoutes } from "./mcp-keys.js";
+import { upstreamAuthRoutes } from "./upstream-auth.js";
+import { discoveryRoutes } from "./discovery.js";
+import { catalogRoutes } from "./catalog.js";
+import { wsProxyAdminRoutes } from "./ws-proxy-admin.js";
+import { usageRoutes } from "./usage.js";
+import { alertRoutes } from "./alerts.js";
+import { configIoRoutes } from "./config-io.js";
+import { backupRoutes } from "./backup.js";
+import { policyRoutes } from "./policies.js";
+import { tagRoutes } from "./tags.js";
+import { consumerRoutes } from "./consumers.js";
+import { compositeRoutes } from "./composites.js";
+import { scheduleRoutes } from "./schedules.js";
+import { teamRoutes } from "./teams.js";
+import { tracesRoutes } from "./traces.js";
 
 /**
  * Top-level admin router. Mounts every per-entity sub-router under
@@ -46,6 +63,27 @@ export function adminRoutes(app: Express): void {
   r.use(lbRoutes);
   r.use(clientsRoutes);
   r.use(toolsRoutes);
+
+  // Mounted in the order server.ts used to call them, immediately after the
+  // routers above — which is exactly the order Express saw before these moved
+  // in here, so no path-matching precedence changes.
+  r.use(bundleRoutes);
+  r.use(mcpKeyRoutes);
+  r.use(upstreamAuthRoutes);
+  r.use(discoveryRoutes);
+  r.use(catalogRoutes);
+  r.use(wsProxyAdminRoutes);
+  r.use(usageRoutes);
+  r.use(alertRoutes);
+  r.use(configIoRoutes);
+  r.use(backupRoutes);
+  r.use(policyRoutes);
+  r.use(tagRoutes);
+  r.use(consumerRoutes);
+  r.use(compositeRoutes);
+  r.use(scheduleRoutes);
+  r.use(teamRoutes);
+  r.use(tracesRoutes);
 
   app.use("/admin-api", r);
 }

@@ -260,20 +260,15 @@ async function startScopedApp(): Promise<void> {
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
 
-  // Only the routers whose GET list endpoints we exercise below — mounting the
-  // whole app (createApp) would also pull in MCP transports + the global rate
-  // limiter, neither of which this behavioural slice needs.
+  // The whole /admin-api surface — one mount now that every admin router is
+  // composed inside adminRoutes. Still not the full `createApp()`, which would
+  // also pull in MCP transports and the global rate limiter, neither of which
+  // this behavioural slice needs.
   const { adminRoutes } = await import("../../routes/admin.js");
-  const { bundleRoutes } = await import("../../routes/bundles.js");
-  const { tagRoutes } = await import("../../routes/tags.js");
-  const { usageRoutes } = await import("../../routes/usage.js");
   const app = express();
   app.use(express.json());
   app.use(requestIdMiddleware);
-  adminRoutes(app); // /clients, /monitors
-  bundleRoutes(app); // /tools
-  tagRoutes(app); // /tags
-  usageRoutes(app); // /usage/summary
+  adminRoutes(app);
 
   ({ baseUrl, server: activeServer } = await listen(app));
 }

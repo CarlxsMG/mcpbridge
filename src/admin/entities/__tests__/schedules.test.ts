@@ -142,11 +142,11 @@ describe("schedules — admin route", () => {
   async function startApp(): Promise<void> {
     setAdminApiKeys([ADMIN_KEY]);
     (config as Record<string, unknown>).authDisabled = false;
-    const { scheduleRoutes } = await import("../../../routes/schedules.js");
+    const { adminRoutes } = await import("../../../routes/admin.js");
     const app = express();
     app.use(express.json());
     app.use(requestIdMiddleware);
-    scheduleRoutes(app);
+    adminRoutes(app);
     ({ baseUrl, server } = await listen(app));
   }
   afterEach(async () => {

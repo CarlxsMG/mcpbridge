@@ -33,13 +33,10 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   (config as Record<string, unknown>).authDisabled = false;
   // users lives under adminRoutes; backup + config-io self-mount (own adminAuth).
   const { adminRoutes } = await import("../../routes/admin.js");
-  const { backupRoutes } = await import("../../routes/backup.js");
-  const { configIoRoutes } = await import("../../routes/config-io.js");
   const app = express();
   app.use(express.json());
   adminRoutes(app);
-  backupRoutes(app);
-  configIoRoutes(app);
+  adminRoutes(app);
   return listen(app);
 }
 

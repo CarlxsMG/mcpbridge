@@ -291,6 +291,21 @@ canonical feature list lives in `docs/guide/features.md`.
 - Match the module layout already in place: route handlers in `src/routes/`, DB access in
   `src/db/`, security-sensitive logic in `src/security/`, dispatch/pipeline in `src/proxy/proxy.ts` +
   `src/middleware/`.
+- **Where a route file goes is decided by its prefix, and there is exactly one shape per
+  directory.** Anything under `/admin-api` is a per-entity Router in `src/routes/admin/`
+  (`export const fooRoutes = Router()`, paths written relative to `/admin-api`, mounted by
+  `src/routes/admin/index.ts` behind the one shared `adminAuth`). Everything else — register,
+  health, metrics, docs, auth, introspection, install links — registers directly on the app in
+  `src/routes/*.ts`. A third shape used to exist (a top-level file building its own
+  `/admin-api` Router and applying `adminAuth` itself); those 17 files moved into
+  `src/routes/admin/`. Don't reintroduce it: `scripts/extract-routes.ts` matches these two
+  shapes only, and the OpenAPI route-parity gate reads its output.
+- **Adding a per-tool policy means one entry in `src/admin/tool-policies/mutations/`.** That
+  registry now drives the PATCH endpoint, config export/import, and snapshots/rollback together.
+  `ToolMutation.read` is required, so the compiler asks how a new policy exports; the generic
+  round-trip test (`mutations/__tests__/policy-round-trip.test.ts`) iterates the registry and
+  fails when a new policy has no fixture. Both exist because the export used to be a
+  hand-picked list and fifteen policies were silently missing from every rollback.
 - TypeScript strict on both projects — avoid `any` and non-null assertions; prefer narrowing.
 - Commit convention: `type(scope): summary` (`feat` / `fix` / `docs` / `chore` / `refactor` /
   `test`). Larger changes often land as a `feat` commit followed by `fix` hardening-pass commits;

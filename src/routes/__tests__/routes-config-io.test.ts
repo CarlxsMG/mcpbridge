@@ -18,11 +18,11 @@ async function startApp(): Promise<void> {
   __resetDbForTesting();
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
-  const { configIoRoutes } = await import("../../routes/config-io.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json({ limit: "1mb" }));
   app.use(requestIdMiddleware);
-  configIoRoutes(app);
+  adminRoutes(app);
   ({ baseUrl, server } = await listen(app));
 }
 

@@ -23,11 +23,11 @@ async function startApp(): Promise<void> {
   (config as Record<string, unknown>).authDisabled = false;
   (config as Record<string, unknown>).allowPrivateIps = true;
 
-  const { alertRoutes } = await import("../../routes/alerts.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json());
   app.use(requestIdMiddleware);
-  alertRoutes(app);
+  adminRoutes(app);
 
   ({ baseUrl, server: activeServer } = await listen(app));
 }

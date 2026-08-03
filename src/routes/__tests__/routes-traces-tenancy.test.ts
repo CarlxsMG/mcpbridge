@@ -43,10 +43,10 @@ async function startApp(): Promise<void> {
   (config as Record<string, unknown>).authDisabled = false;
   (config as Record<string, unknown>).traceStorageEnabled = true;
 
-  const { tracesRoutes } = await import("../../routes/traces.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json());
-  tracesRoutes(app);
+  adminRoutes(app);
 
   ({ baseUrl, server: activeServer } = await listen(app));
 }

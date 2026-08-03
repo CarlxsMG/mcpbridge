@@ -47,11 +47,11 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
   (config as Record<string, unknown>).secretEncryptionKey = Buffer.alloc(32, 7).toString("base64");
-  const { upstreamAuthRoutes } = await import("../../routes/upstream-auth.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json());
   app.use(requestIdMiddleware);
-  upstreamAuthRoutes(app);
+  adminRoutes(app);
   return listen(app);
 }
 

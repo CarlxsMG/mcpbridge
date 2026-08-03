@@ -38,11 +38,11 @@ async function startApp(): Promise<{ baseUrl: string; server: Server }> {
   __resetDbForTesting();
   setAdminApiKeys([ADMIN_KEY]);
   (config as Record<string, unknown>).authDisabled = false;
-  const { usageRoutes } = await import("../../routes/usage.js");
+  const { adminRoutes } = await import("../../routes/admin.js");
   const app = express();
   app.use(express.json());
   app.use(requestIdMiddleware);
-  usageRoutes(app);
+  adminRoutes(app);
   return listen(app);
 }
 
