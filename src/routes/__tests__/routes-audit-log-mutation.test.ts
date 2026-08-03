@@ -209,6 +209,48 @@ describe("GET /admin-api/audit-log/verify", () => {
       expect(body.checked).toBeGreaterThan(0);
     });
   });
+
+  /**
+   * The rate limiter is WIRED to this route, not merely imported near it.
+   *
+   * rate-limiter-sso-expensive.test.ts already proves `rateLimitExpensive`
+   * 429s when called directly; that says nothing about whether the route
+   * actually mounts it. This drives the real Express stack, which is the only
+   * thing that can tell the two apart — and it is the exact claim CodeQL
+   * alert #105 (js/missing-rate-limiting) makes about this handler. That alert
+   * is a false positive: the query recognises rate limiters from known
+   * packages (express-rate-limit and friends) and cannot see this repo's
+   * hand-rolled middleware. The tell is that it fires on the ONE audit-log
+   * route that carries a limiter while ignoring GET /audit-log and
+   * /audit-log/actions, which carry none.
+   *
+   * The exact cutoff is deliberately not asserted: the max is bound at module
+   * load (`rateLimitExpensive("audit_verify", config.rateLimitExpensive)` runs
+   * when the router module is first imported), so it reflects whatever config
+   * held then — which depends on file order across the shared test process.
+   * "The first call passes, some later call 429s, and it stays 429" is the
+   * property that distinguishes a mounted limiter from an absent one.
+   */
+  test("is really behind the expensive rate limiter — repeated calls start 429ing", async () => {
+    await withApp(async (baseUrl) => {
+      recordAudit("audit-actor-ratelimit", "client.enable", "svc");
+      const verify = (): Promise<globalThis.Response> =>
+        fetch(`${baseUrl}/admin-api/audit-log/verify`, { headers: bearer() });
+
+      expect((await verify()).status, "the very first call was already limited").toBe(200);
+
+      const statuses: number[] = [];
+      for (let i = 0; i < 40; i++) statuses.push((await verify()).status);
+
+      const firstLimited = statuses.indexOf(429);
+      expect(firstLimited, `no call was ever rate limited: ${JSON.stringify(statuses)}`).toBeGreaterThanOrEqual(0);
+      // Every status is one of the two expected outcomes — a 500 hiding in here
+      // would otherwise satisfy "not 200" without proving anything.
+      expect(new Set(statuses.slice(0, firstLimited))).toEqual(firstLimited === 0 ? new Set() : new Set([200]));
+      // Once the budget is spent it stays spent for the rest of the window.
+      expect(new Set(statuses.slice(firstLimited))).toEqual(new Set([429]));
+    });
+  });
 });
 
 describe("GET /admin-api/audit-log/export — filters", () => {
