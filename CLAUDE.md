@@ -137,9 +137,11 @@ Stryker-readable, so every mutant re-runs the full suite via the `scripts/stryke
 wrapper) and is **not** part of `bun run check` or CI — run it as an occasional deep check, not a
 per-commit gate. The multi-session hardening program that brought this to completion (P2 +
 domains 2-10) is done: every file with meaningful runtime logic is effectively 100%
-mutation-killed. `stryker.config.mjs`'s `mutate` array intentionally points at a single file
-(`src/ws-proxy.ts`, the last one closed) as a stable placeholder for ad-hoc re-verification, not
-an active target — scope it to whichever file you changed before re-running against new work. As
+mutation-killed. `stryker.config.mjs`'s `mutate` array is a working pointer, not an active target:
+it holds whatever was last re-verified, and you scope it to the file you changed before re-running
+against new work. Set `STRYKER_TEST_SCOPE` to the relevant test dirs while you are at it — every
+mutant otherwise re-runs the whole suite (~36 min for ~110 mutants vs a few). Scoping can only
+leave a mutant undetected, never falsely killed, so the score stays conservative. As
 a byproduct of reaching that mutation-kill bar, the backend's `bun test --coverage` baseline sits
 at ~97.6% functions / ~98.5% lines — the number `bunfig.toml`'s `coverageThreshold` (deliberately
 set well below it) exists to guard against regressing, not to chase.
