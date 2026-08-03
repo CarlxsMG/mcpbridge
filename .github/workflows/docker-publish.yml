@@ -46,21 +46,21 @@ jobs:
         id: image
         run: echo "name=${REGISTRY}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
-      # Used as metadata-action's manual-dispatch fallback tag below, and to
-      # scan/report a single concrete image ref later in this job. On a
-      # `push` of a `v*` tag this is the tag itself (e.g. v1.2.3); on a manual
-      # workflow_dispatch run it's the ref that was run (e.g. a branch name).
-      - name: Determine image tag
-        id: version
-        run: echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-
-      # Derives proper semver-component tags (:1, :1.2, :1.2.3) from the pushed
+      # Derives proper semver-component tags (:1, :1.2, :1.2.3) from the
       # `vX.Y.Z` git tag, plus `:latest` via metadata-action's default
       # `flavor: latest=auto` handling for `type=semver` (applied to stable,
-      # non-prerelease versions). On a manual workflow_dispatch run (no semver
-      # git tag in play — `type=semver` naturally produces nothing off a
-      # branch ref) the `type=raw` line below reproduces the previous
-      # fallback of tagging the image with the ref that was run.
+      # non-prerelease versions).
+      #
+      # There is deliberately no manual-dispatch fallback tag. There used to be
+      # a `type=raw` line, enabled whenever the event was not a push, to cover
+      # dispatching this workflow off a branch — but the job's `if` above
+      # requires a `refs/tags/v*` ref, so that case cannot occur. On the one
+      # dispatch that IS reachable (against a tag), `type=semver` already
+      # produces the full set, and the raw line only added a redundant
+      # v-prefixed duplicate that a tag PUSH never creates — i.e. it made the
+      # two publish paths disagree about an image's tags for no benefit. It
+      # never actually fired: every run of this workflow to date has been a tag
+      # push, where it was disabled.
       - name: Extract Docker image metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
@@ -70,7 +70,6 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=${{ steps.version.outputs.tag }},enable=${{ github.event_name != 'push' }}
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
