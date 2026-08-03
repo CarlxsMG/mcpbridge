@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { requireAdminRole, ensureClientAccess } from "../../middleware/authz.js";
+import { rateLimitExpensive } from "../../middleware/rate-limiter.js";
 import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
 import { getDb } from "../../db/connection.js";
 import { isSecretBoxConfigured } from "../../security/secret-box.js";
@@ -78,6 +79,10 @@ upstreamAuthRoutes.get("/clients/:name/upstream-auth", (req: Request<{ name: str
 upstreamAuthRoutes.put(
   "/clients/:name/upstream-auth",
   requireAdminRole,
+  // A credential write. Every other credential surface already caps well below
+  // the 1000/min global ceiling (login 10, backup 5, register 10, sso 20);
+  // this one did not.
+  rateLimitExpensive("upstream_auth_write", config.rateLimitExpensive),
   (req: Request<{ name: string }>, res: Response) => {
     const { name } = req.params;
     if (!ensureClientAccess(req, res, name)) return;
@@ -119,6 +124,10 @@ upstreamAuthRoutes.put(
 upstreamAuthRoutes.delete(
   "/clients/:name/upstream-auth",
   requireAdminRole,
+  // Same bucket tag as the PUT on purpose: setting and clearing a credential
+  // are one surface, and splitting them would double the effective budget for
+  // anyone alternating the two.
+  rateLimitExpensive("upstream_auth_write", config.rateLimitExpensive),
   (req: Request<{ name: string }>, res: Response) => {
     if (!ensureClientAccess(req, res, req.params.name)) return;
     const ok = clearUpstreamAuth(req.params.name);
