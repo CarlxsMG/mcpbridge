@@ -45,7 +45,8 @@ test("login -> register a REST backend from OpenAPI -> call the discovered tool 
   await page.locator("#r-openapi").fill(`${FIXTURE_BASE_URL}/openapi.json`);
 
   await page.getByRole("button", { name: "Preview tools" }).click();
-  await expect(page.getByText(/tool\(s\) discovered/)).toBeVisible();
+  // Matches either branch of the pluralized message — see support/admin.ts.
+  await expect(page.getByText(/tools? discovered/)).toBeVisible();
   await expect(page.locator("#preview-table")).toContainText("list-users");
 
   await page.getByRole("button", { name: "Register server" }).click();

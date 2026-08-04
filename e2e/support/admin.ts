@@ -123,7 +123,9 @@ export async function registerFixtureServer(
   await page.locator("#r-health").fill(`${FIXTURE_BASE_URL}/health`);
   await page.locator("#r-openapi").fill(`${FIXTURE_BASE_URL}${openapiPath}`);
   await page.getByRole("button", { name: "Preview tools" }).click();
-  await expect(page.getByText(/tool\(s\) discovered/)).toBeVisible();
+  // `tools?` covers both branches of the pluralized message ("1 tool discovered" /
+  // "{count} tools discovered") — it used to read "{count} tool(s) discovered".
+  await expect(page.getByText(/tools? discovered/)).toBeVisible();
   await page.getByRole("button", { name: "Register server" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/servers/${serverName}$`));
 }
