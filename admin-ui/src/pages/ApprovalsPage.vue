@@ -7,7 +7,7 @@ import { useConfirmAction } from "@/composables/useConfirmAction";
 import { tk } from "@/i18n";
 import { toErrorMessage } from "@/utils/errors";
 import { formatDateTime } from "@/utils/format";
-import { statusTone, toneColorVar } from "@/utils/status";
+import { statusTone, toneTextVar } from "@/utils/status";
 import type { ApprovalRecord, ApprovalStatus } from "@/types/api";
 import DonutChart from "@/components/charts/DonutChart.vue";
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
@@ -187,14 +187,14 @@ async function confirmReject() {
               <span
                 v-if="a.status === 'pending'"
                 class="status-pending"
-                :style="{ color: `var(${toneColorVar(statusTone(a.status))})` }"
+                :style="{ color: `var(${toneTextVar(statusTone(a.status))})` }"
               >
                 {{ t("pages.approvals.status.pending") }}<br />
                 <span v-if="a.requiredLevels > 1" class="levels-badge">{{
                   t("pages.approvals.levels_badge_short", { approved: approvedCount(a), total: a.requiredLevels })
                 }}</span>
               </span>
-              <span v-else :style="{ color: `var(${toneColorVar(statusTone(a.status))})` }">
+              <span v-else :style="{ color: `var(${toneTextVar(statusTone(a.status))})` }">
                 {{
                   a.status === "approved" ? t("pages.approvals.status.approved") : t("pages.approvals.status.rejected")
                 }}

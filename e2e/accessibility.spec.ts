@@ -150,6 +150,33 @@ const ROUTES: A11yRoute[] = [
     ready: (page) => page.locator(".table-card, .empty-state").first(),
     h1: "Audit log",
   },
+  // Two more surfaces for the generic sweeps. Both colour a status by tone through
+  // utils/status.ts, and are the only two that do it via an inline :style binding
+  // rather than a CSS rule — which is how "Pending" kept rendering at 3.00:1 after
+  // every CSS-side colour had been fixed, on a route this table did not list.
+  //
+  // Caveat worth knowing before trusting these: both pages are EMPTY in the e2e
+  // database (approvals and monitors are created by other specs, which sort after
+  // this one), so what actually gets swept here is the page chrome and the empty
+  // state — not the tone-coloured status itself. Verified by reverting the fix:
+  // the sweep still passed. Seeding a real pending approval needs an MCP session
+  // and leaves shared state behind for later specs, which is not worth it; the
+  // guard for that specific defect is toneTextVar's unit test, which asserts the
+  // mapping can never return a non-text token.
+  {
+    key: "approvals",
+    path: "/admin/approvals",
+    authed: true,
+    ready: (page) => page.locator(".table-card, .empty-state").first(),
+    h1: "Approvals",
+  },
+  {
+    key: "monitors",
+    path: "/admin/monitors",
+    authed: true,
+    ready: (page) => page.locator(".table-card, .empty-state").first(),
+    h1: "Monitors",
+  },
 ];
 
 /** Log in when the route needs it, land on it, and wait for its own content. */

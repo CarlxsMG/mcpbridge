@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { statusTone, toneColorVar, type StatusTone } from "../status";
+import { statusTone, toneColorVar, toneTextVar, type StatusTone } from "../status";
 
 describe("statusTone", () => {
   test.each<[string, StatusTone]>([
@@ -46,5 +46,22 @@ describe("toneColorVar", () => {
     expect(toneColorVar("warn")).toBe("--canary");
     expect(toneColorVar("bad")).toBe("--breach");
     expect(toneColorVar("neutral")).toBe("--text-secondary");
+  });
+});
+
+describe("toneTextVar", () => {
+  test("maps each tone to the text-safe half of the pair", () => {
+    expect(toneTextVar("good")).toBe("--ok-text");
+    expect(toneTextVar("warn")).toBe("--canary-text");
+    expect(toneTextVar("bad")).toBe("--breach-text");
+    // Neutral has no -text counterpart: --text-secondary already IS a text token.
+    expect(toneTextVar("neutral")).toBe("--text-secondary");
+  });
+
+  test("never returns a non-text token, so a caller cannot silently reuse a fill colour", () => {
+    const tones: StatusTone[] = ["good", "warn", "bad", "neutral"];
+    for (const tone of tones) {
+      expect(["--ok", "--canary", "--breach"]).not.toContain(toneTextVar(tone));
+    }
   });
 });
