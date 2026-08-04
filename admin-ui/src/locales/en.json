@@ -1077,6 +1077,7 @@
       }
     },
     "login": {
+      "title": "Sign in",
       "subtitle": "Sign in to manage servers and tools",
       "username": "Username",
       "password": "Password",

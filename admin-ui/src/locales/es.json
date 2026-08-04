@@ -1077,6 +1077,7 @@
       }
     },
     "login": {
+      "title": "Iniciar sesión",
       "subtitle": "Inicia sesión para gestionar servidores y herramientas",
       "username": "Usuario",
       "password": "Contraseña",

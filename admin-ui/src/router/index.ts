@@ -9,7 +9,12 @@ import { navEntries } from "../navigation";
 // params, or with no fixed label/icon to share, stay hand-written here.
 const routes = [
   { path: "/", redirect: "/servers" },
-  { path: "/login", name: "login", component: () => import("../pages/LoginPage.vue"), meta: { public: true } },
+  {
+    path: "/login",
+    name: "login",
+    component: () => import("../pages/LoginPage.vue"),
+    meta: { public: true, titleKey: "pages.login.title" },
+  },
   ...navEntries.map((entry) => ({ path: entry.path, name: entry.name, component: entry.component, meta: entry.meta })),
   {
     path: "/servers/:name",
@@ -35,11 +40,20 @@ const routes = [
     component: () => import("../pages/CompositeDetailPage.vue"),
     props: true,
   },
-  // The 11 "/x/new" create routes also come from navEntries (each entry's optional
+  // The 12 "/x/new" create routes also come from navEntries (each entry's optional
   // `newPage`), for the same reason as the static routes above — see navigation.ts.
+  // `titleKey` rides along in `meta` so resolvePageTitle can name a create page:
+  // it has no `nav.<name>.label` of its own to fall back on.
   ...navEntries.flatMap((entry) =>
     entry.newPage
-      ? [{ path: `${entry.path}/new`, name: entry.newPage.name, component: entry.newPage.component, meta: entry.meta }]
+      ? [
+          {
+            path: `${entry.path}/new`,
+            name: entry.newPage.name,
+            component: entry.newPage.component,
+            meta: { ...entry.meta, titleKey: entry.newPage.titleKey },
+          },
+        ]
       : [],
   ),
   {
@@ -52,7 +66,7 @@ const routes = [
     path: "/:pathMatch(.*)*",
     name: "not-found",
     component: () => import("../pages/NotFoundPage.vue"),
-    meta: { public: true },
+    meta: { public: true, titleKey: "pages.not_found.title" },
   },
 ];
 
@@ -98,13 +112,26 @@ export const routeAnnouncement = ref("");
 
 /**
  * A human, localized page title for the browser tab + the route announcement.
- * Prefers the shared, translated nav label (`nav.<name>.label`, same keys the
- * sidebar uses), then a meaningful route param (server/bundle name, trace id),
- * then a humanized slug so login / not-found / "*-new" routes still read well.
- * Localizes correctly at locale=es because the nav labels do.
+ * Prefers an explicit `meta.titleKey` (create routes, login, not-found — the
+ * pages with no nav entry of their own), then the shared, translated nav label
+ * (`nav.<name>.label`, same keys the sidebar uses), then a meaningful route
+ * param (server/bundle name, trace id). Localizes correctly at locale=es
+ * because all of those keys do.
+ *
+ * The last resort humanizes the route slug. Nothing reaches it today, and it is
+ * a poor title when anything does: it yielded "Bundle new" / "Key new" /
+ * "Policy new" — untranslated and ungrammatical — for every create route back
+ * when they had no titleKey, in an app that was rendering Spanish. Keep it only
+ * as a guard against an empty <title>, not as a naming strategy.
  */
 function resolvePageTitle(to: RouteLocationNormalized): string {
   const name = typeof to.name === "string" ? to.name : "";
+
+  const titleKey = typeof to.meta.titleKey === "string" ? to.meta.titleKey : "";
+  if (titleKey) {
+    const explicit = tk(titleKey);
+    if (explicit !== titleKey) return explicit;
+  }
 
   const labelKey = `nav.${name}.label`;
   const label = tk(labelKey);

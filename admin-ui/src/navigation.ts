@@ -58,7 +58,15 @@ export interface NavEntry {
   meta?: { role?: "admin" };
   // Some entries also own a "/new" create-route (e.g. /bundles/new) — router/index.ts
   // derives its path from `path` and reuses `meta`, so only name/component live here.
-  newPage?: { name: string; component: () => Promise<{ default: Component }> };
+  //
+  // `titleKey` is the i18n key the page already renders in its own PageHeader. The
+  // router needs it because a create route has no `nav.<name>.label` to fall back
+  // on, and without it resolvePageTitle humanized the route slug instead — giving
+  // every create flow an untranslated, ungrammatical document title and aria-live
+  // announcement ("Bundle new", "Key new", "Policy new") even at locale=es. It is
+  // spelled out per entry rather than derived as `pages.<name>.new.title` because
+  // two pages don't follow that shape (alerts, register-server).
+  newPage?: { name: string; titleKey: string; component: () => Promise<{ default: Component }> };
 }
 
 // Stable label/hint key prefixes — entry.name is the canonical slug, so the
@@ -87,7 +95,11 @@ export const navEntries: NavEntry[] = [
     // Folding it into the `newPage` pattern every other entity uses puts it
     // where a user already looks for "add one" (the button on the list page)
     // and gives the sidebar back a row.
-    newPage: { name: "register-server", component: () => import("./pages/RegisterServerPage.vue") },
+    newPage: {
+      name: "register-server",
+      titleKey: "pages.register_server.title",
+      component: () => import("./pages/RegisterServerPage.vue"),
+    },
   },
   {
     path: "/catalog",
@@ -97,7 +109,11 @@ export const navEntries: NavEntry[] = [
     group: "Servers",
     icon: LayoutGrid,
     component: () => import("./pages/CatalogPage.vue"),
-    newPage: { name: "catalog-new", component: () => import("./pages/NewCatalogEntryPage.vue") },
+    newPage: {
+      name: "catalog-new",
+      titleKey: "pages.catalog.new.title",
+      component: () => import("./pages/NewCatalogEntryPage.vue"),
+    },
   },
   {
     path: "/bundles",
@@ -107,7 +123,11 @@ export const navEntries: NavEntry[] = [
     group: "Servers",
     icon: Boxes,
     component: () => import("./pages/BundlesPage.vue"),
-    newPage: { name: "bundle-new", component: () => import("./pages/NewBundlePage.vue") },
+    newPage: {
+      name: "bundle-new",
+      titleKey: "pages.bundles.new.title",
+      component: () => import("./pages/NewBundlePage.vue"),
+    },
   },
   {
     path: "/composites",
@@ -117,7 +137,11 @@ export const navEntries: NavEntry[] = [
     group: "Servers",
     icon: Combine,
     component: () => import("./pages/CompositesPage.vue"),
-    newPage: { name: "composite-new", component: () => import("./pages/NewCompositePage.vue") },
+    newPage: {
+      name: "composite-new",
+      titleKey: "pages.composites.new.title",
+      component: () => import("./pages/NewCompositePage.vue"),
+    },
   },
   {
     path: "/ws-proxies",
@@ -127,7 +151,11 @@ export const navEntries: NavEntry[] = [
     group: "Servers",
     icon: Cable,
     component: () => import("./pages/WsProxyTargetsPage.vue"),
-    newPage: { name: "ws-proxy-new", component: () => import("./pages/NewWsProxyTargetPage.vue") },
+    newPage: {
+      name: "ws-proxy-new",
+      titleKey: "pages.ws_proxy_targets.new.title",
+      component: () => import("./pages/NewWsProxyTargetPage.vue"),
+    },
   },
   // Access
   {
@@ -138,7 +166,11 @@ export const navEntries: NavEntry[] = [
     group: "Access",
     icon: KeyRound,
     component: () => import("./pages/KeysPage.vue"),
-    newPage: { name: "key-new", component: () => import("./pages/NewApiKeyPage.vue") },
+    newPage: {
+      name: "key-new",
+      titleKey: "pages.keys.new.title",
+      component: () => import("./pages/NewApiKeyPage.vue"),
+    },
   },
   {
     path: "/policies",
@@ -148,7 +180,11 @@ export const navEntries: NavEntry[] = [
     group: "Access",
     icon: ShieldCheck,
     component: () => import("./pages/PoliciesPage.vue"),
-    newPage: { name: "policy-new", component: () => import("./pages/NewPolicyPage.vue") },
+    newPage: {
+      name: "policy-new",
+      titleKey: "pages.policies.new.title",
+      component: () => import("./pages/NewPolicyPage.vue"),
+    },
   },
   {
     path: "/consumers",
@@ -158,7 +194,11 @@ export const navEntries: NavEntry[] = [
     group: "Access",
     icon: Users2,
     component: () => import("./pages/ConsumersPage.vue"),
-    newPage: { name: "consumer-new", component: () => import("./pages/NewConsumerPage.vue") },
+    newPage: {
+      name: "consumer-new",
+      titleKey: "pages.consumers.new.title",
+      component: () => import("./pages/NewConsumerPage.vue"),
+    },
   },
   {
     path: "/approvals",
@@ -223,7 +263,11 @@ export const navEntries: NavEntry[] = [
     group: "Observability",
     icon: BellRing,
     component: () => import("./pages/AlertsPage.vue"),
-    newPage: { name: "alert-new", component: () => import("./pages/NewAlertPage.vue") },
+    newPage: {
+      name: "alert-new",
+      titleKey: "pages.alerts.new_title",
+      component: () => import("./pages/NewAlertPage.vue"),
+    },
   },
   {
     path: "/schedules",
@@ -233,7 +277,11 @@ export const navEntries: NavEntry[] = [
     group: "Observability",
     icon: Clock,
     component: () => import("./pages/SchedulesPage.vue"),
-    newPage: { name: "schedule-new", component: () => import("./pages/NewSchedulePage.vue") },
+    newPage: {
+      name: "schedule-new",
+      titleKey: "pages.schedules.new.title",
+      component: () => import("./pages/NewSchedulePage.vue"),
+    },
   },
   {
     path: "/audit-log",
@@ -254,7 +302,11 @@ export const navEntries: NavEntry[] = [
     icon: UserCog,
     component: () => import("./pages/UsersPage.vue"),
     meta: { role: "admin" },
-    newPage: { name: "user-new", component: () => import("./pages/NewUserPage.vue") },
+    newPage: {
+      name: "user-new",
+      titleKey: "pages.users.new.title",
+      component: () => import("./pages/NewUserPage.vue"),
+    },
   },
   {
     path: "/teams",
@@ -265,7 +317,11 @@ export const navEntries: NavEntry[] = [
     icon: UsersRound,
     component: () => import("./pages/TeamsPage.vue"),
     meta: { role: "admin" },
-    newPage: { name: "team-new", component: () => import("./pages/NewTeamPage.vue") },
+    newPage: {
+      name: "team-new",
+      titleKey: "pages.teams.new.title",
+      component: () => import("./pages/NewTeamPage.vue"),
+    },
   },
   {
     path: "/config",
