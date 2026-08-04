@@ -10,6 +10,7 @@ function storesWith(over: Partial<DashboardStores["overview"]> & object): Dashbo
     tools: { total: 42, disabled: 3 },
     circuit_breakers: { open: 2, half_open: 1, closed: 4 },
     admin_users: 3,
+    mcp_client_connected: true,
     ...over,
   };
   return s;

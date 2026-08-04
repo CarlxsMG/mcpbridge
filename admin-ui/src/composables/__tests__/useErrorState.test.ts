@@ -3,12 +3,24 @@ import { useErrorState } from "../useErrorState";
 import { ApiError } from "../useApi";
 
 describe("useErrorState", () => {
-  it("captures an ApiError's message and correlation id", () => {
+  it("localizes a catalogued error code and captures the correlation id", () => {
     const state = useErrorState();
     state.capture(new ApiError(404, "CLIENT_NOT_FOUND", "No such server.", "req-1"), "fallback");
 
-    expect(state.message.value).toBe("No such server.");
+    // The server's English message is replaced by this UI's own sentence for
+    // the code — that is the whole point of `errors.api.*` (see utils/errors.ts).
+    expect(state.message.value).toBe("That server no longer exists, or you don't have access to it.");
     expect(state.requestId.value).toBe("req-1");
+  });
+
+  it("keeps the server's message for a code with no translation, and still captures the id", () => {
+    const state = useErrorState();
+    // VALIDATION_ERROR is `verbatim` in the backend catalog: its message names
+    // the field that failed, which a generic translated sentence would destroy.
+    state.capture(new ApiError(400, "VALIDATION_ERROR", "monthlyQuota must be a positive integer.", "req-9"), "x");
+
+    expect(state.message.value).toBe("monthlyQuota must be a positive integer.");
+    expect(state.requestId.value).toBe("req-9");
   });
 
   it("falls back for a non-ApiError and reports no correlation id", () => {

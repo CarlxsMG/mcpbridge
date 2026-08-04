@@ -21,7 +21,7 @@ import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 const OAUTH_ERROR_STATUS: Record<OAuthError, number> = {
   CLIENT_NOT_FOUND: 404,
   SECRETS_PROVIDER_ERROR: 502,
-  SECRET_BOX_UNCONFIGURED: 400,
+  SECRET_BOX_NOT_CONFIGURED: 400,
   INVALID_URL: 400,
 };
 

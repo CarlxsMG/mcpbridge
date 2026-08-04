@@ -705,6 +705,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin-api/security-posture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Security conditions this instance is currently running with
+         * @description Reports the protections that are OFF right now — an unauthenticated MCP data plane, AUTH_DISABLED, a CORS wildcard, an insecure session cookie, JWT without an audience binding, a boolean TRUST_PROXY — plus whether a startup guard would normally have refused to boot and what is keeping it alive (`development` or an `ALLOW_UNSAFE_*` escape hatch). Computed from config and in-memory state only; no probes, no database. Admin role required. An empty `findings` array with a null `worst` means nothing to report.
+         */
+        get: operations["getSecurityPosture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin-api/overview": {
         parameters: {
             query?: never;
@@ -2592,6 +2612,37 @@ export interface components {
             headerName?: string | null;
             /** @description Unix ms epoch */
             updatedAt?: number;
+        };
+        /** @description One security condition this instance is currently running with. */
+        PostureFinding: {
+            /**
+             * @description Stable identifier; the admin UI translates on it rather than on the summary.
+             * @example mcp_data_plane_open
+             */
+            id: string;
+            /**
+             * @description critical = an authentication boundary is fully open; warning = a real weakening that still has other protection; info = a capability is unavailable, nothing is exposed.
+             * @enum {string}
+             */
+            severity: "critical" | "warning" | "info";
+            /** @description English one-line explanation, for non-UI consumers. */
+            summary: string;
+            /**
+             * @description Why a condition the startup guards normally refuse is running anyway — NODE_ENV=development, or a deliberate ALLOW_UNSAFE_* escape hatch. Null when no startup guard covers the condition at all (an unauthenticated data plane on a fresh install is allowed by design).
+             * @enum {string|null}
+             */
+            tolerated: "development" | "escape_hatch" | null;
+            /** @description The env var or action that clears the finding. */
+            remediation: string;
+        };
+        /** @description Computed from config and in-memory state on every call; no probes, no database. */
+        SecurityPosture: {
+            findings: components["schemas"]["PostureFinding"][];
+            /**
+             * @description Highest severity present, or null when there are no findings.
+             * @enum {string|null}
+             */
+            worst: "critical" | "warning" | "info" | null;
         };
         /** @description A captured tool call (opt-in via TRAFFIC_CAPTURE). Args are stored in full for faithful replay; the result is a truncated preview. */
         TrafficRecord: {
@@ -5625,6 +5676,35 @@ export interface operations {
             };
         };
     };
+    getSecurityPosture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current posture. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecurityPosture"];
+                };
+            };
+            /** @description Caller lacks the admin role. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     getOverview: {
         parameters: {
             query?: never;
@@ -5658,6 +5738,8 @@ export interface operations {
                             closed?: number;
                         };
                         admin_users?: number;
+                        /** @description True once any managed MCP key has authenticated a call (its last_used_at is set) — i.e. a real MCP client has connected at least once. The one figure here that reads the database. */
+                        mcp_client_connected?: boolean;
                     };
                 };
             };

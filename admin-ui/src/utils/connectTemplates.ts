@@ -1,10 +1,29 @@
 /**
+ * GENERATED FILE — DO NOT EDIT.
+ *
+ * Written by scripts/generate.ts from src/cli/connect-templates.ts. Edit that file and run
+ * `bun run generate`; `bun run check` fails if this copy is stale.
+ *
+ * It lives in git (rather than being produced at build time) because admin-ui
+ * builds and type-checks as a standalone package with no view of the backend.
+ */
+/**
  * One-click MCP client connection config generator — per-client template
- * registry. MIRROR of src/cli/connect-templates.ts (the backend/CLI copy
- * used by `gateway connect`) — admin-ui has zero shared deps with the
- * backend package (own package.json, own build), so this file is hand-kept
- * in sync rather than imported. Keep the two in sync by hand whenever either
- * changes; there is no build step that shares code across the two packages.
+ * registry, shared by the `gateway connect` CLI command
+ * (src/cli/commands/connect.ts) and by the admin UI's "Connect client" dialog.
+ *
+ * src/cli/connect-templates.ts is the SOURCE of this registry;
+ * admin-ui/src/utils/connectTemplates.ts is GENERATED from it by
+ * `bun run generate` (scripts/generate.ts). admin-ui has zero shared deps with
+ * the backend (own package.json, own build, see admin-ui/DESIGN_SYSTEM.md), so
+ * the templates are copied across the package boundary rather than imported.
+ * Edit the backend file, never the admin-ui one; `bun run check` runs the
+ * generator in --check mode and fails on drift. The two used to be kept in sync
+ * by hand, which is exactly as reliable as it sounds — they had already
+ * diverged by one export.
+ *
+ * Anything wrapped in `#region backend-only` is omitted from the generated
+ * copy — for code that has no consumer in the browser bundle.
  *
  * ── Why this exists ─────────────────────────────────────────────────────────
  * Hand-writing claude_desktop_config.json / .cursor/mcp.json / Windsurf's

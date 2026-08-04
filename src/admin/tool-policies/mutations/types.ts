@@ -14,6 +14,7 @@
  */
 import type { Response } from "express";
 import type { ValidationResult } from "../../../routes/validation.js";
+import type { ErrorCode } from "../../../routes/error-codes.js";
 
 /**
  * Outcome of {@link ToolMutation.apply}. Three branches:
@@ -26,7 +27,7 @@ import type { ValidationResult } from "../../../routes/validation.js";
  *     standard error envelope.
  */
 export type MutationApplyResult =
-  { kind: "ok" } | { kind: "tool_not_found" } | { kind: "error"; status: number; code: string; reason?: string };
+  { kind: "ok" } | { kind: "tool_not_found" } | { kind: "error"; status: number; code: ErrorCode; reason?: string };
 
 /**
  * Per-call context threaded through every mutation. Carries the target

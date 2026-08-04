@@ -4,9 +4,11 @@
 // steps that make this instance actually useful, with real-data checkmarks
 // rather than a generic static tour.
 //
-// Zero new backend state: every derived step reuses an admin-api list/summary
-// endpoint that already exists, and dismissal is a localStorage flag (not
-// worth a DB migration).
+// Zero new backend state: every step is derived from an admin-api list/summary
+// endpoint that already exists (the "connected a client" signal reads
+// mcp_api_keys.last_used_at, which the auth path has always stamped), and
+// dismissal is a localStorage flag — the one thing that IS a per-browser
+// preference rather than a fact about the instance.
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
@@ -20,13 +22,12 @@ const props = defineProps<{
 const { t } = useI18n({ useScope: "global" });
 
 const DISMISSED_KEY = "mcpbridge.onboarding.dismissed";
-const CLIENT_CONNECTED_KEY = "mcpbridge.onboarding.clientConnected";
 
 const dismissed = ref(localStorage.getItem(DISMISSED_KEY) === "1");
-const clientConnected = ref(localStorage.getItem(CLIENT_CONNECTED_KEY) === "1");
 
 const toolTested = ref(false);
 const teammateInvited = ref(false);
+const clientConnected = ref(false);
 
 async function loadSignals(): Promise<void> {
   try {
@@ -38,6 +39,11 @@ async function loadSignals(): Promise<void> {
   try {
     const overview = await api.get<OverviewStats>("/admin-api/overview");
     teammateInvited.value = overview.admin_users > 1;
+    // Server-side truth: a managed MCP key has authenticated at least once.
+    // This step used to be self-reported and remembered in localStorage, so it
+    // read as un-done on a second browser and for every other admin — the one
+    // step in the list that could disagree with reality.
+    clientConnected.value = overview.mcp_client_connected;
   } catch {
     // leave unchecked
   }
@@ -46,11 +52,6 @@ async function loadSignals(): Promise<void> {
 onMounted(() => {
   if (!dismissed.value) loadSignals();
 });
-
-function toggleClientConnected(): void {
-  clientConnected.value = !clientConnected.value;
-  localStorage.setItem(CLIENT_CONNECTED_KEY, clientConnected.value ? "1" : "0");
-}
 
 function dismiss(): void {
   dismissed.value = true;
@@ -61,14 +62,12 @@ interface Step {
   id: string;
   label: string;
   done: boolean;
-  /** Manual steps are self-reported by the user (click to toggle) rather than derived from data. */
-  manual?: boolean;
 }
 
 const steps = computed<Step[]>(() => [
   { id: "server", label: t("components.onboarding.steps.register_server"), done: props.hasServers },
   { id: "tool", label: t("components.onboarding.steps.test_tool"), done: toolTested.value },
-  { id: "client", label: t("components.onboarding.steps.connect_client"), done: clientConnected.value, manual: true },
+  { id: "client", label: t("components.onboarding.steps.connect_client"), done: clientConnected.value },
   { id: "teammate", label: t("components.onboarding.steps.invite_teammate"), done: teammateInvited.value },
 ]);
 
@@ -93,18 +92,7 @@ const allDone = computed(() => doneCount.value === steps.value.length);
     </div>
     <ul class="onboarding-steps">
       <li v-for="step in steps" :key="step.id" :class="{ 'step-done': step.done }">
-        <button
-          v-if="step.manual"
-          type="button"
-          class="step-row step-toggle"
-          :aria-pressed="step.done"
-          @click="toggleClientConnected"
-        >
-          <CheckCircle2 v-if="step.done" :size="16" stroke-width="2" aria-hidden="true" class="step-icon-done" />
-          <Circle v-else :size="16" stroke-width="2" aria-hidden="true" class="step-icon-todo" />
-          <span>{{ step.label }}</span>
-        </button>
-        <span v-else class="step-row">
+        <span class="step-row">
           <CheckCircle2 v-if="step.done" :size="16" stroke-width="2" aria-hidden="true" class="step-icon-done" />
           <Circle v-else :size="16" stroke-width="2" aria-hidden="true" class="step-icon-todo" />
           <span>{{ step.label }}</span>
@@ -112,6 +100,11 @@ const allDone = computed(() => doneCount.value === steps.value.length);
 
         <RouterLink v-if="step.id === 'server' && !step.done" to="/servers/new" class="step-cta">
           {{ t("components.onboarding.cta.add_server") }}
+        </RouterLink>
+        <!-- The connect step has an action now that it is data-derived: minting
+             a key is the thing that makes it completable. -->
+        <RouterLink v-if="step.id === 'client' && !step.done" to="/keys" class="step-cta">
+          {{ t("components.onboarding.cta.connect") }}
         </RouterLink>
         <RouterLink v-if="step.id === 'teammate' && !step.done" to="/users/new" class="step-cta">{{
           t("components.onboarding.cta.invite")
@@ -183,17 +176,6 @@ const allDone = computed(() => doneCount.value === steps.value.length);
 .step-icon-todo {
   color: var(--text-muted);
   flex-shrink: 0;
-}
-.step-toggle {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-family: var(--font-body);
-  text-align: left;
-}
-.step-toggle:hover {
-  color: var(--signal-strong);
 }
 .step-cta {
   flex-shrink: 0;

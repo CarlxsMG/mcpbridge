@@ -73,7 +73,7 @@ describe("config", () => {
     ).toMatchObject({ ok: false, error: "CLIENT_NOT_FOUND" });
     expect(
       await setClientOAuth(CLIENT, { tokenUrl: "http://5.6.7.8/t", clientId: "id", clientSecret: "s" }),
-    ).toMatchObject({ ok: false, error: "SECRET_BOX_UNCONFIGURED" });
+    ).toMatchObject({ ok: false, error: "SECRET_BOX_NOT_CONFIGURED" });
     configureSecretBox();
     expect(
       await setClientOAuth(CLIENT, { tokenUrl: "http://5.6.7.8/t", clientId: "id", clientSecret: "s", scope: "read" }),

@@ -164,6 +164,8 @@ type AllDrift =
   | Drift<"GuardPolicy", "GuardPolicy", Ui.GuardPolicy>
   | Drift<"LbConfig", "LbConfig", Ui.LbConfig>
   | Drift<"McpKeyScopes", "McpKeyScopes", Ui.McpKeyScopes>
+  | Drift<"PostureFinding", "PostureFinding", Ui.PostureFinding>
+  | Drift<"SecurityPosture", "SecurityPosture", Ui.SecurityPosture>
   | Drift<"Schedule", "Schedule", Ui.Schedule>
   | Drift<"StoredSpan", "StoredSpan", Ui.StoredSpan>
   | Drift<"Team", "Team", Ui.Team>
@@ -190,3 +192,8 @@ type SameUnion<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : fals
 type AssertTrue<T extends true> = T;
 
 export type _UpstreamKind = AssertTrue<SameUnion<Schemas["UpstreamKind"], Ui.UpstreamKind>>;
+// Severity is not its own component in the spec (it is an inline enum on
+// PostureFinding.severity), so compare against that property's generated type.
+export type _PostureSeverity = AssertTrue<
+  SameUnion<NonNullable<Schemas["PostureFinding"]["severity"]>, Ui.PostureSeverity>
+>;

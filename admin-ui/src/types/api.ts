@@ -314,6 +314,8 @@ export interface OverviewStats {
   tools: { total: number; disabled: number };
   circuit_breakers: { open: number; half_open: number; closed: number };
   admin_users: number;
+  /** True once a real MCP client has authenticated at least once — drives the onboarding checklist. */
+  mcp_client_connected: boolean;
 }
 
 export interface CurrentUser {
@@ -598,6 +600,28 @@ export interface UsageTimeseries {
 // ─── Traffic ─────────────────────────────────────────────────────────────────
 
 /** GET /admin-api/traffic item — only populated when TRAFFIC_CAPTURE=true is set on the server. */
+/**
+ * Mirrors the backend's PostureSeverity (src/security/security-posture.ts).
+ * `critical` is what the banner refuses to let an operator dismiss.
+ */
+export type PostureSeverity = "critical" | "warning" | "info";
+
+export interface PostureFinding {
+  /** Stable id — the UI translates on it (`components.security_banner.checks.<id>`), never on `summary`. */
+  id: string;
+  severity: PostureSeverity;
+  /** The backend's English sentence. Shown only when the UI has no translation for `id`. */
+  summary: string;
+  /** Which escape hatch keeps a normally-refused condition alive, or null when no startup guard covers it. */
+  tolerated: "development" | "escape_hatch" | null;
+  remediation: string;
+}
+
+export interface SecurityPosture {
+  findings: PostureFinding[];
+  worst: PostureSeverity | null;
+}
+
 export interface TrafficRecord {
   id: number;
   mcpToolName: string;

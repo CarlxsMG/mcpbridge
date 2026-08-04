@@ -117,7 +117,10 @@ describe("ServerDetailToolsTable", () => {
     await sensitiveBtn.trigger("click");
     expect(sensitiveBtn.text()).toBe("🔒 Sensitive");
 
-    rejectPatch(new ApiError(400, "BAD_REQUEST", "Could not mark sensitive."));
+    // VALIDATION_ERROR on purpose: it is `verbatim` in the backend catalog, so
+    // the server's specific sentence reaches the row instead of being replaced
+    // by a localized generality (see utils/errors.ts).
+    rejectPatch(new ApiError(400, "VALIDATION_ERROR", "Could not mark sensitive."));
     await flushPromises();
 
     expect(sensitiveBtn.text()).toBe("Mark sensitive");

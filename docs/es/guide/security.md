@@ -54,6 +54,26 @@ cualquier edición o eliminación retroactiva rompe la cadena y es detectable v�
 de verificación. Los eventos también pueden streamarse a un SIEM en tiempo real
 (`AUDIT_SINK_URL`).
 
+## Saber con qué estás funcionando
+
+Las comprobaciones de arranque se niegan a arrancar con las combinaciones peligrosas, pero
+varias condiciones sí pueden seguir corriendo: cualquiera bajo `NODE_ENV=development`,
+cualquiera que permita una vía de escape `ALLOW_UNSAFE_*` puesta a propósito y —por diseño—
+un **plano de datos MCP sin autenticar** en una instancia que todavía no tiene claves, para
+que una instalación recién hecha sea usable antes de crear la primera.
+
+Eso se registra en el log de arranque, que no lo lee nadie una vez el contenedor está en pie.
+`GET /admin-api/security-posture` (rol admin) lo reporta bajo demanda, y la UI de
+administración levanta un aviso en todas las páginas mientras alguna esté abierta:
+
+```bash
+curl -sH "Authorization: Bearer $ADMIN_API_KEY" localhost:3000/admin-api/security-posture
+```
+
+Cada hallazgo lleva una severidad, la variable de entorno que lo cierra y —en los que tienen
+guarda— si está corriendo por modo desarrollo o por una vía de escape. Un array `findings`
+vacío es la respuesta que quieres.
+
 ## Checklist de hardening para producción
 
 - Sirve sobre **HTTPS** y deja `SESSION_COOKIE_SECURE=true` (las cookies pasan a ser

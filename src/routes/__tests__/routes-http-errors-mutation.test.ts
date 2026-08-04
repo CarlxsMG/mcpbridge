@@ -63,11 +63,14 @@ describe("validationError — the exact VALIDATION_ERROR code", () => {
 });
 
 describe("sendError / notFound / forbidden — exact envelope shape", () => {
+  // Any catalogued code works here — the point is the envelope shape, not the
+  // code. It used to pass a made-up "TEAPOT"; `sendError` now takes `ErrorCode`
+  // (see src/routes/error-codes.ts), so an uncatalogued code no longer compiles.
   test("sendError builds the exact { error: { code, message, request_id } } envelope", () => {
     const res = mockRes("req-2");
-    sendError(res, 418, "TEAPOT", "I am a teapot");
+    sendError(res, 418, "INTERNAL_ERROR", "I am a teapot");
     expect(res.sentStatus).toBe(418);
-    expect(res.sentBody).toEqual({ error: { code: "TEAPOT", message: "I am a teapot", request_id: "req-2" } });
+    expect(res.sentBody).toEqual({ error: { code: "INTERNAL_ERROR", message: "I am a teapot", request_id: "req-2" } });
   });
 
   test("notFound sends status 404 with the caller-supplied code", () => {

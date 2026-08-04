@@ -17,6 +17,7 @@ import { TOOL_KEY_SEPARATOR } from "../../../lib/identifier.js";
 import { recordAudit } from "../../../admin/audit/audit.js";
 import { purgeToolCache } from "../../../tool-policies/response-cache.js";
 import { sendError, validationError, notFound } from "../../../routes/http-errors.js";
+import type { ErrorCode } from "../../../routes/error-codes.js";
 import type {
   DispatchOutcome,
   DispatcherResponse,
@@ -81,7 +82,7 @@ export const TOOL_MUTATIONS: readonly ToolMutation[] = [
 export type MutationFailure =
   | { kind: "validation_error"; key: string; message: string }
   | { kind: "tool_not_found"; key: string; message: string }
-  | { kind: "downstream_error"; key: string; message: string; status: number; code: string };
+  | { kind: "downstream_error"; key: string; message: string; status: number; code: ErrorCode };
 
 /** Outcome of {@link applyToolMutations}: how many keys landed, and which did not. */
 export interface ApplyToolMutationsResult {

@@ -17,6 +17,7 @@ import SignalLoader from "@/components/ui/SignalLoader.vue";
 import DemoRibbon from "./components/layout/DemoRibbon.vue";
 import TheMobileTopbar from "./components/layout/TheMobileTopbar.vue";
 import TheSidebar from "./components/layout/TheSidebar.vue";
+import SecurityBanner from "./components/layout/SecurityBanner.vue";
 import { routeAnnouncement } from "@/router";
 
 const route = useRoute();
@@ -65,6 +66,10 @@ onUnmounted(() => {
     <div v-if="mobileNavOpen" class="mobile-nav-backdrop" @click="mobileNavOpen = false"></div>
     <TheSidebar :nav-open="mobileNavOpen" />
     <main id="main-content" class="content" tabindex="-1">
+      <!-- Above the route, not inside a page: an open auth boundary is a
+           property of the whole instance, and an operator must meet it on
+           whichever page they happened to open. -->
+      <SecurityBanner />
       <RouterView />
     </main>
   </div>

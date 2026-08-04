@@ -1929,6 +1929,35 @@ paths:
                 properties:
                   actions: { type: array, items: { type: string }, example: [client.delete, tool.guards.update] }
 
+  /admin-api/security-posture:
+    get:
+      operationId: getSecurityPosture
+      summary: Security conditions this instance is currently running with
+      description: >
+        Reports the protections that are OFF right now — an unauthenticated MCP
+        data plane, AUTH_DISABLED, a CORS wildcard, an insecure session cookie,
+        JWT without an audience binding, a boolean TRUST_PROXY — plus whether a
+        startup guard would normally have refused to boot and what is keeping it
+        alive (`development` or an `ALLOW_UNSAFE_*` escape hatch). Computed from
+        config and in-memory state only; no probes, no database. Admin role
+        required. An empty `findings` array with a null `worst` means nothing to
+        report.
+      tags: [Admin]
+      security: [{ AdminAuth: [] }, { SessionAuth: [] }]
+      responses:
+        "200":
+          description: The current posture.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityPosture"
+        "403":
+          description: Caller lacks the admin role.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   /admin-api/overview:
     get:
       operationId: getOverview
@@ -1964,6 +1993,11 @@ paths:
                       half_open: { type: integer }
                       closed: { type: integer }
                   admin_users: { type: integer }
+                  mcp_client_connected:
+                    type: boolean
+                    description:
+                      "True once any managed MCP key has authenticated a call (its last_used_at is set) — i.e. a real
+                      MCP client has connected at least once. The one figure here that reads the database."
 
   /admin-api/audit-log/verify:
     get:
@@ -5616,6 +5650,42 @@ components:
     # -------------------------------------------------------------------------
     # Traffic explorer + approvals
     # -------------------------------------------------------------------------
+    PostureFinding:
+      type: object
+      description: One security condition this instance is currently running with.
+      required: [id, severity, summary, tolerated, remediation]
+      properties:
+        id:
+          type: string
+          description: "Stable identifier; the admin UI translates on it rather than on the summary."
+          example: mcp_data_plane_open
+        severity:
+          type: string
+          description:
+            "critical = an authentication boundary is fully open; warning = a real weakening that still has other
+            protection; info = a capability is unavailable, nothing is exposed."
+          enum: [critical, warning, info]
+        summary: { type: string, description: "English one-line explanation, for non-UI consumers." }
+        tolerated:
+          type: [string, "null"]
+          description:
+            "Why a condition the startup guards normally refuse is running anyway — NODE_ENV=development, or a
+            deliberate ALLOW_UNSAFE_* escape hatch. Null when no startup guard covers the condition at all (an
+            unauthenticated data plane on a fresh install is allowed by design)."
+          enum: [development, escape_hatch, null]
+        remediation: { type: string, description: "The env var or action that clears the finding." }
+
+    SecurityPosture:
+      type: object
+      description: Computed from config and in-memory state on every call; no probes, no database.
+      required: [findings, worst]
+      properties:
+        findings: { type: array, items: { $ref: "#/components/schemas/PostureFinding" } }
+        worst:
+          type: [string, "null"]
+          description: "Highest severity present, or null when there are no findings."
+          enum: [critical, warning, info, null]
+
     TrafficRecord:
       type: object
       description: A captured tool call (opt-in via TRAFFIC_CAPTURE). Args are stored in full for faithful replay; the result is a truncated preview.

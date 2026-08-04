@@ -5,4 +5,5 @@ export const overview: OverviewStats = {
   tools: { total: 42, disabled: 3 },
   circuit_breakers: { open: 0, half_open: 1, closed: 4 },
   admin_users: 3,
+  mcp_client_connected: true,
 };

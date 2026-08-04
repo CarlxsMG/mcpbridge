@@ -1,11 +1,20 @@
 /**
  * One-click MCP client connection config generator — per-client template
  * registry, shared by the `gateway connect` CLI command
- * (src/cli/commands/connect.ts) and mirrored (admin-ui has zero shared deps
- * with the backend, see admin-ui/DESIGN_SYSTEM.md / repo conventions) at
- * admin-ui/src/utils/connectTemplates.ts for the "Connect client"
- * admin-UI dialog. Keep the two files in sync by hand — there is no build
- * step that shares code across the two packages.
+ * (src/cli/commands/connect.ts) and by the admin UI's "Connect client" dialog.
+ *
+ * src/cli/connect-templates.ts is the SOURCE of this registry;
+ * admin-ui/src/utils/connectTemplates.ts is GENERATED from it by
+ * `bun run generate` (scripts/generate.ts). admin-ui has zero shared deps with
+ * the backend (own package.json, own build, see admin-ui/DESIGN_SYSTEM.md), so
+ * the templates are copied across the package boundary rather than imported.
+ * Edit the backend file, never the admin-ui one; `bun run check` runs the
+ * generator in --check mode and fails on drift. The two used to be kept in sync
+ * by hand, which is exactly as reliable as it sounds — they had already
+ * diverged by one export.
+ *
+ * Anything wrapped in `#region backend-only` is omitted from the generated
+ * copy — for code that has no consumer in the browser bundle.
  *
  * ── Why this exists ─────────────────────────────────────────────────────────
  * Hand-writing claude_desktop_config.json / .cursor/mcp.json / Windsurf's
@@ -264,9 +273,13 @@ export const CONNECT_TEMPLATES: Record<ConnectClientId, ConnectTemplate> = {
   "generic-json": genericJson,
 };
 
+// #region backend-only
+// Only the CLI validates a raw `--client` argument; the admin UI picks from a
+// typed list, so this never reaches the browser bundle.
 export function isConnectClientId(value: string): value is ConnectClientId {
   return (CONNECT_CLIENT_IDS as readonly string[]).includes(value);
 }
+// #endregion backend-only
 
 export function generateConnectSnippet(clientId: ConnectClientId, input: ConnectTemplateInput): ConnectTemplateOutput {
   return CONNECT_TEMPLATES[clientId].generate(input);

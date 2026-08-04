@@ -194,6 +194,21 @@ export function hasAnyMcpKeys(): boolean {
 }
 
 /**
+ * True once any managed MCP key has actually authenticated a call.
+ *
+ * This is the only server-side evidence that a real MCP client ever connected:
+ * `touchMcpKeyLastUsed` stamps it on the auth path. The onboarding checklist
+ * used to ask the user to tick "connected a client" by hand and remembered the
+ * answer in localStorage — which is per-browser, so the same person saw the
+ * step un-ticked again on their laptop, and a colleague saw it un-ticked
+ * always.
+ */
+export function hasAnyMcpKeyBeenUsed(): boolean {
+  const row = getDb().query(`SELECT 1 FROM mcp_api_keys WHERE last_used_at IS NOT NULL LIMIT 1`).get() as unknown;
+  return row !== null && row !== undefined;
+}
+
+/**
  * Resolves a raw bearer token to a *usable* key record, or null. Returns null
  * for unknown, disabled, revoked, or expired keys — so callers can treat a
  * non-null result as "this key is currently valid".

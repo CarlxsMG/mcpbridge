@@ -146,7 +146,57 @@
     "preview_failed": "Preview failed.",
     "not_authenticated": "Not authenticated",
     "request_failed_with_status": "Request failed with status {status}",
-    "request_ref": "Request ref"
+    "request_ref": "Request ref",
+    "api": {
+      "ALERT_NOT_FOUND": "That alert rule no longer exists.",
+      "ALREADY_EXISTS": "Something with that name already exists.",
+      "ALREADY_REVOKED": "That API key was already revoked.",
+      "APPROVAL_NOT_FOUND": "That approval request no longer exists.",
+      "BAD_REQUEST": "The gateway could not process that request.",
+      "BUNDLE_NOT_FOUND": "That bundle no longer exists.",
+      "CATALOG_ENTRY_NOT_FOUND": "That catalog entry no longer exists.",
+      "CLIENT_NOT_FOUND": "That server no longer exists, or you don't have access to it.",
+      "COMPOSITE_NOT_FOUND": "That composite tool no longer exists.",
+      "CONSUMER_EXISTS": "A consumer with that name already exists.",
+      "CONSUMER_NOT_FOUND": "That consumer no longer exists, or you don't have access to it.",
+      "CSRF_VALIDATION_FAILED": "Your session could not be verified. Reload the page and try again.",
+      "EMPTY_BUNDLE": "Add at least one tool to the bundle before creating an install link.",
+      "EXAMPLE_NOT_FOUND": "That saved example no longer exists.",
+      "FORBIDDEN": "Your role does not allow this action.",
+      "IMMUTABLE_ENTRY": "Built-in catalog entries cannot be changed.",
+      "INSTALL_LINK_NOT_FOUND": "That install link has expired or was revoked.",
+      "INTERNAL_ERROR": "The gateway hit an unexpected error. Use the request ref below to find it in the server logs.",
+      "INVALID_CREDENTIALS": "Incorrect username or password.",
+      "INVALID_SESSION_ID": "That MCP session id is not valid.",
+      "JSON_TOO_DEEP": "That request body is nested too deeply.",
+      "LAST_ADMIN_PROTECTED": "You cannot remove the last admin.",
+      "LAST_SUPERADMIN_PROTECTED": "You cannot remove the last super-admin.",
+      "MCP_KEY_NOT_FOUND": "That API key no longer exists.",
+      "NOT_CONFIGURED": "That is not configured on this server yet.",
+      "NOT_FOUND": "That item no longer exists.",
+      "NOT_REST": "This only applies to REST servers.",
+      "ORIGIN_NOT_ALLOWED": "This origin is not allowed to call the gateway.",
+      "POLICY_EXISTS": "A policy with that name already exists.",
+      "POLICY_NOT_FOUND": "That policy no longer exists.",
+      "RATE_LIMITED": "Too many requests. Wait a moment and try again.",
+      "SCHEDULE_NOT_FOUND": "That schedule no longer exists.",
+      "SECRETS_PROVIDER_UNCONFIGURED": "This needs an external secrets provider, and none is configured.",
+      "SECRET_BOX_NOT_CONFIGURED": "Set SECRET_ENCRYPTION_KEY on the server before storing secrets.",
+      "SESSION_NOT_FOUND": "That MCP session no longer exists.",
+      "SNAPSHOT_NOT_FOUND": "That snapshot no longer exists.",
+      "SSO_NOT_CONFIGURED": "Single sign-on is not configured on this instance.",
+      "TARGET_NOT_FOUND": "That load-balancer target no longer exists.",
+      "TEAM_NOT_FOUND": "That team no longer exists.",
+      "TOOL_NOT_FOUND": "That tool no longer exists.",
+      "TOOL_NOT_LIVE": "That tool is not live right now.",
+      "TRACE_NOT_FOUND": "That trace no longer exists.",
+      "TRAFFIC_NOT_FOUND": "That traffic record no longer exists.",
+      "UNAUTHORIZED": "You are not signed in, or your session expired.",
+      "UPSTREAM_AUTH_VAULT_UNSUPPORTED": "The configured Vault provider cannot store this kind of upstream credential.",
+      "USER_EXISTS": "A user with that name already exists.",
+      "USER_NOT_FOUND": "That user no longer exists.",
+      "WS_PROXY_TARGET_NOT_FOUND": "That WebSocket proxy target no longer exists."
+    }
   },
   "sidebar": {
     "brand_live_title": "Live traffic in the last minute",
@@ -237,6 +287,26 @@
         "revoke_failed": "Failed to revoke install link."
       }
     },
+    "security_banner": {
+      "title_critical": "This gateway is running with an authentication boundary open.",
+      "title_warning": "This gateway is running with weakened security settings.",
+      "show": "Details",
+      "hide": "Hide",
+      "dismiss": "Dismiss this warning",
+      "severity": { "critical": "Critical", "warning": "Warning" },
+      "tolerated": {
+        "development": "allowed because NODE_ENV=development",
+        "escape_hatch": "allowed by an ALLOW_UNSAFE_ escape hatch"
+      },
+      "checks": {
+        "mcp_data_plane_open": "Anyone can call every backend tool — the MCP endpoints accept requests with no credentials.",
+        "auth_disabled": "Authentication is switched off entirely, including for the admin API.",
+        "cors_wildcard": "Any website can make cross-origin calls to this gateway.",
+        "session_cookie_insecure": "Admin session cookies can travel over plain HTTP.",
+        "jwt_no_audience": "Inbound JWTs are accepted whoever they were issued for.",
+        "trust_proxy_boolean": "Client IPs are taken from a spoofable header, so per-IP rate limits can be bypassed."
+      }
+    },
     "onboarding": {
       "title": "Get started",
       "all_done": "All steps complete — nice work.",
@@ -250,6 +320,7 @@
       },
       "cta": {
         "add_server": "Add a server",
+        "connect": "Mint a key",
         "invite": "Invite"
       }
     },

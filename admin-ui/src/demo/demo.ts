@@ -197,6 +197,10 @@ function route(
 
   if (p === "/admin-api/overview") return ok(overview);
   if (p === "/admin-api/connect/gateway-url") return ok({ publicUrl: null });
+  // The demo has no real environment to have a posture about, so it reports a
+  // clean one and the banner stays hidden. Anything else would put a security
+  // warning about a fictional instance on the public showcase.
+  if (p === "/admin-api/security-posture") return ok({ findings: [], worst: null });
 
   // Clients (servers)
   if (p === "/admin-api/clients" && method === "GET") return ok({ items: clients });

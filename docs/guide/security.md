@@ -48,6 +48,25 @@ like `target` and `detail` could otherwise collide across distinct rows — so a
 retroactive edit or deletion breaks the chain and is detectable via a verify endpoint.
 Events can also be streamed to a SIEM in real time (`AUDIT_SINK_URL`).
 
+## Knowing what you are running with
+
+The startup guards refuse to boot on the dangerous combinations, but several conditions are
+allowed to run: anything in `NODE_ENV=development`, anything a deliberate `ALLOW_UNSAFE_*`
+escape hatch permits, and — by design — an **unauthenticated MCP data plane** on an instance
+that has no keys yet, so a fresh install is usable before the first key is minted.
+
+Those are logged at boot, which reaches nobody once a container is up. `GET
+/admin-api/security-posture` (admin role) reports them on demand, and the admin UI raises a
+banner on every page while any of them is open:
+
+```bash
+curl -sH "Authorization: Bearer $ADMIN_API_KEY" localhost:3000/admin-api/security-posture
+```
+
+Each finding carries a severity, the env var that clears it, and — for the guarded ones —
+whether it is running because of development mode or because of an escape hatch. An empty
+`findings` array is the answer you want.
+
 ## Hardening checklist for production
 
 - Serve over **HTTPS** and leave `SESSION_COOKIE_SECURE=true` (cookies become `__Host-`/Secure).

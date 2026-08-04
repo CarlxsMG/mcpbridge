@@ -146,7 +146,57 @@
     "preview_failed": "La vista previa falló.",
     "not_authenticated": "No autenticado",
     "request_failed_with_status": "Petición fallida con código {status}",
-    "request_ref": "Referencia de la petición"
+    "request_ref": "Referencia de la petición",
+    "api": {
+      "ALERT_NOT_FOUND": "Esa regla de alerta ya no existe.",
+      "ALREADY_EXISTS": "Ya existe algo con ese nombre.",
+      "ALREADY_REVOKED": "Esa clave de API ya estaba revocada.",
+      "APPROVAL_NOT_FOUND": "Esa solicitud de aprobación ya no existe.",
+      "BAD_REQUEST": "La pasarela no pudo procesar esa petición.",
+      "BUNDLE_NOT_FOUND": "Ese bundle ya no existe.",
+      "CATALOG_ENTRY_NOT_FOUND": "Esa entrada del catálogo ya no existe.",
+      "CLIENT_NOT_FOUND": "Ese servidor ya no existe, o no tienes acceso a él.",
+      "COMPOSITE_NOT_FOUND": "Esa herramienta compuesta ya no existe.",
+      "CONSUMER_EXISTS": "Ya existe un consumidor con ese nombre.",
+      "CONSUMER_NOT_FOUND": "Ese consumidor ya no existe, o no tienes acceso a él.",
+      "CSRF_VALIDATION_FAILED": "No se pudo verificar tu sesión. Recarga la página e inténtalo de nuevo.",
+      "EMPTY_BUNDLE": "Añade al menos una herramienta al bundle antes de crear un enlace de instalación.",
+      "EXAMPLE_NOT_FOUND": "Ese ejemplo guardado ya no existe.",
+      "FORBIDDEN": "Tu rol no permite esta acción.",
+      "IMMUTABLE_ENTRY": "Las entradas integradas del catálogo no se pueden modificar.",
+      "INSTALL_LINK_NOT_FOUND": "Ese enlace de instalación ha caducado o fue revocado.",
+      "INTERNAL_ERROR": "La pasarela ha tenido un error inesperado. Usa la referencia de abajo para localizarlo en los logs.",
+      "INVALID_CREDENTIALS": "Usuario o contraseña incorrectos.",
+      "INVALID_SESSION_ID": "Ese id de sesión MCP no es válido.",
+      "JSON_TOO_DEEP": "El cuerpo de esa petición está demasiado anidado.",
+      "LAST_ADMIN_PROTECTED": "No puedes eliminar al último administrador.",
+      "LAST_SUPERADMIN_PROTECTED": "No puedes eliminar al último super-admin.",
+      "MCP_KEY_NOT_FOUND": "Esa clave de API ya no existe.",
+      "NOT_CONFIGURED": "Eso todavía no está configurado en este servidor.",
+      "NOT_FOUND": "Ese elemento ya no existe.",
+      "NOT_REST": "Esto solo se aplica a servidores REST.",
+      "ORIGIN_NOT_ALLOWED": "Este origen no tiene permiso para llamar a la pasarela.",
+      "POLICY_EXISTS": "Ya existe una política con ese nombre.",
+      "POLICY_NOT_FOUND": "Esa política ya no existe.",
+      "RATE_LIMITED": "Demasiadas peticiones. Espera un momento e inténtalo de nuevo.",
+      "SCHEDULE_NOT_FOUND": "Esa programación ya no existe.",
+      "SECRETS_PROVIDER_UNCONFIGURED": "Esto necesita un proveedor externo de secretos y no hay ninguno configurado.",
+      "SECRET_BOX_NOT_CONFIGURED": "Define SECRET_ENCRYPTION_KEY en el servidor antes de guardar secretos.",
+      "SESSION_NOT_FOUND": "Esa sesión MCP ya no existe.",
+      "SNAPSHOT_NOT_FOUND": "Esa instantánea ya no existe.",
+      "SSO_NOT_CONFIGURED": "El inicio de sesión único no está configurado en esta instancia.",
+      "TARGET_NOT_FOUND": "Ese destino de balanceo ya no existe.",
+      "TEAM_NOT_FOUND": "Ese equipo ya no existe.",
+      "TOOL_NOT_FOUND": "Esa herramienta ya no existe.",
+      "TOOL_NOT_LIVE": "Esa herramienta no está activa ahora mismo.",
+      "TRACE_NOT_FOUND": "Esa traza ya no existe.",
+      "TRAFFIC_NOT_FOUND": "Ese registro de tráfico ya no existe.",
+      "UNAUTHORIZED": "No has iniciado sesión, o tu sesión ha caducado.",
+      "UPSTREAM_AUTH_VAULT_UNSUPPORTED": "El proveedor Vault configurado no puede guardar este tipo de credencial de upstream.",
+      "USER_EXISTS": "Ya existe un usuario con ese nombre.",
+      "USER_NOT_FOUND": "Ese usuario ya no existe.",
+      "WS_PROXY_TARGET_NOT_FOUND": "Ese destino de proxy WebSocket ya no existe."
+    }
   },
   "sidebar": {
     "brand_live_title": "Tráfico en vivo en el último minuto",
@@ -237,6 +287,26 @@
         "revoke_failed": "Error al revocar el link de instalación."
       }
     },
+    "security_banner": {
+      "title_critical": "Esta pasarela está funcionando con una frontera de autenticación abierta.",
+      "title_warning": "Esta pasarela está funcionando con ajustes de seguridad debilitados.",
+      "show": "Detalles",
+      "hide": "Ocultar",
+      "dismiss": "Descartar este aviso",
+      "severity": { "critical": "Crítico", "warning": "Aviso" },
+      "tolerated": {
+        "development": "permitido porque NODE_ENV=development",
+        "escape_hatch": "permitido por una vía de escape ALLOW_UNSAFE_"
+      },
+      "checks": {
+        "mcp_data_plane_open": "Cualquiera puede llamar a todas las herramientas del backend: los endpoints MCP aceptan peticiones sin credenciales.",
+        "auth_disabled": "La autenticación está desactivada por completo, incluida la de la API de administración.",
+        "cors_wildcard": "Cualquier web puede hacer llamadas de origen cruzado a esta pasarela.",
+        "session_cookie_insecure": "Las cookies de sesión de administración pueden viajar por HTTP sin cifrar.",
+        "jwt_no_audience": "Se aceptan los JWT entrantes sin importar para quién se emitieran.",
+        "trust_proxy_boolean": "La IP del cliente se toma de una cabecera falsificable, así que se pueden esquivar los límites por IP."
+      }
+    },
     "onboarding": {
       "title": "Empezar",
       "all_done": "Todos los pasos completos — bien hecho.",
@@ -250,6 +320,7 @@
       },
       "cta": {
         "add_server": "Añadir un servidor",
+        "connect": "Crear una clave",
         "invite": "Invitar"
       }
     },

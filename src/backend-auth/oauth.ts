@@ -38,7 +38,13 @@ export function getClientOAuth(clientName: string): OAuthPublic | null {
   return row ? { tokenUrl: row.token_url, clientId: row.client_id, scope: row.scope } : null;
 }
 
-export type OAuthError = "CLIENT_NOT_FOUND" | "SECRET_BOX_UNCONFIGURED" | "INVALID_URL" | "SECRETS_PROVIDER_ERROR";
+// SECRET_BOX_NOT_CONFIGURED, not the SECRET_BOX_UNCONFIGURED this used to emit:
+// bundle install links (admin/tool-composition/bundle-install-links.ts) and
+// upstream auth (routes/admin/upstream-auth.ts) both already reported the same
+// "SECRET_ENCRYPTION_KEY is unset" condition under the NOT_CONFIGURED spelling,
+// so two codes meant one thing. Unified when src/routes/error-codes.ts made the
+// code set enumerable — the status stays per-route (400 here, 501 there).
+export type OAuthError = "CLIENT_NOT_FOUND" | "SECRET_BOX_NOT_CONFIGURED" | "INVALID_URL" | "SECRETS_PROVIDER_ERROR";
 
 export async function setClientOAuth(
   clientName: string,
@@ -53,7 +59,7 @@ export async function setClientOAuth(
     return { ok: true };
   }
   const secretsProvider = getSecretsProvider();
-  if (!secretsProvider.isConfigured()) return { ok: false, error: "SECRET_BOX_UNCONFIGURED" };
+  if (!secretsProvider.isConfigured()) return { ok: false, error: "SECRET_BOX_NOT_CONFIGURED" };
   const check = await validateBackendUrl(input.tokenUrl, config.allowPrivateIps, config.allowedHosts);
   if (!check.valid) return { ok: false, error: "INVALID_URL", reason: check.reason };
 

@@ -525,11 +525,15 @@ test.describe("Trace viewer — span recording, filters, access control and the 
     // never turned it on" — assert the literal env var, not just some prose.
     await expect(adminPage.locator("p.subtitle code")).toHaveText("TRACE_STORAGE=true");
 
-    // The detail route's failure branch: the backend's own message is what the
-    // user sees (useApi's ApiError carries it through), not a generic string.
+    // The detail route's failure branch. The backend answers 404 TRACE_NOT_FOUND
+    // with its own English message ("Trace not found"); what the user sees is
+    // this UI's sentence for that CODE, from `errors.api.*` in the locale
+    // bundles — which is what lets a Spanish operator read a Spanish failure.
+    // Asserting the localized string (not the server's) is the point: it proves
+    // the code round-tripped through the lookup rather than falling back.
     await adminPage.goto(`/admin/traces/${UNKNOWN_TRACE_ID}`);
     await expect(adminPage.getByRole("heading", { name: `Trace ${UNKNOWN_TRACE_ID}`, level: 1 })).toBeVisible();
-    await expect(adminPage.locator("p.error[role='alert']")).toHaveText("Trace not found");
+    await expect(adminPage.locator("p.error[role='alert']")).toHaveText("That trace no longer exists.");
   });
 
   test("the SPA lists the trace and its detail page renders the span waterfall", async () => {

@@ -154,6 +154,8 @@ const GLOBAL_GET_ROUTES: Record<string, string> = {
     "gateway-wide aggregate counters (client/tool/breaker/cache totals + admin-user count) — aggregate numbers only, no per-tenant rows or names",
   "/admin-api/policies":
     "guard_policies are global reusable guard templates (no team_id); application to tools is tenancy-checked at apply-time",
+  "/admin-api/security-posture":
+    "process-wide security configuration (which protections are off) — admin role required, and it carries no tenant rows at all: same rationale as GET /config/effective",
   "/admin-api/teams":
     "team roster is tenancy-structure metadata; any admin may read the list, mutations are super-admin",
   "/admin-api/teams/:id": "team detail — same tenancy-metadata rationale as GET /teams",

@@ -34,6 +34,7 @@ function richStores(): DashboardStores {
     tools: { total: 42, disabled: 3 },
     circuit_breakers: { open: 2, half_open: 1, closed: 4 },
     admin_users: 3,
+    mcp_client_connected: true,
   };
   s.usageSummary = { from: 0, calls: 1234, errors: 5, errorRate: 0.05, avgMs: 120, maxMs: 900, tools: 10, keys: 3 };
   s.usageTimeseries = {

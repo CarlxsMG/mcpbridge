@@ -15,6 +15,7 @@ import {
 import { verifyJwt, isJwtConfigured } from "../security/jwt.js";
 import { resolveSystemRole } from "../security/system-role.js";
 import { sendError, forbidden } from "../routes/http-errors.js";
+import type { ErrorCode } from "../routes/error-codes.js";
 
 export interface AuthContext {
   method: "bearer" | "session";
@@ -120,7 +121,7 @@ export type McpAuthVerdict =
       scopes?: McpKeyScopes | null;
       jwtSubject?: string;
     }
-  | { ok: false; status: number; code: string; message: string };
+  | { ok: false; status: number; code: ErrorCode; message: string };
 
 function extractBearerFromHeaders(headers: IncomingHttpHeaders): string | null {
   const header = headers.authorization;

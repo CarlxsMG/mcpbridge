@@ -53,6 +53,7 @@ const textEs = {
   Reference: "Referencia",
   Configuration: "Configuración",
   "API reference": "Referencia de API",
+  "Error codes": "Códigos de error",
   CLI: "CLI",
   Support: "Soporte",
   Troubleshooting: "Solución de problemas",
@@ -102,6 +103,7 @@ const sidebarGuideEn = [
     items: [
       { text: "Configuration", link: "/guide/configuration" },
       { text: "API reference", link: "/guide/api-reference" },
+      { text: "Error codes", link: "/guide/error-codes" },
       { text: "CLI", link: "/guide/cli" },
       { text: "Features", link: "/guide/features" },
     ],

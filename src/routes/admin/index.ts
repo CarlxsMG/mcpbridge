@@ -30,6 +30,7 @@ import { compositeRoutes } from "./composites.js";
 import { scheduleRoutes } from "./schedules.js";
 import { teamRoutes } from "./teams.js";
 import { tracesRoutes } from "./traces.js";
+import { securityPostureRoutes } from "./security-posture.js";
 
 /**
  * Top-level admin router. Mounts every per-entity sub-router under
@@ -84,6 +85,7 @@ export function adminRoutes(app: Express): void {
   r.use(scheduleRoutes);
   r.use(teamRoutes);
   r.use(tracesRoutes);
+  r.use(securityPostureRoutes);
 
   app.use("/admin-api", r);
 }

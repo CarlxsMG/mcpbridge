@@ -57,6 +57,13 @@ interface Step {
 }
 
 const steps: Step[] = [
+  // Generated-artifact freshness first: it is the cheapest step here and it
+  // fails on a class of drift nothing else can see — a source edit whose
+  // derived copy (admin-ui's connectTemplates mirror, the error-code reference
+  // docs) was never regenerated. Everything downstream would pass happily on
+  // the stale copy, which is exactly how the two connect-template files ended
+  // up diverging while every gate stayed green.
+  { label: "generated artifacts", cmd: [bunExe, "run", "generate:check"], cwd: root },
   // Format/lint run first and cheap-first: a formatting or lint error is
   // usually faster to spot and fix than waiting on typecheck/tests/build.
   { label: "format check", cmd: [bunExe, "run", "format:check"], cwd: root },
