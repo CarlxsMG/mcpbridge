@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAdminRole, callerTeamId, ensureConsumerAccess } from "../../middleware/authz.js";
-import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
+import { ensureConsumerAccess, requireAdminRole, teamScope } from "../../middleware/authz.js";
+import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import {
   listConsumers,
   getConsumer,
@@ -10,23 +10,19 @@ import {
   updateConsumer,
   deleteConsumer,
   getConsumerUsageThisMonth,
-  isValidQuotaValue,
 } from "../../admin/entities/consumers.js";
 import { sendError, validationError, notFound, bodyOf } from "../http-errors.js";
-import type { LooseValidationResult } from "../validation.js";
+import { optNumberOrNull } from "../validation.js";
 
-function optPositiveIntOrNull(v: unknown): LooseValidationResult<number | null> {
-  if (!isValidQuotaValue(v)) return { ok: false };
-  return { ok: true, value: v ?? null };
-}
+/** A quota/limit: a positive integer, or null for "unlimited". */
+const optPositiveIntOrNull = (v: unknown) => optNumberOrNull(v, { integer: true, min: 1 });
 
 export const consumerRoutes = Router();
 
 consumerRoutes.get("/consumers", (req: Request, res: Response) => {
-  const teamId = callerTeamId(req);
   // Tenancy: a team-scoped caller only sees consumers owned by their own
   // team; super-admins/bearer callers (undefined/null) see all.
-  const items = listConsumers({ teamId: typeof teamId === "number" ? teamId : undefined }).map((c) => ({
+  const items = listConsumers({ teamId: teamScope(req) }).map((c) => ({
     ...c,
     usedThisMonth: getConsumerUsageThisMonth(c.id),
   }));
@@ -55,17 +51,21 @@ consumerRoutes.post("/consumers", requireAdminRole, (req: Request, res: Response
     return;
   }
   const actor = actorFromRequest(req);
-  const teamId = callerTeamId(req);
   // Tenancy: a team-scoped caller's consumer is owned by their own team
   // (mirroring how a team-scoped session's other created resources stay
   // within their team); super-admin/bearer callers create an unowned
   // consumer, same default as a newly-registered client.
+  //
+  // `teamScope(req) ?? null` rather than the helper alone: on WRITE the two
+  // "no team" answers still collapse to the same stored value (null = unowned),
+  // but the read helper's `undefined` would mean "no filter", which is not a
+  // thing a column can hold.
   const consumer = createConsumer({
     name,
     monthlyQuota: quota.value,
     endUserRateLimitPerMin: endUserRateLimit.value,
     actor,
-    teamId: typeof teamId === "number" ? teamId : null,
+    teamId: teamScope(req) ?? null,
   });
   recordAudit(actor, "consumer.create", String(consumer.id), { name });
   res.status(201).json(consumer);

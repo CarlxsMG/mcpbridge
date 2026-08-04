@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAdminRole, callerTeamId } from "../../middleware/authz.js";
-import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
+import { requireAdminRole, teamScope } from "../../middleware/authz.js";
+import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import { listTraces, getTrace, purgeAllSpans, getTopSessions } from "../../observability/trace-store.js";
 import { notFound } from "../http-errors.js";
 
@@ -19,25 +19,18 @@ tracesRoutes.get("/traces", (req: Request, res: Response) => {
   const sessionId = typeof req.query.session_id === "string" ? req.query.session_id : undefined;
   const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
   const limit = req.query.limit !== undefined ? Number(req.query.limit) : undefined;
-  const teamId = callerTeamId(req);
-  res
-    .status(200)
-    .json(
-      listTraces({ mcpToolName, sessionId, cursor, limit, teamId: typeof teamId === "number" ? teamId : undefined }),
-    );
+  res.status(200).json(listTraces({ mcpToolName, sessionId, cursor, limit, teamId: teamScope(req) }));
 });
 
 // "Which sessions are generating the most calls" summary — powers the
 // trace-viewer's top-sessions chart.
 tracesRoutes.get("/traces/top-sessions", (req: Request, res: Response) => {
   const limit = req.query.limit !== undefined ? Number(req.query.limit) : undefined;
-  const teamId = callerTeamId(req);
-  res.status(200).json({ items: getTopSessions(limit, typeof teamId === "number" ? teamId : undefined) });
+  res.status(200).json({ items: getTopSessions(limit, teamScope(req)) });
 });
 
 tracesRoutes.get("/traces/:traceId", (req: Request<{ traceId: string }>, res: Response) => {
-  const teamId = callerTeamId(req);
-  const spans = getTrace(req.params.traceId, typeof teamId === "number" ? teamId : undefined);
+  const spans = getTrace(req.params.traceId, teamScope(req));
   if (spans.length === 0) {
     notFound(res, "TRACE_NOT_FOUND", "Trace not found");
     return;
@@ -46,8 +39,7 @@ tracesRoutes.get("/traces/:traceId", (req: Request<{ traceId: string }>, res: Re
 });
 
 tracesRoutes.delete("/traces", requireAdminRole, (req: Request, res: Response) => {
-  const teamId = callerTeamId(req);
-  const removed = purgeAllSpans(typeof teamId === "number" ? teamId : undefined);
+  const removed = purgeAllSpans(teamScope(req));
   recordAudit(actorFromRequest(req), "traces.purge", "traces", { removed });
   res.status(200).json({ status: "purged", removed });
 });

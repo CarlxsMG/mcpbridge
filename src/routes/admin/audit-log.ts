@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
-import { listAuditLog, exportAuditLog, verifyAuditChain, listAuditActions } from "../../admin/audit/audit.js";
+import { exportAuditLog, listAuditActions, listAuditLog, verifyAuditChain } from "../../admin/audit/audit.js";
 import { auditLogToCsv, auditLogToHtml } from "../../admin/audit/audit-export.js";
-import { requireOperator, callerTeamId } from "../../middleware/authz.js";
+import { requireOperator, teamScope } from "../../middleware/authz.js";
 import { rateLimitExpensive } from "../../middleware/rate-limiter.js";
 import { config } from "../../config.js";
 
@@ -24,7 +24,6 @@ export const auditLogRoutes = Router();
 
 auditLogRoutes.get("/audit-log", requireOperator, (req: Request, res: Response) => {
   const { actor, action, from, to, cursor, limit } = req.query;
-  const teamId = callerTeamId(req);
   const result = listAuditLog({
     actor: typeof actor === "string" ? actor : undefined,
     action: typeof action === "string" ? action : undefined,
@@ -32,7 +31,7 @@ auditLogRoutes.get("/audit-log", requireOperator, (req: Request, res: Response) 
     to: typeof to === "string" ? Number(to) : undefined,
     cursor: typeof cursor === "string" ? cursor : undefined,
     limit: typeof limit === "string" ? Number(limit) : undefined,
-    teamId: typeof teamId === "number" ? teamId : undefined,
+    teamId: teamScope(req),
   });
   res.status(200).json(result);
 });
@@ -62,8 +61,7 @@ auditLogRoutes.get(
  * every tenant. It only escaped the gate because it reads a single column.
  */
 auditLogRoutes.get("/audit-log/actions", requireOperator, (req: Request, res: Response) => {
-  const teamId = callerTeamId(req);
-  res.status(200).json({ actions: listAuditActions(typeof teamId === "number" ? teamId : undefined) });
+  res.status(200).json({ actions: listAuditActions(teamScope(req)) });
 });
 
 // Rate-limited: a single call reads up to 10,000 rows and serializes them all,
@@ -75,7 +73,6 @@ auditLogRoutes.get(
   rateLimitExpensive("audit_export", config.rateLimitExpensive),
   (req: Request, res: Response) => {
     const { actor, action, from, to, format } = req.query;
-    const teamId = callerTeamId(req);
     // Filters as displayed/reported to the caller (the export's public shape —
     // teamId is an internal scoping detail, not a user-facing filter, so it's
     // kept out of this object and passed to exportAuditLog separately below).
@@ -85,7 +82,7 @@ auditLogRoutes.get(
       from: typeof from === "string" ? Number(from) : undefined,
       to: typeof to === "string" ? Number(to) : undefined,
     };
-    const items = exportAuditLog({ ...filters, teamId: typeof teamId === "number" ? teamId : undefined });
+    const items = exportAuditLog({ ...filters, teamId: teamScope(req) });
 
     // Filtering/row-cap logic lives entirely in exportAuditLog above — `format`
     // only changes how those same rows are serialized here at the route layer.

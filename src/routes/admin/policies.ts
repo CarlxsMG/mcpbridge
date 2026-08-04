@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { requireAdminRole, canCallerAccessClient } from "../../middleware/authz.js";
-import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
+import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import {
   listGuardPolicies,
   getGuardPolicy,
@@ -12,48 +12,18 @@ import {
   applyPolicyToTools,
   applyPolicyToBundle,
 } from "../../admin/entities/policies.js";
-import type { BundleToolRef } from "../../admin/tool-composition/bundles.js";
 import { sendError, validationError, notFound, bodyOf } from "../http-errors.js";
-import { MAX_GUARD_TIMEOUT_MS, type LooseValidationResult } from "../validation.js";
+import { MAX_GUARD_TIMEOUT_MS, optNumberOrNull, parseToolRefs } from "../validation.js";
 
-/** Accepts a positive number, or null (clears the guard). Rejects anything else. */
-function optPositiveOrNull(v: unknown): LooseValidationResult<number | null> {
-  if (v === undefined || v === null) return { ok: true, value: null };
-  if (typeof v === "number" && Number.isFinite(v) && v > 0) return { ok: true, value: v };
-  return { ok: false };
-}
+/** A policy guard value: a positive number, or null to clear it. */
+const optPositiveOrNull = (v: unknown) => optNumberOrNull(v, { min: Number.MIN_VALUE });
 
 /**
- * As above, but additionally capped — a policy's timeoutMs substitutes for
+ * As above, but capped — a policy's timeoutMs substitutes for
  * `config.toolCallTimeoutMs` at dispatch exactly like a per-tool guard does, so
  * it gets the same ceiling instead of being able to escape the env schema's.
  */
-function optTimeoutOrNull(v: unknown): LooseValidationResult<number | null> {
-  const parsed = optPositiveOrNull(v);
-  if (!parsed.ok) return parsed;
-  if (parsed.value !== null && parsed.value > MAX_GUARD_TIMEOUT_MS) return { ok: false };
-  return parsed;
-}
-
-function validateToolRefs(input: unknown): LooseValidationResult<BundleToolRef[]> {
-  if (!Array.isArray(input)) return { ok: false };
-  const value: BundleToolRef[] = [];
-  for (const item of input) {
-    const e = item as Record<string, unknown>;
-    if (
-      typeof e !== "object" ||
-      e === null ||
-      typeof e.client !== "string" ||
-      typeof e.tool !== "string" ||
-      !e.client ||
-      !e.tool
-    ) {
-      return { ok: false };
-    }
-    value.push({ client: e.client, tool: e.tool });
-  }
-  return { ok: true, value };
-}
+const optTimeoutOrNull = (v: unknown) => optNumberOrNull(v, { min: Number.MIN_VALUE, max: MAX_GUARD_TIMEOUT_MS });
 
 export const policyRoutes = Router();
 
@@ -164,7 +134,7 @@ policyRoutes.post("/policies/:id/apply", requireAdminRole, async (req: Request<{
     return;
   }
 
-  const refs = validateToolRefs(body.tools);
+  const refs = parseToolRefs(body.tools);
   if (!refs.ok) {
     validationError(res, "provide either bundle (string) or tools ([{client, tool}])");
     return;

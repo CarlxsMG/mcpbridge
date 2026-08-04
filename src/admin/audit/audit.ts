@@ -68,6 +68,16 @@ export function actorFromRequest(req: Request): string {
   return "bearer:admin-api-key";
 }
 
+// NOTE: a `auditFromRequest(req, action, target)` wrapper over
+// `recordAudit(actorFromRequest(req), …)` was tried and reverted. It shortened
+// ~50 call sites, and cost more than it saved: the route mutation tests assert
+// the exact audit call with `spyOn(auditMod, "recordAudit")`, and a wrapper
+// calling `recordAudit` internally is invisible to that spy (it resolves the
+// local binding, not the module property). Adopting it meant rewriting 21 tests
+// to spy on the wrapper instead — which also drops the ACTOR from each
+// assertion, since the wrapper resolves it. Shorter call sites are not worth
+// weakening the thing that proves who did what.
+
 /**
  * Records an admin mutation for the audit log. Fire-and-forget from the
  * caller's perspective (synchronous — bun:sqlite has no async story), but

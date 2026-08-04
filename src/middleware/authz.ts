@@ -8,6 +8,24 @@ export function callerTeamId(req: Request): number | null | undefined {
 }
 
 /**
+ * The caller's team id in the shape every tenancy-aware query takes: a number
+ * to scope by, or `undefined` for "see everything".
+ *
+ * {@link callerTeamId} distinguishes a super-admin SESSION (`null`) from a
+ * bearer caller (`undefined`), which matters when deciding what a newly created
+ * row is owned by. It does not matter when READING — both see all rows — so
+ * every list/read call site wrote the same `typeof teamId === "number" ? teamId
+ * : undefined` narrowing by hand. One spelling of it, in one place, is harder
+ * to get subtly wrong than ten (and `teamId ?? undefined` is the wrong
+ * spelling: it turns a super-admin session's `null` into `undefined` correctly
+ * but says nothing about intent).
+ */
+export function teamScope(req: Request): number | undefined {
+  const teamId = callerTeamId(req);
+  return typeof teamId === "number" ? teamId : undefined;
+}
+
+/**
  * Tenancy guard for a single-client route. Returns true when the caller may act
  * on the client (or the client doesn't exist — the route's own 404 handles
  * that). When it returns false it has already written a 404 with the same shape

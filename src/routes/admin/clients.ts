@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { registry } from "../../mcp/registry.js";
-import { ensureClientAccess, callerTeamId, requireOperator, canCallerAccessClient } from "../../middleware/authz.js";
+import { canCallerAccessClient, ensureClientAccess, requireOperator, teamScope } from "../../middleware/authz.js";
 import { validationError, notFound, bodyOf } from "../http-errors.js";
 import { validateClientGuardInput } from "../admin-validators.js";
 import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
@@ -23,7 +23,6 @@ export const clientsRoutes = Router();
 
 clientsRoutes.get("/clients", (req: Request, res: Response) => {
   const { q, status, enabled, cursor, limit } = req.query;
-  const teamId = callerTeamId(req);
   const result = registry.listClientsSummary({
     q: typeof q === "string" ? q : undefined,
     status: typeof status === "string" ? (status as ClientStatus) : undefined,
@@ -31,7 +30,7 @@ clientsRoutes.get("/clients", (req: Request, res: Response) => {
     cursor: typeof cursor === "string" ? cursor : undefined,
     limit: typeof limit === "string" ? Number(limit) : undefined,
     // Scope the listing for team users; super-admins (null/undefined) see all.
-    teamId: typeof teamId === "number" ? teamId : undefined,
+    teamId: teamScope(req),
   });
   res.status(200).json(result);
 });

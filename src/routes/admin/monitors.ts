@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { listMonitors } from "../../observability/monitor.js";
-import { callerTeamId } from "../../middleware/authz.js";
+import { teamScope } from "../../middleware/authz.js";
 
 /**
  * Synthetic monitor list: snapshot of every per-tool synthetic check the
@@ -13,8 +13,7 @@ import { callerTeamId } from "../../middleware/authz.js";
 export const monitorsRoutes = Router();
 
 monitorsRoutes.get("/monitors", (req: Request, res: Response) => {
-  const teamId = callerTeamId(req);
   // Tenancy: a team-scoped caller only sees monitors for clients their team
   // owns — same scoping clients.ts/traffic.ts already apply to their lists.
-  res.status(200).json({ items: listMonitors(typeof teamId === "number" ? teamId : undefined) });
+  res.status(200).json({ items: listMonitors(teamScope(req)) });
 });

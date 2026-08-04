@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireOperator, ensureClientAccess, callerTeamId } from "../../middleware/authz.js";
-import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
+import { ensureClientAccess, requireOperator, teamScope } from "../../middleware/authz.js";
+import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import {
   listSchedules,
   createSchedule,
@@ -14,10 +14,9 @@ import { sendError, validationError, notFound, bodyOf } from "../http-errors.js"
 export const scheduleRoutes = Router();
 
 scheduleRoutes.get("/schedules", (req: Request, res: Response) => {
-  const teamId = callerTeamId(req);
   // Tenancy: a team-scoped caller only sees schedules targeting their own
   // team's clients; super-admins/bearer callers (undefined/null) see all.
-  res.status(200).json({ items: listSchedules({ teamId: typeof teamId === "number" ? teamId : undefined }) });
+  res.status(200).json({ items: listSchedules({ teamId: teamScope(req) }) });
 });
 
 scheduleRoutes.post("/schedules", requireOperator, (req: Request, res: Response) => {

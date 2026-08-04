@@ -35,6 +35,71 @@ export const MAX_GUARD_TIMEOUT_MS = 600_000;
 export type LooseValidationResult<T> = { ok: true; value: T } | { ok: false };
 
 /**
+ * "An optional number, or null to clear it" — the shape four route files each
+ * wrote their own near-identical validator for (`optPositiveIntOrNull` in
+ * consumers, `optPositiveOrNull` + `optTimeoutOrNull` in policies, `optNumber`
+ * in alerts).
+ *
+ * They looked like copies but were not: one required an integer, one any
+ * positive finite number, one allowed zero and negatives, one added a ceiling.
+ * Collapsing them into a single body with those differences as OPTIONS is the
+ * point — four bodies that differ in ways you have to read carefully to spot
+ * are how a rule gets applied to the wrong field.
+ *
+ * `undefined` and `null` both mean "clear it" (`value: null`); anything else
+ * that fails a constraint is a rejection, so a caller can tell "not supplied"
+ * from "supplied nonsense".
+ */
+export function optNumberOrNull(
+  v: unknown,
+  opts: { integer?: boolean; min?: number; max?: number } = {},
+): LooseValidationResult<number | null> {
+  if (v === undefined || v === null) return { ok: true, value: null };
+  if (typeof v !== "number" || !Number.isFinite(v)) return { ok: false };
+  if (opts.integer && !Number.isInteger(v)) return { ok: false };
+  if (opts.min !== undefined && v < opts.min) return { ok: false };
+  if (opts.max !== undefined && v > opts.max) return { ok: false };
+  return { ok: true, value: v };
+}
+
+/** `{ client, tool }` pair as accepted in a bundle's or a guard policy's `tools[]`. */
+export interface ToolRefInput {
+  client: string;
+  tool: string;
+}
+
+/**
+ * Validates a `tools[]` array of `{client, tool}` pairs.
+ *
+ * bundles.ts and policies.ts had the identical element check written out twice,
+ * differing only in whether a length cap applied and whether the failure
+ * carried a message. Existence of each referenced tool is NOT checked here —
+ * that stays downstream where the registry is in scope, unchanged.
+ */
+export function parseToolRefs(input: unknown, opts: { max?: number } = {}): ValidationResult<ToolRefInput[]> {
+  if (!Array.isArray(input)) return { ok: false, message: "tools must be an array" };
+  if (opts.max !== undefined && input.length > opts.max) {
+    return { ok: false, message: `tools exceeds maximum of ${opts.max}` };
+  }
+  const value: ToolRefInput[] = [];
+  for (const item of input) {
+    const entry = item as Record<string, unknown>;
+    if (
+      typeof entry !== "object" ||
+      entry === null ||
+      typeof entry.client !== "string" ||
+      typeof entry.tool !== "string" ||
+      !entry.client ||
+      !entry.tool
+    ) {
+      return { ok: false, message: "each tools[] entry must be {client: string, tool: string}" };
+    }
+    value.push({ client: entry.client, tool: entry.tool });
+  }
+  return { ok: true, value };
+}
+
+/**
  * Maps a validation/mutation error's `code` to an HTTP status via a
  * caller-supplied lookup table. Replaces the repeated
  * `function statusForXError(code) { switch (code) { case ...: return 4xx; } }`

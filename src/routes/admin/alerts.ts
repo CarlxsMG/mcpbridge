@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { requireOperator, requireSuperAdmin } from "../../middleware/authz.js";
-import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
+import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import {
   listAlertRules,
   getAlertRule,
@@ -13,7 +13,7 @@ import {
   type AlertEventType,
 } from "../../observability/alerts.js";
 import { validationError, notFound, bodyOf } from "../http-errors.js";
-import type { LooseValidationResult } from "../validation.js";
+import { optNumberOrNull } from "../validation.js";
 import { validateBackendUrl } from "../../net/ip-validator.js";
 import { config } from "../../config.js";
 
@@ -36,11 +36,8 @@ function isHttpUrl(v: unknown): v is string {
   return typeof v === "string" && (v.startsWith("http://") || v.startsWith("https://"));
 }
 
-function optNumber(v: unknown): LooseValidationResult<number | null> {
-  if (v === undefined || v === null) return { ok: true, value: null };
-  if (typeof v === "number" && Number.isFinite(v)) return { ok: true, value: v };
-  return { ok: false };
-}
+/** An alert threshold: any finite number (zero and negatives are meaningful here), or null to clear it. */
+const optNumber = (v: unknown) => optNumberOrNull(v);
 
 export const alertRoutes = Router();
 

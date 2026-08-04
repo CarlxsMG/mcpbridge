@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAdminRole, ensureClientAccess, callerTeamId } from "../../middleware/authz.js";
-import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
+import { ensureClientAccess, requireAdminRole, teamScope } from "../../middleware/authz.js";
+import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import { TOOL_KEY_SEPARATOR } from "../../lib/identifier.js";
 import { listAllTags, listToolsByTag, setToolTags, normalizeTag, TAG_RE } from "../../tool-meta/tool-tags.js";
 import { validationError, notFound, bodyOf } from "../http-errors.js";
@@ -9,13 +9,11 @@ import { validationError, notFound, bodyOf } from "../http-errors.js";
 export const tagRoutes = Router();
 
 tagRoutes.get("/tags", (req: Request, res: Response) => {
-  const teamId = callerTeamId(req);
-  res.status(200).json({ items: listAllTags(typeof teamId === "number" ? teamId : undefined) });
+  res.status(200).json({ items: listAllTags(teamScope(req)) });
 });
 
 tagRoutes.get("/tags/:tag/tools", (req: Request<{ tag: string }>, res: Response) => {
-  const teamId = callerTeamId(req);
-  res.status(200).json({ items: listToolsByTag(req.params.tag, typeof teamId === "number" ? teamId : undefined) });
+  res.status(200).json({ items: listToolsByTag(req.params.tag, teamScope(req)) });
 });
 
 tagRoutes.put(

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAdminRole, requireSuperAdmin, callerTeamId } from "../../middleware/authz.js";
-import { recordAudit, actorFromRequest } from "../../admin/audit/audit.js";
+import { requireAdminRole, requireSuperAdmin, teamScope } from "../../middleware/authz.js";
+import { actorFromRequest, recordAudit } from "../../admin/audit/audit.js";
 import { registry } from "../../mcp/registry.js";
 import { config } from "../../config.js";
 import {
@@ -21,7 +21,7 @@ import {
   type InstallLinkMutationError,
 } from "../../admin/tool-composition/bundle-install-links.js";
 import { sendError, validationError, notFound, bodyOf } from "../http-errors.js";
-import { type ValidationResult, mutationErrorToStatus } from "../validation.js";
+import { type ValidationResult, mutationErrorToStatus, parseToolRefs } from "../validation.js";
 import { validateExpiresAt } from "../admin-validators.js";
 
 const BUNDLE_ERROR_STATUS: Record<BundleMutationError["code"], number> = {
@@ -41,30 +41,8 @@ const INSTALL_LINK_ERROR_STATUS: Record<InstallLinkMutationError["code"], number
 };
 
 /** Same maxToolsPerClient cap /register applies to a client's tools[] — a bundle's tools[] is bounded the same way. */
-function validateToolRefs(input: unknown): ValidationResult<BundleToolRef[]> {
-  if (!Array.isArray(input)) {
-    return { ok: false, message: "tools must be an array" };
-  }
-  if (input.length > config.maxToolsPerClient) {
-    return { ok: false, message: `tools exceeds maximum of ${config.maxToolsPerClient}` };
-  }
-  const value: BundleToolRef[] = [];
-  for (const item of input) {
-    const entry = item as Record<string, unknown>;
-    if (
-      typeof entry !== "object" ||
-      entry === null ||
-      typeof entry.client !== "string" ||
-      typeof entry.tool !== "string" ||
-      !entry.client ||
-      !entry.tool
-    ) {
-      return { ok: false, message: "each tools[] entry must be {client: string, tool: string}" };
-    }
-    value.push({ client: entry.client, tool: entry.tool });
-  }
-  return { ok: true, value };
-}
+/** Bundle tools[] — same element check guard policies use, plus this deployment's per-client cap. */
+const validateToolRefs = (input: unknown) => parseToolRefs(input, { max: config.maxToolsPerClient });
 
 /** Same shape/cap discipline as validateToolRefs — existence against composite_tools is checked downstream by createBundle/updateBundle. */
 function validateCompositeRefs(input: unknown): ValidationResult<string[]> {
@@ -295,6 +273,5 @@ bundleRoutes.delete(
 // client/tool names and descriptions via the bundle picker.
 
 bundleRoutes.get("/tools", (req: Request, res: Response) => {
-  const teamId = callerTeamId(req);
-  res.status(200).json({ items: registry.listAllTools(typeof teamId === "number" ? teamId : undefined) });
+  res.status(200).json({ items: registry.listAllTools(teamScope(req)) });
 });
