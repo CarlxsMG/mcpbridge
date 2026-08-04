@@ -5619,7 +5619,8 @@ components:
     TrafficRecord:
       type: object
       description: A captured tool call (opt-in via TRAFFIC_CAPTURE). Args are stored in full for faithful replay; the result is a truncated preview.
-      required: [id, mcpToolName, clientName, toolName, keyId, argsJson, preview, isError, durationMs, createdAt]
+      required:
+        [id, mcpToolName, clientName, toolName, keyId, argsJson, preview, isError, denyCode, durationMs, createdAt]
       properties:
         id: { type: integer }
         mcpToolName: { type: string, example: "billing_service__charge_card" }
@@ -5629,6 +5630,27 @@ components:
         argsJson: { type: string, description: JSON-serialized original call arguments. }
         preview: { type: string, description: "Truncated, already-redacted/guardrail-processed result preview." }
         isError: { type: boolean }
+        denyCode:
+          type: [string, "null"]
+          description:
+            "Which policy gate refused the call. Null on success, and also null for a failure that was not a policy
+            decision (an upstream 500 is not a deny). Rows captured before this field existed are null too."
+          enum:
+            [
+              disabled,
+              unregistering,
+              unreachable,
+              allowed_key,
+              key_scope,
+              quota,
+              confirm_required,
+              quarantine,
+              approval,
+              rate_limit,
+              guardrail_input,
+              unknown_tool,
+              null,
+            ]
         durationMs: { type: integer }
         createdAt: { type: integer, description: Unix ms epoch }
 

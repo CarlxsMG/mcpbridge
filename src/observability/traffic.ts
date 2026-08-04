@@ -30,6 +30,8 @@ export interface TrafficRecord {
   argsJson: string;
   preview: string;
   isError: boolean;
+  /** Which policy gate refused the call, or null when it was not a policy decision. */
+  denyCode: string | null;
   durationMs: number;
   createdAt: number;
 }
@@ -43,6 +45,7 @@ interface TrafficRow {
   args_json: string;
   preview: string;
   is_error: number;
+  deny_code: string | null;
   duration_ms: number;
   created_at: number;
 }
@@ -57,6 +60,10 @@ function rowTo(r: TrafficRow): TrafficRecord {
     argsJson: r.args_json,
     preview: r.preview,
     isError: r.is_error === 1,
+    // `?? null` rather than a bare read: rows written before migration 58 have
+    // no column value at all, and `undefined` would serialize the field away
+    // instead of reporting it as genuinely unknown.
+    denyCode: r.deny_code ?? null,
     durationMs: r.duration_ms,
     createdAt: r.created_at,
   };
@@ -92,8 +99,8 @@ export function recordTraffic(input: {
     }
     getDb()
       .query(
-        `INSERT INTO tool_traffic (mcp_tool_name, client_name, tool_name, key_id, args_json, preview, is_error, duration_ms, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO tool_traffic (mcp_tool_name, client_name, tool_name, key_id, args_json, preview, is_error, deny_code, duration_ms, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         input.mcpToolName,
@@ -103,6 +110,9 @@ export function recordTraffic(input: {
         argsJson,
         preview,
         input.result.isError ? 1 : 0,
+        // NULL for a success and for any failure that is not a policy decision;
+        // `is_error` on its own could never tell those apart from a deny.
+        input.result.denyCode ?? null,
         input.durationMs,
         Date.now(),
       );

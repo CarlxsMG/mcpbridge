@@ -8,7 +8,7 @@ import { recordTraffic } from "../observability/traffic.js";
 import { resolveMcpKeyByToken } from "../security/mcp-key-store.js";
 import { getGuardrails } from "../tool-policies/guardrails.js";
 import { tracingEnabled, startSpan, endSpan } from "../observability/tracing.js";
-import { toolResult, type ToolResult } from "../lib/mcp-result.js";
+import { denyResult, type ToolResult } from "../lib/mcp-result.js";
 import {
   checkConsumerQuotaGate,
   checkSensitiveToolGate,
@@ -75,6 +75,12 @@ export async function proxyToolCall(
       span,
       {
         "mcp.tool.is_error": result.isError === true,
+        // Which policy refused the call, when one did. `is_error` alone is a
+        // single boolean standing in for a dozen distinct outcomes, so a trace
+        // could say a call failed but never why — and "how often does the quota
+        // gate fire" had no answer at all. Absent on success and on failures
+        // that are not policy decisions (an upstream 500 is not a deny).
+        ...(result.denyCode ? { "mcp.deny_code": result.denyCode } : {}),
         ...(opts?.sessionId ? { "mcp.session_id": opts.sessionId } : {}),
       },
       result.isError ? 2 : 1,
@@ -106,7 +112,7 @@ async function dispatchToolCall(
   const resolved = registry.resolveTool(mcpToolName);
 
   if (resolved === undefined) {
-    return toolResult(`Unknown tool: ${mcpToolName}`, { isError: true });
+    return denyResult("unknown_tool", `Unknown tool: ${mcpToolName}`);
   }
 
   const { client, tool } = resolved;

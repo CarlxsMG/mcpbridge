@@ -1,0 +1,52 @@
+{
+  "$comment": [
+    "Why each entry in package.json's `overrides` block exists.",
+    "",
+    "An override is a permanent, silent edit to the dependency graph. Nothing in",
+    "`bun audit` or Dependabot ever revisits one, so without this file the reason",
+    "for each lives only in a commit message and the answer to 'can this go yet?'",
+    "is nobody's. That matters because a STALE override is not inert: it keeps",
+    "forcing a version on consumers that have since moved on, which is exactly how",
+    "a bare `brace-expansion` key once dragged minimatch@9's `^2.0.2` copies up to",
+    "5.x and killed it on a dropped default export.",
+    "",
+    "`src/__tests__/dependency-overrides.test.ts` keeps this file and package.json",
+    "in lockstep, so an override added without a reason fails the suite. It also",
+    "checks each override is actually IN EFFECT in bun.lock — adding one to",
+    "package.json does not move an already-resolved package, so an override can",
+    "read as protection in review while installing the vulnerable copy.",
+    "",
+    "Removal is deliberately a human decision, and `dropWhen` below is written for",
+    "a human to evaluate. Auto-detecting staleness was tried and does not work: a",
+    "fresh resolution always picks the highest version satisfying every consumer's",
+    "range, so 'would this still be safe without the override?' answers yes for",
+    "every entry, always — including ones that are genuinely load-bearing. The",
+    "override is insurance against a future consumer whose range caps the package",
+    "below the fix, and insurance does not look used until it pays out.",
+    "",
+    "Keys must be major-scoped (`pkg@N`), never bare — a bare key forces EVERY",
+    "copy in the tree to the new version regardless of what each consumer declared."
+  ],
+  "overrides": {
+    "brace-expansion@5": {
+      "advisories": ["GHSA-mh99-v99m-4gvg"],
+      "reason": "DoS via unbounded expansion in 5.0.7. Reached the tree through minimatch under eslint / typescript-eslint / stryker.",
+      "dropWhen": "Every consumer of the 5.x line resolves to >= 5.0.8 on its own. Scoped to major 5 deliberately: the 2.x copies under minimatch@9 must NOT be moved."
+    },
+    "fast-uri@3": {
+      "advisories": ["GHSA-7p8r-x3mc-p8w7"],
+      "reason": "Host confusion via a backslash authority introducer, below 3.1.5. Arrives via ajv, which is exact-pinned at 8.18.0 and cannot simply be bumped.",
+      "dropWhen": "ajv's own dependency range floors fast-uri at >= 3.1.5."
+    },
+    "hono@4": {
+      "advisories": ["GHSA-8j4g-w8fx-2239"],
+      "reason": "ReDoS in the CORS middleware below 4.12.34. Transitive via @modelcontextprotocol/sdk > @hono/node-server; the gateway itself runs Express and never calls hono.",
+      "dropWhen": "@hono/node-server (as pulled by the MCP SDK) floors hono at >= 4.12.34."
+    },
+    "ip-address@10": {
+      "advisories": ["GHSA-mwp4-54f8-5fhr", "GHSA-4xrf-jv44-h6hh", "GHSA-22jq-vg5j-6vgg"],
+      "reason": "Three parsing flaws at or below 10.3.0 (leading-zero octets read as decimal, CIDR suffix suppressing special-use classification, IPv4-mapped/NAT64 misclassification). All three are worded as SSRF bypasses, which reads alarming here and is worth stating precisely: this gateway's SSRF pinning uses ipaddr.js, a DIFFERENT library. ip-address arrives only via @modelcontextprotocol/sdk > express-rate-limit, so the real exposure was per-IP rate-limit evasion.",
+      "dropWhen": "express-rate-limit (as pulled by the MCP SDK) floors ip-address at > 10.3.0."
+    }
+  }
+}

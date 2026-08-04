@@ -2134,7 +2134,8 @@
         "status": "Estado",
         "preview": "Vista previa de respuesta",
         "status_error": "Error",
-        "status_ok": "OK"
+        "status_ok": "OK",
+        "deny_code_hint": "La puerta de política que rechazó esta llamada. Ausente cuando el fallo vino del backend y no de una política."
       },
       "errors": {
         "load_failed": "Error al cargar tráfico.",
