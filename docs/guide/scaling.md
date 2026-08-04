@@ -54,6 +54,22 @@ REST proxying and the admin API need no affinity.
 - **Shared SQLite requires shared storage.** SQLite over a network filesystem has locking
   quirks; prefer a volume all instances mount locally, or keep writes modest. For very high
   write volume, run fewer, larger instances.
+- **Every guard except the rate limiter counts per instance.** `RATE_LIMIT_SHARED=true` moves
+  rate counters into SQLite; nothing else moves. Circuit breakers, the response cache, in-flight
+  request coalescing and load-balancer target cooldowns all live in the memory of the process
+  that saw the traffic. With N instances that means, concretely:
+
+  | Guard              | Effect at N instances                                                                         |
+  | ------------------ | --------------------------------------------------------------------------------------------- |
+  | Circuit breaker    | A failing backend must fail `failureThreshold` times **per instance** before all of them open |
+  | Response cache     | Up to N copies of the same entry; hit rate drops roughly N-fold for evenly-balanced traffic   |
+  | Request coalescing | Collapses concurrent duplicates within one instance, not across them                          |
+  | LB target cooldown | A target marked down on one instance is still tried by the others until they fail too         |
+
+  None of these is a correctness bug — each instance converges on the same decision, just
+  independently and after its own evidence. Size `CIRCUIT_BREAKER_FAILURE_THRESHOLD` and cache TTLs with
+  the replica count in mind, and prefer sticky sessions (above) if cache hit rate matters.
+
 - **The audit hash-chain is per-instance.** Its tamper-evidence (`verifyAuditChain`) assumes
   one writer; cross-instance chain integrity is out of scope — stream to a SIEM
   (`AUDIT_SINK_URL`) for a consolidated, ordered record instead.

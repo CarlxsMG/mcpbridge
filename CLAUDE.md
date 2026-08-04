@@ -368,13 +368,13 @@ canonical feature list lives in `docs/guide/features.md`.
   had been reasoned away.
 - **`admin-ui/src/types/api.ts` is gated against `src/openapi.yaml`, at compile time.**
   `openapi-typescript` regenerates `types/openapi.generated.ts` on every admin-ui `typecheck`
-  and `build`, and `types/openapi-drift.ts` asserts 30 mirrored types against it — a property
-  the UI type has and the spec doesn't (or vice versa), or whose value type diverges, fails
-  `vue-tsc` naming the member (`Type '"ClientSummary.kind"' is not assignable to type 'never'`).
-  Adding a response type to both sides means adding one line to that file's `AllDrift` union.
-  Optionality is deliberately NOT compared at any depth: the spec declares no `required`, so
-  every generated property is optional. Adding `required` markers would let the gate tighten,
-  and is worth doing on its own.
+  and `build`, and `types/openapi-drift.ts` asserts the mirrored types against it — a property
+  the UI type has and the spec doesn't (or vice versa), whose value type diverges, or whose
+  OPTIONALITY diverges, fails `vue-tsc` naming the member (`Type '"ClientSummary.kind"' is not
+assignable to type 'never'`). Adding a response type to both sides means adding one line to
+  that file's `AllDrift` union. The optionality half became possible once the spec gained
+  `required` markers; a handful of schemas still carry none on purpose (a PATCH body, an
+  open-ended export document) and are compared on the other two axes only.
 - **An unquoted `description:` inside a YAML flow mapping ends at the first comma.** So
   `description: Owning team id, or null (super-admins only).` parses as a truncated description
   PLUS a junk property named `or null (super-admins only).` with a null value. It is valid YAML,

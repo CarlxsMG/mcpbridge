@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The gateway now tells you when it is running with a hole in it.** `GET
+/admin-api/security-posture` (admin role) reports the conditions that are currently open — an
+  unauthenticated MCP data plane, `AUTH_DISABLED`, a CORS wildcard, an insecure session cookie, a
+  JWT without an audience binding, a boolean `TRUST_PROXY` — with a severity, the env var that
+  clears each one, and whether a startup guard is being bypassed by `NODE_ENV=development` or by
+  an `ALLOW_UNSAFE_*` escape hatch. The admin UI raises a banner on every page while anything is
+  open; a critical finding cannot be dismissed. All of this was already computed at boot and
+  logged to stdout, where nobody running a container ever saw it.
+- **Every error code the API can return is catalogued, documented and translated.** `error.code`
+  has always been part of the wire contract, but the set of codes existed only as string literals
+  at ~200 call sites: no consumer could enumerate them, and the admin UI could not localize a
+  failure it had no name for. There is now a single catalog (`src/routes/error-codes.ts`), the
+  error helpers take a catalogued code rather than a `string` so a new or mistyped one fails to
+  compile, a published reference at `/guide/error-codes` is generated from it, and the admin UI
+  resolves each code to a localized sentence. Codes whose message carries request-specific detail
+  (which field failed validation, which upstream refused) are deliberately left untranslated so
+  that detail survives — the catalog records which, and a test enforces it.
+- **`bun run generate` and its `--check` gate.** Two kinds of file in this repo are derived from a
+  single source and were maintained by hand: admin-ui's copy of the connect-client templates
+  (~200 lines duplicated verbatim across the package boundary, already diverged by one export)
+  and the error-code reference docs. Both are now generated, and `bun run check` fails on a stale
+  copy instead of shipping it.
 - **Every policy refusal now says which gate refused it.** A tool call passes through about a dozen
   gates — key allowlist, key scope, consumer quota, sensitive-tool confirmation, quarantine,
   approval, rate limit, input guardrails — and each rejected with prose while the trace recorded
@@ -41,6 +63,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`SECRET_BOX_UNCONFIGURED` is now `SECRET_BOX_NOT_CONFIGURED`** (wire-visible). Two codes named
+  the same condition — "`SECRET_ENCRYPTION_KEY` is unset" — depending on which subsystem refused:
+  bundle install links and upstream auth used the `NOT_CONFIGURED` spelling, outbound OAuth used
+  the other. Cataloguing the codes made the duplicate obvious; the majority spelling won. HTTP
+  statuses are unchanged (400 on the OAuth route, 501 on the others). If you match on the old
+  string, update it.
+- **The onboarding checklist's "connect a client" step is derived from real data.** It was
+  self-reported and stored in `localStorage`, so it read as un-done in a second browser and for
+  every other admin. It now reflects whether a managed MCP key has actually authenticated a call
+  (`mcp_api_keys.last_used_at`), surfaced as `mcp_client_connected` on `GET /admin-api/overview`.
+- **The scaling guide documents which guards are per-instance.** Circuit breakers, the response
+  cache, request coalescing and load-balancer cooldowns are process-local — only rate limiting has
+  a shared mode (`RATE_LIMIT_SHARED`). The consequences at N replicas (N× the failures before all
+  breakers open, cache hit rate divided by N) were true but written down nowhere.
+- **`src/proxy/dispatch-rest.ts` split into three stage files** (`dispatch-rest.ts` /
+  `rest-request.ts` / `rest-response.ts`) along the stage boundaries its own docblocks already
+  described. Pure move: each piece of module-level state now sits next to its only writer.
 - **Dependency `overrides` are documented and checked.** Each entry now has a matching record in
   `dependency-overrides.json` naming its advisory, why it exists and what would let it be dropped,
   and the suite fails on an override that has none. It also fails on one declared in `package.json`

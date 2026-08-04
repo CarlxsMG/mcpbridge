@@ -57,6 +57,23 @@ El proxy REST y la admin API no necesitan afinidad.
   red tiene quirks de locking; prefiere un volumen que todas las instancias monten
   localmente, o mantén las escrituras modestas. Para volumen de escritura muy alto,
   ejecuta menos instancias, más grandes.
+- **Todas las guardas salvo el rate limiter cuentan por instancia.** `RATE_LIMIT_SHARED=true`
+  mueve los contadores de rate limit a SQLite; nada más se mueve. Los circuit breakers, la caché
+  de respuestas, el coalescing de peticiones en vuelo y los cooldowns de destinos del balanceador
+  viven en la memoria del proceso que vio el tráfico. Con N instancias, en concreto:
+
+  | Guarda              | Efecto con N instancias                                                                                |
+  | ------------------- | ------------------------------------------------------------------------------------------------------ |
+  | Circuit breaker     | Un backend caído tiene que fallar `failureThreshold` veces **por instancia** antes de que abran todas  |
+  | Caché de respuestas | Hasta N copias de la misma entrada; el hit rate baja aproximadamente N veces con tráfico repartido     |
+  | Coalescing          | Colapsa duplicados concurrentes dentro de una instancia, no entre ellas                                |
+  | Cooldown de destino | Un destino marcado como caído en una instancia lo siguen intentando las demás hasta que también fallan |
+
+  Ninguno es un bug de corrección: cada instancia llega a la misma decisión, solo que por su
+  cuenta y con sus propias evidencias. Dimensiona `CIRCUIT_BREAKER_FAILURE_THRESHOLD` y los TTL de caché
+  contando con el número de réplicas, y usa sticky sessions (arriba) si el hit rate de caché te
+  importa.
+
 - **La cadena de hash del audit es por instancia.** Su tamper-evidence (`verifyAuditChain`)
   asume un único escritor; la integridad de la cadena cross-instancia está fuera de scope
   — streamea a un SIEM (`AUDIT_SINK_URL`) para un registro consolidado y ordenado en su
