@@ -333,12 +333,12 @@ onMounted(() => {
 }
 .integrity.ok {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--ok-text);
   border: 1px solid var(--ok);
 }
 .integrity.broken {
   background: var(--breach-soft);
-  color: var(--breach);
+  color: var(--breach-text);
   border: 1px solid var(--breach);
 }
 </style>

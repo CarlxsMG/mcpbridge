@@ -234,7 +234,7 @@ h3 {
   text-align: right;
 }
 .row-error {
-  color: var(--breach);
+  color: var(--breach-text);
   font-size: var(--text-sm);
   margin: var(--space-2) 0 0;
 }

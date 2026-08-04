@@ -477,7 +477,7 @@ const TABS = computed(() => [
   width: auto;
 }
 .guard-editor .field-error {
-  color: var(--breach);
+  color: var(--breach-text);
   font-size: 0.8rem;
   margin: 0.25rem 0 0;
 }
@@ -487,7 +487,7 @@ const TABS = computed(() => [
   margin: 0 0 0.5rem;
 }
 .guard-editor .hint.warn {
-  color: var(--canary);
+  color: var(--canary-text);
 }
 .guard-editor .quarantine-banner {
   display: flex;
@@ -495,7 +495,9 @@ const TABS = computed(() => [
   justify-content: space-between;
   gap: 0.75rem;
   background: var(--breach-soft);
-  color: var(--breach);
+  /* Text on a tinted background — see style.css's -text token block. The border
+     and any icon keep --breach, which only needs 3:1 as non-text content. */
+  color: var(--breach-text);
   border: 1px solid var(--breach);
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.7rem;
@@ -550,7 +552,7 @@ const TABS = computed(() => [
   gap: 0.5rem;
 }
 .guard-editor .save-ok {
-  color: var(--ok);
+  color: var(--ok-text);
   font-size: 0.8rem;
   font-weight: 600;
 }

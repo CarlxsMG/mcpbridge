@@ -250,6 +250,6 @@ async function toggleEnabled() {
 }
 .hint {
   font-size: 0.8rem;
-  color: var(--canary);
+  color: var(--canary-text);
 }
 </style>

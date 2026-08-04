@@ -278,7 +278,7 @@ const topSessionsChart = computed(() =>
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  color: var(--breach);
+  color: var(--breach-text);
   margin-left: auto;
 }
 .session-badge {

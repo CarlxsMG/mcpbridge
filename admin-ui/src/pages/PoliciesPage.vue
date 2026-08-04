@@ -195,7 +195,7 @@ async function confirmDelete() {
   flex-wrap: wrap;
 }
 .notice {
-  color: var(--ok);
+  color: var(--ok-text);
   font-size: 0.9rem;
 }
 </style>

@@ -220,10 +220,10 @@ function toleratedNote(finding: PostureFinding): string | null {
   letter-spacing: 0.04em;
 }
 .sev-critical {
-  color: var(--breach);
+  color: var(--breach-text);
 }
 .sev-warning {
-  color: var(--canary);
+  color: var(--canary-text);
 }
 .finding-text {
   color: var(--text-primary);

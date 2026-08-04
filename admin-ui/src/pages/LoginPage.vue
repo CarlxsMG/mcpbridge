@@ -187,7 +187,7 @@ async function onSubmit() {
   width: 100%;
 }
 .error {
-  color: var(--breach);
+  color: var(--breach-text);
   font-size: 0.85rem;
   margin: 0 0 1rem;
 }

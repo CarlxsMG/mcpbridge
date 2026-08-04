@@ -301,6 +301,11 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   background: rgba(255, 255, 255, 0.08);
+  /* Not the trigger's inherited --text-on-dark-muted: this chip stacks its own
+     8% white wash on top of the trigger's 6%, so the background behind the
+     shortcut is lighter than behind the label, and the same muted ink lands at
+     4.29:1 where the label passes. */
+  color: var(--text-on-dark);
   border-radius: 4px;
   padding: 0.1em 0.4em;
 }

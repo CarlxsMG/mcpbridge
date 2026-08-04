@@ -236,7 +236,7 @@ function confirmDelete() {
 }
 .featured-badge {
   background: var(--ok-soft, var(--surface-sunken));
-  color: var(--ok);
+  color: var(--ok-text);
 }
 .custom-badge {
   border: 1px solid var(--border-strong);
@@ -290,7 +290,7 @@ function confirmDelete() {
 }
 .preview-count {
   font-size: 0.85rem;
-  color: var(--ok);
+  color: var(--ok-text);
 }
 .hint {
   font-size: 0.8rem;

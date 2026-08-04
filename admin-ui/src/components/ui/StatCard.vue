@@ -105,7 +105,7 @@ withDefaults(
   overflow-wrap: anywhere;
 }
 .tone-danger .stat-value {
-  color: var(--breach);
+  color: var(--breach-text);
 }
 .stat-detail {
   font-size: var(--text-sm);

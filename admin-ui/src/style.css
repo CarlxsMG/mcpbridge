@@ -16,8 +16,17 @@
 
   /* Signal: primary accent — data crossing the bridge. Replaces generic
      SaaS blue everywhere it was hardcoded. */
-  --signal: #00a99a;
-  --signal-strong: #00877b;
+  /* --signal doubles as the :focus-visible ring, which WCAG 1.4.11 holds to
+     3:1 against what surrounds it. Solved against --surface-sunken, the darkest
+     light surface it can land on (the previous #00a99a gave 2.74 there, 2.81 on
+     --paper and 2.94 on white — visible, but under the bar everywhere). */
+  --signal: #009e90;
+  /* Text, so 4.5:1 — solved against the DARKEST of the four backgrounds it is
+     actually painted on, not just white: --surface #fff (5.23), --paper (5.01),
+     --surface-sunken (4.87) and --signal-soft (4.62, the tag chip and the active
+     tab's count badge). Solving against white alone yields ~#008378, which still
+     fails on --signal-soft at 4.10. */
+  --signal-strong: #007a6f;
   --signal-soft: #e1f5f2;
   --signal-translucent: rgba(0, 169, 154, 0.12); /* --signal at low alpha — active tint on dark surfaces */
 
@@ -31,9 +40,12 @@
      "background under white text" at once — verified: white-on-#20c4b3 is
      only ~2.18:1. Keeping these two fixed across themes keeps the button
      AA-compliant (and its hover state visibly darker, never identical to
-     rest) everywhere. */
-  --signal-strong-btn: #00877b; /* white text on this: ~4.42:1 */
-  --signal-strong-btn-hover: #00655c; /* white text on this: ~6.96:1 */
+     rest) everywhere.
+     The old value here was #00877b, annotated "white text on this: ~4.42:1"
+     and called AA-compliant in the same breath — the measurement was right and
+     the conclusion was wrong, since AA for this size is 4.5. */
+  --signal-strong-btn: #007a6f; /* white text on this: 5.23:1 */
+  --signal-strong-btn-hover: #00655c; /* white text on this: 6.96:1 */
 
   /* Canary: amber — guardrails, elevated/sensitive, the product's own
      canary-deploy feature. */
@@ -48,6 +60,31 @@
   /* Ok: distinct from --signal so "healthy" and "brand accent" don't blur. */
   --ok: #1a8f4f;
   --ok-soft: #e5f6ec;
+
+  /* ---- Text-safe variants of the semantic colours -----------------------
+     A colour tuned to carry meaning as a dot, border, icon or solid fill is NOT
+     automatically legible as small text, and several components used it that way.
+     StatusBadge renders "Healthy"/"Degraded"/"Unreachable" on the matching -soft
+     tint at 0.8rem/600 (not WCAG "large text"), which measured 3.68 / 2.67 / 4.47
+     in light and 3.35 / 5.04 / 3.23 in dark — 5 of 6 under AA, amber the worst.
+     `.link-btn.danger`, `.error`, `.row-error`, `.hot` and TogglePill's "Enabled"
+     do it on the plain page surfaces, landing at 3.37-4.13.
+
+     So use a -text token for ANY text, on a -soft tint or a plain surface — each
+     is verified against both (worst case 4.61). Keep --ok / --canary / --breach
+     for dots, borders, icons and solid fills: those need only 3:1, and --breach
+     in particular must stay as-is because it is also .btn-danger's fill, where
+     lightening it for dark-theme text would drop white-on-it from 5.13 to 3.59.
+
+     This is the same split --kind-mcp-text already makes — the one pair in this
+     file that always passed. Each is solved per theme against the hardest
+     background it lands on, so DARKEN for light and LIGHTEN for dark: on a dark
+     surface contrast comes from a lighter foreground, and re-darkening the text
+     while only re-darkening the background is the exact mistake that left the MCP
+     pill at 1.99:1 before it was fixed. */
+  --ok-text: #177d45; /* on --ok-soft 4.62, on the light surfaces 4.82-5.18 */
+  --canary-text: #9f5d07; /* on --canary-soft 4.62 */
+  --breach-text: #c6353b; /* on --breach-soft 4.61, on the light surfaces 4.92-5.28 */
 
   /* Kind pills: the small "MCP"/"GraphQL" badge next to a server's name.
      Deliberately not status/semantic colors — a kind is an identity, not a
@@ -182,6 +219,14 @@
   --canary-soft: #33230c;
   --breach-soft: #33161a;
   --ok-soft: #103322;
+  /* The -text halves have to be re-solved here for the same reason the kind
+     pills below do: each -soft background was re-darkened for this theme, so a
+     foreground left at its light-theme value is now dark-on-dark. Lightened,
+     never darkened. --canary-text returns to the base amber, which already
+     clears the bar on the dark tint. */
+  --ok-text: #1fab5e; /* on dark --ok-soft: 4.64:1 (was 3.35 reusing --ok) */
+  --canary-text: #d97f0a; /* on dark --canary-soft: 5.04:1 */
+  --breach-text: #d56469; /* on dark --breach-soft: 4.61:1 (was 3.23 reusing --breach) */
   /* Both halves of each kind pill must be overridden here. The dark theme used
      to re-darken --kind-mcp-soft while leaving --kind-mcp-text at its light-mode
      violet (#5a3aa8), leaving the MCP badge at 1.99:1 — dark violet on dark
@@ -310,11 +355,11 @@ button {
 }
 .link-btn.danger,
 .link-btn.del {
-  color: var(--breach);
+  color: var(--breach-text);
 }
 
 .error {
-  color: var(--breach);
+  color: var(--breach-text);
 }
 
 /* ---- Screen-reader-only: visually hidden, still in the accessibility tree.
@@ -605,7 +650,7 @@ html {
    scoped override, which continues to win via Vue's scoped-attribute
    specificity. ------------------------------------------------------------ */
 .row-error {
-  color: var(--breach);
+  color: var(--breach-text);
   font-size: 0.75rem;
   margin: 0.25rem 0 0;
 }
@@ -632,7 +677,7 @@ html {
    unrelated recipe — a waterfall-chart bar's background — and stays
    page-side.) --------------------------------------------------------------- */
 .hot {
-  color: var(--breach);
+  color: var(--breach-text);
   font-weight: 600;
 }
 

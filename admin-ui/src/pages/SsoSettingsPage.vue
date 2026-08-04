@@ -201,12 +201,12 @@ async function save() {
   margin: 0.35rem 0 0;
 }
 .error {
-  color: var(--breach);
+  color: var(--breach-text);
   font-size: 0.85rem;
   margin: 0;
 }
 .success {
-  color: var(--ok);
+  color: var(--ok-text);
   font-size: 0.85rem;
   margin: 0;
 }

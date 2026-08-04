@@ -352,6 +352,6 @@ function confirmReplay() {
   white-space: nowrap;
 }
 .success {
-  color: var(--ok);
+  color: var(--ok-text);
 }
 </style>

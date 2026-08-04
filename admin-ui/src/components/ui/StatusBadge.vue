@@ -52,17 +52,21 @@ const display = computed(() => {
   font-weight: 600;
   white-space: nowrap;
 }
+/* The -text tokens, not the base semantic colours: this is small text (0.8rem/600,
+   not WCAG "large text") on a tinted background, which the base colours failed in
+   5 of 6 theme/state combinations. See the "Text ON the matching -soft background"
+   block in style.css. */
 .badge-good {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--ok-text);
 }
 .badge-warn {
   background: var(--canary-soft);
-  color: var(--canary);
+  color: var(--canary-text);
 }
 .badge-bad {
   background: var(--breach-soft);
-  color: var(--breach);
+  color: var(--breach-text);
 }
 .badge-neutral {
   background: var(--surface-sunken);

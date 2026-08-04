@@ -219,6 +219,6 @@ function formatThreshold(rule: AlertRule): string {
   gap: 0.75rem;
 }
 .success {
-  color: var(--ok);
+  color: var(--ok-text);
 }
 </style>

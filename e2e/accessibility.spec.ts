@@ -886,18 +886,26 @@ test("responsive — primary navigation stays reachable at mobile width", async 
 // ── Colour scheme ───────────────────────────────────────────────────────────
 
 /**
- * Text colour vs. the nearest opaque background behind it, plus the WCAG
- * contrast ratio between them.
+ * Every visible run of text on the page whose contrast against its own painted
+ * background is under the WCAG 1.4.3 AA threshold for its size.
+ *
+ * This used to sample two hand-picked selectors — `h1` and the page subtitle —
+ * which are the two plain body tokens DESIGN_SYSTEM.md says were tuned. So it
+ * could only ever re-confirm the colours somebody had already checked, and it
+ * passed for months while StatusBadge rendered "Healthy"/"Degraded"/"Unreachable"
+ * at 3.68 / 2.67 / 4.47 in light and 3.35 / 5.04 / 3.23 in dark, every link sat
+ * at 4.42, and the focus ring at 2.74-2.94. Sweeping the whole DOM costs about
+ * the same and needs no list to keep in step with the UI.
+ *
+ * Deliberate exemptions, both straight from WCAG 1.4.3: text inside a disabled
+ * control, and text at "large" size (>=24px, or >=18.66px when bold) which is
+ * held to 3:1 instead of 4.5:1.
  */
-async function textContrast(
-  page: Page,
-  selector: string,
-): Promise<{ color: string; background: string; ratio: number }> {
-  return page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    if (!el) throw new Error(`textContrast: no element matches ${sel}`);
+async function contrastFailures(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    type Rgba = { r: number; g: number; b: number; a: number };
 
-    const parse = (value: string): { r: number; g: number; b: number; a: number } | null => {
+    const parse = (value: string): Rgba | null => {
       const parts = value.match(/-?[\d.]+/g);
       if (!parts || parts.length < 3) return null;
       const [r, g, b] = parts.map(Number);
@@ -912,29 +920,86 @@ async function textContrast(
       return 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
     };
 
-    const fgRaw = getComputedStyle(el).color;
-    const fg = parse(fgRaw);
-    if (!fg) throw new Error(`textContrast: unparseable color ${fgRaw} on ${sel}`);
+    const ratio = (a: Rgba, b: Rgba): number => {
+      const hi = Math.max(luminance(a), luminance(b));
+      const lo = Math.min(luminance(a), luminance(b));
+      return (hi + 0.05) / (lo + 0.05);
+    };
 
-    // Walk up until something actually paints — `body` carries `var(--paper)`.
-    let node: Element | null = el;
-    let bg: { r: number; g: number; b: number; a: number } | null = null;
-    let bgRaw = "";
-    while (node) {
-      bgRaw = getComputedStyle(node).backgroundColor;
-      const parsed = parse(bgRaw);
-      if (parsed && parsed.a > 0) {
-        bg = parsed;
-        break;
+    /** Composites `top` (which may be translucent) over the opaque `base`. */
+    const over = (top: Rgba, base: Rgba): Rgba => ({
+      r: top.r * top.a + base.r * (1 - top.a),
+      g: top.g * top.a + base.g * (1 - top.a),
+      b: top.b * top.a + base.b * (1 - top.a),
+      a: 1,
+    });
+
+    /**
+     * The colour actually painted behind `el`: walks ancestors collecting any
+     * translucent layers and composites them, so a tint over a card over the page
+     * is resolved rather than skipped.
+     */
+    const paintedBackground = (el: Element): Rgba => {
+      const layers: Rgba[] = [];
+      let node: Element | null = el;
+      while (node) {
+        const parsed = parse(getComputedStyle(node).backgroundColor);
+        if (parsed && parsed.a > 0) {
+          if (parsed.a >= 1) {
+            let base = parsed;
+            for (let i = layers.length - 1; i >= 0; i--) base = over(layers[i], base);
+            return base;
+          }
+          layers.push(parsed);
+        }
+        node = node.parentElement;
       }
-      node = node.parentElement;
-    }
-    if (!bg) throw new Error(`textContrast: no opaque background behind ${sel}`);
+      let base: Rgba = { r: 255, g: 255, b: 255, a: 1 };
+      for (let i = layers.length - 1; i >= 0; i--) base = over(layers[i], base);
+      return base;
+    };
 
-    const hi = Math.max(luminance(fg), luminance(bg));
-    const lo = Math.min(luminance(fg), luminance(bg));
-    return { color: fgRaw, background: bgRaw, ratio: (hi + 0.05) / (lo + 0.05) };
-  }, selector);
+    const failures: string[] = [];
+    const reported = new Set<string>();
+
+    for (const el of Array.from(document.querySelectorAll("body *"))) {
+      // Only elements that own text directly — otherwise every ancestor is
+      // reported for its descendants' text.
+      const ownsText = Array.from(el.childNodes).some(
+        (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim().length > 1,
+      );
+      if (!ownsText) continue;
+
+      // WCAG 1.4.3 exempts inactive controls.
+      if (el.closest("[disabled], [aria-disabled='true']")) continue;
+
+      const cs = getComputedStyle(el);
+      if (cs.visibility === "hidden" || cs.display === "none" || Number(cs.opacity) < 0.5) continue;
+      const box = el.getBoundingClientRect();
+      if (box.width < 1 || box.height < 1) continue;
+
+      const fg = parse(cs.color);
+      if (!fg || fg.a === 0) continue;
+
+      const bg = paintedBackground(el);
+      const px = parseFloat(cs.fontSize);
+      const bold = Number(cs.fontWeight) >= 700;
+      const large = px >= 24 || (px >= 18.66 && bold);
+      const required = large ? 3 : 4.5;
+      const actual = ratio(over(fg, bg), bg);
+      if (actual >= required) continue;
+
+      const cls =
+        typeof el.className === "string" && el.className ? `.${el.className.trim().split(/\s+/).join(".")}` : "";
+      const key = `${el.tagName.toLowerCase()}${cls}`;
+      if (reported.has(key)) continue;
+      reported.add(key);
+      failures.push(
+        `${key} "${(el.textContent ?? "").trim().slice(0, 30)}" — ${actual.toFixed(2)}:1 at ${px}px, needs ${required}:1`,
+      );
+    }
+    return failures;
+  });
 }
 
 test("colour scheme — light and dark both render readable text", async ({ page }) => {
@@ -942,13 +1007,6 @@ test("colour scheme — light and dark both render readable text", async ({ page
   await login(page, BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_PASSWORD);
   await page.goto("/admin/servers");
   await expect(page.getByRole("heading", { name: "Servers", level: 1 })).toBeVisible();
-
-  // Two samples that exercise both documented text tokens on the page
-  // background: the h1 (`--text-primary`) and PageHeader's subtitle
-  // (`--text-secondary`). DESIGN_SYSTEM.md's dark-theme block calls out having
-  // tuned exactly these for contrast, so 4.5:1 is the app's own bar, not one
-  // imposed from outside.
-  const samples = ["h1", ".page-header .subtitle"];
 
   for (const theme of ["light", "dark"] as const) {
     // useTheme.ts reads localStorage["mcpbridge:theme"] at module load and
@@ -965,14 +1023,27 @@ test("colour scheme — light and dark both render readable text", async ({ page
     // style.css sets `color-scheme` per theme so form controls / scrollbars
     // follow too — a missing flip leaves white native widgets on a dark page.
     expect(applied.colorScheme, `color-scheme for ${theme}`).toBe(theme);
-
-    for (const selector of samples) {
-      const { color, background, ratio } = await textContrast(page, selector);
-      expect(color, `${selector} must not be painted in its own background (${theme})`).not.toBe(background);
-      expect(
-        ratio,
-        `${selector} in ${theme} theme: ${color} on ${background} is only ${ratio.toFixed(2)}:1`,
-      ).toBeGreaterThanOrEqual(4.5);
-    }
   }
 });
+
+// Swept over the whole route table, in both themes, rather than over a handful of
+// named selectors — see contrastFailures() for why the previous sample missed the
+// status badges, the links and the focus ring all at once.
+for (const route of ROUTES) {
+  test(`contrast — ${route.key}: every text run clears WCAG AA in both themes`, async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await openRoute(page, route);
+
+    for (const theme of ["light", "dark"] as const) {
+      await page.evaluate((value) => window.localStorage.setItem("mcpbridge:theme", value), theme);
+      await page.reload();
+      await expect(route.ready(page)).toBeVisible();
+      if (route.prepare) await route.prepare(page);
+
+      const failures = await contrastFailures(page);
+      expect(failures, `${route.path} in ${theme} theme:\n  ${failures.join("\n  ")}`).toEqual([]);
+    }
+
+    await page.evaluate(() => window.localStorage.removeItem("mcpbridge:theme"));
+  });
+}

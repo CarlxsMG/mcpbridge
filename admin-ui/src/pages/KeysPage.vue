@@ -289,7 +289,7 @@ function confirmDelete() {
   display: inline-block;
   padding: 0.05rem 0.4rem;
   background: var(--canary-soft);
-  color: var(--canary);
+  color: var(--canary-text);
   border-radius: var(--radius-pill);
   font-size: 0.7rem;
 }

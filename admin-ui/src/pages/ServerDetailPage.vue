@@ -459,11 +459,11 @@ async function resetBreaker() {
   margin: 0 0 0.4rem;
 }
 .diff-add {
-  color: var(--ok);
+  color: var(--ok-text);
   margin: 0.2rem 0;
 }
 .diff-rem {
-  color: var(--breach);
+  color: var(--breach-text);
   margin: 0.2rem 0;
 }
 .tag-chip {

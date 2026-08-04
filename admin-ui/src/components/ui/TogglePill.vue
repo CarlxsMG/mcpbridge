@@ -30,8 +30,11 @@ defineProps<{ on: boolean; onLabel: string; offLabel: string; disabled?: boolean
   flex-shrink: 0;
 }
 .toggle-on {
+  /* Border keeps --ok (non-text, 3:1); the label needs --ok-text, which clears
+     4.5:1 on every surface a row can sit on (5.18 / 4.95 / 4.82). --ok itself
+     managed only 4.13 here. */
   border: 1px solid var(--ok);
-  color: var(--ok);
+  color: var(--ok-text);
 }
 .toggle-off {
   border: 1px solid var(--border-strong);

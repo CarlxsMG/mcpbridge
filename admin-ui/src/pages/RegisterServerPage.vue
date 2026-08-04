@@ -334,7 +334,7 @@ const isDirty = computed(
   margin: 0;
 }
 .hint.warn {
-  color: var(--canary);
+  color: var(--canary-text);
   font-weight: 600;
 }
 .preview-row {
@@ -344,7 +344,7 @@ const isDirty = computed(
 }
 .preview-count {
   font-size: 0.85rem;
-  color: var(--ok);
+  color: var(--ok-text);
 }
 :deep(.data-table .ep) {
   color: var(--text-secondary);

@@ -193,7 +193,7 @@ function emitArgs() {
   margin-bottom: 0.2rem;
 }
 .req {
-  color: var(--breach);
+  color: var(--breach-text);
   margin-left: 0.15rem;
 }
 .sf-field input[type="text"],
@@ -217,7 +217,7 @@ function emitArgs() {
   margin: 0 0 0.3rem;
 }
 .field-error {
-  color: var(--breach);
+  color: var(--breach-text);
   font-size: 0.8rem;
   margin: 0.25rem 0 0;
 }

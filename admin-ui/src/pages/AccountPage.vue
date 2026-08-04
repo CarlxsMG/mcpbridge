@@ -352,7 +352,7 @@ onMounted(loadSessions);
   font-size: var(--text-xs);
 }
 .hint.warn {
-  color: var(--canary);
+  color: var(--canary-text);
 }
 .mono-cell {
   font-family: var(--font-mono);
@@ -368,7 +368,7 @@ onMounted(loadSessions);
   gap: var(--space-1);
 }
 .success {
-  color: var(--ok);
+  color: var(--ok-text);
 }
 .pref-row {
   display: flex;

@@ -209,7 +209,7 @@ const groupedByClient = computed(() => {
 }
 .hint-tag {
   font-size: 0.72rem;
-  color: var(--canary);
+  color: var(--canary-text);
   background: var(--canary-soft);
   padding: 0.05em 0.45em;
   border-radius: var(--radius-pill);

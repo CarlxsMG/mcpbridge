@@ -70,7 +70,4 @@ defineProps<{ title: string }>();
   border-radius: var(--radius-sm);
   font-weight: 400;
 }
-.link-btn.danger {
-  color: var(--breach);
-}
 </style>

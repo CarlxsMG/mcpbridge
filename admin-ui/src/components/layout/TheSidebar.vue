@@ -63,10 +63,13 @@ const groupedNav = computed(() =>
   })).filter((g) => g.entries.length > 0),
 );
 
+// The initials are visible text on a tinted circle, so each pair needs the
+// -text half rather than the base semantic colour — the --ok tone rendered them
+// at 3.68:1. All four now clear 4.5 in both themes.
 const AVATAR_TONES: Array<{ soft: string; strong: string }> = [
   { soft: "var(--signal-soft)", strong: "var(--signal-strong)" },
-  { soft: "var(--canary-soft)", strong: "var(--canary)" },
-  { soft: "var(--ok-soft)", strong: "var(--ok)" },
+  { soft: "var(--canary-soft)", strong: "var(--canary-text)" },
+  { soft: "var(--ok-soft)", strong: "var(--ok-text)" },
   { soft: "var(--kind-mcp-soft)", strong: "var(--kind-mcp-text)" },
 ];
 
