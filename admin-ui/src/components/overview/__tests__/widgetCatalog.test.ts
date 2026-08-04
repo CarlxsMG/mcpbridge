@@ -126,6 +126,7 @@ function richStores(): DashboardStores {
       argsJson: "{}",
       preview: "",
       isError: true,
+      denyCode: "guardrail_input",
       durationMs: 50,
       createdAt: Date.now() - 60_000,
     },

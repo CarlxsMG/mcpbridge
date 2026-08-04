@@ -607,9 +607,30 @@ export interface TrafficRecord {
   argsJson: string;
   preview: string;
   isError: boolean;
+  /**
+   * Which policy gate refused the call, or null when it was not a policy
+   * decision. `isError` alone cannot tell a quota rejection from an upstream
+   * 500, which is why this exists.
+   */
+  denyCode: DenyCode | null;
   durationMs: number;
   createdAt: number;
 }
+
+/** Mirrors the backend's DenyCode union (src/lib/mcp-result.ts). */
+export type DenyCode =
+  | "disabled"
+  | "unregistering"
+  | "unreachable"
+  | "allowed_key"
+  | "key_scope"
+  | "quota"
+  | "confirm_required"
+  | "quarantine"
+  | "approval"
+  | "rate_limit"
+  | "guardrail_input"
+  | "unknown_tool";
 
 export type MonitorStatus = "ok" | "fail";
 

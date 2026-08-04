@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Every policy refusal now says which gate refused it.** A tool call passes through about a dozen
+  gates — key allowlist, key scope, consumer quota, sensitive-tool confirmation, quarantine,
+  approval, rate limit, input guardrails — and each rejected with prose while the trace recorded
+  `is_error: true`, one boolean for all of them. Refusals now carry a stable `denyCode`, stamped on
+  the trace span (`mcp.deny_code`), persisted with the captured call, shown in the traffic table,
+  and returned to the caller. So "which gate stopped this?" is readable instead of guessed from an
+  error string, and "how often does the quota gate fire?" is answerable at all. A code is present
+  only for a policy decision: an upstream 500 is a failure, not a deny, and stays null.
+- **A downgrade guard at boot.** Migrations are forward-only and there is no rollback, which the
+  deployment guide has always warned about — but the warning only reaches a human upgrading by
+  hand. An automated rollback (a Kubernetes deploy revert, say) pointed the previous image at the
+  same volume and it started clean, because the migration runner only ever looks for PENDING work
+  and finds none. It now compares the database's highest applied migration against the highest it
+  knows, logs an error naming both, and refuses to start under `STRICT_CONFIG=production`.
+
 - **GraphQL is a first-class upstream kind.** Registering a GraphQL endpoint always worked, but the
   client persisted as `kind: "rest"` — so the admin UI labelled it REST, it could not be filtered,
   and `catalog_entries`' CHECK constraint made publishing a GraphQL entry impossible. `UpstreamKind`
@@ -26,6 +41,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Dependency `overrides` are documented and checked.** Each entry now has a matching record in
+  `dependency-overrides.json` naming its advisory, why it exists and what would let it be dropped,
+  and the suite fails on an override that has none. It also fails on one declared in `package.json`
+  but never actually resolved in the lockfile — a state that reads as protection in review while
+  installing the vulnerable copy, and which a clean `bun install` will not correct.
+- **SQLite's busy timeout is shorter under test** (1000 ms rather than the production 5000 ms).
+  5000 ms is also the test runner's default per-test budget, so lock contention consumed the whole
+  allowance inside SQLite and surfaced as a bare timeout naming no lock, file or query. Two Windows
+  CI investigations went that way. Contention now raises `SQLITE_BUSY` with room left to report it.
 - **The per-tool editor is grouped into four tabs** — Guards, Safety, Presentation, Advanced —
   instead of fourteen controls in one column. Each tab shows how much is configured inside it, so
   grouping does not hide state.

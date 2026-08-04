@@ -41,10 +41,44 @@ key forces _every_ copy in the tree to the new version regardless of what each c
 declared. That is not hypothetical — `"brace-expansion": "^5.0.8"` dragged the `^2.0.2` copies
 under `minimatch@9` up to 5.x, and brace-expansion 5 dropped its default export, so
 `minimatch@9` died with `brace_expansion_1.default is not a function`. `"brace-expansion@5"`
-moves only the 5.x line and leaves 2.x alone. Two traps when verifying: a stale `node_modules`
-keeps serving the old nested copy, so re-resolve with `rm -rf node_modules && bun install`
-before believing a result; and the unit suites may never load the broken path (admin-ui's 386
-tests passed green with `minimatch@9` fully broken) — exercise the actual require chain.
+moves only the 5.x line and leaves 2.x alone.
+
+**Adding the `overrides` entry is not enough on its own — you must also hand-edit the resolved
+`bun.lock` line.** bun records the override in the lockfile's `overrides` block but leaves an
+already-resolved package pinned where it was, so the new version never lands. `rm -rf
+node_modules && bun install` does NOT fix this and is what makes the trap convincing: it
+re-installs cleanly, reports success, and still gives you the vulnerable copy (measured — the
+override was in `package.json`, the audit still failed, and `node_modules` still held the old
+version). The two obvious escapes are both wrong: `bun install --force` and deleting the
+resolved entry each invalidate the lockfile and re-resolve the WHOLE tree against every caret
+range — 48 packages moved in one measured case, including an unrelated
+`@modelcontextprotocol/sdk` minor that broke three tests inside what was meant to be a
+one-line security fix. The procedure that works:
+
+1. Add the `"pkg@<major>"` entry to `package.json`.
+2. Learn the new version's integrity hash — `npm view <pkg>@<version> dist.integrity`, or read
+   it off a throwaway re-resolve.
+3. Replace that package's resolved line in `bun.lock` by hand, and add the override to the
+   lockfile's own `overrides` block.
+4. `rm -rf node_modules && bun install --frozen-lockfile` — this is what CI runs, so it
+   accepting the file is the real check that the edit is self-consistent.
+5. Diff the resolved versions against `HEAD` and confirm ONLY the intended packages moved.
+   `git diff` cannot help: `.gitattributes` marks `bun.lock` `diff: unset`, so it shows as
+   binary. Compare `git show HEAD:bun.lock` against the working copy instead.
+
+Every override needs a matching entry in `dependency-overrides.json` (advisory id, why, and
+what would let it be dropped); `src/__tests__/dependency-overrides.test.ts` fails otherwise,
+and also fails when an override is declared but not actually resolved — the exact trap above.
+Do not try to automate "is this override still needed?": a fresh resolve always picks the
+highest version satisfying every consumer, so the answer is "removable" for every entry
+including load-bearing ones. It was tried; the reasoning is written up in that JSON file.
+
+Two more traps when verifying: the unit suites may never load the broken path (admin-ui's 386
+tests passed green with `minimatch@9` fully broken), so exercise the actual require chain; and
+`bun audit` gates at `--audit-level=moderate` for root and `admin-ui` but at `critical` for
+`docs/` — deliberately, since `docs/` is a VitePress static-site build that ships no runtime
+code and its dev-server advisories do not describe the gateway's attack surface. A `high` in
+`docs/` is therefore expected to sit there; one in root is not.
 
 ## Commands
 

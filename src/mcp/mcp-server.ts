@@ -316,6 +316,11 @@ export function createMcpServer(scope: McpServerScope): Server {
       // bundle branch below already closes via exact Set membership.
       const resolved = registry.resolveTool(name);
       if (!resolved || resolved.client.name !== scope.name) {
+        // Deliberately NO denyCode, unlike every gate in proxy.ts. The whole
+        // point of this branch is that "exists but outside your scope" and
+        // "does not exist" must be indistinguishable — a code would restore
+        // exactly the enumeration oracle the comment above describes closing.
+        // `src/mcp/__tests__/scope-refusal-is-opaque.test.ts` pins that.
         return {
           isError: true,
           content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -327,6 +332,9 @@ export function createMcpServer(scope: McpServerScope): Server {
       const keys = getBundleToolKeys(scope.name);
       const isBundleComposite = hasComposite(name) && (getBundleComposites(scope.name)?.has(name) ?? false);
       if (!isBundleEnabled(scope.name) || (!keys?.has(name) && !isBundleComposite)) {
+        // No denyCode here either, and for the same reason as the client
+        // branch above: a disabled bundle, a tool outside it, and a name that
+        // does not exist must all look identical from outside.
         return {
           isError: true,
           content: [{ type: "text", text: `Unknown tool: ${name}` }],

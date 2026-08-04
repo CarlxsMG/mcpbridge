@@ -2606,6 +2606,11 @@ export interface components {
             /** @description Truncated, already-redacted/guardrail-processed result preview. */
             preview: string;
             isError: boolean;
+            /**
+             * @description Which policy gate refused the call. Null on success, and also null for a failure that was not a policy decision (an upstream 500 is not a deny). Rows captured before this field existed are null too.
+             * @enum {string|null}
+             */
+            denyCode: "disabled" | "unregistering" | "unreachable" | "allowed_key" | "key_scope" | "quota" | "confirm_required" | "quarantine" | "approval" | "rate_limit" | "guardrail_input" | "unknown_tool" | null;
             durationMs: number;
             /** @description Unix ms epoch */
             createdAt: number;

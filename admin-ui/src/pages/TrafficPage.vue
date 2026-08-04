@@ -230,7 +230,18 @@ function confirmReplay() {
             <td class="mono">{{ record.clientName ?? "—" }}/{{ record.toolName ?? record.mcpToolName }}</td>
             <td>{{ formatDuration(record.durationMs) }}</td>
             <td :class="{ hot: record.isError }">
-              {{ record.isError ? t("pages.traffic.table.status_error") : t("pages.traffic.table.status_ok") }}
+              <div class="status-cell">
+                <span>{{
+                  record.isError ? t("pages.traffic.table.status_error") : t("pages.traffic.table.status_ok")
+                }}</span>
+                <!-- Which gate refused it. Only a policy decision has one, so its
+                     presence is itself the signal that separates "we refused this"
+                     from "the backend broke" — the distinction `isError` alone
+                     could never carry. -->
+                <span v-if="record.denyCode" class="deny-code" :title="t('pages.traffic.table.deny_code_hint')">{{
+                  record.denyCode
+                }}</span>
+              </div>
             </td>
             <td>
               <HoverPreview class="cell-truncate" :text="record.preview">{{ record.preview }}</HoverPreview>
@@ -287,6 +298,24 @@ function confirmReplay() {
   color: var(--text-secondary);
   margin: 0;
   max-width: 40rem;
+}
+/* Wrapping div rather than `display: flex` on the <td> itself — flex on a table
+   cell drops it out of the table layout and the column stops aligning. */
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.deny-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 0.1em 0.45em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  white-space: nowrap;
 }
 .filter-field {
   display: flex;

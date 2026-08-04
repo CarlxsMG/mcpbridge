@@ -1,6 +1,6 @@
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import { toolResult, type ToolCallResult, type ToolResult } from "../lib/mcp-result.js";
+import { toolResult, denyResult, type ToolCallResult, type ToolResult } from "../lib/mcp-result.js";
 import type { ToolCallOpts } from "./proxy.js";
 import type { RegisteredClient, RegisteredTool } from "../mcp/types.js";
 import {
@@ -81,14 +81,14 @@ export function runApprovalGate(
     );
     notifyApproval(id, client.name, tool.name);
     log("info", "Tool call queued for approval", { tool: mcpToolName, client: client.name, approval_id: id });
-    return toolResult(
+    return denyResult(
+      "approval",
       `Tool '${mcpToolName}' requires human approval. Queued as approval #${id}. Once approved, re-call with {"__approval_id": ${id}}.`,
-      { isError: true },
     );
   }
   const decision = consumeApproval(approvalId, client.name, tool.name, argsHash);
   if (!decision.ok) {
-    return toolResult(decision.message, { isError: true });
+    return denyResult("approval", decision.message);
   }
   return null;
 }
@@ -114,9 +114,7 @@ export function checkConsumerQuotaGate(
   const consumer = getConsumer(callerKey.consumerId);
   const quota = checkConsumerQuota(callerKey.consumerId, consumer);
   if (quota.exceeded) {
-    return toolResult(`Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})`, {
-      isError: true,
-    });
+    return denyResult("quota", `Monthly quota exceeded for this API key's consumer (${quota.used}/${quota.quota})`);
   }
   // Per-end-user rate limit (opt-in fairness dimension) — caller-asserted and
   // UNAUTHENTICATED: a fairness knob, not an authorization boundary. Zero overhead
@@ -125,9 +123,7 @@ export function checkConsumerQuotaGate(
   if (assertedEndUserId !== null) {
     const endUserRl = checkEndUserRateLimit(callerKey.consumerId, assertedEndUserId, consumer);
     if (endUserRl.limited) {
-      return toolResult(`End-user rate limit exceeded — retry after ${endUserRl.retryAfterSeconds}s`, {
-        isError: true,
-      });
+      return denyResult("quota", `End-user rate limit exceeded — retry after ${endUserRl.retryAfterSeconds}s`);
     }
   }
   return null;
@@ -151,9 +147,9 @@ export function checkConfirmGate(
   if (!sensitive) return null;
   const confirmed = args.__confirm === true;
   if (confirmed || elevated) return null;
-  return toolResult(
+  return denyResult(
+    "confirm_required",
     `Tool '${toolLabel}' is sensitive — pass {"__confirm": true} in arguments or call with an elevated key.`,
-    { isError: true },
   );
 }
 
@@ -187,13 +183,13 @@ export function checkClientToolAvailable(
   mcpToolName: string,
 ): ToolResult | null {
   if (!client.enabled || !tool.enabled) {
-    return toolResult(`Tool '${mcpToolName}' is disabled`, { isError: true });
+    return denyResult("disabled", `Tool '${mcpToolName}' is disabled`);
   }
   if (isDeleting(client.name)) {
-    return toolResult("Client is being unregistered", { isError: true });
+    return denyResult("unregistering", "Client is being unregistered");
   }
   if (client.status === "unreachable") {
-    return toolResult(`Client '${client.name}' is unreachable`, { isError: true });
+    return denyResult("unreachable", `Client '${client.name}' is unreachable`);
   }
   return null;
 }
@@ -210,7 +206,7 @@ export function checkAllowedKeyGate(
 ): ToolResult | null {
   if (!tool.guards?.allowedKeyHashes?.length) return null;
   if (!isKeyAllowed(callerToken, tool.guards.allowedKeyHashes)) {
-    return toolResult(`Not authorized to call tool '${mcpToolName}'`, { isError: true });
+    return denyResult("allowed_key", `Not authorized to call tool '${mcpToolName}'`);
   }
   return null;
 }
@@ -222,7 +218,7 @@ export function checkToolRateLimitGate(tool: RegisteredTool, mcpToolName: string
     ? checkSharedToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin)
     : checkToolRateLimit(mcpToolName, tool.guards.rateLimitPerMin);
   if (!rl.allowed) {
-    return toolResult(`Tool rate limit exceeded — retry after ${rl.retryAfterSeconds}s`, { isError: true });
+    return denyResult("rate_limit", `Tool rate limit exceeded — retry after ${rl.retryAfterSeconds}s`);
   }
   return null;
 }
@@ -234,7 +230,7 @@ export function checkKeyScopeGate(
   mcpToolName: string,
 ): ToolResult | null {
   if (callerKey && !isToolInKeyScope(callerKey.scopes, client.name, mcpToolName)) {
-    return toolResult(`API key is not authorized to call tool '${mcpToolName}'`, { isError: true });
+    return denyResult("key_scope", `API key is not authorized to call tool '${mcpToolName}'`);
   }
   return null;
 }
@@ -261,9 +257,9 @@ export function checkQuarantineAndApprovalGate(
         client: client.name,
         reason: quarantine.reason,
       });
-      return toolResult(
+      return denyResult(
+        "quarantine",
         `Tool '${mcpToolName}' is quarantined: ${quarantine.reason ?? "too many guardrail violations"}`,
-        { isError: true },
       );
     }
     if (quarantine.action === "force_approval") {
@@ -308,7 +304,7 @@ export function checkGuardrailInputGate(
       client: client.name,
       reason: inputCheck.reason,
     });
-    return toolResult(`Input rejected by guardrail: ${inputCheck.reason}`, { isError: true });
+    return denyResult("guardrail_input", `Input rejected by guardrail: ${inputCheck.reason}`);
   }
   recordGuardrailHit(client.name, tool.name, false);
   return null;

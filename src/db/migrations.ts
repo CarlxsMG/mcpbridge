@@ -1121,6 +1121,28 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_catalog_entries_category ON catalog_entries(category);
     `,
   },
+  {
+    id: 58,
+    name: "tool_traffic_deny_code",
+    sql: `
+      -- Which policy gate refused a captured call, when one did.
+      --
+      -- tool_traffic already stored is_error, which is one boolean covering a
+      -- dozen distinct outcomes: a quota rejection, an expired approval, an
+      -- upstream 500 and a guardrail hit were all indistinguishable once
+      -- written. Answering "what is this consumer actually hitting" meant
+      -- reading the preview text by eye, and aggregating over a reason was not
+      -- possible at all.
+      --
+      -- Additive and nullable on purpose: existing rows predate the code and
+      -- genuinely do not know it, and NULL is also the correct value for every
+      -- future non-policy failure. Backfilling from the preview text would be
+      -- guesswork dressed up as data.
+      ALTER TABLE tool_traffic ADD COLUMN deny_code TEXT;
+
+      CREATE INDEX IF NOT EXISTS idx_tool_traffic_deny_code ON tool_traffic(deny_code, created_at);
+    `,
+  },
 ];
 
 /**
@@ -1128,10 +1150,61 @@ export const migrations: Migration[] = [
  * SQLite DDL is transactional, so a failure partway through a migration cannot
  * leave `_migrations` and the schema out of sync.
  */
+/**
+ * Refuses — or at minimum complains loudly — when the database was written by a
+ * NEWER build than the one now opening it.
+ *
+ * `runMigrations` only ever computes the *pending* set, so a database carrying
+ * migrations this binary has never heard of produces an empty set and boots
+ * clean. `docs/guide/deployment.md` already warns a human not to downgrade,
+ * because migrations are forward-only and there is no automated rollback. What
+ * it cannot cover is the AUTOMATED path: a Kubernetes rollback is the most
+ * common reaction to a bad deploy, it is not a human decision at the moment it
+ * happens, and it points the previous image straight at the same volume.
+ *
+ * The old binary then serves policy decisions against a schema it does not
+ * model — columns it cannot see, CHECKs it does not know it is subject to —
+ * and nothing in the logs says so. Rolling forward, or restoring the
+ * pre-upgrade file, are the only correct responses; this makes the situation
+ * legible instead of silent.
+ *
+ * Warn-by-default, fatal under `STRICT_CONFIG=production` — the same escalation
+ * `validateEnvStrict` uses, so there is one rule to learn rather than two. Read
+ * from `process.env` directly (as that function does) to keep this module free
+ * of a config import.
+ */
+export function assertSchemaNotNewerThanBinary(db: Database, env: NodeJS.ProcessEnv = process.env): void {
+  const row = db.query("SELECT MAX(id) as maxId FROM _migrations").get() as { maxId: number | null };
+  const applied = row.maxId;
+  if (applied === null) return; // fresh database
+
+  const known = migrations.reduce((max, m) => (m.id > max ? m.id : max), 0);
+  if (applied <= known) return;
+
+  const detail =
+    `Database schema is at migration ${applied}, but this build only knows ${known}. ` +
+    `It was written by a newer version — this process would run against a schema it does not model. ` +
+    `Roll forward to the newer build, or restore the pre-upgrade database file.`;
+
+  if (env.STRICT_CONFIG === "production") {
+    throw new Error(`STRICT_CONFIG=production: ${detail}`);
+  }
+  log("error", "Database schema is newer than this build", {
+    appliedMigration: applied,
+    knownMigration: known,
+    hint: "Roll forward or restore the pre-upgrade file. Set STRICT_CONFIG=production to abort boot instead.",
+  });
+}
+
 export function runMigrations(db: Database): void {
   db.exec(
     `CREATE TABLE IF NOT EXISTS _migrations (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, applied_at INTEGER NOT NULL) STRICT;`,
   );
+
+  // Before applying anything: a database from the future is not something the
+  // pending-set calculation below can detect on its own — it just finds nothing
+  // to do and proceeds.
+  assertSchemaNotNewerThanBinary(db);
 
   const appliedRows = db.query("SELECT id FROM _migrations").all() as { id: number }[];
   const applied = new Set(appliedRows.map((r) => r.id));

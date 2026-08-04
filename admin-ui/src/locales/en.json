@@ -2134,7 +2134,8 @@
         "status": "Status",
         "preview": "Response preview",
         "status_error": "Error",
-        "status_ok": "OK"
+        "status_ok": "OK",
+        "deny_code_hint": "The policy gate that refused this call. Absent when the failure came from the backend rather than a policy."
       },
       "errors": {
         "load_failed": "Failed to load traffic.",

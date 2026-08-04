@@ -103,6 +103,17 @@ type drift is a compile error** — which immediately surfaced five undocumented
 and 21 API-doc descriptions that had been silently truncated mid-sentence by an unquoted comma
 inside a YAML flow mapping.
 
+Most recently, **every policy refusal says which gate refused it.** A tool call passes about a
+dozen gates — key allowlist, key scope, consumer quota, sensitive-tool confirmation, quarantine,
+approval, rate limit, input guardrails — and each used to reject with prose while the trace stored
+a single `is_error` boolean covering all of them. Refusals now carry a stable code, on the span, on
+the captured call, in the traffic table and back to the caller; an upstream 500 is a failure rather
+than a deny and deliberately carries none. Alongside it, **a downgrade guard at boot**: migrations
+are forward-only, and while the deployment guide warned a human about that, an automated rollback
+pointed the previous image at a newer database and started clean, because the migration runner only
+looks for pending work and finds none. It now compares both versions, names them, and refuses to
+start under `STRICT_CONFIG=production`.
+
 ## [1.0.0] - 2026-07-03
 
 Initial tagged release of **MCP REST Bridge** — a self-hosted MCP gateway that turns
