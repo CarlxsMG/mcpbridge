@@ -372,8 +372,14 @@ onMounted(() => load());
               />
             </td>
             <td>
-              <RouterLink :to="`/servers/${encodeURIComponent(client.name)}`">{{ client.name }}</RouterLink>
-              <KindBadge class="kind-chip" :kind="client.kind" />
+              <!-- Flex wrapper on a div, never on the `td` itself (that collapses table
+                   layout). The gap is load-bearing: the link and the badge are adjacent
+                   element nodes, so Vue condenses the whitespace-only text node between
+                   them and they render — and read — flush as one word ("githubMCP"). -->
+              <div class="name-cell">
+                <RouterLink :to="`/servers/${encodeURIComponent(client.name)}`">{{ client.name }}</RouterLink>
+                <KindBadge :kind="client.kind" />
+              </div>
             </td>
             <td><StatusBadge :status="client.status" /></td>
             <td>{{ client.toolsCount }}</td>
@@ -435,8 +441,129 @@ onMounted(() => load());
 </template>
 
 <style scoped>
+/* Restored verbatim from f74e988^. That commit was an i18n pass and dropped this
+   whole scoped block except `.subtitle` as collateral, leaving the tag browser,
+   the bulk bar, the filter labels and the URL column unstyled on the app's
+   landing page. Nothing caught it: the tests assert text, not computed style.
+   `.cell-truncate` and `.filters .field label` look defined elsewhere in the repo
+   but those copies live in OTHER pages' scoped blocks, so they never applied here. */
 .subtitle {
   color: var(--text-secondary);
   margin: 0;
+}
+/* Replaces the old `.kind-chip`, whose margin-left was the only thing separating
+   the name link from the kind badge. Same idiom as PageHeader's .header-meta —
+   the gap is load-bearing, see the .name-cell comment in the template. */
+.name-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.header-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+.tag-browser {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-6);
+}
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.tag-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 0.3rem 0.75rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    color 0.12s ease,
+    background-color 0.12s ease;
+}
+.tag-filter-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.tag-filter-chip-active {
+  background: var(--signal-soft);
+  border-color: var(--signal);
+  color: var(--signal-strong);
+}
+.tag-count {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.tag-filter-chip-active .tag-count {
+  color: var(--signal-strong);
+}
+.tag-tools {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.tag-tools-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.tag-tools-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  font-size: var(--text-base);
+}
+.tag-tool-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.tag-tool-sep {
+  color: var(--text-muted);
+}
+.filters .field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.filters .field:first-of-type {
+  flex: 1;
+  max-width: 20rem;
+}
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--signal-soft);
+  border: 1px solid var(--signal);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+}
+.checkbox-col {
+  width: 2rem;
+}
+.cell-truncate {
+  max-width: 16.25rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.83rem;
 }
 </style>

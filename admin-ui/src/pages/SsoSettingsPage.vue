@@ -200,13 +200,6 @@ async function save() {
   font-size: 0.8rem;
   margin: 0.35rem 0 0;
 }
-.inline-check {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
 .error {
   color: var(--breach);
   font-size: 0.85rem;

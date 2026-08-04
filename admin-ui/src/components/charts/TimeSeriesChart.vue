@@ -247,7 +247,7 @@ const tooltipStyle = computed(() => {
           :key="`ly-${tick.y}`"
           :x="PAD.left - 8 * zoom"
           :y="tick.y + 3 * zoom"
-          class="axis-label y-label"
+          class="axis-label"
           text-anchor="end"
         >
           {{ formatValue(Math.round(tick.value)) }}
@@ -257,7 +257,7 @@ const tooltipStyle = computed(() => {
           :key="`lx-${tick.x}`"
           :x="tick.x"
           :y="heightPx - 6 * zoom"
-          class="axis-label x-label"
+          class="axis-label"
           :text-anchor="tick.anchor"
         >
           {{ formatTime(tick.t) }}

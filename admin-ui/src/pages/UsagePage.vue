@@ -13,9 +13,10 @@ import SignalLoader from "@/components/ui/SignalLoader.vue";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import ErrorNote from "@/components/ui/ErrorNote.vue";
 import TableCard from "@/components/ui/TableCard.vue";
+import EmptyState from "@/components/ui/EmptyState.vue";
 import ChartCard from "@/components/charts/ChartCard.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
-import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench } from "lucide-vue-next";
+import { Activity, AlertTriangle, Percent, Timer, Gauge, Wrench, KeyRound } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -164,7 +165,7 @@ onMounted(load);
           </tr>
         </tbody>
       </TableCard>
-      <p v-else class="empty">{{ t("pages.usage.empty.no_calls") }}</p>
+      <EmptyState v-else :icon="Wrench">{{ t("pages.usage.empty.no_calls") }}</EmptyState>
       <p v-if="topTools.length === 20" class="hint">
         {{ t("pages.usage.truncated_hint") }}
       </p>
@@ -186,7 +187,7 @@ onMounted(load);
           </tr>
         </tbody>
       </TableCard>
-      <p v-else class="empty">{{ t("pages.usage.empty.no_attributed") }}</p>
+      <EmptyState v-else :icon="KeyRound">{{ t("pages.usage.empty.no_attributed") }}</EmptyState>
       <p v-if="byKey.length === 20" class="hint">
         {{ t("pages.usage.truncated_hint") }}
       </p>
@@ -224,8 +225,5 @@ h2 {
   color: var(--text-muted);
   font-size: var(--text-sm);
   margin: var(--space-2) 0 0;
-}
-.empty {
-  color: var(--text-muted);
 }
 </style>

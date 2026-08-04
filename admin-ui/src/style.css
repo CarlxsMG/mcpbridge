@@ -407,12 +407,28 @@ input[type="radio"] {
   display: inline-grid;
   place-content: center;
   vertical-align: middle;
+  position: relative;
   border: 1.5px solid var(--border-strong);
   background: var(--surface);
   cursor: pointer;
   transition:
     background-color 0.12s ease,
     border-color 0.12s ease;
+}
+/* WCAG 2.5.8 (Target Size Minimum, AA) wants 24×24 CSS px of pointer target.
+   The painted box stays 1.125rem so dense tables don't gain row height — this
+   transparent overlay extends only the hit area, centred on the control. It is
+   absolutely positioned, so it takes no part in the inline-grid that centres
+   the ::before checkmark/dot. */
+input[type="checkbox"]::after,
+input[type="radio"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
 }
 input[type="checkbox"] {
   border-radius: 5px;
@@ -618,6 +634,18 @@ html {
 .hot {
   color: var(--breach);
   font-weight: 600;
+}
+
+/* ---- Inline checkbox + label row: promoted from SsoSettingsPage, which was the
+   only page that defined it. ServerDetailCanary.vue and ServerDetailLb.vue used
+   the same class name but live in their own scoped blocks, so they were getting
+   NO styling at all — a scoped rule never crosses a component boundary. -------- */
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 /* ---- Inline create/edit form container: promoted from the 7 (of 11) pages

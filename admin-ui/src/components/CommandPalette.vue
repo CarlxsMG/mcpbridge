@@ -245,7 +245,7 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown));
         :aria-label="t('command_palette.results_aria')"
       >
         <template v-if="results.length">
-          <div v-for="[group, items] in grouped" :key="group" class="cmd-group" role="group" :aria-label="group">
+          <div v-for="[group, items] in grouped" :key="group" role="group" :aria-label="group">
             <p class="cmd-group-label" aria-hidden="true">{{ group }}</p>
             <button
               v-for="entry in items"

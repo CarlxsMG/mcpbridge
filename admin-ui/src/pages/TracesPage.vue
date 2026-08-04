@@ -169,7 +169,7 @@ const topSessionsChart = computed(() =>
       </button>
     </form>
 
-    <ChartCard v-if="topSessionsChart.length" :title="t('pages.traces.top_sessions')" class="top-sessions-card">
+    <ChartCard v-if="topSessionsChart.length" :title="t('pages.traces.top_sessions')">
       <MiniBarChart :rows="topSessionsChart" />
     </ChartCard>
 

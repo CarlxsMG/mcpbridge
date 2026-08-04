@@ -251,12 +251,7 @@ const TABS = computed(() => [
   <!-- One panel for all four groups, labelled by whichever tab is active. The
        groups use v-show rather than v-if so switching tabs never discards a
        half-typed value in the group you are leaving. -->
-  <div
-    :id="tabPanelId('guard-editor')"
-    role="tabpanel"
-    :aria-labelledby="tabId('guard-editor', activeTab)"
-    class="guard-panel"
-  >
+  <div :id="tabPanelId('guard-editor')" role="tabpanel" :aria-labelledby="tabId('guard-editor', activeTab)">
     <form v-show="activeTab === 'guards'" class="guard-editor" @submit.prevent="submit">
       <h3>
         <KeyRound :size="15" stroke-width="2" aria-hidden="true" /> {{ t("components.guard_editor.rate_keys_title") }}
