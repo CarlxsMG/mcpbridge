@@ -298,7 +298,10 @@
       "show": "Details",
       "hide": "Hide",
       "dismiss": "Dismiss this warning",
-      "severity": { "critical": "Critical", "warning": "Warning" },
+      "severity": {
+        "critical": "Critical",
+        "warning": "Warning"
+      },
       "tolerated": {
         "development": "allowed because NODE_ENV=development",
         "escape_hatch": "allowed by an ALLOW_UNSAFE_ escape hatch"
@@ -852,8 +855,13 @@
       "no_matches": "No setting matches \"{filter}\".",
       "redacted_set": "set",
       "redacted_unset": "not set",
-      "table": { "key": "Setting", "value": "Value" },
-      "errors": { "load_failed": "Failed to load the resolved settings." }
+      "table": {
+        "key": "Setting",
+        "value": "Value"
+      },
+      "errors": {
+        "load_failed": "Failed to load the resolved settings."
+      }
     },
     "config_export": {
       "title": "Export",
@@ -968,30 +976,76 @@
           "note": "A free-text markdown panel for annotations and links"
         },
         "stat": {
-          "clients_live": { "label": "Live servers", "detail": "{count} disabled" },
-          "tools_total": { "label": "Total tools", "detail": "{count} disabled" },
-          "breakers_open": { "label": "Breakers open", "detail": "{count} half-open" },
-          "admins": { "label": "Admin users" },
-          "usage_calls": { "label": "Calls" },
-          "usage_errors": { "label": "Errors" },
-          "usage_error_rate": { "label": "Error rate" },
-          "usage_avg_ms": { "label": "Avg latency" },
-          "usage_max_ms": { "label": "Max latency" },
-          "usage_tools": { "label": "Active tools" },
-          "usage_keys": { "label": "Active keys" },
-          "approvals_pending": { "label": "Pending approvals" },
-          "ws_connections": { "label": "Live WS connections", "detail": "1 target | {count} targets" }
+          "clients_live": {
+            "label": "Live servers",
+            "detail": "{count} disabled"
+          },
+          "tools_total": {
+            "label": "Total tools",
+            "detail": "{count} disabled"
+          },
+          "breakers_open": {
+            "label": "Breakers open",
+            "detail": "{count} half-open"
+          },
+          "admins": {
+            "label": "Admin users"
+          },
+          "usage_calls": {
+            "label": "Calls"
+          },
+          "usage_errors": {
+            "label": "Errors"
+          },
+          "usage_error_rate": {
+            "label": "Error rate"
+          },
+          "usage_avg_ms": {
+            "label": "Avg latency"
+          },
+          "usage_max_ms": {
+            "label": "Max latency"
+          },
+          "usage_tools": {
+            "label": "Active tools"
+          },
+          "usage_keys": {
+            "label": "Active keys"
+          },
+          "approvals_pending": {
+            "label": "Pending approvals"
+          },
+          "ws_connections": {
+            "label": "Live WS connections",
+            "detail": "1 target | {count} targets"
+          }
         },
         "donut": {
-          "clients_health": { "label": "Server health" },
-          "breakers": { "label": "Circuit breakers" },
-          "monitors_status": { "label": "Monitor status" },
-          "approvals_status": { "label": "Approvals" }
+          "clients_health": {
+            "label": "Server health"
+          },
+          "breakers": {
+            "label": "Circuit breakers"
+          },
+          "monitors_status": {
+            "label": "Monitor status"
+          },
+          "approvals_status": {
+            "label": "Approvals"
+          }
         },
         "bars": {
-          "top_tools": { "label": "Top tools by calls", "hint_errors": "{count} err" },
-          "by_key": { "label": "Calls by API key" },
-          "consumers_quota": { "label": "Consumer usage", "hint_of_quota": "of {quota}" }
+          "top_tools": {
+            "label": "Top tools by calls",
+            "hint_errors": "{count} err"
+          },
+          "by_key": {
+            "label": "Calls by API key"
+          },
+          "consumers_quota": {
+            "label": "Consumer usage",
+            "hint_of_quota": "of {quota}"
+          }
         },
         "list": {
           "audit_recent": {
@@ -1024,8 +1078,15 @@
           }
         },
         "series": {
-          "calls_errors": { "label": "Calls & errors over time", "primary": "Calls", "secondary": "Errors" },
-          "latency": { "label": "Avg latency over time", "primary": "Avg latency" }
+          "calls_errors": {
+            "label": "Calls & errors over time",
+            "primary": "Calls",
+            "secondary": "Errors"
+          },
+          "latency": {
+            "label": "Avg latency over time",
+            "primary": "Avg latency"
+          }
         },
         "relative_time": {
           "just_now": "just now",

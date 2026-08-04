@@ -16,4 +16,4 @@ Closes #
 - [ ] Docs updated if user-facing behavior, config, or API changed (English **and** the `docs/es/` mirror)
 - [ ] Commit messages follow the `type(scope): summary` convention
 - [ ] Screenshots included for any admin-UI visual change
-- [ ] New translatable demo-fixture strings have a `*Key` field + entries in `scripts/seed-demo-i18n.py` and `scripts/translate-demo-i18n.py`
+- [ ] New translatable demo-fixture strings have a `*Key` field + entries in `scripts/demo-i18n/fixtures.{en,es}.json`, with `bun run generate` run

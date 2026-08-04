@@ -298,7 +298,10 @@
       "show": "Detalles",
       "hide": "Ocultar",
       "dismiss": "Descartar este aviso",
-      "severity": { "critical": "Crítico", "warning": "Aviso" },
+      "severity": {
+        "critical": "Crítico",
+        "warning": "Aviso"
+      },
       "tolerated": {
         "development": "permitido porque NODE_ENV=development",
         "escape_hatch": "permitido por una vía de escape ALLOW_UNSAFE_"
@@ -852,8 +855,13 @@
       "no_matches": "Ningún ajuste coincide con «{filter}».",
       "redacted_set": "configurado",
       "redacted_unset": "sin configurar",
-      "table": { "key": "Ajuste", "value": "Valor" },
-      "errors": { "load_failed": "Error al cargar los ajustes efectivos." }
+      "table": {
+        "key": "Ajuste",
+        "value": "Valor"
+      },
+      "errors": {
+        "load_failed": "Error al cargar los ajustes efectivos."
+      }
     },
     "config_export": {
       "title": "Exportar",
@@ -968,30 +976,76 @@
           "note": "Un panel de texto libre en markdown para anotaciones y enlaces"
         },
         "stat": {
-          "clients_live": { "label": "Servidores activos", "detail": "{count} deshabilitados" },
-          "tools_total": { "label": "Herramientas totales", "detail": "{count} deshabilitadas" },
-          "breakers_open": { "label": "Interruptores abiertos", "detail": "{count} semiabiertos" },
-          "admins": { "label": "Usuarios administradores" },
-          "usage_calls": { "label": "Llamadas" },
-          "usage_errors": { "label": "Errores" },
-          "usage_error_rate": { "label": "Tasa de error" },
-          "usage_avg_ms": { "label": "Latencia media" },
-          "usage_max_ms": { "label": "Latencia máxima" },
-          "usage_tools": { "label": "Herramientas activas" },
-          "usage_keys": { "label": "Claves activas" },
-          "approvals_pending": { "label": "Aprobaciones pendientes" },
-          "ws_connections": { "label": "Conexiones WS activas", "detail": "1 destino | {count} destinos" }
+          "clients_live": {
+            "label": "Servidores activos",
+            "detail": "{count} deshabilitados"
+          },
+          "tools_total": {
+            "label": "Herramientas totales",
+            "detail": "{count} deshabilitadas"
+          },
+          "breakers_open": {
+            "label": "Interruptores abiertos",
+            "detail": "{count} semiabiertos"
+          },
+          "admins": {
+            "label": "Usuarios administradores"
+          },
+          "usage_calls": {
+            "label": "Llamadas"
+          },
+          "usage_errors": {
+            "label": "Errores"
+          },
+          "usage_error_rate": {
+            "label": "Tasa de error"
+          },
+          "usage_avg_ms": {
+            "label": "Latencia media"
+          },
+          "usage_max_ms": {
+            "label": "Latencia máxima"
+          },
+          "usage_tools": {
+            "label": "Herramientas activas"
+          },
+          "usage_keys": {
+            "label": "Claves activas"
+          },
+          "approvals_pending": {
+            "label": "Aprobaciones pendientes"
+          },
+          "ws_connections": {
+            "label": "Conexiones WS activas",
+            "detail": "1 destino | {count} destinos"
+          }
         },
         "donut": {
-          "clients_health": { "label": "Estado de los servidores" },
-          "breakers": { "label": "Interruptores de circuito" },
-          "monitors_status": { "label": "Estado de los monitores" },
-          "approvals_status": { "label": "Aprobaciones" }
+          "clients_health": {
+            "label": "Estado de los servidores"
+          },
+          "breakers": {
+            "label": "Interruptores de circuito"
+          },
+          "monitors_status": {
+            "label": "Estado de los monitores"
+          },
+          "approvals_status": {
+            "label": "Aprobaciones"
+          }
         },
         "bars": {
-          "top_tools": { "label": "Herramientas más usadas por llamadas", "hint_errors": "{count} errores" },
-          "by_key": { "label": "Llamadas por clave de API" },
-          "consumers_quota": { "label": "Uso por consumidor", "hint_of_quota": "de {quota}" }
+          "top_tools": {
+            "label": "Herramientas más usadas por llamadas",
+            "hint_errors": "{count} errores"
+          },
+          "by_key": {
+            "label": "Llamadas por clave de API"
+          },
+          "consumers_quota": {
+            "label": "Uso por consumidor",
+            "hint_of_quota": "de {quota}"
+          }
         },
         "list": {
           "audit_recent": {
@@ -1024,8 +1078,15 @@
           }
         },
         "series": {
-          "calls_errors": { "label": "Llamadas y errores en el tiempo", "primary": "Llamadas", "secondary": "Errores" },
-          "latency": { "label": "Latencia media en el tiempo", "primary": "Latencia media" }
+          "calls_errors": {
+            "label": "Llamadas y errores en el tiempo",
+            "primary": "Llamadas",
+            "secondary": "Errores"
+          },
+          "latency": {
+            "label": "Latencia media en el tiempo",
+            "primary": "Latencia media"
+          }
         },
         "relative_time": {
           "just_now": "justo ahora",

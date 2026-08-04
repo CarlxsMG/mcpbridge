@@ -193,16 +193,17 @@ respuesta del demo se localice contra el locale activo de vue-i18n.
    `__` en vez de `.`) y del escape de notación de corchetes para valores free-form que
    contienen espacios o paréntesis.
 
-2. Añade el literal inglés a `scripts/seed-demo-i18n.py` bajo el dominio correspondiente —
-   re-ejecuta el script para (re-)generar las claves `demo.fixtures.*` en `en.json`. El
-   script REEMPLAZA (no hace merge) la sección demo para que el namespace se mantenga
-   canónico.
+2. Añade el literal inglés a `scripts/demo-i18n/fixtures.en.json` bajo el dominio
+   correspondiente, y el español a `fixtures.es.json` bajo la misma ruta.
 
-3. Añade la traducción al español a `scripts/translate-demo-i18n.py` bajo el dominio
-   correspondiente — re-ejecuta el script para aterrizar la traducción en `es.json`.
+3. Corre `bun run generate` para escribir las claves `demo.fixtures.*` en `en.json` y
+   `es.json`. El generador REEMPLAZA (no hace merge) la sección demo, así que el
+   namespace se mantiene canónico y renombrar una clave nunca deja huérfana la vieja.
 
-4. Corre `bun run check` — el stage `lint:i18n` falla si `en.json` y `es.json` se
-   desincronizan, así que una traducción faltante se captura en CI, no en la página del demo.
+4. Corre `bun run check` — ejecuta `generate --check` primero, así que olvidarte del
+   paso 3 rompe el build en vez de publicar un catálogo obsoleto, y el stage `lint:i18n`
+   falla si `en.json` y `es.json` se desincronizan, capturando una traducción faltante
+   en CI y no en la página del demo.
 
 ### Cuándo NO traducir
 
@@ -223,9 +224,8 @@ respuesta del demo se localice contra el locale activo de vue-i18n.
 - [ ] Docs actualizadas si cambió el comportamiento user-facing, config o API
 - [ ] Los mensajes de commit siguen la convención `type(scope): summary` arriba
 - [ ] Screenshots incluidos para cualquier cambio visual en admin-ui
-- [ ] Los nuevos strings traducibles del fixture demo tienen un campo `*Key`, una entrada
-      en `scripts/seed-demo-i18n.py` y una entrada en español en
-      `scripts/translate-demo-i18n.py`
+- [ ] Los nuevos strings traducibles del fixture demo tienen un campo `*Key` y entradas en
+      `scripts/demo-i18n/fixtures.en.json` y `fixtures.es.json`, con `bun run generate` corrido
 
 Siguiente: **[Changelog →](/es/guide/changelog)** ·
 **[Política de seguridad →](/es/guide/security-policy)**

@@ -181,15 +181,17 @@ gets localized against the active vue-i18n locale.
    the vue-i18n `dot`-as-separator escape (entity IDs use `__` instead of `.`) and the
    bracket-notation escape for free-form values that contain spaces or parens.
 
-2. Add the English literal to `scripts/seed-demo-i18n.py` under the matching domain —
-   re-run the script to (re-)generate the `demo.fixtures.*` keys in `en.json`. The script
-   REPLACES (not merges) the demo section so the namespace stays canonical.
+2. Add the English literal to `scripts/demo-i18n/fixtures.en.json` under the matching
+   domain, and the Spanish one to `fixtures.es.json` under the same path.
 
-3. Add the Spanish translation to `scripts/translate-demo-i18n.py` under the matching
-   domain — re-run the script to land the translation in `es.json`.
+3. Run `bun run generate` to write the `demo.fixtures.*` keys into `en.json` and
+   `es.json`. The generator REPLACES (not merges) the demo section, so the namespace
+   stays canonical and renaming a key never strands the old one.
 
-4. Run `bun run check` — the `lint:i18n` stage fails if `en.json` and `es.json` drift,
-   so a missing translation is caught in CI, not on the demo page.
+4. Run `bun run check` — it runs `generate --check` first, so forgetting step 3 fails
+   the build instead of shipping a stale catalog, and the `lint:i18n` stage fails if
+   `en.json` and `es.json` drift, catching a missing translation in CI rather than on
+   the demo page.
 
 ### When NOT to translate
 
@@ -208,7 +210,7 @@ gets localized against the active vue-i18n locale.
 - [ ] Docs updated if user-facing behavior, config, or API changed
 - [ ] Commit messages follow the `type(scope): summary` convention above
 - [ ] Screenshots included for any admin-ui visual change
-- [ ] New translatable demo fixture strings have a `*Key` field, an entry in
-      `scripts/seed-demo-i18n.py`, and a Spanish entry in `scripts/translate-demo-i18n.py`
+- [ ] New translatable demo fixture strings have a `*Key` field and entries in both
+      `scripts/demo-i18n/fixtures.en.json` and `fixtures.es.json`, with `bun run generate` run
 
 Next: **[Changelog →](/guide/changelog)** · **[Security policy →](/guide/security-policy)**

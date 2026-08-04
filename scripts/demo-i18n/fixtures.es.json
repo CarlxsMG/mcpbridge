@@ -1,0 +1,205 @@
+{
+  "tools": {
+    "github__search_issues": {
+      "description": "Buscar issues y pull requests"
+    },
+    "github__create_issue": {
+      "description": "Abrir un nuevo issue en un repositorio"
+    },
+    "github__get_repo": {
+      "description": "Obtener metadatos del repositorio"
+    },
+    "github__list_pull_requests": {
+      "description": "Listar pull requests de un repositorio"
+    },
+    "stripe__create_refund": {
+      "description": "Reembolsar un cargo"
+    },
+    "stripe__get_customer": {
+      "description": "Consultar un cliente"
+    },
+    "stripe__list_invoices": {
+      "description": "Listar facturas"
+    },
+    "stripe__create_payment_intent": {
+      "description": "Iniciar un pago"
+    },
+    "slack__post_message": {
+      "description": "Enviar un mensaje a un canal"
+    },
+    "slack__list_channels": {
+      "description": "Listar canales"
+    },
+    "slack__get_user": {
+      "description": "Buscar un usuario"
+    },
+    "internal-crm__find_account": {
+      "description": "Buscar cuentas en el CRM"
+    },
+    "internal-crm__update_deal": {
+      "description": "Actualizar la etapa de una oportunidad"
+    },
+    "weather__current": {
+      "description": "Clima actual en una ubicación"
+    },
+    "weather__forecast": {
+      "description": "Pronóstico a 7 días"
+    },
+    "legacy-billing__get_balance": {
+      "description": "Consulta de saldo heredada"
+    }
+  },
+  "bundles": {
+    "support-agent": {
+      "description": "Herramientas de GitHub y Slack de solo lectura para el copiloto de soporte"
+    },
+    "billing-ops": {
+      "description": "Reembolsos de Stripe y consultas de facturas para finanzas"
+    },
+    "readonly-explorer": {
+      "description": "Vista segura y de solo lectura sobre todos los backends"
+    }
+  },
+  "catalog": {
+    "builtin:petstore": {
+      "description": "La API de ejemplo canónica de OpenAPI — mascotas, pedidos e inventario."
+    },
+    "custom:1": {
+      "description": "Plantilla reutilizable para crear un registro de CRM en staging."
+    }
+  },
+  "discovery": {
+    "list_pets": {
+      "description": "Busca mascotas por estado"
+    },
+    "get_pet": {
+      "description": "Buscar mascota por ID"
+    },
+    "add_pet": {
+      "description": "Añadir una mascota nueva a la tienda"
+    },
+    "update_pet": {
+      "description": "Actualizar una mascota existente"
+    },
+    "delete_pet": {
+      "description": "Eliminar una mascota"
+    }
+  },
+  "keys": {
+    "by_value": {
+      "Claude Desktop": {
+        "label": "Claude Desktop"
+      },
+      "Cursor IDE": {
+        "label": "Cursor IDE"
+      },
+      "CI pipeline (elevated)": {
+        "label": "Pipeline de CI (elevado)"
+      },
+      "Old prototype key": {
+        "label": "Llave prototipo antigua"
+      }
+    }
+  },
+  "consumers": {
+    "by_value": {
+      "Support team": {
+        "name": "Equipo de soporte"
+      },
+      "Finance": {
+        "name": "Finanzas"
+      },
+      "Internal agents": {
+        "name": "Agentes internos"
+      }
+    }
+  },
+  "usage": {
+    "by_value": {
+      "Claude Desktop": {
+        "label": "Claude Desktop"
+      },
+      "Cursor IDE": {
+        "label": "Cursor IDE"
+      },
+      "CI pipeline (elevated)": {
+        "label": "Pipeline de CI (elevado)"
+      }
+    }
+  },
+  "alerts": {
+    "1": {
+      "name": "Disyuntor del CRM abierto"
+    },
+    "2": {
+      "name": "Tasa de error alta"
+    },
+    "3": {
+      "name": "Detector de picos de uso"
+    }
+  },
+  "teams": {
+    "by_value": {
+      "Platform": {
+        "name": "Plataforma"
+      },
+      "Support": {
+        "name": "Soporte"
+      }
+    }
+  },
+  "policies": {
+    "by_value": {
+      "Standard read": {
+        "name": "Lectura estándar"
+      },
+      "Sensitive write": {
+        "name": "Escritura sensible"
+      }
+    }
+  },
+  "composites": {
+    "triage_issue": {
+      "description": "Buscar en GitHub y luego publicar un resumen en Slack"
+    },
+    "refund_and_notify": {
+      "description": "Crear un reembolso en Stripe y enviar un DM al responsable del cliente"
+    }
+  },
+  "snapshots": {
+    "by_value": {
+      "before rollout": {
+        "label": "antes del despliegue"
+      },
+      "add billing-ops bundle": {
+        "label": "añadir bundle billing-ops"
+      },
+      "initial": {
+        "label": "inicial"
+      }
+    }
+  },
+  "audit": {
+    "128": {
+      "detail": {
+        "label": {
+          "value": "Pipeline de CI (elevado)"
+        }
+      }
+    },
+    "122": {
+      "detail": {
+        "label": {
+          "value": "antes del despliegue"
+        }
+      }
+    },
+    "120": {
+      "detail": {
+        "name": {
+          "value": "Soporte"
+        }
+      }
+    }
+  }
+}

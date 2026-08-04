@@ -158,11 +158,79 @@ const ES_DOC: DocStrings = {
     "sondear su existencia.",
 };
 
+// ─── demo fixture strings inside the admin-UI locale catalogs ───────────────
+
+/**
+ * Rebuilds the `demo.fixtures.*` block of a locale catalog from
+ * scripts/demo-i18n/fixtures.{en,es}.json.
+ *
+ * The demo build (VITE_DEMO=true) renders mock data whose user-visible strings must
+ * localize like everything else, so fixtures carry `*Key` fields that demo/resolve.ts
+ * swaps for text at request time — the literals live in the catalogs, not the fixture
+ * modules. Keeping them in their own source file makes the set reviewable, and lets
+ * `--check` catch a fixture string added to one language but not the other.
+ *
+ * This replaces two Python scripts (seed-demo-i18n.py / translate-demo-i18n.py) that
+ * did the same job. They were the only Python in a Bun/TypeScript repo: a contributor
+ * needed a Python install for a documented workflow step, nothing in `bun run check`
+ * could see them, and on Windows they wrote CRLF, dirtying both catalogs with
+ * line-ending churn on every run. Output here is byte-compared against theirs and is
+ * semantically identical — the sole difference is that JS orders integer-like object
+ * keys numerically, which JSON lookup does not care about.
+ *
+ * Entity ids escape `.` to `__`, mirroring admin-ui/src/demo/i18n-keys.ts, so
+ * vue-i18n's nested-path walker resolves them: the tool `github.search_issues` is
+ * stored as `github__search_issues` and read as
+ * `t("demo.fixtures.tools.github__search_issues.description")`.
+ */
+type JsonObject = { [key: string]: JsonObject | string };
+
+function readJson(path: string): JsonObject {
+  return JSON.parse(readFileSync(join(ROOT, path), "utf8")) as JsonObject;
+}
+
+/** Recursively merges `overlay` into `base`, mutating `base`. */
+function deepMerge(base: JsonObject, overlay: JsonObject): JsonObject {
+  for (const [key, value] of Object.entries(overlay)) {
+    const existing = base[key];
+    if (typeof existing === "object" && typeof value === "object") deepMerge(existing, value);
+    else base[key] = value;
+  }
+  return base;
+}
+
+function demoFixtureCatalog(locale: "en" | "es"): string {
+  const catalog = readJson(`admin-ui/src/locales/${locale}.json`);
+  const demo = (catalog.demo ??= {}) as JsonObject;
+
+  // REPLACE rather than merge: fixtures.en.json is the canonical source of this key
+  // namespace, so merging would strand keys whenever the namespace changes (as it did
+  // when entity ids started escaping `.` to `__`). Everything outside demo.fixtures is
+  // read straight back out untouched.
+  demo.fixtures = structuredClone(readJson("scripts/demo-i18n/fixtures.en.json"));
+
+  // ES then overrides the English literals it has a translation for; anything missing
+  // stays English, the same visible fallback vue-i18n would apply anyway.
+  if (locale === "es") deepMerge(demo.fixtures, readJson("scripts/demo-i18n/fixtures.es.json"));
+
+  return JSON.stringify(catalog, null, 2) + "\n";
+}
+
 const artifacts: Artifact[] = [
   {
     path: join("admin-ui", "src", "utils", "connectTemplates.ts"),
     from: "src/cli/connect-templates.ts",
     build: connectTemplatesMirror,
+  },
+  {
+    path: join("admin-ui", "src", "locales", "en.json"),
+    from: "scripts/demo-i18n/fixtures.en.json",
+    build: () => demoFixtureCatalog("en"),
+  },
+  {
+    path: join("admin-ui", "src", "locales", "es.json"),
+    from: "scripts/demo-i18n/fixtures.{en,es}.json",
+    build: () => demoFixtureCatalog("es"),
   },
   {
     path: join("docs", "guide", "error-codes.md"),
