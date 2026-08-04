@@ -5,7 +5,6 @@ import { useRouter } from "vue-router";
 import { api, ApiError } from "@/composables/useApi";
 import { parseList } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
-import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { tk } from "@/i18n";
 import type { DiscoveryPreview, DiscoveredTool, McpTransport } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
@@ -13,7 +12,7 @@ import TableCard from "@/components/ui/TableCard.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import FieldError from "@/components/ui/FieldError.vue";
-import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import UnsavedChangesDialog from "@/components/ui/UnsavedChangesDialog.vue";
 import RegisterRestFields from "@/components/register-server/RegisterRestFields.vue";
 import RegisterGraphqlFields from "@/components/register-server/RegisterGraphqlFields.vue";
 import RegisterMcpFields from "@/components/register-server/RegisterMcpFields.vue";
@@ -211,7 +210,6 @@ const isDirty = computed(
     Boolean(graphqlUrl.value.trim()) ||
     Boolean(graphqlHealthUrl.value.trim()),
 );
-const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDirty, () => registering.value);
 </script>
 
 <template>
@@ -314,15 +312,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
       </form>
     </FormPage>
 
-    <ConfirmDialog
-      :open="pendingLeave"
-      :title="t('pages.register_server.confirm.leave_title')"
-      :message="t('pages.register_server.confirm.leave_message')"
-      :confirm-label="t('pages.register_server.confirm.leave_cta')"
-      danger
-      @confirm="confirmLeave"
-      @cancel="cancelLeave"
-    />
+    <UnsavedChangesDialog :dirty="isDirty" :bypass="registering" />
   </section>
 </template>
 

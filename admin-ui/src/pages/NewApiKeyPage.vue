@@ -4,7 +4,6 @@ import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useClipboard } from "@/composables/useClipboard";
 import { useCreateForm } from "@/composables/useCreateForm";
-import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { useAuth, isSuperAdminUser } from "@/composables/useAuth";
 import { parseList } from "@/utils/fieldParsing";
 import type { McpApiKeyWithSecret, Consumer, AdminRole } from "@/types/api";
@@ -14,7 +13,7 @@ import SelectMenu from "@/components/ui/SelectMenu.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import FieldError from "@/components/ui/FieldError.vue";
 import SecretReveal from "@/components/ui/SecretReveal.vue";
-import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import UnsavedChangesDialog from "@/components/ui/UnsavedChangesDialog.vue";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -95,10 +94,6 @@ const isDirty = computed(
     elevated.value ||
     adminRole.value !== "",
 );
-const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
-  isDirty,
-  () => creating.value || Boolean(mintedKey.value),
-);
 </script>
 
 <template>
@@ -162,15 +157,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
       </form>
     </FormPage>
 
-    <ConfirmDialog
-      :open="pendingLeave"
-      :title="t('pages.keys.new.confirm.leave_title')"
-      :message="t('pages.keys.new.confirm.leave_message')"
-      :confirm-label="t('pages.keys.new.confirm.leave_cta')"
-      danger
-      @confirm="confirmLeave"
-      @cancel="cancelLeave"
-    />
+    <UnsavedChangesDialog :dirty="isDirty" :bypass="creating || Boolean(mintedKey)" />
   </section>
 </template>
 

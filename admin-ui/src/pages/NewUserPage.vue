@@ -3,14 +3,13 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useCreateForm } from "@/composables/useCreateForm";
-import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import type { AdminRole } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import SelectMenu from "@/components/ui/SelectMenu.vue";
 import FormPage from "@/components/ui/FormPage.vue";
 import FieldError from "@/components/ui/FieldError.vue";
-import ConfirmDialog from "@/components/ui/ConfirmDialog.vue";
+import UnsavedChangesDialog from "@/components/ui/UnsavedChangesDialog.vue";
 
 const { t } = useI18n({ useScope: "global" });
 
@@ -41,7 +40,6 @@ function createUser() {
 }
 
 const isDirty = computed(() => Boolean(username.value.trim()) || password.value.length > 0 || role.value !== "viewer");
-const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDirty, () => creating.value);
 </script>
 
 <template>
@@ -66,14 +64,6 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
       </form>
     </FormPage>
 
-    <ConfirmDialog
-      :open="pendingLeave"
-      :title="t('pages.users.new.confirm.leave_title')"
-      :message="t('pages.users.new.confirm.leave_message')"
-      :confirm-label="t('pages.users.new.confirm.leave_cta')"
-      danger
-      @confirm="confirmLeave"
-      @cancel="cancelLeave"
-    />
+    <UnsavedChangesDialog :dirty="isDirty" :bypass="creating" />
   </section>
 </template>

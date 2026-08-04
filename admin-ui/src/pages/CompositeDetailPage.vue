@@ -4,7 +4,6 @@ import { useI18n } from "vue-i18n";
 import { api, ApiError } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
-import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { useFieldDraft } from "@/composables/useFieldDraft";
 import { useDetailPageDelete, syncAfterLoad } from "@/composables/useDetailPageDelete";
 import { compositePath } from "@/utils/apiPaths";
@@ -18,6 +17,7 @@ import ErrorNote from "@/components/ui/ErrorNote.vue";
 import FormField from "@/components/ui/FormField.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import FieldError from "@/components/ui/FieldError.vue";
+import UnsavedChangesDialog from "@/components/ui/UnsavedChangesDialog.vue";
 
 const props = defineProps<{ name: string }>();
 const { t } = useI18n({ useScope: "global" });
@@ -120,11 +120,6 @@ onMounted(load);
 
 const isDirty = computed(() => descriptionDirty.value || schemaDirty.value || stepsDirty.value);
 
-const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
-  () => isDirty.value,
-  () => deleted.value,
-);
-
 const { rowError: toggleError, toggle: toggleEnabledField } = useOptimisticToggle<CompositeDetail>(
   (c) => c.name,
   tk("pages.composite_detail.errors.toggle_failed"),
@@ -222,14 +217,10 @@ function toggleEnabled() {
       @cancel="cancelDelete"
     />
 
-    <ConfirmDialog
-      :open="pendingLeave"
-      :title="t('pages.composite_detail.confirm.leave_title')"
+    <UnsavedChangesDialog
+      :dirty="isDirty"
+      :bypass="deleted"
       :message="t('pages.composite_detail.confirm.leave_message')"
-      :confirm-label="t('pages.composite_detail.confirm.leave_cta')"
-      danger
-      @confirm="confirmLeave"
-      @cancel="cancelLeave"
     />
   </section>
 </template>

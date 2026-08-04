@@ -231,6 +231,11 @@
     "status_disabled": "Deshabilitado"
   },
   "components": {
+    "unsaved_changes": {
+      "title": "¿Descartar los cambios sin guardar?",
+      "message": "Tienes cambios sin guardar. Si sales ahora se descartarán.",
+      "cta": "Descartar cambios"
+    },
     "connect_client_dialog": {
       "title": "Conectar un cliente",
       "hint": "Genera una config MCP lista para pegar para este gateway. Nada se guarda ni se envía — se ensambla completamente en tu navegador.",
@@ -1154,11 +1159,6 @@
         "errors": {
           "name_required": "El nombre es obligatorio.",
           "create_failed": "Error al crear el bundle."
-        },
-        "confirm": {
-          "leave_title": "¿Descartar los cambios sin guardar?",
-          "leave_message": "Tienes datos sin guardar para este bundle. Si sales ahora, se descartarán.",
-          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1228,12 +1228,7 @@
           "label_required": "La etiqueta es obligatoria.",
           "create_failed": "Error al crear la API key."
         },
-        "mint_key": "Generar key",
-        "confirm": {
-          "leave_title": "¿Descartar los cambios sin guardar?",
-          "leave_message": "Tienes datos sin guardar para esta API key. Si sales ahora, se descartarán.",
-          "leave_cta": "Descartar cambios"
-        }
+        "mint_key": "Generar key"
       }
     },
     "register_server": {
@@ -1293,11 +1288,6 @@
         "name_and_graphql_required": "El nombre y la URL de GraphQL son obligatorios.",
         "name_and_health_required": "El nombre y la URL de health son obligatorios.",
         "registration_failed": "El registro falló."
-      },
-      "confirm": {
-        "leave_title": "¿Descartar los cambios sin guardar?",
-        "leave_message": "Tienes datos de registro sin guardar para este servidor. Si sales ahora, se descartarán.",
-        "leave_cta": "Descartar cambios"
       }
     },
     "account": {
@@ -1435,10 +1425,7 @@
         "delete_label": "Eliminar {name}",
         "disable_title": "¿Deshabilitar esta regla de alerta?",
         "disable_message": "'{name}' dejará de dispararse hasta que se vuelva a habilitar.",
-        "disable_label": "Deshabilitar {name}",
-        "leave_title": "¿Descartar los cambios sin guardar?",
-        "leave_message": "Tienes datos sin guardar para esta regla de alerta. Si sales ahora, se descartarán.",
-        "leave_cta": "Descartar cambios"
+        "disable_label": "Deshabilitar {name}"
       },
       "create_alert": "Nueva alerta",
       "table": {
@@ -1583,11 +1570,6 @@
           "schema_invalid": "inputSchema no es JSON válido.",
           "steps_invalid": "steps no es JSON válido.",
           "create_failed": "Error al crear el composite."
-        },
-        "confirm": {
-          "leave_title": "¿Descartar los cambios sin guardar?",
-          "leave_message": "Tienes datos sin guardar para este composite. Si sales ahora, se descartarán.",
-          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1610,9 +1592,7 @@
         "delete_title": "¿Eliminar este composite?",
         "delete_message": "Los clientes MCP que llamen a '{name}' empezarán a fallar inmediatamente. Esto no se puede deshacer.",
         "delete_cta": "Eliminar {name}",
-        "leave_title": "¿Descartar cambios sin guardar?",
-        "leave_message": "Tienes cambios sin guardar en la descripción, schema de entrada o pasos de este composite. Si sales ahora se descartarán.",
-        "leave_cta": "Descartar cambios"
+        "leave_message": "Tienes cambios sin guardar en la descripción, schema de entrada o pasos de este composite. Si sales ahora se descartarán."
       },
       "errors": {
         "load_failed": "Error al cargar el compuesto.",
@@ -1640,9 +1620,7 @@
         "delete_title": "¿Eliminar este bundle?",
         "delete_message": "¿Eliminar el bundle “{name}”? Las tools siguen registradas — solo se va la selección curada.",
         "delete_cta": "Eliminar bundle “{name}”",
-        "leave_title": "¿Descartar los cambios de tools?",
-        "leave_message": "Tienes selecciones de tools sin guardar. Si sales ahora se perderán.",
-        "leave_cta": "Descartar cambios"
+        "leave_message": "Tienes selecciones de tools sin guardar. Si sales ahora se perderán."
       },
       "errors": {
         "load_failed": "No se pudo cargar el bundle.",
@@ -1737,11 +1715,6 @@
         "errors": {
           "slug_name_required": "El slug y el nombre son obligatorios.",
           "create_failed": "Error al guardar la entrada del catálogo."
-        },
-        "confirm": {
-          "leave_title": "¿Descartar los cambios sin guardar?",
-          "leave_message": "Tienes datos sin guardar para esta entrada del catálogo. Si sales ahora, se descartarán.",
-          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1829,11 +1802,6 @@
           "quota_invalid": "La cuota mensual debe ser un número plano, o vacío.",
           "end_user_limit_invalid": "El rate limit por end-user debe ser un número plano, o vacío.",
           "create_failed": "Error al crear el consumer."
-        },
-        "confirm": {
-          "leave_title": "¿Descartar los cambios sin guardar?",
-          "leave_message": "Tienes datos sin guardar para este consumidor. Si sales ahora, se descartarán.",
-          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1915,11 +1883,6 @@
           "rate_invalid": "El rate limit debe ser un número plano (sin unidades), o vacío.",
           "timeout_invalid": "El timeout debe ser un número plano (sin unidades), o vacío.",
           "create_failed": "Error al crear la policy."
-        },
-        "confirm": {
-          "leave_title": "¿Descartar los cambios sin guardar?",
-          "leave_message": "Tienes datos sin guardar para esta política. Si sales ahora, se descartarán.",
-          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -1999,11 +1962,6 @@
           "weekdays_required": "Selecciona al menos un día.",
           "cron_required": "La expresión cron es obligatoria.",
           "create_failed": "Error al crear el schedule."
-        },
-        "confirm": {
-          "leave_title": "¿Descartar los cambios sin guardar?",
-          "leave_message": "Tienes datos sin guardar para este schedule. Si sales ahora, se descartarán.",
-          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -2076,11 +2034,6 @@
         "errors": {
           "name_required": "El nombre es obligatorio.",
           "create_failed": "Error al crear el equipo."
-        },
-        "confirm": {
-          "leave_title": "¿Descartar los cambios sin guardar?",
-          "leave_message": "Tienes datos sin guardar para este equipo. Si sales ahora, se descartarán.",
-          "leave_cta": "Descartar cambios"
         }
       }
     },
@@ -2112,11 +2065,6 @@
         "errors": {
           "password_too_short": "La contraseña debe tener al menos 12 caracteres.",
           "create_failed": "Error al crear el usuario."
-        },
-        "confirm": {
-          "leave_title": "¿Descartar los cambios sin guardar?",
-          "leave_message": "Tienes datos sin guardar para este usuario. Si sales ahora, se descartarán.",
-          "leave_cta": "Descartar cambios"
         }
       },
       "add_user": "Añadir usuario",
@@ -2275,10 +2223,7 @@
         "delete_message": "'{name}' se eliminará y cualquier conexión activa se cerrará forzada.",
         "delete_cta": "Eliminar {name}",
         "disconnect_title": "¿Desconectar todas las sesiones?",
-        "disconnect_message": "'{name}' tiene 1 conexión activa; desconectar la cerrará forzosamente y soltará cualquier mensaje en vuelo. | '{name}' tiene {count} conexiones activas; desconectar las cerrará todas forzosamente y soltará cualquier mensaje en vuelo.",
-        "leave_title": "¿Descartar los cambios sin guardar?",
-        "leave_message": "Tienes datos sin guardar para este target WS proxy. Si sales ahora, se descartarán.",
-        "leave_cta": "Descartar cambios"
+        "disconnect_message": "'{name}' tiene 1 conexión activa; desconectar la cerrará forzosamente y soltará cualquier mensaje en vuelo. | '{name}' tiene {count} conexiones activas; desconectar las cerrará todas forzosamente y soltará cualquier mensaje en vuelo."
       },
       "errors": {
         "load_failed": "Error al cargar los targets WS proxy.",

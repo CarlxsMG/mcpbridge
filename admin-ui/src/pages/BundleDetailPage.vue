@@ -4,7 +4,6 @@ import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
-import { useUnsavedChangesGuard } from "@/composables/useUnsavedChangesGuard";
 import { useFieldDraft } from "@/composables/useFieldDraft";
 import { useDetailPageDelete, syncAfterLoad } from "@/composables/useDetailPageDelete";
 import { bundlePath } from "@/utils/apiPaths";
@@ -19,6 +18,7 @@ import TogglePill from "@/components/ui/TogglePill.vue";
 import ConnectClientDialog from "@/components/ConnectClientDialog.vue";
 import ShareInstallLinkDialog from "@/components/ShareInstallLinkDialog.vue";
 import FormField from "@/components/ui/FormField.vue";
+import UnsavedChangesDialog from "@/components/ui/UnsavedChangesDialog.vue";
 import { Cable, Share2 } from "lucide-vue-next";
 
 const props = defineProps<{ name: string }>();
@@ -103,11 +103,6 @@ async function toggleEnabled() {
   await toggle(detail.value, "enabled", (next) => api.patch(bundlePath(props.name), { enabled: next }));
   errorMessage.value = toggleError.value.singleton ?? "";
 }
-
-const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
-  () => descriptionDirty.value || toolsDirty.value,
-  () => deleted.value,
-);
 </script>
 
 <template>
@@ -187,14 +182,10 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(
       @cancel="cancelDelete"
     />
 
-    <ConfirmDialog
-      :open="pendingLeave"
-      :title="t('pages.bundle_detail.confirm.leave_title')"
+    <UnsavedChangesDialog
+      :dirty="descriptionDirty || toolsDirty"
+      :bypass="deleted"
       :message="t('pages.bundle_detail.confirm.leave_message')"
-      :confirm-label="t('pages.bundle_detail.confirm.leave_cta')"
-      danger
-      @confirm="confirmLeave"
-      @cancel="cancelLeave"
     />
 
     <ConnectClientDialog :open="connectOpen" preset-scope="bundle" :preset-name="name" @close="connectOpen = false" />

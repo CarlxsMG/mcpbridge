@@ -231,6 +231,11 @@
     "status_disabled": "Disabled"
   },
   "components": {
+    "unsaved_changes": {
+      "title": "Discard unsaved changes?",
+      "message": "You have unsaved changes. Leaving now will discard them.",
+      "cta": "Discard changes"
+    },
     "connect_client_dialog": {
       "title": "Connect a client",
       "hint": "Generate a ready-to-paste MCP connection config for this gateway. Nothing here is saved or sent anywhere — it's assembled entirely in your browser.",
@@ -1154,11 +1159,6 @@
         "errors": {
           "name_required": "Name is required.",
           "create_failed": "Failed to create bundle."
-        },
-        "confirm": {
-          "leave_title": "Discard unsaved changes?",
-          "leave_message": "You have unsaved details for this bundle. Leaving now will discard them.",
-          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1228,12 +1228,7 @@
           "label_required": "A label is required.",
           "create_failed": "Failed to create API key."
         },
-        "mint_key": "Mint key",
-        "confirm": {
-          "leave_title": "Discard unsaved changes?",
-          "leave_message": "You have unsaved details for this API key. Leaving now will discard them.",
-          "leave_cta": "Discard changes"
-        }
+        "mint_key": "Mint key"
       }
     },
     "register_server": {
@@ -1293,11 +1288,6 @@
         "name_and_graphql_required": "Name and GraphQL URL are required.",
         "name_and_health_required": "Name and health URL are required.",
         "registration_failed": "Registration failed."
-      },
-      "confirm": {
-        "leave_title": "Discard unsaved changes?",
-        "leave_message": "You have unsaved registration details for this server. Leaving now will discard them.",
-        "leave_cta": "Discard changes"
       }
     },
     "account": {
@@ -1435,10 +1425,7 @@
         "delete_label": "Delete {name}",
         "disable_title": "Disable this alert rule?",
         "disable_message": "'{name}' will stop firing until re-enabled.",
-        "disable_label": "Disable {name}",
-        "leave_title": "Discard unsaved changes?",
-        "leave_message": "You have unsaved details for this alert rule. Leaving now will discard them.",
-        "leave_cta": "Discard changes"
+        "disable_label": "Disable {name}"
       },
       "create_alert": "New alert",
       "table": {
@@ -1583,11 +1570,6 @@
           "schema_invalid": "inputSchema is not valid JSON.",
           "steps_invalid": "steps is not valid JSON.",
           "create_failed": "Failed to create composite."
-        },
-        "confirm": {
-          "leave_title": "Discard unsaved changes?",
-          "leave_message": "You have unsaved details for this composite. Leaving now will discard them.",
-          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1610,9 +1592,7 @@
         "delete_title": "Delete this composite?",
         "delete_message": "MCP clients calling '{name}' will start failing immediately. This cannot be undone.",
         "delete_cta": "Delete {name}",
-        "leave_title": "Discard unsaved changes?",
-        "leave_message": "You have unsaved changes to the description, input schema, or steps for this composite. Leaving now will discard them.",
-        "leave_cta": "Discard changes"
+        "leave_message": "You have unsaved changes to the description, input schema, or steps for this composite. Leaving now will discard them."
       },
       "errors": {
         "load_failed": "Failed to load composite.",
@@ -1640,9 +1620,7 @@
         "delete_title": "Delete this bundle?",
         "delete_message": "Delete bundle “{name}”? Tools themselves stay registered — only the curated selection goes away.",
         "delete_cta": "Delete bundle “{name}”",
-        "leave_title": "Discard tool changes?",
-        "leave_message": "You have unsaved tool selections. Leaving now will discard them.",
-        "leave_cta": "Discard changes"
+        "leave_message": "You have unsaved tool selections. Leaving now will discard them."
       },
       "errors": {
         "load_failed": "Failed to load bundle.",
@@ -1737,11 +1715,6 @@
         "errors": {
           "slug_name_required": "Slug and name are required.",
           "create_failed": "Failed to save catalog entry."
-        },
-        "confirm": {
-          "leave_title": "Discard unsaved changes?",
-          "leave_message": "You have unsaved details for this catalog entry. Leaving now will discard them.",
-          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1829,11 +1802,6 @@
           "quota_invalid": "Monthly quota must be a plain number, or blank.",
           "end_user_limit_invalid": "Per-end-user rate limit must be a plain number, or blank.",
           "create_failed": "Failed to create consumer."
-        },
-        "confirm": {
-          "leave_title": "Discard unsaved changes?",
-          "leave_message": "You have unsaved details for this consumer. Leaving now will discard them.",
-          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1915,11 +1883,6 @@
           "rate_invalid": "Rate limit must be a plain number (no units), or blank.",
           "timeout_invalid": "Timeout must be a plain number (no units), or blank.",
           "create_failed": "Failed to create policy."
-        },
-        "confirm": {
-          "leave_title": "Discard unsaved changes?",
-          "leave_message": "You have unsaved details for this policy. Leaving now will discard them.",
-          "leave_cta": "Discard changes"
         }
       }
     },
@@ -1999,11 +1962,6 @@
           "weekdays_required": "Select at least one day.",
           "cron_required": "Cron expression is required.",
           "create_failed": "Failed to create schedule."
-        },
-        "confirm": {
-          "leave_title": "Discard unsaved changes?",
-          "leave_message": "You have unsaved details for this schedule. Leaving now will discard them.",
-          "leave_cta": "Discard changes"
         }
       }
     },
@@ -2076,11 +2034,6 @@
         "errors": {
           "name_required": "Name is required.",
           "create_failed": "Failed to create team."
-        },
-        "confirm": {
-          "leave_title": "Discard unsaved changes?",
-          "leave_message": "You have unsaved details for this team. Leaving now will discard them.",
-          "leave_cta": "Discard changes"
         }
       }
     },
@@ -2112,11 +2065,6 @@
         "errors": {
           "password_too_short": "Password must be at least 12 characters.",
           "create_failed": "Failed to create user."
-        },
-        "confirm": {
-          "leave_title": "Discard unsaved changes?",
-          "leave_message": "You have unsaved details for this user. Leaving now will discard them.",
-          "leave_cta": "Discard changes"
         }
       },
       "add_user": "Add user",
@@ -2275,10 +2223,7 @@
         "delete_message": "'{name}' will be removed and any live connections force-closed.",
         "delete_cta": "Delete {name}",
         "disconnect_title": "Disconnect all sessions?",
-        "disconnect_message": "'{name}' has 1 live connection; disconnecting will force-close it and drop any in-flight messages. | '{name}' has {count} live connections; disconnecting will force-close all of them and drop any in-flight messages.",
-        "leave_title": "Discard unsaved changes?",
-        "leave_message": "You have unsaved details for this WS proxy target. Leaving now will discard them.",
-        "leave_cta": "Discard changes"
+        "disconnect_message": "'{name}' has 1 live connection; disconnecting will force-close it and drop any in-flight messages. | '{name}' has {count} live connections; disconnecting will force-close all of them and drop any in-flight messages."
       },
       "errors": {
         "load_failed": "Failed to load WS proxy targets.",

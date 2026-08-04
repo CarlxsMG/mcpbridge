@@ -59,6 +59,18 @@ export default tseslint.config(
     },
   },
   {
+    // Test files. `vue/one-component-per-file` exists to keep SFCs organized; a spec
+    // that needs a router harness legitimately declares two or three throwaway stub
+    // components inline (a route component, a navigate-away target, an App rendering
+    // <RouterView>), and splitting those into real .vue files would make the test
+    // harder to read, not better organized. See
+    // components/ui/__tests__/UnsavedChangesDialog.test.ts.
+    files: ["src/**/__tests__/**/*.ts", "src/**/*.test.ts"],
+    rules: {
+      "vue/one-component-per-file": "off",
+    },
+  },
+  {
     // Build / maintenance scripts (e.g. scripts/check-i18n.mjs) live outside
     // src/ — they need Node globals (console, process) and ESM dynamic import,
     // but they're plain JS/TS so they don't need the Vue parser or browser
