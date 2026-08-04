@@ -1844,8 +1844,8 @@
         "delete_failed": "Error al eliminar el consumidor.",
         "usage_detail_failed": "Error al cargar el detalle de uso.",
         "name_required": "El nombre es obligatorio.",
-        "quota_invalid": "La cuota mensual debe ser un número simple, o estar vacía.",
-        "end_user_limit_invalid": "El rate limit por end-user debe ser un número simple, o estar vacío."
+        "quota_invalid": "La cuota mensual debe ser un número entero de 1 o más, o estar vacía.",
+        "end_user_limit_invalid": "El rate limit por end-user debe ser un número entero de 1 o más, o estar vacío."
       },
       "new": {
         "title": "Nuevo consumer",
@@ -1860,8 +1860,8 @@
         "create": "Crear consumer",
         "errors": {
           "name_required": "El nombre es obligatorio.",
-          "quota_invalid": "La cuota mensual debe ser un número plano, o vacío.",
-          "end_user_limit_invalid": "El rate limit por end-user debe ser un número plano, o vacío.",
+          "quota_invalid": "La cuota mensual debe ser un número entero de 1 o más, o estar vacía.",
+          "end_user_limit_invalid": "El rate limit por end-user debe ser un número entero de 1 o más, o estar vacío.",
           "create_failed": "Error al crear el consumer."
         }
       }
@@ -1941,8 +1941,8 @@
         "create": "Crear policy",
         "errors": {
           "name_required": "El nombre es obligatorio.",
-          "rate_invalid": "El rate limit debe ser un número plano (sin unidades), o vacío.",
-          "timeout_invalid": "El timeout debe ser un número plano (sin unidades), o vacío.",
+          "rate_invalid": "El rate limit debe ser un número mayor que 0 (sin unidades), o estar vacío.",
+          "timeout_invalid": "El timeout debe estar entre 1 y 600000 ms, o estar vacío.",
           "create_failed": "Error al crear la policy."
         }
       }
@@ -2290,9 +2290,9 @@
         "load_failed": "Error al cargar los targets WS proxy.",
         "toggle_failed": "Error al actualizar el target.",
         "name_and_url_required": "El nombre y la URL WebSocket del backend son obligatorios.",
-        "max_connections_invalid": "Max connections debe ser un número plano, o vacío.",
-        "max_message_bytes_invalid": "Max message size debe ser un número plano, o vacío.",
-        "idle_timeout_invalid": "Idle timeout debe ser un número plano, o vacío.",
+        "max_connections_invalid": "Max connections debe ser un número entero de 1 o más, o estar vacío.",
+        "max_message_bytes_invalid": "Max message size debe ser un número entero de 1 o más, o estar vacío.",
+        "idle_timeout_invalid": "Idle timeout debe ser un número entero de 1 minuto o más, o estar vacío.",
         "save_failed": "Error al guardar el target.",
         "disconnect_failed": "Error al desconectar.",
         "delete_failed": "Error al eliminar el target.",

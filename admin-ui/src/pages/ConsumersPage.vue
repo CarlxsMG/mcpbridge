@@ -5,7 +5,9 @@ import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useEntityForm } from "@/composables/useEntityForm";
-import { parseOptionalNumber } from "@/utils/fieldParsing";
+import { numberRangeValidator, parseOptionalNumber } from "@/utils/fieldParsing";
+import { CONSUMER_END_USER_RATE_LIMIT, CONSUMER_QUOTA } from "@/utils/fieldConstraints";
+import { focusFirstInvalid } from "@/utils/focusFirstInvalid";
 import { toErrorMessage } from "@/utils/errors";
 import { tk } from "@/i18n";
 import type { ConsumerWithUsage, ConsumerUsage } from "@/types/api";
@@ -127,16 +129,20 @@ async function submitConsumer() {
   if (!newName.value.trim()) {
     nameError.value = t("pages.consumers.errors.name_required");
   }
-  const quotaResult = parseOptionalNumber(newQuota.value, t("pages.consumers.errors.quota_invalid"));
-  quotaError.value = quotaResult.error ?? "";
-  const quota = quotaResult.value;
-  const endUserLimitResult = parseOptionalNumber(
-    newEndUserLimit.value,
-    t("pages.consumers.errors.end_user_limit_invalid"),
-  );
-  endUserLimitError.value = endUserLimitResult.error ?? "";
-  const endUserRateLimitPerMin = endUserLimitResult.value;
+  // Range-checked against the API's own rule, not just "is it a number": it answers
+  // 400 for -5, 2.7 and 0, all of which a bare finite check let through.
+  quotaError.value =
+    numberRangeValidator({ ...CONSUMER_QUOTA, message: t("pages.consumers.errors.quota_invalid") })(newQuota.value) ??
+    "";
+  const quota = parseOptionalNumber(newQuota.value).value;
+  endUserLimitError.value =
+    numberRangeValidator({
+      ...CONSUMER_END_USER_RATE_LIMIT,
+      message: t("pages.consumers.errors.end_user_limit_invalid"),
+    })(newEndUserLimit.value) ?? "";
+  const endUserRateLimitPerMin = parseOptionalNumber(newEndUserLimit.value).value;
   if (nameError.value || quotaError.value || endUserLimitError.value) {
+    void focusFirstInvalid();
     return;
   }
   const ok = await submit(async (editing) => {
@@ -168,18 +174,27 @@ function confirmDelete() {
       <RouterLink to="/consumers/new" class="btn-primary">{{ t("pages.consumers.create") }}</RouterLink>
     </PageHeader>
 
-    <form v-if="showEdit" ref="editFormEl" class="create-form" @submit.prevent="submitConsumer">
-      <FormField :label="t('common.name')" for="c-name">
-        <input id="c-name" v-model="newName" type="text" :placeholder="t('pages.consumers.name_placeholder')" />
-        <FieldError :message="nameError" />
+    <form v-if="showEdit" ref="editFormEl" novalidate class="create-form" @submit.prevent="submitConsumer">
+      <FormField v-slot="field" :label="t('common.name')" for="c-name" :error="nameError">
+        <input
+          id="c-name"
+          v-model="newName"
+          type="text"
+          required
+          :placeholder="t('pages.consumers.name_placeholder')"
+          v-bind="field"
+        />
       </FormField>
-      <FormField :label="t('pages.consumers.monthly_quota_label')" for="c-quota">
-        <input id="c-quota" v-model="newQuota" type="text" inputmode="numeric" />
-        <FieldError :message="quotaError" />
+      <FormField v-slot="field" :label="t('pages.consumers.monthly_quota_label')" for="c-quota" :error="quotaError">
+        <input id="c-quota" v-model="newQuota" type="text" inputmode="numeric" v-bind="field" />
       </FormField>
-      <FormField :label="t('pages.consumers.end_user_limit_label')" for="c-end-user-limit">
-        <input id="c-end-user-limit" v-model="newEndUserLimit" type="text" inputmode="numeric" />
-        <FieldError :message="endUserLimitError" />
+      <FormField
+        v-slot="field"
+        :label="t('pages.consumers.end_user_limit_label')"
+        for="c-end-user-limit"
+        :error="endUserLimitError"
+      >
+        <input id="c-end-user-limit" v-model="newEndUserLimit" type="text" inputmode="numeric" v-bind="field" />
       </FormField>
       <FieldError :message="createError" />
       <div class="form-actions">

@@ -1844,8 +1844,8 @@
         "delete_failed": "Failed to delete consumer.",
         "usage_detail_failed": "Failed to load usage detail.",
         "name_required": "Name is required.",
-        "quota_invalid": "Monthly quota must be a plain number, or blank.",
-        "end_user_limit_invalid": "Per-end-user rate limit must be a plain number, or blank."
+        "quota_invalid": "Monthly quota must be a whole number of 1 or more, or blank.",
+        "end_user_limit_invalid": "Per-end-user rate limit must be a whole number of 1 or more, or blank."
       },
       "new": {
         "title": "New consumer",
@@ -1860,8 +1860,8 @@
         "create": "Create consumer",
         "errors": {
           "name_required": "Name is required.",
-          "quota_invalid": "Monthly quota must be a plain number, or blank.",
-          "end_user_limit_invalid": "Per-end-user rate limit must be a plain number, or blank.",
+          "quota_invalid": "Monthly quota must be a whole number of 1 or more, or blank.",
+          "end_user_limit_invalid": "Per-end-user rate limit must be a whole number of 1 or more, or blank.",
           "create_failed": "Failed to create consumer."
         }
       }
@@ -1941,8 +1941,8 @@
         "create": "Create policy",
         "errors": {
           "name_required": "Name is required.",
-          "rate_invalid": "Rate limit must be a plain number (no units), or blank.",
-          "timeout_invalid": "Timeout must be a plain number (no units), or blank.",
+          "rate_invalid": "Rate limit must be a number above 0 (no units), or blank.",
+          "timeout_invalid": "Timeout must be between 1 and 600000 ms, or blank.",
           "create_failed": "Failed to create policy."
         }
       }
@@ -2290,9 +2290,9 @@
         "load_failed": "Failed to load WS proxy targets.",
         "toggle_failed": "Failed to update target.",
         "name_and_url_required": "Name and backend WebSocket URL are required.",
-        "max_connections_invalid": "Max connections must be a plain number, or blank.",
-        "max_message_bytes_invalid": "Max message size must be a plain number, or blank.",
-        "idle_timeout_invalid": "Idle timeout must be a plain number, or blank.",
+        "max_connections_invalid": "Max connections must be a whole number of 1 or more, or blank.",
+        "max_message_bytes_invalid": "Max message size must be a whole number of 1 or more, or blank.",
+        "idle_timeout_invalid": "Idle timeout must be a whole number of 1 minute or more, or blank.",
         "save_failed": "Failed to save target.",
         "disconnect_failed": "Failed to disconnect.",
         "delete_failed": "Failed to delete target.",

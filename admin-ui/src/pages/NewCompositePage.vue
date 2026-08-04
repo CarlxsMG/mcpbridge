@@ -93,16 +93,21 @@ const isDirty = computed(
       </p>
 
       <form class="form-card" @submit.prevent="createComposite">
-        <FormField :label="t('pages.composites.new.fields.name')" for="new-composite-name">
+        <FormField
+          v-slot="field"
+          :label="t('pages.composites.new.fields.name')"
+          for="new-composite-name"
+          :error="nameTouched && nameError ? nameError : ''"
+        >
           <input
             id="new-composite-name"
             v-model="name"
             type="text"
             :placeholder="t('pages.composites.new.placeholders.name')"
             required
+            v-bind="field"
             @blur="nameTouched = true"
           />
-          <FieldError :message="nameTouched && nameError ? nameError : ''" />
         </FormField>
         <FormField :label="t('pages.composites.new.fields.description')" for="new-composite-description">
           <input
@@ -112,24 +117,40 @@ const isDirty = computed(
             :placeholder="t('pages.composites.new.placeholders.description')"
           />
         </FormField>
-        <FormField :label="t('pages.composites.new.fields.schema')" for="new-composite-schema">
+        <FormField
+          v-slot="field"
+          :label="t('pages.composites.new.fields.schema')"
+          for="new-composite-schema"
+          :error="schemaError"
+        >
           <textarea
             id="new-composite-schema"
             v-model="schema"
             class="mono-field"
             rows="4"
             spellcheck="false"
+            v-bind="field"
           ></textarea>
-          <FieldError :message="schemaError" />
         </FormField>
-        <FormField :label="t('pages.composites.new.fields.steps')" for="new-composite-steps">
+        <FormField
+          v-slot="field"
+          :label="t('pages.composites.new.fields.steps')"
+          for="new-composite-steps"
+          :error="stepsError"
+        >
           <p class="template-hint">
             {{ t("pages.composites.new.templates.label") }} <code>{{ '{ "$ref": "steps.0.json.id" }' }}</code>
             {{ t("pages.composites.new.templates.or") }} <code>{{ '"${input.query}"' }}</code
             >.
           </p>
-          <textarea id="new-composite-steps" v-model="steps" class="mono-field" rows="6" spellcheck="false"></textarea>
-          <FieldError :message="stepsError" />
+          <textarea
+            id="new-composite-steps"
+            v-model="steps"
+            class="mono-field"
+            rows="6"
+            spellcheck="false"
+            v-bind="field"
+          ></textarea>
         </FormField>
         <FieldError :message="error" :request-id="errorRequestId" />
         <button class="btn-primary" type="submit" :disabled="creating">

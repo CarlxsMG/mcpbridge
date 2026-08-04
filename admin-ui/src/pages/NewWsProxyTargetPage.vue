@@ -3,7 +3,9 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useCreateForm } from "@/composables/useCreateForm";
-import { parseOptionalNumber } from "@/utils/fieldParsing";
+import { numberRangeValidator, parseOptionalNumber } from "@/utils/fieldParsing";
+import { WS_IDLE_TIMEOUT_MINUTES, WS_MAX_CONNECTIONS, WS_MAX_MESSAGE_BYTES } from "@/utils/fieldConstraints";
+import { focusFirstInvalid } from "@/utils/focusFirstInvalid";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
@@ -17,6 +19,26 @@ const backendUrl = ref("");
 const maxConnections = ref("");
 const maxMessageBytes = ref("");
 const idleTimeoutMinutes = ref("");
+const nameError = ref("");
+const urlError = ref("");
+const maxConnectionsError = ref("");
+const maxMessageBytesError = ref("");
+const idleTimeoutError = ref("");
+
+// The API takes positive integers for all three; a bare finite check let 0, negatives
+// and fractions through to a 400.
+const validateMaxConnections = numberRangeValidator({
+  ...WS_MAX_CONNECTIONS,
+  message: t("pages.ws_proxy_targets.errors.max_connections_invalid"),
+});
+const validateMaxMessageBytes = numberRangeValidator({
+  ...WS_MAX_MESSAGE_BYTES,
+  message: t("pages.ws_proxy_targets.errors.max_message_bytes_invalid"),
+});
+const validateIdleTimeout = numberRangeValidator({
+  ...WS_IDLE_TIMEOUT_MINUTES,
+  message: t("pages.ws_proxy_targets.errors.idle_timeout_invalid"),
+});
 
 const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () => {
@@ -34,20 +56,26 @@ const { creating, error, errorRequestId, run } = useCreateForm({
 });
 
 function createTarget() {
-  return run(() => {
-    if (!name.value.trim() || !backendUrl.value.trim()) {
-      return t("pages.ws_proxy_targets.errors.name_and_url_required");
-    }
-    const results = [
-      parseOptionalNumber(maxConnections.value, t("pages.ws_proxy_targets.errors.max_connections_invalid")),
-      parseOptionalNumber(maxMessageBytes.value, t("pages.ws_proxy_targets.errors.max_message_bytes_invalid")),
-      parseOptionalNumber(idleTimeoutMinutes.value, t("pages.ws_proxy_targets.errors.idle_timeout_invalid")),
-    ];
-    for (const result of results) {
-      if (result.error) return result.error;
-    }
-    return null;
-  });
+  // Per-field, and every field checked before returning: the old loop stopped at the
+  // first bad value and showed it at the bottom of the form, so a user with two bad
+  // fields fixed one, resubmitted, and met the next.
+  const required = t("pages.ws_proxy_targets.errors.name_and_url_required");
+  nameError.value = name.value.trim() ? "" : required;
+  urlError.value = backendUrl.value.trim() ? "" : required;
+  maxConnectionsError.value = validateMaxConnections(maxConnections.value) ?? "";
+  maxMessageBytesError.value = validateMaxMessageBytes(maxMessageBytes.value) ?? "";
+  idleTimeoutError.value = validateIdleTimeout(idleTimeoutMinutes.value) ?? "";
+  if (
+    nameError.value ||
+    urlError.value ||
+    maxConnectionsError.value ||
+    maxMessageBytesError.value ||
+    idleTimeoutError.value
+  ) {
+    void focusFirstInvalid();
+    return;
+  }
+  return run();
 }
 
 const isDirty = computed(
@@ -68,26 +96,55 @@ const isDirty = computed(
         :back-link="{ to: '/ws-proxies', label: t('nav.ws-proxies.label') }"
       />
 
-      <form class="form-card" @submit.prevent="createTarget">
-        <FormField :label="t('pages.ws_proxy_targets.fields.name')" for="wp-name">
-          <input id="wp-name" v-model="name" type="text" :placeholder="t('pages.ws_proxy_targets.placeholders.name')" />
+      <form novalidate class="form-card" @submit.prevent="createTarget">
+        <FormField v-slot="field" :label="t('pages.ws_proxy_targets.fields.name')" for="wp-name" :error="nameError">
+          <input
+            id="wp-name"
+            v-model="name"
+            type="text"
+            required
+            :placeholder="t('pages.ws_proxy_targets.placeholders.name')"
+            v-bind="field"
+          />
         </FormField>
-        <FormField :label="t('pages.ws_proxy_targets.fields.backend_url')" for="wp-url">
+        <FormField
+          v-slot="field"
+          :label="t('pages.ws_proxy_targets.fields.backend_url')"
+          for="wp-url"
+          :error="urlError"
+        >
           <input
             id="wp-url"
             v-model="backendUrl"
             type="text"
+            required
             :placeholder="t('pages.ws_proxy_targets.placeholders.backend_url')"
+            v-bind="field"
           />
         </FormField>
-        <FormField :label="t('pages.ws_proxy_targets.fields.max_connections')" for="wp-max-conn">
-          <input id="wp-max-conn" v-model="maxConnections" type="text" inputmode="numeric" />
+        <FormField
+          v-slot="field"
+          :label="t('pages.ws_proxy_targets.fields.max_connections')"
+          for="wp-max-conn"
+          :error="maxConnectionsError"
+        >
+          <input id="wp-max-conn" v-model="maxConnections" type="text" inputmode="numeric" v-bind="field" />
         </FormField>
-        <FormField :label="t('pages.ws_proxy_targets.fields.max_message_bytes')" for="wp-max-bytes">
-          <input id="wp-max-bytes" v-model="maxMessageBytes" type="text" inputmode="numeric" />
+        <FormField
+          v-slot="field"
+          :label="t('pages.ws_proxy_targets.fields.max_message_bytes')"
+          for="wp-max-bytes"
+          :error="maxMessageBytesError"
+        >
+          <input id="wp-max-bytes" v-model="maxMessageBytes" type="text" inputmode="numeric" v-bind="field" />
         </FormField>
-        <FormField :label="t('pages.ws_proxy_targets.fields.idle_timeout')" for="wp-idle">
-          <input id="wp-idle" v-model="idleTimeoutMinutes" type="text" inputmode="numeric" />
+        <FormField
+          v-slot="field"
+          :label="t('pages.ws_proxy_targets.fields.idle_timeout')"
+          for="wp-idle"
+          :error="idleTimeoutError"
+        >
+          <input id="wp-idle" v-model="idleTimeoutMinutes" type="text" inputmode="numeric" v-bind="field" />
         </FormField>
         <FieldError :message="error" :request-id="errorRequestId" />
         <button type="submit" class="btn-primary" :disabled="creating">

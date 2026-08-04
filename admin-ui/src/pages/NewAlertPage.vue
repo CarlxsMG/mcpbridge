@@ -4,6 +4,7 @@ import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useCreateForm } from "@/composables/useCreateForm";
 import { parseOptionalNumber } from "@/utils/fieldParsing";
+import { focusFirstInvalid } from "@/utils/focusFirstInvalid";
 import type { AlertEventType } from "@/types/api";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
@@ -101,6 +102,7 @@ function createRule() {
     urlError.value = t("pages.alerts.errors_create.url_required");
   }
   if (nameError.value || urlError.value) {
+    void focusFirstInvalid();
     return;
   }
   return run(validateThresholds);
@@ -124,17 +126,22 @@ const isDirty = computed(
         {{ t("pages.alerts.new_subtitle") }}
       </p>
 
-      <form class="form-card" @submit.prevent="createRule">
-        <FormField :label="t('pages.alerts.fields.name')" for="alert-name">
-          <input id="alert-name" v-model="name" type="text" placeholder="pager" />
-          <FieldError :message="nameError" />
+      <form novalidate class="form-card" @submit.prevent="createRule">
+        <FormField v-slot="field" :label="t('pages.alerts.fields.name')" for="alert-name" :error="nameError">
+          <input id="alert-name" v-model="name" type="text" required placeholder="pager" v-bind="field" />
         </FormField>
         <FormField :label="t('pages.alerts.fields.event')" for="alert-event">
           <SelectMenu id="alert-event" v-model="event" :options="EVENT_OPTIONS" />
         </FormField>
-        <FormField :label="t('pages.alerts.fields.url')" for="alert-url">
-          <input id="alert-url" v-model="url" type="url" placeholder="https://hooks.example.com/x" />
-          <FieldError :message="urlError" />
+        <FormField v-slot="field" :label="t('pages.alerts.fields.url')" for="alert-url" :error="urlError">
+          <input
+            id="alert-url"
+            v-model="url"
+            type="url"
+            required
+            placeholder="https://hooks.example.com/x"
+            v-bind="field"
+          />
         </FormField>
         <template v-if="NUMERIC_EVENTS.has(event)">
           <FormField

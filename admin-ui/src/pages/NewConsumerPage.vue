@@ -3,7 +3,9 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useCreateForm } from "@/composables/useCreateForm";
-import { parseOptionalNumber } from "@/utils/fieldParsing";
+import { numberRangeValidator, parseOptionalNumber } from "@/utils/fieldParsing";
+import { CONSUMER_END_USER_RATE_LIMIT, CONSUMER_QUOTA } from "@/utils/fieldConstraints";
+import { focusFirstInvalid } from "@/utils/focusFirstInvalid";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import FormField from "@/components/ui/FormField.vue";
 import FormPage from "@/components/ui/FormPage.vue";
@@ -18,6 +20,17 @@ const endUserLimit = ref("");
 const nameError = ref("");
 const quotaError = ref("");
 const endUserLimitError = ref("");
+
+// Range-checked, not just "is it a number": the API takes a positive integer here and
+// answers 400 for -5, 2.7 or 0, all of which the old finite-number check let through.
+const validateQuota = numberRangeValidator({
+  ...CONSUMER_QUOTA,
+  message: t("pages.consumers.new.errors.quota_invalid"),
+});
+const validateEndUserLimit = numberRangeValidator({
+  ...CONSUMER_END_USER_RATE_LIMIT,
+  message: t("pages.consumers.new.errors.end_user_limit_invalid"),
+});
 
 const { creating, error, errorRequestId, run } = useCreateForm({
   submit: () =>
@@ -38,10 +51,10 @@ function createConsumer() {
   if (!name.value.trim()) {
     nameError.value = t("pages.consumers.new.errors.name_required");
   }
-  quotaError.value = parseOptionalNumber(quota.value, t("pages.consumers.new.errors.quota_invalid")).error ?? "";
-  endUserLimitError.value =
-    parseOptionalNumber(endUserLimit.value, t("pages.consumers.new.errors.end_user_limit_invalid")).error ?? "";
+  quotaError.value = validateQuota(quota.value) ?? "";
+  endUserLimitError.value = validateEndUserLimit(endUserLimit.value) ?? "";
   if (nameError.value || quotaError.value || endUserLimitError.value) {
+    void focusFirstInvalid();
     return;
   }
   return run();
@@ -60,18 +73,27 @@ const isDirty = computed(
         :back-link="{ to: '/consumers', label: t('nav.consumers.label') }"
       />
 
-      <form class="form-card" @submit.prevent="createConsumer">
-        <FormField :label="t('pages.consumers.new.fields.name')" for="c-name">
-          <input id="c-name" v-model="name" type="text" :placeholder="t('pages.consumers.new.placeholders.name')" />
-          <FieldError :message="nameError" />
+      <form novalidate class="form-card" @submit.prevent="createConsumer">
+        <FormField v-slot="field" :label="t('pages.consumers.new.fields.name')" for="c-name" :error="nameError">
+          <input
+            id="c-name"
+            v-model="name"
+            type="text"
+            required
+            :placeholder="t('pages.consumers.new.placeholders.name')"
+            v-bind="field"
+          />
         </FormField>
-        <FormField :label="t('pages.consumers.new.fields.quota')" for="c-quota">
-          <input id="c-quota" v-model="quota" type="text" inputmode="numeric" />
-          <FieldError :message="quotaError" />
+        <FormField v-slot="field" :label="t('pages.consumers.new.fields.quota')" for="c-quota" :error="quotaError">
+          <input id="c-quota" v-model="quota" type="text" inputmode="numeric" v-bind="field" />
         </FormField>
-        <FormField :label="t('pages.consumers.new.fields.end_user_limit')" for="c-end-user-limit">
-          <input id="c-end-user-limit" v-model="endUserLimit" type="text" inputmode="numeric" />
-          <FieldError :message="endUserLimitError" />
+        <FormField
+          v-slot="field"
+          :label="t('pages.consumers.new.fields.end_user_limit')"
+          for="c-end-user-limit"
+          :error="endUserLimitError"
+        >
+          <input id="c-end-user-limit" v-model="endUserLimit" type="text" inputmode="numeric" v-bind="field" />
         </FormField>
         <FieldError :message="error" :request-id="errorRequestId" />
         <button type="submit" class="btn-primary" :disabled="creating">

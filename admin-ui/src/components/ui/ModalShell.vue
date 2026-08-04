@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from "vue";
+import { ref, watch, nextTick, onUnmounted } from "vue";
 import { useFocusTrap, focusFirst } from "@/composables/useFocusTrap";
 
 const props = defineProps<{
@@ -33,8 +33,34 @@ watch(
       previouslyFocused?.focus();
       previouslyFocused = null;
     }
+    lockBodyScroll(isOpen);
   },
 );
+
+/**
+ * Freezes the page behind the dialog. The focus trap already keeps the keyboard
+ * inside the panel, but the wheel and touch scroll the document underneath — so a
+ * confirm dialog on a long list let the list slide away behind it, and on iOS the
+ * background is what scrolls first.
+ *
+ * Restores whatever `overflow` the body had rather than clearing it, so nesting (a
+ * ConfirmDialog opened from inside the guard-editor drawer) cannot leave the page
+ * permanently unscrollable.
+ */
+let previousOverflow: string | null = null;
+function lockBodyScroll(locked: boolean): void {
+  if (locked) {
+    if (previousOverflow === null) previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  } else if (previousOverflow !== null) {
+    document.body.style.overflow = previousOverflow;
+    previousOverflow = null;
+  }
+}
+
+// A dialog can be unmounted while open (its whole page navigates away), which never
+// fires the watcher's close branch — without this the body stays locked.
+onUnmounted(() => lockBodyScroll(false));
 </script>
 
 <template>

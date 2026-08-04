@@ -453,6 +453,41 @@ function hasOutlineRing(style: FocusStyle): boolean {
  * pinning. A control that genuinely needs a longer name should carry no visible
  * `<label>` (the LB weight input is named per row exactly that way).
  */
+/**
+ * Controls whose `aria-describedby` names an element that is not on the page, and
+ * controls marked `aria-invalid` with nothing describing why.
+ *
+ * The failure this guards is the shape validation errors used to have: `FieldError`
+ * rendered as a sibling of the input, announced via `role="alert"` but attached to
+ * nothing, so a field never reported itself invalid and never pointed at its message.
+ * `FormField` wires both together now; this catches the wiring coming undone, and
+ * catches the worse variant where a field says "I am invalid" and then names an id
+ * that does not resolve.
+ *
+ * Only asserts consistency, not presence — a page with no validation errors showing
+ * is the normal state and must stay green.
+ */
+async function danglingErrorReferences(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const problems: string[] = [];
+    const describe = (el: Element): string => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}`;
+
+    for (const el of Array.from(document.querySelectorAll("[aria-describedby]"))) {
+      const ids = (el.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
+      const missing = ids.filter((id) => !document.getElementById(id));
+      if (missing.length > 0) problems.push(`${describe(el)} -> missing #${missing.join(", #")}`);
+    }
+
+    for (const el of Array.from(document.querySelectorAll('[aria-invalid="true"]'))) {
+      const ids = (el.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
+      const described = ids.some((id) => (document.getElementById(id)?.textContent ?? "").trim().length > 0);
+      if (!described) problems.push(`${describe(el)} is aria-invalid with no message describing it`);
+    }
+
+    return problems;
+  });
+}
+
 async function labelShadowingViolations(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const normalize = (value: string | null): string =>
@@ -636,6 +671,12 @@ for (const route of ROUTES) {
     // (5) No control announces something other than the label it displays.
     const shadowed = await labelShadowingViolations(page);
     expect(shadowed, `aria-label shadows the visible label on ${route.path}: ${shadowed.join(", ")}`).toEqual([]);
+
+    // (6) Any control claiming to be invalid points at a message that exists. A
+    // dangling aria-describedby is worse than none: the field announces itself as
+    // broken and then names nothing.
+    const dangling = await danglingErrorReferences(page);
+    expect(dangling, `unresolvable aria-describedby on ${route.path}: ${dangling.join(", ")}`).toEqual([]);
   });
 
   test(`responsive — ${route.key}: no horizontal scrolling at mobile or desktop`, async ({ page }) => {
@@ -657,6 +698,42 @@ for (const route of ROUTES) {
 }
 
 // ── Keyboard operability ────────────────────────────────────────────────────
+
+// ── Validation errors ───────────────────────────────────────────────────────
+
+/**
+ * The generic `danglingErrorReferences` probe above only sees a page in its normal
+ * state, where nothing is invalid — it can prove the wiring is consistent but not
+ * that it exists. This drives a real failed submit, which is the state the defect
+ * lived in: two errors announced via role="alert", neither attached to a control, no
+ * field marked invalid, and focus left on #main-content.
+ */
+test("validation errors attach to their field, and focus lands on the first one", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await login(page, BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_PASSWORD);
+  await page.goto("/admin/consumers/new");
+  const nameInput = page.locator("#c-name");
+  await expect(nameInput).toBeVisible();
+
+  // Name left empty, and a quota the API rejects (it wants a positive integer).
+  // 2.7 is the interesting case: it IS a finite number, so the old client check
+  // passed it straight to a 400.
+  await page.locator("#c-quota").fill("2.7");
+  await page.getByRole("button", { name: /Create|Crear/ }).click();
+
+  await expect(nameInput).toHaveAttribute("aria-invalid", "true");
+  const describedBy = await nameInput.getAttribute("aria-describedby");
+  expect(describedBy, "the invalid field must name its message").toBeTruthy();
+  await expect(page.locator(`#${describedBy}`)).toHaveText(/.+/);
+
+  // The quota never reaches the server: it is caught inline, at the field.
+  const quota = page.locator("#c-quota");
+  await expect(quota).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator(`#${await quota.getAttribute("aria-describedby")}`)).toHaveText(/.+/);
+
+  // Focus moved to the first offending control, so a keyboard user is already there.
+  await expect(nameInput).toBeFocused();
+});
 
 test.describe("keyboard", () => {
   test("login is completable with the keyboard alone", async ({ page }) => {
