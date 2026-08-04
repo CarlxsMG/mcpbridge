@@ -236,7 +236,7 @@ const topSessionsChart = computed(() =>
       <PaginationBar
         :has-prev="hasPrev"
         :has-next="hasNext"
-        :label="t('pages.traces.pagination_label', { count: traces.length })"
+        :label="t('pages.traces.pagination_label', { count: traces.length }, traces.length)"
         @prev="prevPage"
         @next="nextPage"
       />

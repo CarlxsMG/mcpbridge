@@ -73,14 +73,22 @@ type NamedParams = Record<string, unknown>;
 export function tk(key: string): string;
 export function tk(key: string, fallback: string): string;
 export function tk(key: string, params: NamedParams): string;
-export function tk(key: string, arg?: NamedParams | string): string {
+/**
+ * Pluralized form. `plural` picks the branch of a `"singular | plural"` message;
+ * `params` still carries the interpolated values, since vue-i18n needs the count
+ * in BOTH places (it selects on the third argument and interpolates from the
+ * second). See the `(s)`-to-plural conversion in locales/*.json.
+ */
+export function tk(key: string, params: NamedParams, plural: number): string;
+export function tk(key: string, arg?: NamedParams | string, plural?: number): string {
   // vue-i18n v10 exposes `t` on the global instance once created.
-  const t = (i18n as unknown as { global: { t: (k: string, arg?: NamedParams | string) => string } }).global.t;
+  const t = (i18n as unknown as { global: { t: (k: string, arg?: NamedParams | string, plural?: number) => string } })
+    .global.t;
   if (arg !== undefined && typeof arg !== "string") {
     // Named-params interpolation — no "missing key" fallback handling here;
     // the key is expected to exist (this shape is for real i18n messages, not
     // ad-hoc fallback strings).
-    return t(key, arg);
+    return plural === undefined ? t(key, arg) : t(key, arg, plural);
   }
   // `t` returns the key itself when missing, which is what we want for the
   // "no fallback supplied" case — but we want a real fallback string when the

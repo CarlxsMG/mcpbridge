@@ -252,11 +252,11 @@
       "key_warning": "Aún no tienes una MCP API key activa.",
       "create_one": "Crea una",
       "key_warning_after": "primero, y vuelve para pegarla abajo.",
-      "key_count": "Tienes {count} MCP API key(s) activa(s) — pega una en lugar de",
+      "key_count": "Tienes 1 MCP API key activa — pégala en lugar de | Tienes {count} MCP API keys activas — pega una en lugar de",
       "key_count_after": "abajo. Gestionadas en",
       "key_warning_system": "Ninguna API key tiene actualmente un rol de sistema — una key de solo plano de datos es rechazada por /mcp.",
       "key_warning_system_after": "con un rol de sistema primero (o usa la admin Bearer key del gateway), y vuelve para pegarla abajo.",
-      "key_count_system": "Tienes {count} MCP API key(s) con rol de sistema — pega una en lugar de",
+      "key_count_system": "Tienes 1 MCP API key con rol de sistema — pégala en lugar de | Tienes {count} MCP API keys con rol de sistema — pega una en lugar de",
       "setup": "Setup",
       "choose_target": "Elige un {kind} arriba para generar su config."
     },
@@ -417,7 +417,7 @@
       "confirm": {
         "apply_title": "¿Aplicar este re-sync?",
         "apply_message": "Esto vuelve a registrar el servidor a partir del spec de OpenAPI actualizado.",
-        "apply_message_removed": "Esto vuelve a registrar el servidor a partir del spec de OpenAPI actualizado y elimina {count} tool(s) que ya no están presentes. Cualquier bundle, guard, schedule o política de aprobación que referencie esos tools quedará huérfana.",
+        "apply_message_removed": "Esto vuelve a registrar el servidor a partir del spec de OpenAPI actualizado y elimina 1 tool que ya no está presente. Cualquier bundle, guard, schedule o política de aprobación que referencie esa tool quedará huérfana. | Esto vuelve a registrar el servidor a partir del spec de OpenAPI actualizado y elimina {count} tools que ya no están presentes. Cualquier bundle, guard, schedule o política de aprobación que referencie esos tools quedará huérfana.",
         "apply_cta": "Aplicar resync"
       },
       "errors": {
@@ -430,7 +430,7 @@
     "server_detail_lb": {
       "title": "Load balancing",
       "hint": "Distribuye las llamadas entre el backend primario y un pool N-way de targets adicionales. Tiene precedencia sobre canary/failover abajo — mientras un pool habilitado tenga al menos un target habilitado, el routing canary se omite completamente para este servidor.",
-      "currently": "Actualmente: {strategy}, peso del primario {weight}, {enabled}, {count} target(s).",
+      "currently": "Actualmente: {strategy}, peso del primario {weight}, {enabled}, 1 target. | Actualmente: {strategy}, peso del primario {weight}, {enabled}, {count} targets.",
       "enabled": "habilitado",
       "disabled": "deshabilitado",
       "strategy": {
@@ -596,7 +596,7 @@
       "timeout_label": "Timeout override (ms)",
       "use_default": "Usar default del servidor",
       "allowed_keys_label": "API keys permitidas",
-      "existing_keys_count": "{count} key(s) actualmente permitidas.",
+      "existing_keys_count": "1 key actualmente permitida. | {count} keys actualmente permitidas.",
       "no_restriction": "Sin restricción — cualquier MCP key válida puede llamar a este tool.",
       "keys_hashed_hint": "Las keys se hashean al guardar; las keys existentes no se pueden volver a mostrar.",
       "add_key_placeholder": "Pega una API key raw para añadir",
@@ -605,10 +605,10 @@
       "add": "Añadir",
       "new_key_n": "Nueva key #{n}",
       "remove": "eliminar",
-      "replace_warning": "Al guardar se REEMPLAZARÁ toda la allow-list con estas {count} key(s).",
+      "replace_warning": "Al guardar se REEMPLAZARÁ toda la allow-list con esta 1 key. | Al guardar se REEMPLAZARÁ toda la allow-list con estas {count} keys.",
       "preview": "Vista previa",
-      "preview_new_keys": "{count} key(s) nueva(s)",
-      "preview_existing_keys": "{count} key(s) sin cambios",
+      "preview_new_keys": "1 key nueva | {count} keys nuevas",
+      "preview_existing_keys": "1 key sin cambios | {count} keys sin cambios",
       "clearing": "Limpiando…",
       "clear_guards": "Limpiar guards",
       "cleared": "Limpiado",
@@ -975,7 +975,7 @@
           "usage_tools": { "label": "Herramientas activas" },
           "usage_keys": { "label": "Claves activas" },
           "approvals_pending": { "label": "Aprobaciones pendientes" },
-          "ws_connections": { "label": "Conexiones WS activas", "detail": "{count} destino(s)" }
+          "ws_connections": { "label": "Conexiones WS activas", "detail": "1 destino | {count} destinos" }
         },
         "donut": {
           "clients_health": { "label": "Estado de los servidores" },
@@ -1051,7 +1051,7 @@
       "clear_filters": "Limpiar filtros",
       "col_tools": "Herramientas",
       "col_health_url": "URL de salud",
-      "pagination_label": "{count} servidor(es) en esta página",
+      "pagination_label": "1 servidor en esta página | {count} servidores en esta página",
       "aria": {
         "select_all": "Seleccionar todos los servidores en esta página",
         "select_one": "Seleccionar {name}"
@@ -1067,8 +1067,8 @@
         "disable_message": "Deshabilitar '{name}' detendrá las {tools} herramientas para todos los agentes MCP conectados.",
         "disable_label_named": "Deshabilitar {name}",
         "bulk_disable_title": "¿Deshabilitar servidores seleccionados?",
-        "bulk_disable_message": "Deshabilitar {count} servidor(es) detendrá todas sus herramientas para todos los agentes MCP conectados.",
-        "bulk_disable_label": "Deshabilitar {count} servidor(es)"
+        "bulk_disable_message": "Deshabilitar 1 servidor detendrá todas sus herramientas para todos los agentes MCP conectados. | Deshabilitar {count} servidores detendrá todas sus herramientas para todos los agentes MCP conectados.",
+        "bulk_disable_label": "Deshabilitar 1 servidor | Deshabilitar {count} servidores"
       },
       "errors": {
         "bulk_update_failed": "La actualización masiva falló.",
@@ -1096,7 +1096,7 @@
       "last_7d": "Últimos 7 días",
       "last_30d": "Últimos 30 días",
       "refreshing": "Refrescando…",
-      "load_error": "No se pudieron cargar {count} fuente(s) de datos — algunos widgets pueden aparecer vacíos. Prueba a refrescar.",
+      "load_error": "No se pudo cargar 1 fuente de datos — algunos widgets pueden aparecer vacíos. Prueba a refrescar. | No se pudieron cargar {count} fuentes de datos — algunos widgets pueden aparecer vacíos. Prueba a refrescar.",
       "add_widget": "Añadir widget",
       "export_layout": "Exportar layout como JSON",
       "export": "Exportar",
@@ -1183,8 +1183,8 @@
         "revoke_key": "Revocar",
         "delete_key": "Eliminar",
         "unrestricted": "Sin restricción",
-        "client_count": "{count} cliente(s)",
-        "tool_count": "{count} herramienta(s)"
+        "client_count": "1 cliente | {count} clientes",
+        "tool_count": "1 herramienta | {count} herramientas"
       },
       "aria": {
         "change_admin_role": "Rol de sistema para '{label}'"
@@ -1261,7 +1261,7 @@
       "exclude_ops_label": "Excluir operationIds (separados por comas, opcional)",
       "exclude_ops_placeholder": "borrarTodo",
       "manual_tools_label": "Herramientas (array JSON describiendo name, method, endpoint, description, inputSchema por herramienta)",
-      "curl_label": "Comando(s) cURL",
+      "curl_label": "Comandos cURL",
       "curl_hint": "Pega uno o más comandos cURL — sepáralos con una línea en blanco, o usa una \"\\\" al final para continuar un comando en varias líneas. Una línea de comentario \"# nombre\" justo encima de un comando asigna ese nombre a la herramienta.",
       "postman_label": "Colección de Postman v2.1",
       "postman_loaded": "Cargado desde archivo: {name}",
@@ -1277,7 +1277,7 @@
       "mcp_transport_hint": "El bridge se conecta al servidor MCP y descubre sus herramientas al registrarlo. Si el servidor requiere autenticación, regístralo primero, configura las credenciales upstream en su página de detalle, y vuelve a descubrir.",
       "discovering": "Descubriendo…",
       "preview_tools": "Vista previa de herramientas",
-      "preview_count": "{count} herramienta(s) descubierta(s)",
+      "preview_count": "1 herramienta descubierta | {count} herramientas descubiertas",
       "preview_hint": "Ejecuta Vista previa primero para confirmar qué se va a registrar.",
       "preview_stale_hint": "La vista previa está desactualizada — ejecútala de nuevo antes de registrar.",
       "registering": "Registrando…",
@@ -1871,8 +1871,8 @@
       "apply": "Aplicar",
       "applying": "Aplicando…",
       "notice": {
-        "applied": "Aplicada \"{name}\" a {applied} tool(s) en el bundle \"{bundle}\".",
-        "skipped": "{count} tool(s) fueron saltadas porque ya no existen en el registry."
+        "applied": "Aplicada \"{name}\" a 1 tool en el bundle \"{bundle}\". | Aplicada \"{name}\" a {applied} tools en el bundle \"{bundle}\".",
+        "skipped": "1 tool fue saltada porque ya no existe en el registry. | {count} tools fueron saltadas porque ya no existen en el registry."
       },
       "table": {
         "name": "Nombre",
@@ -2275,7 +2275,7 @@
         "delete_message": "'{name}' se eliminará y cualquier conexión activa se cerrará forzada.",
         "delete_cta": "Eliminar {name}",
         "disconnect_title": "¿Desconectar todas las sesiones?",
-        "disconnect_message": "'{name}' tiene {count} conexión(es) activa(s); desconectar cerrará todas forzosamente y soltará cualquier mensaje en vuelo.",
+        "disconnect_message": "'{name}' tiene 1 conexión activa; desconectar la cerrará forzosamente y soltará cualquier mensaje en vuelo. | '{name}' tiene {count} conexiones activas; desconectar las cerrará todas forzosamente y soltará cualquier mensaje en vuelo.",
         "leave_title": "¿Descartar los cambios sin guardar?",
         "leave_message": "Tienes datos sin guardar para este target WS proxy. Si sales ahora, se descartarán.",
         "leave_cta": "Descartar cambios"
@@ -2320,7 +2320,7 @@
       "session_placeholder": "Session id",
       "filter_button": "Filtrar",
       "purge_all": "Purgar todo",
-      "pagination_label": "{count} trace(s) en esta página",
+      "pagination_label": "1 trace en esta página | {count} traces en esta página",
       "back_to_list": "Volver a trazas",
       "detail_title": "Trace {id}",
       "detail_not_found": "Trace no encontrada.",

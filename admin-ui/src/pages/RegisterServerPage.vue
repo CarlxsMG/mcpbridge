@@ -277,7 +277,7 @@ const { pendingLeave, confirmLeave, cancelLeave } = useUnsavedChangesGuard(isDir
               {{ previewing ? t("pages.register_server.discovering") : t("pages.register_server.preview_tools") }}
             </button>
             <span v-if="previewTools" class="preview-count">{{
-              t("pages.register_server.preview_count", { count: previewTools.length })
+              t("pages.register_server.preview_count", { count: previewTools.length }, previewTools.length)
             }}</span>
           </div>
           <FieldError :message="previewError" />

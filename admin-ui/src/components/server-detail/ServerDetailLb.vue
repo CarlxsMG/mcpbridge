@@ -156,12 +156,18 @@ function confirmRemoveTarget() {
       {{ t("components.server_detail_lb.hint") }}
       <template v-if="lb">
         {{
-          t("components.server_detail_lb.currently", {
-            strategy: lb.strategy,
-            weight: lb.primaryWeight,
-            enabled: lb.enabled ? t("components.server_detail_lb.enabled") : t("components.server_detail_lb.disabled"),
-            count: lb.targets.length,
-          })
+          t(
+            "components.server_detail_lb.currently",
+            {
+              strategy: lb.strategy,
+              weight: lb.primaryWeight,
+              enabled: lb.enabled
+                ? t("components.server_detail_lb.enabled")
+                : t("components.server_detail_lb.disabled"),
+              count: lb.targets.length,
+            },
+            lb.targets.length,
+          )
         }}
       </template>
     </p>

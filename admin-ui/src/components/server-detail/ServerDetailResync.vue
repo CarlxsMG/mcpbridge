@@ -170,7 +170,11 @@ async function rediscoverMcp() {
     :title="t('components.server_detail_resync.confirm.apply_title')"
     :message="
       resyncDiff && resyncDiff.removed.length
-        ? t('components.server_detail_resync.confirm.apply_message_removed', { count: resyncDiff.removed.length })
+        ? t(
+            'components.server_detail_resync.confirm.apply_message_removed',
+            { count: resyncDiff.removed.length },
+            resyncDiff.removed.length,
+          )
         : t('components.server_detail_resync.confirm.apply_message')
     "
     :confirm-label="t('components.server_detail_resync.confirm.apply_cta')"

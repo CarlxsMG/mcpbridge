@@ -381,7 +381,11 @@ export const STAT_METRICS: StatMetricDef[] = [
       return {
         value: n,
         display: String(n),
-        detail: tk("components.overview.widgets.stat.ws_connections.detail", { count: s.wsProxyTargets.length }),
+        detail: tk(
+          "components.overview.widgets.stat.ws_connections.detail",
+          { count: s.wsProxyTargets.length },
+          s.wsProxyTargets.length,
+        ),
       };
     },
   },

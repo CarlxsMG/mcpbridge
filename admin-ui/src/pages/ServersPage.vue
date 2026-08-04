@@ -404,7 +404,7 @@ onMounted(() => load());
       <PaginationBar
         :has-prev="hasPrev"
         :has-next="hasNext"
-        :label="t('pages.servers.pagination_label', { count: items.length })"
+        :label="t('pages.servers.pagination_label', { count: items.length }, items.length)"
         @prev="goToPrevPage"
         @next="goToNextPage"
       />
@@ -431,8 +431,8 @@ onMounted(() => load());
     <ConfirmDialog
       :open="pendingBulkDisable !== null"
       :title="t('pages.servers.confirm.bulk_disable_title')"
-      :message="t('pages.servers.confirm.bulk_disable_message', { count: selected.size })"
-      :confirm-label="t('pages.servers.confirm.bulk_disable_label', { count: selected.size })"
+      :message="t('pages.servers.confirm.bulk_disable_message', { count: selected.size }, selected.size)"
+      :confirm-label="t('pages.servers.confirm.bulk_disable_label', { count: selected.size }, selected.size)"
       danger
       @confirm="confirmBulkDisable"
       @cancel="cancelBulkDisable"

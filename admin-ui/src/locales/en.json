@@ -252,11 +252,11 @@
       "key_warning": "You don't have an active MCP API key yet.",
       "create_one": "Create one",
       "key_warning_after": "first, then come back and paste it in below.",
-      "key_count": "You have {count} active MCP API key(s) — paste one in place of",
+      "key_count": "You have 1 active MCP API key — paste it in place of | You have {count} active MCP API keys — paste one in place of",
       "key_count_after": "below. Manage them under",
       "key_warning_system": "No API key currently has a system role — a plain data-plane key is rejected by /mcp.",
       "key_warning_system_after": "with a system role first (or use the gateway's admin Bearer key instead), then come back and paste it in below.",
-      "key_count_system": "You have {count} MCP API key(s) with a system role — paste one in place of",
+      "key_count_system": "You have 1 MCP API key with a system role — paste it in place of | You have {count} MCP API keys with a system role — paste one in place of",
       "setup": "Setup",
       "choose_target": "Choose a {kind} above to generate its config."
     },
@@ -417,7 +417,7 @@
       "confirm": {
         "apply_title": "Apply this re-sync?",
         "apply_message": "This re-registers the server from the updated OpenAPI spec.",
-        "apply_message_removed": "This re-registers the server from the updated OpenAPI spec and removes {count} tool(s) no longer present. Any bundle, guard, schedule, or approval policy referencing those tools will be left dangling.",
+        "apply_message_removed": "This re-registers the server from the updated OpenAPI spec and removes 1 tool no longer present. Any bundle, guard, schedule, or approval policy referencing that tool will be left dangling. | This re-registers the server from the updated OpenAPI spec and removes {count} tools no longer present. Any bundle, guard, schedule, or approval policy referencing those tools will be left dangling.",
         "apply_cta": "Apply resync"
       },
       "errors": {
@@ -430,7 +430,7 @@
     "server_detail_lb": {
       "title": "Load balancing",
       "hint": "Spread calls across the primary backend plus an N-way pool of additional targets. Takes precedence over canary/failover below — while an enabled pool has at least one enabled target, canary routing is skipped entirely for this server.",
-      "currently": "Currently: {strategy}, primary weight {weight}, {enabled}, {count} target(s).",
+      "currently": "Currently: {strategy}, primary weight {weight}, {enabled}, 1 target. | Currently: {strategy}, primary weight {weight}, {enabled}, {count} targets.",
       "enabled": "enabled",
       "disabled": "disabled",
       "strategy": {
@@ -596,7 +596,7 @@
       "timeout_label": "Timeout override (ms)",
       "use_default": "Use server default",
       "allowed_keys_label": "Allowed API keys",
-      "existing_keys_count": "{count} key(s) currently allowed.",
+      "existing_keys_count": "1 key currently allowed. | {count} keys currently allowed.",
       "no_restriction": "No restriction — any valid MCP key may call this tool.",
       "keys_hashed_hint": "Keys are hashed on save; existing keys cannot be displayed again.",
       "add_key_placeholder": "Paste a raw API key to add",
@@ -605,10 +605,10 @@
       "add": "Add",
       "new_key_n": "New key #{n}",
       "remove": "remove",
-      "replace_warning": "Saving will REPLACE the entire allow-list with these {count} key(s).",
+      "replace_warning": "Saving will REPLACE the entire allow-list with this 1 key. | Saving will REPLACE the entire allow-list with these {count} keys.",
       "preview": "Preview",
-      "preview_new_keys": "{count} new key(s)",
-      "preview_existing_keys": "{count} key(s) unchanged",
+      "preview_new_keys": "1 new key | {count} new keys",
+      "preview_existing_keys": "1 key unchanged | {count} keys unchanged",
       "clearing": "Clearing…",
       "clear_guards": "Clear guards",
       "cleared": "Cleared",
@@ -975,7 +975,7 @@
           "usage_tools": { "label": "Active tools" },
           "usage_keys": { "label": "Active keys" },
           "approvals_pending": { "label": "Pending approvals" },
-          "ws_connections": { "label": "Live WS connections", "detail": "{count} target(s)" }
+          "ws_connections": { "label": "Live WS connections", "detail": "1 target | {count} targets" }
         },
         "donut": {
           "clients_health": { "label": "Server health" },
@@ -1051,7 +1051,7 @@
       "clear_filters": "Clear filters",
       "col_tools": "Tools",
       "col_health_url": "Health URL",
-      "pagination_label": "{count} server(s) on this page",
+      "pagination_label": "1 server on this page | {count} servers on this page",
       "aria": {
         "select_all": "Select all servers on this page",
         "select_one": "Select {name}"
@@ -1067,8 +1067,8 @@
         "disable_message": "Disabling '{name}' will stop all {tools} of its tools for every connected MCP agent.",
         "disable_label_named": "Disable {name}",
         "bulk_disable_title": "Disable selected servers?",
-        "bulk_disable_message": "Disabling {count} server(s) will stop all of their tools for every connected MCP agent.",
-        "bulk_disable_label": "Disable {count} server(s)"
+        "bulk_disable_message": "Disabling 1 server will stop all of its tools for every connected MCP agent. | Disabling {count} servers will stop all of their tools for every connected MCP agent.",
+        "bulk_disable_label": "Disable 1 server | Disable {count} servers"
       },
       "errors": {
         "bulk_update_failed": "Bulk update failed.",
@@ -1096,7 +1096,7 @@
       "last_7d": "Last 7 days",
       "last_30d": "Last 30 days",
       "refreshing": "Refreshing…",
-      "load_error": "{count} data source(s) couldn't load — some widgets may be empty. Try refreshing.",
+      "load_error": "1 data source couldn't load — some widgets may be empty. Try refreshing. | {count} data sources couldn't load — some widgets may be empty. Try refreshing.",
       "add_widget": "Add widget",
       "export_layout": "Export layout as JSON",
       "export": "Export",
@@ -1183,8 +1183,8 @@
         "revoke_key": "Revoke",
         "delete_key": "Delete",
         "unrestricted": "Unrestricted",
-        "client_count": "{count} client(s)",
-        "tool_count": "{count} tool(s)"
+        "client_count": "1 client | {count} clients",
+        "tool_count": "1 tool | {count} tools"
       },
       "aria": {
         "change_admin_role": "System role for '{label}'"
@@ -1261,7 +1261,7 @@
       "exclude_ops_label": "Exclude operationIds (comma-separated, optional)",
       "exclude_ops_placeholder": "deleteEverything",
       "manual_tools_label": "Tools (JSON array describing name, method, endpoint, description, inputSchema per tool)",
-      "curl_label": "cURL command(s)",
+      "curl_label": "cURL commands",
       "curl_hint": "Paste one or more cURL commands — separate multiple with a blank line, or use a trailing \"\\\" to continue one command across lines. An optional \"# name\" comment line right above a command sets that tool's name.",
       "postman_label": "Postman Collection v2.1",
       "postman_loaded": "Loaded from file: {name}",
@@ -1277,7 +1277,7 @@
       "mcp_transport_hint": "The bridge connects to the MCP server and discovers its tools on registration. If the server requires authentication, register it first, set upstream credentials on its detail page, then re-discover.",
       "discovering": "Discovering…",
       "preview_tools": "Preview tools",
-      "preview_count": "{count} tool(s) discovered",
+      "preview_count": "1 tool discovered | {count} tools discovered",
       "preview_hint": "Run Preview tools first so you can confirm what will be registered.",
       "preview_stale_hint": "Preview is out of date — run it again before registering.",
       "registering": "Registering…",
@@ -1871,8 +1871,8 @@
       "apply": "Apply",
       "applying": "Applying…",
       "notice": {
-        "applied": "Applied \"{name}\" to {applied} tool(s) in bundle \"{bundle}\".",
-        "skipped": "{count} tool(s) were skipped because they no longer exist in the registry."
+        "applied": "Applied \"{name}\" to 1 tool in bundle \"{bundle}\". | Applied \"{name}\" to {applied} tools in bundle \"{bundle}\".",
+        "skipped": "1 tool was skipped because it no longer exists in the registry. | {count} tools were skipped because they no longer exist in the registry."
       },
       "table": {
         "name": "Name",
@@ -2275,7 +2275,7 @@
         "delete_message": "'{name}' will be removed and any live connections force-closed.",
         "delete_cta": "Delete {name}",
         "disconnect_title": "Disconnect all sessions?",
-        "disconnect_message": "'{name}' has {count} live connection(s); disconnecting will force-close all of them and drop any in-flight messages.",
+        "disconnect_message": "'{name}' has 1 live connection; disconnecting will force-close it and drop any in-flight messages. | '{name}' has {count} live connections; disconnecting will force-close all of them and drop any in-flight messages.",
         "leave_title": "Discard unsaved changes?",
         "leave_message": "You have unsaved details for this WS proxy target. Leaving now will discard them.",
         "leave_cta": "Discard changes"
@@ -2320,7 +2320,7 @@
       "session_placeholder": "Session id",
       "filter_button": "Filter",
       "purge_all": "Purge all",
-      "pagination_label": "{count} trace(s) on this page",
+      "pagination_label": "1 trace on this page | {count} traces on this page",
       "back_to_list": "Back to traces",
       "detail_title": "Trace {id}",
       "detail_not_found": "Trace not found.",

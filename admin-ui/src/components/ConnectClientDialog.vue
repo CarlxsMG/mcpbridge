@@ -242,8 +242,8 @@ const result = computed(() => {
     <p v-else-if="relevantKeyCount !== null" class="key-hint">
       {{
         scope === "system"
-          ? t("components.connect_client_dialog.key_count_system", { count: relevantKeyCount })
-          : t("components.connect_client_dialog.key_count", { count: relevantKeyCount })
+          ? t("components.connect_client_dialog.key_count_system", { count: relevantKeyCount }, relevantKeyCount)
+          : t("components.connect_client_dialog.key_count", { count: relevantKeyCount }, relevantKeyCount)
       }}
       <code>{{ API_KEY_PLACEHOLDER }}</code>
       {{ t("components.connect_client_dialog.key_count_after") }}

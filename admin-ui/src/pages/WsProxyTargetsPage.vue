@@ -287,10 +287,11 @@ async function confirmDelete() {
       :title="t('pages.ws_proxy_targets.confirm.disconnect_title')"
       :message="
         pendingDisconnect
-          ? t('pages.ws_proxy_targets.confirm.disconnect_message', {
-              name: pendingDisconnect.name,
-              count: pendingDisconnect.activeConnections,
-            })
+          ? t(
+              'pages.ws_proxy_targets.confirm.disconnect_message',
+              { name: pendingDisconnect.name, count: pendingDisconnect.activeConnections },
+              pendingDisconnect.activeConnections,
+            )
           : ''
       "
       :confirm-label="t('pages.ws_proxy_targets.disconnect_all')"

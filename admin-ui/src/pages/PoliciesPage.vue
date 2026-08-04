@@ -71,9 +71,13 @@ async function confirmApply() {
         `/admin-api/policies/${policy.id}/apply`,
         { bundle },
       );
-      let message = t("pages.policies.notice.applied", { name: policy.name, applied: res.applied, bundle });
+      let message = t(
+        "pages.policies.notice.applied",
+        { name: policy.name, applied: res.applied, bundle },
+        res.applied,
+      );
       if (res.skipped.length > 0) {
-        message += " " + t("pages.policies.notice.skipped", { count: res.skipped.length });
+        message += " " + t("pages.policies.notice.skipped", { count: res.skipped.length }, res.skipped.length);
       }
       notice.value = message;
     } catch (err) {

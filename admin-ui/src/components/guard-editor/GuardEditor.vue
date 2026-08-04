@@ -107,8 +107,12 @@ const previewJson = computed(() => {
   if (hasAllowedKeysGuard.value) {
     preview.allowedApiKeys =
       replacementKeys.value.length > 0
-        ? t("components.guard_editor.preview_new_keys", { count: replacementKeys.value.length })
-        : t("components.guard_editor.preview_existing_keys", { count: existingKeyCount.value });
+        ? t(
+            "components.guard_editor.preview_new_keys",
+            { count: replacementKeys.value.length },
+            replacementKeys.value.length,
+          )
+        : t("components.guard_editor.preview_existing_keys", { count: existingKeyCount.value }, existingKeyCount.value);
   }
   return JSON.stringify(preview, null, 2);
 });
@@ -287,7 +291,7 @@ const TABS = computed(() => [
         <p class="hint">
           {{
             existingKeyCount > 0
-              ? t("components.guard_editor.existing_keys_count", { count: existingKeyCount })
+              ? t("components.guard_editor.existing_keys_count", { count: existingKeyCount }, existingKeyCount)
               : t("components.guard_editor.no_restriction")
           }}
           {{ t("components.guard_editor.keys_hashed_hint") }}
@@ -316,7 +320,7 @@ const TABS = computed(() => [
           </li>
         </ul>
         <p v-if="replacementKeys.length" class="hint warn">
-          {{ t("components.guard_editor.replace_warning", { count: replacementKeys.length }) }}
+          {{ t("components.guard_editor.replace_warning", { count: replacementKeys.length }, replacementKeys.length) }}
         </p>
       </div>
 

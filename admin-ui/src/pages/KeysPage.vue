@@ -97,8 +97,10 @@ function statusOf(key: McpApiKey): string {
 function scopeSummary(key: McpApiKey): string {
   if (!key.scopes) return t("pages.keys.table.unrestricted");
   const parts: string[] = [];
-  if (key.scopes.clients?.length) parts.push(t("pages.keys.table.client_count", { count: key.scopes.clients.length }));
-  if (key.scopes.tools?.length) parts.push(t("pages.keys.table.tool_count", { count: key.scopes.tools.length }));
+  if (key.scopes.clients?.length)
+    parts.push(t("pages.keys.table.client_count", { count: key.scopes.clients.length }, key.scopes.clients.length));
+  if (key.scopes.tools?.length)
+    parts.push(t("pages.keys.table.tool_count", { count: key.scopes.tools.length }, key.scopes.tools.length));
   return parts.length ? parts.join(", ") : t("pages.keys.table.unrestricted");
 }
 
@@ -192,11 +194,19 @@ function confirmDelete() {
                 <template #content>
                   <div class="scope-detail">
                     <div v-if="key.scopes?.clients?.length">
-                      {{ t("pages.keys.table.client_count", { count: key.scopes.clients.length }) }}:
+                      {{
+                        t(
+                          "pages.keys.table.client_count",
+                          { count: key.scopes.clients.length },
+                          key.scopes.clients.length,
+                        )
+                      }}:
                       {{ key.scopes?.clients?.join(", ") }}
                     </div>
                     <div v-if="key.scopes?.tools?.length">
-                      {{ t("pages.keys.table.tool_count", { count: key.scopes.tools.length }) }}:
+                      {{
+                        t("pages.keys.table.tool_count", { count: key.scopes.tools.length }, key.scopes.tools.length)
+                      }}:
                       {{ key.scopes?.tools?.join(", ") }}
                     </div>
                   </div>

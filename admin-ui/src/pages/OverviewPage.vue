@@ -141,7 +141,7 @@ onMounted(() => data.refresh());
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
     <p v-if="failedSourceCount > 0" class="error" role="alert">
-      {{ t("pages.overview.load_error", { count: failedSourceCount }) }}
+      {{ t("pages.overview.load_error", { count: failedSourceCount }, failedSourceCount) }}
     </p>
 
     <p v-if="showNoServers" class="onboarding-note">
