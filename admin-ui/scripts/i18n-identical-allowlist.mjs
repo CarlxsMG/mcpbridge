@@ -16,8 +16,8 @@
 //
 // Legitimately-identical strings fall into a few buckets:
 //   - Brand / product-feature proper nouns this UI keeps in English as domain
-//     terms (Bundles, Composites, Consumers, Schedules, Teams, Playground,
-//     Guards, Guardrails, Canary/failover, SSO...).
+//     terms (Bundles, Composites, Schedules, Teams, Playground, Guards,
+//     Guardrails, Canary/failover, SSO...).
 //   - Technical terms & acronyms identical across ES/EN (Endpoint, Token,
 //     OAuth, Client ID, Client secret, URL, JSON, CSV, REST, GraphQL, Color,
 //     Neutral, round-robin/weighted/least-conn, Model, Slug, Tags...).
@@ -39,7 +39,6 @@ export const identicalAllowlist = new Set([
   "nav.bundles.label",
   "nav.composites.label",
   "nav.keys.label",
-  "nav.consumers.label",
   "nav.schedules.label",
   // Same untranslated feature noun as nav.schedules.label above, in the
   // config-import result summary.

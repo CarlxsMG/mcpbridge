@@ -69,15 +69,15 @@
     },
     "keys": {
       "label": "API keys",
-      "hint": "Tokens bearer MCP emitidos a los consumers"
+      "hint": "Tokens bearer MCP emitidos a los consumidores"
     },
     "policies": {
       "label": "Políticas",
       "hint": "Perfiles de guard reutilizables"
     },
     "consumers": {
-      "label": "Consumers",
-      "hint": "Cuotas y rate limits por consumer"
+      "label": "Consumidores",
+      "hint": "Cuotas y rate limits por consumidor"
     },
     "approvals": {
       "label": "Aprobaciones",
@@ -875,7 +875,7 @@
     },
     "config_import": {
       "title": "Importar",
-      "hint": "Pega un documento exportado (policy-as-code — incluye guardrails y quotas de consumers). Haz primero un dry-run para previsualizar qué cambiaría — la config de client/tool solo aplica a servidores ya registrados.",
+      "hint": "Pega un documento exportado (policy-as-code — incluye guardrails y cuotas de consumidores). Haz primero un dry-run para previsualizar qué cambiaría — la config de client/tool solo aplica a servidores ya registrados.",
       "fields": {
         "format": "Formato",
         "document": "Documento de import"
@@ -1271,7 +1271,7 @@
           "clients": "Clientes permitidos (separados por coma, vacío = todos)",
           "tools": "Herramientas permitidas (separadas por coma, client__tool)",
           "expires": "Caduca (opcional)",
-          "consumer": "Consumer (opcional)",
+          "consumer": "Consumidor (opcional)",
           "admin_role": "Rol de sistema (solo super-admin)"
         },
         "placeholders": {
@@ -1280,7 +1280,7 @@
           "tools": "payments-svc__charge"
         },
         "consumer_none": "Ninguno",
-        "create_consumer": "Crear consumer",
+        "create_consumer": "Crear consumidor",
         "elevated_label": "Elevated (salta la confirmación de tools sensibles)",
         "admin_role_none": "Sin acceso de sistema (solo plano de datos)",
         "admin_role_hint": "Otorga a esta key un rol en el endpoint de sistema /mcp (herramientas de gestión del gateway), además del plano de datos. Déjalo sin definir para una key de cliente normal.",
@@ -1792,7 +1792,7 @@
       "scope": {
         "title": "Qué abarcan el export, el import y el rollback",
         "included_label": "Incluido",
-        "included": "Los servidores registrados y si están activos, las guardas de cliente y todas las políticas por tool — guardas, overrides, guardrails, caché, coalescing, paginación, streaming, transformaciones, redacción, sensibilidad, cuarentena, mocks, monitores, presupuesto de contexto y aprobaciones. Además de bundles, reglas de alerta, quotas de consumers, schedules, políticas de guardas, equipos, entradas del catálogo y targets del proxy WebSocket.",
+        "included": "Los servidores registrados y si están activos, las guardas de cliente y todas las políticas por tool — guardas, overrides, guardrails, caché, coalescing, paginación, streaming, transformaciones, redacción, sensibilidad, cuarentena, mocks, monitores, presupuesto de contexto y aprobaciones. Además de bundles, reglas de alerta, cuotas de consumidores, schedules, políticas de guardas, equipos, entradas del catálogo y targets del proxy WebSocket.",
         "excluded_label": "No incluido",
         "excluded": "Usuarios, claves de API, el registro de auditoría, las credenciales de upstream almacenadas y la galería builtin del catálogo (que es código, no datos).",
         "backup_hint": "Un rollback restaura solo lo que aparece en Incluido. Para una copia completa de la base de datos de administración, haz una copia de seguridad de la base de datos."
