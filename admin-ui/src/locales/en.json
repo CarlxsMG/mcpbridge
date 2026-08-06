@@ -1777,6 +1777,13 @@
           "slug_name_required": "Slug and name are required.",
           "create_failed": "Failed to save catalog entry."
         }
+      },
+      "edit": {
+        "title": "Edit catalog entry",
+        "not_found": "That catalog entry no longer exists.",
+        "load_failed": "Could not load this catalog entry.",
+        "builtin_immutable": "Built-in catalog entries can't be edited. Only entries you added yourself can be changed.",
+        "save_failed": "Could not save this catalog entry."
       }
     },
     "config": {
@@ -1812,9 +1819,6 @@
       "title": "Consumers",
       "subtitle": "Consumers (teams / apps) own API keys and can carry a monthly call quota and an optional per-end-user rate limit enforced across all their keys.",
       "create": "New consumer",
-      "name_placeholder": "mobile-app",
-      "monthly_quota_label": "Monthly quota (blank = unlimited)",
-      "end_user_limit_label": "Per-end-user rate limit (calls/min, blank = disabled)",
       "end_user_limit_value": "{value}/min per user",
       "unlimited": "Unlimited",
       "aria": {
@@ -1840,12 +1844,8 @@
       },
       "errors": {
         "load_failed": "Failed to load consumers.",
-        "update_failed": "Failed to update consumer.",
         "delete_failed": "Failed to delete consumer.",
-        "usage_detail_failed": "Failed to load usage detail.",
-        "name_required": "Name is required.",
-        "quota_invalid": "Monthly quota must be a whole number of 1 or more, or blank.",
-        "end_user_limit_invalid": "Per-end-user rate limit must be a whole number of 1 or more, or blank."
+        "usage_detail_failed": "Failed to load usage detail."
       },
       "new": {
         "title": "New consumer",
@@ -1864,6 +1864,12 @@
           "end_user_limit_invalid": "Per-end-user rate limit must be a whole number of 1 or more, or blank.",
           "create_failed": "Failed to create consumer."
         }
+      },
+      "edit": {
+        "title": "Edit consumer",
+        "not_found": "That consumer no longer exists.",
+        "load_failed": "Could not load this consumer.",
+        "save_failed": "Could not save the consumer."
       }
     },
     "monitors": {
@@ -1945,6 +1951,12 @@
           "timeout_invalid": "Timeout must be between 1 and 600000 ms, or blank.",
           "create_failed": "Failed to create policy."
         }
+      },
+      "edit": {
+        "title": "Edit policy",
+        "not_found": "That policy no longer exists.",
+        "load_failed": "Could not load this policy.",
+        "save_failed": "Could not save the policy."
       }
     },
     "schedules": {
@@ -2270,8 +2282,6 @@
       "disabled": "Disabled",
       "disconnecting": "Disconnecting…",
       "disconnect_all": "Disconnect all",
-      "save_changes": "Save changes",
-      "saving": "Saving…",
       "table": {
         "name": "Name",
         "backend_url": "Backend URL",
@@ -2305,6 +2315,12 @@
       "new": {
         "title": "New WS proxy target",
         "create": "Create target"
+      },
+      "edit": {
+        "title": "Edit WS proxy target",
+        "not_found": "That WS proxy target no longer exists.",
+        "load_failed": "Could not load this WS proxy target.",
+        "name_fixed": "The name is part of the proxy URL and can't be changed after creation."
       }
     },
     "traces": {

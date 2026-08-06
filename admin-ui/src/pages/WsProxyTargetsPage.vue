@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
 import { useOptimisticToggle } from "@/composables/useOptimisticToggle";
-import { useEntityForm } from "@/composables/useEntityForm";
-import { parseOptionalNumber } from "@/utils/fieldParsing";
 import { toErrorMessage } from "@/utils/errors";
 import { tk } from "@/i18n";
 import type { WsProxyTarget } from "@/types/api";
@@ -15,10 +13,8 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
-import FormField from "@/components/ui/FormField.vue";
 import TogglePill from "@/components/ui/TogglePill.vue";
 import HoverPreview from "@/components/ui/HoverPreview.vue";
-import FieldError from "@/components/ui/FieldError.vue";
 import { Waypoints } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
@@ -52,87 +48,7 @@ const { rowError, toggle: toggleField } = useOptimisticToggle<WsProxyTarget>(
   tk("pages.ws_proxy_targets.errors.toggle_failed"),
 );
 
-const newName = ref("");
-const newBackendUrl = ref("");
-const newMaxConnections = ref("");
-const newMaxMessageBytes = ref("");
-const newIdleTimeoutMinutes = ref("");
-
-function resetForm() {
-  newName.value = "";
-  newBackendUrl.value = "";
-  newMaxConnections.value = "";
-  newMaxMessageBytes.value = "";
-  newIdleTimeoutMinutes.value = "";
-}
-
-function fillForm(target: WsProxyTarget) {
-  newName.value = target.name;
-  newBackendUrl.value = target.backendWsUrl;
-  newMaxConnections.value = String(target.maxConnections);
-  newMaxMessageBytes.value = String(target.maxMessageBytes);
-  newIdleTimeoutMinutes.value = String(Math.round(target.idleTimeoutMs / 60_000));
-}
-
-const {
-  open: showEdit,
-  busy: creating,
-  error: createError,
-  openEdit,
-  close: closeForm,
-  submit,
-} = useEntityForm<WsProxyTarget>({ reset: resetForm, fill: fillForm });
-
 onMounted(load);
-
-const editFormEl = ref<HTMLFormElement | null>(null);
-
-// The edit form is rendered statically above a potentially long table with
-// no visual cue that it appeared — scroll it into view and move focus into
-// its first editable field so opening it is actually noticeable.
-watch(showEdit, async (open) => {
-  if (!open) return;
-  await nextTick();
-  editFormEl.value?.scrollIntoView({ behavior: "smooth", block: "start" });
-  editFormEl.value
-    ?.querySelector<HTMLElement>("input:not(:disabled), select:not(:disabled), textarea:not(:disabled)")
-    ?.focus();
-});
-
-async function submitTarget() {
-  createError.value = "";
-  if (!newName.value.trim() || !newBackendUrl.value.trim()) {
-    createError.value = t("pages.ws_proxy_targets.errors.name_and_url_required");
-    return;
-  }
-  const maxConnectionsResult = parseOptionalNumber(
-    newMaxConnections.value,
-    t("pages.ws_proxy_targets.errors.max_connections_invalid"),
-  );
-  const maxMessageBytesResult = parseOptionalNumber(
-    newMaxMessageBytes.value,
-    t("pages.ws_proxy_targets.errors.max_message_bytes_invalid"),
-  );
-  const idleTimeoutMinutesResult = parseOptionalNumber(
-    newIdleTimeoutMinutes.value,
-    t("pages.ws_proxy_targets.errors.idle_timeout_invalid"),
-  );
-  for (const result of [maxConnectionsResult, maxMessageBytesResult, idleTimeoutMinutesResult]) {
-    if (result.error) {
-      createError.value = result.error;
-      return;
-    }
-  }
-  const ok = await submit(async (editing) => {
-    if (!editing) return;
-    const body: Record<string, unknown> = { backendWsUrl: newBackendUrl.value.trim() };
-    if (maxConnectionsResult.value !== null) body.maxConnections = maxConnectionsResult.value;
-    if (maxMessageBytesResult.value !== null) body.maxMessageBytes = maxMessageBytesResult.value;
-    if (idleTimeoutMinutesResult.value !== null) body.idleTimeoutMs = idleTimeoutMinutesResult.value * 60_000;
-    await api.patch(`/admin-api/ws-proxy-targets/${encodeURIComponent(editing.name)}`, body);
-  }, tk("pages.ws_proxy_targets.errors.save_failed"));
-  if (ok) await load();
-}
 
 async function toggleEnabled(target: WsProxyTarget) {
   await toggleField(target, "enabled", (next) =>
@@ -180,31 +96,6 @@ async function confirmDelete() {
       {{ t("pages.ws_proxy_targets.subtitle_p2") }}
     </p>
 
-    <form v-if="showEdit" ref="editFormEl" class="create-form" @submit.prevent="submitTarget">
-      <FormField :label="t('pages.ws_proxy_targets.fields.name')" for="wp-name">
-        <input id="wp-name" v-model="newName" type="text" placeholder="iot-gateway" disabled />
-      </FormField>
-      <FormField :label="t('pages.ws_proxy_targets.fields.backend_url')" for="wp-url">
-        <input id="wp-url" v-model="newBackendUrl" type="text" placeholder="wss://backend.example.com/socket" />
-      </FormField>
-      <FormField :label="t('pages.ws_proxy_targets.fields.max_connections')" for="wp-max-conn">
-        <input id="wp-max-conn" v-model="newMaxConnections" type="text" inputmode="numeric" />
-      </FormField>
-      <FormField :label="t('pages.ws_proxy_targets.fields.max_message_bytes')" for="wp-max-bytes">
-        <input id="wp-max-bytes" v-model="newMaxMessageBytes" type="text" inputmode="numeric" />
-      </FormField>
-      <FormField :label="t('pages.ws_proxy_targets.fields.idle_timeout')" for="wp-idle">
-        <input id="wp-idle" v-model="newIdleTimeoutMinutes" type="text" inputmode="numeric" />
-      </FormField>
-      <FieldError :message="createError" />
-      <div class="form-actions">
-        <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t("pages.ws_proxy_targets.saving") : t("pages.ws_proxy_targets.save_changes") }}
-        </button>
-        <button type="button" class="btn-secondary" @click="closeForm">{{ t("common.cancel") }}</button>
-      </div>
-    </form>
-
     <ListLayout
       :loading="loading"
       :error="errorMessage"
@@ -245,7 +136,9 @@ async function confirmDelete() {
             </td>
             <td>
               <div class="actions">
-                <button type="button" class="link-btn" @click="openEdit(target)">{{ t("common.edit") }}</button>
+                <RouterLink class="link-btn" :to="`/ws-proxies/${encodeURIComponent(target.name)}/edit`">{{
+                  t("common.edit")
+                }}</RouterLink>
                 <button
                   type="button"
                   class="link-btn"
@@ -307,18 +200,6 @@ async function confirmDelete() {
   color: var(--text-secondary);
   margin: 0;
   max-width: 35rem;
-}
-.create-form {
-  max-width: 26.25rem;
-}
-.form-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.field input:disabled {
-  background: var(--surface-sunken);
-  color: var(--text-muted);
 }
 .url-cell {
   color: var(--text-secondary);

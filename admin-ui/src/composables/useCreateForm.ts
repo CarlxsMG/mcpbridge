@@ -11,12 +11,17 @@ import { tk } from "@/i18n";
  * success, `toErrorMessage`s into `error` on failure, resets `creating` in a
  * `finally`).
  *
+ * Also backs the four dual-mode form pages (PolicyFormPage,
+ * CatalogEntryFormPage, ConsumerFormPage, WsProxyTargetFormPage), which serve
+ * both `/x/new` and `/x/:id/edit` off one component: they swap `submit`
+ * between POST and PATCH and pick the matching `fallbackKey`, and everything
+ * else here applies unchanged.
+ *
  * Deliberately does NOT own per-field validation (NewAlertPage's
  * `nameError`/`urlError`, NewCompositePage's `schemaError`/`stepsError`,
- * NewConsumerPage's per-field errors, ...) — same reasoning as
- * useEntityForm.ts. Two different shapes of "abort before submitting" exist
- * across the 11 pages, and they map onto two different places to put the
- * check:
+ * ConsumerFormPage's per-field errors, ...). Two different shapes of "abort
+ * before submitting" exist across those pages, and they map onto two
+ * different places to put the check:
  *   - A check that must abort *silently* (its own field-level ref is already
  *     rendered inline, e.g. NewCompositePage's computed `nameError` shown
  *     under the name field) — do this in the page's own wrapper function,

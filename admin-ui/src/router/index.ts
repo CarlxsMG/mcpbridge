@@ -56,6 +56,23 @@ const routes = [
         ]
       : [],
   ),
+  // The "/x/:id/edit" routes, same derivation as the create routes above. The
+  // page component is shared with `newPage` and switches mode on `id`, which
+  // arrives as a prop (`props: true`) rather than being read off useRoute() so
+  // the component stays trivially testable with a plain mount({ props }).
+  ...navEntries.flatMap((entry) =>
+    entry.editPage
+      ? [
+          {
+            path: `${entry.path}/:id/edit`,
+            name: entry.editPage.name,
+            component: entry.editPage.component,
+            props: true,
+            meta: { ...entry.meta, titleKey: entry.editPage.titleKey },
+          },
+        ]
+      : [],
+  ),
   {
     path: "/traces/:traceId",
     name: "trace-detail",

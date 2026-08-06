@@ -1777,6 +1777,13 @@
           "slug_name_required": "El slug y el nombre son obligatorios.",
           "create_failed": "Error al guardar la entrada del catálogo."
         }
+      },
+      "edit": {
+        "title": "Editar entrada del catálogo",
+        "not_found": "Esa entrada del catálogo ya no existe.",
+        "load_failed": "No se ha podido cargar esta entrada del catálogo.",
+        "builtin_immutable": "Las entradas integradas del catálogo no se pueden editar. Solo puedes cambiar las que hayas añadido tú.",
+        "save_failed": "No se ha podido guardar la entrada del catálogo."
       }
     },
     "config": {
@@ -1812,9 +1819,6 @@
       "title": "Consumidores",
       "subtitle": "Los consumidores (equipos / apps) son dueños de API keys y pueden llevar una cuota mensual de llamadas y un rate limit opcional por end-user, aplicado a todas sus keys.",
       "create": "Nuevo consumidor",
-      "name_placeholder": "mobile-app",
-      "monthly_quota_label": "Cuota mensual (vacío = ilimitada)",
-      "end_user_limit_label": "Rate limit por end-user (calls/min, vacío = desactivado)",
       "end_user_limit_value": "{value}/min por usuario",
       "unlimited": "Ilimitado",
       "aria": {
@@ -1840,15 +1844,11 @@
       },
       "errors": {
         "load_failed": "Error al cargar consumidores.",
-        "update_failed": "Error al actualizar el consumidor.",
         "delete_failed": "Error al eliminar el consumidor.",
-        "usage_detail_failed": "Error al cargar el detalle de uso.",
-        "name_required": "El nombre es obligatorio.",
-        "quota_invalid": "La cuota mensual debe ser un número entero de 1 o más, o estar vacía.",
-        "end_user_limit_invalid": "El rate limit por end-user debe ser un número entero de 1 o más, o estar vacío."
+        "usage_detail_failed": "Error al cargar el detalle de uso."
       },
       "new": {
-        "title": "Nuevo consumer",
+        "title": "Nuevo consumidor",
         "fields": {
           "name": "Nombre",
           "quota": "Cuota mensual (vacío = ilimitada)",
@@ -1857,13 +1857,19 @@
         "placeholders": {
           "name": "mobile-app"
         },
-        "create": "Crear consumer",
+        "create": "Crear consumidor",
         "errors": {
           "name_required": "El nombre es obligatorio.",
           "quota_invalid": "La cuota mensual debe ser un número entero de 1 o más, o estar vacía.",
           "end_user_limit_invalid": "El rate limit por end-user debe ser un número entero de 1 o más, o estar vacío.",
-          "create_failed": "Error al crear el consumer."
+          "create_failed": "Error al crear el consumidor."
         }
+      },
+      "edit": {
+        "title": "Editar consumidor",
+        "not_found": "Ese consumidor ya no existe.",
+        "load_failed": "No se ha podido cargar este consumidor.",
+        "save_failed": "No se ha podido guardar el consumidor."
       }
     },
     "monitors": {
@@ -1945,6 +1951,12 @@
           "timeout_invalid": "El timeout debe estar entre 1 y 600000 ms, o estar vacío.",
           "create_failed": "Error al crear la policy."
         }
+      },
+      "edit": {
+        "title": "Editar política",
+        "not_found": "Esa política ya no existe.",
+        "load_failed": "No se ha podido cargar esta política.",
+        "save_failed": "No se ha podido guardar la política."
       }
     },
     "schedules": {
@@ -2270,8 +2282,6 @@
       "disabled": "Deshabilitado",
       "disconnecting": "Desconectando…",
       "disconnect_all": "Desconectar todas",
-      "save_changes": "Guardar cambios",
-      "saving": "Guardando…",
       "table": {
         "name": "Nombre",
         "backend_url": "URL backend",
@@ -2305,6 +2315,12 @@
       "new": {
         "title": "Nuevo target WS proxy",
         "create": "Crear target"
+      },
+      "edit": {
+        "title": "Editar destino de proxy WS",
+        "not_found": "Ese destino de proxy WS ya no existe.",
+        "load_failed": "No se ha podido cargar este destino de proxy WS.",
+        "name_fixed": "El nombre forma parte de la URL del proxy y no se puede cambiar después de crearlo."
       }
     },
     "traces": {

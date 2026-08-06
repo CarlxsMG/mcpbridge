@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { api } from "@/composables/useApi";
 import { useResource } from "@/composables/useResource";
 import { useConfirmAction } from "@/composables/useConfirmAction";
-import { useEntityForm } from "@/composables/useEntityForm";
-import { numberRangeValidator, parseOptionalNumber } from "@/utils/fieldParsing";
-import { CONSUMER_END_USER_RATE_LIMIT, CONSUMER_QUOTA } from "@/utils/fieldConstraints";
-import { focusFirstInvalid } from "@/utils/focusFirstInvalid";
 import { toErrorMessage } from "@/utils/errors";
 import { tk } from "@/i18n";
 import type { ConsumerWithUsage, ConsumerUsage } from "@/types/api";
@@ -18,14 +14,12 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import ListLayout from "@/components/ui/ListLayout.vue";
 import TableCard from "@/components/ui/TableCard.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
-import FormField from "@/components/ui/FormField.vue";
 import FieldError from "@/components/ui/FieldError.vue";
 import { Users2, ChevronDown, ChevronRight } from "lucide-vue-next";
 
 const { t } = useI18n({ useScope: "global" });
 
 const loadFallback = tk("pages.consumers.errors.load_failed");
-const updateFallback = tk("pages.consumers.errors.update_failed");
 const deleteFallback = tk("pages.consumers.errors.delete_failed");
 const usageDetailFallback = tk("pages.consumers.errors.usage_detail_failed");
 
@@ -46,37 +40,6 @@ const {
   cancel: cancelDelete,
   confirm: confirmActionDelete,
 } = useConfirmAction<ConsumerWithUsage>();
-
-const newName = ref("");
-const newQuota = ref("");
-const newEndUserLimit = ref("");
-const nameError = ref("");
-const quotaError = ref("");
-const endUserLimitError = ref("");
-
-function resetForm() {
-  newName.value = "";
-  newQuota.value = "";
-  newEndUserLimit.value = "";
-  nameError.value = "";
-  quotaError.value = "";
-  endUserLimitError.value = "";
-}
-
-function fillForm(consumer: ConsumerWithUsage) {
-  newName.value = consumer.name;
-  newQuota.value = consumer.monthlyQuota !== null ? String(consumer.monthlyQuota) : "";
-  newEndUserLimit.value = consumer.endUserRateLimitPerMin !== null ? String(consumer.endUserRateLimitPerMin) : "";
-}
-
-const {
-  open: showEdit,
-  busy: creating,
-  error: createError,
-  openEdit,
-  close: closeForm,
-  submit,
-} = useEntityForm<ConsumerWithUsage>({ reset: resetForm, fill: fillForm });
 
 const expandedId = ref<number | null>(null);
 const usageById = ref<Record<number, ConsumerUsage>>({});
@@ -108,54 +71,6 @@ async function toggleUsage(consumer: ConsumerWithUsage) {
 
 onMounted(load);
 
-const editFormEl = ref<HTMLFormElement | null>(null);
-
-// The edit form is rendered statically above a potentially long table with
-// no visual cue that it appeared — scroll it into view and move focus into
-// its first editable field so opening it is actually noticeable.
-watch(showEdit, async (open) => {
-  if (!open) return;
-  await nextTick();
-  editFormEl.value?.scrollIntoView({ behavior: "smooth", block: "start" });
-  editFormEl.value
-    ?.querySelector<HTMLElement>("input:not(:disabled), select:not(:disabled), textarea:not(:disabled)")
-    ?.focus();
-});
-
-async function submitConsumer() {
-  nameError.value = "";
-  quotaError.value = "";
-  endUserLimitError.value = "";
-  if (!newName.value.trim()) {
-    nameError.value = t("pages.consumers.errors.name_required");
-  }
-  // Range-checked against the API's own rule, not just "is it a number": it answers
-  // 400 for -5, 2.7 and 0, all of which a bare finite check let through.
-  quotaError.value =
-    numberRangeValidator({ ...CONSUMER_QUOTA, message: t("pages.consumers.errors.quota_invalid") })(newQuota.value) ??
-    "";
-  const quota = parseOptionalNumber(newQuota.value).value;
-  endUserLimitError.value =
-    numberRangeValidator({
-      ...CONSUMER_END_USER_RATE_LIMIT,
-      message: t("pages.consumers.errors.end_user_limit_invalid"),
-    })(newEndUserLimit.value) ?? "";
-  const endUserRateLimitPerMin = parseOptionalNumber(newEndUserLimit.value).value;
-  if (nameError.value || quotaError.value || endUserLimitError.value) {
-    void focusFirstInvalid();
-    return;
-  }
-  const ok = await submit(async (editing) => {
-    if (!editing) return;
-    await api.patch(`/admin-api/consumers/${editing.id}`, {
-      name: newName.value.trim(),
-      monthlyQuota: quota,
-      endUserRateLimitPerMin,
-    });
-  }, updateFallback);
-  if (ok) await load();
-}
-
 function confirmDelete() {
   return confirmActionDelete(async (c) => {
     try {
@@ -173,37 +88,6 @@ function confirmDelete() {
     <PageHeader :title="t('pages.consumers.title')" :subtitle="t('pages.consumers.subtitle')">
       <RouterLink to="/consumers/new" class="btn-primary">{{ t("pages.consumers.create") }}</RouterLink>
     </PageHeader>
-
-    <form v-if="showEdit" ref="editFormEl" novalidate class="create-form" @submit.prevent="submitConsumer">
-      <FormField v-slot="field" :label="t('common.name')" for="c-name" :error="nameError">
-        <input
-          id="c-name"
-          v-model="newName"
-          type="text"
-          required
-          :placeholder="t('pages.consumers.name_placeholder')"
-          v-bind="field"
-        />
-      </FormField>
-      <FormField v-slot="field" :label="t('pages.consumers.monthly_quota_label')" for="c-quota" :error="quotaError">
-        <input id="c-quota" v-model="newQuota" type="text" inputmode="numeric" v-bind="field" />
-      </FormField>
-      <FormField
-        v-slot="field"
-        :label="t('pages.consumers.end_user_limit_label')"
-        for="c-end-user-limit"
-        :error="endUserLimitError"
-      >
-        <input id="c-end-user-limit" v-model="newEndUserLimit" type="text" inputmode="numeric" v-bind="field" />
-      </FormField>
-      <FieldError :message="createError" />
-      <div class="form-actions">
-        <button type="submit" class="btn-primary" :disabled="creating">
-          {{ creating ? t("common.saving") : t("common.save_changes") }}
-        </button>
-        <button type="button" class="btn-secondary" @click="closeForm">{{ t("common.cancel") }}</button>
-      </div>
-    </form>
 
     <ListLayout
       :loading="loading"
@@ -263,7 +147,7 @@ function confirmDelete() {
               </td>
               <td>
                 <div class="actions" @click.stop>
-                  <button type="button" class="link-btn" @click="openEdit(c)">{{ t("common.edit") }}</button>
+                  <RouterLink class="link-btn" :to="`/consumers/${c.id}/edit`">{{ t("common.edit") }}</RouterLink>
                   <button type="button" class="link-btn danger" @click="requestDelete(c)">
                     {{ t("common.delete") }}
                   </button>
@@ -317,14 +201,6 @@ function confirmDelete() {
 </template>
 
 <style scoped>
-.create-form {
-  max-width: 23.75rem;
-}
-.form-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
 .usage-cell {
   display: flex;
   flex-direction: column;

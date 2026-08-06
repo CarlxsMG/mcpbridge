@@ -152,7 +152,12 @@ async function confirmDelete() {
               </button>
             </td>
             <td>
-              <button type="button" class="link-btn danger" @click="requestDelete(p)">{{ t("common.delete") }}</button>
+              <div class="row-actions">
+                <RouterLink class="link-btn" :to="`/policies/${p.id}/edit`">{{ t("common.edit") }}</RouterLink>
+                <button type="button" class="link-btn danger" @click="requestDelete(p)">
+                  {{ t("common.delete") }}
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -193,6 +198,13 @@ async function confirmDelete() {
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
+}
+/* On the wrapping div, never on the <td> itself — display:flex on a table
+   cell drops it out of the table layout and the column widths collapse. */
+.row-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
 }
 .notice {
   color: var(--ok-text);

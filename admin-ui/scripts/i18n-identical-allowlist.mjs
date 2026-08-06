@@ -157,7 +157,6 @@ export const identicalAllowlist = new Set([
   "pages.catalog.new.placeholders.health_url",
   "pages.catalog.new.placeholders.openapi_url",
   "pages.catalog.new.placeholders.mcp_url",
-  "pages.consumers.name_placeholder",
   "pages.consumers.new.placeholders.name",
   "pages.policies.new.placeholders.name",
   "pages.ws_proxy_targets.placeholders.name",

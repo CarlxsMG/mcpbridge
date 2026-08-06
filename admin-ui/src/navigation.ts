@@ -67,6 +67,18 @@ export interface NavEntry {
   // spelled out per entry rather than derived as `pages.<name>.new.title` because
   // two pages don't follow that shape (alerts, register-server).
   newPage?: { name: string; titleKey: string; component: () => Promise<{ default: Component }> };
+  // Some entries also own an "/:id/edit" route. Same deal as `newPage` — the
+  // router derives the path from `path` and reuses `meta`, and `titleKey` is
+  // spelled out because an edit route has no `nav.<name>.label` to fall back
+  // on either.
+  //
+  // `component` is deliberately the SAME component the entry's `newPage`
+  // points at: create and edit render one dual-mode form page that switches
+  // on the presence of the `id` route param. Pointing them at two files is
+  // what let the consumers create-page and the consumers inline edit-form
+  // drift into two implementations of the same three fields with two parallel
+  // sets of i18n keys — don't reintroduce that here.
+  editPage?: { name: string; titleKey: string; component: () => Promise<{ default: Component }> };
 }
 
 // Stable label/hint key prefixes — entry.name is the canonical slug, so the
@@ -112,7 +124,12 @@ export const navEntries: NavEntry[] = [
     newPage: {
       name: "catalog-new",
       titleKey: "pages.catalog.new.title",
-      component: () => import("./pages/NewCatalogEntryPage.vue"),
+      component: () => import("./pages/CatalogEntryFormPage.vue"),
+    },
+    editPage: {
+      name: "catalog-edit",
+      titleKey: "pages.catalog.edit.title",
+      component: () => import("./pages/CatalogEntryFormPage.vue"),
     },
   },
   {
@@ -154,7 +171,12 @@ export const navEntries: NavEntry[] = [
     newPage: {
       name: "ws-proxy-new",
       titleKey: "pages.ws_proxy_targets.new.title",
-      component: () => import("./pages/NewWsProxyTargetPage.vue"),
+      component: () => import("./pages/WsProxyTargetFormPage.vue"),
+    },
+    editPage: {
+      name: "ws-proxy-edit",
+      titleKey: "pages.ws_proxy_targets.edit.title",
+      component: () => import("./pages/WsProxyTargetFormPage.vue"),
     },
   },
   // Access
@@ -183,7 +205,12 @@ export const navEntries: NavEntry[] = [
     newPage: {
       name: "policy-new",
       titleKey: "pages.policies.new.title",
-      component: () => import("./pages/NewPolicyPage.vue"),
+      component: () => import("./pages/PolicyFormPage.vue"),
+    },
+    editPage: {
+      name: "policy-edit",
+      titleKey: "pages.policies.edit.title",
+      component: () => import("./pages/PolicyFormPage.vue"),
     },
   },
   {
@@ -197,7 +224,12 @@ export const navEntries: NavEntry[] = [
     newPage: {
       name: "consumer-new",
       titleKey: "pages.consumers.new.title",
-      component: () => import("./pages/NewConsumerPage.vue"),
+      component: () => import("./pages/ConsumerFormPage.vue"),
+    },
+    editPage: {
+      name: "consumer-edit",
+      titleKey: "pages.consumers.edit.title",
+      component: () => import("./pages/ConsumerFormPage.vue"),
     },
   },
   {

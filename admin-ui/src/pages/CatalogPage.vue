@@ -153,6 +153,15 @@ function confirmDelete() {
             <button type="button" class="btn-secondary" @click="toggleInstall(entry)">
               {{ openEntryId === entry.id ? t("common.cancel") : t("pages.catalog.table.install") }}
             </button>
+            <!-- Custom entries only: the API answers 403 IMMUTABLE_ENTRY for a
+                 builtin id, so offering Edit there would be a dead control. -->
+            <RouterLink
+              v-if="entry.source === 'custom'"
+              class="link-btn"
+              :to="`/catalog/${encodeURIComponent(entry.id)}/edit`"
+            >
+              {{ t("common.edit") }}
+            </RouterLink>
             <button v-if="entry.source === 'custom'" type="button" class="link-btn danger" @click="deleteEntry(entry)">
               {{ t("common.delete") }}
             </button>

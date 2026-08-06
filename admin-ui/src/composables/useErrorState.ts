@@ -20,7 +20,7 @@ export interface ErrorState {
  *     error.value = toErrorMessage(err, fallback);       // in the catch
  *
  * Owning it here is what let the request correlation id be added once instead
- * of eight times (useResource, useCreateForm, useEntityForm, usePatchResource,
+ * of once per consumer (useResource, useCreateForm, usePatchResource,
  * useDetailPageDelete, useConfirmAction, useClearableConfig, useFieldDraft).
  *
  * `requestId` is a computed, not a plain ref, on purpose. Several callers
