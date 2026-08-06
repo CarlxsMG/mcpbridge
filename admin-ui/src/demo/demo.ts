@@ -30,6 +30,7 @@
 import type {
   AdminRole,
   AdminSession,
+  AlertEventType,
   ApprovalStatus,
   BundleDetail,
   BundleInstallLinkWithToken,
@@ -80,6 +81,17 @@ function asAdminRole(v: unknown): AdminRole | null {
   return typeof v === "string" && (ADMIN_ROLE_VALUES as string[]).includes(v) ? (v as AdminRole) : null;
 }
 
+const ALERT_EVENT_VALUES: AlertEventType[] = [
+  "circuit_breaker_open",
+  "client_unreachable",
+  "error_rate",
+  "usage_spike",
+  "schema_drift",
+];
+function asAlertEventType(v: unknown): AlertEventType | null {
+  return typeof v === "string" && (ALERT_EVENT_VALUES as string[]).includes(v) ? (v as AlertEventType) : null;
+}
+
 /**
  * Shared shape behind the clients & bundles detail routes: GET and PATCH
  * both return the same freshly computed detail view (via `computeDetail`,
@@ -104,16 +116,34 @@ function detailWithEnabledToggle<T extends { enabled: boolean }>(
 }
 
 /**
- * Shared shape behind the catalog-entry & ws-proxy-target detail routes:
- * PATCH merges the whole request body onto the found item with
- * Object.assign, DELETE removes it outright via findIndex + splice, and
- * neither resource has its own GET-single branch (their collection-level
- * GET already covers the list). Returns the `undefined` sentinel for any
- * other method — since DELETE and PATCH here always return a real object,
- * that's unambiguous — so callers can fall through to a later route exactly
- * as the un-factored per-resource blocks did.
+ * Merge a PATCH body onto a fixture record, dropping the `*Key` i18n sibling
+ * of every field the body sets.
+ *
+ * Fixtures carry BOTH a plain text field (`name`, the EN fallback) and a
+ * `nameKey` i18n key, and resolve.ts's `localize()` gives the *Key sibling
+ * priority when it resolves. So a plain `Object.assign` of a user-edited
+ * `name` renders the *translated fixture name* straight back on the next
+ * read — the edit looks like it silently didn't take. Dropping the key on
+ * write is what makes an edited record read back as edited: the fixture's
+ * canned translation stops applying the moment a human overrides that field.
  */
-function patchOrDeleteInArray<T>(
+function assignEdit<T extends object>(item: T, body: Record<string, unknown>): void {
+  for (const field of Object.keys(body)) {
+    delete (item as Record<string, unknown>)[`${field}Key`];
+  }
+  Object.assign(item, body);
+}
+
+/**
+ * Shared shape behind the resource-detail routes (catalog entry, ws-proxy
+ * target, and every Administration resource): PATCH merges the request body
+ * onto the found item via `assignEdit`, DELETE removes it outright via
+ * findIndex + splice. Returns the `undefined` sentinel for any other method
+ * — since DELETE and PATCH here always return a real object, that's
+ * unambiguous — so callers can fall through to a later route (a GET-single
+ * branch, say) exactly as the un-factored per-resource blocks did.
+ */
+function patchOrDeleteInArray<T extends object>(
   items: T[],
   predicate: (item: T) => boolean,
   method: string,
@@ -127,7 +157,7 @@ function patchOrDeleteInArray<T>(
   }
   if (method === "PATCH") {
     const item = items.find(predicate);
-    if (item && body) Object.assign(item, body);
+    if (item && body) assignEdit(item, body);
     return ok(item ?? {});
   }
   return undefined;
@@ -404,15 +434,66 @@ function route(
       key: "mcp_live_new0DEMOxxxxxxxxxxxxxxxxxxxxxxxx",
     });
   }
-  if (/^\/admin-api\/mcp-keys\/\d+\/revoke$/.test(p)) return ok({});
+  // Revoking is a state change the list renders (KeysPage shows a "revoked"
+  // badge and disables the row), so it has to stamp the fixture — returning a
+  // bare {} left the key looking live after a successful revoke.
+  const keyRevokeMatch = p.match(/^\/admin-api\/mcp-keys\/(\d+)\/revoke$/);
+  if (keyRevokeMatch) {
+    const key = mcpKeys.find((x) => x.id === Number(keyRevokeMatch[1]));
+    if (key) {
+      key.revokedAt = NOW;
+      key.enabled = false;
+    }
+    return ok(key ?? {});
+  }
+  const keyMatch = p.match(/^\/admin-api\/mcp-keys\/(\d+)$/);
+  if (keyMatch) {
+    const id = Number(keyMatch[1]);
+    if (method === "GET") return ok(mcpKeys.find((x) => x.id === id) ?? {});
+    const handled = patchOrDeleteInArray(
+      mcpKeys,
+      (x) => x.id === id,
+      method,
+      body,
+      () => ({ ok: true }),
+    );
+    if (handled !== undefined) return handled;
+  }
   if (/^\/admin-api\/mcp-keys\//.test(p)) return undefined;
+
   if (p === "/admin-api/consumers" && method === "GET") return ok({ items: consumers });
+  if (p === "/admin-api/consumers" && method === "POST") {
+    const id = Math.max(0, ...consumers.map((x) => x.id)) + 1;
+    const quota = typeof body?.monthlyQuota === "number" ? body.monthlyQuota : null;
+    consumers.push({
+      id,
+      name: typeof body?.name === "string" ? body.name : `consumer-${id}`,
+      monthlyQuota: quota,
+      endUserRateLimitPerMin: typeof body?.endUserRateLimitPerMin === "number" ? body.endUserRateLimitPerMin : null,
+      usedThisMonth: 0,
+      createdAt: NOW,
+      updatedAt: NOW,
+      createdBy: DEMO_USER.username,
+    });
+    return ok({ id, name: String(body?.name ?? "New") });
+  }
   const consumerUsageMatch = p.match(/^\/admin-api\/consumers\/(\d+)\/usage$/);
   if (consumerUsageMatch && method === "GET") {
     const c = consumers.find((x) => x.id === Number(consumerUsageMatch[1]));
     return ok({ used: c?.usedThisMonth ?? 0, quota: c?.monthlyQuota ?? null });
   }
-  if (/^\/admin-api\/consumers/.test(p)) return ok({ id: 99, name: String(body?.name ?? "New") });
+  const consumerMatch = p.match(/^\/admin-api\/consumers\/(\d+)$/);
+  if (consumerMatch) {
+    const id = Number(consumerMatch[1]);
+    const handled = patchOrDeleteInArray(
+      consumers,
+      (x) => x.id === id,
+      method,
+      body,
+      () => ({ ok: true }),
+    );
+    if (handled !== undefined) return handled;
+  }
 
   // Tags (browse-by-tag)
   if (p === "/admin-api/tags" && method === "GET") return ok({ items: tagCounts });
@@ -425,7 +506,38 @@ function route(
   if (p === "/admin-api/usage/by-key") return ok({ items: byKey });
   if (p === "/admin-api/usage/timeseries") return ok(usageTimeseries);
   if (p === "/admin-api/alerts" && method === "GET") return ok({ items: alerts });
-  if (/^\/admin-api\/alerts/.test(p)) return ok({ id: 99 });
+  if (p === "/admin-api/alerts" && method === "POST") {
+    const id = Math.max(0, ...alerts.map((x) => x.id)) + 1;
+    alerts.push({
+      id,
+      name: typeof body?.name === "string" ? body.name : `alert-${id}`,
+      eventType: asAlertEventType(body?.eventType) ?? "circuit_breaker_open",
+      enabled: true,
+      webhookUrl: typeof body?.webhookUrl === "string" ? body.webhookUrl : "",
+      threshold: typeof body?.threshold === "number" ? body.threshold : null,
+      minCalls: typeof body?.minCalls === "number" ? body.minCalls : null,
+      lastFiredAt: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+      createdBy: DEMO_USER.username,
+    });
+    return ok({ id });
+  }
+  // Sending a test notification genuinely changes nothing — it pings the
+  // webhook. Canned on purpose, unlike the mutations above it.
+  if (/^\/admin-api\/alerts\/(\d+)\/test$/.test(p)) return ok({ ok: true });
+  const alertMatch = p.match(/^\/admin-api\/alerts\/(\d+)$/);
+  if (alertMatch) {
+    const id = Number(alertMatch[1]);
+    const handled = patchOrDeleteInArray(
+      alerts,
+      (x) => x.id === id,
+      method,
+      body,
+      () => ({ ok: true }),
+    );
+    if (handled !== undefined) return handled;
+  }
   if (p === "/admin-api/audit-log/actions") {
     return ok({ actions: Array.from(new Set(auditLog.map((e) => e.action))).sort() });
   }
@@ -513,8 +625,37 @@ function route(
     return ok({ status: a?.status ?? decision, id });
   }
 
-  // Administration
+  // ─── Administration ──────────────────────────────────────────────────────
+  // Every branch below MUTATES its backing fixture array, so a create/edit/
+  // delete performed in the demo shows up on the very next list render.
+  //
+  // These were five `if (/^\/admin-api\/<entity>/) return ok(<canned body>)`
+  // catch-alls that matched ANY method. A DELETE therefore got a 200 and a
+  // canned body, the UI closed its confirm dialog and reloaded — and the row
+  // was still there, with no error. A silent no-op is the worst failure mode
+  // to ship on the public "try it" demo, so each resource now dispatches on
+  // method and falls through only when it genuinely has nothing to say.
+  //
+  // The collection branches are method-guarded for the same reason: a bare
+  // `p === "/admin-api/policies"` answered POST with the *list*, so creating
+  // a policy silently did nothing either.
+  //
+  // Note the ordering constraint: the `/:id/team` and `/:id/apply` sub-paths
+  // must be matched BEFORE the bare `/:id` patterns below them, or the
+  // `[^/]+`/`\d+` detail branch would swallow them.
   if (p === "/admin-api/users" && method === "GET") return ok({ users });
+  if (p === "/admin-api/users" && method === "POST") {
+    const username = typeof body?.username === "string" ? body.username : `user-${users.length + 1}`;
+    users.push({
+      username,
+      role: asAdminRole(body?.role) ?? "viewer",
+      is_active: true,
+      created_at: NOW,
+      last_login_at: null,
+      team_id: null,
+    });
+    return ok({ username });
+  }
   const userTeamMatch = p.match(/^\/admin-api\/users\/([^/]+)\/team$/);
   if (userTeamMatch && method === "PUT") {
     const u = users.find((x) => x.username === decodeURIComponent(userTeamMatch[1]));
@@ -522,15 +663,153 @@ function route(
     if (u) u.team_id = teamId;
     return ok({ status: "updated", username: u?.username, teamId });
   }
-  if (/^\/admin-api\/users/.test(p)) return ok({ ok: true });
+  const userMatch = p.match(/^\/admin-api\/users\/([^/]+)$/);
+  if (userMatch) {
+    const username = decodeURIComponent(userMatch[1]);
+    const handled = patchOrDeleteInArray(
+      users,
+      (u) => u.username === username,
+      method,
+      body,
+      () => ({ ok: true }),
+    );
+    if (handled !== undefined) return handled;
+  }
+
   if (p === "/admin-api/teams" && method === "GET") return ok({ items: teams });
-  if (/^\/admin-api\/teams/.test(p)) return ok({ id: 99 });
-  if (p === "/admin-api/policies") return ok({ items: policies });
-  if (/^\/admin-api\/policies/.test(p)) return ok({ applied: 3, skipped: [] });
-  if (p === "/admin-api/composites") return ok({ items: composites });
-  if (/^\/admin-api\/composites/.test(p)) return ok({});
-  if (p === "/admin-api/schedules") return ok({ items: schedules });
-  if (/^\/admin-api\/schedules/.test(p)) return ok({ id: 99 });
+  if (p === "/admin-api/teams" && method === "POST") {
+    const id = Math.max(0, ...teams.map((x) => x.id)) + 1;
+    teams.push({
+      id,
+      name: typeof body?.name === "string" ? body.name : `team-${id}`,
+      createdAt: NOW,
+      createdBy: DEMO_USER.username,
+    });
+    return ok({ id });
+  }
+  const teamMatch = p.match(/^\/admin-api\/teams\/(\d+)$/);
+  if (teamMatch) {
+    const id = Number(teamMatch[1]);
+    if (method === "GET") return ok(teams.find((x) => x.id === id) ?? {});
+    const handled = patchOrDeleteInArray(
+      teams,
+      (x) => x.id === id,
+      method,
+      body,
+      () => ({ ok: true }),
+    );
+    if (handled !== undefined) return handled;
+  }
+
+  if (p === "/admin-api/policies" && method === "GET") return ok({ items: policies });
+  if (p === "/admin-api/policies" && method === "POST") {
+    const id = Math.max(0, ...policies.map((x) => x.id)) + 1;
+    policies.push({
+      id,
+      name: typeof body?.name === "string" ? body.name : `policy-${id}`,
+      rateLimitPerMin: typeof body?.rateLimitPerMin === "number" ? body.rateLimitPerMin : null,
+      timeoutMs: typeof body?.timeoutMs === "number" ? body.timeoutMs : null,
+      createdAt: NOW,
+      updatedAt: NOW,
+      createdBy: DEMO_USER.username,
+    });
+    return ok({ id });
+  }
+  // Applying a policy is a bulk write against tool guards the demo doesn't
+  // model, so this one legitimately stays canned — it reports a plausible
+  // count and changes nothing, which is what the real call looks like from
+  // the PoliciesPage's point of view.
+  if (/^\/admin-api\/policies\/(\d+)\/apply$/.test(p)) return ok({ applied: 3, skipped: [] });
+  const policyMatch = p.match(/^\/admin-api\/policies\/(\d+)$/);
+  if (policyMatch) {
+    const id = Number(policyMatch[1]);
+    const handled = patchOrDeleteInArray(
+      policies,
+      (x) => x.id === id,
+      method,
+      body,
+      () => ({ ok: true }),
+    );
+    if (handled !== undefined) return handled;
+  }
+
+  if (p === "/admin-api/composites" && method === "GET") return ok({ items: composites });
+  if (p === "/admin-api/composites" && method === "POST") {
+    const name = typeof body?.name === "string" ? body.name : `composite-${composites.length + 1}`;
+    const description = typeof body?.description === "string" ? body.description : null;
+    const steps = Array.isArray(body?.steps) ? body.steps : [];
+    composites.push({ name, description, enabled: true, stepsCount: steps.length });
+    // NewCompositePage redirects to `/composites/${composite.name}`, so the
+    // created record — not a bare `{}` — has to come back here.
+    return ok({
+      name,
+      description,
+      enabled: true,
+      inputSchema: (body?.inputSchema as Record<string, unknown>) ?? {},
+      steps,
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+  }
+  const compositeMatch = p.match(/^\/admin-api\/composites\/([^/]+)$/);
+  if (compositeMatch) {
+    const name = decodeURIComponent(compositeMatch[1]);
+    const found = composites.find((x) => x.name === name);
+    if (method === "GET") {
+      return ok(
+        found
+          ? {
+              name: found.name,
+              description: found.description,
+              descriptionKey: found.descriptionKey,
+              enabled: found.enabled,
+              inputSchema: {},
+              steps: [],
+              createdAt: days(30),
+              updatedAt: days(3),
+            }
+          : {},
+      );
+    }
+    const handled = patchOrDeleteInArray(
+      composites,
+      (x) => x.name === name,
+      method,
+      body,
+      () => ({ ok: true }),
+    );
+    if (handled !== undefined) return handled;
+  }
+
+  if (p === "/admin-api/schedules" && method === "GET") return ok({ items: schedules });
+  if (p === "/admin-api/schedules" && method === "POST") {
+    const id = Math.max(0, ...schedules.map((x) => x.id)) + 1;
+    schedules.push({
+      id,
+      targetType: body?.targetType === "tool" ? "tool" : "client",
+      clientName: typeof body?.clientName === "string" ? body.clientName : "",
+      toolName: typeof body?.toolName === "string" ? body.toolName : null,
+      action: body?.action === "enable" ? "enable" : "disable",
+      cron: typeof body?.cron === "string" ? body.cron : "0 0 * * *",
+      enabled: true,
+      lastRunMinute: null,
+      createdAt: NOW,
+      createdBy: DEMO_USER.username,
+    });
+    return ok({ id });
+  }
+  const scheduleMatch = p.match(/^\/admin-api\/schedules\/(\d+)$/);
+  if (scheduleMatch) {
+    const id = Number(scheduleMatch[1]);
+    const handled = patchOrDeleteInArray(
+      schedules,
+      (x) => x.id === id,
+      method,
+      body,
+      () => ({ ok: true }),
+    );
+    if (handled !== undefined) return handled;
+  }
   if (p === "/admin-api/config/effective") return ok(effectiveConfig);
   if (p === "/admin-api/config/snapshots") return ok({ items: snapshots });
   if (p === "/admin-api/config/export") return ok({ version: 1, clients: clients.length, bundles: bundles.length });
