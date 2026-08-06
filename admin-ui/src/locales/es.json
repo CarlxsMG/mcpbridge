@@ -537,7 +537,7 @@
       }
     },
     "server_detail_tools": {
-      "heading": "Tools ({count})",
+      "heading": "Herramientas ({count})",
       "empty": "Este servidor no tiene tools registrados.",
       "edit_guards": "Editar guards",
       "add_guards": "Añadir guards",
@@ -1211,7 +1211,7 @@
         "fields": {
           "name": "Nombre",
           "description": "Descripción (opcional)",
-          "tools": "Tools"
+          "tools": "Herramientas"
         },
         "placeholders": {
           "name": "p. ej. assistant-a",
@@ -1269,7 +1269,7 @@
         "fields": {
           "label": "Etiqueta",
           "clients": "Clientes permitidos (separados por coma, vacío = todos)",
-          "tools": "Tools permitidos (separados por coma, client__tool)",
+          "tools": "Herramientas permitidas (separadas por coma, client__tool)",
           "expires": "Caduca (opcional)",
           "consumer": "Consumer (opcional)",
           "admin_role": "Rol de sistema (solo super-admin)"
@@ -1558,7 +1558,7 @@
         "note_for_id": "Nota para la aprobación #{id}"
       },
       "table": {
-        "client_tool": "Cliente / Tool",
+        "client_tool": "Cliente / Herramienta",
         "args": "Args",
         "requested": "Solicitada",
         "decision": "Decisión",
@@ -1584,7 +1584,7 @@
     },
     "composites": {
       "title": "Compuestos",
-      "subtitle": "Tools compuestas — cada una encadena varias llamadas de tools en una única callable por MCP.",
+      "subtitle": "Herramientas compuestas: cada una encadena varias llamadas a herramientas en una sola invocable desde MCP.",
       "create": "Crear compuesta",
       "table": {
         "name": "Nombre",
@@ -1674,7 +1674,7 @@
       "delete_bundle": "Eliminar bundle",
       "description_label": "Descripción",
       "description_placeholder": "¿Qué hace este bundle?",
-      "tools_heading": "Tools en el bundle ({count})",
+      "tools_heading": "Herramientas en el bundle ({count})",
       "save_tools": "Guardar selección de tools",
       "unsaved_tools": "Tienes cambios de tools sin guardar.",
       "confirm": {
@@ -1693,7 +1693,7 @@
     },
     "server_detail": {
       "tabs": {
-        "tools": "Tools",
+        "tools": "Herramientas",
         "settings": "Configuración"
       },
       "errors": {
@@ -1711,7 +1711,7 @@
       "consecutive_failures": "Fallos consecutivos",
       "guards_aria": "Guards de tools",
       "guards_heading": "Guards por tool",
-      "tool_not_found": "Tool no encontrada en este servidor.",
+      "tool_not_found": "Herramienta no encontrada en este servidor.",
       "confirm": {
         "disable_title": "¿Desactivar este servidor?",
         "disable_message": "¿Desactivar {name}? Sus tools dejarán de anunciarse hasta que lo reactives.",
@@ -1804,7 +1804,7 @@
         "bundles": "Bundles: {count}",
         "alert_rules": "Reglas de alerta: {count}",
         "clients_configured": "Clientes configurados: {count}",
-        "tools_configured": "Tools configuradas: {count}",
+        "tools_configured": "Herramientas configuradas: {count}",
         "guardrails": "Guardrails: {count}",
         "consumers": "Consumidores: {count}",
         "schedules": "Schedules: {count}",
@@ -1884,7 +1884,7 @@
         "disabled": "Deshabilitado"
       },
       "table": {
-        "client_tool": "Cliente / Tool",
+        "client_tool": "Cliente / Herramienta",
         "state": "Estado",
         "interval": "Intervalo",
         "last_checked": "Último chequeo",
@@ -2013,7 +2013,7 @@
         "fields": {
           "type": "Tipo",
           "client": "Cliente",
-          "tool": "Tool",
+          "tool": "Herramienta",
           "action": "Acción",
           "frequency": "Frecuencia",
           "time": "Hora (UTC)",
@@ -2190,7 +2190,7 @@
         "error_rate": "Tasa de error",
         "avg_latency": "Latencia media",
         "max_latency": "Latencia máx.",
-        "active_tools": "Tools activas"
+        "active_tools": "Herramientas activas"
       },
       "section": {
         "top_tools": "Herramientas más usadas",
@@ -2198,7 +2198,7 @@
       },
       "table": {
         "client": "Cliente",
-        "tool": "Tool",
+        "tool": "Herramienta",
         "calls": "Llamadas",
         "errors": "Errores",
         "error_rate": "Tasa de error",
@@ -2244,7 +2244,7 @@
       "pagination_label": "Paginación",
       "filters": {
         "client_label": "Cliente",
-        "tool_label": "Tool"
+        "tool_label": "Herramienta"
       },
       "chart": {
         "title": "Llamadas vs errores a lo largo del tiempo",
@@ -2329,7 +2329,7 @@
       "subtitle_p2": "en el server) — una lista vacía puede significar que el almacenamiento está off o que no hay nada reciente.",
       "table": {
         "started": "Iniciada",
-        "tool": "Tool",
+        "tool": "Herramienta",
         "session": "Sesión",
         "spans": "Spans",
         "duration": "Duración",

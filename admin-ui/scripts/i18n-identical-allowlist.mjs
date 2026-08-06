@@ -25,8 +25,8 @@
 //     verbatim (URLs like https://…, "user.password\nitems.*.token",
 //     "payments-svc, inventory-svc", "key: value", "mobile-app", "strict"…).
 //   - ICU/format-string skeletons whose translatable words are themselves
-//     allowlisted terms ("Tools ({count})", "Bundles: {count}",
-//     "{hour}:{minute} {period} UTC", "Diff: #{id} …", "#", "—").
+//     allowlisted terms ("Bundles: {count}", "{hour}:{minute} {period} UTC",
+//     "Diff: #{id} …", "#", "—").
 //   - Fixture-derived demo labels that are literal product/vendor names
 //     ("Claude Desktop", "Cursor IDE").
 //
@@ -55,9 +55,7 @@ export const identicalAllowlist = new Set([
   "components.guard_editor_guardrails.title",
   "components.overview.widget_groups.custom",
   "pages.bundles.title",
-  "pages.bundles.new.fields.tools",
   "pages.keys.title",
-  "pages.server_detail.tabs.tools",
   "pages.config.result.bundles",
   "pages.config.result.guardrails",
 
@@ -165,7 +163,6 @@ export const identicalAllowlist = new Set([
   "pages.traces.session_placeholder",
 
   // ── ICU / format-string skeletons whose words are themselves allowlisted ─
-  "components.server_detail_tools.heading",
   "components.widget_config.widget_default_title",
   "components.config_snapshots.diff_heading",
   "components.config_snapshots.table.id",
