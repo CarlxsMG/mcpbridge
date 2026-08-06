@@ -246,7 +246,14 @@ jobs:
     # `define` would ship unnoticed. Helm 3 is preinstalled on ubuntu-latest, so
     # no setup action (or extra pinned dependency) is needed.
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 10, not 5: this budget covers "Set up job" (runner provisioning) as well
+    # as the steps, and the steps themselves take seconds. At 5 a slow runner
+    # pickup consumed the whole allowance and the job was killed in step 1
+    # having never run `helm lint` at all -- a cancelled job makes the WHOLE
+    # run's conclusion `cancelled`, so a green test/e2e still reads as a failed
+    # CI. Raising it costs nothing on a healthy run (the job exits in well
+    # under a minute) and only buys headroom for queueing.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: helm lint
