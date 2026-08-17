@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Never index the SPA shell. It applies to both builds: the real admin UI at
+         /admin (an authenticated console, nothing to rank) and the public demo
+         published under /demo/, which renders as an empty shell to a crawler and
+         would otherwise compete with the docs for the project's own brand query. -->
+    <meta name="robots" content="noindex, follow" />
     <title>MCP REST Bridge — Admin</title>
     <link
       rel="icon"

@@ -22,3 +22,8 @@ coverage
 # so prettier's yaml parser cannot parse them. Chart.yaml/values.yaml are
 # plain YAML and stay covered by prettier.
 helm/**/templates
+# Search-engine ownership tokens, served verbatim from docs/public/. They are
+# whatever the search console handed over — the extension says .html but the
+# body is a single token line with no trailing newline, and prettier adding one
+# is an edit to a file whose only job is to match byte for byte.
+docs/public/google*.html
