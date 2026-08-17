@@ -23,107 +23,130 @@ import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..", "..");
 
-const packageOverrides: Record<string, string> =
-  (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).overrides as Record<string, string>) ?? {};
-
 interface OverrideDoc {
   advisories: string[];
   reason: string;
   dropWhen: string;
 }
-const documented: Record<string, OverrideDoc> = JSON.parse(
-  readFileSync(join(ROOT, "dependency-overrides.json"), "utf8"),
-).overrides;
+
+const manifest = JSON.parse(readFileSync(join(ROOT, "dependency-overrides.json"), "utf8"));
+
+/**
+ * Both projects, not just the root one. admin-ui resolves its own tree from its
+ * own lockfile, so the root `overrides` block does not reach it — and while this
+ * test read only the root, admin-ui's block quietly accumulated an undocumented
+ * entry with a bare key, which is the exact shape the scoping test below exists
+ * to reject.
+ */
+interface Project {
+  name: string;
+  /** Relative to ROOT — the directory holding this project's package.json and bun.lock. */
+  dir: string;
+  docs: Record<string, OverrideDoc>;
+}
+
+const PROJECTS: Project[] = [
+  { name: "root", dir: ".", docs: manifest.overrides as Record<string, OverrideDoc> },
+  { name: "admin-ui", dir: "admin-ui", docs: manifest.adminUiOverrides as Record<string, OverrideDoc> },
+];
 
 /** `pkg@5` or `@scope/pkg@5` — the trailing `@<major>` is the part that matters. */
 const MAJOR_SCOPED = /^(?:@[^/@]+\/)?[^@]+@\d+$/;
 
-describe("package.json overrides", () => {
-  test("every override is documented", () => {
-    const undocumented = Object.keys(packageOverrides).filter((k) => !(k in documented));
-    expect(undocumented, `Add an entry to dependency-overrides.json for: ${undocumented.join(", ")}`).toEqual([]);
-  });
-
-  test("no documentation outlives its override", () => {
-    // The other direction. A doc entry for an override that has been removed is
-    // a claim about the tree that is no longer true, and reading it would lead
-    // someone to believe a version is still being forced when it is not.
-    const orphaned = Object.keys(documented).filter((k) => !(k in packageOverrides));
-    expect(orphaned, `Remove from dependency-overrides.json: ${orphaned.join(", ")}`).toEqual([]);
-  });
-
-  test("every override key is scoped to a major version", () => {
-    const bare = Object.keys(packageOverrides).filter((k) => !MAJOR_SCOPED.test(k));
-    expect(
-      bare,
-      `A bare key forces every copy in the tree, not just the vulnerable line. Use "pkg@<major>": ${bare.join(", ")}`,
-    ).toEqual([]);
-  });
-
-  test("the override version stays inside the major its key names", () => {
-    // `"hono@4": "^5.0.0"` would silently be a major bump wearing a scoped key
-    // — the shape looks careful and the effect is the thing the scoping exists
-    // to prevent.
-    const mismatched = Object.entries(packageOverrides).filter(([key, range]) => {
-      const keyMajor = key.slice(key.lastIndexOf("@") + 1);
-      const rangeMajor = /(\d+)\./.exec(range)?.[1];
-      return rangeMajor !== undefined && rangeMajor !== keyMajor;
+// A plain loop rather than `describe.each`: its overloads only accept a table of
+// TUPLES, so an array of named objects degrades every callback parameter to
+// `unknown` and the body stops type-checking. The suite still passed at runtime,
+// which is what makes it worth a note — only `tsc --noEmit` saw it.
+for (const { name: projectName, dir, docs: documented } of PROJECTS) {
+  describe(`${projectName} package.json overrides`, () => {
+    const packageOverrides: Record<string, string> =
+      (JSON.parse(readFileSync(join(ROOT, dir, "package.json"), "utf8")).overrides as Record<string, string>) ?? {};
+    test("every override is documented", () => {
+      const undocumented = Object.keys(packageOverrides).filter((k) => !(k in documented));
+      expect(undocumented, `Add an entry to dependency-overrides.json for: ${undocumented.join(", ")}`).toEqual([]);
     });
-    expect(
-      mismatched.map(([k, v]) => `${k} -> ${v}`),
-      "Override range leaves the major its key scopes it to",
-    ).toEqual([]);
-  });
 
-  test("each documented override names at least one advisory, in GHSA form", () => {
-    // The advisory id is what makes "is this still needed?" a question with an
-    // answer. A prose-only entry ages into folklore.
-    for (const [key, doc] of Object.entries(documented)) {
-      expect(doc.advisories.length, `${key} names no advisory`).toBeGreaterThan(0);
-      for (const id of doc.advisories) {
-        expect(id, `${key}: ${id} is not a GHSA id`).toMatch(/^GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/);
+    test("no documentation outlives its override", () => {
+      // The other direction. A doc entry for an override that has been removed is
+      // a claim about the tree that is no longer true, and reading it would lead
+      // someone to believe a version is still being forced when it is not.
+      const orphaned = Object.keys(documented).filter((k) => !(k in packageOverrides));
+      expect(orphaned, `Remove from dependency-overrides.json: ${orphaned.join(", ")}`).toEqual([]);
+    });
+
+    test("every override key is scoped to a major version", () => {
+      const bare = Object.keys(packageOverrides).filter((k) => !MAJOR_SCOPED.test(k));
+      expect(
+        bare,
+        `A bare key forces every copy in the tree, not just the vulnerable line. Use "pkg@<major>": ${bare.join(", ")}`,
+      ).toEqual([]);
+    });
+
+    test("the override version stays inside the major its key names", () => {
+      // `"hono@4": "^5.0.0"` would silently be a major bump wearing a scoped key
+      // — the shape looks careful and the effect is the thing the scoping exists
+      // to prevent.
+      const mismatched = Object.entries(packageOverrides).filter(([key, range]) => {
+        const keyMajor = key.slice(key.lastIndexOf("@") + 1);
+        const rangeMajor = /(\d+)\./.exec(range)?.[1];
+        return rangeMajor !== undefined && rangeMajor !== keyMajor;
+      });
+      expect(
+        mismatched.map(([k, v]) => `${k} -> ${v}`),
+        "Override range leaves the major its key scopes it to",
+      ).toEqual([]);
+    });
+
+    test("each documented override names at least one advisory, in GHSA form", () => {
+      // The advisory id is what makes "is this still needed?" a question with an
+      // answer. A prose-only entry ages into folklore.
+      for (const [key, doc] of Object.entries(documented)) {
+        expect(doc.advisories.length, `${key} names no advisory`).toBeGreaterThan(0);
+        for (const id of doc.advisories) {
+          expect(id, `${key}: ${id} is not a GHSA id`).toMatch(/^GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/);
+        }
       }
-    }
+    });
+
+    test("each documented override says what would let it be removed", () => {
+      for (const [key, doc] of Object.entries(documented)) {
+        expect(doc.reason.length, `${key} has no reason`).toBeGreaterThan(20);
+        expect(doc.dropWhen.length, `${key} has no dropWhen`).toBeGreaterThan(20);
+      }
+    });
+
+    test("the manifest actually describes something — an empty block passes everything above vacuously", () => {
+      expect(Object.keys(documented).length).toBeGreaterThan(0);
+    });
+
+    test("every override is actually in effect in the lockfile", () => {
+      // The one that catches a real, already-made mistake. Adding an override to
+      // package.json does NOT move an already-resolved package: bun records the
+      // override but leaves the pinned entry alone, so `rm -rf node_modules &&
+      // bun install` reports success while still installing the vulnerable copy.
+      // That happened here, and the only tell was reading the resolved version by
+      // hand. An override that has not landed is worse than none — it reads as
+      // protection in review and provides none.
+      const lock = readFileSync(join(ROOT, dir, "bun.lock"), "utf8");
+      const notInEffect: string[] = [];
+
+      for (const [key, range] of Object.entries(packageOverrides)) {
+        const name = key.slice(0, key.lastIndexOf("@"));
+        const entry = new RegExp(
+          `"${name.replace(/[/@]/g, "\\$&")}": \\["${name.replace(/[/@]/g, "\\$&")}@([^"]+)"`,
+        ).exec(lock);
+        if (!entry) continue; // no longer in the tree at all — the orphan case above covers that
+        const resolved = entry[1]!;
+        if (!atOrAbove(resolved, range)) notInEffect.push(`${key}: lockfile has ${resolved}, override wants ${range}`);
+      }
+
+      expect(
+        notInEffect,
+        `Override declared but not resolved. Hand-edit the resolved bun.lock entry — see CLAUDE.md:\n${notInEffect.join("\n")}`,
+      ).toEqual([]);
+    });
   });
-
-  test("each documented override says what would let it be removed", () => {
-    for (const [key, doc] of Object.entries(documented)) {
-      expect(doc.reason.length, `${key} has no reason`).toBeGreaterThan(20);
-      expect(doc.dropWhen.length, `${key} has no dropWhen`).toBeGreaterThan(20);
-    }
-  });
-
-  test("the manifest actually describes something — an empty block passes everything above vacuously", () => {
-    expect(Object.keys(documented).length).toBeGreaterThan(0);
-  });
-
-  test("every override is actually in effect in the lockfile", () => {
-    // The one that catches a real, already-made mistake. Adding an override to
-    // package.json does NOT move an already-resolved package: bun records the
-    // override but leaves the pinned entry alone, so `rm -rf node_modules &&
-    // bun install` reports success while still installing the vulnerable copy.
-    // That happened here, and the only tell was reading the resolved version by
-    // hand. An override that has not landed is worse than none — it reads as
-    // protection in review and provides none.
-    const lock = readFileSync(join(ROOT, "bun.lock"), "utf8");
-    const notInEffect: string[] = [];
-
-    for (const [key, range] of Object.entries(packageOverrides)) {
-      const name = key.slice(0, key.lastIndexOf("@"));
-      const entry = new RegExp(
-        `"${name.replace(/[/@]/g, "\\$&")}": \\["${name.replace(/[/@]/g, "\\$&")}@([^"]+)"`,
-      ).exec(lock);
-      if (!entry) continue; // no longer in the tree at all — the orphan case above covers that
-      const resolved = entry[1]!;
-      if (!atOrAbove(resolved, range)) notInEffect.push(`${key}: lockfile has ${resolved}, override wants ${range}`);
-    }
-
-    expect(
-      notInEffect,
-      `Override declared but not resolved. Hand-edit the resolved bun.lock entry — see CLAUDE.md:\n${notInEffect.join("\n")}`,
-    ).toEqual([]);
-  });
-});
+}
 
 /** True when `version` is at or above the floor of a `^x.y.z` range. */
 function atOrAbove(version: string, range: string): boolean {
