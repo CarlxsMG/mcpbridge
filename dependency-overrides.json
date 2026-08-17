@@ -25,7 +25,14 @@
     "below the fix, and insurance does not look used until it pays out.",
     "",
     "Keys must be major-scoped (`pkg@N`), never bare — a bare key forces EVERY",
-    "copy in the tree to the new version regardless of what each consumer declared."
+    "copy in the tree to the new version regardless of what each consumer declared.",
+    "",
+    "`overrides` documents the ROOT package.json; `adminUiOverrides` documents",
+    "admin-ui/package.json. admin-ui is a separate project with its own lockfile,",
+    "and it went ungated for both of the properties above until 2026-08-17: its",
+    "block had accumulated an undocumented `postcss` entry with a BARE key — added",
+    "in a0219a8, the same commit whose message explains at length why keys must be",
+    "major-scoped. Nothing caught it, because the test only ever read the root."
   ],
   "overrides": {
     "brace-expansion@5": {
@@ -47,6 +54,33 @@
       "advisories": ["GHSA-mwp4-54f8-5fhr", "GHSA-4xrf-jv44-h6hh", "GHSA-22jq-vg5j-6vgg"],
       "reason": "Three parsing flaws at or below 10.3.0 (leading-zero octets read as decimal, CIDR suffix suppressing special-use classification, IPv4-mapped/NAT64 misclassification). All three are worded as SSRF bypasses, which reads alarming here and is worth stating precisely: this gateway's SSRF pinning uses ipaddr.js, a DIFFERENT library. ip-address arrives only via @modelcontextprotocol/sdk > express-rate-limit, so the real exposure was per-IP rate-limit evasion.",
       "dropWhen": "express-rate-limit (as pulled by the MCP SDK) floors ip-address at > 10.3.0."
+    },
+    "js-yaml@4": {
+      "advisories": ["GHSA-5p4m-2wfm-xmqj"],
+      "reason": "Quadratic CPU consumption resolving `!!omap`, at or below 4.3.0 (the CVE-2026-59870 fix was not backported to the 4.x line until 4.3.1). Reaches the tree only through @commitlint/cli > @commitlint/load > cosmiconfig, i.e. a devDependency that parses this repo's own commitlint config during the commit-msg hook — never attacker-controlled input. Worth stating precisely, because the gateway does parse untrusted YAML (OpenAPI specs at registration, config import): that path uses the `yaml` package, a different library, and nothing under src/ imports js-yaml at all.",
+      "dropWhen": "cosmiconfig (as pulled by @commitlint/load) floors js-yaml at >= 4.3.1; its range is a permissive ^4.1.0, so this lands as soon as a fresh resolve is allowed to pick the patched version."
+    }
+  },
+  "adminUiOverrides": {
+    "brace-expansion@5": {
+      "advisories": ["GHSA-mh99-v99m-4gvg"],
+      "reason": "DoS via unbounded expansion in 5.0.7. Same advisory and same arrival path as the root entry — minimatch under eslint / typescript-eslint — but admin-ui resolves its own tree from its own lockfile, so the root override does not reach it.",
+      "dropWhen": "Every consumer of the 5.x line resolves to >= 5.0.8 on its own. Scoped to major 5 deliberately: the 2.x copies under minimatch@9 must NOT be moved."
+    },
+    "js-yaml@4": {
+      "advisories": ["GHSA-5p4m-2wfm-xmqj"],
+      "reason": "Quadratic CPU consumption resolving `!!omap`, at or below 4.3.0. Arrives via openapi-typescript > @redocly/openapi-core, which is build-time only: it regenerates types/openapi.generated.ts during `typecheck`/`build` and no js-yaml reaches the shipped SPA bundle. Worth recording what this case proves, because it is easy to over-generalise: @redocly/openapi-core pins js-yaml at an EXACT \"4.3.0\" and the override moved it anyway, so an exact pin is NOT by itself beyond an override's reach. What is beyond reach is a NESTED duplicate — measured on the qs/typed-rest-client case in security.yml, where a fresh resolve carrying a `qs@6` override still left `typed-rest-client/qs` on 6.15.1. js-yaml had a single hoisted copy, so there was nothing for the override to fail to collapse.",
+      "dropWhen": "@redocly/openapi-core moves its exact js-yaml pin to >= 4.3.1."
+    },
+    "nanoid@3": {
+      "advisories": ["GHSA-2v37-7h3g-55p8"],
+      "reason": "Custom generators can loop indefinitely when the requested size is zero, below 3.3.18. Reaches the tree only under postcss (via vite, @vue/compiler-sfc and vue-router), i.e. the build-time CSS pipeline, which calls nanoid with postcss's own fixed size and never with attacker input.",
+      "dropWhen": "postcss floors nanoid at >= 3.3.18; its range is a permissive ^3.3.16."
+    },
+    "postcss@8": {
+      "advisories": ["GHSA-r28c-9q8g-f849", "GHSA-fxqj-rqcc-2cmp"],
+      "reason": "Path traversal in previous-source-map auto-loading: an attacker-controlled `sourceMappingURL` reads an arbitrary .map file when `from` is unset. The floor was raised from ^8.5.18 to ^8.5.23 on 2026-08-17 — ^8.5.18 covered only the first advisory, and the follow-up GHSA-fxqj-rqcc-2cmp (incomplete fix, affecting <= 8.5.22) left the declared floor pointing at a version that is still vulnerable. Build-time only; the gateway serves the compiled CSS, not postcss.",
+      "dropWhen": "vite and @vue/compiler-sfc both floor postcss at >= 8.5.23."
     }
   }
 }

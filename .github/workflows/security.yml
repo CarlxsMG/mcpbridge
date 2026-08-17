@@ -53,24 +53,32 @@ jobs:
       # GHSA-q8mj-m7cp-5q26 — qs DoS in qs@6.15.1, nested under
       #   @stryker-mutator/core -> typed-rest-client, which hard-pins "qs" to an
       #   EXACT "6.15.1" (every other consumer in the tree already resolves to
-      #   the patched 6.15.3). An `overrides` entry cannot move it either: the
-      #   pin is exact, so only an upstream typed-rest-client release that
-      #   widens it will. devDependency only (bun run test:mutate) and excluded
+      #   the patched 6.15.3). An `overrides` entry does not move it either —
+      #   re-measured 2026-08-17: a full fresh resolve carrying `"qs@6":
+      #   "^6.15.3"` still left `typed-rest-client/qs` on 6.15.1. Note the
+      #   reason is the NESTED copy, not the exactness of the pin: an override
+      #   does rewrite an exactly-pinned dependency when it is the tree's only
+      #   hoisted copy (admin-ui's js-yaml, pinned "4.3.0" by
+      #   @redocly/openapi-core, moves fine). qs is duplicated precisely because
+      #   6.15.1 conflicts with everyone else's range, and the override does not
+      #   reach the duplicate. So only an upstream typed-rest-client release
+      #   that widens the pin will. devDependency only (bun run test:mutate) and excluded
       #   from the production image by the Dockerfile's `bun install
       #   --production` deps stage, so there is no production exposure.
       #   DROP THIS IGNORE once typed-rest-client widens its qs pin.
-      # GHSA-frvp-7c67-39w9 — path traversal in hono's `serve-static` on Windows
-      #   via an encoded backslash, in @hono/node-server pulled in transitively
-      #   by @modelcontextprotocol/sdk. The gateway is an Express app and never
-      #   mounts hono's `serve-static` — the only static mount is
-      #   `express.static` in src/index.ts (the /admin SPA) — so the vulnerable
-      #   code path is unreachable here. Fixed upstream in >=2.0.5.
-      #   DROP THIS IGNORE once the MCP SDK widens its `^1.19.9` range.
+      # GHSA-frvp-7c67-39w9 (path traversal in @hono/node-server's serve-static)
+      #   USED to be ignored here, on the stated grounds that the fix landed in
+      #   >=2.0.5 and the MCP SDK's `^1.19.9` range could not reach it. That was
+      #   wrong: the fix was backported to the 1.x line in 1.19.15, well inside
+      #   the SDK's existing range. The tree sat on 1.19.14 only because a
+      #   resolved lockfile entry never moves on its own. Bumping it to 1.19.17
+      #   fixes the advisory outright, so the ignore is gone rather than
+      #   inherited — no override key is needed, since a fresh resolve of
+      #   `^1.19.9` now picks a patched version by itself.
       - name: Audit root dependencies
         run: >-
           bun audit --audit-level=moderate
           --ignore=GHSA-q8mj-m7cp-5q26
-          --ignore=GHSA-frvp-7c67-39w9
       # No ignores here: admin-ui audits clean at moderate. Keep it that way —
       # reach for an `overrides` entry (see admin-ui/package.json) before an
       # --ignore, and only ignore what genuinely cannot be moved.
