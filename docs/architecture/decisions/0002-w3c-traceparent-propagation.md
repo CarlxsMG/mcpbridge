@@ -1,3 +1,7 @@
+---
+description: ADR-0002 — why MCP REST Bridge propagates W3C traceparent headers through the proxy pipeline, and how trace context survives the MCP-to-REST hop.
+---
+
 # W3C traceparent propagation through the proxy pipeline
 
 - Status: accepted

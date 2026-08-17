@@ -1,3 +1,7 @@
+---
+description: Per-tool rate limits, timeouts, caching and approvals, plus per-client circuit breakers, retries, canary failover and auto-quarantine for failing backends.
+---
+
 # Guardrails & resilience
 
 Every tool call runs through a uniform stack at the dispatch point (`proxyToolCall`) — see

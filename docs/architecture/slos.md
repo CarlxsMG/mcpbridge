@@ -1,3 +1,7 @@
+---
+description: The public reliability contract for MCP REST Bridge — availability, latency and error-budget targets, how each is measured, and the burn-rate alerts behind them.
+---
+
 # Service Level Objectives (SLOs)
 
 > **Status:** initial draft. Targets are **deliberately conservative for a 1.0.0

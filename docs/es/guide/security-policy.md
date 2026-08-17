@@ -1,3 +1,7 @@
+---
+description: Cómo reportar una vulnerabilidad en MCP REST Bridge, qué versiones reciben correcciones y el proceso de divulgación coordinada y los tiempos de respuesta.
+---
+
 # Política de seguridad
 
 Esta es la política de reporte de vulnerabilidades del proyecto — cómo reportar un

@@ -1,3 +1,7 @@
+---
+description: Conecta Claude Desktop, Cursor, una extensión de IDE o tu propio agente al gateway — qué endpoint usar, cómo funcionan las claves y configs de cliente listas.
+---
+
 # Conectar clientes MCP
 
 Cualquier cliente MCP — Claude Desktop, Cursor, una extensión de IDE o tu propio agente —

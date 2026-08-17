@@ -1,3 +1,7 @@
+---
+description: Point Claude Desktop, Cursor, an IDE extension or your own agent at the gateway — which endpoint to use, how keys work, and ready-made MCP client configs.
+---
+
 # Connecting MCP clients
 
 Any MCP client — Claude Desktop, Cursor, an IDE extension, or your own agent — connects

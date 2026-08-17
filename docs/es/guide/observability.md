@@ -1,3 +1,7 @@
+---
+description: Métricas Prometheus, trazas OpenTelemetry en cada llamada, analítica de uso, alertas por anomalías y un registro de auditoría encadenado con envío a SIEM.
+---
+
 # Observabilidad y monitorización
 
 El bridge está construido para ser observado: métricas, traces, analytics de uso,

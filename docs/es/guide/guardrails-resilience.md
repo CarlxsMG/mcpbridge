@@ -1,3 +1,7 @@
+---
+description: Límites de tasa, timeouts, caché y aprobaciones por herramienta, más circuit breakers por cliente, reintentos, failover canario y cuarentena automática.
+---
+
 # Guardrails y resiliencia
 
 Cada llamada de tool corre a través de una pila uniforme en el punto de dispatch

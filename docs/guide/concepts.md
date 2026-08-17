@@ -1,3 +1,7 @@
+---
+description: The vocabulary of MCP REST Bridge — clients, tools, shards, bundles, consumers, guards and the registry, as used across the docs and the admin UI.
+---
+
 # Concepts & glossary
 
 A quick tour of the vocabulary used across these docs and the admin UI.

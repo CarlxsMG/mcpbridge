@@ -1,3 +1,7 @@
+---
+description: SSRF and DNS-rebinding protection with IP pinning, prompt-injection sanitizing, secret detection, fail-closed key restrictions and audit trails — on by default.
+---
+
 # Security
 
 Security is built into MCP REST Bridge's default path, not bolted on. Because the bridge

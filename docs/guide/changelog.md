@@ -1,3 +1,7 @@
+---
+description: Release history for MCP REST Bridge — every feature, fix and breaking change per version, following Keep a Changelog and semantic versioning.
+---
+
 # Changelog
 
 Mirrors the repo's root [`CHANGELOG.md`](https://github.com/CarlxsMG/mcpbridge/blob/main/CHANGELOG.md)

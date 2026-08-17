@@ -1,3 +1,7 @@
+---
+description: ADR-0004 — why the Playwright end-to-end suite is a required CI gate rather than an optional check, and what that costs on every pull request.
+---
+
 # E2E tests as a CI gate
 
 - Status: accepted

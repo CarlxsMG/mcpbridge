@@ -75,6 +75,8 @@ function connectTemplatesMirror(): string {
 
 interface DocStrings {
   frontTitle: string;
+  /** `description:` frontmatter — the page's meta description and social-card text. */
+  metaDescription: string;
   intro: string;
   envelopeHeading: string;
   envelopeBody: string;
@@ -86,7 +88,13 @@ interface DocStrings {
 
 function errorCodeDoc(lang: "en" | "es", s: DocStrings): string {
   const rows = ERROR_CODE_LIST.map((code) => `| \`${code}\` | ${ERROR_CODES[code][lang]} |`).join("\n");
-  return `<!-- GENERATED FILE — DO NOT EDIT. Written by scripts/generate.ts from src/routes/error-codes.ts. -->
+  // Frontmatter has to be the very first thing in the file — gray-matter stops
+  // looking after any other content, so the banner comment goes below it.
+  return `---
+description: ${s.metaDescription}
+---
+
+<!-- GENERATED FILE — DO NOT EDIT. Written by scripts/generate.ts from src/routes/error-codes.ts. -->
 
 # ${s.frontTitle}
 
@@ -118,6 +126,9 @@ ${s.footer}
 
 const EN_DOC: DocStrings = {
   frontTitle: "Error codes",
+  metaDescription:
+    "Every error code MCP REST Bridge can return, what each one means, and the error envelope they " +
+    "arrive in — the stable contract to match on instead of message text.",
   intro:
     "Every error this gateway returns carries a stable, machine-readable `code`. Match on the code, " +
     "not on the message: messages are written for humans, carry request-specific detail, and are " +
@@ -139,6 +150,9 @@ const EN_DOC: DocStrings = {
 
 const ES_DOC: DocStrings = {
   frontTitle: "Códigos de error",
+  metaDescription:
+    "Todos los códigos de error que puede devolver MCP REST Bridge, qué significa cada uno y el sobre " +
+    "en el que llegan — el contrato estable sobre el que actuar.",
   intro:
     "Todos los errores que devuelve la pasarela llevan un `code` estable y legible por máquina. " +
     "Actúa sobre el código, no sobre el mensaje: los mensajes están escritos para personas, llevan " +

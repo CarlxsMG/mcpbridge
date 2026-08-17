@@ -1,3 +1,7 @@
+---
+description: Ejecuta varias instancias de MCP REST Bridge tras un balanceador — estado compartido, sesiones, elección de líder para las tareas programadas y capacidad.
+---
+
 # Escalado y alta disponibilidad
 
 MCP REST Bridge corre feliz como un único proceso — una instancia Bun con un fichero

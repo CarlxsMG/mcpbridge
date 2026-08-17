@@ -1,3 +1,7 @@
+---
+description: How MCP REST Bridge works inside — the dynamic client registry, two planes and three endpoints, and the guard pipeline every tool call passes through.
+---
+
 # Architecture
 
 MCP REST Bridge sits between MCP clients and your backends. It keeps a dynamic registry of

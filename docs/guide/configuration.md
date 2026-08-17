@@ -1,3 +1,7 @@
+---
+description: Every environment variable MCP REST Bridge reads — ports, database path, admin auth, SSRF policy, rate limits, timeouts, TLS, OIDC and advanced tuning.
+---
+
 # Configuration
 
 MCP REST Bridge is configured with environment variables (Bun auto-loads a `.env` file in

@@ -1,3 +1,7 @@
+---
+description: Agrupa herramientas de varios backends tras un único endpoint MCP. Cómo los bundles /mcp-custom agregan servidores REST y MCP, y cuándo usarlos en vez de shards.
+---
+
 # Agregar backends en un solo endpoint (bundles)
 
 Registra dos backends — digamos una API REST `petstore` y un upstream MCP `github` — y cada

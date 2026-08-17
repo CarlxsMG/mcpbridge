@@ -1,3 +1,7 @@
+---
+description: Instala MCP REST Bridge, registra tu primer backend REST o MCP desde una spec OpenAPI y conecta un cliente MCP — de cero a un gateway funcionando en minutos.
+---
+
 # Primeros pasos
 
 MCP REST Bridge convierte tus APIs REST y servidores MCP existentes en un único conjunto gobernado de herramientas MCP — gestionado desde una UI de administración integrada. Esta guía te lleva de cero a un bridge en ejecución con un backend registrado en unos minutos.
@@ -9,9 +13,10 @@ MCP REST Bridge convierte tus APIs REST y servidores MCP existentes en un único
 
 ## Opción A — Docker (la más rápida)
 
-```bash
-docker build -t mcpbridge .
+Las releases etiquetadas publican una imagen ya compilada en GHCR, así que no hay nada que
+compilar:
 
+```bash
 export ADMIN_API_KEY=$(openssl rand -hex 24)
 
 docker run -p 3000:3000 \
@@ -21,12 +26,21 @@ docker run -p 3000:3000 \
   -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
   -e ADMIN_API_KEYS=$ADMIN_API_KEY \
   -v "$PWD/data:/app/data" \
-  mcpbridge
+  ghcr.io/carlxsmg/mcpbridge:1
 ```
 
 Luego abre **http://localhost:3000/admin** e inicia sesión con las credenciales bootstrap.
 `$ADMIN_API_KEY` es el token Bearer que usan los ejemplos `curl` de abajo — mantenlo exportado
 en el mismo shell, o reexpórtalo más tarde con el mismo valor.
+
+::: tip ¿Sin credenciales bootstrap? El gateway se las inventa.
+Quita las dos variables `BOOTSTRAP_ADMIN_*` y el primer arranque generará una contraseña de
+administrador aleatoria, que imprime **una única vez** por stdout (`docker logs <contenedor>`).
+Solo se guarda su hash argon2id, así que no se vuelve a mostrar: cópiala antes de que se te
+pierda entre los logs. En
+[Credenciales de administrador del primer arranque →](/es/guide/deployment#credenciales-de-administrador-del-primer-arranque)
+tienes las vías de recuperación si te la pierdes.
+:::
 
 ::: warning Solo HTTP local
 `NODE_ENV=development` y `SESSION_COOKIE_SECURE=false` relajan las guardas de arranque para
@@ -34,11 +48,16 @@ que la cookie de sesión funcione sobre `http://localhost` plano. **En producci�
 sobre HTTPS y elimina ambas** — la cookie se vuelve `__Host-`/`Secure` automáticamente.
 :::
 
-::: tip ¿Prefieres no compilar desde el código?
-Cuando se publique la primera release, cada release publicará una imagen prebuilt, multi-arch
-y firmada en GHCR — entonces podrás quitar el `docker build` y usar
-`ghcr.io/carlxsmg/mcpbridge:latest` como imagen en `docker run`. Hasta entonces,
-compila en local con el `docker build` de arriba. Consulta [Despliegue →](/es/guide/deployment).
+::: tip ¿Qué tag conviene usar?
+La imagen es multi-arch (amd64 + arm64) y está firmada con cosign keyless. Cada tag de la
+[página del paquete](https://github.com/CarlxsMG/mcpbridge/pkgs/container/mcpbridge) se
+corresponde con una release. El `:1` de arriba es el alias móvil de major — vale para probar,
+porque siempre resuelve a la imagen 1.x más reciente. Para algo que vayas a dejar en marcha,
+**fija la versión exacta que hayas probado**: un alias móvil se mueve y un `docker pull`
+posterior te cambiaría la versión en ejecución sin avisar. En
+[Qué tag elegir →](/es/guide/deployment#que-tag-elegir) están los detalles, además de cómo
+verificar la firma y cómo construir la imagen desde el código (para contribuir, o para ejecutar
+un `main` sin publicar).
 :::
 
 ## Opción B — Bun (desarrollo local, con hot reload)

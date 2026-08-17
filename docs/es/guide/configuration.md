@@ -1,3 +1,7 @@
+---
+description: Todas las variables de entorno que lee MCP REST Bridge — puertos, ruta de la base de datos, autenticación, política SSRF, límites, timeouts, TLS, OIDC y ajuste fino.
+---
+
 # Configuración
 
 MCP REST Bridge se configura con variables de entorno (Bun auto-carga un fichero `.env`

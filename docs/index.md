@@ -1,7 +1,12 @@
 ---
 layout: home
-title: The self-hosted MCP gateway with a real admin UI
-titleTemplate: MCP REST Bridge
+title: MCP REST Bridge — self-hosted MCP gateway with an admin UI
+# `titleTemplate: false` because the brand is already in `title` above. Setting it
+# to the site title instead (which this page did) makes VitePress drop the suffix
+# entirely — see createTitleTemplate — so the home page shipped with no brand in
+# its <title> at all, the one query it most needs to rank for.
+titleTemplate: false
+description: Self-hosted MCP gateway with a real admin UI. Turn any REST, GraphQL or MCP server into governed AI tools — OpenAPI auto-discovery, RBAC and guardrails.
 
 hero:
   name: MCP REST Bridge
@@ -78,8 +83,6 @@ each client sees, and watch health, usage and audit trails live.
 ## 60-second quickstart
 
 ```bash
-docker build -t mcpbridge .
-
 export ADMIN_API_KEY=$(openssl rand -hex 24)
 
 docker run -p 3000:3000 \
@@ -89,8 +92,13 @@ docker run -p 3000:3000 \
   -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
   -e ADMIN_API_KEYS=$ADMIN_API_KEY \
   -v "$PWD/data:/app/data" \
-  mcpbridge
+  ghcr.io/carlxsmg/mcpbridge:1
 ```
+
+The image is prebuilt, multi-arch and cosign-signed — nothing to compile. `:1` is the floating
+major tag, which is what you want for a first look; pin an exact version for anything you keep
+running. [Deployment →](/guide/deployment#choosing-a-tag) covers tag choice, verifying the
+signature, and building from source instead.
 
 Open **http://localhost:3000/admin**, log in, and add your first server. `$ADMIN_API_KEY` is
 the Bearer token the `curl`/CLI examples throughout these docs use — keep it exported in the

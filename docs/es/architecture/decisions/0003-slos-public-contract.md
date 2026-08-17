@@ -1,3 +1,7 @@
+---
+description: ADR-0003 — por qué el proyecto publica sus SLOs como contrato público y la política de presupuesto de error que hace esos objetivos vinculantes.
+---
+
 # Los SLOs como contrato público de fiabilidad
 
 - Estado: aceptado

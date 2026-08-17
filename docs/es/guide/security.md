@@ -1,3 +1,7 @@
+---
+description: Protección SSRF y anti DNS-rebinding con IP fijada, saneado de inyección de prompts, detección de secretos, restricción de claves fail-closed y auditoría.
+---
+
 # Seguridad
 
 La seguridad está integrada en el camino por defecto de MCP REST Bridge, no añadida

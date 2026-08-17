@@ -1,3 +1,7 @@
+---
+description: Admin RBAC (admin, operator, auditor, viewer), MCP API keys and JWTs, consumers and team multi-tenancy — who administers the gateway versus who calls its tools.
+---
+
 # Access control & multi-tenancy
 
 The bridge separates **who administers it** (admin users, roles) from **who calls tools**

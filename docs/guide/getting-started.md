@@ -1,3 +1,7 @@
+---
+description: Install MCP REST Bridge, register your first REST or MCP backend from an OpenAPI spec, and connect an MCP client — zero to a running gateway in minutes.
+---
+
 # Getting started
 
 MCP REST Bridge turns your REST APIs and existing MCP servers into a single, governed set
@@ -12,9 +16,9 @@ bridge with a registered backend in a few minutes.
 
 ## Option A — Docker (fastest)
 
-```bash
-docker build -t mcpbridge .
+Tagged releases publish a prebuilt image to GHCR, so there is nothing to compile:
 
+```bash
 export ADMIN_API_KEY=$(openssl rand -hex 24)
 
 docker run -p 3000:3000 \
@@ -24,12 +28,20 @@ docker run -p 3000:3000 \
   -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
   -e ADMIN_API_KEYS=$ADMIN_API_KEY \
   -v "$PWD/data:/app/data" \
-  mcpbridge
+  ghcr.io/carlxsmg/mcpbridge:1
 ```
 
 Then open **http://localhost:3000/admin** and log in with the bootstrap credentials.
 `$ADMIN_API_KEY` is the Bearer token the `curl` examples below use — keep it exported in the
 same shell, or re-export it later with the same value.
+
+::: tip No bootstrap credentials? The gateway makes some up.
+Drop both `BOOTSTRAP_ADMIN_*` variables and the first boot generates a random admin password
+instead, printing it **once** to stdout (`docker logs <container>`). Only its argon2id hash is
+kept, so it is never shown again — copy it before you scroll away.
+[First-run admin credentials →](/guide/deployment#first-run-admin-credentials) covers the
+recovery paths if you miss it.
+:::
 
 ::: warning Local HTTP only
 `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false` relax the startup guards so the
@@ -37,11 +49,15 @@ session cookie works over plain `http://localhost`. **In production, serve over 
 drop both** — the cookie then becomes `__Host-`/`Secure` automatically.
 :::
 
-::: tip Prefer not to build from source?
-Once the first release is tagged, every release will publish a prebuilt, multi-arch, signed
-image to GHCR — you'll then be able to drop the `docker build` and use
-`ghcr.io/carlxsmg/mcpbridge:latest` as the image in `docker run`. Until then, build
-locally with the `docker build` above. See [Deployment →](/guide/deployment).
+::: tip Which tag should I use?
+The image is multi-arch (amd64 + arm64) and signed with keyless cosign. Every tag on the
+[package page](https://github.com/CarlxsMG/mcpbridge/pkgs/container/mcpbridge) matches a
+release. The `:1` above is the floating major alias — fine for trying things out, since it
+always resolves to the newest 1.x image. For anything you keep running, **pin the exact
+version you tested** instead, because a floating alias moves and a later `docker pull` would
+swap the running version out from under you.
+[Choosing a tag →](/guide/deployment#choosing-a-tag) has the details, plus verifying the
+signature and building the image from source (contributors, or running an unreleased `main`).
 :::
 
 ## Option B — Bun (local dev, hot reload)

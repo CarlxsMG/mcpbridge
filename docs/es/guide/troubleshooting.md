@@ -1,3 +1,7 @@
+---
+description: Soluciones a lo habitual — backends en IP privada rechazados por la protección SSRF, registros fallidos, 401, circuit breakers abiertos y sesiones MCP colgadas.
+---
+
 # Solución de problemas
 
 Problemas comunes y sus soluciones. La mayoría son comportamiento de seguridad deliberado

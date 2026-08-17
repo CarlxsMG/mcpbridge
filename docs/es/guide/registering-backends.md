@@ -1,3 +1,7 @@
+---
+description: Convierte una API REST, un esquema GraphQL, un comando cURL o una exportación Postman en herramientas MCP — o reexpón un servidor MCP existente — desde la UI.
+---
+
 # Registrar backends
 
 Un backend es una **API REST**, una **API GraphQL**, o un **servidor MCP** existente —

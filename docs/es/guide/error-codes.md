@@ -1,3 +1,7 @@
+---
+description: Todos los códigos de error que puede devolver MCP REST Bridge, qué significa cada uno y el sobre en el que llegan — el contrato estable sobre el que actuar.
+---
+
 <!-- GENERATED FILE — DO NOT EDIT. Written by scripts/generate.ts from src/routes/error-codes.ts. -->
 
 # Códigos de error

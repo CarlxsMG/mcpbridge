@@ -1,3 +1,7 @@
+---
+description: ADR-0001 — why the gateway splits into a control plane at /mcp and a data plane of per-client shards and curated bundles, instead of one flattened tool list.
+---
+
 # Two planes, three endpoints — the /mcp split
 
 - Status: accepted

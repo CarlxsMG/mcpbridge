@@ -1,3 +1,7 @@
+---
+description: Respuestas breves sobre MCP REST Bridge — si hace falta Kubernetes o base de datos, cómo se compara con otros gateways MCP, autenticación, licencia y madurez.
+---
+
 # Preguntas frecuentes
 
 Respuestas rápidas a las preguntas que surgen antes de llegar a las guías más profundas. Para

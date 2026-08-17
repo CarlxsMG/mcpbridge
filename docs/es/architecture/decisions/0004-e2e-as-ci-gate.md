@@ -1,3 +1,7 @@
+---
+description: ADR-0004 — por qué la suite end-to-end de Playwright es una puerta obligatoria de CI y no una comprobación opcional, y qué cuesta en cada pull request.
+---
+
 # Los tests E2E como puerta de CI
 
 - Estado: aceptado

@@ -1,3 +1,7 @@
+---
+description: Turn a REST API, GraphQL schema, cURL command or Postman export into MCP tools — or re-expose an existing MCP server — from the admin UI or POST /register.
+---
+
 # Registering backends
 
 A backend is a **REST API**, a **GraphQL API**, or an existing **MCP server** — each turned

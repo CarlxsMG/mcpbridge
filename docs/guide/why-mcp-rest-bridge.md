@@ -1,3 +1,7 @@
+---
+description: Where MCP REST Bridge fits among MCP gateways and aggregators — what it does differently, who it is for, and when another tool is the better pick.
+---
+
 # Why MCP REST Bridge
 
 The [Model Context Protocol](https://modelcontextprotocol.io) ecosystem is moving fast, and

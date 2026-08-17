@@ -1,3 +1,7 @@
+---
+description: Fixes for the common ones — private-IP backends rejected by SSRF protection, failed registrations, 401s, open circuit breakers and stalled MCP sessions.
+---
+
 # Troubleshooting
 
 Common issues and their fixes. Most are deliberate safety behaviour rather than bugs.

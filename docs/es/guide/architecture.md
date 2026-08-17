@@ -1,3 +1,7 @@
+---
+description: Cómo funciona MCP REST Bridge por dentro — el registro dinámico de clientes, dos planos y tres endpoints, y el pipeline de guardas por el que pasa cada llamada.
+---
+
 # Arquitectura
 
 MCP REST Bridge se sitúa entre clientes MCP y tus backends. Mantiene un registro dinámico

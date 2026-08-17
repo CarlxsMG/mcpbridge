@@ -1,3 +1,7 @@
+---
+description: RBAC de administración (admin, operator, auditor, viewer), claves de API MCP y JWT, consumidores y multi-tenancy por equipos — quién administra frente a quién llama.
+---
+
 # Control de acceso y multi-tenancy
 
 El bridge separa **quién lo administra** (usuarios admin, roles) de **quién llama a las

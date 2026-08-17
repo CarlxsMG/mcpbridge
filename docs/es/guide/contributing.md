@@ -1,3 +1,7 @@
+---
+description: Cómo contribuir a MCP REST Bridge — entorno de desarrollo con Bun, las puertas de lint y tests, convención de commits y cómo es un pull request revisable.
+---
+
 # Contribuir
 
 El [`CONTRIBUTING.md`](https://github.com/CarlxsMG/mcpbridge/blob/main/CONTRIBUTING.md)

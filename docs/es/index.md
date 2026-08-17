@@ -1,7 +1,10 @@
 ---
 layout: home
-title: El gateway MCP auto-hospedado con una UI de administración real
-titleTemplate: MCP REST Bridge
+title: MCP REST Bridge — gateway MCP auto-hospedado con UI de admin
+# Ver la nota en docs/index.md: un `titleTemplate` igual al título del sitio hace
+# que VitePress elimine el sufijo por completo, dejando la home sin marca.
+titleTemplate: false
+description: Gateway MCP auto-hospedado con una UI de administración real. Convierte cualquier API REST, GraphQL o servidor MCP en herramientas de IA gobernadas.
 
 hero:
   name: MCP REST Bridge
@@ -79,8 +82,6 @@ ve cada cliente y observa salud, uso y rastros de auditoría en vivo.
 ## Quickstart de 60 segundos
 
 ```bash
-docker build -t mcpbridge .
-
 export ADMIN_API_KEY=$(openssl rand -hex 24)
 
 docker run -p 3000:3000 \
@@ -90,8 +91,14 @@ docker run -p 3000:3000 \
   -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
   -e ADMIN_API_KEYS=$ADMIN_API_KEY \
   -v "$PWD/data:/app/data" \
-  mcpbridge
+  ghcr.io/carlxsmg/mcpbridge:1
 ```
+
+La imagen viene ya compilada, es multi-arch y está firmada con cosign — no hay nada que
+compilar. `:1` es el tag móvil de major, lo que quieres para un primer vistazo; fija una versión
+exacta para algo que vayas a dejar en marcha. En
+[Despliegue →](/es/guide/deployment#que-tag-elegir) tienes la elección de tag, cómo verificar la
+firma y cómo construirla desde el código.
 
 Abre **http://localhost:3000/admin**, inicia sesión y añade tu primer servidor.
 `$ADMIN_API_KEY` es el token Bearer que usan los ejemplos `curl`/CLI a lo largo de esta

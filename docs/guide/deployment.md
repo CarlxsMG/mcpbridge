@@ -1,3 +1,7 @@
+---
+description: Run MCP REST Bridge in production — Docker, Compose, Helm on Kubernetes or a standalone binary behind a reverse proxy, with backups and health checks.
+---
+
 # Deployment
 
 MCP REST Bridge is a single Bun process with a SQLite file. There's no external database and
@@ -5,17 +9,22 @@ no Kubernetes requirement — though it runs fine in a container orchestrator if
 
 ## Docker (recommended)
 
-```bash
-docker build -t mcpbridge .
+Tagged releases (`vX.Y.Z`) publish a multi-arch (amd64 + arm64) image to
+`ghcr.io/carlxsmg/mcpbridge`, so there is nothing to build:
 
+```bash
 docker run -d --name mcpbridge -p 3000:3000 \
   -e SESSION_COOKIE_SECURE=true \
   -e BOOTSTRAP_ADMIN_USERNAME=admin \
   -e BOOTSTRAP_ADMIN_PASSWORD='<a strong 12+ char password>' \
   -e MCP_API_KEYS='<key1,key2>' \
   -v mcpbridge-data:/app/data \
-  mcpbridge
+  ghcr.io/carlxsmg/mcpbridge:1
 ```
+
+`BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD` are **optional**. Omit both and the
+first boot generates an admin credential for you and prints it once — see
+[First-run admin credentials](#first-run-admin-credentials) below, because "once" is literal.
 
 - The image runs on port **3000** and stores its SQLite database at **`/app/data`** — mount
   a volume there so config survives restarts.
@@ -28,12 +37,100 @@ docker run -d --name mcpbridge -p 3000:3000 \
   `/readyz`-gated routing for a deliberate active/passive failover setup. The process shuts
   down gracefully on `SIGTERM`.
 
-Once the first release is tagged, tagged releases (`vX.Y.Z`) will also be published to GHCR at
-`ghcr.io/carlxsmg/mcpbridge` (adjust the owner/repo if you forked this project — see
-the note atop the README) — you'll then be able to skip the local build entirely:
+### First-run admin credentials
+
+On the **first** boot only — while `admin_users` is still empty — the gateway makes sure the
+admin UI is reachable. What it does depends on what you set:
+
+| `BOOTSTRAP_ADMIN_USERNAME` / `_PASSWORD` | What happens on that first boot                                                                                                    |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| both set                                 | That account is created with the password you chose (minimum 12 characters — a shorter one is refused and no account is created).   |
+| **neither** set                          | A random admin credential is **generated and printed once to stdout** (username `admin`).                                          |
+| only one of the two set                  | Nothing is created. Half a configuration is treated as a mistake, not as a request for a generated account — set both, or neither. |
+
+The generated password is 24 random bytes, base64url-encoded, so it is comfortably above the
+12-character floor the gateway enforces on a hand-set one. It is written to **stdout** in a
+ruled banner, deliberately outside the structured logger so it cannot be lost in the boot
+chatter:
 
 ```bash
-docker pull ghcr.io/carlxsmg/mcpbridge:latest
+docker logs mcpbridge          # Compose: docker compose logs mcp-bridge
+                               # Kubernetes: kubectl logs deploy/my-bridge
+```
+
+Only the argon2id hash is stored, so **the password is never printed again** and cannot be
+recovered or reissued. Every later boot sees a non-empty table, generates nothing and emits no
+credential; there is no reprint flag and no password-reset route. Two consequences worth
+planning for:
+
+- **Treat first-boot output as credential-bearing.** `docker logs`, journald and any
+  stdout-tailing shipper receive this password. Sign in at `/admin`, change it, and apply your
+  normal log-retention policy to that boot.
+- **A boot that fails a startup guard never generates a credential.** Generation runs after
+  every check that can abort startup (the startup guards, `STRICT_CONFIG` validation), so a
+  misconfigured launch cannot commit an admin row to your volume and then exit with the
+  password gone. Fix the configuration, boot again, and you still get a banner.
+
+#### If you missed the banner
+
+The gateway notices this exact situation and re-logs a warning on **every** boot — naming the
+recovery paths below — until that account signs in successfully for the first time. Setting
+`BOOTSTRAP_ADMIN_USERNAME`/`_PASSWORD` after the fact does **not** help: they are ignored once
+any admin user exists, and the gateway warns that it ignored them. Two ways back in:
+
+1. **Use a Bearer key.** Set `ADMIN_API_KEYS` to a strong value, restart, then create a
+   replacement admin with `POST /admin-api/users` using that token. The static admin Bearer is
+   accepted independently of any session.
+2. **Delete the unusable row.** When the generated `admin` account is the only one, removing it
+   puts the next boot back in the first-run state, which generates and prints a fresh
+   credential:
+
+   ```bash
+   sqlite3 data/mcp-bridge.db "DELETE FROM admin_users WHERE username = 'admin';"
+   ```
+
+   Stop the gateway first, and back the file up — see [Persistence & backups](#persistence-backups).
+
+### Choosing a tag
+
+Each **successful publish** pushes the full version tag plus the floating `major`,
+`major.minor` and `latest` aliases; the current list is on the
+[package page](https://github.com/CarlxsMG/mcpbridge/pkgs/container/mcpbridge). GHCR images
+start at `1.1.2` — the `v1.1.0` and `v1.1.1` publish runs failed, so those two releases ship
+binaries but no image.
+
+The examples on this page use the floating **`:1`** major alias, which is the right default for
+evaluating the gateway: it resolves to the newest 1.x image without this page naming a version
+that goes stale the moment the next release ships. **For anything long-lived, pin the exact
+version you tested** — a floating alias moves, so a later `docker pull` can swap the running
+version out from under you. The repo's `docker-compose.yml` carries such a pin as its default
+(override it with `MCPBRIDGE_VERSION`), and that one pin is bumped by the release tooling and
+checked by CI rather than maintained by hand. (Forked this project? The image path follows the
+repository that published it, so swap in your own owner/repo.)
+
+### Verifying the image
+
+Each published image is signed with **keyless cosign** and carries an SBOM plus a build
+provenance attestation. There is no public key to distribute: verification checks the image
+against the GitHub Actions workflow identity that built it, so a tampered or
+independently-pushed image fails even if it sits at the same tag.
+
+```bash
+# The GHCR path is lowercase; the certificate identity uses the canonical repository slug.
+# Verify the reference you actually deploy — swap :1 for your pinned version tag or a digest.
+cosign verify ghcr.io/carlxsmg/mcpbridge:1 \
+  --certificate-identity-regexp "https://github.com/CarlxsMG/mcpbridge/.github/workflows/.+" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+```
+
+### Building from source
+
+Building the image yourself is the path for contributors and for running an unreleased
+`main`; the `Dockerfile` at the repo root is the same one the release workflow publishes
+from. The env vars are unchanged — only the image reference differs:
+
+```bash
+docker build -t mcpbridge .
 
 docker run -d --name mcpbridge -p 3000:3000 \
   -e SESSION_COOKIE_SECURE=true \
@@ -41,12 +138,8 @@ docker run -d --name mcpbridge -p 3000:3000 \
   -e BOOTSTRAP_ADMIN_PASSWORD='<a strong 12+ char password>' \
   -e MCP_API_KEYS='<key1,key2>' \
   -v mcpbridge-data:/app/data \
-  ghcr.io/carlxsmg/mcpbridge:latest
+  mcpbridge
 ```
-
-Same env vars as the local-build example above — only the image differs. Without
-`BOOTSTRAP_ADMIN_USERNAME`/`BOOTSTRAP_ADMIN_PASSWORD`, the container starts with an empty
-`admin_users` table and no way to log in.
 
 ## Docker Compose
 
@@ -67,11 +160,11 @@ printf 'BOOTSTRAP_ADMIN_USERNAME=admin\nBOOTSTRAP_ADMIN_PASSWORD=<a strong 12+ c
 docker compose up -d
 ```
 
-No release image is published yet, so the file builds from local source (`build: .`); once the
-first tagged release exists you can comment `build:` out and let it pull the pinned
-`image:` from GHCR instead. The image's own `HEALTHCHECK` (hitting `/livez`) is picked up
-automatically. The database lives on the `mcp-bridge-data` named volume, so it survives
-`docker compose down`/recreation.
+That pulls the pinned GHCR image — set `MCPBRIDGE_VERSION` (in the environment or in `.env`)
+to choose a different tag. To build from local source instead, uncomment the `build: .` line
+the file keeps commented out next to `image:`, then `docker compose up -d --build`. The
+image's own `HEALTHCHECK` (hitting `/livez`) is picked up automatically. The database lives
+on the `mcp-bridge-data` named volume, so it survives `docker compose down`/recreation.
 
 ## Kubernetes (Helm)
 
@@ -140,6 +233,42 @@ backup.
 For an on-demand full-database backup without shelling into the host, `POST /admin-api/backup`
 produces a transactionally-consistent snapshot (SQLite `VACUUM INTO`) and streams it back as a
 downloadable file.
+
+### Durability of the newest writes
+
+The SQLite connection runs in **WAL** journal mode with **`PRAGMA synchronous = NORMAL`**,
+rather than SQLite's default `FULL`. That is a deliberate throughput trade, it applies to every
+write in the database, and there is no environment variable for it — changing it is a source
+change in `src/db/connection.ts`. What it does and does not cost:
+
+- **It cannot corrupt the database.** That is the WAL guarantee, and it is why `FULL` is not
+  required here: a write torn by a crash is recovered from the write-ahead log on the next open,
+  so the file stays valid whatever happens to the host.
+- **It can lose the last committed transaction(s) — but only if the machine goes down**, i.e. an
+  OS crash or a power cut. A clean `SIGTERM`, a `docker stop`, a `SIGKILL`, or the gateway
+  process itself crashing lose nothing; the data is already handed to the OS.
+- **That window includes the tail of the audit log.** The
+  [hash-chained audit trail](/guide/observability#audit-trail) stays internally consistent (each
+  write is its own atomic transaction), but after a power cut it can be missing its newest
+  entries. If your deployment treats that log as a legal record of every action, stream it
+  off-box with `AUDIT_SINK_URL` — that removes the single point of loss instead of trading
+  throughput for it — or raise the pragma back to `FULL` and pay the fsync.
+- **Usage analytics have a second, smaller window.** `tool_call_log` rows are buffered and
+  written in batches of up to 20, flushed at the end of the current event-loop turn at the
+  latest. Every reader in the gateway (`/admin-api/usage`, `/admin-api/traffic`, `sys_diagnose`,
+  the admin UI's Activity page) flushes before it queries, so nothing you see there is stale —
+  but a `sqlite3` query run directly against the file can be up to a batch behind.
+
+Why the trade was made: at `FULL`, every autocommit fsyncs the WAL, and that fsync sits on the
+per-tool-call write path. One `tool_call_log` insert measured **630µs at `FULL` against 60µs at
+`NORMAL`** — around 61% of an end-to-end loopback tool call, and the reason throughput was flat
+at roughly **840 calls/s from concurrency 1 all the way to 64**: one serialized fsync on a
+single JS thread, which more concurrency cannot help. The same ceiling measured **~685 calls/s**
+for calls made with a consumer-attached key (whose monthly quota counter is written per call and
+deliberately not batched, because it is what enforces the quota) and **300–500 calls/s on
+network-attached storage**. So the pre-change ceiling scaled with the storage's fsync latency,
+not with CPU — worth knowing when you size a host or reason about a throughput number you
+measure yourself.
 
 ### Upgrading
 

@@ -1,3 +1,7 @@
+---
+description: The full feature list — REST, GraphQL and MCP discovery, bundles, per-tool guardrails, RBAC, multi-tenancy, caching, tracing, alerts and the audit log.
+---
+
 # Features
 
 Everything MCP REST Bridge does, grouped by what you're trying to accomplish. Each group links

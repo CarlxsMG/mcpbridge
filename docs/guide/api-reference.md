@@ -1,3 +1,7 @@
+---
+description: The gateway's HTTP surfaces — the /admin-api JSON API, the MCP control and data planes, health and metrics endpoints, and the Swagger explorer at /docs.
+---
+
 # API reference
 
 The bridge exposes a few distinct HTTP surfaces. The backend also serves an **interactive

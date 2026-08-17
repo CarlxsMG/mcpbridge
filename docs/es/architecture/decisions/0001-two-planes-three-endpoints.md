@@ -1,3 +1,7 @@
+---
+description: ADR-0001 — por qué el gateway se divide en un plano de control en /mcp y un plano de datos de shards y bundles, en vez de una única lista aplanada de tools.
+---
+
 # Dos planos, tres endpoints — la división de `/mcp`
 
 - Estado: aceptado

@@ -1,3 +1,7 @@
+---
+description: Short answers about MCP REST Bridge — Kubernetes and database requirements, how it compares to other MCP gateways, auth, licensing and production readiness.
+---
+
 # FAQ
 
 Quick answers to the questions that come up before the deeper guides do. For the full

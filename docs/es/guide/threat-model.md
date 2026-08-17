@@ -1,3 +1,7 @@
+---
+description: Las fronteras de confianza sobre las que se diseñó MCP REST Bridge, las capacidades de atacante que defiende en cada una y lo que queda explícitamente fuera.
+---
+
 # Modelo de amenazas
 
 Esta página enuncia las fronteras de confianza alrededor de las que está diseñado MCP REST

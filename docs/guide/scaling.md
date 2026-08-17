@@ -1,3 +1,7 @@
+---
+description: Run several MCP REST Bridge instances behind a load balancer — shared state, session handling, leader election for schedules, and capacity planning.
+---
+
 # Scaling & high availability
 
 MCP REST Bridge runs happily as a single process — one Bun instance with a local

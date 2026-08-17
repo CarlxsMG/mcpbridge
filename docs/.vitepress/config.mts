@@ -1,4 +1,6 @@
-import { defineConfig } from "vitepress";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { defineConfig, type HeadConfig } from "vitepress";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Change these two if your GitHub repo differs. Everything else derives from them.
@@ -18,6 +20,13 @@ const DESCRIPTION =
   "The self-hosted MCP gateway with a real admin UI. Turn any REST API or MCP server " +
   "into secure, governed AI tools — OpenAPI-to-MCP auto-discovery, RBAC, guardrails, " +
   "circuit breaking. Single binary, no Kubernetes.";
+
+// Fallback for Spanish pages, so a page that forgets its own `description:`
+// frontmatter at least doesn't advertise itself to Google in English.
+const DESCRIPTION_ES =
+  "El gateway MCP auto-hospedado con una UI de administración real. Convierte cualquier API REST " +
+  "o servidor MCP en herramientas de IA seguras y gobernadas: descubrimiento automático desde " +
+  "OpenAPI, RBAC, guardrails y circuit breaking. Un binario, sin Kubernetes.";
 
 // Tiny inline ES translation table — every entry here mirrors an English
 // string from the sidebar / nav / footer / edit-link. The point is to keep
@@ -190,6 +199,44 @@ const promqlGrammar = {
   ],
 };
 
+// ─── Per-page SEO ────────────────────────────────────────────────────────────
+// VitePress emits one `<title>` and one description per page but nothing else:
+// no canonical, no hreflang, and the og:*/twitter:* tags in `head` below are
+// site-wide constants, so every page used to advertise itself to crawlers as the
+// home page. `transformPageData` (further down) fills that in per page.
+
+/** `guide/security.md` → `guide/security`; `index.md` → ``; `es/index.md` → `es/`. */
+function cleanPath(relativePath: string): string {
+  return relativePath.replace(/(^|\/)index\.md$/, "$1").replace(/\.md$/, "");
+}
+
+const absoluteUrl = (relativePath: string) => SITE_ORIGIN + BASE + cleanPath(relativePath);
+
+/**
+ * Structured data for the two home pages. Google uses this to understand that
+ * the site is a piece of free, open-source software rather than a generic page
+ * — it's what makes a rich result possible at all.
+ */
+function homeJsonLd(isEs: boolean) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "MCP REST Bridge",
+    alternateName: ["MCP Bridge", "mcpbridge"],
+    applicationCategory: "DeveloperApplication",
+    applicationSubCategory: "MCP gateway",
+    operatingSystem: "Linux, macOS, Windows, Docker",
+    description: isEs ? DESCRIPTION_ES : DESCRIPTION,
+    url: SITE_ORIGIN + BASE + (isEs ? "es/" : ""),
+    image: SITE_ORIGIN + BASE + "og-cover.png",
+    inLanguage: isEs ? "es" : "en",
+    codeRepository: REPO_URL,
+    license: "https://opensource.org/licenses/MIT",
+    isAccessibleForFree: true,
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  };
+}
+
 export default defineConfig({
   // VitePress's built-in i18n. The root locale keeps the existing
   // /guide/foo URLs; the Spanish locale mounts at /es/guide/foo.
@@ -283,6 +330,65 @@ export default defineConfig({
   },
 
   sitemap: { hostname: SITE_ORIGIN + BASE },
+
+  // Runs for every page in dev AND build (unlike `transformHead`, which is
+  // build-only), so what you see locally is what a crawler gets.
+  transformPageData(pageData, { siteConfig }) {
+    const relativePath = pageData.relativePath;
+    const isEs = relativePath === "es/index.md" || relativePath.startsWith("es/");
+    const canonical = absoluteUrl(relativePath);
+    const description =
+      typeof pageData.frontmatter.description === "string" && pageData.frontmatter.description.length > 0
+        ? pageData.frontmatter.description
+        : isEs
+          ? DESCRIPTION_ES
+          : DESCRIPTION;
+    // Mirror `titleTemplate` so social cards carry the brand even on pages whose
+    // own <title> is a bare noun ("Bundles", "FAQ").
+    const pageTitle = pageData.title || "MCP REST Bridge";
+    const socialTitle = pageTitle.includes("MCP REST Bridge") ? pageTitle : `${pageTitle} · MCP REST Bridge`;
+
+    const seo: HeadConfig[] = [
+      ["link", { rel: "canonical", href: canonical }],
+      ["meta", { property: "og:url", content: canonical }],
+      ["meta", { property: "og:title", content: socialTitle }],
+      ["meta", { property: "og:description", content: description }],
+      ["meta", { property: "og:locale", content: isEs ? "es_ES" : "en_US" }],
+      ["meta", { name: "twitter:title", content: socialTitle }],
+      ["meta", { name: "twitter:description", content: description }],
+    ];
+
+    // hreflang, but only where the counterpart file actually exists — pointing at
+    // a 404 makes Google drop the whole annotation cluster, including the half
+    // that was correct.
+    const counterpart = isEs ? relativePath.slice("es/".length) : `es/${relativePath}`;
+    if (existsSync(join(siteConfig.srcDir, counterpart))) {
+      const enUrl = absoluteUrl(isEs ? counterpart : relativePath);
+      const esUrl = absoluteUrl(isEs ? relativePath : counterpart);
+      seo.push(
+        ["link", { rel: "alternate", hreflang: "en", href: enUrl }],
+        ["link", { rel: "alternate", hreflang: "es", href: esUrl }],
+        ["link", { rel: "alternate", hreflang: "x-default", href: enUrl }],
+        ["meta", { property: "og:locale:alternate", content: isEs ? "en_US" : "es_ES" }],
+      );
+    }
+
+    if (relativePath === "index.md" || relativePath === "es/index.md") {
+      seo.push(["script", { type: "application/ld+json" }, JSON.stringify(homeJsonLd(isEs))]);
+    }
+
+    // `mergeHead` lets page-level META tags override the site-wide ones by their
+    // first attribute (so og:title above wins), but LINK tags are only ever
+    // appended — drop any we already added so a dev-server re-run can't stack a
+    // second canonical onto the same page.
+    const existing = (pageData.frontmatter.head ?? []) as HeadConfig[];
+    pageData.frontmatter.head = [
+      ...existing.filter(
+        ([tag, attrs]) => !(tag === "link" && (attrs?.rel === "canonical" || attrs?.rel === "alternate")),
+      ),
+      ...seo,
+    ];
+  },
 
   head: [
     ["link", { rel: "icon", type: "image/svg+xml", href: BASE + "favicon.svg" }],

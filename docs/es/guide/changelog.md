@@ -1,3 +1,7 @@
+---
+description: Historial de versiones de MCP REST Bridge — cada funcionalidad, corrección y cambio incompatible, siguiendo Keep a Changelog y versionado semántico.
+---
+
 # Changelog
 
 Refleja el [`CHANGELOG.md`](https://github.com/CarlxsMG/mcpbridge/blob/main/CHANGELOG.md)

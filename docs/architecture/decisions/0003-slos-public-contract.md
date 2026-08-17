@@ -1,3 +1,7 @@
+---
+description: ADR-0003 — why this project publishes its SLOs as a public contract, and the error-budget policy that makes those targets binding rather than aspirational.
+---
+
 # SLOs as a public reliability contract
 
 - Status: accepted

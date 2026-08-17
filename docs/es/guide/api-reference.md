@@ -1,3 +1,7 @@
+---
+description: Las superficies HTTP del gateway — la API JSON /admin-api, los planos MCP de control y de datos, los endpoints de salud y métricas, y el explorador Swagger en /docs.
+---
+
 # Referencia de API
 
 El bridge expone unas pocas superficies HTTP distintas. El backend también sirve un

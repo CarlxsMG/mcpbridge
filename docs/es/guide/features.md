@@ -1,3 +1,7 @@
+---
+description: La lista completa de funcionalidades — descubrimiento REST, GraphQL y MCP, bundles, guardrails por herramienta, RBAC, multi-tenancy, caché, trazas y auditoría.
+---
+
 # Funcionalidades
 
 Todo lo que hace MCP REST Bridge, agrupado por lo que intentas lograr. Cada grupo enlaza a

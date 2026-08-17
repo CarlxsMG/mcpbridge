@@ -1,3 +1,7 @@
+---
+description: How to contribute to MCP REST Bridge — dev setup with Bun, the lint and test gates, commit conventions, and what a reviewable pull request looks like.
+---
+
 # Contributing
 
 Root [`CONTRIBUTING.md`](https://github.com/CarlxsMG/mcpbridge/blob/main/CONTRIBUTING.md)

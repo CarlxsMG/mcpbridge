@@ -1,3 +1,7 @@
+---
+description: The trust boundaries MCP REST Bridge is designed around, the attacker capabilities it defends against at each one, and what is explicitly out of scope.
+---
+
 # Threat model
 
 This page states the trust boundaries MCP REST Bridge is designed around, the attacker

@@ -1,3 +1,7 @@
+---
+description: Manage the gateway as version-controlled YAML — the CLI's login, pull, plan and apply commands for GitOps workflows, plus connect for MCP client configs.
+---
+
 # CLI (config-as-code)
 
 Alongside the admin UI and the raw `/admin-api`, the bridge ships a small **`gateway` CLI**

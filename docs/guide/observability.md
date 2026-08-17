@@ -1,3 +1,7 @@
+---
+description: Prometheus metrics, OpenTelemetry traces on every tool call, usage analytics, anomaly alerts and a tamper-evident hash-chained audit log with SIEM streaming.
+---
+
 # Observability & monitoring
 
 The bridge is built to be watched: metrics, traces, usage analytics, alerts and a

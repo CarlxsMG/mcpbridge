@@ -1,3 +1,7 @@
+---
+description: El contrato público de fiabilidad de MCP REST Bridge — objetivos de disponibilidad, latencia y presupuesto de error, cómo se miden y sus alertas de consumo.
+---
+
 # Objetivos de Nivel de Servicio (SLOs)
 
 > **Estado:** borrador inicial. Los objetivos son **deliberadamente conservadores
