@@ -39,6 +39,7 @@ import { registry } from "../registry.js";
 import type { RestToolDefinition } from "../types.js";
 import type { SystemAuthResult } from "../../security/system-role.js";
 import * as auditMod from "../../admin/audit/audit.js";
+import { createMcpKey } from "../../security/mcp-key-store.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -64,11 +65,19 @@ async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]) {
 // `tier` literal getting corrupted (e.g. "read" -> "") reliably knocks the
 // tool out of `roleMeetsTier`'s filter rather than accidentally still
 // passing via a higher rank.
-const READ_AUTH: SystemAuthResult = { role: "viewer", elevated: false, keyId: 7, isEnvBearer: false };
+//
+// It has to point at a REAL key row (re-minted per test, since the DB is
+// reset): runSystemTool now re-reads the row to apply the key-scope gate and
+// fails closed when it is missing, so a hardcoded id would refuse every call
+// here before the handler ran. `scopes: null` (unrestricted) keeps the
+// listings in this file unfiltered, which is what these mutants are about.
+let READ_AUTH: SystemAuthResult = { role: "viewer", elevated: false, keyId: 0, isEnvBearer: false };
 
 beforeEach(async () => {
   __resetDbForTesting();
   await clearRegistry();
+  const { record } = createMcpKey("st2-unrestricted-viewer", null, null, "tester", null, false, "viewer");
+  READ_AUTH = { role: "viewer", elevated: false, keyId: record.id, isEnvBearer: false };
 });
 
 function findTool(name: string) {

@@ -34,18 +34,28 @@ import { __resetDbForTesting } from "../../db/connection.js";
 import { config } from "../../config.js";
 import * as registrationMod from "../registration.js";
 import * as auditMod from "../../admin/audit/audit.js";
+import { createMcpKey } from "../../security/mcp-key-store.js";
 import type { RegisterOutcome } from "../registration.js";
 
 // ---------------------------------------------------------------------------
 // Fixtures / helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * A REAL unrestricted key row, re-minted per test after __resetDbForTesting().
+ * sys_register_client is client-scoped now: runSystemTool re-reads this row and
+ * fails closed when there is none, so an id that never existed would be refused
+ * before the handler ran. `scopes: null` = unrestricted, which is the only shape
+ * that leaves this file testing dispatch rather than the scope gate.
+ */
+let unrestrictedKeyId = 0;
+
 /** Elevated admin credential — clears BOTH the tier check (operate) and the
  * sensitive/__confirm step-up gate (elevated:true) so every test reaches
  * sys_register_client's handler body directly, without re-testing
  * runSystemTool's own gates (already covered by system-tools.test.ts). */
 function elevatedAuth(overrides: Partial<SystemAuthResult> = {}): SystemAuthResult {
-  return { role: "admin", elevated: true, keyId: 7, isEnvBearer: false, ...overrides };
+  return { role: "admin", elevated: true, keyId: unrestrictedKeyId, isEnvBearer: false, ...overrides };
 }
 
 function successOutcome(
@@ -78,6 +88,7 @@ let auditSpy: ReturnType<typeof spyOn>;
 beforeEach(async () => {
   __resetDbForTesting();
   await clearRegistry();
+  unrestrictedKeyId = createMcpKey("st4-unrestricted", null, null, "tester", null, true, "admin").record.id;
   (config as Record<string, unknown>).maxToolsPerClient = ORIGINAL_MAX_TOOLS;
 
   // Default: every registration function resolves a generic success unless a
@@ -284,14 +295,16 @@ describe("sys_register_client — L273 REST fallback dispatch", () => {
 
 describe("sys_register_client — L276/L277 success-path audit write (fires only on outcome.ok)", () => {
   test("a successful outcome records audit with the exact action, name, and {source} meta — not the whole body", async () => {
-    const auth = elevatedAuth({ keyId: 42 });
+    const auth = elevatedAuth();
     restSpy.mockResolvedValue(successOutcome("manual", { name: "audited-client", tools_count: 5 }));
     const args = { name: "audited-client", health_url: "http://x", tools: [{}] };
 
     const result = await runSystemTool("sys_register_client", args, auth);
 
     expect(auditSpy).toHaveBeenCalledTimes(1);
-    expect(auditSpy).toHaveBeenCalledWith("mcp-key:42", "client.register", "audited-client", { source: "manual" });
+    expect(auditSpy).toHaveBeenCalledWith(`mcp-key:${unrestrictedKeyId}`, "client.register", "audited-client", {
+      source: "manual",
+    });
     // Return value is the raw outcome body, verbatim, regardless of ok/not-ok.
     expect(result.content[0]?.text).toBe(
       JSON.stringify({ status: "registered", name: "audited-client", tools_count: 5, source: "manual" }, null, 2),
@@ -337,6 +350,6 @@ describe("sys_register_client — L276/L277 success-path audit write (fires only
 
     await runSystemTool("sys_register_client", args, elevatedAuth());
 
-    expect(auditSpy).toHaveBeenCalledWith("mcp-key:7", "client.register", "", { source: "manual" });
+    expect(auditSpy).toHaveBeenCalledWith(`mcp-key:${unrestrictedKeyId}`, "client.register", "", { source: "manual" });
   });
 });

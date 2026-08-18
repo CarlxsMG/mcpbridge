@@ -36,6 +36,7 @@ import { listSystemTools, runSystemTool } from "../system-tools.js";
 import { registry } from "../registry.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import * as auditMod from "../../admin/audit/audit.js";
+import { createMcpKey } from "../../security/mcp-key-store.js";
 import type { SystemAuthResult } from "../../security/system-role.js";
 import type { RestToolDefinition } from "../types.js";
 
@@ -43,12 +44,21 @@ import type { RestToolDefinition } from "../types.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Operator, non-elevated, non-env-bearer, keyId:7 by default — meets every
- * ST3 tool's "operate" tier requirement without tripping any sensitive gate
- * (none of the four are sensitive except sys_delete_client, which gets
- * `__confirm: true` in its args instead — see file header). */
+/**
+ * A REAL unrestricted key row, re-minted per test after __resetDbForTesting().
+ * runSystemTool re-reads `auth.keyId`'s row for the key-scope gate and fails
+ * closed when there is none, so an id that never existed would be refused
+ * before any of these handlers ran. `scopes: null` = unrestricted, so the gate
+ * passes and these tests still observe the handler logic they target.
+ */
+let unrestrictedKeyId = 0;
+
+/** Operator, non-elevated, non-env-bearer — meets every ST3 tool's "operate"
+ * tier requirement without tripping any sensitive gate (none of the four are
+ * sensitive except sys_delete_client, which gets `__confirm: true` in its args
+ * instead — see file header). */
 function auth(overrides: Partial<SystemAuthResult> = {}): SystemAuthResult {
-  return { role: "operator", elevated: false, keyId: 7, isEnvBearer: false, ...overrides };
+  return { role: "operator", elevated: false, keyId: unrestrictedKeyId, isEnvBearer: false, ...overrides };
 }
 
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
@@ -71,6 +81,7 @@ let auditSpy: ReturnType<typeof spyOn>;
 beforeEach(async () => {
   await clearRegistry();
   __resetDbForTesting();
+  unrestrictedKeyId = createMcpKey("st3-unrestricted", null, null, "tester", null, false, "operator").record.id;
   auditSpy = spyOn(auditMod, "recordAudit").mockImplementation(() => {});
 });
 
@@ -207,16 +218,12 @@ describe("sys_set_client_enabled — unknown client (L180/L181)", () => {
 describe("sys_set_client_enabled — real toggle (L182/L183 ternaries, both directions)", () => {
   test("disabling a registered client persists enabled:false, audits 'client.disable', and returns the exact 'disabled' message", async () => {
     await reg("st3-sce-1");
-    const result = await runSystemTool(
-      "sys_set_client_enabled",
-      { name: "st3-sce-1", enabled: false },
-      auth({ keyId: 7 }),
-    );
+    const result = await runSystemTool("sys_set_client_enabled", { name: "st3-sce-1", enabled: false }, auth());
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toBe("Client 'st3-sce-1' disabled");
     expect(registry.getClient("st3-sce-1")?.enabled).toBe(false);
     expect(auditSpy).toHaveBeenCalledTimes(1);
-    expect(auditSpy.mock.calls[0]).toEqual(["mcp-key:7", "client.disable", "st3-sce-1"]);
+    expect(auditSpy.mock.calls[0]).toEqual([`mcp-key:${unrestrictedKeyId}`, "client.disable", "st3-sce-1"]);
   });
 
   test("re-enabling the same client persists enabled:true, audits 'client.enable' (not swapped), and returns the exact 'enabled' message", async () => {
@@ -224,16 +231,12 @@ describe("sys_set_client_enabled — real toggle (L182/L183 ternaries, both dire
     await runSystemTool("sys_set_client_enabled", { name: "st3-sce-2", enabled: false }, auth());
     auditSpy.mockClear();
 
-    const result = await runSystemTool(
-      "sys_set_client_enabled",
-      { name: "st3-sce-2", enabled: true },
-      auth({ keyId: 7 }),
-    );
+    const result = await runSystemTool("sys_set_client_enabled", { name: "st3-sce-2", enabled: true }, auth());
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toBe("Client 'st3-sce-2' enabled");
     expect(registry.getClient("st3-sce-2")?.enabled).toBe(true);
     expect(auditSpy).toHaveBeenCalledTimes(1);
-    expect(auditSpy.mock.calls[0]).toEqual(["mcp-key:7", "client.enable", "st3-sce-2"]);
+    expect(auditSpy.mock.calls[0]).toEqual([`mcp-key:${unrestrictedKeyId}`, "client.enable", "st3-sce-2"]);
   });
 });
 
@@ -309,13 +312,13 @@ describe("sys_set_tool_enabled — real toggle, both directions (L209/L210 terna
     const result = await runSystemTool(
       "sys_set_tool_enabled",
       { client: "st3-ste-2", tool: "get-thing", enabled: false },
-      auth({ keyId: 7 }),
+      auth(),
     );
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toBe("Tool 'st3-ste-2__get-thing' disabled");
     expect(registry.getClient("st3-ste-2")?.tools.find((t) => t.name === "get-thing")?.enabled).toBe(false);
     expect(auditSpy).toHaveBeenCalledTimes(1);
-    expect(auditSpy.mock.calls[0]).toEqual(["mcp-key:7", "tool.disable", "st3-ste-2__get-thing"]);
+    expect(auditSpy.mock.calls[0]).toEqual([`mcp-key:${unrestrictedKeyId}`, "tool.disable", "st3-ste-2__get-thing"]);
   });
 
   test("re-enabling the same tool persists enabled:true, audits 'tool.enable' (not swapped), and returns the exact 'enabled' message", async () => {
@@ -326,13 +329,13 @@ describe("sys_set_tool_enabled — real toggle, both directions (L209/L210 terna
     const result = await runSystemTool(
       "sys_set_tool_enabled",
       { client: "st3-ste-3", tool: "get-thing", enabled: true },
-      auth({ keyId: 7 }),
+      auth(),
     );
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toBe("Tool 'st3-ste-3__get-thing' enabled");
     expect(registry.getClient("st3-ste-3")?.tools.find((t) => t.name === "get-thing")?.enabled).toBe(true);
     expect(auditSpy).toHaveBeenCalledTimes(1);
-    expect(auditSpy.mock.calls[0]).toEqual(["mcp-key:7", "tool.enable", "st3-ste-3__get-thing"]);
+    expect(auditSpy.mock.calls[0]).toEqual([`mcp-key:${unrestrictedKeyId}`, "tool.enable", "st3-ste-3__get-thing"]);
   });
 });
 
@@ -376,11 +379,15 @@ describe("sys_reset_circuit_breaker — not-live client (L226/L227)", () => {
 describe("sys_reset_circuit_breaker — live client success path (L228/L229)", () => {
   test("a live client resets successfully, audits 'client.circuit_breaker.reset', and returns the exact message", async () => {
     await reg("st3-rcb-3");
-    const result = await runSystemTool("sys_reset_circuit_breaker", { name: "st3-rcb-3" }, auth({ keyId: 7 }));
+    const result = await runSystemTool("sys_reset_circuit_breaker", { name: "st3-rcb-3" }, auth());
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toBe("Circuit breaker reset for 'st3-rcb-3'");
     expect(auditSpy).toHaveBeenCalledTimes(1);
-    expect(auditSpy.mock.calls[0]).toEqual(["mcp-key:7", "client.circuit_breaker.reset", "st3-rcb-3"]);
+    expect(auditSpy.mock.calls[0]).toEqual([
+      `mcp-key:${unrestrictedKeyId}`,
+      "client.circuit_breaker.reset",
+      "st3-rcb-3",
+    ]);
   });
 });
 
@@ -420,7 +427,7 @@ describe("sys_delete_client — real client is actually purged, live AND persist
     expect(registry.getClient("st3-del-1")).toBeDefined();
     expect(registry.getClientDetail("st3-del-1")).toBeDefined();
 
-    const result = await runSystemTool("sys_delete_client", { name: "st3-del-1", __confirm: true }, auth({ keyId: 7 }));
+    const result = await runSystemTool("sys_delete_client", { name: "st3-del-1", __confirm: true }, auth());
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toBe("Client 'st3-del-1' deleted");
 
@@ -432,6 +439,6 @@ describe("sys_delete_client — real client is actually purged, live AND persist
     expect(registry.getClientDetail("st3-del-1")).toBeUndefined();
 
     expect(auditSpy).toHaveBeenCalledTimes(1);
-    expect(auditSpy.mock.calls[0]).toEqual(["mcp-key:7", "client.delete", "st3-del-1"]);
+    expect(auditSpy.mock.calls[0]).toEqual([`mcp-key:${unrestrictedKeyId}`, "client.delete", "st3-del-1"]);
   });
 });

@@ -73,6 +73,22 @@ export interface ListClientsSummaryOpts {
   cursor?: string;
   limit?: number;
   teamId?: number | null;
+  /**
+   * Restrict the listing to exactly these client names — applied in SQL, in the
+   * same WHERE clause as the other filters, so it narrows BEFORE `LIMIT`.
+   *
+   * That placement is the point. The caller this exists for is the /mcp control
+   * plane, where a managed key's `scopes.clients` is a finite, admin-authored
+   * name list: narrowing the page after it has been built lets every row of
+   * page one be dropped, which hands the caller an empty list and reports "no
+   * clients" for a gateway where it owns one further down the alphabet.
+   * `status` stays a post-filter for a reason that does not apply here — health
+   * status is in-memory-only and has no SQL column to filter on.
+   *
+   * `undefined` means no restriction. An EMPTY array means no name is
+   * permitted, and is answered with an empty page — never read as unrestricted.
+   */
+  names?: string[];
 }
 
 export interface ToolListItem {
@@ -105,6 +121,14 @@ export function listClientsSummaryReadModel(
   const conditions: string[] = [];
   const params: (string | number)[] = [];
 
+  if (opts.names !== undefined) {
+    // An empty allow-list is a real answer ("this credential may see no
+    // client"), not an absent filter — and `IN ()` is a SQLite syntax error
+    // anyway, so short-circuit. No nextCursor: there is no next page to offer.
+    if (opts.names.length === 0) return { items: [] };
+    conditions.push(`c.name IN (${opts.names.map(() => "?").join(", ")})`);
+    params.push(...opts.names);
+  }
   if (opts.cursor) {
     conditions.push("c.name > ?");
     params.push(opts.cursor);

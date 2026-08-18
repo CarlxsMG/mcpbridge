@@ -20,6 +20,7 @@ import { listSystemTools, runSystemTool } from "../system-tools.js";
 import { registry } from "../registry.js";
 import { __resetDbForTesting } from "../../db/connection.js";
 import { listAuditLog } from "../../admin/audit/audit.js";
+import { createMcpKey } from "../../security/mcp-key-store.js";
 import * as loggerMod from "../../logger.js";
 import type { SystemAuthResult } from "../../security/system-role.js";
 import type { RestToolDefinition } from "../types.js";
@@ -28,9 +29,19 @@ import type { RestToolDefinition } from "../types.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Admin/elevated/env-bearer by default — override per test to exercise a specific gate. */
+/**
+ * A REAL unrestricted key row, re-minted per test after __resetDbForTesting().
+ *
+ * runSystemTool re-reads `auth.keyId`'s row to apply the key-scope gate and
+ * fails closed when it is gone, so a hardcoded id that never existed is now
+ * refused before any handler runs. Unrestricted (`scopes: null`) so this file
+ * keeps testing the gates it is about and nothing else.
+ */
+let unrestrictedKeyId = 0;
+
+/** Admin/elevated/non-env-bearer by default — override per test to exercise a specific gate. */
 function auth(overrides: Partial<SystemAuthResult> = {}): SystemAuthResult {
-  return { role: "admin", elevated: true, keyId: 1, isEnvBearer: false, ...overrides };
+  return { role: "admin", elevated: true, keyId: unrestrictedKeyId, isEnvBearer: false, ...overrides };
 }
 
 function makeTool(overrides: Partial<RestToolDefinition> = {}): RestToolDefinition {
@@ -51,6 +62,7 @@ async function reg(name: string, tools: RestToolDefinition[] = [makeTool()]): Pr
 beforeEach(async () => {
   await clearRegistry();
   __resetDbForTesting();
+  unrestrictedKeyId = createMcpKey("st1-unrestricted", null, null, "tester", null, true, "admin").record.id;
 });
 
 // ---------------------------------------------------------------------------
@@ -63,14 +75,15 @@ describe("actorFor (L52:54 StringLiteral->'``')", () => {
     const result = await runSystemTool(
       "sys_set_client_enabled",
       { name: "svc-actor", enabled: false },
-      auth({ isEnvBearer: false, keyId: 42, elevated: false, role: "operator" }),
+      auth({ isEnvBearer: false, elevated: false, role: "operator" }),
     );
     expect(result.isError).toBeUndefined();
 
     const log = listAuditLog({ limit: 1 });
     // If the template literal is gutted to '``', the actor collapses to "" —
-    // this pins it to the exact non-empty "mcp-key:42" string.
-    expect(log.items[0]?.actor).toBe("mcp-key:42");
+    // this pins it to the exact non-empty "mcp-key:<id>" string. The id is the
+    // real minted row's, not a literal, since the key-scope gate now reads it.
+    expect(log.items[0]?.actor).toBe(`mcp-key:${unrestrictedKeyId}`);
   });
 
   test("env-bearer branch is unaffected (guards against the fix reading as equivalent)", async () => {
