@@ -80,5 +80,11 @@ describe("source hygiene", () => {
       offenders,
       `Literal control bytes in source (write the escape instead, e.g. "\\u0000"):\n${offenders.join("\n")}`,
     ).toEqual([]);
-  });
+    // Explicit timeout, well above bun's 5s default. This walks and reads every
+    // source file synchronously, so its wall time is set by contention, not by
+    // its own work: ~250ms run alone, but measured at 5375ms inside the full
+    // `bun test --coverage` run on a loaded machine — a timeout failure that
+    // reads like a real one and sends you hunting for a defect that is not
+    // there. Raise it if the repo grows; it is not measuring performance.
+  }, 30_000);
 });
