@@ -174,13 +174,60 @@ async function registerStubClient(request: APIRequestContext, auth: AdminAuth, n
   expect([200, 201, 409], `register(${name}) failed: ${res.status()} ${await res.text()}`).toContain(res.status());
 }
 
-/** One bulk enable/disable pass over every seeded client — 55 audit rows a call. */
+/**
+ * One bulk enable/disable pass over every seeded client — one audit row per
+ * name, and PATCH /clients writes one only for a name it actually toggled.
+ *
+ * The per-name results are asserted rather than discarded, for the same reason
+ * the traffic seed calls below are: a partial pass still answers 200, and the
+ * resulting "fewer rows than seeded" failure three tests later points nowhere
+ * near here. (It cost an investigation once — the real cause was the `?from=`
+ * floor, see serverAuditFloor, and this assertion is what rules the seeding out
+ * next time.)
+ */
 async function bulkToggle(request: APIRequestContext, auth: AdminAuth, enabled: boolean): Promise<void> {
   const res = await request.patch(`${APP_BASE_URL}/admin-api/clients`, {
     headers: apiHeaders(auth),
     data: { names: SEEDED_NAMES, enabled },
   });
   expect(res.status(), `bulk toggle failed: ${await res.text()}`).toBe(200);
+  const body = (await res.json()) as { results?: Record<string, boolean> };
+  const missed = Object.entries(body.results ?? {})
+    .filter(([, ok]) => !ok)
+    .map(([name]) => name);
+  expect(
+    missed,
+    `bulk toggle silently skipped ${missed.length} client(s), so this pass seeded fewer audit rows`,
+  ).toEqual([]);
+}
+
+/**
+ * The `?from=` floor for the audit-log window: the newest audit row's own
+ * `created_at`, i.e. an instant on the clock that stamps these rows.
+ *
+ * `Date.now()` in THIS process reads like an equivalent floor and is not.
+ * `recordAudit` timestamps with the BACKEND process's clock, and two processes'
+ * millisecond readings need not agree: measured here, audit rows produced by the
+ * very next request came back one millisecond BELOW a floor captured
+ * immediately before that request was sent. They therefore failed
+ * `created_at >= from`, and the walk below reported fewer rows than were
+ * written — while every row was in fact present. The shortfall scales with how
+ * many rows land inside the boundary millisecond, so it grows as the audit
+ * write path gets faster, and it varies run to run.
+ *
+ * An existing row's own timestamp cannot have that problem: it comes from the
+ * same clock, so everything this spec writes afterwards is stamped at or after
+ * it. The window stays confined to this spec's rows — only the boundary row
+ * itself, plus anything sharing its millisecond, is admitted, and every
+ * assertion below treats the seeded count as a floor, so a few extra rows
+ * cannot weaken one. Returns 0 for an empty log: there is then nothing older to
+ * exclude.
+ */
+async function serverAuditFloor(request: APIRequestContext, auth: AdminAuth): Promise<number> {
+  const res = await request.get(`${APP_BASE_URL}/admin-api/audit-log?limit=1`, { headers: apiHeaders(auth) });
+  expect(res.status(), `GET audit-log?limit=1 failed: ${await res.text()}`).toBe(200);
+  const [newest] = pageOf(await res.json()).items;
+  return newest ? Number(fieldAsString(newest, "createdAt")) : 0;
 }
 
 // ── The paginated-endpoint table ─────────────────────────────────────────────
@@ -216,7 +263,7 @@ interface PaginatedEndpoint {
   garbageNote: string;
 }
 
-/** Set in beforeAll, immediately before the audit rows this spec mints. */
+/** Set in beforeAll, immediately before the audit rows this spec mints — a SERVER-clock instant (see serverAuditFloor). */
 let seedStartMs = 0;
 
 const PAGINATED: readonly PaginatedEndpoint[] = [
@@ -323,8 +370,9 @@ test.describe("keyset pagination — the admin list API and the SPA pager", () =
     }
 
     // Everything after this instant in the audit log is this spec's own doing,
-    // which is what `?from=` narrows on below. Captured before the first toggle.
-    seedStartMs = Date.now();
+    // which is what `?from=` narrows on below. Read before the first toggle,
+    // and read from the SERVER — see serverAuditFloor.
+    seedStartMs = await serverAuditFloor(request, auth);
     for (let pass = 0; pass < AUDIT_TOGGLE_PASSES; pass++) {
       // Ends on `true` (even pass count), so the seeded clients are left enabled
       // for the SPA test and for a local re-run against the same database.
