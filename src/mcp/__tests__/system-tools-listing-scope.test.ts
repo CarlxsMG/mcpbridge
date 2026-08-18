@@ -2,15 +2,17 @@
  * The control plane's two ENUMERATIONS — sys_list_clients and sys_list_tools —
  * where the tenancy gate narrows rather than refuses. Three properties:
  *
- *  1. A scoped caller sees its OWN clients, never a false empty list. The
- *     read model pages (keyset by name, with a default LIMIT) while
- *     sys_list_clients' inputSchema exposes no cursor at all, so a gate applied
- *     to the page AFTER the read model built it can drop every row of page one
- *     and answer "you have no clients" to a caller that owns one sorting later
- *     in the alphabet. An LLM caller believes that answer. The narrowing has to
- *     be part of the query so the page boundary and the scope agree — raising
- *     the limit only moves the same cliff to a larger N, which is why the
- *     fixture below asserts truncation is real rather than assuming a number.
+ *  1. A scoped caller sees its OWN clients, never a false empty list, and can
+ *     walk the listing to exhaustion. The read model pages (keyset by name,
+ *     with a default LIMIT), so a gate applied to the page AFTER the read model
+ *     built it can drop every row of page one and answer "you have no clients"
+ *     to a caller that owns one sorting later in the alphabet. An LLM caller
+ *     believes that answer. The narrowing has to be part of the query so the
+ *     page boundary and the scope agree — raising the limit only moves the same
+ *     cliff to a larger N, which is why the fixture below asserts truncation is
+ *     real rather than assuming a number. `cursor`/`limit` are exposed on the
+ *     tool for the same reason the false empty mattered: an unfollowable
+ *     nextCursor is an incomplete answer the caller cannot tell is incomplete.
  *  2. Neither listing leaks a row outside the caller's scope, and an
  *     out-of-scope target stays indistinguishable from one that does not exist.
  *  3. The gate costs ONE key-row read per invocation, not one per row — and
@@ -118,9 +120,11 @@ describe("sys_list_clients does not report a false empty", () => {
     const scoped = await runSystemTool("sys_list_clients", {}, scopedKeyAuth([TARGET]));
 
     // The regression this pins: with the scope applied to the already-paginated
-    // page, every one of those rows is dropped and this comes back `[]` with a
-    // nextCursor the tool's schema gives the caller no way to follow — an agent
-    // reads that as "this gateway has no servers".
+    // page, every one of those rows is dropped and this comes back `[]` — an
+    // agent reads that as "this gateway has no servers". The absent nextCursor
+    // matters as much as the row: it is what tells the caller the answer is
+    // complete, so a post-filter would have paired an empty page with a cursor
+    // computed over rows this caller may not see.
     expect(clientNames(scoped)).toEqual([TARGET]);
     expect(page(scoped).nextCursor).toBeUndefined();
   });
@@ -171,6 +175,67 @@ describe("sys_list_clients does not report a false empty", () => {
 
     expect(clientNames(await runSystemTool("sys_list_clients", {}, gone))).toEqual([]);
     expect(toolPairs(await runSystemTool("sys_list_tools", {}, gone))).toEqual([]);
+  });
+});
+
+describe("sys_list_clients can be walked to exhaustion", () => {
+  test("following nextCursor reaches every client, with no row served twice", async () => {
+    // The default page cannot hold TOTAL, so this walk really does need more
+    // than one call — expectTruncated is the precondition, asserted not assumed.
+    await expectTruncated();
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    // Bounded so a cursor that fails to advance ends the test as a failure
+    // rather than hanging the suite.
+    for (let call = 0; call <= TOTAL; call++) {
+      const args: Record<string, unknown> = cursor === undefined ? {} : { cursor };
+      const result = await runSystemTool("sys_list_clients", args, envBearer());
+      seen.push(...clientNames(result));
+      cursor = page(result).nextCursor;
+      if (cursor === undefined) break;
+    }
+
+    expect(cursor).toBeUndefined();
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(seen).toHaveLength(TOTAL);
+    expect(seen).toContain(TARGET);
+    expect(seen).toContain(FIRST_FILLER);
+  });
+
+  test("a scoped caller's walk stays inside its own scope and terminates", async () => {
+    // Three in scope, a page size of one: the cursor has to come from the
+    // caller's OWN listing, not from the unrestricted one, or the second call
+    // would resume past rows this key cannot see and lose its own.
+    const mine = [fillerName(0), fillerName(30), TARGET];
+    const auth = scopedKeyAuth(mine);
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let call = 0; call <= mine.length; call++) {
+      const args: Record<string, unknown> = cursor === undefined ? { limit: 1 } : { limit: 1, cursor };
+      const result = await runSystemTool("sys_list_clients", args, auth);
+      expect(clientNames(result).length).toBeLessThanOrEqual(1);
+      seen.push(...clientNames(result));
+      cursor = page(result).nextCursor;
+      if (cursor === undefined) break;
+    }
+
+    expect(cursor).toBeUndefined();
+    expect(seen).toEqual(mine);
+  });
+
+  test("limit is honoured and clamped, and a limit big enough ends the walk in one call", async () => {
+    const two = await runSystemTool("sys_list_clients", { limit: 2 }, envBearer());
+    expect(clientNames(two)).toHaveLength(2);
+    expect(page(two).nextCursor).toBeDefined();
+
+    // Above the read model's ceiling: clamped, not rejected and not obeyed.
+    // TOTAL is under that ceiling, so the whole listing arrives at once and the
+    // absent cursor is what proves the clamp did not silently truncate.
+    const huge = await runSystemTool("sys_list_clients", { limit: 10_000 }, envBearer());
+    expect(clientNames(huge)).toHaveLength(TOTAL);
+    expect(page(huge).nextCursor).toBeUndefined();
   });
 });
 

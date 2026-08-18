@@ -44,25 +44,25 @@ ejes, todos aplicados en `runSystemTool()` (`src/mcp/system-tools.ts`) y no en c
   fuera de ese scope recibe la respuesta de «no encontrado» habitual de la tool, así que «fuera de
   tu scope» y «no existe» son indistinguibles.
 
-| Tool                        | Tier    | Step-up                  | Descripción                                                                         |
-| --------------------------- | ------- | ------------------------ | ----------------------------------------------------------------------------------- |
-| `sys_list_clients`          | read    | —                        | Lista backends registrados (REST o upstreams MCP) con estado enable/salud.          |
-| `sys_get_client`            | read    | —                        | Detalle completo de un backend, incluyendo sus tools y salud.                       |
-| `sys_list_tools`            | read    | —                        | Cada par `(backend, tool)` de todos los backends registrados.                       |
-| `sys_list_bundles`          | read    | —                        | Lista bundles curados por admin servidos en `/mcp-custom/:bundleName`.              |
-| `sys_list_keys`             | read    | —                        | API keys MCP gestionadas — solo metadata; el valor de la key nunca es recuperable.  |
-| `sys_metrics`               | read    | —                        | Snapshot de métricas del gateway: uptime, sesiones, conteo de tool-calls, latencia. |
-| `sys_audit_tail`            | read    | —                        | Tail del audit log de admin (entradas más recientes primero).                       |
-| `sys_diagnose`              | operate | —                        | Por qué se está rechazando una tool — ver la nota de abajo. Solo lectura.           |
-| `sys_set_client_enabled`    | operate | —                        | Activa o desactiva un backend (sus tools quedan inalcanzables mientras esté off).   |
-| `sys_set_tool_enabled`      | operate | —                        | Activa o desactiva una sola tool de un backend.                                     |
-| `sys_set_guard`             | operate | —                        | Fija o borra la política de guardas de una tool: rate limit, timeout, allowlist.    |
-| `sys_reset_circuit_breaker` | operate | —                        | Fuerza el circuit breaker de un backend vivo de vuelta a `closed`.                  |
-| `sys_register_client`       | operate | `__confirm` / elevada    | Registra un backend REST/OpenAPI, upstream MCP o GraphQL (validado contra SSRF).    |
-| `sys_delete_client`         | operate | `__confirm` / elevada    | Olvida permanentemente un backend y purga su config SQLite.                         |
-| `sys_create_bundle`         | admin   | `__confirm` / elevada    | Crea un bundle curado servido en `/mcp-custom/:bundleName` — ver la nota de abajo.  |
-| `sys_mint_key`              | admin   | Bearer env + `__confirm` | Mintea una API key MCP gestionada. Requiere el **Bearer admin del entorno**.        |
-| `sys_revoke_key`            | admin   | `__confirm` / elevada    | Revoca una API key MCP gestionada por id.                                           |
+| Tool                        | Tier    | Step-up                  | Descripción                                                                                              |
+| --------------------------- | ------- | ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `sys_list_clients`          | read    | —                        | Lista backends registrados (REST o upstreams MCP) con estado enable/salud. Paginado: sigue `nextCursor`. |
+| `sys_get_client`            | read    | —                        | Detalle completo de un backend, incluyendo sus tools y salud.                                            |
+| `sys_list_tools`            | read    | —                        | Cada par `(backend, tool)` de todos los backends registrados.                                            |
+| `sys_list_bundles`          | read    | —                        | Lista bundles curados por admin servidos en `/mcp-custom/:bundleName`.                                   |
+| `sys_list_keys`             | read    | —                        | API keys MCP gestionadas — solo metadata; el valor de la key nunca es recuperable.                       |
+| `sys_metrics`               | read    | —                        | Snapshot de métricas del gateway: uptime, sesiones, conteo de tool-calls, latencia.                      |
+| `sys_audit_tail`            | read    | —                        | Tail del audit log de admin (entradas más recientes primero).                                            |
+| `sys_diagnose`              | operate | —                        | Por qué se está rechazando una tool — ver la nota de abajo. Solo lectura.                                |
+| `sys_set_client_enabled`    | operate | —                        | Activa o desactiva un backend (sus tools quedan inalcanzables mientras esté off).                        |
+| `sys_set_tool_enabled`      | operate | —                        | Activa o desactiva una sola tool de un backend.                                                          |
+| `sys_set_guard`             | operate | —                        | Fija o borra la política de guardas de una tool: rate limit, timeout, allowlist.                         |
+| `sys_reset_circuit_breaker` | operate | —                        | Fuerza el circuit breaker de un backend vivo de vuelta a `closed`.                                       |
+| `sys_register_client`       | operate | `__confirm` / elevada    | Registra un backend REST/OpenAPI, upstream MCP o GraphQL (validado contra SSRF).                         |
+| `sys_delete_client`         | operate | `__confirm` / elevada    | Olvida permanentemente un backend y purga su config SQLite.                                              |
+| `sys_create_bundle`         | admin   | `__confirm` / elevada    | Crea un bundle curado servido en `/mcp-custom/:bundleName` — ver la nota de abajo.                       |
+| `sys_mint_key`              | admin   | Bearer env + `__confirm` | Mintea una API key MCP gestionada. Requiere el **Bearer admin del entorno**.                             |
+| `sys_revoke_key`            | admin   | `__confirm` / elevada    | Revoca una API key MCP gestionada por id.                                                                |
 
 Tres decisiones de tier que sorprenden, y por qué son así:
 

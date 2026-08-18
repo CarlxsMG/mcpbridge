@@ -89,21 +89,33 @@ function findTool(name: string) {
 // ===========================================================================
 
 describe("read-tier tool schemas — bulk toEqual kill via listSystemTools()", () => {
-  // L92:13 StringLiteral->'""' ("q"), L93:19 ObjectLiteral->'{}' (q's schema
-  // object), L95:18 ObjectLiteral->'{}' (enabled's schema object), L95:50
-  // StringLiteral->'""' ("Filter by enabled state."). Also incidentally
-  // covers L99:11 (tier "read") via the disappears-from-listSystemTools
-  // mechanism described above (already independently killed elsewhere, but
-  // this test would catch it too).
-  test("sys_list_clients — L92:13, L93:19, L95:18, L95:50", () => {
+  // Kills every schema-literal mutant this tool has: each property key, each
+  // property's schema object, and each description string — emptying any one of
+  // them breaks the toEqual. Also incidentally covers the `tier: "read"`
+  // literal via the disappears-from-listSystemTools mechanism described above
+  // (already independently killed elsewhere, but this test would catch it too).
+  //
+  // Deliberately no L<line>:<col> mutant coordinates in the name, unlike its
+  // siblings: any edit above this schema in system-tools.ts shifts them, and a
+  // stale coordinate is worse than none — it sends the next reader to the wrong
+  // construct. The assertion below IS the specification; it does not need one.
+  test("sys_list_clients — every schema literal", () => {
     expect(findTool("sys_list_clients")).toEqual({
       name: "sys_list_clients",
-      description: "List registered backend clients (REST or MCP upstreams), with enable/health status.",
+      description:
+        "List registered backend clients (REST or MCP upstreams), with enable/health status. Paged: a `nextCursor` in " +
+        "the response means there are MORE clients than were returned. Do not report the listing as complete until a " +
+        "response comes back without one — call again with `cursor` set to that value.",
       inputSchema: {
         type: "object",
         properties: {
           q: { type: "string", description: "Filter by name substring." },
           enabled: { type: "boolean", description: "Filter by enabled state." },
+          limit: { type: "number", description: "Max clients to return (default 50, max 200)." },
+          cursor: {
+            type: "string",
+            description: "The `nextCursor` from a previous call. Omit for the first page.",
+          },
         },
         additionalProperties: false,
       },

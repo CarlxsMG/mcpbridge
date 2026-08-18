@@ -143,11 +143,12 @@ function callerMayTouchClient(scope: CallerScope, clientName: string): boolean {
  * SQL instead of applying it to the rows a paginated read model already chose.
  *
  * Post-filtering that page is a false-empty bug, not merely a slow answer: the
- * read model applies a default LIMIT while sys_list_clients' schema exposes no
- * cursor, so on a gateway with more clients than one page holds, every row of
- * page one can be dropped and the caller told it has no servers at all. An LLM
- * caller believes that. Raising the limit would not fix it — it moves the same
- * cliff to a larger N.
+ * read model applies a default LIMIT, so on a gateway with more clients than
+ * one page holds, every row of page one can be dropped and the caller told it
+ * has no servers at all. An LLM caller believes that. Neither raising the limit
+ * nor exposing the cursor fixes it — the first moves the same cliff to a larger
+ * N, and the second makes the caller page through rows it may not see, guided
+ * by a nextCursor computed over a stranger's listing.
  *
  * An absent or empty `scopes.clients` yields an EMPTY list rather than
  * undefined: a key holding only per-tool grants has no client-level authority
@@ -303,12 +304,20 @@ const SYSTEM_TOOLS: SystemTool[] = [
   // ── Read tier ────────────────────────────────────────────────────────────
   {
     name: "sys_list_clients",
-    description: "List registered backend clients (REST or MCP upstreams), with enable/health status.",
+    description:
+      "List registered backend clients (REST or MCP upstreams), with enable/health status. Paged: a `nextCursor` in " +
+      "the response means there are MORE clients than were returned. Do not report the listing as complete until a " +
+      "response comes back without one — call again with `cursor` set to that value.",
     inputSchema: {
       type: "object",
       properties: {
         q: { type: "string", description: "Filter by name substring." },
         enabled: { type: "boolean", description: "Filter by enabled state." },
+        limit: { type: "number", description: "Max clients to return (default 50, max 200)." },
+        cursor: {
+          type: "string",
+          description: "The `nextCursor` from a previous call. Omit for the first page.",
+        },
       },
       additionalProperties: false,
     },
@@ -319,19 +328,27 @@ const SYSTEM_TOOLS: SystemTool[] = [
     },
     // The narrowing is pushed INTO the read model's WHERE clause (see
     // ListClientsSummaryOpts.names), never applied to the page it hands back.
-    // The read model pages and returns a nextCursor; this tool's schema
-    // exposes no cursor to follow it with. A post-filter over that page
-    // therefore answers "you have no clients" whenever the caller's clients all
-    // sort behind the first page's worth of names — a false empty, which for an
-    // LLM caller is worse than a slow answer because it will simply believe it.
-    // Filtering in SQL makes the page boundary and the scope agree, so
-    // nextCursor also describes the caller's own listing rather than a
-    // stranger's.
+    // A post-filter over that page answers "you have no clients" whenever the
+    // caller's clients all sort behind the first page's worth of names — a
+    // false empty, which for an LLM caller is worse than a slow answer because
+    // it will simply believe it. Exposing the cursor does not make a
+    // post-filter safe either: it would still hand back short or empty pages
+    // and a nextCursor describing a STRANGER's listing, so a caller walking to
+    // exhaustion would page through rows it may not see to find its own.
+    // Filtering in SQL is what makes the page boundary and the scope agree.
+    //
+    // `cursor`/`limit` are exposed because the read model pages regardless: a
+    // caller with more in-scope clients than one page holds must be able to
+    // finish the walk. Leaving them off did not hide the paging, it only left
+    // the nextCursor unfollowable — the same "believes an incomplete answer"
+    // failure as the false empty, one page further out.
     handler: (args, _auth, scope) =>
       json(
         registry.listClientsSummary({
           q: str(args, "q"),
           enabled: bool(args, "enabled"),
+          limit: num(args, "limit"),
+          cursor: str(args, "cursor"),
           names: scopedClientNames(scope),
         }),
       ),
