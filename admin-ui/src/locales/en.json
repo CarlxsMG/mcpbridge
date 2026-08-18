@@ -87,6 +87,10 @@
       "label": "Overview",
       "hint": "Bridge instance snapshot"
     },
+    "activity": {
+      "label": "Activity",
+      "hint": "Usage, traffic and traces"
+    },
     "usage": {
       "label": "Usage",
       "hint": "Call volume and latency"
@@ -202,7 +206,8 @@
     "brand_live_title": "Live traffic in the last minute",
     "brand_idle_title": "No recent traffic",
     "account_title": "Account settings",
-    "sign_out": "Sign out"
+    "sign_out": "Sign out",
+    "advanced": "Advanced"
   },
   "command_palette": {
     "open_aria": "Open command palette",
@@ -1295,42 +1300,49 @@
     "register_server": {
       "title": "Register a server",
       "back_to_servers": "Servers",
-      "kind_aria": "Server kind",
-      "kind_rest": "REST API",
-      "kind_graphql": "GraphQL",
-      "kind_mcp": "MCP server",
+      "source_label": "Paste an OpenAPI URL, a curl command, a Postman collection, or an MCP server URL",
+      "source_placeholder": "https://api.example.com/openapi.json",
+      "source_file_label": "…or load a .json file (a Postman collection or a tool list)",
+      "source_aria": "What this input is",
+      "source_detected": "Detected: {source}.",
+      "source_chosen": "Registering as: {source}.",
+      "source_change": "Not right?",
+      "source_ambiguous": "This URL could be an OpenAPI document or an MCP server. Which is it?",
+      "source_schemeless": "Put https:// (or http://) in front — registration needs an absolute URL.",
+      "source_unknown": "Not sure what this is. Pick the one that fits:",
+      "source_inline_openapi": "This is an OpenAPI document itself. The bridge fetches the spec on its own, so it needs the URL this document is served from — something like https://api.example.com/openapi.json — rather than its contents. Paste that URL here.",
+      "source_names": {
+        "openapi": "OpenAPI URL",
+        "mcp": "MCP server",
+        "graphql": "GraphQL endpoint",
+        "curl": "cURL command",
+        "postman": "Postman collection",
+        "manual": "Tool list (JSON)"
+      },
+      "derived_note": "Will register as “{name}” with health URL {healthUrl}. Change either one under Advanced settings.",
+      "derived_name_note": "Will register as “{name}”. Change it under Advanced settings.",
+      "advanced_summary": "Advanced settings",
       "name_label": "Name",
       "name_placeholder": "payments-svc",
       "health_url_label": "Health URL",
+      "health_url_optional_label": "Health URL (optional — defaults to the GraphQL URL)",
       "health_url_placeholder": "https://api.example.com/health",
       "base_url_label": "Base URL (optional — defaults to the health URL's origin)",
       "base_url_placeholder": "https://api.example.com",
-      "mode_aria": "Tool discovery mode",
-      "mode_openapi": "From OpenAPI",
-      "mode_manual": "Manual tools",
-      "mode_curl": "From cURL",
-      "mode_postman": "From Postman",
-      "openapi_url_label": "OpenAPI URL",
-      "openapi_url_placeholder": "https://api.example.com/openapi.json",
       "include_tags_label": "Include tags (comma-separated, optional)",
       "include_tags_placeholder": "public, v2",
       "exclude_ops_label": "Exclude operationIds (comma-separated, optional)",
       "exclude_ops_placeholder": "deleteEverything",
-      "manual_tools_label": "Tools (JSON array describing name, method, endpoint, description, inputSchema per tool)",
-      "curl_label": "cURL commands",
+      "manual_label": "Tool list",
+      "manual_hint": "A JSON array of tools, each with name, method, endpoint, description and inputSchema.",
       "curl_hint": "Paste one or more cURL commands — separate multiple with a blank line, or use a trailing \"\\\" to continue one command across lines. An optional \"# name\" comment line right above a command sets that tool's name.",
-      "postman_label": "Postman Collection v2.1",
+      "postman_label": "Postman collection",
       "postman_loaded": "Loaded from file: {name}",
-      "postman_paste_label": "…or paste the exported collection JSON",
-      "graphql_url_label": "GraphQL URL",
-      "graphql_url_placeholder": "https://api.example.com/graphql",
-      "graphql_health_label": "Health URL (optional — defaults to the GraphQL URL)",
       "graphql_health_hint": "Many GraphQL servers reject a bare GET on the operation endpoint. If you have a dedicated liveness endpoint, use it here to avoid false health-check failures.",
       "graphql_include_mutations": "Include mutations",
-      "mcp_url_label": "MCP server URL",
-      "mcp_url_placeholder": "https://mcp.example.com/mcp",
       "mcp_transport_label": "Transport",
       "mcp_transport_hint": "The bridge connects to the MCP server and discovers its tools on registration. If the server requires authentication, register it first, set upstream credentials on its detail page, then re-discover.",
+      "mcp_no_preview_hint": "An MCP server's tools are discovered as it is registered, so there is nothing to preview first.",
       "discovering": "Discovering…",
       "preview_tools": "Preview tools",
       "preview_count": "1 tool discovered | {count} tools discovered",
@@ -1338,16 +1350,24 @@
       "preview_stale_hint": "Preview is out of date — run it again before registering.",
       "registering": "Registering…",
       "register_server": "Register server",
+      "connect": {
+        "title": "{name} is registered — now connect your assistant",
+        "preparing": "Preparing your connection details…",
+        "key_minted": "A new API key limited to this server is already filled in below. It is shown this once, so copy the config now.",
+        "mint_key": "Create an API key for this server",
+        "minting": "Creating…",
+        "key_hint": "Until then the config below carries a placeholder. The key is limited to this server and is shown only once.",
+        "mint_failed": "Could not create an API key for this server.",
+        "go_to_server": "Go to server",
+        "add_another": "Register another server"
+      },
       "errors": {
-        "openapi_url_required": "Enter an OpenAPI URL first.",
-        "manual_tools_required": "Enter a tools JSON array first.",
-        "curl_required": "Enter a cURL command first.",
-        "postman_required": "Paste or upload a Postman collection first.",
-        "graphql_url_required": "Enter a GraphQL URL first.",
+        "source_required": "Paste an OpenAPI URL, a curl command, a Postman collection, or an MCP server URL first.",
         "invalid_json": "{label} must be valid JSON.",
-        "name_and_mcp_required": "Name and MCP server URL are required.",
-        "name_and_graphql_required": "Name and GraphQL URL are required.",
-        "name_and_health_required": "Name and health URL are required.",
+        "name_required": "A name is required.",
+        "name_shape": "Use 1-63 characters: lowercase letters, digits, hyphens or underscores, starting with a letter or digit.",
+        "name_separator": "A name cannot contain “__” — that sequence separates a server name from a tool name.",
+        "health_required": "A health URL is required.",
         "registration_failed": "Registration failed."
       }
     },
@@ -2175,6 +2195,9 @@
         "change_role": "Role for {username}",
         "change_team": "Team for {username}"
       }
+    },
+    "activity": {
+      "tabs_aria": "Activity views"
     },
     "usage": {
       "title": "Usage",

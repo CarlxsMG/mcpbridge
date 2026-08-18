@@ -35,8 +35,8 @@ import {
  * either (no fixed label/icon to share), so they stay hand-written directly
  * in router/index.ts.
  *
- * `group` drives the sidebar's section headers in App.vue (Servers/Access/
- * Observability/Administration/none). CommandPalette.vue ignores it and
+ * `group` drives the sidebar's section headers in TheSidebar.vue (Servers/
+ * Access/Observability/Administration/none). CommandPalette.vue ignores it and
  * buckets every entry here under a single "Pages" group instead, to stay
  * distinct from its live-fetched "Servers"/"Bundles"/"API keys" groups.
  *
@@ -47,12 +47,31 @@ import {
  */
 export type NavGroup = "Servers" | "Access" | "Observability" | "Administration" | null;
 
+/**
+ * How prominent an entry is on a fresh instance. `core` is the set a user needs
+ * before they have any traffic at all — register a server, expose it, hand out a
+ * key, see whether calls land, and manage the people who can do that. Everything
+ * else is `advanced`: real features, but ones that answer a question nobody has
+ * on day 1, so TheSidebar.vue parks them behind a collapsed disclosure.
+ *
+ * The field is REQUIRED rather than defaulted so the compiler asks the question
+ * for a new page instead of quietly enlarging the first-run list — every entry
+ * added since this split would otherwise have landed in it.
+ *
+ * The tier is a presentation hint for the sidebar ONLY. Routing (router/index.ts)
+ * and the command palette (CommandPalette.vue) both read this module whole and
+ * stay tier-blind: an advanced page is always routable and always searchable,
+ * which is what makes hiding it by default safe.
+ */
+export type NavTier = "core" | "advanced";
+
 export interface NavEntry {
   path: string;
   name: string;
   labelKey: string;
   hintKey: string;
   group: NavGroup;
+  tier: NavTier;
   icon: Component;
   component: () => Promise<{ default: Component }>;
   meta?: { role?: "admin" };
@@ -79,6 +98,17 @@ export interface NavEntry {
   // drift into two implementations of the same three fields with two parallel
   // sets of i18n keys — don't reintroduce that here.
   editPage?: { name: string; titleKey: string; component: () => Promise<{ default: Component }> };
+  // Entry names, in tab order, that THIS page renders as tabs instead of the
+  // sidebar rendering them as rows of their own. router/index.ts turns each into
+  // a child route of this entry — so the tab strip survives a tab switch and the
+  // selected tab is a real, linkable URL — and this entry's own path lands on
+  // the first tab.
+  //
+  // Each tab still keeps a full entry below, carrying `group: null` so only the
+  // parent reaches the sidebar. That is deliberate: an entry is also how a page
+  // gets into the command palette, and "every page stays one Ctrl-K away" is the
+  // escape hatch that makes folding pages together safe in the first place.
+  tabs?: string[];
 }
 
 // Stable label/hint key prefixes — entry.name is the canonical slug, so the
@@ -100,6 +130,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("servers"),
     hintKey: h("servers"),
     group: "Servers",
+    tier: "core",
     icon: Server,
     component: () => import("./pages/ServersPage.vue"),
     // Registering a server is an ACTION, and it used to hold a permanent
@@ -119,6 +150,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("catalog"),
     hintKey: h("catalog"),
     group: "Servers",
+    tier: "advanced",
     icon: LayoutGrid,
     component: () => import("./pages/CatalogPage.vue"),
     newPage: {
@@ -138,6 +170,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("bundles"),
     hintKey: h("bundles"),
     group: "Servers",
+    tier: "core",
     icon: Boxes,
     component: () => import("./pages/BundlesPage.vue"),
     newPage: {
@@ -152,6 +185,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("composites"),
     hintKey: h("composites"),
     group: "Servers",
+    tier: "advanced",
     icon: Combine,
     component: () => import("./pages/CompositesPage.vue"),
     newPage: {
@@ -166,6 +200,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("ws-proxies"),
     hintKey: h("ws-proxies"),
     group: "Servers",
+    tier: "advanced",
     icon: Cable,
     component: () => import("./pages/WsProxyTargetsPage.vue"),
     newPage: {
@@ -186,6 +221,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("keys"),
     hintKey: h("keys"),
     group: "Access",
+    tier: "core",
     icon: KeyRound,
     component: () => import("./pages/KeysPage.vue"),
     newPage: {
@@ -200,6 +236,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("policies"),
     hintKey: h("policies"),
     group: "Access",
+    tier: "advanced",
     icon: ShieldCheck,
     component: () => import("./pages/PoliciesPage.vue"),
     newPage: {
@@ -219,6 +256,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("consumers"),
     hintKey: h("consumers"),
     group: "Access",
+    tier: "advanced",
     icon: Users2,
     component: () => import("./pages/ConsumersPage.vue"),
     newPage: {
@@ -238,6 +276,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("approvals"),
     hintKey: h("approvals"),
     group: "Access",
+    tier: "advanced",
     icon: ClipboardCheck,
     component: () => import("./pages/ApprovalsPage.vue"),
   },
@@ -248,33 +287,59 @@ export const navEntries: NavEntry[] = [
     labelKey: l("overview"),
     hintKey: h("overview"),
     group: "Observability",
+    tier: "core",
     icon: LayoutDashboard,
     component: () => import("./pages/OverviewPage.vue"),
   },
+  // Usage, Traffic and Traces answer three neighbouring questions — how much was
+  // called, what exactly was called, where did one call spend its time — and as
+  // three sidebar rows they forced the user to guess which one holds the answer
+  // before opening anything. They are one page with three tabs now; the sidebar
+  // asks for "Activity" and the tab strip makes the three views adjacent instead
+  // of alternatives.
   {
-    path: "/usage",
+    path: "/activity",
+    name: "activity",
+    labelKey: l("activity"),
+    hintKey: h("activity"),
+    group: "Observability",
+    tier: "core",
+    icon: Activity,
+    component: () => import("./pages/ActivityPage.vue"),
+    tabs: ["usage", "traffic", "traces"],
+  },
+  // The three tabs. `group: null` is what keeps them out of the sidebar — the
+  // Activity row above is the only one — while the entries themselves still feed
+  // the command palette and router/index.ts's child routes. `tier` is inert for a
+  // tab (the sidebar filters on `group` before it ever reads the tier), so it
+  // records the honest answer: none of the three is a day-1 destination alone.
+  {
+    path: "/activity/usage",
     name: "usage",
     labelKey: l("usage"),
     hintKey: h("usage"),
-    group: "Observability",
+    group: null,
+    tier: "advanced",
     icon: Activity,
     component: () => import("./pages/UsagePage.vue"),
   },
   {
-    path: "/traffic",
+    path: "/activity/traffic",
     name: "traffic",
     labelKey: l("traffic"),
     hintKey: h("traffic"),
-    group: "Observability",
+    group: null,
+    tier: "advanced",
     icon: ArrowLeftRight,
     component: () => import("./pages/TrafficPage.vue"),
   },
   {
-    path: "/traces",
+    path: "/activity/traces",
     name: "traces",
     labelKey: l("traces"),
     hintKey: h("traces"),
-    group: "Observability",
+    group: null,
+    tier: "advanced",
     icon: Waypoints,
     component: () => import("./pages/TracesPage.vue"),
   },
@@ -284,6 +349,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("monitors"),
     hintKey: h("monitors"),
     group: "Observability",
+    tier: "advanced",
     icon: Radar,
     component: () => import("./pages/MonitorsPage.vue"),
   },
@@ -293,6 +359,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("alerts"),
     hintKey: h("alerts"),
     group: "Observability",
+    tier: "advanced",
     icon: BellRing,
     component: () => import("./pages/AlertsPage.vue"),
     newPage: {
@@ -307,6 +374,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("schedules"),
     hintKey: h("schedules"),
     group: "Observability",
+    tier: "advanced",
     icon: Clock,
     component: () => import("./pages/SchedulesPage.vue"),
     newPage: {
@@ -321,6 +389,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("audit-log"),
     hintKey: h("audit-log"),
     group: "Observability",
+    tier: "core",
     icon: ScrollText,
     component: () => import("./pages/AuditLogPage.vue"),
   },
@@ -331,6 +400,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("users"),
     hintKey: h("users"),
     group: "Administration",
+    tier: "core",
     icon: UserCog,
     component: () => import("./pages/UsersPage.vue"),
     meta: { role: "admin" },
@@ -346,6 +416,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("teams"),
     hintKey: h("teams"),
     group: "Administration",
+    tier: "advanced",
     icon: UsersRound,
     component: () => import("./pages/TeamsPage.vue"),
     meta: { role: "admin" },
@@ -361,6 +432,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("config"),
     hintKey: h("config"),
     group: "Administration",
+    tier: "core",
     icon: Settings2,
     component: () => import("./pages/ConfigPage.vue"),
     meta: { role: "admin" },
@@ -371,6 +443,7 @@ export const navEntries: NavEntry[] = [
     labelKey: l("sso"),
     hintKey: h("sso"),
     group: "Administration",
+    tier: "advanced",
     icon: Fingerprint,
     component: () => import("./pages/SsoSettingsPage.vue"),
     meta: { role: "admin" },
@@ -382,10 +455,41 @@ export const navEntries: NavEntry[] = [
     labelKey: l("account"),
     hintKey: h("account"),
     group: null,
+    tier: "core",
     icon: UserCircle,
     component: () => import("./pages/AccountPage.vue"),
   },
 ];
+
+const NAV_TAB_NAMES = new Set(navEntries.flatMap((entry) => entry.tabs ?? []));
+
+/** True for an entry rendered as a tab inside another page rather than as a page of its own. */
+export function isNavTab(name: string): boolean {
+  return NAV_TAB_NAMES.has(name);
+}
+
+/**
+ * The page that renders `name` as one of its tabs, or null when `name` is not a
+ * tab. Lets a consumer treat "moved to another tab" as "still on the same page",
+ * which is what it is.
+ */
+export function navTabParent(name: string): string | null {
+  return navEntries.find((entry) => entry.tabs?.includes(name))?.name ?? null;
+}
+
+/**
+ * The entries `name`'s page renders as tabs, in tab order — empty for every page
+ * that has none. The router (which builds one child route per tab) and the tab
+ * strip itself both read this, so neither can end up disagreeing with the other
+ * about which tabs exist, in what order, or where a tab's label comes from.
+ */
+export function navTabsOf(name: string): NavEntry[] {
+  const parent = navEntries.find((entry) => entry.name === name);
+  return (parent?.tabs ?? []).flatMap((tabName) => {
+    const tab = navEntries.find((entry) => entry.name === tabName);
+    return tab ? [tab] : [];
+  });
+}
 
 export const NAV_GROUP_KEYS: Record<Exclude<NavGroup, null>, string> = {
   Servers: GL("Servers"),
@@ -393,3 +497,35 @@ export const NAV_GROUP_KEYS: Record<Exclude<NavGroup, null>, string> = {
   Observability: GL("Observability"),
   Administration: GL("Administration"),
 };
+
+// Visual order of the sidebar's section headers. It lives here rather than in
+// TheSidebar.vue because the sidebar now renders the groups TWICE — once for the
+// always-visible entries and once inside the Advanced disclosure — and the two
+// passes must not be able to disagree about the order.
+export const NAV_GROUP_ORDER = ["Servers", "Access", "Observability", "Administration"] as const;
+
+/**
+ * The nav entry a router path belongs to, by longest matching path prefix, so
+ * `/servers/payments/tools/list` and `/servers/new` both answer "servers".
+ *
+ * The sidebar uses it to keep the ACTIVE page's entry visible even when its tier
+ * would park it inside the collapsed Advanced section: landing on a page with no
+ * row in the nav leaves nothing highlighted and no obvious way back, which is
+ * exactly the disorientation the disclosure is supposed to avoid. It is the only
+ * thing that moves a row between the two sections — the tier split itself is the
+ * same for every user and every browser. Returns null for paths outside the
+ * static nav (`/login`, an unknown URL).
+ */
+export function navEntryNameForPath(path: string): string | null {
+  let best: NavEntry | null = null;
+  for (const entry of navEntries) {
+    // A tab is not a sidebar row, so /activity/usage belongs to the Activity
+    // entry. Leaving the tab entries in the scan would answer "usage" — a name
+    // the sidebar renders nothing for — and the row of the page the user is
+    // actually on would not be promoted out of the Advanced disclosure.
+    if (isNavTab(entry.name)) continue;
+    if (path !== entry.path && !path.startsWith(`${entry.path}/`)) continue;
+    if (best === null || entry.path.length > best.path.length) best = entry;
+  }
+  return best === null ? null : best.name;
+}

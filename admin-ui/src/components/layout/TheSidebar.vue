@@ -4,7 +4,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { useLiveSignal } from "@/composables/useLiveSignal";
-import { useNavEntries } from "@/composables/useNavEntries";
+import { useNavDisclosure } from "@/composables/useNavEntries";
 import { useFocusTrap, focusFirst } from "@/composables/useFocusTrap";
 import CommandPalette from "@/components/CommandPalette.vue";
 import { ChevronRight, Activity } from "lucide-vue-next";
@@ -16,7 +16,14 @@ const { state, logout } = useAuth();
 const { isLive } = useLiveSignal();
 const { t } = useI18n({ useScope: "global" });
 
-const { entries: navItems, groupLabel } = useNavEntries({ role: state.user?.role });
+// Progressive disclosure: the day-1 entries render at the top level and the rest
+// sit behind the "Advanced" toggle below. Which entries are promoted is decided
+// entirely by useNavDisclosure() — read the split rules there, and note that they
+// are deliberately fixed rather than adaptive, so this sidebar looks the same on
+// every browser and every colleague's screen.
+const { primarySections, advancedSections, advancedCount, advancedOpen, toggleAdvanced } = useNavDisclosure({
+  role: state.user?.role,
+});
 
 // On mobile the sidebar slides in as a modal-style overlay (see the
 // max-width:768px block below); on desktop it's a static column and `navOpen`
@@ -49,18 +56,6 @@ watch(
       previouslyFocused = null;
     }
   },
-);
-
-// Group ordering drives the visual sidebar order. Hard-coded (kept in sync
-// with the group header translations through NAV_GROUP_KEYS).
-const NAV_GROUP_ORDER = ["Servers", "Access", "Observability", "Administration"] as const;
-
-const groupedNav = computed(() =>
-  NAV_GROUP_ORDER.map((group) => ({
-    group,
-    label: groupLabel(group),
-    entries: navItems.value.filter((e) => e.group === group),
-  })).filter((g) => g.entries.length > 0),
 );
 
 // The initials are visible text on a tinted circle, so each pair needs the
@@ -105,16 +100,59 @@ async function onLogout() {
     </div>
     <CommandPalette />
     <div class="nav-groups">
-      <template v-for="g in groupedNav" :key="g.group">
-        <div class="nav-label">{{ g.label }}</div>
+      <template v-for="section in primarySections" :key="section.group">
+        <div class="nav-label">{{ section.label }}</div>
         <ul>
-          <li v-for="entry in g.entries" :key="entry.path">
+          <li v-for="entry in section.entries" :key="entry.path">
             <RouterLink :to="entry.path"
               ><component :is="entry.icon" :size="15" stroke-width="2" aria-hidden="true" /> {{ entry.label }}
             </RouterLink>
           </li>
         </ul>
       </template>
+
+      <!-- A guard rather than a live case: several advanced entries are visible
+           to every role, so today something is always folded away and this row
+           always renders. It is written this way so a narrower split, or a role
+           whose entries are all core, can never leave an "Advanced" row that
+           expands to nothing. -->
+      <div v-if="advancedCount > 0" class="nav-advanced">
+        <button
+          type="button"
+          class="nav-advanced-toggle"
+          :aria-expanded="advancedOpen"
+          aria-controls="sidebar-advanced"
+          @click="toggleAdvanced"
+        >
+          <ChevronRight
+            class="nav-advanced-chevron"
+            :class="{ 'is-open': advancedOpen }"
+            :size="13"
+            stroke-width="2.5"
+            aria-hidden="true"
+          />
+          {{ t("sidebar.advanced") }}
+          <span class="nav-advanced-count">{{ advancedCount }}</span>
+        </button>
+        <!-- The panel element itself always exists so `aria-controls` always
+             resolves, but its links are v-if'd rather than hidden with CSS:
+             a collapsed entry must be out of the tab order and out of the
+             accessibility tree, not merely invisible. -->
+        <div id="sidebar-advanced" class="nav-advanced-panel">
+          <template v-if="advancedOpen">
+            <template v-for="section in advancedSections" :key="section.group">
+              <div class="nav-label">{{ section.label }}</div>
+              <ul>
+                <li v-for="entry in section.entries" :key="entry.path">
+                  <RouterLink :to="entry.path"
+                    ><component :is="entry.icon" :size="15" stroke-width="2" aria-hidden="true" /> {{ entry.label }}
+                  </RouterLink>
+                </li>
+              </ul>
+            </template>
+          </template>
+        </div>
+      </div>
     </div>
     <div class="sidebar-footer">
       <RouterLink
@@ -229,6 +267,49 @@ async function onLogout() {
 .sidebar :deep(a.router-link-active svg) {
   opacity: 1;
   color: var(--signal);
+}
+.nav-advanced {
+  border-top: 1px solid var(--ink-border);
+  padding-top: var(--space-3);
+}
+.nav-advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1-5) var(--space-2);
+  /* The full-strength on-dark ink, not the muted one the group headers use:
+     this is an interactive control, and it has to read as clickable next to
+     the real links rather than as another dimmed section header. */
+  color: var(--text-on-dark);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  text-align: left;
+  cursor: pointer;
+}
+.nav-advanced-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.nav-advanced-chevron {
+  flex-shrink: 0;
+  opacity: 0.75;
+  transition: transform 0.15s ease;
+}
+.nav-advanced-chevron.is-open {
+  transform: rotate(90deg);
+}
+.nav-advanced-count {
+  /* Deliberately NOT aria-hidden: how many pages are folded away is the one
+     thing a collapsed disclosure can't otherwise tell a screen-reader user. */
+  color: var(--text-on-dark-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.nav-advanced-panel {
+  margin-top: var(--space-2);
 }
 .sidebar-footer {
   border-top: 1px solid var(--ink-border);

@@ -25,9 +25,39 @@ const i18n = (globalThis as unknown as { __testI18n: { global: { te(k: string, l
 const LOCALES = ["en", "es"] as const;
 const has = (key: string, locale: string) => i18n.global.te(key, locale);
 
+// Records a navigation can never SETTLE on, and therefore the only ones that
+// legitimately have no title — resolvePageTitle only runs when a navigation
+// settles. There are exactly two, and they are excluded in two different ways on
+// purpose.
+//
+// A `redirect` record is excluded STRUCTURALLY (`/`, the legacy /usage /traffic
+// /traces URLs that now point at the Activity tabs, and `/activity`'s own
+// empty-path index child). That predicate is exact: vue-router hands the
+// navigation on to the target, so such a record is never the resolved one.
+//
+// A parent record that exists only to host children is excluded by NAME, listed
+// here. "has children" would be the easier predicate and it is the wrong one: it
+// would also exempt every FUTURE nested page from the "names itself" invariant,
+// silently, since a page can gain children long after it gains a title. Adding a
+// shell here has to be a deliberate edit — and the case below fails if a listed
+// path stops being one.
+const PARENT_SHELL_PATHS = ["/activity"];
+
 describe("route titles", () => {
-  // `/` is a bare redirect with no component and never renders a title.
-  const routes = router.getRoutes().filter((r) => r.path !== "/");
+  const routes = router.getRoutes().filter((r) => !r.redirect && !PARENT_SHELL_PATHS.includes(r.path));
+
+  it("exempts only paths that really are unnamed parent shells", () => {
+    for (const path of PARENT_SHELL_PATHS) {
+      // Two records share this path (the shell and its index child); the shell is
+      // the one holding children.
+      const shell = router.getRoutes().find((r) => r.path === path && r.children.length > 0);
+      expect(shell, `${path} is exempt from the title check but is no longer a parent route`).toBeDefined();
+      // Only an UNNAMED shell is legitimately title-less. A named one resolves
+      // through `nav.<name>.label` like any other page, so it would have no
+      // excuse — and staying on this list would hide a missing translation.
+      expect(shell?.name, `${path} has a name now, so it must be titled like any other route`).toBeUndefined();
+    }
+  });
 
   it("names every route without falling back to the humanized slug", () => {
     const unnamed: string[] = [];

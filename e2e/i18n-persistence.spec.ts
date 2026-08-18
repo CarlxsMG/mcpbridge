@@ -41,12 +41,14 @@ type Locale = "en" | "es";
 /**
  * Routes walked in both languages, with the page `<h1>` each renders.
  * `PageHeader.vue` is the only `<h1>` inside the app shell, so `h1` is an
- * unambiguous, structural handle on "the page heading".
+ * unambiguous, structural handle on "the page heading" — including on the
+ * Activity page, whose tab strip deliberately adds no heading of its own and
+ * leaves the open tab's page owning the one `<h1>`.
  */
 const ROUTE_HEADINGS: ReadonlyArray<{ path: string; en: string; es: string }> = [
   { path: "/admin/servers", en: "Servers", es: "Servidores" },
   { path: "/admin/overview", en: "Overview", es: "Resumen" },
-  { path: "/admin/usage", en: "Usage", es: "Uso" },
+  { path: "/admin/activity/usage", en: "Usage", es: "Uso" },
 ];
 
 /**
@@ -189,7 +191,7 @@ test.describe("i18n — a saved language applies on every route, not just /accou
     // ── (d) A hard reload on a NON-account route stays Spanish ────────────────
     // Proves it re-hydrates from the persisted preference rather than from
     // in-memory state left behind by the switcher.
-    await page.goto("/admin/usage");
+    await page.goto("/admin/activity/usage");
     await page.reload();
     await expect(page.locator("h1")).toHaveText("Uso");
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
@@ -219,7 +221,7 @@ test.describe("i18n — a saved language applies on every route, not just /accou
     try {
       await loginLocaleAgnostic(page, I18N_USERNAME, I18N_PASSWORD);
 
-      await page.goto("/admin/usage");
+      await page.goto("/admin/activity/usage");
       await expect(page.locator("h1")).toHaveText("Uso");
       await expect(page.locator("html")).toHaveAttribute("lang", "es");
       await expectSidebar(page, "es");

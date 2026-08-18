@@ -44,7 +44,7 @@
  */
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { APP_BASE_URL, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USERNAME, FIXTURE_BASE_URL } from "./support/env";
-import { adminAuthHeaders, apiHeaders, login, registerViaApi } from "./support/admin";
+import { adminAuthHeaders, apiHeaders, login, openAdvancedSettings, registerViaApi } from "./support/admin";
 
 /** Backend registered once for this spec so `/admin/servers/:name` has a real target. */
 const A11Y_SERVER = "e2e-a11y-api";
@@ -140,8 +140,13 @@ const ROUTES: A11yRoute[] = [
     key: "register server (form)",
     path: "/admin/servers/new",
     authed: true,
-    ready: (page) => page.locator("#r-name"),
+    // The form leads with the single source field; `#r-name` and the rest of the
+    // per-field controls live inside the "Advanced settings" disclosure, which is
+    // closed by default — so it is opened in `prepare`, or the sweeps below would
+    // only ever see one input.
+    ready: (page) => page.locator("#r-source"),
     h1: "Register a server",
+    prepare: openAdvancedSettings,
   },
   {
     key: "audit log (data-heavy)",
@@ -979,11 +984,14 @@ test("responsive — primary navigation stays reachable at mobile width", async 
   // watcher, and re-clicking the current route is an aborted navigation that
   // never changes fullPath — so it would (correctly) leave the panel open.
   // `login()` lands on /admin/servers, so Servers itself is disqualified;
-  // Catalog is the neighbouring entry in the same nav group.
-  const catalogLink = sidebar.getByRole("link", { name: "Catalog", exact: true });
-  await expect(catalogLink).toBeVisible();
-  await catalogLink.click();
-  await expect(page).toHaveURL(/\/admin\/catalog$/);
+  // Bundles is the neighbouring entry in the same nav group. It has to be a
+  // CORE entry (navigation.ts's tier field) — anything advanced sits inside
+  // TheSidebar.vue's collapsed "Advanced" disclosure on a fresh browser
+  // profile and would need expanding first, which is not what this asserts.
+  const bundlesLink = sidebar.getByRole("link", { name: "Bundles", exact: true });
+  await expect(bundlesLink).toBeVisible();
+  await bundlesLink.click();
+  await expect(page).toHaveURL(/\/admin\/bundles$/);
   await expect(sidebar).toBeHidden();
 });
 

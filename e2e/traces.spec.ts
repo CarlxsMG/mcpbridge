@@ -516,8 +516,15 @@ test.describe("Trace viewer — span recording, filters, access control and the 
 
   test("the SPA trace page renders, names the flag it depends on, and reports an unknown id", async () => {
     const listed = adminPage.waitForResponse((r) => r.url().includes("/admin-api/traces?"));
+    // /admin/traces is the pre-consolidation URL: traces are now the third tab of
+    // the Activity page. It is still asserted here BECAUSE it is the old one — it
+    // is in bookmarks and shared links, so it has to keep landing on this view.
     await adminPage.goto("/admin/traces");
+    await expect(adminPage).toHaveURL(/\/admin\/activity\/traces$/);
     await expect(adminPage.getByRole("heading", { name: "Traces", level: 1 })).toBeVisible();
+    // The selected tab comes from the URL, not from a default — otherwise a deep
+    // link would open the tab strip on Usage while showing the trace list.
+    await expect(adminPage.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
     expect((await listed).status(), "the trace list request failed").toBe(200);
 
     // The page tells an operator which server flag an empty list may be down
@@ -537,7 +544,9 @@ test.describe("Trace viewer — span recording, filters, access control and the 
   });
 
   test("the SPA lists the trace and its detail page renders the span waterfall", async () => {
-    await adminPage.goto("/admin/traces");
+    // The canonical URL this time, so the two SPA tests between them cover both
+    // the tab's own address and the legacy redirect into it.
+    await adminPage.goto("/admin/activity/traces");
     const row = adminPage.locator("table.data-table tbody tr").filter({ hasText: SUCCESS_TOOL_KEY }).first();
     await expect(row).toBeVisible();
     await expect(row).toContainText("OK");
@@ -556,11 +565,38 @@ test.describe("Trace viewer — span recording, filters, access control and the 
     // A successful span is NOT drawn as an error…
     await expect(adminPage.locator(".waterfall-bar.hot")).toHaveCount(0);
 
+    // A trace's detail page is a drill-down, not a fourth tab, so it keeps its
+    // own top-level URL — and "back to traces" has to return to the TAB the user
+    // came from rather than to a page that no longer exists.
+    await adminPage.getByRole("link", { name: "Back to traces" }).click();
+    await expect(adminPage).toHaveURL(/\/admin\/activity\/traces$/);
+    await expect(adminPage.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
+
     // …and the failing one is. This is the outcome assertion closing through
     // the UI, where an operator actually reads it.
     await adminPage.goto(`/admin/traces/${failureTraceId}`);
     await expect(adminPage.locator(".waterfall-label")).toHaveText(`tool_call ${FAILURE_TOOL_KEY}`);
     await expect(adminPage.locator(".waterfall-bar.hot")).toHaveCount(1);
+  });
+
+  test("the Activity tabs put usage, traffic and traces one click apart, in the URL", async () => {
+    // The point of the merge: three neighbouring questions that used to be three
+    // sidebar rows are now adjacent, and which one is open is a property of the
+    // URL — so it can be linked and it survives a reload.
+    await adminPage.goto("/admin/activity/traces");
+
+    await adminPage.getByRole("tab", { name: "Usage" }).click();
+    await expect(adminPage).toHaveURL(/\/admin\/activity\/usage$/);
+    await expect(adminPage.getByRole("heading", { name: "Usage", level: 1 })).toBeVisible();
+
+    // Real tablist keyboard semantics, not a row of styled links.
+    await adminPage.getByRole("tab", { name: "Usage" }).press("ArrowRight");
+    await expect(adminPage).toHaveURL(/\/admin\/activity\/traffic$/);
+    await expect(adminPage.getByRole("heading", { name: "Traffic", level: 1 })).toBeVisible();
+
+    await adminPage.reload();
+    await expect(adminPage.getByRole("tab", { name: "Traffic" })).toHaveAttribute("aria-selected", "true");
+    await expect(adminPage.getByRole("heading", { name: "Traffic", level: 1 })).toBeVisible();
   });
 
   // ── Tenancy ───────────────────────────────────────────────────────────────

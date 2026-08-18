@@ -1,8 +1,12 @@
-// Regression coverage for finding #24: switching the server `kind` must clear a
-// previously-discovered preview. Previewing under GraphQL then switching to REST
-// used to leave previewTools populated, which (a) kept the REST submit button
-// enabled — bypassing the preview-first gate — and (b) showed a stale, mislabeled
-// tool table. RegisterServerPage now has `watch(kind, () => { previewTools = null; ... })`.
+// Regression coverage for finding #24, carried across the single-field rewrite:
+// a tool preview must never outlive the input that produced it.
+//
+// It used to be the `kind` radio group that could strand one — previewing under
+// GraphQL and then switching to REST left the tool table on screen AND kept the
+// preview-gated submit enabled, so a user could register a server against tools
+// belonging to a different protocol. There is no kind toggle any more; the
+// equivalent move is correcting the autodetected source, so the invariant is
+// pinned there instead.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import RegisterServerPage from "../RegisterServerPage.vue";
@@ -10,7 +14,10 @@ import RegisterServerPage from "../RegisterServerPage.vue";
 const apiPost = vi.fn();
 
 vi.mock("@/composables/useApi", () => ({
-  api: { post: (path: string, body?: unknown) => apiPost(path, body) },
+  api: {
+    get: (path: string) => Promise.reject(new Error(`unexpected GET ${path}`)),
+    post: (path: string, body?: unknown) => apiPost(path, body),
+  },
   ApiError: class ApiError extends Error {
     status: number;
     code: string;
@@ -34,29 +41,50 @@ afterEach(() => {
   apiPost.mockReset();
 });
 
-describe("RegisterServerPage — clears preview when kind changes", () => {
-  it("drops the GraphQL preview (and re-gates the REST submit) after switching to REST", async () => {
+describe("RegisterServerPage — clears a preview when the source changes", () => {
+  it("drops the GraphQL preview (and re-gates submit) after the source is corrected to OpenAPI", async () => {
     apiPost.mockResolvedValue({
-      tools: [{ name: "getWidgets", method: "POST", endpoint: "/graphql" }],
+      count: 1,
+      tools: [{ name: "getWidgets", method: "POST", endpoint: "/graphql", description: "" }],
     });
     const wrapper = mount(RegisterServerPage);
+    activeWrapper = wrapper;
 
-    // Switch to GraphQL, fill the URL, and preview.
-    await wrapper.find('input[type="radio"][value="graphql"]').setValue();
-    await wrapper.find("#r-graphql-url").setValue("https://api.example.com/graphql");
+    // A /graphql path autodetects as a GraphQL endpoint; preview it.
+    await wrapper.find("#r-source").setValue("https://api.example.com/graphql");
     await wrapper.find(".preview-row .btn-secondary").trigger("click");
     await flushPromises();
 
-    // Preview succeeded: table is shown.
     expect(wrapper.find("#preview-table").exists()).toBe(true);
 
-    // Switch to REST. The stale preview must be cleared...
-    await wrapper.find('input[type="radio"][value="rest"]').setValue();
+    // Correct the detection to "OpenAPI URL" — one click behind "Not right?".
+    await wrapper.find(".detected .link-btn").trigger("click");
+    const openapiChoice = wrapper.findAll(".choice").find((b) => b.text() === "OpenAPI URL");
+    expect(openapiChoice).toBeDefined();
+    await openapiChoice?.trigger("click");
 
-    // ...so the table is gone...
+    // The stale preview is gone...
     expect(wrapper.find("#preview-table").exists()).toBe(false);
-    // ...and the REST submit is re-gated (disabled until a fresh preview runs).
-    const submit = wrapper.find('button[type="submit"]');
-    expect(submit.attributes("disabled")).toBeDefined();
+    // ...and submit is disabled again until a fresh preview runs.
+    expect(wrapper.find('button[type="submit"]').attributes("disabled")).toBeDefined();
+  });
+
+  it("drops the preview when the pasted text itself changes", async () => {
+    apiPost.mockResolvedValue({
+      count: 1,
+      tools: [{ name: "list-users", method: "GET", endpoint: "/users", description: "" }],
+    });
+    const wrapper = mount(RegisterServerPage);
+    activeWrapper = wrapper;
+
+    await wrapper.find("#r-source").setValue("https://api.example.com/openapi.json");
+    await wrapper.find(".preview-row .btn-secondary").trigger("click");
+    await flushPromises();
+    expect(wrapper.find("#preview-table").exists()).toBe(true);
+
+    await wrapper.find("#r-source").setValue("https://other.example.com/openapi.json");
+    expect(wrapper.find("#preview-table").exists()).toBe(false);
+    expect(wrapper.text()).toContain("Preview is out of date");
+    expect(wrapper.find('button[type="submit"]').attributes("disabled")).toBeDefined();
   });
 });

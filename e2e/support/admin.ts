@@ -119,15 +119,35 @@ export async function registerFixtureServer(
   await expect(page).toHaveURL(/\/admin\/servers$/);
   await page.getByRole("link", { name: "Add server" }).click();
   await expect(page).toHaveURL(/\/admin\/servers\/new$/);
+  // One field now: the pasted URL decides the kind (a .json path autodetects as
+  // an OpenAPI document) and derives the name + health URL from its host.
+  await page.locator("#r-source").fill(`${FIXTURE_BASE_URL}${openapiPath}`);
+  // Every spec needs its OWN server name, which the derived one (from the shared
+  // 127.0.0.1 fixture host) can't be — so override it, and the health URL with
+  // it, under the disclosure.
+  await openAdvancedSettings(page);
   await page.locator("#r-name").fill(serverName);
   await page.locator("#r-health").fill(`${FIXTURE_BASE_URL}/health`);
-  await page.locator("#r-openapi").fill(`${FIXTURE_BASE_URL}${openapiPath}`);
   await page.getByRole("button", { name: "Preview tools" }).click();
   // `tools?` covers both branches of the pluralized message ("1 tool discovered" /
   // "{count} tools discovered") — it used to read "{count} tool(s) discovered".
   await expect(page.getByText(/tools? discovered/)).toBeVisible();
   await page.getByRole("button", { name: "Register server" }).click();
+  // Registering no longer navigates: it swaps the form for the connect step, so
+  // the detail page is one deliberate click further on.
+  await page.getByRole("link", { name: "Go to server" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/servers/${serverName}$`));
+}
+
+/**
+ * Opens the register form's "Advanced settings" disclosure if it is not already
+ * open. It opens ITSELF when autodetection could not fill a required field, so
+ * clicking the summary unconditionally would close it in exactly that case.
+ */
+export async function openAdvancedSettings(page: Page): Promise<void> {
+  const advanced = page.locator("details.advanced");
+  const isOpen = await advanced.evaluate((el) => (el as HTMLDetailsElement).open);
+  if (!isOpen) await advanced.locator("summary").click();
 }
 
 /**

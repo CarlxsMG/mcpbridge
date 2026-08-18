@@ -1,8 +1,69 @@
 import { ref, nextTick } from "vue";
-import { createRouter, createWebHashHistory, createWebHistory, type RouteLocationNormalized } from "vue-router";
+import {
+  createRouter,
+  createWebHashHistory,
+  createWebHistory,
+  type RouteLocationNormalized,
+  type RouteRecordRaw,
+} from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { tk } from "@/i18n";
-import { navEntries } from "../navigation";
+import { isNavTab, navTabParent, navTabsOf, navEntries, type NavEntry } from "../navigation";
+
+/**
+ * One route per nav entry — a plain route for most, a parent + one child per tab
+ * for an entry that declares `tabs` (see navigation.ts).
+ *
+ * A tab has to be a CHILD route, not a sibling: that is what keeps the parent's
+ * tab strip mounted across a tab switch while still making the selected tab a
+ * real URL, so it can be linked, reloaded and returned to from a drill-down page.
+ */
+function staticRoute(entry: NavEntry): RouteRecordRaw {
+  const tabs = navTabsOf(entry.name);
+  // Narrowed on the same expression that is indexed below: the index child
+  // redirects to the FIRST tab, so an entry with no resolvable tabs is a plain
+  // page, not a shell whose landing URL points at nothing.
+  const [firstTab] = tabs;
+  if (!firstTab) {
+    return { path: entry.path, name: entry.name, component: entry.component, meta: entry.meta };
+  }
+  return {
+    path: entry.path,
+    component: entry.component,
+    meta: entry.meta,
+    // Deliberately unnamed: vue-router warns when a named parent holds an
+    // empty-path child, and the name would render the shell with an empty panel
+    // anyway. The sidebar links to the parent PATH, which matches the index child
+    // below and redirects on to the first tab.
+    children: [
+      { path: "", redirect: { name: firstTab.name } },
+      ...tabs.map((tab) => ({
+        // Child paths are relative: "/activity/usage" minus the parent's prefix.
+        path: tab.path.slice(entry.path.length + 1),
+        name: tab.name,
+        component: tab.component,
+        meta: tab.meta,
+      })),
+    ],
+  };
+}
+
+/**
+ * URLs that predate a page becoming a tab of another page, mapped to the route
+ * name that now owns them. They are in bookmarks, shared links, docs and e2e
+ * specs, so each one keeps resolving — losing a URL is a regression, and a 404 is
+ * a worse answer than a redirect that lands on the same content.
+ *
+ * A record-level redirect carries the query and hash over to the target, so a
+ * deep link like /traffic?client=payments&errors=true still arrives with its
+ * filters applied. A redirect written as a navigation guard would not — see the
+ * case pinning that in router/__tests__/activity-tabs.test.ts.
+ */
+const LEGACY_PATHS: Record<string, string> = {
+  "/usage": "usage",
+  "/traffic": "traffic",
+  "/traces": "traces",
+};
 
 // The ~24 static, param-free routes come from navEntries (shared with App.vue's
 // sidebar and CommandPalette.vue) — see admin-ui/src/navigation.ts. Routes with
@@ -15,7 +76,11 @@ const routes = [
     component: () => import("../pages/LoginPage.vue"),
     meta: { public: true, titleKey: "pages.login.title" },
   },
-  ...navEntries.map((entry) => ({ path: entry.path, name: entry.name, component: entry.component, meta: entry.meta })),
+  // A tab entry is skipped here because staticRoute() already emitted it as a
+  // child of its parent — registering it at the top level too would give one
+  // component two URLs, only one of which renders the tab strip.
+  ...navEntries.filter((entry) => !isNavTab(entry.name)).map(staticRoute),
+  ...Object.entries(LEGACY_PATHS).map(([path, name]) => ({ path, redirect: { name } })),
   {
     path: "/servers/:name",
     name: "server-detail",
@@ -73,6 +138,10 @@ const routes = [
         ]
       : [],
   ),
+  // A drill-down, not a tab — it keeps its own top-level URL (shared links point
+  // at it) and renders outside the Activity shell. Its "back to list" link
+  // targets `{ name: "traces" }`, which now resolves to the Traces TAB, so
+  // returning from a trace lands on the view the user came from.
   {
     path: "/traces/:traceId",
     name: "trace-detail",
@@ -164,9 +233,16 @@ function resolvePageTitle(to: RouteLocationNormalized): string {
 // The guard-editor drawer is a route-param change on the *same* page
 // (server-detail ⇄ tool-guard), which manages its own focus — collapse the two
 // names so navigating into/out of the drawer isn't treated as a page change.
+//
+// A tab switch is the same kind of move: it stays on the parent page and the tab
+// strip owns the focus. Without collapsing the tab names, afterEach pulls focus
+// back to #main-content on every switch, and the tablist's arrow keys stop working
+// after the first move — focus has left the strip, so the next arrow key goes
+// nowhere. (Measured in a browser; nothing in the unit suite could see it.)
 function pageKey(name: unknown): string {
   if (typeof name !== "string") return "";
-  return name === "tool-guard" ? "server-detail" : name;
+  if (name === "tool-guard") return "server-detail";
+  return navTabParent(name) ?? name;
 }
 
 router.afterEach((to, from) => {

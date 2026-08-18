@@ -20,7 +20,7 @@
  */
 import { test, expect } from "@playwright/test";
 import { DEMO_SERVER_NAME, FIXTURE_BASE_URL } from "./support/env";
-import { adminAuthHeaders, login, mintMcpKey } from "./support/admin";
+import { adminAuthHeaders, login, mintMcpKey, openAdvancedSettings } from "./support/admin";
 import { closeTrackedMcpSessions, initMcpSession, mcpToolsCall } from "./support/mcp";
 
 // Release the session this spec establishes back to the process-wide
@@ -40,9 +40,16 @@ test("login -> register a REST backend from OpenAPI -> call the discovered tool 
   await page.getByRole("link", { name: "Add server" }).click();
   await expect(page).toHaveURL(/\/admin\/servers\/new$/);
 
+  // The form leads with one field. A URL ending in .json autodetects as an
+  // OpenAPI URL, and the name + health URL are derived from its host — both
+  // stated on the page and editable under "Advanced settings", which is where
+  // this spec pins its own server name. The source is named "OpenAPI URL", not
+  // "OpenAPI document", precisely so that pasting a document is visibly not it.
+  await page.locator("#r-source").fill(`${FIXTURE_BASE_URL}/openapi.json`);
+  await expect(page.getByText("Detected: OpenAPI URL")).toBeVisible();
+  await openAdvancedSettings(page);
   await page.locator("#r-name").fill(DEMO_SERVER_NAME);
   await page.locator("#r-health").fill(`${FIXTURE_BASE_URL}/health`);
-  await page.locator("#r-openapi").fill(`${FIXTURE_BASE_URL}/openapi.json`);
 
   await page.getByRole("button", { name: "Preview tools" }).click();
   // Matches either branch of the pluralized message — see support/admin.ts.
@@ -50,6 +57,22 @@ test("login -> register a REST backend from OpenAPI -> call the discovered tool 
   await expect(page.locator("#preview-table")).toContainText("list-users");
 
   await page.getByRole("button", { name: "Register server" }).click();
+
+  // ── (b2) The connect step, in place, without a trip to the Keys page ───────
+  // The client config is already on screen; one button mints a key scoped to
+  // the new server and substitutes it into the snippet. (Minting is a click, not
+  // an on-render side effect — see 00-auth-fail-closed.spec.ts, whose open-mode
+  // premise the first key minted anywhere in the suite would end.)
+  await expect(page.getByRole("heading", { name: `${DEMO_SERVER_NAME} is registered` })).toBeVisible();
+  const snippet = page.locator(".snippet");
+  await expect(snippet).toContainText(`/mcp/${DEMO_SERVER_NAME}`);
+  await expect(snippet).toContainText("<YOUR_MCP_API_KEY>");
+
+  await page.getByRole("button", { name: "Create an API key for this server" }).click();
+  await expect(snippet).not.toContainText("<YOUR_MCP_API_KEY>");
+  await expect(snippet).toContainText(`/mcp/${DEMO_SERVER_NAME}`);
+
+  await page.getByRole("link", { name: "Go to server" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/servers/${DEMO_SERVER_NAME}$`));
   await expect(page.locator("h1")).toHaveText(DEMO_SERVER_NAME);
   await expect(page.locator("#tools-table")).toContainText("list-users");
