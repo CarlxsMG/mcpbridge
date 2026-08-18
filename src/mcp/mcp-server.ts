@@ -22,6 +22,7 @@ import { hasComposite, getAdvertisedComposite, runComposite } from "../admin/too
 import { resolveSystemRole } from "../security/system-role.js";
 import { resolveMcpKeyByToken, isToolInKeyScope, isClientInKeyScope } from "../security/mcp-key-store.js";
 import { listSystemTools, runSystemTool } from "./system-tools.js";
+import { listGatewayPrompts, getGatewayPrompt } from "./system-prompts.js";
 import { applyResponseScan } from "../tool-policies/guardrails.js";
 import { stripInjectedCredentials } from "../content-filtering/redaction.js";
 import { log } from "../logger.js";
@@ -403,15 +404,49 @@ export function createMcpServer(scope: McpServerScope): Server {
     return sanitizeResourceContent(result, p.name, p.authHeaders);
   });
 
+  // The gateway's OWN prompts (src/mcp/system-prompts.ts) are served on the
+  // system scope ONLY, ahead of the upstream passthrough below — and the two
+  // never mix. A client-scoped session is a data plane for an end consumer,
+  // and its prompts/list must stay exactly what that one upstream returned:
+  // merging gateway prompts in would leak the existence and shape of the
+  // control plane to a caller whose key may not carry any system role at all,
+  // and could shadow or be shadowed by an upstream prompt of the same name
+  // (whoever wrote the merge picks a winner, and either direction silently
+  // changes what a consumer's slash-command does). Bundles are the same data
+  // plane, one filter narrower. mcpParamsForScope already returns null for
+  // every non-client scope, so the early return below cannot alter any
+  // passthrough behavior — it only fills in what used to be an empty list.
   server.setRequestHandler(ListPromptsRequestSchema, async (_request, extra) => {
-    const p = mcpParamsForScope(scope, callerTokenFromExtra(extra));
+    const callerToken = callerTokenFromExtra(extra);
+    if (scope.kind === "system") {
+      // Re-resolved per call, never cached at session creation — the same
+      // "never trust a stale grant" posture scopedToolList applies. A caller
+      // with no system role sees the empty list it saw before this existed.
+      return { prompts: resolveSystemRole(callerToken) ? listGatewayPrompts() : [] } as ListPromptsResult;
+    }
+    const p = mcpParamsForScope(scope, callerToken);
     if (!p) return { prompts: [] } as ListPromptsResult;
     const prompts = await mcpUpstream.listPrompts(p, config.toolCallTimeoutMs);
     return { prompts: sanitizePromptList(prompts, p.name, p.authHeaders) } as ListPromptsResult;
   });
 
   server.setRequestHandler(GetPromptRequestSchema, async (request, extra) => {
-    const p = mcpParamsForScope(scope, callerTokenFromExtra(extra));
+    const callerToken = callerTokenFromExtra(extra);
+    if (scope.kind === "system") {
+      // "No system role" and "no such prompt" deliberately produce the SAME
+      // error as the unavailable-passthrough case below — a distinct message
+      // for the unauthorized case would be an enumeration oracle over the
+      // gateway's prompt catalog, the same reasoning the tools/call system
+      // branch documents. A malformed-arguments throw from getGatewayPrompt is
+      // different: it only reaches a caller who already resolved a role and
+      // already listed the prompt, so naming the bad argument leaks nothing.
+      const result = resolveSystemRole(callerToken)
+        ? getGatewayPrompt(request.params.name, (request.params.arguments ?? {}) as Record<string, string>)
+        : undefined;
+      if (!result) throw new Error(`Prompt not available: ${request.params.name}`);
+      return result;
+    }
+    const p = mcpParamsForScope(scope, callerToken);
     if (!p) throw new Error(`Prompt not available: ${request.params.name}`);
     const args = (request.params.arguments ?? {}) as Record<string, string>;
     const result = (await mcpUpstream.getPrompt(
