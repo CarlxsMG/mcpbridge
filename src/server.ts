@@ -46,6 +46,7 @@ import { authRoutes } from "./routes/auth.js";
 import { authOidcRoutes } from "./routes/auth-oidc.js";
 import { adminRoutes } from "./routes/admin.js";
 import { installLinkRoutes } from "./routes/install-links.js";
+import { llmsRoutes } from "./routes/llms.js";
 
 export interface CreateAppResult {
   app: Express;
@@ -175,6 +176,12 @@ export function createApp(): CreateAppResult {
   // in this same relative order.
   adminRoutes(app);
   installLinkRoutes(app);
+  // Public and unauthenticated, grouped here with the rest of the anonymous
+  // surface. `/llms.txt` is a single literal path that no router above claims,
+  // so its position among them is readability, not correctness. The one
+  // ordering constraint it shares with every router: it must be registered
+  // before the global error handler below, which has to stay last.
+  llmsRoutes(app);
 
   // ─── Global error handler ────────────────────────────────────────────────
   // Registered LAST so it catches anything the routers above throw. Shape

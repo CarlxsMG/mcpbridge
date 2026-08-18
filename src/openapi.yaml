@@ -1192,6 +1192,34 @@ paths:
                   status: { type: string, example: not_ready }
                   reasons: { type: array, items: { type: string }, example: [not_leader] }
 
+  /llms.txt:
+    get:
+      operationId: getLlmsTxt
+      summary: Machine-readable self-description for AI agents (llms.txt)
+      description: >
+        Public, unauthenticated and rate-limited. Returns a plain-text
+        description of this gateway following the llms.txt convention, so an
+        agent handed nothing but the base URL can work out what it is talking
+        to: which endpoints exist and what each is for, how to authenticate,
+        how to wire up an MCP client, and where the full documentation lives.
+        It describes the SHAPE of the API only — it never names a registered
+        client, tool or bundle, and reports no counts. The live inventory is
+        available exclusively to an authenticated caller via `tools/list`. The
+        only request-derived value in the body is the gateway's own base URL.
+      tags:
+        - Introspection
+      responses:
+        "200":
+          description: The self-description document.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: An llms.txt document — a Markdown-flavoured plain-text summary of this gateway's API surface.
+        "429":
+          description: Too many requests from this IP.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+
   # ---------------------------------------------------------------------------
   # Auth — admin UI session lifecycle
   # ---------------------------------------------------------------------------

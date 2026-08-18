@@ -288,6 +288,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/llms.txt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Machine-readable self-description for AI agents (llms.txt)
+         * @description Public, unauthenticated and rate-limited. Returns a plain-text description of this gateway following the llms.txt convention, so an agent handed nothing but the base URL can work out what it is talking to: which endpoints exist and what each is for, how to authenticate, how to wire up an MCP client, and where the full documentation lives. It describes the SHAPE of the API only — it never names a registered client, tool or bundle, and reports no counts. The live inventory is available exclusively to an authenticated caller via `tools/list`. The only request-derived value in the body is the gateway's own base URL.
+         */
+        get: operations["getLlmsTxt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin-api/auth/login": {
         parameters: {
             query?: never;
@@ -4656,6 +4676,35 @@ export interface operations {
                          */
                         reasons?: string[];
                     };
+                };
+            };
+        };
+    };
+    getLlmsTxt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The self-description document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Too many requests from this IP. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
         };

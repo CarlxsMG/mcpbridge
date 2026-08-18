@@ -173,6 +173,10 @@ const EXCLUDED_ROUTES = new Set<string>([
   // gateway — the admin-ui SPA itself never fetches it, so the demo (a
   // static SPA with no real backend behind it) has nothing to stand in for.
   "GET /install/:token",
+  // Public llms.txt self-description (src/routes/llms.ts): a plain-text
+  // document for an agent handed the gateway's URL, not JSON and not fetched by
+  // any admin-ui page — the demo has nothing to stand in for.
+  "GET /llms.txt",
   // OIDC SSO (src/routes/auth-oidc.ts): LoginPage.vue only ever builds these
   // as a plain `href`/full-page redirect target for a *real* deployed gateway
   // + IdP round trip — never fetched via api.*(), and a static demo SPA has

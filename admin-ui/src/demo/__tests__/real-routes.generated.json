@@ -701,6 +701,11 @@
   },
   {
     "method": "get",
+    "path": "/llms.txt",
+    "file": "llms.ts"
+  },
+  {
+    "method": "get",
     "path": "/metrics",
     "file": "metrics.ts"
   },
