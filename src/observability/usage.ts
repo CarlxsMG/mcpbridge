@@ -19,18 +19,166 @@ function monthStart(): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
 }
 
+/** One buffered `tool_call_log` row, already normalized to its column order. */
+type PendingLogRow = readonly [
+  clientName: string,
+  toolName: string,
+  keyId: number | null,
+  statusClass: string,
+  isError: 0 | 1,
+  durationMs: number,
+  createdAt: number,
+];
+
+/**
+ * How many `tool_call_log` rows one flush may carry.
+ *
+ * Every autocommit costs a WAL fsync, so the fsync is what a batch amortises:
+ * measured per-call cost was 634us at batch 1, 145us at 5, 74us at 10, 31us at
+ * 25 and 17us at 50. 20 sits past the knee (~40us, a >15x reduction) while
+ * keeping the worst case small in the two dimensions that matter — at most 20
+ * analytics rows are in memory rather than in SQLite, and one flush is a single
+ * statement with 140 bound parameters, far below SQLite's variable limit.
+ * Raising this buys progressively less and widens the loss window; lowering it
+ * back toward 1 gives the fsync-per-call cost straight back.
+ *
+ * Exported so the batching test asserts against this bound rather than a copy of
+ * the number that could silently drift from it.
+ */
+export const USAGE_LOG_BATCH_MAX_ROWS = 20;
+
+let pendingLogRows: PendingLogRow[] = [];
+let flushScheduled = false;
+
+/**
+ * FRESHNESS GUARANTEE — what a caller may assume about buffered rows.
+ *
+ * A buffered row is written to SQLite by whichever of these happens first:
+ *   1. the buffer reaching USAGE_LOG_BATCH_MAX_ROWS (the amortisation trigger);
+ *   2. the end of the current event-loop turn (a microtask scheduled at the
+ *      moment the first row is buffered);
+ *   3. any read in this module — every getter below flushes first;
+ *   4. graceful shutdown (src/index.ts calls this before it starts tearing down).
+ *
+ * (2) is the delay bound, and it is deliberately a microtask rather than a
+ * wall-clock timer: a timer would leave rows unwritten for its whole interval
+ * and would need every raw reader of the table to know about it, whereas
+ * "at most one event-loop turn" means anything that has awaited ANYTHING since
+ * the call was recorded already sees the row. So /admin-api/traffic,
+ * /admin-api/usage, sys_diagnose and the admin-UI Activity page cannot show a
+ * user a call they just made as missing, and the durability window this opens is
+ * strictly smaller than the one `PRAGMA synchronous = NORMAL` already accepts.
+ *
+ * The consequence to keep in mind: (2) means batching only pays off when several
+ * calls finish in the SAME turn, i.e. under the concurrent load where the fsync
+ * was measured to be the serialized bottleneck. A single sequential caller still
+ * gets one fsync per call — that case is covered by `synchronous = NORMAL`
+ * (630us -> 60us), not by this buffer.
+ */
+export function flushUsageLog(): void {
+  if (pendingLogRows.length === 0) return;
+  const rows = pendingLogRows;
+  pendingLogRows = [];
+  try {
+    // One multi-row INSERT = one statement = one autocommit = one fsync for the
+    // whole batch. Written as a single statement rather than N statements inside
+    // an explicit transaction on purpose: a flush can run from a read path, and
+    // an explicit BEGIN here would have to reason about every caller that might
+    // already hold a transaction open on this shared connection.
+    const placeholders = rows.map(() => "(?, ?, ?, ?, ?, ?, ?)").join(", ");
+    getDb()
+      .query(
+        `INSERT INTO tool_call_log (client_name, tool_name, key_id, status_class, is_error, duration_ms, created_at)
+         VALUES ${placeholders}`,
+      )
+      .run(...rows.flat());
+  } catch {
+    // Best-effort, same contract as recordUsage: analytics must never break a
+    // live call, and the rows are already dropped from the buffer so a
+    // persistent failure cannot make it grow without bound.
+  }
+}
+
+/** How often a retention prune is considered: once every N recorded calls. */
+const PRUNE_EVERY_N_CALLS = 500;
+/**
+ * Rows one prune pass may delete. 2000 measured at ~3ms; the unbounded DELETE
+ * this replaces measured 15.5ms at 10k expired rows, 271ms at 100k and 892ms at
+ * 500k — all of it stalling the event loop, which is what made a retention-window
+ * shortening or a long-idle restart show up as a latency spike on live calls.
+ */
+export const USAGE_PRUNE_MAX_ROWS_PER_PASS = 2000;
+/**
+ * Consecutive passes one trigger may chain. Bounds the catch-up work: a large
+ * backlog drains at up to USAGE_PRUNE_MAX_ROWS_PER_PASS * this per trigger, spread
+ * across separate macrotasks so live requests interleave, instead of in one
+ * blocking DELETE.
+ */
+const PRUNE_MAX_PASSES_PER_TRIGGER = 25;
+
+let pruneTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Deletes at most USAGE_PRUNE_MAX_ROWS_PER_PASS rows past the retention window and
+ * returns how many went. Bounded by construction (the `LIMIT` subquery), so its
+ * cost does not scale with how far behind retention has fallen. Exported so the
+ * bound itself is directly testable — a timing assertion would be flaky.
+ */
+export function pruneUsageLogOnce(): number {
+  try {
+    const res = getDb()
+      .query(
+        `DELETE FROM tool_call_log WHERE id IN (
+           SELECT id FROM tool_call_log WHERE created_at < ? ORDER BY id LIMIT ?
+         )`,
+      )
+      .run(Date.now() - config.usageRetentionMs, USAGE_PRUNE_MAX_ROWS_PER_PASS);
+    return res.changes;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Moves the prune off the request path: the trigger fires inside a live tool
+ * call, but the DELETE runs on a later macrotask.
+ *
+ * What stops it running away: a pass is scheduled only by real traffic (every
+ * PRUNE_EVERY_N_CALLS-th recorded call), `pruneTimer` collapses a burst of
+ * triggers into one in-flight chain, a chain stops as soon as a pass deletes
+ * fewer rows than its own limit (the backlog is drained), and it stops
+ * unconditionally after PRUNE_MAX_PASSES_PER_TRIGGER passes. There is no
+ * self-perpetuating loop: with no traffic, nothing is ever scheduled.
+ *
+ * The timer is unref'd so a pending prune can never hold the process open at
+ * shutdown — dropping a prune pass loses nothing, the next trigger repeats it.
+ */
+function schedulePrune(passesLeft: number = PRUNE_MAX_PASSES_PER_TRIGGER): void {
+  if (pruneTimer !== null) return;
+  pruneTimer = setTimeout(() => {
+    pruneTimer = null;
+    const deleted = pruneUsageLogOnce();
+    if (deleted >= USAGE_PRUNE_MAX_ROWS_PER_PASS && passesLeft > 1) {
+      schedulePrune(passesLeft - 1);
+    }
+  }, 0);
+  if (pruneTimer.unref) pruneTimer.unref();
+}
+
 /**
  * Records one proxied tool call. Best-effort: any failure is swallowed so
- * analytics can never break a live call. Every 500th insert opportunistically
- * prunes rows past the retention window (cheap thanks to the created_at index).
+ * analytics can never break a live call.
+ *
+ * The `tool_call_log` row is BUFFERED (see flushUsageLog for the freshness
+ * guarantee). The consumer counter deliberately is NOT: it is quota enforcement,
+ * not analytics — `checkConsumerQuota` reads that row as its O(1) source of
+ * truth, so deferring it would let a consumer overshoot its monthly quota by up
+ * to a whole batch.
  */
 export function recordUsage(e: UsageEvent): void {
   try {
     const db = getDb();
-    db.query(
-      `INSERT INTO tool_call_log (client_name, tool_name, key_id, status_class, is_error, duration_ms, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
+    pendingLogRows.push([
       e.clientName,
       e.toolName,
       e.keyId,
@@ -38,22 +186,31 @@ export function recordUsage(e: UsageEvent): void {
       e.isError ? 1 : 0,
       Math.max(0, Math.round(e.durationMs)),
       Date.now(),
-    );
+    ]);
+    if (pendingLogRows.length >= USAGE_LOG_BATCH_MAX_ROWS) {
+      flushUsageLog();
+    } else if (!flushScheduled) {
+      flushScheduled = true;
+      queueMicrotask(() => {
+        flushScheduled = false;
+        flushUsageLog();
+      });
+    }
 
-    // Keep the per-(consumer, month) usage counter in lockstep with the log
-    // insert above so checkConsumerQuota reads one O(1) row instead of a
-    // COUNT(*) scan. The SELECT resolves the call's owning consumer from its
-    // key; a null key_id or a key with no consumer matches no row, so this is a
-    // no-op for unattributed/consumerless calls (mirrors the rate_counters
-    // UPSERT idiom in src/db/rate-counters.ts).
+    // Keep the per-(consumer, month) usage counter in lockstep with the call
+    // itself so checkConsumerQuota reads one O(1) row instead of a COUNT(*)
+    // scan. The SELECT resolves the call's owning consumer from its key; a null
+    // key_id or a key with no consumer matches no row, so this is a no-op for
+    // unattributed/consumerless calls (mirrors the rate_counters UPSERT idiom in
+    // src/db/rate-counters.ts).
     db.query(
       `INSERT INTO consumer_usage_counters (consumer_id, period_start, count)
        SELECT consumer_id, ?, 1 FROM mcp_api_keys WHERE id = ? AND consumer_id IS NOT NULL
        ON CONFLICT(consumer_id, period_start) DO UPDATE SET count = count + 1`,
     ).run(monthStart(), e.keyId);
 
-    if (++insertCount % 500 === 0) {
-      db.query(`DELETE FROM tool_call_log WHERE created_at < ?`).run(Date.now() - config.usageRetentionMs);
+    if (++insertCount % PRUNE_EVERY_N_CALLS === 0) {
+      schedulePrune();
     }
   } catch {
     // best-effort — never let usage logging break a proxied call
@@ -94,6 +251,7 @@ function teamScopeCondition(
 export function getUsageSummary(
   opts: { from?: number; to?: number; clientName?: string; teamId?: number | null } = {},
 ): UsageSummary {
+  flushUsageLog(); // readers never see a stale window — see flushUsageLog's guarantee
   const db = getDb();
   const from = windowFrom(opts.from);
   const conditions = ["created_at >= ?"];
@@ -151,6 +309,7 @@ const MAX_TIMESERIES_POINTS = 1000;
 export function getUsageTimeseries(
   opts: { from?: number; to?: number; bucketMs?: number; clientName?: string; teamId?: number | null } = {},
 ): UsageTimeseries {
+  flushUsageLog(); // readers never see a stale window — see flushUsageLog's guarantee
   const db = getDb();
   const from = windowFrom(opts.from);
   const to = opts.to ?? Date.now();
@@ -194,6 +353,7 @@ export interface TopToolRow {
 }
 
 export function getTopTools(opts: { from?: number; limit?: number; teamId?: number | null } = {}): TopToolRow[] {
+  flushUsageLog(); // readers never see a stale window — see flushUsageLog's guarantee
   const from = windowFrom(opts.from);
   const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100);
   const conditions = ["created_at >= ?"];
@@ -236,6 +396,7 @@ export interface UsageByKeyRow {
 }
 
 export function getUsageByKey(opts: { from?: number; limit?: number; teamId?: number | null } = {}): UsageByKeyRow[] {
+  flushUsageLog(); // readers never see a stale window — see flushUsageLog's guarantee
   const from = windowFrom(opts.from);
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
   const conditions = ["l.created_at >= ?"];
@@ -266,8 +427,20 @@ export function getUsageByKey(opts: { from?: number; limit?: number; teamId?: nu
   }));
 }
 
-/** Test-only: wipe the usage log. */
+/**
+ * Test-only: wipe the usage log.
+ *
+ * Also drops the write buffer and cancels any scheduled prune. Both matter
+ * because the whole backend suite shares one process: a buffered row or a
+ * pending prune timer left behind by one test would otherwise land inside a
+ * later, unrelated one.
+ */
 export function __clearUsageForTesting(): void {
+  pendingLogRows = [];
+  if (pruneTimer !== null) {
+    clearTimeout(pruneTimer);
+    pruneTimer = null;
+  }
   try {
     getDb().query(`DELETE FROM tool_call_log`).run();
   } catch {

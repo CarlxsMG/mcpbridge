@@ -2,7 +2,10 @@
  * Stryker mutation-testing backstop for src/observability/usage.ts — domain 7.
  *
  * Baseline: 114 mutants, 61 killed / 53 survived. All line:col citations below
- * were read directly from reports/mutation/result.json.
+ * were read directly from reports/mutation/result.json — against usage.ts as it
+ * stood BEFORE the tool_call_log write batching landed, which shifted every line
+ * in the file. Read them as pointers to the named expression, not as current
+ * coordinates; re-run Stryker scoped to this file to refresh them.
  *
  * Documented equivalents (verified, not assumed):
  *
@@ -36,6 +39,7 @@ import { config } from "../../config.js";
 import { __resetDbForTesting, getDb } from "../../db/connection.js";
 import {
   recordUsage,
+  flushUsageLog,
   getUsageSummary,
   getUsageTimeseries,
   getTopTools,
@@ -70,40 +74,51 @@ describe("recordUsage — duration clamping", () => {
   // from min (collapses to 0).
   test("a positive duration is stored as-is, not collapsed to 0", () => {
     record({ durationMs: 42 });
+    flushUsageLog(); // the row is buffered until a flush; this reads the table directly
     const row = getDb().query(`SELECT duration_ms FROM tool_call_log LIMIT 1`).get() as { duration_ms: number };
     expect(row.duration_ms).toBe(42);
   });
 });
 
 describe("recordUsage — the every-500th-call prune trigger", () => {
-  // Kills 37:9-37:34 (ConditionalExpression true/false, EqualityOperator
-  // '!=='), 37:9-37:28 (ArithmeticOperator '%' -> '*'), and 37:36-39:6
-  // (BlockStatement, the prune body emptied). Exactly 500 consecutive calls
-  // pass through every residue class mod 500 exactly once, guaranteeing
-  // exactly one crossing regardless of insertCount's unknown starting
-  // offset (a module-level counter shared across the whole test process,
-  // with no reset hook) -- counting DELETE-shaped query calls during that
-  // window is deterministic even though the counter's absolute value isn't.
-  test("the prune query fires exactly once across exactly 500 consecutive calls", () => {
+  // Kills the `++insertCount % PRUNE_EVERY_N_CALLS === 0` gate (ConditionalExpression
+  // true/false, EqualityOperator '!==', ArithmeticOperator '%' -> '*') and the
+  // scheduling body. Exactly 500 consecutive calls pass through every residue class
+  // mod 500 exactly once, guaranteeing exactly one crossing regardless of
+  // insertCount's unknown starting offset (a module-level counter shared across the
+  // whole test process, with no reset hook).
+  //
+  // The prune now runs on a macrotask rather than inline, so the observable is a
+  // DELETE reaching the DB after a tick -- NOT during the loop. Awaiting one
+  // setTimeout(0) is deterministic here because schedulePrune's own timer was armed
+  // with delay 0 strictly earlier, so it is ahead of this one in the timer queue.
+  test("exactly 500 consecutive calls schedule exactly one prune pass, off the request path", async () => {
     const db = getDb();
     const querySpy = spyOn(db, "query");
     try {
       for (let i = 0; i < 500; i++) record();
-      const deleteCalls = querySpy.mock.calls.filter(
+      const duringLoop = querySpy.mock.calls.filter(
         (c) => typeof c[0] === "string" && c[0].includes("DELETE FROM tool_call_log"),
       );
-      expect(deleteCalls).toHaveLength(1);
+      // The whole point of the change: nothing was deleted inside the calls themselves.
+      expect(duringLoop).toHaveLength(0);
+
+      await new Promise((r) => setTimeout(r, 0));
+      const afterTick = querySpy.mock.calls.filter(
+        (c) => typeof c[0] === "string" && c[0].includes("DELETE FROM tool_call_log"),
+      );
+      expect(afterTick).toHaveLength(1);
     } finally {
       querySpy.mockRestore();
     }
   });
 
-  // Kills 38:16-38:64 StringLiteral (the DELETE SQL text emptied -- an empty
-  // query string throws, silently swallowed by the outer catch, so the row
-  // never actually gets deleted) and 38:70-38:106 ArithmeticOperator
-  // (`Date.now() - usageRetentionMs` -> `+`, which would wrongly delete a
-  // FRESH row too, since a future cutoff exceeds every real timestamp).
-  test("pruning deletes only rows past retention, not a just-recorded fresh row", () => {
+  // Kills the prune DELETE's SQL text (emptied -- an empty query string throws,
+  // silently swallowed, so the row never actually gets deleted) and its
+  // `Date.now() - usageRetentionMs` cutoff (ArithmeticOperator '+', which would
+  // wrongly delete a FRESH row too, since a future cutoff exceeds every real
+  // timestamp).
+  test("pruning deletes only rows past retention, not a just-recorded fresh row", async () => {
     const staleCreatedAt = Date.now() - config.usageRetentionMs - 60_000;
     getDb()
       .query(
@@ -114,6 +129,8 @@ describe("recordUsage — the every-500th-call prune trigger", () => {
     record({ clientName: "fresh-client" });
 
     for (let i = 0; i < 500; i++) record();
+    await new Promise((r) => setTimeout(r, 0));
+    flushUsageLog();
 
     const staleCount = (
       getDb().query(`SELECT COUNT(*) as c FROM tool_call_log WHERE client_name = 'stale-client'`).get() as {

@@ -43,6 +43,30 @@ function openAndPrepare(path: string): Database {
   // PRAGMAs are per-connection, not persisted in the file — must be reissued every open.
   handle.exec("PRAGMA foreign_keys = ON;");
   handle.exec("PRAGMA journal_mode = WAL;");
+  // DELIBERATE, EXPLICITLY-APPROVED DURABILITY TRADE — not an incidental tuning knob.
+  //
+  // What it buys: under WAL, SQLite's default `synchronous = FULL` fsyncs the WAL on
+  // EVERY autocommit. Measured on the per-tool-call write path, one `tool_call_log`
+  // INSERT cost 630us at FULL and 60us at NORMAL, which was ~61% of an end-to-end
+  // loopback tool call and the reason throughput was flat (~840 calls/s) from
+  // concurrency 1 to 64 — a fully serialized fsync on the single JS thread.
+  //
+  // What it risks: this PRAGMA is per-CONNECTION and this process keeps exactly ONE
+  // connection (`db` above), so it relaxes durability for EVERY write in the
+  // database — including the audit hash-chain in src/admin/audit/audit.ts, whose
+  // value is partly that its tail is durable. Under WAL, NORMAL cannot corrupt the
+  // database (that is the WAL guarantee, and it is why FULL is not required here);
+  // what it can do is lose the last committed transaction(s) on an OS crash or power
+  // loss. A clean process stop, a SIGKILL, or a gateway crash lose nothing — only the
+  // machine going down mid-write does. The audit chain stays internally consistent
+  // (its `BEGIN IMMEDIATE` transaction is still atomic); it can just be missing its
+  // newest entries after a power cut.
+  //
+  // What would make this the wrong setting: a deployment that treats the audit log as
+  // a legal record of every action, where losing the last few entries to a power cut
+  // is unacceptable. Such a deployment should raise this back to FULL and pay the
+  // fsync, or ship audit entries off-box. The database file itself is safe either way.
+  handle.exec("PRAGMA synchronous = NORMAL;");
   handle.exec(`PRAGMA busy_timeout = ${busyTimeoutMs()};`);
   runMigrations(handle);
   return handle;
