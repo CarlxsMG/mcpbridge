@@ -34,6 +34,7 @@ import { initComposites } from "./admin/tool-composition/composites.js";
 import { startLeaderElection } from "./db/leader-lease.js";
 import { startPeriodicSweep } from "./lib/leader-loop.js";
 import { flush as flushTraces } from "./observability/tracing.js";
+import { flushUsageLog } from "./observability/usage.js";
 import { registry } from "./mcp/registry.js";
 import { startCircuitBreakerCleanup } from "./middleware/circuit-breaker.js";
 import { startRateLimiterCleanup } from "./middleware/rate-limiter.js";
@@ -44,7 +45,10 @@ import { errorMessage } from "./lib/error-message.js";
 // Opens the SQLite handle and applies any pending migrations before anything
 // else (including the Registry) can touch it.
 getDb();
-await bootstrapAdminUser();
+// NOTE: `bootstrapAdminUser()` is deliberately NOT called here — it runs near
+// the bottom of this file, after every check that can `process.exit`. See the
+// comment at that call site.
+//
 // Bundles are purely admin-authored (no external "register" actor pushes
 // them live the way clients do), so they must be hydrated from SQLite here.
 initBundles();
@@ -210,6 +214,19 @@ try {
 }
 log("info", "Active configuration", redactedConfig);
 
+// ─── First admin user ────────────────────────────────────────────────────────
+// Runs HERE, not next to getDb(), and the position is load-bearing: on a
+// zero-config first run this generates a random admin password, prints it once
+// and keeps only its argon2id hash. Every boot check above can `process.exit`
+// (the startup guards, STRICT_CONFIG's validateEnvStrict), and an exit AFTER
+// generation leaves the row committed to the data volume with its credential
+// unrecoverable — a misconfigured `docker run` then permanently locks the
+// operator out of the very install it just created. Nothing between getDb() and
+// this line needs an admin row to exist (createApp only wires routes; the
+// background loops query at interval, and the server is not listening yet), so
+// moving it back up buys nothing and reintroduces that failure.
+await bootstrapAdminUser();
+
 // Fail-open guard: warn loudly if the MCP data plane is unauthenticated (no
 // MCP_API_KEYS, managed keys, or inbound JWT, and REQUIRE_MCP_AUTH unset) — every
 // backend tool on /mcp/:client, /mcp-custom/:bundle, and the WS proxy would then
@@ -257,6 +274,11 @@ async function gracefulShutdown(signal: string) {
   stopRegistrySync();
   stopWsProxyRevalidation();
   closeAllWsProxyConnections();
+  // Write out any buffered tool_call_log rows so a normal stop never loses usage
+  // data. Synchronous and bounded (at most one batch), so it cannot stall the
+  // shutdown path, and it runs before the awaits below so a force-exit timer
+  // firing later cannot skip it.
+  flushUsageLog();
   // Await the final OTLP export so a scale-down doesn't drop the last batch.
   // Bounded by flush()'s own AbortSignal.timeout, and a no-op (instant) when
   // OTLP export isn't configured — so this can't stall shutdown. The
