@@ -44,7 +44,7 @@ admin UI is reachable. What it does depends on what you set:
 
 | `BOOTSTRAP_ADMIN_USERNAME` / `_PASSWORD` | What happens on that first boot                                                                                                    |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| both set                                 | That account is created with the password you chose (minimum 12 characters — a shorter one is refused and no account is created).   |
+| both set                                 | That account is created with the password you chose (minimum 12 characters — a shorter one is refused and no account is created).  |
 | **neither** set                          | A random admin credential is **generated and printed once to stdout** (username `admin`).                                          |
 | only one of the two set                  | Nothing is created. Half a configuration is treated as a mistake, not as a request for a generated account — set both, or neither. |
 
@@ -60,8 +60,9 @@ docker logs mcpbridge          # Compose: docker compose logs mcp-bridge
 
 Only the argon2id hash is stored, so **the password is never printed again** and cannot be
 recovered or reissued. Every later boot sees a non-empty table, generates nothing and emits no
-credential; there is no reprint flag and no password-reset route. Two consequences worth
-planning for:
+credential; there is no reprint flag, and the only password-change route
+(`PATCH /admin-api/auth/me/password`) needs an already-authenticated session, so it cannot help
+someone locked out. Two consequences worth planning for:
 
 - **Treat first-boot output as credential-bearing.** `docker logs`, journald and any
   stdout-tailing shipper receive this password. Sign in at `/admin`, change it, and apply your
@@ -74,7 +75,9 @@ planning for:
 #### If you missed the banner
 
 The gateway notices this exact situation and re-logs a warning on **every** boot — naming the
-recovery paths below — until that account signs in successfully for the first time. Setting
+recovery paths below — until either that account signs in successfully for the first time, or
+you set `ADMIN_API_KEYS` (recovery path 1 below). Taking that path is why the warning can stop
+without anyone having signed in. Setting
 `BOOTSTRAP_ADMIN_USERNAME`/`_PASSWORD` after the fact does **not** help: they are ignored once
 any admin user exists, and the gateway warns that it ignored them. Two ways back in:
 

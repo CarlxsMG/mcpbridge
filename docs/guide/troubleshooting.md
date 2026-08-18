@@ -44,6 +44,21 @@ from "no session"). Open the session against the exact URL you'll use.
   _elevated_ scope for a sensitive tool.
 - **Circuit breaker open** — the backend is failing; calls fail fast until it recovers.
 
+## I missed the first-run admin credentials
+
+On a boot with `BOOTSTRAP_ADMIN_USERNAME`/`_PASSWORD` unset and an empty users table, the gateway
+generates an `admin` account and prints its password **once** to stdout. Only the argon2id hash is
+stored, so it cannot be reprinted — and setting `BOOTSTRAP_ADMIN_*` afterwards is ignored, because
+an admin user now exists.
+
+Look in the boot output first (`docker logs <container>`, `docker compose logs mcp-bridge`,
+`kubectl logs deploy/<release>`) — the banner is a ruled block, not a log line. If it is truly
+gone, either set `ADMIN_API_KEYS` and create a replacement admin over `POST /admin-api/users` with
+that Bearer, or delete the unused `admin` row so the next boot generates a fresh credential. Both
+paths, and the warning the gateway repeats until that account first signs in — or until you set
+`ADMIN_API_KEYS`, which is why it can stop without a sign-in — are in
+[First-run admin credentials →](/guide/deployment#first-run-admin-credentials).
+
 ## The admin UI isn't served
 
 The backend serves the built SPA from `admin-ui/dist` at `/admin`. If you see a warning that

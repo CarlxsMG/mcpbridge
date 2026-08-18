@@ -49,6 +49,22 @@ devuelven el **mismo 404** que una sesión desconocida (así un caller no puede 
 - **Circuit breaker open** — el backend está fallando; las llamadas fallan rápido hasta que
   se recupere.
 
+## Me perdí las credenciales del primer arranque
+
+En un arranque con `BOOTSTRAP_ADMIN_USERNAME`/`_PASSWORD` sin definir y la tabla de usuarios vacía,
+el gateway genera una cuenta `admin` e imprime su contraseña **una única vez** por stdout. Solo se
+guarda el hash argon2id, así que no se puede reimprimir — y definir `BOOTSTRAP_ADMIN_*` después se
+ignora, porque ya existe un usuario administrador.
+
+Busca primero en la salida del arranque (`docker logs <contenedor>`,
+`docker compose logs mcp-bridge`, `kubectl logs deploy/<release>`): el recuadro es un bloque con
+líneas, no una línea de log. Si de verdad se ha perdido, define `ADMIN_API_KEYS` y crea un
+administrador de repuesto con `POST /admin-api/users` usando ese Bearer, o borra la fila `admin`
+sin usar para que el siguiente arranque genere credenciales nuevas. Los dos caminos, y el warning
+que el gateway repite hasta que esa cuenta inicia sesión por primera vez —o hasta que defines
+`ADMIN_API_KEYS`, que es el motivo por el que puede parar sin ningún inicio de sesión—, están en
+[Credenciales de administrador del primer arranque →](/es/guide/deployment#credenciales-de-administrador-del-primer-arranque).
+
 ## El admin UI no se está sirviendo
 
 El backend sirve el SPA buildeado desde `admin-ui/dist` en `/admin`. Si ves un warning de

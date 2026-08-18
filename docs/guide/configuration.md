@@ -16,7 +16,7 @@ depending on `STRICT_CONFIG`) on an out-of-range value.
 
 | Variable                      | Description                                                                                                                                                                                                                                    |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BOOTSTRAP_ADMIN_USERNAME`    | Username for the first admin user. Applied **only once**, while the users table is empty.                                                                                                                                                      |
+| `BOOTSTRAP_ADMIN_USERNAME`    | Username for the first admin user. Applied **only once**, while the users table is empty. Optional — see the note below.                                                                                                                       |
 | `BOOTSTRAP_ADMIN_PASSWORD`    | Password for that first admin (min 12 chars). Remove after the user exists.                                                                                                                                                                    |
 | `ADMIN_API_KEYS`              | Comma-separated static Bearer keys for the JSON admin API (`/admin-api`, `/register`). Optional — the Vue UI uses session login.                                                                                                               |
 | `MCP_API_KEYS`                | Comma-separated keys MCP clients present to call tools. Empty = no key required (combine with per-tool guards as needed).                                                                                                                      |
@@ -24,6 +24,14 @@ depending on `STRICT_CONFIG`) on an out-of-range value.
 | `EXPOSE_DOCS_UNAUTHENTICATED` | `true` serves `/docs` (Swagger UI + full OpenAPI spec) publicly. Off by default — `/docs` is admin-authenticated.                                                                                                                              |
 | `AUTH_DISABLED`               | `true` turns **off all authentication** (admin API, MCP, sessions). Development only — outside `NODE_ENV=development` the bridge refuses to start unless `ALLOW_UNSAFE_AUTH_DISABLED=true` is also set. Never set either in a real deployment. |
 | `ALLOW_UNSAFE_AUTH_DISABLED`  | Opt-out that lets `AUTH_DISABLED=true` take effect outside development. A deliberate footgun guard — leave unset.                                                                                                                              |
+
+::: tip Both `BOOTSTRAP_ADMIN_*` variables are optional
+Set **neither** and the first boot generates a random admin password and prints it **once** to
+stdout — nothing is stored but its argon2id hash, so it cannot be reprinted. Set **only one** and
+no admin user is created at all (half a configuration is treated as a mistake, not as a request
+for a generated account). Full behaviour, including how to recover if you miss the banner, is in
+[First-run admin credentials →](/guide/deployment#first-run-admin-credentials).
+:::
 
 ## Runtime & networking
 
@@ -47,6 +55,13 @@ depending on `STRICT_CONFIG`) on an out-of-range value.
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DB_PATH`               | SQLite file path (Docker default `/app/data/mcp-bridge.db`). Use `:memory:` for an ephemeral store.                                                                                                                 |
 | `SECRET_ENCRYPTION_KEY` | Enables encrypting per-client upstream credentials at rest (AES-256-GCM). Prefer base64 32 bytes (`openssl rand -base64 32`), used verbatim; any other string is treated as a passphrase and stretched with scrypt. |
+
+There is deliberately **no variable for SQLite durability**. The connection runs in WAL mode with
+`PRAGMA synchronous = NORMAL`, which cannot corrupt the database but can lose the last committed
+transaction(s) — including the newest audit entries — if the host suffers an OS crash or a power
+cut. A clean stop or a process crash lose nothing. That trade, the throughput it bought, and what
+to do if your audit log is a legal record, are in
+[Durability of the newest writes →](/guide/deployment#durability-of-the-newest-writes).
 
 ### External secrets manager (optional)
 

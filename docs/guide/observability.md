@@ -68,6 +68,13 @@ edit breaks the chain and is caught by the verify endpoint. Stream events to a S
 time with `AUDIT_SINK_URL`. Export the log as JSON, CSV, or a self-contained HTML compliance
 report that embeds the hash-chain verification verdict.
 
+One durability caveat on the **tail** of this log: SQLite runs with `synchronous = NORMAL`, so an
+OS crash or a power cut can lose the newest entries (the chain stays internally consistent — it is
+just shorter). Nothing else loses them, and the database cannot be corrupted. If the log is a
+legal record for you, `AUDIT_SINK_URL` removes the single point of loss; the reasoning and the
+measured throughput it bought are in
+[Durability of the newest writes →](/guide/deployment#durability-of-the-newest-writes).
+
 ## Health
 
 `GET /livez` is a cheap liveness check — always 200 if the process is responding. `GET /readyz`

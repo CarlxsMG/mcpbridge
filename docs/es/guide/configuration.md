@@ -16,7 +16,7 @@ que aborta el inicio (o registra un warning, según `STRICT_CONFIG`) ante un val
 
 | Variable                      | Descripción                                                                                                                                                                                                                                                               |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BOOTSTRAP_ADMIN_USERNAME`    | Username del primer usuario admin. Se aplica **solo una vez**, mientras la tabla users esté vacía.                                                                                                                                                                        |
+| `BOOTSTRAP_ADMIN_USERNAME`    | Username del primer usuario admin. Se aplica **solo una vez**, mientras la tabla users esté vacía. Opcional — mira la nota de abajo.                                                                                                                                      |
 | `BOOTSTRAP_ADMIN_PASSWORD`    | Contraseña de ese primer admin (mín 12 chars). Eliminar después de que el usuario exista.                                                                                                                                                                                 |
 | `ADMIN_API_KEYS`              | Claves Bearer estáticas separadas por comas para la admin API JSON (`/admin-api`, `/register`). Opcional — la UI Vue usa login de sesión.                                                                                                                                 |
 | `MCP_API_KEYS`                | Claves separadas por comas que los clientes MCP presentan para llamar tools. Vacío = no requiere key (combinar con guards por tool según necesidad).                                                                                                                      |
@@ -24,6 +24,15 @@ que aborta el inicio (o registra un warning, según `STRICT_CONFIG`) ante un val
 | `EXPOSE_DOCS_UNAUTHENTICATED` | `true` sirve `/docs` (Swagger UI + spec OpenAPI completa) públicamente. Desactivado por defecto — `/docs` requiere autenticación admin.                                                                                                                                   |
 | `AUTH_DISABLED`               | `true` desactiva **toda la autenticación** (admin API, MCP, sesiones). Solo desarrollo — fuera de `NODE_ENV=development` el bridge se niega a arrancar salvo que también pongas `ALLOW_UNSAFE_AUTH_DISABLED=true`. Nunca pongas ninguna de las dos en un despliegue real. |
 | `ALLOW_UNSAFE_AUTH_DISABLED`  | Opt-out que permite que `AUTH_DISABLED=true` surta efecto fuera de desarrollo. Una guarda deliberada contra tiros al pie — déjala sin definir.                                                                                                                            |
+
+::: tip Las dos variables `BOOTSTRAP_ADMIN_*` son opcionales
+Si no defines **ninguna**, el primer arranque genera una contraseña de administrador aleatoria y la
+imprime **una única vez** por stdout — no se guarda más que su hash argon2id, así que no se puede
+reimprimir. Si defines **solo una**, no se crea ningún usuario administrador (media configuración
+se trata como un despiste, no como una petición de cuenta generada). El comportamiento completo,
+incluido cómo recuperarte si te pierdes el recuadro, está en
+[Credenciales de administrador del primer arranque →](/es/guide/deployment#credenciales-de-administrador-del-primer-arranque).
+:::
 
 ## Runtime y networking
 
@@ -47,6 +56,14 @@ que aborta el inicio (o registra un warning, según `STRICT_CONFIG`) ante un val
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DB_PATH`               | Ruta del fichero SQLite (Docker por defecto `/app/data/mcp-bridge.db`). Usa `:memory:` para un store efímero.                                                                                                                                 |
 | `SECRET_ENCRYPTION_KEY` | Habilita cifrar credenciales upstream por cliente en reposo (AES-256-GCM). Usa preferentemente base64 de 32 bytes (`openssl rand -base64 32`), que se emplea tal cual; cualquier otro string se trata como passphrase y se deriva con scrypt. |
+
+A propósito **no hay variable para la durabilidad de SQLite**. La conexión trabaja en modo WAL con
+`PRAGMA synchronous = NORMAL`, que no puede corromper la base de datos pero sí puede perder la
+última transacción confirmada (o las últimas) — incluidas las entradas de auditoría más nuevas — si
+la máquina sufre un fallo del sistema operativo o un corte de corriente. Una parada limpia o una
+caída del proceso no pierden nada. Ese intercambio, el rendimiento que compró y qué hacer si tu log
+de auditoría es un registro legal están en
+[Durabilidad de las últimas escrituras →](/es/guide/deployment#durabilidad-de-las-ultimas-escrituras).
 
 ### Gestor de secretos externo (opcional)
 

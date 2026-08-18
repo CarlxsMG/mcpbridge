@@ -73,6 +73,14 @@ Streamea eventos a un SIEM en tiempo real con `AUDIT_SINK_URL`. Exporta el log c
 JSON, CSV, o un reporte de compliance HTML autocontenido que embebe el veredicto de
 verificación de la cadena de hashes.
 
+Una salvedad de durabilidad sobre la **cola** de este log: SQLite trabaja con
+`synchronous = NORMAL`, así que un fallo del sistema operativo o un corte de corriente pueden
+perder las entradas más nuevas (la cadena sigue siendo internamente consistente, solo queda más
+corta). Nada más las pierde, y la base de datos no puede corromperse. Si para ti ese log es un
+registro legal, `AUDIT_SINK_URL` elimina ese punto único de pérdida; el razonamiento y el
+rendimiento medido que compró están en
+[Durabilidad de las últimas escrituras →](/es/guide/deployment#durabilidad-de-las-ultimas-escrituras).
+
 ## Salud
 
 `GET /livez` es un chequeo de liveness barato — siempre 200 si el proceso responde.

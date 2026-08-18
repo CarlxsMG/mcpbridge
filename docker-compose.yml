@@ -11,14 +11,16 @@
 # an unsafe JWT config, …) the app fails closed at boot rather than running insecurely.
 #
 # Notes:
-# - No release image is published yet, so this builds from local source
-#   (`build: .` below) — `docker compose up` produces the image itself. Once the
-#   first release is tagged, docker-publish.yml pushes a signed, multi-arch image
-#   to GHCR; at that point comment out `build:` and this pulls `image:` instead,
-#   pinned to a specific released version rather than `:latest` (a mutable tag
-#   would let a `docker compose pull` silently swap the running version out from
-#   under you). Bump MCPBRIDGE_VERSION (env or .env) to pick the tag once images
-#   exist at https://github.com/CarlxsMG/mcpbridge/pkgs/container/mcpbridge.
+# - `docker compose up` PULLS the published image — there is nothing to build.
+#   docker-publish.yml pushes a signed, multi-arch image to GHCR on every `v*`
+#   tag; pick the tag with MCPBRIDGE_VERSION (env or .env) from the list at
+#   https://github.com/CarlxsMG/mcpbridge/pkgs/container/mcpbridge.
+#   The default is a SPECIFIC version, never `:latest`, and that is the point:
+#   `latest` is a mutable tag, so a `docker compose pull` against it would
+#   silently swap the running version out from under you — including across a
+#   schema migration, which is forward-only and has no rollback.
+#   Building from local source (contributors, or an unreleased `main`) is opt-in:
+#   uncomment the `build:` line below, then `docker compose up -d --build`.
 # - `env_file` injects .env into the container's process env (same file
 #   Compose also reads for ${VAR} substitution below, so PORT stays in sync
 #   on both sides of the port mapping).
@@ -40,7 +42,7 @@
 services:
   mcp-bridge:
     image: ghcr.io/carlxsmg/mcpbridge:${MCPBRIDGE_VERSION:-1.1.2}
-    build: . # builds from local source (no release image is published yet); comment this out to pull the signed GHCR image once the first release is tagged
+    # build: . # uncomment to build from local source instead of pulling the signed GHCR image
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     env_file:

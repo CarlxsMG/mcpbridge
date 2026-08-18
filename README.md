@@ -85,8 +85,6 @@ to serve several backends through one endpoint.
 ### Docker
 
 ```bash
-docker build -t mcpbridge .
-
 export ADMIN_API_KEY=$(openssl rand -hex 24)
 
 docker run -p 3000:3000 \
@@ -96,7 +94,7 @@ docker run -p 3000:3000 \
   -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
   -e ADMIN_API_KEYS=$ADMIN_API_KEY \
   -v "$PWD/data:/app/data" \
-  mcpbridge
+  ghcr.io/carlxsmg/mcpbridge:1
 ```
 
 Open the admin UI at **http://localhost:3000/admin** and log in with the bootstrap
@@ -104,11 +102,20 @@ credentials. `$ADMIN_API_KEY` is the Bearer token the `curl`/CLI examples below 
 it exported in the same shell. (`NODE_ENV=development` + `SESSION_COOKIE_SECURE=false` are
 only for local HTTP — in production run behind HTTPS and drop both.)
 
-> **Prefer not to build from source?** Once the first release is tagged, every release will
-> publish a prebuilt, multi-arch, signed image to GHCR — you'll then be able to drop the
-> `docker build` step and use `ghcr.io/carlxsmg/mcpbridge:latest` as the image in
-> `docker run`. Until then, build locally with the `docker build` above. See
-> [Deployment](https://carlxsmg.github.io/mcpbridge/guide/deployment).
+> **Prefer zero config?** Drop both `BOOTSTRAP_ADMIN_*` variables and the first boot generates
+> a random admin password, printing it **once** to stdout — `docker logs <container>` is where
+> to read it. Only its argon2id hash is stored, so it is never shown again; the recovery paths
+> if you miss the banner are in
+> [First-run admin credentials](https://carlxsmg.github.io/mcpbridge/guide/deployment#first-run-admin-credentials).
+
+> **The image is prebuilt, multi-arch (amd64 + arm64) and cosign-signed** — nothing to
+> compile. Available tags are on the
+> [package page](https://github.com/CarlxsMG/mcpbridge/pkgs/container/mcpbridge), and each
+> one matches a [release](https://github.com/CarlxsMG/mcpbridge/releases). The example uses
+> the floating `:1` major tag, which always resolves to the newest 1.x image — right for a
+> quickstart, wrong for a long-lived deployment, where you should pin the exact version you
+> tested. Tag choice, signature verification and the build-it-yourself path are in
+> [Deployment](https://carlxsmg.github.io/mcpbridge/guide/deployment#choosing-a-tag).
 
 ### Bun (local dev, with hot reload)
 

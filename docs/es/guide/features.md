@@ -37,6 +37,16 @@ Consulta **[Registrar backends →](/es/guide/registering-backends)**.
   (sin el fallback "sin configurar implica abierto") más un nivel de rol por tool
   (read/operate/admin) y confirmación explícita para acciones sensibles. Ver
   [Arquitectura](/es/guide/architecture).
+- **Prompts del gateway en `/mcp`** — el plano de control también sirve sus propios prompts MCP
+  (`prompts/list`), de modo que un host puede ofrecerlos como slash-commands y el propio asistente
+  del usuario le guía para dar de alta un backend, diagnosticar una tool que falla o endurecer un
+  cliente. No aportan capacidad por sí mismos: cada paso es una llamada `sys_*` corriente que sigue
+  pasando por los mismos gates. Ver
+  [Referencia de API](/es/guide/api-reference#prompts-del-gateway-prompts-list-en-mcp).
+- **`GET /llms.txt`** — una autodescripción pública, sin autenticar y legible por máquinas, para que
+  un agente que solo tiene la URL de este gateway pueda averiguar qué es y cómo conectarse.
+  Describe únicamente la forma de la API y a propósito no nombra ningún backend, tool ni bundle
+  registrado. Ver [Referencia de API](/es/guide/api-reference#get-llms-txt).
 - **Backends GraphQL y WebSocket** (por tool) — envuelve los argumentos de una llamada como
   request GraphQL `{ query, variables }`, o haz un request/response efímero sobre WebSocket,
   reutilizando la misma pila de guards que REST.
@@ -151,6 +161,12 @@ Consulta **[Escalado y alta disponibilidad →](/es/guide/scaling)**.
 
 Proceso único Bun + `bun:sqlite` — sin base de datos externa, sin Kubernetes. Consulta
 **[Despliegue →](/es/guide/deployment)** para Docker, bare-metal y reverse-proxy.
+
+- **Primer arranque sin configuración** — lanza el contenedor sin ninguna env var de admin y el
+  primer arranque generará unas credenciales de administrador, que imprime una única vez por
+  stdout. Solo se guarda su hash argon2id, así que no se vuelven a mostrar; en
+  [Credenciales de administrador del primer arranque →](/es/guide/deployment#credenciales-de-administrador-del-primer-arranque)
+  están las vías de recuperación.
 
 Siguiente: **[Primeros pasos →](/es/guide/getting-started)** ·
 **[Por qué MCP REST Bridge →](/es/guide/why-mcp-rest-bridge)**

@@ -96,8 +96,6 @@ para servir varios backends por un solo endpoint.
 ### Docker
 
 ```bash
-docker build -t mcpbridge .
-
 export ADMIN_API_KEY=$(openssl rand -hex 24)
 
 docker run -p 3000:3000 \
@@ -107,7 +105,7 @@ docker run -p 3000:3000 \
   -e BOOTSTRAP_ADMIN_PASSWORD=change-me-min-12-chars \
   -e ADMIN_API_KEYS=$ADMIN_API_KEY \
   -v "$PWD/data:/app/data" \
-  mcpbridge
+  ghcr.io/carlxsmg/mcpbridge:1
 ```
 
 Abre la UI de admin en **http://localhost:3000/admin** e inicia sesión con las credenciales
@@ -115,11 +113,21 @@ bootstrap. `$ADMIN_API_KEY` es el token Bearer que usan los ejemplos `curl`/CLI 
 mantenlo exportado en el mismo shell. (`NODE_ENV=development` + `SESSION_COOKIE_SECURE=false`
 son solo para HTTP local — en producción ejecuta sobre HTTPS y elimina ambas.)
 
-> **¿Prefieres no compilar desde el código?** Cuando se publique la primera release, cada
-> release publicará una imagen prebuilt, multi-arch y firmada en GHCR — entonces podrás quitar
-> el paso `docker build` y usar `ghcr.io/carlxsmg/mcpbridge:latest` como imagen en
-> `docker run`. Hasta entonces, compila en local con el `docker build` de arriba. Consulta
-> [Despliegue](https://carlxsmg.github.io/mcpbridge/es/guide/deployment).
+> **¿Prefieres cero configuración?** Quita las dos variables `BOOTSTRAP_ADMIN_*` y el primer
+> arranque generará una contraseña de administrador aleatoria, que imprime **una única vez** por
+> stdout — `docker logs <contenedor>` es donde leerla. Solo se guarda su hash argon2id, así que
+> no se vuelve a mostrar; las vías de recuperación si te pierdes el recuadro están en
+> [Credenciales de administrador del primer arranque](https://carlxsmg.github.io/mcpbridge/es/guide/deployment#credenciales-de-administrador-del-primer-arranque).
+
+> **La imagen viene ya compilada, es multi-arch (amd64 + arm64) y está firmada con cosign**
+> — no hay nada que compilar. Los tags disponibles están en la
+> [página del paquete](https://github.com/CarlxsMG/mcpbridge/pkgs/container/mcpbridge), y
+> cada uno se corresponde con una [release](https://github.com/CarlxsMG/mcpbridge/releases).
+> El ejemplo usa el tag móvil de major `:1`, que resuelve siempre a la imagen 1.x más reciente
+> — lo adecuado para un quickstart, no para un despliegue duradero, donde deberías fijar la
+> versión exacta que hayas probado. La elección de tag, cómo verificar la firma y cómo construir
+> la imagen tú mismo están en
+> [Despliegue](https://carlxsmg.github.io/mcpbridge/es/guide/deployment#que-tag-elegir).
 
 ### Bun (desarrollo local, con hot reload)
 

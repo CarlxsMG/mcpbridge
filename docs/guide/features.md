@@ -35,6 +35,15 @@ See **[Registering backends →](/guide/registering-backends)**.
   audit log, reset a circuit breaker, and more. Fail-closed auth (no "unconfigured means
   open" fallback) plus a per-tool role tier (read/operate/admin) and step-up confirmation for
   sensitive actions. See [Architecture](/guide/architecture).
+- **Gateway prompts on `/mcp`** — the control plane also serves its own MCP prompts
+  (`prompts/list`), so a host can offer them as slash-commands and the user's own assistant walks
+  them through onboarding a backend, diagnosing a failing tool, or hardening a client. They carry
+  no capability of their own: every step is an ordinary `sys_*` call that still passes the same
+  gates. See [API reference](/guide/api-reference#gateway-prompts-prompts-list-on-mcp).
+- **`GET /llms.txt`** — a public, unauthenticated, machine-readable self-description so an agent
+  handed nothing but this gateway's URL can work out what it is and how to connect. It describes
+  the API's shape only and deliberately names no registered backend, tool or bundle. See
+  [API reference](/guide/api-reference#get-llms-txt).
 - **GraphQL & WebSocket backends** (per-tool) — wrap a call's arguments as a GraphQL
   `{ query, variables }` request, or do an ephemeral request/response over a WebSocket, reusing the
   same guard stack as REST.
@@ -143,5 +152,11 @@ See **[Scaling & high availability →](/guide/scaling)**.
 
 Bun single process + `bun:sqlite` — no external database, no Kubernetes. See
 **[Deployment →](/guide/deployment)** for Docker, bare-metal and reverse-proxy setup.
+
+- **Zero-config first run** — start the container with no admin env vars at all and the first boot
+  generates an admin credential, printing it once to stdout. Only its argon2id hash is kept, so it
+  is never shown again; see
+  [First-run admin credentials →](/guide/deployment#first-run-admin-credentials) for the recovery
+  paths.
 
 Next: **[Getting started →](/guide/getting-started)** · **[Why MCP REST Bridge →](/guide/why-mcp-rest-bridge)**

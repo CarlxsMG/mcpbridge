@@ -44,11 +44,11 @@ porque ese «una sola vez» es literal.
 Solo en el **primer** arranque — mientras `admin_users` sigue vacía — el gateway se asegura de
 que la UI de admin sea accesible. Lo que hace depende de lo que hayas definido:
 
-| `BOOTSTRAP_ADMIN_USERNAME` / `_PASSWORD` | Qué ocurre en ese primer arranque                                                                                                                     |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ambas definidas                          | Se crea esa cuenta con la contraseña que elegiste (mínimo 12 caracteres: una más corta se rechaza y no se crea ninguna cuenta).                        |
-| **ninguna** definida                     | Se **genera** una credencial de administrador aleatoria y se **imprime una única vez por stdout** (usuario `admin`).                                   |
-| solo una de las dos                      | No se crea nada. Media configuración se trata como un despiste, no como una petición de cuenta generada: define las dos, o ninguna.                    |
+| `BOOTSTRAP_ADMIN_USERNAME` / `_PASSWORD` | Qué ocurre en ese primer arranque                                                                                                   |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| ambas definidas                          | Se crea esa cuenta con la contraseña que elegiste (mínimo 12 caracteres: una más corta se rechaza y no se crea ninguna cuenta).     |
+| **ninguna** definida                     | Se **genera** una credencial de administrador aleatoria y se **imprime una única vez por stdout** (usuario `admin`).                |
+| solo una de las dos                      | No se crea nada. Media configuración se trata como un despiste, no como una petición de cuenta generada: define las dos, o ninguna. |
 
 La contraseña generada son 24 bytes aleatorios codificados en base64url, así que queda muy por
 encima del mínimo de 12 caracteres que el gateway exige cuando la pones a mano. Se escribe por
@@ -62,8 +62,9 @@ docker logs mcpbridge          # Compose: docker compose logs mcp-bridge
 
 Solo se guarda el hash argon2id, de modo que **la contraseña no se vuelve a imprimir nunca** y
 no se puede recuperar ni reemitir. En cualquier arranque posterior la tabla ya no está vacía: no
-se genera nada y no se emite ninguna credencial; no hay flag para reimprimirla ni ruta de reseteo
-de contraseña. Dos consecuencias que conviene prever:
+se genera nada y no se emite ninguna credencial; no hay flag para reimprimirla, y la única ruta de
+cambio de contraseña (`PATCH /admin-api/auth/me/password`) exige una sesión ya autenticada, así que
+no sirve de nada a quien se ha quedado fuera. Dos consecuencias que conviene prever:
 
 - **Trata la salida del primer arranque como material sensible.** `docker logs`, journald y
   cualquier agente que recoja stdout reciben esa contraseña. Inicia sesión en `/admin`, cámbiala y
@@ -77,7 +78,9 @@ de contraseña. Dos consecuencias que conviene prever:
 #### Si no viste el recuadro
 
 El gateway detecta exactamente esa situación y repite un warning en **cada** arranque — con las
-vías de recuperación de abajo — hasta que esa cuenta inicia sesión con éxito por primera vez.
+vías de recuperación de abajo — hasta que esa cuenta inicia sesión con éxito por primera vez o
+hasta que defines `ADMIN_API_KEYS` (la vía 1 de abajo). Tomar esa vía es el motivo por el que el
+aviso puede desaparecer sin que nadie haya iniciado sesión.
 Definir `BOOTSTRAP_ADMIN_USERNAME`/`_PASSWORD` a posteriori **no** sirve: se ignoran en cuanto
 existe cualquier usuario administrador, y el gateway avisa de que las ha ignorado. Hay dos
 caminos de vuelta:
