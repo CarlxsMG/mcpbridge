@@ -72,7 +72,7 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.61.1",
     "@stryker-mutator/core": "^9.6.1",
-    "@stryker-mutator/typescript-checker": "^9.6.1",
+    "@stryker-mutator/typescript-checker": "^10.0.0",
     "@types/express": "^5.0.0",
     "@types/swagger-ui-express": "^4.1.8",
     "@types/ws": "^8.18.1",
