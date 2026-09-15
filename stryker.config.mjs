@@ -50,6 +50,12 @@ export default {
   // up to 60s before timing out.
   timeoutMS: 60000,
   timeoutFactor: 1.5,
+  // The initial test run has its own absolute cap. Unscoped (no
+  // STRYKER_TEST_SCOPE) that run is the whole backend suite, which takes about
+  // as long as Stryker's default cap — past it, Stryker aborts with "Initial
+  // test run timed out!" before testing a single mutant, and a busy machine is
+  // enough to get there. A genuinely hung suite still fails, just later.
+  dryRunTimeoutMinutes: 15,
   // No coverage analysis — see the header comment.
   coverageAnalysis: "off",
   // Console + JSON + HTML.
