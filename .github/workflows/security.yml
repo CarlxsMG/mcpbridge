@@ -9,6 +9,10 @@ on:
   pull_request:
   schedule:
     - cron: "41 4 * * 1" # Mondays 04:41 UTC
+  # Dispatched by dependabot-lockfile.yml onto a Dependabot branch after a
+  # lockfile refresh, for the same reason as in ci.yml. dependency-review stays
+  # pull_request-only; the audit runs.
+  workflow_dispatch:
 
 permissions:
   contents: read

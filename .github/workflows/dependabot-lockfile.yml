@@ -5,8 +5,9 @@
 # `test-windows` and `docker` down with it. PR #3 (jsdom 29 -> 30) was the first
 # npm PR this repo ever got and failed exactly this way.
 #
-# This job re-resolves the lockfile for whichever package.json the PR touched and
-# pushes it back onto the PR branch, so the PR becomes mergeable on its own.
+# This job re-resolves the lockfile for whichever package.json the PR touched,
+# pushes it back onto the PR branch, and then starts CI and Security on that new
+# head itself — see the last step for why it has to.
 #
 # WHY `pull_request_target`: workflows triggered by Dependabot on a plain
 # `pull_request` event get a read-only GITHUB_TOKEN that a workflow-level
@@ -44,6 +45,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      # Only to dispatch ci.yml and security.yml onto the refreshed head.
+      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,7 +81,13 @@ jobs:
             echo "No manifest changed against the base — nothing to re-resolve."
           fi
 
+      # The branch name reaches the shell through `env`, never through an inline
+      # `${{ }}` expansion: expanded inline it would be pasted into the script
+      # text before bash parses it.
       - name: Commit and push the refreshed lockfile
+        id: push
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
           if git diff --quiet -- '*bun.lock'; then
@@ -91,11 +100,34 @@ jobs:
           # commitlint gates every commit on this repo (Conventional Commits,
           # header <= 100 chars), and it runs over the PR's commits too.
           git commit -m "chore(deps): refresh bun.lock to match the updated manifest"
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          git push origin "HEAD:$HEAD_REF"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
           echo "### Lockfile refreshed" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          # A push made with GITHUB_TOKEN deliberately does not trigger new
-          # workflow runs, so the PR's existing red checks stay red until they
-          # are re-run. Say so here instead of leaving a confusing PR.
-          echo "Pushed a lockfile commit to \`${{ github.event.pull_request.head.ref }}\`." >> "$GITHUB_STEP_SUMMARY"
-          echo "GitHub does not re-trigger checks for a GITHUB_TOKEN push — **re-run the failed checks on this PR** to pick it up." >> "$GITHUB_STEP_SUMMARY"
+          echo "Pushed a lockfile commit to \`$HEAD_REF\`." >> "$GITHUB_STEP_SUMMARY"
+
+      # A push made with GITHUB_TOKEN does not get a normal run. GitHub creates the
+      # PR's pull_request runs for it in an approval-required state, and unless a
+      # maintainer approves them in time they expire as failures with zero jobs and
+      # no checks ("required approval but was not approved before it expired").
+      # That is how the commit just pushed — the PR's new head, and the only one
+      # whose lockfile matches its manifest — kept going untested while the PR
+      # showed no checks at all. Re-running the older checks cannot help: a re-run
+      # reuses the commit it first ran on, whose lockfile is the stale one.
+      # workflow_dispatch runs need no approval (GITHUB_TOKEN may always start
+      # them), and a dispatched run tests the branch's head commit, so its checks
+      # land on the PR; the approval-waiting runs become redundant and can expire.
+      # Two PR-only jobs cannot run this way: commitlint (the refresh commit's
+      # message is the fixed one above) and dependency-review.
+      - name: Run CI and Security on the refreshed head
+        if: steps.push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          for workflow in ci.yml security.yml; do
+            gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$HEAD_REF"
+          done
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Dispatched CI and Security onto \`$HEAD_REF\`; their checks attach to the new head." >> "$GITHUB_STEP_SUMMARY"
