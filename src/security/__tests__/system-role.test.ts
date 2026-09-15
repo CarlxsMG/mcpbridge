@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
 import { __resetDbForTesting } from "../../db/connection.js";
-import { createMcpKey } from "../mcp-key-store.js";
+import { createMcpKey, getMcpKey } from "../mcp-key-store.js";
 import { resolveSystemRole } from "../system-role.js";
 import { withConfig } from "../../__tests__/_utils/with-config.js";
 
@@ -103,6 +103,31 @@ describe("resolveSystemRole — managed MCP keys", () => {
         keyId: record.id,
         isEnvBearer: false,
       });
+    });
+  });
+
+  // Kills L39 — the empty-expression mutant that deletes
+  // `touchMcpKeyLastUsed(rec.id);`. Every assertion above survives it, because
+  // the returned grant does not depend on the call; the side effect is the only
+  // record that a key authenticated against the control plane, and
+  // hasAnyMcpKeyBeenUsed() reads it.
+  test("a key granted a system role stamps last_used_at (kills L39 statement removal)", () => {
+    withConfig({ authDisabled: false, adminApiKeys: [] }, () => {
+      const { record, rawKey } = createMcpKey("ops-touch", null, null, "tester", null, true, "operator");
+      expect(getMcpKey(record.id)?.lastUsedAt).toBeNull();
+      const before = Date.now();
+      expect(resolveSystemRole(rawKey)).not.toBeNull();
+      expect(getMcpKey(record.id)?.lastUsedAt).toBeGreaterThanOrEqual(before);
+    });
+  });
+
+  // The other direction: a key that resolves but is refused system access has
+  // authenticated nothing here, so it must not be recorded as used.
+  test("a key refused a system role leaves last_used_at unset", () => {
+    withConfig({ authDisabled: false, adminApiKeys: [] }, () => {
+      const { record, rawKey } = createMcpKey("no-system-role", null, null, null);
+      expect(resolveSystemRole(rawKey)).toBeNull();
+      expect(getMcpKey(record.id)?.lastUsedAt).toBeNull();
     });
   });
 });
