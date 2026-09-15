@@ -41,11 +41,14 @@ key forces _every_ copy in the tree to the new version regardless of what each c
 declared. That is not hypothetical — `"brace-expansion": "^5.0.8"` dragged the `^2.0.2` copies
 under `minimatch@9` up to 5.x, and brace-expansion 5 dropped its default export, so
 `minimatch@9` died with `brace_expansion_1.default is not a function`. `"brace-expansion@5"`
-moves only the 5.x line and leaves 2.x alone.
+leaves 2.x alone — but only because **bun does not apply a `pkg@N` key during resolution at
+all** (measured on 1.3.11: a fresh resolve carrying `"browserslist@4": "4.28.7"` still picked
+4.28.9, while the bare key picked 4.28.7). A scoped entry is therefore a documented floor that
+`dependency-overrides.test.ts` holds the lockfile to, not an instruction to the resolver.
 
 **Adding the `overrides` entry is not enough on its own — you must also hand-edit the resolved
-`bun.lock` line.** bun records the override in the lockfile's `overrides` block but leaves an
-already-resolved package pinned where it was, so the new version never lands. `rm -rf
+`bun.lock` line.** bun records the override in the lockfile's `overrides` block but never acts
+on the scoped key, so the new version never lands. `rm -rf
 node_modules && bun install` does NOT fix this and is what makes the trap convincing: it
 re-installs cleanly, reports success, and still gives you the vulnerable copy (measured — the
 override was in `package.json`, the audit still failed, and `node_modules` still held the old
@@ -59,7 +62,10 @@ one-line security fix. The procedure that works:
 2. Learn the new version's integrity hash — `npm view <pkg>@<version> dist.integrity`, or read
    it off a throwaway re-resolve.
 3. Replace that package's resolved line in `bun.lock` by hand, and add the override to the
-   lockfile's own `overrides` block.
+   lockfile's own `overrides` block. A vulnerable NESTED copy (a `"parent/pkg"` entry, left by
+   a consumer's exact pin) goes the same way: delete it and the parent shares the patched
+   hoisted copy. The frozen install accepts that, and a later `bun install --lockfile-only`
+   keeps it collapsed (measured on typed-rest-client's `qs` pin, which had been `--ignore`d).
 4. `rm -rf node_modules && bun install --frozen-lockfile` — this is what CI runs, so it
    accepting the file is the real check that the edit is self-consistent.
 5. Diff the resolved versions against `HEAD` and confirm ONLY the intended packages moved.
