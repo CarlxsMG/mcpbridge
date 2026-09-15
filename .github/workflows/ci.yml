@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  # dependabot-lockfile.yml dispatches this onto a Dependabot branch after it
+  # pushes a refreshed lockfile: the pull_request runs GitHub creates for a
+  # GITHUB_TOKEN push wait for a maintainer's approval, dispatched runs do not.
+  # Also usable by hand: `gh workflow run ci.yml --ref <branch>`.
+  workflow_dispatch:
 
 permissions:
   contents: read
