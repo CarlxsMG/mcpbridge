@@ -16,9 +16,17 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(dev-deps)"
-    # Collapse the weekly dev-dependency minor/patch churn into a single PR
-    # instead of one per package.
     groups:
+      # A family released in lockstep gets its own group with no update-types
+      # filter, so even a major arrives as ONE PR. @stryker-mutator/typescript-checker
+      # peer-pins @stryker-mutator/core to its own exact version: split across two
+      # PRs (#24, #25), neither could install on its own. Listed first because an
+      # update joins the first group it matches.
+      stryker:
+        patterns:
+          - "@stryker-mutator/*"
+      # Collapse the weekly dev-dependency minor/patch churn into a single PR
+      # instead of one per package.
       dev-dependencies:
         dependency-type: "development"
         update-types:
@@ -55,6 +63,12 @@ updates:
       prefix: "chore(deps)"
       prefix-development: "chore(dev-deps)"
     groups:
+      # Lockstep family, same reasoning as root's `stryker` group:
+      # @vitest/coverage-v8 peer-pins vitest to its own exact version (#29, #30).
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       dev-dependencies:
         dependency-type: "development"
         update-types:
