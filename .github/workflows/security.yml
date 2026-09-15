@@ -50,22 +50,18 @@ jobs:
       # explicit decision with an exit condition; anything not listed below is a
       # build failure at moderate or above.
       #
-      # GHSA-q8mj-m7cp-5q26 — qs DoS in qs@6.15.1, nested under
-      #   @stryker-mutator/core -> typed-rest-client, which hard-pins "qs" to an
-      #   EXACT "6.15.1" (every other consumer in the tree already resolves to
-      #   the patched 6.15.3). An `overrides` entry does not move it either —
-      #   re-measured 2026-08-17: a full fresh resolve carrying `"qs@6":
-      #   "^6.15.3"` still left `typed-rest-client/qs` on 6.15.1. Note the
-      #   reason is the NESTED copy, not the exactness of the pin: an override
-      #   does rewrite an exactly-pinned dependency when it is the tree's only
-      #   hoisted copy (admin-ui's js-yaml, pinned "4.3.0" by
-      #   @redocly/openapi-core, moves fine). qs is duplicated precisely because
-      #   6.15.1 conflicts with everyone else's range, and the override does not
-      #   reach the duplicate. So only an upstream typed-rest-client release
-      #   that widens the pin will. devDependency only (bun run test:mutate) and excluded
-      #   from the production image by the Dockerfile's `bun install
-      #   --production` deps stage, so there is no production exposure.
-      #   DROP THIS IGNORE once typed-rest-client widens its qs pin.
+      # There are no --ignore flags right now, and the last ones are worth
+      # remembering. Three qs advisories were ignored for the dev-only copy
+      # nested under @stryker-mutator/core -> typed-rest-client (an EXACT
+      # "6.15.1" pin). An ignore matches by advisory id alone, so it also hid
+      # those advisories for the RUNTIME qs copy under express — the one it was
+      # never meant to excuse. They went once the nested copy was collapsed
+      # onto the patched hoisted one by hand-editing bun.lock (see the qs@6
+      # entry in dependency-overrides.json). The earlier claim here, that no
+      # override could reach that nested copy, was a misreading: bun ignores
+      # major-scoped `pkg@N` override keys during resolution altogether
+      # (measured 2026-09-15), so the `"qs@6"` key it tested never applied to
+      # anything. Prefer a hand-edited lockfile line to an --ignore.
       # GHSA-frvp-7c67-39w9 (path traversal in @hono/node-server's serve-static)
       #   USED to be ignored here, on the stated grounds that the fix landed in
       #   >=2.0.5 and the MCP SDK's `^1.19.9` range could not reach it. That was
@@ -76,12 +72,11 @@ jobs:
       #   inherited — no override key is needed, since a fresh resolve of
       #   `^1.19.9` now picks a patched version by itself.
       - name: Audit root dependencies
-        run: >-
-          bun audit --audit-level=moderate
-          --ignore=GHSA-q8mj-m7cp-5q26
-      # No ignores here: admin-ui audits clean at moderate. Keep it that way —
-      # reach for an `overrides` entry (see admin-ui/package.json) before an
-      # --ignore, and only ignore what genuinely cannot be moved.
+        run: bun audit --audit-level=moderate
+      # No ignores here either: admin-ui audits clean at moderate. Keep it that
+      # way — reach for a hand-edited bun.lock line plus its documented
+      # `overrides` entry (CLAUDE.md) before an --ignore, and only ignore what
+      # genuinely cannot be moved.
       - name: Audit admin-ui dependencies
         working-directory: admin-ui
         run: bun audit --audit-level=moderate

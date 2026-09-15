@@ -5,10 +5,10 @@
     "An override is a permanent, silent edit to the dependency graph. Nothing in",
     "`bun audit` or Dependabot ever revisits one, so without this file the reason",
     "for each lives only in a commit message and the answer to 'can this go yet?'",
-    "is nobody's. That matters because a STALE override is not inert: it keeps",
-    "forcing a version on consumers that have since moved on, which is exactly how",
-    "a bare `brace-expansion` key once dragged minimatch@9's `^2.0.2` copies up to",
-    "5.x and killed it on a dropped default export.",
+    "is nobody's. That matters because a stale override is not always inert: a",
+    "bare key keeps forcing a version on consumers that have since moved on, which",
+    "is exactly how a bare `brace-expansion` key once dragged minimatch@9's",
+    "`^2.0.2` copies up to 5.x and killed it on a dropped default export.",
     "",
     "`src/__tests__/dependency-overrides.test.ts` keeps this file and package.json",
     "in lockstep, so an override added without a reason fails the suite. It also",
@@ -21,11 +21,23 @@
     "fresh resolution always picks the highest version satisfying every consumer's",
     "range, so 'would this still be safe without the override?' answers yes for",
     "every entry, always — including ones that are genuinely load-bearing. The",
-    "override is insurance against a future consumer whose range caps the package",
-    "below the fix, and insurance does not look used until it pays out.",
+    "floor is insurance against a future re-resolve that lands the lockfile below",
+    "the fix, and insurance does not look used until it pays out.",
     "",
     "Keys must be major-scoped (`pkg@N`), never bare — a bare key forces EVERY",
     "copy in the tree to the new version regardless of what each consumer declared.",
+    "",
+    "What an entry here does NOT do — measured 2026-09-15 on bun 1.3.11: bun does",
+    "not apply a major-scoped `pkg@N` key during resolution at all. A fresh resolve",
+    "carrying `\"browserslist@4\": \"4.28.7\"` still picked 4.28.9, and `\"qs@6\":",
+    "\"^6.16.0\"` left typed-rest-client's exact-pinned nested copy on 6.15.1; the",
+    "same two overrides with BARE keys picked 4.28.7 and collapsed the nested copy.",
+    "So no entry below moves a package. What protects the tree is the hand-edited",
+    "bun.lock line (see CLAUDE.md), which bun's frozen install accepts and a later",
+    "`bun install --lockfile-only` leaves in place, even where it contradicts an",
+    "exact pin. An entry here is the documented floor that the test holds that",
+    "line to. Keep the keys scoped all the same: a bare key DOES take effect, on",
+    "every copy in the tree at once.",
     "",
     "`overrides` documents the ROOT package.json; `adminUiOverrides` documents",
     "admin-ui/package.json. admin-ui is a separate project with its own lockfile,",
@@ -41,14 +53,20 @@
       "dropWhen": "Every consumer of the 5.x line resolves to >= 5.0.8 on its own. Scoped to major 5 deliberately: the 2.x copies under minimatch@9 must NOT be moved."
     },
     "fast-uri@3": {
-      "advisories": ["GHSA-7p8r-x3mc-p8w7"],
-      "reason": "Host confusion via a backslash authority introducer, below 3.1.5. Arrives via ajv, which is exact-pinned at 8.18.0 and cannot simply be bumped.",
-      "dropWhen": "ajv's own dependency range floors fast-uri at >= 3.1.5."
+      "advisories": [
+        "GHSA-7p8r-x3mc-p8w7",
+        "GHSA-5jgf-p345-68v8",
+        "GHSA-f65p-4m7j-42xc",
+        "GHSA-fph4-wmhf-6fwf",
+        "GHSA-jqff-g426-hqxp"
+      ],
+      "reason": "URI parsing flaws worded as host confusion / SSRF: a backslash authority introducer below 3.1.5, then four more below 3.1.6 (skipped IDN canonicalization on scheme-relative references, malformed IPv6 normalization, repeated hostname percent-decoding, percent-encoded scheme normalization). Arrives via ajv, which is exact-pinned at 8.18.0 and cannot simply be bumped. Worth stating precisely: ajv uses fast-uri to normalise and resolve schema `$id`/`$ref` URIs, and src/proxy/schema-validator.ts compiles input schemas that registered backends supply, so the parser does see backend-controlled strings. But ajv is never given a `loadSchema`, so nothing it resolves becomes an outbound request, and the gateway's own SSRF checks use ipaddr.js, not fast-uri.",
+      "dropWhen": "ajv's own dependency range floors fast-uri at >= 3.1.6."
     },
     "hono@4": {
-      "advisories": ["GHSA-8j4g-w8fx-2239"],
-      "reason": "ReDoS in the CORS middleware below 4.12.34. Transitive via @modelcontextprotocol/sdk > @hono/node-server; the gateway itself runs Express and never calls hono.",
-      "dropWhen": "@hono/node-server (as pulled by the MCP SDK) floors hono at >= 4.12.34."
+      "advisories": ["GHSA-8j4g-w8fx-2239", "GHSA-gqvv-2mrq-wpjv", "GHSA-g6gw-c38x-mqfc", "GHSA-crvj-82cr-hjcx"],
+      "reason": "ReDoS in the CORS middleware below 4.12.34; then, below 4.13.5, an incomplete fix for a `toSSG()` path traversal, unbounded dot-notation nesting in `parseBody()`, and a query parser that reads parameters after the URL fragment. Transitive via @modelcontextprotocol/sdk, which declares hono directly and through @hono/node-server; the gateway itself runs Express and never calls hono.",
+      "dropWhen": "The MCP SDK's own hono range floors it at >= 4.13.5."
     },
     "ip-address@10": {
       "advisories": ["GHSA-mwp4-54f8-5fhr", "GHSA-4xrf-jv44-h6hh", "GHSA-22jq-vg5j-6vgg"],
@@ -56,9 +74,14 @@
       "dropWhen": "express-rate-limit (as pulled by the MCP SDK) floors ip-address at > 10.3.0."
     },
     "js-yaml@4": {
-      "advisories": ["GHSA-5p4m-2wfm-xmqj"],
-      "reason": "Quadratic CPU consumption resolving `!!omap`, at or below 4.3.0 (the CVE-2026-59870 fix was not backported to the 4.x line until 4.3.1). Reaches the tree only through @commitlint/cli > @commitlint/load > cosmiconfig, i.e. a devDependency that parses this repo's own commitlint config during the commit-msg hook — never attacker-controlled input. Worth stating precisely, because the gateway does parse untrusted YAML (OpenAPI specs at registration, config import): that path uses the `yaml` package, a different library, and nothing under src/ imports js-yaml at all.",
-      "dropWhen": "cosmiconfig (as pulled by @commitlint/load) floors js-yaml at >= 4.3.1; its range is a permissive ^4.1.0, so this lands as soon as a fresh resolve is allowed to pick the patched version."
+      "advisories": ["GHSA-5p4m-2wfm-xmqj", "GHSA-2883-xcg3-v3hh"],
+      "reason": "Quadratic CPU consumption resolving `!!omap` at or below 4.3.0 (the CVE-2026-59870 fix was not backported to the 4.x line until 4.3.1), and merge-key CPU exhaustion from empty merge sources below 4.3.2. Reaches the tree only through @commitlint/cli > @commitlint/load > cosmiconfig, i.e. a devDependency that parses this repo's own commitlint config during the commit-msg hook — never attacker-controlled input. Worth stating precisely, because the gateway does parse untrusted YAML (OpenAPI specs at registration, config import): that path uses the `yaml` package, a different library, and nothing under src/ imports js-yaml at all.",
+      "dropWhen": "cosmiconfig (as pulled by @commitlint/load) floors js-yaml at >= 4.3.2; its range is a permissive ^4.1.0, so this lands as soon as a fresh resolve is allowed to pick the patched version."
+    },
+    "qs@6": {
+      "advisories": ["GHSA-x5fp-wj9c-mxmx", "GHSA-4mjr-xmp4-gh2g", "GHSA-q8mj-m7cp-5q26"],
+      "reason": "An array-limit bypass via bracket-key comma parsing (6.14.2 through 6.15.3), a DoS via an attacker-controlled isBuffer (below 6.16.0), and a stringify crash on null entries in comma-format arrays (at or below 6.15.1). The tree held two copies: the runtime one under express / body-parser, and a NESTED dev-only one under @stryker-mutator/core > typed-rest-client, which pins qs at an EXACT \"6.15.1\". The nested entry was deleted from bun.lock by hand so typed-rest-client shares the patched hoisted copy; bun's frozen install accepts that, and a later `bun install --lockfile-only` keeps it collapsed (both measured 2026-09-15). typed-rest-client is only reached by `stryker init` and Stryker's dashboard reporter, neither of which this repo uses. This replaced three `--ignore` flags in security.yml — and because an ignore matches by advisory id alone, those flags had also hidden the advisories for the runtime copy.",
+      "dropWhen": "express and body-parser floor qs at >= 6.16.0, AND the typed-rest-client that @stryker-mutator/core depends on floors it there too (typed-rest-client 3.x already does; Stryker pins the 2.3 line). Until then, check after any Stryker bump that bun.lock has no `typed-rest-client/qs` entry: a re-resolve that re-adds it brings the vulnerable copy back, and `bun audit` will say so."
     }
   },
   "adminUiOverrides": {
@@ -68,9 +91,9 @@
       "dropWhen": "Every consumer of the 5.x line resolves to >= 5.0.8 on its own. Scoped to major 5 deliberately: the 2.x copies under minimatch@9 must NOT be moved."
     },
     "js-yaml@4": {
-      "advisories": ["GHSA-5p4m-2wfm-xmqj"],
-      "reason": "Quadratic CPU consumption resolving `!!omap`, at or below 4.3.0. Arrives via openapi-typescript > @redocly/openapi-core, which is build-time only: it regenerates types/openapi.generated.ts during `typecheck`/`build` and no js-yaml reaches the shipped SPA bundle. Worth recording what this case proves, because it is easy to over-generalise: @redocly/openapi-core pins js-yaml at an EXACT \"4.3.0\" and the override moved it anyway, so an exact pin is NOT by itself beyond an override's reach. What is beyond reach is a NESTED duplicate — measured on the qs/typed-rest-client case in security.yml, where a fresh resolve carrying a `qs@6` override still left `typed-rest-client/qs` on 6.15.1. js-yaml had a single hoisted copy, so there was nothing for the override to fail to collapse.",
-      "dropWhen": "@redocly/openapi-core moves its exact js-yaml pin to >= 4.3.1."
+      "advisories": ["GHSA-5p4m-2wfm-xmqj", "GHSA-2883-xcg3-v3hh"],
+      "reason": "Quadratic `!!omap` resolution at or below 4.3.0, and merge-key CPU exhaustion from empty merge sources below 4.3.2. Arrives via openapi-typescript > @redocly/openapi-core, which is build-time only: it regenerates types/openapi.generated.ts during `typecheck`/`build` and no js-yaml reaches the shipped SPA bundle. @redocly/openapi-core pins js-yaml EXACTLY, and the release in bun.lock pins the vulnerable \"4.3.0\"; the patched version is hand-edited into bun.lock over that pin, which bun's frozen install accepts and a later `bun install --lockfile-only` leaves alone. This entry used to say the override itself had moved an exactly-pinned package. It had not: bun ignores the `js-yaml@4` key (see $comment), and the hand-edit did the work.",
+      "dropWhen": "The @redocly/openapi-core release in bun.lock pins js-yaml at >= 4.3.2. Newer releases inside openapi-typescript's range already do; the lockfile has simply not moved to one."
     },
     "nanoid@3": {
       "advisories": ["GHSA-2v37-7h3g-55p8"],
