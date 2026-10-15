@@ -1,9 +1,12 @@
 version: 2
 
 updates:
-  # Root gateway package (Bun runtime, bun.lock — Dependabot uses the "npm"
-  # ecosystem for package.json/lockfile-based JS/TS dependency updates).
-  - package-ecosystem: "npm"
+  # Root gateway package. All three JS workspaces use the "bun" ecosystem, which
+  # reads and writes bun.lock. They used to be "npm", which never wrote bun.lock;
+  # from 2026-10-01 Dependabot refused it outright for a bun.lock project ("Bun
+  # is misconfigured in this repository"), so every weekly npm run failed without
+  # opening a PR and new advisories surfaced only through bun audit.
+  - package-ecosystem: "bun"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -51,7 +54,7 @@ updates:
       - dependency-name: "bun-types"
 
   # Admin UI (Vue 3 + Vite), its own package.json/lockfile.
-  - package-ecosystem: "npm"
+  - package-ecosystem: "bun"
     directory: "/admin-ui"
     schedule:
       interval: "weekly"
@@ -83,7 +86,7 @@ updates:
   # VitePress docs/marketing site — its own package.json/lockfile (docs/bun.lock).
   # Build-time-only toolchain, but keeps its transitive vite/esbuild advisories
   # visible and auto-proposes bumps (see security.yml's docs audit note).
-  - package-ecosystem: "npm"
+  - package-ecosystem: "bun"
     directory: "/docs"
     schedule:
       interval: "weekly"

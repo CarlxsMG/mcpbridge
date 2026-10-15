@@ -1,13 +1,15 @@
-# Dependabot edits `package.json` but never writes `bun.lock` — its npm ecosystem
-# understands package-lock/yarn/pnpm lockfiles, not Bun's. Every npm-ecosystem
-# Dependabot PR therefore lands with a stale lockfile and dies at the first
-# `bun install --frozen-lockfile` (which CI runs in ten places), taking `test`,
-# `test-windows` and `docker` down with it. PR #3 (jsdom 29 -> 30) was the first
-# npm PR this repo ever got and failed exactly this way.
+# A backstop for a Dependabot PR whose `bun.lock` does not match its
+# `package.json`. Such a PR dies at the first `bun install --frozen-lockfile`
+# (which CI runs in ten places), taking `test`, `test-windows` and `docker` down
+# with it. That was EVERY JS PR while dependabot.yml used the npm ecosystem,
+# which never writes bun.lock: PR #3 (jsdom 29 -> 30), the first npm PR this
+# repo got, failed exactly this way. The JS entries now use the bun ecosystem,
+# which writes the lockfile itself, so on a healthy PR this job finds nothing to
+# change and pushes nothing (the push step exits early on a clean diff).
 #
-# This job re-resolves the lockfile for whichever package.json the PR touched,
-# pushes it back onto the PR branch, and then starts CI and Security on that new
-# head itself — see the last step for why it has to.
+# When it does find drift, it re-resolves the lockfile for whichever
+# package.json the PR touched, pushes it back onto the PR branch, and then starts
+# CI and Security on that new head itself — see the last step for why it has to.
 #
 # WHY `pull_request_target`: workflows triggered by Dependabot on a plain
 # `pull_request` event get a read-only GITHUB_TOKEN that a workflow-level
