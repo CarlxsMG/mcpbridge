@@ -98,10 +98,15 @@
     }
   },
   "adminUiOverrides": {
+    "brace-expansion@2": {
+      "advisories": ["GHSA-6j4f-fj2g-mc7p", "GHSA-qhr7-859c-m2p7", "GHSA-q2hr-2g5m-vwhr"],
+      "reason": "The same three advisories as the 5.x entry, which were also fixed on the 2.x line: recursion stack exhaustion below 2.1.5 / 2.1.6 and the quadratic `{a},b}` rewrite below 2.1.7. Three NESTED copies (under the minimatch@5 / @9 that @redocly/openapi-core, editorconfig and glob pull) were hand-edited from 2.1.4 to 2.1.7 in bun.lock. This is the reason the keys are major-scoped: the 2.x copies get a 2.x patch here, and are never dragged onto 5.x, whose dropped default export kills minimatch@9.",
+      "dropWhen": "minimatch@5 and minimatch@9 floor brace-expansion at >= 2.1.7, or none of their consumers remain in the tree."
+    },
     "brace-expansion@5": {
-      "advisories": ["GHSA-mh99-v99m-4gvg"],
-      "reason": "DoS via unbounded expansion in 5.0.7. Same advisory and same arrival path as the root entry — minimatch under eslint / typescript-eslint — but admin-ui resolves its own tree from its own lockfile, so the root override does not reach it.",
-      "dropWhen": "Every consumer of the 5.x line resolves to >= 5.0.8 on its own. Scoped to major 5 deliberately: the 2.x copies under minimatch@9 must NOT be moved."
+      "advisories": ["GHSA-mh99-v99m-4gvg", "GHSA-qhr7-859c-m2p7", "GHSA-6j4f-fj2g-mc7p", "GHSA-q2hr-2g5m-vwhr"],
+      "reason": "DoS via unbounded expansion in 5.0.7, recursion stack exhaustion below 5.0.11, and the quadratic `{a},b}` rewrite below 5.0.12. Same advisories and same arrival path as the root entry — minimatch under eslint / typescript-eslint — but admin-ui resolves its own tree from its own lockfile, so the root override does not reach it.",
+      "dropWhen": "Every consumer of the 5.x line resolves to >= 5.0.12 on its own. Scoped to major 5 deliberately: the 2.x copies under minimatch@9 have their own entry above and must NOT be moved onto 5.x."
     },
     "js-yaml@4": {
       "advisories": ["GHSA-5p4m-2wfm-xmqj", "GHSA-2883-xcg3-v3hh"],
@@ -117,6 +122,32 @@
       "advisories": ["GHSA-r28c-9q8g-f849", "GHSA-fxqj-rqcc-2cmp"],
       "reason": "Path traversal in previous-source-map auto-loading: an attacker-controlled `sourceMappingURL` reads an arbitrary .map file when `from` is unset. The floor was raised from ^8.5.18 to ^8.5.23 on 2026-08-17 — ^8.5.18 covered only the first advisory, and the follow-up GHSA-fxqj-rqcc-2cmp (incomplete fix, affecting <= 8.5.22) left the declared floor pointing at a version that is still vulnerable. Build-time only; the gateway serves the compiled CSS, not postcss.",
       "dropWhen": "vite and @vue/compiler-sfc both floor postcss at >= 8.5.23."
+    },
+    "postcss-selector-parser@7": {
+      "advisories": ["GHSA-rj75-hqrm-r3gf"],
+      "reason": "Quadratic complexity in flat selector parsing below 7.1.6. Reaches the tree only through eslint-plugin-vue, i.e. linting this repo's own `<style>` blocks.",
+      "dropWhen": "eslint-plugin-vue floors postcss-selector-parser at >= 7.1.6; its range is a permissive ^7.1.0."
+    },
+    "source-map-js@1": {
+      "advisories": ["GHSA-68fv-2mgg-jv7q"],
+      "reason": "Event-loop DoS through indexed source-map section offsets below 1.2.2. Pulled by the Vue compiler, postcss, css-tree, magicast and the intlify message compiler — all build- or test-time; the shipped SPA uses Vue's runtime build, which carries no compiler.",
+      "dropWhen": "Every consumer floors source-map-js at >= 1.2.2 (@vue/compiler-core 3.5.44 already does; the lockfile holds 3.5.42, the minimum that fixes the @vue/server-renderer advisory)."
+    },
+    "undici@8": {
+      "advisories": [
+        "GHSA-3wwx-pv8p-q78v",
+        "GHSA-pmjh-fq2x-6v4x",
+        "GHSA-r53p-7pc4-xj5r",
+        "GHSA-rfgv-xxqx-mfg5",
+        "GHSA-3xpg-4rpp-hhhm",
+        "GHSA-2jfj-6hjv-fm6j",
+        "GHSA-2gqq-gqf2-x968",
+        "GHSA-w293-vg96-wgc3",
+        "GHSA-8436-99hf-9mmv",
+        "GHSA-rx4f-c7p8-82vq"
+      ],
+      "reason": "Ten advisories fixed in 8.10.2 (WebSocket / decompression / retry-handler DoS, a BalancedPool TLS-validation bypass, Set-Cookie caching across users, response splitting and truncation in interceptors). Reaches the tree only through jsdom, the vitest DOM environment, which never talks to a real network in these tests. 8.10.2 has the same `engines` floor (node >= 22.19.0) as the 8.9.0 it replaced.",
+      "dropWhen": "jsdom floors undici at >= 8.10.2; its range is a permissive ^8.9.0."
     }
   }
 }
