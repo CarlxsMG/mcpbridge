@@ -641,11 +641,15 @@ describe("backends — wsRequestPersistent binary payload + cap boundary", () =>
       port: 0,
       fetch: (req, s) => (s.upgrade(req) ? undefined : new Response("no")),
       websocket: {
-        open(ws) {
+        // Reply to the client's request rather than sending from `open()`. A
+        // send() immediately followed by close() inside open() races the
+        // client's own send-on-open: under Bun 1.4 that connection can end
+        // 1006 before the frame is delivered (seen only after an earlier test
+        // in this file), which still rejects but with the wrong message.
+        message(ws) {
           ws.send(new Uint8Array([1, 2, 3, 4]));
           ws.close();
         },
-        message() {},
       },
     });
     try {

@@ -31,50 +31,43 @@ load-bearing; change them only behind a deliberate test pass, never in a routine
 sweep. (`bun-types` is exact-pinned too, but self-evidently — it must match
 `packageManager`/`.bun-version`.)
 
-**Patching a vulnerable _transitive_ dep: use `overrides`, and scope it to the major.** Neither
-`bun update` form works here. Bare `bun update` rewrites every caret range in `package.json`
-(an unrelated 18-minor MCP SDK jump inside a security commit); `bun update <name>` on a
-transitive is worse — it **adds `<name>` as a new direct dependency** at the latest version
-(into `dependencies`, even for a dev-only package) and leaves the vulnerable nested copy in
-place. The working tool is an `overrides` entry, keyed **`"pkg@<major>"`, not `"pkg"`**: a bare
-key forces _every_ copy in the tree to the new version regardless of what each consumer
-declared. That is not hypothetical — `"brace-expansion": "^5.0.8"` dragged the `^2.0.2` copies
-under `minimatch@9` up to 5.x, and brace-expansion 5 dropped its default export, so
-`minimatch@9` died with `brace_expansion_1.default is not a function`. `"brace-expansion@5"`
-leaves 2.x alone — but only because **bun does not apply a `pkg@N` key during resolution at
-all** (measured on 1.3.11: a fresh resolve carrying `"browserslist@4": "4.28.7"` still picked
-4.28.9, while the bare key picked 4.28.7). A scoped entry is therefore a documented floor that
-`dependency-overrides.test.ts` holds the lockfile to, not an instruction to the resolver.
+**Patching a vulnerable _transitive_ dep: an `overrides` entry, scoped to the major.** Key it
+**`"pkg@<major>"`, never `"pkg"`**: a bare key forces _every_ copy in the tree to the new version
+regardless of what each consumer declared. That is not hypothetical — `"brace-expansion":
+"^5.0.8"` dragged the `^2.0.2` copies under `minimatch@9` up to 5.x, and brace-expansion 5 dropped
+its default export, so `minimatch@9` died with `brace_expansion_1.default is not a function`. A
+scoped key stays inside its major, so a vulnerable 2.x line gets its own `"pkg@2"` entry.
 
-**Adding the `overrides` entry is not enough on its own — you must also hand-edit the resolved
-`bun.lock` line.** bun records the override in the lockfile's `overrides` block but never acts
-on the scoped key, so the new version never lands. `rm -rf
-node_modules && bun install` does NOT fix this and is what makes the trap convincing: it
-re-installs cleanly, reports success, and still gives you the vulnerable copy (measured — the
-override was in `package.json`, the audit still failed, and `node_modules` still held the old
-version). The two obvious escapes are both wrong: `bun install --force` and deleting the
-resolved entry each invalidate the lockfile and re-resolve the WHOLE tree against every caret
-range — 48 packages moved in one measured case, including an unrelated
-`@modelcontextprotocol/sdk` minor that broke three tests inside what was meant to be a
-one-line security fix. The procedure that works:
+**The procedure (Bun 1.4.3, measured 2026-10-15):** add the `"pkg@<major>"` entry to
+`package.json`, run `bun install`, and the resolver moves that package and nothing else (one
+change in a 409-package tree). It also overrides a consumer's EXACT pin: a fresh resolve
+collapses `typed-rest-client`'s `"qs": "6.15.1"` onto the patched hoisted copy. Then:
 
-1. Add the `"pkg@<major>"` entry to `package.json`.
-2. Learn the new version's integrity hash — `npm view <pkg>@<version> dist.integrity`, or read
-   it off a throwaway re-resolve.
-3. Replace that package's resolved line in `bun.lock` by hand, and add the override to the
-   lockfile's own `overrides` block. A vulnerable NESTED copy (a `"parent/pkg"` entry, left by
-   a consumer's exact pin) goes the same way: delete it and the parent shares the patched
-   hoisted copy. The frozen install accepts that, and a later `bun install --lockfile-only`
-   keeps it collapsed (measured on typed-rest-client's `qs` pin, which had been `--ignore`d).
-4. `rm -rf node_modules && bun install --frozen-lockfile` — this is what CI runs, so it
-   accepting the file is the real check that the edit is self-consistent.
-5. Diff the resolved versions against `HEAD` and confirm ONLY the intended packages moved.
+1. `rm -rf node_modules && bun install --frozen-lockfile` — this is what CI runs.
+2. Diff the resolved versions against `HEAD` and confirm ONLY the intended packages moved.
    `git diff` cannot help: `.gitattributes` marks `bun.lock` `diff: unset`, so it shows as
    binary. Compare `git show HEAD:bun.lock` against the working copy instead.
 
+A package whose fix is INSIDE every consumer's range needs no override: `bun update <name>` on
+a transitive bumps just that package now (it leaves `package.json` alone). Bare `bun update` is
+still wrong for a security fix: it rewrites every caret range in `package.json`. Never use
+`bun install --force`, and never delete a resolved entry to "make it re-resolve": either one
+re-resolves the WHOLE tree against every caret range (48 packages moved in one measured case,
+including an MCP SDK minor that broke three tests inside a one-line fix).
+
+**Before 1.4 none of this worked, and the history explains the lockfile you will find.** Bun
+1.3.11 ignored a `pkg@N` key during resolution entirely, so every override in this repo was
+applied by HAND-EDITING the resolved `bun.lock` line (and deleting nested copies). A lockfile
+that carries version-scoped overrides is written as `lockfileVersion: 3`, which "older Bun cannot
+read": 1.3.11 prints `warn: Ignoring lockfile` and fails `--frozen-lockfile`. That is also what
+forced the 1.4 upgrade — Dependabot's `bun` ecosystem writes v3 regardless of `packageManager`.
+So keep `.bun-version` at 1.4 or later, and when an advisory lists a fix per release line (most
+do: 5.0.12 / 3.0.9 / 2.1.7 / 1.1.21), read the patched version for EACH line in the tree —
+`gh api advisories/<GHSA>` — because `bun audit` reports only one threshold at a time.
+
 Every override needs a matching entry in `dependency-overrides.json` (advisory id, why, and
 what would let it be dropped); `src/__tests__/dependency-overrides.test.ts` fails otherwise,
-and also fails when an override is declared but not actually resolved — the exact trap above.
+and also fails when an override is declared but not actually resolved.
 Do not try to automate "is this override still needed?": a fresh resolve always picks the
 highest version satisfying every consumer, so the answer is "removable" for every entry
 including load-bearing ones. It was tried; the reasoning is written up in that JSON file.

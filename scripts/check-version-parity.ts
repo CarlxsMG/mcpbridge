@@ -15,7 +15,7 @@
  *                                            bump-version.ts's bumpChartAppVersion)
  *   - docker-compose.yml        the ${MCPBRIDGE_VERSION:-<tag>} default image tag
  *
- * 2. The **Bun runtime version** ("1.3.11" today) — the more consequential drift,
+ * 2. The **Bun runtime version** (whatever .bun-version names) — the more consequential drift,
  *    since a mismatch here means CI, the dev container, the type definitions, and
  *    the published image can build against different Bun releases (CLAUDE.md pins
  *    bun-types exactly for this reason). These have no bump script, so this gate

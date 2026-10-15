@@ -1,7 +1,7 @@
 # BUN_VERSION must match .bun-version (the single source of truth CI reads via
 # `bun-version-file`) — bump both together. The digest below is pinned to that
 # exact tag (multi-arch manifest list digest, verified via
-# https://hub.docker.com/v2/repositories/oven/bun/tags/1.3.11-alpine). Docker
+# https://hub.docker.com/v2/repositories/oven/bun/tags/1.4.3-alpine). Docker
 # resolves `image:tag@digest` purely by digest, so the tag is not re-validated
 # against it — bumping BUN_VERSION without also updating the digest silently
 # keeps building the OLD image content under a now-misleading tag. The
@@ -9,8 +9,8 @@
 # "Assert pinned base-image digest matches the live tag" step) and fails a
 # drifted release, but nothing catches it between releases — so still update
 # both by hand when you bump.
-ARG BUN_VERSION=1.3.11
-FROM oven/bun:${BUN_VERSION}-alpine@sha256:7ed9f74c326d1c260abe247ac423ccbf5ac92af62bb442d515d1f92f21e8ea9b AS base
+ARG BUN_VERSION=1.4.3
+FROM oven/bun:${BUN_VERSION}-alpine@sha256:629e17411f1f129dbec3af78d5af9c9f2a937435c80349437206c6b0b7422373 AS base
 
 # Patch the OS packages the base image was built with. The digest pin above is
 # deliberate and stays — it makes the Bun runtime reproducible — but it also
