@@ -99,10 +99,13 @@
  * no test sleeps for real. `globalThis.setInterval` is swapped for a
  * capturing stub immediately before calling the local startApp() helper
  * (setupTransports() calls startSessionCleanup() synchronously at its very
- * top, which calls setInterval exactly once), then the captured callback is
- * invoked directly to force exactly one cleanup pass synchronously. The real
- * setInterval is restored in a `finally` — every later test's timers must
- * see the real one again.
+ * top, so it is the FIRST setInterval call), then the captured callback is
+ * invoked directly to force exactly one cleanup pass synchronously. Only that
+ * first call is captured: the MCP SDK arms its own SSE keep-alive interval
+ * once a session opens a stream, and a stub that kept the LAST call would
+ * fire the keep-alive instead of the cleanup pass. Later calls are passed to
+ * the real setInterval, which is restored in a `finally` — every later
+ * test's timers must see the real one again.
  */
 import { describe, test, expect, afterEach } from "bun:test";
 import { listen } from "../../__tests__/_utils/app.js";
@@ -305,7 +308,10 @@ describe("T1 — session-cleanup interval callback: a stale session IS evicted b
 
     const realSetInterval = globalThis.setInterval;
     let capturedTick: (() => void) | undefined;
-    globalThis.setInterval = ((fn: () => void, _ms: number) => {
+    globalThis.setInterval = ((fn: () => void, ms: number) => {
+      // Only the first call is startSessionCleanup's. Later ones (the SDK's
+      // SSE keep-alive, armed once a session opens a stream) must stay real.
+      if (capturedTick) return realSetInterval(fn, ms);
       capturedTick = fn;
       return 0 as unknown as NodeJS.Timeout;
     }) as typeof setInterval;
@@ -373,7 +379,10 @@ describe("T1 — session-cleanup interval callback: TTL eviction really calls st
 
     const realSetInterval = globalThis.setInterval;
     let capturedTick: (() => void) | undefined;
-    globalThis.setInterval = ((fn: () => void, _ms: number) => {
+    globalThis.setInterval = ((fn: () => void, ms: number) => {
+      // Only the first call is startSessionCleanup's. Later ones (the SDK's
+      // SSE keep-alive, armed once a session opens a stream) must stay real.
+      if (capturedTick) return realSetInterval(fn, ms);
       capturedTick = fn;
       return 0 as unknown as NodeJS.Timeout;
     }) as typeof setInterval;
@@ -444,7 +453,10 @@ describe("T1 — session-cleanup interval callback: TTL boundary is strictly-gre
 
     const realSetInterval = globalThis.setInterval;
     let capturedTick: (() => void) | undefined;
-    globalThis.setInterval = ((fn: () => void, _ms: number) => {
+    globalThis.setInterval = ((fn: () => void, ms: number) => {
+      // Only the first call is startSessionCleanup's. Later ones (the SDK's
+      // SSE keep-alive, armed once a session opens a stream) must stay real.
+      if (capturedTick) return realSetInterval(fn, ms);
       capturedTick = fn;
       return 0 as unknown as NodeJS.Timeout;
     }) as typeof setInterval;
@@ -500,7 +512,10 @@ describe("T1 — session-cleanup interval callback: a session within TTL survive
 
     const realSetInterval = globalThis.setInterval;
     let capturedTick: (() => void) | undefined;
-    globalThis.setInterval = ((fn: () => void, _ms: number) => {
+    globalThis.setInterval = ((fn: () => void, ms: number) => {
+      // Only the first call is startSessionCleanup's. Later ones (the SDK's
+      // SSE keep-alive, armed once a session opens a stream) must stay real.
+      if (capturedTick) return realSetInterval(fn, ms);
       capturedTick = fn;
       return 0 as unknown as NodeJS.Timeout;
     }) as typeof setInterval;
