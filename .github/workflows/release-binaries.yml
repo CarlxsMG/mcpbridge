@@ -115,7 +115,7 @@ jobs:
           echo "Compiled binary booted and answered /livez"
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.asset }}
           path: dist/${{ matrix.asset }}
@@ -160,7 +160,7 @@ jobs:
         run: tar -czf admin-ui-dist.tar.gz -C admin-ui/dist .
 
       - name: Upload admin UI artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: admin-ui-dist
           path: admin-ui-dist.tar.gz
@@ -183,7 +183,7 @@ jobs:
       # run — the per-target binaries from `build` *and* admin-ui-dist.tar.gz
       # from `build-admin-ui` — each into its own artifacts/<name>/ subdir.
       - name: Download all binaries
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts
 
