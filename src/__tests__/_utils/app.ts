@@ -44,7 +44,16 @@ export function listen(app: Express): Promise<{ baseUrl: string; server: Server 
  * Safe to call on an already-closed server: `close()` invokes its callback
  * with an error in that case, which is ignored here — a test tearing down
  * twice is not a failure worth propagating.
+ *
+ * `closeAllConnections()` is what keeps teardown from hanging. `close()` only
+ * stops accepting and waits for open connections to end, and under Bun 1.4 a
+ * keep-alive socket whose response finished in the same tick as the `close()`
+ * call is never treated as idle: the server then waits out the keep-alive
+ * timeout (~5s, Bun's default per-test timeout), measured on Linux only.
  */
 export function closeServer(server: Server): Promise<void> {
-  return new Promise((resolve) => server.close(() => resolve()));
+  return new Promise((resolve) => {
+    server.close(() => resolve());
+    server.closeAllConnections();
+  });
 }

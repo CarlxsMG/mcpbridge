@@ -6,7 +6,7 @@
  * scenario the endpoint exists to make safe.
  */
 import { describe, test, expect, afterEach, afterAll } from "bun:test";
-import { listen } from "../../__tests__/_utils/app.js";
+import { listen, closeServer } from "../../__tests__/_utils/app.js";
 import { bearerHeaders, setAdminApiKeys } from "../../__tests__/_utils/admin-auth.js";
 import express from "express";
 import type { Server } from "http";
@@ -102,14 +102,12 @@ async function startApp(): Promise<void> {
 const bearer = (): Record<string, string> => bearerHeaders(ADMIN_KEY);
 
 afterEach(async () => {
-  await new Promise<void>((resolve) => {
-    if (server)
-      server.close(() => {
-        server = null;
-        resolve();
-      });
-    else resolve();
-  });
+  // closeServer, not a bare server.close(): see its doc for the Bun 1.4
+  // keep-alive race that otherwise times this hook out on Linux.
+  if (server) {
+    await closeServer(server);
+    server = null;
+  }
   __resetDbForTesting();
   cleanupDbFiles(dbPath);
 });
@@ -235,6 +233,10 @@ describe("POST /admin-api/backup", () => {
         },
       });
       expect(res.status).toBe(200);
+      // Drain the snapshot. Left unread, the response is still in flight when
+      // afterEach calls server.close(), which Bun 1.4 waits on until the hook
+      // times out.
+      expect((await res.arrayBuffer()).byteLength).toBeGreaterThan(0);
     },
     DISK_IO_TIMEOUT_MS,
   );
