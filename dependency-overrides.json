@@ -63,9 +63,15 @@
       "dropWhen": "ajv's own dependency range floors fast-uri at >= 3.1.6."
     },
     "hono@4": {
-      "advisories": ["GHSA-8j4g-w8fx-2239", "GHSA-gqvv-2mrq-wpjv", "GHSA-g6gw-c38x-mqfc", "GHSA-crvj-82cr-hjcx"],
-      "reason": "ReDoS in the CORS middleware below 4.12.34; then, below 4.13.5, an incomplete fix for a `toSSG()` path traversal, unbounded dot-notation nesting in `parseBody()`, and a query parser that reads parameters after the URL fragment. Transitive via @modelcontextprotocol/sdk, which declares hono directly and through @hono/node-server; the gateway itself runs Express and never calls hono.",
-      "dropWhen": "The MCP SDK's own hono range floors it at >= 4.13.5."
+      "advisories": [
+        "GHSA-8j4g-w8fx-2239",
+        "GHSA-gqvv-2mrq-wpjv",
+        "GHSA-g6gw-c38x-mqfc",
+        "GHSA-crvj-82cr-hjcx",
+        "GHSA-5r4p-p66f-jhc7"
+      ],
+      "reason": "ReDoS in the CORS middleware below 4.12.34; then, below 4.13.5, an incomplete fix for a `toSSG()` path traversal, unbounded dot-notation nesting in `parseBody()`, and a query parser that reads parameters after the URL fragment; then, below 4.13.11, `serveStatic` decoding the request path a second time (a middleware bypass on static paths). Transitive via @modelcontextprotocol/sdk, which declares hono directly and through @hono/node-server; the gateway itself runs Express and never calls hono.",
+      "dropWhen": "The MCP SDK's own hono range floors it at >= 4.13.11."
     },
     "ip-address@10": {
       "advisories": [
