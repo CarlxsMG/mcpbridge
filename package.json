@@ -55,7 +55,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@scalar/openapi-parser": "^0.25.6",
     "ajv": "8.18.0",
     "ajv-formats": "^3.0.1",
